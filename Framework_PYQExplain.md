@@ -1,4 +1,5 @@
-# Framework_PYQExplain v2.21 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.22 — Universal PYQ Explanation Generator
+# v2.22 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: OOS questions explained normally (R20)
 # v2.21 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (explain_engine v2.11,
 #   MockTestExplain v1.49.0, routes.json +figural_core/+corpus_io; SHARED_RULES 1.5 → 1.6).
 #   S6A-6 COLOUR: explanation figures draw with figural_core's constants via
@@ -2841,5 +2842,13 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.21
+
+## EXPLAIN-SYL (v2.22 — GAP-2026-09-01 §4.5/R20): questions labeled
+## OUT_OF_SYLLABUS by PYQSort are explained EXACTLY like any other
+## question — same format, same depth, same placement under their sorted
+## position. Out-of-syllabus is a disclosure about the CURRENT syllabus,
+## never a quality judgment about the question; no filtering, no skipping,
+## no abbreviated treatment. Inactive/legacy exams: nothing changes.
+
+# END OF Framework_PYQExplain v2.22
 # ════════════════════════════════════════════════════════════════════════

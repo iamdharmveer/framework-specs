@@ -1,4 +1,5 @@
-# Framework_PYQSort v1.20.1 — Universal PYQ Sorter
+# Framework_PYQSort v1.21.0 — Universal PYQ Sorter
+# v1.21.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: syllabus era + OOS labeling
 # v1.20.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (inferred_headings, question_views); 5 prose mentions to no-paren form.
@@ -2514,4 +2515,27 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.20.1
+
+## SORT-SYL — SYLLABUS ERA & OUT-OF-SYLLABUS LABELING (v1.21.0 —
+## GAP-2026-09-01 §4.4/§4.5, ACTIVE mode; sole writer of these fields)
+
+Per paper: `syllabus_era = bc.assign_syllabus_era(paper_YYYY_MM, EF)`
+(boundary: a paper IN the EF month is new-era, E37) and, with >= 2
+superseded versions, `bc.era_version_for(paper_YYYY_MM,
+bc.era_windows(...))` selects WHICH approved crosswalk maps that paper —
+always DIRECTLY to CURRENT, never chained (E63). Guards: `bc.w_ef1_check`
+(EF predating every paper => W-EF1, warn only, fully-measured mode) and
+`bc.era_suspect_check` (new-era paper with >= D-3 % of questions mapping
+only to DELETED nodes => postponement warning; R17 is the correction path).
+
+Per old-era question, from its era's APPROVED crosswalk node:
+`bc.map_question_label(old_triple, node_state, new_ids, successor)`.
+DELETED => status bc.OUT_OF_SYLLABUS (INTERNAL sentinel only, never a
+visible label — R24) with the OLD triple VERBATIM (L-1), placed under its
+successor subject's questions or, with no successor, a 'Previous Syllabus'
+end-section (L-2); mapped => labeled at its NEW home with the old triple
+kept in `legacy_label` (L-5). Historical questions are NEVER deleted or
+filtered (R20) — labeling is disclosure, not removal. New-era papers and
+inactive/legacy exams: byte-identical to v1.20.1 behaviour.
+
+# END OF Framework_PYQSort v1.21.0

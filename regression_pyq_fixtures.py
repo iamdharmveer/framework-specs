@@ -391,6 +391,529 @@ ck("F25 dropped subject caught by validate_provenance",
    not ok25 and any("SUBJECT-SET MISMATCH" in x for x in e25))
 
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# FX-ST — GAP-2026-09-01-SYLLABUS-TRANSITION, RELEASE A (Declaration &
+# Detection; rebased to 2026.09.01.1 per rev 4.6). One fixture per §7 edge row
+# in Release A scope: E01-E27, E53, E54, plus the E66 declaration-parse half.
+# Proof obligations exercised at engine level: P1 (legacy silence), P2
+# (inactive != invisible — exactly the three §3.6 traces), P3 (stop coverage:
+# trigger + nearest-miss for every Release-A stop), P7 partial (§2.1e
+# literal-scan, FX-ST-LS). Release B/C rows get their fixtures with their
+# releases; the HS-ST9/HS-ST11/W-EF templates are asserted present (P3
+# register completeness) even though their call sites land later.
+# ═════════════════════════════════════════════════════════════════════════════
+import datetime as _dt
+
+import blueprint_core as bc
+import corpus_io as cio
+
+_TODAY = _dt.date(2026, 9, 2)
+
+
+def _rt(sc=None, ef=None, extra=None):
+    ov = {}
+    if sc is not None:
+        ov['Syllabus Changed'] = sc
+    if ef is not None:
+        ov['New Syllabus Effective From'] = ef
+    if extra:
+        ov.update(extra)
+    return bc.resolve_transition(ov, _TODAY)
+
+
+def _stops(fn):
+    try:
+        fn()
+    except SystemExit as ex:
+        return str(ex)
+    return None
+
+
+# ── FX-ST-01 / E01 + P1: both keys absent — inactive, SILENT, NO block ──
+r01 = _rt()
+ck("FX-ST-01 keys absent => inactive, trace False (T1 row 1)",
+   r01['status'] == 'inactive' and r01['trace'] is False)
+ck("FX-ST-01b P1: no exam_config block, no traces, no footer line",
+   bc.build_syllabus_transition_block(r01) is None
+   and bc.syllabus_declaration_traces(None) == []
+   and bc.syllabus_footer_lines(None) == [])
+
+# ── FX-ST-02 / E02: SC=No, EF absent — inactive, silent (block, no trace) ──
+r02 = _rt(sc='No')
+b02 = bc.build_syllabus_transition_block(r02)
+ck("FX-ST-02 SC=No => inactive; block written; zero §3.6 traces (T1 row 2)",
+   r02['status'] == 'inactive' and r02['trace'] is True
+   and b02 is not None
+   and bc.syllabus_declaration_traces(b02) == []
+   and bc.syllabus_footer_lines(b02) == [])
+
+# ── FX-ST-03 / E03: SC=Yes, EF string — ACTIVE ──
+r03 = _rt(sc='Yes', ef='2026-12')
+ck("FX-ST-03 declaration activates (T1 row 3)",
+   r03['status'] == 'active' and r03['effective_from'] == '2026-12')
+
+# ── FX-ST-04 / E04: case/whitespace normalization (T1 row 8) ──
+ck("FX-ST-04 SC case/space never matters",
+   all(_rt(sc=v, ef='2026-12')['status'] == 'active'
+       for v in ('yes', 'YES', ' Yes ', 'yEs')))
+
+# ── FX-ST-05 / E05 + E12: SC=Y/TRUE/blank/Maybe/Excel-True — trace row 5 ──
+for v in ('Y', 'TRUE', 'Maybe', '', True):
+    r05 = _rt(sc=v)
+    b05 = bc.build_syllabus_transition_block(r05)
+    ck(f"FX-ST-05 SC={v!r} => inactive + row-5 trace",
+       r05['status'] == 'inactive'
+       and r05['reason'].startswith("SC='")
+       and len(bc.syllabus_declaration_traces(b05)) == 1)
+
+# ── FX-ST-06 / E06: SC=No/blank + EF valid — trace row 4 ──
+r06 = _rt(sc='No', ef='2026-12')
+ck("FX-ST-06 EF present but SC is not Yes (T1 row 4)",
+   r06['status'] == 'inactive'
+   and r06['reason'] == "EF present but SC is not Yes")
+r06b = _rt(sc='', ef='2026-12')
+ck("FX-ST-06b blank SC + valid EF also row 4",
+   r06b['reason'] == "EF present but SC is not Yes")
+
+# ── FX-ST-07 / E07: SC absent, EF valid — trace row 7 ──
+r07 = _rt(ef='2026-12')
+ck("FX-ST-07 EF present but 'Syllabus Changed' absent (T1 row 7)",
+   r07['status'] == 'inactive'
+   and r07['reason'] == "EF present but 'Syllabus Changed' absent")
+
+# ── P2: rows 4/5/7 produce EXACTLY the three traces and nothing else ──
+_p2 = [bc.syllabus_declaration_traces(bc.build_syllabus_transition_block(x))
+       for x in (r06, _rt(sc='Maybe'), r07)]
+ck("FX-ST-P2 each traced state emits exactly one console line",
+   all(len(t) == 1 for t in _p2))
+ck("FX-ST-P2b footer line matches §3.6(c) template",
+   bc.syllabus_footer_lines(bc.build_syllabus_transition_block(r07))
+   == ["Syllabus declaration present but inactive: "
+       "EF present but 'Syllabus Changed' absent"])
+
+# ── FX-ST-08 / E08 + nearest-miss (P3): SC=Yes, EF absent/blank => HS-ST1 ──
+m08 = _stops(lambda: _rt(sc='Yes'))
+ck("FX-ST-08 HS-ST1 fires on missing EF (R2)",
+   m08 is not None and m08.startswith("HARD STOP: 'Syllabus Changed' is Yes")
+   and 'missing' in m08)
+ck("FX-ST-08b nearest miss: SC=No + EF absent does NOT stop",
+   _stops(lambda: _rt(sc='No')) is None)
+m08c = _stops(lambda: _rt(sc='Yes', ef='   '))
+ck("FX-ST-08c blank EF descriptor says blank", m08c and 'blank' in m08c)
+
+# ── FX-ST-09 / E09: unparseable EF forms => HS-ST1 ──
+for v in ('Dec 2026', '2026-13', '12-2026'):
+    m09 = _stops(lambda v=v: _rt(sc='Yes', ef=v))
+    ck(f"FX-ST-09 EF={v!r} => HS-ST1 (unparseable)",
+       m09 is not None and 'unparseable' in m09)
+
+# ── FX-ST-10 / E10: Excel datetime coercion => ACTIVE ──
+r10 = _rt(sc='Yes', ef=_dt.datetime(2026, 12, 1))
+ck("FX-ST-10 Excel datetime coerces to YYYY-MM (R4)",
+   r10['status'] == 'active' and r10['effective_from'] == '2026-12')
+
+# ── FX-ST-11 / E11: datetime day != 1 — coerce to month + note ──
+v11, n11 = bc.coerce_effective_from(_dt.date(2026, 12, 15), _TODAY)
+ck("FX-ST-11 day component ignored with note",
+   v11 == '2026-12' and any('day component' in x for x in n11))
+
+# ── FX-ST-12 / E12: Excel boolean TRUE => 'true' != 'yes' => row-5 path ──
+r12 = _rt(sc=True, ef='2026-12')
+ck("FX-ST-12 boolean SC lands row 5, never active",
+   r12['status'] == 'inactive' and r12['reason'].startswith("SC='True'"))
+
+# ── FX-ST-13 / E13: EF year outside sanity range => unparseable => HS-ST1 ──
+m13 = _stops(lambda: _rt(sc='Yes', ef='1980-06'))
+m13b = _stops(lambda: _rt(sc='Yes', ef='2099-01'))
+ck("FX-ST-13 out-of-sanity EF => HS-ST1 both directions",
+   m13 is not None and m13b is not None)
+
+# ── FX-ST-14 / E14: EF > today+3 => ACTIVE + sanity note ──
+r14 = _rt(sc='Yes', ef=f'{_TODAY.year + 4}-01')
+ck("FX-ST-14 far-future EF activates with note",
+   r14['status'] == 'active'
+   and any('more than 3 years ahead' in n for n in r14['notes']))
+
+# ── FX-ST-15 / E15: duplicate Overview key rows — last wins + WARN ──
+ck("FX-ST-15 duplicate key detected",
+   bc.overview_duplicate_keys(['Syllabus Changed', 'Medium',
+                               ' Syllabus Changed ']) == ['Syllabus Changed'])
+ck("FX-ST-15b no false duplicate", bc.overview_duplicate_keys(
+   ['Syllabus Changed', 'Medium']) == [])
+
+# ── FX-ST-16 / E16: mistyped key listed as near-miss ──
+nm = bc.near_miss_keys(['Syllabus changed?', 'Medium', 'Total Marks'])
+ck("FX-ST-16 near-miss listing (casefold + collapse)",
+   nm == [('Syllabus changed?', 'Syllabus Changed')])
+ck("FX-ST-16b exact key is never a near-miss",
+   bc.near_miss_keys(['Syllabus Changed']) == [])
+
+# ── census + T2 (E17-E23) ──
+_cf = cio.syllabus_file_census
+ck("FX-ST-CEN census matches token+ext, casefold",
+   _cf(['EX_Syllabus_2026-12.pdf', 'ex_SYLLABUS_old.PNG', 'Syllabus.exe',
+        'notes.docx']) == ['EX_Syllabus_2026-12.pdf', 'ex_SYLLABUS_old.PNG'])
+ck("FX-ST-CEN2 samplepaper census (R14)",
+   cio.sample_paper_census(['EX_SamplePaper_2026-12.pdf', 'EX_other.pdf'])
+   == ['EX_SamplePaper_2026-12.pdf'])
+
+
+def _cand(name, sha):
+    return {'name': name, 'sha256': sha}
+
+
+# E17: inactive + >=2 files (incl. translation — R18) => HS-ST2
+r17 = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2019-06.pdf', 'a'), _cand('EX_Syllabus_HI.pdf', 'b')],
+    'EX', 'inactive')
+ck("FX-ST-17 HS-ST2 on inactive two-file census (R3/R18)",
+   r17['outcome'] == 'stop' and r17['code'] == 'HS-ST2'
+   and 'cannot choose which file is the syllabus' in r17['message'])
+
+# E18: inactive + 1 file, arbitrary name => allowed (estate norm)
+ck("FX-ST-18 single arbitrary-named file allowed while inactive",
+   bc.resolve_syllabus_sources([_cand('my syllabus copy.pdf', 'a')],
+                               'EX', 'inactive')['outcome'] == 'as_today')
+
+# E19: active + 0/1 file => HS-ST3
+r19 = bc.resolve_syllabus_sources([_cand('EX_Syllabus_2026-12.pdf', 'a')],
+                                  'EX', 'active', '2026-12')
+ck("FX-ST-19 HS-ST3 when active with < 2 files",
+   r19['outcome'] == 'stop' and r19['code'] == 'HS-ST3')
+
+# E20: active + one not dated-format => HS-ST4
+r20st = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'a'), _cand('old syllabus.pdf', 'b')],
+    'EX', 'active', '2026-12')
+ck("FX-ST-20 HS-ST4 names the non-conforming file",
+   r20st['outcome'] == 'stop' and r20st['code'] == 'HS-ST4'
+   and 'old syllabus.pdf' in r20st['message'])
+
+# E21: active + dated files, 0 or >=2 matching EF => HS-ST5
+r21a = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2019-06.pdf', 'a'), _cand('EX_Syllabus_2020-06.pdf',
+                                                  'b')],
+    'EX', 'active', '2026-12')
+r21b = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'a'),
+     _cand('EX_Syllabus_2026-12.docx', 'b')],
+    'EX', 'active', '2026-12')
+ck("FX-ST-21 HS-ST5 on zero and on ambiguous EF matches",
+   r21a['outcome'] == 'stop' and r21a['code'] == 'HS-ST5'
+   and r21b['outcome'] == 'stop' and r21b['code'] == 'HS-ST5')
+
+# E22: current sha == a superseded sha => HS-ST6
+r22 = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'h1'),
+     _cand('EX_Syllabus_2019-06.pdf', 'h1')],
+    'EX', 'active', '2026-12')
+ck("FX-ST-22 HS-ST6 on byte-identical documents",
+   r22['outcome'] == 'stop' and r22['code'] == 'HS-ST6')
+
+# E23: three dated files — legal; one == EF is CURRENT, rest date order
+r23 = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'h1'),
+     _cand('EX_Syllabus_2019-06.pdf', 'h2'),
+     _cand('EX_Syllabus_2013-06.pdf', 'h3')],
+    'EX', 'active', '2026-12')
+ck("FX-ST-23 second historical change resolves (A2 degenerate-ready)",
+   r23['outcome'] == 'resolved'
+   and r23['current']['name'] == 'EX_Syllabus_2026-12.pdf'
+   and [s['name'] for s in r23['superseded']]
+   == ['EX_Syllabus_2013-06.pdf', 'EX_Syllabus_2019-06.pdf'])
+ck("FX-ST-23b nearest miss: clean two-file resolution proceeds (T2 row 10)",
+   bc.resolve_syllabus_sources(
+       [_cand('EX_Syllabus_2026-12.pdf', 'h1'),
+        _cand('EX_Syllabus_2019-06.pdf', 'h2')],
+       'EX', 'active', '2026-12')['outcome'] == 'resolved')
+
+# ── FX-ST-CASE (real-exam verification, GATE_BIOTECHNOLOGY): naming match
+# is case-insensitive end to end — census is casefold (§3.4), so a
+# census-nominated file must never fail naming on letter case alone ──
+ck("FX-ST-CASE1 exam-code case mismatch still resolves",
+   bc.resolve_syllabus_sources(
+       [_cand('EX_UPPER_Syllabus_2027-02.pdf', 'a'),
+        _cand('EX_UPPER_Syllabus_2026-02.pdf', 'b')],
+       'ex_upper', 'active', '2027-02')['outcome'] == 'resolved')
+ck("FX-ST-CASE2 SYLLABUS-token case still resolves",
+   bc.parse_syllabus_filename('EX_SYLLABUS_2027-02.PDF', 'EX') == '2027-02')
+ck("FX-ST-CASE3 case variants at the same date stay HS-ST5 (ambiguous)",
+   bc.resolve_syllabus_sources(
+       [_cand('EX_Syllabus_2027-02.pdf', 'a'),
+        _cand('EX_SYLLABUS_2027-02.PDF', 'b')],
+       'EX', 'active', '2027-02')['code'] == 'HS-ST5')
+ck("FX-ST-CASE4 structural malformation still HS-ST4",
+   bc.parse_syllabus_filename('EX_Sylabus_2027-02.pdf', 'EX') is None
+   and bc.parse_syllabus_filename('EX_Syllabus_2027-2.pdf', 'EX') is None)
+
+# ── FX-ST-24 / E24: dial overrides — invalid => factory + trace, no stop ──
+d24, t24 = bc.resolve_dials({'Transition Blend Pseudo-Count': 'abc',
+                             'Transition Detector Floor': -1,
+                             'Transition Materiality Percent': '200%'})
+ck("FX-ST-24 invalid dials fall back to factory with one trace each",
+   d24['D-1'] == bc.TRANSITION_DIALS['D-1']['factory']
+   and d24['D-4'] == bc.TRANSITION_DIALS['D-4']['factory']
+   and d24['D-2'] == bc.TRANSITION_DIALS['D-2']['factory']
+   and len(t24) == 3)
+d24b, t24b = bc.resolve_dials({'Transition Blend Pseudo-Count': '5',
+                               'Transition Materiality Percent': '7'})
+ck("FX-ST-24b valid overrides apply; absent dials stay factory; no trace",
+   d24b['D-1'] == 5 and d24b['D-2'] == 7.0
+   and d24b['D-6'] == bc.TRANSITION_DIALS['D-6']['factory'] and t24b == [])
+_nan = float('nan')
+d24d, t24d = bc.resolve_dials({'Transition Blend Pseudo-Count': _nan})
+ck("FX-ST-24d blank (NaN) dial cell is ABSENT, not invalid — no trace",
+   d24d['D-1'] == bc.TRANSITION_DIALS['D-1']['factory'] and t24d == [])
+z66c, zt66c = bc.parse_zero_history_approved(
+    {'Zero History Approved': _nan}, ['New Unit'])
+ck("FX-ST-66c blank (NaN) Zero History Approved cell is absent — no trace",
+   z66c == [] and zt66c == [])
+ck("FX-ST-24c seven dials, factory values engine-pinned (R23)",
+   sorted(bc.TRANSITION_DIALS) == ['D-1', 'D-2', 'D-3', 'D-4', 'D-5', 'D-6',
+                                   'D-7']
+   and [bc.TRANSITION_DIALS[k]['factory'] for k in
+        ('D-1', 'D-2', 'D-3', 'D-4', 'D-5', 'D-6', 'D-7')]
+   == [3, 5.0, 40.0, 8, 1, 3, 80.0])
+
+# ── FX-ST-25 / E25: declaration drift => HS-ST10; E62 non-drift ──
+_act = _rt(sc='Yes', ef='2026-12')
+_src = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'h1'),
+     _cand('EX_Syllabus_2019-06.pdf', 'h2')], 'EX', 'active', '2026-12')
+_blk = bc.build_syllabus_transition_block(_act, _src, {'D-1': 3}, [], [])
+_act2 = _rt(sc='Yes', ef='2027-06')  # R17 EF-postponement edit
+_blk2 = bc.build_syllabus_transition_block(_act2, None, {'D-1': 3}, [], [])
+d25 = bc.transition_drift(_blk, _blk2)
+ck("FX-ST-25 drift detected on an EF edit (R17 path)",
+   any(f == 'effective_from' for f, _, __ in d25)
+   and bc.HS_ST10('a', 'b').startswith('HARD STOP: declaration drift'))
+ck("FX-ST-25b no drift on identical declaration (E62 class: non-declaration "
+   "writes can never register)",
+   bc.transition_drift(_blk, dict(_blk)) == []
+   and bc.transition_drift(None, None) == [])
+
+# ── FX-ST-26 / E26: staleness — HS-ST7 + legacy exemption ──
+ck("FX-ST-26 hash mismatch => HS-ST7; legacy artefact exempt; match clean",
+   bc.check_syllabus_staleness('taxonomy_draft', 'h_old', 'h_new', '6')
+   is not None
+   and bc.check_syllabus_staleness('taxonomy_draft', None, 'h_new', '6')
+   is None
+   and bc.check_syllabus_staleness('taxonomy_draft', 'h', 'h', '6') is None)
+
+# ── FX-ST-27 / E27 + FX-ST-53 / E53 + FX-ST-66 / E66: symptom detector ──
+_tr = bc.build_syllabus_transition_block(_rt(sc='Maybe'))
+_di = {'D-4': 8}
+m27 = bc.symptom_detector(_tr, ['New Unit'], 9, _di,
+                          present_overview_keys=['Syllabus changed?'])
+ck("FX-ST-27 HS-ST8 fires on keys-present-inactive + zero-history subject",
+   m27 is not None and "Subject 'New Unit'" in m27
+   and 'ignored' in m27)
+ck("FX-ST-27b below detector floor: silent",
+   bc.symptom_detector(_tr, ['New Unit'], 7, _di) is None)
+ck("FX-ST-53 keys-absent exam: detector fully SILENT (R25; proves P1)",
+   bc.symptom_detector(None, ['New Unit'], 30, _di) is None
+   and bc.symptom_detector(b02, ['New Unit'], 30, _di) is None)
+_tr66 = dict(_tr)
+_tr66['zero_history_approved'] = ['New Unit']
+ck("FX-ST-66 Zero History Approved suppresses HS-ST8 for that subject",
+   bc.symptom_detector(_tr66, ['New Unit'], 9, _di) is None)
+z66, zt66 = bc.parse_zero_history_approved(
+    {'Zero History Approved': ' new unit , Ghost '}, ['New Unit', 'Old'])
+ck("FX-ST-66b A1 parse: casefold match; unmatched name => trace not stop",
+   z66 == ['New Unit'] and len(zt66) == 1 and 'Ghost' in zt66[0])
+
+# ── FX-ST-54 / E54: legacy stray-file discovery is HS-ST2, reactive (R26) ──
+ck("FX-ST-54 keys-absent + 2 stray files stops reactively with the "
+   "self-explanatory message",
+   'Remove the extra file(s) or complete the declaration'
+   in bc.resolve_syllabus_sources(
+       [_cand('EX_Syllabus_a.pdf', 'x'), _cand('EX_Syllabus_b.pdf', 'y')],
+       'EX', 'inactive')['message'])
+
+# ── P3 register completeness: every §3.11 template exists and renders ──
+ck("FX-ST-P3 register HS-ST1..11 + W-EF1/2 all render non-empty",
+   all(callable(getattr(bc, n)) for n in
+       ['HS_ST%d' % i for i in range(1, 12)] + ['W_EF1', 'W_EF2'])
+   and 'ruling R20' in bc.HS_ST9('p', 3, 2, 0)
+   and 'subject-partitioned' in bc.HS_ST11('S')
+   and 'fully measured mode' in bc.W_EF1('2020-01', '2021-06')
+   and 'Verify Effective From' in bc.W_EF2('S', 9, 8))
+
+
+# ═══ FX-XW — Release B: crosswalk, era, labeling, counts (GAP §4) ═══════════
+import syllabus_provenance as _sp
+
+_XO = {'Unit One Old Name': {'T': ['alpha beta gamma delta', 'epsilon zeta eta',
+                                   'theta iota kappa']},
+       'Split Parent': {'M': ['natural selection and genetic drift',
+                              'mechanisms of speciation events',
+                              'adaptive radiation and convergence'],
+                        'B': ['circadian rhythms biological clocks',
+                              'mating systems parental investment']},
+       'Orphan Unit': {'X': ['completely unrelated content one',
+                             'completely unrelated content two']}}
+_XN = {'Unit One New Name': {'T': ['alpha beta gamma delta', 'epsilon zeta eta',
+                                   'theta iota kappa']},
+       'Evolution Home': {'E': ['natural selection genetic drift and gene flow',
+                                'mechanisms of speciation',
+                                'adaptive radiation and convergent evolution']},
+       'Behaviour Home': {'H': ['sexual selection and mating systems',
+                                'parental care'],
+                          'P': ['photoperiodism and biological clock']},
+       'Brand New Subject': {'N': ['brand new material one',
+                                   'brand new material two']}}
+_xw = _sp.crosswalk_build(_XO, _XN, exam_code='EXAM_A', old_sha256='O',
+                          new_sha256='N',
+                          era_window={'from': '2026-12', 'to': None},
+                          dials={'D-2': 5.0, 'D-7': 80.0})
+_ss = _xw['subject_states']
+ck("FX-XW-29 renamed subject matched by CONTENT, never name (E29)",
+   _xw['correspondents']['Unit One Old Name'][0][0] == 'Unit One New Name'
+   and _ss['Unit One New Name']['state'] != 'NEW')
+ck("FX-XW-30 split parent keeps a correspondent (top-half mean, not orphaned)",
+   bool(_xw['correspondents']['Split Parent']))
+ck("FX-XW-70 brand-new subject rolls up NEW at D-7 (B1)",
+   _ss['Brand New Subject']['state'] == 'NEW'
+   and _ss['Brand New Subject']['frac_new'] == 1.0)
+ck("FX-XW-86 orphan subject: scope empty, every atom DELETED (E86)",
+   _xw['scope']['Orphan Unit'] == []
+   and all(n['state'] == 'DELETED' for n in _xw['nodes']
+           if n['old_id'][0] == 'Orphan Unit'))
+ck("FX-XW-28 materiality: subject flip forces material (R28)",
+   _xw['materiality']['material']
+   and _xw['materiality']['subject_new_or_deleted'])
+ck("FX-XW-24 draft never approved by construction", _xw['approved'] is False)
+_CLK = ('Split Parent', 'B', 'circadian rhythms biological clocks')
+_ap = _sp.approve_crosswalk(_xw, 'op', '2026-09-02',
+                            state_overrides={_CLK: 'DELETED'}, d7_pct=80.0)
+_nbc = next(n for n in _ap['nodes'] if n['old_id'] == _CLK)
+ck("FX-XW-88 F-1 retained-term subtraction (plural vs singular) empties",
+   'biological clocks' not in _nbc['lexicon'])
+ck("FX-XW-91 G-1: lexicons finalized in the SAME approve write",
+   _ap['approved'] is True
+   and all('lexicon' not in n for n in _ap['nodes']
+           if n['state'] != 'DELETED'))
+ck("FX-XW-59 R30 records newly-DELETED nodes (E59)",
+   tuple(_CLK) in set(map(tuple, _sp.reevaluate_suppressions(
+       [], _xw, _ap)['newly_deleted'])))
+_ORF = ('Orphan Unit', 'X', 'completely unrelated content one')
+_ap2 = _sp.approve_crosswalk(_xw, 'op', '2026-09-02',
+                             state_overrides={_ORF: 'MOVED'}, d7_pct=80.0)
+ck("FX-XW-58 R30 reinstates when approval un-deletes (E58)",
+   len(_sp.reevaluate_suppressions(
+       [{'proposal': 'p1', 'matched_deleted_node': _ORF, 'score': 0.9}],
+       _xw, _ap2)['reinstate']) == 1)
+ck("FX-XW-75 B1 subject override honored and flagged (E75)",
+   _sp.approve_crosswalk(_xw, 'op', '2026-09-02',
+       subject_state_overrides={'Split Parent': 'SPLIT'},
+       d7_pct=80.0)['subject_states']['Split Parent'].get('operator_override')
+   is True)
+
+_GO = {'Section Four': {'T': ['material and energy balances',
+                              'laws of thermodynamics phase equilibria',
+                              'newtonian fluids laminar and turbulent flow']},
+       'Section Five': {'T': ['rate law zero and first order kinetics',
+                              'thiele modulus effectiveness factor',
+                              'media formulation and sterilization']}}
+_GN = {'Section Four': {'T': ['rate law zero and first order kinetics',
+                              'thiele modulus effectiveness factor',
+                              'media formulation and optimization']}}
+_gc = _sp.subject_correspondents(_GO, _GN)
+ck("FX-XW-67 name-sharing sections do NOT auto-map; content decides (E67)",
+   bool(_gc['Section Five']) and _gc['Section Five'][0][0] == 'Section Four'
+   and not _gc['Section Four'])
+_gx = _sp.crosswalk_build(_GO, _GN, exam_code='EXAM_B', old_sha256='O',
+                          new_sha256='N',
+                          era_window={'from': '2027-02', 'to': None},
+                          dials={'D-2': 5.0, 'D-7': 80.0})
+ck("FX-XW-67b old S5 content MOVED/RETAINED into the same-name new home",
+   all(n['state'] in ('RETAINED', 'MOVED', 'MERGED') for n in _gx['nodes']
+       if n['old_id'][0] == 'Section Five'))
+ck("FX-XW-67c merged current side not NEW (Regime-2 shape)",
+   _gx['subject_states']['Section Four']['state'] != 'NEW')
+
+_w = bc.era_windows(['2019-06', '2026-06', '2026-12'], '2026-12')
+ck("FX-XW-63 era windows: A2 next-boundary form, CURRENT opens at EF",
+   _w[-1]['from'] == '2026-12' and _w[-1]['to'] is None
+   and _w[0]['to'] == '2026-06'
+   and bc.era_version_for('2025-07', _w) == '2019-06'
+   and bc.era_version_for('2010-01', _w) == '2019-06')
+ck("FX-XW-37 boundary paper IN the EF month is new-era (E37)",
+   bc.assign_syllabus_era('2026-12', '2026-12') == 'new'
+   and bc.assign_syllabus_era('2026-11', '2026-12') == 'old')
+ck("FX-XW-38 W-EF1 fires when EF predates every paper (E38)",
+   bc.w_ef1_check('2010-01', '2015-06') is not None
+   and bc.w_ef1_check('2026-12', '2015-06') is None)
+ck("FX-XW-57 era-suspect at D-3 boundary uses >= (E57)",
+   bc.era_suspect_check('P1', 40.0, {'D-3': 40.0}) is not None
+   and bc.era_suspect_check('P1', 39.9, {'D-3': 40.0}) is None)
+_lbl = bc.map_question_label(('S', 'T', 'St'), 'DELETED', [], 'Succ')
+ck("FX-XW-31 OOS: sentinel internal, label = old triple VERBATIM (L-1/R24)",
+   _lbl['status'] == bc.OUT_OF_SYLLABUS and _lbl['label'] == ('S', 'T', 'St')
+   and _lbl['successor_subject'] == 'Succ')
+_lb2 = bc.map_question_label(('S', 'T', 'St'), 'MOVED',
+                             [('NS', 'NT', 'NSt')], 'NS')
+ck("FX-XW-32 mapped question labeled at its NEW home, legacy kept (L-5/E32)",
+   _lb2['status'] == 'normal' and _lb2['label'] == ('NS', 'NT', 'NSt')
+   and _lb2['legacy_label'] == ('S', 'T', 'St'))
+ck("FX-XW-39 n_new counts SITTINGS at/after EF",
+   bc.n_new_sittings(['2026-06', '2026-12', '2026-12', '2027-06'],
+                     '2026-12') == 3)
+ck("FX-XW-40 HS-ST9 reconciliation: mismatch stops, balance passes",
+   bc.reconcile_counts('P', 10, 9, 0) is not None
+   and bc.reconcile_counts('P', 10, 9, 1) is None)
+
+_xsrc = open('syllabus_provenance.py').read()
+_xcl = _xsrc.split('# CLUSTER XW')[1].split('# END CLUSTER XW')[0]
+import re as _re_xw
+ck("FX-XW-LS no exam identifier in the XW cluster (2.1e)",
+   not _re_xw.search(r'CSIR|GATE_|LIFESCIENCE|BIOTECH', _xcl))
+ck("FX-XW-LS2 similarity floors declared once, in range",
+   0 < _sp.XW_SUBJECT_SIMILARITY < _sp.XW_MAP_SIMILARITY < 1)
+
+# ── FX-ST-LS — §2.1e LITERAL-SCAN over the GAP-introduced engine code ──
+import ast
+import re as _re
+
+
+def _cluster_source(path, start_marker, end_marker):
+    txt = open(path, encoding='utf-8').read()
+    i = txt.index(start_marker)
+    j = txt.index(end_marker, i)
+    return txt[i:j]
+
+
+_ls_src = _cluster_source(
+    'blueprint_core.py',
+    '# CLUSTER SYLLABUS ERA — SYLLABUS TRANSITION',
+    '# END CLUSTER SYLLABUS ERA')
+_ls_src2 = _cluster_source(
+    'corpus_io.py',
+    '# CLUSTER SYL — SYLLABUS & SAMPLE-PAPER FILE CENSUS',
+    '# END CLUSTER SYL')
+# Whitelist: the seven §3.9 dial factory defaults, plus structural tokens —
+# regex/format constants, the §3.2 sanity years of the GAP's OWN code,
+# indices/radixes and the 1 MiB read-chunk shift. NOTHING allocation-shaped
+# (no subject counts, no quotas) may appear (R5/§2.1).
+_LS_WHITELIST = {3, 5.0, 40.0, 8, 1, 80.0,   # dial factory defaults (§3.9)
+                 0, 1, 2, 4, 5, 100, 1990, 12, 20}
+_ls_found = set()
+for blob in (_ls_src, _ls_src2):
+    code = '\n'.join(l for l in blob.split('\n')
+                     if not l.lstrip().startswith('#'))
+    for node in ast.walk(ast.parse(code)):
+        if isinstance(node, ast.Constant) and isinstance(node.value,
+                                                         (int, float)) \
+                and not isinstance(node.value, bool):
+            _ls_found.add(node.value)
+ck("FX-ST-LS §2.1e: no numeric literal outside the dial-default + "
+   "structural whitelist in GAP-introduced engine code",
+   _ls_found <= _LS_WHITELIST)
+ck("FX-ST-LS2 §2.1e: no exam identifier in the cluster logic",
+   not _re.search(r'CSIR|GATE_|GATE B|LIFE_SCIENCE|BIOTECH',
+                  _ls_src + _ls_src2))
+
 def _self_test():
     total = PASS + len(FAILS)
     print(f"SELF-TEST: {PASS}/{total} PASS")

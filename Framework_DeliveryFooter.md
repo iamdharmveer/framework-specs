@@ -1,4 +1,14 @@
-# Framework_DeliveryFooter v1.30 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.31 — Universal Delivery Footer (F1/F2) Contract
+# v1.31 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A: NEW
+#   §FOOTER-SYL — the syllabus-declaration disclosure line. Every footer (F1 and F2)
+#   of an exam whose exam_config.syllabus_transition block records a TRACED-INACTIVE
+#   declaration (T1 rows 4/5/7) prints EVERY string returned by
+#   bc.syllabus_footer_lines(st), one per line, prefixed "ℹ️ " — Release A set:
+#   "Syllabus declaration present but inactive: <reason>". The engine is the ONLY
+#   source; keys-absent and silently-inactive exams print NOTHING (§7 P1 / R25). The
+#   ACTIVE-mode §5.9 lines (n_new blend label, coverage, style donors) ship with
+#   Release C. R15/R19: this footer is the ONLY disclosure surface — nothing on
+#   questions, options, or student-visible layout, ever.
 # v1.30 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §FOOTER-STYLE defines the single style-profile status line
 #   (ACTIVE with schema + corpus hash8, or DORMANT with a reason). pp.style_footer_line is
 #   its ONLY source; the engine drops unknown keys, so a richer record cannot widen the
@@ -515,6 +525,28 @@ scored against it. Every one of those records lives in the audit dossier and
 the registry (`style_gate`), which are internal artefacts and never staged.
 The engine drops unknown keys by construction, so passing a richer dict cannot
 widen the footer.
+
+§FOOTER-SYL — SYLLABUS-DECLARATION DISCLOSURE LINE (v1.31 — GAP-2026-09-01
+§3.6(c)/R15/R19, Release A). On EVERY footer — F1 and F2, every step, both
+pipelines — of an exam whose exam_config carries a syllabus_transition block
+in a TRACED-INACTIVE state (T1 rows 4/5/7: declaration keys present but
+activation failed), print EVERY string returned by
+    bc.syllabus_footer_lines(st)
+one per line, each prefixed "ℹ️ ", where `st` is the
+exam_config.syllabus_transition block (blueprint_core Cluster SYLLABUS ERA;
+sole writer of the block: PYQDraft, R29). The engine is the ONLY source of
+these lines — never compose them by hand. The set it returns (Release A):
+    traced-inactive → "Syllabus declaration present but inactive: <reason>"
+    keys absent / silently inactive (no block, or SC=No with no EF) → nothing
+      (§7 P1: the legacy estate's footers are byte-identical; R25)
+    active → nothing YET — the §5.9 ACTIVE-mode lines (blend label with
+      n_new always printed, coverage X/Y, style donors, R22 converged flip)
+      arrive with Release C and will extend the SAME engine function; no
+      hand-composed interim line may be printed for an active exam.
+An inactive-trace line is DISCLOSURE of a half-declared state, not an error
+banner: the run completed normally (R4 — inactive is never invisible, never
+fatal). Exactly the engine's lines and nothing else (the §FOOTER-STYLE
+single-line discipline applies identically here).
 
 ═══════════════════════════════════════════════════════════════════════
 NOTES PIPELINE (NB / NC / NA / ND)

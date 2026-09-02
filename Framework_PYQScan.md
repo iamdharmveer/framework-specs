@@ -1,4 +1,5 @@
-# Framework_PYQScan v1.4.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.5.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.5.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk suppression at scan
 # v1.4.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (F1) S3-1 gains
 #   the GENERATION-AWARE TRIPWIRE: a draft carrying spec_generation is re-checked
 #   with reconcile_taxonomy.check_topic_density on load — an unmatched finding
@@ -1944,4 +1945,17 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.4.0
+
+## S3-X — CROSSWALK SUPPRESSION (v1.5.0 — GAP-2026-09-01 §4.3, ACTIVE mode)
+
+When exam_config.syllabus_transition is ACTIVE and carries a crosswalk
+draft: every scan PROPOSAL is first matched (reconcile_taxonomy.similarity,
+the corpus's one similarity rulebook) against the draft's DELETED-node
+names. A proposal whose best DELETED-node match >= the corpus DUP floor is
+SUPPRESSED — it does NOT enter the taxonomy — and is LOGGED in
+scan_progress under `suppressed`: {proposal, matched_deleted_node, score}.
+Nothing is discarded: R30 re-evaluates this log at 2c approval in BOTH
+directions (reinstate on un-delete, extend on newly-deleted). Inactive or
+legacy exams: this section is skipped byte-identically.
+
+# END OF Framework_PYQScan v1.5.0

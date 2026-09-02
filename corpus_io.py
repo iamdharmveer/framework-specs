@@ -4528,6 +4528,70 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
 # SELF-TEST
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER SYL — SYLLABUS & SAMPLE-PAPER FILE CENSUS
+# (GAP-2026-09-01-SYLLABUS-TRANSITION §3.4 — Release A; rebased per rev 4.6)
+#
+# WHY THIS CLUSTER EXISTS
+#   §3.4's census is the fact-finding half of the T2 decision: WHICH project
+#   files are syllabus candidates, and which are sample papers (R14 — recorded
+#   at census time, consumed by Step 5 only, from Release B/C). The DECISION
+#   over the census (T2 rows, HS-ST2..6) lives in blueprint_core
+#   resolve_syllabus_sources — facts here, rulings there, no cross-import.
+#   The census runs at PYQDraft S1-2 and cheaply at every step start (§3.7
+#   drift guard): one directory listing + one glob-class filter. R18: English
+#   only — a translated syllabus is simply a second census hit.
+# ════════════════════════════════════════════════════════════════════════════
+
+#: §3.4 candidate extensions (shared by syllabus and sample-paper census).
+SYLLABUS_CENSUS_EXTS = ('.pdf', '.docx', '.txt', '.png', '.jpg', '.jpeg')
+
+
+def _census_match(basename, token):
+    name = os.path.basename(str(basename))
+    stem, dot, ext = name.rpartition('.')
+    if not dot or ('.' + ext).casefold() not in SYLLABUS_CENSUS_EXTS:
+        return False
+    return token in name.casefold()
+
+
+def syllabus_file_census(file_names):
+    """Candidate syllabus files: basename contains 'syllabus' (casefold),
+    extension in SYLLABUS_CENSUS_EXTS. Order-preserving."""
+    return [f for f in (file_names or []) if _census_match(f, 'syllabus')]
+
+
+def sample_paper_census(file_names):
+    """Candidate sample papers (R14): basename contains 'samplepaper'
+    (casefold), same extensions. Recorded only in Release A; consumed by
+    Step 5 alone from Release B/C. Absent => silent."""
+    return [f for f in (file_names or []) if _census_match(f, 'samplepaper')]
+
+
+def file_sha256(path):
+    """sha256 hex of a file's raw bytes (the §3.10 staleness identity and the
+    T2 rows 9-10 duplicate check)."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def census_records(paths):
+    """[{'name', 'path', 'sha256'}] for resolve_syllabus_sources — name is the
+    basename; sha256 over raw bytes."""
+    out = []
+    for p in (paths or []):
+        out.append({'name': os.path.basename(str(p)), 'path': str(p),
+                    'sha256': file_sha256(p) if os.path.exists(str(p))
+                    else None})
+    return out
+
+# END CLUSTER SYL
+# ════════════════════════════════════════════════════════════════════════════
+
 def self_test():
     passed = total = 0
     fails = []

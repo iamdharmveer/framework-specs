@@ -177,6 +177,51 @@ __all__ = [
     "image_clarity_state",
     "derive_image_roles",
     "IMAGE_ROLES",
+    "TRANSITION_KEY_SC",
+    "TRANSITION_KEY_EF",
+    "TRANSITION_KEY_ZHA",
+    "TRANSITION_DIALS",
+    "TRANSITION_OVERVIEW_KEYS",
+    "TRANSITION_DECLARATION_FIELDS",
+    "coerce_effective_from",
+    "classify_inactive",
+    "transition_reason_is_traced",
+    "resolve_transition",
+    "resolve_dials",
+    "near_miss_keys",
+    "overview_duplicate_keys",
+    "parse_zero_history_approved",
+    "parse_syllabus_filename",
+    "resolve_syllabus_sources",
+    "build_syllabus_transition_block",
+    "syllabus_declaration_traces",
+    "syllabus_footer_lines",
+    "transition_drift",
+    "symptom_detector",
+    "check_syllabus_staleness",
+    "HS_ST1",
+    "HS_ST2",
+    "HS_ST3",
+    "HS_ST4",
+    "HS_ST5",
+    "HS_ST6",
+    "HS_ST7",
+    "HS_ST8",
+    "HS_ST9",
+    "HS_ST10",
+    "HS_ST11",
+    "W_EF1",
+    "W_EF2",
+    "OUT_OF_SYLLABUS",
+    "SYLLABUS_ERAS",
+    "assign_syllabus_era",
+    "era_windows",
+    "era_version_for",
+    "w_ef1_check",
+    "era_suspect_check",
+    "map_question_label",
+    "n_new_sittings",
+    "reconcile_counts",
 ]
 
 
@@ -9423,6 +9468,670 @@ def style_distance(cell_obs, cell_ref):
         rates.append(min(1.0, abs((a or 0.0) - (b or 0.0))))
     comps.append(sum(rates) / len(rates) if rates else 0.0)
     return round(sum(comps) / len(comps), 4)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER SYLLABUS ERA — SYLLABUS TRANSITION: DECLARATION & DETECTION
+# (GAP-2026-09-01-SYLLABUS-TRANSITION §3 — Release A. Rebased to corpus
+# 2026.09.01.1 per rev 4.6.)
+#
+# WHY THIS CLUSTER EXISTS
+#   The corpus had no concept of a syllabus VERSION: PYQDraft read ONE syllabus
+#   document and nothing recorded which, retained a previous version, or could
+#   diff two. A syllabus change was invisible until Step 6 classified whole new
+#   units Zero-PYQ. Release A gives the framework the DECLARATION and DETECTION
+#   layer: the R1 activation predicate, EF parsing with Excel coercion (R4),
+#   the T2 census/resolution decision, the dial registry (R23), the eleven
+#   hard-stop templates, the R25-scoped symptom detector, the drift guard and
+#   the staleness check. NOTHING in this cluster changes allocation; an exam
+#   with both declaration keys absent behaves byte-identically (§7 P1).
+#   Crosswalk/era functions (Release B) and the allocator (Release C) will
+#   extend this cluster; the OUT_OF_SYLLABUS sentinel ships with Release B.
+#
+# EXAM-INDEPENDENCE (§2.1/R5): no exam name or exam-specific constant appears
+#   below. The ONLY whitelisted numerals are the seven dial factory defaults
+#   (§3.9) plus structural tokens (regex classes, the EF sanity years of the
+#   GAP's own §3.2 code, indices). CI's §2.1e literal-scan
+#   (regression_pyq_fixtures FX-ST-LS) enforces this mechanically.
+#
+# SINGLE-WRITER (R29/§6): every function below COMPUTES; the WRITES belong to
+#   their sole owners (exam_config.syllabus_transition + taxonomy_draft
+#   syllabus_sha256 -> PYQDraft only). Nothing here persists anything.
+# ════════════════════════════════════════════════════════════════════════════
+
+import datetime as _st_datetime
+
+_EF_RE = re.compile(r'^(\d{4})-(0[1-9]|1[0-2])$')
+
+# Canonical Overview keys (exact strings after strip). Matching stays
+# exact-string; near-miss REPORTING uses _st_collapse (§3.1).
+TRANSITION_KEY_SC = 'Syllabus Changed'
+TRANSITION_KEY_EF = 'New Syllabus Effective From'
+TRANSITION_KEY_ZHA = 'Zero History Approved'
+
+# ── §3.9 DIAL REGISTRY (R23, R5) ────────────────────────────────────────────
+# Factory values live HERE and ONLY here (ONE-RULEBOOK / GATE-AT-SOURCE law 3;
+# §2.1e whitelists exactly these seven numerals). Specs cite dial ids and
+# Overview override keys and never restate the numbers. 'kind' drives the E24
+# validation: count -> integer >= 1; percent -> 0 < v <= 100.
+TRANSITION_DIALS = {
+    'D-1': {'meaning': 'Trust (blend pseudo-count m)',
+            'factory': 3, 'kind': 'count',
+            'key': 'Transition Blend Pseudo-Count'},
+    'D-2': {'meaning': 'Materiality threshold (R28 formula)',
+            'factory': 5.0, 'kind': 'percent',
+            'key': 'Transition Materiality Percent'},
+    'D-3': {'meaning': 'Era-suspect (% of a post-EF paper mapping only to '
+                       'DELETED => warn)',
+            'factory': 40.0, 'kind': 'percent',
+            'key': 'Transition Era Suspect Percent'},
+    'D-4': {'meaning': 'Detector floor (min sittings, §3.8/W-EF2)',
+            'factory': 8, 'kind': 'count',
+            'key': 'Transition Detector Floor'},
+    'D-5': {'meaning': 'Coverage floor (min appearances of each NEW subtopic '
+                       'per series)',
+            'factory': 1, 'kind': 'count',
+            'key': 'Transition Coverage Floor'},
+    'D-6': {'meaning': 'Converged label threshold (new-era sittings)',
+            'factory': 3, 'kind': 'count',
+            'key': 'Transition Converged Sittings'},
+    'D-7': {'meaning': 'Subject-state roll-up dominance (§4.2 B1)',
+            'factory': 80.0, 'kind': 'percent',
+            'key': 'Transition Rollup Dominance Percent'},
+}
+# R21: NO prior dial and NO prior override of any kind exists (grep anchor).
+
+TRANSITION_OVERVIEW_KEYS = (
+    (TRANSITION_KEY_SC, TRANSITION_KEY_EF, TRANSITION_KEY_ZHA)
+    + tuple(d['key'] for d in TRANSITION_DIALS.values()))
+
+
+def coerce_effective_from(raw, today):
+    """Returns (value 'YYYY-MM' | None, notes[list]). None = unparseable.
+    NEVER raises — the caller decides ACTIVE / HS-ST1 / INACTIVE. (§3.2,
+    verbatim from the GAP; Excel datetime coercion per R4.)"""
+    notes = []
+    if raw is None:
+        return None, notes
+    # Excel auto-converts typed dates ('2026-12','Dec-26','12/2026') to
+    # datetime. Coerce BEFORE string validation (R4).
+    if isinstance(raw, (_st_datetime.datetime, _st_datetime.date)):
+        if getattr(raw, 'day', 1) != 1:
+            notes.append(f"EF day component ({raw.day}) ignored; month used.")
+        val = f"{raw.year:04d}-{raw.month:02d}"
+    else:
+        s = str(raw).strip()
+        if not s or s.casefold() in ('nan', 'none', 'nat'):
+            return None, notes
+        m = _EF_RE.match(s)
+        if not m:
+            return None, notes      # 'Dec 2026','2026-13','12-2026' land here
+        val = s
+    year = int(val[:4])
+    if year < 1990 or year > today.year + 5:
+        return None, [f"EF year {year} outside sanity range "
+                      f"1990..{today.year + 5}."]
+    if year > today.year + 3:
+        notes.append(f"EF {val} more than 3 years ahead — verify.")
+    return val, notes
+
+
+def classify_inactive(sc_raw, sc, ef_raw, ef):
+    """Reason string for the §3.5 block. T1 rows 4/5/7 return the three §3.6
+    traced reasons EXACTLY; row 2 returns an untraced reason (block written,
+    nothing printed — P2's 'exactly the three traces and nothing else')."""
+    if sc is None:
+        if ef:
+            return "EF present but 'Syllabus Changed' absent"      # T1 row 7
+        return "declaration keys absent"                # unreachable via row 1
+    if sc == 'no':
+        if ef:
+            return "EF present but SC is not Yes"                  # T1 row 4
+        return "SC is No"                               # T1 row 2 — untraced
+    if sc == '' and ef:
+        return "EF present but SC is not Yes"           # T1 row 4 (blank SC)
+    return f"SC='{sc_raw}' not in {{Yes,No}}; treated as No"       # T1 row 5
+
+
+#: The §3.6-traced reasons (T1 rows 4/5/7). Row-5 reasons are prefix-matched.
+_TRACED_REASON_PREFIXES = ("EF present but", "SC='")
+
+
+def transition_reason_is_traced(reason):
+    return bool(reason) and reason.startswith(_TRACED_REASON_PREFIXES)
+
+
+def resolve_transition(ov, today):
+    """R1 activation predicate over the parsed Overview dict (§3.3, verbatim).
+    ACTIVE <=> SC normalizes to 'yes' AND EF parses to valid YYYY-MM.
+    SC='yes' with EF absent/blank/unparseable => SystemExit HS-ST1 (R2) — the
+    ONLY declaration-VALUE hard stop in the design."""
+    sc_raw = ov.get(TRANSITION_KEY_SC)
+    ef_raw = ov.get(TRANSITION_KEY_EF)
+    sc = str(sc_raw).strip().casefold() if sc_raw is not None else None
+    ef, ef_notes = coerce_effective_from(ef_raw, today)
+    if sc == 'yes' and ef:
+        return {'status': 'active', 'effective_from': ef, 'notes': ef_notes}
+    if sc == 'yes' and not ef:
+        raise SystemExit(HS_ST1(ef_raw))                          # R2
+    return {'status': 'inactive',
+            'reason': classify_inactive(sc_raw, sc, ef_raw, ef),
+            'keys_seen': {TRANSITION_KEY_SC: sc_raw,
+                          TRANSITION_KEY_EF: ef_raw},
+            'trace': (sc_raw is not None or ef_raw is not None)}
+
+
+def resolve_dials(ov):
+    """§3.9: factory default + optional per-exam Overview override. Absent =>
+    factory. Present but invalid (non-numeric, out of range) => FACTORY +
+    TRACE — never a stop (E24). Returns (effective {dial_id: value},
+    traces[list of one-line strings])."""
+    eff, traces = {}, []
+    for did, d in TRANSITION_DIALS.items():
+        raw = ov.get(d['key'])
+        s = str(raw).strip() if raw is not None else ''
+        # A blank Excel cell arrives as NaN via pandas — absent, not invalid
+        # (the same coercion idiom §3.2 applies to EF).
+        if not s or s.casefold() in ('nan', 'none', 'nat'):
+            eff[did] = d['factory']
+            continue
+        s = s.rstrip('%').strip()
+        try:
+            v = float(s)
+        except (TypeError, ValueError):
+            v = None
+        ok = v is not None and (
+            (d['kind'] == 'count' and v >= 1 and float(v).is_integer())
+            or (d['kind'] == 'percent' and 0 < v <= 100))
+        if ok:
+            eff[did] = int(v) if d['kind'] == 'count' else float(v)
+        else:
+            eff[did] = d['factory']
+            traces.append(
+                f"dial {did} ('{d['key']}') override '{raw}' invalid; "
+                f"factory value used.")
+    return eff, traces
+
+
+def _st_collapse(k):
+    """Near-miss comparison form: casefold + drop every non-alphanumeric
+    (whitespace-collapsed and punctuation-tolerant, so 'Syllabus changed?'
+    near-misses 'Syllabus Changed' — E16)."""
+    return ''.join(c for c in str(k).casefold() if c.isalnum())
+
+
+def near_miss_keys(present_keys):
+    """§3.1: keys present in the Overview tab that are NOT an exact canonical
+    transition key but collapse-match one. Returns [(present, canonical)]."""
+    canon = {_st_collapse(k): k for k in TRANSITION_OVERVIEW_KEYS}
+    out = []
+    for k in present_keys:
+        ks = str(k).strip()
+        if ks in TRANSITION_OVERVIEW_KEYS:
+            continue
+        hit = canon.get(_st_collapse(ks))
+        if hit:
+            out.append((ks, hit))
+    return out
+
+
+def overview_duplicate_keys(raw_key_list):
+    """§3.1: duplicate occurrence of any Overview key (dict(zip) keeps the
+    LAST) => WARN regardless of activation outcome (E15). Input: the raw
+    first-column values IN ORDER. Returns sorted duplicated keys (stripped)."""
+    seen, dup = {}, set()
+    for k in raw_key_list:
+        ks = str(k).strip()
+        if ks in seen:
+            dup.add(ks)
+        seen[ks] = True
+    return sorted(dup)
+
+
+def parse_zero_history_approved(ov, taxonomy_subjects):
+    """§3.5 A1: third OPTIONAL Overview key, comma-separated subject names,
+    matched to taxonomy subjects casefold; unmatched names => trace, not stop.
+    Keeps PYQDraft the sole writer of exam_config (R29). Returns
+    (approved [canonical subject names], traces)."""
+    raw = ov.get(TRANSITION_KEY_ZHA)
+    s = str(raw).strip() if raw is not None else ''
+    # A blank Excel cell arrives as NaN via pandas — absent, not a name.
+    if not s or s.casefold() in ('nan', 'none', 'nat'):
+        return [], []
+    by_cf = {str(s).strip().casefold(): s for s in (taxonomy_subjects or [])}
+    approved, traces = [], []
+    for part in str(raw).split(','):
+        name = part.strip()
+        if not name:
+            continue
+        hit = by_cf.get(name.casefold())
+        if hit:
+            if hit not in approved:
+                approved.append(hit)
+        else:
+            traces.append(f"'{TRANSITION_KEY_ZHA}' names '{name}', which "
+                          f"matches no taxonomy subject; ignored.")
+    return approved, traces
+
+
+# ── §3.4 FILE RESOLUTION (T2) ───────────────────────────────────────────────
+
+_SYL_EXT_RE = r'(?:pdf|docx|txt|png|jpg|jpeg)'
+
+
+def parse_syllabus_filename(name, exam_code):
+    """'[ExamCode]_Syllabus_<YYYY-MM>.<ext>' -> 'YYYY-MM' | None.
+    <YYYY-MM> = first sitting under that version (§3.4 NAMING). The WHOLE
+    match is case-insensitive: the census that nominated the file is casefold
+    (§3.4), ExamCodes are alphanumeric+underscore with no case-collision
+    risk, and E04/E08 fix the design's normalization stance — a correctly
+    structured name must never fail on letter case alone (defect found in
+    real-exam verification: a mixed-case trigger ExamCode against
+    upper-case-named files false-stopped HS-ST4). Structure stays strict: prefix, the
+    literal Syllabus token, the dated stamp and the extension must all be
+    present exactly, or HS-ST4."""
+    m = re.match(
+        r'^' + re.escape(exam_code)
+        + r'_Syllabus_(\d{4}-(?:0[1-9]|1[0-2]))\.(?:' + _SYL_EXT_RE + r')$',
+        str(name), re.IGNORECASE)
+    return m.group(1) if m else None
+
+
+def resolve_syllabus_sources(candidates, exam_code, status,
+                             effective_from=None):
+    """T2 decision (§3.4). candidates: [{'name': str, 'sha256': str}] from the
+    corpus_io census. Returns one of:
+      {'outcome': 'as_today'}                          T2 rows 1-2
+      {'outcome': 'stop', 'code': 'HS-STn', 'message': str}
+      {'outcome': 'resolved', 'current': cand, 'superseded': [cand, ...]}
+    NAMING is enforced only at >= 2 syllabus files (R1); a single-file project
+    keeps ANY name (operator ruling). R18: a translated syllabus is simply a
+    second census hit — no carve-out. Caller raises SystemExit(message)."""
+    cands = list(candidates or [])
+    n = len(cands)
+    names = [c['name'] for c in cands]
+    if status != 'active':
+        if n >= 2:
+            return {'outcome': 'stop', 'code': 'HS-ST2',
+                    'message': HS_ST2(n, names)}          # T2 row 3 / R3, R26
+        return {'outcome': 'as_today'}                    # T2 rows 1-2
+    if n < 2:
+        return {'outcome': 'stop', 'code': 'HS-ST3',
+                'message': HS_ST3(n)}                     # T2 row 4
+    dated = {}
+    bad = []
+    for c in cands:
+        ym = parse_syllabus_filename(c['name'], exam_code)
+        if ym is None:
+            bad.append(c['name'])
+        else:
+            dated[c['name']] = ym
+    if bad:
+        return {'outcome': 'stop', 'code': 'HS-ST4',
+                'message': HS_ST4(bad)}                   # T2 row 5
+    matches = [c for c in cands if dated[c['name']] == effective_from]
+    if len(matches) != 1:
+        return {'outcome': 'stop', 'code': 'HS-ST5',
+                'message': HS_ST5(len(matches), effective_from)}  # rows 6-7
+    current = matches[0]
+    superseded = sorted((c for c in cands if c is not current),
+                        key=lambda c: dated[c['name']])
+    for s in superseded:                                  # T2 row 9
+        if s.get('sha256') and s['sha256'] == current.get('sha256'):
+            return {'outcome': 'stop', 'code': 'HS-ST6',
+                    'message': HS_ST6(current['name'], s['name'],
+                                      current['sha256'])}
+    return {'outcome': 'resolved', 'current': current,    # T2 rows 8/10
+            'superseded': superseded}
+
+
+# ── §3.5 EXAM_CONFIG BLOCK (computed here; WRITTEN only by PYQDraft, R29) ───
+
+def build_syllabus_transition_block(res, sources=None, dials=None,
+                                    dial_traces=None, zero_history=None):
+    """Assemble the §3.5 exam_config.syllabus_transition block from the
+    resolve_transition result. Returns None for T1 row 1 (both keys absent —
+    the block is ABSENT and the estate path is byte-identical, P1)."""
+    if res is None:
+        return None
+    if res['status'] == 'inactive' and not res.get('trace'):
+        return None                                       # T1 row 1
+    block = {'status': res['status']}
+    if res['status'] == 'active':
+        block['effective_from'] = res['effective_from']
+        if res.get('notes'):
+            block['notes'] = list(res['notes'])
+        if sources and sources.get('outcome') == 'resolved':
+            cur = sources['current']
+            block['current_file'] = cur['name']
+            block['current_sha256'] = cur.get('sha256')
+            block['superseded'] = [
+                {'file': s['name'], 'sha256': s.get('sha256')}
+                for s in sources['superseded']]
+    else:
+        block['reason'] = res['reason']
+        block['keys_seen'] = dict(res['keys_seen'])
+    if dials is not None:
+        block['dials'] = dict(dials)
+    if dial_traces:
+        block['dial_traces'] = list(dial_traces)
+    if zero_history:
+        block['zero_history_approved'] = list(zero_history)
+    return block
+
+
+def syllabus_declaration_traces(block):
+    """§3.6(a): the ONE console warning line for T1 rows 4/5/7, quoting raw
+    values. Returns [] for anything else (incl. row 2 and active)."""
+    if not block or block.get('status') != 'inactive':
+        return []
+    if not transition_reason_is_traced(block.get('reason', '')):
+        return []
+    ks = block.get('keys_seen', {})
+    return [f"WARNING: syllabus declaration present but inactive — "
+            f"{block['reason']} (Syllabus Changed="
+            f"{ks.get(TRANSITION_KEY_SC)!r}, New Syllabus Effective From="
+            f"{ks.get(TRANSITION_KEY_EF)!r})."]
+
+
+def syllabus_footer_lines(block):
+    """§3.6(c) / Framework_DeliveryFooter §FOOTER-SYL: the engine is the ONLY
+    source of these lines — never compose them by hand. Release A set:
+      traced-inactive -> ['Syllabus declaration present but inactive: <r>']
+      anything else   -> []  (the ACTIVE-mode §5.9 lines ship with Release C)
+    """
+    if not block or block.get('status') != 'inactive':
+        return []
+    if not transition_reason_is_traced(block.get('reason', '')):
+        return []
+    return [f"Syllabus declaration present but inactive: {block['reason']}"]
+
+
+# ── §3.7 DRIFT GUARD ────────────────────────────────────────────────────────
+
+#: DECLARATION-DERIVED fields ONLY (R29): legitimate downstream writes to
+#: other artefacts (count manifest n_new, delivery-manifest cursor) can never
+#: register as drift (E62).
+TRANSITION_DECLARATION_FIELDS = (
+    'status', 'effective_from', 'reason', 'keys_seen', 'current_file',
+    'current_sha256', 'superseded', 'dials', 'zero_history_approved')
+
+
+def transition_drift(stored_block, fresh_block):
+    """Compare the exam_config block against a fresh census+resolve of the
+    current xlsx/files. Returns [(field, stored, found)] — non-empty =>
+    the caller raises SystemExit(HS_ST10(...)) (E25). None == absent-block
+    equivalence, so a legacy exam can never drift into a stop."""
+    diffs = []
+    a = stored_block or {}
+    b = fresh_block or {}
+    for f in TRANSITION_DECLARATION_FIELDS:
+        if a.get(f) != b.get(f):
+            diffs.append((f, a.get(f), b.get(f)))
+    return diffs
+
+
+# ── §3.8 SYMPTOM DETECTOR (R25-scoped; call site: MockBlueprint pre-flight,
+#     wired at Release C — this function is the single implementation) ──────
+
+def symptom_detector(block, zero_ravg_subjects, sittings, dials,
+                     present_overview_keys=(), papers=None):
+    """Fires ONLY when declaration keys are PRESENT but status is inactive
+    (T1 rows 4/5/7 — half-declared states). KEYS-ABSENT exams (block None or
+    untraced): fully SILENT — byte-identity for the deployed estate is
+    absolute (R25, E53). Subjects in zero_history_approved are suppressed
+    (§3.5 A1, E66). Returns the HS-ST8 message for the first offending
+    subject, or None."""
+    if not block or block.get('status') != 'inactive':
+        return None
+    if not transition_reason_is_traced(block.get('reason', '')):
+        return None
+    floor = (dials or {}).get('D-4', TRANSITION_DIALS['D-4']['factory'])
+    if sittings < floor:
+        return None
+    approved = set(block.get('zero_history_approved') or [])
+    hint_bits = []
+    for k, v in (block.get('keys_seen') or {}).items():
+        if v is not None:
+            hint_bits.append(f"Overview contains {k}={v!r}, which was "
+                             f"ignored — did you mean Yes?")
+    for miss, canon in near_miss_keys(present_overview_keys):
+        hint_bits.append(f"Overview key '{miss}' near-misses '{canon}' and "
+                         f"was ignored.")
+    hint = ' '.join(hint_bits) or 'No declaration keys were usable.'
+    for s in zero_ravg_subjects or []:
+        if s in approved:
+            continue
+        return HS_ST8(s, sittings, papers if papers is not None else sittings,
+                      hint)
+    return None
+
+
+# ── §3.10 STALENESS LOCK ────────────────────────────────────────────────────
+
+def check_syllabus_staleness(artefact_name, artefact_hash, current_hash,
+                             step_label):
+    """HS-ST7 check at each consumer (MockBlueprint, MockTestCreate,
+    ScopedBlueprint, NotesBlueprint). Artefacts WITHOUT the field (legacy,
+    artefact_hash None) are exempt — no retro-invalidation (E26); the lock
+    arms on the first PYQDraft re-run under v1.2.0. Returns the HS-ST7
+    message, or None."""
+    if artefact_hash is None or current_hash is None:
+        return None
+    if artefact_hash == current_hash:
+        return None
+    return HS_ST7(artefact_name, artefact_hash, current_hash, step_label)
+
+
+# ── §3.11 HARD STOP REGISTER (exact templates; the register is the single
+#     source — specs cite these, never restate) ─────────────────────────────
+
+def _hs_ef_descriptor(raw):
+    if raw is None:
+        return 'missing'
+    s = str(raw).strip()
+    if not s or s.casefold() in ('nan', 'none', 'nat'):
+        return 'blank'
+    return f"'{raw}' (unparseable)"
+
+
+def HS_ST1(ef_raw):
+    return (f"HARD STOP: 'Syllabus Changed' is Yes but 'New Syllabus "
+            f"Effective From' is {_hs_ef_descriptor(ef_raw)}. Expected "
+            f"YYYY-MM (e.g. 2026-12) — month of the first exam under the new "
+            f"syllabus. A declared change is never ignored. Fix the Overview "
+            f"tab and re-run.")
+
+
+def HS_ST2(n, names):
+    return (f"HARD STOP: {n} syllabus files found ({', '.join(names)}) but "
+            f"no active transition declaration (Syllabus Changed=Yes + valid "
+            f"Effective From). The framework cannot choose which file is the "
+            f"syllabus. Remove the extra file(s) or complete the "
+            f"declaration.")
+
+
+def HS_ST3(n):
+    return (f"HARD STOP: Syllabus transition is ACTIVE but only {n} syllabus "
+            f"file(s) found in project Files. Both the previous and the new "
+            f"syllabus must be present as files: "
+            f"[ExamCode]_Syllabus_<YYYY-MM>.<pdf|docx>.")
+
+
+def HS_ST4(names):
+    return (f"HARD STOP: Multiple syllabus files present — naming format is "
+            f"mandatory: [ExamCode]_Syllabus_<YYYY-MM>.<ext>. "
+            f"Non-conforming: {', '.join(names)}.")
+
+
+def HS_ST5(k, ef):
+    return (f"HARD STOP: {k} syllabus file(s) carry date {ef} (= Effective "
+            f"From). Exactly one must. Fix Effective From or rename the new "
+            f"syllabus file so they agree.")
+
+
+def HS_ST6(a, b, h):
+    return (f"HARD STOP: Syllabus files {a} and {b} are byte-identical "
+            f"(sha256 {h}). A transition requires two different documents.")
+
+
+def HS_ST7(artefact, old, new, step_n):
+    return (f"HARD STOP: {artefact} was built from syllabus sha256 {old} but "
+            f"the CURRENT syllabus file is {new}. Re-run PYQDraft before "
+            f"Step {step_n}.")
+
+
+def HS_ST8(s, y, p, hint):
+    return (f"HARD STOP: Subject '{s}' has 0 PYQs across all {y} years / "
+            f"{p} papers — suspected undeclared syllabus change. {hint} "
+            f"Declare the transition, or approve '{s}' as legitimately "
+            f"zero-history to proceed.")
+
+
+def HS_ST9(paper, t, a, b):
+    return (f"HARD STOP: question count reconciliation failed for {paper}: "
+            f"total {t} ≠ in-syllabus {a} + out-of-syllabus {b}. Every "
+            f"question must be retained and labeled (ruling R20).")
+
+
+def HS_ST10(stored, found):
+    return (f"HARD STOP: declaration drift — exam_config records {stored} "
+            f"but the Exam Pattern xlsx / project Files now show {found}. "
+            f"Re-run PYQDraft so all artefacts agree.")
+
+
+def HS_ST11(s):
+    return (f"HARD STOP: new subject '{s}' cannot be placed — this exam's "
+            f"sections are subject-partitioned and existing subjects do not "
+            f"share a uniform section set. The paper structure itself has "
+            f"changed: update the Sections tab of the Exam Pattern xlsx (add "
+            f"or extend a section row for '{s}'), then re-run.")
+
+
+def W_EF1(ef, oldest):
+    return (f"Effective From {ef} is earlier than every paper on file "
+            f"({oldest}). All papers classify as new-era and transition "
+            f"weighting dissolves into fully measured mode. If a syllabus "
+            f"change is really newer than the corpus, verify the date.")
+
+
+def W_EF2(s, n, floor):
+    return (f"Subject '{s}' is NEW-classified but has zero appearances after "
+            f"{n} new-era sittings (≥ floor {floor}). Verify Effective From "
+            f"and the crosswalk.")
+
+
+# ── RELEASE B EXTENSION — ERA, LABELING & COUNT CONTRACTS (GAP §4) ──────────
+# Joins Cluster SYLLABUS ERA. Same laws: exam-independent (§2.1), computes
+# only — writers stay with their sole owners (§6.1: PYQSort writes labels,
+# PYQCount writes n_new + era counts).
+
+#: §4.5 — internal sentinel ONLY, never a visible label (R24). Same idiom and
+#: reason as OUT_OF_PATTERN above: PYQSort assigns it, mock-side machinery
+#: keys on it, two triggers load it — one definition.
+OUT_OF_SYLLABUS = "__OUT_OF_SYLLABUS__"
+
+SYLLABUS_ERAS = ("old", "new")
+
+
+def assign_syllabus_era(paper_ym, effective_from):
+    """§4.4 two-file degenerate form: 'new' iff paper date >= first day of the
+    EF month (E37 boundary: a paper IN the EF month is new-era). Both args
+    'YYYY-MM' — zero-padded string compare IS chronological compare."""
+    return 'new' if paper_ym >= effective_from else 'old'
+
+
+def era_windows(version_dates, effective_from):
+    """§4.2 A2: version V's window is [V's YYYY-MM, next version's YYYY-MM);
+    the CURRENT version's window is [EF, inf). version_dates: every dated
+    syllabus version incl. CURRENT (order free). Returns windows sorted
+    ascending: [{'version','from','to'}], to=None for the current window.
+    The 2-file case is the degenerate form: one superseded window, one
+    current window — nothing else changes."""
+    vs = sorted(set(version_dates) | {effective_from})
+    out = []
+    for i, v in enumerate(vs):
+        nxt = vs[i + 1] if i + 1 < len(vs) else None
+        out.append({'version': v, 'from': v, 'to': nxt})
+    out[-1]['from'] = effective_from          # CURRENT window opens at EF
+    return out
+
+
+def era_version_for(paper_ym, windows):
+    """The version whose window contains paper_ym — selects WHICH superseded
+    version's crosswalk tags this paper (E63: each paper via its OWN era's
+    crosswalk, mapped DIRECTLY to CURRENT, never chained). Papers older than
+    the oldest window belong to the oldest version."""
+    for w in windows:
+        if paper_ym >= w['from'] and (w['to'] is None or paper_ym < w['to']):
+            return w['version']
+    return windows[0]['version'] if windows else None
+
+
+def w_ef1_check(effective_from, oldest_paper_ym):
+    """R32/§4.4: EF earlier than every paper on file => W-EF1 (warn, never
+    stop) — all papers classify new-era and weighting dissolves into fully
+    measured mode (E38). Returns the warning string or None."""
+    if oldest_paper_ym and effective_from <= oldest_paper_ym:
+        return W_EF1(effective_from, oldest_paper_ym)
+    return None
+
+
+def era_suspect_check(paper_id, deleted_map_pct, dials):
+    """§4.4 ERA-SUSPECT: a paper dated >= EF with >= D-3 (%) of questions
+    mapping only to DELETED nodes => WARN — 'authority may have postponed the
+    new syllabus' (R17 gives the correction path). Never a stop."""
+    d3 = (dials or {}).get('D-3', TRANSITION_DIALS['D-3']['factory'])
+    if deleted_map_pct >= d3:
+        return (f"WARNING: paper {paper_id} is dated in the new era but "
+                f"{deleted_map_pct:.0f}% of its questions map only to DELETED "
+                f"content (>= {d3:.0f}%) — the authority may have postponed "
+                f"the new syllabus. Verify Effective From.")
+    return None
+
+
+def map_question_label(old_triple, node_state, new_ids, successor_subject):
+    """§4.5 L-1/L-3/L-5 labeling decision for ONE question already classified
+    to an OLD-syllabus atom. Inputs come from that era's APPROVED crosswalk
+    node. Returns the per-question metadata fields (§6.2 sorted-papers row):
+      DELETED node  -> status OUT_OF_SYLLABUS; label = the OLD triple
+                       VERBATIM (never force-mapped — L-1); legacy_label
+                       kept; successor_subject | None drives L-2 placement.
+      mapped node   -> status 'normal'; label = the NEW home (first new_id —
+                       the truthful current name, L-5); old triple kept in
+                       legacy_label for audit.
+    A question touching deleted AND retained concepts arrives here as a
+    MOVED node (R11/R34) and is therefore NOT OOS by construction (E32)."""
+    if node_state == 'DELETED' or not new_ids:
+        return {'status': OUT_OF_SYLLABUS,
+                'label': tuple(old_triple),
+                'legacy_label': tuple(old_triple),
+                'successor_subject': successor_subject}
+    return {'status': 'normal',
+            'label': tuple(new_ids[0]),
+            'legacy_label': tuple(old_triple),
+            'successor_subject': successor_subject}
+
+
+def n_new_sittings(sitting_dates_ym, effective_from):
+    """§4.6/R29: n_new = count of new-era SITTINGS (sessions, not calendar
+    years). Caller passes one YYYY-MM per sitting; duplicates are distinct
+    sittings (two shifts one day = the caller's two entries)."""
+    return sum(1 for d in sitting_dates_ym if d >= effective_from)
+
+
+def reconcile_counts(paper, total, in_syllabus, out_of_syllabus):
+    """§4.6 reconciliation gate (always-on in active mode): total = in + OOS
+    for every paper and for the corpus; any mismatch => HS-ST9. R20 is
+    enforced by a gate, not by intention. Returns HS-ST9 message or None."""
+    if total != in_syllabus + out_of_syllabus:
+        return HS_ST9(paper, total, in_syllabus, out_of_syllabus)
+    return None
+
+# END RELEASE B EXTENSION
+
+# END CLUSTER SYLLABUS ERA (Release A+B surface)
+# ════════════════════════════════════════════════════════════════════════════
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
-# Framework_PYQApprove v1.1.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# Framework_PYQApprove v1.2.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk approval + R30 + G-1
 # v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (A1) C6's spec
 #   text cites reconcile_taxonomy.check_topic_density — BOTH forms (subject
 #   density + the NEW per-topic cap, finding class TOPIC_OVER_AGGREGATION_TOPIC),
@@ -764,4 +765,32 @@ this file forfeits the determinism guarantee.
 
 ---
 
-# END OF Framework_PYQApprove v1.1.0
+
+## S4-X — CROSSWALK APPROVAL (v1.2.0 — GAP-2026-09-01 §4.2/§4.3, ACTIVE
+## mode; part of the EXISTING approval pass — no new approval step)
+
+The 2c approval reviews, per superseded version: every node carrying a
+'spot-check' rationale, every DELETED call, and every B1 roll-up whose
+`boundary_flag` is set. The operator's decisions apply as:
+
+    syllabus_provenance.approve_crosswalk(draft, approver, date,
+        state_overrides={old_id: state}, subject_state_overrides={...},
+        d7_pct=<effective D-7>)
+
+In that SAME write (G-1): old-side roll-ups are RECOMPUTED from the
+approved node states (derived, never guessed), operator subject overrides
+are recorded with `operator_override: True`, and every DELETED-node lexicon
+is FINALIZED with F-1 retained-term subtraction (similarity-tolerant at the
+corpus DUP floor — plural/singular variants of a retained phrase are
+subtracted; a lexicon that empties entirely is correct degradation).
+BEFORE approval completes, R30 runs:
+
+    syllabus_provenance.reevaluate_suppressions(scan_suppressed, draft,
+                                                approved)
+
+Reinstated proposals re-enter through the NORMAL refinement path (E58);
+`newly_deleted` nodes are appended to the suppression record (E59). The
+approved crosswalk replaces the draft in exam_config at
+`syllabus_transition.crosswalks` (sole approval writer: THIS step).
+
+# END OF Framework_PYQApprove v1.2.0

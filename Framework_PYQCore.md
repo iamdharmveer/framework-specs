@@ -1,4 +1,20 @@
-# Framework_PYQCore v1.7 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.8 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.8 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection; rebased to 2026.09.01.1 per rev 4.6). S1-2
+#   --taxonomy mode gains the SYLLABUS FILE CENSUS contract and NEW S1-2a
+#   defines it for every PYQ step: candidate syllabus / sample-paper files
+#   (corpus_io.syllabus_file_census / sample_paper_census), the T2 outcomes at
+#   the shared-core level (INACTIVE + >= 2 syllabus-named files => HS-ST2, the
+#   R26 reactive discovery; ACTIVE requires BOTH syllabus documents as project
+#   FILES — a chat-only or pasted-image syllabus is HS-ST3, because a re-run
+#   must be reproducible), the §3.7 per-step drift guard (census +
+#   bc.resolve_transition re-run, DECLARATION fields compared only via
+#   bc.transition_drift => HS-ST10) and the §3.10 staleness contract
+#   (taxonomy_draft syllabus_sha256; consumers bc.check_syllabus_staleness =>
+#   HS-ST7; legacy artefacts without the field exempt). Engine: blueprint_core
+#   Cluster SYLLABUS ERA + corpus_io Cluster SYL are the ONLY implementations
+#   — this core cites, never restates. A keys-absent exam holding <= 1
+#   syllabus-named file is byte-identical to 2026.09.01.1 (§7 P1).
 # v1.7 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. The GATE-AT-SOURCE
 #   LAW is added (registered in LAW_REGISTRY.json) and S2-3 is brought under it:
 #   (C1) the S2-3 "PROOF OF CORRECT TOPIC COUNT" self-check — stranded on the
@@ -163,6 +179,17 @@ For --taxonomy mode:
       named "Overview", "Sections", "Range" → use xlsx parser (S2-2a).
       Any other format → use legacy AI extraction (S2-2b).
   If either missing → ask user to provide.
+  v1.8 — SYLLABUS FILE CENSUS (S1-2a; GAP-2026-09-01 §3.4): run the census
+      over project Files WITH this inventory. INACTIVE transition + >= 2
+      syllabus-named files → HS-ST2 (no safe default exists for "which file
+      is the syllabus"; a legacy project holding a stray second file stops
+      REACTIVELY here — R26 accepted behaviour change, 30-second fix).
+      ACTIVE transition → BOTH the previous and the new syllabus must exist
+      as project FILES named [ExamCode]_Syllabus_<YYYY-MM>.<ext>; a syllabus
+      present only in chat, or pasted as an image in chat, is HS-ST3 —
+      chat-only input is not reproducible on re-run. The single-file
+      INACTIVE project keeps ANY name and ANY input form (estate norm;
+      "ask user to provide" above is unchanged for the zero-file case).
 
 For --scan mode:
   ✓ Row files (.docx) : from PYQ: Drive link (REQUIRED — v2.16, no local fallback)
@@ -181,6 +208,58 @@ For --counts mode:
   ✓ Drive folder with sorted PYQ files
   ✓ Approved Analysis doc in project knowledge (to update with counts)
   If Analysis doc missing → "Run --approve mode first."
+```
+
+### S1-2a — SYLLABUS FILE CENSUS, DRIFT GUARD & STALENESS (v1.8 —
+###          GAP-2026-09-01 §3.4/§3.7/§3.10; shared contract for every step
+###          that loads this core)
+
+```
+CENSUS (corpus_io Cluster SYL — the single implementation):
+  syllabus candidates  = project files whose basename contains "syllabus"
+                         (casefold), extension .pdf/.docx/.txt/.png/.jpg/
+                         .jpeg   → corpus_io.syllabus_file_census
+  sample papers (R14)  = basename contains "samplepaper", same extensions
+                         → corpus_io.sample_paper_census (recorded only in
+                         Release A; consumed by Step 5 alone from Release
+                         B/C; absent => silent)
+  hashing              = corpus_io.file_sha256 / corpus_io.census_records
+R18: English only. No language suffix exists; a translated syllabus is a
+second census hit and stops under HS-ST2 while inactive.
+
+The census runs at S1-2 and CHEAPLY at every step start (one directory
+listing + one glob-class filter). The T2 decision over the census —
+CURRENT/SUPERSEDED resolution, HS-ST2..HS-ST6 — is
+blueprint_core.resolve_syllabus_sources; the activation predicate is
+blueprint_core.resolve_transition; full rules and truth tables live at
+Framework_PYQDraft S2-0a. Facts (census) and rulings (T2) are deliberately
+separate functions so no step re-implements either.
+
+DRIFT GUARD (§3.7 — every step reading exam_config AND project files:
+PYQSort, PYQCount, MockTestAnalyse, MockBlueprint, MockTestCreate,
+ScopedBlueprint, NotesBlueprint, MockDeliver; the PYQ steps loading this
+core inherit the contract HERE, the rest via their own specs as their
+Release B/C bumps land):
+  re-run census + blueprint_core.resolve_transition on the current xlsx
+  and compare with exam_config.syllabus_transition — DECLARATION FIELDS
+  ONLY, via blueprint_core.transition_drift (R29: n_new in the count
+  manifest and the delivery-manifest cursor are their owners' legitimate
+  writes and can NEVER register as drift). Divergence — the xlsx edited
+  after Step 2a (including the R17 Effective-From postponement path) or
+  syllabus files added/removed — => HS-ST10 naming both sides and
+  instructing a PYQDraft re-run. A keys-absent exam has no block and an
+  empty census delta: the guard is structurally silent for the legacy
+  estate (P1).
+
+STALENESS (§3.10): PYQDraft writes syllabus_sha256 (hash of the taxonomy's
+source file) into taxonomy_draft.json. Every consumer that builds on the
+taxonomy (MockBlueprint, MockTestCreate, ScopedBlueprint, NotesBlueprint)
+compares it to the resolved current syllabus file at run time via
+blueprint_core.check_syllabus_staleness => mismatch = HS-ST7 at the FIRST
+consumer of a stale artefact. Artefacts WITHOUT the field (legacy) are
+exempt — no retro-invalidation; the lock arms on the first PYQDraft re-run
+under Framework_PYQDraft v1.2.0. The exact stop templates are the engine's
+§3.11 register (blueprint_core HS_ST1..HS_ST11 — cited, never restated).
 ```
 
 ---
@@ -2159,4 +2238,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.7
+# END OF Framework_PYQCore v1.8

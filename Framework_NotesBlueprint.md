@@ -1,4 +1,22 @@
-# Framework_NotesBlueprint v3.2.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.3.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection). Version renumbered from the GAP's planned
+#   v3.2.0 to v3.3.0 per the rev 4.6 rebase: the GAP was written against
+#   corpus 2026.08.31.2, and GAP-2026-09-01-RECALL-CONTRACT already shipped
+#   v3.2.0 in 2026.09.01.1. §2 S-1 gains CURRENT-FILE RESOLUTION: when the
+#   exam's exam_config.syllabus_transition block reports an ACTIVE transition,
+#   the syllabus NB parses is ALWAYS the resolved CURRENT file
+#   ([ExamCode]_Syllabus_<EF>.<ext> — census corpus_io.syllabus_file_census +
+#   decision blueprint_core.resolve_syllabus_sources); SUPERSEDED files are
+#   never parsed by NB. INACTIVE + >= 2 syllabus-named files => HS-ST2 (R3,
+#   the R26 reactive discovery). NB joins the §3.7 drift guard (declaration
+#   fields only, blueprint_core.transition_drift => HS-ST10) and the §3.10
+#   staleness contract (blueprint_core.check_syllabus_staleness => HS-ST7;
+#   legacy artefacts exempt). §1 scope note: DELETED topics of a superseded
+#   syllabus version never enter notes — structurally, because the CURRENT
+#   syllabus is the master filter (§1.1) and NB now provably parses CURRENT.
+#   A keys-absent exam with <= 1 syllabus-named file is byte-identical to
+#   v3.2.0 (§7 P1).
 # v3.2.0 — 2026-09-01 — REGISTRY CARRY-OVER HAS AN ENGINE (GAP-2026-09-01-RECALL-CONTRACT;
 #   notes_core v2.12). §7 promised "existing unit states preserved" on a re-run, but
 #   O-3 writes the registry through notes_core.registry_init, which sets every unit
@@ -128,6 +146,13 @@
    names, which are the same taxonomy PYQSort stamped the headers from, so exact
    agreement is the expectation and any residual drift is REPORTED (§7 BANK-MATCH).
 
+4. SYLLABUS-TRANSITION SCOPE (v3.3.0 — GAP-2026-09-01 Release A): rule 1's
+   "CURRENT syllabus" means the S-1-resolved CURRENT file when a transition
+   is declared active. DELETED topics of a superseded syllabus version
+   therefore never enter notes — not by a filter, but structurally: they are
+   absent from the document rule 1 filters against (the same L1 guarantee
+   the Mock pipeline relies on).
+
 ## §1A — TAXONOMY CONSUMER CONTRACT (v3.0.0; mirrors Framework_Blueprint
 ##        RULES 1/2/2a — Step 5 is the single source of truth; Step 5 UNTOUCHED)
 A-1 READ THE MANIFEST. NB MUST notes_core.load_subtopic_manifest(
@@ -164,7 +189,23 @@ A-4 STALENESS LINK. taxonomy_ref = notes_core.taxonomy_ref_for(manifest_path)
 
 ## §2 — INPUT PARSING (syllabus + pattern; Claude-driven per S-1/S-2)
 S-1 Syllabus: accept pdf or docx in any official layout. Its role is SCOPE
-    MATCHING ONLY (v3.0.0) — the manifest owns names and identity (§1A). Claude
+    MATCHING ONLY (v3.0.0) — the manifest owns names and identity (§1A).
+    CURRENT-FILE RESOLUTION (v3.3.0 — GAP-2026-09-01 §3): before parsing,
+    run the syllabus file census (corpus_io.syllabus_file_census over
+    project Files) and read exam_config.syllabus_transition (written solely
+    by PYQDraft, R29). ACTIVE transition => the document parsed here is the
+    resolved CURRENT file — the census candidate whose
+    [ExamCode]_Syllabus_<YYYY-MM> date equals effective_from
+    (blueprint_core.resolve_syllabus_sources; any T2 stop it returns is
+    raised verbatim) — and SUPERSEDED files are NEVER parsed by NB.
+    INACTIVE (or no block) with >= 2 syllabus-named files => HS-ST2 — the
+    framework cannot choose which file is the syllabus (R3; discovered
+    reactively per R26). INACTIVE with <= 1 file: exactly as before, any
+    name (P1). DRIFT GUARD (§3.7): NB re-runs census +
+    blueprint_core.resolve_transition on the current xlsx and compares
+    DECLARATION FIELDS ONLY with the exam_config block
+    (blueprint_core.transition_drift); divergence => HS-ST10 instructing a
+    PYQDraft re-run. Claude
     extracts the syllabus's Subject->Topic->Subtopic rows and norm-matches each
     manifest subtopic against them (syllabus_provenance.norm per component,
     full-tuple first, then name-within-matching-parents) to decide IN or OUT of
@@ -190,6 +231,14 @@ S-3 PYQ Analysis doc is NO LONGER required (owner decision 5i). Counts come from
 S-4 syllabus_sha256 over the raw syllabus bytes AND taxonomy_ref over the
     manifest bytes (§1A A-4) are written to the registry. A later change to
     EITHER hash marks all units STALE for incremental re-run (§7).
+    STALENESS vs the RESOLVED CURRENT FILE (v3.3.0 — §3.10): in
+    active-transition mode NB additionally compares the taxonomy artefact's
+    syllabus_sha256 (taxonomy_draft / manifest lineage, written by PYQDraft
+    v1.2.0+) against corpus_io.file_sha256 of the S-1-resolved CURRENT file
+    via blueprint_core.check_syllabus_staleness — a mismatch is HS-ST7
+    ("re-run PYQDraft before this step"), never a silent parse of a stale
+    taxonomy against a newer syllabus. Legacy artefacts without the field
+    are exempt (no retro-invalidation).
 
 ## §3 — SORTED-PYQ SOURCE RESOLUTION (SourceMap, folded in)
 Priority order (notes_blueprint.resolve_sources):
@@ -516,4 +565,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.2.0
+# END OF Framework_NotesBlueprint v3.3.0

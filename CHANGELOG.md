@@ -1,5 +1,139 @@
 # Changelog
 
+## 2026.09.02.2 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B
+**Crosswalk, Era & Labeling (GAP §4).** The framework can now COMPARE the
+two syllabus documents Release A resolves, and tell the truth about every
+historical question. Subjects are matched by CONTENT similarity
+(reconcile_taxonomy.similarity — one rulebook), never by name (E29/E67);
+split parents score by top-half mean so a unit dividing across two current
+homes is never orphaned. PYQDraft v1.3.0 builds the crosswalk DRAFT (stored
+inside exam_config — the closed deliverable set is unchanged); PYQScan
+v1.5.0 suppresses proposals matching DELETED nodes (logged); PYQApprove
+v1.2.0 approves node + B1 subject states, runs R30 in both directions
+(E58 reinstate / E59 extend) and finalizes lexicons with similarity-tolerant
+F-1 subtraction in the same write; PYQSort v1.21.0 assigns syllabus eras
+(E37 boundary, E63 multi-version routing, W-EF1, D-3 era-suspect) and labels
+OOS questions with the OLD triple VERBATIM under an internal-only sentinel
+(L-1/R24; R20: nothing is ever deleted); PYQCount v1.7 keeps per-era counts,
+writes n_new in SITTINGS, and enforces the always-on HS-ST9 reconciliation;
+PYQExplain v2.22 explains OOS questions normally; MockTestAnalyse v2.57
+(requires PYQSort >= v1.21.0) mines content era-filtered, keeps OOS in the
+style signature only (R9), takes sample papers as style-only, and marks
+template vacuums for Release C. Engines: syllabus_provenance CLUSTER XW
+(build/approve/finalize/reevaluate), blueprint_core Release B surface
+(OUT_OF_SYLLABUS, era windows, labeling, n_new, reconcile_counts).
+routes.json closes the new reconcile_taxonomy dependency everywhere
+syllabus_provenance is routed. Fixtures: 124 (was 100) — FX-XW rows incl.
+real-facts anchors from both fixture exams. Disclosed interpretations:
+similarity floors (0.5 subject / 0.6 map) are structural engine constants,
+flag floor cites DUP_SIMILARITY; the crosswalk lives inside exam_config
+(no new deliverable files); subject-state confirmation rides the EXISTING
+approval pass via approve_crosswalk overrides. Legacy/inactive exams are
+byte-identical at every step (P1 holds).
+
+Affected: Framework_PYQDraft v1.3.0, Framework_PYQScan v1.5.0,
+Framework_PYQApprove v1.2.0, Framework_PYQSort v1.21.0, Framework_PYQCount
+v1.7, Framework_PYQExplain v2.22, Framework_MockTestAnalyse v2.57,
+blueprint_core.py, syllabus_provenance.py, regression_pyq_fixtures.py,
+routes.json, VERSION, CHANGELOG.md, DEPLOY_NOTES.md, MANIFEST.json,
+SPEC_MANIFEST.json, SPEC_SECTIONS.json, SHA256SUMS.txt.
+
+## 2026.09.02.1 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A: syllabus-change declaration & detection
+
+**Release A of three (A Declaration & Detection → B Crosswalk/Era/Labeling →
+C Transition Allocation). Allocation is UNCHANGED by this release.** Rebased to
+baseline 2026.09.01.1 per the operator-approved **rev 4.6 candidate**: the GAP
+was written against 2026.08.31.2, and GAP-2026-09-01-RECALL-CONTRACT shipped in
+between — the only collision was Framework_NotesBlueprint, whose planned
+v3.2.0 was already taken and is renumbered to **v3.3.0** (contents exactly the
+GAP's Release-A NotesBlueprint scope). All 13 other affected specs matched
+their GAP base versions.
+
+### The defect this closes (§1 of the GAP)
+
+The corpus had no concept of a syllabus VERSION. PYQDraft S2-1 read ONE
+syllabus document; nothing recorded which, retained a previous version, or
+could diff two. A syllabus change was invisible until Step 6 classified whole
+new units Zero-PYQ ("rarely tested") — on the driving exam a ~16 Q/mock silent
+shortfall against equal-share expectation, with every audit gate green. Even a
+fully informed operator had no field, file convention, or gate through which
+to tell the framework anything.
+
+### What Release A ships
+
+- **Declaration channel** (Framework_PYQDraft v1.2.0, NEW S2-0a): two OPTIONAL
+  Overview keys — `Syllabus Changed` / `New Syllabus Effective From` — drive
+  the R1 activation predicate; SC=Yes with unusable EF is HS-ST1 (R2, the only
+  declaration-VALUE stop). Excel datetime EF cells coerce before validation
+  (R4); truth table T1 in the spec; near-miss keys reported; duplicate keys
+  WARN. Third optional key `Zero History Approved` (§3.5 A1) parsed by
+  PYQDraft — R29 single-writer preserved.
+- **File census + CURRENT/SUPERSEDED resolution** (Framework_PYQCore v1.8
+  S1-2/S1-2a; corpus_io Cluster SYL): syllabus/sample-paper census, naming
+  `[ExamCode]_Syllabus_<YYYY-MM>.<ext>` enforced only at ≥ 2 files (R1), truth
+  table T2, HS-ST2..HS-ST6. INACTIVE + ≥ 2 syllabus-named files stops
+  REACTIVELY (R26 — accepted, documented behaviour change; 30-second fix).
+- **exam_config.syllabus_transition block** (PYQDraft S2-5): declaration-
+  derived fields only, sole writer PYQDraft, ABSENT for keys-absent exams —
+  the §7 P1 byte-identity anchor.
+- **Traces** (§3.6): T1 rows 4/5/7 produce exactly one console line, the
+  inactive block, and one footer line (Framework_DeliveryFooter v1.31, NEW
+  §FOOTER-SYL, engine-sourced via bc.syllabus_footer_lines). Nothing else
+  prints; R19 zero student-visible change.
+- **Dial registry** (§3.9, R23): seven dials with Overview override keys;
+  factory values pinned ONLY in blueprint_core.TRANSITION_DIALS (ONE-RULEBOOK;
+  §2.1e whitelists exactly those seven numerals); invalid override → factory +
+  trace, never a stop (E24).
+- **Drift guard** (§3.7) + **staleness lock** (§3.10): declaration-fields-only
+  comparison → HS-ST10; taxonomy_draft gains `syllabus_sha256` → HS-ST7 at
+  consumers, legacy artefacts exempt. NotesBlueprint v3.3.0 wires
+  CURRENT-file resolution, the drift guard and the staleness check; DELETED
+  topics never enter notes (structural — CURRENT is the master filter).
+- **Symptom detector** (§3.8, R25-scoped) as engine function
+  blueprint_core.symptom_detector — fires ONLY on keys-present-but-inactive
+  exams; keys-absent exams can never newly stop. Its MockBlueprint pre-flight
+  call site is wired with Release C (Framework_Blueprint v1.60.0), matching
+  the GAP's spec-bump schedule.
+- **Engines**: blueprint_core Cluster SYLLABUS ERA (resolve_transition,
+  coerce_effective_from, resolve_syllabus_sources, resolve_dials, drift/
+  staleness/detector, the full §3.11 HS-ST1..11 + W-EF1/2 template register);
+  corpus_io Cluster SYL (census + file_sha256). regression_pyq_fixtures gains
+  the FX-ST Release-A suite — E01–E27, E53, E54, E66-parse, P1/P2/P3 at
+  engine level, and the §2.1e literal-scan (FX-ST-LS) proving no numeral
+  outside the dial-default whitelist and no exam identifier in the new code. Release A was additionally verified END TO END against the
+  validation exam's REAL files (both dated syllabus PDFs + the 2026 paper):
+  census, activation, T2 resolution, drift, staleness, footer and the P1
+  keys-absent control all hold on real bytes.
+
+### Interpretations recorded at implementation (disclosed, not silent)
+
+1. Dial factory VALUES live in the engine only; the spec table lists ids +
+   override keys and cites `bc.TRANSITION_DIALS` (GATE-AT-SOURCE law 3 /
+   §2.1e — the GAP's table remains the design source).
+2. Dial validation ranges (E24 "-1, 200%, abc" invalid): count dials integer
+   ≥ 1; percent dials 0 < v ≤ 100.
+3. §3.8's call site (MockBlueprint pre-flight) and §5.9's ACTIVE-mode footer
+   lines land with Release C, exactly as the GAP's AFFECTED-SPECS release
+   letters assign them; the engine functions ship now.
+4. The GAP header marks PYQDraft "(A, B)"; the crosswalk-DRAFT half of its
+   scope ships with Release B under a further version bump.
+5. Naming match (`[ExamCode]_Syllabus_<YYYY-MM>.<ext>`) is CASE-INSENSITIVE
+   end to end — found in real-exam verification (the validation exam's own
+   files): the census is casefold per §3.4, so a census-nominated file must
+   never false-stop HS-ST4 on letter case alone; structural stops (HS-ST4
+   malformation, HS-ST5 same-date ambiguity) are unchanged and fixtured.
+
+**P1 (legacy silence):** an exam with both keys absent and ≤ 1 syllabus-named
+file is byte-identical to 2026.09.01.1 at every step — no block, no trace, no
+footer line, detector silent (FX-ST-01/53), drift guard structurally empty.
+
+Affected files: `Framework_PYQDraft.md` v1.2.0, `Framework_PYQCore.md` v1.8,
+`Framework_NotesBlueprint.md` v3.3.0, `Framework_DeliveryFooter.md` v1.31,
+`blueprint_core.py`, `corpus_io.py`, `regression_pyq_fixtures.py`, `VERSION`,
+`CHANGELOG.md`, `DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`,
+`SPEC_SECTIONS.json`, `SHA256SUMS.txt`. Release B (crosswalk, era, labeling)
+begins only after operator confirmation that Release A is merged.
+
 ## 2026.09.01.1 — GAP-2026-09-01-RECALL-CONTRACT: the Recall Check becomes a bank-derived, difficulty-gated contract
 
 **Notes pipeline only (NB §7 / NC / NA). Steps 5–11 untouched. Additive throughout:** no

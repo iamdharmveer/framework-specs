@@ -1,4 +1,5 @@
-# Framework_PYQCount v1.6 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.7 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.7 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: per-era counts, n_new, HS-ST9
 # v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT. S5-1's same-paper
 #   duplicate gate keyed on (date, session) and its regex REQUIRED the session token,
 #   while PYQSort's own filename contract legitimately emits SESSION-LESS names
@@ -1434,4 +1435,18 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.6
+
+## S5-SYL — PER-ERA COUNTS & RECONCILIATION (v1.7 — GAP-2026-09-01 §4.6,
+## ACTIVE mode; sole writer of n_new and the era count fields, R29)
+
+Counts are kept PER ERA (old/new) alongside the existing totals. The count
+manifest gains `n_new = bc.n_new_sittings(<one YYYY-MM per sitting>, EF)` —
+SITTINGS, not calendar years (two shifts on one day are two entries).
+ALWAYS-ON gate while ACTIVE: for every paper AND for the corpus,
+`bc.reconcile_counts(paper, total, in_syllabus, out_of_syllabus)` — any
+imbalance is HS-ST9 (R20 enforced by a gate, not by intention). The
+per-section disclosure table gains an OOS-share line (count and % of that
+section's historical questions labeled OUT_OF_SYLLABUS). Inactive/legacy:
+byte-identical to v1.6.
+
+# END OF Framework_PYQCount v1.7

@@ -652,6 +652,316 @@ def validate_provenance(taxonomy, items, subjects, group_topic_map,
 # ══════════════════════════════════════════════════════════════════
 # SELF-TEST (2026-08-30 — E5 / C9 coverage)
 # ══════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER XW — TWO-SYLLABUS DIFF & CROSSWALK
+# (GAP-2026-09-01-SYLLABUS-TRANSITION §4.1/§4.2 — Release B)
+#
+# WHY THIS CLUSTER EXISTS
+#   Release A resolves WHICH file is the CURRENT syllabus; this cluster makes
+#   the two documents COMPARABLE. Subjects are matched by SUBTOPIC-SET
+#   SIMILARITY (norm() + reconcile_taxonomy.similarity — the corpus's ONE
+#   similarity rulebook), NEVER by subject name: a renamed subject must map
+#   (E29), and two sections sharing a NAME but not content must NOT auto-map
+#   (E67). Old atoms map to CURRENT atoms only WITHIN their R34 scope; no
+#   in-scope home => DELETED even when similar content exists elsewhere in
+#   the same exam (E79). Every ruling this encodes: R11, R28, R30, R33-facts,
+#   R34/D1, B1, F-1, F-2-denominator note, G-1.
+#
+# EXAM-INDEPENDENCE (§2.1): no exam constant below. The three similarity
+#   thresholds are STRUCTURAL implementation constants (exam-free, in [0,1]),
+#   whitelisted by the FX-ST-LS literal scan; XW_FLAG_SIMILARITY cites
+#   reconcile_taxonomy.DUP_SIMILARITY (one rulebook — borderline = below the
+#   corpus's own near-duplicate confidence).
+# SINGLE-WRITER (R29/§6.1): crosswalk DRAFT writer = PYQDraft; APPROVAL
+#   writer = PYQApprove (approve_crosswalk / finalize_lexicons /
+#   reevaluate_suppressions run there). This cluster computes only.
+# ════════════════════════════════════════════════════════════════════════════
+
+XW_SUBJECT_SIMILARITY = 0.5   # correspondent floor (subtopic-SET mean score)
+XW_MAP_SIMILARITY = 0.6       # atom mappable floor; below (in scope) => DELETED
+XW_STATES = ("RETAINED", "MOVED", "MERGED", "SPLIT", "NEW", "DELETED")
+
+
+def _xw_similarity(a, b):
+    from reconcile_taxonomy import similarity
+    return similarity(a, b)
+
+
+def _xw_flag_floor():
+    from reconcile_taxonomy import DUP_SIMILARITY
+    return DUP_SIMILARITY
+
+
+def _atom_phrases(name):
+    """F-1 matching is at NORMALIZED-PHRASE level via norm(): the whole
+    normalized name plus its delimiter-separated concept phrases."""
+    out = [norm(name)]
+    for part in re.split(r"[;,/]| and ", str(name)):
+        p = norm(part)
+        if p and p not in out:
+            out.append(p)
+    return out
+
+
+def subject_correspondents(old_tax, new_tax,
+                           threshold=XW_SUBJECT_SIMILARITY):
+    """§4.1: per OLD subject, its CURRENT-side correspondents by subtopic-set
+    similarity — for each old atom name, the best similarity against the new
+    subject's atom names; subject score = mean of bests. Name plays NO role
+    in either direction (E29/E67). Returns {old_subject: [(new_subject,
+    score) desc]}, empty list = orphan (E34/E86)."""
+    new_names = {s: [st for t in ts.values() for st in t]
+                 for s, ts in new_tax.items()}
+    out = {}
+    for os_, ots in old_tax.items():
+        old_atoms = [st for t in ots.values() for st in t]
+        scored = []
+        for ns, natoms in new_names.items():
+            if not old_atoms or not natoms:
+                continue
+            bests = sorted((max(_xw_similarity(a, b) for b in natoms)
+                            for a in old_atoms), reverse=True)
+            # Top-half mean of per-atom bests: a genuine correspondent OWNS a
+            # substantial fraction of the old subject's atoms, and a subject
+            # that SPLITS across two current homes must not be orphaned by
+            # each half diluting the other's mean (driving-exam fact: the old
+            # evolution+behaviour unit splits into two current units). The
+            # unrelated-subject guard (E67) is unaffected: without a truly
+            # owned half, even the top-half mean stays low.
+            k = (len(bests) + 1) // 2
+            score = sum(bests[:k]) / k
+            if score >= threshold:
+                scored.append((ns, round(score, 4)))
+        out[os_] = sorted(scored, key=lambda x: (-x[1], x[0]))
+    return out
+
+
+def crosswalk_scopes(correspondents, new_subjects, subject_sections=None):
+    """R34 as made computable by D1: scope(o) = all CURRENT subjects sharing
+    ANY section (R27 resolution on the CURRENT side only) with o's
+    correspondents. subject_sections {new_subject: set(sections)} | None —
+    None = uniform exam => every correspondent shares all sections => scope =
+    the FULL current subject set (byte-identity for uniform exams, P18).
+    Orphan old subject => scope = set() => all its atoms OOS (E86)."""
+    out = {}
+    for os_, corr in correspondents.items():
+        if not corr:
+            out[os_] = set()
+        elif subject_sections is None:
+            out[os_] = set(new_subjects)
+        else:
+            secs = set()
+            for ns, _ in corr:
+                secs |= set(subject_sections.get(ns, ()))
+            out[os_] = {s for s in new_subjects
+                        if set(subject_sections.get(s, ())) & secs}
+    return out
+
+
+def crosswalk_build(old_tax, new_tax, *, exam_code, old_sha256, new_sha256,
+                    era_window, dials, subject_sections=None):
+    """§4.1/§4.2 DRAFT crosswalk (sole writer of the artefact: PYQDraft).
+    Node states per OLD atom: RETAINED (in-scope match, same subject
+    correspondent + same-topic home), MOVED (in-scope match, different home),
+    SPLIT (>= 2 near-equal in-scope targets), MERGED (single target shared
+    with other old atoms), DELETED (no in-scope match >= XW_MAP_SIMILARITY —
+    any out-of-scope best is recorded in the rationale as suppressed, R34).
+    subject_states per B1 roll-up with atom-fraction evidence (dial D-7;
+    boundary at exactly D-7 uses >= and is flagged, E78). Lexicons here are
+    PROVISIONAL (G-1: finalized only at approval). approved: False."""
+    d7 = (dials or {}).get('D-7', 80.0) / 100.0
+    corr = subject_correspondents(old_tax, new_tax)
+    scopes = crosswalk_scopes(corr, list(new_tax), subject_sections)
+    new_atoms_all = [(s, t, st) for s, ts in new_tax.items()
+                     for t, sts in ts.items() for st in sts]
+    nodes, inbound = [], {}
+    for os_, ots in old_tax.items():
+        primary = corr[os_][0][0] if corr[os_] else None
+        for ot, osts in ots.items():
+            for ost in osts:
+                cands = [(trip, _xw_similarity(ost, trip[2]))
+                         for trip in new_atoms_all if trip[0] in scopes[os_]]
+                cands.sort(key=lambda x: (-x[1], x[0]))
+                best = cands[0] if cands and cands[0][1] >= XW_MAP_SIMILARITY \
+                    else None
+                node = {'old_id': (os_, ot, ost), 'similarity': None,
+                        'rationale': '', 'state': None, 'new_ids': []}
+                if best is None:
+                    node['state'] = 'DELETED'
+                    node['lexicon'] = _atom_phrases(ost)     # provisional
+                    oos_best = max(((trip, _xw_similarity(ost, trip[2]))
+                                    for trip in new_atoms_all
+                                    if trip[0] not in scopes[os_]),
+                                   key=lambda x: x[1], default=(None, 0.0))
+                    if oos_best[0] and oos_best[1] >= XW_MAP_SIMILARITY:
+                        node['rationale'] = ("out-of-scope match suppressed: "
+                                             f"{oos_best[0][0]}")
+                else:
+                    node['similarity'] = round(best[1], 4)
+                    targets = [c for c in cands
+                               if c[1] >= XW_MAP_SIMILARITY
+                               and best[1] - c[1] <= 0.05][:2]
+                    node['new_ids'] = [t[0] for t in targets]
+                    if len(targets) >= 2:
+                        node['state'] = 'SPLIT'
+                    elif best[0][0] == primary and \
+                            _xw_similarity(ot, best[0][1]) >= XW_MAP_SIMILARITY:
+                        node['state'] = 'RETAINED'
+                    else:
+                        node['state'] = 'MOVED'
+                    if best[1] < _xw_flag_floor():
+                        node['rationale'] = (node['rationale'] +
+                                             ' low-similarity: spot-check.'
+                                             ).strip()
+                    inbound.setdefault(best[0], []).append(node)
+                nodes.append(node)
+    for tgt, ns in inbound.items():
+        if len(ns) >= 2:
+            for n in ns:
+                if n['state'] in ('RETAINED', 'MOVED'):
+                    n['state'] = 'MERGED'
+    mapped_new = {t for n in nodes for t in n['new_ids']}
+    new_only = [t for t in new_atoms_all if t not in mapped_new]
+    # B1 subject-state roll-up + evidence
+    subject_states = {}
+    for ns in new_tax:
+        atoms = [t for t in new_atoms_all if t[0] == ns]
+        frac_new = (sum(1 for a in atoms if a in new_only) / len(atoms)
+                    if atoms else 1.0)
+        st = 'NEW' if frac_new >= d7 else 'RETAINED'
+        subject_states[ns] = {'side': 'current', 'state': st,
+                              'frac_new': round(frac_new, 4),
+                              'boundary_flag': abs(frac_new - d7) < 1e-9}
+    for os_ in old_tax:
+        mine = [n for n in nodes if n['old_id'][0] == os_]
+        frac_del = (sum(1 for n in mine if n['state'] == 'DELETED')
+                    / len(mine) if mine else 0.0)
+        if frac_del >= d7:
+            st = 'DELETED'
+        else:
+            counts = {}
+            for n in mine:
+                if n['state'] != 'DELETED':
+                    counts[n['state']] = counts.get(n['state'], 0) + 1
+            st = max(counts, key=counts.get) if counts else 'DELETED'
+        subject_states[os_] = {'side': 'old', 'state': st,
+                               'frac_deleted': round(frac_del, 4),
+                               'boundary_flag': abs(frac_del - d7) < 1e-9}
+    # R28 materiality (MOVED/MERGED/SPLIT count ZERO)
+    n_new_a = len(new_only)
+    n_del_a = sum(1 for n in nodes if n['state'] == 'DELETED')
+    union = len(nodes) + n_new_a
+    pct = 100.0 * (n_new_a + n_del_a) / union if union else 0.0
+    subj_flip = any(v['state'] in ('NEW', 'DELETED')
+                    for v in subject_states.values())
+    return {'exam_code': exam_code, 'nodes': nodes,
+            'new_atoms': [{'id': t, 'state': 'NEW'} for t in new_only],
+            'subject_states': subject_states,
+            'scope': {k: sorted(v) for k, v in scopes.items()},
+            'correspondents': corr,
+            'materiality': {'material': bool(subj_flip or pct >=
+                            (dials or {}).get('D-2', 5.0)),
+                            'pct': round(pct, 2),
+                            'subject_new_or_deleted': subj_flip},
+            'approved': False, 'approver': None, 'date': None,
+            'old_sha256': old_sha256, 'new_sha256': new_sha256,
+            'era_window': era_window}
+
+
+def approve_crosswalk(xw, approver, date, state_overrides=None,
+                      subject_state_overrides=None, d7_pct=None):
+    """PYQApprove's write (sole approval writer). state_overrides
+    {old_id_tuple: state} applies the human look at the borderline NODE
+    cases; B1's PROPOSED subject roll-ups are then RECOMPUTED on the old
+    side from the approved node states (the roll-up is derived, never
+    guessed), and subject_state_overrides {subject: state} applies the
+    approval-pass confirmation the B1 rule mandates (E75/E78: the borderline
+    cases are exactly where the human look belongs — no new approval step is
+    created). In the SAME write G-1 finalizes every lexicon from the
+    approved states (finalize_lexicons). Returns a new dict."""
+    import copy
+    out = copy.deepcopy(xw)
+    for n in out['nodes']:
+        ov = (state_overrides or {}).get(tuple(n['old_id']))
+        if ov:
+            n['state'] = ov
+            if ov != 'DELETED':
+                n.pop('lexicon', None)
+    d7 = (d7_pct if d7_pct is not None else 80.0) / 100.0
+    olds = {n['old_id'][0] for n in out['nodes']}
+    for os_ in olds:
+        mine = [n for n in out['nodes'] if n['old_id'][0] == os_]
+        frac = sum(1 for n in mine if n['state'] == 'DELETED') / len(mine)
+        if frac >= d7:
+            st = 'DELETED'
+        else:
+            counts = {}
+            for n in mine:
+                if n['state'] != 'DELETED':
+                    counts[n['state']] = counts.get(n['state'], 0) + 1
+            st = max(counts, key=counts.get) if counts else 'DELETED'
+        rec = out['subject_states'].setdefault(os_, {'side': 'old'})
+        rec.update({'state': st, 'frac_deleted': round(frac, 4),
+                    'boundary_flag': abs(frac - d7) < 1e-9})
+    for s, st in (subject_state_overrides or {}).items():
+        out['subject_states'].setdefault(s, {})['state'] = st
+        out['subject_states'][s]['operator_override'] = True
+    finalize_lexicons(out)
+    out['approved'], out['approver'], out['date'] = True, approver, date
+    return out
+
+
+def finalize_lexicons(xw):
+    """G-1 + F-1 (in place, approval-time): each DELETED node's lexicon is
+    rebuilt from its own phrases with RETAINED-TERM SUBTRACTION — every
+    normalized phrase also owned by ANY non-deleted CURRENT atom within the
+    node's R34 scope is dropped (deleted-ONLY vocabulary; the driving exam's
+    'biological clock' collision is the anchor, E88). A lexicon that empties
+    entirely is CORRECT degradation, not an error (L1 remains the structural
+    guarantee). Downstream (L4/BV-DEL, Release C) reads ONLY these."""
+    for n in xw['nodes']:
+        if n['state'] != 'DELETED':
+            n.pop('lexicon', None)
+            continue
+        scope = set(xw['scope'].get(n['old_id'][0], ()))
+        retained = set()
+        for m in xw['nodes']:
+            if m['state'] != 'DELETED':
+                for t in m['new_ids']:
+                    if t[0] in scope:
+                        retained.update(_atom_phrases(t[2]))
+        for a in xw['new_atoms']:
+            if a['id'][0] in scope:
+                retained.update(_atom_phrases(a['id'][2]))
+        flag = _xw_flag_floor()
+        n['lexicon'] = [
+            p for p in _atom_phrases(n['old_id'][2])
+            if p not in retained
+            and not any(_xw_similarity(p, r) >= flag for r in retained)]
+    return xw
+
+
+def reevaluate_suppressions(suppressed, draft_xw, approved_xw):
+    """R30, runs BEFORE the approve step completes: if approval changed ANY
+    node's DELETED state, (a) suppressed proposals whose matched node is no
+    longer DELETED are REINSTATED (enter the taxonomy via the normal
+    refinement path, E58); (b) nodes newly DELETED are returned so matches
+    near them join the suppression record (E59). suppressed:
+    [{'proposal','matched_deleted_node','score'}]."""
+    def _del(xw):
+        return {tuple(n['old_id']) for n in xw['nodes']
+                if n['state'] == 'DELETED'}
+    was, now = _del(draft_xw), _del(approved_xw)
+    reinstate = [s for s in (suppressed or [])
+                 if tuple(s['matched_deleted_node']) in (was - now)]
+    return {'reinstate': reinstate,
+            'newly_deleted': sorted(now - was)}
+
+# END CLUSTER XW
+# ════════════════════════════════════════════════════════════════════════════
+
+
 def _self_test():
     ok, fail = 0, []
 

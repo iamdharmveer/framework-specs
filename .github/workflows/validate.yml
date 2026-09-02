@@ -21,7 +21,7 @@ jobs:
         # dormant test is exactly where a mutation survivor could hide — the
         # mutation gate below is only meaningful if CI runs the same test
         # surface the local verification env runs.
-        run: pip install python-docx matplotlib pillow numpy
+        run: pip install python-docx matplotlib pillow numpy rdkit openpyxl
       - name: Manifest must be up to date
         run: |
           python3 gen_manifest.py

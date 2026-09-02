@@ -1,4 +1,27 @@
-# Framework_PYQDraft v1.1.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# Framework_PYQDraft v1.3.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# v1.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: S2-0b crosswalk DRAFT
+# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection; rebased to corpus 2026.09.01.1 per rev 4.6). NEW
+#   S2-0a SYLLABUS-TRANSITION RESOLUTION: two OPTIONAL Overview keys (Syllabus
+#   Changed / New Syllabus Effective From) drive the R1 activation predicate
+#   (engine: blueprint_core Cluster SYLLABUS ERA — resolve_transition,
+#   coerce_effective_from with Excel date coercion per R4); file census +
+#   CURRENT/SUPERSEDED resolution (corpus_io syllabus_file_census /
+#   sample_paper_census + bc.resolve_syllabus_sources, Truth Table T2);
+#   HS-ST1..HS-ST6 wired at 2a from the engine's §3.11 register; §3.6 traces
+#   (one console line, the §3.5 exam_config block, one DeliveryFooter line —
+#   T1 rows 4/5/7 only); §3.9 dial registry (bc.resolve_dials — factory values
+#   engine-pinned, invalid override => factory + trace, never a stop); §3.5 A1
+#   'Zero History Approved' key (bc.parse_zero_history_approved — R29 keeps
+#   PYQDraft the sole exam_config writer); duplicate-key WARN + near-miss key
+#   listing (bc.overview_duplicate_keys / bc.near_miss_keys). S2-4 taxonomy
+#   draft gains syllabus_sha256 (§3.10 staleness lock — hash of the taxonomy's
+#   source file: CURRENT in active mode; the single file otherwise; absent for
+#   legacy chat-pasted input). S2-5 schema gains the OPTIONAL
+#   syllabus_transition block (ABSENT for keys-absent exams — §7 P1
+#   byte-identity; SOLE WRITER PYQDraft, immutable until re-run, R29). An exam
+#   with both keys absent and <= 1 syllabus-named file is byte-identical to
+#   2026.09.01.1 (P1); the crosswalk DRAFT (§4.2) ships with Release B.
 # v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (D1) NEW S2-0
 #   INTAKE RULE: a HELD approval record's re_derive_directive is consumed as
 #   HARD constraints (the memoryless-re-run loop hazard closed); a CLEAN /
@@ -82,10 +105,241 @@ each residue must be either resolved or consciously re-declared, never
 silently dropped.
 ```
 
+### S2-0a — SYLLABUS-TRANSITION RESOLUTION (v1.2.0 — GAP-2026-09-01 §3; runs
+###          WITH the S1-2 file inventory, BEFORE S2-1 syllabus extraction)
+
+```
+WHY THIS SECTION EXISTS. The corpus had no concept of a syllabus VERSION:
+S2-1 read ONE syllabus document and nothing recorded which, retained a
+previous version, or could diff two. This section gives the operator a
+DECLARATION channel and gives the framework the census that decides WHICH
+file is the syllabus. It changes NO allocation. An exam whose Overview tab
+never carries the keys AND holds at most one syllabus-named file behaves
+byte-identically to the pre-v1.2.0 corpus (proof P1); the only new behaviour
+such a legacy exam can ever see is HS-ST2 when a SECOND syllabus-named file
+strays into its project Files (accepted reactive discovery, R26 — the fix is
+a 30-second file deletion).
+
+DECLARATION (two OPTIONAL Overview-tab key-value rows; the existing S2-2a
+parser `dict(zip(...))` ignores unknown keys, so absence is cost-free):
+
+  Key (exact string after strip)   | Value
+  ---------------------------------+-----------------------------------------
+  Syllabus Changed                 | "Yes"/"No" — str(v).strip().casefold()
+  New Syllabus Effective From      | YYYY-MM — month of the FIRST EXAM
+                                   | CONDUCTED under the new syllabus
+
+ACTIVATION (R1, permissive): transition_active <=> SC normalizes to "yes"
+AND EF parses to valid YYYY-MM. Every other combination => INACTIVE — the
+framework behaves exactly as today. The ONE declaration-VALUE hard stop:
+SC = Yes with EF absent/blank/unparseable => HS-ST1 (R2 — a declared change
+is never silently discarded). Excel cells that arrive as datetime/date
+objects are coerced to YYYY-MM BEFORE validation (R4); an Excel boolean TRUE
+in SC is "true" != "yes" => inactive-with-trace, by design. The engine is
+the ONLY implementation: bc.resolve_transition (activation + T1 outcome),
+bc.coerce_effective_from (EF parse + Excel coercion + sanity range). Key
+matching stays exact-string; every warning/stop message and the §3.8
+detector list NEAR-MISS keys via bc.near_miss_keys (casefold +
+punctuation/whitespace-collapsed — "Syllabus changed?" is reported).
+Duplicate occurrence of any Overview key (dict(zip) keeps the LAST) => WARN
+"duplicate Overview key '<k>'; last occurrence used" via
+bc.overview_duplicate_keys, regardless of activation outcome.
+
+T1 — every declaration combination (SC shown post-normalization):
+  # | SC                | EF                        | Outcome
+  --+-------------------+---------------------------+------------------------
+  1 | absent            | absent                    | INACTIVE, SILENT (the
+    |                   |                           | legacy estate; no block,
+    |                   |                           | zero output delta; §3.8
+    |                   |                           | detector silent per R25)
+  2 | "no"              | absent                    | INACTIVE, silent (block
+    |                   |                           | written, nothing printed)
+  3 | "yes"             | valid YYYY-MM             | ACTIVE -> census rules
+  4 | "no"/blank        | valid YYYY-MM             | INACTIVE + TRACE
+  5 | other ("y","true",| anything                  | INACTIVE + TRACE
+    | "", "maybe"...)   |                           |
+  6 | "yes"             | absent/blank/unparseable/ | * HARD STOP HS-ST1 (R2)
+    |                   | out-of-sanity-range       |
+  7 | absent            | valid YYYY-MM             | INACTIVE + TRACE
+  8 | "yes" any case/   | valid                     | ACTIVE (normalization)
+    | whitespace        |                           |
+
+CENSUS (corpus_io — runs at S1-2 and cheaply at every step start, §3.7):
+  syllabus candidates  = project files whose basename contains "syllabus"
+                         (casefold), ext .pdf/.docx/.txt/.png/.jpg/.jpeg
+                         (corpus_io.syllabus_file_census)
+  sample papers (R14)  = basename contains "samplepaper", same extensions
+                         (corpus_io.sample_paper_census); RECORDED only —
+                         consumed by Step 5 alone, from Release B/C; absent
+                         => silent
+R18: English only — no language suffixes; a translated syllabus is simply a
+second census hit and stops under T2 row 3.
+
+NAMING (enforced only at >= 2 syllabus files — R1; a single-file project
+keeps ANY name, operator ruling):
+  [ExamCode]_Syllabus_<YYYY-MM>.<ext>   <YYYY-MM> = first sitting under that
+                                        version (bc.parse_syllabus_filename)
+The match is CASE-INSENSITIVE end to end (ExamCode, the Syllabus token, the
+extension) — the census that nominates the file is already casefold, and a
+correctly structured name must never fail on letter case alone (E04/E08
+normalization stance). Structure stays strict: prefix, token, dated stamp
+and extension must all be present exactly, or HS-ST4; two files carrying
+the SAME date in different letter case are still HS-ST5 (ambiguous).
+
+RESOLUTION (ACTIVE): the file whose <YYYY-MM> equals EF is CURRENT; all
+others SUPERSEDED. The taxonomy is ALWAYS built from CURRENT; SUPERSEDED
+files feed only the Release-B diff. >= 3 dated files (a second historical
+change) are legal: exactly one == EF, the rest superseded in date order.
+The T2 decision is bc.resolve_syllabus_sources — ONE implementation:
+
+  # | Mode     | Files found              | Outcome
+  --+----------+--------------------------+---------------------------------
+  1 | INACTIVE | 0                        | As today (S1-2 asks; steps not
+    |          |                          | needing it proceed)
+  2 | INACTIVE | 1 (any name)             | As today — the estate norm
+  3 | INACTIVE | >= 2                     | * HS-ST2 (R3; discovered
+    |          |                          | REACTIVELY per R26)
+  4 | ACTIVE   | 0 or 1 / chat-only /     | * HS-ST3 (both documents must
+    |          | image pasted in chat     | exist as FILES — reproducible)
+  5 | ACTIVE   | >= 2, any not dated      | * HS-ST4
+  6 | ACTIVE   | >= 2 dated, 0 match EF   | * HS-ST5
+  7 | ACTIVE   | >= 2 dated, >= 2 match   | * HS-ST5 (ambiguous CURRENT)
+  8 | ACTIVE   | exactly 1 matches EF     | RESOLVED -> hash checks
+  9 | ACTIVE   | CURRENT sha256 equals    | * HS-ST6 (same document twice —
+    |          | any SUPERSEDED sha256    | the diff would be empty)
+ 10 | ACTIVE   | resolved, distinct       | PROCEED (materiality decides
+    |          | hashes                   | transition vs cosmetic at
+    |          |                          | Release B)
+
+HARD STOPS: the exact message templates are the engine's §3.11 register
+(bc.HS_ST1 .. bc.HS_ST11 — cited, never restated). PYQDraft raises
+SystemExit with the returned message; HS-ST1..HS-ST6 fire HERE. HS-ST7
+(staleness) fires at consumers; HS-ST8 (symptom detector, R25-scoped) at
+MockBlueprint pre-flight; HS-ST9/HS-ST11 at their Release-B/C call sites.
+
+TRACES (R4, §3.6 — T1 rows 4/5/7 ONLY, and exactly these three surfaces):
+  (a) ONE console warning line quoting raw values
+      (bc.syllabus_declaration_traces);
+  (b) the inactive syllabus_transition block in exam_config (S2-5);
+  (c) ONE DeliveryFooter line (bc.syllabus_footer_lines; rendered per
+      Framework_DeliveryFooter §FOOTER-SYL).
+R19: the footer is the ONLY disclosure surface; nothing on questions,
+options, or student-visible layout — ever.
+
+DIAL REGISTRY (R23/R5, §3.9): seven dials, factory values pinned in
+bc.TRANSITION_DIALS and ONLY there (ONE-RULEBOOK; §2.1e whitelists exactly
+those seven numerals). Optional per-exam Overview override keys:
+  D-1 Transition Blend Pseudo-Count      D-5 Transition Coverage Floor
+  D-2 Transition Materiality Percent     D-6 Transition Converged Sittings
+  D-3 Transition Era Suspect Percent     D-7 Transition Rollup Dominance
+  D-4 Transition Detector Floor              Percent
+Absent => factory. Present but invalid (non-numeric, out of range) =>
+FACTORY + TRACE — never a stop (bc.resolve_dials). Effective values are
+recorded in the exam_config block and printed once per run. R21: NO prior
+dial and NO prior-override input of any kind exists.
+
+ZERO HISTORY APPROVED (§3.5 A1): a third OPTIONAL Overview key,
+`Zero History Approved` — comma-separated subject names matched to taxonomy
+subjects casefold (bc.parse_zero_history_approved); unmatched names =>
+trace, not stop. This is the operator's answer to HS-ST8 ("add the key,
+re-run PYQDraft") and it keeps PYQDraft the SOLE writer of exam_config
+(R29): no step ever writes exam_config after 2a.
+
+STALENESS LOCK (§3.10): S2-4 writes syllabus_sha256 — the sha256 of the
+taxonomy's SOURCE file (corpus_io.file_sha256 of CURRENT in active mode;
+of the single file otherwise; ABSENT for legacy chat-pasted input) — into
+taxonomy_draft.json. Consumers (MockBlueprint, MockTestCreate,
+ScopedBlueprint, NotesBlueprint) compare it to the resolved current file at
+run time via bc.check_syllabus_staleness => mismatch = HS-ST7. Artefacts
+WITHOUT the field (legacy) are exempt — no retro-invalidation; the lock
+arms on the first PYQDraft re-run under v1.2.0.
+
+DRIFT GUARD (§3.7): every later step that reads exam_config AND project
+files re-runs census + bc.resolve_transition on the current xlsx and
+compares DECLARATION FIELDS ONLY via bc.transition_drift (R29: legitimate
+downstream artefact writes can never register as drift). Divergence (xlsx
+edited after 2a — including the R17 EF-postponement path — or syllabus
+files added/removed) => HS-ST10 naming both sides and instructing a
+PYQDraft re-run. Cost: one sheet read + one glob.
+
+R10 note: a transition never modifies an in-flight mock series; it takes
+effect at the next series boundary (new series) — enforced mechanically by
+the staleness lock, because the manifest hash changes.
+```
+
+```python
+# S2-0a EXECUTION (single invocation shape; engines are the implementations)
+import datetime
+import blueprint_core as bc
+import corpus_io as cio
+
+
+def resolve_syllabus_transition(ov, ov_raw_keys, project_file_paths,
+                                exam_code, taxonomy_subjects):
+    """Returns (transition_block | None, sources, console_lines).
+    ov: the S2-2a Overview dict. ov_raw_keys: first-column values IN ORDER
+    (duplicate detection). SOLE WRITER note (R29): the caller places the
+    returned block into exam_config['syllabus_transition'] before
+    save_exam_config; nothing else ever writes it."""
+    console = []
+    for k in bc.overview_duplicate_keys(ov_raw_keys):
+        console.append(f"WARNING: duplicate Overview key '{k}'; "
+                       f"last occurrence used.")
+    for miss, canon in bc.near_miss_keys(ov.keys()):
+        console.append(f"NOTE: Overview key '{miss}' near-misses '{canon}' "
+                       f"and was ignored (key matching is exact).")
+    res = bc.resolve_transition(ov, datetime.date.today())   # HS-ST1 inside
+    census = cio.census_records(
+        cio.syllabus_file_census(project_file_paths))
+    cio.sample_paper_census(project_file_paths)              # R14: record only
+    sources = bc.resolve_syllabus_sources(
+        census, exam_code, res['status'], res.get('effective_from'))
+    if sources['outcome'] == 'stop':
+        raise SystemExit(sources['message'])                 # HS-ST2..6
+    dials, dial_traces = bc.resolve_dials(ov)
+    zha, zha_traces = bc.parse_zero_history_approved(ov, taxonomy_subjects)
+    block = bc.build_syllabus_transition_block(
+        res, sources, dials, dial_traces + zha_traces, zha)
+    console += bc.syllabus_declaration_traces(block)         # §3.6(a)
+    return block, sources, console
+```
+
+### S2-0b — CROSSWALK DRAFT (v1.3.0 — GAP-2026-09-01 §4.1/§4.2; ACTIVE
+### mode only — inactive and legacy runs skip this section byte-identically)
+
+After S2-1/S2-2 build the CURRENT taxonomy, and ONLY when the S2-0a block is
+ACTIVE, extract the SUPERSEDED syllabus document(s) under the SAME S2-1
+extraction rules (one old taxonomy per superseded version — A2), then build
+one crosswalk DRAFT per superseded version:
+
+    syllabus_provenance.crosswalk_build(old_tax, new_tax,
+        exam_code=..., old_sha256=..., new_sha256=...,
+        era_window=..., dials=<S2-0a effective dials>,
+        subject_sections=None)   # None = uniform exam (R34: full-set scope)
+
+The draft carries: per-atom node states (RETAINED/MOVED/MERGED/SPLIT/
+DELETED — subjects matched by CONTENT similarity, never name, E29/E67;
+split-parent subjects score by top-half mean so a unit dividing across two
+current homes is never orphaned), NEW atoms, B1 subject-state roll-up
+PROPOSALS with atom-fraction evidence (dial D-7, >= at the boundary, E78),
+R34 scopes (orphan => empty scope => every atom OOS, E86), R28 materiality
+(MOVED/MERGED/SPLIT count zero), and PROVISIONAL per-DELETED-node lexicons
+(G-1: finalized only at 2c approval). Low-similarity mappings carry a
+'low-similarity: spot-check.' rationale for the 2c human look.
+
+STORAGE (sole writer THIS step, R29; closed deliverable set S10-1
+unchanged): the draft list is stored INSIDE exam_config.json at
+`syllabus_transition.crosswalks` (one entry per superseded version, each
+`approved: False`), and the era-window table at
+`syllabus_transition.era_windows` (bc.era_windows). No new files.
+
 ### S2-1 — Syllabus extraction
 
 ```
 Claude reads the Exam Syllabus (any format — image, PDF, .docx, or text).
+v1.2.0: in ACTIVE transition mode the document read here is ALWAYS the
+S2-0a-resolved CURRENT file — SUPERSEDED files are never extracted at 2a
+(they feed only the Release-B diff).
 Extract ALL subject/topic items mentioned.
 
 For each subject listed in the syllabus:
@@ -481,6 +735,22 @@ SECTION ≠ SUBJECT — CRITICAL ARCHITECTURAL NOTE:
     4. OTS display labels (passed through to the platform as metadata)
 ```
 
+```
+SYLLABUS-TRANSITION DECLARATION KEYS (v1.2.0 — GAP-2026-09-01 §3.1):
+
+  The Overview tab may OPTIONALLY carry up to three further key-value rows —
+  `Syllabus Changed`, `New Syllabus Effective From`, `Zero History Approved`
+  — plus the seven dial override keys of S2-0a. The parser above needs NO
+  change: `ov = dict(zip(...))` ignores unknown keys, so absence is
+  cost-free estate-wide; dict(zip) keeps the LAST occurrence of a duplicated
+  key, which S2-0a turns into a WARN. All consumption, normalization
+  ("YES"/" Yes " activate; Excel datetime EF cells coerce; boolean TRUE is
+  NOT "yes"), near-miss reporting and validation live in S2-0a and its
+  engine functions — this parser only delivers the raw dict. Verified
+  against the driving exam's real file: values stored as text ("YES",
+  "2026-12") activate directly.
+```
+
 #### S2-2b — Legacy extraction (AI-interpreted, fallback)
 
 ```
@@ -865,7 +1135,8 @@ def save_taxonomy_draft(taxonomy, exam_config, exam_code,
                         syllabus_subjects=None, syllabus_items=None,
                         group_topic_map=None, name_fixes=None,
                         qcount_anchored_topics=None, subject_flags=None,
-                        dedup_report=None, telemetry=None, amber_status=None):
+                        dedup_report=None, telemetry=None, amber_status=None,
+                        syllabus_sha256=None):
     """
     v2.17: persists the SYLLABUS PROVENANCE RECORD alongside the derived
     taxonomy. Without it, Step 2c (PYQApprove) has no machine-readable ground
@@ -918,6 +1189,13 @@ def save_taxonomy_draft(taxonomy, exam_config, exam_code,
         'dedup_report': dedup_report or [],
         'telemetry': telemetry or [],
         'amber_status': amber_status,
+        # v1.2.0 (§3.10 STALENESS LOCK): sha256 of the taxonomy's SOURCE
+        # file — the S2-0a-resolved CURRENT file in active-transition mode,
+        # the single syllabus file otherwise, None for legacy chat-pasted
+        # input (a None field is written as null and consumers treat it
+        # exactly like an absent field: exempt, no retro-invalidation).
+        # Consumers compare via bc.check_syllabus_staleness => HS-ST7.
+        'syllabus_sha256': syllabus_sha256,
         'sections': {},
         'exam_config': exam_config
     }
@@ -1098,6 +1376,47 @@ Field definitions:
     Same for question_type and negative_marks.
     Step 5, 6, 7, 8, 9 use this lookup pattern.
 
+OPTIONAL BLOCK — syllabus_transition (v1.2.0 — GAP-2026-09-01 §3.5; R29):
+
+```json
+{
+  "syllabus_transition": {
+    "status": "active | inactive",
+    "effective_from": "2026-12",
+    "reason": "SC='Y' not in {Yes,No}; treated as No",
+    "keys_seen": { "Syllabus Changed": "Y",
+                   "New Syllabus Effective From": null },
+    "current_file": "[ExamCode]_Syllabus_2026-12.pdf",
+    "current_sha256": "…",
+    "superseded": [ { "file": "[ExamCode]_Syllabus_2019-06.pdf",
+                      "sha256": "…" } ],
+    "dials": { "D-1": 3, "D-2": 5.0 },
+    "zero_history_approved": ["<subject>"]
+  }
+}
+```
+
+  Written whenever trace or activation applies; ABSENT for T1 row 1 (both
+  keys absent — the deployed-estate path, P1). SOLE WRITER: PYQDraft
+  (bc.build_syllabus_transition_block assembles it; S2-0a places it into
+  exam_config before save_exam_config). IMMUTABLE until PYQDraft re-runs.
+  DECLARATION-DERIVED FIELDS ONLY — n_new lives in the count manifest
+  (PYQCount's artefact, Release B) and the rotation cursor in the delivery
+  manifest (MockDeliver's artefact, Release C); the §3.7 drift guard
+  compares declaration fields only (R29). Field semantics:
+    status                : "active" | "inactive" (bc.resolve_transition).
+    effective_from        : YYYY-MM; active state only.
+    reason / keys_seen    : inactive-trace states only (raw values quoted).
+    current_file/_sha256  : active state; the S2-0a-resolved CURRENT file.
+    superseded[]          : active state; every other dated syllabus file,
+                            date order, with sha256.
+    dials                 : effective §3.9 values (factory unless a valid
+                            Overview override was given); dial_traces may
+                            accompany it when an invalid override fell back.
+    zero_history_approved : §3.5 A1 — subjects the operator approved as
+                            legitimately zero-history (suppresses HS-ST8).
+  Downstream steps read ONLY this block, never the xlsx.
+
 ### S2-6 — Delivery and next step
 
 ```
@@ -1133,6 +1452,13 @@ Print:
      Marking ranges  : [marking_scheme_count] range(s)
      Attempt limits  : [Yes/No] ([max_attempt per section if Yes])
      Validations     : V1-V10 PASSED
+     Syllabus transition (v1.2.0 — printed ONLY when the S2-5 block exists):
+       [active:]   Transition ACTIVE — effective from [EF]; CURRENT
+                   [current_file]; [k] superseded file(s); dials [effective
+                   values, once per run].
+       [inactive-trace:] Syllabus declaration present but inactive: [reason].
+       [plus each S2-0a console WARNING/NOTE line — duplicates, near-misses,
+        invalid dial overrides, unmatched Zero History Approved names.]
 
    NEXT: Upload both files to [ExamCode] project knowledge.
          Then run: PYQScan
@@ -1144,4 +1470,4 @@ Print:
 
 ---
 
-# END OF Framework_PYQDraft v1.1.0
+# END OF Framework_PYQDraft v1.3.0
