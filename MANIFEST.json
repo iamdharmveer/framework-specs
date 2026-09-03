@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.09.03.2",
+  "framework_version": "2026.09.03.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -321,11 +321,11 @@
       "bytes": 202913
     },
     "Framework_PYQFormat.md": {
-      "sha256": "e7710a2d865a2ed0c622b9130684d1760cac896b17259910059583df69708e91",
-      "version_header": "# Framework_PYQFormat v1.5.2 \u2014 Universal PYQ Student Document Formatter",
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
-      "lines": 1697,
-      "bytes": 78172
+      "sha256": "45b117bbb0b782f642ec39babb79bf71424784bca7f5f26f1d4b6a78cc1d1a42",
+      "version_header": "# Framework_PYQFormat v1.6.0 \u2014 Universal PYQ Student Document Formatter",
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.0)**",
+      "lines": 1989,
+      "bytes": 93356
     },
     "Framework_PYQPrepare.md": {
       "sha256": "3a49e007e8246d349e687a41f466aa8c3eda6424a79fa84a0f37dfb5e109f908",
@@ -538,11 +538,11 @@
       "bytes": 10941
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "73bc66753df3ad0abef759690de51939d435e647df1a1a4b84015fa574bde721",
+      "sha256": "f06211959c7a35577583ee83b6f669ab890f1a3ec19b95dd57882f1bbc012293",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 7259,
-      "bytes": 205552
+      "lines": 7315,
+      "bytes": 207076
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -559,11 +559,11 @@
       "bytes": 6600
     },
     "SPEC_HISTORY.md": {
-      "sha256": "8fefd4dc34f1d382788ec57f3d98082b787362e61bdda9b0c9aab75a78257d73",
+      "sha256": "85358a6dfec06163727b72a0f104f03cc4303f9a523737ad65a96ac8c165e3e3",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "```",
-      "lines": 4197,
-      "bytes": 306703
+      "lines": 4201,
+      "bytes": 307118
     }
   }
 }

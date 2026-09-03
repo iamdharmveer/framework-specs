@@ -127,11 +127,11 @@
       "version_header": "# Framework_PYQExplain v2.22 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
-      "lines": 1697,
-      "sha256": "e7710a2d865a2ed0c622b9130684d1760cac896b17259910059583df69708e91",
-      "size_bytes": 78172,
-      "version_header": "# Framework_PYQFormat v1.5.2 — Universal PYQ Student Document Formatter"
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.0)**",
+      "lines": 1989,
+      "sha256": "45b117bbb0b782f642ec39babb79bf71424784bca7f5f26f1d4b6a78cc1d1a42",
+      "size_bytes": 93356,
+      "version_header": "# Framework_PYQFormat v1.6.0 — Universal PYQ Student Document Formatter"
     },
     "Framework_PYQPrepare.md": {
       "end_sentinel": "# END OF Framework_PYQPrepare v2.1.1",

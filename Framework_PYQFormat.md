@@ -1,8 +1,16 @@
-# Framework_PYQFormat v1.5.2 — Universal PYQ Student Document Formatter
-# v1.5.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
-#   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
-#   name from the attached docx and load THAT (prevents a colliding sidecar from another paper
-#   silently supplying the classification map). Legacy bare names accepted with a WARN.
+# Framework_PYQFormat v1.6.0 — Universal PYQ Student Document Formatter
+# v1.6.0 — 2026-09-03 — GAP-2026-09-03-PAGE-BORDER: a full-page border frames EVERY page of
+#   the formatted document. NEW §6A defines the border (pgBorders: single 0.75pt line,
+#   #1F3864, 24pt from the PAGE edge, all four sides, display attribute ABSENT = all pages
+#   by the OOXML standard itself); S13-2 step 7 wires it into EVERY sectPr; S13-8 carries
+#   PGBORDERS_ORDER, apply_page_border(), the edge-case-23 margin WARN and
+#   selftest_page_border(); S8-3 rule 5 verifies presence + exact attributes (HARD STOP);
+#   §12 edge cases 22–24 (pre-existing border REPLACED per O-3; narrow margins WARN per
+#   O-4; multi-section = every sectPr); Appendix A PAGE_BORDER_* tokens. Owner rulings
+#   O-1..O-4 (2026-09-03): scope PYQFormat ONLY; constants locked; replace; WARN-not-HALT.
+#   Chrome-only change: pgBorders is a section property, never a body element — S8-4..S8-8
+#   are unaffected by construction; proven on a real 76-page artefact (official validator:
+#   0 new errors vs baseline; a naive-position mutant is REJECTED by the S8-9 gate).
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
 #
 # ════════════════════════════════════════════════════════════════════════
@@ -60,6 +68,9 @@ The content of every question block is SACRED. PYQ-3 may only:
 - **Add** the exam page header and IFAS page footer as document PARTS
   (header1.xml / footer1.xml + sectPr references, §3/§6/S13-6) — these
   never enter the body
+- **Add** the page border as sectPr-level chrome (`<w:pgBorders>`,
+  §6A/S13-8) — a section property inside every `<w:sectPr>`, never a
+  body element
 - **Insert** colored pill tables before each Q-stem — the ONLY body
   insertion (new content only)
 - **Remove** the per-question date/session tag paragraphs (§4) — the ONLY
@@ -196,9 +207,10 @@ needed. The entire document is processed in one response:
 1. create_file  → write the complete format_pipeline.py script
 2. bash_tool    → run it (open input → remove date/session tags → restyle
                   explanation tags → insert pills → wire page header/footer
-                  parts → apply styling → save output)
+                  parts + page border → apply styling → save output)
 3. bash_tool    → verify output (Q-count, pill-count, tag absence, header/
-                  footer parts, text-stream integrity, content integrity)
+                  footer parts + page border, text-stream integrity,
+                  content integrity)
 4. present_files → deliver [ExamCode]_[date]_[session]_PYQ_Formatted.docx
 ```
 
@@ -463,6 +475,72 @@ Same across all exams, all papers, all sessions. Hardcoded by design.
 
 ---
 
+# §6A — Page border (every page, v1.6)
+
+A thin full-page border frames EVERY page of the formatted document — the
+visual companion of the §3 header and §6 footer. Like them it is document
+CHROME: a section property, never a body element. Owner rulings O-1..O-4
+(2026-09-03) lock its scope and constants.
+
+## S6A-1 — The border element (exact, locked by O-2)
+
+One `<w:pgBorders>` per `<w:sectPr>`:
+
+```xml
+<w:pgBorders w:offsetFrom="page">
+  <w:top    w:val="single" w:sz="6" w:space="24" w:color="1F3864"/>
+  <w:left   w:val="single" w:sz="6" w:space="24" w:color="1F3864"/>
+  <w:bottom w:val="single" w:sz="6" w:space="24" w:color="1F3864"/>
+  <w:right  w:val="single" w:sz="6" w:space="24" w:color="1F3864"/>
+</w:pgBorders>
+```
+
+- Line: single, sz=6 (0.75pt — sz is in eighth-points), dark blue #1F3864
+  (Appendix A — the same accent as header, footer, and Subject pill).
+- Offset: 24pt from the PAGE edge on all four sides.
+- Side child order is FIXED: top → left → bottom → right (PGBORDERS_ORDER,
+  CT_PageBorders is an xsd:sequence — S13-7 discipline applies).
+
+## S6A-2 — Why offsetFrom="page" is MANDATORY
+
+The OOXML default is `offsetFrom="text"`, which measures the offset from
+each exam's MARGINS — the border would sit at a different distance on
+every exam and every custom-margin source. `"page"` measures from the
+physical page edge: identical geometry on A4, Letter, Legal, or any
+`pgSz`, with zero dependence on margins. This single attribute is what
+makes the border exam-agnostic across all ~200 exams. It is set
+EXPLICITLY, never left to default.
+
+## S6A-3 — Why "every page" is structurally guaranteed
+
+The `w:display` attribute MUST BE ABSENT. When present it can restrict
+the border to `firstPage` or `notFirstPage`; absent, the ISO standard
+itself renders the border on ALL pages of the section. Combined with
+S13-2 step 7 applying the border to EVERY `<w:sectPr>` (edge case 24),
+every page of every section is framed — by the standard, not by hope.
+`w:zOrder` is likewise left absent (default `front`).
+
+## S6A-4 — Geometry safety
+
+The border sits 24pt inside the page edge; the S7-1 margins are 36pt
+(top/bottom) and 54pt (left/right), so the border always runs inside the
+empty margin band — clear of body text, and clear of header/footer text
+(header/footer distance 36pt in the reference geometry). 24pt is also
+outside the ~14pt unprintable strip of common office printers. If a
+source document carries margins NARROWER than 24pt (impossible on
+pipeline-generated inputs) → WARN and proceed, edge case 23 (O-4).
+
+## S6A-5 — Pre-existing borders (O-3)
+
+Any `pgBorders` already present in the input — a re-attached bordered
+output, or a source template's decorative border, even one sitting at an
+invalid schema position — is REPLACED by S6A-1's border. Same rationale
+as edge case 19: page borders are document chrome, not certified content;
+the zero-mutation rule protects the BODY, and S8-8 proves the body text
+stream is intact. Exactly one `pgBorders` per sectPr after formatting.
+
+---
+
 # §7 — Visual polish
 
 Visual improvements applied to the EXISTING content elements. These changes
@@ -624,7 +702,7 @@ Count the pill tables in the output document. Expected: one per question that
 has a classification entry (may be fewer than Q_TOTAL if some Qs are missing
 from the map). Verify: pill_count == len(q_to_classification ∩ {1..Q_TOTAL}).
 
-## S8-3 — Header and footer parts check (v1.3)
+## S8-3 — Header, footer, and page-border check (v1.3; border v1.6)
 
 Verify in the output package:
 1. The header and footer parts exist (e.g. word/header1.xml,
@@ -639,6 +717,11 @@ Verify in the output package:
 4. The BODY's first element is Q.1's pill table and its last element is
    the final explanation paragraph — no header/footer paragraphs in the
    body.
+5. EVERY `<w:sectPr>` in word/document.xml carries exactly ONE
+   `<w:pgBorders>` (§6A) with `w:offsetFrom="page"`, NO `w:display`
+   attribute, NO `w:zOrder` attribute, and all four sides
+   top/left/bottom/right in that order (PGBORDERS_ORDER), each carrying
+   exactly `w:val="single" w:sz="6" w:space="24" w:color="1F3864"`.
 Any failure — HARD STOP.
 
 ## S8-4 — Content byte-identity spot-check
@@ -817,7 +900,8 @@ Printed in chat after present_files. Brief and skimmable:
 - **§R6 — Footer.** Page footer as rendered (website / tagline / phone),
   confirmed on every page via the S8-3 parts check.
 - **§R7 — Integrity.** Q-count match, OMML count match, image count match,
-  tag absence (S8-7), text-stream integrity (S8-8), spot-check results,
+  tag absence (S8-7), text-stream integrity (S8-8), page border on every
+  sectPr (S8-3 rule 5), spot-check results,
   and **package validity (S8-9)** — report the validator verdict explicitly,
   plus the input→output namespace prefix delta (expected: none lost). If the
   S13-3 fallback self-check was used instead of the validator, say so here.
@@ -855,6 +939,10 @@ PYQ-3 is done when **all** hold:
     CONTENT is intact; only S8-9 establishes that the PACKAGE is valid.
     A file can satisfy every other item on this list and still fail to open.
 11. Delivered via present_files with the delivery report and footer.
+12. The page border (§6A) frames every page — exactly one `pgBorders` per
+    `sectPr`, exact S6A-1 attributes, `display` absent — verified by S8-3
+    rule 5. (Listed after item 11 so §8-9's cross-reference to item 10
+    stays byte-stable; reference stability over list aesthetics.)
 
 **Hard invariants (never violated):**
 
@@ -871,6 +959,10 @@ PYQ-3 is done when **all** hold:
 - The pill tables are the ONLY new elements in the body; the exam header
   and IFAS footer live exclusively in page header/footer parts (D10) and
   never appear as body paragraphs.
+- The page border is sectPr-level chrome (§6A) — never a body element.
+  S8-3 rule 4 (body first/last element) is unaffected by it, and S8-4..
+  S8-8 are unaffected by construction: `pgBorders` touches no paragraph,
+  no run, no OMML, no drawing.
 - No exam-specific value is hardcoded (exam-agnostic guarantee).
   The only hardcoded values are IFAS branding constants (D5).
 
@@ -969,7 +1061,27 @@ PYQ-3 is done when **all** hold:
 21. **`evenAndOddHeaders` or `titlePg` present in the input** → harmless
     by construction: references are registered for default, even, and
     first types pointing to the same parts (D10), so every page renders
-    identically without editing settings.xml.
+    identically without editing settings.xml. The page border (§6A)
+    equally ignores both: with `display` absent it renders on every page
+    regardless of first/even/odd page treatment.
+
+22. **Input already carries a page border** (a re-attached bordered
+    output, or a source template with a decorative `pgBorders` — even at
+    an invalid schema position) → REPLACED by §6A's border via
+    `set_child()` (O-3, 2026-09-03; S6A-5). Chrome, not certified
+    content — edge-case-19 rationale. Exactly one `pgBorders` per sectPr
+    afterwards, at the schema-correct position.
+
+23. **Source margins narrower than the border offset** (any `pgMar` side
+    < 480 twips / 24pt — cannot occur on pipeline-generated inputs,
+    where S7-1 margins are 36pt/54pt) → WARN and proceed (O-4,
+    2026-09-03; S6A-4). Visual-only concern: the border may cross the
+    text zone; content is untouched either way. Never HALT over styling.
+
+24. **Multiple `<w:sectPr>` elements and the border** → the border is
+    added to EVERY sectPr — body-level trailing sectPr and paragraph-level
+    ones alike — exactly as edge case 20 does for header/footer
+    references. S8-3 rule 5 verifies all of them.
 
 ---
 
@@ -1022,7 +1134,8 @@ The document is processed via `unzip → XML edit → zip`:
    - Insert it BEFORE the Q-stem `<w:p>` in the parent `<w:body>`
 7. WIRE the page header/footer parts (S13-6) — create header1.xml /
    footer1.xml, register relationships and content types, add references
-   to every sectPr.
+   to every sectPr — AND the page border (§6A/S13-8): apply_page_border()
+   on EVERY sectPr, plus the edge-case-23 margin WARN check.
 8. Re-zip to the output .docx
 
 Processing in REVERSE ORDER (Q.N → Q.1) ensures that inserting elements
@@ -1328,7 +1441,8 @@ def xsd_order(complex_type_name, xsd_path):
 
 Expected lengths, for a fast sanity check after regeneration:
 `CT_PPr` 36 · `CT_RPr` 40 · `CT_ParaRPr` 44 · `CT_TblPr` 18 · `CT_TcPr` 18 ·
-`CT_TcMar` 6 · `CT_SectPr` 22. A shorter result means the walk is incomplete —
+`CT_TcMar` 6 · `CT_SectPr` 22 · `CT_PageBorders` 4 (v1.6 — PGBORDERS_ORDER,
+S13-8). A shorter result means the walk is incomplete —
 fix the extractor, do NOT ship the table.
 
 ```python
@@ -1510,7 +1624,8 @@ def get_or_make(parent, name, order):
 MANDATORY after/for any insertion into: `pPr` (`PPR_ORDER`), run `rPr`
 (`RPR_ORDER`), paragraph-mark `rPr` (`PARA_RPR_ORDER`), `tblPr`
 (`TBLPR_ORDER`), `tcPr` (`TCPR_ORDER`), `tcMar` / `tblCellMar`
-(`TCMAR_ORDER`), `sectPr` (`SECTPR_ORDER`).
+(`TCMAR_ORDER`), `sectPr` (`SECTPR_ORDER`), `pgBorders` (`PGBORDERS_ORDER`,
+v1.6 — S13-8).
 
 **In EVERY part the step writes** — `word/document.xml`, `word/headerN.xml`,
 `word/footerN.xml`. On the failing artefact the header and footer parts each
@@ -1660,6 +1775,175 @@ def selftest_set_child():
 
 ---
 
+## S13-8 — Page border wiring (v1.6)
+
+Runs inside S13-2 step 7, on EVERY `<w:sectPr>` of word/document.xml.
+Placed AFTER S13-7 deliberately: this section CALLS set_child(),
+assert_schema_order(), ln() and w() — all defined in S13-7 — and the
+spec-inline name audit requires every name to be bound in an
+earlier-or-same block. Dependency order = read order, by construction.
+`pgBorders` was ALREADY in SECTPR_ORDER (index 8: after `pgMar`, before
+`lnNumType`), so v1.6 changes no existing order table — it only ADDS the
+4-entry PGBORDERS_ORDER for the border's own children. `pgBorders` is NOT
+in REPEATABLE (the schema allows at most one per sectPr), so `set_child()`'s
+replace-one semantics is exactly S6A-5's replacement rule for free.
+
+```python
+# CT_PageBorders — ISO-IEC29500-4:2016 wml.xsd, xsd:sequence — length 4
+PGBORDERS_ORDER = ['top', 'left', 'bottom', 'right']
+
+# Appendix A tokens, locked by O-2 (2026-09-03). w:val is the only
+# schema-REQUIRED attribute of a side; all four are set explicitly.
+PAGE_BORDER_SIDE_ATTRS = {'val': 'single', 'sz': '6', 'space': '24',
+                          'color': '1F3864'}
+
+
+def apply_page_border(sectPr):
+    """§6A — insert-or-replace the page border on ONE sectPr.
+
+    Removes any pre-existing pgBorders WHEREVER the input carried it
+    (edge case 22 — including invalid positions), then inserts at the
+    schema-correct position relative to the children actually present.
+    offsetFrom="page" is set EXPLICITLY (S6A-2); display and zOrder are
+    never set (S6A-3).
+    """
+    pg = set_child(sectPr, 'pgBorders', SECTPR_ORDER,
+                   {'offsetFrom': 'page'})
+    for side in PGBORDERS_ORDER:
+        set_child(pg, side, PGBORDERS_ORDER, PAGE_BORDER_SIDE_ATTRS)
+    # ⚠️ Do NOT assert_schema_order() over the WHOLE sectPr. Its leading
+    # header/footer references are an EG_HdrFtrReferences CHOICE GROUP
+    # (maxOccurs=6): Word legally INTERLEAVES them — measured on a real
+    # artefact (hdr, hdr, ftr, ftr, hdr, ftr) that the official validator
+    # accepts. A flat order table cannot rank a choice group, so the
+    # whole-parent assert is a FALSE POSITIVE that would HARD-STOP valid
+    # documents (caught in v1.6.0's pre-release review, selftest case 4).
+    # Assert the sectPr TAIL only (choice-group members excluded); the
+    # pgBorders subtree IS ours and IS a true xsd:sequence — assert it.
+    rank = {n: i for i, n in enumerate(SECTPR_ORDER)}
+    seen = [rank[ln(c)] for c in sectPr
+            if ln(c) in rank and ln(c) not in REPEATABLE]
+    assert all(seen[i] <= seen[i + 1] for i in range(len(seen) - 1)), \
+        'sectPr tail out of schema order after apply_page_border'
+    assert_schema_order(pg, PGBORDERS_ORDER, 'pgBorders sides')
+    return pg
+
+
+def page_border_margin_warn(sectPr):
+    """Edge case 23 (O-4) — WARN when any margin is narrower than the
+    24pt (480-twip) border offset. Returns the narrow sides; never halts.
+    """
+    for ch in sectPr:
+        if ln(ch) == 'pgMar':
+            sides = ['top', 'right', 'bottom', 'left']
+            narrow = [(sd, int(ch.get(w(sd)) or '0')) for sd in sides
+                      if int(ch.get(w(sd)) or '0') < 480]
+            if narrow:
+                print('WARN (§12 case 23): margin(s) narrower than the '
+                      '24pt border offset — %s twips. Border may cross '
+                      'the text zone; content untouched.' % narrow)
+            return narrow
+    return []
+```
+
+### Verification evidence (v1.6, measured — not asserted)
+
+Proven on a real 76-page formatted artefact before this section was
+written: (a) the official OOXML validator reports ZERO new errors on the
+bordered output vs its borderless baseline; (b) the byte-level change
+surface is EXACTLY `word/document.xml` — no part added, removed, or
+otherwise touched; (c) a mutant that inserts the border naively at
+index 0 (`sectPr.insert(0, pg)`) is REJECTED by the validator
+(`headerReference: This element is not expected`) — the S8-9 net catches
+implementation drift; (d) interleaved header/footer references (legal
+per EG_HdrFtrReferences, and present in real Word-authored files) are
+never reordered; (e) the pre-release review itself caught and removed a
+whole-sectPr assert_schema_order() call — a FALSE POSITIVE on those same
+interleaved references — now permanently fixture-locked as selftest
+case 4.
+
+### Self-test (run before first use on a new exam, alongside selftest_set_child)
+
+```python
+def selftest_page_border():
+    """Assert the §6A regression cases."""
+    def mk(xml):
+        return etree.fromstring(xml.replace('@W@', W))
+
+    # 1. Plain sectPr: border lands after pgMar, before cols.
+    s1 = mk('<w:sectPr xmlns:w="@W@"><w:pgSz w:w="11906" w:h="16838"/>'
+            '<w:pgMar w:top="720" w:right="1080" w:bottom="720" '
+            'w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'
+            '<w:cols w:space="720"/></w:sectPr>')
+    pg = apply_page_border(s1)
+    assert [ln(c) for c in s1] == ['pgSz', 'pgMar', 'pgBorders', 'cols']
+    assert [ln(c) for c in pg] == ['top', 'left', 'bottom', 'right']
+    assert pg.get(w('offsetFrom')) == 'page'
+    assert pg.get(w('display')) is None and pg.get(w('zOrder')) is None
+    assert all(c.get(w('val')) == 'single' and c.get(w('sz')) == '6' and
+               c.get(w('space')) == '24' and c.get(w('color')) == '1F3864'
+               for c in pg)
+
+    # 2. Pre-existing border — wrong style, INVALID position — replaced.
+    s2 = mk('<w:sectPr xmlns:w="@W@"><w:pgSz w:w="11906" w:h="16838"/>'
+            '<w:pgBorders w:offsetFrom="text"><w:top w:val="double" '
+            'w:sz="24" w:space="4" w:color="FF0000"/></w:pgBorders>'
+            '<w:pgMar w:top="720" w:right="1080" w:bottom="720" '
+            'w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'
+            '</w:sectPr>')
+    apply_page_border(s2)
+    assert [ln(c) for c in s2] == ['pgSz', 'pgMar', 'pgBorders']
+    assert len([c for c in s2 if ln(c) == 'pgBorders']) == 1
+    pg2 = [c for c in s2 if ln(c) == 'pgBorders'][0]
+    assert pg2.get(w('offsetFrom')) == 'page'
+    assert pg2[0].get(w('color')) == '1F3864'
+
+    # 3. Extension-namespace child never relocated.
+    s3 = mk('<w:sectPr xmlns:w="@W@" xmlns:w14="urn:x">'
+            '<w14:footnoteColumns w14:val="1"/>'
+            '<w:pgSz w:w="11906" w:h="16838"/>'
+            '<w:pgMar w:top="720" w:right="1080" w:bottom="720" '
+            'w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'
+            '</w:sectPr>')
+    apply_page_border(s3)
+    assert ln(list(s3)[0]) == 'footnoteColumns'
+    assert [ln(c) for c in s3] == ['footnoteColumns', 'pgSz', 'pgMar',
+                                   'pgBorders']
+
+    # 4. INTERLEAVED header/footer references (real Word-authored pattern,
+    #    legal per EG_HdrFtrReferences) — must NOT trip the tail assert,
+    #    and the border must still land after pgMar. Locks the v1.6.0
+    #    pre-release false-positive regression.
+    s5 = mk('<w:sectPr xmlns:w="@W@" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<w:headerReference w:type="even" r:id="rId50"/>'
+            '<w:headerReference w:type="default" r:id="rId51"/>'
+            '<w:footerReference w:type="even" r:id="rId52"/>'
+            '<w:footerReference w:type="default" r:id="rId53"/>'
+            '<w:headerReference w:type="first" r:id="rId54"/>'
+            '<w:footerReference w:type="first" r:id="rId55"/>'
+            '<w:pgSz w:w="11909" w:h="16834"/>'
+            '<w:pgMar w:top="720" w:right="1080" w:bottom="720" '
+            'w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'
+            '<w:cols w:space="720"/><w:docGrid w:linePitch="360"/>'
+            '</w:sectPr>')
+    apply_page_border(s5)
+    names5 = [ln(c) for c in s5]
+    assert names5[:6].count('headerReference') == 3   # untouched, interleaved
+    assert names5[6:] == ['pgSz', 'pgMar', 'pgBorders', 'cols', 'docGrid']
+
+    # 5. Margin WARN fires below 480 twips, silent at S7-1 margins.
+    s4 = mk('<w:sectPr xmlns:w="@W@"><w:pgSz w:w="11906" w:h="16838"/>'
+            '<w:pgMar w:top="200" w:right="1080" w:bottom="720" '
+            'w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'
+            '</w:sectPr>')
+    assert page_border_margin_warn(s4) == [('top', 200)]
+    assert page_border_margin_warn(s1) == []
+    return True
+```
+
+---
+
 # APPENDIX A — Color reference
 
 ```text
@@ -1683,6 +1967,14 @@ EXPLANATION TAG COLORS (v1.2 — named for easy reference in code):
   SUBHEAD_WRONG_FG   = "#7F1D1D"  (Option sub-heads under WHY WRONG?)
   SUBHEAD_PITFALL_FG = "#7A3708"  (value sub-heads under COMMON PITFALLS)
 
+PAGE BORDER (v1.6 — §6A, locked by O-2 2026-09-03):
+  PAGE_BORDER_COLOR  = "#1F3864"  (dark blue — same accent as header/footer)
+  PAGE_BORDER_VAL    = "single"
+  PAGE_BORDER_SZ     = 6           (eighth-points — a 0.75pt line)
+  PAGE_BORDER_SPACE  = 24          (points from the PAGE edge; offsetFrom="page")
+  Sides: all four (top/left/bottom/right, in PGBORDERS_ORDER).
+  display attribute: ABSENT (= every page). zOrder: ABSENT (default front).
+
 MARKER GLYPHS (v1.2): axiom 📘  deduction 🧮  speed_hack ⚡
                       why_wrong ❌  common_pitfalls ⚠️
 
@@ -1694,4 +1986,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.5.2)**
+**End of Framework_PYQFormat.md (v1.6.0)**

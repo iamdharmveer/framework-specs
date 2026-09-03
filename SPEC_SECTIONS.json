@@ -5900,332 +5900,388 @@
       ]
     },
     "Framework_PYQFormat.md": {
-      "sha256": "e7710a2d865a2ed0c622b9130684d1760cac896b17259910059583df69708e91",
-      "lines": 1698,
-      "bytes": 78172,
-      "est_tokens": 19543,
-      "view_calls": 5,
+      "sha256": "45b117bbb0b782f642ec39babb79bf71424784bca7f5f26f1d4b6a78cc1d1a42",
+      "lines": 1990,
+      "bytes": 93356,
+      "est_tokens": 23339,
+      "view_calls": 6,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 78172,
-      "reduced_est_tokens": 19543,
+      "reduced_bytes": 93356,
+      "reduced_est_tokens": 23339,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## S3-1 — Header content and layout",
-          "start": 217,
-          "end": 240,
+          "start": 229,
+          "end": 252,
           "lines": 24,
           "bytes": 836
         },
         {
           "title": "## S3-2 — Header styling",
-          "start": 241,
-          "end": 254,
+          "start": 253,
+          "end": 266,
           "lines": 14,
           "bytes": 616
         },
         {
           "title": "## S3-3 — Repetition guarantee",
-          "start": 255,
-          "end": 279,
+          "start": 267,
+          "end": 291,
           "lines": 25,
           "bytes": 914
         },
         {
           "title": "## S4-1 — Tag matching regex",
-          "start": 280,
-          "end": 304,
+          "start": 292,
+          "end": 316,
           "lines": 25,
           "bytes": 1129
         },
         {
           "title": "## S4-2 — Removal algorithm",
-          "start": 305,
-          "end": 318,
+          "start": 317,
+          "end": 330,
           "lines": 14,
           "bytes": 725
         },
         {
           "title": "## S4-3 — Removal outcomes",
-          "start": 319,
-          "end": 336,
+          "start": 331,
+          "end": 348,
           "lines": 18,
           "bytes": 754
         },
         {
           "title": "## S5-1 — Pill structure (per question)",
-          "start": 337,
-          "end": 350,
+          "start": 349,
+          "end": 362,
           "lines": 14,
           "bytes": 713
         },
         {
           "title": "## S5-2 — Pill styling",
-          "start": 351,
-          "end": 375,
+          "start": 363,
+          "end": 387,
           "lines": 25,
           "bytes": 662
         },
         {
           "title": "## S5-3 — Pill table properties",
-          "start": 376,
-          "end": 388,
+          "start": 388,
+          "end": 400,
           "lines": 13,
           "bytes": 545
         },
         {
           "title": "## S5-4 — Pill data resolution",
-          "start": 389,
-          "end": 399,
+          "start": 401,
+          "end": 411,
           "lines": 11,
           "bytes": 384
         },
         {
           "title": "## S5-5 — Pill insertion position",
-          "start": 400,
-          "end": 429,
+          "start": 412,
+          "end": 441,
           "lines": 30,
           "bytes": 1044
         },
         {
           "title": "## S6-1 — Footer content and layout",
-          "start": 430,
-          "end": 438,
+          "start": 442,
+          "end": 450,
           "lines": 9,
           "bytes": 281
         },
         {
           "title": "## S6-2 — Footer styling",
-          "start": 439,
-          "end": 452,
+          "start": 451,
+          "end": 464,
           "lines": 14,
           "bytes": 445
         },
         {
           "title": "## S6-3 — Footer hardcoded values (D5)",
-          "start": 453,
-          "end": 471,
+          "start": 465,
+          "end": 484,
+          "lines": 20,
+          "bytes": 726
+        },
+        {
+          "title": "## S6A-1 — The border element (exact, locked by O-2)",
+          "start": 485,
+          "end": 503,
           "lines": 19,
-          "bytes": 632
+          "bytes": 778
+        },
+        {
+          "title": "## S6A-2 — Why offsetFrom=\"page\" is MANDATORY",
+          "start": 504,
+          "end": 513,
+          "lines": 10,
+          "bytes": 503
+        },
+        {
+          "title": "## S6A-3 — Why \"every page\" is structurally guaranteed",
+          "start": 514,
+          "end": 522,
+          "lines": 9,
+          "bytes": 466
+        },
+        {
+          "title": "## S6A-4 — Geometry safety",
+          "start": 523,
+          "end": 532,
+          "lines": 10,
+          "bytes": 520
+        },
+        {
+          "title": "## S6A-5 — Pre-existing borders (O-3)",
+          "start": 533,
+          "end": 549,
+          "lines": 17,
+          "bytes": 701
         },
         {
           "title": "## S7-1 — Page margins (if not already set)",
-          "start": 472,
-          "end": 482,
+          "start": 550,
+          "end": 560,
           "lines": 11,
           "bytes": 237
         },
         {
           "title": "## S7-2 — Consistent spacing",
-          "start": 483,
-          "end": 491,
+          "start": 561,
+          "end": 569,
           "lines": 9,
           "bytes": 385
         },
         {
           "title": "## S7-3 — What is NOT changed",
-          "start": 492,
-          "end": 505,
+          "start": 570,
+          "end": 583,
           "lines": 14,
           "bytes": 683
         },
         {
           "title": "## S7-4 — Explanation tag restyle (v1.2): detection",
-          "start": 506,
-          "end": 547,
+          "start": 584,
+          "end": 625,
           "lines": 42,
           "bytes": 1926
         },
         {
           "title": "## S7-5 — Explanation tag style table (v1.2)",
-          "start": 548,
-          "end": 581,
+          "start": 626,
+          "end": 659,
           "lines": 34,
           "bytes": 1721
         },
         {
           "title": "## S7-6 — Marker glyph substitution (v1.2, D9)",
-          "start": 582,
-          "end": 614,
+          "start": 660,
+          "end": 692,
           "lines": 33,
           "bytes": 1321
         },
         {
           "title": "## S8-1 — Question count match",
-          "start": 615,
-          "end": 620,
+          "start": 693,
+          "end": 698,
           "lines": 6,
           "bytes": 223
         },
         {
           "title": "## S8-2 — Pill count match",
-          "start": 621,
-          "end": 626,
+          "start": 699,
+          "end": 704,
           "lines": 6,
           "bytes": 266
         },
         {
-          "title": "## S8-3 — Header and footer parts check (v1.3)",
-          "start": 627,
-          "end": 643,
-          "lines": 17,
-          "bytes": 797
+          "title": "## S8-3 — Header, footer, and page-border check (v1.3; border v1.6)",
+          "start": 705,
+          "end": 726,
+          "lines": 22,
+          "bytes": 1148
         },
         {
           "title": "## S8-4 — Content byte-identity spot-check",
-          "start": 644,
-          "end": 650,
+          "start": 727,
+          "end": 733,
           "lines": 7,
           "bytes": 299
         },
         {
           "title": "## S8-5 — OMML survival check",
-          "start": 651,
-          "end": 656,
+          "start": 734,
+          "end": 739,
           "lines": 6,
           "bytes": 252
         },
         {
           "title": "## S8-6 — Image survival check",
-          "start": 657,
-          "end": 665,
+          "start": 740,
+          "end": 748,
           "lines": 9,
           "bytes": 376
         },
         {
           "title": "## S8-7 — Date/session tag absence check (v1.1)",
-          "start": 666,
-          "end": 673,
+          "start": 749,
+          "end": 756,
           "lines": 8,
           "bytes": 355
         },
         {
           "title": "## S8-8 — Full text-stream integrity check (v1.2)",
-          "start": 674,
-          "end": 691,
+          "start": 757,
+          "end": 774,
           "lines": 18,
           "bytes": 883
         },
         {
           "title": "## S8-9 — Package validity gate (v1.4) — HARD STOP",
-          "start": 692,
-          "end": 977,
-          "lines": 286,
-          "bytes": 14338
+          "start": 775,
+          "end": 1089,
+          "lines": 315,
+          "bytes": 16086
         },
         {
           "title": "## S13-1 — Pill table XML structure",
-          "start": 978,
-          "end": 1006,
+          "start": 1090,
+          "end": 1118,
           "lines": 29,
           "bytes": 1582
         },
         {
           "title": "## S13-2 — Insertion strategy",
-          "start": 1007,
-          "end": 1030,
-          "lines": 24,
-          "bytes": 1155
+          "start": 1119,
+          "end": 1143,
+          "lines": 25,
+          "bytes": 1273
         },
         {
           "title": "## S13-3 — Namespace preservation (v1.4 — MANDATORY MECHANISM)",
-          "start": 1031,
-          "end": 1079,
+          "start": 1144,
+          "end": 1192,
           "lines": 49,
           "bytes": 2618
         },
         {
           "title": "### Why Word rejects what Python accepts",
-          "start": 1080,
-          "end": 1089,
+          "start": 1193,
+          "end": 1202,
           "lines": 10,
           "bytes": 563
         },
         {
           "title": "### Mandated read/write pattern",
-          "start": 1090,
-          "end": 1128,
+          "start": 1203,
+          "end": 1241,
           "lines": 39,
           "bytes": 1125
         },
         {
           "title": "### In-spec namespace self-check (runs before S8-9)",
-          "start": 1129,
-          "end": 1170,
+          "start": 1242,
+          "end": 1283,
           "lines": 42,
           "bytes": 1486
         },
         {
           "title": "## S13-4 — Why not python-docx for insertion",
-          "start": 1171,
-          "end": 1179,
+          "start": 1284,
+          "end": 1292,
           "lines": 9,
           "bytes": 459
         },
         {
           "title": "## S13-5 — Restyle mechanics (v1.2)",
-          "start": 1180,
-          "end": 1211,
+          "start": 1293,
+          "end": 1324,
           "lines": 32,
           "bytes": 1884
         },
         {
           "title": "## S13-6 — Page header/footer part wiring (v1.3)",
-          "start": 1212,
-          "end": 1266,
+          "start": 1325,
+          "end": 1379,
           "lines": 55,
           "bytes": 2855
         },
         {
           "title": "## S13-7 — OOXML schema ordering discipline (v1.4)",
-          "start": 1267,
-          "end": 1274,
+          "start": 1380,
+          "end": 1387,
           "lines": 8,
           "bytes": 394
         },
         {
           "title": "### The tables",
-          "start": 1275,
-          "end": 1393,
-          "lines": 119,
-          "bytes": 5294
+          "start": 1388,
+          "end": 1507,
+          "lines": 120,
+          "bytes": 5350
         },
         {
           "title": "### The insertion function",
-          "start": 1394,
-          "end": 1507,
+          "start": 1508,
+          "end": 1621,
           "lines": 114,
           "bytes": 4786
         },
         {
           "title": "### When it is required",
-          "start": 1508,
-          "end": 1531,
-          "lines": 24,
-          "bytes": 1151
+          "start": 1622,
+          "end": 1646,
+          "lines": 25,
+          "bytes": 1200
         },
         {
           "title": "### ⚠️ Nested defects are masked — an error count is a LOWER BOUND",
-          "start": 1532,
-          "end": 1549,
+          "start": 1647,
+          "end": 1664,
           "lines": 18,
           "bytes": 917
         },
         {
           "title": "### Inline order assertion (cheap, runs before S8-9)",
-          "start": 1550,
-          "end": 1570,
+          "start": 1665,
+          "end": 1685,
           "lines": 21,
           "bytes": 853
         },
         {
           "title": "### Self-test (run before first use on a new exam)",
-          "start": 1571,
-          "end": 1698,
-          "lines": 128,
-          "bytes": 5318
+          "start": 1686,
+          "end": 1777,
+          "lines": 92,
+          "bytes": 3759
+        },
+        {
+          "title": "## S13-8 — Page border wiring (v1.6)",
+          "start": 1778,
+          "end": 1848,
+          "lines": 71,
+          "bytes": 3487
+        },
+        {
+          "title": "### Verification evidence (v1.6, measured — not asserted)",
+          "start": 1849,
+          "end": 1864,
+          "lines": 16,
+          "bytes": 912
+        },
+        {
+          "title": "### Self-test (run before first use on a new exam, alongside selftest_set_child)",
+          "start": 1865,
+          "end": 1990,
+          "lines": 126,
+          "bytes": 6071
         }
       ]
     },

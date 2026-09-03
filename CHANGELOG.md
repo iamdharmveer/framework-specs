@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026.09.03.3 — GAP-2026-09-03-PAGE-BORDER (PYQFormat v1.6.0)
+Full-page border on every page of the PYQ-3 formatted student document,
+locked by owner rulings O-1..O-4 (2026-09-03): scope PYQFormat ONLY;
+constants locked to the reference artefact (single 0.75pt line #1F3864,
+24pt from the PAGE edge, offsetFrom="page", all four sides, display and
+zOrder ABSENT — absence of display is what makes "every page" a property
+of the ISO standard rather than an aspiration); a pre-existing pgBorders
+is REPLACED (document chrome, edge-case-19 rationale); margins narrower
+than the offset WARN, never HALT. Mechanism: one <w:pgBorders> per
+<w:sectPr>, inserted by set_child() at the schema position (SECTPR_ORDER
+already contained pgBorders — zero changes to existing order tables); new
+4-entry PGBORDERS_ORDER; NEW spec sections §6A (contract) and S13-6A
+(apply_page_border(), page_border_margin_warn(), selftest_page_border());
+S8-3 rule 5 hard-stop verification; §11 done-item 12 + hard invariant;
+§12 edge cases 22–24. Chrome-only: no body element, so S8-4..S8-8 are
+unaffected by construction. Verified before writing the spec, on a real
+76-page formatted artefact: official OOXML validator 0 new errors vs the
+borderless baseline; byte-level change surface exactly word/document.xml;
+a deliberately misplaced border (naive insert at index 0) is REJECTED by
+the validator — the S8-9 net catches implementation drift; embedded
+selftest_set_child + selftest_page_border both pass when executed
+verbatim from the spec. The pre-release review itself caught and
+removed one false positive: a whole-sectPr assert_schema_order() that
+tripped on legally INTERLEAVED header/footer references (an
+EG_HdrFtrReferences choice group Word itself writes interleaved); the
+tail-only check replaces it and selftest case 4 fixture-locks the
+regression. Affected: Framework_PYQFormat.md, SPEC_HISTORY.md,
+VERSION, CHANGELOG.md, DEPLOY_NOTES.md, MANIFEST.json, SPEC_MANIFEST.json,
+SPEC_SECTIONS.json, SHA256SUMS.txt.
+
 ## 2026.09.03.2 — SYLLABUS-TRANSITION hardening (real-exam verification: sectioned exam)
 Verification against a third real exam (a SECTIONED, optional-paper exam
 changing at 2027-02 with every paper code renamed and one new topic-block)

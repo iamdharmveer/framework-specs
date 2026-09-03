@@ -3857,10 +3857,14 @@ Current-version entry remains in Framework_PYQExplain.md.
 
 ## Framework_PYQFormat.md
 
-Moved from the file header at framework release 2026.08.15.14.
+Moved from the file header at framework release 2026.08.15.14; v1.5.2 entry moved at 2026.09.03.3.
 Current-version entry remains in Framework_PYQFormat.md.
 
 ```
+# v1.5.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
+#   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
+#   name from the attached docx and load THAT (prevents a colliding sidecar from another paper
+#   silently supplying the classification map). Legacy bare names accepted with a WARN.
 # v1.5.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
 #   Clarified §1/§0 that the sidecar is attached alongside the _PYQ_Explanation.docx (both
 #   are PYQExplain deliverables). No behaviour change — the sourcing priority is unchanged.
