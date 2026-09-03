@@ -773,6 +773,30 @@ ck("FX-XW-29 renamed subject matched by CONTENT, never name (E29)",
    and _ss['Unit One New Name']['state'] != 'NEW')
 ck("FX-XW-30 split parent keeps a correspondent (top-half mean, not orphaned)",
    bool(_xw['correspondents']['Split Parent']))
+_XSM = _sp.subject_correspondents(
+    {'Tiny': {'T': ['plant systematics', 'photosynthesis and metabolism']}},
+    {'Home': {'T': ['plant systematics', 'photosynthesis and metabolism']},
+     'Other': {'T': ['general principles of metabolism',
+                     'structure of biomolecules']}})
+ck("FX-XW-30b k-floor: one fluke atom match never mints a correspondent "
+   "for a small subject (sectioned-exam hardening)",
+   _XSM['Tiny'] == [('Home', 1.0)])
+_X1 = _sp.subject_correspondents(
+    {'Solo': {'T': ['photosynthesis light reactions']}},
+    {'Home': {'T': ['photosynthesis and light reaction']}})
+ck("FX-XW-30c n=1 keeps k=1: a single-atom subject's score is its best "
+   "match, never halved (kills the min-dropped mutant)",
+   _X1['Solo'] and _X1['Solo'][0][0] == 'Home'
+   and _X1['Solo'][0][1] > 0.9)
+_X3 = _sp.subject_correspondents(
+    {'Trio': {'T': ['photosynthesis light reactions',
+                    'quantum chromodynamics lattice',
+                    'byzantine consensus protocols']}},
+    {'Home': {'T': ['photosynthesis and light reaction']}})
+ck("FX-XW-30d n=3 keeps k=2 exactly: the top-half window neither shrinks "
+   "nor grows (kills the floor-raised mutant)",
+   _X3['Trio'] and _X3['Trio'][0][0] == 'Home'
+   and abs(_X3['Trio'][0][1] - 0.5872) < 0.01)
 ck("FX-XW-70 brand-new subject rolls up NEW at D-7 (B1)",
    _ss['Brand New Subject']['state'] == 'NEW'
    and _ss['Brand New Subject']['frac_new'] == 1.0)

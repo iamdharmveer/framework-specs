@@ -729,7 +729,12 @@ def subject_correspondents(old_tax, new_tax,
             # evolution+behaviour unit splits into two current units). The
             # unrelated-subject guard (E67) is unaffected: without a truly
             # owned half, even the top-half mean stays low.
-            k = (len(bests) + 1) // 2
+            # k floored at 2: a single fluke atom match must never mint a
+            # correspondent for a small subject (found in real sectioned-exam
+            # verification: a 2-atom paper gained a cross-paper correspondent
+            # on one 0.53 word-overlap, widening its R34 scope). Real
+            # subjects (n >= 4) are unaffected; n = 1 keeps k = 1.
+            k = min(len(bests), max(2, (len(bests) + 1) // 2))
             score = sum(bests[:k]) / k
             if score >= threshold:
                 scored.append((ns, round(score, 4)))

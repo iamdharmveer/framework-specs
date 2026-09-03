@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.09.03.2 — SYLLABUS-TRANSITION hardening (real-exam verification: sectioned exam)
+Verification against a third real exam (a SECTIONED, optional-paper exam
+changing at 2027-02 with every paper code renamed and one new topic-block)
+found one engine hardening: subject-correspondence top-half mean now floors
+k at 2, so a single fluke atom match can never mint a correspondent for a
+small subject and widen its R34 scope cross-paper (n=1 keeps k=1; real
+subjects n>=4 unaffected). Fixtures FX-XW-30b/30c/30d lock it — all three
+hand-mutants of the changed line are killed by the suite (144). Verified
+at real atom density: cross-paper correspondence stays below the floor,
+paper isolation is exact, R34 suppression yields DELETED + armed lexicon
+with no cross-paper rescue, per-paper Regime 2, the new topic takes its 1/C
+slice with full coverage. Affected: syllabus_provenance.py,
+regression_pyq_fixtures.py, VERSION, CHANGELOG.md, DEPLOY_NOTES.md,
+MANIFEST.json, SPEC_MANIFEST.json, SPEC_SECTIONS.json, SHA256SUMS.txt.
+
 ## 2026.09.03.1 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C
 **Transition Allocation & Generation (GAP §5) — the GAP is COMPLETE.**
 Framework_Blueprint v1.60.0 (requires Framework_PYQSort v1.21.0 and

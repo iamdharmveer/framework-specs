@@ -345,9 +345,9 @@
     },
     "syllabus_provenance.py": {
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1105,
-      "sha256": "383c9ecc29717ba32729eca2b6d6329b355c7bc577378f91459a266718902531",
-      "size_bytes": 55862,
+      "lines": 1110,
+      "sha256": "b66b1f815f7922e2fbda617da6b3b5f8b2baa5b57fed71ab08e93eef460a2e7d",
+      "size_bytes": 56254,
       "version_header": "\"\"\""
     },
     "t3_mathcomp.py": {

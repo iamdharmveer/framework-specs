@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.09.03.1",
+  "framework_version": "2026.09.03.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -412,18 +412,18 @@
       "bytes": 105127
     },
     "syllabus_provenance.py": {
-      "sha256": "383c9ecc29717ba32729eca2b6d6329b355c7bc577378f91459a266718902531",
+      "sha256": "b66b1f815f7922e2fbda617da6b3b5f8b2baa5b57fed71ab08e93eef460a2e7d",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1105,
-      "bytes": 55862
+      "lines": 1110,
+      "bytes": 56254
     },
     "regression_pyq_fixtures.py": {
-      "sha256": "45308c38082088864ab2ea1f9edd8ed800d384f2cc8fc25e0dcf71c4cd6ce69b",
+      "sha256": "df6a77a226c9cab730877dfcf439bfef87da8b6a791673217741d5c6a6c6cfd9",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1008,
-      "bytes": 51035
+      "lines": 1032,
+      "bytes": 52331
     },
     "figural_core.py": {
       "sha256": "fcb742958cec9ce4c43688c6c5baea2406344d1c1e2d3be0e263b1b213034166",
