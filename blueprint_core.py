@@ -222,6 +222,21 @@ __all__ = [
     "map_question_label",
     "n_new_sittings",
     "reconcile_counts",
+    "NEW_SYLLABUS",
+    "ZERO_PYQ_BUCKET",
+    "classify_bucket",
+    "section_regime",
+    "frac_atoms_map",
+    "projected_shares",
+    "blend_weight",
+    "series_quota_split",
+    "hier_allocate",
+    "even_spread_schedule",
+    "cursor_read",
+    "bv_unit_check",
+    "bv_topic_check",
+    "bv_coverage_report",
+    "transition_footer_lines",
 ]
 
 
@@ -10130,7 +10145,197 @@ def reconcile_counts(paper, total, in_syllabus, out_of_syllabus):
 
 # END RELEASE B EXTENSION
 
-# END CLUSTER SYLLABUS ERA (Release A+B surface)
+
+# ── RELEASE C EXTENSION — TRANSITION ALLOCATION & GATES (GAP §5) ────────────
+# Joins Cluster SYLLABUS ERA. Laws unchanged: exam-independent (§2.1),
+# computes only; quota integerization reuses largest_remainder_apportion
+# (ONE-RULEBOOK); INACTIVE transition never reaches any function here.
+
+NEW_SYLLABUS = "NEW_SYLLABUS"        # §5.1 bucket names (not sentinels)
+ZERO_PYQ_BUCKET = "ZERO_PYQ"
+
+
+def classify_bucket(r_avg, crosswalk_state_new):
+    """§5.1 three-way classification (amends Blueprint S3-5).
+    PYQ: any history (r_avg > 0, any era, crosswalk-mapped).
+    NEW_SYLLABUS: r_avg == 0 AND the atom is crosswalk-NEW — it never had
+    the OPPORTUNITY to appear. ZERO_PYQ: r_avg == 0 but existed in a prior
+    era — had opportunity, never appeared; stays in §5 rotation (R13)."""
+    if r_avg and r_avg > 0:
+        return 'PYQ'
+    return NEW_SYLLABUS if crosswalk_state_new else ZERO_PYQ_BUCKET
+
+
+def section_regime(section_subject_states):
+    """§5.2 R33/B2: per-SECTION regime from the approved crosswalk's B1
+    roll-ups restricted to THIS section's subjects. Any rolled-up NEW or
+    DELETED subject => Regime 1 (structural, equal-share prior); otherwise
+    Regime 2 (compositional, projected prior). Sections split independently
+    — a global regime would discard another section's valid measurement."""
+    return 1 if any(s in ('NEW', 'DELETED') for s in section_subject_states)         else 2
+
+
+def frac_atoms_map(xw, old_subject):
+    """F-2 fraction table for one old subject: share of its atoms mapped
+    into each CURRENT subject, with ALL of its atoms in the denominator —
+    DELETED atoms contribute to no numerator, so a mostly-deleted subject's
+    share EVAPORATES instead of transferring wholesale (the GAP's worked
+    anchor: 10% observed, 80% deleted, survivors to one subject => that
+    subject gains 2 points and 8 evaporate). A SPLIT atom counts once, to
+    its PRIMARY (first) target — deterministic, disclosed."""
+    mine = [n for n in xw['nodes'] if n['old_id'][0] == old_subject]
+    if not mine:
+        return {}
+    out = {}
+    for n in mine:
+        if n['state'] != 'DELETED' and n['new_ids']:
+            c = n['new_ids'][0][0]
+            out[c] = out.get(c, 0) + 1
+    d = len(mine)
+    return {c: k / d for c, k in out.items()}
+
+
+def projected_shares(observed_shares_old, xw, section_current_subjects):
+    """§5.2 Regime 2 prior: projected(c) = sum over old subjects o of
+    observed_share(o) x frac_atoms(o -> c), restricted to this section's
+    CURRENT subjects, renormalized to 1 (DELETED share evaporates first,
+    then the section renormalizes). observed_share(o) per B4 = the existing
+    recency-weighted r_avg pipeline summed to subject level (pre-EF papers)
+    — the caller supplies it; no new statistic exists."""
+    proj = {c: 0.0 for c in section_current_subjects}
+    for o, share in (observed_shares_old or {}).items():
+        for c, f in frac_atoms_map(xw, o).items():
+            if c in proj:
+                proj[c] += share * f
+    tot = sum(proj.values())
+    return {c: (v / tot if tot else 1.0 / len(proj)) for c, v in proj.items()}         if proj else {}
+
+
+def blend_weight(n_new, observed_new_share, prior, m):
+    """§5.2 blend (both regimes): (n_new*obs + m*prior)/(n_new + m); at
+    n_new = 0 the weight IS the prior. m = dial D-1. Convergence: 0/25/40/
+    50% measured fraction at n_new = 0..3 with m = 3 — arithmetic, not
+    policy."""
+    return (n_new * observed_new_share + m * prior) / (n_new + m)         if (n_new + m) else prior
+
+
+def series_quota_split(series_total, n_mocks):
+    """§5.2 integerization across mocks: a subject's SERIES total spreads
+    over the mocks with the +1 remainders INTERLEAVED evenly (the GAP's
+    50-over-14 worked example "alternating 3 and 4") — grouping the larger
+    quotas at the front would systematically starve late mocks of that
+    subject. Bresenham spacing: mock i carries the extra iff the cumulative
+    remainder crosses an integer at i."""
+    base, extra = divmod(int(series_total), n_mocks)
+    return [base + ((i + 1) * extra // n_mocks - i * extra // n_mocks)
+            for i in range(n_mocks)]
+
+
+def hier_allocate(parent_quota, children):
+    """§5.3 ONE recursive rule (Topic level, then Subtopic level).
+    children: [(name, is_new, measured_weight)] — ZERO_PYQ children are NOT
+    passed (they stay in §5 rotation, R13). Each NEW child gets
+    parent x 1/C (structural slice); history children share the remainder
+    in proportion to measured weights. Degenerations are exact: all-NEW =>
+    equal (R6 verbatim); all-history => pure measured; mixed => the
+    driving-exam Unit-7 worked example (2 NEW of 12 topics => 1/12 each,
+    history shares 10/12)."""
+    C = len(children)
+    if not C:
+        return {}
+    k = sum(1 for _, is_new, _w in children if is_new)
+    out = {}
+    hist = [(nm, w) for nm, is_new, w in children if not is_new]
+    wsum = sum(w for _, w in hist)
+    for nm, is_new, w in children:
+        if is_new:
+            out[nm] = parent_quota / C
+        else:
+            share = (w / wsum) if wsum else (1.0 / len(hist) if hist else 0)
+            out[nm] = parent_quota * (1 - k / C) * share
+    return out
+
+
+def even_spread_schedule(new_ids_doc_order, budget, cursor_pos):
+    """§5.4 Phase-2 EVEN SPREAD for NEW_SYLLABUS subtopics in SYLLABUS
+    DOCUMENT ORDER (alphabetical order was the original defect's bias and
+    is banned). Round-robin from the cursor; returns (assignments, covered,
+    total, next_cursor). Infeasible budgets never fail — coverage is
+    reported and the cursor resumes next series (R31)."""
+    Y = len(new_ids_doc_order)
+    if not Y or budget <= 0:
+        return [], 0, Y, cursor_pos % Y if Y else 0
+    picks = [new_ids_doc_order[(cursor_pos + i) % Y] for i in range(budget)]
+    covered = min(Y, budget)
+    return picks, covered, Y, (cursor_pos + budget) % Y
+
+
+def cursor_read(record, current_syllabus_sha256):
+    """A3 cursor staleness: the delivery-manifest cursor stores the
+    syllabus_sha256 it was built against (positions index document order).
+    Hash mismatch => RESET to 0 with one note — never a stop, never a
+    dangling position. Sole WRITER of the cursor is MockDeliver at delivery
+    time (R29/R31); this is the read side."""
+    if not record:
+        return 0, None
+    if record.get('syllabus_sha256') != current_syllabus_sha256:
+        return 0, ("syllabus document changed since the coverage cursor was "
+                   "written; cursor reset to the start of document order.")
+    return int(record.get('position', 0)), None
+
+
+def bv_unit_check(realized, weights, sec_total):
+    """§5.9 BV-UNIT: each subject's realized share per series within +-1
+    largest-remainder step of w_subject, per section. Compares against the
+    canonical apportionment (largest_remainder_apportion — one rulebook).
+    Returns [] or failure strings."""
+    quota = largest_remainder_apportion(
+        {s: w * sec_total for s, w in weights.items()}, sec_total)
+    return [f"BV-UNIT: {s} realized {realized.get(s, 0)} vs quota "
+            f"{quota[s]} (+-1)" for s in weights
+            if abs(realized.get(s, 0) - quota[s]) > 1]
+
+
+def bv_topic_check(realized_topics, topic_quotas):
+    """§5.9 BV-TOPIC (rev 4.3 D2): realized TOPIC shares within +-1
+    largest-remainder step of the §5.3 quotas — closes the single-subject-
+    section hole where BV-UNIT is vacuously true at w = 1."""
+    total = round(sum(topic_quotas.values()))
+    q = largest_remainder_apportion(topic_quotas, total) if total else         {t: 0 for t in topic_quotas}
+    return [f"BV-TOPIC: {t} realized {realized_topics.get(t, 0)} vs quota "
+            f"{q[t]} (+-1)" for t in topic_quotas
+            if abs(realized_topics.get(t, 0) - q[t]) > 1]
+
+
+def bv_coverage_report(covered, total_new, d5=1):
+    """§5.4/§5.9 BV-COVERAGE: every NEW subtopic >= D-5 times per series
+    when feasible; infeasible budgets REPORT, never fail."""
+    if covered >= total_new * d5:
+        return None
+    return f"{covered} of {total_new} covered (maximum feasible)"
+
+
+def transition_footer_lines(block, n_new, coverage_text=None,
+                            style_donor='section inheritance', dials=None):
+    """§5.9 ACTIVE footer lines (Release C wiring of §FOOTER-SYL; the
+    traced-inactive line stays with syllabus_footer_lines). n_new is ALWAYS
+    printed; the converged label (n_new >= D-6) never changes behaviour."""
+    if not block or block.get('status') != 'active' or n_new is None:
+        return []          # unwired call sites print nothing, never crash
+    d6 = (dials or {}).get('D-6', TRANSITION_DIALS['D-6']['factory'])
+    if n_new >= d6:
+        return [f"SYLLABUS TRANSITION — weights effectively measured "
+                f"(n_new={n_new})."]
+    line = (f"SYLLABUS TRANSITION — weights from equal-share prior blended "
+            f"with {n_new} measured sitting(s) (n_new={n_new}); NEW-content "
+            f"style from {style_donor}")
+    if coverage_text:
+        line += f"; coverage {coverage_text}"
+    return [line + "."]
+
+# END RELEASE C EXTENSION
+
+# END CLUSTER SYLLABUS ERA (Release A+B+C surface)
 # ════════════════════════════════════════════════════════════════════════════
 
 

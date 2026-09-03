@@ -1,4 +1,5 @@
-# Framework_DeliveryFooter v1.31 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.32 — Universal Delivery Footer (F1/F2) Contract
+# v1.32 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: §5.9 active transition lines wired
 # v1.31 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A: NEW
 #   §FOOTER-SYL — the syllabus-declaration disclosure line. Every footer (F1 and F2)
 #   of an exam whose exam_config.syllabus_transition block records a TRACED-INACTIVE
@@ -627,6 +628,20 @@ NEXT STEP  : NC: NotesCreate (next subtopic), or Notes pipeline complete when al
 ```
 
 ---
+
+
+§FOOTER-SYL-ACTIVE (v1.32 — GAP-2026-09-01 §5.9; completes §FOOTER-SYL)
+
+For an ACTIVE transition, every F1/F2 footer renders the line(s) from
+bc.transition_footer_lines(block, n_new, coverage_text, style_donor,
+dials) — pre-converged: "SYLLABUS TRANSITION — weights from equal-share
+prior blended with {n_new} measured sitting(s) (n_new={n}); NEW-content
+style from {donor}; coverage {X}/{Y}."; converged (n_new >= D-6):
+"SYLLABUS TRANSITION — weights effectively measured (n_new={n})." The
+label never changes behaviour; n_new is always printed. MockDeliver hands
+this step the inputs (count-manifest n_new, BV-COVERAGE text, style-donor
+note). The Release-A traced-inactive line (bc.syllabus_footer_lines) is
+unchanged; the two surfaces are disjoint by status.
 
 ## §4 — RENDERING CONTRACT
 

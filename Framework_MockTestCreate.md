@@ -1,4 +1,5 @@
-# Framework_MockTestCreate v5.82
+# Framework_MockTestCreate v5.83
+# v5.83 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: NEW-content generation (S7-NEWGEN, donor hierarchy, L4 firewall, difficulty layers)
 # v5.82 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: the writing side of the style layer.
 #   S3-2b loads {EXAM}_style_profile.json + {EXAM}_pyq_index.json (every failure mode
 #   DORMANT with a recorded reason — never a stop, P-4); S3-12c draws a deterministic
@@ -9790,7 +9791,45 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.82
+
+## CREATE-SYL — NEW-CONTENT GENERATION (v5.83 — GAP-2026-09-01 §5.5—§5.8;
+## ACTIVE mode only; inactive exams byte-identical to v5.82)
+
+STYLE DONORS (§5.5, strict order): 1 the SECTION's measured mechanic
+distribution (a mechanic the section never used is never used); 2 the
+section style signature (R9: OUT_OF_SYLLABUS questions DO contribute here
+and nowhere content-bearing); 3 the sample paper if present (§4.7) —
+above inheritance, below real new-era PYQs; 4 FORBIDDEN: any cross-exam
+borrowing (§2.1c). A4 zero-history section (post-HS-ST11 added section):
+fall back to the EXAM-LEVEL pooled distribution + signature, disclosed in
+the footer ("style donors: exam-level pool — new section has no history");
+the same fallback feeds §5.8 Layer 1 for that section.
+
+S7-NEWGEN (§5.6, R8) for every NEW-content question: (a) >= 3 candidates
+from the subtopic's syllabus atoms under the §5.5 constraints and the
+§5.7 firewall; (b) self-audit each — factually verifiable against
+canonical academic consensus; exactly ONE defensible key; written
+per-option rationale; distractors are NAMED, REAL misconceptions; no
+ambiguity of scope, units, or notation; standard terminology; all house
+content rules; (c) best candidate selected, series-level dedup applies;
+(d) rationales RETAINED into the explain artefacts. All existing Step 7
+gates continue on top; nothing is exempted.
+
+L4 DRIFT FIREWALL (§5.7): every candidate for a RETAINED-subtopic
+question is screened via syllabus_provenance.lexicon_screen against the
+DELETED-node lexicons OF ITS OWN R34 SCOPE only; a hit => regenerate that
+candidate. Legitimate same-term content in another section is never
+screened against foreign lexicons.
+
+DIFFICULTY (§5.8): Layer 1 target E:M:H measured on retained subjects of
+the SAME section; Layer 2 realization — structural markers measured per
+difficulty per section plus the exam-independent cognitive anchor at
+exam_config `level` (Easy one step; Medium two steps or close
+discrimination; Hard integration of >= 2 concepts / data interpretation /
+exception reasoning). Once new-era papers exist, measured NEW-content
+difficulty replaces inheritance (R12/R10 cadence).
+
+# END OF Framework_MockTestCreate v5.83
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

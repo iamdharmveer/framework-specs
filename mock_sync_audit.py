@@ -860,6 +860,89 @@ def check_content_path_table_free(read=_read):
     return problems
 
 
+
+
+# ── MS-17/18/19 (GAP-2026-09-01-SYLLABUS-TRANSITION §5.9, Release C) ────
+
+def check_syllabus_rotation_isolation(read=_read):
+    """MS-17: OUT_OF_SYLLABUS and NEW_SYLLABUS may never reach the §5
+    ZERO-PYQ rotation code paths (caller-whitelist idiom of MS-16). Static
+    guarantee: inside blueprint_core's rotation surface (every function
+    whose name carries 'rotation' or 'zero_pyq'), neither literal appears.
+    NEW_SYLLABUS subtopics are scheduled by §5.4 even spread; OOS questions
+    are labels, not allocation inputs."""
+    problems = []
+    src = read('blueprint_core.py')
+    import re as _re
+    for m in _re.finditer(r'(?m)^def (\w*(?:rotation|zero_pyq)\w*)\(', src):
+        body_start = m.start()
+        nxt = src.find('\ndef ', m.end())
+        body = src[body_start:nxt if nxt != -1 else len(src)]
+        for lit in ('OUT_OF_SYLLABUS', 'NEW_SYLLABUS'):
+            if lit in body:
+                problems.append(
+                    f"MS-17: rotation-path function {m.group(1)} references "
+                    f"{lit} — §5 rotation must stay syllabus-blind")
+    return problems
+
+
+def check_status_set_invariance(read=_read):
+    """MS-18: PYQ-deliverable WRITERS may use `status` for placement and
+    ordering only — the delivered question SET must be invariant to it
+    (§4.5/R20). Static heuristic with an explicit escape: any line in the
+    writer engines that mentions OUT_OF_SYLLABUS together with a dropping
+    construct (continue / filter( / remove / skip) must carry the marker
+    '# MS-18 SET-INVARIANT' proving it reorders rather than drops."""
+    problems = []
+    for eng in ('transport_core.py', 'blueprint_core.py'):
+        try:
+            src = read(eng)
+        except FileNotFoundError:
+            continue
+        lines = src.split('\n')
+        for i, line in enumerate(lines, 1):
+            if 'OUT_OF_SYLLABUS' not in line:
+                continue
+            window = ' '.join(lines[i - 1:i + 2])   # the line + its follower
+            if any(t in window for t in ('continue', 'filter(', '.remove(',
+                                         'skip')) and \
+                    '# MS-18 SET-INVARIANT' not in line:
+                problems.append(f"MS-18: {eng}:{i} drops on status without "
+                                f"the SET-INVARIANT marker")
+    return problems
+
+
+def check_transition_field_ownership(read=_read):
+    """MS-19: each §6 transition artefact field is WRITTEN only by its sole
+    owner's spec (R29). Ownership map: syllabus_transition block +
+    crosswalks + era_windows + syllabus_sha256 => PYQDraft (approval
+    rewrite of `crosswalks` => PYQApprove); n_new => PYQCount; the coverage
+    cursor => MockDeliver. Scan every OTHER Framework spec's fences for an
+    assignment to a foreign field."""
+    owners = {
+        "'syllabus_transition'": ('Framework_PYQDraft.md',),
+        "'crosswalks'": ('Framework_PYQDraft.md', 'Framework_PYQApprove.md'),
+        "'era_windows'": ('Framework_PYQDraft.md',),
+        "'syllabus_sha256'": ('Framework_PYQDraft.md',
+                              'Framework_MockDeliver.md'),
+        "'n_new'": ('Framework_PYQCount.md',),
+        "'coverage_cursor'": ('Framework_MockDeliver.md',),
+    }
+    import glob as _g, re as _re
+    problems = []
+    for spec in sorted(_g.glob('Framework_*.md')):
+        src = read(spec)
+        for field, own in owners.items():
+            if spec in own:
+                continue
+            pat = _re.escape(field) + r'\]\s*='
+            for m in _re.finditer(r'\[' + pat, src):
+                ln = src.count('\n', 0, m.start()) + 1
+                problems.append(f"MS-19: {spec}:{ln} writes {field} but the "
+                                f"sole owner is {' / '.join(own)} (R29)")
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -877,6 +960,9 @@ ALL_CHECKS = [
     ('MS-14 REGISTRY-HANDOFF', check_registry_handoff),
     ('MS-15 RETIRED-TRIGGERS', check_retired_triggers),
     ('MS-16 CONTENT-PATH-TABLE-FREE', check_content_path_table_free),
+    ('MS-17 SYLLABUS-ROTATION-ISOLATION', check_syllabus_rotation_isolation),
+    ('MS-18 STATUS-SET-INVARIANCE', check_status_set_invariance),
+    ('MS-19 TRANSITION-FIELD-OWNERSHIP', check_transition_field_ownership),
 ]
 
 
@@ -1315,6 +1401,28 @@ def self_test():
     check('ms14_missing_routes_flagged',
           any('routes.json' in x for x in check_registry_handoff(read=fake_reader(_ok), routes_read=_no_routes)))
 
+
+    # ── MS-17/18/19 (Release C) ──
+    _rot_bad = {'blueprint_core.py':
+                'def zp_rotation_pick(x):\n    return OUT_OF_SYLLABUS\n'}
+    _rot_ok = {'blueprint_core.py':
+               'def zp_rotation_pick(x):\n    return x\n'}
+    check("MS-17 flags a rotation function touching the sentinel",
+      len(check_syllabus_rotation_isolation(read=fake_reader(_rot_bad))) == 1)
+    check("MS-17 clean rotation surface passes",
+      check_syllabus_rotation_isolation(read=fake_reader(_rot_ok)) == [])
+    _w_bad = {'transport_core.py':
+              'if q.status == OUT_OF_SYLLABUS:\n    continue\n',
+              'blueprint_core.py': ''}
+    _w_ok = {'transport_core.py':
+             'if q.status == OUT_OF_SYLLABUS:  # MS-18 SET-INVARIANT\n'
+             '    continue\n', 'blueprint_core.py': ''}
+    check("MS-18 flags an unmarked drop on status",
+      len(check_status_set_invariance(read=fake_reader(_w_bad))) == 1)
+    check("MS-18 marked placement use passes",
+      check_status_set_invariance(read=fake_reader(_w_ok)) == [])
+    check("MS-19 live corpus: every transition field written only by its owner",
+      check_transition_field_ownership() == [])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

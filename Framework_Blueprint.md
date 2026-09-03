@@ -1,4 +1,5 @@
-# Framework_Blueprint v1.59.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.60.0 — Universal Mock Test Blueprint Generator
+# v1.60.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: transition allocation; requires Framework_PYQSort v1.21.0 and Framework_PYQCount v1.7 (era fields + n_new must exist)
 # v1.59.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: blueprint.json gains the additive
 #   `style_profile_expected` flag (§14) so Step 7 can distinguish EC-22 (a profile that
 #   vanished after planning) from an exam that never had one; the Axis-2 schedule accepts
@@ -7781,4 +7782,56 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.59.0
+
+## BLUEPRINT-SYL — TRANSITION ALLOCATION (v1.60.0 — GAP-2026-09-01 §5.1—
+## §5.4/§5.9; ACTIVE mode only — an INACTIVE transition leaves every
+## section below unread and this spec byte-identical to v1.59.0)
+
+S3-5 AMENDMENT (§5.1): classification is three-way via
+bc.classify_bucket(r_avg, crosswalk_state_new): PYQ (any-era history),
+NEW_SYLLABUS (r_avg 0 AND crosswalk-NEW — no historical opportunity),
+ZERO_PYQ (had opportunity, never appeared — §5 rotation UNCHANGED, R13).
+
+SUBJECT WEIGHTS (§5.2): section membership of a NEW subject per R27 —
+uniform sister memberships inherit automatically; non-uniform => HS-ST11
+(the operator updates the Sections tab; the paper structure itself
+changed, R16). Per section, regime = bc.section_regime(<B1 roll-up states
+of THIS section's subjects>): Regime 1 (structural) => equal-share prior
+1/S_sec over the CURRENT taxonomy at runtime; Regime 2 (compositional) =>
+projected prior bc.projected_shares(observed_shares_old, crosswalk,
+section_subjects) where observed_share is the EXISTING recency-weighted
+r_avg pipeline summed to subject level over pre-EF papers (B4 — no new
+statistic) and fractions come from bc.frac_atoms_map (F-2: DELETED atoms
+stay in the denominator — a mostly-deleted subject's share evaporates,
+never transfers wholesale). Sections split by regime INDEPENDENTLY.
+Untouched sections (no crosswalk contact) stay outside weighting entirely.
+Blend in both regimes: bc.blend_weight(n_new, observed_new_share, prior,
+D-1) with n_new READ from the count manifest (R29, sole writer PYQCount).
+subject_quota = sec_qs x N_mocks x w_subject, integerized by
+bc.largest_remainder_apportion across the series and spread per mock by
+bc.series_quota_split (50/14 => alternating 4s and 3s).
+
+WITHIN-SUBJECT (§5.3): ONE recursive rule at Topic then Subtopic level —
+bc.hier_allocate(parent_quota, children) — each NEW child takes 1/C, the
+history children share the remainder by measured weight; ZERO_PYQ children
+are NOT passed (rotation, R13). Degenerations exact: all-NEW = R6
+verbatim; all-history = today's measured behaviour; mixed = the Unit-7
+worked example (2 NEW of 12 => 1/12 each).
+
+SCHEDULING (§5.4): NEW_SYLLABUS subtopics by Phase-2 even spread in
+SYLLABUS DOCUMENT ORDER (alphabetical order is BANNED) via
+bc.even_spread_schedule with the coverage cursor READ through
+bc.cursor_read (A3: hash mismatch resets with a note — never a stop).
+Blueprint READS the cursor; ONLY MockDeliver writes it (R31).
+
+MANDATES + GATES (§5.9): preflight_mandate_ravg_check accepts mandates on
+NEW_SYLLABUS-class ids ONLY (ZERO_PYQ mandates keep the existing HARD
+STOP); S4-2 quota reservation extends pq_subs with mandated NEW ids.
+Gates: bc.bv_unit_check (+-1 largest-remainder step per subject per
+section), bc.bv_topic_check (rev 4.3 D2 — closes the single-subject-
+section hole and gates mixed-unit slices), bc.bv_coverage_report (>= D-5
+per series when feasible; infeasible REPORTS and the cursor resumes next
+series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
+inactive mode per its Release-A contract.
+
+# END OF Framework_Blueprint v1.60.0

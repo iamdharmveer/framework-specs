@@ -872,6 +872,88 @@ ck("FX-XW-LS no exam identifier in the XW cluster (2.1e)",
 ck("FX-XW-LS2 similarity floors declared once, in range",
    0 < _sp.XW_SUBJECT_SIMILARITY < _sp.XW_MAP_SIMILARITY < 1)
 
+
+# ═══ FX-AL — Release C: transition allocation & gates (GAP §5) ══════════════
+ck("FX-AL-01 §5.1 three-way classification",
+   bc.classify_bucket(0.7, False) == 'PYQ'
+   and bc.classify_bucket(0, True) == bc.NEW_SYLLABUS
+   and bc.classify_bucket(0, False) == bc.ZERO_PYQ_BUCKET)
+ck("FX-AL-02 regime per SECTION, independent (R33/B2)",
+   bc.section_regime(['NEW', 'RETAINED']) == 1
+   and bc.section_regime(['RETAINED', 'MERGED', 'SPLIT']) == 2
+   and bc.section_regime(['DELETED']) == 1)
+_xf2 = {'nodes': ([{'old_id': ('S4', 'T', 'd%d' % i), 'state': 'DELETED',
+                    'new_ids': []} for i in range(8)] +
+                  [{'old_id': ('S4', 'T', 's%d' % i), 'state': 'MOVED',
+                    'new_ids': [('S2', 'T', 's%d' % i)]} for i in range(2)])}
+ck("FX-AL-03 F-2: DELETED atoms stay in the denominator — share evaporates",
+   abs(bc.frac_atoms_map(_xf2, 'S4')['S2'] - 0.2) < 1e-9)
+ck("FX-AL-04 blend convergence 0/25/40/50% at n_new=0..3, m=3 (Pass-3)",
+   all(abs(bc.blend_weight(n, 1.0, 0.0, 3) - e) < 1e-9
+       for n, e in [(0, 0.0), (1, 0.25), (2, 0.40), (3, 0.50)]))
+ck("FX-AL-05 n_new=0 => weight IS the prior",
+   abs(bc.blend_weight(0, 0.9, 0.37, 3) - 0.37) < 1e-9)
+_s5014 = bc.series_quota_split(50, 14)
+_runs, _mx = 1, 1
+for _a, _b in zip(_s5014, _s5014[1:]):
+    _runs = _runs + 1 if _a == _b else 1
+    _mx = max(_mx, _runs)
+ck("FX-AL-06 series split 50/14 INTERLEAVES 3s and 4s (GAP worked example; "
+   "no front-loading)",
+   sum(_s5014) == 50 and sorted(_s5014, reverse=True) == [4] * 8 + [3] * 6
+   and _mx <= 2)
+ck("FX-AL-06b footer: unwired n_new=None prints nothing, never crashes",
+   bc.transition_footer_lines({'status': 'active'}, None) == [])
+_u7 = bc.hier_allocate(12.0, [('K', True, 0), ('L', True, 0)] +
+                       [(chr(65 + i), False, 1.0) for i in range(10)])
+ck("FX-AL-07 §5.3 mixed parent: driving-exam Unit-7 worked example (1/12)",
+   abs(_u7['K'] - 1.0) < 1e-9 and abs(_u7['L'] - 1.0) < 1e-9
+   and abs(sum(_u7.values()) - 12.0) < 1e-9)
+ck("FX-AL-08 §5.3 degenerations: all-NEW = R6 equal; all-history = measured",
+   bc.hier_allocate(6.0, [('a', True, 0), ('b', True, 0)]) ==
+   {'a': 3.0, 'b': 3.0}
+   and abs(bc.hier_allocate(9.0, [('x', False, 2.0), ('y', False, 1.0)]
+                            )['x'] - 6.0) < 1e-9)
+_pk, _cov, _tot, _nx = bc.even_spread_schedule(
+    ['n%02d' % i for i in range(50)], 44, 0)
+ck("FX-AL-09 §5.4 even spread in DOCUMENT order; infeasible reports, "
+   "cursor resumes",
+   _cov == 44 and _tot == 50 and _nx == 44 and _pk[0] == 'n00'
+   and bc.bv_coverage_report(_cov, _tot) ==
+   '44 of 50 covered (maximum feasible)'
+   and bc.bv_coverage_report(50, 50) is None)
+_p2, _c2, _t2, _n2 = bc.even_spread_schedule(
+    ['n%02d' % i for i in range(50)], 44, 44)
+ck("FX-AL-10 next series resumes at the cursor => full coverage across two",
+   _p2[0] == 'n44' and len(set(_pk) | set(_p2)) == 50)
+ck("FX-AL-11 A3 cursor staleness: hash mismatch resets with a note, "
+   "never stops",
+   bc.cursor_read({'position': 7, 'syllabus_sha256': 'A'}, 'B') ==
+   (0, bc.cursor_read({'position': 7, 'syllabus_sha256': 'A'}, 'B')[1])
+   and bc.cursor_read({'position': 7, 'syllabus_sha256': 'A'}, 'A') ==
+   (7, None))
+ck("FX-AL-12 BV-UNIT +-1 largest-remainder step per section",
+   bc.bv_unit_check({'A': 5, 'B': 5}, {'A': 0.5, 'B': 0.5}, 10) == []
+   and bc.bv_unit_check({'A': 8, 'B': 2}, {'A': 0.5, 'B': 0.5}, 10) != [])
+ck("FX-AL-13 BV-TOPIC closes the single-subject-section hole (D2)",
+   bc.bv_topic_check({'t1': 4, 't2': 4}, {'t1': 4.0, 't2': 4.0}) == []
+   and bc.bv_topic_check({'t1': 8, 't2': 0}, {'t1': 4.0, 't2': 4.0}) != [])
+ck("FX-AL-14 L4/L5 lexicon screen: own-scope hit, foreign-scope clean",
+   _sp.lexicon_screen('on the theory of island biogeography today',
+                      [['theory of island biogeography']]) ==
+   ['theory of island biogeography']
+   and _sp.lexicon_screen('photoperiodism in plants',
+                          [['theory of island biogeography']]) == [])
+ck("FX-AL-15 §5.9 footer: n_new always printed; converged label at D-6",
+   'n_new=1' in bc.transition_footer_lines(
+       {'status': 'active'}, 1, coverage_text='44 of 50')[0]
+   and 'effectively measured (n_new=3)' in
+   bc.transition_footer_lines({'status': 'active'}, 3)[0]
+   and bc.transition_footer_lines({'status': 'inactive'}, 5) == [])
+ck("FX-AL-16 projected shares renormalize; skipped subjects harmless",
+   abs(sum(bc.projected_shares({'S4': 0.1, 'S2': 0.9}, _xf2,
+                               ['S2']).values()) - 1.0) < 1e-9)
+
 # ── FX-ST-LS — §2.1e LITERAL-SCAN over the GAP-introduced engine code ──
 import ast
 import re as _re

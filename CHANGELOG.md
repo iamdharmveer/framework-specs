@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.09.03.1 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C
+**Transition Allocation & Generation (GAP §5) — the GAP is COMPLETE.**
+Framework_Blueprint v1.60.0 (requires Framework_PYQSort v1.21.0 and
+Framework_PYQCount v1.7): three-way S3-5 classification (ZERO_PYQ rotation
+untouched, R13), per-SECTION regime selection from B1 roll-ups, equal-share
+vs F-2 projected priors (DELETED atoms stay in the denominator — share
+evaporates, never transfers wholesale), the D-1 blend with count-manifest
+n_new, largest-remainder quotas spread per mock, the ONE recursive §5.3
+rule (Unit-7 worked example exact: 1/12 per NEW topic), §5.4 even spread
+in syllabus DOCUMENT order with the A3 hash-guarded coverage cursor, and
+mandates on NEW ids only. Framework_MockTestCreate v5.83: §5.5 donor
+hierarchy (+A4 zero-history-section fallback), §5.6 S7-NEWGEN candidate
+protocol with retained rationales, §5.7 L4 own-scope lexicon firewall,
+§5.8 two-layer difficulty. Framework_MockDeliver v1.21.0: coverage cursor
+SOLE writer at delivery (R31), §5.7 L5 BV-DEL per-section paper gate,
+footer inputs. Framework_DeliveryFooter v1.32: §5.9 active lines (n_new
+always printed; converged label at D-6). Engines: blueprint_core Release C
+surface (15 exports incl. classify_bucket, section_regime, frac_atoms_map,
+projected_shares, blend_weight, hier_allocate, even_spread_schedule,
+cursor_read, BV helpers, transition_footer_lines);
+syllabus_provenance.lexicon_screen (L4/L5, R34-scoped). CI:
+mock_sync_audit gains MS-17 SYLLABUS-ROTATION-ISOLATION, MS-18
+STATUS-SET-INVARIANCE, MS-19 TRANSITION-FIELD-OWNERSHIP (self-tested,
+69/69). Fixtures: 140 (was 124) — FX-AL rows executing every Pass-3
+arithmetic anchor (blend 0/25/40/50; 50/14 alternation; F-2 evaporation
++2/8; two-series coverage closure). Disclosed interpretations: a SPLIT
+atom counts once, to its primary target, in frac_atoms_map; observed
+subject shares are supplied by the existing r_avg pipeline (B4);
+transition_footer_lines is a separate surface from the Release-A
+traced-inactive line. Inactive exams remain byte-identical at every step
+(P1 holds); ZERO_PYQ rotation code is untouched and MS-17 proves it.
+
+Affected: Framework_Blueprint v1.60.0, Framework_MockTestCreate v5.83,
+Framework_MockDeliver v1.21.0, Framework_DeliveryFooter v1.32,
+blueprint_core.py, syllabus_provenance.py, mock_sync_audit.py,
+regression_pyq_fixtures.py, VERSION, CHANGELOG.md, DEPLOY_NOTES.md,
+MANIFEST.json, SPEC_MANIFEST.json, SPEC_SECTIONS.json, SHA256SUMS.txt.
+
 ## 2026.09.02.2 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B
 **Crosswalk, Era & Labeling (GAP §4).** The framework can now COMPARE the
 two syllabus documents Release A resolves, and tell the truth about every

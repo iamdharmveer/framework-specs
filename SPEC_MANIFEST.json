@@ -1,25 +1,25 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.59.0",
-      "lines": 7784,
-      "sha256": "7de4c2606c173b26ef4831c6e0617d4edd5bc53c5ff612f128f92e8dfbdf54eb",
-      "size_bytes": 433372,
-      "version_header": "# Framework_Blueprint v1.59.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.60.0",
+      "lines": 7837,
+      "sha256": "ede7d9f296f9fc89267d8e90c4e815d26f5047bb2f98eeb37b750b55d9af76bf",
+      "size_bytes": 436691,
+      "version_header": "# Framework_Blueprint v1.60.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 916,
-      "sha256": "9bc15676ec4a4f661921dfdea570514a160e05138480446acf8d13b0a57abee7",
-      "size_bytes": 51191,
-      "version_header": "# Framework_DeliveryFooter v1.31 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 931,
+      "sha256": "d11dd5494e19bb69fa1768abb49ede58984fbf80dd34eb70d9c2ffc33c435a85",
+      "size_bytes": 52086,
+      "version_header": "# Framework_DeliveryFooter v1.32 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.20.0",
-      "lines": 1970,
-      "sha256": "f656e0f833f35c1c90b3d36ce05aee09eaa68b44150ad2a65c15c5dae42d04ec",
-      "size_bytes": 101215,
-      "version_header": "# Framework_MockDeliver v1.20.0 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.21.0",
+      "lines": 1995,
+      "sha256": "16fc3227fde9f41b1efbd624d668f3094740149a11fe1f9c70ff664784d267d7",
+      "size_bytes": 102602,
+      "version_header": "# Framework_MockDeliver v1.21.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.57",
@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 9873,
-      "sha256": "d2c8c80cda45d85b05f4ebab1a4315f4873548b3ba264b5f2dda144d1f211a93",
-      "size_bytes": 628257,
-      "version_header": "# Framework_MockTestCreate v5.82"
+      "lines": 9912,
+      "sha256": "332826ca1f0ab7d625ddb7fd3f04f235167b58055dd5116c2a5281a895546329",
+      "size_bytes": 630610,
+      "version_header": "# Framework_MockTestCreate v5.83"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 10141,
-      "sha256": "f0e53daa607bbdb9f522b9d010a89f22aa17d57ebf504dc304ce38d981bfa82d",
-      "size_bytes": 557980,
+      "lines": 10346,
+      "sha256": "42aa0a9537b9fe9e260d48888a7d465d942c4ff4cdff2b2d25c3e01bcb730846",
+      "size_bytes": 567518,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -345,9 +345,9 @@
     },
     "syllabus_provenance.py": {
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1085,
-      "sha256": "5ba25d8d852b96d6d068353ed54dd0b53757a4b865c4d6c9ddb6a6d7e214831e",
-      "size_bytes": 54988,
+      "lines": 1105,
+      "sha256": "383c9ecc29717ba32729eca2b6d6329b355c7bc577378f91459a266718902531",
+      "size_bytes": 55862,
       "version_header": "\"\"\""
     },
     "t3_mathcomp.py": {
@@ -394,9 +394,9 @@
     },
     "mock_sync_audit.py": {
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 1344,
-      "sha256": "509286cb5bf9fa6c34197c09ce7f2974c02780af635bbe164159c9147b383e7c",
-      "size_bytes": 71528,
+      "lines": 1452,
+      "sha256": "7d09aacd7be18661437fd9791257f7f545e5c5f4ca56e2a812e4e6306f0b72b0",
+      "size_bytes": 76732,
       "version_header": "\"\"\"mock_sync_audit.py v1.0 — cross-step sync auditor for the mock/test track."
     }
   },

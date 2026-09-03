@@ -1,4 +1,5 @@
-# Framework_MockDeliver v1.20.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.21.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.21.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: coverage cursor sole writer + BV-DEL
 # v1.20.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: step 3d prints the ONE style-profile status line from
 #   pp.style_footer_line (§FOOTER-STYLE). No per-question detail, no similarity figure and
 #   no G-* verdict ever reaches the delivered document (P-11 / ruling Q15); an absent
@@ -1967,4 +1968,28 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.20.0
+
+## DELIVER-SYL — CURSOR COMMIT & PAPER-LEVEL GATE (v1.21.0 —
+## GAP-2026-09-01 §5.4/§5.7/§5.9; ACTIVE mode only)
+
+CURSOR (R29/R31 — sole writer THIS step, at delivery time): delivery is
+the commitment event. The delivery manifest's `coverage_cursor` records
+{position, syllabus_sha256} (A3: positions index syllabus document order,
+so the hash rides along; readers reset on mismatch). A generated-but-
+discarded series leaves the cursor untouched; a subtopic gaining real PYQ
+history resets its coverage state.
+
+BV-DEL (§5.7 L5 / §5.9): the ASSEMBLED paper is screened per section via
+syllabus_provenance.lexicon_screen against that section's R34-scoped
+DELETED lexicons ONLY; any hit FAILS delivery before it happens.
+Legitimate cross-section content never false-fails.
+
+FOOTER INPUTS (§5.9): this step hands DeliveryFooter the active-line
+inputs — n_new (from the count manifest), the BV-COVERAGE text, and the
+style-donor note — rendered via bc.transition_footer_lines; n_new is
+ALWAYS printed; the converged label (n_new >= D-6) never changes
+behaviour. Series boundary (R10/R12): activation, EF edits, and weight
+refreshes apply only at a new series; delivered series are never
+modified (the §3.10 staleness lock enforces this mechanically).
+
+# END OF Framework_MockDeliver v1.21.0

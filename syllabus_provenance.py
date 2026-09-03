@@ -958,6 +958,26 @@ def reevaluate_suppressions(suppressed, draft_xw, approved_xw):
     return {'reinstate': reinstate,
             'newly_deleted': sorted(now - was)}
 
+
+
+def lexicon_screen(text, lexicons):
+    """§5.7 L4/L5 — screen generated text against DELETED-node lexicons OF
+    ITS OWN R34 SCOPE only (the caller passes only in-scope lexicons;
+    legitimate content in another section is never screened against foreign
+    lexicons). Matching is normalized-substring at phrase level via norm().
+    Returns the list of hit phrases ([] = clean). L4 use: a hit on a
+    candidate => regenerate that candidate. L5 use (BV-DEL): a hit on the
+    assembled paper => FAIL before delivery, per section."""
+    hay = ' ' + norm(text) + ' '
+    hits = []
+    for lex in (lexicons or []):
+        for p in (lex or []):
+            if p and (' ' + p + ' ') in hay or (p and p in hay and
+                                                len(p.split()) > 1):
+                if p not in hits:
+                    hits.append(p)
+    return hits
+
 # END CLUSTER XW
 # ════════════════════════════════════════════════════════════════════════════
 
