@@ -590,7 +590,9 @@ ck("FX-ST-20 HS-ST4 names the non-conforming file",
    r20st['outcome'] == 'stop' and r20st['code'] == 'HS-ST4'
    and 'old syllabus.pdf' in r20st['message'])
 
-# E21: active + dated files, 0 or >=2 matching EF => HS-ST5
+# E21: active + dated files, 0 matching EF => HS-ST5; >=2 files at ONE
+# date => HS-ST12 (P-1: the collision stop owns all same-date duplicates,
+# fired BEFORE EF matching — GAP-2026-09-05)
 r21a = bc.resolve_syllabus_sources(
     [_cand('EX_Syllabus_2019-06.pdf', 'a'), _cand('EX_Syllabus_2020-06.pdf',
                                                   'b')],
@@ -599,9 +601,9 @@ r21b = bc.resolve_syllabus_sources(
     [_cand('EX_Syllabus_2026-12.pdf', 'a'),
      _cand('EX_Syllabus_2026-12.docx', 'b')],
     'EX', 'active', '2026-12')
-ck("FX-ST-21 HS-ST5 on zero and on ambiguous EF matches",
+ck("FX-ST-21 HS-ST5 on zero EF matches; HS-ST12 on a duplicated date",
    r21a['outcome'] == 'stop' and r21a['code'] == 'HS-ST5'
-   and r21b['outcome'] == 'stop' and r21b['code'] == 'HS-ST5')
+   and r21b['outcome'] == 'stop' and r21b['code'] == 'HS-ST12')
 
 # E22: current sha == a superseded sha => HS-ST6
 r22 = bc.resolve_syllabus_sources(
@@ -638,14 +640,73 @@ ck("FX-ST-CASE1 exam-code case mismatch still resolves",
        'ex_upper', 'active', '2027-02')['outcome'] == 'resolved')
 ck("FX-ST-CASE2 SYLLABUS-token case still resolves",
    bc.parse_syllabus_filename('EX_SYLLABUS_2027-02.PDF', 'EX') == '2027-02')
-ck("FX-ST-CASE3 case variants at the same date stay HS-ST5 (ambiguous)",
+ck("FX-ST-CASE3 case variants at the same date are HS-ST12 (P-1)",
    bc.resolve_syllabus_sources(
        [_cand('EX_Syllabus_2027-02.pdf', 'a'),
         _cand('EX_SYLLABUS_2027-02.PDF', 'b')],
-       'EX', 'active', '2027-02')['code'] == 'HS-ST5')
+       'EX', 'active', '2027-02')['code'] == 'HS-ST12')
 ck("FX-ST-CASE4 structural malformation still HS-ST4",
    bc.parse_syllabus_filename('EX_Sylabus_2027-02.pdf', 'EX') is None
    and bc.parse_syllabus_filename('EX_Syllabus_2027-2.pdf', 'EX') is None)
+
+# ── FX-ST-HY (GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE): the project
+# Files section strips '-' from uploaded names (verified 2026-09-05,
+# byte-identical CSIR NET Life Science files under both forms), so the
+# date stamp accepts YYYYMM and ALWAYS returns normalized YYYY-MM ──
+ck("FX-ST-HY1 hyphenless date accepted and normalized (R-a)",
+   bc.parse_syllabus_filename('EX_Syllabus_202612.pdf', 'EX') == '2026-12'
+   and bc.parse_syllabus_filename('EX_Syllabus_2026-12.pdf', 'EX')
+   == '2026-12')
+ck("FX-ST-HY2 malformed stamps still refused (mutation-kill: a mutant "
+   "accepting any 6 digits, or 5 digits, or '_' separators must die)",
+   bc.parse_syllabus_filename('EX_Syllabus_202613.pdf', 'EX') is None
+   and bc.parse_syllabus_filename('EX_Syllabus_202600.pdf', 'EX') is None
+   and bc.parse_syllabus_filename('EX_Syllabus_20261.pdf', 'EX') is None
+   and bc.parse_syllabus_filename('EX_Syllabus_2026_12.pdf', 'EX') is None
+   and bc.parse_syllabus_filename('EX_Syllabus_2026-1.pdf', 'EX') is None)
+# live fixture — the two REAL CSIR project-Files names and true sha256s
+_hy_live = bc.resolve_syllabus_sources(
+    [_cand('CSIR_NET_LIFESCIENCES_Syllabus_202612.pdf',
+           'd4544abd87a6b6565b1a739ad7d342a2becdf8e2d65f8c08720c6672'
+           'f963a862'),
+     _cand('CSIR_NET_LIFESCIENCES_Syllabus_202606.pdf',
+           '548dd26b9434473d57f44688135baf9bee26973ef4569acc08ec0f21'
+           '766dccc4')],
+    'CSIR_NET_LIFESCIENCES', 'active', '2026-12')
+ck("FX-ST-HY3 real CSIR hyphen-stripped names resolve; CURRENT=2026-12",
+   _hy_live['outcome'] == 'resolved'
+   and _hy_live['current']['name']
+   == 'CSIR_NET_LIFESCIENCES_Syllabus_202612.pdf'
+   and [x['name'] for x in _hy_live['superseded']]
+   == ['CSIR_NET_LIFESCIENCES_Syllabus_202606.pdf'])
+ck("FX-ST-HY4 mixed-form date collision, different bytes => HS-ST12 (R-b)",
+   bc.resolve_syllabus_sources(
+       [_cand('EX_Syllabus_2026-12.pdf', 'a'),
+        _cand('EX_Syllabus_202612.pdf', 'b')],
+       'EX', 'active', '2026-12')['code'] == 'HS-ST12')
+_hy5 = bc.resolve_syllabus_sources(
+    [_cand('EX_Syllabus_2026-12.pdf', 'h1'),
+     _cand('EX_Syllabus_202612.pdf', 'h1')],
+    'EX', 'active', '2026-12')
+ck("FX-ST-HY5 same-date byte-identical pair => HS-ST12 names the sha",
+   _hy5['code'] == 'HS-ST12' and 'byte-identical' in _hy5['message']
+   and 'h1' in _hy5['message'])
+ck("FX-ST-HY6 collision fires even when the duplicated date != EF",
+   bc.resolve_syllabus_sources(
+       [_cand('EX_Syllabus_2026-12.pdf', 'a'),
+        _cand('EX_Syllabus_2019-06.pdf', 'b'),
+        _cand('EX_Syllabus_201906.pdf', 'c')],
+       'EX', 'active', '2026-12')['code'] == 'HS-ST12')
+ck("FX-ST-HY7 normalization is idempotent and case-insensitive together",
+   bc.parse_syllabus_filename('ex_syllabus_202702.PDF', 'EX') == '2027-02')
+_hy8 = bc.resolve_syllabus_sources(
+    [{'name': 'EX_Syllabus_2026-12.pdf', 'sha256': None},
+     {'name': 'EX_Syllabus_202612.pdf', 'sha256': None}],
+    'EX', 'active', '2026-12')
+ck("FX-ST-HY8 unknown hashes: HS-ST12 never claims 'differ' (truthfulness)",
+   _hy8['code'] == 'HS-ST12' and 'unavailable' in _hy8['message']
+   and 'contents differ' not in _hy8['message']
+   and 'byte-identical' not in _hy8['message'])
 
 # ── FX-ST-24 / E24: dial overrides — invalid => factory + trace, no stop ──
 d24, t24 = bc.resolve_dials({'Transition Blend Pseudo-Count': 'abc',
@@ -692,6 +753,35 @@ ck("FX-ST-25b no drift on identical declaration (E62 class: non-declaration "
    "writes can never register)",
    bc.transition_drift(_blk, dict(_blk)) == []
    and bc.transition_drift(None, None) == [])
+
+# ── FX-ST-RE (R-e, GAP-2026-09-05): drift identity is the sha256; names
+# are display-only. Mutation-kill: a mutant restoring name comparison
+# must die on RE1/RE3; a mutant dropping the sha compare dies on RE2/RE4 ──
+_re_stored = {'status': 'active', 'effective_from': '2026-12',
+              'current_file': 'CSIR_NET_LIFESCIENCES_Syllabus_2026-12.pdf',
+              'current_sha256': 'd45', 'superseded': [
+                  {'file': 'CSIR_NET_LIFESCIENCES_Syllabus_2026-06.pdf',
+                   'sha256': '548'}]}
+_re_fresh = {'status': 'active', 'effective_from': '2026-12',
+             'current_file': 'CSIR_NET_LIFESCIENCES_Syllabus_202612.pdf',
+             'current_sha256': 'd45', 'superseded': [
+                 {'file': 'CSIR_NET_LIFESCIENCES_Syllabus_202606.pdf',
+                  'sha256': '548'}]}
+ck("FX-ST-RE1 name-form flip of byte-identical files is NOT drift (R-e)",
+   bc.transition_drift(_re_stored, _re_fresh) == [])
+_re_b2 = dict(_re_fresh); _re_b2['current_sha256'] = 'CHANGED'
+ck("FX-ST-RE2 changed CURRENT bytes still drift on current_sha256",
+   any(fld == 'current_sha256'
+       for fld, _, __ in bc.transition_drift(_re_stored, _re_b2)))
+_re_b3 = dict(_re_fresh)
+_re_b3['superseded'] = [{'file': 'renamed anyhow.pdf', 'sha256': '548'}]
+ck("FX-ST-RE3 superseded rename with same sha set is NOT drift",
+   bc.transition_drift(_re_stored, _re_b3) == [])
+_re_b4 = dict(_re_fresh)
+_re_b4['superseded'] = [{'file': 'x.pdf', 'sha256': 'OTHER'}]
+ck("FX-ST-RE4 superseded sha-set change drifts as superseded_sha256_set",
+   any(fld == 'superseded_sha256_set'
+       for fld, _, __ in bc.transition_drift(_re_stored, _re_b4)))
 
 # ── FX-ST-26 / E26: staleness — HS-ST7 + legacy exemption ──
 ck("FX-ST-26 hash mismatch => HS-ST7; legacy artefact exempt; match clean",

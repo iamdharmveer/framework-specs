@@ -50,11 +50,11 @@
       "version_header": "# Framework_NotesAudit v3.7.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v3.3.0",
-      "lines": 568,
-      "sha256": "b0c74f065c37f7a24e7d2c188272f948d6fa2737f68a6d56ecf6ab3d2b3b9c51",
-      "size_bytes": 40392,
-      "version_header": "# Framework_NotesBlueprint v3.3.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v3.3.1",
+      "lines": 574,
+      "sha256": "a3d476e1b6cbb3c6f4ec33d40241654fb6878499dfa56a808963ef479deb1c92",
+      "size_bytes": 40799,
+      "version_header": "# Framework_NotesBlueprint v3.3.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
       "end_sentinel": "# END OF Framework_NotesCreate v2.9.0",
@@ -92,11 +92,11 @@
       "version_header": "# Framework_PYQCompress v2.0.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.8",
-      "lines": 2241,
-      "sha256": "f1c8f1ffdc546549d06a14394ab33c5e5ddaae69d6bdf78603002c9197591431",
-      "size_bytes": 132509,
-      "version_header": "# Framework_PYQCore v1.8 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.9",
+      "lines": 2253,
+      "sha256": "8e850985e899748f44cb937c9a1d75228c8e257bfdefb3a99c44f64ccbc3f69c",
+      "size_bytes": 133374,
+      "version_header": "# Framework_PYQCore v1.9 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
     },
     "Framework_PYQCount.md": {
       "end_sentinel": "# END OF Framework_PYQCount v1.7",
@@ -113,11 +113,11 @@
       "version_header": "# Framework_PYQDeliver v1.13.1 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
-      "end_sentinel": "# END OF Framework_PYQDraft v1.3.0",
-      "lines": 1473,
-      "sha256": "f9510e450abe561151c4c93ecfb0d29087aec5b85f3bdbdb0837bd28399919b0",
-      "size_bytes": 78270,
-      "version_header": "# Framework_PYQDraft v1.3.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)"
+      "end_sentinel": "# END OF Framework_PYQDraft v1.3.1",
+      "lines": 1501,
+      "sha256": "7a6e06f3474ec1caec4dc197b07b927b7f135ffe244e7ade7da3abe0a77c6061",
+      "size_bytes": 80266,
+      "version_header": "# Framework_PYQDraft v1.3.1 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)"
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 10346,
-      "sha256": "42aa0a9537b9fe9e260d48888a7d465d942c4ff4cdff2b2d25c3e01bcb730846",
-      "size_bytes": 567518,
+      "lines": 10409,
+      "sha256": "9f8df3ad373d64a908a24b16975955545355a106667e408759312f4606f6f749",
+      "size_bytes": 571057,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

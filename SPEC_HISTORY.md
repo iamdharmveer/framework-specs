@@ -4199,3 +4199,34 @@ this failure may reach the operator):
 
   No traceback. No field names. No stack. No request to judge anything.
 ```
+
+
+## Framework_PYQDraft.md — texts superseded by v1.3.1 (GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE, 2026-09-05)
+
+### §3.4 NAMING same-date sentence (v1.3.0 form — HS-ST5 owned the ambiguous same-date case; retired per ruling P-1 in favor of the HS-ST12 date-collision stop)
+```
+and extension must all be present exactly, or HS-ST4; two files carrying
+the SAME date in different letter case are still HS-ST5 (ambiguous).
+```
+
+### T2 row 7 (v1.3.0 form)
+```
+  7 | ACTIVE   | >= 2 dated, >= 2 match   | * HS-ST5 (ambiguous CURRENT)
+```
+
+## Framework_PYQCore.md — texts superseded by v1.9 (same GAP)
+
+### §3.11 register range citation (v1.8 form)
+```
+§3.11 register (blueprint_core HS_ST1..HS_ST11 — cited, never restated).
+```
+
+
+## blueprint_core.py — text superseded by R-e within release 2026.09.05.1 (same GAP)
+
+### TRANSITION_DECLARATION_FIELDS (pre-R-e form — names drift-compared)
+```
+TRANSITION_DECLARATION_FIELDS = (
+    'status', 'effective_from', 'reason', 'keys_seen', 'current_file',
+    'current_sha256', 'superseded', 'dials', 'zero_history_approved')
+```

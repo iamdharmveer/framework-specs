@@ -1,4 +1,9 @@
-# Framework_PYQCore v1.8 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.9 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.9 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: syllabus
+#   filename date accepts YYYY-MM or YYYYMM (normalized to YYYY-MM by
+#   bc.parse_syllabus_filename); §3.11 register range now HS_ST1..HS_ST12.
+#   R-e: §3.7 drift compares syllabus identity by sha256 — file NAMES are
+#   display-only (a project-Files rename of an unchanged file never stops).
 # v1.8 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
 #   (Declaration & Detection; rebased to 2026.09.01.1 per rev 4.6). S1-2
 #   --taxonomy mode gains the SYLLABUS FILE CENSUS contract and NEW S1-2a
@@ -185,7 +190,9 @@ For --taxonomy mode:
       is the syllabus"; a legacy project holding a stray second file stops
       REACTIVELY here — R26 accepted behaviour change, 30-second fix).
       ACTIVE transition → BOTH the previous and the new syllabus must exist
-      as project FILES named [ExamCode]_Syllabus_<YYYY-MM>.<ext>; a syllabus
+      as project FILES named [ExamCode]_Syllabus_<YYYY-MM>.<ext> (date form
+      YYYY-MM or YYYYMM — project Files strips the hyphen; both are read
+      as the same date, v1.9); a syllabus
       present only in chat, or pasted as an image in chat, is HS-ST3 —
       chat-only input is not reproducible on re-run. The single-file
       INACTIVE project keeps ANY name and ANY input form (estate norm;
@@ -244,7 +251,12 @@ Release B/C bumps land):
   and compare with exam_config.syllabus_transition — DECLARATION FIELDS
   ONLY, via blueprint_core.transition_drift (R29: n_new in the count
   manifest and the delivery-manifest cursor are their owners' legitimate
-  writes and can NEVER register as drift). Divergence — the xlsx edited
+  writes and can NEVER register as drift). R-e (2026-09-05): syllabus
+  FILE IDENTITY inside the block is the sha256 — current_file and the
+  superseded names are display-only and never drift-compared (superseded
+  compare as a sorted sha256 set), because project Files strips '-' from
+  names and the same byte-identical document may reappear under another
+  name form between steps. Changed bytes still drift. Divergence — the xlsx edited
   after Step 2a (including the R17 Effective-From postponement path) or
   syllabus files added/removed — => HS-ST10 naming both sides and
   instructing a PYQDraft re-run. A keys-absent exam has no block and an
@@ -259,7 +271,7 @@ blueprint_core.check_syllabus_staleness => mismatch = HS-ST7 at the FIRST
 consumer of a stale artefact. Artefacts WITHOUT the field (legacy) are
 exempt — no retro-invalidation; the lock arms on the first PYQDraft re-run
 under Framework_PYQDraft v1.2.0. The exact stop templates are the engine's
-§3.11 register (blueprint_core HS_ST1..HS_ST11 — cited, never restated).
+§3.11 register (blueprint_core HS_ST1..HS_ST12 — cited, never restated).
 ```
 
 ---
@@ -2238,4 +2250,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.8
+# END OF Framework_PYQCore v1.9

@@ -1,4 +1,9 @@
-# Framework_NotesBlueprint v3.3.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.3.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: S-1
+#   note — the shared resolver accepts filename dates as YYYY-MM or YYYYMM
+#   (project Files strips the hyphen) and normalizes to YYYY-MM; NB
+#   inherits this and the new HS-ST12 date-collision stop automatically
+#   (single implementation, no NB-side change).
 # v3.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
 #   (Declaration & Detection). Version renumbered from the GAP's planned
 #   v3.2.0 to v3.3.0 per the rev 4.6 rebase: the GAP was written against
@@ -195,7 +200,8 @@ S-1 Syllabus: accept pdf or docx in any official layout. Its role is SCOPE
     project Files) and read exam_config.syllabus_transition (written solely
     by PYQDraft, R29). ACTIVE transition => the document parsed here is the
     resolved CURRENT file — the census candidate whose
-    [ExamCode]_Syllabus_<YYYY-MM> date equals effective_from
+    [ExamCode]_Syllabus_<YYYY-MM> date (written YYYY-MM or YYYYMM,
+    normalized to YYYY-MM — v3.3.1) equals effective_from
     (blueprint_core.resolve_syllabus_sources; any T2 stop it returns is
     raised verbatim) — and SUPERSEDED files are NEVER parsed by NB.
     INACTIVE (or no block) with >= 2 syllabus-named files => HS-ST2 — the
@@ -565,4 +571,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.3.0
+# END OF Framework_NotesBlueprint v3.3.1

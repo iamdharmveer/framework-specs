@@ -4010,113 +4010,113 @@
       ]
     },
     "Framework_NotesBlueprint.md": {
-      "sha256": "b0c74f065c37f7a24e7d2c188272f948d6fa2737f68a6d56ecf6ab3d2b3b9c51",
-      "lines": 569,
-      "bytes": 40392,
-      "est_tokens": 10098,
+      "sha256": "a3d476e1b6cbb3c6f4ec33d40241654fb6878499dfa56a808963ef479deb1c92",
+      "lines": 575,
+      "bytes": 40799,
+      "est_tokens": 10199,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 40392,
-      "reduced_est_tokens": 10098,
+      "reduced_bytes": 40799,
+      "reduced_est_tokens": 10199,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §1 — SCOPE RULES (locked)",
-          "start": 133,
-          "end": 155,
+          "start": 138,
+          "end": 160,
           "lines": 23,
           "bytes": 1562
         },
         {
           "title": "## §1A — TAXONOMY CONSUMER CONTRACT (v3.0.0; mirrors Framework_Blueprint",
-          "start": 156,
-          "end": 156,
+          "start": 161,
+          "end": 161,
           "lines": 1,
           "bytes": 76
         },
         {
           "title": "##        RULES 1/2/2a — Step 5 is the single source of truth; Step 5 UNTOUCHED)",
-          "start": 157,
-          "end": 189,
+          "start": 162,
+          "end": 194,
           "lines": 33,
           "bytes": 2350
         },
         {
           "title": "## §2 — INPUT PARSING (syllabus + pattern; Claude-driven per S-1/S-2)",
-          "start": 190,
-          "end": 242,
-          "lines": 53,
-          "bytes": 3683
+          "start": 195,
+          "end": 248,
+          "lines": 54,
+          "bytes": 3749
         },
         {
           "title": "## §3 — SORTED-PYQ SOURCE RESOLUTION (SourceMap, folded in)",
-          "start": 243,
-          "end": 249,
+          "start": 249,
+          "end": 255,
           "lines": 7,
           "bytes": 390
         },
         {
           "title": "## §3A — CORPUS INGEST (eager; corpus_io; owner decisions 1 & 6)",
-          "start": 250,
-          "end": 338,
+          "start": 256,
+          "end": 344,
           "lines": 89,
           "bytes": 6835
         },
         {
           "title": "## §3B — BANK BUILD, FIGURE SPLIT, ANSWER CAPTURE, COUNT DERIVATION",
-          "start": 339,
-          "end": 395,
+          "start": 345,
+          "end": 401,
           "lines": 57,
           "bytes": 4183
         },
         {
           "title": "## §4 — ROLE TAGS (locked vocabulary)",
-          "start": 396,
-          "end": 403,
+          "start": 402,
+          "end": 409,
           "lines": 8,
           "bytes": 473
         },
         {
           "title": "## §5 — DEPTH TIERS",
-          "start": 404,
-          "end": 411,
+          "start": 410,
+          "end": 417,
           "lines": 8,
           "bytes": 435
         },
         {
           "title": "## §6 — OUTPUTS",
-          "start": 412,
-          "end": 451,
+          "start": 418,
+          "end": 457,
           "lines": 40,
           "bytes": 2758
         },
         {
           "title": "## §7 — INCREMENTAL RE-RUNS",
-          "start": 452,
-          "end": 498,
+          "start": 458,
+          "end": 504,
           "lines": 47,
           "bytes": 3434
         },
         {
           "title": "## MIGRATION (v3.0.0 -> sid-keyed; one-time per pre-v3 Notes project)",
-          "start": 499,
-          "end": 513,
+          "start": 505,
+          "end": 519,
           "lines": 15,
           "bytes": 1088
         },
         {
           "title": "## §8 — HARD RULES CARRIED FROM THE FRAMEWORK CORE",
-          "start": 514,
-          "end": 529,
+          "start": 520,
+          "end": 535,
           "lines": 16,
           "bytes": 1139
         },
         {
           "title": "## §9 — EDGE CASES (must all be covered)",
-          "start": 530,
-          "end": 569,
+          "start": 536,
+          "end": 575,
           "lines": 40,
           "bytes": 2608
         }
@@ -4492,15 +4492,15 @@
       ]
     },
     "Framework_PYQCore.md": {
-      "sha256": "f1c8f1ffdc546549d06a14394ab33c5e5ddaae69d6bdf78603002c9197591431",
-      "lines": 2242,
-      "bytes": 132509,
-      "est_tokens": 33127,
+      "sha256": "8e850985e899748f44cb937c9a1d75228c8e257bfdefb3a99c44f64ccbc3f69c",
+      "lines": 2254,
+      "bytes": 133374,
+      "est_tokens": 33343,
       "view_calls": 9,
       "bash_calls": 1,
       "has_read_set": true,
-      "reduced_bytes": 115488,
-      "reduced_est_tokens": 28872,
+      "reduced_bytes": 115975,
+      "reduced_est_tokens": 28993,
       "reduced_bash_calls": 1,
       "final_only_titles": [
         "## §11 — EXAM-AGNOSTIC GUARANTEE",
@@ -4509,148 +4509,148 @@
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 51,
-          "end": 128,
+          "start": 56,
+          "end": 133,
           "lines": 78,
           "bytes": 5539
         },
         {
           "title": "## §1 — SESSION START",
-          "start": 129,
-          "end": 130,
+          "start": 134,
+          "end": 135,
           "lines": 2,
           "bytes": 26
         },
         {
           "title": "### S1-1 — Trigger parsing",
-          "start": 131,
-          "end": 169,
+          "start": 136,
+          "end": 174,
           "lines": 39,
           "bytes": 1669
         },
         {
           "title": "### S1-2 — File inventory",
-          "start": 170,
-          "end": 212,
-          "lines": 43,
-          "bytes": 2163
+          "start": 175,
+          "end": 219,
+          "lines": 45,
+          "bytes": 2279
         },
         {
           "title": "### S1-2a — SYLLABUS FILE CENSUS, DRIFT GUARD & STALENESS (v1.8 —",
-          "start": 213,
-          "end": 213,
+          "start": 220,
+          "end": 220,
           "lines": 1,
           "bytes": 70
         },
         {
           "title": "###          GAP-2026-09-01 §3.4/§3.7/§3.10; shared contract for every step",
-          "start": 214,
-          "end": 214,
+          "start": 221,
+          "end": 221,
           "lines": 1,
           "bytes": 79
         },
         {
           "title": "###          that loads this core)",
-          "start": 215,
-          "end": 269,
-          "lines": 55,
-          "bytes": 2904
+          "start": 222,
+          "end": 281,
+          "lines": 60,
+          "bytes": 3275
         },
         {
           "title": "## HOSTED SECTION S2-3 (from §2 — Draft taxonomy generation) — hosted here per §11",
-          "start": 270,
-          "end": 278,
+          "start": 282,
+          "end": 290,
           "lines": 9,
           "bytes": 633
         },
         {
           "title": "### GATE-AT-SOURCE LAW (GAP-2026-08-30-TYPE1-HALT-ELIMINATION — registered in LAW_REGISTRY.json)",
-          "start": 279,
-          "end": 318,
+          "start": 291,
+          "end": 330,
           "lines": 40,
           "bytes": 2455
         },
         {
           "title": "### S2-3 — Draft taxonomy generation",
-          "start": 319,
-          "end": 941,
+          "start": 331,
+          "end": 953,
           "lines": 623,
           "bytes": 36622
         },
         {
           "title": "## §6 — HEADING FORMAT CONTRACT",
-          "start": 942,
-          "end": 1072,
+          "start": 954,
+          "end": 1084,
           "lines": 131,
           "bytes": 7988
         },
         {
           "title": "## §7 — NAME CONSISTENCY CONTRACT",
-          "start": 1073,
-          "end": 1112,
+          "start": 1085,
+          "end": 1124,
           "lines": 40,
           "bytes": 1968
         },
         {
           "title": "## §8 — CLASSIFICATION RULES (Universal)",
-          "start": 1113,
-          "end": 1222,
+          "start": 1125,
+          "end": 1234,
           "lines": 110,
           "bytes": 6025
         },
         {
           "title": "## §9 — EDGE CASES",
-          "start": 1223,
-          "end": 1801,
+          "start": 1235,
+          "end": 1813,
           "lines": 579,
           "bytes": 36760
         },
         {
           "title": "## §10 — DELIVERABLE SET CONTRACT",
-          "start": 1802,
-          "end": 1803,
+          "start": 1814,
+          "end": 1815,
           "lines": 2,
           "bytes": 38
         },
         {
           "title": "### S10-1 — Closed deliverable set (per mode)",
-          "start": 1804,
-          "end": 1909,
+          "start": 1816,
+          "end": 1921,
           "lines": 106,
           "bytes": 6596
         },
         {
           "title": "### S10-2 — Pre-delivery checklist (MANDATORY before every present_files call)",
-          "start": 1910,
-          "end": 1990,
+          "start": 1922,
+          "end": 2002,
           "lines": 81,
           "bytes": 2848
         },
         {
           "title": "### S10-3 — Delivery destinations (quick reference)",
-          "start": 1991,
-          "end": 2005,
+          "start": 2003,
+          "end": 2017,
           "lines": 15,
           "bytes": 666
         },
         {
           "title": "### S10-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 2006,
-          "end": 2017,
+          "start": 2018,
+          "end": 2029,
           "lines": 12,
           "bytes": 439
         },
         {
           "title": "## §11 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 2018,
-          "end": 2080,
+          "start": 2030,
+          "end": 2092,
           "lines": 63,
           "bytes": 3297
         },
         {
           "title": "## §12 — DEFINITION OF DONE",
-          "start": 2081,
-          "end": 2242,
+          "start": 2093,
+          "end": 2254,
           "lines": 162,
           "bytes": 9758
         }
@@ -5037,127 +5037,127 @@
       ]
     },
     "Framework_PYQDraft.md": {
-      "sha256": "f9510e450abe561151c4c93ecfb0d29087aec5b85f3bdbdb0837bd28399919b0",
-      "lines": 1474,
-      "bytes": 78270,
-      "est_tokens": 19567,
-      "view_calls": 5,
+      "sha256": "7a6e06f3474ec1caec4dc197b07b927b7f135ffe244e7ade7da3abe0a77c6061",
+      "lines": 1502,
+      "bytes": 80266,
+      "est_tokens": 20066,
+      "view_calls": 6,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 78270,
-      "reduced_est_tokens": 19567,
+      "reduced_bytes": 80266,
+      "reduced_est_tokens": 20066,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 52,
-          "end": 70,
+          "start": 65,
+          "end": 83,
           "lines": 19,
           "bytes": 1163
         },
         {
           "title": "## §2 — PHASE 0a: TAXONOMY BUILDING FROM SYLLABUS",
-          "start": 71,
-          "end": 72,
+          "start": 84,
+          "end": 85,
           "lines": 2,
           "bytes": 54
         },
         {
           "title": "### S2-0 — INTAKE RULE (v1.1.0, D1 — runs BEFORE S2-1, every PYQDraft session)",
-          "start": 73,
-          "end": 107,
+          "start": 86,
+          "end": 120,
           "lines": 35,
           "bytes": 1884
         },
         {
           "title": "### S2-0a — SYLLABUS-TRANSITION RESOLUTION (v1.2.0 — GAP-2026-09-01 §3; runs",
-          "start": 108,
-          "end": 108,
+          "start": 121,
+          "end": 121,
           "lines": 1,
           "bytes": 82
         },
         {
           "title": "###          WITH the S1-2 file inventory, BEFORE S2-1 syllabus extraction)",
-          "start": 109,
-          "end": 306,
-          "lines": 198,
-          "bytes": 11636
+          "start": 122,
+          "end": 330,
+          "lines": 209,
+          "bytes": 12411
         },
         {
           "title": "### S2-0b — CROSSWALK DRAFT (v1.3.0 — GAP-2026-09-01 §4.1/§4.2; ACTIVE",
-          "start": 307,
-          "end": 307,
+          "start": 331,
+          "end": 331,
           "lines": 1,
           "bytes": 77
         },
         {
           "title": "### mode only — inactive and legacy runs skip this section byte-identically)",
-          "start": 308,
-          "end": 335,
+          "start": 332,
+          "end": 359,
           "lines": 28,
           "bytes": 1563
         },
         {
           "title": "### S2-1 — Syllabus extraction",
-          "start": 336,
-          "end": 493,
+          "start": 360,
+          "end": 517,
           "lines": 158,
           "bytes": 9344
         },
         {
           "title": "### S2-2 — Exam Pattern extraction",
-          "start": 494,
-          "end": 786,
+          "start": 518,
+          "end": 810,
           "lines": 293,
           "bytes": 13315
         },
         {
           "title": "### S2-3 — Draft taxonomy generation  →  HOSTED IN Framework_PYQCore.md",
-          "start": 787,
-          "end": 794,
+          "start": 811,
+          "end": 818,
           "lines": 8,
           "bytes": 477
         },
         {
           "title": "### S2-3e — SYLLABUS MAPPING EMISSION (v2.17, MANDATORY — closes S2-3)",
-          "start": 795,
-          "end": 925,
+          "start": 819,
+          "end": 949,
           "lines": 131,
           "bytes": 7247
         },
         {
           "title": "### S2-3e-1 — MINIMAL EMISSION FORMAT (v2.17, Issue C — supersedes hand-built records)",
-          "start": 926,
-          "end": 1032,
+          "start": 950,
+          "end": 1056,
           "lines": 107,
           "bytes": 5707
         },
         {
           "title": "### S2-3f — GATE FAILURE HANDLING (v2.17, B-FIX — operator never sees a traceback)",
-          "start": 1033,
-          "end": 1120,
+          "start": 1057,
+          "end": 1144,
           "lines": 88,
           "bytes": 5165
         },
         {
           "title": "### S2-4 — Taxonomy draft output",
-          "start": 1121,
-          "end": 1258,
+          "start": 1145,
+          "end": 1282,
           "lines": 138,
           "bytes": 7057
         },
         {
           "title": "### S2-5 — Exam config schema",
-          "start": 1259,
-          "end": 1419,
-          "lines": 161,
-          "bytes": 7286
+          "start": 1283,
+          "end": 1447,
+          "lines": 165,
+          "bytes": 7553
         },
         {
           "title": "### S2-6 — Delivery and next step",
-          "start": 1420,
-          "end": 1474,
+          "start": 1448,
+          "end": 1502,
           "lines": 55,
           "bytes": 2205
         }

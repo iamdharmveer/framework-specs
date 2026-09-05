@@ -210,6 +210,7 @@ __all__ = [
     "HS_ST9",
     "HS_ST10",
     "HS_ST11",
+    "HS_ST12",
     "W_EF1",
     "W_EF2",
     "OUT_OF_SYLLABUS",
@@ -9742,14 +9743,21 @@ def parse_syllabus_filename(name, exam_code):
     risk, and E04/E08 fix the design's normalization stance — a correctly
     structured name must never fail on letter case alone (defect found in
     real-exam verification: a mixed-case trigger ExamCode against
-    upper-case-named files false-stopped HS-ST4). Structure stays strict: prefix, the
-    literal Syllabus token, the dated stamp and the extension must all be
-    present exactly, or HS-ST4."""
+    upper-case-named files false-stopped HS-ST4). The date hyphen is
+    OPTIONAL (GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE, ruling R-a):
+    claude.ai project Files strips '-' from uploaded filenames (verified
+    2026-09-05 — byte-identical files, hyphen present via chat attachment,
+    absent via project Files), so 'YYYYMM' is accepted and the return value
+    is ALWAYS the normalized 'YYYY-MM' — downstream (HS-ST5 agreement, era
+    routing, exam_config) sees one canonical form only. Structure stays
+    strict: prefix, the literal Syllabus token, the dated stamp (valid
+    month 01-12) and the extension must all be present exactly, or
+    HS-ST4."""
     m = re.match(
         r'^' + re.escape(exam_code)
-        + r'_Syllabus_(\d{4}-(?:0[1-9]|1[0-2]))\.(?:' + _SYL_EXT_RE + r')$',
+        + r'_Syllabus_(\d{4})-?(0[1-9]|1[0-2])\.(?:' + _SYL_EXT_RE + r')$',
         str(name), re.IGNORECASE)
-    return m.group(1) if m else None
+    return '{}-{}'.format(m.group(1), m.group(2)) if m else None
 
 
 def resolve_syllabus_sources(candidates, exam_code, status,
@@ -9784,6 +9792,22 @@ def resolve_syllabus_sources(candidates, exam_code, status,
     if bad:
         return {'outcome': 'stop', 'code': 'HS-ST4',
                 'message': HS_ST4(bad)}                   # T2 row 5
+    by_date = {}                                          # T2 row 7 (P-1):
+    for c in cands:                                       # HS-ST12 owns ALL
+        by_date.setdefault(dated[c['name']], []).append(c)  # same-date dups
+    for ym in sorted(by_date):
+        group = by_date[ym]
+        if len(group) >= 2:
+            shas = {g.get('sha256') for g in group}
+            if None in shas:
+                identical = None                          # unhashed content
+            else:
+                identical = (len(shas) == 1)
+            return {'outcome': 'stop', 'code': 'HS-ST12',
+                    'message': HS_ST12(ym, [g['name'] for g in group],
+                                       identical,
+                                       next(iter(shas)) if identical
+                                       else None)}
     matches = [c for c in cands if dated[c['name']] == effective_from]
     if len(matches) != 1:
         return {'outcome': 'stop', 'code': 'HS-ST5',
@@ -9868,21 +9892,37 @@ def syllabus_footer_lines(block):
 #: other artefacts (count manifest n_new, delivery-manifest cursor) can never
 #: register as drift (E62).
 TRANSITION_DECLARATION_FIELDS = (
-    'status', 'effective_from', 'reason', 'keys_seen', 'current_file',
-    'current_sha256', 'superseded', 'dials', 'zero_history_approved')
+    'status', 'effective_from', 'reason', 'keys_seen',
+    'current_sha256', 'dials', 'zero_history_approved')
+# R-e (GAP-2026-09-05): 'current_file' and the superseded file NAMES are
+# display/bookkeeping only and are NOT drift-compared — syllabus identity
+# is the sha256. claude.ai project Files strips '-' from uploaded names,
+# so the same byte-identical document can legitimately reappear under a
+# different name form between steps (e.g. PYQDraft on a chat-attached
+# '..._2026-12.pdf', later steps on the project-Files '..._202612.pdf');
+# a rename of an UNCHANGED file must never stop the pipeline. Changed
+# bytes still drift via current_sha256 / the superseded sha256 set.
 
 
 def transition_drift(stored_block, fresh_block):
     """Compare the exam_config block against a fresh census+resolve of the
     current xlsx/files. Returns [(field, stored, found)] — non-empty =>
     the caller raises SystemExit(HS_ST10(...)) (E25). None == absent-block
-    equivalence, so a legacy exam can never drift into a stop."""
+    equivalence, so a legacy exam can never drift into a stop. R-e:
+    superseded files compare as their SORTED sha256 list (field label
+    'superseded_sha256_set'); names never register."""
     diffs = []
     a = stored_block or {}
     b = fresh_block or {}
     for f in TRANSITION_DECLARATION_FIELDS:
         if a.get(f) != b.get(f):
             diffs.append((f, a.get(f), b.get(f)))
+    sup_a = sorted((x or {}).get('sha256') or ''
+                   for x in a.get('superseded') or [])
+    sup_b = sorted((x or {}).get('sha256') or ''
+                   for x in b.get('superseded') or [])
+    if sup_a != sup_b:
+        diffs.append(('superseded_sha256_set', sup_a, sup_b))
     return diffs
 
 
@@ -9970,19 +10010,23 @@ def HS_ST3(n):
     return (f"HARD STOP: Syllabus transition is ACTIVE but only {n} syllabus "
             f"file(s) found in project Files. Both the previous and the new "
             f"syllabus must be present as files: "
-            f"[ExamCode]_Syllabus_<YYYY-MM>.<pdf|docx>.")
+            f"[ExamCode]_Syllabus_<YYYY-MM>.<pdf|docx> (the date may also "
+            f"be written YYYYMM — project Files strips the hyphen; both "
+            f"forms are accepted).")
 
 
 def HS_ST4(names):
     return (f"HARD STOP: Multiple syllabus files present — naming format is "
-            f"mandatory: [ExamCode]_Syllabus_<YYYY-MM>.<ext>. "
+            f"mandatory: [ExamCode]_Syllabus_<YYYY-MM>.<ext> (YYYYMM also "
+            f"accepted — project Files strips the hyphen). "
             f"Non-conforming: {', '.join(names)}.")
 
 
 def HS_ST5(k, ef):
     return (f"HARD STOP: {k} syllabus file(s) carry date {ef} (= Effective "
             f"From). Exactly one must. Fix Effective From or rename the new "
-            f"syllabus file so they agree.")
+            f"syllabus file so they agree (filename dates may be YYYY-MM or "
+            f"YYYYMM; both are read as the same date).")
 
 
 def HS_ST6(a, b, h):
@@ -10021,6 +10065,25 @@ def HS_ST11(s):
             f"share a uniform section set. The paper structure itself has "
             f"changed: update the Sections tab of the Exam Pattern xlsx (add "
             f"or extend a section row for '{s}'), then re-run.")
+
+
+def HS_ST12(ym, names, identical, sha=None):
+    """identical: True = same sha256 on every file; False = hashes known
+    and different; None = at least one hash unavailable (never claim
+    'differ' about unhashed content — message truthfulness)."""
+    if identical:
+        tail = (f"They are byte-identical (sha256 {sha}) — the same "
+                f"document is present twice.")
+    elif identical is None:
+        tail = (f"Their content hashes are unavailable — the framework "
+                f"cannot choose between them.")
+    else:
+        tail = (f"Their contents differ — the framework cannot choose "
+                f"between them.")
+    return (f"HARD STOP: {len(names)} syllabus files all carry date {ym} "
+            f"after date normalization ({', '.join(sorted(names))}). "
+            f"{tail} Keep exactly one file per syllabus date "
+            f"(YYYY-MM and YYYYMM are the same date).")
 
 
 def W_EF1(ef, oldest):

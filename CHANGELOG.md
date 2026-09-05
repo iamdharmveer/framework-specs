@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.09.05.1 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE
+(PYQDraft v1.3.1, PYQCore v1.9, NotesBlueprint v3.3.1)
+The claude.ai project Files section strips '-' from uploaded filenames
+(verified 2026-09-05: the two real CSIR NET Life Science syllabus PDFs are
+byte-identical under chat attachment, where the hyphen survives, and
+project Files, where it does not — sha256 d4544abd…/548dd26b…). Since
+project Files is the MANDATED channel under an ACTIVE transition (T2 row
+4: chat-only syllabus = HS-ST3), the §3.4 naming contract could never be
+satisfied through the compliant channel. Rulings: R-a — the date stamp
+accepts YYYY-MM and YYYYMM; bc.parse_syllabus_filename normalizes and
+ALWAYS returns YYYY-MM, so HS-ST5, era routing and exam_config see one
+canonical form. R-b + P-1 — NEW HS-ST12: >= 2 files sharing one
+normalized date (any mix of forms or case, at EF or not, byte-identical
+or not) stop as a date collision BEFORE EF matching; T2 row 7 (>= 2
+match EF => HS-ST5) retires into it. R-d — HS-ST3/4/5 templates state
+both accepted forms. R-c — everything else stays strict (ExamCode
+literal, Syllabus token, extension); no alias handling. Single
+implementation: the one engine change covers BOTH direct readers
+(PYQDraft S2-0a and NotesBlueprint S-1). Legacy INACTIVE/single-file
+paths are structurally untouched (parsing runs only at ACTIVE + >= 2
+files). Fixtures FX-ST-HY1..HY7 (incl. the live CSIR pair with true
+sha256s and mutation-kill targets); FX-ST-21b and FX-ST-CASE3 migrated
+to HS-ST12 per P-1. R-e (same release): §3.7 drift identity for syllabus
+files is the sha256 — current_file and superseded NAMES are display-only
+and never drift-compared (superseded compare as a sorted sha256 set,
+diff label 'superseded_sha256_set'); without this, a PYQDraft run on
+chat-attached hyphenated names followed by later steps reading the
+project-Files hyphen-stripped names would HS-ST10 false-stop on
+byte-identical documents. Changed bytes still drift. Fixtures
+FX-ST-RE1..RE4. Final adversarial round: HS-ST12 message is
+three-state truthful (byte-identical / contents differ /
+hashes unavailable — never claims 'differ' about unhashed
+content; FX-ST-HY8). Self-test 156/156.
+
 ## 2026.09.03.3 — GAP-2026-09-03-PAGE-BORDER (PYQFormat v1.6.0)
 Full-page border on every page of the PYQ-3 formatted student document,
 locked by owner rulings O-1..O-4 (2026-09-03): scope PYQFormat ONLY;

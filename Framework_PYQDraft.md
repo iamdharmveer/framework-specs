@@ -1,4 +1,17 @@
-# Framework_PYQDraft v1.3.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# Framework_PYQDraft v1.3.1 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# v1.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: §3.4
+#   NAMING date stamp accepts YYYY-MM and YYYYMM (R-a — claude.ai project
+#   Files strips '-' from uploaded filenames; verified 2026-09-05 with
+#   byte-identical CSIR NET Life Science files under both names);
+#   bc.parse_syllabus_filename now RETURNS the normalized YYYY-MM always.
+#   NEW HS-ST12 (R-b, P-1): any two files sharing one normalized date stop
+#   as a date collision — T2 row 7 (>=2 match EF => HS-ST5) retires into
+#   it. HS-ST3/4/5 templates reworded to state both forms (R-d). Register
+#   is now HS_ST1..HS_ST12. R-e: §3.7 drift identity for syllabus files is
+#   the sha256 — current_file and superseded NAMES are display-only and
+#   never drift-compared (superseded compare as a sorted sha256 set); a
+#   platform rename of an unchanged file is never drift, changed bytes
+#   still stop as HS-ST10. Legacy INACTIVE/single-file paths untouched.
 # v1.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: S2-0b crosswalk DRAFT
 # v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
 #   (Declaration & Detection; rebased to corpus 2026.09.01.1 per rev 4.6). NEW
@@ -179,12 +192,21 @@ NAMING (enforced only at >= 2 syllabus files — R1; a single-file project
 keeps ANY name, operator ruling):
   [ExamCode]_Syllabus_<YYYY-MM>.<ext>   <YYYY-MM> = first sitting under that
                                         version (bc.parse_syllabus_filename)
+ACCEPTED DATE FORMS (v1.3.1, R-a): YYYY-MM and YYYYMM are BOTH valid — the
+claude.ai project Files section strips '-' from uploaded filenames (verified
+2026-09-05: byte-identical files show the hyphen via chat attachment and
+lose it via project Files), and project Files is the MANDATED channel under
+an ACTIVE transition (T2 row 4). The parser normalizes to YYYY-MM before
+anything downstream sees the date; HS-ST5, era routing and exam_config
+always carry the hyphenated canonical form.
 The match is CASE-INSENSITIVE end to end (ExamCode, the Syllabus token, the
 extension) — the census that nominates the file is already casefold, and a
 correctly structured name must never fail on letter case alone (E04/E08
 normalization stance). Structure stays strict: prefix, token, dated stamp
 and extension must all be present exactly, or HS-ST4; two files carrying
-the SAME date in different letter case are still HS-ST5 (ambiguous).
+the SAME date after normalization (any mix of forms or letter case) are
+HS-ST12 — a date collision, never a silent pick (R-b; P-1 ruling: HS-ST12
+owns ALL same-date duplicates, whether or not the date equals EF).
 
 RESOLUTION (ACTIVE): the file whose <YYYY-MM> equals EF is CURRENT; all
 others SUPERSEDED. The taxonomy is ALWAYS built from CURRENT; SUPERSEDED
@@ -203,7 +225,9 @@ The T2 decision is bc.resolve_syllabus_sources — ONE implementation:
     |          | image pasted in chat     | exist as FILES — reproducible)
   5 | ACTIVE   | >= 2, any not dated      | * HS-ST4
   6 | ACTIVE   | >= 2 dated, 0 match EF   | * HS-ST5
-  7 | ACTIVE   | >= 2 dated, >= 2 match   | * HS-ST5 (ambiguous CURRENT)
+  7 | ACTIVE   | >= 2 dated, any date     | * HS-ST12 (P-1: owns all
+    |          | duplicated (normalized)  |   same-date duplicates; checked
+    |          |                          |   BEFORE EF matching)
   8 | ACTIVE   | exactly 1 matches EF     | RESOLVED -> hash checks
   9 | ACTIVE   | CURRENT sha256 equals    | * HS-ST6 (same document twice —
     |          | any SUPERSEDED sha256    | the diff would be empty)
@@ -212,7 +236,7 @@ The T2 decision is bc.resolve_syllabus_sources — ONE implementation:
     |          |                          | Release B)
 
 HARD STOPS: the exact message templates are the engine's §3.11 register
-(bc.HS_ST1 .. bc.HS_ST11 — cited, never restated). PYQDraft raises
+(bc.HS_ST1 .. bc.HS_ST12 — cited, never restated). PYQDraft raises
 SystemExit with the returned message; HS-ST1..HS-ST6 fire HERE. HS-ST7
 (staleness) fires at consumers; HS-ST8 (symptom detector, R25-scoped) at
 MockBlueprint pre-flight; HS-ST9/HS-ST11 at their Release-B/C call sites.
@@ -1408,6 +1432,10 @@ OPTIONAL BLOCK — syllabus_transition (v1.2.0 — GAP-2026-09-01 §3.5; R29):
     effective_from        : YYYY-MM; active state only.
     reason / keys_seen    : inactive-trace states only (raw values quoted).
     current_file/_sha256  : active state; the S2-0a-resolved CURRENT file.
+                            current_file is DISPLAY/BOOKKEEPING only (R-e):
+                            drift identity is current_sha256; superseded
+                            names likewise never drift-compare — their
+                            sha256 set does.
     superseded[]          : active state; every other dated syllabus file,
                             date order, with sha256.
     dials                 : effective §3.9 values (factory unless a valid
@@ -1470,4 +1498,4 @@ Print:
 
 ---
 
-# END OF Framework_PYQDraft v1.3.0
+# END OF Framework_PYQDraft v1.3.1
