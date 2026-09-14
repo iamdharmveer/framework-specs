@@ -1,4 +1,53 @@
-# Framework_PYQScan v1.5.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.6.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.6.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE. A classified row
+#   could be ORPHANED — its (section, topic, subtopic) absent from
+#   scan_progress['taxonomy'] — with no log, no stop, until PYQApprove INV-5 held
+#   the run (SSC_CGL_TIER1 Q.13 "Ranking and Position": a rejected new-TOPIC
+#   candidate whose already-persisted row was never reconciled; S3-6 Step 5b's
+#   fallback no-op'd because the Topic key did not exist, so `available` was []).
+#   Six independent orphan sources closed under ONE rulebook:
+#   (1) S3-3 step 3b — a rejected discovery candidate is reconciled INTO its
+#       persisted row in the same step, ledgered in _meta.rejected_discoveries and
+#       REPLAYED on a normalized/near match (same candidate, same answer, every
+#       batch and session — INV-6's replay principle applied at scan time).
+#   (2) rows carry discovery_status (accepted | resolved_existing; absent = first-
+#       pass match; pre-v1.6.0 rows read as legacy). The phantom is_new_discovery
+#       field — named in 2f, present in no schema, example, docstring or real row —
+#       is retired.
+#   (3) SENTINEL RULE — bc.OUT_OF_PATTERN and a retired marker-mode module are
+#       ROUTING values, never a persisted `section`; the row carries the resolved
+#       path's real section plus pattern_era (the field PYQSort v1.9 carries).
+#       PYQApprove has no sentinel handling and HOLDS on such a row.
+#   (4) verify_no_orphans() — ONE function, THREE call sites (per paper after 3b;
+#       S3-6 before split detection and after reclassify; before every
+#       check_convergence call, whose new GATE 5 reads its stamp — S3-6 runs ONCE,
+#       so batches scanned after it had no net at all). It compares through
+#       reconcile_taxonomy.normalize_label exactly as INV-5 does: a STRING VARIANT
+#       is CANONICALISED, never re-filed (Step 5b's and reclassify's raw == sent
+#       "letter series" to available[0] — a mis-file INV-5 would have accepted as
+#       live); a true orphan is resolved by the S3-3 ladder (Rule 1/Rule 5 inside
+#       the topic; the step-3 Q1-Q3 test across the section, ledger-first;
+#       promotion through gate_scan_name + add_to_taxonomy). Every repair is in
+#       _meta.orphan_repairs; the scan never dead-stops on its own output
+#       (GATE-AT-SOURCE rule 2).
+#   (5) S3-6 — assign_to_refined_subtopic output is validated ∈ new_subtopics
+#       (round-bounded re-derivation, then the ladder — never new_subs[0]); a MERGE
+#       is a split record with new_subtopics=[kept]; repair runs before aggregation
+#       so Step 4 can never KeyError on a phantom bucket.
+#   (6) COMPLETENESS invariant set(classifications) == set(papers_scanned_list) —
+#       nothing bound the two files until now, so S3-6 and every gate could judge a
+#       PARTIAL row set and PYQApprove could receive two generations. Type-2 input
+#       stop naming the file to re-upload; runs on load, before S3-6 and before
+#       convergence.
+#   (7) the CONVERGED branches and S3-6 now persist classifications.json as well as
+#       scan_progress.json — v1.5.0 saved only the latter after refinement, so a split
+#       at convergence delivered rows still naming the removed old_subtopic (a
+#       fresh-exam INV-5 HOLD with no scan-time cause at all).
+#   schema_version stays "2.0" (load_scan_progress and PYQApprove §4 both reject
+#   any other value); every new field is additive and read with .get; for a scan
+#   with no orphan and no variant, classifications.json and the taxonomy are
+#   byte-identical and scan_progress._meta gains only the orphan_gate stamp and
+#   two empty ledgers. INV-5 at PYQApprove is unchanged and remains the backstop.
 # v1.5.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk suppression at scan
 # v1.4.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (F1) S3-1 gains
 #   the GENERATION-AWARE TRIPWIRE: a draft carrying spec_generation is re-checked
@@ -270,7 +319,8 @@ CLASSIFICATION STORAGE STRATEGY (v1.7):
   scan_progress.json contains: _meta, taxonomy, discovery_log, papers_scanned_list,
     drive_file_inventory.
   classifications.json contains: { paper_id: [ {q_num, section, topic, subtopic,
-    question_task, question_format, question_direction, thematic_domain}, ... ] }
+    question_task, question_format, question_direction, thematic_domain,
+    discovery_status?, pattern_era?}, ... ] }   (optional fields: v1.6.0, S3-3 2f)
   Classifications file is cumulative — appended per batch, saved alongside
   scan_progress.json.
   Refinement pass reads the classifications file.
@@ -805,10 +855,21 @@ For each paper in the batch:
         - If marker_mode=true: use module separator (=== Subject ===)
         - If marker_mode=false: use Q-number range from exam_config.sections
         - If marker_mode=false AND the Q-number is outside every configured range
-          (a previous-era paper larger than the current pattern): assign the
-          OUT_OF_PATTERN sentinel and classify against the FULL taxonomy in (d).
+          (a previous-era paper larger than the current pattern): route through
+          the OUT_OF_PATTERN sentinel and classify against the FULL taxonomy in (d).
           NEVER None, NEVER dropped, NEVER guessed into the nearest section.
           See RULE 4 OUT-OF-RANGE branch (§8) and EC-P9.
+        - If marker_mode=true AND the module is not an exam_config.sections[].name
+          (a RETIRED module — S3-2a era detection): same routing, classify
+          against the FULL taxonomy in (d). Never absorb it into a surviving
+          section by fuzzy match.
+        - SENTINEL RULE (v1.6.0): the sentinel and a retired module name are
+          ROUTING values, never PERSISTED values. The stored row's `section` is
+          ALWAYS the real section of the path chosen in (d) — a live key of
+          the taxonomy — and the row carries pattern_era = 'out_of_pattern'
+          (the field PYQSort v1.9 carries); every other row omits pattern_era.
+          A row whose section is not a taxonomy key is an orphan by
+          construction: PYQApprove INV-5 has no sentinel handling and HOLDS.
      d. Classify into (Topic, Subtopic) within that section:
         - Match against current taxonomy
         - Use universal classification rules (§8)
@@ -829,8 +890,18 @@ For each paper in the batch:
           (e.g., "actions_behaviour", "persons_professionals",
            "subject_verb_agreement", "tense_errors", null if generic)
      f. Store classification in [ExamCode]_classifications.json:
-        {q_num, section, topic, subtopic, is_new_discovery,
-         question_task, question_format, question_direction, thematic_domain}
+        {q_num, section, topic, subtopic, question_task, question_format,
+         question_direction, thematic_domain}
+        plus, when applicable (v1.6.0):
+          discovery_status  'accepted' — a candidate that passed step 3 and
+                            entered the taxonomy; 'resolved_existing' — a
+                            candidate step 3 sent to an existing path (3b).
+                            Absent on a first-pass match; a pre-v1.6.0 row
+                            has no field and is read as legacy, never assumed.
+          pattern_era       'out_of_pattern' per the SENTINEL RULE in (c).
+        (v1.6.0 retires is_new_discovery: it was named here and existed in
+        no schema, example, docstring or real row — a candidate's provenance
+        was untraceable, which is how the SSC_CGL_TIER1 orphan stayed silent.)
 
   3. NEW DISCOVERY VALIDATION (v1.7 — before adding to taxonomy):
      For each NEW DISCOVERY candidate, Claude MUST answer these 3 questions:
@@ -843,8 +914,30 @@ For each paper in the batch:
            If no → classify there, NOT a new discovery.
      Only if all 3 answers confirm separation → add as new discovery.
 
+  3b. RECONCILE ON REJECTION (v1.6.0 — the orphan closed at its source):
+     A candidate's row was ALREADY persisted in 2f carrying the CANDIDATE
+     label as its topic/subtopic. When step 3 answers "classify there, NOT a
+     new discovery", the resolution is APPLIED to that exact row, in this
+     step, before the next paper:
+       row['topic'], row['subtopic'] = the existing path step 3 named
+       row['discovery_status'] = 'resolved_existing'
+     and the decision is LEDGERED:
+       progress['_meta'].setdefault('rejected_discoveries', []).append(
+         {candidate_label, section, resolved_to: {topic, subtopic},
+          paper_id, q_num, answers: {q1, q2, q3}})
+     LEDGER FIRST: before answering step 3 for any candidate, look it up in
+     rejected_discoveries by reconcile_taxonomy.normalize_label (exact) or
+     reconcile_taxonomy.similarity >= reconcile_taxonomy.DUP_SIMILARITY
+     (near) within the same section. A prior resolution is REPLAYED, not
+     re-decided — the same candidate gets the same answer in every batch and
+     every session. A candidate step 3 ACCEPTS keeps its label, is admitted
+     through gate_scan_name + add_to_taxonomy (F2), and its row is marked
+     'accepted'. Then verify_no_orphans(scope=[paper_id]) runs before the
+     per-paper save (call site 1 of 3) and repairs, through the same ladder
+     and with a record, anything 3b missed — never a silent pass-through.
+
   4. After all questions in paper classified:
-     - Apply new discovery validation (step 3 above)
+     - Apply new discovery validation (step 3) and reconciliation (step 3b)
      - Genuinely new subtopics: add to taxonomy under appropriate section/topic
      - Record paper_id in papers_scanned_list
 
@@ -913,7 +1006,7 @@ def check_convergence(progress, total_available, all_years):
     ═══════════════════════════════════════════════════════════════
     CONVERGENCE HARD GATES — NON-NEGOTIABLE, NON-BYPASSABLE.
 
-    Claude CANNOT declare convergence unless ALL 4 gates pass.
+    Claude CANNOT declare convergence unless ALL 5 gates pass (GATE 5 v1.6.0).
     There is NO override. NO shortcut. NO exception. NO early exit.
     There is NO "close enough". There is NO "probably sufficient".
     Treat these gates like physical locks that cannot be picked.
@@ -989,12 +1082,36 @@ def check_convergence(progress, total_available, all_years):
             f'Run §3-6 Subtopic Refinement Pass before convergence can be declared.'
         )
 
-    # ── ALL 4 GATES PASSED — convergence is legitimate ──
+    # ── GATE 5: ZERO ORPHANED ROWS (v1.6.0 — GATE-AT-SOURCE) ──
+    #    The INV-5 conservation invariant PYQApprove enforces on
+    #    classifications.json is enforced HERE, at the step that writes it, on
+    #    EVERY convergence attempt: S3-6 runs once, so rows written in batches
+    #    scanned after it would otherwise reach PYQApprove with no net. The
+    #    caller runs verify_no_orphans over the FULL row set immediately before
+    #    every check_convergence call; that function stamps _meta.orphan_gate.
+    #    The gate locks on a stamp that is absent, stale (papers stamped !=
+    #    papers scanned) or carries a residue — and says exactly which rows
+    #    (_meta.unrepaired_orphans). It never dead-stops (rule 2): the repair
+    #    ladder re-runs and the gate re-evaluates on the next call.
+    _og = progress['_meta'].get('orphan_gate') or {}
+    _n_papers = len(progress.get('papers_scanned_list', []))
+    if (_og.get('orphans_after_repair', 1) != 0
+            or _og.get('papers') != _n_papers):
+        return 'continue', (
+            f'Gates 0-4 passed. GATE 5 LOCKED: zero-orphan stamp '
+            f'{"absent" if not _og else "stale/failed"} — stamped '
+            f'{_og.get("papers", 0)} paper(s) vs {_n_papers} scanned, '
+            f'{_og.get("orphans_after_repair", "?")} row(s) still naming no live '
+            f'path (see _meta.unrepaired_orphans). Run verify_no_orphans over '
+            f'the full row set (S3-3 ladder) and re-check.'
+        )
+
+    # ── ALL 5 GATES PASSED — convergence is legitimate ──
     return 'converged', (
         f'Taxonomy stable. {scanned}/{total_available} papers scanned. '
         f'All {len(all_years)} years covered. '
         f'Last {CONVERGENCE_CONSECUTIVE * BATCH_SIZE} papers added 0 new subtopics. '
-        f'Refinement pass completed.'
+        f'Refinement pass completed. Zero orphaned rows.'
     )
 
 def report_gate_status(progress, total_available, all_years):
@@ -1255,14 +1372,21 @@ def run_scan(exam_code, progress, paper_queue, total_available):
     else:
         classifications = {}
 
+    # v1.6.0 COMPLETENESS INVARIANT — the two files must be the same
+    # generation before any batch, refinement or gate reads them (Type-2).
+    assert_classification_completeness(progress, classifications, exam_code)
+
     if not pending:
         # All papers scanned (or 0 papers available).
         # Force refinement if not already done
         if not progress['_meta'].get('refinement_pass_done', False):
             run_refinement_pass(progress, classifications, exam_code)
+        # v1.6.0 call site 3: stamp _meta.orphan_gate for GATE 5.
+        verify_no_orphans(progress, classifications, exam_code)
         from datetime import datetime, timezone
         progress['_meta']['last_updated'] = datetime.now(timezone.utc).isoformat()
         save_scan_progress(progress, exam_code)
+        save_classifications(classifications, exam_code)
         conv_status = report_gate_status(progress, total_available, all_years)
         print_convergence_summary(progress, classifications, exam_code)
         return
@@ -1292,6 +1416,13 @@ def run_scan(exam_code, progress, paper_queue, total_available):
             for disc in new_discoveries:
                 add_to_taxonomy(progress['taxonomy'], disc)
                 new_subtopics_this_batch.append(disc)
+
+            # v1.6.0 call site 1 of 3: every row of THIS paper names a live
+            # path before it is persisted (S3-3 step 3b + ladder). A path the
+            # ladder promoted is a discovery for the stability counter.
+            _residue, _promoted = verify_no_orphans(
+                progress, classifications, exam_code, scope=[paper_id])
+            new_subtopics_this_batch.extend(_promoted)
 
             # Update metadata
             progress['papers_scanned_list'].append(paper_id)
@@ -1390,19 +1521,34 @@ def run_scan(exam_code, progress, paper_queue, total_available):
                   f"{quality_counts['figure_inferred']} figure-inferred")
 
         # Gate status
+        # v1.6.0 call site 3: stamp _meta.orphan_gate over the FULL row set
+        # before every check_convergence — GATE 5 reads the stamp.
+        verify_no_orphans(progress, classifications, exam_code)
+        save_scan_progress(progress, exam_code)
+        save_classifications(classifications, exam_code)
         status, msg = check_convergence(progress, total_available, all_years)
         print(f"  Gates: {msg}")
 
         # Check convergence
         if status == 'refinement_needed':
             run_refinement_pass(progress, classifications, exam_code)
+            verify_no_orphans(progress, classifications, exam_code)
+            save_scan_progress(progress, exam_code)
+            save_classifications(classifications, exam_code)
             status, msg = check_convergence(progress, total_available, all_years)
             if status == 'converged':
+                # v1.6.0: S3-6 and verify_no_orphans rewrite rows IN MEMORY;
+                # v1.5.0 saved only scan_progress here, so a split at
+                # convergence delivered a taxonomy without old_subtopic and a
+                # classifications.json still carrying it — an INV-5 HOLD on
+                # every fresh exam whose refinement split. Both files persist.
                 save_scan_progress(progress, exam_code)
+                save_classifications(classifications, exam_code)
                 print_convergence_summary(progress, classifications, exam_code)
                 return
         elif status == 'converged':
             save_scan_progress(progress, exam_code)
+            save_classifications(classifications, exam_code)
             print_convergence_summary(progress, classifications, exam_code)
             return
 
@@ -1477,6 +1623,173 @@ def add_to_taxonomy(taxonomy, discovery):
         taxonomy[sec][top] = []
     if sub not in taxonomy[sec][top]:
         taxonomy[sec][top].append(sub)
+
+# ── v1.6.0 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE ─────────────────────────
+def assert_classification_completeness(progress, classifications, exam_code):
+    """COMPLETENESS INVARIANT: set(classifications) == set(papers_scanned_list).
+    scan_progress.json is loaded from project Files; classifications.json is
+    loaded by the RESUME PROTOCOL (S3-7) from project Files too — nothing bound
+    the two until v1.6.0, so S3-6 and every gate could judge a PARTIAL row set
+    (a stale or forgotten upload) and PYQApprove could receive two generations.
+    Type-2 INPUT stop with exactly one operator action (GATE-AT-SOURCE rule 2 —
+    this is not Claude's own output). Never fires on a fresh scan (both empty)."""
+    scanned = set(progress.get('papers_scanned_list', []))
+    have = set((classifications or {}).keys())
+    missing = sorted(scanned - have)
+    extra = sorted(have - scanned)
+    if missing or extra:
+        raise SystemExit(
+            f"{exam_code}_classifications.json is not the file saved with this "
+            f"{exam_code}_scan_progress.json: {len(missing)} scanned paper(s) have "
+            f"no rows" + (f" (first: {missing[0]})" if missing else "") +
+            f"; {len(extra)} paper(s) have rows but were never scanned" +
+            (f" (first: {extra[0]})" if extra else "") +
+            ". Upload the classifications.json delivered by the same session as "
+            "this scan_progress.json to project Files and re-run PYQScan.")
+
+def _norm_path(sec, top, sub):
+    from reconcile_taxonomy import normalize_label, path_str
+    return normalize_label(path_str(sec, top, sub))
+
+def _live_path_index(taxonomy):
+    """{normalized path: (section, topic, subtopic)} — the SAME key INV-5's
+    conservation_check builds (enumerate_paths + normalize_label(path_str))."""
+    from reconcile_taxonomy import enumerate_paths
+    return {_norm_path(*p): p for p in enumerate_paths(taxonomy)}
+
+def resolve_orphan_row(row, taxonomy, meta):
+    """S3-3 RESOLUTION LADDER for a row whose (section, topic, subtopic) is not
+    a live path even after normalization. Returns (verdict, (sec, top, sub)):
+      ('refile',  path) — an EXISTING live path. Ladder, in order:
+          a. rejected_discoveries ledger (S3-3 step 3b): a normalized / near
+             match (reconcile_taxonomy.DUP_SIMILARITY) of this row's
+             topic+subtopic label in this section → REPLAY resolved_to.
+          b. topic exists, subtopic does not → RULE 1 (topical home) then
+             RULE 5 (closest fit: stem keywords > option structure > question
+             format) among THAT topic's subtopics, using the row's pattern
+             metadata (RULE 7) and the stem when in context.
+          c. topic or section does not exist → the step-3 Q1-Q3 test against
+             the FULL section (or the full taxonomy when the row's section is
+             bc.OUT_OF_PATTERN / a retired module — SENTINEL RULE); an
+             existing path wins whenever Q1-Q3 does not confirm separation.
+      ('promote', path) — Q1-Q3 confirmed separation: `path` is the name the
+          model has ALREADY passed through gate_scan_name (F2 — same rounds,
+          same amber residue path as S3-3 discovery). The caller admits it
+          with add_to_taxonomy; it counts as a discovery.
+    The path's section is ALWAYS a real taxonomy key (never the sentinel).
+    Every verdict is written to the ledger by the caller so the next row with
+    the same label replays it."""
+    pass  # CLASS: J — Judgment over the row (and its stem when in context) against the taxonomy already in context; applies S3-3 step 3 / PYQCore §8 RULE 1, RULE 5. No tool call.
+
+def verify_no_orphans(progress, classifications, exam_code, scope=None):
+    """ONE rulebook for "does this row name a live path" — the test INV-5's
+    conservation_check applies at PYQApprove, applied at the step that WRITES
+    the rows. Three call sites: (1) S3-3 per paper after step 3b,
+    scope=[paper_id]; (2) S3-6 before split detection and after reclassify;
+    (3) immediately before every check_convergence call (GATE 5 reads the
+    _meta.orphan_gate stamp this writes on a full-set run).
+    Per row, exactly one recorded outcome (_meta.orphan_repairs — rule 5: an
+    unrecorded fix is indistinguishable from a rule that never fired):
+      canonicalised — raw strings differ, normalized path is live: the row
+                      takes the taxonomy's spelling. NOT a reassignment.
+      refiled       — resolve_orphan_row chose an existing live path.
+      promoted      — resolve_orphan_row found the row genuinely novel; the
+                      gate_scan_name-admitted path is added to the taxonomy
+                      (F2) and returned as a discovery.
+    Never a dead stop on Claude's own output (rule 2): a row the ladder
+    cannot land on a live path within reconcile_taxonomy.SELF_CORRECTION_
+    MAX_ROUNDS is left UNCHANGED and listed in _meta.unrepaired_orphans;
+    GATE 5 locks on it by name until a later run repairs it.
+    Returns (n_residue, promoted) where promoted is a list of
+    {section, topic, subtopic} in add_to_taxonomy's shape."""
+    from datetime import datetime, timezone
+    from reconcile_taxonomy import SELF_CORRECTION_MAX_ROUNDS
+    import blueprint_core as bc
+    taxonomy = progress['taxonomy']
+    meta = progress['_meta']
+    repairs = meta.setdefault('orphan_repairs', [])
+    ledger = meta.setdefault('rejected_discoveries', [])
+    residue, promoted = [], []
+    papers = list(classifications.keys()) if scope is None else list(scope)
+    rows_checked = 0
+    for paper_id in papers:
+        for c in classifications.get(paper_id, []):
+            rows_checked += 1
+            sec, top, sub = c.get('section'), c.get('topic'), c.get('subtopic')
+            if sub in taxonomy.get(sec, {}).get(top, []):
+                continue                                    # live, raw match
+            live = _live_path_index(taxonomy)
+            key = _norm_path(sec, top, sub)
+            if key in live:                                 # string variant
+                nsec, ntop, nsub = live[key]
+                repairs.append({'paper_id': paper_id, 'q_num': c.get('q_num'),
+                                'action': 'canonicalised',
+                                'before': [sec, top, sub],
+                                'after': [nsec, ntop, nsub]})
+                c['section'], c['topic'], c['subtopic'] = nsec, ntop, nsub
+                continue
+            landed = False
+            for _round in range(SELF_CORRECTION_MAX_ROUNDS):
+                _out = resolve_orphan_row(c, taxonomy, meta)
+                # a malformed CLASS-J answer is a failed round, never a crash
+                if (not isinstance(_out, (tuple, list)) or len(_out) != 2
+                        or not isinstance(_out[1], (tuple, list))
+                        or len(_out[1]) != 3
+                        or not all(isinstance(x, str) and x.strip() for x in _out[1])):
+                    continue
+                verdict, path = _out
+                psec, ptop, psub = (x.strip() for x in path)
+                # a promoted path lives under an EXISTING section (sections come
+                # from exam_config, never from a row) and never under the sentinel:
+                # add_to_taxonomy would otherwise mint a phantom section.
+                if (verdict == 'promote' and psec in taxonomy
+                        and psec != bc.OUT_OF_PATTERN):
+                    add_to_taxonomy(taxonomy, {'section': psec, 'topic': ptop,
+                                               'subtopic': psub})
+                if psub in taxonomy.get(psec, {}).get(ptop, []):
+                    action = 'promoted' if verdict == 'promote' else 'refiled'
+                    repairs.append({'paper_id': paper_id, 'q_num': c.get('q_num'),
+                                    'action': action, 'round': _round + 1,
+                                    'before': [sec, top, sub],
+                                    'after': [psec, ptop, psub]})
+                    ledger.append({'candidate_label': f"{top} / {sub}",
+                                   'section': sec,
+                                   'resolved_to': {'topic': ptop, 'subtopic': psub},
+                                   'paper_id': paper_id, 'q_num': c.get('q_num'),
+                                   'answers': {'by': 'verify_no_orphans',
+                                               'verdict': verdict}})
+                    if sec == bc.OUT_OF_PATTERN:
+                        c['pattern_era'] = 'out_of_pattern'
+                    c['section'], c['topic'], c['subtopic'] = psec, ptop, psub
+                    c['discovery_status'] = ('accepted' if action == 'promoted'
+                                             else 'resolved_existing')
+                    if action == 'promoted':
+                        promoted.append({'section': psec, 'topic': ptop,
+                                         'subtopic': psub})
+                    landed = True
+                    break
+            if not landed:
+                residue.append({'paper_id': paper_id, 'q_num': c.get('q_num'),
+                                'section': sec, 'topic': top, 'subtopic': sub})
+    if promoted:
+        progress['discovery_log'].append({
+            'batch': 'orphan_repair', 'papers': [],   # never re-listed: the year table counts entry papers
+            'new_subtopics': [f"{d['section']}/{d['topic']}/{d['subtopic']}"
+                              for d in promoted],
+            'count': len(promoted)})
+        meta['consecutive_empty_batches'] = 0      # taxonomy changed
+    if scope is None:
+        meta['orphan_gate'] = {
+            'papers': len(classifications), 'rows': rows_checked,
+            'orphans_after_repair': len(residue),
+            'at': datetime.now(timezone.utc).isoformat()}
+        if residue:
+            meta['unrepaired_orphans'] = residue
+        else:
+            meta.pop('unrepaired_orphans', None)
+    elif residue:
+        meta.setdefault('unrepaired_orphans', []).extend(residue)
+    return len(residue), promoted
 ```
 
 ### S3-6 — Subtopic Refinement Pass (MANDATORY before convergence)
@@ -1491,7 +1804,15 @@ WHEN:
   returns 'refinement_needed'). This pass runs ONCE. After completion,
   it sets refinement_pass_done = True, which unlocks Gate 4.
 
-PURPOSE (v2.4 — revised default bias):
+PURPOSE (v2.4 — revised default bias; v1.6.0 step 0):
+  0. REPAIR ORPHANS FIRST (v1.6.0): verify_no_orphans runs over the full row
+     set before any bucket is aggregated, so every bucket the pass judges is
+     a live path (a bucket that existed only in the rows could reach Step 4
+     and KeyError on taxonomy[sec][top]). A MERGE of A into B is represented
+     as a split record {old_subtopic: A, new_subtopics: [B]} — Step 4 removes
+     A, Step 5 re-files its rows into B; an ad-hoc taxonomy.remove() with no
+     split record is a spec violation (it orphans every row under A).
+
   Two goals, applied in this priority order:
 
   1. MERGE confused subtopics: If the classifier consistently assigns
@@ -1536,6 +1857,11 @@ def run_refinement_pass(progress, classifications, exam_code):
     taxonomy = progress['taxonomy']
     refinement_splits = []
 
+    # 0. v1.6.0 — same generation, then every bucket is a live path (call
+    #    site 2a). Promotions here count as discoveries at step 7.
+    assert_classification_completeness(progress, classifications, exam_code)
+    _res0, _promoted0 = verify_no_orphans(progress, classifications, exam_code)
+
     # 1. Aggregate all classified questions by (section, topic, subtopic)
     subtopic_questions = {}  # key: (sec, top, sub) → list of classification dicts
     for paper_id, paper_classifs in classifications.items():
@@ -1558,11 +1884,20 @@ def run_refinement_pass(progress, classifications, exam_code):
             refinement_splits.extend(splits_found)
 
     # 4. Apply splits to taxonomy
-    for split in refinement_splits:
+    for split in list(refinement_splits):   # v1.6.0: iterate a copy — a skipped split is removed
         old_sub = split['old_subtopic']
         sec = split['section']
         top = split['topic']
         new_subs = split['new_subtopics']
+
+        # v1.6.0: step 0 made every bucket live; a split naming a bucket that
+        # is STILL not live is recorded and skipped, never KeyError'd.
+        if top not in taxonomy.get(sec, {}):
+            progress['_meta'].setdefault('orphan_repairs', []).append({
+                'action': 'split_skipped_phantom_bucket',
+                'before': [sec, top, old_sub], 'after': None})
+            refinement_splits.remove(split)   # steps 5-7 must not act on it
+            continue
 
         # Remove old subtopic
         if old_sub in taxonomy.get(sec, {}).get(top, []):
@@ -1578,18 +1913,13 @@ def run_refinement_pass(progress, classifications, exam_code):
     if refinement_splits:
         reclassify_after_refinement(classifications, refinement_splits)
 
-    # 5b. Verify no orphaned classifications (v1.7)
-    for paper_id, paper_classifs in classifications.items():
-        for c in paper_classifs:
-            sub = c['subtopic']
-            sec = c['section']
-            top = c['topic']
-            if sub not in taxonomy.get(sec, {}).get(top, []):
-                # Orphaned classification — reclassify missed this question
-                # Force-assign to first new subtopic as fallback
-                available = taxonomy.get(sec, {}).get(top, [])
-                if available:
-                    c['subtopic'] = available[0]  # fallback assignment
+    # 5b. Verify no orphaned classifications (v1.7 → v1.6.0: call site 2b).
+    #     The v1.7 loop compared raw strings and force-assigned available[0]
+    #     when the topic existed; when the TOPIC key did not exist `available`
+    #     was [] and the row was left orphaned with no record (SSC_CGL_TIER1
+    #     Q.13). Now: normalized comparison, the S3-3 ladder, every outcome
+    #     recorded, residue named for GATE 5 (superseded text: SPEC_HISTORY.md).
+    _res5b, _promoted5b = verify_no_orphans(progress, classifications, exam_code)
 
     # 6. Log refinement results
     progress['discovery_log'].append({
@@ -1625,6 +1955,7 @@ def run_refinement_pass(progress, classifications, exam_code):
 
     # If refinement found new subtopics, reset consecutive_empty counter
     # because the taxonomy just changed — need to verify stability again
+    # (v1.6.0: a promotion by verify_no_orphans already reset it inside.)
     if refinement_splits:
         progress['_meta']['consecutive_empty_batches'] = 0
         print(f"\n  Refinement pass: {len(refinement_splits)} subtopics split into "
@@ -1636,6 +1967,7 @@ def run_refinement_pass(progress, classifications, exam_code):
     from datetime import datetime, timezone
     progress['_meta']['last_updated'] = datetime.now(timezone.utc).isoformat()
     save_scan_progress(progress, exam_code)
+    save_classifications(classifications, exam_code)   # v1.6.0: rows changed here too
 
 def check_dimensional_splits(questions, sec, top, sub):
     """
@@ -1789,21 +2121,31 @@ def reclassify_after_refinement(classifications, refinement_splits):
       - Assign to the correct new subtopic
       - Update the classification dict in place
     """
+    from reconcile_taxonomy import normalize_label, SELF_CORRECTION_MAX_ROUNDS
     for split in refinement_splits:
         sec = split['section']
         top = split['topic']
         old_sub = split['old_subtopic']
         new_subs = split['new_subtopics']
+        _target = (normalize_label(sec), normalize_label(top),
+                   normalize_label(old_sub))
 
         for paper_id, paper_classifs in classifications.items():
             for c in paper_classifs:
-                if (c['section'] == sec and c['topic'] == top
-                        and c['subtopic'] == old_sub):
+                # v1.6.0: normalized match — raw == missed a string variant,
+                # which then reached Step 5b's available[0] mis-file.
+                if (normalize_label(c['section']), normalize_label(c['topic']),
+                        normalize_label(c['subtopic'])) == _target:
                     # Claude re-examines the question's metadata and assigns
-                    # to the best-fit new subtopic
-                    c['subtopic'] = assign_to_refined_subtopic(
-                        c, new_subs
-                    )
+                    # to the best-fit new subtopic — and the answer MUST be one
+                    # of new_subs (v1.6.0: re-derive within the law's rounds;
+                    # an unlanded row keeps old_sub and call site 2b repairs
+                    # it through the ladder with a record — never new_subs[0]).
+                    for _round in range(SELF_CORRECTION_MAX_ROUNDS):
+                        _ns = assign_to_refined_subtopic(c, new_subs)
+                        if _ns in new_subs:
+                            c['section'], c['topic'], c['subtopic'] = sec, top, _ns
+                            break
 
 def assign_to_refined_subtopic(classification, new_subtopics):
     """
@@ -1848,7 +2190,9 @@ SESSION HANDOFF PROTOCOL:
 RESUME PROTOCOL:
   New session loads:
     1. scan_progress.json from project knowledge (schema version checked)
-    2. classifications.json from project knowledge
+    2. classifications.json from project knowledge — then
+       assert_classification_completeness (v1.6.0): the two files must be
+       the same generation, else a Type-2 stop names the file to re-upload
     3. RE-LIST Drive files (do NOT rely on cached inventory — files may
        have been added or removed between sessions). Update
        drive_file_inventory in scan_progress.json with fresh listing.
@@ -1877,7 +2221,22 @@ RESUME PROTOCOL:
     "convergence_status": "converged",
     "consecutive_empty_batches": 7,
     "refinement_pass_done": true,
-    "last_updated": "2026-07-02T10:30:00Z"
+    "last_updated": "2026-07-02T10:30:00Z",
+    "orphan_gate": {"papers": 65, "rows": 6500, "orphans_after_repair": 0,
+                    "at": "2026-07-02T10:30:00Z"},
+    "orphan_repairs": [
+      {"paper_id": "Paper_...", "q_num": 13, "action": "refiled", "round": 1,
+       "before": ["Section 1 Name", "Ranking and Position", "Ranking and Position"],
+       "after":  ["Section 1 Name", "Topic B", "Subtopic B2"]}
+    ],
+    "rejected_discoveries": [
+      {"candidate_label": "Ranking and Position / Ranking and Position",
+       "section": "Section 1 Name",
+       "resolved_to": {"topic": "Topic B", "subtopic": "Subtopic B2"},
+       "paper_id": "Paper_...", "q_num": 13,
+       "answers": {"q1": "yes", "q2": "no", "q3": "no"}}
+    ],
+    "unrepaired_orphans": []
   },
   "taxonomy": {
     "Section 1 Name": {
@@ -1906,6 +2265,12 @@ RESUME PROTOCOL:
       "new_subtopics": ["Section1/TopicA/SplitSubtopic1", "..."],
       "removed_subtopics": ["Section1/TopicA/OldBroadSubtopic"],
       "count": 5
+    },
+    {
+      "batch": "orphan_repair",
+      "papers": [],
+      "new_subtopics": ["Section1/TopicC/PromotedSubtopic"],
+      "count": 1
     }
   ]
 }
@@ -1930,8 +2295,18 @@ scan_progress.json REQUIRED FIELDS (v1.7 — PYQApprove reads these):
   _meta.exam_code          (string)
   _meta.papers_scanned     (int, informational)
   _meta.refinement_pass_done (bool, must be True for approve)
-  _meta.schema_version     (string, must be "2.0")
+  _meta.schema_version     (string, must be "2.0" — v1.6.0 adds fields, NOT a version)
   taxonomy                 (dict — COMPLETE Section > Topic > [Subtopics])
+  _meta.orphan_gate        (v1.6.0 — written by verify_no_orphans on a full-set
+                            run; GATE 5 reads it: orphans_after_repair must be 0
+                            and papers must equal len(papers_scanned_list))
+  _meta.orphan_repairs     (v1.6.0 — every canonicalised / refiled / promoted
+                            row, and every split skipped on a phantom bucket)
+  _meta.rejected_discoveries (v1.6.0 — S3-3 step 3b ledger; replayed first.
+                            answers is {q1, q2, q3} when step 3b wrote the
+                            entry, {by, verdict} when verify_no_orphans did)
+  _meta.unrepaired_orphans (v1.6.0 — present only while a row still names no
+                            live path; GATE 5 locks on it by name)
   exam_config              (dict — from taxonomy_draft)
 
 BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
@@ -1958,4 +2333,4 @@ Nothing is discarded: R30 re-evaluates this log at 2c approval in BOTH
 directions (reinstate on un-delete, extend on newly-deleted). Inactive or
 legacy exams: this section is skipped byte-identically.
 
-# END OF Framework_PYQScan v1.5.0
+# END OF Framework_PYQScan v1.6.0

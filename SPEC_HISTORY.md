@@ -4230,3 +4230,40 @@ TRANSITION_DECLARATION_FIELDS = (
     'status', 'effective_from', 'reason', 'keys_seen', 'current_file',
     'current_sha256', 'superseded', 'dials', 'zero_history_approved')
 ```
+
+
+## Framework_PYQScan.md — texts superseded by v1.6.0 (GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE, 2026-09-14)
+
+### S3-6 run_refinement_pass Step 5b (v1.5.0 form — the silent no-op; SSC_CGL_TIER1 root cause)
+```
+    # 5b. Verify no orphaned classifications (v1.7)
+    for paper_id, paper_classifs in classifications.items():
+        for c in paper_classifs:
+            sub = c['subtopic']
+            sec = c['section']
+            top = c['topic']
+            if sub not in taxonomy.get(sec, {}).get(top, []):
+                # Orphaned classification — reclassify missed this question
+                # Force-assign to first new subtopic as fallback
+                available = taxonomy.get(sec, {}).get(top, [])
+                if available:
+                    c['subtopic'] = available[0]  # fallback assignment
+```
+
+### S3-3 step 2f (v1.5.0 form — the phantom is_new_discovery field)
+```
+     f. Store classification in [ExamCode]_classifications.json:
+        {q_num, section, topic, subtopic, is_new_discovery,
+         question_task, question_format, question_direction, thematic_domain}
+```
+
+### S3-6 reclassify_after_refinement match + assignment (v1.5.0 form — raw ==, unvalidated output)
+```
+                if (c['section'] == sec and c['topic'] == top
+                        and c['subtopic'] == old_sub):
+                    # Claude re-examines the question's metadata and assigns
+                    # to the best-fit new subtopic
+                    c['subtopic'] = assign_to_refined_subtopic(
+                        c, new_subs
+                    )
+```

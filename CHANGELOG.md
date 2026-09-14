@@ -1,5 +1,124 @@
 # Changelog
 
+## 2026.09.14.3 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE: a classified row can name no live taxonomy path, silently, until PYQApprove INV-5 holds — closed at source with one rulebook
+(PYQScan v1.6.0, PYQApprove v1.3.0, reconcile_taxonomy v1.5; schema_version "2.0" unchanged)
+
+**Owner decision 2026-09-14.** Reference incident SSC_CGL_TIER1: PYQApprove
+Phase 0c HELD on INV-5 — Q.13 of SSC_CGL_12-Sep-2025_Shift2 classified as
+"General Intelligence & Reasoning → Ranking and Position → Ranking and Position",
+a path in none of the 22 discovery_log entries and nowhere in the locked
+taxonomy. Root cause, verified line-by-line against v1.5.0: S3-3 persists a
+new-discovery CANDIDATE's row (2f) before the Q1-Q3 validation (step 3) runs and
+never instructs the model to reconcile the row when the candidate is rejected;
+S3-6 Step 5b — "Verify no orphaned classifications" — force-assigned
+`available[0]` when the TOPIC existed and no-op'd with zero output when it did
+not (`taxonomy.get(sec, {}).get(top, [])` is [] for a never-promoted Topic).
+The defect is exam-agnostic: one engine, ~200 exams.
+
+The gap document that surfaced the incident was independently re-verified
+against the live clone and found INCOMPLETE and, in two proposals, UNSAFE:
+its Fix B/C `raise SystemExit("REFINEMENT PASS HELD")` is a dead stop on
+Claude's own output (GATE-AT-SOURCE rule 2 — and H-SELFSTOP polices only the
+four retired phrasings, so it would have shipped); its `scan_progress.json`
+schema bump 2.0 → 2.1 would have halted every in-progress exam
+(`load_scan_progress` raises on any value but "2.0"; PYQApprove §4 requires
+"2.0"). Six orphan sources were found, five of them absent from the document:
+
+  E1 rejected new-TOPIC candidate never reconciled (the incident)      Step 5b no-op
+  E2 topic exists, subtopic does not                                    available[0], unlogged
+  E3 STRING VARIANT ("letter series", "–"/"-", "&"/"and") — INV-5 compares
+     through normalize_label and accepts it; Step 5b and
+     reclassify_after_refinement compare raw and MIS-FILE it to available[0]
+  E4 section not a taxonomy key: bc.OUT_OF_PATTERN persisted as `section`
+     (S3-3 said "assign the sentinel", never which section to STORE; the
+     engine and PYQApprove have no sentinel handling) and marker-mode
+     RETIRED modules — INV-5 HOLD by construction
+  E5 S3-6 runs ONCE; batches scanned after it (consecutive_empty reset by a
+     split) had NO net; Gate 4 tests a flag
+  E6 assign_to_refined_subtopic output unvalidated; MERGE has no apply
+     representation; ≥15 rows in a phantom bucket KeyError Step 4
+  E8 nothing binds classifications.json to papers_scanned_list — S3-6 and
+     every gate could judge a partial row set; PYQApprove could receive two
+     generations (run_scan reads only /mnt/user-data/outputs/)
+
+RULINGS.
+  R-1 ONE RULEBOOK. `verify_no_orphans()` in PYQScan compares
+      normalize_label(path_str(sec, top, sub)) against enumerate_paths —
+      the exact key `conservation_check` builds — at THREE call sites: per
+      paper after the new S3-3 step 3b; S3-6 step 0 (before aggregation) and
+      5b (after reclassify); and immediately before every check_convergence
+      call. It never invents a normaliser (spec_local _canon stays D6-only).
+  R-2 A variant is CANONICALISED, never re-filed. A true orphan runs the S3-3
+      ladder (`resolve_orphan_row`, CLASS J): ledger replay → RULE 1/RULE 5
+      inside the topic → step-3 Q1-Q3 across the section → promotion through
+      gate_scan_name + add_to_taxonomy. Every outcome in _meta.orphan_repairs
+      (rule 5). No dead stop (rule 2): a row the ladder cannot land within
+      SELF_CORRECTION_MAX_ROUNDS is left unchanged, listed in
+      _meta.unrepaired_orphans, and GATE 5 locks on it by name. A promotion is
+      admitted only under an EXISTING section and never under the sentinel
+      (add_to_taxonomy would otherwise mint a phantom section); a malformed
+      CLASS-J answer is a failed round, never a crash. A split whose bucket is
+      still not live after step 0 is recorded, REMOVED from refinement_splits
+      and skipped, so steps 5-7 never act on children that were never added.
+  R-3 GATE 5 (check_convergence): _meta.orphan_gate must be stamped over the
+      FULL row set with orphans_after_repair == 0 and papers ==
+      len(papers_scanned_list). Convergence message gains "Zero orphaned rows."
+      Return statuses unchanged ('continue' / 'refinement_needed' /
+      'converged'); no caller changes.
+  R-4 S3-3 step 3b RECONCILE ON REJECTION + _meta.rejected_discoveries
+      ledger, replayed first on normalize_label / DUP_SIMILARITY match — the
+      INV-6 replay principle at scan time. Rows gain discovery_status
+      (accepted | resolved_existing; pre-v1.6.0 rows read as legacy). The
+      phantom is_new_discovery field (named in 2f, present in no schema,
+      example, docstring or real row) is retired.
+  R-5 SENTINEL RULE: bc.OUT_OF_PATTERN and a retired module are ROUTING
+      values; a persisted row's section is ALWAYS the resolved path's real
+      section, plus pattern_era='out_of_pattern' (PYQSort v1.9's field).
+  R-6 S3-6: `assign_to_refined_subtopic` output must be ∈ new_subtopics
+      (round-bounded re-derivation; an unlanded row keeps old_sub and 5b
+      repairs it with a record — never new_subs[0]); reclassify matches
+      through normalize_label; MERGE = split record with new_subtopics=[kept];
+      a split on a bucket still not live is recorded and skipped, never
+      KeyError'd.
+  R-7 COMPLETENESS invariant set(classifications) == set(papers_scanned_list)
+      on load, before S3-6, before convergence — a Type-2 input stop naming
+      the file to re-upload (the one hard stop this release adds; it is on
+      INPUT, with exactly one operator action).
+  R-8 PYQApprove: `manual_corrections=` on build_approval_record (engine
+      v1.5, additive, [] when absent; self-test 101 → 104) — an out-of-band
+      repair of the scan artifacts can never again hide behind a CLEAN
+      record. INV-5 unchanged: it is the backstop of GATE 5 exactly as C6 is
+      the backstop of PYQDraft's gate.
+  R-9b PERSISTENCE (found on the fresh-scan trace, 2026-09-14): v1.5.0's two
+      'converged' branches and run_refinement_pass saved ONLY scan_progress.json;
+      reclassify_after_refinement had rewritten rows in memory, so a split at
+      convergence delivered a taxonomy without old_subtopic and a
+      classifications.json still carrying it — every fresh exam whose S3-6 split
+      would have HELD at INV-5 with no scan-time cause. All three sites now
+      persist both files. The orphan_repair discovery_log entry lists no
+      papers (print_convergence_summary's year table counts entry papers).
+  R-9 schema_version stays "2.0". Every new field is additive and read with
+      .get. For a scan with no orphan and no variant, classifications.json and
+      scan_progress['taxonomy'] are byte-identical; scan_progress._meta gains
+      only the orphan_gate stamp (GATE 5's evidence) and two empty ledgers
+      (orphan_repairs, rejected_discoveries) — the 98%-inert rule, measured.
+
+FLEET REMEDIATION. `audit_orphans.py` (delivered alongside this release as an
+operator tool — NOT a repo file, not manifest-tracked; read-only)
+audits any [ExamCode]_classifications.json + _scan_progress.json pair with
+INV-5-identical normalization and reports STRING_VARIANT / SENTINEL_SECTION /
+SECTION_MISSING / TOPIC_MISSING / SUBTOPIC_MISSING plus the R-7 pair mismatch.
+Run it against every exam that has scanned under ≤ v1.5.0 before its next
+PYQApprove; a flagged exam is repaired by resuming PYQScan under v1.6.0 (call
+site 3 runs the ladder over the full set) — not by hand.
+
+VERIFIED before delivery: validate_framework_md 0 issues on the four PYQ specs;
+reconcile_taxonomy --self-test 104/104; every python fence compiles;
+gen_manifest / build_spec_manifest / spec_sections regenerated and --check
+clean; bootstrap 53/53; audit_specs_ext H-SELFSTOP clean; 31 behavioural fixtures
+(E1–E8, promotion, residue, GATE 5 states, byte-identity of an orphan-free
+exam) executed against the code extracted from the patched spec.
+
 ## 2026.09.14.2 — GAP-2026-09-14-REGISTRY-SOURCE: [ExamCode]_registry.json is read from the chat attachment OR Project Files (REGISTRY-SOURCE-LAW)
 (MockTestCreate v5.84, MockTestExplain v1.51.0, MockDeliver v1.22.0, DeliveryFooter v1.33;
 paper_pipeline CLUSTER RS; mock_sync_audit MS-20; audit_sync detect rule registry_required_read;

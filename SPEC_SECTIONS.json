@@ -4301,78 +4301,78 @@
       ]
     },
     "Framework_PYQApprove.md": {
-      "sha256": "33ec39a995cabd249ef158eb1c85b9d44e4bd6b9db4aa06660a1e229407ba809",
-      "lines": 797,
-      "bytes": 48925,
-      "est_tokens": 12231,
+      "sha256": "0d75f8f1d093514f7f18dc8b1769c7ec5205ef64ebbfd61724eb08d9c79a021d",
+      "lines": 815,
+      "bytes": 50390,
+      "est_tokens": 12597,
       "view_calls": 4,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 48925,
-      "reduced_est_tokens": 12231,
+      "reduced_bytes": 50390,
+      "reduced_est_tokens": 12597,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 26,
-          "end": 44,
+          "start": 36,
+          "end": 54,
           "lines": 19,
           "bytes": 1163
         },
         {
           "title": "## §4 — PHASE 0c: ANALYSIS DOC GENERATION (for approval)",
-          "start": 45,
-          "end": 46,
+          "start": 55,
+          "end": 56,
           "lines": 2,
           "bytes": 61
         },
         {
           "title": "### S4-0 — TAXONOMY RECONCILIATION ENGINE (v2.17, MANDATORY before S4-4)",
-          "start": 47,
-          "end": 478,
-          "lines": 432,
-          "bytes": 29148
+          "start": 57,
+          "end": 496,
+          "lines": 440,
+          "bytes": 29777
         },
         {
           "title": "### S4-1 — Generate merged Analysis doc from taxonomy",
-          "start": 479,
-          "end": 564,
+          "start": 497,
+          "end": 582,
           "lines": 86,
           "bytes": 3881
         },
         {
           "title": "### S4-2 — Analysis doc generation script",
-          "start": 565,
-          "end": 603,
+          "start": 583,
+          "end": 621,
           "lines": 39,
           "bytes": 2200
         },
         {
           "title": "### S4-3 — Exam config delivery",
-          "start": 604,
-          "end": 620,
+          "start": 622,
+          "end": 638,
           "lines": 17,
           "bytes": 670
         },
         {
           "title": "### S4-4 — Approval gate (v2.17 — VERDICT, not questionnaire)",
-          "start": 621,
-          "end": 768,
+          "start": 639,
+          "end": 786,
           "lines": 148,
           "bytes": 8322
         },
         {
           "title": "## S4-X — CROSSWALK APPROVAL (v1.2.0 — GAP-2026-09-01 §4.2/§4.3, ACTIVE",
-          "start": 769,
-          "end": 769,
+          "start": 787,
+          "end": 787,
           "lines": 1,
           "bytes": 78
         },
         {
           "title": "## mode; part of the EXISTING approval pass — no new approval step)",
-          "start": 770,
-          "end": 797,
+          "start": 788,
+          "end": 815,
           "lines": 28,
           "bytes": 1353
         }
@@ -6609,113 +6609,113 @@
       ]
     },
     "Framework_PYQScan.md": {
-      "sha256": "9a96cd09d2dbc2ec2154bd6eb7f988e4569566f830350b111e550589d6899557",
-      "lines": 1962,
-      "bytes": 99576,
-      "est_tokens": 24894,
-      "view_calls": 7,
+      "sha256": "67c4bf3802e6bacb4483199b7d73e6b6d6bc0ec132ed203fc95421bc71691dab",
+      "lines": 2337,
+      "bytes": 124100,
+      "est_tokens": 31025,
+      "view_calls": 8,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 99576,
-      "reduced_est_tokens": 24894,
+      "reduced_bytes": 124100,
+      "reduced_est_tokens": 31025,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 37,
-          "end": 64,
+          "start": 86,
+          "end": 113,
           "lines": 28,
           "bytes": 1767
         },
         {
           "title": "## §3 — PHASE 0b: SMART SCAN FOR SUBTOPIC DISCOVERY",
-          "start": 65,
-          "end": 66,
+          "start": 114,
+          "end": 115,
           "lines": 2,
           "bytes": 56
         },
         {
           "title": "### S3-1 — Scan initialisation",
-          "start": 67,
-          "end": 278,
-          "lines": 212,
-          "bytes": 10632
+          "start": 116,
+          "end": 328,
+          "lines": 213,
+          "bytes": 10706
         },
         {
           "title": "### S3-2 — Paper collection and round-robin ordering",
-          "start": 279,
-          "end": 375,
+          "start": 329,
+          "end": 425,
           "lines": 97,
           "bytes": 5750
         },
         {
           "title": "### S3-3b — FORMAT AUTHORITY RECONCILIATION (v2.14 — register D6-11)",
-          "start": 376,
-          "end": 605,
+          "start": 426,
+          "end": 655,
           "lines": 230,
           "bytes": 11246
         },
         {
           "title": "### S3-2a — PRE-SCAN CONFIRMATION GATE",
-          "start": 606,
-          "end": 772,
+          "start": 656,
+          "end": 822,
           "lines": 167,
           "bytes": 9604
         },
         {
           "title": "### S3-3 — Scan classification (lightweight, OMML-aware, pattern-tracked)",
-          "start": 773,
-          "end": 859,
-          "lines": 87,
-          "bytes": 5012
+          "start": 823,
+          "end": 952,
+          "lines": 130,
+          "bytes": 7999
         },
         {
           "title": "### S3-4 — Convergence check (4 HARD GATES)",
-          "start": 860,
-          "end": 1109,
-          "lines": 250,
-          "bytes": 12220
+          "start": 953,
+          "end": 1226,
+          "lines": 274,
+          "bytes": 13771
         },
         {
           "title": "### S3-4a — BATCH STOP LAW (MANDATORY — same architectural class as convergence gates)",
-          "start": 1110,
-          "end": 1195,
+          "start": 1227,
+          "end": 1312,
           "lines": 86,
           "bytes": 4257
         },
         {
           "title": "### S3-5 — Batch processing loop",
-          "start": 1196,
-          "end": 1481,
-          "lines": 286,
-          "bytes": 14533
+          "start": 1313,
+          "end": 1794,
+          "lines": 482,
+          "bytes": 26556
         },
         {
           "title": "### S3-6 — Subtopic Refinement Pass (MANDATORY before convergence)",
-          "start": 1482,
-          "end": 1822,
-          "lines": 341,
-          "bytes": 16340
+          "start": 1795,
+          "end": 2164,
+          "lines": 370,
+          "bytes": 18658
         },
         {
           "title": "### S3-7 — Session management for large corpora",
-          "start": 1823,
-          "end": 1863,
-          "lines": 41,
-          "bytes": 1905
+          "start": 2165,
+          "end": 2207,
+          "lines": 43,
+          "bytes": 2063
         },
         {
           "title": "### S3-8 — Scan progress JSON schema",
-          "start": 1864,
-          "end": 1948,
-          "lines": 85,
-          "bytes": 2639
+          "start": 2208,
+          "end": 2323,
+          "lines": 116,
+          "bytes": 4325
         },
         {
           "title": "## S3-X — CROSSWALK SUPPRESSION (v1.5.0 — GAP-2026-09-01 §4.3, ACTIVE mode)",
-          "start": 1949,
-          "end": 1962,
+          "start": 2324,
+          "end": 2337,
           "lines": 14,
           "bytes": 754
         }

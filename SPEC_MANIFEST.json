@@ -78,11 +78,11 @@
       "version_header": "# Framework_PYQAnalyse v3.0 — SPLIT STUB (superseded by 5-file architecture)"
     },
     "Framework_PYQApprove.md": {
-      "end_sentinel": "# END OF Framework_PYQApprove v1.2.0",
-      "lines": 796,
-      "sha256": "33ec39a995cabd249ef158eb1c85b9d44e4bd6b9db4aa06660a1e229407ba809",
-      "size_bytes": 48925,
-      "version_header": "# Framework_PYQApprove v1.2.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)"
+      "end_sentinel": "# END OF Framework_PYQApprove v1.3.0",
+      "lines": 814,
+      "sha256": "0d75f8f1d093514f7f18dc8b1769c7ec5205ef64ebbfd61724eb08d9c79a021d",
+      "size_bytes": 50390,
+      "version_header": "# Framework_PYQApprove v1.3.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)"
     },
     "Framework_PYQCompress.md": {
       "end_sentinel": "# END OF Framework_PYQCompress v2.1",
@@ -141,11 +141,11 @@
       "version_header": "# Framework_PYQPrepare v2.2 — Universal PYQ Row File Generator"
     },
     "Framework_PYQScan.md": {
-      "end_sentinel": "# END OF Framework_PYQScan v1.5.0",
-      "lines": 1961,
-      "sha256": "9a96cd09d2dbc2ec2154bd6eb7f988e4569566f830350b111e550589d6899557",
-      "size_bytes": 99576,
-      "version_header": "# Framework_PYQScan v1.5.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
+      "end_sentinel": "# END OF Framework_PYQScan v1.6.0",
+      "lines": 2336,
+      "sha256": "67c4bf3802e6bacb4483199b7d73e6b6d6bc0ec132ed203fc95421bc71691dab",
+      "size_bytes": 124100,
+      "version_header": "# Framework_PYQScan v1.6.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.21.0",
@@ -324,9 +324,9 @@
     },
     "reconcile_taxonomy.py": {
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1865,
-      "sha256": "b39092aefdee8074ff33f04970c545afb7e091546edb0997a9f11d6b5c4c3dca",
-      "size_bytes": 105127,
+      "lines": 1892,
+      "sha256": "3b406c3a50e1f363fd7593e2499d7ad2406efc42bd14851d4f0250e30ea84b77",
+      "size_bytes": 107113,
       "version_header": "\"\"\""
     },
     "routes.json": {

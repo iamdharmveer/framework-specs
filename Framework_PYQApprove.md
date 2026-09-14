@@ -1,4 +1,14 @@
-# Framework_PYQApprove v1.2.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# Framework_PYQApprove v1.3.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# v1.3.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE (companion; the fix lives
+#   in PYQScan v1.6.0). S4-0 passes manual_corrections= to build_approval_record
+#   (reconcile_taxonomy v1.5): when the operator edited classifications.json or
+#   scan_progress.json OUTSIDE the pipeline before this run (the SSC_CGL_TIER1 INV-5
+#   orphan was hand-repaired and the resulting CLEAN record carried no trace), the
+#   edits are declared and recorded verbatim in approval_record.json. INV-5
+#   conservation_check is unchanged — it is now the BACKSTOP of the zero-orphan gate
+#   PYQScan runs at source (verify_no_orphans, GATE 5), the same relationship C6 has
+#   to PYQDraft's pre-delivery gate. A conservation HOLD on a v1.6.0 scan therefore
+#   names a scan that bypassed its own gate, not a scan-time classification defect.
 # v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk approval + R30 + G-1
 # v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (A1) C6's spec
 #   text cites reconcile_taxonomy.check_topic_density — BOTH forms (subject
@@ -166,7 +176,8 @@ EXECUTION
                                               amber_status=amber_status,
                                               subject_flags=subject_flags,
                                               dedup_report=dedup_report,
-                                              telemetry=telemetry)
+                                              telemetry=telemetry,
+                                              manual_corrections=manual_corrections)
 
     # E3 (v1.1.0): on HELD, build_approval_record writes the machine-readable
     # field  record['re_derive_directive'] = {findings, crowded_topics,
@@ -207,6 +218,13 @@ INPUTS
                      the first-20-exams review read it THERE)
   spec_generation    taxonomy_draft.json['spec_generation'] (generation stamp —
                      its ABSENCE marks a pre-release draft; see C6 three-case)
+  manual_corrections (v1.3.0) the operator's declaration of every edit made to
+                     classifications.json / scan_progress.json outside the
+                     pipeline before this run — list of {file, paper_id, q_num,
+                     before, after, reason}; [] when none. Ask ONCE before S4-0
+                     ("Were either scan file edited by hand since PYQScan
+                     delivered them?"); recorded verbatim in approval_record
+                     .json (reconcile_taxonomy v1.5), never a verdict input.
 
   ALL of the above MUST be passed to reconcile(). An artifact produced at S2-4
   and not consumed here is a silent regression: the anchoring state would be
@@ -793,4 +811,4 @@ Reinstated proposals re-enter through the NORMAL refinement path (E58);
 approved crosswalk replaces the draft in exam_config at
 `syllabus_transition.crosswalks` (sole approval writer: THIS step).
 
-# END OF Framework_PYQApprove v1.2.0
+# END OF Framework_PYQApprove v1.3.0

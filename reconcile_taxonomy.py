@@ -1,5 +1,15 @@
 """
-reconcile_taxonomy.py v1.4 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+reconcile_taxonomy.py v1.5 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+
+v1.5 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE (additive; SCHEMA_VERSION
+    unchanged). build_approval_record() gains manual_corrections= — the PYQApprove
+    operator's record of any classifications.json / scan_progress.json edit made
+    OUTSIDE the pipeline before this run (the SSC_CGL_TIER1 orphan was hand-edited
+    away and the resulting CLEAN record carried no trace of it). Recorded verbatim
+    under record['manual_corrections'] (absent argument => []). INV-5
+    conservation_check is unchanged: it remains the backstop for the orphan gate
+    PYQScan v1.6.0 now runs at source (verify_no_orphans, GATE 5), and it builds
+    its live-path key with the same normalize_label(path_str(...)) that gate uses.
 
 v1.4 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. SCHEMA_VERSION 1.3 -> 1.4.
     GATE-AT-SOURCE release: the over-aggregation check becomes a SINGLE public
@@ -154,7 +164,7 @@ import json, re, hashlib, unicodedata
 from blueprint_core import taxonomy_fingerprint   # v1.2 — THE canonical fingerprint
 from difflib import SequenceMatcher
 
-ENGINE_VERSION = "reconcile_taxonomy.py v1.4"
+ENGINE_VERSION = "reconcile_taxonomy.py v1.5"
 SCHEMA_VERSION = "1.4"
 
 # GAP-2026-08-30-TYPE1-HALT-ELIMINATION — generation stamp. Written by
@@ -1127,7 +1137,8 @@ def conservation_check(classifications, taxonomy_after, quarantined_paths=()):
 def build_approval_record(exam_code, findings, resolved, adjudications, conservation,
                           mode="FULL", ledger=None, blocked=None, prior_record=None,
                           final_taxonomy=None, amber_status=None,
-                          subject_flags=None, dedup_report=None, telemetry=None):
+                          subject_flags=None, dedup_report=None, telemetry=None,
+                          manual_corrections=None):
     """
     mode    : "FULL" | "DEGRADED" — MUST match the mode reconcile() ran under.
     ledger  : the CheckLedger reconcile() attested into. FAIL-SAFE: None means
@@ -1144,6 +1155,10 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
               yield the density_unjudged note. Absence semantics: {} / [] /
               [] — no flags, no merges, no auto-corrections.
     v1.4: stamps spec_generation (E4); writes re_derive_directive on HELD (E3).
+    manual_corrections : v1.5 — list of {file, paper_id, q_num, before, after,
+              reason} the operator declares for edits made to the scan artifacts
+              outside the pipeline before this run. Recorded verbatim; never
+              changes the verdict. Absent => [].
     """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
@@ -1279,6 +1294,9 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
         "subject_flags": subject_flags or {},
         "dedup_report": dedup_report or [],
         "telemetry": telemetry or [],
+        # v1.5: out-of-band edits to the scan artifacts, declared by the
+        # operator, so a CLEAN record can never hide a hand-repaired defect.
+        "manual_corrections": list(manual_corrections or []),
         # E5/D5: skeletal subjects have too few entries to judge density and
         # too much content to be small — the record SAYS so (Tier-0 note)
         # instead of the shape looking silently anomalous downstream.
@@ -1842,6 +1860,15 @@ def _self_test():
     ck("T13b engine version stamped", rec["engine_version"] == ENGINE_VERSION)
     ck("T13c mode stamped", rec["mode"] == "FULL")
     ck("T13d clean run is CLEAN", rec["status"] == "CLEAN")
+    # ---- T14 (v1.5): manual_corrections recorded verbatim, never a verdict input ----
+    ck("T14a manual_corrections absent => []", rec["manual_corrections"] == [])
+    _mc = [{"file": "classifications.json", "paper_id": "P", "q_num": 13,
+            "before": ["S", "Phantom", "Phantom"], "after": ["S", "T", "U"],
+            "reason": "pre-run orphan repair"}]
+    _r14 = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                 ledger=_full_ledger(), manual_corrections=_mc)
+    ck("T14b manual_corrections recorded verbatim", _r14["manual_corrections"] == _mc)
+    ck("T14c manual_corrections never changes the verdict", _r14["status"] == "CLEAN")
 
     print(f"SELF-TEST: {ok}/{ok + len(fail)} PASS")
     for n in fail:
