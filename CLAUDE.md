@@ -399,6 +399,19 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   by `LAW_REGISTRY.json` REGISTRY-HANDOFF-LAW + `mock_sync_audit` MS-14 (writers must name
   the badge and use pp.handoff_set; the frozen wording is banned in live text; every
   Test*/Mock* trigger needs a DeliveryFooter §3 block). GAP-2026-08-26-REGISTRY-HANDOFF-SEAM.
+- **REGISTRY-SOURCE LAW — a step that REQUIRES `[ExamCode]_registry.json` reads it from
+  EITHER lane: attached to the trigger in chat, or Project Files.** Resolved ONLY by
+  `pp.resolve_registry` (pure; the spec injects `exists`/`loader`): the attachment wins when
+  both lanes hold a file (a difference is printed, never a stop); HARD STOP only when both are
+  absent; exact filename + `registry.exam_code` validated; a run pins the fingerprint it started
+  from (`pp.registry_source_check`) and refuses a different registry on a later turn. Owner
+  decision 2026-09-14 — scope is the three steps that REQUIRE the file (Test/MockCreate,
+  Test/MockExplain, Test/MockDeliver); Step 6/6S optional reads are untouched. Retires the
+  Files-only HARD STOP in all three and Step 11's `*_registry.json` wildcard scan. The
+  REGISTRY-HANDOFF badge text is unchanged — what the operator may DO with the delivered file
+  gains a second lawful option. Enforced by `LAW_REGISTRY.json` REGISTRY-SOURCE-LAW (detect
+  `registry_required_read`, derived by audit_sync) + `mock_sync_audit` MS-20 (resolver present
+  in live text; no direct Files path / scan). GAP-2026-09-14-REGISTRY-SOURCE.
 - Never edit or push `production` directly — only the `main:production` fast-forward.
 - Never force-push `production` without explicit authorization.
 - `.verified` is gitignored and must never be committed.

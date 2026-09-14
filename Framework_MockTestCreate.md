@@ -1,4 +1,19 @@
-# Framework_MockTestCreate v5.83
+# Framework_MockTestCreate v5.84
+# v5.84 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestExplain v1.51.0, MockDeliver v1.22.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but it
+#   no longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to
+#   the trigger in chat, (2) Project Files — and S3-1 resolves it through
+#   pp.resolve_registry (the ONE implementation Steps 7/9/11 share). Attachment WINS when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP only when
+#   BOTH lanes are empty; exact filename + registry.exam_code == [ExamCode] are validated
+#   on the way in; the run PINS the fingerprint it started from (batch_state.registry_pin,
+#   S3-16) and S3-1 refuses a DIFFERENT registry on any later turn (pp.registry_source_check
+#   — dedup state would be corrupted mid-run). S13-8 takes the handoff fingerprint from the
+#   resolved source, not from a hardcoded Files path. Nothing about the writers, dedup,
+#   gates, the closed delivery set or any artefact changes — only WHERE the file is read.
+#   Enforced by LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20 (no spec may open
+#   /mnt/project/[ExamCode]_registry.json directly).
 # v5.83 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: NEW-content generation (S7-NEWGEN, donor hierarchy, L4 firewall, difficulty layers)
 # v5.82 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: the writing side of the style layer.
 #   S3-2b loads {EXAM}_style_profile.json + {EXAM}_pyq_index.json (every failure mode
@@ -723,18 +738,25 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   decided by pp.registry_changed (a fingerprint), never by prose. Steps 7 and 9 are the
   writers (v5.76: the retired repair steps no longer exist); Step 11 reads it.
   LAW_REGISTRY.json / mock_sync_audit MS-14.
+  REGISTRY-SOURCE-LAW (v5.84): the registry this step READS may come from EITHER lane —
+  attached to the trigger in chat, or Project Files. Resolved ONLY by pp.resolve_registry
+  (S3-1): attachment wins when both are present, HARD STOP only when both are absent,
+  exam_code validated, fingerprint pinned for the run. LAW_REGISTRY.json / MS-20.
   Step 9 (MockExplain) → consumes outputs of this step (v5.36: directly — the former
                                Step 8 audit between them has been retired)
 
   PREREQUISITE: Step 0 AND Step 1 must both be complete.
   section_rules.md AND blueprint.json must both be in project knowledge.
+  [ExamCode]_registry.json must be attached to the trigger OR in project knowledge
+  (REGISTRY-SOURCE-LAW, S3-1).
 
 ## S1-2 — Sources of truth (strict priority order)
 
   Priority 1: This spec (Framework_MockTestCreate.md)
   Priority 2: [ExamCode]_blueprint.json  — allocation, format, structure
   Priority 3: [ExamCode]_section_rules.md — subtopic rules, templates, patterns
-  Priority 4: [ExamCode]_registry.json   — cross-mock dedup state
+  Priority 4: [ExamCode]_registry.json   — cross-mock dedup state (chat attachment OR
+                                            Project Files — S3-1 resolver; attachment wins)
 
   CONFLICT RULE: blueprint.json ALWAYS wins over section_rules.md on
   format assignments, allocation counts, and structural decisions.
@@ -1258,7 +1280,6 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing:
   required = [
-      f'{EXAM}_registry.json',
       f'{EXAM}_section_rules.md',
       f'{EXAM}_subtopic_manifest.json',   # v3.4 — cross-step contract (REQUIRED)
   ]
@@ -1268,6 +1289,46 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           raise SystemExit(f"HARD STOP: {f} not found in project knowledge. "
                            f"Upload it to [{EXAM}] project Files, then retry.")
       shutil.copy(src, f'/home/claude/{f}')
+
+  # REGISTRY (MANDATORY) — REGISTRY-SOURCE-LAW (v5.84, GAP-2026-09-14-REGISTRY-SOURCE).
+  # Read from EITHER lane: the chat attachment (/mnt/user-data/uploads) OR Project Files
+  # (/mnt/project). pp.resolve_registry is the ONE implementation Steps 7/9/11 share:
+  # attachment wins when both exist (a difference is printed, never a stop); HARD STOP
+  # only when both are absent; exact filename + exam_code validated. NEVER open
+  # /mnt/project/{EXAM}_registry.json directly here (MS-20). The working copy is
+  # written ONCE per run: on a continue/resume turn the copy already in /home/claude is
+  # the run's live state (S13-4 commits into it) and is never overwritten from a lane.
+  import paper_pipeline as pp
+  try:
+      REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists,
+                                    loader=lambda _p: json.load(open(_p, encoding='utf-8')))
+  except pp.RegistrySourceError as _e:
+      raise SystemExit(str(_e))
+  for _line in REG_SRC['lines']:
+      print(_line)
+  # R4 — a run reads ONE registry. batch_state.registry_pin (S3-16) is what this run
+  # started from; a later turn of THIS paper that resolves a DIFFERENT registry is a
+  # HARD STOP. The run's own working copy is never a swap (also_accept).
+  _bs_pin_path = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _bs_state = (json.load(open(_bs_pin_path, encoding='utf-8'))
+               if os.path.exists(_bs_pin_path) else None)
+  _bs_pin = (_bs_state or {}).get('registry_pin')
+  _reg_work = f'/home/claude/{EXAM}_registry.json'
+  _own = ([pp.registry_fingerprint(json.load(open(_reg_work, encoding='utf-8')))]
+          if _bs_state is not None and os.path.exists(_reg_work) else [])
+  try:
+      REG_PIN = pp.registry_source_check(_bs_pin, REG_SRC, also_accept=_own)
+  except pp.RegistrySourceError as _e:
+      raise SystemExit(str(_e))
+  # WORKING COPY. A FRESH run of this paper (no batch_state for M{N}) takes the resolved
+  # registry — overwriting whatever an EARLIER paper's run left in /home/claude, so the
+  # lane the operator supplied is the one that generates. A continue/resume turn of the
+  # SAME paper (batch_state exists) keeps its working copy: S13-4 commits into it.
+  if _bs_state is None or not os.path.exists(_reg_work):
+      shutil.copy(REG_SRC['path'], _reg_work)
+  if _bs_state is not None and _bs_pin is None:      # pre-v5.84 batch_state mid-run: backfill
+      _bs_state['registry_pin'] = REG_PIN
+      json.dump(_bs_state, open(_bs_pin_path, 'w', encoding='utf-8'))
 
   # BLUEPRINT DISCOVERY (v5.28, paper_pipeline.py): copy EVERY [ExamCode]*_blueprint.json
   # present in project knowledge — the mock blueprint ([ExamCode]_blueprint.json) AND any
@@ -2701,6 +2762,10 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       'exam_code': EXAM,
       'mock_n': N,
       'paper_id': paper_id,          # C2: universal identity (mock == "MOCK:M{N:02d}")
+      'registry_pin': REG_PIN,       # v5.84 REGISTRY-SOURCE-LAW R4: {fingerprint, source,
+                                     # path} of the registry this run STARTED from (S3-1).
+                                     # Every later turn's S3-1 re-resolves and
+                                     # pp.registry_source_check refuses a different one.
       'total_questions': total_questions,
       'batch_plan': batch_plan,
       'batches_completed': [],
@@ -3419,7 +3484,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   --blueprint /mnt/project/[ExamCode]_blueprint.json \
                   --rules /mnt/project/[ExamCode]_section_rules.md \
                   --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
-                  --registry /mnt/project/[ExamCode]_registry.json \
+                  --registry /home/claude/[ExamCode]_registry.json \
                   --profile /mnt/project/[ExamCode]_difficulty_profile.json \
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --mockN [N] --batch [B] --through-q [last Q in the docx]
@@ -3728,13 +3793,21 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   OR: batch_state.json indicates an incomplete mock (batches_completed not full).
 
   RECOVERY PROCEDURE:
+    0. S3-1 has already run this turn (it runs at EVERY session start): the registry
+       was resolved from the chat attachment or Project Files (REGISTRY-SOURCE-LAW)
+       and checked against batch_state.registry_pin. In a BRAND-NEW chat the
+       attachment from the earlier chat is gone — re-attach the SAME registry to the
+       resume trigger, or have it in Project Files; a missing registry in both lanes
+       is the S3-1 HARD STOP, a different one is the R4 HARD STOP.
     1. Load batch_state.json. Read current_batch and batches_completed.
     2. If batch_state.json is missing:
          - Load the most recent cumulative docx for Mock N.
          - Count Q paragraphs to find last completed Q number.
          - Map last Q to its batch using the freshly-rebuilt batch_plan.
          - Set current_batch = that batch + 1; batches_completed accordingly.
-         - Rewrite batch_state.json.
+         - Rewrite batch_state.json (registry_pin = REG_PIN from this turn's S3-1 —
+           there is no earlier pin to compare against; the supplied registry is
+           accepted, exactly as the Files lane always behaved).
     3. Load the existing cumulative docx as the base (do NOT regenerate prior Qs).
     4. Load answer_key.json (has all prior answers).
     4a2. FROZEN-PLAN LAW (v5.77 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED §7.2):
@@ -9053,15 +9126,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```python
   import os, json
   import paper_pipeline as pp
-  # `registry` is the committed copy (_commit['registry'], S13-4); the PROJECT copy is
-  # what the next step will read, so the fingerprint is taken from it. HANDOFF_STEP is
+  # `registry` is the committed copy (_commit['registry'], S13-4); the fingerprint of
+  # what this run STARTED from is REG_SRC (S3-1, pp.resolve_registry — attachment or
+  # Project Files; v5.84 REGISTRY-SOURCE-LAW), never a hardcoded Files path. HANDOFF_STEP is
   # the trigger that started this run — 'TestCreate' or 'MockCreate' (any other value,
   # including a retired *Repair name, is refused by the engine: RHIllegalHandoff).
   HANDOFF_STEP = globals().get('HANDOFF_STEP') or (
       'MockCreate' if pp.paper_prefix(paper_id) == 'MOCK' else 'TestCreate')
-  _reg_proj = f'/mnt/project/{EXAM}_registry.json'          # S3-1 copied it to the working dir
-  _reg_fp_loaded = (pp.registry_fingerprint(json.load(open(_reg_proj, encoding='utf-8')))
-                    if os.path.exists(_reg_proj) else None)  # no project copy ⇒ everything is new
+  _reg_fp_loaded = REG_SRC['fingerprint']                   # S3-1 resolved + pinned it (R4)
   _hs = pp.handoff_set(HANDOFF_STEP,
                        primary_docx=f'{EXAM}_{pp.paper_slug(paper_id)}_Create.docx',
                        reg_name=f'{EXAM}_registry.json',
@@ -9093,7 +9165,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   ⚠ REGISTRY HANDOFF — REQUIRED before generating the next mock:
     Replace registry.json in your [ExamCode] project knowledge with the one
-    just delivered. The next mock's dedup depends on it. If you skip this,
+    just delivered — OR attach this delivered file to the next step's trigger
+    (an attachment always wins over the Project Files copy; REGISTRY-SOURCE-LAW).
+    The next mock's dedup depends on it. If you skip this,
     Mock [N+1] may repeat questions/scenarios from Mock [N].
 
   No separate answer-key file is produced by Step 7 (by design). Answers are
@@ -9246,6 +9320,8 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Updated registry.json delivered via present_files
   □ Handoff message with registry replacement instruction
   □ Audit report produced
+  □ S3-1 resolved the registry via pp.resolve_registry (attachment OR Project Files),
+    printed REGISTRY SOURCE lines, and batch_state.registry_pin matched every turn (v5.84)  **
 
   DELIVERY (v3.5 — closed contract):
   □ The closed set delivered: EXACTLY final .docx + registry.json (S13-6, R-DELIVER; v5.73 — the audit dossier is internal)  **
@@ -9829,7 +9905,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.83
+# END OF Framework_MockTestCreate v5.84
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

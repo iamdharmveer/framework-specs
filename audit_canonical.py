@@ -5814,11 +5814,30 @@ def self_test():
         check('A-QINDEX-P10-fixture-is-wired-to-the-fixture-dir',
               _p10_run != _p10_src and '/mnt/project/' not in _p10_run)
 
+        # v2026.09.14.2 (REGISTRY-SOURCE-LAW): P10 no longer opens the registry by
+        # path — it calls pp.resolve_registry, which reads its two lane directories
+        # from paper_pipeline.RS_UPLOADS_DIR / RS_PROJECT_DIR AT CALL TIME. Redirect
+        # both at the fixture (an empty uploads lane, the project lane = _p10_dir)
+        # so the block still reads the fixture registry — and assert the seam bit.
+        import paper_pipeline as _p10_pp
+        _p10_up = tempfile.mkdtemp()
+        _p10_lanes_keep = (_p10_pp.RS_UPLOADS_DIR, _p10_pp.RS_PROJECT_DIR)
+        _p10_pp.RS_UPLOADS_DIR, _p10_pp.RS_PROJECT_DIR = _p10_up, _p10_dir
+        with open(os.path.join(_p10_dir, 'E_registry.json'), 'w') as _fh:
+            json.dump({'exam_code': 'E', 'question_index': []}, _fh)
+        _p10_probe = _p10_pp.resolve_registry(
+            'E', exists=os.path.exists,
+            loader=lambda _q: json.load(open(_q, encoding='utf-8')))
+        check('A-QINDEX-P10-resolver-lanes-redirected',
+              _p10_probe['path'] == os.path.join(_p10_dir, 'E_registry.json')
+              and _p10_probe['source'] == 'project')
+
         def _p10_ok(qs):
             with open(os.path.join(_p10_dir, 'E_blueprint.json'), 'w') as _fh:
                 json.dump(_QBP, _fh)
             with open(os.path.join(_p10_dir, 'E_registry.json'), 'w') as _fh:
-                json.dump(_q_reg(qs) if qs is not None else {'question_index': []}, _fh)
+                json.dump({'exam_code': 'E', **(_q_reg(qs) if qs is not None
+                                                 else {'question_index': []})}, _fh)
             try:
                 # v2.12→: P10/0 (MockTestExplain v1.24.0) asserts trigger-N's
                 # paper_slug == the uploaded docx's slug (PAPER_SLUG, bound at
@@ -5844,6 +5863,8 @@ def self_test():
             _p10_agrees = _p10_matrix()
         except Exception:
             _p10_agrees = False
+        finally:
+            _p10_pp.RS_UPLOADS_DIR, _p10_pp.RS_PROJECT_DIR = _p10_lanes_keep
         check('A-QINDEX-PARITY-P10-spec-preflight-matches-the-engine-gate',
               _p10_agrees)
     except (ImportError, FileNotFoundError, IndexError):

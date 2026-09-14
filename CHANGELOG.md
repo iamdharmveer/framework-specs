@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026.09.14.2 — GAP-2026-09-14-REGISTRY-SOURCE: [ExamCode]_registry.json is read from the chat attachment OR Project Files (REGISTRY-SOURCE-LAW)
+(MockTestCreate v5.84, MockTestExplain v1.51.0, MockDeliver v1.22.0, DeliveryFooter v1.33;
+paper_pipeline CLUSTER RS; mock_sync_audit MS-20; audit_sync detect rule registry_required_read;
+LAW_REGISTRY REGISTRY-SOURCE-LAW; CLAUDE.md)
+
+**Owner decision 2026-09-14.** Steps 7 (MockCreate/TestCreate), 9 (MockExplain/TestExplain)
+and 11 (MockDeliver/TestDeliver) REQUIRE [ExamCode]_registry.json and, through 2026.09.14.1,
+HARD-STOPPED unless it sat in Project Files (Step 11 also HARD-STOPPED on two *_registry.json
+files there). The file is now lawful in EITHER lane — attached to the trigger in chat
+(/mnt/user-data/uploads) or Project Files (/mnt/project) — and every one of the three steps
+resolves it through ONE engine function.
+
+DECISIONS (all the owner's, none by prose): Q1 both lanes hold a file and they differ →
+the ATTACHMENT WINS; both fingerprints are printed; never a stop. Q2 within one chat the
+attachment persists across every batch/turn; in a brand-new chat it must be re-attached or
+be in Files — and a run PINS the fingerprint it started from, so a DIFFERENT registry
+supplied on a later turn of the same run is a HARD STOP (dedup state would be corrupted).
+A brand-new chat has no pin to compare against: the supplied registry is accepted, exactly
+as the Files lane always behaved (stated in S4-12 / S19-0a, not hidden). Q3 Step 11's
+wildcard scan is RETIRED; its resolver is identical to Steps 7/9. Q4 exact filename +
+registry.exam_code == [ExamCode] validated on the way in; a mismatch, a non-object or an
+unparseable file is a HARD STOP — in the WINNING lane and in the LOSING lane alike (a foreign
+file is never silently ignored). Q5 scope = the three REQUIRING steps; Step 6/6S optional
+reads untouched. Q6 nothing else moves: writers (Cluster DG / commit_registry), the closed
+delivery set, the "Replace in Project Files" badge (MS-14 greps it verbatim), every gate and
+every artefact are byte-identical. Only WHERE the file is read changed.
+
+ENGINE — paper_pipeline.py CLUSTER RS: resolve_registry(exam, *, exists, loader,
+uploads_dir, project_dir) → {path, source, registry, fingerprint, project_fingerprint,
+attachment_fingerprint, lines}; registry_source_pin / registry_source_check (R4);
+registry_name; RegistrySourceError(ValueError); registry_source_check(also_accept=…) — the run's
+OWN persisted working copy put back into a lane (Step 9 delivers the registry on every batch
+that changed it and tells the operator to replace/attach it) is never a swap. PURE — the THIN-CORE PURITY gate
+(validate_framework_md AB) forbids open() in this engine, so the spec injects
+os.path.exists and json.load(open()) and the engine supplies every rule. Self-test 195 →
+223 against an in-memory filesystem. Ad-hoc mutants (attachment-wins → project-wins,
+exam_code check removed, differ notice removed, pin check disabled, absent-stop disabled,
+non-object check disabled, losing lane unvalidated, pin-empty branch, lane directory, loader
+error wrap) — 9 of 10 killed; the tenth (a FileNotFoundError re-raise branch) was DELETED
+rather than left as an untestable line. handoff_set's operator line now names both lanes.
+
+SPECS — MockTestCreate v5.84: S3-1 drops the registry from the Files-only `required`
+list and resolves it (REG_SRC) + pin check against batch_state.registry_pin; S3-16 writes
+registry_pin; the WORKING COPY is taken from the resolved lane on a FRESH run of the paper
+(no batch_state for M[N]) — overwriting what an earlier paper left in /home/claude — and
+kept on a continue/resume turn; a pre-v5.84 batch_state mid-run is backfilled with the pin;
+S4-12 step 0 (resume rule, new-chat re-attach); S13-8 fingerprint =
+REG_SRC['fingerprint'] (was a hardcoded Files read); §S13-9 handoff message and §17 DoD
+name both lanes; the audit CLI example points at the working copy. MockTestExplain
+v1.51.0: S0-1 item 2; P1 order; P10 reads REG_SRC (globals().get fallback to the SAME pure
+resolver — S19-0a runs first every turn, the auditor is textual); S19-0a resolves + pins
+({EXAMCODE}_registry_pin.json beside REG_WORK — written on the first turn of a paper's run,
+RETIRED at S19-0b's FINAL delivery so the next paper starts fresh; a fresh run takes the
+resolved lane into REG_WORK, a pinned run keeps REG_WORK; the run's own delivered copy put
+back into a lane between batches is accepted) and _reg_fp_project = REG_SRC['fingerprint'];
+§19-4 badge prose. MockDeliver v1.22.0: the os.listdir wildcard scan and the two HARD STOPs
+around it are gone; the registry is resolved AFTER EXAM is bound from the blueprints (the
+resolver needs the exact name); S1-2 item 3 and the "does not carry the verdict" message
+name both lanes and fill in REG_SRC['source']; §8 fingerprint. DeliveryFooter v1.33: BADGE 2
+note, STEP 7/9/11 blocks, §8 REGISTRY-SOURCE-LAW paragraph — badge string untouched.
+
+GATES — mock_sync_audit MS-20 REGISTRY-SOURCE (self-test 69 → 77): every requiring spec
+must call pp.resolve_registry( in live text and must NOT read the registry from a literal
+/mnt/project/…_registry.json, an endswith('_registry.json') scan, or a glob (a full-line
+comment may quote the retired idiom). REGRESSION FLOOR: 8 findings on the unpatched
+2026.09.14.1 specs, 0 on the patched ones. audit_sync gains detect rule
+registry_required_read (self-test 33 → 35); audit_canonical A-QINDEX-PARITY-P10 (338 → 339):
+the fixture EXECUTES P10 with the lanes redirected — resolve_registry reads RS_UPLOADS_DIR /
+RS_PROJECT_DIR at CALL TIME so a harness can inject both, and the fixture asserts the seam bit;
+the parity check still fails when P10 stops reading the resolved registry (proven): the performing set is DERIVED from live text
+(resolver call OR the retired direct-open/scan idiom), so a new spec that opens the Files
+path cannot inherit the law's surface without MS-20. LAW_REGISTRY.json REGISTRY-SOURCE-LAW
+records the six decisions verbatim.
+
+EXECUTED, NOT ONLY PARSED. The three spec blocks (Create S3-1 registry block, Explain S19-0a +
+S19-0b + P10 fallback, Deliver Phase-1 registry block) were extracted from the delivered specs
+and run against a temp filesystem — 30 scenarios, 30 pass: neither lane / attachment only /
+Files only / both differ (attachment wins, notice printed, working copy = attachment) / both
+identical / continue turn / mid-run swap → STOP / working copy untouched on continue / own
+committed or delivered copy put back into a lane → accepted / pre-v5.84 batch_state backfill /
+fresh run overwrites a stale working copy / foreign exam_code → STOP / corrupt JSON → STOP /
+sibling-exam file ignored in Files / final delivery retires the pin / next paper starts fresh /
+P10 fallback with and without REG_SRC.
+
+OPERATOR EFFECT. TestCreate/TestExplain/TestDeliver: attach [ExamCode]_registry.json to the
+trigger OR keep it in Project Files — either works, both together works (attachment wins).
+After Step 7/9 deliver the updated registry, either replace it in Files or attach the
+delivered file to the next trigger. Golden set (Step 5) untouched by construction — no
+routed Step 5 file changed.
+
 ## 2026.09.14.1 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS + GAP-2026-09-14-COMPRESS-NAME-IDENTITY
 (PYQPrepare v2.2, PYQExplain v2.23, PYQCompress v2.1; blueprint_core: canonical_output_name + NAME_JUNK_TOKENS removed)
 

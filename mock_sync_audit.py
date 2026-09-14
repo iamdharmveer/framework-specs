@@ -943,6 +943,54 @@ def check_transition_field_ownership(read=_read):
     return problems
 
 
+# ── MS-20 ───────────────────────────────────────────────────────────────
+# REGISTRY-SOURCE (GAP-2026-09-14-REGISTRY-SOURCE; LAW_REGISTRY.json
+# REGISTRY-SOURCE-LAW; owner decision 2026-09-14). [ExamCode]_registry.json is REQUIRED
+# by Steps 7/9/11 and is lawful in EITHER lane — chat attachment or Project Files —
+# resolved by ONE engine function, paper_pipeline.resolve_registry (attachment wins;
+# HARD STOP only when both lanes are empty; exam_code validated). The failure this
+# guards: a spec that opens /mnt/project/[ExamCode]_registry.json DIRECTLY, or scans
+# Project Files for `*_registry.json`, silently re-creates the Files-only HARD STOP the
+# law retires — and it would look correct on every project that happens to keep the
+# file in Files. Two assertions on every spec that PERFORMS a required registry read:
+#   (a) it resolves through pp.resolve_registry( in LIVE text;
+#   (b) its LIVE text never reads the registry from a hardcoded Files path or a
+#       Files-directory scan (a full-line comment may quote the retired idiom).
+# The performing set is derived by audit_sync (detect rule registry_required_read),
+# never trusted from 'governs'.
+_RS_RESOLVER = 'pp.resolve_registry('
+_RS_DIRECT_RE = re.compile(
+    r"/mnt/project/[^'\"\s]*_registry\.json"          # literal Files path to the registry
+    r"|endswith\(\s*['\"]_registry\.json['\"]\s*\)"   # Files-directory wildcard scan
+    r"|glob\([^)]*_registry\.json")
+_RS_TRACK_SPECS = ['Framework_MockTestCreate.md', 'Framework_MockTestExplain.md',
+                   'Framework_MockDeliver.md']
+
+
+def check_registry_source(read=_read):
+    problems = []
+    for name in _RS_TRACK_SPECS:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            problems.append(f'{name}: missing — MS-20 has no ground truth for it')
+            continue
+        live = _rh_live(text)
+        if _RS_RESOLVER not in live:
+            problems.append(
+                f'{name}: requires [ExamCode]_registry.json but never calls {_RS_RESOLVER} in '
+                f'live text — the registry must be resolved from BOTH lanes (chat attachment '
+                f'OR Project Files) through the one engine resolver (REGISTRY-SOURCE-LAW).')
+        for m in _RS_DIRECT_RE.finditer(live):
+            ln = live.count('\n', 0, m.start()) + 1
+            problems.append(
+                f'{name} L{ln}: live text reads the registry from a Files-only path/scan '
+                f'{m.group(0)!r} — this re-creates the "not in Project Files" HARD STOP the '
+                f'REGISTRY-SOURCE-LAW retires; read it through {_RS_RESOLVER} instead.')
+    return problems
+
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -963,6 +1011,7 @@ ALL_CHECKS = [
     ('MS-17 SYLLABUS-ROTATION-ISOLATION', check_syllabus_rotation_isolation),
     ('MS-18 STATUS-SET-INVARIANCE', check_status_set_invariance),
     ('MS-19 TRANSITION-FIELD-OWNERSHIP', check_transition_field_ownership),
+    ('MS-20 REGISTRY-SOURCE', check_registry_source),
 ]
 
 
@@ -1305,6 +1354,41 @@ def self_test():
     _missing = dict(_ok); del _missing['Framework_MockDeliver.md']
     check('ms14_missing_track_spec_flagged',
           any('missing' in x for x in check_registry_handoff(read=fake_reader(_missing), routes_read=_rt)))
+
+    # ── MS-20 — GAP-2026-09-14-REGISTRY-SOURCE ───────────────────────────────
+    _rs_ok = {'Framework_MockTestCreate.md': "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+                                             "# was: src = f'/mnt/project/{EXAM}_registry.json' (retired)\n",
+              'Framework_MockTestExplain.md': "REG_SRC = pp.resolve_registry(EXAMCODE, exists=os.path.exists, loader=_l)\n",
+              'Framework_MockDeliver.md': "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"}
+    check('ms20_clean_corpus_passes', check_registry_source(read=fake_reader(_rs_ok)) == [])
+    _rs_nores = dict(_rs_ok); _rs_nores['Framework_MockDeliver.md'] = 'registry = json.load(open(reg_path))\n'
+    check('ms20_spec_without_resolver_flagged',
+          any('never calls pp.resolve_registry(' in x for x in check_registry_source(read=fake_reader(_rs_nores))))
+    _rs_direct = dict(_rs_ok); _rs_direct['Framework_MockTestExplain.md'] = (
+        "REG_SRC = pp.resolve_registry(EXAMCODE, exists=os.path.exists, loader=_l)\n"
+        "_p10_reg = json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))\n")
+    check('ms20_direct_files_path_flagged',
+          any('Files-only path/scan' in x and 'L2' in x for x in check_registry_source(read=fake_reader(_rs_direct))))
+    _rs_scan = dict(_rs_ok); _rs_scan['Framework_MockDeliver.md'] = (
+        "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+        "reg_matches = [f for f in os.listdir('/mnt/project/') if f.endswith('_registry.json')]\n")
+    check('ms20_files_wildcard_scan_flagged',
+          any('Files-only path/scan' in x for x in check_registry_source(read=fake_reader(_rs_scan))))
+    _rs_glob = dict(_rs_ok); _rs_glob['Framework_MockTestCreate.md'] = (
+        "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+        "r = glob.glob(f'/mnt/project/{EXAM}*_registry.json')\n")
+    check('ms20_files_glob_flagged',
+          any('Files-only path/scan' in x for x in check_registry_source(read=fake_reader(_rs_glob))))
+    _rs_quoted = dict(_rs_ok); _rs_quoted['Framework_MockTestCreate.md'] = (
+        "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+        "  # NEVER open /mnt/project/{EXAM}_registry.json directly here (MS-20)\n")
+    check('ms20_quoted_path_in_comment_allowed', check_registry_source(read=fake_reader(_rs_quoted)) == [])
+    check('ms20_missing_spec_flagged',
+          any('missing' in x for x in check_registry_source(read=fake_reader({}))))
+    check('ms20_blueprint_path_not_a_registry_read',
+          check_registry_source(read=fake_reader({**_rs_ok, 'Framework_MockDeliver.md':
+              "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+              "bp = glob.glob(f'/mnt/project/{EXAM}*_blueprint.json')\n"})) == [])
 
     # ── MS-15 — REPAIR-RETIRED-2026-08-27 ───────────────────────────────────
     _rt_ok = {'Framework_MockTestExplain.md': 'On a not-met gate the paper delivers.\n'

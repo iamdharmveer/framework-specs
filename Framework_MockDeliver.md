@@ -1,4 +1,20 @@
-# Framework_MockDeliver v1.21.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.22.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.22.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
+#   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
+#   trigger in chat beside the _Explanation.docx, (2) Project Files. Phase 1 resolves it
+#   through pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment
+#   WINS when both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP
+#   only when BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated.
+#   The v1.16.0 wildcard scan of /mnt/project (`*_registry.json`, HARD STOP on two files)
+#   is RETIRED: the resolver looks for the exact name, so a sibling exam's registry is
+#   simply invisible and "the file is in two places" is never a stop. The registry is
+#   resolved AFTER EXAM is bound from the blueprints (it needs the exact name). The §8
+#   handoff fingerprint is REG_SRC['fingerprint']. S1-2 item 3 and the stop message name
+#   both lanes. The heal-then-deliver rule, the closed set, the Replace badge, all 17
+#   gates and every artefact are unchanged — only WHERE the file is read. Enforced by
+#   LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20.
 # v1.21.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: coverage cursor sole writer + BV-DEL
 # v1.20.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: step 3d prints the ONE style-profile status line from
 #   pp.style_footer_line (§FOOTER-STYLE). No per-question detail, no similarity figure and
@@ -289,17 +305,25 @@ Parse:
          is valid and means subtopic-based Question Type resolution, see §3 S3-2a).
    If exam_code missing → HARD STOP.
 
-3. Verify registry.json in project knowledge.
-   REGISTRY-HANDOFF-LAW precondition (v1.16.0): this step reads ONLY the project copy.
-   Every upstream step that changed the registry delivered it with the "Replace in
-   Project Files" badge (Step 7 Final Assembly, Step 9 §7A-M — v1.18.0: the retired
-   repair steps no longer write it). If 3b below stops on PENDING although Step 9's
-   verdict box said PASSED or DISCLOSED, the operator has NOT replaced the registry
-   Step 9 delivered — say so FIRST, in these words, before the re-run command:
-     "The project registry does not carry the verdict Step 9 wrote. Replace
-      [ExamCode]_registry.json in Project Files with the copy Step 9 delivered,
-      then re-run TestDeliver P[N]. If you no longer have it, run: <d['next_step']>."
-   Also take the fingerprint BEFORE 3b (pp.registry_fingerprint) — §8 decides from it
+3. Resolve registry.json — REGISTRY-SOURCE-LAW (v1.22.0): from EITHER lane, the chat
+   attachment (beside the Explanation docx) OR project knowledge, via
+   pp.resolve_registry (Phase 1, after EXAM is bound from the blueprints). Attachment
+   wins when both exist — a difference is printed, never a stop; HARD STOP only when
+   both are absent; exam_code validated. Print REG_SRC['lines'] so the operator sees
+   which copy this delivery used.
+   REGISTRY-HANDOFF-LAW precondition (v1.16.0): the registry this step reads must CARRY
+   Step 9's verdict. Every upstream step that changed the registry delivered it with the
+   "Replace in Project Files" badge (Step 7 Final Assembly, Step 9 §7A-M — v1.18.0: the
+   retired repair steps no longer write it); the operator either replaced it there or
+   attached that delivered file to this trigger. If 3b below stops on PENDING although
+   Step 9's verdict box said PASSED or DISCLOSED, the registry this run resolved is NOT
+   the one Step 9 delivered — say so FIRST, in these words (REG_SRC['source'] filled in),
+   before the re-run command:
+     "The registry this run read (<source>) does not carry the verdict Step 9 wrote.
+      Replace [ExamCode]_registry.json in Project Files with the copy Step 9 delivered,
+      or attach that copy to the TestDeliver trigger, then re-run TestDeliver P[N].
+      If you no longer have it, run: <d['next_step']>."
+   The fingerprint taken BEFORE 3b is REG_SRC['fingerprint'] — §8 decides from it
    whether a healed registry must be delivered.
    Read: question_index — find the mock N entry.
    v1.12.0 — FIRST run the ledger↔index agreement check over the WHOLE registry:
@@ -963,20 +987,8 @@ src_path = UPLOADED_FILE_PATH   # path to the attached Solutions docx
 os.makedirs('/home/claude/deliver_work/inputs_safe', exist_ok=True)
 os.makedirs('/home/claude/deliver_work/out', exist_ok=True)
 
-# Load registry.json from project knowledge (still exactly ONE per ExamCode/project —
-# the registry is the single shared ledger across mock AND every scoped tier).
-reg_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
-               if f.endswith('_registry.json')]
-if not reg_matches:
-    raise SystemExit("HARD STOP: No *_registry.json in project knowledge.")
-if len(reg_matches) > 1:
-    raise SystemExit(
-        f"HARD STOP: Multiple registry files found: {reg_matches}\n"
-        f"Only one [ExamCode]_registry.json should exist per project.")
-registry = json.load(open(reg_matches[0], encoding='utf-8'))
-# v1.16.0 (REGISTRY-HANDOFF-LAW): fingerprint the PROJECT copy before any preflight can
-# heal it; §8 decides from this whether a healed registry must be delivered (Replace).
-_reg_fp_loaded = pp.registry_fingerprint(registry)
+# The registry is resolved BELOW, after EXAM is bound from the blueprints (v1.22.0
+# REGISTRY-SOURCE-LAW — the resolver needs the exact name [ExamCode]_registry.json).
 
 # BLUEPRINT DISCOVERY (v1.9, paper_pipeline.py): load EVERY *_blueprint.json present — the
 # mock blueprint AND any scoped ([ExamCode]_[SCOPETAG]_blueprint.json) blueprints. No
@@ -995,6 +1007,26 @@ if len(_exam_codes) > 1:
         f"HARD STOP: blueprint files disagree on exam_code: {_exam_codes}\n"
         f"Only one ExamCode's files should exist per project.")
 EXAM = next(iter(_exam_codes))
+
+# REGISTRY (MANDATORY) — REGISTRY-SOURCE-LAW (v1.22.0, GAP-2026-09-14-REGISTRY-SOURCE).
+# Read from EITHER lane: the chat attachment (/mnt/user-data/uploads, beside the
+# Explanation docx) OR Project Files (/mnt/project). pp.resolve_registry is the ONE
+# implementation Steps 7/9/11 share: attachment wins when both exist (a difference is
+# printed, never a stop); HARD STOP only when both are absent; exact filename +
+# exam_code validated. The registry is still exactly ONE ledger per ExamCode (mock AND
+# every scoped tier); a sibling exam's file is invisible to the exact-name lookup.
+# Never open the Files path directly (MS-20).
+try:
+    REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists,
+                                  loader=lambda _p: json.load(open(_p, encoding='utf-8')))
+except pp.RegistrySourceError as _e:
+    raise SystemExit(str(_e))
+for _line in REG_SRC['lines']:
+    print(_line)
+registry = REG_SRC['registry']
+# v1.16.0 (REGISTRY-HANDOFF-LAW): fingerprint of the copy AS LOADED, before any preflight
+# can heal it; §8 decides from this whether a healed registry must be delivered (Replace).
+_reg_fp_loaded = REG_SRC['fingerprint']
 
 # v1.9: derive paper_slug from the UPLOADED filename itself (accepts the Step-9 name and
 # the legacy _Complete name), then let pp.pick_blueprint identify WHICH blueprint (mock or
@@ -1699,8 +1731,9 @@ CLOSED SET (v1.16.0 — REGISTRY-HANDOFF-LAW, paper_pipeline Cluster RH):
 ```python
 import os, json, shutil
 import paper_pipeline as pp
-# _reg_fp_loaded was taken in Phase 1 immediately after `registry` was loaded, BEFORE
-# S1-2 3b's pp.dg_preflight could heal the record.
+# _reg_fp_loaded was taken in Phase 1 immediately after `registry` was resolved (chat
+# attachment OR Project Files — REGISTRY-SOURCE-LAW), BEFORE S1-2 3b's pp.dg_preflight
+# could heal the record.
 _final_name = f'{EXAM}_{paper_slug}_Final.docx'
 _reg_name   = f'{EXAM}_registry.json'
 HANDOFF = pp.handoff_set('TestDeliver', primary_docx=_final_name, reg_name=_reg_name,
@@ -1898,7 +1931,8 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 1. ☐ Read this spec — this file wins over memory, chat history, and older code.
 2. ☐ Defensive-copy upload to `/home/claude/deliver_work/inputs_safe/` — done
      in Phase 1 (also needed by gate C16(b)).
-3. ☐ Preflight: load blueprint.json + registry.json; build tag lookup table;
+3. ☐ Preflight: load blueprint.json + registry.json (registry via pp.resolve_registry —
+     chat attachment OR Project Files, REGISTRY-SOURCE-LAW); build tag lookup table;
      verify BOTH DejaVu Sans AND FreeSans fonts (install FreeSans if missing);
      verify fontTools importable. HARD STOP if any missing. (`soffice`,
      `pdftotext`, `pypdf` NOT needed.)
@@ -1992,4 +2026,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.21.0
+# END OF Framework_MockDeliver v1.22.0

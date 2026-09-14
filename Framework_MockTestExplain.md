@@ -1,4 +1,19 @@
-# Framework_MockTestExplain v1.50.0
+# Framework_MockTestExplain v1.51.0
+# v1.51.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockDeliver v1.22.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
+#   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
+#   trigger in chat beside the _Create.docx, (2) Project Files. S19-0a resolves it through
+#   pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment WINS when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP only when
+#   BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated. The run
+#   PINS the fingerprint it started from ({EXAMCODE}_registry_pin.json beside REG_WORK) and
+#   every later turn's S19-0a refuses a DIFFERENT registry (pp.registry_source_check).
+#   P10's FK tripwire reads the resolved source (REG_SRC['registry']) instead of a
+#   hardcoded Files path; S19-0b's handoff fingerprint is REG_SRC['fingerprint']. S0-1
+#   item 2 and the §19-4 badge prose name both lanes. Writers (Cluster DG), the closed
+#   delivery set, the Replace badge, MS-14 and every artefact are unchanged — only WHERE
+#   the file is read. Enforced by LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20.
 # v1.50.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §7A-S STYLE RE-MEASURE (advisory). Step 9 recomputes
 #   style_obs from the DELIVERED bytes and records mismatches against Step 7's record;
 #   three dormancy reasons (profile_dormant, hash_mismatch, pre_v582_paper). Single-writer:
@@ -205,8 +220,13 @@
     1. [ExamCode]_Mock[N]_Create.docx     — ATTACHED to the trigger (P1 discovers it from
                                             the upload filename); the paper to explain,
                                             exactly as Step 7 assembled and self-audited it
-    2. [ExamCode]_registry.json           — from Project Files (the operator REPLACED it
-                                            there after Step 7 — REGISTRY-HANDOFF-LAW);
+    2. [ExamCode]_registry.json           — from EITHER lane (v1.51.0 REGISTRY-SOURCE-LAW):
+                                            attached to this trigger in chat, OR Project
+                                            Files (where the operator REPLACED it after
+                                            Step 7 — REGISTRY-HANDOFF-LAW). Resolved ONLY
+                                            by pp.resolve_registry at S19-0a — attachment
+                                            wins when both exist; HARD STOP only when
+                                            both are absent; exam_code validated;
                                             read for figural_manifests[] /
                                             rc_manifests[] cross-checks + dedup context +
                                             options_by_q[str(N)] (v1.3: per-question expected
@@ -247,7 +267,9 @@
     2. [ExamCode]_registry.json          → Replace in Project Files — WHENEVER this run
        changed it (§7A-M verdict PASSED/DISCLOSED/DORMANT, or a pp.dg_preflight healing).
        That is every gated run. REGISTRY-HANDOFF-LAW: the registry is the ONLY channel by
-       which the verdict reaches Step 11, and Step 11 reads ONLY the project copy. A
+       which the verdict reaches Step 11, and Step 11 reads it from Project Files OR from
+       an attachment to its own trigger (REGISTRY-SOURCE-LAW — the operator may do either
+       with the delivered file; an attachment wins). A
        legacy paper (no gate record) changes nothing; then nothing is delivered and the
        footer says "registry unchanged this run". Decided by pp.registry_changed — a
        fingerprint — never by a per-step claim.
@@ -632,8 +654,9 @@ execution path — it does not shrink, soften or delete them.
 
   P0  TRIGGER DETECTION (§2). Resolve N; pick FRESH / RESUME / STATUS / CONT.
   P1  AUTO-LOAD (exact order; v1.46.1 — run S19-0a FIRST in every turn, so `reg`,
-      persist_registry and the project fingerprint exist before anything below can
-      write the registry): this spec → section_rules.md → BLUEPRINT (v1.19,
+      persist_registry, REG_SRC and the run's fingerprint exist before anything below
+      can write the registry; v1.51.0: S19-0a resolves the registry from the chat
+      attachment OR Project Files — pp.resolve_registry, attachment wins): this spec → section_rules.md → BLUEPRINT (v1.19,
       docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
       [ExamCode]_[paper_slug]_Create.docx (v1.47.0: the retired `_Create_Repaired`
       form is refused on every trigger — S2-1) — parse its paper_slug
@@ -647,7 +670,8 @@ execution path — it does not shrink, soften or delete them.
       ONE blueprint that produced this paper (cross-checked against --level if given;
       PickError → HARD STOP, never a guess). SAFETY CHECK (kept as the second net):
       verify the selected blueprint's exam_code equals [ExamCode] exactly; a mismatch
-      is a HARD STOP → subtopic_manifest.json → registry.json →
+      is a HARD STOP → subtopic_manifest.json → registry.json (already resolved at
+      S19-0a: chat attachment OR Project Files — never a Files-only read) →
       explain_engine.py (from the Step-0 verified clone /tmp/fw ONLY — v1.40.0; a
       project-Files copy is never imported, MANDATE A). Copy the engine to /home/claude and run
       `python3 explain_engine.py --self-test` → MUST print
@@ -833,7 +857,18 @@ execution path — it does not shrink, soften or delete them.
           f"contains a paper whose slug matches the uploaded docx {PAPER_SLUG!r}. "
           f"The blueprint that produced this paper is missing from the project — "
           f"restore it (or re-run Step 6/6S), then re-trigger.")
-  _p10_reg = _p10_json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
+  # v1.51.0 REGISTRY-SOURCE-LAW: the registry as RESOLVED at S19-0a (chat attachment OR
+  # Project Files; attachment wins), never a hardcoded Files path (MS-20). S19-0a runs
+  # FIRST in every turn (P1), so REG_SRC is normally already bound; the fallback is the
+  # SAME pure resolver with the same injected I/O — identical result, never a second rule.
+  import os as _p10_os
+  try:
+      _p10_src = globals().get('REG_SRC') or pp.resolve_registry(
+          EXAM, exists=_p10_os.path.exists,
+          loader=lambda _p: _p10_json.load(open(_p, encoding='utf-8')))
+  except pp.RegistrySourceError as _e:
+      raise SystemExit(str(_e))
+  _p10_reg = _p10_src['registry']
   _p10_tp  = next((mk for mk in _p10_bp.get('mocks', []) if mk.get('mock') == N), None)
   _p10_pid = (_p10_tp or {}).get('paper_id', f"MOCK:M{int(N):02d}")
   # P10/0 (v1.24 — GAP-2026-08-13-EXPLAIN-N-SLUG-GATE): trigger-N ↔ uploaded-docx
@@ -1905,10 +1940,11 @@ execution path — it does not shrink, soften or delete them.
     what the box below reports.
     The registry is the ONLY channel to Step 11 — the printed box is for the
     operator, the record is for the machine; they must agree. Step 11 reads the
-    PROJECT copy, so the verdict reaches it ONLY if this run DELIVERS registry.json
-    and the operator REPLACES it in Project Files (S19-0 / S19-2 / S19-4 —
-    REGISTRY-HANDOFF-LAW, v1.46.0). A verdict written and not delivered is a
-    verdict Step 11 never sees.
+    registry from Project Files OR attached to its trigger (REGISTRY-SOURCE-LAW,
+    v1.51.0), so the verdict reaches it ONLY if this run DELIVERS registry.json
+    and the operator REPLACES it in Project Files or attaches that delivered copy
+    (S19-0 / S19-2 / S19-4 — REGISTRY-HANDOFF-LAW, v1.46.0). A verdict written and
+    not delivered is a verdict Step 11 never sees.
 
   PRINT — VERDICT BOX (verbatim shape; the operator is non-technical, so the
   box must contain the EXACT next command, ready to copy):
@@ -2941,7 +2977,8 @@ execution path — it does not shrink, soften or delete them.
   REGISTRY-HANDOFF-LAW (LAW_REGISTRY.json; verified by mock_sync_audit MS-14): a step that
   CHANGES registry.json DELIVERS registry.json, badge "Replace in Project Files", in the
   same present_files call as its primary artefact. Nothing in this step decides that by
-  prose. The decision is a FINGERPRINT: the project copy as loaded vs the working copy
+  prose. The decision is a FINGERPRINT: the registry as resolved at S19-0a (attachment or
+  Project Files) vs the working copy
   this run is about to hand off (pp.registry_changed). Every registry write in this spec —
   §7A-M pp.dg_preflight healing, §7A-M pp.dg_write_verdict — is made on `reg` (the
   working copy bound at S19-0a) and is
@@ -2963,11 +3000,42 @@ execution path — it does not shrink, soften or delete them.
 ```python
 import os, json, shutil
 import paper_pipeline as pp
-REG_PROJECT = f'/mnt/project/{EXAMCODE}_registry.json'      # what Step 11 will read
+# REGISTRY-SOURCE-LAW (v1.51.0, GAP-2026-09-14-REGISTRY-SOURCE): the registry this run
+# reads comes from EITHER lane — the chat attachment (/mnt/user-data/uploads) or Project
+# Files (/mnt/project) — resolved ONLY by pp.resolve_registry: attachment wins when both
+# exist (a difference is printed, never a stop); HARD STOP only when both are absent;
+# exact filename + exam_code validated. Never open the Files path directly (MS-20).
+try:
+    REG_SRC = pp.resolve_registry(EXAMCODE, exists=os.path.exists,
+                                  loader=lambda _p: json.load(open(_p, encoding='utf-8')))
+except pp.RegistrySourceError as _e:
+    raise SystemExit(str(_e))
+for _line in REG_SRC['lines']:
+    print(_line)
 REG_WORK    = f'/home/claude/{EXAMCODE}_registry.json'      # this run's working copy
-if not os.path.exists(REG_WORK):
-    shutil.copy(REG_PROJECT, REG_WORK)                      # first turn of the run only
-_reg_fp_project = pp.registry_fingerprint(json.load(open(REG_PROJECT, encoding='utf-8')))
+REG_PIN     = f'/home/claude/{EXAMCODE}_registry_pin.json'  # R4: what this run STARTED from
+# R4 — a run reads ONE registry. The pin is written on the first turn of a paper's run
+# and RETIRED at its final delivery (S19-0b); every later turn of the SAME run that
+# resolves a DIFFERENT registry is a HARD STOP — the §7A-M verdict would otherwise be
+# written into a registry the run never loaded. The run's OWN working copy is never a
+# swap (also_accept): this step delivers the registry on every batch that changed it,
+# and an operator who REPLACES / attaches that delivered copy between batches has put
+# the run's own state into a lane. A brand-new chat has no pin: the supplied registry
+# is accepted (exactly as the Files lane always was).
+_pin = json.load(open(REG_PIN, encoding='utf-8')) if os.path.exists(REG_PIN) else None
+_own = ([pp.registry_fingerprint(json.load(open(REG_WORK, encoding='utf-8')))]
+        if _pin is not None and os.path.exists(REG_WORK) else [])
+try:
+    _pin = pp.registry_source_check(_pin, REG_SRC, also_accept=_own)
+except pp.RegistrySourceError as _e:
+    raise SystemExit(str(_e))
+# WORKING COPY. No pin ⇒ a FRESH run of this paper: take the resolved registry, overwriting
+# whatever an EARLIER paper's run left in /home/claude (REG_WORK is per exam, not per
+# paper). A pinned run keeps its working copy — §7A-M writes land in it.
+if _pin is None or not os.path.exists(REG_WORK) or not os.path.exists(REG_PIN):
+    shutil.copy(REG_SRC['path'], REG_WORK)
+json.dump(_pin, open(REG_PIN, 'w', encoding='utf-8'))
+_reg_fp_project = REG_SRC['fingerprint']                    # what the run started from
 # `reg` is the in-memory working copy every §7A-M / §7A-R write targets. A resumed
 # turn reloads what the previous turn persisted; nothing else ever rebinds it.
 reg = json.load(open(REG_WORK, encoding='utf-8'))
@@ -2991,6 +3059,8 @@ HANDOFF = pp.handoff_set(HANDOFF_STEP, primary_docx=_sol, reg_name=f'{EXAMCODE}_
                          registry_changed=_changed, final=FINAL_BATCH, report_docx=_report)
 if HANDOFF['registry_delivered']:
     shutil.copy(REG_WORK, f'/mnt/user-data/outputs/{EXAMCODE}_registry.json')
+if FINAL_BATCH and os.path.exists(REG_PIN):
+    os.remove(REG_PIN)      # R4: this paper's run is over — the next paper starts fresh
 ```
   Order on the FINAL batch: blocks built → §7A-M verdict written into `reg` +
   persist_registry → §20-R writes the report docx → S19-0b → S19-1 → S19-2 → S19-4.
@@ -3084,7 +3154,9 @@ render the standardized visual delivery footer as the LAST element in the respon
 Follow Framework_DeliveryFooter.md for footer type selection (F1 mid-step / F2 step-complete),
 deliverable file badges and next-step reference. The badges are pp.handoff_footer_lines(HANDOFF)
 VERBATIM (v1.46.0): Explanation.docx → Use locally; registry.json → Replace in Project Files
-(when delivered); Explain_Report.docx → Use locally (final batch); then HANDOFF['lines'].
+(when delivered; v1.51.0 — the operator may instead attach the delivered file to the next
+step's trigger, REGISTRY-SOURCE-LAW); Explain_Report.docx → Use locally (final batch); then
+HANDOFF['lines'].
 
 Step 9 uses BOTH footer types:
   - F1 (amber) after each non-final batch (same Explanation.docx, incrementally filled)
@@ -3450,5 +3522,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.50.0
+# END OF Framework_MockTestExplain v1.51.0
 # ════════════════════════════════════════════════════════════════════════

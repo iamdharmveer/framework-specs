@@ -90,6 +90,27 @@
       "verified_by": [
         "audit_specs_ext:H-SELFSTOP"
       ]
+    },
+    "REGISTRY-SOURCE-LAW": {
+      "gap": "GAP-2026-09-14-REGISTRY-SOURCE",
+      "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md; paper_pipeline.py CLUSTER RS",
+      "requires": "A step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain, Test/MockDeliver) resolves it ONLY through paper_pipeline.resolve_registry from two lawful lanes: the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The attachment wins when both hold a file (a difference is printed, never a stop); HARD STOP only when both are absent; exact filename and registry.exam_code are validated; a run pins the fingerprint it started from (registry_source_check) and refuses a different registry on a later turn. No spec may open the Files path directly or scan Project Files for *_registry.json.",
+      "detect": "registry_required_read",
+      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls resolve_registry(, or opens /mnt/project/…_registry.json, or scans Project Files with endswith('_registry.json'). An OPTIONAL read on a path bound earlier (Step 6 / 6S) does not count — owner decision 2026-09-14 scoped the law to the three steps that REQUIRE the file.",
+      "governs": [
+        "Framework_MockTestCreate.md",
+        "Framework_MockTestExplain.md",
+        "Framework_MockDeliver.md"
+      ],
+      "verified_by": [
+        "mock_sync_audit:MS-20"
+      ],
+      "preconditions": [
+        "RESOLVER IS THE ONLY READER. paper_pipeline.resolve_registry is pure (THIN-CORE PURITY): the spec injects exists()/loader(); the engine supplies every rule. 28 self-test fixtures against an in-memory filesystem; the ad-hoc mutants (attachment-wins, exam_code check, differ notice, pin check, absent stop, losing-lane validation, lane directories) are all killed.",
+        "PIN LIFECYCLE. Step 7: batch_state.registry_pin (per paper); the working copy is taken from the lane on a fresh run (no batch_state) and kept on continue/resume. Step 9: {EXAMCODE}_registry_pin.json, written on the first turn, retired at the FINAL delivery; the run's own delivered copy put back into a lane between batches is accepted (also_accept). Step 11 is single-turn: no pin.",
+        "DECISIONS (owner, 2026-09-14). Q1 both lanes differ → attachment wins. Q2 same chat: attach once; new chat: re-attach or Files, fingerprint pinned against a mid-run swap (nothing to compare against in a brand-new chat — accepted, as the Files lane always was). Q3 Step 11's *_registry.json wildcard scan retired; identical resolver in all three steps. Q4 exact filename + exam_code validated, mismatch = HARD STOP. Q5 scope = Steps 7/9/11 only. Q6 writers, badge, closed set, artefacts unchanged.",
+        "HISTORY. Through release 2026.09.14.1 all three steps HARD-STOPPED when the registry was absent from Project Files, and Step 11 additionally HARD-STOPPED on two *_registry.json files in Files. MS-20 fires 8 findings on those specs (regression floor) and 0 on the patched ones."
+      ]
     }
   },
   "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

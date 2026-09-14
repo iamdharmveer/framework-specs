@@ -1,8 +1,8 @@
 """
 paper_pipeline.py — shared plumbing for the test-generation pipeline (Step 6 blueprints and
 Steps 7-11 generation). ONE implementation of each shared rule, imported by every step, so the
-steps can never drift out of sync. All functions are pure (data in, data out); no file I/O, no
-spec logic — only the resolution / naming / guard / numbering rules.
+steps can never drift out of sync. All functions are pure (data in, data out); no file I/O
+(resolve_registry, concern 14, takes its I/O as injected callables), no spec logic — only the resolution / naming / guard / numbering rules.
 
 Concerns:
   1. paper_slug(paper_id)                 — the single filename-stem rule for every test type
@@ -43,6 +43,15 @@ Concerns:
                                             dg_add_rework_snapshot / dg_stem_hash /
                                             dg_verify_repair are DELETED. PENDING is the only
                                             blocking gate state; its remedy is TestExplain.
+ 14. resolve_registry / registry_source_pin / registry_source_check / registry_name
+     (CLUSTER RS)                          — v5.84 REGISTRY-SOURCE-LAW (GAP-2026-09-14-REGISTRY-
+                                            SOURCE, owner decision): [ExamCode]_registry.json
+                                            is read from EITHER the chat attachment OR Project
+                                            Files; attachment wins; HARD STOP only when both
+                                            are absent; exam_code validated; the run pins the
+                                            fingerprint it started from. PURE: the caller
+                                            injects exists()/loader(); self-tested against an
+                                            in-memory filesystem.
  13. registry_fingerprint / registry_changed / handoff_set / verify_handoff_outputs /
      handoff_footer_lines / report_docx_name (CLUSTER RH)
                                           — v5.74 REGISTRY HANDOFF (GAP-2026-08-26-REGISTRY-
@@ -948,6 +957,139 @@ def _self_test():
        and _v2['stray'] == ['EX_M1_progress.json'])
     ck('RH-footer-lines', handoff_footer_lines(_hs)[1] == 'EX_registry.json → Replace in Project Files'
        and len(handoff_footer_lines(_hs)) == 4)
+    ck('RH-handoff-line-names-both-lanes', 'attach' in _hs['lines'][0] and 'wins' in _hs['lines'][0]
+       and 'Project Files' in _hs['lines'][0])
+
+    # ── CLUSTER RS — REGISTRY SOURCE (v5.84) ─────────────────────────────────────
+    # In-memory filesystem: `_rs_fs` maps path -> raw text. exists()/loader() are the
+    # injected I/O; the engine never opens a file (THIN-CORE PURITY).
+    import json as _j
+    _rs_A = {'exam_code': 'EX', 'papers_completed': ['MOCK:M01']}
+    _rs_B = {'exam_code': 'EX', 'papers_completed': ['MOCK:M01', 'MOCK:M02']}
+    _rs_F = {'exam_code': 'OTHER', 'papers_completed': []}
+    _rs_up, _rs_pj = '/mem/up', '/mem/pj'
+    _rs_fs = {}
+
+    def _rs_put(d, obj, name='EX_registry.json', raw=None):
+        _rs_fs[f'{d}/{name}'] = raw if raw is not None else _j.dumps(obj)
+
+    def _rs_clear():
+        _rs_fs.clear()
+
+    def _rs_exists(pth):
+        return pth in _rs_fs
+
+    def _rs_loader(pth):
+        if pth not in _rs_fs:
+            raise FileNotFoundError(pth)
+        return _j.loads(_rs_fs[pth])
+
+    def _rs(**kw):
+        return resolve_registry('EX', exists=_rs_exists, loader=_rs_loader,
+                                uploads_dir=_rs_up, project_dir=_rs_pj, **kw)
+
+    ck('RS-name', registry_name('EX') == 'EX_registry.json')
+    ck('RS-io-must-be-injected', _raises(lambda: resolve_registry('EX', exists=None, loader=_rs_loader), TypeError)
+       and _raises(lambda: resolve_registry('EX', exists=_rs_exists, loader='x'), TypeError))
+    # R2 — neither lane → HARD STOP naming BOTH lanes
+    _rs_clear()
+    try:
+        _rs(); _rs_msg = ''
+    except RegistrySourceError as e:
+        _rs_msg = str(e)
+    ck('RS-absent-message-names-exact-filename-rule', 'EXACTLY EX_registry.json' in _rs_msg and '(1)' in _rs_msg)
+    ck('RS-absent-both-raises', _rs_msg.startswith('HARD STOP') and 'attached' in _rs_msg
+       and 'Project Files' in _rs_msg and 'EX_registry.json' in _rs_msg
+       and '/mem/up/EX_registry.json' in _rs_msg and '/mem/pj/EX_registry.json' in _rs_msg)
+    # lane 2 only
+    _rs_clear(); _rs_put(_rs_pj, _rs_A)
+    _r = _rs()
+    ck('RS-project-only', _r['source'] == RS_SOURCE_PROJECT and _r['path'] == '/mem/pj/EX_registry.json'
+       and _r['registry'] == _rs_A and _r['fingerprint'] == registry_fingerprint(_rs_A)
+       and _r['attachment_fingerprint'] is None and _r['project_fingerprint'] == _r['fingerprint']
+       and 'Project Files' in _r['lines'][0] and len(_r['lines']) == 1)
+    # lane 1 only
+    _rs_clear(); _rs_put(_rs_up, _rs_A)
+    _r = _rs()
+    ck('RS-attachment-only', _r['source'] == RS_SOURCE_ATTACHMENT and _r['path'] == '/mem/up/EX_registry.json'
+       and _r['project_fingerprint'] is None and 'ATTACHMENT' in _r['lines'][0] and len(_r['lines']) == 1)
+    # R1 — both present, identical (different key order on disk) → attachment, "identical" line
+    _rs_clear(); _rs_put(_rs_up, _rs_A); _rs_put(_rs_pj, {'papers_completed': ['MOCK:M01'], 'exam_code': 'EX'})
+    _r = _rs()
+    ck('RS-both-identical-attachment-wins', _r['source'] == RS_SOURCE_ATTACHMENT
+       and _r['attachment_fingerprint'] == _r['project_fingerprint']
+       and len(_r['lines']) == 2 and 'identical' in _r['lines'][1] and 'DIFFERS' not in _r['lines'][1])
+    # R1 — both present, DIFFER → attachment wins, notice names both fingerprints, never raises
+    _rs_clear(); _rs_put(_rs_up, _rs_B); _rs_put(_rs_pj, _rs_A)
+    _r = _rs()
+    ck('RS-both-differ-attachment-wins', _r['source'] == RS_SOURCE_ATTACHMENT and _r['registry'] == _rs_B
+       and _r['fingerprint'] == registry_fingerprint(_rs_B) and _r['project_fingerprint'] == registry_fingerprint(_rs_A)
+       and len(_r['lines']) == 2 and 'DIFFERS' in _r['lines'][1] and 'wins' in _r['lines'][1]
+       and registry_fingerprint(_rs_B)[:12] in _r['lines'][1] and registry_fingerprint(_rs_A)[:12] in _r['lines'][1])
+    # R3 — foreign exam_code in the WINNING lane → refused
+    _rs_clear(); _rs_put(_rs_up, _rs_F); _rs_put(_rs_pj, _rs_A)
+    ck('RS-foreign-attachment-refused', _raises(_rs, RegistrySourceError))
+    # R3 — foreign exam_code in the LOSING lane is ALSO refused (never silently ignored)
+    _rs_clear(); _rs_put(_rs_up, _rs_A); _rs_put(_rs_pj, _rs_F)
+    ck('RS-foreign-project-refused', _raises(_rs, RegistrySourceError))
+    _rs_clear(); _rs_put(_rs_pj, {'papers_completed': []})
+    ck('RS-missing-exam-code-refused', _raises(_rs, RegistrySourceError))
+    # R3 — not an object / unparseable → RegistrySourceError, never a raw crash
+    _rs_clear(); _rs_put(_rs_pj, None, raw='[1, 2]')
+    ck('RS-non-object-refused', _raises(_rs, RegistrySourceError))
+    _rs_clear(); _rs_put(_rs_up, None, raw='{not json')
+    ck('RS-unparseable-refused', _raises(_rs, RegistrySourceError))
+    # a loader failure other than FileNotFound is wrapped, not leaked
+    ck('RS-loader-error-wrapped', _raises(lambda: resolve_registry('EX', exists=lambda pth: True,
+       loader=lambda pth: (_ for _ in ()).throw(OSError('disk'))), RegistrySourceError))
+    # R3 — exact filename only: a sibling exam's file and a bare registry.json are invisible
+    _rs_clear(); _rs_put(_rs_up, _rs_A, name='EXX_registry.json'); _rs_put(_rs_pj, _rs_A, name='registry.json')
+    ck('RS-exact-name-only', _raises(_rs, RegistrySourceError))
+    # the default directories are the two real lanes
+    ck('RS-default-lanes', RS_UPLOADS_DIR == '/mnt/user-data/uploads' and RS_PROJECT_DIR == '/mnt/project')
+    _rs_seen = []
+    ck('RS-default-lanes-probed', _raises(lambda: resolve_registry('EX',
+       exists=lambda pth: (_rs_seen.append(pth), False)[1], loader=_rs_loader), RegistrySourceError)
+       and _rs_seen == ['/mnt/user-data/uploads/EX_registry.json', '/mnt/project/EX_registry.json'])
+    # the module constants are read AT CALL TIME (harness injection seam)
+    _rs_clear(); _rs_put('/redir/pj', _rs_A)
+    _g = globals(); _keep = (_g['RS_UPLOADS_DIR'], _g['RS_PROJECT_DIR'])
+    try:
+        _g['RS_UPLOADS_DIR'], _g['RS_PROJECT_DIR'] = '/redir/up', '/redir/pj'
+        _r = resolve_registry('EX', exists=_rs_exists, loader=_rs_loader)
+        ck('RS-lanes-read-at-call-time', _r['source'] == RS_SOURCE_PROJECT
+           and _r['path'] == '/redir/pj/EX_registry.json')
+    finally:
+        _g['RS_UPLOADS_DIR'], _g['RS_PROJECT_DIR'] = _keep
+    # R4 — pin / check
+    _rs_clear(); _rs_put(_rs_up, _rs_A)
+    _r1 = _rs(); _pin = registry_source_check(None, _r1)
+    ck('RS-pin-shape', _pin == registry_source_pin(_r1) and _pin['fingerprint'] == _r1['fingerprint']
+       and _pin['source'] == RS_SOURCE_ATTACHMENT and _pin['path'] == _r1['path'])
+    ck('RS-pin-same-registry-passes', registry_source_check(_pin, _rs()) == _pin)
+    _rs_clear(); _rs_put(_rs_pj, _rs_A)          # same content, other lane → still the same registry
+    ck('RS-pin-lane-change-same-content-passes', registry_source_check(_pin, _rs()) == _pin)
+    _rs_clear(); _rs_put(_rs_pj, _rs_B)          # different registry mid-run → HARD STOP
+    ck('RS-pin-different-registry-raises', _raises(lambda: registry_source_check(_pin, _rs()), RegistrySourceError))
+    ck('RS-pin-empty-accepts', registry_source_check({}, _r1)['fingerprint'] == _r1['fingerprint'])
+    # R4 — the run's OWN delivered copy put back into a lane is not a swap
+    _rs_clear(); _rs_put(_rs_pj, _rs_B)
+    ck('RS-pin-also-accept-own-working-copy',
+       registry_source_check(_pin, _rs(), also_accept=[registry_fingerprint(_rs_B)]) == _pin)
+    ck('RS-pin-also-accept-does-not-widen', _raises(lambda: registry_source_check(
+       _pin, _rs(), also_accept=[registry_fingerprint(_rs_F)]), RegistrySourceError))
+    # R4 — a hand-damaged pin (no fingerprint) still stops cleanly, never a raw crash
+    _rs_clear(); _rs_put(_rs_up, _rs_A)
+    ck('RS-pin-damaged-stops-cleanly', _raises(lambda: registry_source_check({'source': 'x'}, _rs()),
+                                              RegistrySourceError))
+    _rs_msg2 = ''
+    try:
+        _rs_clear(); _rs_put(_rs_pj, _rs_B); registry_source_check(_pin, _rs())
+    except RegistrySourceError as e:
+        _rs_msg2 = str(e)
+    ck('RS-pin-message-names-both', _pin['fingerprint'][:12] in _rs_msg2
+       and registry_fingerprint(_rs_B)[:12] in _rs_msg2 and 'delete the pin' in _rs_msg2)
+    ck('RS-error-is-valueerror', issubclass(RegistrySourceError, ValueError))
     ck('RH-writing-subset', RH_REGISTRY_WRITING_STEPS < RH_MOCK_TRACK_STEPS
        and {'TestDeliver', 'MockDeliver'} == RH_MOCK_TRACK_STEPS - RH_REGISTRY_WRITING_STEPS)
 
@@ -2171,8 +2313,9 @@ def handoff_set(step, *, primary_docx, reg_name, registry_changed, final=True,
         files.append(reg_name)
         badges[reg_name] = RH_BADGE_REPLACE
         lines.append(f'REGISTRY HANDOFF ({step}): {reg_name} was updated by this step — '
-                     f'REPLACE it in Project Files before running the next step. '
-                     f'The next step reads ONLY the project copy.')
+                     f'REPLACE it in Project Files before running the next step, OR attach '
+                     f'this delivered file to the next step\'s trigger (an attachment always wins '
+                     f'over the Project Files copy — REGISTRY-SOURCE-LAW).')
     elif step in RH_REGISTRY_WRITING_STEPS and final:
         lines.append(f'REGISTRY HANDOFF ({step}): registry unchanged this run — '
                      f'nothing to replace in Project Files.')
@@ -2201,6 +2344,166 @@ def handoff_footer_lines(hs):
     """Footer lines, one per delivered file, badge included — DeliveryFooter renders
     exactly these (never hand-composed), then hs['lines'] beneath them."""
     return [f'{name} → {hs["badges"][name]}' for name in hs['files']] + list(hs['lines'])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLUSTER RS — REGISTRY SOURCE (v5.84 REGISTRY-SOURCE-LAW, owner decision 2026-09-14)
+# ══════════════════════════════════════════════════════════════════════════════
+# [ExamCode]_registry.json may lawfully reach a mock-track step by EITHER of two
+# lanes, and every step that REQUIRES it (7 MockCreate/TestCreate, 9 MockExplain/
+# TestExplain, 11 MockDeliver/TestDeliver) resolves it HERE and nowhere else:
+#
+#   lane 1  chat attachment   /mnt/user-data/uploads/[ExamCode]_registry.json
+#   lane 2  Project Files     /mnt/project/[ExamCode]_registry.json
+#
+# RULES (all decided by the owner, none by prose in a spec):
+#   R1  the ATTACHMENT WINS when both lanes hold a file. If the two differ, the
+#       resolver SAYS SO (both fingerprints) and proceeds with the attachment; it
+#       never stops for "the file is in two places".
+#   R2  HARD STOP only when NEITHER lane holds the file (RegistrySourceError).
+#   R3  the file is validated on the way in: exact filename [ExamCode]_registry.json,
+#       parseable JSON object, registry['exam_code'] == ExamCode. A wrong or foreign
+#       registry is refused (RegistrySourceError) — it is never "the closest match".
+#   R4  a run PINS the fingerprint of the registry it started from
+#       (registry_source_pin / registry_source_check). A later turn of the SAME run
+#       that resolves a DIFFERENT registry is a HARD STOP — dedup state would be
+#       silently corrupted mid-run. (A brand-new chat has no pin to compare against;
+#       there the freshly supplied registry is accepted, exactly as the Files lane
+#       always behaved.)
+#   R5  the resolver is the ONLY place that knows the two directories. A spec that
+#       opens /mnt/project/[ExamCode]_registry.json directly re-creates the Files-
+#       only HARD STOP this law retires — mock_sync_audit MS-20 fails the build on it.
+#
+# The resolver is PURE, like everything else in this module (THIN-CORE PURITY, validate_
+# framework_md AB): it never calls open(). The caller INJECTS the two I/O callables —
+#   exists(path) -> bool           (os.path.exists)
+#   loader(path) -> parsed object  (lambda p: json.load(open(p, encoding='utf-8')))
+# — so every rule above is self-tested against an in-memory filesystem, and no spec can
+# re-implement the rules by hand: the spec supplies I/O, the engine supplies the LAW.
+
+RS_GAP_ID = 'GAP-2026-09-14-REGISTRY-SOURCE'
+RS_UPLOADS_DIR = '/mnt/user-data/uploads'
+RS_PROJECT_DIR = '/mnt/project'
+RS_SOURCE_ATTACHMENT = 'attachment'
+RS_SOURCE_PROJECT = 'project'
+
+
+class RegistrySourceError(ValueError):
+    """The registry could not be resolved (absent in both lanes, unreadable, or a
+    foreign exam_code). The message is the operator-facing HARD STOP text."""
+
+
+def registry_name(exam_code):
+    """[ExamCode]_registry.json — the ONE filename both lanes accept."""
+    return f'{exam_code}_registry.json'
+
+
+def _rs_load(path, loader):
+    try:
+        return loader(path)
+    except Exception as exc:                      # noqa: BLE001 — every load/parse failure is a refusal
+        raise RegistrySourceError(
+            f'HARD STOP ({RS_GAP_ID}): {path} is not readable JSON ({exc.__class__.__name__}: {exc}). '
+            f'Supply an intact [ExamCode]_registry.json.') from None
+
+
+def resolve_registry(exam_code, *, exists, loader, uploads_dir=None, project_dir=None):
+    """Resolve [ExamCode]_registry.json from the two lawful lanes (R1-R3). PURE —
+    `exists` and `loader` are the caller's I/O (see the cluster note above).
+    uploads_dir / project_dir default to RS_UPLOADS_DIR / RS_PROJECT_DIR AT CALL TIME, so
+    a harness that executes a spec block can redirect both lanes by rebinding the module
+    constants (audit_canonical A-QINDEX-PARITY-P10 does exactly that) — inject the path,
+    never guard the fixture.
+
+    Returns {'path', 'source', 'registry', 'fingerprint', 'project_fingerprint',
+             'attachment_fingerprint', 'lines'}.
+      path        the file to read / copy from
+      source      RS_SOURCE_ATTACHMENT or RS_SOURCE_PROJECT
+      registry    the parsed JSON object from `path`
+      fingerprint registry_fingerprint(registry) — pin this (R4)
+      project_fingerprint / attachment_fingerprint  fingerprint of each lane's file, or
+                  None when that lane is empty
+      lines       operator-facing lines the spec PRINTS verbatim (where it came from;
+                  the both-present-and-differ notice)
+    Raises RegistrySourceError (R2/R3)."""
+    if not callable(exists) or not callable(loader):
+        raise TypeError('resolve_registry: exists and loader must be callables (injected I/O)')
+    uploads_dir = RS_UPLOADS_DIR if uploads_dir is None else uploads_dir
+    project_dir = RS_PROJECT_DIR if project_dir is None else project_dir
+    name = registry_name(exam_code)
+    att = f'{uploads_dir.rstrip("/")}/{name}'
+    prj = f'{project_dir.rstrip("/")}/{name}'
+    has_att, has_prj = bool(exists(att)), bool(exists(prj))
+    if not has_att and not has_prj:
+        raise RegistrySourceError(
+            f'HARD STOP ({RS_GAP_ID}): {name} not found. It must be present in AT LEAST ONE '
+            f'of: (1) attached to this chat ({att}), (2) Project Files ({prj}). '
+            f'Attach it to the trigger or upload it to [{exam_code}] project Files, then retry. '
+            f'The filename must be EXACTLY {name} — a browser download renamed to '
+            f'"{exam_code}_registry (1).json" or similar is not seen; rename it first.')
+    att_reg = _rs_load(att, loader) if has_att else None
+    prj_reg = _rs_load(prj, loader) if has_prj else None
+    for lane, reg, path in ((RS_SOURCE_ATTACHMENT, att_reg, att), (RS_SOURCE_PROJECT, prj_reg, prj)):
+        if reg is None:
+            continue
+        if not isinstance(reg, dict):
+            raise RegistrySourceError(
+                f'HARD STOP ({RS_GAP_ID}): {path} ({lane}) is not a registry object.')
+        if reg.get('exam_code') != exam_code:
+            raise RegistrySourceError(
+                f'HARD STOP ({RS_GAP_ID}): {path} ({lane}) carries exam_code '
+                f'{reg.get("exam_code")!r}, expected {exam_code!r}. A foreign registry is '
+                f'never used — supply the [{exam_code}] registry.')
+    att_fp = registry_fingerprint(att_reg) if att_reg is not None else None
+    prj_fp = registry_fingerprint(prj_reg) if prj_reg is not None else None
+    if has_att:
+        source, path, reg, fp = RS_SOURCE_ATTACHMENT, att, att_reg, att_fp
+        lines = [f'REGISTRY SOURCE: {name} read from the CHAT ATTACHMENT ({att}).']
+        if has_prj and prj_fp != att_fp:
+            lines.append(f'REGISTRY SOURCE: Project Files also holds {name} and it DIFFERS '
+                         f'(attachment {att_fp[:12]} vs project {prj_fp[:12]}) — the attachment '
+                         f'wins (REGISTRY-SOURCE-LAW R1); the Project Files copy is ignored '
+                         f'for this run.')
+        elif has_prj:
+            lines.append(f'REGISTRY SOURCE: Project Files holds an identical {name}.')
+    else:
+        source, path, reg, fp = RS_SOURCE_PROJECT, prj, prj_reg, prj_fp
+        lines = [f'REGISTRY SOURCE: {name} read from Project Files ({prj}); no chat attachment.']
+    return {'path': path, 'source': source, 'registry': reg, 'fingerprint': fp,
+            'project_fingerprint': prj_fp, 'attachment_fingerprint': att_fp, 'lines': lines}
+
+
+def registry_source_pin(resolved):
+    """The value a run persists (batch_state.json / a session sidecar) so every later
+    turn can prove it is still reading the registry the run started from (R4)."""
+    return {'fingerprint': resolved['fingerprint'], 'source': resolved['source'],
+            'path': resolved['path']}
+
+
+def registry_source_check(pin, resolved, also_accept=()):
+    """R4. `pin` is what the run persisted at its first turn (None on a brand-new run —
+    nothing to compare, accept). Raises RegistrySourceError when the registry resolved
+    NOW is a different file from the one pinned; returns the pin to persist otherwise.
+
+    also_accept — extra fingerprints that are NOT a swap: the run's OWN persisted
+    working copy. A step that delivers the registry mid-run (Step 9 delivers it on every
+    batch that changed it) tells the operator to REPLACE it in Project Files / attach it;
+    an operator who does so between two batches has put the run's own state into a
+    lane, and the next turn must accept it, not stop on it."""
+    if not pin:
+        return registry_source_pin(resolved)
+    if resolved['fingerprint'] in set(also_accept):
+        return pin
+    if pin.get('fingerprint') != resolved['fingerprint']:
+        raise RegistrySourceError(
+            f'HARD STOP ({RS_GAP_ID}): this run started from '
+            f'{registry_name(resolved["registry"].get("exam_code", "?"))} '
+            f'{str(pin.get("fingerprint", "?"))[:12]} ({pin.get("source")}), but this turn resolved a '
+            f'DIFFERENT registry {resolved["fingerprint"][:12]} ({resolved["source"]}). Dedup state '
+            f'would be corrupted mid-run. Re-supply the registry the run started with (or the copy '
+            f'this run itself delivered), then retry. If the PREVIOUS paper\'s run ended without its '
+            f'final delivery, its pin is stale: delete the pin, then retry.')
+    return pin
 
 
 if __name__ == '__main__':

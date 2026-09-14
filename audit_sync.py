@@ -209,6 +209,26 @@ def _self_test():
           rc == 1 and 'LAW-COVERAGE' in out and 'REGISTRY-HANDOFF-LAW' in out
           and 'Framework_MockTestExplain.md' in out)
 
+    # ── GAP-2026-09-14-REGISTRY-SOURCE ───────────────────────────────────────
+    def drop_rs_governs(r):
+        pth = os.path.join(r, 'LAW_REGISTRY.json')
+        reg = json.load(open(pth, encoding='utf-8'))
+        law = reg['laws']['REGISTRY-SOURCE-LAW']
+        law['governs'] = [g for g in law['governs'] if g != 'Framework_MockDeliver.md']
+        json.dump(reg, open(pth, 'w', encoding='utf-8'), indent=2)
+    rc, out = mutated(drop_rs_governs)
+    check("LAW-COVERAGE derives the REGISTRY-SOURCE performing set from resolve_registry "
+          "calls (a spec calling pp.resolve_registry dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'REGISTRY-SOURCE-LAW' in out
+          and 'Framework_MockDeliver.md' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\nreg = json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))\n"))
+    check("LAW-COVERAGE derives the REGISTRY-SOURCE performing set from the retired "
+          "direct-open idiom too (a new spec opening the Files path is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'REGISTRY-SOURCE-LAW' in out
+          and 'Framework_PYQSort.md' in out)
+
     rc, out = mutated(lambda r: os.remove(os.path.join(r, 'LAW_REGISTRY.json')))
     check("LAW-REGISTRY fires when the registry is missing",
           rc == 1 and 'LAW-REGISTRY' in out)
@@ -735,6 +755,14 @@ _REG_WRITER_LIVE = re.compile(
 _INJ_LIVE = re.compile(
     r'\b(fetch_drive_docx|collect_corpus_files|stage_drive_payload)\(\s*'
     r'[A-Za-z_][A-Za-z0-9_]*\s*[,)]')
+# GAP-2026-09-14-REGISTRY-SOURCE. A spec PERFORMS a required registry read when its live
+# text either resolves the registry through the one engine resolver, or opens / scans
+# the registry file itself (the retired Files-only idiom the law replaces). An OPTIONAL
+# read (Step 6 / 6S: `if os.path.exists(reg_path)` on a path bound earlier) is neither.
+_REG_REQUIRED_READ_LIVE = re.compile(
+    r'\bresolve_registry\('
+    r"|open\(\s*f?['\"]/mnt/project/[^'\"]*_registry\.json"
+    r"|endswith\(\s*['\"]_registry\.json['\"]\s*\)")
 
 
 def _live_text(t):
@@ -775,6 +803,7 @@ if _REG is not None:
         if _rule not in ('live_injection_point_call',
                          'budget_spender_upstream_of_partition',
                          'registry_writer_call',
+                         'registry_required_read',
                          'topic_density_gate_call'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
@@ -810,6 +839,14 @@ if _REG is not None:
             # to be free of the retired self-stop phrasings that gate replaced.
             _performing = {f for f, t in TXT.items()
                            if 'check_topic_density' in _live_text(t)}
+        elif _rule == 'registry_required_read':
+            # GAP-2026-09-14-REGISTRY-SOURCE. A spec performs a REGISTRY-SOURCE
+            # operation when its live text reads [ExamCode]_registry.json as a
+            # REQUIRED input — through pp.resolve_registry, or by the retired direct
+            # open / Files-scan idiom. The verifier (mock_sync_audit MS-20) then
+            # requires the resolver and forbids the direct idiom.
+            _performing = {f for f, t in TXT.items()
+                           if _REG_REQUIRED_READ_LIVE.search(_live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

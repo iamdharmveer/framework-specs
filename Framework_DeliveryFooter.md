@@ -1,4 +1,12 @@
-# Framework_DeliveryFooter v1.32 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.33 — Universal Delivery Footer (F1/F2) Contract
+# v1.33 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, MockDeliver
+#   v1.22.0, paper_pipeline CLUSTER RS). The "Replace in Project Files" badge on
+#   [ExamCode]_registry.json is UNCHANGED (MS-14 greps it verbatim), but what the operator
+#   may DO with the delivered file gains a second lawful option: attach it to the next
+#   step's trigger instead of replacing it in Project Files (an attachment wins over the
+#   Files copy). §8 now states both lanes; the §3 STEP 7 / STEP 9 / STEP 11 blocks and
+#   BADGE 2 carry a one-line note. pp.handoff_set's operator line already says it.
 # v1.32 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: §5.9 active transition lines wired
 # v1.31 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A: NEW
 #   §FOOTER-SYL — the syllabus-declaration disclosure line. Every footer (F1 and F2)
@@ -120,6 +128,9 @@ BADGE 2 — "Replace in Project Files"  (icon: 🔁)
            Step 6 B2 re-delivering updated blueprint.json (B1 version exists).
            Step 7 / 9 re-delivering the updated registry.json
            (REGISTRY-HANDOFF-LAW, §8 — every step that changes it).
+           v1.33: for [ExamCode]_registry.json the operator may EITHER replace it
+           in Project Files OR attach the delivered file to the next step's
+           trigger (REGISTRY-SOURCE-LAW — the attachment wins). Badge unchanged.
 
 BADGE 3 — "Use locally"               (icon: 📁)
   When   : File is NOT meant to be uploaded to project Files.
@@ -425,6 +436,7 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
 FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73):
   [ExamCode]_Mock[N]_Create.docx   → Use locally
   [ExamCode]_registry.json           → Replace in Project Files
+                                       (or attach it to the Step 9 trigger — v1.33 §8)
   (v1.27: [ExamCode]_M[N]_audit_dossier.json is INTERNAL — written to /home/claude,
    never delivered. Operator decision 2026-08-26.)
 
@@ -452,7 +464,9 @@ MockTestExplain S19-0, v1.46.0):
   [ExamCode]_Mock[N]_Explanation.docx     → Use locally   (now fully explained)
   [ExamCode]_registry.json                → Replace in Project Files — whenever the run
                                             changed it (every §7A-M verdict/healing; the ONLY
-                                            channel to Step 11). Legacy: unchanged → not delivered.
+                                            channel to Step 11 — which reads it from Project
+                                            Files OR attached to its trigger, v1.33 §8).
+                                            Legacy: unchanged → not delivered.
   [ExamCode]_Mock[N]_Explain_Report.docx  → Use locally   (END-OF-MOCK REPORT docx,
                                             MockTestExplain S20-R; inert downstream)
 
@@ -474,7 +488,8 @@ FOOTER TYPE: F2 (step-complete) — always
 DELIVERABLES:
   [ExamCode]_Mock[N]_Final.docx     → Use locally
   [ExamCode]_registry.json          → Replace in Project Files — ONLY when S1-2 3b
-                                       healed the record (pp.registry_changed, MockDeliver §8)
+                                       healed the record (pp.registry_changed, MockDeliver §8;
+                                       or attach it to the next step's trigger — v1.33 §8)
 
 NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
              Next mock paper   : Step 7: MockCreate M[N+1]
@@ -916,7 +931,20 @@ CAT, MPSC, or any exam.
 ```
 THE LAW. A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge "Replace in
 Project Files", in the SAME present_files call as its primary artefact. The next step
-reads ONLY the project copy; an undelivered change is a change the pipeline never sees.
+reads the delivered registry from Project Files OR attached to its own trigger
+(REGISTRY-SOURCE-LAW, v1.33 — pp.resolve_registry; the attachment wins when both
+exist); an undelivered change is a change the pipeline never sees.
+
+REGISTRY-SOURCE-LAW (v1.33 — GAP-2026-09-14-REGISTRY-SOURCE, owner decision 2026-09-14).
+Every step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain,
+Test/MockDeliver) resolves it ONLY through pp.resolve_registry from two lawful lanes —
+the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The
+attachment wins when both hold a file (a difference is printed, never a stop); HARD
+STOP only when both are absent; exact filename + exam_code are validated; a run pins
+the fingerprint it started from and refuses a different registry on a later turn.
+This law changes WHERE the file is read and nothing else: the badge text above, the
+writers, the closed set and every artefact are as before. Enforced by
+LAW_REGISTRY.json REGISTRY-SOURCE-LAW and mock_sync_audit MS-20.
 
 WRITERS (paper_pipeline.RH_REGISTRY_WRITING_STEPS): Test/MockCreate (Final Assembly),
 Test/MockExplain (§7A-M). (v1.29: the retired repair steps are no longer writers.)
