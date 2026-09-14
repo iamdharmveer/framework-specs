@@ -1,4 +1,22 @@
-# Framework_PYQCompress v2.0.1 — Universal Document Size Remediation
+# Framework_PYQCompress v2.1 — Universal Document Size Remediation
+# v2.1 — 2026-09-14 — GAP-2026-09-14-COMPRESS-NAME-IDENTITY (owner ruling 2026-09-14).
+#   THE OUTPUT FILENAME IS THE INPUT FILENAME, BYTE-FOR-BYTE. The v2.0.0 canonical-name
+#   rule (blueprint_core.canonical_output_name: ExamCode_DD-Mon-YYYY[_ShiftN].docx, Shift 1
+#   suffix dropped, _IMAG junk stripped, hyphen removed from Shift-N) is RETIRED for this
+#   step. Measured against the Step 1 contract (PYQPrepare §6, [ExamCode]_DD-Mon-YYYY
+#   [_<session_keyword>-<N>].docx): the deriver RENAMED every Shift-1 Row file
+#   (…_Shift-1.docx -> ….docx) and every Shift-N one (…_Shift-2 -> …_Shift2), so a
+#   compressed paper re-entered Drive under a second identity — the exact double-count
+#   §2 was written to prevent. Under the identity rule the output overwrites its input in
+#   place, always. §2 rewritten; §4 compress_one writes to OUT_DIR/<input name>; CHECK 4
+#   asserts basename(output) == input name; the batch collision gate keys on the input
+#   name (EC-C14: two spellings of one paper now yield two outputs — de-duplication is
+#   the enumeration gate's job, never this step's); §6/§11/§12 operator guidance is
+#   replace-in-place. Engine: blueprint_core.canonical_output_name / NAME_JUNK_TOKENS
+#   DELETED in the same release — this spec was their only caller, audit_callgraph C4
+#   forbids a dead export, and they had no self-test fixture (661/661 unchanged). Paper
+#   identity (blueprint_core.canonical_paper_key) is untouched. All compression,
+#   parity, survival and no-growth logic unchanged.
 # v2.0.1 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER (corpus_io v1.15; no rule of
 #   this spec changes). EC-C6's line-art test was "<= 256 distinct colours" — measured
 #   2026-08-30, EVERY anti-aliased rendered figure (structures 553-1,705 colours, charts
@@ -79,10 +97,9 @@
 #   Drive fetch here would fail for exactly the reason the operator came.
 #
 # OUTPUT:
-#   One compressed .docx per input, delivered via present_files under its CANONICAL
-#   name ExamCode_DD-Mon-YYYY[_ShiftN].docx per blueprint_core.canonical_output_name
-#   (see §2 — load-bearing, not cosmetic; Shift 1 emits NO suffix, class decorations
-#   after the date survive, junk tokens such as _IMAG do not).
+#   One compressed .docx per input, delivered via present_files under EXACTLY the
+#   input's filename, byte-for-byte (see §2 — v2.1 identity rule; load-bearing, not
+#   cosmetic: the output must overwrite its input in Drive, never sit beside it).
 #   EVERY attached file is compressed regardless of its size (v1.1). The only file not
 #   delivered is one that came out no smaller than it went in — there is nothing to
 #   replace in Drive, and delivering it invites a pointless " (1)" rename.
@@ -205,58 +222,58 @@ def report_inventory(inputs, ignored):
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-THE OUTPUT FILENAME IS THE CANONICAL NAME, DERIVED BY
-blueprint_core.canonical_output_name(input_name):
+THE OUTPUT FILENAME IS THE INPUT FILENAME, BYTE-FOR-BYTE.
 
-    ExamCode_DD-Mon-YYYY.docx            (Shift 1 / no shift)
-    ExamCode_DD-Mon-YYYY_ShiftN.docx     (Shift N, N >= 2)
+    OUT_DIR/<exact name of the attached .docx>
 
-No "_compressed". No "(1)". No "_IMAG". No improvisation.
-An input name the deriver cannot parse is a HARD STOP, never a guess.
+No "_compressed". No "(1)". No derivation. No normalisation. No improvisation.
+Whatever name the operator attached is the name delivered — nothing else.
 ═══════════════════════════════════════════════════════════════════════
 
-v2.0.0 REPLACES the v1 byte-identical rule. The corpus accumulated decoration debris
-(_IMAG / _imag / __IMAG tags, doubled underscores, browser " (1)", "Copy of "), and
-byte-identical output preserved that debris forever, one exam at a time, across 200
-exams. The delivery name is now NORMATIVE: PYQCompress is the one step that touches
-every legacy file anyway, so it is the one step that can permanently repair names.
+v2.1 (owner ruling 2026-09-14) RETIRES the v2.0.0 canonical-name rule and restores
+identity naming. v2.0.0 derived the output name with blueprint_core.canonical_output_name
+(ExamCode_DD-Mon-YYYY[_ShiftN].docx — Shift 1 suffix dropped, "shift-N" rewritten
+"ShiftN", _IMAG junk stripped). Measured against the Step 1 contract (PYQPrepare §6:
+[ExamCode]_DD-Mon-YYYY[_<session_keyword>-<N>].docx) the deriver RENAMED every
+compliant Row file that carried a session — …_Shift-1.docx became ….docx and
+…_Shift-2.docx became …_Shift2.docx — so a compressed paper re-entered Drive under a
+SECOND identity next to its original. That is precisely the double count v2.0.0 was
+written to prevent. A step that touches every legacy file must not be the step that
+manufactures duplicate identities; it must be the one step guaranteed to overwrite in
+place, and only identity naming guarantees that.
 
-THE DERIVATION (one implementation, in blueprint_core — never re-implemented here):
-  * date   — the first DD-Mon-YYYY token in the stem; month by 3-letter or full
-             English name, any case, ' ', '_' or '-' as separators; day zero-padded,
-             month rendered Mmm (02-Feb-2025);
-  * code   — everything BEFORE the date; ' ' and '_' runs collapse to single '_',
-             hyphens INSIDE a token survive (NEET-UG), case preserved;
-  * shift  — the first "shift<N>" token anywhere in the stem (case-insensitive,
-             optional separator, never matched inside a longer word — "Makeshift2"
-             is not a shift). Shift 1 emits NO suffix; Shift N >= 2 emits _ShiftN
-             immediately after the date;
-  * tail   — every other token AFTER the date survives verbatim UNLESS its
-             lowercase form is in blueprint_core.NAME_JUNK_TOKENS (e.g. imag).
-             This protects document-class decorations that ARE identity:
-               EXAM_12-Sep-2025_Shift-1_Sorted_Q1-Q100_IMAG.docx
-                 -> EXAM_12-Sep-2025_Sorted_Q1-Q100.docx
-               IIT_JAM_CHEMISTRY_07-May-2005_imag.docx
-                 -> IIT_JAM_CHEMISTRY_07-May-2005.docx
-  * no parseable date, or an empty ExamCode -> canonical_output_name returns None
-    -> HARD STOP for that file (§4 compress_one). A mis-named file in a 200-exam
-    corpus is a PERMANENT duplicate identity; refusing is cheaper.
+WHAT THIS STEP DOES NOT DO (deliberately):
+  * It does NOT repair decoration debris (_IMAG, doubled underscores, "Copy of ",
+    browser " (1)"). A mis-named input yields an equally mis-named output, which then
+    overwrites the mis-named original in Drive — no new identity is created. Repairing
+    names is an operator action in Drive, not a side effect of compression.
+  * It does NOT de-duplicate. Two spellings of one paper attached together yield two
+    outputs under their two names (EC-C14). The corpus-level DUPLICATE gate lives at
+    enumeration (corpus_io.collect_corpus_files) and still fires there.
+  * It does NOT parse the name. There is no date token to find, no ExamCode to derive,
+    and therefore no "unparseable name" HARD STOP: any name that is a .docx is delivered
+    under that name.
 
-WHY THE OLD DANGER STILL GOVERNS THE OPERATOR STEP. Identity is derived from the
-filename via blueprint_core.canonical_paper_key. When the input was ALREADY canonical
-the output overwrites it in Drive by name, as before. When the input was NOT
-canonical (…_IMAG.docx), the canonical output and the misnamed original are
-DIFFERENT identities — uploading one while leaving the other DOUBLE-COUNTS that
-paper's year in Steps 4 and 5, silently, with no gate anywhere able to fire.
+THE ONE COLLISION THAT CAN OCCUR: the same filename attached twice (two folders, one
+name). Both would map to ONE output path, and compress_one would silently overwrite the
+first delivery with the second — HARD STOP naming both (§4 _DELIVERED_NAMES, EC-C14).
+
+WHY IDENTITY IS THE SAFE CHOICE FOR THE OPERATOR STEP. Steps 2b, 4 and 5 derive paper
+identity from the filename via blueprint_core.canonical_paper_key. When the delivered
+name equals the input name, uploading it to Drive overwrites the original by name and
+the paper's identity is untouched. Any rename — canonical or otherwise — is a second
+paper to every enumeration unless the original is trashed in the same visit; identity
+naming removes that dependency on operator discipline entirely.
 
 WHAT THIS MEANS FOR THE OPERATOR — state it in the delivery message, every time:
-  "Upload under the canonical name shown, and in the SAME Drive visit TRASH the
-   old misnamed original. Canonical-in, canonical-out overwrites in place; renamed
-   files must replace their originals by hand — never live alongside them."
+  "Upload each file to the Drive PYQ folder under the SAME name it was delivered with
+   — it replaces the original in place. Do not rename it."
 
 BROWSER " (1)" — when the operator downloads while a same-named file sits in
-Downloads, the browser appends " (1)". Harmless HERE (canonical_paper_key strips
-it) but it must not be carried into Drive. Say so.
+Downloads, the browser appends " (1)". That copy must be renamed back to the delivered
+name before upload, so it REPLACES the original in Drive. Uploaded as-is it sits
+BESIDE the original: canonical_paper_key strips " (1)", so the two resolve to one
+paper and enumeration HARD STOPs Steps 2b/4/5 as a duplicate. Say so.
 ```
 
 ---
@@ -354,7 +371,7 @@ rejected.
 ```
 
 ```python
-_DELIVERED_CANON = {}      # canon -> first input name; batch-level collision gate
+_DELIVERED_NAMES = set()   # input names delivered this batch; collision gate (§2, EC-C14)
 
 
 def compress_one(path, name, pre):
@@ -367,21 +384,17 @@ def compress_one(path, name, pre):
     # size exactly like an oversized one. force_tier is refused in max mode by the
     # engine (mutually exclusive by ValueError).
     #
-    # §2 v2.0.0 — CANONICAL NAME. Unparseable names never guess: HARD STOP.
-    canon = bc.canonical_output_name(name)
-    if canon is None:
+    # §2 v2.1 — IDENTITY NAME. The output is written under EXACTLY the input's
+    # filename. No derivation, no normalisation, no suffix; nothing to parse, so
+    # nothing can be unparseable. The only collision possible is the same name
+    # attached twice, which would silently overwrite the first delivery: HARD STOP.
+    if name in _DELIVERED_NAMES:
         raise SystemExit(
-            f"HARD STOP — CANONICAL NAME: {name!r} carries no recognisable "
-            "DD-Mon-YYYY date token, so its canonical delivery name cannot be "
-            "derived (§2). Rename the source file and re-run; never guess.")
-    prev = _DELIVERED_CANON.get(canon)
-    if prev is not None and prev != name:
-        raise SystemExit(
-            f"HARD STOP — CANONICAL COLLISION: {name!r} and {prev!r} both "
-            f"canonicalise to {canon!r} (§2, EC-C14). They are two spellings of "
-            "ONE paper; attach exactly one of them and re-run.")
-    _DELIVERED_CANON[canon] = name
-    dst = os.path.join(OUT_DIR, canon)         # §2 — CANONICAL NAME. Never a suffix.
+            f"HARD STOP — NAME COLLISION: {name!r} was attached more than once "
+            "(§2, EC-C14). Both would be delivered to ONE output path; attach "
+            "exactly one and re-run.")
+    _DELIVERED_NAMES.add(name)
+    dst = os.path.join(OUT_DIR, name)          # §2 — IDENTITY NAME. Byte-for-byte.
     ok, report, log = corpus_io.optimize_docx(path, dst, budget=bc.SIZE_BUDGET,
                                               always=True, mode='max')
 
@@ -394,10 +407,10 @@ def compress_one(path, name, pre):
     if report.get('no_gain'):
         # Output was no smaller than the input, so corpus_io restored the original bytes.
         # Reported, NOT delivered: there is nothing to replace in Drive.
-        return {'name': name, 'canon': canon, 'action': 'nogain', 'tier': report['tier'],
+        return {'name': name, 'action': 'nogain', 'tier': report['tier'],
                 'before': report['orig'], 'after': after, 'path': dst,
                 'note': 'already optimal — nothing to gain, original retained'}
-    return {'name': name, 'canon': canon, 'action': 'compressed', 'tier': report['tier'],
+    return {'name': name, 'action': 'compressed', 'tier': report['tier'],
             'before': report['orig'], 'after': after,
             'ratio': after / float(report['orig']),
             'status': bc.transport_status(after),
@@ -457,9 +470,6 @@ def report_results(reports):
             continue
         print(f"  {r['name'][:44]:<44} {r['before']:>12,} {r['after']:>12,}  "
               f"{r['tier']:<5} {r['status']}")
-        if r.get('canon') and r['canon'] != r['name']:
-            print(f"      → delivered as {r['canon']}  (canonical, §2 — trash the "
-                  f"misnamed original in Drive)")
 
     stuck = [r for r in reports if r.get('floor_exceeded')]
     for r in stuck:
@@ -481,15 +491,12 @@ def report_results(reports):
 
     done = [r for r in reports if r['action'] == 'compressed']
     if done:
-        print(f"\n  NEXT: upload these file(s) to the Drive PYQ folder under the "
-              f"CANONICAL names shown (§2). When the input name was already canonical, "
-              f"Drive overwrites in place. When it was NOT (an _IMAG tag, doubled "
-              f"underscores, ' (1)'), TRASH the misnamed original in the SAME visit — "
-              f"the two names are DIFFERENT identities, and a second copy under a "
-              f"different name is counted as a second paper by every step in the "
-              f"pipeline.")
-        print(f"        If your browser adds ' (1)' on download, rename it back before "
-              f"uploading to Drive.")
+        print(f"\n  NEXT: upload these file(s) to the Drive PYQ folder under the SAME "
+              f"name each was delivered with — it replaces the original in place (§2). "
+              f"Do not rename: a second copy under a different name is either counted "
+              f"as a second paper or halts enumeration as a duplicate.")
+        print(f"        If your browser adds ' (1)' on download, rename it back to the "
+              f"delivered name before uploading to Drive.")
 ```
 
 ---
@@ -515,10 +522,9 @@ CHECK 3 — IMAGE SURVIVAL (independent)
   §5 assert_survived: image references re-derived from the output package equal the
   input's. Same gate as Framework_PYQSort S7-7 / CHECK 10.
 
-CHECK 4 — CANONICAL FILENAME
-  os.path.basename(output) == blueprint_core.canonical_output_name(input), exactly.
-  An unparseable input name, or any mismatch, is a HARD STOP — see §2 for why this is
-  a correctness property and not a cosmetic one.
+CHECK 4 — IDENTITY FILENAME (v2.1)
+  os.path.basename(output) == input filename, byte-for-byte. Any mismatch is a HARD
+  STOP — see §2 for why this is a correctness property and not a cosmetic one.
 
 CHECK 5 — NO GROWTH
   after <= before for every delivered file. Guaranteed twice over: _recode keeps the
@@ -532,14 +538,13 @@ CHECK 5 — NO GROWTH
 def validate_output(rep):
     """CHECK 3, 4 and 5 as executable assertions. 1 and 2 are inside the parity assert."""
     assert_survived(rep)                                              # CHECK 3
-    canon = bc.canonical_output_name(rep['name'])                     # CHECK 4
-    if canon is None or os.path.basename(rep['path']) != canon:
+    if os.path.basename(rep['path']) != rep['name']:                  # CHECK 4
         raise SystemExit(
-            f"HARD STOP — CANONICAL FILENAME: delivered as "
-            f"{os.path.basename(rep['path'])!r} but §2 requires {canon!r} for "
-            f"input {rep['name']!r}. A mis-named file is a SECOND PAPER to every "
+            f"HARD STOP — IDENTITY FILENAME: delivered as "
+            f"{os.path.basename(rep['path'])!r} but §2 requires exactly the input "
+            f"name {rep['name']!r}. A renamed file is a SECOND PAPER to every "
             "enumeration in the pipeline (§2). Fix the output path; never deliver "
-            "under a non-canonical name.")
+            "under any name but the input's.")
     if rep['after'] > rep['before']:                                  # CHECK 5
         raise SystemExit(
             f"HARD STOP — {rep['name']} grew from {rep['before']:,} to "
@@ -676,23 +681,25 @@ EC-C11: WORD LOCK-FILE (~$name.docx)
   machine, never a document to compress. This is the ONLY silent skip in the spec.
 
 EC-C12: BROWSER APPENDS " (1)" ON DOWNLOAD
-  Harmless here — canonical_paper_key strips it — but it MUST NOT reach Drive. The
-  delivery message says so explicitly (§2, §6).
+  The operator renames the downloaded copy back to the delivered name before upload;
+  a " (1)" name MUST NOT reach Drive (it collides with the original at enumeration).
+  The delivery message says so explicitly (§2, §6). If the ATTACHED input already
+  carries " (1)", the output carries it too (identity rule) and overwrites that same
+  mis-named file in Drive — no new identity is created.
 
 EC-C13: MORE FILES THAN THE CHAT LIMIT
   At most bc.CHAT_FILE_LIMIT documents per chat. Run PYQCompress again in a new chat
   for the remainder; there is no state to carry.
 
-EC-C14: SAME PAPER ATTACHED TWICE UNDER DIFFERENT NAMES
-  v2.0.0 — HARD STOP. Two spellings of one paper (EXAM_02-Feb-2025_IMAG.docx and
-  "EXAM_02-Feb-2025__IMAG (1).docx") canonicalise to the SAME output name, so
-  compress_one would silently overwrite the first delivery with the second. The
-  batch-level gate (_DELIVERED_CANON) refuses the collision and names both inputs;
-  the operator attaches exactly one and re-runs. Genuinely distinct papers (Shift-1
-  vs Shift-2, different dates, different class decorations) keep distinct canonical
-  names and are unaffected. The corpus-level DUPLICATE gate still lives at
-  enumeration (corpus_io.collect_corpus_files); what §2 prevents is this spec
-  CREATING a mis-named pair in Drive.
+EC-C14: SAME PAPER ATTACHED TWICE
+  v2.1 — Two spellings of one paper (EXAM_02-Feb-2025_IMAG.docx and
+  "EXAM_02-Feb-2025__IMAG (1).docx") are two DIFFERENT input names, so they yield
+  two outputs under those two names; this step does not de-duplicate (§2). The
+  corpus-level DUPLICATE gate at enumeration (corpus_io.collect_corpus_files) is the
+  defence, and it still fires there. The ONLY collision this step guards is the SAME
+  name attached twice: both map to one output path and the second would silently
+  overwrite the first, so the batch-level gate (_DELIVERED_NAMES) HARD STOPs and
+  names the file; the operator attaches exactly one and re-runs.
 
 EC-C15: OPERATOR SUPPLIES A DRIVE LINK INSTEAD OF FILES
   Do not attempt a fetch: the file is above the cap by definition, which is why the
@@ -706,14 +713,15 @@ EC-C15: OPERATOR SUPPLIES A DRIVE LINK INSTEAD OF FILES
 ```
 UNIVERSAL (identical for every exam AND every document class):
   Trigger parsing · input inventory · transport verdicts · input integrity audit ·
-  the TMAX max-compression governor · canonical output naming · parity assertion ·
+  the TMAX max-compression governor · identity output naming · parity assertion ·
   image survival gate ·
   all 5 validation checks · all 15 edge cases · 3-call execution model
 
 READ FROM THE ENGINE, NEVER RESTATED HERE:
   blueprint_core.SIZE_BUDGET · DRIVE_CAP · CHAT_FILE_LIMIT · TIER_LADDER · MAX_TIER ·
-  PNG_QUANT_COLORS · PNG_QUANT_QUALITY · NAME_JUNK_TOKENS · canonical_output_name() ·
-  transport_status() · classify_media_route()
+  PNG_QUANT_COLORS · PNG_QUANT_QUALITY · transport_status() · classify_media_route()
+  (v2.1: canonical_output_name() / NAME_JUNK_TOKENS were DELETED from blueprint_core —
+  the output name is the input name and nothing is derived)
 
 NOT USED AT ALL:
   exam_config.json · taxonomy · Analysis docs · blueprint.json · registry.json ·
@@ -742,15 +750,15 @@ PROOF OF DOCUMENT-CLASS INDEPENDENCE:
 ☐ 7.  CHECK 2 content fidelity PASSED (17 invariants, allow_resample only for
       TMAX / T2-T4)
 ☐ 8.  CHECK 3 image survival PASSED — independently re-derived, not taken on trust
-☐ 9.  CHECK 4 canonical filename PASSED — output name equals
-      blueprint_core.canonical_output_name(input name), exactly
+☐ 9.  CHECK 4 identity filename PASSED — output name equals the input name,
+      byte-for-byte
 ☐ 10. CHECK 5 no growth PASSED
 ☐ 11. Every attached file compressed regardless of size; files that gained nothing
       reported and NOT delivered
 ☐ 12. Floor-exceeded files DELIVERED with a WARN naming the structural options
 ☐ 13. Results table printed: before, after, tier, verdict
-☐ 14. Delivery message states the canonical-upload + TRASH-the-misnamed-original
-      rule (§2) and the " (1)" rename warning
+☐ 14. Delivery message states the same-name replace-in-place rule (§2) and the
+      " (1)" rename warning
 ☐ 15. Deliverable set closed: exactly the compressed files, nothing else
 ☐ 16. Delivery footer rendered per Framework_DeliveryFooter.md (F2)
 
@@ -765,21 +773,19 @@ POST-DELIVERY:
 ## §12 — CRITICAL WARNINGS
 
 ```
-⚠️ NEVER deliver under anything but the canonical name — and NEVER guess one
-   The output name comes from blueprint_core.canonical_output_name, or the file is a
-   HARD STOP. An improvised name is a SECOND PAPER to every enumeration in the
-   pipeline; uploaded alongside its original it produces a silent double count of
-   that paper's year, which no gate anywhere catches. When the canonical name differs
-   from the input name, the misnamed original MUST be trashed in Drive in the same
-   visit — leaving it behind is the same double count in slow motion. This remains
-   the single most damaging mistake available in this spec.
+⚠️ NEVER deliver under anything but the INPUT name — and NEVER derive, normalise
+   or "repair" one
+   The output name IS the input name, byte-for-byte (§2, CHECK 4), or the file is a
+   HARD STOP. Any other name is a SECOND PAPER to every enumeration in the pipeline;
+   uploaded alongside its original it produces a silent double count of that paper's
+   year, which no gate anywhere catches. v2.0.0's canonical deriver did exactly this
+   to every session-bearing Row file. This remains the single most damaging mistake
+   available in this spec.
 
-⚠️ NEVER define a threshold, a tier, or a naming rule in this spec
-   SIZE_BUDGET, DRIVE_CAP, CHAT_FILE_LIMIT, TIER_LADDER, MAX_TIER, PNG_QUANT_*,
-   NAME_JUNK_TOKENS and canonical_output_name live in blueprint_core and are shared
-   with Steps 1, 3, 4 and 5. A local copy drifts, and the drift is invisible until a
-   paper compressed here fails the governor there — or two spellings of one name
-   disagree between steps.
+⚠️ NEVER define a threshold or a tier in this spec
+   SIZE_BUDGET, DRIVE_CAP, CHAT_FILE_LIMIT, TIER_LADDER, MAX_TIER and PNG_QUANT_* live
+   in blueprint_core and are shared with Steps 1, 3, 4 and 5. A local copy drifts,
+   and the drift is invisible until a paper compressed here fails the governor there.
 
 ⚠️ NEVER re-implement compression here
    corpus_io.optimize_docx is the one implementation. A spec-local variant would
@@ -807,4 +813,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQCompress v2.0.1
+# END OF Framework_PYQCompress v2.1

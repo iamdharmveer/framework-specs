@@ -1,4 +1,8 @@
-# Framework_PYQExplain v2.22 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.23 — Universal PYQ Explanation Generator
+# v2.23 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (paired with PYQPrepare v2.2).
+#   §22: a vision-transcribed Row file is identified by core_properties.category
+#   ("PYQPrepare-Source-Trust:"), not by a "__vision-unverified" filename suffix — the
+#   suffix no longer exists. Prose only; no rule, gate or code path changed.
 # v2.22 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: OOS questions explained normally (R20)
 # v2.21 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (explain_engine v2.11,
 #   MockTestExplain v1.49.0, routes.json +figural_core/+corpus_io; SHARED_RULES 1.5 → 1.6).
@@ -2632,8 +2636,10 @@ present_files(deliverables)
   • Language comprehension questions in non-English scripts may require
     language-specific EngineConfig customisation (sentence terminators, banned
     patterns).
-  • A vision-transcribed Row file (__vision-unverified suffix) may have
-    transcription errors — explanations proceed but flag low-confidence Qs.
+  • A vision-transcribed Row file (core_properties.category carries
+    "PYQPrepare-Source-Trust:" — PYQPrepare S1-13/§10; the filename carries
+    NO marker since PYQPrepare v2.2) may have transcription errors —
+    explanations proceed but flag low-confidence Qs.
   • OMML renders correctly only in Microsoft Word.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2850,5 +2856,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.22
+# END OF Framework_PYQExplain v2.23
 # ════════════════════════════════════════════════════════════════════════

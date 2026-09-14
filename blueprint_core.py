@@ -160,8 +160,6 @@ __all__ = [
     "MAX_TIER",
     "PNG_QUANT_COLORS",
     "PNG_QUANT_QUALITY",
-    "NAME_JUNK_TOKENS",
-    "canonical_output_name",
     "DOCX_MIME",
     "GDOC_MIME",
     "FOLDER_MIME",
@@ -3946,94 +3944,13 @@ MAX_TIER = ('TMAX', 82, 300)   # (tier, jpeg_quality, dpi_ceiling at display siz
 PNG_QUANT_COLORS = 256         # palette size for quantized PNG output
 PNG_QUANT_QUALITY = (75, 95)   # pngquant quality band when the binary is present
 
-# Tokens that carry NO identity: stripped when canonicalising an output filename.
-# Lowercase; compared case-insensitively as whole '_'/'-'/' '-delimited tokens.
-NAME_JUNK_TOKENS = frozenset({'imag'})
-
-_MONTHS_3 = {m.lower(): m for m in
-             ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')}
-_MONTHS_FULL = {'january': 'Jan', 'february': 'Feb', 'march': 'Mar', 'april': 'Apr',
-                'may': 'May', 'june': 'Jun', 'july': 'Jul', 'august': 'Aug',
-                'september': 'Sep', 'sept': 'Sep', 'october': 'Oct',
-                'november': 'Nov', 'december': 'Dec'}
-_CANON_DATE_RE = re.compile(r'(\d{1,2})[\s_-]*([A-Za-z]{3,9})[\s_-]*(\d{4})')
-_CANON_SHIFT_RE = re.compile(r'(?<![A-Za-z])shift[\s_-]*(\d+)', re.I)
-
-
-def canonical_output_name(name):
-    """Canonical delivery name for one paper: ExamCode_DD-Mon-YYYY[_ShiftN].docx
-
-    PYQCompress v2 §2. Returns the canonical filename, or None when the stem
-    carries no recognisable DD-Mon-YYYY date token — the caller must HARD STOP
-    for that file rather than guess, because a mis-named file in a 200-exam
-    corpus is a permanent duplicate identity.
-
-    Rules, in order:
-      * strip extension, NFKC-normalise, drop a trailing " (n)" and a leading
-        "copy of " (the same transport mangles canonical_paper_key absorbs);
-      * find the FIRST date token DD-Mon-YYYY — month by 3-letter or full
-        English name, any case, ' ', '_' or '-' as optional separators; the day
-        is zero-padded to 2 digits and the month rendered Mmm;
-      * ExamCode = everything before the date, runs of ' ', '-', '_' collapsed
-        to a single '_', edges trimmed, case PRESERVED. Empty ExamCode -> None;
-      * Shift = the first "shift<N>" token anywhere in the stem
-        (case-insensitive, optional separator). N == 1 emits NO suffix;
-        N >= 2 emits _ShiftN immediately after the date;
-      * every other token AFTER the date survives VERBATIM (separator-
-        normalised) UNLESS its lowercase form is in NAME_JUNK_TOKENS. This is
-        what protects a Sorted/Analysis document's load-bearing decorations
-        from being stripped:
-          EXAM_12-Sep-2025_Shift-1_Sorted_Q1-Q100_IMAG.docx
-            -> EXAM_12-Sep-2025_Sorted_Q1-Q100.docx
-        while a plain raw paper collapses to the bare canonical form:
-          IIT_JAM_CHEMISTRY_07-May-2005_imag.docx
-            -> IIT_JAM_CHEMISTRY_07-May-2005.docx
-    """
-    import os as _os
-    import unicodedata as _ud
-    stem = _os.path.splitext(_os.path.basename(str(name)))[0]
-    stem = _ud.normalize('NFKC', stem)
-    stem = re.sub(r'\s*\(\d+\)\s*$', '', stem)
-    stem = re.sub(r'^\s*copy\s+of\s+', '', stem, flags=re.I)
-
-    m = None
-    for cand in _CANON_DATE_RE.finditer(stem):
-        mon_raw = cand.group(2).lower()
-        if ((mon_raw in _MONTHS_3 or mon_raw in _MONTHS_FULL)
-                and 1 <= int(cand.group(1)) <= 31):
-            m = cand
-            break
-    if m is None:
-        return None
-    day = int(m.group(1))
-    mon = _MONTHS_3.get(m.group(2).lower()) or _MONTHS_FULL[m.group(2).lower()]
-    date = f'{day:02d}-{mon}-{m.group(3)}'
-
-    shift_sfx = ''
-    sm = _CANON_SHIFT_RE.search(stem)
-    if sm and int(sm.group(1)) >= 2:
-        shift_sfx = f'_Shift{int(sm.group(1))}'
-
-    def _tokens(fragment):
-        # Split on whitespace and '_' ONLY. A hyphen INSIDE a token is part of its
-        # spelling (Q1-Q100, NEET-UG) and survives verbatim; hyphens at token edges
-        # are separator debris (EXAM-_12-...) and are trimmed.
-        fragment = _CANON_SHIFT_RE.sub(' ', fragment)   # shift is emitted separately
-        parts = [t.strip('-') for t in re.split(r'[\s_]+', fragment)]
-        parts = [t for t in parts if t]
-        return [t for t in parts if t.lower() not in NAME_JUNK_TOKENS]
-
-    code_tokens = _tokens(stem[:m.start()])
-    if not code_tokens:
-        return None
-    tail_tokens = _tokens(stem[m.end():])
-
-    out = '_'.join(code_tokens) + '_' + date + shift_sfx
-    if tail_tokens:
-        out += '_' + '_'.join(tail_tokens)
-    return out + '.docx'
-
+# canonical_output_name() / NAME_JUNK_TOKENS REMOVED — 2026.09.14.1,
+# GAP-2026-09-14-COMPRESS-NAME-IDENTITY. Their only caller was Framework_PYQCompress
+# v2.0.0-v2.0.1, which now delivers under the input filename byte-for-byte (owner
+# ruling 2026-09-14). audit_callgraph C4 forbids a public exported function with no
+# executable call site, and the deriver had NO self-test fixture of its own, so the
+# honest closure is deletion, not suppression. Paper IDENTITY was never derived here:
+# canonical_paper_key() below is unchanged and is what Steps 2b/4/5 key on.
 
 DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 GDOC_MIME = 'application/vnd.google-apps.document'

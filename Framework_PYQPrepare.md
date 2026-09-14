@@ -1,4 +1,22 @@
-# Framework_PYQPrepare v2.1.1 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v2.2 — Universal PYQ Row File Generator
+# v2.2 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (owner ruling 2026-09-14).
+#   §6 now defines EXACTLY two legal output filenames — [ExamCode]_DD-Mon-YYYY_<session
+#   _keyword>-<N>.docx and [ExamCode]_DD-Mon-YYYY.docx — with no variant for any
+#   condition. The v1.7 "__vision-unverified" suffix for FORMAT C1 / C-HYBRID Row files
+#   is REMOVED (§6, §7, S1-13 build note, §9 CALL B4 variant). All logic is retained:
+#   mark_vision_transcribed() still sets core_properties.category unconditionally in the
+#   S1-13 path, the §7 "human verification required" delivery note is unchanged, and
+#   §10's provenance ripple is unchanged. CHECK 14 re-anchored: it compared the
+#   core-property against the filename suffix; with the suffix gone it now compares the
+#   core-property against the caller's claim — validate_row_file(source_trust=), the
+#   value mark_vision_transcribed() returned (None on the text path). That parameter
+#   existed since v1.7 and was never read; it is now the second signal, which is stronger
+#   than the filename was (two signals written by one code path at one moment could
+#   only ever agree); CHECK 14 also compares the trust VALUE (VISION-TRANSCRIBED vs
+#   MIXED), which the suffix never could. Consumer side: PYQExplain v2.23 (Limitations
+#   section) identifies vision-transcribed Row files by the core-property. Row files
+#   already delivered with the suffix remain valid. No engine change; no downstream glob
+#   or reader ever matched the suffix.
 # v2.1.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: two-view invariant -> tagged fence; 10 prose mentions to no-paren form.
@@ -1344,10 +1362,12 @@ def mark_vision_transcribed(doc, mixed=False):
 ```
 
 ```
-  Plus a filename suffix: insert "__vision-unverified" before ".docx"
-  (see §6). Human reviewers see the suffix; downstream steps may read the
-  core-property (see §10). No in-document banner paragraph is added, so no
-  downstream text parser can trip over an unexpected leading paragraph.
+  NO filename suffix (v2.2): §6 defines exactly two legal output filenames
+  and neither varies by trust tier — the core-property is the SOLE
+  provenance signal. Human reviewers learn the tier from the mandatory
+  delivery-message note (§7); downstream steps may read the core-property
+  (see §10). No in-document banner paragraph is added, so no downstream
+  text parser can trip over an unexpected leading paragraph.
 
 DELIVERY (see §7): C1/C-HYBRID uses the F2 step-complete footer PLUS a
   prominent "VISION-TRANSCRIBED — human verification required" note listing
@@ -3123,13 +3143,21 @@ CHECK 13 — IMAGE CLASSIFICATION VERIFICATION (v1.6)
   designed to prevent: math questions delivered with red boxes
   instead of transcribed content.
 
-CHECK 14 — VISION PROVENANCE CONSISTENCY (v1.7)
+CHECK 14 — VISION PROVENANCE CONSISTENCY (v1.7; re-anchored v2.2)
   For vision-transcribed Row files (FORMAT C1 / C-HYBRID): the trust
-  marker must be coherent. If EITHER the doc core-property category
-  carries "PYQPrepare-Source-Trust:" OR the filename ends with
-  "__vision-unverified", then BOTH must be present. WARN on any
-  half-marked file. (The marker itself is set at build time in the
-  S1-13 path — this check is the safety net.)
+  marker must be coherent. Compares what the BUILD PATH claims —
+  source_trust, the value mark_vision_transcribed() returned
+  ('VISION-TRANSCRIBED' or 'MIXED'), passed in by the caller; None or
+  empty for the deterministic text path — against what actually landed
+  on the document: core_properties.category. WARN if they disagree in
+  either direction (a claimed vision build with no property, or a
+  property on a file the build path never marked), and WARN if both are
+  present but the property's trust value is not the claimed one (a MIXED
+  build marked VISION-TRANSCRIBED, or vice versa). Through v2.1.1 the second signal
+  was the "__vision-unverified" filename suffix; v2.2 removed the suffix
+  (§6 defines exactly two filenames, no variants), so the caller's own
+  claim is now the independent signal. (The marker itself is set at
+  build time in the S1-13 path — this check is the safety net.)
 
 CHECK 15 — SPECIMEN / OUT-OF-RANGE EXCLUSION (v1.7)
   Scanned papers often carry a demonstration "sample question" with an
@@ -3240,6 +3268,10 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     """
     Run all 22 validation checks. Return (pass_count, warn_count, messages).
 
+    source_trust: the value mark_vision_transcribed() returned in the S1-13 build
+    path ('VISION-TRANSCRIBED' / 'MIXED'), or None (or empty) for the deterministic
+    text path. CHECK 14 compares this claim — presence AND value — against the
+    document's core-property (v2.2 — the filename no longer carries a suffix).
     table_specs: {q_num: TableSpec} as transcribed in Phase B (S1-12 / S1-8a).
     Optional — when absent, CHECK 17 is skipped and CHECK 17b applies instead.
     math_regions / math_compiled: count_math_regions(buffer strings) and
@@ -3494,17 +3526,29 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     if not (figure_only_qnums or omml_only_qnums or bare_empty_qnums):
         print("CHECK 13: No figure-only stems — all content transcribed OK")
 
-    # CHECK 14 — Vision provenance consistency (v1.7)
-    import os as _os
+    # CHECK 14 — Vision provenance consistency (v1.7; re-anchored v2.2).
+    # v2.2 removed the "__vision-unverified" filename suffix (§6: exactly two
+    # legal filenames, no variants), so the filename can no longer serve as the
+    # second signal. The independent signal is now the caller's own claim:
+    # source_trust is the value mark_vision_transcribed() returned in the S1-13
+    # build path, or None for the deterministic text path. The document's
+    # core-property must agree with that claim in BOTH directions.
     cat = (doc.core_properties.category or '')
     has_prop = 'PYQPrepare-Source-Trust:' in cat
-    has_suffix = _os.path.basename(doc_path).endswith('__vision-unverified.docx')
-    if has_prop != has_suffix:
+    claimed = bool(source_trust)            # None / '' both mean the text path
+    if has_prop != claimed:
         warnings.append(
-            f"CHECK 14 WARN: half-marked vision file "
-            f"(property={has_prop}, filename_suffix={has_suffix}) — both or neither")
+            f"CHECK 14 WARN: vision provenance mismatch "
+            f"(build claimed source_trust={source_trust!r}, "
+            f"document property present={has_prop}) — build path and document disagree")
+    elif claimed and cat.strip() != 'PYQPrepare-Source-Trust:' + str(source_trust).strip():
+        warnings.append(
+            f"CHECK 14 WARN: vision trust value mismatch "
+            f"(build claimed {source_trust!r}, document carries {cat!r}) — "
+            f"mark_vision_transcribed() and the caller disagree on MIXED vs VISION-TRANSCRIBED")
     else:
-        print(f"CHECK 14: Vision provenance consistent (marked={has_prop})")
+        print(f"CHECK 14: Vision provenance consistent (marked={has_prop}"
+              f"{', trust=' + str(source_trust) if claimed else ''})")
 
     # CHECK 15 — Specimen / out-of-range exclusion (v1.7)
     SPECIMEN_RE = re.compile(
@@ -3756,12 +3800,16 @@ Examples:
 
 ExamCode, date, and session all come from the trigger text.
 
-VISION-TRANSCRIBED (FORMAT C1 / C-HYBRID — v1.7):
-  Append "__vision-unverified" before ".docx":
-    [ExamCode]_DD-Mon-YYYY[_session]__vision-unverified.docx
-  This is the human-visible half of the S1-13 provenance marker (the
-  machine-readable half is core_properties.category). Only C1/C-HYBRID
-  outputs carry the suffix; all other formats are unchanged.
+THESE TWO FORMS ARE THE ONLY LEGAL OUTPUT FILENAMES (v2.2 — owner ruling
+2026-09-14). No suffix, prefix, tag or other variant is EVER appended —
+not for any FORMAT tier (C0 / C1 / C-HYBRID), not for vision-transcribed
+sources, not for any other condition. Vision-transcription provenance is
+carried EXCLUSIVELY by core_properties.category (S1-13, §10) and by the
+mandatory delivery-message note (§7); it is never expressed in the name.
+(Through v2.1.1, C1 / C-HYBRID outputs carried a "__vision-unverified"
+suffix. Removed in v2.2. Row files already delivered with that suffix
+remain valid — the core-property, not the name, is what downstream
+steps may read.)
 ```
 
 ---
@@ -3796,13 +3844,15 @@ VISION PROBE PROVENANCE (v1.9 — MANDATORY whenever the source had images):
   Recording per-image observation state alongside the count is what keeps that
   distinction auditable after the fact (S1-12).
 
-FORMAT C1 / C-HYBRID (v1.7 — vision-transcribed):
-  Deliver the Row file (still EXACTLY 1 file, closed set) with the
-  __vision-unverified suffix. The delivery message MUST carry a prominent
-  "VISION-TRANSCRIBED — human verification required" note listing any
-  low-confidence Q-numbers. Large scans that were batched use the F1 amber
-  "continue" footer per batch and F2 on the final batch. The S5
-  warn-and-deliver contract is unchanged.
+FORMAT C1 / C-HYBRID (v1.7 — vision-transcribed; v2.2 — no suffix):
+  Deliver the Row file (still EXACTLY 1 file, closed set) under the
+  standard §6 filename — NO suffix. The delivery message MUST carry a
+  prominent "VISION-TRANSCRIBED — human verification required" note
+  listing any low-confidence Q-numbers; that note plus
+  core_properties.category (§10) are what mark the file, never its name.
+  Large scans that were batched use the F1 amber "continue" footer per
+  batch and F2 on the final batch. The S5 warn-and-deliver contract is
+  unchanged.
 
 DELIVERABLE SET CONTRACT (CLOSED):
   present_files MUST contain EXACTLY 1 file:
@@ -4194,9 +4244,11 @@ FORMAT C1 VARIANT (scanned source — v1.7):
   resolves C0_OR_C1 to C1 -> proceed or C0 -> HALT), classify + skip
   non-question pages (EC-P2/P13/P17/P21), view question pages in order,
   transcribe into a continuous buffer, then build via the standard text
-  path (S1-13). Call mark_vision_transcribed() and add the filename suffix
-  before delivery. View-call budget scales with question-page count; batch
-  beyond ~40 pages using the F1 continue footer.
+  path (S1-13). Call mark_vision_transcribed() before delivery and pass its
+  return value as source_trust= to validate_row_file() (CHECK 14). The file
+  is delivered under the standard §6 name — NO suffix is added (v2.2).
+  View-call budget scales with question-page count; batch beyond ~40 pages
+  using the F1 continue footer.
 
 POST-DELIVERY:
   Render delivery footer per Framework_DeliveryFooter.md.
@@ -4382,4 +4434,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v2.1.1
+# END OF Framework_PYQPrepare v2.2

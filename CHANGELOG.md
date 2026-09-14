@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026.09.14.1 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS + GAP-2026-09-14-COMPRESS-NAME-IDENTITY
+(PYQPrepare v2.2, PYQExplain v2.23, PYQCompress v2.1; blueprint_core: canonical_output_name + NAME_JUNK_TOKENS removed)
+
+PART B — GAP-2026-09-14-COMPRESS-NAME-IDENTITY (PYQCompress v2.0.1 -> v2.1).
+Owner ruling 2026-09-14: PYQCompress delivers each compressed .docx under
+EXACTLY its input filename, byte-for-byte. The v2.0.0 canonical-name rule
+(blueprint_core.canonical_output_name: Shift 1 suffix dropped, Shift-N ->
+ShiftN, _IMAG stripped) is retired for this step. Measured against the
+Step 1 contract, the deriver renamed every session-bearing Row file
+(…_Shift-1.docx -> ….docx; …_Shift-2.docx -> …_Shift2.docx), so a
+compressed paper re-entered Drive as a second identity beside its
+original — the double count §2 existed to prevent. §2 rewritten (identity
+rule; no derivation, no junk repair, no de-duplication, no unparseable-
+name stop); §4 compress_one writes OUT_DIR/<input name>, collision gate
+_DELIVERED_CANON -> _DELIVERED_NAMES keyed on the input name; report dict
+drops 'canon'; CHECK 4 asserts basename(output) == input name; EC-C12 /
+EC-C14 restated; §6 delivery message and §11 checklist say replace-in-
+place; §10/§12 no longer list canonical_output_name / NAME_JUNK_TOKENS as
+read. ENGINE: blueprint_core.canonical_output_name(), NAME_JUNK_TOKENS and
+their private helpers (_MONTHS_3/_MONTHS_FULL/_CANON_DATE_RE/_CANON_SHIFT_RE,
+89 lines) DELETED and dropped from __all__ — PYQCompress was their only
+caller anywhere in the corpus, audit_callgraph C4 fails a public export with
+no executable call site, and suppressing C4 would be the check-shaped hole
+CLAUDE.md forbids. They carried no self-test fixture (blueprint_core 661/661
+before and after). Paper identity (canonical_paper_key) is untouched.
+Compression, parity, survival and no-growth logic byte-identical.
+
+PART A — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (PYQPrepare v2.2, PYQExplain v2.23).
+Owner ruling 2026-09-14: the Step 1 Row file has EXACTLY two legal output
+filenames — [ExamCode]_DD-Mon-YYYY_<session_keyword>-<N>.docx (with
+session) and [ExamCode]_DD-Mon-YYYY.docx (without) — and no variant for
+any condition. The v1.7 "__vision-unverified" suffix appended to FORMAT
+C1 / C-HYBRID (vision-transcribed) Row files is removed from PYQPrepare
+§6 (filename), §7 (delivery), the S1-13 build note and the §9 CALL B4
+variant. ALL LOGIC IS RETAINED: mark_vision_transcribed() still sets
+core_properties.category unconditionally in the S1-13 build path; the §7
+"VISION-TRANSCRIBED — human verification required" delivery note is
+unchanged; §10's provenance ripple is unchanged. CHECK 14 (vision
+provenance consistency) is re-anchored rather than dropped: it compared
+the core-property against the filename suffix, and with the suffix gone
+it now compares the core-property against the caller's claim —
+validate_row_file(source_trust=), the value mark_vision_transcribed()
+returned (None on the deterministic text path). That parameter existed
+since v1.7 and was never read; it is a stronger second signal than the
+filename was, because the old pair (property + suffix) was written by one
+code path at one moment and could only ever agree; CHECK 14 now also
+compares the trust VALUE (MIXED vs VISION-TRANSCRIBED), which a suffix
+never carried. §9 CALL B4 now states
+the source_trust= hand-off explicitly. Consumer side: PYQExplain v2.23
+§22 identifies vision-transcribed Row files by the core-property (prose
+only). Verified before the edit: repo-wide, the suffix appeared in these
+two specs only — no engine, auditor, glob or reader ever matched it, so no
+downstream step, manifest schema or gate depends on it. Row files already
+delivered with the suffix remain valid. No engine change; golden set not
+in scope (neither spec is on the Step 5 harness list).
+
 ## 2026.09.05.1 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE
 (PYQDraft v1.3.1, PYQCore v1.9, NotesBlueprint v3.3.1)
 The claude.ai project Files section strips '-' from uploaded filenames

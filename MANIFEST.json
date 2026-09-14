@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.09.05.1",
+  "framework_version": "2026.09.14.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -279,11 +279,11 @@
       "bytes": 48925
     },
     "Framework_PYQCompress.md": {
-      "sha256": "9fdb05a5131e962524d5f6185fab0d835aa1566847bc2b9bf6c48a8d51bc1e10",
-      "version_header": "# Framework_PYQCompress v2.0.1 \u2014 Universal Document Size Remediation",
-      "end_sentinel": "# END OF Framework_PYQCompress v2.0.1",
-      "lines": 810,
-      "bytes": 42936
+      "sha256": "e37796fe59b22e8fd0c5f37753224f367b1e3706654e03f307624e464d6d627a",
+      "version_header": "# Framework_PYQCompress v2.1 \u2014 Universal Document Size Remediation",
+      "end_sentinel": "# END OF Framework_PYQCompress v2.1",
+      "lines": 816,
+      "bytes": 43911
     },
     "Framework_PYQCore.md": {
       "sha256": "8e850985e899748f44cb937c9a1d75228c8e257bfdefb3a99c44f64ccbc3f69c",
@@ -314,11 +314,11 @@
       "bytes": 80266
     },
     "Framework_PYQExplain.md": {
-      "sha256": "f0cde6647e4785e2f0152c7e0463e837feacbec3ee91427e4c12f9cb6e782aa0",
-      "version_header": "# Framework_PYQExplain v2.22 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "adec5f8a7c9296f5698113b6765158d41ea608bd5699465c2e024a1f9f83488f",
+      "version_header": "# Framework_PYQExplain v2.23 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2854,
-      "bytes": 202913
+      "lines": 2860,
+      "bytes": 203378
     },
     "Framework_PYQFormat.md": {
       "sha256": "45b117bbb0b782f642ec39babb79bf71424784bca7f5f26f1d4b6a78cc1d1a42",
@@ -328,11 +328,11 @@
       "bytes": 93356
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "3a49e007e8246d349e687a41f466aa8c3eda6424a79fa84a0f37dfb5e109f908",
-      "version_header": "# Framework_PYQPrepare v2.1.1 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v2.1.1",
-      "lines": 4385,
-      "bytes": 200572
+      "sha256": "b1785cd672b7ce2da9bbf281a7274af45849d0918e343d9658d538f197d13dfa",
+      "version_header": "# Framework_PYQPrepare v2.2 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.2",
+      "lines": 4437,
+      "bytes": 204669
     },
     "Framework_PYQScan.md": {
       "sha256": "9a96cd09d2dbc2ec2154bd6eb7f988e4569566f830350b111e550589d6899557",
@@ -377,11 +377,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "9f8df3ad373d64a908a24b16975955545355a106667e408759312f4606f6f749",
+      "sha256": "6f48e12fe1ccb6adb1287bdda7c2c59e0ff6bd13edc6120db5ebe4ca9c505cfd",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 10409,
-      "bytes": 571057
+      "lines": 10326,
+      "bytes": 567452
     },
     "paper_pipeline.py": {
       "sha256": "3b75d6d02c1ed5555895b2acc8cc8d487c77602d6eb737e2da8328bfd6c253ac",
@@ -538,11 +538,11 @@
       "bytes": 10941
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "169f29a2d2393940e979c90188f71c6e04673141197ec490d8eda6bb0af73700",
+      "sha256": "20ee9d3343343894b4fabc3460f63f15d24eff0d1a16d6e080ca97a723c0ad80",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 7315,
-      "bytes": 207076
+      "bytes": 207077
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
