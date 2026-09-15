@@ -1,4 +1,6 @@
-# Framework_NotesAudit v3.7.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.7.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.7.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v3.7.0 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; owner
 #   decisions of the 2026-09-01 design session; notes_audit v2.9, notes_core v2.12,
 #   notes_docx v1.7, Framework_NotesCreate v2.9.0 §4 B7a). THE DEFECT: the Recall Check
@@ -807,6 +809,23 @@ header "Step NA · NotesAudit"; Next -> ND: NotesDeliver in a new chat). The
 footer is obligatory after a present_files call (section 4-0 R1) and is never
 omitted.
 
+DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+this delivery site was prose-only until now — nothing printed the closed set):
+  PHASE 1 — as the LAST python cell before the present_files call, print the closed
+            set with print_delivery_set (canonical definition: the python fence in
+            Framework_DeliveryFooter section 9 — copy it into the cell):
+              print_delivery_set([
+                  '/mnt/user-data/outputs/<_Final.docx filename>',   # from notes_core, never re-spelled
+                  '/mnt/user-data/outputs/notes_registry.json',
+              ])
+  PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+            paths; any printed path not returned → one more call with exactly the
+            missing paths (one retry, no apology, no re-run).
+  PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+            one ❌ NOT DELIVERED row per printed path still not returned; every
+            "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+  Never a halt (owner decision 2026-09-14).
+
 THE CHAT DELIVERY LINE carries what the document deliberately does not:
 <Sub Topic Name> (<sid>), unit_code, notes_version, n/n solvable, the
 key-correction count with the JUDGEMENT-tier ones named individually (section
@@ -840,4 +859,4 @@ or licensed net ADD named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.7.0
+# END OF Framework_NotesAudit v3.7.1

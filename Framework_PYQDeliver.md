@@ -1,4 +1,6 @@
-# Framework_PYQDeliver v1.13.1 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.13.2 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.13.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v1.13.1 — 2026-08-27 — doc sync: S2-3b and EC-18 no longer name the retired
 #   map_difficulty_level. Prose only.
 # v1.13 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. Complexity Tier 2 (E-9 keyword
@@ -1104,6 +1106,25 @@ PYQ-4 delivers in a single response:
 2. OPTIONAL PYQ registry update (§8) — performed ONLY when a prior registry was
    attached; skipped silently otherwise. Never gates delivery.
 3. Present `[ExamCode]_[date]_[session]_PYQ_Final.docx` via present_files.
+
+   DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+   this delivery site was prose-only until now — nothing printed the closed set):
+     PHASE 1 — as the LAST python cell before the present_files call, print the closed
+               set with print_delivery_set (canonical definition: the python fence in
+               Framework_DeliveryFooter section 9 — copy it into the cell):
+                 print_delivery_set([
+                     '/mnt/user-data/outputs/[ExamCode]_[date]_[session]_PYQ_Final.docx',
+                 ])
+               Add '/mnt/user-data/outputs/[ExamCode]_pyq_registry.json' to the list ONLY when a prior
+               registry was attached and step 2 updated it; otherwise it is not in the set.
+     PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+               paths; any printed path not returned → one more call with exactly the
+               missing paths (one retry, no apology, no re-run).
+     PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+               one ❌ NOT DELIVERED row per printed path still not returned; every
+               "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+     Never a halt (owner decision 2026-09-14).
+
 4. Upload to Google Drive (if Drive access is available; otherwise instruct the
    user to upload manually).
 5. Print the delivery report (§10).
@@ -1416,4 +1437,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.13.1)**
+**End of Framework_PYQDeliver.md (v1.13.2)**

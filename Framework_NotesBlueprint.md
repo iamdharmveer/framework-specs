@@ -1,4 +1,6 @@
-# Framework_NotesBlueprint v3.3.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.3.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v3.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: S-1
 #   note — the shared resolver accepts filename dates as YYYY-MM or YYYYMM
 #   (project Files strips the hyphen) and normalizes to YYYY-MM; NB
@@ -342,6 +344,24 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
       and Next: NC — NotesCreate. That final F2 is the ONLY F2 in NB; every earlier
       batch stop is F1. Until the last batch, only the incremental bank (O-1) exists.
 
+      DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+      this delivery site was prose-only until now — nothing printed the closed set):
+        PHASE 1 — as the LAST python cell before the present_files call, print the closed
+                  set with print_delivery_set (canonical definition: the python fence in
+                  Framework_DeliveryFooter section 9 — copy it into the cell):
+                    print_delivery_set([
+                        '/mnt/user-data/outputs/notes_pyq_bank.json',
+                    ])
+                  Non-final batch: the one file above. LAST batch: the three-file set
+                  ['notes_pyq_bank.json', 'notes_blueprint.json', 'notes_registry.json'] (same directory).
+        PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+                  paths; any printed path not returned → one more call with exactly the
+                  missing paths (one retry, no apology, no re-run).
+        PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+                  one ❌ NOT DELIVERED row per printed path still not returned; every
+                  "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+        Never a halt (owner decision 2026-09-14).
+
 ## §3B — BANK BUILD, FIGURE SPLIT, ANSWER CAPTURE, COUNT DERIVATION
 B-1 PER-QUESTION FIELDS (notes_core.bank_add_question):
       bank_id (stable: "<paper_key>-Q<qno>"), paper_key, exam_date, exam_year,
@@ -571,4 +591,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.3.1
+# END OF Framework_NotesBlueprint v3.3.2

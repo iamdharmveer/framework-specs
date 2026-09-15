@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.09.15.1",
+  "framework_version": "2026.09.15.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -195,18 +195,18 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "ede7d9f296f9fc89267d8e90c4e815d26f5047bb2f98eeb37b750b55d9af76bf",
-      "version_header": "# Framework_Blueprint v1.60.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.60.0",
-      "lines": 7837,
-      "bytes": 436691
+      "sha256": "6c8a3a65360786eada3328403e8ec8975626fbd0b05349d4aa41f23432b18cf2",
+      "version_header": "# Framework_Blueprint v1.60.1 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.60.1",
+      "lines": 7892,
+      "bytes": 441045
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "8f3ea1fca41219d91bb97d786f6c76f88c70bf54ba39e774444bb16b8b100f55",
-      "version_header": "# Framework_DeliveryFooter v1.34 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "d86065d88b76b7dd829d81e176d768d70efd063a55fdb515c4f73e37c19caffb",
+      "version_header": "# Framework_DeliveryFooter v1.35 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 1130,
-      "bytes": 65458
+      "lines": 1160,
+      "bytes": 67262
     },
     "Framework_MockDeliver.md": {
       "sha256": "2d45510cc589fb5fbf5123bd794db5e89db62e83c6888b5ab730c20d7056d0f7",
@@ -237,32 +237,32 @@
       "bytes": 270775
     },
     "Framework_NotesAudit.md": {
-      "sha256": "c08b83d7151b3cbe60c0825885af444dbb0226996a199dc74027ba683cf6b1cd",
-      "version_header": "# Framework_NotesAudit v3.7.0 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
-      "end_sentinel": "# END OF Framework_NotesAudit v3.7.0",
-      "lines": 843,
-      "bytes": 56435
+      "sha256": "07c75257946a83f1272ca37e2e5eb495c8c34e33b4ef2c57802d4f6f0700b396",
+      "version_header": "# Framework_NotesAudit v3.7.1 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
+      "end_sentinel": "# END OF Framework_NotesAudit v3.7.1",
+      "lines": 862,
+      "bytes": 57948
     },
     "Framework_NotesBlueprint.md": {
-      "sha256": "a3d476e1b6cbb3c6f4ec33d40241654fb6878499dfa56a808963ef479deb1c92",
-      "version_header": "# Framework_NotesBlueprint v3.3.1 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
-      "end_sentinel": "# END OF Framework_NotesBlueprint v3.3.1",
-      "lines": 574,
-      "bytes": 40799
+      "sha256": "6432593d1534bea44ac4a977e781ccb92216b71229a52f9ef0cac6de4b2049d4",
+      "version_header": "# Framework_NotesBlueprint v3.3.2 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
+      "end_sentinel": "# END OF Framework_NotesBlueprint v3.3.2",
+      "lines": 594,
+      "bytes": 42490
     },
     "Framework_NotesCreate.md": {
-      "sha256": "7e6e209dfd8867eceeb32c7764f6134f7a5dd3361133a2af092d8a84f0476e88",
-      "version_header": "# Framework_NotesCreate v2.9.0 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
-      "end_sentinel": "# END OF Framework_NotesCreate v2.9.0",
-      "lines": 762,
-      "bytes": 53114
+      "sha256": "ef4017c6ef46e34916628ed41b4ff78dd8cd80755400d6e6d3a3b673ab761601",
+      "version_header": "# Framework_NotesCreate v2.9.1 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v2.9.1",
+      "lines": 781,
+      "bytes": 54625
     },
     "Framework_NotesDeliver.md": {
-      "sha256": "70473522693e9e5b6cd42f3de115dc52ac26736a663b89fbc212e989b5fad1a2",
-      "version_header": "# Framework_NotesDeliver v1.2.0 \u2014 Notes Pipeline Step ND (Portal Formatting + Delivery)",
-      "end_sentinel": "# END OF Framework_NotesDeliver v1.2.0",
-      "lines": 117,
-      "bytes": 6689
+      "sha256": "d30cdc8995c57eeb02b0b85d185bbf57ac59b01058d7961360b2b8786cdc4ceb",
+      "version_header": "# Framework_NotesDeliver v1.2.1 \u2014 Notes Pipeline Step ND (Portal Formatting + Delivery)",
+      "end_sentinel": "# END OF Framework_NotesDeliver v1.2.1",
+      "lines": 136,
+      "bytes": 8284
     },
     "Framework_PYQAnalyse.md": {
       "sha256": "4e4d8eda31b58ecc545c4767f47d3faf5a06e99e1ebdd0183a75debfac865b18",
@@ -272,18 +272,18 @@
       "bytes": 1528
     },
     "Framework_PYQApprove.md": {
-      "sha256": "0d75f8f1d093514f7f18dc8b1769c7ec5205ef64ebbfd61724eb08d9c79a021d",
-      "version_header": "# Framework_PYQApprove v1.3.0 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)",
-      "end_sentinel": "# END OF Framework_PYQApprove v1.3.0",
-      "lines": 814,
-      "bytes": 50390
+      "sha256": "4f5adeca0ffd553091f783e3d81394e772c741f79b799775b4d30818f5896a7f",
+      "version_header": "# Framework_PYQApprove v1.3.1 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)",
+      "end_sentinel": "# END OF Framework_PYQApprove v1.3.1",
+      "lines": 834,
+      "bytes": 51989
     },
     "Framework_PYQCompress.md": {
-      "sha256": "e37796fe59b22e8fd0c5f37753224f367b1e3706654e03f307624e464d6d627a",
-      "version_header": "# Framework_PYQCompress v2.1 \u2014 Universal Document Size Remediation",
-      "end_sentinel": "# END OF Framework_PYQCompress v2.1",
-      "lines": 816,
-      "bytes": 43911
+      "sha256": "3a4df97adf7c8ecb60546e9346d3bc361ec6dd08005e24c32186add1806df21f",
+      "version_header": "# Framework_PYQCompress v2.1.1 \u2014 Universal Document Size Remediation",
+      "end_sentinel": "# END OF Framework_PYQCompress v2.1.1",
+      "lines": 837,
+      "bytes": 45820
     },
     "Framework_PYQCore.md": {
       "sha256": "8e850985e899748f44cb937c9a1d75228c8e257bfdefb3a99c44f64ccbc3f69c",
@@ -293,25 +293,25 @@
       "bytes": 133374
     },
     "Framework_PYQCount.md": {
-      "sha256": "8cd7970ecf09a13b31ac4648b4079ad118632e2176f8f464fc43dc627b005e54",
-      "version_header": "# Framework_PYQCount v1.7 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
-      "end_sentinel": "# END OF Framework_PYQCount v1.7",
-      "lines": 1452,
-      "bytes": 83478
+      "sha256": "f47ffe4a8e1103b2f0176c37e760603bccb8ab66d700a52a6d9776b118b90b49",
+      "version_header": "# Framework_PYQCount v1.7.1 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.7.1",
+      "lines": 1472,
+      "bytes": 85116
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "d160da89c19065a59575d75ef7acadc63d7f18ca2aabe25ec945690fed20dc5d",
-      "version_header": "# Framework_PYQDeliver v1.13.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13.1)**",
-      "lines": 1419,
-      "bytes": 76072
+      "sha256": "63670e95950bfa34767eb1634726b4ac327600cc3519bee63e5824a31d57ef41",
+      "version_header": "# Framework_PYQDeliver v1.13.2 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13.2)**",
+      "lines": 1440,
+      "bytes": 77745
     },
     "Framework_PYQDraft.md": {
-      "sha256": "7a6e06f3474ec1caec4dc197b07b927b7f135ffe244e7ade7da3abe0a77c6061",
-      "version_header": "# Framework_PYQDraft v1.3.1 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)",
-      "end_sentinel": "# END OF Framework_PYQDraft v1.3.1",
-      "lines": 1501,
-      "bytes": 80266
+      "sha256": "69d76e0d8f9f5bf6d39f141f1ff83dd8dc1de872ef11eb1b59e9a0ac8696e534",
+      "version_header": "# Framework_PYQDraft v1.3.2 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)",
+      "end_sentinel": "# END OF Framework_PYQDraft v1.3.2",
+      "lines": 1520,
+      "bytes": 81757
     },
     "Framework_PYQExplain.md": {
       "sha256": "d2c5b93ea2dbcc16a528e7c7309e2e6cafc7f19b232b26f9bfa5cb366f323315",
@@ -321,18 +321,18 @@
       "bytes": 206946
     },
     "Framework_PYQFormat.md": {
-      "sha256": "45b117bbb0b782f642ec39babb79bf71424784bca7f5f26f1d4b6a78cc1d1a42",
-      "version_header": "# Framework_PYQFormat v1.6.0 \u2014 Universal PYQ Student Document Formatter",
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.0)**",
-      "lines": 1989,
-      "bytes": 93356
+      "sha256": "55f34f57e6e339de916dc9e828960a75836807b84d430bb19bc191424742400a",
+      "version_header": "# Framework_PYQFormat v1.6.1 \u2014 Universal PYQ Student Document Formatter",
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.1)**",
+      "lines": 2008,
+      "bytes": 94837
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "b1785cd672b7ce2da9bbf281a7274af45849d0918e343d9658d538f197d13dfa",
-      "version_header": "# Framework_PYQPrepare v2.2 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v2.2",
-      "lines": 4437,
-      "bytes": 204669
+      "sha256": "e0047ba178874b94e1813ecbb674560162d36376abfa64fd6fefc99e2cb0c8cb",
+      "version_header": "# Framework_PYQPrepare v2.2.1 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.2.1",
+      "lines": 4455,
+      "bytes": 206189
     },
     "Framework_PYQScan.md": {
       "sha256": "4e364e6a38dac754c17e34c4c08ba806eb426edfb0000613c200dd6e44bc2c32",
@@ -342,18 +342,18 @@
       "bytes": 127538
     },
     "Framework_PYQSort.md": {
-      "sha256": "48df025b5cfb5b3a2c8cce3ad8741df1284ea75a607c8f8ec1284d7f9839784a",
-      "version_header": "# Framework_PYQSort v1.21.0 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.21.0",
-      "lines": 2541,
-      "bytes": 126867
+      "sha256": "7e6aef4e3b131b79e94c08b34568bac40458f3a3455b14b2b02be2a5f0d1ce19",
+      "version_header": "# Framework_PYQSort v1.21.1 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.21.1",
+      "lines": 2559,
+      "bytes": 128367
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "3c3ab06b6eb7aa02bd76c8a17e0e6d5dd9cda9273a15c9f14422e168c6736202",
-      "version_header": "# Framework_ScopedBlueprint v1.10.0 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.10.0 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
-      "lines": 1368,
-      "bytes": 78267
+      "sha256": "02c2fd85c412632dae560c863ec8dde1818439cfc767fcbf78894128ca621d58",
+      "version_header": "# Framework_ScopedBlueprint v1.10.1 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.10.1 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1391,
+      "bytes": 80259
     },
     "validate_framework_md.py": {
       "sha256": "458c6c4f33208cabd42fd2f523982015817d93d3e988237abe1207470b37665a",
@@ -538,11 +538,11 @@
       "bytes": 13989
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "e8c0b15dec2250b511a311d52d2098a3d36ebe95ecb9f4ccf39d1fb7c0c1f7d5",
+      "sha256": "b46b87594f621fde89a2e4138486465c975c48be3377f71f59e85d4666d209e9",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 7322,
-      "bytes": 207302
+      "bytes": 207311
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

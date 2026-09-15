@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.09.15.2 — GAP-2026-09-14-DELIVERY-ECHO Release B: the fourteen prose-only delivery sites now print their closed set
+(DeliveryFooter v1.35; PYQPrepare v2.2.1, PYQDraft v1.3.2, PYQApprove v1.3.1, PYQSort v1.21.1,
+PYQCount v1.7.1, Blueprint v1.60.1, ScopedBlueprint v1.10.1, PYQFormat v1.6.1, PYQDeliver
+v1.13.2, PYQCompress v2.1.1, NotesBlueprint v3.3.2, NotesCreate v2.9.1, NotesAudit v3.7.1,
+NotesDeliver v1.2.1 — all PATCH; NO engine change; NO artefact change; NO set change)
+
+Release A (2026.09.15.1) fixed the three steps whose delivery set was built in python and
+never printed. Fourteen steps delivered from prose alone — the closed set existed only in
+a paragraph, so nothing in the tool output put the list in front of the model at call
+time, and R6's echo had no printed set to compare against. Measured at 2026.09.15.1: 0 of
+these 14 sites printed anything before present_files; Framework_ScopedBlueprint.md never
+mentioned present_files at all.
+
+**The change, per site (16 sites in 14 specs):** a DELIVERY-ECHO block at the delivery
+instruction naming the exact paths for PHASE 1 (`print_delivery_set([...])`), the PHASE 2
+echo and the PHASE 3 result-built footer. The helper is not copied into each spec:
+`Framework_DeliveryFooter` §9 now carries the CANONICAL fence (byte-identical to the three
+Release A copies — audit_deep XSPEC-DRIFT enforces it), and every route reads
+DeliveryFooter, so the definition is always in context. Sites: PYQPrepare S-DELIVERABLE;
+PYQDraft S2-6; PYQApprove S4-3; PYQSort CALL 4; PYQCount completion + session-break
+variant; Blueprint B1/B2/B3; ScopedBlueprint DoD item 12 (NEW — the spec had no delivery
+instruction); PYQFormat §9; PYQDeliver §11 (registry only when a prior copy was attached);
+PYQCompress CALL 3 (empty set → `DELIVERY SET (0 files)`, no call, header `0 of 0
+delivered`); NotesBlueprint batch + final; NotesCreate §9; NotesAudit; NotesDeliver.
+
+**Edge cases handled explicitly:** PYQCount's two-set shape (Analysis doc at completion vs
+count_progress.json at a session break); ScopedBlueprint's conditional registry (in the
+set only when S8-7 seeded it — never a withheld line, it was never a deliverable
+otherwise); PYQDeliver's local-only registry; PYQCompress's legitimate empty delivery;
+NB's growing final set. Paths that come from an engine (notes_core filenames, PYQSort
+FINAL_OUT) are named as the variable/engine result, never re-spelled.
+
+**What did not change:** no closed set (every list is transcribed from the site's own
+S10-1 / §3 contract); no gate; no engine; no baseline; no halt anywhere. All bumps are
+PATCH. H-XREF-safe wording ("section 9", never "§9") in specs whose own §9 is something
+else.
+
+**Verification:** every `validate.yml` gate on the working tree and on a deploy-simulated
+fresh clone; helper identity across the four copies checked byte-for-byte.
+
 ## 2026.09.15.1 — GAP-2026-09-14-DELIVERY-ECHO: a step can ship fewer files than its footer lists — the closed set is now printed before the call and proven from the call's result
 (DeliveryFooter v1.34, PYQExplain v2.24, MockTestAnalyse v2.57.1 PATCH, PYQScan v1.6.1; NO engine change; NO artefact change)
 

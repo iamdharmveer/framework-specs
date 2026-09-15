@@ -1,4 +1,6 @@
-# Framework_Blueprint v1.60.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.60.1 — Universal Mock Test Blueprint Generator
+# v1.60.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. B1, B2 and B3 sites.
 # v1.60.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: transition allocation; requires Framework_PYQSort v1.21.0 and Framework_PYQCount v1.7 (era fields + n_new must exist)
 # v1.59.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: blueprint.json gains the additive
 #   `style_profile_expected` flag (§14) so Step 7 can distinguish EC-22 (a profile that
@@ -4032,6 +4034,23 @@ Step 9  B1 delivery (ref §11 S11-1):
         Neither file may be omitted. If either file failed to generate: HALT here,
         state which file failed, and do not call present_files until both exist.
 
+        DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+        this delivery site was prose-only until now — nothing printed the closed set):
+          PHASE 1 — as the LAST python cell before the present_files call, print the closed
+                    set with print_delivery_set (canonical definition: the python fence in
+                    Framework_DeliveryFooter section 9 — copy it into the cell):
+                      print_delivery_set([
+                          '/mnt/user-data/outputs/[ExamCode]_blueprint.xlsx',
+                          '/mnt/user-data/outputs/[ExamCode]_blueprint.json',
+                      ])
+          PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+                    paths; any printed path not returned → one more call with exactly the
+                    missing paths (one retry, no apology, no re-run).
+          PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+                    one ❌ NOT DELIVERED row per printed path still not returned; every
+                    "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+          Never a halt (owner decision 2026-09-14).
+
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ██ BATCH GATE B1 — MANDATORY STOP ██                           ║
 ║                                                                  ║
@@ -4158,6 +4177,22 @@ Step 7  B2 delivery (ref §11 S11-2):
           [ExamCode]_blueprint.json  (updated — contains all mocks generated so far)
         blueprint.xlsx is NOT re-delivered in B2 batches — the FINAL allocation-complete
         xlsx is delivered only in B3. Do not include xlsx in B2 present_files call.
+
+        DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+        this delivery site was prose-only until now — nothing printed the closed set):
+          PHASE 1 — as the LAST python cell before the present_files call, print the closed
+                    set with print_delivery_set (canonical definition: the python fence in
+                    Framework_DeliveryFooter section 9 — copy it into the cell):
+                      print_delivery_set([
+                          '/mnt/user-data/outputs/[ExamCode]_blueprint.json',
+                      ])
+          PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+                    paths; any printed path not returned → one more call with exactly the
+                    missing paths (one retry, no apology, no re-run).
+          PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+                    one ❌ NOT DELIVERED row per printed path still not returned; every
+                    "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+          Never a halt (owner decision 2026-09-14).
         Print upload instruction (MANDATORY):
           "Download this blueprint.json. Delete the old version from your [ExamCode]
            project knowledge. Upload this new version. Then start a fresh chat and
@@ -4405,6 +4440,26 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
         present_files with all 5 output files (ref §11 S11-3):
           Order: blueprint.xlsx, blueprint.json, registry.json,
                  EXPLAIN_LEARNINGS_v1.md, mock_test_audit.py
+
+        DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+        this delivery site was prose-only until now — nothing printed the closed set):
+          PHASE 1 — as the LAST python cell before the present_files call, print the closed
+                    set with print_delivery_set (canonical definition: the python fence in
+                    Framework_DeliveryFooter section 9 — copy it into the cell):
+                      print_delivery_set([
+                          '/mnt/user-data/outputs/[ExamCode]_blueprint.xlsx',
+                          '/mnt/user-data/outputs/[ExamCode]_blueprint.json',
+                          '/mnt/user-data/outputs/[ExamCode]_registry.json',
+                          '/mnt/user-data/outputs/[ExamCode]_EXPLAIN_LEARNINGS_v1.md',
+                          '/mnt/user-data/outputs/[ExamCode]_mock_test_audit.py',
+                      ])
+          PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+                    paths; any printed path not returned → one more call with exactly the
+                    missing paths (one retry, no apology, no re-run).
+          PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+                    one ❌ NOT DELIVERED row per printed path still not returned; every
+                    "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+          Never a halt (owner decision 2026-09-14).
 
         CHECKLIST before calling present_files:
           ☐ §15-CHECKLIST items XLSX-1 through XLSX-5 all passed
@@ -7834,4 +7889,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.60.0
+# END OF Framework_Blueprint v1.60.1

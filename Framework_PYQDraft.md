@@ -1,4 +1,6 @@
-# Framework_PYQDraft v1.3.1 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# Framework_PYQDraft v1.3.2 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# v1.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v1.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: §3.4
 #   NAMING date stamp accepts YYYY-MM and YYYYMM (R-a — claude.ai project
 #   Files strips '-' from uploaded filenames; verified 2026-09-05 with
@@ -1456,6 +1458,23 @@ TAXONOMY MODE DELIVERY (S10-1 closed set):
 
 Deliver taxonomy_draft.json and exam_config.json via present_files.
 
+DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+this delivery site was prose-only until now — nothing printed the closed set):
+  PHASE 1 — as the LAST python cell before the present_files call, print the closed
+            set with print_delivery_set (canonical definition: the python fence in
+            Framework_DeliveryFooter section 9 — copy it into the cell):
+              print_delivery_set([
+                  '/mnt/user-data/outputs/[ExamCode]_taxonomy_draft.json',
+                  '/mnt/user-data/outputs/[ExamCode]_exam_config.json',
+              ])
+  PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+            paths; any printed path not returned → one more call with exactly the
+            missing paths (one retry, no apology, no re-run).
+  PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+            one ❌ NOT DELIVERED row per printed path still not returned; every
+            "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+  Never a halt (owner decision 2026-09-14).
+
 Print:
   "Phase 0a complete.
    Draft taxonomy: [N] sections, [M] topics, [K] subtopics.
@@ -1498,4 +1517,4 @@ Print:
 
 ---
 
-# END OF Framework_PYQDraft v1.3.1
+# END OF Framework_PYQDraft v1.3.2

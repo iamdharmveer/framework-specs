@@ -1,4 +1,6 @@
-# Framework_PYQFormat v1.6.0 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.6.1 — Universal PYQ Student Document Formatter
+# v1.6.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v1.6.0 — 2026-09-03 — GAP-2026-09-03-PAGE-BORDER: a full-page border frames EVERY page of
 #   the formatted document. NEW §6A defines the border (pgBorders: single 0.75pt line,
 #   #1F3864, 24pt from the PAGE edge, all four sides, display attribute ABSENT = all pages
@@ -871,6 +873,23 @@ PYQ-3 delivers in a single response (no batching):
 
 1. All integrity checks (§8) pass.
 2. Present `[ExamCode]_[date]_[session]_PYQ_Formatted.docx` via present_files.
+
+   DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+   this delivery site was prose-only until now — nothing printed the closed set):
+     PHASE 1 — as the LAST python cell before the present_files call, print the closed
+               set with print_delivery_set (canonical definition: the python fence in
+               Framework_DeliveryFooter section 9 — copy it into the cell):
+                 print_delivery_set([
+                     '/mnt/user-data/outputs/[ExamCode]_[date]_[session]_PYQ_Formatted.docx',
+                 ])
+     PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+               paths; any printed path not returned → one more call with exactly the
+               missing paths (one retry, no apology, no re-run).
+     PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+               one ❌ NOT DELIVERED row per printed path still not returned; every
+               "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+     Never a halt (owner decision 2026-09-14).
+
 3. Print the delivery report (§10).
 4. Render the post-delivery footer per Framework_DeliveryFooter.md:
    - F2 (step-complete, GREEN) — PYQ-3 delivers once, always complete.
@@ -1986,4 +2005,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.6.0)**
+**End of Framework_PYQFormat.md (v1.6.1)**

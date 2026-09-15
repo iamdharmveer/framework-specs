@@ -1,4 +1,6 @@
-# Framework_ScopedBlueprint v1.10.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.10.1 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.10.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. New DoD item 12 (this spec never named its present_files call).
 # v1.10.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
 #   PYQExplain v2.18, MockTestAnalyse v2.55). §1-3 loads the optional difficulty profile
 #   (bc.dp_check_profile) instead of section_rules' retired PYQ_DIFFICULTY_CALIBRATION; S5-1
@@ -1363,6 +1365,27 @@ strict-global uniqueness holds across all tiers:
          r_avg, format, marking from the Step-5 outputs + exam_config. Difficulty from the
          Step-5 outputs (default/progressive) OR directly from the trigger (--difficulty S:M:H
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
+  ☐ 12. DELIVERY (Framework_DeliveryFooter section 3, 6S block): the two scoped files, plus
+         [ExamCode]_registry.json ONLY when S8-7 seeded a fresh one this run.
+
+  DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+  this delivery site was prose-only until now — nothing printed the closed set):
+    PHASE 1 — as the LAST python cell before the present_files call, print the closed
+              set with print_delivery_set (canonical definition: the python fence in
+              Framework_DeliveryFooter section 9 — copy it into the cell):
+                print_delivery_set([
+                    '/mnt/user-data/outputs/[ExamCode]_[SCOPETAG]_blueprint.json',
+                    '/mnt/user-data/outputs/[ExamCode]_[SCOPETAG]_blueprint.xlsx',
+                ])
+              Add '/mnt/user-data/outputs/[ExamCode]_registry.json' to the list ONLY when S8-7 seeded it
+              this run; otherwise it is not in the set and needs no withheld line (it was never a deliverable).
+    PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+              paths; any printed path not returned → one more call with exactly the
+              missing paths (one retry, no apology, no re-run).
+    PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+              one ❌ NOT DELIVERED row per printed path still not returned; every
+              "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+    Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.10.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.10.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)

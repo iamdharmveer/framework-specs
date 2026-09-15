@@ -1,4 +1,9 @@
-# Framework_DeliveryFooter v1.34 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.35 — Universal Delivery Footer (F1/F2) Contract
+# v1.35 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2). §9 now carries
+#   the CANONICAL print_delivery_set fence (byte-identical to the PYQScan / PYQExplain /
+#   MockTestAnalyse copies) so the fourteen prose-only delivery sites — Steps 1, 2a, 2c, 3,
+#   4, 6, 6S, PYQ-3, PYQ-4, L2, NB, NC, NA, ND — can name it without each carrying a copy;
+#   STEP COVERAGE updated to "every step". Sets unchanged; no gate, no engine, no halt.
 # v1.34 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (owner decision 2026-09-14; paired
 #   with PYQExplain v2.24, MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident:
 #   PYQExplain final batch shipped ONLY the Explanation docx and left
@@ -1124,7 +1129,32 @@ any other step. Engines are untouched (owner decision).
 
 STEP COVERAGE. Release A (2026.09.15.1): this contract + the three steps where the
 set is built in python and was never printed — PYQExplain S19-2, PYQExtract
-S8-4 deliver_final + per-batch site, PYQScan S3-5. Release B: the fourteen
-prose-only delivery sites (1, 2a, 2c, 3, 4, 6, 6S, PYQ-3, PYQ-4, L2, NB, NC, NA,
-ND) gain a PHASE 1 print each. R6 already binds every step from this release on.
+S8-4 deliver_final + per-batch site, PYQScan S3-5 (each carries its own copy of
+the helper below). Release B (2026.09.15.2): the fourteen prose-only delivery
+sites — Steps 1, 2a, 2c, 3, 4, 6, 6S, PYQ-3, PYQ-4, L2, NB, NC, NA, ND — each
+carry a DELIVERY-ECHO block naming their closed set and pointing at the canonical
+helper below. Every present_files call in the framework is now covered.
+```
+
+CANONICAL HELPER — copy this fence verbatim into the last python cell before the
+present_files call (the Release A specs carry their own identical copy):
+
+```python
+def print_delivery_set(paths, withheld=()):
+    """DELIVERY-ECHO PHASE 1 — Framework_DeliveryFooter §9 / R6 (v1.34).
+    Prints the CLOSED set the model must pass to ONE present_files call, warns on
+    any path absent from disk, and names every file deliberately withheld this run.
+    Reports only — never raises (owner decision 2026-09-14: this never halts).
+    Byte-identical copy in every spec that builds a delivery set in python
+    (PYQScan / PYQExplain / MockTestAnalyse) — audit_deep XSPEC-DRIFT keeps it so."""
+    import os as _os
+    print(f"\nDELIVERY SET ({len(paths)} files) — pass EXACTLY these paths to "
+          f"present_files, ONE call:")
+    for _p in paths:
+        print(f"  {_p}")
+        if not _os.path.exists(_p):
+            print(f"DELIVERY WARN: {_os.path.basename(_p)} not staged on disk — "
+                  f"delivering the rest; it becomes a NOT DELIVERED row (R6-d)")
+    for _name, _why in withheld:
+        print(f"NOT DELIVERED THIS RUN: {_name} — {_why}")
 ```

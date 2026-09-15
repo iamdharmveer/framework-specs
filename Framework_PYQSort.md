@@ -1,4 +1,6 @@
-# Framework_PYQSort v1.21.0 — Universal PYQ Sorter
+# Framework_PYQSort v1.21.1 — Universal PYQ Sorter
+# v1.21.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v1.21.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: syllabus era + OOS labeling
 # v1.20.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
@@ -2109,6 +2111,22 @@ DELIVERABLE SET CONTRACT (CLOSED):
     3. All 10 validation checks PASSED on this file
     4. FINAL_OUT is a copy of the GOVERNED file (OUT_FILE), never of RAW_OUT
 
+  DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+  this delivery site was prose-only until now — nothing printed the closed set):
+    PHASE 1 — as the LAST python cell before the present_files call, print the closed
+              set with print_delivery_set (canonical definition: the python fence in
+              Framework_DeliveryFooter section 9 — copy it into the cell):
+                print_delivery_set([
+                    FINAL_OUT,   # == /mnt/user-data/outputs/[ExamCode]_<date-range>_Sorted_Q1-Q<N>.docx — pass the variable
+                ])
+    PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+              paths; any printed path not returned → one more call with exactly the
+              missing paths (one retry, no apology, no re-run).
+    PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+              one ❌ NOT DELIVERED row per printed path still not returned; every
+              "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+    Never a halt (owner decision 2026-09-14).
+
 If script fails: fix and re-run within the 4-call budget.
 If validation fails: iterate until PASSED, then deliver.
 
@@ -2538,4 +2556,4 @@ kept in `legacy_label` (L-5). Historical questions are NEVER deleted or
 filtered (R20) — labeling is disclosure, not removal. New-era papers and
 inactive/legacy exams: byte-identical to v1.20.1 behaviour.
 
-# END OF Framework_PYQSort v1.21.0
+# END OF Framework_PYQSort v1.21.1

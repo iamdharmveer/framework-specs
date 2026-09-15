@@ -1,4 +1,6 @@
-# Framework_PYQApprove v1.3.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# Framework_PYQApprove v1.3.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# v1.3.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v1.3.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE (companion; the fix lives
 #   in PYQScan v1.6.0). S4-0 passes manual_corrections= to build_approval_record
 #   (reconcile_taxonomy v1.5): when the operator edited classifications.json or
@@ -630,6 +632,24 @@ APPROVE MODE DELIVERY (S10-1 closed set):
   No other files. Run S10-2 pre-delivery checklist before present_files.
   scan_progress.json and classifications.json are INPUTS — do NOT forward.
 
+  DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
+  this delivery site was prose-only until now — nothing printed the closed set):
+    PHASE 1 — as the LAST python cell before the present_files call, print the closed
+              set with print_delivery_set (canonical definition: the python fence in
+              Framework_DeliveryFooter section 9 — copy it into the cell):
+                print_delivery_set([
+                    '/mnt/user-data/outputs/[ExamCode]_PYQ_Analysis.docx',
+                    '/mnt/user-data/outputs/[ExamCode]_exam_config.json',
+                    '/mnt/user-data/outputs/[ExamCode]_approval_record.json',
+                ])
+    PHASE 2 — ONE present_files call with exactly the printed paths; read the RETURNED
+              paths; any printed path not returned → one more call with exactly the
+              missing paths (one retry, no apology, no re-run).
+    PHASE 3 — footer rows from the RETURNED paths only; F2 header "[k] of [n] delivered";
+              one ❌ NOT DELIVERED row per printed path still not returned; every
+              "NOT DELIVERED THIS RUN" line repeated beneath the table prefixed "ℹ️ ".
+    Never a halt (owner decision 2026-09-14).
+
 Also deliver [ExamCode]_exam_config.json (from Phase 0a).
 This file is needed by PYQSort for section detection in Q-range mode.
 
@@ -811,4 +831,4 @@ Reinstated proposals re-enter through the NORMAL refinement path (E58);
 approved crosswalk replaces the draft in exam_config at
 `syllabus_transition.crosswalks` (sole approval writer: THIS step).
 
-# END OF Framework_PYQApprove v1.3.0
+# END OF Framework_PYQApprove v1.3.1
