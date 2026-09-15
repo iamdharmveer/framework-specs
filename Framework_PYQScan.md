@@ -1,4 +1,14 @@
-# Framework_PYQScan v1.6.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.6.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.6.1 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6).
+#   present_files is CLASS T (`pass`): the model performs the call from what it can
+#   SEE. S3-5 built [progress_path, classif_path] in python and never printed it, so
+#   the call was made from memory; and on the CONVERGED path S3-5 returned after
+#   print_convergence_summary() with NO present_files at all — the final
+#   scan_progress.json + classifications.json were delivered only if the model
+#   remembered S10-1 unprompted. Both sites now print the closed set through
+#   print_delivery_set() (PHASE 1) immediately before ONE present_files call; the
+#   converged path (all three exits: pre-scan all-done, refinement→converged,
+#   converged) delivers explicitly. Reports only — no new stop, no engine change.
 # v1.6.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE. A classified row
 #   could be ORPHANED — its (section, topic, subtopic) absent from
 #   scan_progress['taxonomy'] — with no log, no stop, until PYQApprove INV-5 held
@@ -1350,6 +1360,25 @@ def present_files(paths):
     turn; nothing returns to python and no call site may consume a result (C6).
     """
     pass  # CLASS: T — performed by the model between turns, never from python
+
+def print_delivery_set(paths, withheld=()):
+    """DELIVERY-ECHO PHASE 1 — Framework_DeliveryFooter §9 / R6 (v1.34).
+    Prints the CLOSED set the model must pass to ONE present_files call, warns on
+    any path absent from disk, and names every file deliberately withheld this run.
+    Reports only — never raises (owner decision 2026-09-14: this never halts).
+    Byte-identical copy in every spec that builds a delivery set in python
+    (PYQScan / PYQExplain / MockTestAnalyse) — audit_deep XSPEC-DRIFT keeps it so."""
+    import os as _os
+    print(f"\nDELIVERY SET ({len(paths)} files) — pass EXACTLY these paths to "
+          f"present_files, ONE call:")
+    for _p in paths:
+        print(f"  {_p}")
+        if not _os.path.exists(_p):
+            print(f"DELIVERY WARN: {_os.path.basename(_p)} not staged on disk — "
+                  f"delivering the rest; it becomes a NOT DELIVERED row (R6-d)")
+    for _name, _why in withheld:
+        print(f"NOT DELIVERED THIS RUN: {_name} — {_why}")
+
 def run_scan(exam_code, progress, paper_queue, total_available):
     """Main scan loop — processes papers in batches."""
 
@@ -1389,6 +1418,13 @@ def run_scan(exam_code, progress, paper_queue, total_available):
         save_classifications(classifications, exam_code)
         conv_status = report_gate_status(progress, total_available, all_years)
         print_convergence_summary(progress, classifications, exam_code)
+        # v1.6.1 — DELIVERY-ECHO: both files were just rewritten (refinement /
+        # orphan stamp); deliver the S10-1 closed set explicitly on this path too.
+        # Run S10-2 pre-delivery checklist before present_files.
+        _final_paths = [f'/mnt/user-data/outputs/{exam_code}_scan_progress.json',
+                        f'/mnt/user-data/outputs/{exam_code}_classifications.json']
+        print_delivery_set(_final_paths)
+        present_files(_final_paths)
         return
 
     print(f"Papers: {len(done_ids)} done / {total_available} total. "
@@ -1545,11 +1581,25 @@ def run_scan(exam_code, progress, paper_queue, total_available):
                 save_scan_progress(progress, exam_code)
                 save_classifications(classifications, exam_code)
                 print_convergence_summary(progress, classifications, exam_code)
+                # v1.6.1 — DELIVERY-ECHO: the converged path delivers the S10-1 closed set
+                # explicitly (through v1.6.0 it returned with no present_files call).
+                # Run S10-2 pre-delivery checklist before present_files.
+                _final_paths = [f'/mnt/user-data/outputs/{exam_code}_scan_progress.json',
+                                f'/mnt/user-data/outputs/{exam_code}_classifications.json']
+                print_delivery_set(_final_paths)
+                present_files(_final_paths)
                 return
         elif status == 'converged':
             save_scan_progress(progress, exam_code)
             save_classifications(classifications, exam_code)
             print_convergence_summary(progress, classifications, exam_code)
+            # v1.6.1 — DELIVERY-ECHO: the converged path delivers the S10-1 closed set
+            # explicitly (through v1.6.0 it returned with no present_files call).
+            # Run S10-2 pre-delivery checklist before present_files.
+            _final_paths = [f'/mnt/user-data/outputs/{exam_code}_scan_progress.json',
+                            f'/mnt/user-data/outputs/{exam_code}_classifications.json']
+            print_delivery_set(_final_paths)
+            present_files(_final_paths)
             return
 
         # ══ BATCH STOP LAW (S3-4a) — HARD STOP ══════════════
@@ -1568,9 +1618,9 @@ def run_scan(exam_code, progress, paper_queue, total_available):
         # Run S10-2 pre-delivery checklist before present_files.
         progress_path = f'/mnt/user-data/outputs/{exam_code}_scan_progress.json'
         classif_path  = f'/mnt/user-data/outputs/{exam_code}_classifications.json'
-        present_files([progress_path, classif_path])
-
         print(f"\n  Say 'continue' to process next batch.")
+        print_delivery_set([progress_path, classif_path])   # v1.6.1 — DELIVERY-ECHO PHASE 1 (last output)
+        present_files([progress_path, classif_path])
         return  # EXIT — response ENDS here
 
 def save_scan_progress(progress, exam_code):
@@ -2333,4 +2383,4 @@ Nothing is discarded: R30 re-evaluates this log at 2c approval in BOTH
 directions (reinstate on un-delete, extend on newly-deleted). Inactive or
 legacy exams: this section is skipped byte-identically.
 
-# END OF Framework_PYQScan v1.6.0
+# END OF Framework_PYQScan v1.6.1

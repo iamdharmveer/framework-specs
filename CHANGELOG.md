@@ -1,5 +1,92 @@
 # Changelog
 
+## 2026.09.15.1 — GAP-2026-09-14-DELIVERY-ECHO: a step can ship fewer files than its footer lists — the closed set is now printed before the call and proven from the call's result
+(DeliveryFooter v1.34, PYQExplain v2.24, MockTestAnalyse v2.57.1 PATCH, PYQScan v1.6.1; NO engine change; NO artefact change)
+
+**Owner decisions 2026-09-14:** never a hard stop; on an echo mismatch re-call
+present_files with the missing files automatically; two releases (this is Release
+A — the contract plus the three steps whose delivery set is built in python;
+Release B covers the fourteen prose-only delivery sites); §3 registry drift fixed
+here; no engine (.py) changes.
+
+**Reference incident.** PYQExplain's FINAL batch attached ONLY
+`[ExamCode]_[date]_[session]_PYQ_Explanation.docx` and left
+`_pyq_explain_progress.json` + `[ExamCode]_difficulty_profile.json` unattached,
+while the F2 footer listed all three; asked, the model delivered them and said it
+had forgotten. S19-1 check 5 had already PROVED all three were on disk
+(`present == expected`), so the loss was at the CALL.
+
+**Root cause — structural, one mechanism, every step.** `present_files` is a
+CLASS T stub (`def present_files(paths): pass`). The python call does nothing; the
+model performs the real tool call in its own turn from what it can SEE. Steps
+7/9/11 print the closed set first (`pp.handoff_footer_lines`) and were never hit.
+PYQExplain S19-2, PYQExtract `deliver_final` and PYQScan S3-5 built the list in
+python and NEVER PRINTED IT, so the call was made from memory — and on a final
+batch the set grows (docx → docx + json + profile) while the tool output looks
+like every earlier batch, so the "one docx per present_files" habit wins. And in
+no spec did anything read what present_files RETURNED: the footer was composed
+from intent, so it could list a file the call never attached. Measured census at
+2026.09.14.3: 3 steps print the set (7/9/11), 3 build-but-never-print (5, 2b,
+PYQ-1), 14 are prose only; 0 read the result.
+
+**Second defect found while fixing, PYQScan S3-5:** the CONVERGED path returned
+after `print_convergence_summary()` with NO present_files call at all — the final
+scan_progress.json + classifications.json shipped only if the model remembered
+S10-1 unprompted. Now delivered explicitly (both converged branches).
+
+**The fix — Framework_DeliveryFooter §9 DELIVERY-ECHO, bound by §4-0 R6.**
+PHASE 1 (python): `print_delivery_set(paths, withheld)` prints "DELIVERY SET (n
+files) — pass EXACTLY these paths to present_files, ONE call:" as the last lines
+of the tool output, warns on any path absent from disk, and names every file
+deliberately withheld this run ("NOT DELIVERED THIS RUN: <file> — <reason>": a
+dormant difficulty profile, a conditional Step-5 artefact not generated). It
+reports only — no raise, no SystemExit. PHASE 2 (model): ONE present_files call
+with the printed paths; compare the RETURNED paths; any missing → one retry with
+exactly the missing paths. PHASE 3 (model): footer rows from RETURNED paths only,
+one ❌ NOT DELIVERED row per printed path never returned, F2 header "[k] of [n]
+delivered". Byte-identical helper in the three specs (audit_deep XSPEC-DRIFT
+keeps them so; fingerprint ignores comments/docstrings).
+
+Per spec:
+- DeliveryFooter v1.34 — R6; §4-1 header `[k] of [n] delivered` (+ optional ❌
+  row); §9; §3 Step 5 FINAL corrected to the v2.56 set (7 mandatory + 2
+  conditional, S11-3 emission order — it had stopped at 5 mandatory); §3 gains
+  the PYQ EXPLANATION TRACK block (PYQ-1 / PYQ-3 / PYQ-4 / L2 — it had none).
+- PYQExplain v2.24 — S19-2 prints the set every batch, dormant profile named;
+  S19-4 PHASE 2/3. S19-1 unchanged.
+- MockTestAnalyse v2.57.1 — per-batch site and deliver_final print the set;
+  deliver_final's printed handoff names the full S11-2 PART C set (it named 3 of
+  9). PATCH bump on purpose: a MINOR bump would force the engine stamps
+  (MS-3) and change section_rules.md. MS-11 parses the deliver_final block by
+  its append/+= lines, untouched; verified 0 issues.
+- PYQScan v1.6.1 — S3-5 batch site prints the set; converged path delivers.
+
+**What this is NOT.** Not a gate (nothing here halts), not a law (LAW_REGISTRY
+accepts four `detect` rules and a model-performed tool call has no python
+performing set to derive), not an engine change. Steps 7/9/11's pre-existing
+`pp.verify_handoff_outputs` HARD STOP is NOT propagated to any other step.
+
+**Side effects measured, all zero:** SPEC-BUDGET (DeliveryFooter's read set
+already covers every over-threshold route); MS-3 (PATCH); MS-9 (Step-5 FINAL
+segment still names exam_config.json + taxonomy.xlsx); MS-10 (only PYQDeliver
+pins DeliveryFooter, at v1.16); MS-11 (0); XSPEC-DRIFT (identical helper bodies);
+spec_name_audit (no new findings, no baseline edit); golden set — deliver_final
+is not reached by run_synthesise and the edit prints only. Two near-misses
+during the build, both caught by the gates before delivery: a header changelog
+line that quoted the literal `delivery = [` … `present_files(delivery)` was
+captured FIRST by MS-11's non-greedy regex (7 findings), and a comment between
+the `+=` line and the call that contained the call's own text did the same.
+
+**Corrections to the 2026-09-14 pre-release analysis (on the record):**
+(1) PYQExplain S19-1 DOES assert the json and profile are on disk (check 5/6/8);
+the earlier note that it did not was wrong. (2) The SPEC-BUDGET thin-route watch
+in NEXT-WAVE-BRIEF is stale: DeliveryFooter's read set makes every route
+"covered", so the gate cannot fire for any route — a pre-existing weakening,
+recorded, not changed here.
+
+**Release B (next):** PHASE-1 prints for Steps 1, 2a, 2c, 3, 4, 6, 6S, PYQ-3,
+PYQ-4, L2, NB, NC, NA, ND. R6 already binds them from this release.
+
 ## 2026.09.14.3 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE: a classified row can name no live taxonomy path, silently, until PYQApprove INV-5 holds — closed at source with one rulebook
 (PYQScan v1.6.0, PYQApprove v1.3.0, reconcile_taxonomy v1.5; schema_version "2.0" unchanged)
 

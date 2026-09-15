@@ -1,4 +1,19 @@
-# Framework_DeliveryFooter v1.33 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.34 — Universal Delivery Footer (F1/F2) Contract
+# v1.34 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (owner decision 2026-09-14; paired
+#   with PYQExplain v2.24, MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident:
+#   PYQExplain final batch shipped ONLY the Explanation docx and left
+#   pyq_explain_progress.json + difficulty_profile.json unattached, while the F2 footer
+#   listed all three. Root cause is structural, not per-step: present_files is a
+#   CLASS T stub (`pass`) — the model performs the real call from what it REMEMBERS,
+#   and nothing ever read the call's RESULT. NEW §4-0 R6 + §9 DELIVERY-ECHO: (1) the
+#   closed set is printed in the tool output immediately before the call, EVERY batch;
+#   (2) after the call the RETURNED paths are compared to that set; any missing file
+#   is re-presented at once; (3) footer rows and the F2 header count come ONLY from
+#   returned paths. NEVER a halt (owner decision): a file absent on disk is delivered as
+#   a named ❌ row, not silently dropped, not a stop. §3 registry drift fixed in the same
+#   release: Step 5 FINAL now lists the v2.56 style_profile.json + pyq_index.json (7
+#   mandatory + 2 conditional, matching MockTestAnalyse S11-3), and the PYQ EXPLANATION
+#   TRACK (PYQ-1 / PYQ-3 / PYQ-4 / L2) gains its registry block — it had none.
 # v1.33 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
 #   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, MockDeliver
 #   v1.22.0, paper_pipeline CLUSTER RS). The "Replace in Project Files" badge on
@@ -353,21 +368,28 @@ FOOTER TYPE: F1 (mid-step) after each non-final batch
 MID-STEP DELIVERABLES (per batch):
   [ExamCode]_analysis_progress.json  → Upload (1st batch) / Replace (subsequent)
 
-FINAL DELIVERABLES (5 mandatory + 2 conditional — exam_config.json when
+FINAL DELIVERABLES (7 mandatory + 2 conditional — exam_config.json when
 generated, taxonomy.xlsx when written; the two-tier set MockTestAnalyse S11-3
-enforces. v1.23 heading; the v1.21 note below is historical — v1.21,
-GAP-2026-08-13-DELIVERY-COUNT-DRIFT mirrored from MockTestAnalyse v2.47: this
-list said "5 files", predating BOTH the v2.24.9 exam_config addition and the
-v2.24 taxonomy companion, so exam_config had no badge and taxonomy.xlsx fell
-through to an Upload badge for an xlsx this spec itself calls unreadable):
+enforces, listed here in the S11-3 emission order. v1.34 heading — this block
+had stopped at 5 mandatory and never gained the v2.56 style_profile.json /
+pyq_index.json pair (GAP-2026-09-14-DELIVERY-ECHO, registry-drift half). The
+v1.21 note is historical — v1.21, GAP-2026-08-13-DELIVERY-COUNT-DRIFT mirrored
+from MockTestAnalyse v2.47: this list said "5 files", predating BOTH the v2.24.9
+exam_config addition and the v2.24 taxonomy companion, so exam_config had no
+badge and taxonomy.xlsx fell through to an Upload badge for an xlsx this spec
+itself calls unreadable):
   [ExamCode]_section_rules.md        → Upload to Project Files
   [ExamCode]_subtopic_manifest.json  → Upload to Project Files
   [ExamCode]_PYQ_Frequency.xlsx      → Use locally (Step 6 input — user provides when needed)
+  [ExamCode]_style_profile.json      → Upload to Project Files (v2.56; DORMANT is a written
+                                       status, never a missing file)
+  [ExamCode]_pyq_index.json          → Upload to Project Files (v2.56; same corpus_hash as
+                                       the profile — replace the pair together)
   [ExamCode]_exam_config.json        → Replace in Project Files (subjects[] added by S-SECMAP;
                                        delivered only when generated)
+  [ExamCode]_taxonomy.xlsx           → Use locally (human-readable id companion; when written)
   [ExamCode]_analysis_progress.json  → Use locally (keep for future re-runs if adding papers)
   [ExamCode]_analysis_summary.md     → Use locally (human review audit trail)
-  [ExamCode]_taxonomy.xlsx           → Use locally (human-readable id companion; when written)
 
 NEXT STEP  : Step 6: MockBlueprint (parallel with Step 5 — see §1 F2 special case)
 
@@ -496,6 +518,68 @@ NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
              Next scoped paper : Step 7: TestCreate P[N+1] (same --level/--scope), or
                                  the series is complete when N == the scoped
                                  blueprint's paper count (v1.24)
+
+═══════════════════════════════════════════════════════════════════════
+PYQ EXPLANATION TRACK — PYQ-1 / PYQ-3 / PYQ-4 / L2 (v1.34 — this track had NO
+block here; each spec's own delivery section was the only source. Sets below
+are transcribed from each spec's own delivery section — PYQExplain S19-2,
+PYQFormat, PYQDeliver, PYQCompress — and change ONLY when those change. PYQ-2
+is retired.)
+═══════════════════════════════════════════════════════════════════════
+PYQ-1 — PYQExplain
+PARTS      : Multiple batches (question ranges)
+FOOTER TYPE: F1 (mid-step) after each non-final batch
+             F2 (step-complete) after the final batch (100% coverage)
+
+MID-STEP DELIVERABLES (every batch, cumulative docx):
+  [ExamCode]_[date]_[session]_PYQ_Explanation.docx → Use locally
+
+FINAL DELIVERABLES (final batch — the docx PLUS the two files below; the batch
+habit of "one docx per present_files" does NOT apply to the final batch):
+  [ExamCode]_[date]_[session]_PYQ_Explanation.docx        → Use locally (PYQ-3 / PYQ-4 input)
+  [ExamCode]_[date]_[session]_pyq_explain_progress.json   → Use locally (PYQ-3 / PYQ-4
+                                                             q_to_classification source —
+                                                             attach it WITH the docx)
+  [ExamCode]_difficulty_profile.json                       → Replace in Project Files
+                                                             (Upload on the first run; NOT
+                                                             delivered when S7A-6 reports
+                                                             PROFILE_STATUS dormant — the
+                                                             footer then prints the dormant
+                                                             line — R6 (d))
+
+NEXT STEP  : PYQ-3: PYQFormat (student-facing document) · PYQ-4: PYQDeliver (portal)
+             — both take the PYQ-1 docx + progress json directly, in a new chat.
+
+PYQ-3 — PYQFormat
+PARTS      : 1 (single response)
+FOOTER TYPE: F2 (step-complete) — always
+DELIVERABLES:
+  [ExamCode]_[date]_[session]_PYQ_Formatted.docx          → Use locally
+NEXT STEP  : Student-facing document — ready for distribution. Portal delivery is
+             PYQ-4: PYQDeliver (from the PYQ-1 output, not this file).
+
+PYQ-4 — PYQDeliver
+PARTS      : 1 (single response)
+FOOTER TYPE: F2 (step-complete) — always
+DELIVERABLES:
+  [ExamCode]_[date]_[session]_PYQ_Final.docx              → Use locally
+  [ExamCode]_pyq_registry.json                             → Use locally — LOCAL-ONLY, and
+                                                             ONLY when a prior copy was
+                                                             attached to the trigger; on the
+                                                             normal run no registry row appears
+NEXT STEP  : PYQ pipeline complete for [ExamCode] [date] [session].
+             Next paper: PYQ-1: PYQExplain in a new chat.
+
+L2 — PYQCompress
+PARTS      : 1 (single response, one or more input files)
+FOOTER TYPE: F2 (step-complete) — always
+DELIVERABLES:
+  one .docx per input, named IDENTICALLY to that input (COMPRESS-NAME-IDENTITY,
+  2026.09.14.1)                                            → Use locally
+NEXT STEP  : Replace the file(s) in Drive. No pipeline step follows.
+
+PIPELINE BAR for this track: NONE — the 11-cell Mock/PYQ bar and the 4-cell Notes
+bar both stay OFF; omit the `Pipeline …` line and keep the Next callout.
 
 §FOOTER-DG — DIFFICULTY-GATE DISCLOSURE LINES (v1.25 — GAP-2026-08-25-DIFFICULTY-
 GATE-ROUND-COUNTER; referenced by MockDeliver since v1.13.0, defined here for the
@@ -688,6 +772,17 @@ R4. State color is MANDATORY and must match the footer type:
 R5. Filenames in `inline code`; one NUMBERED table row per deliverable; the
     Action column carries the §2 badge text VERBATIM, prefixed with its icon
     (📤 Upload to Project Files / 🔁 Replace in Project Files / 📁 Use locally).
+R6. DELIVERY-ECHO (v1.34 — GAP-2026-09-14-DELIVERY-ECHO; full contract in §9).
+    present_files is performed by the model, so its RESULT is the only proof a
+    file shipped. The footer is built from that result, never from intent:
+    (a) call present_files ONCE with EVERY path the step's tool output printed
+        under "DELIVERY SET"; (b) read the paths the tool RETURNED; (c) any
+        printed path not returned → call present_files again with exactly the
+        missing paths, BEFORE writing the footer; (d) one table row per RETURNED
+        path, plus one ❌ row per path still not returned; (e) the F2 header line
+        is "[k] of [n] delivered" from those counts. NEVER a halt (owner
+        decision 2026-09-14): a file that could not be attached is a named row,
+        never a silent omission and never a stop.
 ```
 
 ### §4-1 — F2 step-complete footer (GREEN) — Markdown template
@@ -699,7 +794,7 @@ The literal structure to emit (substitute [bracketed] values; keep everything el
 
 ## ✅ Step [N] · [StepName] — Complete
 
-`[ExamCode]`  ·  all deliverables ready
+`[ExamCode]`  ·  [k] of [n] delivered
 
 **📦 Deliverables**
 
@@ -707,6 +802,7 @@ The literal structure to emit (substitute [bracketed] values; keep everything el
 | :---: | :--- | :--- |
 | 1 | `[ExamCode]_<file1>.<ext>` | [icon] [badge] |
 | 2 | `[ExamCode]_<file2>.<ext>` | [icon] [badge] |
+| 3 | `[ExamCode]_<file3>.<ext>` | ❌ NOT DELIVERED — [reason] |
 
 > ### → Next: Step [N+1] — [NextStepName]
 > Start in a **new chat**. [one short line on what the next step does]
@@ -717,6 +813,13 @@ Thank you! 🎯
 
 🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩
 ```
+
+v1.34 (R6): `[k] of [n] delivered` — k = paths present_files RETURNED, n = paths the
+tool output printed under DELIVERY SET; k == n on a clean run. Row 3's form
+`❌ NOT DELIVERED — [reason]` exists ONLY for a printed path the tool never returned
+after the R6 (c) retry; on a clean run no such row is emitted. Any "NOT DELIVERED
+THIS RUN" line the step printed (a dormant profile, an ungenerated conditional
+artefact) is repeated beneath the table, each prefixed "ℹ️ ".
 
 STEP 11 (last step) — replace the Next callout block with:
 
@@ -956,4 +1059,72 @@ VERBATIM, then HANDOFF['lines']. Never composed by hand, never decided by prose.
 
 WHY A LAW. Four steps wrote the registry, one delivered it, every gated paper was
 undeliverable. MS-14 bans the old wording; LAW_REGISTRY.json REGISTRY-HANDOFF-LAW.
+```
+
+---
+
+## §9 — DELIVERY-ECHO (v1.34 — GAP-2026-09-14-DELIVERY-ECHO)
+
+```
+THE RULE. Every step delivers its closed set through ONE present_files call whose
+argument is COPIED from the tool output, and proves the delivery from the call's
+RESULT. Applies to EVERY present_files call in EVERY spec (both pipelines, every
+batch, final or not). Owner decision 2026-09-14: this rule NEVER halts a step.
+
+WHY. present_files is CLASS T — the python `def present_files(paths): pass` does
+nothing; the model performs the real call in its own turn. Through v1.33 the
+model performed it from memory: the closed set was built in python and never
+printed (PYQExplain S19-2, PYQExtract deliver_final, PYQScan S3-5), and no step
+read what the call returned. On a final batch the set grows (docx → docx + json +
+profile) while the tool output looked exactly like every earlier batch, so the
+"one docx per present_files" habit won and the footer — composed from intent —
+listed files that were never attached. Steps 7/9/11 were immune because
+pp.handoff_footer_lines prints the set into the tool output first; this section
+generalises that pattern and adds the missing half: reading the result.
+
+CONTRACT — three phases around the single call:
+
+  PHASE 1 — PRINT (python, before the call). The step's delivery code prints,
+    immediately before the call and as the last lines of its own output:
+        DELIVERY SET (n files) — pass EXACTLY these paths to present_files, ONE call:
+          /mnt/user-data/outputs/<file 1>
+          …
+    and, for every path in the set that does not exist on disk:
+        DELIVERY WARN: <file> not staged on disk — delivering the rest; it becomes a
+        NOT DELIVERED row (R6 (d))
+    A missing file is REPORTED, never asserted (no SystemExit, no raise): the
+    step ships what exists and the footer names what did not (R6 (d)). Any file the
+    step deliberately withholds this run (a dormant profile, an unchanged
+    registry, a conditional artefact that was not generated) is printed on its
+    own "NOT DELIVERED THIS RUN: <file> — <reason>" line so that an absent file
+    is never mistaken for a forgotten one.
+
+  PHASE 2 — CALL + ECHO (model). Call present_files ONCE with the printed paths.
+    Read the RETURNED paths (basenames). Compare to the printed set:
+      every printed path returned      → proceed to PHASE 3.
+      some printed path not returned   → call present_files AGAIN with exactly
+                                         the missing paths, then re-compare. At
+                                         most one retry; whatever is still not
+                                         returned is a ❌ row in PHASE 3.
+    A retry is a delivery, not a fault: it needs no apology line and no re-run.
+
+  PHASE 3 — FOOTER (model). Build the footer from RETURNED paths only:
+      one numbered row per returned path, badge from §3;
+      one "❌ NOT DELIVERED — <reason>" row per printed path never returned
+        (reason = the PHASE 1 WARN text, or "present_files did not return it");
+      F2 header line: "`[ExamCode]`  ·  [k] of [n] delivered" (k returned, n
+        printed). k == n on a clean run. k < n is disclosure, not a stop.
+      The NOT-DELIVERED-THIS-RUN lines of PHASE 1 are repeated beneath the table,
+        each prefixed "ℹ️ ", so the operator sees WHY the row is absent.
+
+WHAT THIS IS NOT. It is not a gate: nothing here can halt a step, and it adds no
+auditor. Steps 7/9/11 keep pp.handoff_set / pp.verify_handoff_outputs unchanged —
+their HARD STOP on outputs != closed set is pre-existing and is NOT propagated to
+any other step. Engines are untouched (owner decision).
+
+STEP COVERAGE. Release A (2026.09.15.1): this contract + the three steps where the
+set is built in python and was never printed — PYQExplain S19-2, PYQExtract
+S8-4 deliver_final + per-batch site, PYQScan S3-5. Release B: the fourteen
+prose-only delivery sites (1, 2a, 2c, 3, 4, 6, 6S, PYQ-3, PYQ-4, L2, NB, NC, NA,
+ND) gain a PHASE 1 print each. R6 already binds every step from this release on.
 ```

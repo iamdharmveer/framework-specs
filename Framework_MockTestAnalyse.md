@@ -1,4 +1,16 @@
-# Framework_MockTestAnalyse v2.57 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.57.1 — Universal PYQ Pattern Extraction Engine
+# v2.57.1 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
+#   with PYQExplain v2.24, PYQScan v1.6.1). present_files is CLASS T (`pass`): the model
+#   performs the call from what it can SEE. deliver_final built `delivery` (7 mandatory
+#   + 2 conditional) and never printed it — and its own printed handoff named only
+#   section_rules / progress / summary, three of nine — so the call was made from
+#   memory; the per-batch site had the same shape for one file. Both sites now print
+#   the closed set through print_delivery_set() (PHASE 1) immediately before ONE
+#   present_files call, and deliver_final's handoff lists the full S11-2 PART C set.
+#   PATCH bump: emitted stamps stay v2.57 (no engine change, no artefact change —
+#   deliver_final prints only; run_synthesise never reaches it). MS-11 parses the
+#   deliver_final construction block by its append/+= lines, which are unchanged.
+#   Reports only — no new stop.
 # v2.57 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: era-filtered mining + sample papers; requires PYQSort >= v1.21.0
 # v2.56 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY (Stage 1, reading side). Step 5 now
 #   MEASURES style instead of looking it up: determine_strip_mode is RETIRED as a synthesis
@@ -882,6 +894,24 @@ def present_files(paths):
     returned to python and NO call site may consume a result (C6).
     """
     pass  # CLASS: T — performed by the model between turns, never from python
+
+def print_delivery_set(paths, withheld=()):
+    """DELIVERY-ECHO PHASE 1 — Framework_DeliveryFooter §9 / R6 (v1.34).
+    Prints the CLOSED set the model must pass to ONE present_files call, warns on
+    any path absent from disk, and names every file deliberately withheld this run.
+    Reports only — never raises (owner decision 2026-09-14: this never halts).
+    Byte-identical copy in every spec that builds a delivery set in python
+    (PYQScan / PYQExplain / MockTestAnalyse) — audit_deep XSPEC-DRIFT keeps it so."""
+    import os as _os
+    print(f"\nDELIVERY SET ({len(paths)} files) — pass EXACTLY these paths to "
+          f"present_files, ONE call:")
+    for _p in paths:
+        print(f"  {_p}")
+        if not _os.path.exists(_p):
+            print(f"DELIVERY WARN: {_os.path.basename(_p)} not staged on disk — "
+                  f"delivering the rest; it becomes a NOT DELIVERED row (R6-d)")
+    for _name, _why in withheld:
+        print(f"NOT DELIVERED THIS RUN: {_name} — {_why}")
 
 
 # ── THE BRIDGE (this IS the pattern every CLASS T operation must follow) ──────
@@ -3071,6 +3101,7 @@ def deliver_batch_summary(batch, progress, batch_num, papers_done, total_all, ex
     print("========================")
     # Deliver progress.json as downloadable chat file after every batch
     progress_path = f'/mnt/user-data/outputs/{exam_code}_analysis_progress.json'
+    print_delivery_set([progress_path])   # v2.57.1 — DELIVERY-ECHO PHASE 1 (S11-3 per-batch set)
     present_files([progress_path])
     # present_files makes the file downloadable in chat (Claude tool).
 
@@ -3861,7 +3892,17 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
     _tax_path = f'/mnt/user-data/outputs/{exam_code}_taxonomy.xlsx'
     if _os.path.exists(_tax_path): delivery.append(_tax_path)
     delivery += [progress_path, summary_path]
-    present_files(delivery)
+    # v2.57.1 — DELIVERY-ECHO PHASE 1 (DeliveryFooter §9 / R6): the closed set is PRINTED
+    # into the tool output and the model copies EXACTLY these paths into the single
+    # delivery call; a conditional artefact that was not generated is named as
+    # NOT DELIVERED THIS RUN so its absence is never read as an omission.
+    _withheld = []
+    if not _os2.path.exists(_ecfg_out):
+        _withheld.append((f'{exam_code}_exam_config.json',
+                          'not generated this run (S-SECMAP warned and continued)'))
+    if not _os.path.exists(_tax_path):
+        _withheld.append((f'{exam_code}_taxonomy.xlsx',
+                          'not written this run (openpyxl unavailable)'))
     # present_files is the Claude tool that makes files downloadable in chat.
     # User downloads section_rules.md AND subtopic_manifest.json and uploads
     # BOTH to their [ExamCode] Claude project Files/Knowledge section.
@@ -3872,20 +3913,34 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
     print(f"\nStep 5 (PYQExtract) complete for {exam_code}.")
     print(f"Papers: {n_papers} | Questions: {n_questions} | Years: {years}")
     print("")
+    # v2.57.1 — the handoff names the FULL S11-2 PART C set (it named 3 of 9 files).
     print("ACTION REQUIRED — upload to [ExamCode] Claude project:")
     print(f"  [1] Download {exam_code}_section_rules.md from the file above")
-    print(f"  [2] Go to your {exam_code} Claude project → Files (or Knowledge) section")
-    print(f"  [3] Upload the downloaded section_rules.md file there")
-    print("  (Step 7 reads it directly from the project Files section)")
+    print(f"  [2] Download {exam_code}_subtopic_manifest.json from the file above")
+    print(f"  [3] Download {exam_code}_style_profile.json from the file above")
+    print(f"  [4] Download {exam_code}_pyq_index.json from the file above")
+    print("      (v2.56: profile + index carry the SAME corpus_hash — replace together)")
+    print(f"  [5] Download {exam_code}_exam_config.json from the file above (when delivered)")
+    print(f"  [6] Go to your {exam_code} Claude project → Files (or Knowledge) section")
+    print("  [7] Upload all 5 files (replace any existing versions)")
+    print("  (Step 6 and Step 7 read them directly from the project Files section)")
+    print("")
+    print("KEEP FOR STEP 6:")
+    print(f"  {exam_code}_PYQ_Frequency.xlsx — Step 6 input (Frequency Excel)")
     print("")
     print("KEEP LOCALLY (downloaded to your computer):")
     print(f"  analysis_progress.json — needed if you add more PYQ papers later")
     print(f"  analysis_summary.md    — review WARNs if any")
+    print(f"  taxonomy.xlsx          — human-readable id companion (when written)")
     print("")
     print("NEXT:")
     print("  Step 5 complete.")
     print("  If Step 6 (MockBlueprint) also complete: start MockCreate M1.")
     print(f"  If Step 6 pending: run MockBlueprint [N].")
+    # v2.57.1 — PHASE 1 print is the LAST output of this function (DeliveryFooter §9),
+    # so the list the model copies is the last thing it reads before the call.
+    print_delivery_set(delivery, _withheld)
+    present_files(delivery)
 ```
 
 ### S8-5 — Resume logic (between sessions)
@@ -5184,4 +5239,4 @@ explicitly rather than silently borrowing old-era proportions — Release C
 consumes these marks in transition allocation. Inactive/legacy exams:
 byte-identical to v2.56.
 
-# END OF Framework_MockTestAnalyse v2.57
+# END OF Framework_MockTestAnalyse v2.57.1

@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 959,
-      "sha256": "877d24479df4c7ca42d25aaf44fdb041946d62e0e156fae9353d488761790c1a",
-      "size_bytes": 54338,
-      "version_header": "# Framework_DeliveryFooter v1.33 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1130,
+      "sha256": "8f3ea1fca41219d91bb97d786f6c76f88c70bf54ba39e774444bb16b8b100f55",
+      "size_bytes": 65458,
+      "version_header": "# Framework_DeliveryFooter v1.34 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.22.0",
@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.22.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.57",
-      "lines": 5187,
-      "sha256": "1fcd1e5ec1c75fac649821f47232d00dacbed0814b6d7b85386c0f61cb5b7510",
-      "size_bytes": 303915,
-      "version_header": "# Framework_MockTestAnalyse v2.57 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.57.1",
+      "lines": 5242,
+      "sha256": "cc0e03718ce6c0a8a5ceb943e900ed8679c6850be480117d0ae804fe8299f49f",
+      "size_bytes": 307662,
+      "version_header": "# Framework_MockTestAnalyse v2.57.1 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2860,
-      "sha256": "adec5f8a7c9296f5698113b6765158d41ea608bd5699465c2e024a1f9f83488f",
-      "size_bytes": 203378,
-      "version_header": "# Framework_PYQExplain v2.23 — Universal PYQ Explanation Generator"
+      "lines": 2911,
+      "sha256": "d2c5b93ea2dbcc16a528e7c7309e2e6cafc7f19b232b26f9bfa5cb366f323315",
+      "size_bytes": 206946,
+      "version_header": "# Framework_PYQExplain v2.24 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.0)**",
@@ -141,11 +141,11 @@
       "version_header": "# Framework_PYQPrepare v2.2 — Universal PYQ Row File Generator"
     },
     "Framework_PYQScan.md": {
-      "end_sentinel": "# END OF Framework_PYQScan v1.6.0",
-      "lines": 2336,
-      "sha256": "67c4bf3802e6bacb4483199b7d73e6b6d6bc0ec132ed203fc95421bc71691dab",
-      "size_bytes": 124100,
-      "version_header": "# Framework_PYQScan v1.6.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
+      "end_sentinel": "# END OF Framework_PYQScan v1.6.1",
+      "lines": 2386,
+      "sha256": "4e364e6a38dac754c17e34c4c08ba806eb426edfb0000613c200dd6e44bc2c32",
+      "size_bytes": 127538,
+      "version_header": "# Framework_PYQScan v1.6.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.21.0",

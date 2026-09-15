@@ -1,4 +1,17 @@
-# Framework_PYQExplain v2.23 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.24 — Universal PYQ Explanation Generator
+# v2.24 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
+#   with MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident: the FINAL batch
+#   shipped only the Explanation docx and left pyq_explain_progress.json +
+#   difficulty_profile.json unattached while the F2 footer listed all three. S19-1
+#   already proved all three were ON DISK (check 5: outputs == expected); the loss was
+#   at the CALL — present_files is CLASS T (`pass`), S19-2 built `deliverables` in
+#   python and never printed it, so the model performed the call from memory and the
+#   "one docx per present_files" habit of batches 1..K-1 won on batch K. S19-2 now
+#   prints the closed set through print_delivery_set() (PHASE 1) in the tool output
+#   immediately before ONE present_files call, and names a dormant profile as
+#   NOT DELIVERED THIS RUN so an absent file is never read as a forgotten one; S19-4
+#   binds the footer to the present_files RESULT (R6). Reports only — no new stop,
+#   no engine change, S19-1 unchanged.
 # v2.23 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (paired with PYQPrepare v2.2).
 #   §22: a vision-transcribed Row file is identified by core_properties.category
 #   ("PYQPrepare-Source-Trust:"), not by a "__vision-unverified" filename suffix — the
@@ -2481,13 +2494,43 @@ def present_files(paths):
     returned to python and NO call site may consume a result (C6).
     """
     pass  # CLASS: T — performed by the model between turns, never from python
+
+def print_delivery_set(paths, withheld=()):
+    """DELIVERY-ECHO PHASE 1 — Framework_DeliveryFooter §9 / R6 (v1.34).
+    Prints the CLOSED set the model must pass to ONE present_files call, warns on
+    any path absent from disk, and names every file deliberately withheld this run.
+    Reports only — never raises (owner decision 2026-09-14: this never halts).
+    Byte-identical copy in every spec that builds a delivery set in python
+    (PYQScan / PYQExplain / MockTestAnalyse) — audit_deep XSPEC-DRIFT keeps it so."""
+    import os as _os
+    print(f"\nDELIVERY SET ({len(paths)} files) — pass EXACTLY these paths to "
+          f"present_files, ONE call:")
+    for _p in paths:
+        print(f"  {_p}")
+        if not _os.path.exists(_p):
+            print(f"DELIVERY WARN: {_os.path.basename(_p)} not staged on disk — "
+                  f"delivering the rest; it becomes a NOT DELIVERED row (R6-d)")
+    for _name, _why in withheld:
+        print(f"NOT DELIVERED THIS RUN: {_name} — {_why}")
+
 deliverables = [f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx']
+_withheld = []
 if FINAL_BATCH:                       # v2.2.1 — ship the identity-prefixed handoff at 100% coverage
     deliverables.append(f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_pyq_explain_progress.json')
     if globals().get('PROFILE_STATUS') != 'dormant':                                 # v2.18 — S7A-6
         deliverables.append(f'/mnt/user-data/outputs/{EXAM}_difficulty_profile.json')
+    else:                                                                            # v2.24 — R6
+        _withheld.append((f'{EXAM}_difficulty_profile.json',
+                          f"PROFILE_STATUS dormant — {globals().get('PROFILE_REASON', 'no reason recorded')}"))
+# v2.24 — DELIVERY-ECHO PHASE 1: the closed set is PRINTED into the tool output and the
+# model copies EXACTLY these paths into ONE present_files call. On the final batch the set
+# is 2 or 3 files, not the 1 file of every earlier batch — the printed list is what makes
+# that visible. Then PHASE 2 (S19-4): compare the RETURNED paths to this list.
+print_delivery_set(deliverables, _withheld)
 present_files(deliverables)
 ```
+  ONE call, EVERY printed path. The per-batch habit of "one docx per present_files"
+  does NOT apply to the final batch — it ships two or three files.
 
 ## S19-3 — Progress line + confirmation request
   Print: "Batch k of K — Q[a]..Q[b] explained; Q1..Q[b] now carry solutions,
@@ -2496,9 +2539,17 @@ present_files(deliverables)
   (Autonomous mode: proceed without the confirmation request.)
 
 ## S19-4 — Post-delivery footer (MANDATORY after every present_files call)
-  Follow Framework_DeliveryFooter.md for footer type:
+  FIRST (v2.24 — DELIVERY-ECHO PHASE 2, Framework_DeliveryFooter §9 / R6): read the
+  paths present_files RETURNED and compare them to the DELIVERY SET S19-2 printed.
+  Any printed path not returned → call present_files AGAIN with exactly the missing
+  paths (one retry, no apology, no re-run), then re-compare. Never a halt.
+  THEN follow Framework_DeliveryFooter.md for footer type:
     - F1 (amber) after each non-final batch
-    - F2 (green) after the final batch
+    - F2 (green) after the final batch — header "[k] of [n] delivered", k/n from the
+      RETURNED paths; one row per returned file; one ❌ NOT DELIVERED row per printed
+      path still not returned; the S19-2 NOT DELIVERED THIS RUN line (dormant profile)
+      repeated beneath the table prefixed "ℹ️ ". Rows come from the RESULT, never from
+      intent.
 
 # ════════════════════════════════════════════════════════════════════════
 # §20 — END-OF-PAPER REPORT (after the FINAL batch; MANDATE-0 safe)
@@ -2856,5 +2907,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.23
+# END OF Framework_PYQExplain v2.24
 # ════════════════════════════════════════════════════════════════════════
