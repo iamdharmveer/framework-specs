@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 10326,
-      "sha256": "6f48e12fe1ccb6adb1287bdda7c2c59e0ff6bd13edc6120db5ebe4ca9c505cfd",
-      "size_bytes": 567452,
+      "lines": 10353,
+      "sha256": "17fe87a43bab9256de2736243b6ed5e4a7c975f0f95134a69437287e7ded8b55",
+      "size_bytes": 569228,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

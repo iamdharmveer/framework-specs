@@ -2205,7 +2205,14 @@ def audit_placement(placement, sections, meta, groups=None):
         while i < len(seq):
             sid = seq[i]
             j = i
-            while j < len(seq) and seq[j] == sid and j - i + 1 < blen.get(sid, 1):
+            # GAP-2026-09-21-AUDIT-PLACEMENT-UNIT-SKIP: extend a unit only over
+            # FOLLOWING positions of the SAME subtopic, up to its block size. The
+            # previous test advanced j onto the next position before checking its
+            # subtopic, so a scattered linked subtopic (group size > 1 but not
+            # placed as a block) swallowed the next, DIFFERENT question into its
+            # unit — RC, cloze, RC was reported as RC next to RC (false A-CLUSTER).
+            while (j + 1 < len(seq) and seq[j + 1] == sid
+                   and (j + 1) - i + 1 <= blen.get(sid, 1)):
                 j += 1
             units.append((sid, j - i + 1))
             i = j + 1
@@ -6943,6 +6950,26 @@ PYQ_IMAGE_ANALYSIS:
     check('q_audit_passes_conforming_plan',
           _rep['A']['adjacent_same_subtopic'] == []
           and _rep['A']['adjacent_same_concept_group'] == [])
+    # q15b — GAP-2026-09-21-AUDIT-PLACEMENT-UNIT-SKIP: a linked subtopic that
+    # is NOT placed as a contiguous block must never absorb the next, different
+    # question (RC, cloze, RC, other is conforming), and a genuine contiguous
+    # block is still one R19-exempt unit.
+    _lgm = {'rc': {'concept_group': 'rc', 'linked_group_size': 4},
+            'cz': {'concept_group': 'cz', 'linked_group_size': 5},
+            'v': {'concept_group': 'v'}}
+    _rep = audit_placement({1: 'rc', 2: 'cz', 3: 'rc', 4: 'v'},
+                           [{'name': 'S', 'q_range': [1, 4]}], _lgm)
+    check('q_audit_scattered_linked_no_false_adjacency',
+          _rep['S']['adjacent_same_subtopic'] == []
+          and _rep['S']['adjacent_same_concept_group'] == [])
+    _rep = audit_placement({1: 'rc', 2: 'rc', 3: 'rc', 4: 'rc', 5: 'v', 6: 'rc'},
+                           [{'name': 'S', 'q_range': [1, 6]}], _lgm)
+    check('q_audit_contiguous_linked_block_is_one_unit',
+          _rep['S']['adjacent_same_subtopic'] == [])
+    _rep = audit_placement({1: 'v', 2: 'v', 3: 'rc'},
+                           [{'name': 'S', 'q_range': [1, 3]}], _lgm)
+    check('q_audit_unlinked_adjacency_still_caught',
+          _rep['S']['adjacent_same_subtopic'] == [2])
 
     # Q-lg-coerce: garbage linked_group_size degrades to 1 (§7.3) in BOTH
     # entry points — never a naked ValueError (contract: PlacementError only).
