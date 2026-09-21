@@ -1,5 +1,63 @@
 # Changelog
 
+## 2026.09.21 — GAP-2026-09-21-LINKED-PLACEMENT: question SETS placed as one block with one shared stimulus
+(MockTestCreate v5.85, MockTestAnalyse v2.57.2, DeliveryFooter v1.35.1; blueprint_core Cluster SG;
+audit_canonical v2.30; final_assembly v1.7; mock_sync_audit MS-11 name set) — also records the Phase 1 engine fix
+GAP-2026-09-21-AUDIT-PLACEMENT-UNIT-SKIP already live in e8362cd
+
+**Phase 1 (already on production as e8362cd, recorded here):** `blueprint_core.audit_placement`'s
+unit loop swallowed the question after a scattered linked subtopic, so RC, cloze, RC read as RC
+next to RC — a false A-CLUSTER FAIL (28 of 60 SSC_CGL_TIER2 mocks on replay). Fixed; three
+self-test fixtures. It was committed outside seal_release; this entry closes that record.
+
+**The defect.** Every exam scattered its question sets. Step 5 wrote a corrupted per-subtopic
+`linked_group_size` into section_rules.md only (group ids collide across papers; groups were
+matched to subtopics by bare question number across papers); Step 7's placer read the manifest,
+which never carries it. Measured on SSC_CGL_TIER2 Mock 13: one RC passage printed at nine
+scattered positions, cloze blanks asked 5,3,...,1 — in every delivered mock.
+
+**The fix.**
+- NEW artefact `[ExamCode]_stimulus_profile.json` (bc.build_stimulus_profile, pure): per set type,
+  sizes, member subtopic mix/order and position, from CURRENT-PATTERN papers only
+  (bc.classify_paper_era per sitting — a sitting split across sorted files is one paper),
+  consecutive questions sharing one run of >=30 words whatever the stem layout (>=60 when
+  exam positions are unknown), type seen in >=2 papers. Written by every PYQExtract final synthesis (mandatory
+  delivery tier) and by the NEW mode `PYQExtract --stimulus-profile` (existing exams: reads the
+  progress file only, writes only the profile, halts; no PYQ link; nothing else touched).
+- Step 7 S3-12b: SAFETY LOCK — a NEW paper HARD STOPs without the profile; the blueprint's
+  existing allocation is split into sets (bc.compose_stimulus_groups — never a re-allocation;
+  sizes relaxed by 1 when the count does not divide) and each set is placed as one consecutive
+  block where the past papers place it, else spread (bc.place_with_stimulus_groups). The plan
+  and the profile SNAPSHOT it was built from are frozen in batch_state; every audit reads the
+  snapshot (with the paper's own blueprint entry — scoped papers included). A paper already in
+  progress (legacy plan, or questions authored in its first unfinished batch) finishes on the
+  legacy path, byte-for-byte; a set-placed paper whose batch_state lost its plan is rebuilt
+  deterministically and proven against every authored question. R-STIMGROUP + stim_register:
+  one stimulus per set, reused verbatim across batch boundaries; cloze blanks in order.
+- Planner and checker share ONE measure (bc.sg_audit_placement). Auditor v2.30: A-BLOCK,
+  A-BLOCK-STIMULUS (a stimulus of the set's own — a shared instruction line is not mistaken
+  for it), A-BLOCK-ORDER (only members that name a blank) — dormant on legacy papers; A-CLUSTER no longer reads
+  linked_group_size from --rules (RC-3: a phantom block could hide a real adjacency). A stale
+  project auditor is replaced for the run by the verified audit_canonical.py; S13-4c refuses a
+  set-placed paper whose A-BLOCK line is absent or dormant.
+
+DeliveryFooter: Step 5 final set 8 mandatory + 2 conditional (stimulus_profile.json, Upload).
+validate_framework_md Check AM: NEW contract — Framework_MockTestCreate.md must pass
+--stimulus-profile to audit_canonical.py (proven: deleting the invocation now fails the build).
+Anchor agreement is measured against the MEDIAN position (a minority of papers cannot drag it).
+
+**Verified.** blueprint_core 727/727 (incl. a 400-shape property fuzz and a 40-corpus
+profile fuzz; a targeted mutation run over Cluster SG left only equivalent/defensive
+mutants), audit_canonical 352/352, final_assembly 124/124 (new
+fixtures each fail on their defect); 60-mock SSC_CGL_TIER2 replay: 0 errors, every set
+consecutive, 240/240 set-free sections placed identically to 2026.09.15.2; Mock 13 re-audit:
+frozen project auditor output byte-identical on old and new engines, new auditor same PASS plus
+three dormant A-BLOCK lines.
+
+**Known, not changed here:** `bc.paper_key` = (year, shift) merges different sittings of one year,
+so era filtering in Step 5/6 counting classifies whole corpora as 'larger' (SSC_CGL_TIER2: all 22
+papers). Changes blueprint counts; separate gap. The new code does not use paper_key.
+
 ## 2026.09.15.2 — GAP-2026-09-14-DELIVERY-ECHO Release B: the fourteen prose-only delivery sites now print their closed set
 (DeliveryFooter v1.35; PYQPrepare v2.2.1, PYQDraft v1.3.2, PYQApprove v1.3.1, PYQSort v1.21.1,
 PYQCount v1.7.1, Blueprint v1.60.1, ScopedBlueprint v1.10.1, PYQFormat v1.6.1, PYQDeliver

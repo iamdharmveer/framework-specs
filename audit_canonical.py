@@ -15,6 +15,24 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.30 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with blueprint_core
+#   Cluster SG, Framework_MockTestCreate v5.85, Framework_MockTestAnalyse v2.57.2,
+#   final_assembly v1.7). NEW gates A-BLOCK / A-BLOCK-STIMULUS / A-BLOCK-ORDER: a
+#   question SET (RC passage, cloze paragraph, DI table) must be consecutive, match
+#   the sets blueprint_core.sg_expected_groups recomputes from --stimulus-profile, carry
+#   ONE shared stimulus of their own (not shared with another set or a single question;
+#   a common instruction line is not mistaken for the stimulus) and ask numbered blanks
+#   in increasing order (only the members that name a blank). Dormant on a LEGACY paper
+#   (records carry no stimulus_group_id). Without --stimulus-profile the plan comparison
+#   is dormant and the structural checks still run (Step 7's tripwire refuses a
+#   'dormant' A-BLOCK on a set-placed paper). The plan is recomputed from the snapshot's
+#   _paper.mock_entry when present (scoped papers), else --blueprint + --mockN. A-CLUSTER: (1) a
+#   set-placed paper is measured by blueprint_core.sg_audit_placement — the planner's
+#   own function; (2) RC-3 — linked_group_size is no longer filled from --rules, so a
+#   phantom block can no longer hide a real adjacency the placer (manifest-only meta)
+#   could not avoid. q->subtopic resolution moved verbatim into _q2s_sources, shared
+#   by both gates. New flag --stimulus-profile. +13 fixtures, each failing on its
+#   defect.
 # v2.25 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT (paired with figural_core v5.81,
 #   Framework_MockTestCreate v5.81). gate_images printed verdict lines for 13 figure
 #   gates and DROPPED the rest: G-FIGFIT / G-FIGCOLLIDE / G-FIGINK (v5.55/v5.57,
@@ -498,6 +516,11 @@ def load_sources(args):
                             if getattr(args, 'style_profile', None) else None)
     src['pyq_index'] = (json.load(open(args.pyq_index, encoding='utf-8'))
                         if getattr(args, 'pyq_index', None) else None)
+    # v2.30 (GAP-2026-09-21-LINKED-PLACEMENT): the stimulus profile A-BLOCK recomputes
+    # the planned question sets from. Absent file path = not supplied (None).
+    src['stimulus_profile'] = (json.load(open(args.stimulus_profile, encoding='utf-8'))
+                               if getattr(args, 'stimulus_profile', None)
+                               and os.path.exists(args.stimulus_profile) else None)
     bp = src['blueprint']
     src['total_questions'] = bp.get('total_questions')
     src['sections'] = bp.get('sections', [])
@@ -4116,6 +4139,7 @@ def run_audit(args):
     _safe_gate('A-QINDEX', gate_qindex, src)   # v2026.08.10 — engine FK gate; dormant unless --registry+--blueprint+--mockN
     _safe_gate('A-DGATE', gate_dgate, src)     # v2.19 — difficulty_gate record legality; dormant unless --registry
     _safe_gate('A-CLUSTER', gate_cluster, src, blocks)  # v2.23 — R19 adjacency; dormant without a q->subtopic source
+    _safe_gate('A-BLOCK', gate_stimulus_blocks, src, blocks)  # v2.30 — question sets; dormant on a legacy paper
     _safe_gate('A-DPROFILE', gate_dprofile, src)  # v2.21 — difficulty profile + blueprint difficulty_source
     _safe_gate('A-STYLE', gate_style, src)        # v2.26 — G-STYLE twin; dormant without --style-profile/--dossier
     _safe_gate('A-PYQDIST', gate_pyqdist, src)    # v2.26 — G-PYQ-DIST twin; dormant without --pyq-index/--dossier
@@ -4309,6 +4333,254 @@ def gate_qindex(src):
 
 
 # ── A-CLUSTER (v2.23 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED) ────────────────
+def _sg_block_signature(block):
+    """Stimulus-bearing content of ONE question block: text paragraphs of at least 30
+    words (bc.SG_MIN_STIM_WORDS; the Q.N prefix stripped), table text, and image
+    content hashes. A set's stimulus is what ALL its members share (R-STIMGROUP 2c:
+    a text stimulus is >= 30 words, else a table or a figure)."""
+    import hashlib
+    sig = set()
+    for p in block.paras:
+        tx = para_text(p)
+        if OPT_LABEL_RE.match(tx):
+            continue
+        tx = QNUM_RE.sub('', tx, count=1).strip()
+        if len(tx.split()) >= 30:
+            sig.add('p:' + re.sub(r'\s+', ' ', tx.lower()).strip())
+    for tb in block.tables:
+        try:
+            tx = ' '.join(c.text for r in tb.rows for c in r.cells)
+        except Exception:
+            tx = ''
+        if tx.strip():
+            sig.add('t:' + re.sub(r'\s+', ' ', tx.lower()).strip())
+    for im in block.images:
+        h = None
+        if im.get('path'):
+            try:
+                h = hashlib.sha1(open(im['path'], 'rb').read()).hexdigest()
+            except OSError:
+                h = None
+        sig.add('i:' + (h or im.get('part') or im.get('rid') or '?'))
+    return sig
+
+
+def gate_stimulus_blocks(src, blocks):
+    """A-BLOCK / A-BLOCK-STIMULUS / A-BLOCK-ORDER (v2.30 — GAP-2026-09-21-LINKED-PLACEMENT).
+
+    A question SET (RC passage, cloze paragraph, DI table...) must be ONE block of
+    consecutive questions sharing ONE stimulus. Before v2.30 no gate checked this and
+    every exam shipped sets scattered (SSC_CGL_TIER2 Mock 13: one passage printed at
+    nine positions, cloze blanks asked 5,3,...,1).
+
+      A-BLOCK           every set recorded on the paper (stimulus_group_id in the
+                        concept_map / question_index) is consecutive; with
+                        --stimulus-profile + --blueprint + --mockN the sets must also
+                        equal what blueprint_core.sg_expected_groups recomputes for
+                        this mock (type, size, members, order)
+      A-BLOCK-STIMULUS  all members of a set share a stimulus that belongs to that
+                        set alone (not to another set, not to a single question)
+      A-BLOCK-ORDER     members that name a numbered blank/gap ask them in increasing
+                        order of question number
+    Dormant (OK) on a LEGACY paper — its records carry no stimulus_group_id because
+    it was built before the profile existed. Without --stimulus-profile the
+    plan comparison is reported dormant (structural checks still run); Step 7's
+    S13-4c tripwire refuses any 'dormant' A-BLOCK line on a set-placed paper, so the
+    full certification is mandatory where the paper is built."""
+    names = ('A-BLOCK', 'A-BLOCK-STIMULUS', 'A-BLOCK-ORDER')
+    _q2s, _prov, recs = _q2s_sources(src)
+    gid = {q: r.get('stimulus_group_id') for q, r in recs.items()
+           if 'stimulus_group_id' in (r or {})}
+    if not recs:
+        for n in names:
+            _ok(n, 'dormant — no q->subtopic source (needs --key or --registry)')
+        return
+    if not gid:
+        for n in names:
+            _ok(n, 'dormant — legacy paper (built before the stimulus profile; its '
+                   'records carry no stimulus_group_id)')
+        return
+    try:
+        import blueprint_core as bc
+        bc.sg_expected_groups
+        bc.sg_blank_number
+    except (ImportError, AttributeError):
+        for n in names:
+            _fail(n, 'blueprint_core with stimulus groups not importable — run from '
+                     'the verified clone (cd /tmp/fw)')
+        return
+    thq = src.get('through_q')
+    groups = {}
+    for q in sorted(gid):
+        if gid[q]:
+            groups.setdefault(gid[q], []).append(q)
+
+    # ── A-BLOCK ─────────────────────────────────────────────────────────────
+    fails = []
+    for g, qs in sorted(groups.items()):
+        if qs != list(range(qs[0], qs[0] + len(qs))):
+            fails.append('%s is not consecutive (Q.%s)' % (g, ','.join(map(str, qs))))
+    prof = src.get('stimulus_profile')
+    bp = src.get('blueprint') or {}
+    N = src.get('_mockN')
+    # The paper's own blueprint entry travels in its profile snapshot (MockTestCreate
+    # v5.85 S3-12b) — right for scoped papers too, whose blueprint is not the file
+    # passed as --blueprint. Else the --blueprint + --mockN lookup.
+    mk = ((prof or {}).get('_paper') or {}).get('mock_entry') or (
+        next((m for m in bp.get('mocks', []) if m.get('mock') == N), None)
+        if N is not None else None)
+    exp_note = ''
+    if not prof:
+        exp_note = ' (plan comparison dormant: needs --stimulus-profile)'
+    elif bc.validate_stimulus_profile(prof):
+        fails.append('stimulus profile invalid: '
+                     + '; '.join(bc.validate_stimulus_profile(prof)[:3]))
+    elif mk is None or not mk.get('sections'):
+        exp_note = ' (plan comparison dormant: needs --blueprint + --mockN)'
+    else:
+        exp = {}
+        for _sec, _gs in bc.sg_expected_groups(mk, prof).items():
+            for _g in _gs:
+                exp[_g['group_id']] = _g['members']
+        for g, members in sorted(exp.items()):
+            qs = groups.get(g)
+            got = [_q2s.get(q) for q in (qs or [])]
+            if not qs:
+                if thq is None:
+                    fails.append('%s (%d questions) planned by the profile is absent'
+                                 % (g, len(members)))
+                continue
+            partial_ok = thq is not None and qs[-1] == thq and got == members[:len(got)]
+            if got != members and not partial_ok:
+                fails.append('%s members %s != profile plan %s' % (g, got, members))
+        for g in sorted(set(groups) - set(exp)):
+            fails.append("%s is not a set this mock's allocation produces" % g)
+    if fails:
+        _fail('A-BLOCK', ' | '.join(fails[:6]) + ' [source: %s]' % _prov)
+    else:
+        _ok('A-BLOCK', '%d set(s) consecutive and as planned%s [source: %s]'
+            % (len(groups), exp_note, _prov))
+
+    # ── A-BLOCK-STIMULUS ────────────────────────────────────────────────────
+    by_q = {b.qnum: b for b in blocks}
+    sig = {b.qnum: _sg_block_signature(b) for b in blocks}
+    owner = {}                      # element -> set of owners (group id or 'q:<n>')
+    for q, s in sig.items():
+        who = gid.get(q) or 'q:%d' % q
+        for el in s:
+            owner.setdefault(el, set()).add(who)
+    common, sfails, checked = {}, [], 0
+    for g, qs in sorted(groups.items()):
+        present = [q for q in qs if q in by_q]
+        if len(present) < 2:
+            continue
+        checked += 1
+        shared = set.intersection(*[sig[q] for q in present])
+        own = {el for el in shared if owner.get(el) == {g}}
+        common[g] = shared
+        if not own:
+            others = sorted({w for el in shared for w in owner.get(el, ()) if w != g})
+            sfails.append('%s: members Q.%s share no stimulus of their own%s'
+                          % (g, ','.join(map(str, present)),
+                             (' — shared with %s' % ', '.join(others[:3])) if others else ''))
+    if sfails:
+        _fail('A-BLOCK-STIMULUS', ' | '.join(sfails[:6]))
+    else:
+        _ok('A-BLOCK-STIMULUS', '%d set(s) each carry one shared stimulus of their own'
+            % checked)
+
+    # ── A-BLOCK-ORDER ───────────────────────────────────────────────────────
+    ofails, nclz = [], 0
+    for g, qs in sorted(groups.items()):
+        seen = []
+        for q in qs:
+            b = by_q.get(q)
+            if b is None:
+                continue
+            ask = ' '.join(QNUM_RE.sub('', para_text(p), count=1) for p in b.paras
+                           if not OPT_LABEL_RE.match(para_text(p))
+                           and 'p:' + re.sub(r'\s+', ' ', QNUM_RE.sub(
+                               '', para_text(p), count=1).strip().lower())
+                           not in common.get(g, set()))
+            n = bc.sg_blank_number(ask)
+            if n is not None:
+                seen.append(n)
+        if len(seen) < 2:
+            continue
+        nclz += 1
+        if any(b <= a for a, b in zip(seen, seen[1:])):
+            ofails.append('%s: blanks asked in order %s — must increase with the '
+                          'question number' % (g, seen))
+    if ofails:
+        _fail('A-BLOCK-ORDER', ' | '.join(ofails[:6]))
+    else:
+        _ok('A-BLOCK-ORDER', '%d blank-numbered set(s) asked in order' % nclz)
+
+
+def _q2s_sources(src):
+    """q -> subtopic_id for THIS paper, plus the per-question source records
+    (concept_map entries or question_index questions) and a provenance label.
+    Shared by A-CLUSTER and A-BLOCK so both read the SAME questions (v2.30,
+    GAP-2026-09-21-LINKED-PLACEMENT; body moved verbatim from gate_cluster)."""
+    # q -> subtopic_id. Source order: registry question_index first, --key
+    # concept_map second — EXCEPT in partial-paper mode (--through-q), where
+    # the concept_map wins when present: mid-flight the registry has no entry
+    # for THIS paper yet, and when --mockN is also absent the single-entry
+    # fallback below could pick a DIFFERENT completed paper's plan. The
+    # concept_map travels with the batch and is always the live paper.
+    q2s, recs = {}, {}
+    provenance = None
+    reg = src.get('registry') or {}
+    N = src.get('_mockN')
+    if src.get('through_q'):
+        for qs, rec in (src.get('concept_map') or {}).items():
+            sid = (rec or {}).get('subtopic_id')
+            if sid:
+                try:
+                    q2s[int(qs)] = sid
+                    recs[int(qs)] = rec or {}
+                except (TypeError, ValueError):
+                    continue
+        if q2s:
+            provenance = 'answer_key concept_map (--key; partial-paper mode)'
+    qi = reg.get('question_index') or []
+    entry = None
+    if not q2s and isinstance(qi, list) and qi:
+        if N is not None:
+            _bp = src.get('blueprint') or {}
+            _tp = next((mk for mk in _bp.get('mocks', [])
+                        if mk.get('mock') == N), None)
+            pid = (_tp or {}).get('paper_id', 'MOCK:M%02d' % int(N))
+            entry = next((e for e in qi
+                          if e.get('paper_id', 'MOCK:M%02d'
+                                   % e.get('mock', -1)) == pid), None)
+        elif len(qi) == 1:
+            entry = qi[0]
+    if entry:
+        for qrec in entry.get('questions') or []:
+            _sid = qrec.get('subtopic_id')
+            if not _sid:
+                continue          # a null sid must not pair with another null
+            try:
+                q2s[int(qrec.get('q'))] = _sid
+                recs[int(qrec.get('q'))] = qrec
+            except (TypeError, ValueError):
+                continue
+        provenance = 'registry question_index %s' % entry.get('paper_id', '?')
+    if not q2s:
+        for qs, rec in (src.get('concept_map') or {}).items():
+            sid = (rec or {}).get('subtopic_id')
+            if sid:
+                try:
+                    q2s[int(qs)] = sid
+                    recs[int(qs)] = rec or {}
+                except (TypeError, ValueError):
+                    continue
+        if q2s:
+            provenance = 'answer_key concept_map (--key)'
+    return q2s, provenance, recs
+
+
 def gate_cluster(src, blocks):
     """A-CLUSTER — R19/G-CLUSTER promoted to the auditor, exactly as G-QINDEX
     was promoted to A-QINDEX and for the same reason: a spec-inline checklist
@@ -4352,59 +4624,7 @@ def gate_cluster(src, blocks):
                      'arithmetic unavailable; run from the verified clone '
                      '(cd /tmp/fw, or PYTHONPATH=/tmp/fw) for the full gate.')
 
-    # q -> subtopic_id. Source order: registry question_index first, --key
-    # concept_map second — EXCEPT in partial-paper mode (--through-q), where
-    # the concept_map wins when present: mid-flight the registry has no entry
-    # for THIS paper yet, and when --mockN is also absent the single-entry
-    # fallback below could pick a DIFFERENT completed paper's plan. The
-    # concept_map travels with the batch and is always the live paper.
-    q2s = {}
-    provenance = None
-    reg = src.get('registry') or {}
-    N = src.get('_mockN')
-    if src.get('through_q'):
-        for qs, rec in (src.get('concept_map') or {}).items():
-            sid = (rec or {}).get('subtopic_id')
-            if sid:
-                try:
-                    q2s[int(qs)] = sid
-                except (TypeError, ValueError):
-                    continue
-        if q2s:
-            provenance = 'answer_key concept_map (--key; partial-paper mode)'
-    qi = reg.get('question_index') or []
-    entry = None
-    if not q2s and isinstance(qi, list) and qi:
-        if N is not None:
-            _bp = src.get('blueprint') or {}
-            _tp = next((mk for mk in _bp.get('mocks', [])
-                        if mk.get('mock') == N), None)
-            pid = (_tp or {}).get('paper_id', 'MOCK:M%02d' % int(N))
-            entry = next((e for e in qi
-                          if e.get('paper_id', 'MOCK:M%02d'
-                                   % e.get('mock', -1)) == pid), None)
-        elif len(qi) == 1:
-            entry = qi[0]
-    if entry:
-        for qrec in entry.get('questions') or []:
-            _sid = qrec.get('subtopic_id')
-            if not _sid:
-                continue          # a null sid must not pair with another null
-            try:
-                q2s[int(qrec.get('q'))] = _sid
-            except (TypeError, ValueError):
-                continue
-        provenance = 'registry question_index %s' % entry.get('paper_id', '?')
-    if not q2s:
-        for qs, rec in (src.get('concept_map') or {}).items():
-            sid = (rec or {}).get('subtopic_id')
-            if sid:
-                try:
-                    q2s[int(qs)] = sid
-                except (TypeError, ValueError):
-                    continue
-        if q2s:
-            provenance = 'answer_key concept_map (--key)'
+    q2s, provenance, _recs = _q2s_sources(src)
     if not q2s:
         return _ok('A-CLUSTER', 'dormant — no q->subtopic source (needs '
                                 '--registry question_index for this paper, '
@@ -4426,11 +4646,15 @@ def gate_cluster(src, blocks):
     pf_map = {sid: _norm((m or {}).get('presentation_family')) for sid, m in mf.items()}
     sub_map = {sid: _norm((m or {}).get('section')) for sid, m in mf.items()}
     lg_map = {sid: _norm((m or {}).get('linked_group_size')) for sid, m in mf.items()}
+    # v2.30 (GAP-2026-09-21-LINKED-PLACEMENT, RC-3): linked_group_size is NO
+    # LONGER filled from --rules. The Step-7 placer builds its meta from the
+    # manifest ONLY (S3-12b), so a section_rules value made the checker measure a
+    # different paper from the one the planner built — it could HIDE a real
+    # adjacency behind a phantom block. Planner and checker now read one source.
     if rt:
         for field, tgt in (('concept_group', cg_map),
                            ('presentation_family', pf_map),
-                           ('section', sub_map),
-                           ('linked_group_size', lg_map)):
+                           ('section', sub_map)):
             for sid, val in (bc.parse_section_rules_field(rt, field)
                              or {}).items():
                 if tgt.get(sid) in (None, ''):
@@ -4443,7 +4667,19 @@ def gate_cluster(src, blocks):
     sections = [{'name': s.get('name') or s.get('section_name'),
                  'q_range': s['q_range']} for s in secs
                 if isinstance(s.get('q_range'), (list, tuple))]
-    reports = bc.audit_placement(q2s, sections, meta)
+    # v2.30: a SET-PLACED paper (its records carry stimulus_group_id — MockTestCreate
+    # v5.85) is measured by the SAME function the planner used: each set is one
+    # unit, adjacency inside a set is exempt, the floor is the singles' floor.
+    _gid = {q: r.get('stimulus_group_id') for q, r in _recs.items()
+            if 'stimulus_group_id' in (r or {})}
+    if _gid and hasattr(bc, 'sg_audit_placement'):
+        for _m in meta.values():
+            _m['linked_group_size'] = None
+        reports = bc.sg_audit_placement(q2s, sections, meta,
+                                        {q: g for q, g in _gid.items() if g})
+        provenance = (provenance or '') + '; stimulus groups exempt inside'
+    else:
+        reports = bc.audit_placement(q2s, sections, meta)
 
     fails, warns, notes = [], [], []
     for sn, rep in reports.items():
@@ -8682,6 +8918,140 @@ def self_test():
     check('A-CLUSTER-partial-prefers-live-concept-map',
           any(c == 'A-CLUSTER' and l == 'FAIL'
               and 'partial-paper mode' in m for l, c, m in RESULTS))
+    # ── v2.30 (GAP-2026-09-21-LINKED-PLACEMENT) ─────────────────────────────
+    # RC-3: a --rules linked_group_size must NOT hide a real adjacency the
+    # placer (manifest-only meta) could not avoid. Pre-v2.30 this printed
+    # 'clean' with floor 0; now the pair is reported at its proven floor 1.
+    _rc3 = _cl_src({1: 'net', 2: 'x', 3: 'net', 4: 'x', 5: 'net', 6: 'net'}, _secA)
+    _rc3['section_rules_text'] = 'subtopic_id: net\nlinked_group_size: 5\n'
+    _reset()
+    gate_cluster(_rc3, [])
+    check('A-CLUSTER-rules-linked-size-does-not-hide-adjacency',
+          any(c == 'A-CLUSTER' and 'proven floor 1' in m for _l, c, m in RESULTS))
+    _PSG = ('The harbour library began on a verandah with forty donated books and grew '
+            'over two decades into a reading room the whole district used, run by '
+            'volunteers who had themselves learnt to read there as children.')
+    _PSG2 = _PSG.replace('harbour', 'village')
+
+    def _sg_doc(spec):
+        def _b(d):
+            for n, psg, ask in spec:
+                if psg is None:
+                    _add_q(d, n)
+                    continue
+                d.add_paragraph(f'Q.{n}  Read the passage and answer the question.')
+                d.add_paragraph(psg)
+                d.add_paragraph(ask)
+                for i, o in enumerate(('Alpha', 'Beta', 'Gamma', 'Delta'), 1):
+                    d.add_paragraph(f'{i}.  {o}')
+                d.add_paragraph('')
+        _t2, _bl = parse_blocks(Document(_mini_doc(tmp, _b)))
+        return _bl
+    _sg_prof = {'schema': 1, 'exam_code': 'E', 'types': {'e.rc': {
+        'exam_section': 'A', 'size_min': 3, 'size_max': 3, 'size_typical': 3,
+        'member_mix': {'e.rc.fact': 1.0}, 'member_order': {'e.rc.fact': 0.5},
+        'anchor': None}}}
+
+    def _sg_src(gids, prof=_sg_prof, subs=None):
+        subs = subs or {1: 'e.x.a', 2: 'e.x.b', 3: 'e.rc.fact', 4: 'e.rc.fact',
+                        5: 'e.rc.fact', 6: 'e.x.c'}
+        cm = {str(q): dict({'subtopic_id': s}, **({'stimulus_group_id': gids.get(q)}
+                                                   if gids is not None else {}))
+              for q, s in subs.items()}
+        return {'sections': _secA, 'registry': {}, '_mockN': 9,
+                'blueprint': {'mocks': [{'mock': 9, 'paper_id': 'MOCK:M09', 'sections': [
+                    {'section_name': 'A', 'subtopic_allocations': [
+                        {'subtopic_id': 'e.rc.fact', 'q_count': 3},
+                        {'subtopic_id': 'e.x.a', 'q_count': 1},
+                        {'subtopic_id': 'e.x.b', 'q_count': 1},
+                        {'subtopic_id': 'e.x.c', 'q_count': 1}]}]}]},
+                'manifest': {'subtopics': {}}, 'section_rules_text': '',
+                'concept_map': cm, 'stimulus_profile': prof}
+
+    def _sg_run(src, bl):
+        _reset()
+        gate_stimulus_blocks(src, bl)
+        return {c: (l, m) for l, c, m in RESULTS}
+    _bl_ok = _sg_doc([(1, None, ''), (2, None, ''),
+                      (3, _PSG, 'What is the tone?'), (4, _PSG, 'Which title fits?'),
+                      (5, _PSG, 'Who ran it?'), (6, None, '')])
+    _g3 = {3: 'e.rc#1', 4: 'e.rc#1', 5: 'e.rc#1'}
+    _r = _sg_run(_sg_src(None), _bl_ok)
+    check('A-BLOCK-legacy-paper-dormant',
+          _r['A-BLOCK'][0] == 'OK' and 'legacy' in _r['A-BLOCK'][1])
+    _r = _sg_run(_sg_src(_g3, prof=None), _bl_ok)
+    check('A-BLOCK-set-paper-without-profile-structural-only',
+          _r['A-BLOCK'][0] == 'OK' and 'plan comparison dormant' in _r['A-BLOCK'][1]
+          and _r['A-BLOCK-STIMULUS'][0] == 'OK')
+    _r = _sg_run(_sg_src(_g3), _bl_ok)
+    check('A-BLOCK-correct-set-passes',
+          all(_r[n][0] == 'OK' for n in ('A-BLOCK', 'A-BLOCK-STIMULUS', 'A-BLOCK-ORDER')))
+    _r = _sg_run(_sg_src({3: 'e.rc#1', 4: 'e.rc#1', 6: 'e.rc#1'},
+                         subs={1: 'e.x.a', 2: 'e.x.b', 3: 'e.rc.fact', 4: 'e.rc.fact',
+                               5: 'e.x.c', 6: 'e.rc.fact'}), _bl_ok)
+    check('A-BLOCK-scattered-set-fails',
+          _r['A-BLOCK'][0] == 'FAIL' and 'not consecutive' in _r['A-BLOCK'][1])
+    _r = _sg_run(_sg_src({3: 'e.rc#1', 4: 'e.rc#1', 5: None}), _bl_ok)
+    check('A-BLOCK-set-differs-from-profile-plan-fails', _r['A-BLOCK'][0] == 'FAIL')
+    _bl_mix = _sg_doc([(1, None, ''), (2, None, ''), (3, _PSG, 'Tone?'),
+                       (4, _PSG2, 'Title?'), (5, _PSG, 'Who?'), (6, None, '')])
+    _r = _sg_run(_sg_src(_g3), _bl_mix)
+    check('A-BLOCK-STIMULUS-different-passages-in-one-set-fails',
+          _r['A-BLOCK-STIMULUS'][0] == 'FAIL')
+    _bl_two = _sg_doc([(1, _PSG, 'a?'), (2, _PSG, 'b?'), (3, _PSG, 'c?'),
+                       (4, _PSG, 'd?'), (5, None, ''), (6, None, '')])
+    _src2 = _sg_src({1: 'x#1', 2: 'x#1', 3: 'x#2', 4: 'x#2'})
+    _src2['blueprint'] = {}
+    _r = _sg_run(_src2, _bl_two)
+    check('A-BLOCK-STIMULUS-two-sets-one-passage-fails',
+          _r['A-BLOCK-STIMULUS'][0] == 'FAIL' and 'shared with' in _r['A-BLOCK-STIMULUS'][1])
+    # a long instruction line shared by two sets (passages distinct) must NOT fail
+    _INS = ('Read the passage given below carefully and answer the questions that follow '
+            'it by choosing the most appropriate option from the four options given below '
+            'each of the questions.')
+    def _sg_doc2():
+        def _b(d):
+            for n, psg in ((1, _PSG), (2, _PSG), (3, _PSG2), (4, _PSG2)):
+                d.add_paragraph(f'Q.{n}  Answer.')
+                d.add_paragraph(_INS)
+                d.add_paragraph(psg)
+                d.add_paragraph('Which is true?')
+                for i, o in enumerate(('Alpha', 'Beta', 'Gamma', 'Delta'), 1):
+                    d.add_paragraph(f'{i}.  {o}')
+                d.add_paragraph('')
+            _add_q(d, 5); _add_q(d, 6)
+        return parse_blocks(Document(_mini_doc(tmp, _b)))[1]
+    _src3 = _sg_src({1: 'x#1', 2: 'x#1', 3: 'x#2', 4: 'x#2'})
+    _src3['blueprint'] = {}
+    _r = _sg_run(_src3, _sg_doc2())
+    check('A-BLOCK-STIMULUS-common-instruction-not-a-false-fail',
+          _r['A-BLOCK-STIMULUS'][0] == 'OK')
+    # an RC set whose last members ask numbered blanks (real SSC 18-Jan-2025 Q42-45)
+    _bl_mixed = _sg_doc([(1, None, ''), (2, None, ''), (3, _PSG, 'What is the tone?'),
+                         (4, _PSG, 'Select the option for blank no. 1.'),
+                         (5, _PSG, 'Select the option for blank no. 2.'), (6, None, '')])
+    _r = _sg_run(_sg_src(_g3), _bl_mixed)
+    _src4 = _sg_src({3: 'e.rc#1', 4: 'e.rc#1', 5: None})
+    _src4['blueprint'] = {}
+    _src4['stimulus_profile'] = dict(_sg_prof, _paper={'mock_entry': _sg_src({})['blueprint']['mocks'][0]})
+    _r = _sg_run(_src4, _bl_ok)
+    check('A-BLOCK-plan-from-snapshot-mock-entry', _r['A-BLOCK'][0] == 'FAIL'
+          and 'profile plan' in _r['A-BLOCK'][1])
+    check('A-BLOCK-ORDER-mixed-set-only-blank-members-checked',
+          _r['A-BLOCK-ORDER'][0] == 'OK')
+    _bl_clz = _sg_doc([(1, None, ''), (2, None, ''),
+                       (3, _PSG, 'Select the option for blank number 1.'),
+                       (4, _PSG, 'Select the option for blank number 3.'),
+                       (5, _PSG, 'Select the option for blank number 2.'), (6, None, '')])
+    _r = _sg_run(_sg_src(_g3), _bl_clz)
+    check('A-BLOCK-ORDER-blanks-out-of-order-fails', _r['A-BLOCK-ORDER'][0] == 'FAIL')
+    _bl_clz2 = _sg_doc([(1, None, ''), (2, None, ''),
+                        (3, _PSG, 'Select the option for blank number 1.'),
+                        (4, _PSG, 'Select the option for blank number 2.'),
+                        (5, _PSG, 'Select the option for blank number 3.'), (6, None, '')])
+    _r = _sg_run(_sg_src(_g3), _bl_clz2)
+    check('A-BLOCK-ORDER-blanks-in-order-passes',
+          _r['A-BLOCK-ORDER'][0] == 'OK' and '1 blank-numbered' in _r['A-BLOCK-ORDER'][1])
     # 7. PARTIAL-PAPER MODE: a healthy 2-of-5 batch measured through Q.2 must
     #    print structural PASS lines, not five FAILs
     def _b_partial(d):
@@ -8735,6 +9105,8 @@ def main():
                     help='[ExamCode]_style_profile.json (A-STYLE twin; v2.26 GAP-2026-08-29)')
     ap.add_argument('--pyq-index', dest='pyq_index',
                     help='[ExamCode]_pyq_index.json (A-PYQDIST twin; v2.26)')
+    ap.add_argument('--stimulus-profile', dest='stimulus_profile',
+                    help='[ExamCode]_stimulus_profile.json (A-BLOCK; v2.30)')
     ap.add_argument('--mockN', type=int)
     ap.add_argument('--through-q', dest='through_q', type=int,
                     help='PARTIAL-PAPER MODE (v2.23): audit an intermediate batch '

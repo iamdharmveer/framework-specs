@@ -1223,6 +1223,11 @@ _AM_CONTRACTS = [
     # retires with it: contracts must name a spec that is expected to EXIST.
     ('Framework_MockTestCreate.md', 'audit_canonical.py',
      '--dossier', 'audit_dossier.json'),
+    # 2026.09.21 (GAP-2026-09-21-LINKED-PLACEMENT): the stimulus-profile SNAPSHOT
+    # Step 7 writes at S3-12b is the input A-BLOCK recomputes a paper's question
+    # sets from. Same shape as --dossier: written, and certified only if passed.
+    ('Framework_MockTestCreate.md', 'audit_canonical.py',
+     '--stimulus-profile', 'stimulus_profile.json'),
 ]
 
 

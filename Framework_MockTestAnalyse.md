@@ -1,4 +1,14 @@
-# Framework_MockTestAnalyse v2.57.1 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.57.2 — Universal PYQ Pattern Extraction Engine
+# v2.57.2 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestCreate v5.85,
+#   blueprint_core Cluster SG, audit_canonical v2.30, mock_sync_audit MS-11 name set).
+#   NEW S1-1b: [ExamCode]_stimulus_profile.json — how this exam builds its question SETS
+#   (sizes, member mix/order, position), built by bc.build_stimulus_profile from the
+#   progress records (current-pattern papers only; a set = consecutive questions sharing
+#   one run of >=30 words; type seen in >=2 papers). Written by every final synthesis
+#   (MANDATORY delivery tier: 8 mandatory files, 10 on a normal run) and by the NEW mode
+#   `PYQExtract --stimulus-profile` — for exams whose Step 5 already finished: reads the
+#   progress file, writes and delivers ONLY the profile, HALTS; no PYQ: link; no other
+#   artefact touched. Step 7 needs it before any new paper (MockTestCreate S3-12b).
 # v2.57.1 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
 #   with PYQExplain v2.24, PYQScan v1.6.1). present_files is CLASS T (`pass`): the model
 #   performs the call from what it can SEE. deliver_final built `delivery` (7 mandatory
@@ -637,8 +647,8 @@ PYQ corpus):
   If PYQ parameter absent AND mode is auto (none) → HARD STOP: "PYQExtract
     requires PYQ: <<Google Drive folder link>>. The local project/uploads
     fallback for PYQ corpus files was removed (v2.24.8)."
-  If PYQ parameter absent AND mode is --status/--synthesise → fine, proceed
-    (these modes don't re-scan the PYQ corpus).
+  If PYQ parameter absent AND mode is --status/--synthesise/--stimulus-profile →
+    fine, proceed (these modes don't re-scan the PYQ corpus).
   If link format unrecognised → flag: "Cannot extract folder ID from link.
                                        Expected: https://drive.google.com/drive/folders/ID"
 
@@ -647,6 +657,9 @@ Mode flags:
   --status         -> print progress dashboard, then HALT
   --synthesise ALL -> re-synthesise from existing progress.json, skip paper processing
   --synthesise [S] -> synthesise named section only
+  --stimulus-profile -> v2.57.2: build [ExamCode]_stimulus_profile.json from the
+                      existing progress file (S1-1b), deliver it, then HALT. No
+                      PYQ: link needed; no other artefact is written.
 ```
 
 ```python
@@ -658,6 +671,7 @@ Mode flags:
 #   "PYQExtract --status"               → mode = '--status'
 #   "PYQExtract --synthesise ALL"       → mode = '--synthesise ALL'
 #   "PYQExtract PYQ: <<link>>"          → mode = None
+#   "PYQExtract --stimulus-profile"     → mode = '--stimulus-profile'  (v2.57.2, S1-1b)
 mode = None   # set from trigger parsing above; None = auto-mode
 
 # v2.50.0 — bind the other two trigger-parsing outputs explicitly, in the same idiom
@@ -953,6 +967,138 @@ if frequency_scope == 'current-era' and not exam_config:
 # pyq_drive_folder_id = 'ID'  if PYQ: link given and parsed successfully
 ```
 
+### S1-1b — Stimulus profile (v2.57.2 — GAP-2026-09-21-LINKED-PLACEMENT)
+
+```
+WHAT IT IS. [ExamCode]_stimulus_profile.json tells Step 7 how this exam builds its
+question SETS — the questions that share ONE stimulus (an RC passage, a cloze
+paragraph, a DI table, a puzzle). Per set type it records the set sizes, the member
+subtopic mix and order, and where in the section the sets sit. Step 7 then places
+each set as consecutive questions with one shared stimulus. Without it Step 7 stops
+at the start of every NEW paper (Framework_MockTestCreate S3-12b SAFETY LOCK).
+
+HOW IT IS BUILT. bc.build_stimulus_profile — pure, engine-owned, self-tested — from
+the question records this step already stores in [ExamCode]_analysis_progress.json
+(stem text, subtopic, paper_id, original_q_num). Nothing is re-read from Drive.
+Only CURRENT-PATTERN papers count (bc.classify_paper_era per sitting); a set is
+consecutive questions of one paper and one section that share one run of >=
+bc.SG_MIN_STIM_WORDS words (whatever the stem layout); a set type must be seen in
+>= 2 papers. Known limit: a set whose only shared stimulus is an image is not
+detected (it is placed as before).
+
+TWO WRITERS, ONE FUNCTION (write_stimulus_profile below):
+  1. Every final synthesis (run_synthesise → deliver_final) writes it — new exams
+     need no extra step.
+  2. Existing exams whose Step 5 already finished run ONCE:
+         PYQExtract --stimulus-profile
+     with [ExamCode]_analysis_progress.json in Project Files or attached to the
+     trigger. No PYQ: link is needed. This mode writes ONLY the profile — the
+     manifest, section_rules, frequency xlsx and every other artefact are NOT
+     touched — delivers it, and HALTS.
+  If the progress file is lost: run PYQExtract PYQ: <<Sorted PYQ Drive link>>
+  (a full run); its final delivery includes the profile.
+
+AN EMPTY PROFILE IS A VALID RESULT. An exam with no set-type questions gets
+"types": {} — Step 7 then places exactly as before. The file is still required,
+so the absence of the step can never be mistaken for "no sets".
+```
+
+```python
+def write_stimulus_profile(exam_code, progress, strict=True):
+    """Build, validate and write [ExamCode]_stimulus_profile.json. Returns its path.
+    exam_config / subtopic_manifest: the copy this run wrote (outputs) wins, else
+    the chat attachment (uploads), else Project Files.
+    strict=False (final synthesis): a missing exam_config/manifest must not cost the
+    run its other deliverables — an EMPTY valid profile is written with the reason in
+    its notes and a loud WARN; the operator re-runs --stimulus-profile later."""
+    import json, os
+    from datetime import datetime, timezone
+
+    def _first(name):
+        for d in ('/mnt/user-data/outputs', '/mnt/user-data/uploads', '/mnt/project'):
+            p = os.path.join(d, f'{exam_code}_{name}')
+            if os.path.exists(p):
+                return p
+        return None
+    _cfg_p, _man_p = _first('exam_config.json'), _first('subtopic_manifest.json')
+    try:
+        _ver = open('/tmp/fw/VERSION', encoding='utf-8').read().strip()
+    except OSError:
+        _ver = None
+    _built = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    _missing = [n for n, p in (('exam_config', _cfg_p), ('subtopic_manifest', _man_p))
+                if not p]
+    if _missing and strict:
+        raise SystemExit(
+            f"HARD STOP (S1-1b): {exam_code}_exam_config.json and "
+            f"{exam_code}_subtopic_manifest.json are both required to build the "
+            f"stimulus profile — missing: {_missing}. Upload them to Project Files "
+            f"and re-run PYQExtract --stimulus-profile.")
+    if _missing:
+        print(f"WARN (S1-1b): {_missing} not available — an EMPTY stimulus profile is "
+              f"written, so question sets will NOT be kept together. Run "
+              f"PYQExtract --stimulus-profile once they are in Project Files.")
+        prof = {'schema': bc.STIMULUS_PROFILE_SCHEMA, 'exam_code': exam_code,
+                'built_by': _ver, 'built_utc': _built,
+                'source': {'papers_total': 0, 'papers_used': [], 'papers_excluded': {}},
+                'types': {}, 'rejected_groups': [],
+                'notes': [f'not built: {_missing} unavailable at synthesis']}
+        _man = None
+    else:
+        _cfg = json.load(open(_cfg_p, encoding='utf-8'))
+        _man = json.load(open(_man_p, encoding='utf-8'))
+        _qs = [q for k, v in progress.items() if isinstance(k, tuple) for q in v]
+        prof = bc.build_stimulus_profile(
+            _qs, _cfg, _man, exam_code=exam_code, framework_version=_ver,
+            built_utc=_built)
+    _probs = bc.validate_stimulus_profile(prof, exam_code=exam_code, manifest=_man)
+    if _probs:
+        raise SystemExit("HARD STOP (S1-1b): the stimulus profile failed validation — "
+                         "engine defect, not data: " + '; '.join(_probs))
+    path = f'/mnt/user-data/outputs/{exam_code}_stimulus_profile.json'
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(prof, fh, ensure_ascii=False, indent=1, sort_keys=True)
+    src = prof['source']
+    print(f"STIMULUS PROFILE: {len(prof['types'])} set type(s) from "
+          f"{len(src['papers_used'])} current-pattern paper(s) of {src['papers_total']}")
+    for T, r in sorted(prof['types'].items()):
+        an = r.get('anchor')
+        print(f"  {T}: {r['size_min']}-{r['size_max']} per set (usually "
+              f"{r['size_typical']}), {r['groups_per_paper_typical']} set(s)/paper, "
+              f"section '{r['exam_section']}', "
+              + (f"position {an['rel_start']:.2f}-{an['rel_end']:.2f} of the section"
+                 if an else "no consistent position — spread through the section")
+              + f" | seen in {r['papers_observed']} paper(s)")
+    if not prof['types']:
+        print("  (no set-type questions in the current pattern — Step 7 places as before)")
+    for pid, why in sorted(src['papers_excluded'].items()):
+        print(f"  excluded paper: {pid} — {why}")
+    if prof['rejected_groups']:
+        print(f"  rejected candidate sets: {len(prof['rejected_groups'])} "
+              f"(e.g. {prof['rejected_groups'][0]})")
+    for n in prof['notes']:
+        print(f"  NOTE: {n}")
+    return path
+
+
+def run_stimulus_profile_mode(exam_code, progress):
+    """`PYQExtract --stimulus-profile` — writes and delivers ONLY the profile."""
+    if not (progress.get('_meta') or {}).get('papers_processed'):
+        raise SystemExit(
+            f"HARD STOP (S1-1b): no {exam_code}_analysis_progress.json with processed "
+            f"papers was found in Project Files or chat uploads. Upload the progress "
+            f"file PYQExtract delivered (\"keep locally\") and re-run "
+            f"PYQExtract --stimulus-profile. If it is lost, run a full "
+            f"PYQExtract PYQ: <<Sorted PYQ Drive link>> — its final delivery includes "
+            f"the profile.")
+    path = write_stimulus_profile(exam_code, progress)
+    print(f"\nNEXT: upload {exam_code}_stimulus_profile.json to the {exam_code} project "
+          f"Files. TestCreate/MockCreate use it from the next NEW paper; a paper "
+          f"already in progress finishes as it started.")
+    print_delivery_set([path])
+    present_files([path])
+```
+
 ### S1-2 — File inventory
 
 ```python
@@ -1015,7 +1161,8 @@ def collect_pyq_papers(folder_id, listing_cache=DRIVE_LISTING_CACHE):
     return transport_core.collect_pyq_papers(folder_id, listing_cache)
 
 
-_needs_pyq_corpus = not (mode == '--status' or (mode or '').startswith('--synthesise'))
+_needs_pyq_corpus = not (mode in ('--status', '--stimulus-profile')
+                          or (mode or '').startswith('--synthesise'))
 
 if _needs_pyq_corpus:
     if not pyq_drive_folder_id:
@@ -1098,7 +1245,8 @@ print(f"  Analysis docs : {len(analysis_doc_paths)}")
 # usable papers from a supplied link is therefore a TRANSPORT diagnosis, never a
 # corpus fact. A genuinely PYQ-less exam is requested EXPLICITLY with
 # '--synthesise ALL'; it is never inferred.
-if not pyq_available and not (mode or '').startswith('--synthesise') and mode != '--status':
+if not pyq_available and not (mode or '').startswith('--synthesise') \
+        and mode not in ('--status', '--stimulus-profile'):
     raise SystemExit(
         "HARD STOP — the PYQ Drive folder yielded ZERO usable papers (EC-P39).\n"
         f"  folder id      : {pyq_drive_folder_id}\n"
@@ -1122,6 +1270,14 @@ n_done   = len(progress.get('_meta', {}).get('papers_processed', []))
 if n_done:
     n_subs = len([k for k in progress if isinstance(k, tuple)])
     print(f"Resuming: {n_done} papers already processed. {n_subs} subtopics with data.")
+
+# v2.57.2 (GAP-2026-09-21-LINKED-PLACEMENT): `--stimulus-profile` writes and delivers
+# ONLY [ExamCode]_stimulus_profile.json (S1-1b, defined above; load_progress needs
+# S8-8 exactly as before), then HALTS — no batch, no
+# synthesis, no other artefact.
+if mode == '--stimulus-profile':
+    run_stimulus_profile_mode(exam_code, progress)
+    raise SystemExit(0)
 ```
 
 **Key design decisions:**
@@ -3837,20 +3993,26 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
           + f" | pyq_index: {_index['_meta']['questions']} q, "
             f"self_repeat_rate {_index['_meta']['self_repeat_rate']}")
 
+    # v2.57.2 (GAP-2026-09-21-LINKED-PLACEMENT): the stimulus profile Step 7 needs
+    # to keep question SETS together (S1-1b). Built from this same progress state.
+    sgp_path = write_stimulus_profile(exam_code, progress, strict=False)
+
     # Final delivery
     deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
                   manifest_path=manifest_path, xlsx_path=xlsx_path,
-                  profile_path=profile_path, index_path=index_path)
+                  profile_path=profile_path, index_path=index_path,
+                  sgp_path=sgp_path)
 
 def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
                   manifest_path=None, xlsx_path=None,
-                  profile_path=None, index_path=None):
+                  profile_path=None, index_path=None, sgp_path=None):
     """
     Final delivery: section_rules.md, subtopic_manifest.json, PYQ_Frequency.xlsx,
     style_profile.json, pyq_index.json, analysis_progress.json,
     analysis_summary.md — all 7 outputs in one response.
     v2.15 BUG-D02: xlsx_path added (was missing — xlsx never delivered).
     v2.56 §6.1.8: style_profile + pyq_index added (same-run, same corpus_hash).
+    v2.57.2: stimulus_profile added (S1-1b — Step 7 set placement).
     """
     # Save final progress
     progress_path = save_progress(progress, exam_code)
@@ -3881,6 +4043,9 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
     # set: replace together in Project Files, never mix artefacts across runs.
     if profile_path: delivery.append(profile_path)
     if index_path:   delivery.append(index_path)
+    # v2.57.2 (GAP-2026-09-21-LINKED-PLACEMENT): MANDATORY — Step 7 stops at the
+    # start of a new paper without it (MockTestCreate S3-12b SAFETY LOCK).
+    if sgp_path:     delivery.append(sgp_path)
     # v2.24.9: include updated exam_config.json (with subjects[]) if it was generated
     _ecfg_out = f'/mnt/user-data/outputs/{exam_code}_exam_config.json'
     import os as _os2
@@ -3920,9 +4085,11 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
     print(f"  [3] Download {exam_code}_style_profile.json from the file above")
     print(f"  [4] Download {exam_code}_pyq_index.json from the file above")
     print("      (v2.56: profile + index carry the SAME corpus_hash — replace together)")
-    print(f"  [5] Download {exam_code}_exam_config.json from the file above (when delivered)")
-    print(f"  [6] Go to your {exam_code} Claude project → Files (or Knowledge) section")
-    print("  [7] Upload all 5 files (replace any existing versions)")
+    print(f"  [5] Download {exam_code}_stimulus_profile.json from the file above")
+    print("      (v2.57.2: Step 7 needs it to keep question sets together)")
+    print(f"  [6] Download {exam_code}_exam_config.json from the file above (when delivered)")
+    print(f"  [7] Go to your {exam_code} Claude project → Files (or Knowledge) section")
+    print("  [8] Upload all 6 files (replace any existing versions)")
     print("  (Step 6 and Step 7 read them directly from the project Files section)")
     print("")
     print("KEEP FOR STEP 6:")
@@ -4246,8 +4413,8 @@ PART A — QV results in chat:
    ==========================="
 
 PART B — present_files (all in one call, in the order the final_delivery code
-emits: rules → manifest → xlsx → style_profile → pyq_index → exam_config →
-taxonomy → progress → summary):
+emits: rules → manifest → xlsx → style_profile → pyq_index → stimulus_profile →
+exam_config → taxonomy → progress → summary):
 
   MANDATORY — every run:
     1. [ExamCode]_section_rules.md        <- PRIMARY: download → upload to [ExamCode] project
@@ -4259,20 +4426,23 @@ taxonomy → progress → summary):
     5. [ExamCode]_pyq_index.json          <- v2.56: download → upload to [ExamCode] project
                                              (same corpus_hash as the profile; replace
                                               BOTH together, never mix runs)
+    6. [ExamCode]_stimulus_profile.json   <- v2.57.2: download → upload to [ExamCode] project
+                                             (Step 7 set placement; an exam with no
+                                              sets gets an empty, valid profile)
 
   WHEN IT EXISTS — which is every normal run:
-    6. [ExamCode]_exam_config.json        <- download → REPLACE in [ExamCode] project
+    7. [ExamCode]_exam_config.json        <- download → REPLACE in [ExamCode] project
                                              (v2.24.9: carries subjects[] for Step 6 resolver;
                                               absent only when S-SECMAP warned and continued)
-    7. [ExamCode]_taxonomy.xlsx           <- download → human-readable taxonomy companion
+    8. [ExamCode]_taxonomy.xlsx           <- download → human-readable taxonomy companion
                                              (absent only when openpyxl was unavailable)
 
   MANDATORY — every run (emitted last):
-    8. [ExamCode]_analysis_progress.json  <- download → keep locally
-    9. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
+    9. [ExamCode]_analysis_progress.json  <- download → keep locally
+   10. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
 
-  All files above are delivered as downloadable chat attachments — 9 on a normal run,
-  7 in the degraded case where both conditional files are absent. This list is the same
+  All files above are delivered as downloadable chat attachments — 10 on a normal run,
+  8 in the degraded case where both conditional files are absent. This list is the same
   two-tier contract S11-3 and the pre-delivery checklist enforce; do not restate it as a
   fixed count (v2.48.2 — the "All 6" wording here survived v2.47.1 and v2.48.1 and was
   the site the field-reported silent drop came from).
@@ -4288,10 +4458,12 @@ PART C — Handoff message:
      [tick] Download [ExamCode]_style_profile.json from the file above
      [tick] Download [ExamCode]_pyq_index.json from the file above
            (v2.56: profile + index carry the SAME corpus_hash — replace together)
+     [tick] Download [ExamCode]_stimulus_profile.json from the file above
+           (v2.57.2: Step 7 keeps question sets together with it)
      [tick] Download [ExamCode]_exam_config.json from the file above
            (v2.24.9: now carries subjects[] per section for Step 6 resolver)
      [tick] Go to your [ExamCode] Claude project → Files (or Knowledge) section
-     [tick] Upload all 5 files (replace any existing versions)
+     [tick] Upload all 6 files (replace any existing versions)
 
    KEEP FOR STEP 6:
      [ExamCode]_PYQ_Frequency.xlsx — Step 6 input (Frequency Excel)
@@ -4304,7 +4476,7 @@ PART C — Handoff message:
      1. Add new .docx files to your Google Drive PYQ folder
      2. Run: PYQExtract PYQ: <<same Drive link>>
      3. New papers auto-detected → processed → auto-synthesis → refreshed outputs
-     4. Download all output files from chat (the S11-3 final set: 7 mandatory,
+     4. Download all output files from chat (the S11-3 final set: 8 mandatory,
         plus exam_config.json and taxonomy.xlsx when present)
      5. Replace old files in [ExamCode] project Files/Knowledge section
      Existing mocks: unaffected. Future mocks: use improved patterns.
@@ -4344,8 +4516,8 @@ FINAL DELIVERY (last batch → auto-synthesis → QV checks complete)
 ────────────────────────────────────────────────────────────────────
 DELIVER in ONE present_files call, in the order the delivery code emits
 (v2.48.2: numbering now follows the code's emission order — v2.56: rules →
-manifest → xlsx → style_profile → pyq_index → exam_config → taxonomy →
-progress → summary — so this list, S11-2 PART B, and the delivery code are
+manifest → xlsx → style_profile → pyq_index → [v2.57.2] stimulus_profile →
+exam_config → taxonomy → progress → summary — so this list, S11-2 PART B, and the delivery code are
 literally identical; v2.48.1's renumbering put the conditional tier AFTER
 progress/summary, a third order in play. v2.48.1: the list shows the SAME two
 tiers the pre-delivery checklist below enforces — v2.47.1 moved
@@ -4358,12 +4530,20 @@ exam_config.json to the conditional tier but this list still called it one of
     4. [ExamCode]_style_profile.json (v2.56 — DORMANT is a written status, never
                                       a missing file)
     5. [ExamCode]_pyq_index.json     (v2.56 — same corpus_hash as the profile)
+    6. [ExamCode]_stimulus_profile.json (v2.57.2 — S1-1b; empty types is valid)
   WHEN IT EXISTS — which is every normal run:
-    6. [ExamCode]_exam_config.json   (absent only when S-SECMAP warned and continued)
-    7. [ExamCode]_taxonomy.xlsx      (absent only when openpyxl was unavailable)
+    7. [ExamCode]_exam_config.json   (absent only when S-SECMAP warned and continued)
+    8. [ExamCode]_taxonomy.xlsx      (absent only when openpyxl was unavailable)
   MANDATORY — every run (emitted last):
-    8. [ExamCode]_analysis_progress.json
-    9. [ExamCode]_analysis_summary.md
+    9. [ExamCode]_analysis_progress.json
+   10. [ExamCode]_analysis_summary.md
+
+────────────────────────────────────────────────────────────────────
+STIMULUS-PROFILE MODE DELIVERY (PYQExtract --stimulus-profile — v2.57.2)
+────────────────────────────────────────────────────────────────────
+DELIVER (single present_files call):
+  1. [ExamCode]_stimulus_profile.json
+  Nothing else — this mode writes no other artefact.
 
 DO NOT DELIVER:
   ✗ Input PYQ .docx files (these are INPUTS)
@@ -4377,6 +4557,7 @@ PRE-DELIVERY CHECKLIST (before every present_files call):
                final:     {section_rules.md, subtopic_manifest.json,
                            PYQ_Frequency.xlsx,
                            style_profile.json, pyq_index.json,
+                           stimulus_profile.json,
                            analysis_progress.json, analysis_summary.md}
                final, additionally WHEN IT EXISTS: {exam_config.json, taxonomy.xlsx}
                (v2.47.1: exam_config.json moved to the conditional tier — the
@@ -4840,8 +5021,9 @@ Step 5 is complete when ALL of the following hold:
 [16] Year columns in xlsx match _meta.years_processed exactly.
 [17] User downloaded [ExamCode]_PYQ_Frequency.xlsx — kept for Step 6 input.
 [18] Per-batch deliverable set closed: EXACTLY 1 file per batch (S11-3)
-[19] Final deliverable set closed: the 7 mandatory files, + exam_config.json and
-     taxonomy.xlsx when written (=9 on a normal run) — per S11-3's derived
+[19] Final deliverable set closed: the 8 mandatory files, + exam_config.json and
+     taxonomy.xlsx when written (=10 on a normal run; v2.57.2 added
+     stimulus_profile.json to the mandatory tier) — per S11-3's derived
      expected set, two tiers exactly as S11-3 now prints them (v2.48.1; the
      "6 mandatory" wording predated v2.47.1's exam_config tier move).
      (v2.47: this item said
@@ -5239,4 +5421,4 @@ explicitly rather than silently borrowing old-era proportions — Release C
 consumes these marks in transition allocation. Inactive/legacy exams:
 byte-identical to v2.56.
 
-# END OF Framework_MockTestAnalyse v2.57.1
+# END OF Framework_MockTestAnalyse v2.57.2

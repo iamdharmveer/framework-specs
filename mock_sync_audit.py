@@ -429,10 +429,11 @@ def check_version_pins(read=_read, root=None):
 
 _DELIV_NAME_RE = (r'(section_rules\.md|subtopic_manifest\.json|'
                   r'PYQ_Frequency\.xlsx|exam_config\.json|taxonomy\.xlsx|'
-                  r'style_profile\.json|pyq_index\.json|'
+                  r'style_profile\.json|pyq_index\.json|stimulus_profile\.json|'
                   r'analysis_progress\.json|analysis_summary\.md)')
 
-_VAR_HINTS = [('rules', 'section_rules.md'),
+_VAR_HINTS = [('sgp', 'stimulus_profile.json'),     # v2.57.2 — before 'profile'
+              ('rules', 'section_rules.md'),
               ('manifest', 'subtopic_manifest.json'),
               ('xlsx', 'PYQ_Frequency.xlsx'),
               ('ecfg', 'exam_config.json'),

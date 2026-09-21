@@ -61,6 +61,21 @@ __all__ = [
     "min_possible_adjacent",
     "place_subtopics",
     "audit_placement",
+    "STIMULUS_PROFILE_SCHEMA",
+    "SG_MIN_STIM_WORDS",
+    "SG_NOPOS_MIN_WORDS",
+    "SG_ANCHOR_AGREE",
+    "SG_ANCHOR_TOL",
+    "sg_shared_stimulus",
+    "sg_sitting_of",
+    "sg_type_of",
+    "build_stimulus_profile",
+    "validate_stimulus_profile",
+    "compose_stimulus_groups",
+    "place_with_stimulus_groups",
+    "sg_audit_placement",
+    "sg_expected_groups",
+    "sg_blank_number",
     "split_recency",
     "compute_r_avg",
     "rescale_to_total",
@@ -2239,6 +2254,593 @@ def audit_placement(placement, sections, meta, groups=None):
             'counts_exact': True,
         }
     return reports
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER SG — STIMULUS GROUPS  (GAP-2026-09-21-LINKED-PLACEMENT)
+#
+# WHY THIS CLUSTER EXISTS
+#   Set-type questions (an RC passage with its questions, a cloze paragraph with
+#   its blanks, a DI table with its questions) share ONE stimulus. Before this
+#   cluster the framework had no working path that kept a set together: Step 5
+#   wrote a corrupted per-subtopic `linked_group_size` into section_rules.md only,
+#   Step 7's placer read the manifest (which never carries it), so every set was
+#   scattered — measured on SSC_CGL_TIER2 Mock 13: one RC passage printed at nine
+#   scattered positions and cloze blanks asked 5,3,...,1.
+#
+# THE CONTRACT (one artefact, one switch)
+#   [ExamCode]_stimulus_profile.json — built ONCE per exam by
+#   `PYQExtract --stimulus-profile` from the Step-5 progress file (or emitted by
+#   PYQExtract's final synthesis). It records, per set TYPE (first two segments
+#   of the subtopic_id, e.g. `elc.reading_comprehension`): allowed set sizes,
+#   member subtopic mix and order, and where in the section the sets sit.
+#   Step 7 composes groups from the blueprint's EXISTING allocations (never a
+#   re-allocation), places each group as ONE contiguous block, and records
+#   `stimulus_group_id` per question. The auditor recomputes the same groups
+#   from the same profile and verifies what the paper contains.
+#   No profile, or a paper started before the profile existed → today's path,
+#   byte-for-byte (place_subtopics / audit_placement unchanged).
+#
+# EVIDENCE RULES (measured on the 22-paper SSC_CGL_TIER2 corpus)
+#   * Only CURRENT-PATTERN papers count (classify_paper_era, keyed by paper_id —
+#     NOT paper_key(), whose (year, shift) key merges different sittings).
+#   * One SITTING per paper_id family (sg_sitting_of — a sitting split across
+#     several sorted files is judged as the one paper it is).
+#   * A set = questions of ONE sitting and ONE section that share one contiguous
+#     run of >= SG_MIN_STIM_WORDS words (sg_shared_stimulus — layout-free: the ask
+#     may precede, follow or share the stimulus paragraph).
+#   * When original exam positions are known only NEIGHBOURS in exam order can
+#     join, so a set is consecutive by construction (a symbol key reused by
+#     independent questions never forms one). Without positions, same-topic
+#     questions must share >= SG_NOPOS_MIN_WORDS words instead.
+#   * A member classified under another topic stays in the set's size but not in
+#     its member mix. Known limit: a set whose ONLY shared stimulus is an image
+#     (no >= 30-word text) is not detected and is placed as today.
+#   * A type counts only when seen in >= min(2, current papers) papers.
+#   Pure: no I/O. Callers read/write files.
+# ════════════════════════════════════════════════════════════════════════════
+
+STIMULUS_PROFILE_SCHEMA = 1
+SG_MIN_STIM_WORDS = 30        # a shared paragraph shorter than this is an instruction, not a stimulus
+SG_NOPOS_MIN_WORDS = 60       # stricter share when exam positions are unknown (no consecutiveness check)
+SG_ANCHOR_AGREE = 0.70        # D-B: anchor sets where >= 70% of current papers agree
+SG_ANCHOR_TOL = 0.10          # agreement tolerance, as a fraction of the section length
+SG_REJECT_LIST_CAP = 50
+
+
+def _sg_norm(text):
+    t = re.sub(r'\s+', ' ', str(text or '').lower())
+    return re.sub(r'[^a-z0-9 ]', '', t).strip()
+
+
+def _sg_words(text):
+    return _sg_norm(text).split()
+
+
+def sg_shared_stimulus(stem_a, stem_b, min_words=None):
+    """True when two question stems share one contiguous run of at least
+    SG_MIN_STIM_WORDS normalised words — the shared passage / paragraph / data
+    description of a question set. Layout-free: the ask may precede, follow or sit
+    in the same paragraph as the stimulus (all three occur in real corpora)."""
+    import difflib
+    need = int(min_words or SG_MIN_STIM_WORDS)
+    a, b = _sg_words(stem_a), _sg_words(stem_b)
+    if len(a) < need or len(b) < need:
+        return False
+    m = difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(
+        0, len(a), 0, len(b))
+    return m.size >= need
+
+
+def sg_sitting_of(paper_id):
+    """One exam SITTING per paper_id family: a sorted corpus may split one sitting
+    into several files ('..._Sorted_Q1-Q60', '..._Sorted_Q61-Q120'); the suffix from
+    '_Sorted' on is dropped so the chunks are judged as the one paper they are."""
+    return re.sub(r'_Sorted(?:_.*)?$', '', str(paper_id or ''))
+
+
+def sg_type_of(subtopic_id):
+    """Set TYPE of a subtopic id: its first two dot-segments (section.topic)."""
+    parts = str(subtopic_id or '').split('.')
+    return '.'.join(parts[:2]) if len(parts) >= 2 else str(subtopic_id or '')
+
+
+def _sg_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sg_config_section(exam_config, q_section):
+    for s in (exam_config or {}).get('sections') or []:
+        if q_section == s.get('name') or q_section in (s.get('subjects') or []):
+            return s.get('name')
+    return None
+
+
+def build_stimulus_profile(questions, exam_config, manifest, *, exam_code,
+                           framework_version=None, built_utc=None):
+    """Build the stimulus profile from Step-5 question records.
+
+    questions  iterable of dicts carrying paper_id, section, topic, subtopic,
+               q_num, original_q_num (optional), question_type (optional),
+               stem_raw / stem.
+    manifest   the subtopic_manifest dict (its 'subtopics' map is used to turn
+               (section, topic, display_name) into subtopic_id).
+    Returns the profile dict (validate with validate_stimulus_profile)."""
+    import statistics
+    subs = (manifest or {}).get('subtopics') or {}
+    name2id = {}
+    for sid, rec in subs.items():
+        name2id[(rec.get('section'), rec.get('topic'), rec.get('display_name'))] = sid
+
+    by_paper = {}
+    for q in questions or []:
+        pid = sg_sitting_of(q.get('paper_id'))
+        if pid:
+            by_paper.setdefault(pid, []).append(q)
+
+    cfg_total, min_q, max_q = exam_config_bounds(exam_config)
+    cfg_type = type_resolver_from_config(exam_config)
+    used, excluded = [], {}
+    for pid in sorted(by_paper):
+        qs = by_paper[pid]
+        nums = [_sg_int(q.get('q_num')) for q in qs]
+        nums = [n for n in nums if n is not None]
+        types = {}
+        for q in qs:
+            n = _sg_int(q.get('q_num'))
+            if n is not None and q.get('question_type'):
+                types[n] = q.get('question_type')
+        era = classify_paper_era(nums, cfg_total, min_q, max_q,
+                                 observed_types=types or None, cfg_type_for_q=cfg_type)
+        if era != 'current':
+            excluded[pid] = 'era:' + era
+        else:
+            used.append(pid)
+
+    min_papers = min(2, len(used)) if used else 2
+    groups, rejected, notes = [], [], []
+    positions_known_all = True
+    for pid in used:
+        by_sec = {}
+        for q in by_paper[pid]:
+            sec = _sg_config_section(exam_config, q.get('section'))
+            if sec:
+                by_sec.setdefault(sec, []).append(q)
+        for sec, qs in sorted(by_sec.items()):
+            origs = [_sg_int(q.get('original_q_num')) for q in qs]
+            pos_known = all(o is not None for o in origs) and len(set(origs)) == len(origs)
+            positions_known_all = positions_known_all and pos_known
+            order = sorted(range(len(qs)), key=lambda i: (
+                origs[i] if pos_known else (_sg_int(qs[i].get('q_num')) or 0)))
+            rank = {i: r for r, i in enumerate(order)}
+            L = len(qs)
+            stems = [q.get('stem_raw') or q.get('stem') or '' for q in qs]
+            parent = list(range(L))
+
+            def _find(x):
+                while parent[x] != x:
+                    parent[x] = parent[parent[x]]
+                    x = parent[x]
+                return x
+            if pos_known:
+                # a set is CONSECUTIVE: only neighbours in exam order can join
+                for r in range(L - 1):
+                    i, j = order[r], order[r + 1]
+                    if sg_shared_stimulus(stems[i], stems[j]):
+                        parent[_find(j)] = _find(i)
+            else:
+                # no exam positions (a pre-v1.18 sorted corpus): consecutiveness cannot
+                # be checked, so a shared short key (a symbol table reused by independent
+                # questions) could pass as a set — demand a passage-length share instead
+                for a in range(L):
+                    for b in range(a + 1, L):
+                        if qs[a].get('topic') == qs[b].get('topic') and \
+                                sg_shared_stimulus(stems[a], stems[b],
+                                                   min_words=SG_NOPOS_MIN_WORDS):
+                            parent[_find(b)] = _find(a)
+            comp = {}
+            for i in range(L):
+                comp.setdefault(_find(i), []).append(i)
+            for root in sorted(comp, key=lambda x: min(rank[i] for i in comp[x])):
+                run = sorted(comp[root], key=lambda i: rank[i])
+                if len(run) < 2:
+                    continue
+                sids = []
+                for i in run:
+                    q = qs[i]
+                    sids.append(name2id.get((q.get('section'), q.get('topic'),
+                                             q.get('subtopic'))))
+                mapped = [s for s in sids if s]
+                if not mapped:
+                    if len(rejected) < SG_REJECT_LIST_CAP:
+                        rejected.append({'paper_id': pid, 'section': sec,
+                                         'reason': 'no_manifest_subtopic',
+                                         'original_q': [origs[i] for i in run]})
+                    continue
+                tcount = {}
+                for s in mapped:
+                    tcount[sg_type_of(s)] = tcount.get(sg_type_of(s), 0) + 1
+                T = sorted(tcount, key=lambda t: (-tcount[t], t))[0]
+                groups.append({'paper_id': pid, 'section': sec, 'type': T,
+                               'size': len(run), 'members': sids,
+                               'start': rank[run[0]], 'end': rank[run[-1]] + 1,
+                               'L': L, 'pos_known': pos_known})
+    if not positions_known_all and used:
+        notes.append('original exam positions missing for some papers — '
+                     'consecutiveness and position not checked there')
+
+    types = {}
+    by_type = {}
+    for g in groups:
+        by_type.setdefault(g['type'], []).append(g)
+    for T, gs in sorted(by_type.items()):
+        papers = sorted({g['paper_id'] for g in gs})
+        if len(papers) < min_papers:
+            for g in gs:
+                if len(rejected) < SG_REJECT_LIST_CAP:
+                    rejected.append({'paper_id': g['paper_id'], 'section': g['section'],
+                                     'reason': 'type_seen_in_too_few_papers', 'type': T})
+            continue
+        secs = {}
+        for g in gs:
+            secs[g['section']] = secs.get(g['section'], 0) + 1
+        sec = sorted(secs, key=lambda s: (-secs[s], s))[0]
+        sizes = sorted(g['size'] for g in gs)
+        per_paper = {}
+        for g in gs:
+            per_paper[g['paper_id']] = per_paper.get(g['paper_id'], 0) + 1
+        mix, order_acc = {}, {}
+        tot = 0
+        for g in gs:
+            n = len(g['members'])
+            for j, s in enumerate(g['members']):
+                if not s or sg_type_of(s) != T:
+                    continue          # unmapped or a member classified under another topic
+                mix[s] = mix.get(s, 0) + 1
+                tot += 1
+                order_acc.setdefault(s, []).append(j / (n - 1) if n > 1 else 0.0)
+        member_mix = {s: round(mix[s] / tot, 4) for s in sorted(mix)} if tot else {}
+        member_order = {s: round(sum(v) / len(v), 4) for s, v in sorted(order_acc.items())}
+        anchor, agree = None, 0.0
+        spans = []
+        for pid in papers:
+            pg = [g for g in gs if g['paper_id'] == pid and g['pos_known']]
+            if pg:
+                L = pg[0]['L']
+                spans.append((min(g['start'] for g in pg) / L, max(g['end'] for g in pg) / L))
+        if spans:
+            # reference = the MEDIAN position (robust: a minority of papers placing
+            # the sets elsewhere cannot drag it); agreement = share of papers within
+            # SG_ANCHOR_TOL of it; the anchor = the mean span of the agreeing papers
+            ms = statistics.median(a for a, _ in spans)
+            me = statistics.median(b for _, b in spans)
+            ok = [(a, b) for a, b in spans
+                  if abs(a - ms) <= SG_ANCHOR_TOL and abs(b - me) <= SG_ANCHOR_TOL]
+            agree = round(len(ok) / len(papers), 4)
+            if ok and agree >= SG_ANCHOR_AGREE:
+                anchor = {'rel_start': round(sum(a for a, _ in ok) / len(ok), 4),
+                          'rel_end': round(sum(b for _, b in ok) / len(ok), 4)}
+        types[T] = {
+            'exam_section': sec,
+            'size_min': sizes[0], 'size_max': sizes[-1],
+            'size_typical': int(statistics.median_low(sizes)),
+            'groups_per_paper_typical': int(statistics.median_low(list(per_paper.values()))),
+            'member_mix': member_mix,
+            'member_order': member_order,
+            'anchor': anchor,
+            'anchor_agreement': agree,
+            'groups_observed': len(gs),
+            'papers_observed': len(papers),
+        }
+    return {
+        'schema': STIMULUS_PROFILE_SCHEMA,
+        'exam_code': exam_code,
+        'built_by': framework_version,
+        'built_utc': built_utc,
+        'source': {'papers_total': len(by_paper), 'papers_used': used,
+                   'papers_excluded': excluded},
+        'types': types,
+        'rejected_groups': rejected,
+        'notes': notes,
+    }
+
+
+def validate_stimulus_profile(profile, *, exam_code=None, manifest=None,
+                              section_names=None):
+    """Return a list of problems ([] = valid). Never raises. section_names (the
+    exam's section names) additionally checks every type's exam_section exists —
+    a renamed section would otherwise silently form no set."""
+    p = []
+    if not isinstance(profile, dict):
+        p.append('profile is not a JSON object')
+        profile = {'schema': STIMULUS_PROFILE_SCHEMA, 'exam_code': exam_code, 'types': {}}
+    if profile.get('schema') != STIMULUS_PROFILE_SCHEMA:
+        p.append('schema %r != %r' % (profile.get('schema'), STIMULUS_PROFILE_SCHEMA))
+    if exam_code is not None and profile.get('exam_code') != exam_code:
+        p.append('exam_code %r != %r' % (profile.get('exam_code'), exam_code))
+    types = profile.get('types')
+    if not isinstance(types, dict):
+        p.append('types is not an object')
+        types = {}
+    subs = ((manifest or {}).get('subtopics') or {}) if manifest is not None else None
+    for T, r in types.items():
+        if not isinstance(r, dict):
+            p.append('%s: not an object' % T)
+            continue
+        try:
+            a, b, c = int(r['size_min']), int(r['size_typical']), int(r['size_max'])
+            if not (2 <= a <= b <= c):
+                p.append('%s: sizes must satisfy 2 <= min <= typical <= max' % T)
+        except (KeyError, TypeError, ValueError):
+            p.append('%s: size_min/size_typical/size_max missing or non-integer' % T)
+        mix = r.get('member_mix')
+        if not isinstance(mix, dict) or not mix:
+            p.append('%s: member_mix empty' % T)
+        else:
+            try:
+                if abs(sum(float(v) for v in mix.values()) - 1.0) > \
+                        0.001 + 0.00005 * len(mix):
+                    p.append('%s: member_mix does not sum to 1' % T)
+            except (TypeError, ValueError):
+                p.append('%s: member_mix has a non-numeric share' % T)
+            mo = r.get('member_order')
+            if not isinstance(mo, dict):
+                p.append('%s: member_order missing' % T)
+            else:
+                try:
+                    if any(not (0.0 <= float(v) <= 1.0) for v in mo.values()):
+                        p.append('%s: member_order outside 0..1' % T)
+                except (TypeError, ValueError):
+                    p.append('%s: member_order has a non-numeric value' % T)
+            for s in mix:
+                if sg_type_of(s) != T:
+                    p.append('%s: member %s is not of this type' % (T, s))
+                if subs is not None and s not in subs:
+                    p.append('%s: member %s is not in the subtopic manifest' % (T, s))
+        if not r.get('exam_section'):
+            p.append('%s: exam_section missing' % T)
+        elif section_names is not None and r.get('exam_section') not in section_names:
+            p.append('%s: exam_section %r is not a section of this exam' % (T, r.get('exam_section')))
+        an = r.get('anchor')
+        if an is not None:
+            try:
+                if not (0.0 <= float(an['rel_start']) <= float(an['rel_end']) <= 1.0):
+                    p.append('%s: anchor out of range' % T)
+            except (KeyError, TypeError, ValueError):
+                p.append('%s: anchor malformed' % T)
+    return p
+
+
+def compose_stimulus_groups(alloc, section_name, profile):
+    """Partition a section's ALREADY-ALLOCATED questions into stimulus groups.
+
+    Deterministic. Never re-allocates: every member question is consumed exactly
+    once, surplus stays as ordinary single questions. Size rule: sizes within
+    [size_min, size_max] closest to size_typical; if no group count fits, the
+    range is relaxed by 1 each side (the real exam's passages are fixed-length,
+    the blueprint's counts are not); if still none, no group (note).
+    Returns (groups, notes); groups = [{'group_id', 'type', 'members': [sid,...]}]."""
+    groups, notes = [], []
+    alloc = {k: int(v) for k, v in (alloc or {}).items() if int(v or 0) > 0}
+    for T, r in sorted(((profile or {}).get('types') or {}).items()):
+        if r.get('exam_section') != section_name:
+            continue
+        mix = r.get('member_mix') or {}
+        pool = {s: alloc[s] for s in mix if alloc.get(s)}
+        N = sum(pool.values())
+        if N == 0:
+            continue
+        smin = max(2, int(r['size_min']))
+        smax = max(smin, int(r['size_max']))
+        t = int(r['size_typical'])
+        g_best = None
+        for lo, hi in ((smin, smax), (max(2, smin - 1), smax + 1)):
+            cands = [g for g in range(1, N + 1)
+                     if -(-N // g) <= hi and N // g >= lo]
+            if cands:
+                g_best = min(cands, key=lambda g: (abs(N / g - t), g))
+                if (lo, hi) != (smin, smax):
+                    notes.append('%s: %d question(s) — sizes relaxed to %d-%d'
+                                 % (T, N, lo, hi))
+                break
+        if g_best is None:
+            notes.append('%s: %d question(s) cannot form a set of %d-%d — left as '
+                         'single questions' % (T, N, smin, smax))
+            continue
+        base, extra = divmod(N, g_best)
+        sizes = [base + (1 if i < extra else 0) for i in range(g_best)]
+        deal = []
+        for s in sorted(pool, key=lambda s: (-float(mix[s]), s)):
+            deal.extend([s] * pool[s])
+        members = [[] for _ in sizes]
+        gi = 0
+        for s in deal:
+            while len(members[gi]) >= sizes[gi]:
+                gi = (gi + 1) % len(sizes)
+            members[gi].append(s)
+            gi = (gi + 1) % len(sizes)
+        mo = r.get('member_order') or {}
+        for k, m in enumerate(members, 1):
+            m.sort(key=lambda s: (float(mo.get(s, 0.5)), s))
+            groups.append({'group_id': '%s#%d' % (T, k), 'type': T, 'members': m})
+    return groups, notes
+
+
+def _sg_block_starts(clusters, L, profile):
+    """Start offsets (0-based) for each type cluster [(T, length)] in a section of L."""
+    types = (profile or {}).get('types') or {}
+    unanchored = [T for T, _ in clusters if not (types.get(T) or {}).get('anchor')]
+    tgt = []
+    for T, C in clusters:
+        an = (types.get(T) or {}).get('anchor')
+        if an:
+            rs, re_ = float(an['rel_start']), float(an['rel_end'])
+            if re_ >= 0.98:
+                st = L - C
+            elif rs <= 0.02:
+                st = 0
+            else:
+                st = int(round((rs + re_) / 2.0 * L - C / 2.0))
+        else:
+            k = unanchored.index(T)
+            st = int(round((k + 1) * L / (len(unanchored) + 1) - C / 2.0))
+        tgt.append([max(0, min(L - C, st)), T, C])
+    tgt.sort(key=lambda x: (x[0], x[1]))
+    for i in range(1, len(tgt)):
+        tgt[i][0] = max(tgt[i][0], tgt[i - 1][0] + tgt[i - 1][2])
+    nxt = L
+    for i in range(len(tgt) - 1, -1, -1):
+        tgt[i][0] = min(tgt[i][0], nxt - tgt[i][2])
+        nxt = tgt[i][0]
+    return [(T, st) for st, T, _C in tgt]
+
+
+def place_with_stimulus_groups(alloc, q_range, meta, groups, profile, *, seed=0):
+    """Placement with stimulus groups as contiguous blocks.
+
+    groups == [] (or None) → EXACTLY place_subtopics(alloc, q_range, meta, seed=seed)
+    plus an empty group map (legacy path, bit-identical).
+    Otherwise: the single questions are placed by place_subtopics (max-spread,
+    floor-optimal) in a compacted range, then each type's groups are spliced in
+    as one run of consecutive blocks at the position the profile anchors
+    (D-B) or, unanchored, evenly spread. Splicing only separates neighbours, so
+    adjacency among single questions stays at its proven floor.
+    Returns (placement {q: sid}, report, gid_by_q {q: group_id})."""
+    if not groups:
+        pl, rp = place_subtopics(alloc, q_range, meta, seed=seed)
+        return pl, rp, {}
+    lo, hi = int(q_range[0]), int(q_range[1])
+    L = hi - lo + 1
+    alloc = {k: int(v) for k, v in (alloc or {}).items() if int(v or 0) > 0}
+    if sum(alloc.values()) != L:
+        raise PlacementError('alloc sums to %d, section holds %d' % (sum(alloc.values()), L))
+    singles = dict(alloc)
+    for g in groups:
+        for s in g['members']:
+            singles[s] = singles.get(s, 0) - 1
+    if any(v < 0 for v in singles.values()):
+        raise PlacementError('stimulus groups use more questions than allocated')
+    singles = {k: v for k, v in singles.items() if v > 0}
+    S = sum(singles.values())
+    seq = []
+    if S:
+        spl, _ = place_subtopics(singles, (1, S), meta, seed=seed)
+        seq = [spl[q] for q in range(1, S + 1)]
+    order_T, byT = [], {}
+    for g in groups:
+        if g['type'] not in byT:
+            order_T.append(g['type'])
+        byT.setdefault(g['type'], []).append(g)
+    clusters = [(T, sum(len(g['members']) for g in byT[T])) for T in order_T]
+    starts = dict(_sg_block_starts(clusters, L, profile))
+    at = {}
+    for T in order_T:
+        at[starts[T]] = T
+    placement, gid_by_q = {}, {}
+    p, si = 0, 0
+    while p < L:
+        if p in at:
+            for g in byT[at[p]]:
+                for s in g['members']:
+                    placement[lo + p] = s
+                    gid_by_q[lo + p] = g['group_id']
+                    p += 1
+        else:
+            placement[lo + p] = seq[si]
+            si += 1
+            p += 1
+    got = {}
+    for s in placement.values():
+        got[s] = got.get(s, 0) + 1
+    if got != alloc or si != len(seq):
+        raise PlacementError('RULE A broken in stimulus placement: %r != %r' % (got, alloc))
+    rep = sg_audit_placement(placement, [{'name': '_', 'q_range': [lo, hi]}],
+                             meta, gid_by_q)['_']
+    return placement, rep, gid_by_q
+
+
+def sg_audit_placement(placement, sections, meta, gid_by_q):
+    """The ONE adjacency measure shared by the Step-7 planner and the auditor.
+
+    gid_by_q empty/None → audit_placement(placement, sections, meta) unchanged.
+    Otherwise every stimulus group (consecutive questions with one group id) is
+    ONE unit that separates its neighbours; adjacency inside a group is exempt;
+    the floor is min_possible_adjacent over the SINGLE questions' units (the
+    groups are fixed separators, so the singles' floor is what the placer proves)."""
+    if not gid_by_q:
+        return audit_placement(placement, sections, meta)
+    placement = {int(k): v for k, v in (placement or {}).items()}
+    gid = {int(k): v for k, v in (gid_by_q or {}).items() if v}
+    reports = {}
+    for sec in sections or []:
+        lo, hi = int(sec['q_range'][0]), int(sec['q_range'][1])
+        qs = [q for q in range(lo, hi + 1) if q in placement]
+        units, qpos = [], []
+        i = 0
+        while i < len(qs):
+            q = qs[i]
+            if q in gid:
+                j = i
+                while j + 1 < len(qs) and gid.get(qs[j + 1]) == gid[q] \
+                        and qs[j + 1] == qs[j] + 1:
+                    j += 1
+                units.append(('\x00stim:' + gid[q], j - i + 1))
+                qpos.append(q)
+                i = j + 1
+            else:
+                units.append((placement[q], 1))
+                qpos.append(q)
+                i += 1
+        ucount, cgcount = {}, {}
+        for sid, _ln in units:
+            if sid.startswith('\x00stim:'):
+                continue
+            ucount[sid] = ucount.get(sid, 0) + 1
+            cg = _cg_of(meta, sid)
+            cgcount[cg] = cgcount.get(cg, 0) + 1
+        adj_sub_u, adj_cg_u, pf_mx, sub_mx = _unit_report(units, meta)
+        reports[sec['name']] = {
+            'adjacent_same_subtopic': [qpos[k] for k in adj_sub_u],
+            'adjacent_same_concept_group': [qpos[k] for k in adj_cg_u],
+            'max_presentation_family_run': pf_mx,
+            'max_subject_run': sub_mx,
+            'min_possible_adjacent': min_possible_adjacent(list(ucount.values())),
+            'min_possible_adjacent_cg': min_possible_adjacent(list(cgcount.values())),
+            'counts_exact': True,
+            'stimulus_groups': sorted({g for q, g in gid.items() if lo <= q <= hi}),
+        }
+    return reports
+
+
+def sg_expected_groups(mock_entry, profile):
+    """{section_name: groups} the profile implies for a blueprint mock entry —
+    the auditor's independent recomputation of what Step 7 must have built."""
+    out = {}
+    for sec in (mock_entry or {}).get('sections') or []:
+        a = {}
+        for sa in sec.get('subtopic_allocations') or []:
+            sid = sa.get('subtopic_id')
+            if sid:
+                a[sid] = a.get(sid, 0) + int(sa.get('q_count', 0) or 0)
+        out[sec.get('section_name')] = compose_stimulus_groups(
+            a, sec.get('section_name'), profile)[0]
+    return out
+
+
+_SG_BLANK_RE = re.compile(r'\b(?:blank|gap)\s*(?:no\.?|number|#)?\s*\(?\s*(\d{1,2})\s*\)?',
+                          re.IGNORECASE)
+
+
+def sg_blank_number(ask_text):
+    """Blank/gap number a cloze member asks about, or None."""
+    m = _SG_BLANK_RE.search(str(ask_text or ''))
+    return int(m.group(1)) if m else None
+
+# END CLUSTER SG
+# ════════════════════════════════════════════════════════════════════════════
 
 
 def parse_section_rules_field(text, field, default=None):
@@ -7823,6 +8425,493 @@ PYQ_IMAGE_ANALYSIS:
           and any('pyq_id' in p for p in validate_pyq_index(
               {'_meta': {'exam_code': 'X', 'corpus_hash': 'h'},
                'questions': [{'stem_md5': 'x'}]})))
+
+    # ── Cluster SG: stimulus groups (GAP-2026-09-21-LINKED-PLACEMENT) ────────
+    _sg_p = ('The village library began in a verandah with forty donated books and '
+             'grew over two decades into a reading room that the whole district used, '
+             'run by volunteers who had themselves learnt to read there as children.')
+    check('sg_shared_any_layout',
+          sg_shared_stimulus('What is the tone?\n' + _sg_p, _sg_p + '\nWhich title fits?')
+          and sg_shared_stimulus('Read: ' + _sg_p + ' What is the tone?',
+                                 'Read: ' + _sg_p + ' Which title fits?'))
+    check('sg_shared_short_instruction_is_not_a_stimulus',
+          not sg_shared_stimulus('A # B means A is the brother of B.\nIf Z # Y then?',
+                                 'A # B means A is the brother of B.\nIf W # V then?'))
+    check('sg_shared_different_passages_not_linked',
+          not sg_shared_stimulus('Q?\n' + _sg_p, 'Q?\n' + _sg_p.replace(
+              'library', 'clinic').replace('read', 'heal').replace('books', 'beds')
+              .replace('volunteers', 'nurses').replace('district', 'valley')))
+    check('sg_sitting_joins_chunks',
+          sg_sitting_of('X_02-Mar-2023_Sorted_Q1-Q60') == sg_sitting_of('X_02-Mar-2023_Sorted_Q61-Q150')
+          == 'X_02-Mar-2023' and sg_sitting_of('X_02-Mar-2023_Shift-2') == 'X_02-Mar-2023_Shift-2')
+    check('sg_type_of_two_segments', sg_type_of('elc.cloze_test.cloze_passage') == 'elc.cloze_test')
+    _sg_cfg = {'sections': [{'name': 'Eng', 'subjects': ['English'], 'q_count': 6,
+                             'q_range': [1, 6]}]}
+    _sg_man = {'subtopics': {
+        'e.rc.fact': {'section': 'English', 'topic': 'RC', 'display_name': 'Fact'},
+        'e.rc.vocab': {'section': 'English', 'topic': 'RC', 'display_name': 'Vocab'},
+        'e.gr.err': {'section': 'English', 'topic': 'GR', 'display_name': 'Err'}}}
+
+    def _sg_q(pid, n, orig, topic, sub, stem, year='2025', shift='S1'):
+        return {'paper_id': pid, 'q_num': n, 'original_q_num': orig, 'section': 'English',
+                'topic': topic, 'subtopic': sub, 'stem_raw': stem, 'year': year,
+                'shift': shift}
+    _sg_p2 = _sg_p.replace('village', 'harbour')
+    _sg_qs = []
+    for _pid in ('P1', 'P2'):            # SAME year+shift: paper_key would merge them
+        _sg_qs += [_sg_q(_pid, 1, 1, 'GR', 'Err', 'Spot the error.'),
+                   _sg_q(_pid, 2, 2, 'GR', 'Err', 'Spot the error again.'),
+                   _sg_q(_pid, 3, 3, 'RC', 'Fact', 'Q?\n' + _sg_p),
+                   _sg_q(_pid, 4, 4, 'RC', 'Fact', 'Q2?\n' + _sg_p),
+                   _sg_q(_pid, 5, 5, 'RC', 'Vocab', 'Q3?\n' + _sg_p),
+                   _sg_q(_pid, 6, 6, 'GR', 'Err', 'Spot it.')]
+    # P3: same stimulus but NOT consecutive (1 and 4) → rejected, never a set
+    _sg_qs += [_sg_q('P3', 1, 1, 'RC', 'Fact', 'A?\n' + _sg_p2),
+               _sg_q('P3', 2, 2, 'GR', 'Err', 'x'), _sg_q('P3', 3, 3, 'GR', 'Err', 'y'),
+               _sg_q('P3', 4, 4, 'RC', 'Fact', 'B?\n' + _sg_p2),
+               _sg_q('P3', 5, 5, 'GR', 'Err', 'z'), _sg_q('P3', 6, 6, 'GR', 'Err', 'w')]
+    # OLD: an old-pattern paper (8 questions) → excluded by era
+    _sg_qs += [_sg_q('OLD', i, i, 'RC', 'Fact', 'Q?\n' + _sg_p) for i in range(1, 9)]
+    _sg_pr = build_stimulus_profile(_sg_qs, _sg_cfg, _sg_man, exam_code='X')
+    _sg_rc = (_sg_pr.get('types') or {}).get('e.rc') or {}
+    check('sg_profile_both_same_shift_papers_used',
+          sorted(_sg_pr['source']['papers_used']) == ['P1', 'P2', 'P3'])
+    check('sg_profile_old_era_excluded', _sg_pr['source']['papers_excluded'].get('OLD') == 'era:larger')
+    check('sg_profile_rc_size_3_seen_in_2_papers',
+          _sg_rc.get('size_typical') == 3 and _sg_rc.get('papers_observed') == 2)
+    check('sg_profile_nonconsecutive_share_is_not_a_set',
+          _sg_rc.get('groups_observed') == 2)
+    # same-paragraph layout + a member classified under another topic + a sitting
+    # split across two sorted files: still one set per paper, foreign member not in mix
+    _sg_qs2 = []
+    for _pid in ('Y_01-Jan-2025_Sorted_Q1-Q3', 'Y_02-Jan-2025_Sorted_Q1-Q3'):
+        _sg_qs2 += [_sg_q(_pid, 1, 1, 'GR', 'Err', 'Spot the error.'),
+                    _sg_q(_pid, 2, 2, 'GR', 'Err', 'Spot the error again.'),
+                    _sg_q(_pid, 3, 3, 'RC', 'Fact', 'Read: ' + _sg_p + ' Tone?')]
+    for _pid in ('Y_01-Jan-2025_Sorted_Q4-Q6', 'Y_02-Jan-2025_Sorted_Q4-Q6'):
+        _sg_qs2 += [_sg_q(_pid, 4, 4, 'RC', 'Fact', 'Read: ' + _sg_p + ' Title?'),
+                    _sg_q(_pid, 5, 5, 'GR', 'Err', 'Read: ' + _sg_p + ' Who?'),
+                    _sg_q(_pid, 6, 6, 'GR', 'Err', 'Spot it.')]
+    _sg_pr2 = build_stimulus_profile(_sg_qs2, _sg_cfg, _sg_man, exam_code='X')
+    _sg_rc2 = (_sg_pr2.get('types') or {}).get('e.rc') or {}
+    check('sg_profile_chunked_sitting_same_paragraph_foreign_member',
+          len(_sg_pr2['source']['papers_used']) == 2 and _sg_rc2.get('size_typical') == 3
+          and set(_sg_rc2.get('member_mix') or {}) == {'e.rc.fact'}
+          and validate_stimulus_profile(_sg_pr2, exam_code='X', manifest=_sg_man) == [])
+    check('sg_profile_anchor_end', (_sg_rc.get('anchor') or {}).get('rel_start') == round(2 / 6, 4)
+          and (_sg_rc.get('anchor') or {}).get('rel_end') == round(5 / 6, 4))
+    check('sg_profile_valid', validate_stimulus_profile(_sg_pr, exam_code='X', manifest=_sg_man) == [])
+    _sg_badp = {'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(_sg_rc, member_mix={'e.rc.fact': 0.5})}}
+    check('sg_profile_invalid_mix_detected',
+          any('sum to 1' in m for m in validate_stimulus_profile(_sg_badp)))
+    check('sg_profile_bad_order_and_section_detected',
+          any('member_order' in m for m in validate_stimulus_profile(
+              {'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(_sg_rc, member_order={'e.rc.fact': 'x'})}}))
+          and any('not a section' in m for m in validate_stimulus_profile(
+              _sg_pr, section_names=['Maths'])))
+    check('sg_profile_validator_never_raises',
+          validate_stimulus_profile({'schema': 1, 'types': {'e.rc': dict(_sg_rc, member_mix={'e.rc.fact': 'x'})}}) != []
+          and validate_stimulus_profile(None) != [])
+    check('sg_profile_wrong_exam_detected',
+          any('exam_code' in m for m in validate_stimulus_profile(_sg_pr, exam_code='Y')))
+    _sg_prof4 = {'schema': 1, 'exam_code': 'X', 'types': {'e.rc': {
+        'exam_section': 'Eng', 'size_min': 4, 'size_max': 4, 'size_typical': 4,
+        'member_mix': {'e.rc.fact': 0.7, 'e.rc.vocab': 0.3},
+        'member_order': {'e.rc.fact': 0.3, 'e.rc.vocab': 0.8},
+        'anchor': {'rel_start': 0.6, 'rel_end': 1.0}}}}
+    _g9, _n9 = compose_stimulus_groups({'e.rc.fact': 7, 'e.rc.vocab': 2, 'e.gr.err': 3}, 'Eng', _sg_prof4)
+    check('sg_compose_9_is_5_plus_4', [len(g['members']) for g in _g9] == [5, 4] and _n9)
+    check('sg_compose_members_conserved',
+          sorted(s for g in _g9 for s in g['members']) == ['e.rc.fact'] * 7 + ['e.rc.vocab'] * 2)
+    check('sg_compose_member_order', all(g['members'][-1] == 'e.rc.vocab' for g in _g9))
+    check('sg_compose_8_is_4_plus_4', [len(g['members']) for g in compose_stimulus_groups(
+        {'e.rc.fact': 8}, 'Eng', _sg_prof4)[0]] == [4, 4])
+    _g1, _n1 = compose_stimulus_groups({'e.rc.fact': 1}, 'Eng', _sg_prof4)
+    check('sg_compose_below_min_is_single_with_note', _g1 == [] and _n1)
+    check('sg_compose_other_section_ignored',
+          compose_stimulus_groups({'e.rc.fact': 8}, 'Maths', _sg_prof4)[0] == [])
+    check('sg_compose_deterministic', compose_stimulus_groups(
+        {'e.rc.fact': 7, 'e.rc.vocab': 2}, 'Eng', _sg_prof4) == compose_stimulus_groups(
+        {'e.rc.fact': 7, 'e.rc.vocab': 2}, 'Eng', _sg_prof4))
+    _sg_al = {'e.rc.fact': 7, 'e.rc.vocab': 2, 'a': 4, 'b': 4, 'c': 3}
+    _sg_meta = {k: {'concept_group': k} for k in _sg_al}
+    _pl0, _rp0 = place_subtopics(_sg_al, (1, 20), _sg_meta, seed=3)
+    _pl1, _rp1, _gm1 = place_with_stimulus_groups(_sg_al, (1, 20), _sg_meta, [], _sg_prof4, seed=3)
+    check('sg_place_no_groups_is_legacy_identical', (_pl0, _rp0, {}) == (_pl1, _rp1, _gm1))
+    _pl2, _rp2, _gm2 = place_with_stimulus_groups(_sg_al, (1, 20), _sg_meta, _g9, _sg_prof4, seed=3)
+    _blk_ok = True
+    for _g in _g9:
+        _qq = sorted(q for q, x in _gm2.items() if x == _g['group_id'])
+        _blk_ok = _blk_ok and _qq == list(range(_qq[0], _qq[0] + len(_qq))) \
+            and [_pl2[q] for q in _qq] == _g['members']
+    check('sg_place_groups_contiguous_in_member_order', _blk_ok)
+    check('sg_place_anchor_end_of_section', max(_gm2) == 20 and min(_gm2) == 12)
+    _cnt = {}
+    for _s in _pl2.values():
+        _cnt[_s] = _cnt.get(_s, 0) + 1
+    check('sg_place_rule_a_exact', _cnt == _sg_al)
+    check('sg_place_adjacency_within_floor',
+          len(_rp2['adjacent_same_concept_group']) <= _rp2['min_possible_adjacent_cg'])
+    _au2 = sg_audit_placement(_pl2, [{'name': '_', 'q_range': [1, 20]}], _sg_meta, _gm2)['_']
+    check('sg_audit_agrees_with_placer', _au2 == _rp2)
+    check('sg_audit_no_groups_is_audit_placement',
+          sg_audit_placement(_pl0, [{'name': 'S', 'q_range': [1, 20]}], _sg_meta, {})
+          == audit_placement(_pl0, [{'name': 'S', 'q_range': [1, 20]}], _sg_meta))
+    # a same-cg pair INSIDE a block is exempt; the same pair of singles is caught
+    _sg_q2s = {1: 'x', 2: 'x', 3: 'y', 4: 'x', 5: 'y'}
+    _sg_m2 = {'x': {'concept_group': 'x'}, 'y': {'concept_group': 'y'}}
+    check('sg_audit_intra_block_exempt', sg_audit_placement(
+        _sg_q2s, [{'name': 'S', 'q_range': [1, 5]}], _sg_m2, {1: 'T#1', 2: 'T#1'})['S']
+        ['adjacent_same_concept_group'] == [])
+    check('sg_audit_singles_pair_caught', sg_audit_placement(
+        _sg_q2s, [{'name': 'S', 'q_range': [1, 5]}], _sg_m2, {5: None})['S']
+        ['adjacent_same_concept_group'] == [2])
+    check('sg_blank_number', sg_blank_number('Select the option for blank No. 3') == 3
+          and sg_blank_number('fill in gap (5)') == 5 and sg_blank_number('Which is true?') is None)
+    _sg_mock = {'sections': [{'section_name': 'Eng', 'subtopic_allocations': [
+        {'subtopic_id': 'e.rc.fact', 'q_count': 7}, {'subtopic_id': 'e.rc.vocab', 'q_count': 2}]}]}
+    check('sg_expected_groups_equals_compose', sg_expected_groups(_sg_mock, _sg_prof4)['Eng'] == _g9)
+
+    # ── Cluster SG — PROPERTY FUZZ (invariants over 400 seeded random shapes) ─
+    # Every public SG function is exercised against invariants a brute force can
+    # recompute independently, so an arithmetic or comparison mutation anywhere in
+    # composition, anchoring, splicing or measurement is caught.
+    import random as _sgr
+    _R = _sgr.Random(20260921)
+    _prop_ok = {'compose': True, 'place': True, 'anchor': True, 'audit': True,
+                'legacy': True}
+    for _case in range(400):
+        _L = _R.randint(8, 40)
+        _smin = _R.randint(2, 5)
+        _smax = _smin + _R.randint(0, 2)
+        _t = _R.randint(_smin, _smax)
+        _an_kind = _R.choice(['end', 'start', 'mid', None])
+        _an = {'end': {'rel_start': 0.7, 'rel_end': 1.0},
+               'start': {'rel_start': 0.0, 'rel_end': 0.3},
+               'mid': {'rel_start': 0.4, 'rel_end': 0.6}, None: None}[_an_kind]
+        _prof = {'schema': 1, 'exam_code': 'X', 'types': {'s.set': {
+            'exam_section': 'S', 'size_min': _smin, 'size_max': _smax,
+            'size_typical': _t, 'member_mix': {'s.set.a': 0.6, 's.set.b': 0.4},
+            'member_order': {'s.set.a': 0.9, 's.set.b': 0.2}, 'anchor': _an}}}
+        _na = _R.randint(0, min(_L - 2, 12))
+        _nb = _R.randint(0, min(_L - 2 - _na, 4))
+        _rest = _L - _na - _nb
+        _al = {}
+        if _na:
+            _al['s.set.a'] = _na
+        if _nb:
+            _al['s.set.b'] = _nb
+        _k = _R.randint(1, 4)
+        for _i in range(_k):
+            _al['s.x%d.q' % _i] = _al.get('s.x%d.q' % _i, 0)
+        _ks = list(range(_k))
+        for _i in range(_rest):
+            _al['s.x%d.q' % _ks[_R.randrange(_k)]] += 1
+        _al = {k: v for k, v in _al.items() if v}
+        _meta = {k: {'concept_group': k.split('.')[1]} for k in _al}
+        _gs, _nt = compose_stimulus_groups(_al, 'S', _prof)
+        # compose: conservation + size rule + optimal group count (brute force)
+        _N = _na + _nb
+        _used = sorted(s for g in _gs for s in g['members'])
+        if _gs:
+            _cnt = {}
+            for _s in _used:
+                _cnt[_s] = _cnt.get(_s, 0) + 1
+            _szs = [len(g['members']) for g in _gs]
+            _feas = lambda lo, hi: [g for g in range(1, _N + 1)
+                                    if -(-_N // g) <= hi and _N // g >= lo]
+            _c1 = _feas(max(2, _smin), max(_smin, _smax))
+            _c2 = _feas(max(2, max(2, _smin) - 1), max(_smin, _smax) + 1)
+            _cands = _c1 or _c2
+            _best = min(_cands, key=lambda g: (abs(_N / g - _t), g))
+            if not (_cnt == {k: _al[k] for k in ('s.set.a', 's.set.b') if k in _al}
+                    and len(_gs) == _best
+                    and _szs == [_N // _best + 1] * (_N % _best) + [_N // _best] * (_best - _N % _best)
+                    and sum(_szs) == _N
+                    and all(g['members'] == sorted(g['members'], key=lambda s: (
+                        {'s.set.a': 0.9, 's.set.b': 0.2}[s], s)) for g in _gs)
+                    and [g['group_id'] for g in _gs] == ['s.set#%d' % i for i in
+                                                         range(1, len(_gs) + 1)]):
+                _prop_ok['compose'] = False
+        else:
+            _c = [g for g in range(1, _N + 1) if -(-_N // g) <= max(_smin, _smax) + 1
+                  and _N // g >= max(2, max(2, _smin) - 1)] if _N else []
+            if _c:
+                _prop_ok['compose'] = False
+        _lo = _R.randint(1, 50)
+        _pl, _rp, _gm = place_with_stimulus_groups(_al, (_lo, _lo + _L - 1), _meta,
+                                                   _gs, _prof, seed=_case)
+        _cnt2 = {}
+        for _s in _pl.values():
+            _cnt2[_s] = _cnt2.get(_s, 0) + 1
+        if sorted(_pl) != list(range(_lo, _lo + _L)) or _cnt2 != _al:
+            _prop_ok['place'] = False
+        _qs_all = sorted(_gm)
+        if _gs:
+            _blk_first = min(_qs_all) - _lo
+            _blk_last = max(_qs_all) - _lo
+            if _qs_all != list(range(_qs_all[0], _qs_all[0] + len(_qs_all))):
+                _prop_ok['place'] = False        # one type → one consecutive cluster
+            for _g in _gs:
+                _q = sorted(q for q, x in _gm.items() if x == _g['group_id'])
+                if [_pl[q] for q in _q] != _g['members']:
+                    _prop_ok['place'] = False
+            _C = len(_qs_all)
+            if _an_kind == 'end' and _blk_last != _L - 1:
+                _prop_ok['anchor'] = False
+            if _an_kind == 'start' and _blk_first != 0:
+                _prop_ok['anchor'] = False
+            if _an_kind == 'mid' and _blk_first != max(0, min(_L - _C, int(round(0.5 * _L - _C / 2.0)))):
+                _prop_ok['anchor'] = False
+            if _an_kind is None and _blk_first != max(0, min(_L - _C, int(round(_L / 2.0 - _C / 2.0)))):
+                _prop_ok['anchor'] = False
+        # measurement: brute-force singles adjacency and floor
+        _sing = [q for q in range(_lo, _lo + _L) if q not in _gm]
+        _adj = [q for q in _sing if (q - 1) in _pl and (q - 1) not in _gm
+                and _meta[_pl[q]]['concept_group'] == _meta[_pl[q - 1]]['concept_group']]
+        _cgc = {}
+        for q in _sing:
+            _cgc[_meta[_pl[q]]['concept_group']] = _cgc.get(_meta[_pl[q]]['concept_group'], 0) + 1
+        _au = sg_audit_placement(_pl, [{'name': 'S', 'q_range': [_lo, _lo + _L - 1]}],
+                                 _meta, _gm)['S']
+        if _gs and (_au['adjacent_same_concept_group'] != _adj
+                    or _au['min_possible_adjacent_cg'] != min_possible_adjacent(list(_cgc.values()))
+                    or len(_adj) > _au['min_possible_adjacent_cg']
+                    or {k: v for k, v in _au.items() if k != 'stimulus_groups'}
+                    != {k: v for k, v in _rp.items() if k != 'stimulus_groups'}):
+            _prop_ok['audit'] = False
+        if not _gs:
+            if (_pl, _rp, _gm) != (place_subtopics(_al, (_lo, _lo + _L - 1), _meta,
+                                                   seed=_case) + ({},)):
+                _prop_ok['legacy'] = False
+    for _k2, _v2 in sorted(_prop_ok.items()):
+        check('sg_property_' + _k2, _v2)
+
+    # two types in one section: clusters never overlap, both consecutive
+    _prof2 = {'schema': 1, 'exam_code': 'X', 'types': {
+        'a.t': {'exam_section': 'S', 'size_min': 3, 'size_max': 3, 'size_typical': 3,
+                'member_mix': {'a.t.x': 1.0}, 'member_order': {'a.t.x': 0.5},
+                'anchor': {'rel_start': 0.8, 'rel_end': 1.0}},
+        'a.u': {'exam_section': 'S', 'size_min': 4, 'size_max': 4, 'size_typical': 4,
+                'member_mix': {'a.u.y': 1.0}, 'member_order': {'a.u.y': 0.5},
+                'anchor': {'rel_start': 0.8, 'rel_end': 1.0}}}}
+    _al2 = {'a.t.x': 3, 'a.u.y': 4, 'a.z.w': 5}
+    _g2, _ = compose_stimulus_groups(_al2, 'S', _prof2)
+    _p2, _r2, _m2 = place_with_stimulus_groups(_al2, (1, 12), {}, _g2, _prof2)
+    check('sg_two_types_same_anchor_no_overlap',
+          sorted(_m2) == list(range(6, 13)) and len(set(_m2.values())) == 2
+          and sorted(q for q, x in _m2.items() if x == 'a.t#1') in ([6, 7, 8], [10, 11, 12]))
+    # thresholds are exact: 29 shared words is not a set, 30 is
+    _w29 = ' '.join('t%d' % i for i in range(29))
+    _w30 = ' '.join('t%d' % i for i in range(30))
+    check('sg_shared_threshold_exact',
+          not sg_shared_stimulus('a b ' + _w29 + ' x', 'c d ' + _w29 + ' y')
+          and sg_shared_stimulus('a b ' + _w30 + ' x', 'c d ' + _w30 + ' y')
+          and not sg_shared_stimulus(_w30, _w30, min_words=31)
+          and sg_shared_stimulus(_w30, _w30, min_words=30))
+    check('sg_type_of_short_id', sg_type_of('single') == 'single' and sg_type_of(None) == '')
+    check('sg_validator_anchor_rules',
+          validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, anchor={'rel_start': 0.9, 'rel_end': 0.1})}}) != []
+          and validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, anchor=None)}}) == []
+          and validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, size_min=1)}}) != []
+          and validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, exam_section='')}}) != []
+          and validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, member_mix={})}}) != []
+          and validate_stimulus_profile({'schema': 2, 'exam_code': 'X', 'types': {}}) != []
+          and validate_stimulus_profile(_sg_pr, manifest={'subtopics': {}}) != [])
+    # profile fuzz: synthetic corpora with known sets — sizes, counts, mix, anchor recovered
+    _pf_ok = True
+    for _case in range(40):
+        _R2 = _sgr.Random(_case)
+        _Ls = 12
+        _cfgp = {'sections': [{'name': 'Eng', 'subjects': ['English'], 'q_count': _Ls,
+                               'q_range': [1, _Ls]}]}
+        _sz = _R2.randint(2, 5)
+        _start = _R2.randint(0, _Ls - _sz)
+        _qsp = []
+        for _p in range(3):
+            _pas = ' '.join('p%dw%d%s' % (_p, i, _case) for i in range(40))
+            for _q in range(_Ls):
+                _in = _start <= _q < _start + _sz
+                _qsp.append(_sg_q('P%d' % _p, _q + 1, _q + 1, 'RC' if _in else 'GR',
+                                  ('Fact' if _q % 2 else 'Vocab') if _in else 'Err',
+                                  ('Ask %d? ' % _q + _pas) if _in else 'Spot %d.' % _q,
+                                  year=str(2020 + _p)))
+        _pp = build_stimulus_profile(_qsp, _cfgp, _sg_man, exam_code='X')
+        _r = (_pp['types'] or {}).get('e.rc') or {}
+        _mixsum = sum((_r.get('member_mix') or {}).values())
+        if not (_r.get('size_min') == _r.get('size_max') == _sz
+                and _r.get('groups_observed') == 3 and _r.get('papers_observed') == 3
+                and _r.get('groups_per_paper_typical') == 1
+                and abs(_mixsum - 1) < 1e-3
+                and _r.get('anchor') == {'rel_start': round(_start / _Ls, 4),
+                                         'rel_end': round((_start + _sz) / _Ls, 4)}
+                and _r.get('anchor_agreement') == 1.0 and _r.get('exam_section') == 'Eng'
+                and validate_stimulus_profile(_pp, exam_code='X', manifest=_sg_man) == []):
+            _pf_ok = False
+    check('sg_profile_fuzz_recovers_known_sets', _pf_ok)
+    # one current paper only: a type seen once still counts (min(2, papers))
+    _one = [q for q in _sg_qs if q['paper_id'] == 'P1']
+    check('sg_profile_single_paper_counts',
+          ((build_stimulus_profile(_one, _sg_cfg, _sg_man, exam_code='X')['types'] or {})
+           .get('e.rc') or {}).get('papers_observed') == 1)
+    # a type confined to one paper of several is rejected (min 2)
+    _only_p1 = [q if q['paper_id'] == 'P1' else dict(q, stem_raw='Spot.')
+                for q in _sg_qs if q['paper_id'] in ('P1', 'P2')]
+    _pr_o = build_stimulus_profile(_only_p1, _sg_cfg, _sg_man, exam_code='X')
+    check('sg_profile_type_in_one_of_two_papers_rejected',
+          'e.rc' not in _pr_o['types'] and any(
+              r['reason'] == 'type_seen_in_too_few_papers' for r in _pr_o['rejected_groups']))
+    # positions unknown → note + no anchor
+    _nopos = [dict(q, original_q_num=None) for q in _sg_qs if q['paper_id'] in ('P1', 'P2')]
+    _pr_n = build_stimulus_profile(_nopos, _sg_cfg, _sg_man, exam_code='X')
+    check('sg_profile_positions_unknown_noted', bool(_pr_n['notes'])
+          and all(r.get('anchor') is None for r in _pr_n['types'].values()))
+    # ── Cluster SG — boundary & independence fixtures (mutation-driven) ──────
+    check('sg_profile_positional_has_no_notes', _sg_pr['notes'] == [])
+    _cfg2s = {'sections': [{'name': 'Eng', 'subjects': ['English'], 'q_count': 6, 'q_range': [1, 6]},
+                           {'name': 'Mat', 'subjects': ['Maths'], 'q_count': 2, 'q_range': [7, 8]}]}
+    _qs2s = []
+    for _pid in ('P1', 'P2'):
+        _qs2s += [q for q in _sg_qs if q['paper_id'] == _pid]
+        _qs2s += [dict(_sg_q(_pid, 7, 1, 'M', 'M', 'Q?\n' + _sg_p), section='Maths'),
+                  dict(_sg_q(_pid, 8, 2, 'M', 'M', 'Q?\n' + _sg_p), section='Maths')]
+    _pr2s = build_stimulus_profile(_qs2s, _cfg2s, _sg_man, exam_code='X')
+    check('sg_profile_sections_mapped_separately',
+          (_pr2s['types'].get('e.rc') or {}).get('size_typical') == 3
+          and (_pr2s['types'].get('e.rc') or {}).get('exam_section') == 'Eng')
+    _retyped = [dict(q, question_type='NAT') if q['paper_id'] == 'P2' else q for q in _sg_qs]
+    _cfg_ms = dict(_sg_cfg, marking_scheme=[{'q_range': [1, 6], 'question_type': 'MCQ'}])
+    _pr_rt = build_stimulus_profile(_retyped, _cfg_ms, _sg_man, exam_code='X')
+    check('sg_profile_retyped_paper_excluded',
+          _pr_rt['source']['papers_excluded'].get('P2') == 'era:retyped')
+    _dup = [dict(q, original_q_num=1) if q['paper_id'] == 'P1' else q for q in _sg_qs]
+    check('sg_profile_duplicate_positions_are_unknown',
+          bool(build_stimulus_profile(_dup, _sg_cfg, _sg_man, exam_code='X')['notes']))
+    # no-position mode: 60-word share links, 59 does not, different topics never link
+    _w60 = ' '.join('n%d' % i for i in range(60))
+    _w59 = ' '.join('n%d' % i for i in range(59))
+    def _np(stem_a, stem_b, ta='RC', tb='RC'):
+        _q = []
+        for _pid in ('P1', 'P2'):
+            _q += [_sg_q(_pid, 1, None, 'GR', 'Err', 'x'), _sg_q(_pid, 2, None, 'GR', 'Err', 'y'),
+                   _sg_q(_pid, 3, None, ta, 'Fact', 'A? ' + stem_a),
+                   _sg_q(_pid, 4, None, 'GR', 'Err', 'z'),
+                   _sg_q(_pid, 5, None, tb, 'Fact', 'B? ' + stem_b),
+                   _sg_q(_pid, 6, None, 'GR', 'Err', 'w')]
+        return build_stimulus_profile(_q, _sg_cfg, _sg_man, exam_code='X')['types']
+    check('sg_nopos_threshold_and_topic',
+          'e.rc' in _np(_w60, _w60) and 'e.rc' not in _np(_w59, _w59)
+          and 'e.rc' not in _np(_w60, _w60, tb='GR'))
+    _np3 = []
+    for _pid in ('P1', 'P2'):
+        _np3 += [_sg_q(_pid, i, None, 'RC' if i in (2, 3, 4) else 'GR',
+                       'Fact' if i in (2, 3, 4) else 'Err',
+                       ('Q%d? ' % i + _w60) if i in (2, 3, 4) else 's%d' % i) for i in range(1, 7)]
+    check('sg_nopos_consecutive_members_linked',
+          (build_stimulus_profile(_np3, _sg_cfg, _sg_man, exam_code='X')['types'].get('e.rc') or {})
+          .get('size_typical') == 3)
+    # anchor agreement boundary: 7 of 10 papers agree → anchored (>= 0.70); 6 of 10 → not
+    def _agree_prof(n_agree):
+        _q = []
+        for _p in range(10):
+            _st = 0 if _p < n_agree else 3
+            _pas = ' '.join('a%dw%d' % (_p, i) for i in range(40))
+            for _i in range(6):
+                _in = _st <= _i < _st + 3
+                _q.append(_sg_q('Q%d' % _p, _i + 1, _i + 1, 'RC' if _in else 'GR',
+                                'Fact' if _in else 'Err', ('K%d ' % _i + _pas) if _in else 'e%d' % _i))
+        return build_stimulus_profile(_q, _sg_cfg, _sg_man, exam_code='X')['types']['e.rc']
+    _a7, _a6 = _agree_prof(7), _agree_prof(6)
+    check('sg_anchor_agreement_boundary',
+          _a7['anchor'] is not None and _a7['anchor_agreement'] == 0.7
+          and _a6['anchor'] is None and _a6['anchor_agreement'] == 0.6)
+    # anchor = MEAN over papers (starts 0 and 1 of 12 → 0.5/12), per-paper spans only
+    _qm = []
+    for _p in range(2):
+        _pas = ' '.join('m%dw%d' % (_p, i) for i in range(40))
+        for _i in range(12):
+            _in = _p <= _i < _p + 3
+            _qm.append(_sg_q('M%d' % _p, _i + 1, _i + 1, 'RC' if _in else 'GR', 'Fact' if _in else 'Err',
+                             ('K%d ' % _i + _pas) if _in else 'e%d' % _i))
+    _cfg12 = {'sections': [{'name': 'Eng', 'subjects': ['English'], 'q_count': 12, 'q_range': [1, 12]}]}
+    _am = build_stimulus_profile(_qm, _cfg12, _sg_man, exam_code='X')['types']['e.rc']
+    check('sg_anchor_is_mean_of_papers',
+          _am['anchor'] == {'rel_start': round(0.5 / 12, 4), 'rel_end': round(3.5 / 12, 4)})
+    # member_order: mean relative position (0..1) of each subtopic inside its set
+    _mo = build_stimulus_profile(_sg_qs, _sg_cfg, _sg_man, exam_code='X')['types']['e.rc']
+    check('sg_member_order_exact', _mo['member_order'] == {'e.rc.fact': 0.25, 'e.rc.vocab': 1.0}
+          and _mo['member_mix'] == {'e.rc.fact': 0.6667, 'e.rc.vocab': 0.3333})
+    check('sg_validator_mix_tolerance',
+          validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, member_mix={'e.rc.fact': 0.6005, 'e.rc.vocab': 0.4})}}) == []
+          and validate_stimulus_profile({'schema': 1, 'exam_code': 'X', 'types': {'e.rc': dict(
+              _sg_rc, member_mix={'e.rc.fact': 0.6021, 'e.rc.vocab': 0.4})}}) != [])
+    # exact size split and balanced deal (sizes: first N % g groups get one more)
+    _pb = {'schema': 1, 'exam_code': 'X', 'types': {'s.set': {
+        'exam_section': 'S', 'size_min': 3, 'size_max': 4, 'size_typical': 3,
+        'member_mix': {'s.set.a': 0.5, 's.set.b': 0.3, 's.set.c': 0.2},
+        'member_order': {'s.set.a': 0.9, 's.set.b': 0.1, 's.set.c': 0.5}, 'anchor': None}}}
+    _gb, _ = compose_stimulus_groups({'s.set.a': 5, 's.set.b': 4, 's.set.c': 1}, 'S', _pb)
+    check('sg_compose_exact_split_and_deal',
+          [len(g['members']) for g in _gb] == [4, 3, 3]
+          and all(max(sum(1 for s in g['members'] if s == k) for g in _gb)
+                  - min(sum(1 for s in g['members'] if s == k) for g in _gb) <= 1
+                  for k in ('s.set.a', 's.set.b'))
+          and _gb[0]['members'] == ['s.set.b', 's.set.c', 's.set.a', 's.set.a']
+          and _gb[2]['members'] == ['s.set.b', 's.set.b', 's.set.a'])
+    # anchor thresholds 0.98 / 0.02 are inclusive; clusters sorted by START, not by name
+    _pt = {'schema': 1, 'exam_code': 'X', 'types': {
+        'z.a': {'exam_section': 'S', 'size_min': 2, 'size_max': 2, 'size_typical': 2,
+                'member_mix': {'z.a.x': 1.0}, 'member_order': {'z.a.x': 0.5},
+                'anchor': {'rel_start': 0.02, 'rel_end': 0.3}},
+        'a.b': {'exam_section': 'S', 'size_min': 2, 'size_max': 2, 'size_typical': 2,
+                'member_mix': {'a.b.y': 1.0}, 'member_order': {'a.b.y': 0.5},
+                'anchor': {'rel_start': 0.7, 'rel_end': 0.98}}}}
+    _alt = {'z.a.x': 2, 'a.b.y': 2, 'q.q.q': 6}
+    _gt, _ = compose_stimulus_groups(_alt, 'S', _pt)
+    _pt2, _, _mt = place_with_stimulus_groups(_alt, (1, 10), {}, _gt, _pt)
+    check('sg_anchor_thresholds_and_start_order',
+          sorted(q for q, x in _mt.items() if x.startswith('z.a')) == [1, 2]
+          and sorted(q for q, x in _mt.items() if x.startswith('a.b')) == [9, 10])
+    # measurement independence: subtopic-level floor recomputed by brute force
+    _plx = {1: 'u', 2: 'v', 3: 'u', 4: 'w', 5: 'u', 6: 'v'}
+    _mx = {k: {'concept_group': 'g'} for k in 'uvw'}
+    _ax = sg_audit_placement(_plx, [{'name': 'S', 'q_range': [1, 6]}], _mx, {3: 'T#1', 4: 'T#1'})['S']
+    check('sg_audit_floors_brute_force',
+          _ax['min_possible_adjacent'] == min_possible_adjacent([1, 2, 1])
+          and _ax['min_possible_adjacent_cg'] == min_possible_adjacent([4])
+          and _ax['adjacent_same_concept_group'] == [2, 6]
+          and _ax['adjacent_same_subtopic'] == [])
+    _ay = sg_audit_placement({1: 'u', 2: 'v', 3: 'u', 4: 'w', 5: 'u', 6: 'u'},
+                             [{'name': 'S', 'q_range': [1, 6]}], {}, {2: 'T#1', 3: 'T#1'})['S']
+    check('sg_audit_subtopic_floor_counts_singles',
+          _ay['min_possible_adjacent'] == min_possible_adjacent([3, 1]) == 1
+          and _ay['adjacent_same_subtopic'] == [6])
+    _two = []
+    for _pid in ('P1', 'P2'):
+        _two += [_sg_q(_pid, 1, 1, 'GR', 'Err', 'a'), _sg_q(_pid, 2, 2, 'RC', 'Vocab', 'Q?\n' + _sg_p),
+                 _sg_q(_pid, 3, 3, 'RC', 'Fact', 'R?\n' + _sg_p), _sg_q(_pid, 4, 4, 'GR', 'Err', 'b'),
+                 _sg_q(_pid, 5, 5, 'GR', 'Err', 'c'), _sg_q(_pid, 6, 6, 'GR', 'Err', 'd')]
+    check('sg_member_order_two_member_set',
+          build_stimulus_profile(_two, _sg_cfg, _sg_man, exam_code='X')['types']['e.rc']
+          ['member_order'] == {'e.rc.fact': 1.0, 'e.rc.vocab': 0.0})
+    _pmix = {'schema': 1, 'exam_code': 'X', 'types': {
+        'a.a': {'exam_section': 'S', 'size_min': 2, 'size_max': 2, 'size_typical': 2,
+                'member_mix': {'a.a.x': 1.0}, 'member_order': {'a.a.x': 0.5},
+                'anchor': {'rel_start': 0.9, 'rel_end': 1.0}},
+        'b.b': {'exam_section': 'S', 'size_min': 2, 'size_max': 2, 'size_typical': 2,
+                'member_mix': {'b.b.y': 1.0}, 'member_order': {'b.b.y': 0.5}, 'anchor': None}}}
+    _alm = {'a.a.x': 2, 'b.b.y': 2, 'q.q.q': 16}
+    _gm3, _ = compose_stimulus_groups(_alm, 'S', _pmix)
+    _pm3, _, _mm3 = place_with_stimulus_groups(_alm, (1, 20), {}, _gm3, _pmix)
+    check('sg_unanchored_spread_ignores_anchored_types',
+          sorted(q for q, x in _mm3.items() if x.startswith('b.b')) == [10, 11]
+          and sorted(q for q, x in _mm3.items() if x.startswith('a.a')) == [19, 20])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

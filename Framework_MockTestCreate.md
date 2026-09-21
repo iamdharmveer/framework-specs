@@ -1,4 +1,28 @@
-# Framework_MockTestCreate v5.84
+# Framework_MockTestCreate v5.85
+# v5.85 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse v2.57.2,
+#   blueprint_core Cluster SG, audit_canonical v2.30, final_assembly v1.7). Question SETS
+#   (RC passage, cloze paragraph, DI table, puzzle) are now placed as ONE block of
+#   consecutive questions with ONE shared stimulus. Before this release every exam
+#   scattered them (measured: SSC_CGL_TIER2 Mock 13 printed one RC passage at nine
+#   positions and asked cloze blanks 5,3,...,1) because the only set path read a
+#   manifest field Step 5 never writes. S3-12b: a NEW paper reads
+#   [ExamCode]_stimulus_profile.json (written by PYQExtract --stimulus-profile or by final synthesis);
+#   SAFETY LOCK — no profile, HARD STOP before Q.1; bc.compose_stimulus_groups splits the
+#   blueprint's EXISTING allocation into sets (never a re-allocation) and
+#   bc.place_with_stimulus_groups places each set where the past papers place it (D-B);
+#   the plan is frozen in batch_state['stimulus_groups'] with the profile SNAPSHOT it was
+#   built from (audits read the snapshot, which also carries the paper's own blueprint
+#   entry — right for scoped papers). A paper already in progress — plan persisted
+#   without that key, OR questions authored in its first unfinished batch — finishes on
+#   the legacy path, byte-for-byte. A set-placed paper whose batch_state lost its plan
+#   is rebuilt deterministically and PROVEN against every authored question (HARD STOP
+#   on any disagreement).
+#   NEW S7-STIMGROUP (R-STIMGROUP + stim_register): one stimulus per set, reused
+#   verbatim across batch boundaries; cloze blanks asked in order. S7-NEW-A writes
+#   concept_map[q].stimulus_group_id on set-placed papers only. Audit invocations pass
+#   --stimulus-profile (the snapshot); a stale project auditor is replaced for the run by the verified
+#   audit_canonical.py; S13-4c refuses a set-placed paper whose A-BLOCK line is absent
+#   or dormant. New checklist item G-BLOCK.
 # v5.84 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
 #   2026-09-14; paired with MockTestExplain v1.51.0, MockDeliver v1.22.0, DeliveryFooter,
 #   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but it
@@ -726,7 +750,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
 ## S1-1 — Pipeline position
 
-  Step 5 (PYQExtract)  → produces [ExamCode]_section_rules.md
+  Step 5 (PYQExtract)  → produces [ExamCode]_section_rules.md, [ExamCode]_subtopic_manifest.json
+                          and (v5.85) [ExamCode]_stimulus_profile.json — final synthesis, or
+                          `PYQExtract --stimulus-profile` for an exam whose Step 5 already ran
   Step 6 (MockBlueprint) → produces [ExamCode]_blueprint.json,
                                [ExamCode]_registry.json (empty template),
                                [ExamCode]_EXPLAIN_LEARNINGS_v1.md,
@@ -749,6 +775,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   section_rules.md AND blueprint.json must both be in project knowledge.
   [ExamCode]_registry.json must be attached to the trigger OR in project knowledge
   (REGISTRY-SOURCE-LAW, S3-1).
+  [ExamCode]_stimulus_profile.json (v5.85) must be attached OR in project knowledge
+  before a NEW paper starts (S3-12b SAFETY LOCK). A paper already in progress does not
+  need it — which is why S3-1 does not list it among the MANDATORY COPIES.
 
 ## S1-2 — Sources of truth (strict priority order)
 
@@ -1278,7 +1307,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   mock_scenario_ledger     = globals().get('mock_scenario_ledger', set())
   mock_presentation_ledger = globals().get('mock_presentation_ledger', set())
 
-  # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing:
+  # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing.
+  # (v5.85: [ExamCode]_stimulus_profile.json is deliberately NOT here — only a NEW paper
+  # needs it; S3-12b's SAFETY LOCK enforces that, so an in-progress paper is unaffected.)
   required = [
       f'{EXAM}_section_rules.md',
       f'{EXAM}_subtopic_manifest.json',   # v3.4 — cross-step contract (REQUIRED)
@@ -1349,6 +1380,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   AUDIT_AVAILABLE = os.path.exists(audit_py)
   if AUDIT_AVAILABLE:
       shutil.copy(audit_py, f'/home/claude/{EXAM}_mock_test_audit.py')
+      # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): a project copy that predates the
+      # stimulus-group gates cannot certify a set-placed paper. The per-exam file is
+      # a VERBATIM copy of audit_canonical.py (Step 6 B3), so the verified clone's
+      # copy is the same auditor, current. Used for THIS run; the project file is
+      # left as is (replace it with /tmp/fw/audit_canonical.py under the same
+      # name at your convenience to silence this notice).
+      if 'def gate_stimulus_blocks' not in open(audit_py, encoding='utf-8').read():
+          shutil.copy('/tmp/fw/audit_canonical.py',
+                      f'/home/claude/{EXAM}_mock_test_audit.py')
+          print(f"AUDITOR REFRESHED: {EXAM}_mock_test_audit.py in Project Files "
+                f"predates the stimulus-group gates (A-BLOCK) — this run audits with "
+                f"the verified repo audit_canonical.py instead.")
   else:
       print(f"NOTE: {EXAM}_mock_test_audit.py not found in project. "
             f"This file is auto-generated by Step 6 (MockBlueprint) v1.20+. "
@@ -2303,14 +2346,144 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   if os.path.exists(_bs_path):
       bs_prev = json.load(open(_bs_path))
 
+  # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT) — stimulus groups. STIM_ACTIVE is True
+  # ONLY for a paper whose plan was built with the stimulus profile (fresh branch
+  # below, or its frozen resume). A paper started before the profile existed —
+  # frozen or pre-v5.77 — stays on the legacy path to the end, byte-for-byte.
+  STIM_ACTIVE = False
+  STIM_PLAN = {}          # {group_id: {'type','qnums','members','stimulus','stimulus_sha256'}}
+  STIM_GID_BY_Q = {}      # {qnum: group_id} — members only
+  STIM_PROFILE = None     # the profile THIS paper was planned with (frozen snapshot)
+  # The auditor reads the SNAPSHOT, never the live project file: a profile rebuilt
+  # later (new PYQs) must not make an older, correctly built paper look wrong.
+  STIM_PROFILE_PATH = f'/home/claude/{EXAM}_M{N}_stimulus_profile.json'
+
+  def _stim_load_profile():
+      """SAFETY LOCK + validation. Chat attachment wins over Project Files. Without
+      a profile a NEW paper would scatter every question set (one passage printed at
+      many positions). An exam with no sets has a valid profile with "types": {}."""
+      _sgp = next((f'{_d}/{EXAM}_stimulus_profile.json'
+                   for _d in ('/mnt/user-data/uploads', '/mnt/project')
+                   if os.path.exists(f'{_d}/{EXAM}_stimulus_profile.json')), None)
+      if _sgp is None:
+          raise SystemExit(
+              f"HARD STOP (S3-12b SAFETY LOCK, v5.85): {EXAM}_stimulus_profile.json "
+              f"is not in Project Files. Run PYQExtract --stimulus-profile first (it "
+              f"needs {EXAM}_analysis_progress.json), upload the file it delivers, and "
+              f"re-run. A paper already in progress is not affected by this lock.")
+      try:
+          _prof = json.load(open(_sgp, encoding='utf-8'))
+      except (OSError, ValueError) as _e:
+          raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} is not readable "
+                           f"JSON ({_e}). Re-run PYQExtract --stimulus-profile and "
+                           f"replace the file.")
+      _probs = bc.validate_stimulus_profile(
+          _prof, exam_code=EXAM, manifest={'subtopics': MANIFEST_IDS},
+          section_names=[_s['name'] for _s in sections])
+      if _probs:
+          raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} does not fit "
+                           f"this exam — " + '; '.join(_probs) + ". Re-run PYQExtract "
+                           "--stimulus-profile (after any taxonomy change) and replace "
+                           "the file.")
+      return _prof
+
+  def _stim_build_plan(_prof):
+      """The set-aware plan: sets composed from the blueprint's allocation, placed
+      as consecutive blocks. Deterministic (same profile + allocation + seed →
+      identical plan), which is what lets a lost batch_state be rebuilt exactly."""
+      _sbq, _prep, _plan, _gbq = {}, {}, {}, {}
+      for _s in sections:
+          _alloc_q = _alloc_for(_sec_entry_by_name.get(_s['name'], {}))
+          _sg_groups, _sg_notes = bc.compose_stimulus_groups(_alloc_q, _s['name'], _prof)
+          for _n in _sg_notes:
+              print(f"S3-12b SETS — section '{_s['name']}': {_n}")
+          try:
+              _pl, _rp, _gm = bc.place_with_stimulus_groups(
+                  _alloc_q, tuple(_s['q_range']), _meta_q, _sg_groups, _prof,
+                  seed=paper_index)
+          except bc.PlacementError as _e:
+              raise SystemExit(f"HARD STOP (S3-12b): section '{_s['name']}': "
+                               f"{_e} — the blueprint allocation is "
+                               f"structurally impossible for this section; "
+                               f"fix it at MockBlueprint, never by dropping "
+                               f"a question here.")
+          _sbq.update(_pl)
+          _prep[_s['name']] = _rp
+          _gbq.update(_gm)
+          for _g in _sg_groups:
+              _qn = sorted(q for q, x in _gm.items() if x == _g['group_id'])
+              _plan[_g['group_id']] = {'type': _g['type'], 'members': list(_g['members']),
+                                       'qnums': _qn, 'stimulus': None,
+                                       'stimulus_sha256': None}
+              print(f"S3-12b SET {_g['group_id']}: Q.{_qn[0]}-Q.{_qn[-1]} "
+                    f"({len(_g['members'])} questions, one shared stimulus)")
+      return _sbq, _prep, _plan, _gbq
+
+  def _stim_cmap_state():
+      """What the answer_key concept_map says about this paper: 'none' (nothing
+      authored), 'set' (SET-PLACED — S7-NEW-A writes stimulus_group_id only on
+      those) or 'legacy' (questions authored before the profile existed)."""
+      _p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+      if not os.path.exists(_p):
+          return 'none'
+      _cm = json.load(open(_p, encoding='utf-8')).get('concept_map') or {}
+      if not _cm:
+          return 'none'
+      return ('set' if any('stimulus_group_id' in (_r or {}) for _r in _cm.values())
+              else 'legacy')
+
+  def _stim_cmap_marked():
+      return _stim_cmap_state() == 'set'
+
   if bs_prev.get('subtopic_by_qnum') and bs_prev.get('batches_completed'):
       # ── FROZEN (v5.77+ state): the plan was persisted at S3-16. Read it. ──
       subtopic_by_qnum = {int(k): v
                           for k, v in bs_prev['subtopic_by_qnum'].items()}
       placement_report = bs_prev.get('placement_report') or {}
+      if 'stimulus_groups' in bs_prev:
+          STIM_ACTIVE = True
+          STIM_PLAN = bs_prev['stimulus_groups'] or {}
+          STIM_PROFILE = bs_prev.get('stimulus_profile_snapshot') or _stim_load_profile()
+          for _sgid, _sgrec in STIM_PLAN.items():
+              for _sgq in _sgrec['qnums']:
+                  STIM_GID_BY_Q[int(_sgq)] = _sgid
       if not placement_report:
           # belt: state written with a plan but no report — audit, never rebuild.
-          placement_report = bc.audit_placement(subtopic_by_qnum, sections, _meta_q)
+          placement_report = bc.sg_audit_placement(subtopic_by_qnum, sections,
+                                                   _meta_q, STIM_GID_BY_Q)
+
+  elif bs_prev.get('batches_completed') and _stim_cmap_marked():
+      # ── v5.85 SET-PLACED PAPER WHOSE batch_state LOST ITS PLAN (S4-12 step 2
+      # rebuilt it from the docx). The plan is DETERMINISTIC, so it is rebuilt from
+      # the profile and PROVEN against every authored question before it is used;
+      # any disagreement (e.g. the profile was replaced meanwhile) is a HARD STOP —
+      # re-placing authored questions is never an option.
+      STIM_PROFILE = _stim_load_profile()
+      subtopic_by_qnum, placement_report, STIM_PLAN, STIM_GID_BY_Q = \
+          _stim_build_plan(STIM_PROFILE)
+      _cm_rb = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json',
+                              encoding='utf-8')).get('concept_map') or {}
+      _bad_rb = [int(_q) for _q, _r in _cm_rb.items()
+                 if subtopic_by_qnum.get(int(_q)) != (_r or {}).get('subtopic_id')
+                 or STIM_GID_BY_Q.get(int(_q)) != (_r or {}).get('stimulus_group_id')]
+      if _bad_rb:
+          raise SystemExit(
+              f"HARD STOP (S3-12b RESUME, v5.85): batch_state lost its plan and the "
+              f"rebuilt set plan disagrees with authored Q.{sorted(_bad_rb)[:10]} — the "
+              f"stimulus profile or blueprint changed after this paper started. Restore "
+              f"{EXAM}_M{N}_batch_state.json (or the profile it was built with) and "
+              f"resume; authored questions are never re-placed.")
+      STIM_ACTIVE = True
+      _bs_rb = json.load(open(_bs_path, encoding='utf-8'))
+      _bs_rb['subtopic_by_qnum'] = {str(q): s for q, s in subtopic_by_qnum.items()}
+      _bs_rb['placement_report'] = placement_report
+      _bs_rb['stimulus_groups'] = STIM_PLAN
+      _bs_rb['stimulus_profile_snapshot'] = STIM_PROFILE
+      json.dump(_bs_rb, open(_bs_path, 'w', encoding='utf-8'))
+      print("S3-12b RESUME (v5.85): set plan rebuilt and verified against every "
+            "authored question. A set already partly authored: register its stimulus "
+            "by copying it VERBATIM from that set's first authored member in the "
+            "cumulative docx (R-STIMGROUP rule 2b).")
 
   elif bs_prev.get('batches_completed'):
       # ── PRE-v5.77 MID-FLIGHT PAPER (§7.2 — the upgrade path). ──────────────
@@ -2383,21 +2556,24 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   else:
       # ── FRESH PAPER: build the plan, one section at a time. ────────────────
-      subtopic_by_qnum = {}
-      placement_report = {}
-      for _s in sections:
-          _alloc_q = _alloc_for(_sec_entry_by_name.get(_s['name'], {}))
-          try:
-              _pl, _rp = bc.place_subtopics(_alloc_q, tuple(_s['q_range']),
-                                            _meta_q, seed=paper_index)
-          except bc.PlacementError as _e:
-              raise SystemExit(f"HARD STOP (S3-12b): section '{_s['name']}': "
-                               f"{_e} — the blueprint allocation is "
-                               f"structurally impossible for this section; "
-                               f"fix it at MockBlueprint, never by dropping "
-                               f"a question here.")
-          subtopic_by_qnum.update(_pl)
-          placement_report[_s['name']] = _rp
+      # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): a NEW paper is ALWAYS set-aware —
+      # _stim_load_profile is the SAFETY LOCK (no profile → HARD STOP before Q.1).
+      # ONE exception keeps the legacy promise: questions already authored in the
+      # first, unfinished batch of a paper started before the profile existed
+      # (answer_key concept_map without stimulus_group_id). That paper is placed
+      # exactly as before (no sets — bit-identical to bc.place_subtopics) so no
+      # authored question moves.
+      if _stim_cmap_state() == 'legacy':
+          print("S3-12b NOTICE (v5.85): this paper already has questions authored "
+                "before the stimulus profile existed — it finishes on the legacy "
+                "placement (no sets). The next NEW paper uses sets.")
+          subtopic_by_qnum, placement_report, _stim_unused, _stim_unused2 = \
+              _stim_build_plan(None)
+      else:
+          STIM_PROFILE = _stim_load_profile()
+          STIM_ACTIVE = True
+          subtopic_by_qnum, placement_report, STIM_PLAN, STIM_GID_BY_Q = \
+              _stim_build_plan(STIM_PROFILE)
 
       # G-CLUSTER PRE-FLIGHT — armed before Q.1 exists, never after 10 questions do.
       for _sn, _rp in placement_report.items():
@@ -2417,6 +2593,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                     f"is optimal; G-CLUSTER and A-CLUSTER will accept exactly "
                     f"{_floor}. To remove them, reduce that group's q_count at "
                     f"MockBlueprint — never by dropping a question here.")
+  if STIM_ACTIVE:
+      # the snapshot every audit of THIS paper reads (--stimulus-profile). It carries
+      # the paper's own blueprint entry, so the auditor recomputes the SAME sets even
+      # for a scoped paper whose blueprint is not [ExamCode]_blueprint.json.
+      json.dump(dict(STIM_PROFILE, _paper={'mock_entry': mock_entry}),
+                open(STIM_PROFILE_PATH, 'w', encoding='utf-8'))
   # (paper_index is the S3-4 session integer: == N for a mock, the numeric
   # suffix of paper_id for a scoped paper — so a 20-paper series gets 20
   # different arrangements from ONE blueprint, deterministically, and
@@ -2785,6 +2967,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                                      # v5.77: {section_name: report} from
                                      # bc.place_subtopics / bc.audit_placement — the
                                      # evidence G-CLUSTER and A-CLUSTER both quote.
+      **({'stimulus_groups': STIM_PLAN,
+          'stimulus_profile_snapshot': STIM_PROFILE} if STIM_ACTIVE else {}),
+                                     # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): the
+                                     # stimulus-group plan from S3-12b, PRESENT only
+                                     # for a set-placed paper (its presence is what a
+                                     # resume reads). Each group's 'stimulus' is
+                                     # filled ONCE by stim_register (R-STIMGROUP)
+                                     # and reused verbatim by every member.
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
                                       # Populated at S3-18 from the figural manifest scan.
                                       # At generation time: set rendered=true after
@@ -3207,6 +3397,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   RULE C, v3.9). Checked at CHECK 1b and persisted/rehydrated like
                   concept_ledger so no two same-group questions LOOK alike across
                   batches or across a resume.
+  stimulus_groups (v5.85, set-placed papers ONLY — absent on a legacy paper):
+                  {group_id: {type, qnums, members, stimulus, stimulus_sha256}} from
+                  S3-12b; 'stimulus' is filled once by stim_register (R-STIMGROUP).
+  stimulus_profile_snapshot (v5.85, with stimulus_groups): the profile this paper
+                  was planned with; S3-12b rewrites it to
+                  /home/claude/[ExamCode]_M[N]_stimulus_profile.json for every audit.
 
 ## S4-4 — The Batch Stop Law (B-1 through B-8 — ARCHITECTURAL, NON-NEGOTIABLE)
 
@@ -3486,6 +3682,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
                   --registry /home/claude/[ExamCode]_registry.json \
                   --profile /mnt/project/[ExamCode]_difficulty_profile.json \
+                  --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --mockN [N] --batch [B] --through-q [last Q in the docx]
               ```
@@ -3685,6 +3882,11 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   same presentation_key (stem_format_variant | distractor_strategy).
                   Different word/fact does NOT excuse an identical look. If a
                   CONCEPT_GROUP has ≥3 Qs, ≥2 stem formats appear. (RULE C) HARD FAIL.
+  [ ] G-BLOCK (v5.85, set-placed papers only — else 'dormant — legacy paper'):
+                  every set in batch_state['stimulus_groups'] whose Q-numbers are in
+                  this batch sits at exactly its planned consecutive Q-numbers, in
+                  member order; all its members embed the ONE registered stimulus
+                  (stim_register); cloze members ask blanks in increasing order.
   [ ] G-CLUSTER:  Read batch_state['subtopic_by_qnum'] + ['placement_report']
                   (S3-12b): adjacent same-CONCEPT_GROUP pairs in the questions
                   generated so far == the report's own list and <= its
@@ -3782,8 +3984,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-44 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
-  All 47 items are RUN; items 45-47 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  Items 1-45 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 48 items are RUN; items 46-48 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
   ```
 
@@ -5431,6 +5633,72 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   EC-30. G-PYQ-DIST cannot be disabled by any instruction — it costs ~2 ms per
   paper, so there is nothing to skip, and the record is ALWAYS written.
 
+## S7-STIMGROUP — One stimulus per question set (v5.85 — GAP-2026-09-21-LINKED-PLACEMENT)
+
+  Applies ONLY when STIM_ACTIVE (S3-12b built this paper with the stimulus profile).
+  A legacy paper (STIM_ACTIVE False) is authored exactly as before.
+
+  R-STIMGROUP (HARD, set-placed papers):
+    1. ONE STIMULUS PER SET. batch_state['stimulus_groups'] (S3-16) lists every set:
+       its Q-numbers, member subtopics in order, and its type. Before authoring the
+       FIRST member of a set, author the set's stimulus ONCE (passage / cloze
+       paragraph / table / chart / clue set) and register it with stim_register().
+       Every member embeds that registered stimulus BYTE-IDENTICALLY (R-LINKED
+       Model A is unchanged: the stimulus is still printed inside each member).
+    2. A SET THAT CROSSES A BATCH BOUNDARY reuses the registered text — stim_register
+       returns it from batch_state, so `continue`, S4-12 resume and a new session all
+       read the same stimulus. Never re-author it.
+       2b. If batch_state was rebuilt (S4-12 step 2) a partly authored set has no
+       registered text: register it by copying the stimulus VERBATIM from that set's
+       first authored member in the cumulative docx.
+    2c. STIMULUS SIZE. A text stimulus is at least 30 words (the size the profile
+       detects sets by, bc.SG_MIN_STIM_WORDS); a shorter shared context must be a
+       table or a figure. A-BLOCK-STIMULUS recognises the shared stimulus by exactly
+       these forms.
+    3. DIFFERENT SETS, DIFFERENT STIMULI. Two sets never share a stimulus, and their
+       stimuli are about different subject matter. A single (non-set) question never
+       reuses a set's stimulus.
+    4. CLOZE ORDER. For a set whose members ask about numbered blanks/gaps, the
+       stimulus numbers the blanks (1)..(k) and member j asks blank j, in Q order.
+    5. FIGURE/TABLE SETS. One figure (or table) per set; every member embeds the SAME
+       image file (identical bytes) or the identical table — exactly the duplication
+       R-LINKED Model A already requires of a linked stimulus.
+    6. Nothing else changes: difficulty plan, answer budget, K-PAT, dedup, R19
+       outside sets, answer verification.
+  Checked by G-BLOCK (S4-11) and the auditor's A-BLOCK, A-BLOCK-STIMULUS and
+  A-BLOCK-ORDER gates.
+
+  ```python
+  def stim_group_of(qnum):
+      """The set a question belongs to, or None (single question / legacy paper)."""
+      return STIM_GID_BY_Q.get(int(qnum)) if STIM_ACTIVE else None
+
+  def stim_register(qnum, stimulus_text=None):
+      """Return THE stimulus of qnum's set. First call for a set (stimulus_text
+      given) stores it in batch_state and on disk; every later call returns the
+      stored text — passing a DIFFERENT text is a HARD STOP (rule 1)."""
+      import hashlib
+      gid = stim_group_of(qnum)
+      if gid is None:
+          raise SystemExit(f"HARD STOP (R-STIMGROUP): Q.{qnum} is not in a set.")
+      _bsp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+      _bs = json.load(open(_bsp, encoding='utf-8'))
+      _g = _bs['stimulus_groups'][gid]
+      if _g.get('stimulus') is None:
+          if not stimulus_text:
+              raise SystemExit(f"HARD STOP (R-STIMGROUP): set {gid} has no stimulus "
+                               f"yet — author it and pass it for its first member.")
+          _g['stimulus'] = stimulus_text
+          _g['stimulus_sha256'] = hashlib.sha256(stimulus_text.encode('utf-8')).hexdigest()
+          json.dump(_bs, open(_bsp, 'w', encoding='utf-8'))
+          STIM_PLAN[gid] = _g
+      elif stimulus_text is not None and stimulus_text != _g['stimulus']:
+          raise SystemExit(f"HARD STOP (R-STIMGROUP): Q.{qnum} carries a stimulus that "
+                           f"differs from set {gid}'s registered stimulus — every "
+                           f"member embeds the registered text byte-identically.")
+      return _g['stimulus']
+  ```
+
 ## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map; v5.52 mandatory concept_map)
 
   IMMEDIATELY after each question is accepted and added to docx:
@@ -5552,6 +5820,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           # from answer_uniqueness_verified; mode-agnostic.)
           "answer_verified": bool(answer_verified)
       }
+      # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): set membership, written ONLY on a
+      # set-placed paper (STIM_ACTIVE, S3-12b) — None for a single question. Its
+      # PRESENCE tells the auditor (A-BLOCK) and final_assembly that the paper was
+      # built with the stimulus profile; a legacy paper never carries the key.
+      if STIM_ACTIVE:
+          key_data["concept_map"][str(qnum)]["stimulus_group_id"] = \
+              STIM_GID_BY_Q.get(int(qnum))
 
       if is_ga and fact_text:
           key_data["sources"][str(qnum)] = {
@@ -8976,6 +9251,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       --blueprint /mnt/project/[ExamCode]_blueprint.json \
       --rules /mnt/project/[ExamCode]_section_rules.md \
       --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
+      --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
       --mockN [N]
   ```
   ([paper_slug] = pp.paper_slug(paper_id) — "Mock01" for a mock, "SUBJ_Physics_01" for a
@@ -8986,6 +9262,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   ```python
   if AUDIT_AVAILABLE and os.path.exists(_out):
+      # v5.85: the paper's OWN profile snapshot (S3-12b) — absent on a legacy paper
+      _sgp_final = STIM_PROFILE_PATH if os.path.exists(STIM_PROFILE_PATH) else None
       _r = subprocess.run(
           ['python3', f'/home/claude/{EXAM}_mock_test_audit.py',
            _docx, '--dossier', _out,
@@ -9001,6 +9279,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            # pre-flight it is supposed to mirror at ship time).
            '--rules', f'/mnt/project/{EXAM}_section_rules.md',
            '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
+           # v5.85 — arm A-BLOCK: the auditor recomputes the stimulus groups
+           # from the SAME profile the planner used and certifies the paper.
+           *(['--stimulus-profile', _sgp_final] if _sgp_final else []),
            '--mockN', str(N)],
           capture_output=True, text=True)
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
@@ -9027,6 +9308,22 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               "project file with the current repo audit_canonical.py verbatim "
               "under the same [ExamCode]_ name), then re-run. present_files is "
               "forbidden until clean (B-7).")
+      # v5.85 STIMULUS-GROUP TRIPWIRE (GAP-2026-09-21-LINKED-PLACEMENT), same shape
+      # as the A-QINDEX tripwire above: a set-placed paper (STIM_ACTIVE) must come
+      # back with an ARMED A-BLOCK verdict. An absent line means a stale auditor; a
+      # 'dormant' line means the profile or the set ids never reached it. Either way
+      # the sets were NOT certified, so a clean exit code here would be meaningless.
+      if STIM_ACTIVE:
+          _ab = [l for l in (_r.stdout or '').splitlines()
+                 if re.search(r'\]\s+A-BLOCK\s', l)]
+          if not _ab or any('dormant' in l for l in _ab):
+              raise SystemExit(
+                  f"HARD STOP (S13-4c, v5.85): the auditor did not certify the "
+                  f"stimulus groups of this set-placed paper "
+                  f"({_ab[0].strip() if _ab else 'no A-BLOCK line'}). The paper's "
+                  f"profile snapshot {STIM_PROFILE_PATH} must exist (S3-12b writes it) "
+                  f"and be passed as --stimulus-profile; re-run S3-12b and this "
+                  f"re-sweep. present_files is forbidden until clean (B-7).")
   ```
 
   v5.48.0: this re-sweep now ALSO arms A-QINDEX (the engine-enforced FK gate over the
@@ -9905,7 +10202,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.84
+# END OF Framework_MockTestCreate v5.85
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

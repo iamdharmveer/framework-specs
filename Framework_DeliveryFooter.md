@@ -1,4 +1,9 @@
-# Framework_DeliveryFooter v1.35 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.35.1 — Universal Delivery Footer (F1/F2) Contract
+# v1.35.1 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse
+#   v2.57.2, MockTestCreate v5.85). Step 5 final set gains [ExamCode]_stimulus_profile.json
+#   (MANDATORY, badge "Upload to Project Files" — Step 7 stops at a new paper without it):
+#   8 mandatory + 2 conditional. NEW Step 5 mode `PYQExtract --stimulus-profile` delivers
+#   that one file only. No other set, gate or engine change.
 # v1.35 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2). §9 now carries
 #   the CANONICAL print_delivery_set fence (byte-identical to the PYQScan / PYQExplain /
 #   MockTestAnalyse copies) so the fourteen prose-only delivery sites — Steps 1, 2a, 2c, 3,
@@ -373,7 +378,7 @@ FOOTER TYPE: F1 (mid-step) after each non-final batch
 MID-STEP DELIVERABLES (per batch):
   [ExamCode]_analysis_progress.json  → Upload (1st batch) / Replace (subsequent)
 
-FINAL DELIVERABLES (7 mandatory + 2 conditional — exam_config.json when
+FINAL DELIVERABLES (8 mandatory + 2 conditional — exam_config.json when
 generated, taxonomy.xlsx when written; the two-tier set MockTestAnalyse S11-3
 enforces, listed here in the S11-3 emission order. v1.34 heading — this block
 had stopped at 5 mandatory and never gained the v2.56 style_profile.json /
@@ -390,11 +395,18 @@ itself calls unreadable):
                                        status, never a missing file)
   [ExamCode]_pyq_index.json          → Upload to Project Files (v2.56; same corpus_hash as
                                        the profile — replace the pair together)
+  [ExamCode]_stimulus_profile.json   → Upload to Project Files (v1.35.1; Step 7 keeps
+                                       question sets together with it; required before
+                                       any new mock/test)
   [ExamCode]_exam_config.json        → Replace in Project Files (subjects[] added by S-SECMAP;
                                        delivered only when generated)
   [ExamCode]_taxonomy.xlsx           → Use locally (human-readable id companion; when written)
   [ExamCode]_analysis_progress.json  → Use locally (keep for future re-runs if adding papers)
   [ExamCode]_analysis_summary.md     → Use locally (human review audit trail)
+
+MODE `PYQExtract --stimulus-profile` (v1.35.1 — existing exams, run once; F2):
+  [ExamCode]_stimulus_profile.json   → Upload to Project Files (the ONLY file delivered)
+  NEXT: the next NEW MockCreate/TestCreate paper uses it.
 
 NEXT STEP  : Step 6: MockBlueprint (parallel with Step 5 — see §1 F2 special case)
 

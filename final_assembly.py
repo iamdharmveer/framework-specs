@@ -13,6 +13,10 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.7 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestCreate v5.85,
+    audit_canonical v2.30, blueprint_core Cluster SG). commit_registry's
+    question_index entry carries `stimulus_group_id` ONLY when the concept_map entry
+    has the key (a set-placed paper) — a legacy paper's entry is byte-identical.
     v5.60 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate v5.73,
     MockTestExplain v1.46.0, MockDeliver v1.16.0, DeliveryFooter v1.27,
     paper_pipeline v5.74 Cluster RH, explain_engine v2.9). Operator decision
@@ -444,7 +448,12 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # recompute label == assess_difficulty(obs) forever. None for a
             # legacy concept_map: the audit's check 8 then skips, never false-
             # fails, while its structural-floor check 7 still runs on the label.
-            "difficulty_obs": concept_map[qn].get("difficulty_obs")}
+            "difficulty_obs": concept_map[qn].get("difficulty_obs"),
+            # v1.7 (GAP-2026-09-21-LINKED-PLACEMENT): set membership, carried ONLY
+            # when the concept_map entry has the key (a set-placed paper) — a legacy
+            # paper's question_index entry is byte-identical to v1.6.
+            **({"stimulus_group_id": concept_map[qn]["stimulus_group_id"]}
+               if "stimulus_group_id" in concept_map[qn] else {})}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(
@@ -991,6 +1000,23 @@ def self_test():
                     batches_completed=1, axis2_window_counts={}, passage_present=False,
                     di_present=False, figural_present=False, concept_map=mini_cm())
     check('commit_pure_original_untouched', _orig == mini_registry())
+
+    # v1.7 (GAP-2026-09-21-LINKED-PLACEMENT): set membership passthrough
+    check('commit_qindex_legacy_has_no_stimulus_key',
+          all('stimulus_group_id' not in q
+              for q in r1['registry']['question_index'][0]['questions']))
+    _sg_cm = mini_cm()
+    _sg_cm['1']['stimulus_group_id'] = 'ex.rc#1'
+    _sg_cm['2']['stimulus_group_id'] = 'ex.rc#1'
+    _sg_cm['3']['stimulus_group_id'] = None
+    _r_sg = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                            batches_completed=1, axis2_window_counts={},
+                            passage_present=False, di_present=False,
+                            figural_present=False, concept_map=_sg_cm)
+    check('commit_qindex_carries_stimulus_group_id',
+          [q.get('stimulus_group_id', 'ABSENT') for q in
+           _r_sg['registry']['question_index'][0]['questions']]
+          == ['ex.rc#1', 'ex.rc#1', None])
 
     # non-first-mock: existing fields preserved + extended
     reg2 = copy.deepcopy(r1['registry'])
