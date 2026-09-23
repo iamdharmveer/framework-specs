@@ -1,5 +1,27 @@
 """
-notes_docx.py v1.7 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.8 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.8 — 2026-09-23 — F-3(b)/(c)/(e) AT CONSTRUCTION (GAP-2026-09-23-FLAT-MATH-
+    NOTATION; pairs with notes_core v2.13, notes_audit v2.10, Framework_NotesCreate
+    v2.10.0 §4A + §6 F-3, Framework_NotesAudit v3.8.0 §5 G-2c/G-3).
+    validate_model(model, exemptions=()) now converts EVERY run list (bullets,
+    paras, table headers and rows, stems, options, explanation, speed hack,
+    objective, autopsy lines, rapid formula/association cells) to
+    (text, is_script) segments — text and sym.base plain, sym.sub/sym.sup
+    script, a math run a boundary — and refuses every
+    notes_core.flat_math_findings finding, prefixed "block i.j". Headings and
+    labels (unit name, B1 title, concept name, figure label, mind-map label)
+    are plain strings that can never carry a script run, so they are scanned
+    as plain segments too (F-3(e)) — notation there had no remedy at audit.
+    build(model, out_path, *, strict=True, exemptions=()) forwards the unit's
+    "G-2c:<rule_id>" labels. _UNBRACED_SCRIPT also refuses a script that
+    STARTS with a sign or a bracket (a^-2, a^+3, a^(m-n), x_[1] — t3_compile
+    rendered a⁻ then "2" on the baseline, correct XML, visibly wrong); the
+    message shows the braced remedy. Single-token scripts (x^2, Na^+, Cl^-)
+    and every braced form still pass. Five golden fixtures that themselves
+    violated F-3(b) (T("Km"), T("Vmax"), "Confusing Km with Kd." …) corrected
+    to sym runs. Rendering path UNTOUCHED; parse round trip unchanged.
+    Self-test: +34 checks incl. an end-to-end build -> G-2c clean check.
 
 v1.7 — 2026-09-01 — RECALL CONTRACT FIELDS + CONSTRUCTION-TIME ENFORCEMENT
     (GAP-2026-09-01-RECALL-CONTRACT; pairs with notes_core v2.12,
@@ -248,7 +270,14 @@ RUN_TYPES = ("text", "math", "sym")
 # separately numbered — they live inside/after their concept.
 L2_NUMBERED = ("concept", "trap", "rapid", "recall_check", "mindmap")
 
-_UNBRACED_SCRIPT = re.compile(r"[_^]\s*([A-Za-z0-9]{2,})")
+# v1.8 (GAP-2026-09-23-FLAT-MATH-NOTATION): an unbraced script binds ONE token.
+# Three shapes are therefore always wrong and are rejected:
+#   [_^] + 2+ alphanumerics      2^10 -> 2 sup 1 + "0"   (v1.7 caught this)
+#   [_^] + sign + alnum/dot      a^-2 -> a sup "-" + "2" (NEW)
+#   [_^] + opening bracket       a^(m-n) -> a sup "(" + "m-n)" (NEW)
+# Single-token scripts stay legal: x^2, a_1, Na^+, Cl^-, x^*, x^\prime, 90^\circ.
+_UNBRACED_SCRIPT = re.compile(
+    r"[_^]\s*(?:([A-Za-z0-9]{2,})|([-+\u2212][A-Za-z0-9.])|([(\[]))")
 
 
 # ------------------------------------------------------------------ helpers
@@ -438,11 +467,16 @@ def new_model(exam_code, unit):
             "unit": dict(unit), "blocks": []}
 
 
-def validate_model(model):
+def validate_model(model, exemptions=()):
     """Structural + content-safety validation. Returns (ok, findings).
 
     Hard findings only — anything here would be a visible defect in a
     student-facing document.
+
+    v1.8: every text/sym run list is also checked against F-3(b) through
+    notes_core.flat_math_findings (the SAME authority G-2c uses on the built
+    file), so a flat exponent is refused at CONSTRUCTION. `exemptions` is the
+    unit's registry prose_ban_exemptions; only "G-2c:<rule_id>" labels apply.
     """
     f = []
     if model.get("schema") not in MODEL_SCHEMAS_ACCEPTED:
@@ -481,14 +515,39 @@ def validate_model(model):
                         f"'{bad.group(0)}' in {latex!r} — t3_compile renders "
                         f"only the FIRST character as the script and the rest "
                         f"as body text (V_max -> V-sub-m + 'ax'). Write "
-                        f"{bad.group(0)[0]}{{{bad.group(1)}}}.")
+                        f"{bad.group(0).strip()[0]}{{...}} with the WHOLE script "
+                        f"inside the braces, e.g. a^{{-2}}, a^{{m-n}}, 2^{{10}}.")
                 try:
                     t3_mathcomp.t3_compile(latex)
                 except Exception as exc:
                     f.append(f"{where}: math region will not compile: {exc}")
             if r.get("t") == "sym" and not r.get("base"):
                 f.append(f"{where}: sym run without a base")
+        segs = []
+        for r in runs:
+            if r.get("t") == "text":
+                segs.append((r.get("s", ""), False))
+            elif r.get("t") == "sym":
+                segs.append((r.get("base", ""), False))
+                if r.get("sub"):
+                    segs.append((r["sub"], True))
+                if r.get("sup"):
+                    segs.append((r["sup"], True))
+            elif r.get("t") == "math":
+                segs.append(("", True))       # a boundary: nothing matches across it
+        for msg in notes_core.flat_math_findings(segs, exemptions):
+            f.append(f"{where}: {msg}")
 
+    def check_str(s, where):
+        # v1.8 (GAP-2026-09-23-FLAT-MATH-NOTATION O-9 / F-3(e)): headings and
+        # figure labels are PLAIN STRINGS — they can never carry a sym run, so
+        # notation there is unfixable at audit. Refuse it at construction.
+        if not isinstance(s, str) or not s:
+            return
+        for msg in notes_core.flat_math_findings([(s, False)], exemptions):
+            f.append(f"{where}: {msg} (headings/labels are notation-free, F-3(e))")
+
+    check_str((model.get("unit") or {}).get("name"), "unit name")
     order_seen = []
     for i, b in enumerate(blocks):
         t = b.get("type")
@@ -499,9 +558,11 @@ def validate_model(model):
         if t == "title":
             if not b.get("name"):
                 f.append(f"block {i}: title has no name")
+            check_str(b.get("name"), f"block {i} title")
         elif t == "concept":
             if not b.get("name"):
                 f.append(f"block {i}: concept has no name")
+            check_str(b.get("name"), f"block {i} heading")
             for j, c in enumerate(b.get("content", [])):
                 k = c.get("k")
                 if k not in CONTENT_KINDS:
@@ -534,6 +595,7 @@ def validate_model(model):
                         f.append(f"block {i}.{j}: figure has no label "
                                  f"(F-4: the label is drawn INSIDE the image; "
                                  f"it is recorded here for the gates)")
+                    check_str(c.get("label"), f"block {i}.{j} figure label")
         elif t in ("example", "recall"):
             qt = b.get("qtype")
             if qt not in notes_core.CANONICAL_TYPES:
@@ -642,6 +704,7 @@ def validate_model(model):
         elif t == "mindmap":
             if not b.get("image"):
                 f.append(f"block {i}: mind map has no image path")
+            check_str(b.get("label"), f"block {i} mind map label")
 
     # Tail order (§6A): TRAP -> RAPID -> RECALL CHECK -> MIND MAP, all after
     # the last concept.
@@ -956,9 +1019,11 @@ def _emit_question(doc, block, title, *, with_explanation):
     return _add_box(doc, kind, title, body)
 
 
-def build(model, out_path, *, strict=True):
-    """Render a content model to .docx. Returns a build report dict."""
-    ok, findings = validate_model(model)
+def build(model, out_path, *, strict=True, exemptions=()):
+    """Render a content model to .docx. Returns a build report dict.
+    `exemptions`: the unit's registry prose_ban_exemptions (v1.8, forwarded to
+    validate_model so a "G-2c:<rule_id>" exemption holds at construction too)."""
+    ok, findings = validate_model(model, exemptions)
     if strict and not ok:
         raise ValueError("model validation failed:\n  - "
                          + "\n  - ".join(findings))
@@ -1403,8 +1468,8 @@ def self_test():
                          {"t": "text", "s": " increases."}]},
                      {"k": "table",
                       "headers": [T("Term"), T("Meaning")],
-                      "rows": [[T("Km"), T("half-saturation")],
-                               [T("Vmax"), T("ceiling rate")]]},
+                      "rows": [[[{"t": "sym", "base": "K", "sub": "m"}], T("half-saturation")],
+                               [[{"t": "sym", "base": "V", "sub": "max"}], T("ceiling rate")]]},
                  ]},
                 {"type": "example", "qtype": "MCQ",
                  "stem": [{"t": "text", "s": "For the region "},
@@ -1429,10 +1494,10 @@ def self_test():
                                T("Option d confuses the two constants.")],
                  "objective": T("Read the ratio from the saturating form.")},
                 {"type": "key_points", "bullets": [T("Saturation is the key.")]},
-                {"type": "trap", "bullets": [T("Confusing Km with Kd.")]},
+                {"type": "trap", "bullets": [[{"t": "text", "s": "Confusing "}, {"t": "sym", "base": "K", "sub": "m"}, {"t": "text", "s": " with "}, {"t": "sym", "base": "K", "sub": "d"}, {"t": "text", "s": "."}]]},
                 {"type": "rapid",
                  "formulae": [[T("Name"), T("Form")], [T("MM"), T("v = ...")]],
-                 "associations": [[T("Term"), T("Link")], [T("kcat"), T("turnover")]]},
+                 "associations": [[T("Term"), T("Link")], [[{"t": "sym", "base": "k", "sub": "cat"}], T("turnover")]]},
                 {"type": "recall", "qtype": "MCQ", "stem": T("Which is true?"),
                  "options": [T("a"), T("b"), T("c"), T("d")], "answer": "3"},
             ]}
@@ -1523,7 +1588,7 @@ def self_test():
           bad(sixteen, "over the engine ceiling"))
     two = copy.deepcopy(mc)
     two["blocks"].insert(4, {"type": "concept", "name": "Turnover",
-                             "content": [{"k": "bullet", "runs": T("kcat counts conversions per second.")}]})
+                             "content": [{"k": "bullet", "runs": [{"t": "sym", "base": "k", "sub": "cat"}, {"t": "text", "s": " counts conversions per second."}]}]})
     two["blocks"].insert(5, {"type": "key_points", "bullets": [T("Turnover is per site.")]})
     two["blocks"].append(contract_recall(concept_ref="3.2", stem=T("Turnover of a saturated site is what quantity")))
     two["blocks"][-1], two["blocks"][-2] = two["blocks"][-2], two["blocks"][-1]   # keep identities interleaved
@@ -2035,6 +2100,71 @@ def self_test():
           LINE_RULE == "auto" and LINE_VALUE == "240")
     check("spec-lock: A4 page geometry",
           (PAGE_W_CM, PAGE_H_CM) == (21.0, 29.7) and BODY_FONT == "Arial")
+
+    # ---- GAP-2026-09-23-FLAT-MATH-NOTATION (v1.8): F-3(b) at CONSTRUCTION ----
+    def with_runs(runs):
+        mm = copy.deepcopy(demo_model())
+        mm["blocks"][1]["content"][0] = {"k": "bullet", "runs": runs}
+        return mm
+    for label, runs in (
+            ("caret in a text run", [{"t": "text", "s": "512 = 2^9"}]),
+            ("caret in a sym BASE", [{"t": "sym", "base": "2^9"}]),
+            ("unicode glyph in a text run", [{"t": "text", "s": "a\u00b2"}]),
+            ("ASCII hyphen in a sup run", [{"t": "sym", "base": "a", "sup": "-2"}]),
+            ("flat Vmax", [{"t": "text", "s": "Vmax is the ceiling"}])):
+        check("v1.8 F-3b refuses at construction: " + label,
+              not validate_model(with_runs(runs))[0])
+    for label, runs in (
+            ("sym 2 sup 9", [{"t": "text", "s": "512 = "}, {"t": "sym", "base": "2", "sup": "9"}]),
+            ("sym a sup U+2212 2", [{"t": "sym", "base": "a", "sup": "\u22122"}]),
+            ("sym a sup m\u2212n", [{"t": "sym", "base": "a", "sup": "m\u2212n"}]),
+            ("sym V sub max", [{"t": "sym", "base": "V", "sub": "max"}])):
+        check("v1.8 F-3b accepts styled form: " + label,
+              validate_model(with_runs(runs))[0])
+    check("v1.8 F-3b exemption flows through validate_model",
+          validate_model(with_runs([{"t": "text", "s": "5 ^ 3 is XOR"}]),
+                         ("G-2c:caret",))[0])
+    # ---- v1.8 (O-9, F-3(e)): headings and labels are PLAIN STRINGS, so
+    # notation there is unfixable at audit — refuse it at construction.
+    def with_heading(**kw):
+        mm = copy.deepcopy(demo_model())
+        for k, v in kw.items():
+            if k == "title":
+                mm["blocks"][0]["name"] = v
+            elif k == "unit":
+                mm["unit"]["name"] = v
+            elif k == "concept":
+                mm["blocks"][1]["name"] = v
+        return mm
+    for label, mm in (("caret in the B1 title", with_heading(title="Powers of 10^n")),
+                      ("caret in a concept heading", with_heading(concept="Indices: a^m \u00d7 a^n")),
+                      ("unicode glyph in a concept heading", with_heading(concept="Area in cm\u00b2")),
+                      ("flat unit power in the unit name", with_heading(unit="Volume in m3"))):
+        ok_, f_ = validate_model(mm)
+        check("v1.8 F-3(e) refuses notation in heading: " + label,
+              not ok_ and any("flat math token" in x and "F-3(e)" in x for x in f_))
+    check("v1.8 F-3(e) notation-free heading accepted",
+          validate_model(with_heading(concept="Laws of Indices"))[0])
+    check("v1.8 F-3(e) heading finding names its location",
+          any(x.startswith("block 1 heading:") for x in
+              validate_model(with_heading(concept="a^2"))[1]))
+    for label, runs in (("flat cm2 in a text run", [{"t": "text", "s": "area 12 cm2"}]),
+                        ("juxtaposed x2 + y2", [{"t": "text", "s": "x2 + y2 = 25"}])):
+        check("v1.8 F-3b refuses at construction: " + label,
+              not validate_model(with_runs(runs))[0])
+    for lx in ("a^-2", "a^(m-n)", "2^10", "V_max", "x_[1]"):
+        check("v1.8 unbraced script refused in math run: " + lx,
+              not validate_model(with_runs([{"t": "math", "latex": lx}]))[0])
+    for lx in ("a^{-2}", "a^{m-n}", "2^{10}", "x^2", "a_1", "Na^+", "Cl^-",
+               "x^*", "x^\\prime", "90^\\circ"):
+        check("v1.8 single-token / braced script accepted: " + lx,
+              validate_model(with_runs([{"t": "math", "latex": lx}]))[0])
+    _fp = tempfile.mktemp(suffix=".docx")
+    build(with_runs([{"t": "text", "s": "Rate nears "}, {"t": "sym", "base": "V", "sub": "max"},
+                     {"t": "text", "s": " when "}, {"t": "sym", "base": "K", "sub": "m"},
+                     {"t": "text", "s": " is small; 512 = "}, {"t": "sym", "base": "2", "sup": "9"}]), _fp)
+    check("v1.8 END-TO-END: a correctly styled build passes G-2c (v2.5 false positive fixed)",
+          notes_core.scan_flat_math_tokens(_fp) == [])
 
     print(f"notes_docx self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

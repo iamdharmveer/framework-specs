@@ -1,4 +1,8 @@
-# Framework_NotesBlueprint v3.3.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.3.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.3.3 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION owner decision O-4: NB is the
+#   step that DECLARES a unit's "G-2c:<rule_id>" notation exemptions in prose_ban_exemptions
+#   (Framework_NotesCreate v2.10.0 §6 F-3(d)). One sentence in §O-2; no set, gate or
+#   engine change; never a halt.
 # v3.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v3.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: S-1
@@ -457,7 +461,11 @@ O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (notes-blueprint/2.0;
     its sid + manifest names) and the full unit table: sid, unit_code, name
     (manifest display_name verbatim), section, topic, slug (notes_core.sid_slug),
     role, pyq_count, tier, provenance, seq_in_topic, optional
-    prose_ban_exemptions. Unit provenance is "syllabus" or "evidence-added";
+    prose_ban_exemptions — G-4 prose-ban labels AND, from NotesCreate v2.10.0
+    §6 F-3(d), the notation labels "G-2c:<rule_id>" (e.g. "G-2c:caret" for a
+    computing unit that teaches XOR; "G-2c:underscore_script" for snake_case
+    identifiers), each with a one-line justification here: the unit's domain
+    decides them BEFORE drafting, never NC or NA. Unit provenance is "syllabus" or "evidence-added";
     pyq_count is DERIVED from the bank (§3B B-6), not carried on a provenance
     field.
 O-3 notes_registry.json — notes_core.registry_init (notes-registry/2.1 as of
@@ -591,4 +599,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.3.2
+# END OF Framework_NotesBlueprint v3.3.3

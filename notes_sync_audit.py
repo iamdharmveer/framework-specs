@@ -1,5 +1,12 @@
 """
-notes_sync_audit.py v1.2 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+notes_sync_audit.py v1.3 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+
+v1.3 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION. S-6 HANDSHAKE gains two
+    rows: prose_ban_exemptions and the "G-2c:" exemption-label prefix (NB -> NC,
+    NA). The notation exemption path is a cross-step contract: NB declares,
+    NC passes to notes_docx.build(exemptions=), NA to terminal_regate(
+    exemptions=). Checks themselves unchanged. Live audit of this release:
+    0 findings.
 
 v1.2 — 2026-09-01 — GAP-2026-09-01-RECALL-CONTRACT. Fixture-only: the S-5
     mutation anchor tracks the NA spec's companion line (notes_core >= v2.12
@@ -112,6 +119,13 @@ HANDSHAKE = [
     # v1.2 — GAP-2026-09-01-RECALL-CONTRACT: the author's Recall declarations,
     # written by NC (§9A) and the ONLY place NA G-14 can read them.
     ("recall_contract", "NC", ("NA",)),
+    # v1.3 — GAP-2026-09-23-FLAT-MATH-NOTATION: the unit's notation exemptions
+    # ("G-2c:<rule_id>" in the registry unit record), declared by NB (§O-2),
+    # passed by NC to notes_docx.build(exemptions=) and by NA to
+    # terminal_regate(exemptions=). A step that stops naming the list would
+    # silently drop the exemption path.
+    ("prose_ban_exemptions", "NB", ("NC", "NA")),
+    ("G-2c:", "NB", ("NC", "NA")),
 ]
 
 
@@ -487,7 +501,7 @@ def self_test():
     check("S-4 still fires on a figure hex outside FIGURE_PALETTE",
           fires("S-4", mutated("NC", "C25604", "C25605"), contains="C25605"))
     check("S-5 fires on a companion version higher than the engine",
-          fires("S-5", mutated("NA", "notes_core.py  >= v2.12",
+          fires("S-5", mutated("NA", "notes_core.py  >= v2.13",
                                "notes_core.py  >= v9.9")))
     check("S-6 fires when a consumer stops naming a handed-over artifact",
           fires("S-6", mutated("ND", "final_ref", "REMOVED_REF", count=0)))

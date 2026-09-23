@@ -1,5 +1,17 @@
 """
-notes_audit.py v2.9 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.10 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.10 — 2026-09-23 — G-2c/G-3 PLUMBING (GAP-2026-09-23-FLAT-MATH-NOTATION; pairs
+    with notes_core v2.13, notes_docx v1.8, Framework_NotesAudit v3.8.0 §5
+    G-2b/G-2c/G-3). gate_anatomy(model, exemptions=()) forwards exemptions to
+    validate_model and EXCLUDES findings containing "flat math token" — they
+    carry the same "block i.j" prefix G-3 classified as anatomy, so a flat
+    token was reported twice. terminal_regate passes the unit's exemptions to
+    scan_flat_math_tokens (G-2c) and gate_anatomy (G-3) and reports G-2c
+    meta.advisories (notes_core.scan_flat_math_advisories). One golden
+    fixture ("Km is the half-saturation …") corrected to a sym run. GATES
+    unchanged (no new gate id). Self-test: +3 checks (G-3 isolation, G-2c
+    reporting, exemption honoured).
 
 v2.9 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; pairs
     with Framework_NotesAudit v3.7.0 §5 G-14, Framework_NotesCreate v2.9.0 §4
@@ -598,7 +610,7 @@ def figure_palette_meta(docx_path, tol=24):
                      f"— ADVISORY for the next draft; NEVER a re-render trigger (NA §1)")}
 
 
-def gate_anatomy(model):
+def gate_anatomy(model, exemptions=()):
     """G-3 — ANATOMY. Required blocks present and in section 6A order.
 
     notes_docx.validate_model owns the anatomy contract (it is the builder, so
@@ -606,10 +618,13 @@ def gate_anatomy(model):
     shipped file, which matters because NA edits the model after NC built it.
     """
     import notes_docx
-    ok, findings = notes_docx.validate_model(model)
+    ok, findings = notes_docx.validate_model(model, exemptions)
+    # v2.10: F-3(b) findings belong to G-2c, never to G-3 (their "block i.j"
+    # prefix would otherwise match the "block" keyword and double-report).
     structural = [f for f in findings
-                  if any(w in f for w in ("KEY POINTS", "order", "title",
-                                          "block", "tail"))]
+                  if "flat math token" not in f
+                  and any(w in f for w in ("KEY POINTS", "order", "title",
+                                           "block", "tail"))]
     return (not structural, structural, {"blocks": len(model.get("blocks", []))})
 
 
@@ -1398,11 +1413,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     # same shape.
     f_s = notes_core.scan_omml_structural(docx_path)
     g["G-2b"] = {"ok": not f_s, "findings": list(f_s)}
-    f_t = notes_core.scan_flat_math_tokens(docx_path)
-    g["G-2c"] = {"ok": not f_t, "findings": list(f_t)}
+    f_t = notes_core.scan_flat_math_tokens(docx_path, exemptions)
+    g["G-2c"] = {"ok": not f_t, "findings": list(f_t),
+                 "meta": {"advisories": notes_core.scan_flat_math_advisories(docx_path)}}
     f_b = notes_core.scan_prose_bans(docx_path, exemptions)
     g["G-4"] = {"ok": not f_b, "findings": list(f_b)}
-    ok_an, f_an, m_an = gate_anatomy(model)
+    ok_an, f_an, m_an = gate_anatomy(model, exemptions)
     g["G-3"] = {"ok": ok_an, "findings": f_an, "meta": m_an}
     ok_q, f_q, m_q = gate_question_format(model, allowed_types)
     g["G-5"] = {"ok": ok_q, "findings": f_q, "meta": m_q}
@@ -1983,7 +1999,7 @@ def self_test():
         mm["blocks"] = [
             b[0],
             {"type": "concept", "name": "Michaelis constant",
-             "content": [{"k": "bullet", "runs": T("Km is the half-saturation substrate level.")}]},
+             "content": [{"k": "bullet", "runs": [{"t": "sym", "base": "K", "sub": "m"}, {"t": "text", "s": " is the half-saturation substrate level."}]}]},
             {"type": "example", "qtype": "MCQ",
              "stem": T("At which substrate level does the rate reach half its ceiling?"),
              "options": [T("a"), T("b"), T("c"), T("d")], "answer": "2",
@@ -2569,6 +2585,22 @@ def self_test():
     except ImportError:
         check("G-7a palette advisory: Pillow absent is dormant",
               figure_palette_meta("x")["dormant"] is True)
+
+    # ---- GAP-2026-09-23-FLAT-MATH-NOTATION (v2.10): F-3(b) belongs to G-2c only ----
+    _fm = copy.deepcopy(demo_model())
+    _fm["blocks"][1]["content"][0] = {"k": "bullet", "runs": [{"t": "text", "s": "512 = 2^9"}]}
+    check("v2.10 a flat exponent is NOT reported as a G-3 anatomy defect",
+          gate_anatomy(_fm)[0] is True
+          and not notes_docx.validate_model(_fm)[0])
+    _fd = tempfile.mktemp(suffix=".docx")
+    notes_docx.build(_fm, _fd, strict=False)
+    _g = terminal_regate(_fd, _fm, tier="TIER-2", page_count=5, expected_omml=0)
+    check("v2.10 terminal_regate reports the flat exponent under G-2c",
+          _g["G-2c"]["ok"] is False and "advisories" in _g["G-2c"].get("meta", {}))
+    _g2 = terminal_regate(_fd, _fm, tier="TIER-2", page_count=5, expected_omml=0,
+                          exemptions=("G-2c:caret",))
+    check("v2.10 terminal_regate honours a G-2c exemption label",
+          _g2["G-2c"]["ok"] is True)
 
     print(f"notes_audit self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

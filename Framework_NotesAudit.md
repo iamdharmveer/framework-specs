@@ -1,4 +1,24 @@
-# Framework_NotesAudit v3.7.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.8.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.8.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
+#   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
+#   Framework_NotesCreate v2.10.0 §6 F-3(b)–(e)). THE DEFECT: §5 G-2c gated a literal
+#   token list from one domain (8 enzyme-kinetics words, pKa, 16 Unicode characters) so
+#   2^9, a^m, x**2, H_2O, \frac, 1e-3, ⁿ, ₄, ¾ ALL passed — AND, since notes_core v2.5
+#   (2026-08-13) joined runs without a separator, a CORRECTLY styled V+sub max, K+sub m,
+#   pK+sub a FAILED. G-2b saw only the substring "^(" in raw oMath XML. Nothing enforced
+#   F-3(b) at construction, so NA was the first and only line, and it was blind in both
+#   directions. THE FIX: G-2c is notes_core.scan_flat_math_tokens(docx, exemptions) —
+#   RUN-AWARE (w:vertAlign on the run's own w:rPr decides script vs plain), evaluating
+#   notes_core.FLAT_MATH_RULES through the SAME notes_core.flat_math_findings that
+#   notes_docx.validate_model runs at construction: one authority, two layers. G-2b
+#   reads oMath m:t TEXT and flags every "^", "**", "_" and the complete Unicode
+#   inventory. G-3 never counts an F-3 finding (they carry the "block i.j" prefix G-3
+#   used to classify as anatomy). terminal_regate forwards exemptions to G-2c and G-3
+#   and reports G-2c meta.advisories (uppercase juxtaposed forms, CO2 + H2O — advisory,
+#   never a failure). A G-2c remediation recipe per rule id is added. Every finding
+#   names its rule id ("[caret]", "[script_hyphen]" …) and its remedy; script-run
+#   findings are reported ONE PER OFFENDING RUN with context, so N defects are N
+#   locatable findings. Text + gate + engine change.
 # v3.7.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v3.7.0 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; owner
@@ -56,7 +76,12 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.12 — THE RECALL CONTRACT (§5 G-14): recall_target_for,
+#   notes_core.py  >= v2.13 — F-3(b) SINGLE AUTHORITY (§5 G-2b/G-2c):
+#                            FLAT_MATH_RULES, flat_math_findings,
+#                            scan_flat_math_tokens(docx, exemptions),
+#                            scan_flat_math_advisories, scan_omml_structural
+#                            reading m:t text (v2.13); plus
+#                            THE RECALL CONTRACT (§5 G-14): recall_target_for,
 #                            recall_cumulative_min, recall_expected_band,
 #                            recall_verify_difficulty, recall_exam_mix_check,
 #                            difficulty_profile_load, scenario_key / is_clone
@@ -80,8 +105,10 @@
 #                            integration_target_for (§5 G-13's bank-derived
 #                            contract, v2.7 — latest-partner filing;
 #                            grandfathered-dormant for pre-1.2 banks)
-#   notes_docx.py  >= v1.7 — the SHARED builder/parser: build/parse/
-#                            validate_model/outline_of; v1.7 accepts schema
+#   notes_docx.py  >= v1.8 — the SHARED builder/parser: build/parse/
+#                            validate_model/outline_of; v1.8 enforces F-3(b)/(e)
+#                            at construction and takes exemptions= on build and
+#                            validate_model (v1.8); v1.7 accepts schema
 #                            notes-content/1.1 (the unprinted §4 B7a Recall
 #                            fields — never rendered, never parsed back; the
 #                            round trip is untouched). Derived numbering and
@@ -89,7 +116,10 @@
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.9 — gate_recall_contract (§5 G-14, v2.9) and the
+#   notes_audit.py >= v2.10 — gate_anatomy(model, exemptions=) excluding F-3
+#                            findings, terminal_regate forwarding exemptions to
+#                            G-2c/G-3 and reporting G-2c meta.advisories (v2.10);
+#                            gate_recall_contract (§5 G-14, v2.9) and the
 #                            recall_target= / recall_meta= arguments of
 #                            terminal_regate; plus G-12 format-contract
 #                            enforcement (the figure+Example pairing, v2.7); plus (v2.6)
@@ -437,17 +467,62 @@ pass.
       G-2a OMML presence by XML assertion (notes_core.assert_omml). NEVER
           verify equations through a LibreOffice-rendered preview: LibreOffice
           drops OMML SILENTLY (verified 2026-08-08 with a minimal fixture).
-      G-2b STRUCTURAL-OMML SCAN (notes_core.scan_omml_structural): no textual
-          exponent, no unicode super/subscript character inside any oMath
-          region.
-      G-2c FLAT-TOKEN SCAN (notes_core.scan_flat_math_tokens): no un-styled
-          math token in any plain text run.
-  G-3 ANATOMY (notes_audit.gate_anatomy): required blocks for the unit's tier
-      present and in section 6A order; adjacent boxes separated by spacers.
-      notes_docx.validate_model owns the contract and enforces it at
-      CONSTRUCTION, so this gate re-asserts it on the model that produced the
-      SHIPPED file — which matters because NA edits that model after NC built
-      it.
+      G-2b STRUCTURAL-OMML SCAN (notes_core.scan_omml_structural): inside the
+          TEXT (m:t) of any oMath region, no "^", no "**", no "_" and no
+          character of the complete Unicode script/fraction inventory
+          (notes_core._SCRIPT_CHARS). v3.8.0: through v3.7.1 this scan saw
+          only the substring "^(" in the raw XML — a^2, x**2, ¾ inside an
+          equation all passed. The first message, "textual exponent inside
+          oMath", is unchanged for report compatibility.
+      G-2c FLAT-NOTATION SCAN (notes_core.scan_flat_math_tokens(docx,
+          exemptions)): ZERO findings from notes_core.FLAT_MATH_RULES over
+          every paragraph's runs, evaluated RUN-AWARE — a run whose own
+          w:rPr carries w:vertAlign subscript/superscript is a SCRIPT
+          segment, everything else is PLAIN; a rule never matches across a
+          script boundary (a correctly styled V+sub max, K+sub m, pK+sub a,
+          a+sup 2 is NEVER a finding — the v3.1.0..v3.7.1 false positive is
+          closed) while adjacent plain runs still concatenate (a flat
+          "Vm"+"ax" split across runs ALWAYS is). The rule ids, in the order
+          Framework_NotesCreate §6 F-3(b) numbers them: caret, double_star,
+          underscore_script, latex_residue, e_notation, unicode_script,
+          script_hyphen, domain_token, unit_power, juxtaposed_power. Plain-
+          scope rules report the FIRST hit per rule per paragraph; script-
+          scope rules (script_hyphen; caret/underscore/unicode inside a
+          script run) report EVERY offending run with its context. Exemptions
+          are the unit's "G-2c:<rule_id>" labels from its registry
+          prose_ban_exemptions and NOTHING else (F-3(d)); an unknown label is
+          ignored. meta.advisories (notes_core.scan_flat_math_advisories —
+          UPPERCASE letter+digit touching an operator, "CO2 + H2O", "Q2 + Q3")
+          is for the auditor's eye: never a failure, never a re-render
+          trigger. It is the SAME notes_core.flat_math_findings that
+          notes_docx.validate_model ran at construction (NC §4A), on the
+          shipped BYTES rather than the model — the two layers cannot
+          disagree, and this gate exists because NA edits the model after NC
+          built it.
+          REMEDIATION RECIPE (NA edits the MODEL, rebuilds, and G-11 re-gates):
+            caret, double_star, underscore_script, e_notation, unit_power,
+              juxtaposed_power -> a sym run (base = the COMPLETE base token,
+              sup/sub = the complete script; F-3(c)), or a math run when the
+              expression carries two or more operators AND scripts;
+            unicode_script -> a sym run for powers/indices, a/b for a
+              fraction in prose, a math run for a stacked fraction;
+            script_hyphen  -> replace "-" with U+2212 "−" inside the script;
+            latex_residue  -> move the expression into a math run with every
+              multi-character / sign-led / bracket-led script braced;
+            domain_token   -> a sym run (Vmax = base "V", sub "max").
+          A finding in a HEADING or LABEL (F-3(e)) is remediated by REWORDING
+          the heading (the expression moves into the section's first bullet
+          or formula cell) — a heading is a plain string and cannot hold a
+          sym run.
+  G-3 ANATOMY (notes_audit.gate_anatomy(model, exemptions=)): required blocks
+      for the unit's tier present and in section 6A order; adjacent boxes
+      separated by spacers. notes_docx.validate_model owns the contract and
+      enforces it at CONSTRUCTION, so this gate re-asserts it on the model
+      that produced the SHIPPED file — which matters because NA edits that
+      model after NC built it. v3.8.0: a validate_model finding that reads
+      "flat math token" is an F-3 finding and belongs to G-2c; G-3 EXCLUDES it
+      (it carries the same "block i.j" prefix G-3 classifies on, so without
+      this exclusion one flat token was reported twice, once as anatomy).
   G-4 CONTENT-STYLE BAN SCAN (notes_core.scan_prose_bans), honouring per-unit
       exemptions declared in the blueprint.
   G-5 QUESTION-FORMAT (notes_audit.gate_question_format): every Example and
@@ -859,4 +934,4 @@ or licensed net ADD named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.7.1
+# END OF Framework_NotesAudit v3.8.0

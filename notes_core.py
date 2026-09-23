@@ -1,5 +1,37 @@
 """
-notes_core.py v2.12 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.13 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.13 — 2026-09-23 — F-3(b) SINGLE AUTHORITY (GAP-2026-09-23-FLAT-MATH-NOTATION;
+    pairs with Framework_NotesCreate v2.10.0 §6 F-3(b)–(e), Framework_NotesAudit
+    v3.8.0 §5 G-2b/G-2c/G-3; notes_docx >= v1.8, notes_audit >= v2.10).
+    THE DEFECT: scan_flat_math_tokens (NA G-2c) gated MATH_TOKEN_RES — 8
+    enzyme-kinetics words, pKa and 16 Unicode characters — so 2^9, a^m, x**2,
+    H_2O, \frac, 1e-3, ⁿ, ₄, ¾, cm2 and x2 + y2 all passed; and because v2.5's
+    document_text joins runs with no separator, a CORRECTLY styled V+sub max
+    read "Vmax" and FAILED (the v2.5 changelog's "bit-for-bit unchanged" claim
+    was wrong for multi-run paragraphs). scan_omml_structural (G-2b) saw only
+    the substring "^(" in raw XML. THE FIX: FLAT_MATH_RULES (rule_id, scope,
+    pattern, remedy — ids caret, double_star, underscore_script, latex_residue,
+    e_notation, unicode_script, script_hyphen, domain_token, unit_power,
+    juxtaposed_power; each id is its exemption label "G-2c:<id>") evaluated by
+    flat_math_findings(segments, exemptions) over (text, is_script) segments:
+    plain-scope rules scan a plain view in which every script segment is the
+    sentinel \x00, so a rule can never match across a styled boundary while
+    adjacent plain runs still concatenate; script-scope rules scan each script
+    run and report EVERY offending run with context. _docx_paragraph_segments
+    reads w:vertAlign from each run's own w:rPr (OMML removed first).
+    scan_flat_math_tokens(docx, exemptions) and notes_docx.validate_model both
+    call flat_math_findings — one authority, two layers. _SCRIPT_CHARS is the
+    complete Unicode inventory (super/subscript blocks, modifier letters,
+    vulgar fractions, ordinal indicators, fraction slash). scan_omml_structural
+    reads m:t TEXT and flags "^", "**", "_" and the inventory (legacy first
+    message kept verbatim). flat_math_advisories / scan_flat_math_advisories:
+    UPPERCASE letter+digit touching an operator (CO2 + H2O) — advisory only.
+    _KM_DIST_FOLLOW accepts "/" so "20 Km/h" is a speed, not a symbol; "Et al."
+    and a hyphenated name after a capitalised word ("Ban Ki-moon") are not
+    symbol mentions; "the Ki-value" still is.
+    MATH_TOKEN_RES removed (its only consumer was the scanner). Self-test:
+    +90 checks, every G-2c fixture MULTI-RUN (runs_docx).
 
 v2.12 — 2026-09-01 — THE RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; pairs
     with Framework_NotesCreate v2.9.0 §4 B7/B7a, Framework_NotesAudit v3.7.0 §5
@@ -1201,49 +1233,243 @@ def scan_prose_bans(docx_path, exemptions=()):
 
 
 # ---------------------------------------------------------------- math gates
-_SCRIPT_CHARS = ("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078"
-                 "\u2079\u207b\u2080\u2081\u2082\u2083\u00bd")
-MATH_TOKEN_RES = [r"(?<![A-Za-z])" + t + r"(?![A-Za-z])" for t in
-                  ("Vmax", "Km", "Ki", "Kd", "Keq", "kcat", "kd", "Et")] + \
-                 [r"pKa(?![A-Za-z])", "[" + _SCRIPT_CHARS + "]"]
+# v2.13 (GAP-2026-09-23-FLAT-MATH-NOTATION). F-3(b) enforcement rebuilt as ONE
+# run-aware authority, flat_math_findings(), called by BOTH layers:
+#   CONSTRUCTION  notes_docx.validate_model  (model runs  -> segments)
+#   AUDIT         scan_flat_math_tokens / G-2c (docx runs -> segments)
+# A "segment" is (text, is_script). Script segments are the sub/superscript
+# runs; everything else is plain. Rules scan the PLAIN view, in which every
+# script segment is replaced by the sentinel \x00 so no pattern can match
+# ACROSS a styled boundary (fixes the v2.5 false positive: "V"+sub"max" was
+# read as "Vmax"), while adjacent PLAIN runs still concatenate (so a flat
+# token that Word split across runs, "Vm"+"ax", is still caught).
+
+# Complete Unicode script/fraction inventory (v2.12 carried 16 of them).
+_SCRIPT_CHARS = "".join(
+    [chr(c) for c in range(0x2070, 0x2072)] +          # ⁰ ⁱ
+    [chr(c) for c in range(0x2074, 0x208F)] +          # ⁴…⁹ ⁺ ⁻ ⁼ ⁽ ⁾ ⁿ ₀…₉ ₊ ₋ ₌ ₍ ₎
+    [chr(c) for c in range(0x2090, 0x209D)] +          # ₐ ₑ ₒ ₓ ₔ ₕ ₖ ₗ ₘ ₙ ₚ ₛ ₜ
+    ["\u00b2", "\u00b3", "\u00b9",                    # ² ³ ¹
+     "\u00bc", "\u00bd", "\u00be", "\u2189",           # ¼ ½ ¾ ↉
+     "\u00aa", "\u00ba", "\u2044"] +                    # ª º (ordinal indicators) ⁄ (fraction slash) — v2.13
+    [chr(c) for c in range(0x2150, 0x2160)] +          # ⅐ … ⅟ vulgar fractions
+    [chr(c) for c in range(0x1D2C, 0x1D6B)] +          # ᴬ … ᵪ modifier/sub letters
+    [chr(c) for c in range(0x1D9B, 0x1DC0)] +          # ᶛ … ᶿ modifier letters
+    [chr(c) for c in range(0x02B0, 0x02B9)] +          # ʰ … ʸ
+    [chr(c) for c in range(0x02E0, 0x02E5)])           # ˠ … ˤ
+_SCRIPT_CLASS = "[" + re.escape(_SCRIPT_CHARS) + "]"
+
+_DOMAIN_TOKENS = ("Vmax", "Km", "Ki", "Kd", "Keq", "kcat", "kd", "Et")
+_LATEX_CMDS = ("frac|dfrac|tfrac|sqrt|times|cdot|div|pm|mp|leq?|geq?|neq?|approx|"
+               "infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|rho|sigma|"
+               "tau|phi|omega|Delta|Sigma|Omega|left|right|text|mathrm|circ|prime")
+
+# (rule_id, scope, compiled pattern, remedy). scope: "plain" | "script" | "both".
+# Every rule id is also its exemption label: "G-2c:<rule_id>".
+FLAT_MATH_RULES = (
+    ("caret", "both", re.compile(r"\^"),
+     "caret exponent — write base + a superscript run (sym) or a math run"),
+    ("double_star", "plain",
+     re.compile(r"(?<=[A-Za-z0-9)\]])\s*\*\*(?=\s*[A-Za-z0-9(+\-\u2212])"),
+     "'**' exponent — write base + a superscript run (sym) or a math run"),
+    ("underscore_script", "both",
+     re.compile(r"(?<=[A-Za-z0-9)\]])_(?=[A-Za-z0-9({])"),
+     "'_' subscript — write base + a subscript run (sym) or a math run"),
+    ("latex_residue", "plain",
+     re.compile(r"\\(?:" + _LATEX_CMDS + r")(?![A-Za-z])|\$[^$\n]*[\\^_{}][^$\n]*\$"),
+     "raw LaTeX in a text run — use a math run ({'t':'math','latex':...})"),
+    ("e_notation", "plain",
+     re.compile(r"(?<![A-Za-z0-9.])\d+(?:\.\d+)?[eE][+\-\u2212]?\d+(?![A-Za-z0-9])"),
+     "E-notation power of ten — write 1.5 × 10 + superscript run"),
+    ("unicode_script", "both", re.compile(_SCRIPT_CLASS),
+     "Unicode super/subscript or fraction glyph — use a styled script run "
+     "(sym) for powers, a/b or a math run for fractions"),
+    ("script_hyphen", "script", re.compile(r"-"),
+     "ASCII hyphen-minus inside a sub/superscript run — use U+2212 '\u2212'"),
+    ("domain_token", "plain",
+     re.compile(r"(?<![A-Za-z])(?:" + "|".join(_DOMAIN_TOKENS) + r")(?![A-Za-z])"
+                r"|pKa(?![A-Za-z])"),
+     "flat symbol mention — write base + subscript run (sym)"),
+    # v2.13 (GAP-2026-09-23-FLAT-MATH-NOTATION O-10): F-3(b) names "unit powers"
+    # yet no rule implemented them — cm2, m3, km2, m/s2 shipped clean. Lowercase
+    # units only, so the money aggregates M2/M3 and labels like A4 stay clean.
+    ("unit_power", "plain",
+     re.compile(r"(?<![A-Za-z])(?:mm|cm|dm|m|[Kk]m|ft|yd|mi)[23](?![0-9A-Za-z])"
+                r"|(?<=/)s2(?![0-9A-Za-z])"),
+     "flat unit power (cm2, m3, m/s2) — write the unit + a superscript run (sym)"),
+    # v2.13 (O-11): a single LOWERCASE letter + digit 2–9 with an operator within
+    # 3 characters ('x2 + y2', 'q2 − q1') is a flat power/index — HARD rule, exemptible.
+    # Uppercase (H2O, CO2, Q2, A4) is NOT matched; it is the advisory's territory.
+    ("juxtaposed_power", "plain",
+     re.compile(r"(?<![A-Za-z])[a-z][2-9](?![A-Za-z0-9])"),
+     "juxtaposed power/index (x2, 2x2 + 3x, a2 + b2) — write base + a script run (sym)"),
+)
+FLAT_MATH_RULE_IDS = tuple(r[0] for r in FLAT_MATH_RULES)
 
 _KM_DIST_FOLLOW = re.compile(
-    r"^\s*(?:$|[.,;:)\]]|\d|north|south|east|west|away|apart|ahead|along|"
+    r"^\s*(?:$|[.,;:)\]/]|\d|north|south|east|west|away|apart|ahead|along|"
     r"across|downstream|upstream|offshore|long|wide|deep|high|per|from|to|"
     r"in|at|of|off|on|over|beyond|before|behind)", re.I)
 
+_JUXTA_POWER = re.compile(r"(?<![A-Za-z0-9])[A-Z]+[2-9](?![A-Za-z0-9])")   # v2.13: UPPERCASE only (lowercase is the hard rule)
+_JUXTA_OPS = "+-\u2212=\u00d7\u00f7/*<>\u2264\u2265"
 
-def scan_flat_math_tokens(docx_path):
-    """NA gate G-2c: no un-styled math token in any plain text run.
-    Suppression is Km-ONLY (kilometre collision) and contextual:
-    digit-preceded Km followed by punctuation/digit/direction/preposition is
-    a distance. Digit-preceded Kd/Vmax/etc. remain symbol mentions."""
-    text = _document_text(docx_path)
-    findings = []
-    for p in MATH_TOKEN_RES:
-        for m in re.finditer(p, text):
-            pre = text[max(0, m.start() - 2):m.start()]
-            post = text[m.end():m.end() + 14]
-            if ("Km" in p and re.search(r"\d\s?$", pre)
-                    and _KM_DIST_FOLLOW.search(post)):
+
+def _juxta_context(plain, m):
+    """True when an operator sits within 3 characters of a letter+digit hit."""
+    if m.group(0)[0] == "s" and plain[max(0, m.start() - 1):m.start()] == "/":
+        return False           # '/s2' is unit_power's finding, not a second one
+    before = plain[max(0, m.start() - 3):m.start()]
+    after = plain[m.end():m.end() + 3]
+    return any(c in _JUXTA_OPS for c in before + after)
+
+
+def _segment_views(segments):
+    """(plain view with \\x00 at every script segment, list of script texts)."""
+    plain, scripts = [], []
+    for text, is_script in segments:
+        if is_script:
+            plain.append("\x00")
+            scripts.append(text)
+        else:
+            plain.append(text)
+    return "".join(plain), scripts
+
+
+def _ctx(text, m, w=28):
+    s = text[max(0, m.start() - w):m.end() + w].replace("\x00", "\u2e31")
+    return s.strip()
+
+
+def flat_math_findings(segments, exemptions=()):
+    """F-3(b) SINGLE AUTHORITY. segments: iterable of (text, is_script) for ONE
+    paragraph / ONE model run list. Returns findings (empty == clean). A rule is
+    skipped when "G-2c:<rule_id>" is in `exemptions` (per-unit, declared in the
+    registry's prose_ban_exemptions — the list G-4 already honours)."""
+    ex = {str(e) for e in (exemptions or ())}
+    plain, scripts = _segment_views(list(segments))
+    out = []
+    for rid, scope, pat, remedy in FLAT_MATH_RULES:
+        if "G-2c:" + rid in ex:
+            continue
+        if scope in ("plain", "both"):
+            for m in pat.finditer(plain):
+                if rid == "juxtaposed_power" and not _juxta_context(plain, m):
+                    continue
+                if rid == "domain_token":
+                    after = plain[m.end():m.end() + 4]
+                    if m.group(0) == "Et" and re.match(r"\s+al\b", after):
+                        continue           # "Et al." citation, not the enzyme total
+                    if (re.match(r"-[A-Za-z]", after)
+                            and re.search(r"(?:^|\s)[A-Z][a-z]+\s+$", plain[:m.start()])):
+                        continue           # hyphenated proper noun after a name ("Ban Ki-moon")
+                if rid == "domain_token" and m.group(0) == "Km":
+                    pre = plain[max(0, m.start() - 2):m.start()]
+                    if (re.search(r"\d\s?$", pre)
+                            and _KM_DIST_FOLLOW.search(plain[m.end():m.end() + 14])):
+                        continue
+                out.append(f"flat math token [{rid}]: \u2026{_ctx(plain, m)}\u2026 \u2014 {remedy}")
+                break
+        if scope in ("script", "both"):
+            # every offending script run is reported with its surrounding text,
+            # so N defects in one paragraph are N distinct, locatable findings
+            pos = [i for i, ch in enumerate(plain) if ch == "\x00"]
+            for k, sc in enumerate(scripts):
+                if pat.search(sc):
+                    at = pos[k]
+                    ctx = (plain[max(0, at - 24):at] + "[" + sc + "]"
+                           + plain[at + 1:at + 16]).replace("\x00", "\u2e31").strip()
+                    out.append(f"flat math token [{rid}] inside a script run: "
+                               f"\u2026{ctx}\u2026 \u2014 {remedy}")
+    return out
+
+
+def flat_math_advisories(segments):
+    """ADVISORY ONLY (never a gate failure). v2.13: the LOWERCASE form
+    ('a2 + b2') is now the HARD rule `juxtaposed_power`; this advisory covers the
+    UPPERCASE form touching an operator ('CO2 + H2O', 'Q2 + Q3'), which may be a
+    flat formula in a chemistry unit or a legitimate label — the auditor decides.
+    Reported in G-2c meta for the auditor's eye."""
+    plain, _ = _segment_views(list(segments))
+    hits = []
+    for m in _JUXTA_POWER.finditer(plain):
+        before = plain[max(0, m.start() - 3):m.start()]
+        after = plain[m.end():m.end() + 3]
+        if any(c in _JUXTA_OPS for c in before + after):
+            hits.append(f"possible flat formula/label {m.group(0)!r}: \u2026{_ctx(plain, m, 20)}\u2026")
+    return hits
+
+
+def _docx_paragraph_segments(docx_path):
+    """Per paragraph, the ordered (text, is_script) segments of its w:r runs.
+    A run is a script run when its OWN w:rPr carries w:vertAlign subscript or
+    superscript (the only form notes_docx emits). OMML (m:oMath) regions are
+    removed first — G-2b owns them. Style-inherited vertAlign (w:rStyle) is NOT
+    resolved: such a run reads as plain, which can only ever ADD a finding,
+    never hide one. Regex-based, like every other scanner here, so it accepts
+    the namespace-less fixtures the self-tests build."""
+    xml = _docx_xml(docx_path)
+    paras = []
+    for para in re.findall(r"<w:p\b.*?</w:p>", xml, re.S):
+        para = re.sub(r"<m:oMath\b.*?</m:oMath>", "", para, flags=re.S)
+        segs = []
+        for run in re.findall(r"<w:r\b[^>]*>.*?</w:r>", para, re.S):
+            text = "".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", run, re.S))
+            if not text:
                 continue
-            findings.append("flat math token: " + p)
-            break
+            text = (text.replace("&lt;", "<").replace("&gt;", ">")
+                        .replace("&quot;", '"').replace("&apos;", "'")
+                        .replace("&amp;", "&"))
+            is_script = bool(re.search(
+                r'<w:vertAlign\b[^>]*w:val="(?:subscript|superscript)"', run))
+            segs.append((text, is_script))
+        paras.append(segs)
+    return paras
+
+
+def scan_flat_math_tokens(docx_path, exemptions=()):
+    """NA gate G-2c: no flat math notation in any text run (F-3b). Run-aware:
+    see flat_math_findings. Returns findings (empty == pass)."""
+    findings = []
+    for segs in _docx_paragraph_segments(docx_path):
+        for f in flat_math_findings(segs, exemptions):
+            if f not in findings:
+                findings.append(f)
     return findings
 
 
-def scan_omml_structural(docx_path):
-    """NA gate G-2b: no textual exponents or unicode script chars inside any
-    oMath region. Attribute-tolerant tag matching."""
+def scan_flat_math_advisories(docx_path):
+    out = []
+    for segs in _docx_paragraph_segments(docx_path):
+        out.extend(flat_math_advisories(segs))
+    return out
+
+
+def _omml_texts(docx_path):
+    """Concatenated m:t text of every oMath region (markup excluded)."""
     xml = _docx_xml(docx_path)
-    joined = "\n".join(re.findall(r"<m:oMath\b[^>]*>.*?</m:oMath>", xml, re.S))
+    out = []
+    for region in re.findall(r"<m:oMath\b[^>]*>.*?</m:oMath>", xml, re.S):
+        out.append("".join(re.findall(r"<m:t(?: [^>]*)?>(.*?)</m:t>", region, re.S)))
+    return out
+
+
+def scan_omml_structural(docx_path):
+    """NA gate G-2b: no textual script notation and no Unicode script/fraction
+    glyph inside any oMath region. v2.13: reads m:t TEXT only and flags every
+    '^', '_' and '**' (v2.12 flagged only the substring '^(' in raw XML)."""
     findings = []
-    if "^(" in joined:
-        findings.append("textual exponent inside oMath")
-    for ch in _SCRIPT_CHARS:
-        if ch in joined:
-            findings.append("unicode script char inside oMath: %r" % ch)
-            break
+    texts = _omml_texts(docx_path)
+    joined = "\n".join(texts)
+    if "^" in joined:
+        findings.append("textual exponent inside oMath")   # string kept verbatim (report compatibility)
+    if "**" in joined:
+        findings.append("textual exponent '**' inside oMath")
+    if "_" in joined:
+        findings.append("textual subscript '_' inside oMath")
+    m = re.search(_SCRIPT_CLASS, joined)
+    if m:
+        findings.append("unicode script char inside oMath: %r" % m.group(0))
     return findings
 
 
@@ -2208,6 +2434,129 @@ def self_test():
                    "</m:oMath></w:document>")
     check("attributed oMath defect caught",
           scan_omml_structural(fp2) == ["textual exponent inside oMath"])
+
+    # ---- GAP-2026-09-23-FLAT-MATH-NOTATION (v2.13) — F-3(b) regression suite.
+    # Fixtures are MULTI-RUN: a single-run fixture cannot tell a styled token
+    # from a flat one, which is exactly how the v2.5 false positive shipped.
+    def runs_docx(runs, omml_text=None):
+        fp = tempfile.mktemp(suffix=".docx")
+        body = ""
+        for text, va in runs:
+            rpr = ('<w:rPr><w:vertAlign w:val="%s"/></w:rPr>' % va) if va else ""
+            body += "<w:r>%s<w:t>%s</w:t></w:r>" % (rpr, text)
+        if omml_text is not None:
+            body += '<m:oMath xmlns:m="http://x"><m:r><m:t>%s</m:t></m:r></m:oMath>' % omml_text
+        with zipfile.ZipFile(fp, "w") as z:
+            z.writestr("word/document.xml", "<w:document><w:p>%s</w:p></w:document>" % body)
+            z.writestr("[Content_Types].xml", "<Types/>")
+        return fp
+    P, SUP, SUB = None, "superscript", "subscript"
+    for label, text in (
+            ("caret number", "since 512 = 2^9."), ("caret symbolic", "a^m / a^n"),
+            ("caret grouped", "a^(m-n)"), ("caret braces", "a^{2}"),
+            ("caret negative", "10^-3 m"), ("caret spaced", "2 ^ 9"),
+            ("double star", "x**2"), ("underscore", "x_1 and H_2O"),
+            ("latex command", "\\frac{1}{2}"), ("latex dollars", "$a^2$"),
+            ("e-notation", "1e-3"), ("e-notation big", "6.02e23 atoms"),
+            ("unicode sup listed", "a\u00b2"), ("unicode sup n", "x\u207f"),
+            ("unicode sup plus", "y\u207a"), ("unicode sub 4", "CH\u2084"),
+            ("vulgar 3/4", "\u00be of it"), ("vulgar 1/3", "1\u2153"),
+            ("modifier letter", "x\u1d43"), ("flat Vmax", "Vmax"),
+            ("flat pKa", "the pKa value")):
+        check("F-3b flags flat notation: " + label,
+              scan_flat_math_tokens(runs_docx([(text, P)])) != [])
+    for label, runs in (
+            ("styled V+sub max", [("V", P), ("max", SUB)]),
+            ("styled K+sub m in prose", [("when ", P), ("K", P), ("m", SUB), (" is low", P)]),
+            ("styled a+sup 2", [("a", P), ("2", SUP)]),
+            ("styled a+sup U+2212 2", [("a", P), ("\u22122", SUP)]),
+            ("styled k+sub cat", [("k", P), ("cat", SUB)])):
+        check("F-3b styled token is clean: " + label,
+              scan_flat_math_tokens(runs_docx(runs)) == [])
+    check("F-3b flat token split across PLAIN runs is still caught",
+          scan_flat_math_tokens(runs_docx([("Vm", P), ("ax", P)])) != [])
+    check("F-3b ASCII hyphen inside a script run is flagged",
+          any("script_hyphen" in x for x in
+              scan_flat_math_tokens(runs_docx([("a", P), ("-2", SUP)]))))
+    check("F-3b caret inside a script run is flagged",
+          scan_flat_math_tokens(runs_docx([("a", P), ("^2", SUP)])) != [])
+    for clean in ("The value is 5 \u2212 3 = 2.", "see Section 2.10", "H2O and CO2",
+                  "A4 paper, Q2, x2 marks", "Fill in: The capital is ____.",
+                  "a____b blank", "Ctrl+Z undoes", "90\u00b0 and 5\u2032",
+                  "e.g. the e5 square", "file-name and x-axis",
+                  "distance 5 Km north", "3 * 4 = 12", "rate \u00d7 time"):
+        check("F-3b clean prose not flagged: " + clean,
+              scan_flat_math_tokens(runs_docx([(clean, P)])) == [])
+    check("F-3b exemption label suppresses exactly its rule",
+          scan_flat_math_tokens(runs_docx([("5 ^ 3 is XOR", P)]),
+                                ("G-2c:caret",)) == []
+          and scan_flat_math_tokens(runs_docx([("5 ^ 3 and x_1", P)]),
+                                    ("G-2c:caret",)) != [])
+    check("F-3b G-2c ignores oMath (G-2b owns it)",
+          scan_flat_math_tokens(runs_docx([("x", P)], omml_text="a^2")) == [])
+    for label, mt, want in (("caret ^2", "a^2", True), ("double star", "x**2", True),
+                            ("underscore", "x_1", True), ("vulgar", "\u00be", True),
+                            ("clean structural text", "a2", False)):
+        got = scan_omml_structural(runs_docx([("x", P)], omml_text=mt))
+        check("G-2b oMath text %s -> %s" % (label, "flagged" if want else "clean"),
+              bool(got) == want)
+    check("G-2b legacy message string preserved",
+          scan_omml_structural(runs_docx([("x", P)], omml_text="x^(2)"))[0]
+          == "textual exponent inside oMath")
+    # v2.13 (GAP-2026-09-23-FLAT-MATH-NOTATION O-11): lowercase juxtaposed power
+    # is a HARD rule; the advisory now covers the UPPERCASE form only.
+    check("F-3b juxtaposed_power: 'a2 + b2 = c2' is a HARD finding",
+          any("[juxtaposed_power]" in f for f in flat_math_findings([("a2 + b2 = c2", False)])))
+    for flat in ("x2 - y2 = (x+y)(x-y)", "q2 \u2212 q1", "p1 = 5, p2 = 7"):
+        check(f"F-3b juxtaposed_power flags {flat!r}",
+              any("[juxtaposed_power]" in f for f in flat_math_findings([(flat, False)])))
+    for clean in ("x2 marks", "Grade a2", "H2O on A4 paper", "Q2 results, T20 match",
+                  "M2 and M3 money supply", "Article 21A", "level 2 = done"):
+        check(f"F-3b juxtaposed_power quiet on {clean!r}",
+              flat_math_findings([(clean, False)]) == [])
+    check("F-3b juxtaposed_power exemptible",
+          flat_math_findings([("a2 + b2", False)], ["G-2c:juxtaposed_power"]) == [])
+    check("F-3b advisory: uppercase 'CO2 + H2O' / 'Q2 + Q3' ADVISED, not failed",
+          flat_math_advisories([("CO2 + H2O", False)]) != []
+          and flat_math_advisories([("Q2 + Q3", False)]) != []
+          and flat_math_findings([("CO2 + H2O", False)]) == [])
+    check("F-3b advisory quiet on H2O / A4 without an operator",
+          flat_math_advisories([("H2O on A4 paper", False)]) == [])
+    # v2.13 (O-10): unit powers — named by F-3(b) since v2.x, never implemented.
+    for flat in ("area 25 cm2", "volume 8 m3", "km2 of land", "9.8 m/s2", "ft2 and yd2"):
+        check(f"F-3b unit_power flags {flat!r}",
+              [f for f in flat_math_findings([(flat, False)])] and
+              all("[unit_power]" in f for f in flat_math_findings([(flat, False)])))
+    for clean in ("M2 and M3 money supply", "cm and m and km", "5 cm, 3 m", "cm25", "m2m"):
+        check(f"F-3b unit_power quiet on {clean!r}",
+              not any("[unit_power]" in f for f in flat_math_findings([(clean, False)])))
+    # v2.13 (O-12): Km/h is a speed, not the Michaelis constant; ª º ⁄ are script glyphs.
+    for clean in ("speed 20 Km/h", "runs at 90 Km/hr", "5 Km/h upstream"):
+        check(f"F-3b Km speed unit stays clean: {clean!r}",
+              not any("[domain_token]" in f for f in flat_math_findings([(clean, False)])))
+    for clean in ("Smith Et al. (2019)", "Ban Ki-moon spoke"):
+        check(f"F-3b domain_token quiet on {clean!r}",
+              not any("[domain_token]" in f for f in flat_math_findings([(clean, False)])))
+    for flat in ("2x2 + 3x = 5", "3a2 - 2b2"):
+        check(f"F-3b juxtaposed_power flags coefficient form {flat!r}",
+              any("[juxtaposed_power]" in f for f in flat_math_findings([(flat, False)])))
+    for flat in ("the Et of the reaction", "the Ki-value of the inhibitor"):
+        check(f"F-3b domain_token still flags {flat!r}",
+              any("[domain_token]" in f for f in flat_math_findings([(flat, False)])))
+    check("F-3b unit_power flags capitalised 'Km2'",
+          any("[unit_power]" in f for f in flat_math_findings([("area 5 Km2", False)])))
+    for rid in ("unit_power", "juxtaposed_power"):
+        check(f"F-3b {rid} exemptible",
+              flat_math_findings([("area 5 cm2, x2 + y2", False)], ["G-2c:" + rid, "G-2c:juxtaposed_power", "G-2c:unit_power"]) == [])
+    for glyph in ("1\u20442", "2\u00aa", "1\u00ba"):
+        check(f"F-3b unicode_script covers {glyph!r}",
+              any("[unicode_script]" in f for f in flat_math_findings([(glyph, False)])))
+    check("F-3b every rule id is a documented exemption label",
+          set(FLAT_MATH_RULE_IDS) == {"caret", "double_star", "underscore_script",
+                                      "latex_residue", "e_notation",
+                                      "unit_power", "juxtaposed_power",
+                                      "unicode_script", "script_hyphen",
+                                      "domain_token"})
 
     # prose bans: wave-1 basics
     check("prose ban: year", scan_prose_bans(mini_docx("in 1857 it began"))

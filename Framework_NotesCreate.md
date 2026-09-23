@@ -1,4 +1,27 @@
-# Framework_NotesCreate v2.9.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.10.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.10.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
+#   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
+#   Framework_NotesAudit v3.8.0 §5 G-2b/G-2c/G-3). THE DEFECT: §6 F-3(b) defined "flat
+#   math token" only by a biochemistry EXAMPLE LIST, the engine implemented that list
+#   literally, and the gate meant to stop flat notation (G-2c) could neither see a
+#   caret (2^9, a^m, a^(m−n) shipped with every gate green in the SSC_CGL_TIER2 Number
+#   Systems draft) nor tolerate a correctly styled symbol (V+sub max FAILED since
+#   notes_core v2.5, 2026-08-13). Nothing enforced F-3(b) at construction, the golden
+#   fixtures themselves violated it, and an ASCII hyphen inside a superscript run
+#   rendered as an invisible dash ("a-2" for a⁻²). THE FIX: F-3(b) is now a NORMATIVE
+#   definition backed by ONE machine authority, notes_core.FLAT_MATH_RULES, evaluated
+#   RUN-AWARE by notes_core.flat_math_findings at CONSTRUCTION (notes_docx.validate_model,
+#   §4A) and at AUDIT (NA G-2c) — a styled token is never a finding, a flat token always
+#   is. New F-3(c) names the only accepted authoring forms, F-3(d) the per-unit
+#   exemption path (G-2c:<rule_id> labels in prose_ban_exemptions, declared by NB),
+#   F-3(e) that headings and figure/mind-map labels are notation-free (they are plain
+#   strings and can never carry a script run, so notation there is unfixable at audit).
+#   Rules: caret, double_star, underscore_script, latex_residue, e_notation,
+#   unicode_script (complete inventory), script_hyphen, domain_token, unit_power
+#   (cm2, m3, m/s2 — named by F-3(b) since v2.x, never implemented), juxtaposed_power
+#   (x2 + y2 — lowercase, operator within 3 chars). notes_docx v1.8 also refuses every
+#   unbraced sign/bracket script in a math run (a^-2, a^(m-n) mis-rendered silently).
+#   Km/h is no longer mistaken for the Michaelis constant. Text + gate + engine change.
 # v2.9.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # v2.9.0 — 2026-09-01 — GAP-2026-09-01-RECALL-CONTRACT (owner decisions of the
@@ -55,9 +78,13 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_docx.py >= v1.7 — the SHARED builder. NC constructs the .docx ONLY
+#   notes_docx.py >= v1.8 — the SHARED builder. NC constructs the .docx ONLY
 #                           through notes_docx.build (section 4A); it never
 #                           hand-rolls a paragraph, colour, border or line rule.
+#                           v1.8 enforces §6 F-3(b)/(e) at construction through
+#                           notes_core.flat_math_findings, takes exemptions= on
+#                           build/validate_model (§6 F-3(d)) and refuses every
+#                           unbraced sign/bracket script in a math run (F-3(c));
 #                           v1.7 accepts the UNPRINTED recall-contract fields on
 #                           Recall blocks (schema notes-content/1.1) and
 #                           validate_model enforces §4 B7a at construction;
@@ -65,7 +92,9 @@
 #                           context-sized gaps, one post-assembly pass);
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.12 — THE RECALL CONTRACT (§4 B7a): recall_target_for,
+#   notes_core.py >= v2.13 — F-3(b) SINGLE AUTHORITY (§6 F-3): FLAT_MATH_RULES,
+#                           FLAT_MATH_RULE_IDS, flat_math_findings (v2.13); plus
+#                           THE RECALL CONTRACT (§4 B7a): recall_target_for,
 #                           recall_cumulative_min, recall_expected_band,
 #                           recall_verify_difficulty, recall_authoring_profile,
 #                           difficulty_profile_load, recall_exam_mix_check,
@@ -563,7 +592,9 @@ example stacks (§4 B4a I-7: the inbound fused questions ARE the evidence).
 NC does not write .docx code. It assembles a CONTENT MODEL (notes_docx schema
 "notes-content/1.1" from v2.9.0; "notes-content/1.0" models are still
 accepted and validate exactly as before) describing WHAT the notes say, then calls
-notes_docx.build(model, path). notes_docx.validate_model runs first and HARD
+notes_docx.build(model, path, exemptions=EX), where EX is the unit's registry
+prose_ban_exemptions list (§6 F-3(d); empty for almost every unit — pass it
+anyway, the call shape is fixed). notes_docx.validate_model runs first and HARD
 FAILS on a structural or content defect, so the classes below cannot reach a
 built file at all:
   - a bullet over the D-1 hard cap;
@@ -585,7 +616,16 @@ built file at all:
   - an unbraced multi-character math script. "V_max" is LaTeX for V-subscript-m
     followed by the letters "ax": t3_compile renders it exactly that way, it is
     correct XML, every math gate passes, and it is visibly wrong on a student's
-    page. Write "V_{max}".
+    page. Write "V_{max}". v2.10.0: also an unbraced script that STARTS with a
+    sign or a bracket ("a^-2" renders a⁻ then 2 on the baseline; "a^(m-n)"
+    renders a⁽ then m-n) on the baseline). Write "a^{-2}", "a^{m-n}";
+  - (v2.10.0, GAP-2026-09-23-FLAT-MATH-NOTATION) FLAT NOTATION in ANY text run,
+    sym base or script run — §6 F-3(b), decided by notes_core.flat_math_findings,
+    the SAME function NA's G-2c runs on the built bytes — and in any heading or
+    label (§6 F-3(e)). A caret, "**", "_", raw LaTeX, E-notation, a Unicode
+    script/fraction glyph, an ASCII hyphen inside a script run, a flat symbol
+    token, a flat unit power (cm2) or a juxtaposed power (x2 + y2) is refused
+    BEFORE a file exists. The finding names the rule id and the remedy.
 THE MODEL STORES NO NUMBERS. Outline numbers and the Example/Recall counters
 are derived from block ORDER at render time (notes_docx.outline_of), which is
 why section 6A's renumber rule cannot be violated by adding or removing a
@@ -623,14 +663,87 @@ it emits, so a tall equation or image can never inherit a fixed rule and clip.
       (a) EXPRESSIONS (equations, calculations, formula cells) are
           structural OMML — m:f fractions, m:sSup/m:sSub scripts — one
           homogeneous m:oMath per region, per the shared t3_mathcomp
-          conventions. FORBIDDEN inside any oMath region: textual exponents
-          ("^(") and unicode super/subscript characters.
-      (b) SYMBOL MENTIONS in running text — bullets, tables including
-          headers, box titles, stems, options, answers — render every
-          math token (e.g. Vmax, Km, Ki, Kd, Keq, kcat, kd, Et, v0, S0,
-          A0, t-half, k2, k-minus-1, pKa, unit powers, powers of ten) as
-          styled sub/superscript runs inheriting the surrounding colour
-          and weight. ZERO flat tokens may remain in any text run.
+          conventions. FORBIDDEN inside the TEXT of any oMath region
+          (v2.10.0, NA G-2b): "^", "**", "_" and every character of the
+          Unicode script/fraction inventory (notes_core._SCRIPT_CHARS) —
+          through v2.9.1 only the substring "^(" was gated.
+      (b) FLAT NOTATION IS FORBIDDEN (v2.10.0 —
+          GAP-2026-09-23-FLAT-MATH-NOTATION; through v2.9.1 this rule was an
+          EXAMPLE LIST, "e.g. Vmax,
+          Km, ... unit powers, powers of ten", and the engine gated exactly the
+          examples: 2^9 shipped clean, V+sub max failed) in every text run —
+          bullets, paras, tables including headers, box titles, stems,
+          options, answers, explanations, SPEED HACK, objectives, autopsy
+          lines, Key Points, Trap Box, Rapid Revision formula and association
+          cells. Every symbol mention (Vmax, Km, pKa, v0, t-half …), every power
+          or index (2⁹, aᵐ⁻ⁿ, x², cm², 10⁻³) renders as a styled
+          sub/superscript run inheriting the surrounding colour and weight.
+          FLAT NOTATION is any of:
+            1. "^" in any form (2^9, a^m, a^(m−n), 10^-3, "2 ^ 9");
+            2. "**" used as an exponent (x**2);
+            3. "_" used as a subscript (x_1, H_2O, V_{max});
+            4. raw LaTeX in a text run (a backslash command, or $…$
+               containing \ ^ _ { });
+            5. E-notation (1e-3, 6.02e23);
+            6. any Unicode super/subscript character, modifier letter,
+               vulgar-fraction glyph, ordinal indicator or fraction slash
+               (², ⁿ, ₄, ᵃ, ¾, ⅓, ª, ⁄) — the COMPLETE inventory is
+               notes_core._SCRIPT_CHARS, never a hand-kept list;
+            7. an ASCII hyphen-minus (U+002D) inside a sub/superscript run —
+               at script size it is a dash the eye cannot see, so a⁻² reads
+               "a-2" (verified by render, 2026-09-23);
+            8. a flat symbol token (Vmax, Km, Ki, Kd, Keq, kcat, kd, Et, pKa;
+               "5 Km north" / "20 Km/h" are distances and speeds, exempt);
+            9. a flat unit power (cm2, mm2, m3, km2, ft2, m/s2 — lowercase
+               units; M2/M3 money aggregates and labels like A4 are not units);
+           10. a juxtaposed power or index — a single LOWERCASE letter + digit
+               2–9 with an operator within 3 characters (x2 + y2, q2 − q1);
+               "x2 marks", "Grade a2", H2O, CO2, Q2, A4 are never findings
+               (the uppercase form touching an operator is an ADVISORY in
+               NA G-2c meta, never a failure).
+          THE MACHINE AUTHORITY is notes_core.FLAT_MATH_RULES — one rule per
+          item above, id = the name in NA's G-2c report — evaluated by the
+          single function notes_core.flat_math_findings RUN-AWARE: a rule can
+          never match ACROSS a styled boundary (a correctly styled V+sub max is
+          never a finding), while adjacent plain runs still concatenate (a flat
+          "Vm"+"ax" Word split across runs always is). Enforced at
+          CONSTRUCTION by notes_docx.validate_model (§4A) and at AUDIT by NA
+          G-2c on the built bytes, so the two layers cannot disagree.
+      (c) AUTHORING FORMS — the ONLY accepted ways to write notation:
+          - a power or index is a sym run whose base is the COMPLETE base
+            token and whose sup/sub is the COMPLETE script:
+            2⁹  = {"t":"sym","base":"2","sup":"9"};  30⁴ = base "30" (never
+            text "3" + base "0");  (237)³⁵ = base "(237)";
+            aᵐ⁻ⁿ = base "a", sup "m−n";  SO₄²⁻ = base "SO", sub "4", sup "2−";
+          - a minus inside ANY script is U+2212 "−": a⁻² = sup "−2";
+          - a subscripted symbol is a sym run: Vmax = base "V", sub "max";
+            pKa = base "pK", sub "a";  v0 = base "v", sub "0";
+          - a unit power is a sym run: cm² = base "cm", sup "2";
+          - a fraction in running text is a/b; a stacked fraction, or any
+            expression with two or more operators AND scripts, is a math run
+            ({"t":"math","latex":…}) — F-3(a) OMML;
+          - in a math run every multi-character script, and every script that
+            starts with a sign or a bracket, is braced: a^{-2}, a^{m-n},
+            2^{10}, V_{max}. A single-token script may stay unbraced (x^2,
+            Na^+, Cl^-, x^*).
+      (d) EXEMPTIONS. A unit whose CONTENT legitimately needs literal
+          notation (XOR "^", regex, snake_case identifiers, scientific
+          E-notation in a computing unit) declares the labels
+          "G-2c:<rule_id>" (e.g. "G-2c:caret", "G-2c:underscore_script") in
+          its registry unit record's prose_ban_exemptions — the SAME list G-4
+          honours — with a one-line justification in the blueprint. NB
+          declares them (they are a property of the unit's domain, decided
+          before drafting); NC passes the list to notes_docx.build(...,
+          exemptions=) and NA to terminal_regate(..., exemptions=). An
+          exemption suppresses EXACTLY its rule and nothing else.
+          "G-2c:unicode_script" and "G-2c:script_hyphen" are never declared
+          in a notes document.
+      (e) HEADINGS AND LABELS ARE NOTATION-FREE. The B1 title, every concept
+          heading, every figure label and the mind-map label are PLAIN
+          STRINGS in the model: they can never carry a sym run, so notation
+          there has no remedy at audit. Write "Laws of Indices", never
+          "Laws of Indices: a^m × a^n"; the expression goes in the section's
+          first bullet or formula cell. validate_model refuses it (§4A).
   F-4 DIAGRAMS: auto-generated; the figure's label is rendered INSIDE the
       image at the bottom; no caption paragraphs in the document; all
       symbol text inside figures uses mathtext structural scripts; no exam
@@ -778,4 +891,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.9.1
+# END OF Framework_NotesCreate v2.10.0

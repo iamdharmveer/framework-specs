@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026.09.23 — GAP-2026-09-23-FLAT-MATH-NOTATION: F-3(b) flat-notation enforcement, one authority, two layers
+(NotesCreate v2.10.0, NotesAudit v3.8.0, NotesBlueprint v3.3.3; notes_core v2.13, notes_docx v1.8,
+notes_audit v2.10; notes_sync_audit v1.3 — S-6 HANDSHAKE gains prose_ban_exemptions / "G-2c:"
+rows NB -> NC, NA, and its S-5 fixture anchor follows the NA companion line to v2.13). Raised by the SSC_CGL_TIER2 notes project (NotesCreate run, unit
+`ma.number_systems.number_systems`); owner decisions O-1..O-12 of the 2026-09-23 review.
+
+**The defect.** Framework_NotesCreate §6 F-3(b) said math in running text must be styled
+sub/superscript runs and defined "flat token" only by a biochemistry EXAMPLE LIST. The engine
+implemented the examples literally (`MATH_TOKEN_RES`: 8 enzyme-kinetics words, `pKa`, 16 Unicode
+characters), so NA G-2c passed `2^9`, `a^m`, `a^(m−n)`, `x**2`, `H_2O`, `\frac`, `1e-3`, `ⁿ`,
+`₄`, `¾`, `cm2` and `x2 + y2` — a 14-page Number Systems draft shipped with three flat exponents
+and every gate green. In the opposite direction, since notes_core v2.5 (2026-08-13, `c403fde`)
+joined runs with no separator, a CORRECTLY styled `V`+sub`max`, `K`+sub`m`, `pK`+sub`a` read
+"Vmax" and FAILED G-2c (the v2.5 changelog's "bit-for-bit unchanged" claim was wrong for
+multi-run paragraphs — corrected in place below). G-2b saw only the substring `"^("` in raw
+oMath XML. Nothing enforced F-3(b) at construction; six golden self-test fixtures themselves
+violated it; every G-2c fixture was single-run, so styled-vs-flat was never tested. An ASCII
+hyphen inside a superscript run renders as an invisible dash (`a⁻²` reads "a-2"; verified by
+render). `t3_compile` rendered `a^-2` and `a^(m-n)` silently wrong and the builder's unbraced-
+script guard did not catch them. Headings and labels are plain strings that can never carry a
+script run, so notation there had no remedy at audit.
+
+**The fix.**
+- ONE authority: `notes_core.FLAT_MATH_RULES` (ids `caret`, `double_star`, `underscore_script`,
+  `latex_residue`, `e_notation`, `unicode_script`, `script_hyphen`, `domain_token`,
+  `unit_power`, `juxtaposed_power`; each id is its exemption label `G-2c:<id>`) evaluated by
+  `notes_core.flat_math_findings(segments, exemptions)` RUN-AWARE: plain-scope rules scan a
+  plain view in which every script segment is a sentinel, so a rule never matches across a
+  styled boundary while adjacent plain runs still concatenate; script-scope rules report every
+  offending run with context. TWO layers call it: `notes_docx.validate_model` at construction
+  (every run list, sym base plain, sym sub/sup script, math a boundary; plus headings/labels as
+  plain strings — F-3(e)) and `notes_core.scan_flat_math_tokens(docx, exemptions)` at audit
+  (G-2c; `w:vertAlign` on the run's own `w:rPr` decides script vs plain).
+- `_SCRIPT_CHARS` is the complete Unicode inventory (super/subscript blocks, modifier letters,
+  vulgar fractions, ordinal indicators, fraction slash). G-2b reads oMath `m:t` TEXT and flags
+  `^`, `**`, `_` and the inventory (legacy first message kept verbatim).
+- `notes_docx._UNBRACED_SCRIPT` also refuses sign-led / bracket-led scripts (`a^-2`, `a^(m-n)`,
+  `x_[1]`) with the braced remedy in the message; `build`/`validate_model` take `exemptions=`.
+- `notes_audit.gate_anatomy` excludes F-3 findings (they carry the `block i.j` prefix G-3
+  classified as anatomy — one defect was reported twice); `terminal_regate` forwards
+  exemptions to G-2c/G-3 and reports G-2c `meta.advisories` (uppercase `CO2 + H2O` forms).
+- `_KM_DIST_FOLLOW` accepts `/`: "20 Km/h" is a speed, not the Michaelis constant; "Et al." and a
+  hyphenated name after a capitalised word ("Ban Ki-moon") are not symbol mentions.
+- `juxtaposed_power` also catches the coefficient form (`2x2 + 3x`, `3a2 - 2b2`).
+- Specs: NotesCreate §6 F-3(b) normative list (10 forms), F-3(c) authoring forms (complete
+  base token; U+2212 in scripts; braced multi-char/sign-led/bracket-led scripts), F-3(d)
+  per-unit exemptions via `prose_ban_exemptions` (declared by NB — NotesBlueprint §O-2),
+  F-3(e) headings/labels notation-free; §4A passes `exemptions=` to build and lists the new
+  refusal classes. NotesAudit §5 G-2b, G-2c (rule ids, run-aware semantics, exemptions,
+  advisories, remediation recipe per rule id), G-3 exclusion.
+- Golden fixtures corrected (5 in notes_docx, 1 in notes_audit). `MATH_TOKEN_RES` removed (no
+  consumer outside the scanner). G-2c finding strings changed to
+  `flat math token [<rule_id>]: …context… — <remedy>` (only self-tests consumed the old form).
+
+**Evidence.** Self-tests 221/107/167 -> 311/141/170, 0 failures; 36-case before/after verdict
+matrix (`flat_math_matrix.py`, shipped with the GAP record) baseline 15/36 -> patched 36/36;
+domain probe set (Article 21A, Class 10th, B12, T20, A4, HbA1c, Section 2.10, `4a + 2b`, `$5`,
+`90°`, `1866-1354`, `20 Km/h`, `M2/M3`, `H2O`, `CO2 + H2O`) zero false positives. Explain/Mock
+routes are NOT touched: `explain_engine.normalise_formula_text` deliberately converts ASCII TO
+Unicode scripts for that medium (a different contract).
+
+**Projects.** Units that legitimately need literal notation (computing: XOR `^`, snake_case)
+declare `G-2c:<rule_id>` in `prose_ban_exemptions` before their next NotesAudit. Already-FINAL
+units are not stale-marked (O-5); an optional one-off rescan is a project decision.
+
 ## 2026.09.21 — GAP-2026-09-21-LINKED-PLACEMENT: question SETS placed as one block with one shared stimulus
 (MockTestCreate v5.85, MockTestAnalyse v2.57.2, DeliveryFooter v1.35.1; blueprint_core Cluster SG;
 audit_canonical v2.30; final_assembly v1.7; mock_sync_audit MS-11 name set) — also records the Phase 1 engine fix
@@ -5740,6 +5805,12 @@ OD-1 and OD-2 resolved 2026-08-13.
   boundary-preserving authority for the plain-text view of a `.docx` (runs
   concatenate, paragraphs separate). `_document_text` survives as a `sep=" "`
   wrapper so the two existing scanners are bit-for-bit unchanged.
+  **CORRECTION (2026.09.23, GAP-2026-09-23-FLAT-MATH-NOTATION):** that claim was
+  wrong for multi-run paragraphs. The pre-v2.5 join put a space between RUNS, so a
+  correctly styled `V`+subscript`max` read `"V max"`; `document_text` joins runs with
+  no separator, so it read `"Vmax"` and G-2c flagged every correctly styled symbol
+  from this release until 2026.09.23. The single-run self-test fixture could not
+  tell the two apart. See the 2026.09.23 entry.
 - `notes_audit.py` v2.1 → v2.2 — **D-2 (HIGH):** `gate_counters` read a bare
   tag strip that welded `"Answer: 1"` to `"2.10 MIND MAP"` as `"12.10"`,
   failing CORRECT documents on the standard B7→B8 tail anatomy; it now reads
