@@ -13,6 +13,22 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.8 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with MockTestCreate
+    v5.86, MockTestExplain v1.51.1, audit_canonical v2.31). The registry is SHARED by
+    every series (MOCK, SUBJ, TOPIC, SUBTOPIC), and two writes here still keyed a
+    paper by its run ORDINAL N. (1) rc/di/figural manifests were replaced by
+    `mock != N` and carried no paper_id: committing SUBJ:X:01 deleted MOCK:M01's
+    manifest (and vice versa). Now replace-by-paper_id with `paper_id` on every new
+    entry; a legacy entry without one belongs to MOCK:M<mock>. (2) The same-slot
+    rule (_stale_sibling, the papers_completed filter, _commit_problems,
+    _duplicate_commit_problems) compared the ordinal N, but on a RESUMED scoped
+    series mocks[].mock restarts at 1 while paper_id carries paper_start+k:
+    committing SUBJ:U:11 (ordinal 1) erased SUBJ:U:01 from papers_completed,
+    question_index and session_log (measured). Now the slot is the PAPER NUMBER
+    parsed from paper_id (_entry_number); the ordinal is used only for a legacy or
+    unparseable id, so the renamed-paper_id case behaves exactly as before. MOCK
+    series: number == ordinal, so a mock-only registry commits exactly as before
+    except that new rc/di/figural manifest entries also carry "paper_id".
     v1.7 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestCreate v5.85,
     audit_canonical v2.30, blueprint_core Cluster SG). commit_registry's
     question_index entry carries `stimulus_group_id` ONLY when the concept_map entry
@@ -157,8 +173,9 @@ decision recorded in the scoping document, not an accident):
      question_index already used) where the spec-inline code was NOT
      idempotent: session_log (replace-by-paper_id), mocks_completed /
      papers_completed (append-only-if-absent), and rc_manifests /
-     di_manifests / figural_manifests (replace-by-mock-number — these
-     entries carry no paper_id field, only "mock": N). This directly
+     di_manifests / figural_manifests (replace-by-paper_id since v1.8 —
+     every new entry carries "paper_id" beside "mock": N; a legacy entry
+     without one belongs to MOCK:M<mock>). This directly
      strengthens G-COMMIT-COMPLETE (a retry of the SAME mock can no longer
      itself create a duplicate-but-differently-shaped partial state). The
      remaining ledgers (question_hashes / stem_texts / semantic_tuples /
@@ -258,6 +275,31 @@ def _paper_number_or_none(paper_id):
         return None
 
 
+def _entry_paper_id(e):
+    """v1.8 — the paper a registry ledger/manifest entry belongs to. An entry
+    without a paper_id is a LEGACY entry and maps to f"MOCK:M{mock:02d}" — the
+    same convention _stale_sibling and A-QINDEX already use. Never raises
+    (a malformed 'mock' value yields None)."""
+    pid = e.get('paper_id') if isinstance(e, dict) else None
+    if pid:
+        return pid
+    try:
+        return f"MOCK:M{int(e.get('mock')):02d}"
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _entry_number(e):
+    """v1.8 — the PAPER NUMBER an entry occupies within its series: parsed from
+    its paper_id when parseable, else its 'mock' ordinal (legacy / unparseable
+    ids — the pre-v1.8 rule). On a MOCK series the two are always equal
+    (pp.apply_mock_offset moves both); on a RESUMED SCOPED series they differ
+    (mocks[].mock is the run-local ordinal 1..K, paper_id carries paper_start+k),
+    which is exactly why the ordinal can never be the slot key."""
+    n = _paper_number_or_none(e.get('paper_id')) if e.get('paper_id') else None
+    return n if n is not None else e.get('mock')
+
+
 def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      axis2_window_counts, passage_present, di_present,
                      figural_present, concept_map,
@@ -342,20 +384,46 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                   'cause_effect_domains', 'syllogism_domains', 'option_sets']:
         ct.setdefault(field, []).extend(pending.get(field, []))
 
-    # ── RC / DI / figural manifests — replace-by-mock (deviation 4) ─────────
+    # ── Slot identity of THIS commit (v1.8 — GAP-2026-10-09-PAPER-SIZE-SERIES-
+    #    AGNOSTIC). One series holds ONE paper per paper NUMBER; the number comes
+    #    from paper_id, never from the run ordinal N (on a resumed scoped series
+    #    N=1 is paper :11, and keying on N erased paper :01 from papers_completed,
+    #    question_index and session_log — measured). Unparseable ids fall back to
+    #    N, the pre-v1.8 rule, so the renamed-paper_id case is handled as before.
+    _new_prefix = _series_prefix(paper_id)
+    _new_num = _paper_number_or_none(paper_id)
+    _slot_num = _new_num if _new_num is not None else N
+    _this_pid = paper_id or f"MOCK:M{int(N):02d}"
+
+    def _stale_sibling(e):
+        if _entry_paper_id(e) == _this_pid:
+            return True                      # the exact-id rule
+        if _series_prefix(e.get('paper_id')) != _new_prefix:
+            return False                     # a different series never collides
+        _en = _entry_number(e)
+        if _new_num is not None and _paper_number_or_none(e.get('paper_id')) is not None:
+            return _en == _new_num           # both ids parse: compare paper numbers
+        return e.get('mock') == N            # an unparseable id: the pre-v1.8 rule
+
+    # ── RC / DI / figural manifests — replace-by-PAPER_ID (deviation 4; v1.8) ──
+    # Pre-v1.8 these were replaced by the ordinal (`e.get('mock') != N`) and carried
+    # no paper_id, on a registry SHARED across series: committing SUBJ:X:01 deleted
+    # MOCK:M01's manifest and vice versa, and the auditor read whichever entry came
+    # first. Same class as options_by_q (v5.56) and axis1_paper (v5.57). Every entry
+    # now carries paper_id (the authority); "mock" is kept for legacy readers.
     if passage_present:
-        rc = [e for e in reg.setdefault('rc_manifests', []) if e.get('mock') != N]
+        rc = [e for e in reg.setdefault('rc_manifests', []) if not _stale_sibling(e)]
         rc.append({
-            "mock": N,
+            "mock": N, "paper_id": _this_pid,
             "passage_linked": sorted(set(passage_linked_qs)),
             "cloze_linked": sorted(set(cloze_linked_qs)),
         })
         reg['rc_manifests'] = rc
 
     if di_present and di_manifest is not None:
-        di = [e for e in reg.setdefault('di_manifests', []) if e.get('mock') != N]
+        di = [e for e in reg.setdefault('di_manifests', []) if not _stale_sibling(e)]
         di.append({
-            "mock": N,
+            "mock": N, "paper_id": _this_pid,
             "di_qs": sorted(int(q) for q in di_manifest.get('questions', {})),
             "subtopic_ids": {str(q): v.get('subtopic_id')
                              for q, v in di_manifest.get('questions', {}).items()
@@ -367,9 +435,9 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
         reg['di_manifests'] = di
 
     if figural_present and fig_manifest is not None:
-        fg = [e for e in reg.setdefault('figural_manifests', []) if e.get('mock') != N]
+        fg = [e for e in reg.setdefault('figural_manifests', []) if not _stale_sibling(e)]
         fg.append({
-            "mock": N,
+            "mock": N, "paper_id": _this_pid,
             "figural_qs": list(fig_manifest.get('questions', {}).keys()),
             "image_hashes": [h for q in fig_manifest.get('questions', {}).values()
                              for h in q.get('image_hashes', [])],
@@ -474,14 +542,8 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     # stale sibling survived forever and no gate could see it). An entry with
     # the same number in a DIFFERENT series (MOCK:M01 vs SUBJ:Physics:01) is
     # a legitimately coexisting paper and is never touched.
-    _new_prefix = _series_prefix(paper_id)
-
-    def _stale_sibling(e):
-        if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == paper_id:
-            return True                      # the pre-v5.54 exact-id rule
-        return (e.get('mock') == N
-                and _series_prefix(e.get('paper_id')) == _new_prefix)
-
+    # v1.8: _stale_sibling is defined once, above the manifest writes, and keys on
+    # the paper NUMBER parsed from paper_id (the ordinal only for unparseable ids).
     reg.setdefault('question_index', [])
     reg['question_index'] = [e for e in reg['question_index'] if not _stale_sibling(e)]
     reg['question_index'].append({"mock": N, "paper_id": paper_id,
@@ -505,10 +567,13 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     # the renamed predecessor of THIS paper — remove it, or the ledger holds
     # two ids for one paper forever. Unparseable numbers are left alone
     # (can't attribute them safely); different series are never touched.
+    # v1.8: compared against THIS paper's NUMBER (_slot_num), not the run ordinal N —
+    # on a resumed scoped series they differ, and comparing to N deleted paper :01
+    # when paper :11 committed.
     papers_completed[:] = [p for p in papers_completed
                            if p == paper_id
                            or _series_prefix(p) != _new_prefix
-                           or _paper_number_or_none(p) != N]
+                           or _paper_number_or_none(p) != _slot_num]
     if paper_id not in papers_completed:
         papers_completed.append(paper_id)
 
@@ -625,9 +690,13 @@ def _commit_problems(reg, m, series_prefix='MOCK'):
     therefore MASK — a check for MOCK number 3 whose own MOCK:M03 entry was
     genuinely lost. Null/absent paper_id maps to 'MOCK', matching the
     historical default-slug assumption everywhere else in this module."""
-    sl_mocks = {e.get('mock') for e in reg.get('session_log', [])
+    # v1.8: matched by PAPER NUMBER (_entry_number: parsed from paper_id, the
+    # ordinal only for legacy/unparseable ids) — on a resumed scoped series the
+    # ordinal 1 is shared by paper :01 and paper :11. MOCK series: unchanged
+    # (number == ordinal there).
+    sl_mocks = {_entry_number(e) for e in reg.get('session_log', [])
                 if _series_prefix(e.get('paper_id')) == series_prefix}
-    qi_by_mock = {e.get('mock'): e for e in reg.get('question_index', [])
+    qi_by_mock = {_entry_number(e): e for e in reg.get('question_index', [])
                   if _series_prefix(e.get('paper_id')) == series_prefix}
     problems = []
     if m not in sl_mocks:
@@ -640,7 +709,7 @@ def _commit_problems(reg, m, series_prefix='MOCK'):
     return problems
 
 
-def _duplicate_commit_problems(reg, m):
+def _duplicate_commit_problems(reg, m, series_prefix=None):
     """v5.54 (GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING) — detect the
     stale-sibling state the old gate was blind to: TWO OR MORE
     question_index/session_log entries carrying the same mock number WITHIN
@@ -651,11 +720,19 @@ def _duplicate_commit_problems(reg, m):
     DIFFERENT series (MOCK:M01 alongside SUBJ:Physics:01) are legitimately
     coexisting papers and never flagged. Keyed by series PREFIX, not full
     paper_id, deliberately — the whole point is catching two different ids
-    that claim the same slot."""
+    that claim the same slot.
+
+    v1.8: `m` is a PAPER NUMBER and entries are matched by _entry_number (the
+    ordinal only for legacy/unparseable ids), so paper :01 and paper :11 of a
+    resumed scoped series — both ordinal 1 — are two slots, not a duplicate.
+    series_prefix (optional) restricts the check to one series: THIS paper's
+    own slot check passes it; the historical sweep leaves it None (all series)."""
     problems = []
     for ledger in ('question_index', 'session_log'):
         by_prefix = Counter(_series_prefix(e.get('paper_id'))
-                            for e in reg.get(ledger, []) if e.get('mock') == m)
+                            for e in reg.get(ledger, []) if _entry_number(e) == m
+                            and (series_prefix is None
+                                 or _series_prefix(e.get('paper_id')) == series_prefix))
         dups = {pfx: c for pfx, c in by_prefix.items() if c > 1}
         for pfx, c in sorted(dups.items()):
             problems.append(f"{ledger} holds {c} entries for number {m} in "
@@ -712,8 +789,13 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None, paper_id=None,
     _this_pid = next((mk.get('paper_id') for mk in bp.get('mocks', [])
                       if mk.get('mock') == N), None) or f"MOCK:M{int(N):02d}"
     _this_prefix = _series_prefix(_this_pid)
+    # v1.8: THIS paper's slot is its paper NUMBER within its series (from paper_id);
+    # the run ordinal N only when the id does not parse (pre-v1.8 rule).
+    _this_num = _paper_number_or_none(_this_pid)
+    if _this_num is None:
+        _this_num = N
 
-    this_mock_problems = _commit_problems(reg, N, series_prefix=_this_prefix)
+    this_mock_problems = _commit_problems(reg, _this_num, series_prefix=_this_prefix)
     if this_mock_problems:
         return {'ok': False, 'registry': reg, 'healed': missing_top + missing_ct,
                 'warnings': [],
@@ -730,7 +812,7 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None, paper_id=None,
     # as the incompleteness check above, for the same reason: a fresh commit
     # that left its own ledger slot ambiguous must never ship, while
     # historical duplicates get surfaced on every run, never silently.
-    this_mock_dups = _duplicate_commit_problems(reg, N)
+    this_mock_dups = _duplicate_commit_problems(reg, _this_num, series_prefix=_this_prefix)
     if this_mock_dups:
         return {'ok': False, 'registry': reg, 'healed': missing_top + missing_ct,
                 'warnings': [],
@@ -762,12 +844,17 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None, paper_id=None,
                               f"reconciles its derived answers against these; without them "
                               f"a wrong published key is undetectable. Do NOT deliver."]}
 
+    # v1.8: the historical sweep skips THIS paper only when this paper IS that mock
+    # (a scoped run used to skip MOCK m == N — its own ordinal — and so never warned
+    # about that mock's incomplete commit).
+    def _is_this(m):
+        return _this_prefix == 'MOCK' and m == _this_num
     warnings = [f"mock {m}: {', '.join(_commit_problems(reg, m))}"
                for m in reg.get('mocks_completed', [])
-               if m != N and _commit_problems(reg, m)]
+               if not _is_this(m) and _commit_problems(reg, m)]
     warnings += [f"mock {m}: {', '.join(_duplicate_commit_problems(reg, m))}"
                  for m in reg.get('mocks_completed', [])
-                 if m != N and _duplicate_commit_problems(reg, m)]
+                 if not _is_this(m) and _duplicate_commit_problems(reg, m)]
 
     # options_by_q (v4.7, ND6) — derived from concept_map/msq_meta the caller
     # already read (with the SAME try/except fallback the spec-inline code
@@ -1266,6 +1353,84 @@ def self_test():
     check('regcheck_clean_no_warnings', rc_clean['warnings'] == [])
     check('regcheck_options_by_q_written',
          rc_clean['registry']['options_by_q']['1']['1'] == 4)
+    # ── v1.8 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC) ─────────────────
+    # (a) RESUMED SCOPED SERIES. mocks[].mock is the run-local ordinal (1..K) while
+    #     paper_id carries paper_start+k (ScopedBlueprint S8), so paper :11 is
+    #     ordinal 1 again. Measured on v1.7: committing SUBJ:U:11 erased SUBJ:U:01
+    #     from papers_completed, question_index AND session_log. Each check below
+    #     FAILS on v1.7.
+    _rs1 = _commit(mini_registry(), 1, 'SUBJ:U:01')
+    _rs2 = _commit(_rs1, 1, 'SUBJ:U:11')
+    check('v18_resumed_scoped_papers_completed_keeps_earlier',
+         _rs2['papers_completed'] == ['SUBJ:U:01', 'SUBJ:U:11'])
+    check('v18_resumed_scoped_question_index_keeps_earlier',
+         [e['paper_id'] for e in _rs2['question_index']] == ['SUBJ:U:01', 'SUBJ:U:11'])
+    check('v18_resumed_scoped_session_log_keeps_earlier',
+         [e['paper_id'] for e in _rs2['session_log']] == ['SUBJ:U:01', 'SUBJ:U:11'])
+    _rs_bp = mini_bp(mocks=[{'mock': 1, 'paper_id': 'SUBJ:U:11'}])
+    _rc_rs = regcheck(_rs2, _rs_bp, N=1, concept_map=mini_cm(), paper_id='SUBJ:U:11')
+    check('v18_resumed_scoped_regcheck_ok_no_false_dup',
+         _rc_rs['ok'] is True and _rc_rs['fails'] == [])
+    _rs3 = _commit(_rs2, 1, 'SUBJ:U:11')          # same paper again: replaced, not added
+    check('v18_resumed_scoped_recommit_idempotent',
+         [e['paper_id'] for e in _rs3['question_index']] == ['SUBJ:U:01', 'SUBJ:U:11']
+         and _rs3['papers_completed'] == ['SUBJ:U:01', 'SUBJ:U:11']
+         and len(_rs3['session_log']) == 2)
+    # a GENUINE stale sibling (same series, same paper NUMBER, different id) still stops
+    _rs_dup = copy.deepcopy(_rs2)
+    _rs_dup['question_index'].append({'mock': 1, 'paper_id': 'SUBJ:U:011', 'questions': []})
+    _rc_rsd = regcheck(_rs_dup, _rs_bp, N=1, concept_map=mini_cm(), paper_id='SUBJ:U:11')
+    check('v18_same_number_stale_sibling_still_hard_stops',
+         _rc_rsd['ok'] is False and 'DUP' in _rc_rsd['fails'][0])
+    # a SCOPED run no longer skips MOCK m == its own ordinal in the historical sweep
+    _hw = _commit(mini_registry(), 1, 'MOCK:M01')
+    _hw['question_index'] = []                    # MOCK:M01's commit is incomplete
+    _hw = _commit(_hw, 1, 'SUBJ:U:01')
+    _rc_hw = regcheck(_hw, mini_bp(mocks=[{'mock': 1, 'paper_id': 'SUBJ:U:01'}]), N=1,
+                      concept_map=mini_cm(), paper_id='SUBJ:U:01')
+    check('v18_scoped_run_still_warns_incomplete_mock_same_ordinal',
+         _rc_hw['ok'] is True and any(w.startswith('mock 1:') for w in _rc_hw['warnings']))
+    # (b) RC / DI / FIGURAL MANIFESTS keyed by paper_id. v1.7 replaced them by the
+    #     ordinal on a registry shared across series: SUBJ:X:01 deleted MOCK:M01's.
+    def _commit_fig(reg_in, n, pid, qs):
+        return commit_registry(reg_in, mini_pending(), bp1, n, paper_id=pid,
+                               batches_completed=1, axis2_window_counts={},
+                               passage_present=True, di_present=True, figural_present=True,
+                               concept_map=mini_cm(), passage_linked_qs=qs, cloze_linked_qs=[],
+                               di_manifest={'questions': {str(q): {} for q in qs}},
+                               fig_manifest={'questions': {str(q): {} for q in qs}})['registry']
+    _mf = _commit_fig(_commit_fig(mini_registry(), 1, 'MOCK:M01', [1, 2]), 1, 'SUBJ:X:01', [3])
+    for _key in ('rc_manifests', 'di_manifests', 'figural_manifests'):
+        check(f'v18_{_key}_mock_and_scoped_coexist',
+             sorted(e.get('paper_id') for e in _mf[_key]) == ['MOCK:M01', 'SUBJ:X:01'])
+    def _fqs(reg_in, pid):
+        return next((e.get('figural_qs') for e in reg_in.get('figural_manifests', [])
+                     if e.get('paper_id') == pid), None)
+    check('v18_figural_manifest_mock_content_intact', _fqs(_mf, 'MOCK:M01') == ['1', '2'])
+    _mf2 = _commit_fig(_mf, 1, 'MOCK:M01', [2])
+    check('v18_manifest_recommit_replaces_only_own_entry',
+         len(_mf2['figural_manifests']) == 2
+         and _fqs(_mf2, 'MOCK:M01') == ['2'] and _fqs(_mf2, 'SUBJ:X:01') == ['3'])
+    # a LEGACY entry (no paper_id) belongs to MOCK:M<mock>: a scoped commit keeps it,
+    # the mock's own commit replaces it
+    _lg = mini_registry(figural_manifests=[{'mock': 1, 'figural_qs': ['9']}])
+    _lg_sc = _commit_fig(_lg, 1, 'SUBJ:X:01', [3])
+    check('v18_legacy_manifest_survives_scoped_commit',
+         any(e.get('figural_qs') == ['9'] and 'paper_id' not in e
+             for e in _lg_sc['figural_manifests']))
+    _lg_mk = _commit_fig(_lg_sc, 1, 'MOCK:M01', [1])
+    check('v18_legacy_manifest_replaced_by_its_mock',
+         sorted(e.get('paper_id') for e in _lg_mk['figural_manifests'])
+         == ['MOCK:M01', 'SUBJ:X:01']
+         and not any(e.get('figural_qs') == ['9'] for e in _lg_mk['figural_manifests']))
+    check('v18_entry_paper_id_helper',
+         _entry_paper_id({'mock': 3}) == 'MOCK:M03'
+         and _entry_paper_id({'mock': 3, 'paper_id': 'SUBJ:X:03'}) == 'SUBJ:X:03'
+         and _entry_paper_id({'mock': 'x'}) is None and _entry_paper_id({}) is None
+         and _entry_number({'mock': 1, 'paper_id': 'SUBJ:U:11'}) == 11
+         and _entry_number({'mock': 1, 'paper_id': 'MOCK:M01-OLD'}) == 1
+         and _entry_number({'mock': 4}) == 4)
+
     # v5.56 — options_by_q is paper_id-keyed; the ordinal key is MOCK-only and a
     # scoped paper with the same ordinal must NOT touch the mock's map.
     check('regcheck_options_by_q_paper_id_key',

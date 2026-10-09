@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026.10.09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC: every registry paper is checked as ITS OWN size and series
+(MockTestCreate v5.86, MockTestExplain v1.51.1; audit_canonical v2.31, final_assembly v1.8).
+Raised by CSIR_NET_MATHEMATICAL_SCIENCES `TestCreate P1 --level subject --scope "UNIT 1"`.
+
+**The defect.** The registry is shared by every series (MOCK / SUBJ / TOPIC / SUBTOPIC) and
+every paper size (120-Q mocks beside a 40-Q unit test, 25-Q topic tests, 10-Q drills), but
+several gates and writers assumed every paper in it had the size and series of the paper
+being built. A mock-only exam never exposes this; the first scoped paper does.
+- A-DGATE checked every `difficulty_gate` record's band sum and `rework_qs` range against THIS
+  paper's `total_questions`: SUBJ:UNIT 1:01 (40 Q) HARD STOPPED at S13-2 and S13-4c on
+  MOCK:M13's legal DISCLOSED verdict (bands = 120, rework up to Q118).
+- A-DPROFILE compared the exam-level difficulty profile (full sittings, exam sections) with a
+  scoped blueprint's size and sections: every scoped paper of an exam holding a profile FAILED
+  from batch 1.
+- A-DUP dropped the last `total_questions` stems as "this paper", true only after S13-4: on
+  every batch run and at S13-2 it hid the PREVIOUS paper's last stems (a whole mock at S13-2).
+- rc/di/figural manifests were written (`mock != N` replace) and read (`mock == N`) by the bare
+  ordinal on lists shared by every series: SUBJ:X:01 deleted MOCK:M01's manifest and the
+  auditor read whichever came first.
+- A RESUMED scoped series restarts `mocks[].mock` at 1 while `paper_id` continues (:11):
+  committing SUBJ:U:11 erased SUBJ:U:01 from papers_completed, question_index and session_log.
+- S4-7 STEP B and S13-4c hard-coded `--blueprint [ExamCode]_blueprint.json` (the mock
+  blueprint) for scoped papers too.
+- `--profile` naming an absent file (the profile is optional; Step 7 always passes the flag)
+  crashed the auditor with FileNotFoundError.
+- The FINAL batch's STEP B audits the whole paper (no `--through-q`) before S13-4 writes the
+  question_index, so A-QINDEX FAILed it for every paper of every exam.
+- The S3-1 auditor refresh tested one marker that every copy since 2026.09.21 carries, so no
+  later auditor fix could reach a project.
+
+**The fix.** A-DGATE sizes each record by its own paper (session_log `questions_added` →
+question_index length → same series: this blueprint → unknown: size checks skipped and named).
+A-DPROFILE certifies the profile on its own terms beside a scoped blueprint. A-DUP compares a
+not-yet-committed paper with ALL stems and a committed one minus exactly its own slice.
+Manifests carry `paper_id` and are replaced / selected by it (legacy entry = MOCK:M<mock>).
+The commit slot is the paper NUMBER parsed from `paper_id` (ordinal only for legacy /
+unparseable ids). S3-2 records `BP_SRC_PATH`; STEP B and S13-4c pass it. An absent
+`--profile` file means "not supplied". A-QINDEX is dormant for a paper not yet in the commit
+ledgers and armed once committed; the S13-4c tripwire refuses a dormant A-QINDEX. The auditor refresh is a byte comparison with the
+verified clone. No `--mockN` → every auditor gate keeps its v2.30 behaviour; a mock-only
+registry commits exactly as before, except that new manifest entries also carry `paper_id`. Fixtures: audit_canonical 352 → 384, final_assembly
+124 → 139; every fixture tagged `[v2.30-FAILS]` / `v18_` that names a defect fails on the
+previous release.
+
 ## 2026.09.23 — GAP-2026-09-23-FLAT-MATH-NOTATION: F-3(b) flat-notation enforcement, one authority, two layers
 (NotesCreate v2.10.0, NotesAudit v3.8.0, NotesBlueprint v3.3.3; notes_core v2.13, notes_docx v1.8,
 notes_audit v2.10; notes_sync_audit v1.3 — S-6 HANDSHAKE gains prose_ban_exemptions / "G-2c:"

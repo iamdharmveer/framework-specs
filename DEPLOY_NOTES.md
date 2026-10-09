@@ -1,10 +1,8 @@
-# DEPLOY NOTES — release 2026.09.21 (GAP-2026-09-21-LINKED-PLACEMENT)
-Over verified production e8362cd; commit once, push main, push main:production.
+# DEPLOY NOTES — release 2026.10.09 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC)
+Over verified production 9f43769; commit once, push main, push main:production.
 
-Changed:  Framework_MockTestCreate.md (v5.84 -> v5.85), Framework_MockTestAnalyse.md (v2.57.1 -> v2.57.2),
-          Framework_DeliveryFooter.md (v1.35 -> v1.35.1),
-          blueprint_core.py (Cluster SG), audit_canonical.py (v2.30), final_assembly.py (v1.7),
-          mock_sync_audit.py (MS-11 delivery-name set), validate_framework_md.py (Check AM contract)
+Changed:  Framework_MockTestCreate.md (v5.85 -> v5.86), Framework_MockTestExplain.md (v1.51.0 -> v1.51.1),
+          audit_canonical.py (v2.31), final_assembly.py (v1.8)
 Release:  VERSION, CHANGELOG.md, DEPLOY_NOTES.md
 Generated (must ship together — bootstrap verifies every session against MANIFEST.json):
           MANIFEST.json, SPEC_MANIFEST.json, SPEC_SECTIONS.json
@@ -12,13 +10,11 @@ Generated (must ship together — bootstrap verifies every session against MANIF
 Verify after push (fresh clone of production):
   python3 gen_manifest.py && git diff --exit-code MANIFEST.json
   python3 build_spec_manifest.py --check && python3 spec_sections.py --check
-  python3 bootstrap.py                    -> [OK] FRAMEWORK 2026.09.21 VERIFIED — 53/53
-  python3 blueprint_core.py --self-test   -> 727/727
-  python3 audit_canonical.py --self-test  -> 352/352
-  python3 final_assembly.py --self-test   -> 124/124
+  python3 bootstrap.py                    -> [OK] FRAMEWORK 2026.10.09 VERIFIED — 53/53
+  python3 audit_canonical.py --self-test  -> 384/384
+  python3 final_assembly.py --self-test   -> 139/139
 
-Per exam, ONCE, before its next NEW mock/test (a paper already in progress is unaffected):
-  PYQExtract --stimulus-profile   (needs [ExamCode]_analysis_progress.json in Project Files)
-  -> upload [ExamCode]_stimulus_profile.json to Project Files.
-  Until then TestCreate/MockCreate HARD STOP at the start of a new paper (S3-12b SAFETY LOCK).
-  SSC_CGL_TIER2: the profile is shipped with this release — upload it at deploy time.
+Per exam: NOTHING to do. Step 7 now refreshes [ExamCode]_mock_test_audit.py from the verified
+clone automatically whenever the project copy differs (prints "AUDITOR REFRESHED"). Replacing the
+project file with audit_canonical.py (same [ExamCode]_ name) only silences that notice.
+A paper already in progress resumes unaffected; its Final Assembly runs on the fixed engines.

@@ -1,4 +1,28 @@
-# Framework_MockTestCreate v5.85
+# Framework_MockTestCreate v5.86
+# v5.86 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with audit_canonical
+#   v2.31, final_assembly v1.8, MockTestExplain v1.51.1). The registry is SHARED by every
+#   series (MOCK / SUBJ / TOPIC / SUBTOPIC) and every paper size; several places assumed every
+#   paper was the size and series of the one being built. Measured: the first 40-Q scoped
+#   paper (CSIR_NET_MATHEMATICAL_SCIENCES SUBJ:UNIT 1:01) built after 20 explained 120-Q mocks
+#   HARD STOPPED at S13-2 on A-DGATE — MOCK:M13's legal DISCLOSED verdict (bands = 120) was
+#   checked against this paper's 40. Fixed in the engines, for every exam and paper type:
+#   (1) A-DGATE checks each difficulty_gate record against ITS OWN paper's size;
+#   (2) A-DPROFILE certifies the exam-level difficulty profile on its own terms beside a
+#   SCOPED blueprint (it failed every scoped paper of an exam holding a profile, batch 1);
+#   (3) A-DUP compares a not-yet-committed paper with ALL registry stems (it hid the
+#   previous paper's last stems on every batch run and at S13-2); (4) rc/di/figural
+#   manifests are written (S13-4) and read (auditor, Step 9) by paper_id, never the bare
+#   ordinal; (5) a RESUMED scoped series (ordinal 1 = paper :11) no longer erases paper :01
+#   from papers_completed / question_index / session_log at S13-4, nor is it flagged as a
+#   duplicate at S13-REGCHECK; (6) a --profile path to an absent (optional) profile no
+#   longer crashes the auditor; (7) the FINAL batch's STEP B (whole paper, no --through-q)
+#   no longer FAILs A-QINDEX before S13-4 has written the index (dormant until the paper is
+#   committed; the S13-4c tripwire now refuses a dormant A-QINDEX). Spec changes here: S3-1 the per-exam auditor is refreshed
+#   from the verified clone whenever it DIFFERS from audit_canonical.py (the v5.85 marker
+#   test is satisfied by every pre-v5.86 copy, so a fix would never reach a project); S3-2
+#   records BP_SRC_PATH, the file the chosen blueprint came from, and S4-7 STEP B / S13-4c
+#   pass it as --blueprint (both hard-coded the MOCK blueprint, so a scoped paper was
+#   audited against the mock's size, sections and subtopics). Mock-only behaviour unchanged.
 # v5.85 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse v2.57.2,
 #   blueprint_core Cluster SG, audit_canonical v2.30, final_assembly v1.7). Question SETS
 #   (RC passage, cloze paragraph, DI table, puzzle) are now placed as ONE block of
@@ -1380,18 +1404,30 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   AUDIT_AVAILABLE = os.path.exists(audit_py)
   if AUDIT_AVAILABLE:
       shutil.copy(audit_py, f'/home/claude/{EXAM}_mock_test_audit.py')
-      # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): a project copy that predates the
-      # stimulus-group gates cannot certify a set-placed paper. The per-exam file is
-      # a VERBATIM copy of audit_canonical.py (Step 6 B3), so the verified clone's
-      # copy is the same auditor, current. Used for THIS run; the project file is
-      # left as is (replace it with /tmp/fw/audit_canonical.py under the same
-      # name at your convenience to silence this notice).
-      if 'def gate_stimulus_blocks' not in open(audit_py, encoding='utf-8').read():
-          shutil.copy('/tmp/fw/audit_canonical.py',
-                      f'/home/claude/{EXAM}_mock_test_audit.py')
+      # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT) introduced the refresh; v5.86
+      # (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC) makes it a BYTE comparison. The
+      # per-exam file is a VERBATIM copy of audit_canonical.py (Step 6 B3), so ANY
+      # difference from the verified clone's copy means the project copy is stale. The
+      # v5.85 test looked for one marker ('def gate_stimulus_blocks'), which every copy
+      # made since 2026.09.21 carries — so an auditor fix shipped after that would never
+      # reach a single project. Used for THIS run; the project file is left as is
+      # (replace it with /tmp/fw/audit_canonical.py under the same name at your
+      # convenience to silence this notice).
+      # The verified clone is $FW (/tmp/fw); /tmp/fw_effective is its byte copy
+      # (Step 0). Either is the same verified engine; the cwd copy is the last resort.
+      _repo_audit = next((_c for _c in ('/tmp/fw/audit_canonical.py',
+                                        '/tmp/fw_effective/audit_canonical.py',
+                                        os.path.join(os.getcwd(), 'audit_canonical.py'))
+                          if os.path.exists(_c)), None)
+      if _repo_audit is None:
+          print(f"NOTICE: no verified audit_canonical.py found beside this session "
+                f"(expected /tmp/fw — Step 0 bootstrap); {EXAM}_mock_test_audit.py "
+                f"from Project Files is used AS IS and may be stale.")
+      elif open(audit_py, 'rb').read() != open(_repo_audit, 'rb').read():
+          shutil.copy(_repo_audit, f'/home/claude/{EXAM}_mock_test_audit.py')
           print(f"AUDITOR REFRESHED: {EXAM}_mock_test_audit.py in Project Files "
-                f"predates the stimulus-group gates (A-BLOCK) — this run audits with "
-                f"the verified repo audit_canonical.py instead.")
+                f"differs from the verified repo audit_canonical.py — this run audits "
+                f"with the verified repo copy instead.")
   else:
       print(f"NOTE: {EXAM}_mock_test_audit.py not found in project. "
             f"This file is auto-generated by Step 6 (MockBlueprint) v1.20+. "
@@ -1476,6 +1512,15 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           f"match the trigger's ExamCode {EXAM!r}. A blueprint file from a different "
           f"ExamCode may have been picked up by the {EXAM}*_blueprint.json glob (S3-1) "
           f"— check this project for a similarly-prefixed ExamCode's files.")
+
+  # v5.86 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC): the FILE the chosen blueprint came
+  # from. Every auditor run of THIS paper (S4-7 STEP B, S13-4c) passes it as --blueprint:
+  # [ExamCode]_blueprint.json for a mock, [ExamCode]_[SCOPETAG]_blueprint.json for a
+  # scoped paper. Through v5.85 both invocations hard-coded the MOCK blueprint, so a
+  # scoped paper was audited against the mock's size, sections and subtopics (and in a
+  # project holding only scoped blueprints the auditor could not open the file).
+  # pp.pick_blueprint returns one of the loaded objects itself, so identity finds it.
+  BP_SRC_PATH = next(p for p, b in zip(BLUEPRINT_PATHS, blueprints) if b is bp)
 
   sr_text = open(f'/home/claude/{EXAM}_section_rules.md',
                  encoding='utf-8').read()
@@ -3677,7 +3722,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               ```
               cd /tmp/fw && python3 /home/claude/[ExamCode]_mock_test_audit.py \
                   /home/claude/<cumulative>.docx \
-                  --blueprint /mnt/project/[ExamCode]_blueprint.json \
+                  --blueprint [BP_SRC_PATH] \
                   --rules /mnt/project/[ExamCode]_section_rules.md \
                   --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
                   --registry /home/claude/[ExamCode]_registry.json \
@@ -3686,6 +3731,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --mockN [N] --batch [B] --through-q [last Q in the docx]
               ```
+              [BP_SRC_PATH] (v5.86) is the file S3-2 selected — the
+              mock blueprint for a mock, [ExamCode]_[SCOPETAG]_blueprint.json
+              for a Subject / Topic / Subtopic paper; never the mock blueprint
+              for a scoped paper. --profile may name an absent file (the
+              profile is optional): auditor v2.31+ reports A-DPROFILE dormant.
+              On the final batch (no --through-q) auditor v2.31+ reports
+              A-QINDEX dormant — the index is written at S13-4 — and arms it at
+              S13-4c.
               --through-q (v2.23) scopes the structural gates to the
               questions that exist, so a healthy intermediate batch prints
               RESULT: PASS and a FAIL means something (GAP-2026-08-28-
@@ -9248,7 +9301,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Create.docx \
       --dossier /home/claude/[ExamCode]_M[N]_audit_dossier.json \
       --registry /home/claude/[ExamCode]_registry.json \
-      --blueprint /mnt/project/[ExamCode]_blueprint.json \
+      --blueprint [BP_SRC_PATH] \
       --rules /mnt/project/[ExamCode]_section_rules.md \
       --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
       --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
@@ -9272,7 +9325,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            # below is the durably-logged verdict; a bad index can no longer
            # coexist with a clean audit log.
            '--registry', f'/home/claude/{EXAM}_registry.json',
-           '--blueprint', f'/mnt/project/{EXAM}_blueprint.json',
+           # v5.86: the blueprint THIS paper was built from (S3-2) — never the mock
+           # blueprint for a scoped paper (A-COUNT / A-QINDEX / A-DGATE read its size).
+           '--blueprint', BP_SRC_PATH,
            # v5.77 — arm A-CLUSTER at FULL strength: without --rules/--manifest
            # the gate has no concept_group/family metadata and degrades to
            # subtopic-level adjacency only (safe, but weaker than the S3-12b
@@ -9308,6 +9363,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               "project file with the current repo audit_canonical.py verbatim "
               "under the same [ExamCode]_ name), then re-run. present_files is "
               "forbidden until clean (B-7).")
+      # v5.86 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC): at S13-4c this paper IS
+      # committed, so A-QINDEX must come back ARMED. Auditor v2.31 reports it 'dormant'
+      # only for a paper that is not yet in the registry's commit ledgers (the final
+      # batch's STEP B, before S13-4) — here that would mean S13-4 never committed it.
+      if any(re.search(r'\]\s+A-QINDEX\s+dormant\b', l)
+             for l in (_r.stdout or '').splitlines()):
+          raise SystemExit(
+              f"HARD STOP (S13-4c, v5.86): A-QINDEX reported dormant — this paper is not "
+              f"in the registry's commit ledgers, so S13-4 did not commit it. Re-run S13-4 "
+              f"in FULL, then S13-REGCHECK, S13-QINDEX and this re-sweep. present_files is "
+              f"forbidden until clean (B-7).")
       # v5.85 STIMULUS-GROUP TRIPWIRE (GAP-2026-09-21-LINKED-PLACEMENT), same shape
       # as the A-QINDEX tripwire above: a set-placed paper (STIM_ACTIVE) must come
       # back with an ARMED A-BLOCK verdict. An absent line means a stale auditor; a
@@ -9537,6 +9603,11 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   entries: { "q": { salt, h } } } } — h = sha256(paper_id|q|salt|canonical_answer).
   Written by S13-4 (fa.commit_registry answer_key=…); consumed by Step 9 §7-8, which
   hashes its OWN derived answers and compares. NEVER plaintext. Gate: G-KEYCOMMIT.
+  rc_manifests[] / di_manifests[] / figural_manifests[] (v5.86): every entry S13-4 writes
+  carries "paper_id" beside "mock": N and is replaced by paper_id (fa.commit_registry v1.8);
+  readers (audit_canonical v2.31, Step 9) select THIS paper's entry by paper_id — a legacy
+  entry without one belongs to MOCK:M<mock>. Never matched by the bare ordinal: the lists
+  are shared by every series (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC).
   figural_manifests[].semantic_objects (v5.59): { "q": [ {role, kind, name, canonical,
   descriptor} ] } — what each generated figure depicts (S7-NEW-B2); consumed by Step 9
   §13-2b. Both ADDITIVE; older registries read unchanged (EC-V18).
@@ -10202,7 +10273,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.85
+# END OF Framework_MockTestCreate v5.86
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

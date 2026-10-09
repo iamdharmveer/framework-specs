@@ -15,6 +15,32 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.31 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
+#   final_assembly v1.8, Framework_MockTestCreate v5.86, Framework_MockTestExplain
+#   v1.51.1). The registry is SHARED by every series (MOCK / SUBJ / TOPIC / SUBTOPIC)
+#   and every paper size; four places assumed every registry paper had the size and
+#   series of the paper under audit. (1) A-DGATE checked EVERY difficulty_gate record's
+#   band sum and rework range against THIS paper's total_questions: the first 40-Q
+#   scoped paper audited beside a mock with a DISCLOSED verdict (bands = 120) HARD
+#   STOPPED at S13-2/S13-4c (measured, CSIR_NET_MATHEMATICAL_SCIENCES SUBJ:UNIT 1:01 vs
+#   MOCK:M13). Each record is now checked against its own paper's size (session_log
+#   questions_added → question_index length → same series: this blueprint → unknown:
+#   size checks skipped and named). (2) A-DPROFILE compared the EXAM-LEVEL difficulty
+#   profile (full sittings, exam sections) with a SCOPED blueprint's size and sections:
+#   every scoped paper of an exam holding a profile FAILED from batch 1. A scoped paper
+#   now certifies the profile on its own terms. (3) A-DUP always dropped the last
+#   total_questions stems as "this paper" — true only after S13-4; on every batch run
+#   and at S13-2 it hid the PREVIOUS paper's last stems (a whole mock at S13-2). Now a
+#   not-yet-committed paper is compared with ALL stems; a committed one drops exactly
+#   its own slice. (4) rc/di/figural manifests were read by `mock == N` on lists shared
+#   by every series; now by THIS paper's paper_id (legacy no-paper_id entries =
+#   MOCK:M<mock>). Also: a --profile path to an absent file (the profile is optional;
+#   Step 7 passes the flag on every run) crashed the auditor with FileNotFoundError; it
+#   now means "not supplied". (5) A-QINDEX FAILed the FINAL batch's whole-paper run (no
+#   --through-q) of every paper of every exam, because S13-4 had not written the index
+#   yet; a paper not yet in the commit ledgers is now dormant there (S13-4c still arms
+#   it). No --mockN, or a registry without commit ledgers → every gate keeps its v2.30
+#   behaviour. +32 fixtures; each one tagged [v2.30-FAILS] fails on v2.30.
 # v2.30 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with blueprint_core
 #   Cluster SG, Framework_MockTestCreate v5.85, Framework_MockTestAnalyse v2.57.2,
 #   final_assembly v1.7). NEW gates A-BLOCK / A-BLOCK-STIMULUS / A-BLOCK-ORDER: a
@@ -505,13 +531,124 @@ def cat_c(rules_txt, key, default=None):
     return mobj.group(1).strip() if mobj else default
 
 
+# ── v2.31 PAPER IDENTITY HELPERS (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC) ─────
+# The registry is SHARED by every series (MOCK / SUBJ / TOPIC / SUBTOPIC), and papers
+# of different series have different sizes (a 120-Q mock beside a 40-Q unit test, a
+# 25-Q topic test, a 10-Q subtopic drill). Four gates assumed every registry paper was
+# the size and series of the paper under audit. These helpers name the paper under
+# audit and any registry entry's paper WITHOUT importing paper_pipeline (the per-exam
+# copy stays self-contained); _ac_prefix / _ac_number mirror pp.paper_prefix /
+# pp.paper_number exactly, degraded to None instead of raising.
+def _ac_prefix(pid):
+    """Series of a paper_id: MOCK:M07 -> 'MOCK'; SUBJ:Physics:03 -> 'SUBJ:Physics'."""
+    if not pid or not isinstance(pid, str):
+        return None
+    if pid.startswith('MOCK:M'):
+        return 'MOCK'
+    return pid.rsplit(':', 1)[0] if ':' in pid else None
+
+
+def _ac_number(pid):
+    """Paper number of a paper_id within its series; None when unparseable."""
+    if not pid or not isinstance(pid, str):
+        return None
+    try:
+        if pid.startswith('MOCK:M'):
+            return int(pid[len('MOCK:M'):])
+        return int(pid.rsplit(':', 1)[1]) if ':' in pid else None
+    except ValueError:
+        return None
+
+
+def _ac_entry_pid(e):
+    """paper_id of a registry ledger / manifest entry. A LEGACY entry (no paper_id)
+    is MOCK:M<mock> — the convention A-QINDEX and final_assembly already use."""
+    if not isinstance(e, dict):
+        return None
+    if e.get('paper_id'):
+        return e['paper_id']
+    try:
+        return f"MOCK:M{int(e.get('mock')):02d}"
+    except (TypeError, ValueError):
+        return None
+
+
+def _this_paper_id(src):
+    """The paper this run certifies: blueprint.mocks[N].paper_id, else MOCK:M<N>
+    (A-QINDEX's rule). None when no paper number is known (--mockN absent): every
+    caller then keeps its pre-v2.31 behaviour unchanged."""
+    N = src.get('_mockN')
+    if N is None:
+        N = src.get('mock_n')
+    if N is None:
+        return None
+    try:
+        N = int(N)
+    except (TypeError, ValueError):
+        return None
+    _tp = next((mk for mk in ((src.get('blueprint') or {}).get('mocks') or [])
+                if isinstance(mk, dict) and mk.get('mock') == N), None)
+    return (_tp or {}).get('paper_id') or f"MOCK:M{N:02d}"
+
+
+def _pick_paper_entry(entries, pid, N):
+    """THIS paper's entry in an rc/di/figural manifest list (v2.31). An entry that
+    names its paper_id wins; a legacy entry (no paper_id) is accepted only as
+    MOCK:M<mock>. Pre-v2.31 this was `mock == N` on a list shared by every series,
+    so a scoped paper read the mock's manifest (or the mock read the scoped one) —
+    whichever was listed first. pid None (no --mockN) → the pre-v2.31 rule."""
+    entries = [x for x in (entries or []) if isinstance(x, dict)]
+    if pid is None:
+        return next((x for x in entries if x.get('mock') == N), None)
+    hit = next((x for x in entries if x.get('paper_id') == pid), None)
+    if hit is not None:
+        return hit
+    hit = next((x for x in entries if not x.get('paper_id') and _ac_entry_pid(x) == pid), None)
+    if hit is None and _ac_prefix(pid) == 'MOCK' and _ac_number(pid) is None:
+        # a MOCK paper whose id does not parse (a renamed id such as MOCK:M01-CORRECTED):
+        # its legacy entry can only be found by the ordinal — the v2.30 rule, MOCK only
+        hit = next((x for x in entries if not x.get('paper_id') and x.get('mock') == N), None)
+    return hit
+
+
+def _paper_committed(reg, pid):
+    """v2.31 — has paper `pid` been committed (S13-4) into this registry? True / False
+    from the commit ledgers (papers_completed, session_log, legacy mocks_completed for
+    the MOCK series); None when pid is unknown or the registry carries none of those
+    ledgers at all (a bare / pre-ledger registry) — callers then keep their v2.30 rule."""
+    reg = reg if isinstance(reg, dict) else {}
+    if pid is None or not any(isinstance(reg.get(k), list)
+                              for k in ('papers_completed', 'session_log', 'mocks_completed')):
+        return None
+    if pid in (reg.get('papers_completed') or []):
+        return True
+    if any(_ac_entry_pid(e) == pid for e in (reg.get('session_log') or [])):
+        return True
+    _n = _ac_number(pid)
+    if _ac_prefix(pid) != 'MOCK' or _n is None:
+        return False
+    for _m in (reg.get('mocks_completed') or []):
+        try:
+            if int(_m) == _n:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def load_sources(args):
     src = {}
     src['blueprint'] = json.load(open(args.blueprint, encoding='utf-8')) if args.blueprint else {}
     src['registry']  = json.load(open(args.registry,  encoding='utf-8')) if args.registry  else {}
     src['manifest']  = json.load(open(args.manifest,  encoding='utf-8')) if args.manifest  else {}
     src['rules_txt'] = open(args.rules, encoding='utf-8').read() if args.rules else ''
-    src['profile']   = json.load(open(args.profile,  encoding='utf-8')) if getattr(args, 'profile', None) else {}
+    # v2.31: the difficulty profile is OPTIONAL (written by PYQExplain S7A-6; absent on
+    # an exam that has not run it), yet Step 7 passes --profile on EVERY run. A path to
+    # an absent file crashed the whole auditor with FileNotFoundError; it now means
+    # "not supplied" (A-DPROFILE reports dormant and says so) — the stimulus-profile rule.
+    _pf = getattr(args, 'profile', None)
+    src['profile']   = json.load(open(_pf, encoding='utf-8')) if _pf and os.path.exists(_pf) else {}
+    src['profile_path_absent'] = bool(_pf) and not os.path.exists(_pf)
     src['style_profile'] = (json.load(open(args.style_profile, encoding='utf-8'))
                             if getattr(args, 'style_profile', None) else None)
     src['pyq_index'] = (json.load(open(args.pyq_index, encoding='utf-8'))
@@ -549,10 +686,13 @@ def load_sources(args):
     # mock-scoped maps from registry
     N = args.mockN
     reg = src['registry']
-    rc  = next((x for x in reg.get('rc_manifests', []) if x.get('mock') == N), None)
+    # v2.31: matched by THIS paper's paper_id (legacy no-paper_id entries = MOCK:M<mock>),
+    # never by the bare ordinal — the manifest lists are shared by every series.
+    _cur_pid = _this_paper_id({'blueprint': bp, '_mockN': N})
+    rc  = _pick_paper_entry(reg.get('rc_manifests', []), _cur_pid, N)
     src['passage_linked'] = set(rc.get('passage_linked', [])) if rc else set()
     src['cloze_linked']   = set(rc.get('cloze_linked', []))   if rc else set()
-    fig = next((x for x in reg.get('figural_manifests', []) if x.get('mock') == N), None)
+    fig = _pick_paper_entry(reg.get('figural_manifests', []), _cur_pid, N)
     src['figural_qs'] = set(int(q) for q in fig.get('figural_qs', [])) if fig else set()
     # v2.24.1 — PRESENCE, NOT EMPTINESS. "no figural manifest for this mock" and "a
     # manifest saying zero figures" are OPPOSITE FACTS, and an empty set represents both.
@@ -576,7 +716,7 @@ def load_sources(args):
     # G-MATCH-TABLE mandates a real Word table for every MATCH question, so on a real
     # paper (IIT_JAM_BIOTECHNOLOGY 15-Feb-2026) table-presence finds 3 candidates where
     # exactly 1 is DI. Only the generator knows which it built; Step 7 v5.42 records it.
-    _di = next((x for x in reg.get('di_manifests', []) if x.get('mock') == N), None)
+    _di = _pick_paper_entry(reg.get('di_manifests', []), _cur_pid, N)
     src['di_qs'] = set(int(q) for q in _di.get('di_qs', [])) if _di else set()
     src['di_manifest_present'] = _di is not None
     # v2.10 (GAP-2026-07-26-003 D2): A-FIGPROFILE needs the object_type Step 7 v5.31
@@ -2758,18 +2898,77 @@ def gate_encoding_script(doc, src):
         _ok('A-SCRIPT', f"language={src['language']}: non-Latin script permitted.")
 
 
+def _own_stem_slice(reg, pid, n_stems):
+    """v2.31 — (slices, exact) for paper `pid`'s committed stems inside
+    registry.stem_texts: `slices` is a list of (start, end); None when they cannot be
+    located. stem_texts is appended by every S13-4 commit in session_log order, so when
+    the ledger is CONSISTENT (every session_log entry carries an int questions_added
+    and they sum to len(stem_texts)) every slice is exact (`exact` True) — ALL of them:
+    a pre-v5.54 registry can hold two session_log entries for one re-committed paper,
+    and both builds are its own. Otherwise only the LAST commit is locatable — it is
+    always the tail of stem_texts — and `exact` is False: other copies of this paper's
+    stems may sit elsewhere in the ledger (an earlier commit of the same paper whose
+    session_log entry was replaced by v5.54's dedupe)."""
+    sl = [e for e in (reg.get('session_log') or []) if isinstance(e, dict)]
+    qa = [e.get('questions_added') for e in sl]
+    if sl and all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in qa) \
+            and sum(qa) == n_stems:
+        out, start = [], 0
+        for e, k in zip(sl, qa):
+            if _ac_entry_pid(e) == pid:
+                out.append((start, start + k))
+            start += k
+        return (out, True) if out else None
+    if sl and _ac_entry_pid(sl[-1]) == pid and isinstance(qa[-1], int) \
+            and not isinstance(qa[-1], bool) and 0 <= qa[-1] <= n_stems:
+        return ([(n_stems - qa[-1], n_stems)], False)
+    return None
+
+
 def gate_dup(blocks, src):
+    """A-DUP — exact / near (Jaccard >= 0.75) duplication of this paper's stems against
+    every OTHER paper's stems in registry.stem_texts.
+
+    v2.31 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC): WHICH stems are "this paper's".
+    Pre-v2.31 the last `total_questions` stems were always dropped as "mock N". That
+    holds only AFTER this paper is committed (S13-4c). On every per-batch run and at
+    S13-2 the registry does not yet hold this paper, so the cut removed the PREVIOUS
+    paper's last stems (a whole preceding mock at S13-2) from the comparison — a
+    repeat of it surfaced only after S13-4, with the registry already written.
+    Now: not yet committed → compare against ALL stems; committed → drop exactly its
+    own slice(s) (_own_stem_slice). When the slice cannot be located exactly (an
+    inconsistent ledger: a re-committed paper whose earlier stems are still in the
+    append-only ledger but whose session_log entry was replaced), exact copies of its
+    own stems are dropped too — that residue is this paper's, not a repeat. With an
+    exact ledger nothing else is dropped: a copy of this paper's stem inside ANOTHER
+    paper's slice is a genuine cross-paper repeat and FAILs. No paper number (--mockN
+    absent) or a registry with no ledgers at all → the pre-v2.31 rule, unchanged."""
     reg = src['registry']; tq = src['total_questions']
     stems_all = reg.get('stem_texts', [])
     if not stems_all or tq is None:
         _warn('A-DUP', 'registry stem_texts empty or total_questions unknown; '
                        'cross-mock dedup skipped.')
         return
-    prior = stems_all[:max(0, len(stems_all) - tq)]   # self-exclude trailing mock N
+    norm = lambda s: re.sub(r'\s+', ' ', s).strip().lower()
+    pid = _this_paper_id(src)
+    committed = _paper_committed(reg, pid)
+    if committed is None:
+        prior = stems_all[:max(0, len(stems_all) - tq)]   # pre-v2.31 rule (no identity / ledger)
+    else:
+        if not committed:
+            prior = list(stems_all)                       # this paper is not in the registry yet
+        else:
+            _loc = _own_stem_slice(reg, pid, len(stems_all))
+            if _loc is None:                              # committed, slice not locatable:
+                _bp_tq = (src.get('blueprint') or {}).get('total_questions') or tq
+                _loc = ([(max(0, len(stems_all) - int(_bp_tq)), len(stems_all))], False)  # pre-v2.31 tail cut
+            sls, _exact = _loc
+            _mine = set(i for a, b in sls for i in range(a, b))
+            own = set() if _exact else set(norm(stems_all[i]) for i in _mine)
+            prior = [x for i, x in enumerate(stems_all) if i not in _mine and norm(x) not in own]
     if not prior:
         _ok('A-DUP', 'no prior-mock stems in registry (first mock or registry holds only mock N); cross-mock dedup vacuous.')
         return
-    norm = lambda s: re.sub(r'\s+', ' ', s).strip().lower()
     prior_norm = set(norm(s) for s in prior)
     prior_tokens = [set(norm(s).split()) for s in prior]
     exact, near = [], []
@@ -4192,6 +4391,15 @@ def gate_qindex(src):
     entry = next((e for e in reg.get('question_index', [])
                   if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == pid), None)
     if entry is None:
+        # v2.31: the FINAL batch's STEP B audits the whole paper (no --through-q) BEFORE
+        # S13-4 writes its index — the paper is not in the commit ledgers yet, so a missing
+        # entry is the expected state, not lost data. That run FAILED this gate for every
+        # paper of every exam. Dormant there; armed (and FAILing) once the paper is
+        # committed — S13-4c, whose tripwire refuses a dormant A-QINDEX line.
+        if _paper_committed(reg, pid) is False:
+            _ok('A-QINDEX', f'dormant — {pid} is not committed yet (question_index is '
+                            f'written at S13-4); armed at the S13-4c re-sweep')
+            return
         _fail('A-QINDEX', f'no question_index entry for {pid} — registry data '
                           f'missing for a paper this session claims to have built. '
                           f'Rebuild the index (S13-4) before delivery.')
@@ -4755,21 +4963,34 @@ def gate_dprofile(src):
     bp = src.get('blueprint') or {}
     prof = src.get('profile') or {}
     if not prof and 'difficulty_source' not in bp:
-        _ok('A-DPROFILE', 'dormant (no --profile and no difficulty_source in blueprint)')
+        _ok('A-DPROFILE', 'dormant (no --profile and no difficulty_source in blueprint)'
+                          + (' — the --profile file is absent (optional: PYQExplain S7A-6 '
+                             'writes it)' if src.get('profile_path_absent') else ''))
         return
     bad = []
     labels = bp.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']
     exam_code = bp.get('exam_code') or (prof.get('_meta') or {}).get('exam_code')
     tq = bp.get('total_questions') or src.get('total_questions')
     sections = bp.get('sections') or src.get('sections') or None
+    # v2.31 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC): the profile is EXAM-LEVEL — its
+    # papers are real full-length sittings in the exam's own sections. A SCOPED
+    # blueprint (Subject / Topic / Subtopic test: its own size, one scope section) is
+    # not their shape, so comparing them (q_total, section names / map, unscored range)
+    # FAILED every scoped paper of every exam holding a profile, from batch 1. For a
+    # scoped paper the profile is certified on its OWN terms: contract, re-banding,
+    # q_scored / unscored consistency, unscored positions within the sitting's own
+    # q_total. Mock papers: unchanged.
+    _sc = bp.get('scope')
+    _scoped = ((isinstance(_sc, dict) and (_sc.get('level') or 'mock') != 'mock')
+               or _ac_prefix(_this_paper_id(src)) not in (None, 'MOCK'))
     if prof:
         try:
             _bc.dp_check_profile(prof, exam_code, labels)
-            secs = _bc.dp_validate_sections(sections, tq) if tq else []
+            secs = [] if _scoped else (_bc.dp_validate_sections(sections, tq) if tq else [])
             names = set(_bc.dp_section_names(secs))
             for key, paper in (prof.get('papers') or {}).items():
                 qs = paper.get('questions') or {}
-                if tq and paper.get('q_total') != tq:
+                if tq and not _scoped and paper.get('q_total') != tq:
                     bad.append(f"profile paper {key}: q_total {paper.get('q_total')} != total_questions {tq} yet not excluded")
                 if 'q_scored' in paper or 'unscored' in paper:          # v2.24 additive keys (absent on older profiles)
                     uns = paper.get('unscored')
@@ -4781,10 +5002,11 @@ def gate_dprofile(src):
                     _dup = sorted(set(uns) & set(qs))
                     if _dup:
                         bad.append(f"profile paper {key}: Q{_dup[0]} is both scored and unscored")
-                    if tq:
-                        _out = [q for q in uns if not str(q).isdigit() or not 1 <= int(q) <= int(tq)]
+                    _ub = paper.get('q_total') if _scoped else tq
+                    if isinstance(_ub, int) and not isinstance(_ub, bool) and _ub > 0:
+                        _out = [q for q in uns if not str(q).isdigit() or not 1 <= int(q) <= int(_ub)]
                         if _out:
-                            bad.append(f"profile paper {key}: unscored position {_out[0]!r} is outside 1..{tq}")
+                            bad.append(f"profile paper {key}: unscored position {_out[0]!r} is outside 1..{_ub}")
                     if len(qs) + len(uns) != paper.get('q_total'):
                         bad.append(f"profile paper {key}: scored {len(qs)} + unscored {len(uns)} != q_total {paper.get('q_total')}")
                 for q, rec in qs.items():
@@ -4796,7 +5018,7 @@ def gate_dprofile(src):
                     if secs and _bc.dp_section_of(q, secs) != rec.get('section'):
                         bad.append(f"profile paper {key} Q{q}: stored section {rec.get('section')!r} != "
                                    f"current map {_bc.dp_section_of(q, secs)!r}")
-            if prof.get('papers'):
+            if prof.get('papers') and not _scoped:      # v2.31: exam-level recommendation — mock shape only
                 _bc.dp_recommend(prof, {'exam_code': exam_code, 'total_questions': tq,
                                         'sections': sections, 'difficulty_labels': labels})
         except _bc.DPError as e:
@@ -4824,7 +5046,9 @@ def gate_dprofile(src):
     if bad:
         _fail('A-DPROFILE', '; '.join(bad[:8]) + (f' (+{len(bad) - 8} more)' if len(bad) > 8 else ''))
     else:
-        _ok('A-DPROFILE', 'difficulty profile / difficulty_source consistent')
+        _ok('A-DPROFILE', 'difficulty profile / difficulty_source consistent'
+                          + (' (scoped paper: exam-level profile certified on its own terms; '
+                             'paper-shape checks apply to mock papers)' if _scoped and prof else ''))
 
 
 def gate_dgate(src):
@@ -4843,9 +5067,50 @@ def gate_dgate(src):
         _ok('A-DGATE', 'no difficulty_gate records (legacy registry) — nothing to certify')
         return
     tq = (src.get('blueprint') or {}).get('total_questions') or src.get('total_questions')
+    # v2.31 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC): EACH RECORD AGAINST ITS OWN
+    # PAPER'S SIZE. difficulty_gate holds a record for every paper of every series,
+    # but the two size checks below compared all of them with THIS paper's
+    # blueprint.total_questions — so the first scoped paper (40 Q) audited after a
+    # mock had a DISCLOSED verdict (bands summing to 120) HARD STOPPED at S13-2/S13-4c
+    # on another paper's legal record (measured: SUBJ:UNIT 1:01 vs MOCK:M13).
+    _cur = _this_paper_id(src)
+    _qi_size = {}
+    for _e in (reg.get('question_index') or []):
+        if isinstance(_e, dict) and isinstance(_e.get('questions'), (list, dict)):
+            _qi_size[_ac_entry_pid(_e)] = len(_e['questions'])
+    _sl_size = {}
+    for _e in (reg.get('session_log') or []):
+        _k = _e.get('questions_added') if isinstance(_e, dict) else None
+        if isinstance(_k, int) and not isinstance(_k, bool) and _k > 0:
+            _sl_size[_ac_entry_pid(_e)] = _k
+
+    def _size_of(pid):
+        """Size of paper `pid`: this paper → its blueprint total; another paper →
+        its session_log questions_added (= its blueprint total when it committed),
+        else its committed question_index length, else (same series as this paper →
+        same blueprint) this blueprint's total; unknown → None (its size-coupled
+        checks are skipped, never guessed). No paper identity (--mockN absent) →
+        the pre-v2.31 rule (blueprint total)."""
+        if _cur is None or pid == _cur:
+            return tq
+        if _sl_size.get(pid):
+            return _sl_size[pid]
+        if _qi_size.get(pid):
+            return _qi_size[pid]
+        _pfx = _ac_prefix(pid)
+        if _pfx is None:                      # a key that is not a paper_id (legacy
+            return tq                         # '1' / 'M01'): the v2.30 rule, unchanged
+        if _pfx == _ac_prefix(_cur):
+            return tq
+        return None
+
+    _unsized = []
     bad = []
     for pid, rec in records.items():
         st = rec.get('status')
+        _ptq = _size_of(pid)
+        if _ptq is None and st == 'DISCLOSED':
+            _unsized.append(str(pid))
         try:
             n = int(rec.get('repair_rounds_used') or 0)
         except (TypeError, ValueError):
@@ -4868,10 +5133,10 @@ def gate_dgate(src):
             bands = rec.get('bands') or {}
             if not bands:
                 bad.append(f"{pid}: status {st} but no bands recorded")
-            elif tq and sum(int((b or {}).get('total') or 0) for b in bands.values()) != int(tq):
+            elif _ptq and sum(int((b or {}).get('total') or 0) for b in bands.values()) != int(_ptq):
                 bad.append(f"{pid}: band totals sum to "
                              f"{sum(int((b or {}).get('total') or 0) for b in bands.values())}, "
-                             f"blueprint.total_questions is {tq}")
+                             f"{'blueprint.total_questions' if (_cur is None or pid == _cur) else 'its paper size'} is {_ptq}")
         if st == 'DISCLOSED' and n == 0:
             # a fresh not-met gate names WHICH questions measured out of window (the
             # verdict box and the footer print them); an empty list is a contradiction
@@ -4879,8 +5144,8 @@ def gate_dgate(src):
             if not rq:
                 bad.append(f"{pid}: DISCLOSED/0 with an empty rework_qs — a gate that is "
                              f"not met names the out-of-window questions")
-            elif tq and any(not (1 <= int(q) <= int(tq)) for q in rq):
-                bad.append(f"{pid}: rework_qs {rq} outside 1..{tq}")
+            elif _ptq and any(not (1 <= int(q) <= int(_ptq)) for q in rq):
+                bad.append(f"{pid}: rework_qs {rq} outside 1..{_ptq}")
         # rework_stem_hashes / baseline_stem_hashes / superseded_snapshots are INERT
         # since v2.22 (written only by the retired repair steps; read by nothing) —
         # their presence is tolerated and their shape is not audited.
@@ -4890,7 +5155,9 @@ def gate_dgate(src):
     if bad:
         _fail('A-DGATE', '; '.join(bad))
     else:
-        _ok('A-DGATE', f'{len(records)} difficulty_gate record(s) in a legal state')
+        _ok('A-DGATE', f'{len(records)} difficulty_gate record(s) in a legal state'
+                       + (f' (paper size unknown, size checks skipped: {", ".join(_unsized)})'
+                          if _unsized else ''))
 
 
 def print_results():
@@ -5515,6 +5782,25 @@ def self_test():
     # the 4th defective mock: a later registry write dropped the entry entirely
     check('A-QINDEX-armed-lost-entry-FAILS',
           [l for l, _, _ in _q_run({'question_index': []})] == ['FAIL'])
+    # v2.31: before S13-4 (paper not in the ledgers) a missing entry is EXPECTED —
+    # dormant, and says so; once committed, a missing entry is lost data — FAIL.
+    _q_pre = _q_run({'question_index': [], 'papers_completed': [], 'mocks_completed': [],
+                     'session_log': []})
+    check('A-QINDEX-v231-precommit-missing-entry-dormant [v2.30-FAILS]',
+          [l for l, _, _ in _q_pre] == ['OK'] and 'dormant' in _q_pre[0][2])
+    check('A-QINDEX-v231-committed-lost-entry-FAILS',
+          [l for l, _, _ in _q_run({'question_index': [], 'papers_completed': ['MOCK:M01']})] == ['FAIL']
+          and [l for l, _, _ in _q_run({'question_index': [], 'mocks_completed': [1]})] == ['FAIL']
+          and [l for l, _, _ in _q_run({'question_index': [], 'session_log': [{'mock': 1}]})] == ['FAIL'])
+    check('v231-paper-committed-helper',
+          _paper_committed({}, 'MOCK:M01') is None and _paper_committed({'session_log': []}, None) is None
+          and _paper_committed({'papers_completed': ['SUBJ:U:01']}, 'SUBJ:U:01') is True
+          and _paper_committed({'mocks_completed': [1]}, 'SUBJ:U:01') is False
+          and _paper_committed({'mocks_completed': [1]}, 'MOCK:M01') is True
+          and _paper_committed({'session_log': [{'mock': 2, 'paper_id': 'SUBJ:U:02'}]}, 'SUBJ:U:02') is True
+          and _paper_committed('x', 'MOCK:M01') is None
+          and _paper_committed({'mocks_completed': ['1', None, 'x']}, 'MOCK:M01') is True
+          and _paper_committed({'mocks_completed': ['2']}, 'MOCK:M01') is False)
     check('A-QINDEX-armed-short-count-FAILS',
           [l for l, _, _ in _q_run(_q_reg(_QCLEAN[:1]))] == ['FAIL'])
     check('A-QINDEX-armed-duplicate-q-FAILS',
@@ -5952,6 +6238,185 @@ def self_test():
     check('A-DPROFILE-qtotal-mismatch-isolated', _dp_run(_Pold5, _BP) == ('FAIL', 'A-DPROFILE', 'profile paper 01-Jan-2025: q_total 5 != total_questions 4 yet not excluded'))
     _Pmap = _cp.deepcopy(_P); _Pmap['papers']['01-Jan-2025']['unscored'] = 'x'                # fully-scored paper → only the not-a-map line
     check('A-DPROFILE-unscored-not-a-map-isolated', _dp_run(_Pmap, _BP) == ('FAIL', 'A-DPROFILE', 'profile paper 01-Jan-2025: unscored is not a map'))
+    # ══════════════════════════════════════════════════════════════════════════
+    # v2.31 (GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC) — the registry is shared by
+    # every series and every paper size. Each fixture marked [v2.30-FAILS] reproduces
+    # a measured defect and fails on the v2.30 code.
+    # identity helpers (mirror paper_pipeline.paper_prefix / paper_number)
+    check('v231-identity-helpers',
+          _ac_prefix('MOCK:M07') == 'MOCK' and _ac_prefix('SUBJ:Physics:03') == 'SUBJ:Physics'
+          and _ac_prefix('TOPIC:Physics::Mechanics:12') == 'TOPIC:Physics::Mechanics'
+          and _ac_prefix(None) is None and _ac_prefix('garbage') is None
+          and _ac_number('MOCK:M07') == 7 and _ac_number('SUBJ:U:11') == 11
+          and _ac_number('MOCK:M01-OLD') is None and _ac_number(None) is None
+          and _ac_entry_pid({'mock': 3}) == 'MOCK:M03'
+          and _ac_entry_pid({'mock': 3, 'paper_id': 'SUBJ:X:03'}) == 'SUBJ:X:03'
+          and _ac_entry_pid({'mock': 'x'}) is None and _ac_entry_pid('x') is None
+          and _this_paper_id({'blueprint': {'mocks': [{'mock': 1, 'paper_id': 'SUBJ:U:11'}]},
+                              '_mockN': 1}) == 'SUBJ:U:11'
+          and _this_paper_id({'blueprint': {}, '_mockN': 4}) == 'MOCK:M04'
+          and _this_paper_id({'blueprint': {}, 'mock_n': 2}) == 'MOCK:M02'
+          and _this_paper_id({'blueprint': {}}) is None)
+    # ── A-DGATE: each record against ITS OWN paper's size ──
+    def _dg31(records, bp_tq, cur_pid, mockN=1, **reg_extra):
+        _reset()
+        gate_dgate({'registry': dict({'difficulty_gate': records}, **reg_extra),
+                    'blueprint': {'total_questions': bp_tq,
+                                  'mocks': [{'mock': mockN, 'paper_id': cur_pid}]},
+                    '_mockN': mockN})
+        return [(l, m) for l, c, m in RESULTS if c == 'A-DGATE']
+    _B120 = {'Easy': {'total': 40, 'agree': 30}, 'Medium': {'total': 50, 'agree': 40},
+             'Hard': {'total': 30, 'agree': 20}}
+    _M13 = {'status': 'DISCLOSED', 'repair_rounds_used': 0, 'bands': _B120, 'rework_qs': [3, 118]}
+    _SL120 = [{'mock': 13, 'paper_id': 'MOCK:M13', 'questions_added': 120}]
+    check('A-DGATE-v231-scoped-paper-beside-mock-verdict-OK [v2.30-FAILS]',
+          [l for l, _ in _dg31({'MOCK:M13': _M13}, 40, 'SUBJ:U:01', session_log=_SL120)] == ['OK'])
+    check('A-DGATE-v231-own-size-band-sum-still-FAILS',
+          _dg31({'MOCK:M13': dict(_M13, bands={'Easy': {'total': 40, 'agree': 1}})}, 40,
+                'SUBJ:U:01', session_log=_SL120)
+          == [('FAIL', 'MOCK:M13: band totals sum to 40, its paper size is 120')])
+    check('A-DGATE-v231-own-size-rework-range-still-FAILS',
+          _dg31({'MOCK:M13': dict(_M13, rework_qs=[121])}, 40, 'SUBJ:U:01', session_log=_SL120)
+          == [('FAIL', 'MOCK:M13: rework_qs [121] outside 1..120')])
+    check('A-DGATE-v231-size-from-question-index',
+          [l for l, _ in _dg31({'MOCK:M13': _M13}, 40, 'SUBJ:U:01', question_index=[
+              {'mock': 13, 'paper_id': 'MOCK:M13', 'questions': [{}] * 120}])] == ['OK']
+          and [l for l, _ in _dg31({'MOCK:M13': _M13}, 40, 'SUBJ:U:01', question_index=[
+              {'mock': 13, 'paper_id': 'MOCK:M13', 'questions': [{}] * 100}])] == ['FAIL'])
+    check('A-DGATE-v231-same-series-unledgered-uses-blueprint-total',
+          [l for l, _ in _dg31({'MOCK:M13': _M13}, 120, 'MOCK:M14', mockN=14)] == ['OK']
+          and [l for l, _ in _dg31({'MOCK:M13': _M13}, 100, 'MOCK:M14', mockN=14)] == ['FAIL'])
+    check('A-DGATE-v231-pattern-change-old-mock-own-size [v2.30-FAILS]',
+          [l for l, _ in _dg31({'MOCK:M01': {'status': 'DISCLOSED', 'repair_rounds_used': 0,
+                                             'bands': {'Easy': {'total': 100, 'agree': 90}},
+                                             'rework_qs': [100]}}, 120, 'MOCK:M21', mockN=21,
+                               session_log=[{'mock': 1, 'paper_id': 'MOCK:M01',
+                                             'questions_added': 100}])] == ['OK'])
+    _unk = _dg31({'MOCK:M13': _M13}, 40, 'SUBJ:U:01')
+    check('A-DGATE-v231-unsized-other-series-skipped-and-named [v2.30-FAILS]',
+          [l for l, _ in _unk] == ['OK'] and 'size unknown' in _unk[0][1] and 'MOCK:M13' in _unk[0][1])
+    check('A-DGATE-v231-legacy-key-keeps-v230-rule',
+          [l for l, _ in _dg31({'13': _M13}, 100, 'MOCK:M14', mockN=14)] == ['FAIL']
+          and [l for l, _ in _dg31({'13': _M13}, 120, 'MOCK:M14', mockN=14)] == ['OK'])
+    check('A-DGATE-v231-unsized-illegal-status-still-FAILS',
+          [l for l, _ in _dg31({'MOCK:M13': dict(_M13, status='FAILED')}, 40, 'SUBJ:U:01')] == ['FAIL'])
+    # ── A-DUP: this paper's own stems are excluded only once it is committed ──
+    _S_DUP = 'the capital of france is which city among these'
+    _S1 = 'unrelated prior stem about rivers and lakes here'
+    _S2 = 'a third stem regarding mountains volcanoes and deserts'
+    def _dup31(stems, cur_pid, mockN, stem_text=_S_DUP, bp_tq=1, **reg_extra):
+        def _b(d):
+            d.add_paragraph(f'Q.1  {stem_text}')
+            for i, o in enumerate(('A', 'B', 'C', 'D'), 1):
+                d.add_paragraph(f'{i}.  {o}')
+        _pth = _mini_doc(tmp, _b); _reset()
+        _st = _src_stub(tq=1)
+        _st['registry'] = dict({'stem_texts': list(stems)}, **reg_extra)
+        _st['blueprint'] = {'total_questions': bp_tq, 'mocks': [{'mock': mockN, 'paper_id': cur_pid}]}
+        _st['_mockN'] = mockN
+        _t, _bl = parse_blocks(Document(_pth)); gate_dup(_bl, _st)
+        return [l for l, c, _ in RESULTS if c == 'A-DUP']
+    _L1 = {'session_log': [{'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 2}],
+           'papers_completed': ['MOCK:M01'], 'mocks_completed': [1]}
+    check('A-DUP-v231-precommit-sees-previous-papers-last-stem [v2.30-FAILS]',
+          _dup31([_S1, _S_DUP], 'MOCK:M02', 2, **_L1) == ['FAIL'])
+    check('A-DUP-v231-scoped-precommit-sees-mock-stems [v2.30-FAILS]',
+          _dup31([_S1, _S_DUP], 'SUBJ:U:01', 1, **_L1) == ['FAIL'])
+    _L2 = {'session_log': [{'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 2},
+                           {'mock': 2, 'paper_id': 'MOCK:M02', 'questions_added': 1}],
+           'papers_completed': ['MOCK:M01', 'MOCK:M02'], 'mocks_completed': [1, 2]}
+    check('A-DUP-v231-postcommit-own-stems-not-self-flagged',
+          _dup31([_S1, _S2, _S_DUP], 'MOCK:M02', 2, **_L2) == ['OK'])
+    check('A-DUP-v231-postcommit-still-catches-earlier-near-repeat',
+          _dup31([_S1, _S_DUP + ' options', _S_DUP], 'MOCK:M02', 2, **_L2) == ['FAIL'])
+    check('A-DUP-v231-own-slice-located-mid-ledger (rebuild of an older paper)',
+          _dup31([_S_DUP, _S1, _S2], 'MOCK:M01', 1, stem_text=_S_DUP, bp_tq=1,
+                 session_log=[{'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 1},
+                              {'mock': 2, 'paper_id': 'MOCK:M02', 'questions_added': 2}],
+                 papers_completed=['MOCK:M01', 'MOCK:M02']) == ['OK'])
+    check('A-DUP-v231-recommit-residue-not-self-flagged',
+          _dup31([_S1, _S2, _S_DUP, _S_DUP], 'MOCK:M02', 2, **_L2) == ['OK'])
+    check('A-DUP-v231-legacy-mocks_completed-only-tail-cut',
+          _dup31([_S1, _S_DUP], 'MOCK:M02', 2, mocks_completed=[1, 2]) == ['OK']
+          and _dup31([_S_DUP, _S1], 'MOCK:M02', 2, stem_text=_S_DUP, mocks_completed=[1, 2]) == ['FAIL'])
+    check('v231-own-stem-slice',
+          _own_stem_slice(_L2, 'MOCK:M02', 3) == ([(2, 3)], True)
+          and _own_stem_slice(_L2, 'MOCK:M01', 3) == ([(0, 2)], True)
+          and _own_stem_slice(_L2, 'MOCK:M09', 3) is None
+          and _own_stem_slice(_L2, 'MOCK:M02', 4) == ([(3, 4)], False)   # inconsistent ledger: tail only
+          and _own_stem_slice(_L2, 'MOCK:M01', 4) is None
+          and _own_stem_slice({}, 'MOCK:M01', 4) is None)
+    # an EXACT ledger: a copy of this paper's stem inside ANOTHER paper's slice is a
+    # genuine cross-paper repeat (second independent review) — v2.31 must FAIL it
+    check('A-DUP-v231-exact-ledger-cross-paper-exact-copy-FAILS',
+          _dup31([_S_DUP, _S1, _S_DUP], 'MOCK:M02', 2, stem_text=_S_DUP,
+                 session_log=[{'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 2},
+                              {'mock': 2, 'paper_id': 'MOCK:M02', 'questions_added': 1}],
+                 papers_completed=['MOCK:M01', 'MOCK:M02']) == ['FAIL'])
+    # a pre-v5.54 registry: ONE paper re-committed under the old append-only session_log
+    # holds two entries — both builds are its own (independent review finding)
+    _L3 = {'session_log': [{'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 1},
+                           {'mock': 2, 'paper_id': 'MOCK:M02', 'questions_added': 1},
+                           {'mock': 1, 'paper_id': 'MOCK:M01', 'questions_added': 1}],
+           'papers_completed': ['MOCK:M01', 'MOCK:M02']}
+    check('v231-own-stem-slice-every-build-of-a-recommitted-paper',
+          _own_stem_slice(_L3, 'MOCK:M01', 3) == ([(0, 1), (2, 3)], True)
+          and _dup31([_S1, _S2, _S_DUP], 'MOCK:M01', 1, **_L3) == ['OK']
+          and _dup31([_S1, _S_DUP, _S2], 'MOCK:M01', 1, stem_text=_S_DUP, **_L3) == ['FAIL'])
+    # ── rc/di/figural manifests: THIS paper's entry by paper_id ──
+    _ME = [{'mock': 1, 'paper_id': 'SUBJ:X:01', 'figural_qs': []},
+           {'mock': 1, 'paper_id': 'MOCK:M01', 'figural_qs': ['4']},
+           {'mock': 2, 'figural_qs': ['7']}]
+    check('v231-manifest-picked-by-paper-id [v2.30-FAILS]',
+          _pick_paper_entry(_ME, 'MOCK:M01', 1)['figural_qs'] == ['4']
+          and _pick_paper_entry(_ME, 'SUBJ:X:01', 1)['figural_qs'] == []
+          and _pick_paper_entry(_ME, 'MOCK:M02', 2)['figural_qs'] == ['7']
+          and _pick_paper_entry(_ME, 'SUBJ:X:02', 2) is None
+          and _pick_paper_entry(_ME, None, 2)['figural_qs'] == ['7']
+          and _pick_paper_entry(None, 'MOCK:M01', 1) is None
+          and _pick_paper_entry(_ME, 'MOCK:M02-CORRECTED', 2)['figural_qs'] == ['7']
+          and _pick_paper_entry(_ME, 'SUBJ:X:0A', 2) is None)
+    class _NS31:
+        def __getattr__(self, _k):
+            return None
+    _a31 = _NS31()
+    _rp = os.path.join(tmp, 'reg31.json'); _bpp = os.path.join(tmp, 'bp31.json')
+    json.dump({'figural_manifests': _ME, 'di_manifests': [{'mock': 1, 'paper_id': 'SUBJ:X:01', 'di_qs': [9]}],
+               'rc_manifests': [{'mock': 1, 'paper_id': 'SUBJ:X:01', 'passage_linked': [5]}]},
+              open(_rp, 'w'))
+    json.dump({'total_questions': 4, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}]}, open(_bpp, 'w'))
+    _a31.registry = _rp; _a31.blueprint = _bpp; _a31.mockN = 1
+    _a31.profile = os.path.join(tmp, 'no_such_difficulty_profile.json')
+    try:
+        _s31 = load_sources(_a31); _ls_err = None
+    except Exception as _e31:
+        _s31 = {}; _ls_err = _e31
+    check('v231-load_sources-absent-profile-is-not-a-crash [v2.30-FAILS]',
+          _ls_err is None and _s31.get('profile') == {} and _s31.get('profile_path_absent') is True)
+    check('v231-load_sources-reads-THIS-papers-manifests [v2.30-FAILS]',
+          _ls_err is None and _s31.get('figural_qs') == {4} and _s31.get('figural_manifest_present') is True
+          and _s31.get('di_manifest_present') is False and _s31.get('passage_linked') == set())
+    _reset(); gate_dprofile({'profile': {}, 'blueprint': {}, 'profile_path_absent': True})
+    check('A-DPROFILE-v231-absent-profile-dormant-and-says-so',
+          RESULTS[-1][0] == 'OK' and 'absent' in RESULTS[-1][2])
+    # ── A-DPROFILE: an exam-level profile beside a SCOPED blueprint ──
+    _SBP = {'exam_code': 'EX', 'total_questions': 2, 'difficulty_labels': _DL,
+            'sections': [{'name': 'U', 'q_range': [1, 2]}],
+            'scope': {'level': 'subject', 'subject': 'U'},
+            'mocks': [{'mock': 1, 'paper_id': 'SUBJ:U:01'}]}
+    check('A-DPROFILE-v231-scoped-blueprint-profile-OK [v2.30-FAILS]',
+          _dp_run(_P, _SBP)[0] == 'OK' and 'scoped paper' in _dp_run(_P, _SBP)[2])
+    _reset(); gate_dprofile({'profile': _P, '_mockN': 1,
+                             'blueprint': {k: v for k, v in _SBP.items() if k != 'scope'}})
+    check('A-DPROFILE-v231-scoped-by-paper-id-alone-OK [v2.30-FAILS]', RESULTS[-1][0] == 'OK')
+    _Prb = _cp.deepcopy(_P); _Prb['papers']['01-Jan-2025']['questions']['1']['band'] = 'Hard'
+    check('A-DPROFILE-v231-scoped-still-rebands',
+          _dp_run(_Prb, _SBP)[0] == 'FAIL' and 're-bands' in _dp_run(_Prb, _SBP)[2])
+    check('A-DPROFILE-v231-scoped-unscored-bound-is-the-sittings-own-q_total',
+          'outside 1..4' in _dp_run(_Pbad2, _SBP)[2]
+          and _dp_run(_PU, _SBP)[0] == 'OK')
+    check('A-DPROFILE-v231-mock-blueprint-unchanged',
+          _dp_run(_Pold5, _BP)[0] == 'FAIL' and _dp_run(_P, {**_BP, 'scope': {'level': 'mock'}})[0] == 'OK')
     check('A-DPROFILE-is-wired-into-run_audit', 'gate_dprofile' in _runner and "'A-DPROFILE'" in _runner)
     try:
         import paper_pipeline as _pp_dg

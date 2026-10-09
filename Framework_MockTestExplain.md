@@ -1,4 +1,13 @@
-# Framework_MockTestExplain v1.51.0
+# Framework_MockTestExplain v1.51.1
+# v1.51.1 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
+#   MockTestCreate v5.86, final_assembly v1.8, audit_canonical v2.31). registry
+#   rc_manifests[] / di_manifests[] / figural_manifests[] are shared by EVERY series
+#   (MOCK, SUBJ, TOPIC, SUBTOPIC) and, before final_assembly v1.8, were keyed only by the
+#   bare ordinal "mock": N — so MOCK:M01 and SUBJ:X:01 (both N=1) overwrote each other.
+#   Every entry Step 7 now commits carries "paper_id". P2 / P3 select THIS paper's entry
+#   by paper_id == PAPER_ID; an entry with no paper_id is a LEGACY entry and belongs to
+#   MOCK:M<mock> only; an entry is NEVER matched by the bare ordinal. No entry for this
+#   paper = no manifest (the PAPER is the authority either way — unchanged).
 # v1.51.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
 #   2026-09-14; paired with MockTestCreate v5.84, MockDeliver v1.22.0, DeliveryFooter,
 #   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
@@ -580,7 +589,10 @@ execution path — it does not shrink, soften or delete them.
      figural types) + per-subtopic patterns (what the AXIOM must state per class).
   3. blueprint.json — sections[], q_range[] (the batch-plan source), difficulty.
   4. subtopic_manifest.json — subtopic_id join (class detection support — §6).
-  5. registry.json — figural_manifests[] / rc_manifests[] as CROSS-CHECKS only.
+  5. registry.json — figural_manifests[] / rc_manifests[] as CROSS-CHECKS only — THIS
+     paper's entry only: paper_id == PAPER_ID; a legacy entry without paper_id belongs to
+     MOCK:M<mock>; never matched by the bare ordinal (v1.51.1 — the lists are shared by
+     every series).
      (v1.5) registry.question_index is a FROZEN, read-only field (Step 7 -> Step 11): Step 9
      neither consumes it as a source nor modifies it; see S2-2 for the defensive alignment check.
   When the paper and a manifest disagree, the PAPER wins (a manifest records intent;
@@ -757,8 +769,10 @@ execution path — it does not shrink, soften or delete them.
       In BOTH modes options_by_q (below) remains the per-question NAT authority and must
       agree with the resolved type; a disagreement is a config drift → P5 HALT. parse_paper checks: questions ascending + contiguous
       from 1; every question carries its EXPECTED option count (per-question, 0 for NAT);
-      Q_TOTAL matches blueprint. Re-extract figural_manifests[] / rc_manifests[] from
-      registry. Any fail → HALT with the specific check.
+      Q_TOTAL matches blueprint. Re-extract THIS paper's figural_manifests[] /
+      rc_manifests[] entry from registry (v1.51.1: paper_id == PAPER_ID; legacy entry
+      without paper_id = MOCK:M<mock>; never by the bare ordinal). Any fail → HALT with
+      the specific check.
       v1.3 — options_by_q SOURCE (the mandatory NAT wiring, Step-7 ND6 contract): load the
       per-question expected-option-count map from registry.json['options_by_q'] — v1.41.0
       (GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION): look up the PAPER_ID key FIRST
@@ -3522,5 +3536,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.51.0
+# END OF Framework_MockTestExplain v1.51.1
 # ════════════════════════════════════════════════════════════════════════
