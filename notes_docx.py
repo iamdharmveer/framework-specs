@@ -1,5 +1,22 @@
 """
-notes_docx.py v1.8 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.9 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.9 — 2026-10-23 — STATEMENT STEM BEGINNING "1." (GAP-2026-10-23-NOTES-STEM-
+    NUMERAL; reference incident SSC_CGL_TIER2_S4_T15_ST01, NotesAudit P-4).
+    _parse_question's sequence guard ("the marker must be the NEXT expected
+    option number") cannot protect OPTION 1: with the list empty the expected
+    number is 1, so a statement stem "1. … 2. … Which is/are correct?" opened
+    the option list. parse() returned an EMPTY stem, moved the stem text into
+    option 1 and silently dropped the real option 1 ("Only 1"); validate_model
+    passed (4 options, in-range key), so P-4a was green and only the P-4b byte
+    diff showed the loss — 3 of 8 Recalls in the reference unit. FIX: option 1
+    is recognised ONLY by build()'s standalone "1. " marker run
+    (_marker_run_text); options 2-4 keep the sequence guard. validate_model
+    now refuses an example/recall with an empty or whitespace-only stem, so a
+    lossy parse of this shape is a P-4a HARD STOP, not a silent pass — and NC
+    is refused the same defect at construction. Rendering path UNTOUCHED: every
+    previously-correct document parses and rebuilds identically. Self-test +5
+    checks; all 5 FAIL on v1.8 (3 parse, 2 validate — verified by mutation).
 
 v1.8 — 2026-09-23 — F-3(b)/(c)/(e) AT CONSTRUCTION (GAP-2026-09-23-FLAT-MATH-
     NOTATION; pairs with notes_core v2.13, notes_audit v2.10, Framework_NotesCreate
@@ -602,6 +619,14 @@ def validate_model(model, exemptions=()):
                 f.append(f"block {i}: qtype {qt!r} not in "
                          f"{notes_core.CANONICAL_TYPES}")
             check_runs(b.get("stem", []), f"block {i} stem")
+            # v1.9 (GAP-2026-10-23-NOTES-STEM-NUMERAL): a question with no
+            # stem is a visible defect — and it is exactly what a lossy parse
+            # produces, so refusing it here turns P-4a from a silent pass into
+            # the HARD STOP the spec intends.
+            _stem = b.get("stem") or []
+            if not any((r.get("t") != "text") or (r.get("s") or "").strip()
+                       for r in _stem if isinstance(r, dict)):
+                f.append(f"block {i}: {t} has an empty stem")
             opts = b.get("options") or []
             if qt in ("MCQ", "MSQ"):
                 if len(opts) != 4:
@@ -1243,6 +1268,20 @@ def _extract_image(doc, p_el, media_dir):
 _OPT_MARKER = re.compile(r"^\s*(\d+)\.(?=\s|$)")
 
 
+def _marker_run_text(p_el):
+    """Text of the paragraph's FIRST direct w:r run (its w:t children only).
+
+    build() writes an option's "N. " marker as a run of its own, so for an
+    option paragraph this returns exactly "N. ". A stem paragraph that merely
+    begins "1. …" carries the numeral inside its content run and returns the
+    whole content — which is what lets option 1 be told apart from such a
+    stem (v1.9, GAP-2026-10-23-NOTES-STEM-NUMERAL)."""
+    r = p_el.find(qn("w:r"))
+    if r is None:
+        return None
+    return "".join(t.text or "" for t in r.findall(qn("w:t")))
+
+
 def _parse_question(cell, title):
     blk = {"type": "example" if title.startswith("Example") else "recall",
            "qtype": None, "stem": [], "options": [], "answer": "",
@@ -1264,8 +1303,19 @@ def _parse_question(cell, title):
         # a stem line that happens to start "1. " from opening the option list
         # and turns a numbering drift into a visible loss rather than a
         # silent one.
+        # v1.9 (GAP-2026-10-23-NOTES-STEM-NUMERAL): the sequence guard above
+        # does NOT protect option 1 — while the list is empty the expected
+        # number IS 1, so a statement stem "1. PSLV … 2. GSLV … Which is/are
+        # correct?" opened the option list: the stem came back EMPTY, the
+        # stem text became option 1 and the real option 1 was silently lost
+        # (validate_model passed; only P-4b's byte diff showed it). OPTION 1
+        # is therefore recognised ONLY by build()'s own STANDALONE marker run
+        # (_marker_run_text) — a stem carries its "1." inside its text run.
         m_opt = _OPT_MARKER.match(raw)
-        if m_opt and int(m_opt.group(1)) == len(blk["options"]) + 1:
+        n_next = len(blk["options"]) + 1
+        if (m_opt and int(m_opt.group(1)) == n_next
+                and (n_next > 1
+                     or _marker_run_text(p._p) == f"{n_next}. ")):
             blk["options"].append(_strip_prefix(_runs_from_paragraph(p._p),
                                                 m_opt.group(1) + ". "))
             mode = "opt"
@@ -2165,6 +2215,45 @@ def self_test():
                      {"t": "text", "s": " is small; 512 = "}, {"t": "sym", "base": "2", "sup": "9"}]), _fp)
     check("v1.8 END-TO-END: a correctly styled build passes G-2c (v2.5 false positive fixed)",
           notes_core.scan_flat_math_tokens(_fp) == [])
+
+    # ---- v1.9: STATEMENT STEM BEGINNING "1." (GAP-2026-10-23-NOTES-STEM-NUMERAL)
+    # Reference incident: SSC_CGL_TIER2_S4_T15_ST01 Recalls 1/3/6. The parse
+    # opened the option list on the stem, returned an EMPTY stem, shifted the
+    # stem text into option 1 and dropped "Only 1" — and validate_model passed.
+    # Both fixtures below FAIL on v1.8 (verified when this was written).
+    stm = demo_model()
+    stmt_stem = T("1. Statement A holds. 2. Statement B holds. "
+                  "Which is/are correct?")
+    stm["blocks"].append({"type": "recall", "qtype": "MCQ", "stem": stmt_stem,
+                          "options": [T("Only 1"), T("Only 2"),
+                                      T("Both 1 and 2"), T("Neither 1 nor 2")],
+                          "answer": "3"})
+    _s1 = tempfile.mktemp(suffix=".docx")
+    build(stm, _s1)
+    _sb = parse(_s1, exam_code=stm["exam_code"], tier=stm["unit"]["tier"])
+    _sr = [b for b in _sb["blocks"] if b["type"] == "recall"][-1]
+    check("v1.9 a stem beginning '1.' stays the STEM (not option 1)",
+          _runs_text(_sr["stem"]) == _runs_text(stmt_stem))
+    check("v1.9 option 1 of a '1.'-stem question survives parse",
+          [_runs_text(o) for o in _sr["options"]]
+          == ["Only 1", "Only 2", "Both 1 and 2", "Neither 1 nor 2"])
+    _s2 = tempfile.mktemp(suffix=".docx")
+    try:
+        build(_sb, _s2)            # strict: a lossy parse must not rebuild
+        _s_rt = document_xml(_s1) == document_xml(_s2)
+    except ValueError:
+        _s_rt = False
+    check("v1.9 a '1.'-stem question round-trips byte-identically (W-3)",
+          _s_rt)
+    emp = demo_model()
+    emp["blocks"].append({"type": "recall", "qtype": "MCQ", "stem": [],
+                          "options": [T("a"), T("b"), T("c"), T("d")],
+                          "answer": "1"})
+    check("v1.9 validate_model refuses a question with an EMPTY stem",
+          any("empty stem" in x for x in validate_model(emp)[1]))
+    emp["blocks"][-1]["stem"] = T("   ")
+    check("v1.9 validate_model refuses a whitespace-only stem",
+          any("empty stem" in x for x in validate_model(emp)[1]))
 
     print(f"notes_docx self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

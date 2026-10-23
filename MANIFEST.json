@@ -510,11 +510,11 @@
       "bytes": 147883
     },
     "notes_docx.py": {
-      "sha256": "889f8ec485594648e7161280cf07a14d7c847d97f0021f2e652891b9f6ecc892",
+      "sha256": "022cc29e075835b27e8c0cac5a55488599a9fa1ec62118b502d3f6717d7d8fe0",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_docx.py \u2014 shared Notes document builder. Run with --self-test.\")",
-      "lines": 2178,
-      "bytes": 110205
+      "lines": 2267,
+      "bytes": 115458
     },
     "notes_sync_audit.py": {
       "sha256": "2ee60f47a127ac7f66e2052364caba00806585e05dc7621cb713e7457d840143",
