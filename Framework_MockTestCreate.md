@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v5.86
+# Framework_MockTestCreate v5.87
+# v5.87 — 2026-10-27 — GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS (spec only; no engine change).
+#   S3-12b's SAFETY-LOCK validation passed section_names = the SELECTED blueprint's
+#   sections. The stimulus profile is exam-wide, so on a SCOPED paper (SUBJ/TOPIC/
+#   SUBTOPIC) of a multi-section exam every set type belonging to another section was
+#   reported "not a section of this exam" and Step 7 HARD STOPPED before Q.1 — with a
+#   remedy (re-run PYQExtract --stimulus-profile) that could never clear it. Measured:
+#   SSC_CGL_TIER1 `TestCreate P1 --level subject --scope "English Comprehension"`
+#   stopped on gir.analogy / gir.classification / qa.statistics_data_interpretation.
+#   FIX: section_names is now the exam's section set, taken from the Step-5 subtopic
+#   manifest (MANIFEST_IDS[*].section, already loaded and required at S3-8) united with
+#   the blueprint's own sections. A renamed section is still caught. Set composition is
+#   unchanged: bc.compose_stimulus_groups already uses only the types of the section
+#   being placed. Mock papers: identical behaviour.
 # v5.86 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with audit_canonical
 #   v2.31, final_assembly v1.8, MockTestExplain v1.51.1). The registry is SHARED by every
 #   series (MOCK / SUBJ / TOPIC / SUBTOPIC) and every paper size; several places assumed every
@@ -2422,9 +2435,20 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} is not readable "
                            f"JSON ({_e}). Re-run PYQExtract --stimulus-profile and "
                            f"replace the file.")
+      # v5.87 (GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS): the profile is EXAM-wide
+      # (Step 5 measures every section), so its exam_section values are checked
+      # against the EXAM's sections — the section set of the Step-5 manifest, which
+      # is the same source the profile was built from — never against `sections`,
+      # which for a SUBJ/TOPIC/SUBTOPIC paper holds only the scoped section(s).
+      # Before v5.87 every scoped paper of a multi-section exam whose profile
+      # carried a set type in another section HARD STOPPED here. A mock paper
+      # (sections == every exam section) is byte-identical in effect.
+      _exam_sections = sorted({_r.get('section') for _r in MANIFEST_IDS.values()
+                               if isinstance(_r, dict) and _r.get('section')}
+                              | {_s['name'] for _s in sections})
       _probs = bc.validate_stimulus_profile(
           _prof, exam_code=EXAM, manifest={'subtopics': MANIFEST_IDS},
-          section_names=[_s['name'] for _s in sections])
+          section_names=_exam_sections)
       if _probs:
           raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} does not fit "
                            f"this exam — " + '; '.join(_probs) + ". Re-run PYQExtract "
@@ -10273,7 +10297,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.86
+# END OF Framework_MockTestCreate v5.87
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

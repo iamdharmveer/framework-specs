@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.10.27 — GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS: scoped papers validate the stimulus profile against the EXAM's sections
+(MockTestCreate v5.87; spec only — no engine, route or artefact change).
+Raised by SSC_CGL_TIER1 `TestCreate P1 --level subject --scope "English Comprehension"`.
+
+**The defect.** S3-12b's SAFETY LOCK validated `[ExamCode]_stimulus_profile.json` with
+`section_names` = the selected blueprint's sections. The profile is exam-wide (Step 5 measures
+every section), so on any SUBJ/TOPIC/SUBTOPIC paper of a multi-section exam each set type that
+belongs to another section (here gir.analogy, gir.classification,
+qa.statistics_data_interpretation) was reported "not a section of this exam" and Step 7 HARD
+STOPPED before Q.1. The printed remedy — re-run PYQExtract --stimulus-profile — could never clear
+it, because the profile was correct.
+
+**The fix.** `section_names` is now the exam's section set from the Step-5 subtopic manifest
+(`MANIFEST_IDS[*].section`, already required at S3-8) united with the blueprint's sections. A
+renamed section is still caught; set composition is unchanged (compose_stimulus_groups only uses
+the section being placed); mock papers behave identically.
+
 ## 2026.10.09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC: every registry paper is checked as ITS OWN size and series
 (MockTestCreate v5.86, MockTestExplain v1.51.1; audit_canonical v2.31, final_assembly v1.8).
 Raised by CSIR_NET_MATHEMATICAL_SCIENCES `TestCreate P1 --level subject --scope "UNIT 1"`.
