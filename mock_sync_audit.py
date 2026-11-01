@@ -64,6 +64,24 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       their artefact names, spec sections and engine helpers
                       appear in live spec text only beside a retirement
                       notice, and never in routes.json / SKILL / PIPELINE.
+  MS-21 MANIFEST-COMMIT-UNGATED
+                      MockTestCreate's live text never gates a manifest commit
+                      on a *_present flag and still calls fa.commit_registry
+                      (MANIFEST-COMMIT-LAW; GAP-2026-11-01).
+  MS-22 PRESENCE-FLAGS-DERIVED
+                      Blueprint / ScopedBlueprint derive the presence flags from
+                      the allocation and never inherit them from exam_config.
+  MS-23 FIGURE-TYPE-PARITY
+                      figure_types.RENDER_CLASSES == S10-6A table ==
+                      figural_core.FIGURE_CLASSES; figure_types.SEMANTIC_KINDS ==
+                      paper_pipeline.SEMANTIC_KINDS (one vocabulary, three copies).
+  MS-24 KIND-COVERAGE-PREFLIGHT
+                      Every blueprint producer calls bc.kind_coverage_preflight
+                      and records figural_fallbacks (FIGURE-TYPE-COVERAGE-LAW).
+  MS-25 FIGTYPE-KIND-GATE
+                      MockTestCreate carries G-FIGTYPE-KIND, dispatches REACTION
+                      to cio.render_scheme and passes --fig-manifest; the auditor
+                      emits A-FIGTYPE-KIND in both states (FIGURE-RECORD-INTEGRITY-LAW).
   MS-11 DELIVERY-SET-PARITY
                       MockTestAnalyse's Step-5 final delivery: the code's
                       unconditional/conditional deliverable sets (parsed from
@@ -992,6 +1010,157 @@ def check_registry_source(read=_read):
 
 
 
+# ── MS-21 .. MS-25 ────────────────────────────────────────────────────────
+# GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW_REGISTRY.json
+# MANIFEST-COMMIT-LAW, FIGURE-TYPE-COVERAGE-LAW, FIGURE-RECORD-INTEGRITY-LAW).
+# The reference incident: a scoped blueprint born `figural_present: false` from an
+# exam_config key no step writes; Step 7 S13-4 gating the figure record on that flag;
+# six delivered papers with 36 figures each and no record, every one audited green;
+# 287 'reaction_scheme' labels over single-molecule objects that no gate compared.
+# Each check below compares one authority against another; none holds an opinion.
+_MS21_FLAG_GATE_RE = re.compile(
+    r"^\s*if\s+(?:figural_present|di_present|passage_present)\s+and\b.*"
+    r"(?:fig_manifest|di_manifest|_manifest\.json|rc_manifests|passage_linked)", re.M)
+_MS22_INHERIT_RE = re.compile(
+    r"exam_config\.get\(\s*['\"](?:passage|figural|di|multi|nat)_present['\"]")
+_MS_FLAG_SPECS = ['Framework_Blueprint.md', 'Framework_ScopedBlueprint.md']
+_MS_CREATE = 'Framework_MockTestCreate.md'
+
+
+def check_manifest_commit_ungated(read=_read):
+    """MS-21 — no spec may gate a manifest COMMIT on a *_present flag in live text
+    (MANIFEST-COMMIT-LAW: a flag describes a paper; it never suppresses its record)."""
+    problems = []
+    try:
+        text = read(_MS_CREATE)
+    except FileNotFoundError:
+        return [f'{_MS_CREATE}: missing — MS-21 has no ground truth for it']
+    live = _rh_live(text)
+    for m in _MS21_FLAG_GATE_RE.finditer(live):
+        ln = live.count('\n', 0, m.start()) + 1
+        problems.append(f'{_MS_CREATE} L{ln}: a manifest commit is gated on a producer flag '
+                        f'({m.group(0).strip()[:70]!r}) — final_assembly v1.10 commits on '
+                        f'existence; the flag may describe the paper, never suppress its '
+                        f'record (MANIFEST-COMMIT-LAW).')
+    if 'fa.commit_registry(' not in live:
+        problems.append(f'{_MS_CREATE}: S13-4 no longer calls fa.commit_registry( in live text '
+                        f'— the one manifest writer is unreachable.')
+    return problems
+
+
+def check_presence_flags_derived(read=_read):
+    """MS-22 — no blueprint producer may INHERIT a *_present flag from exam_config;
+    every producer derives it through bc.derive_presence_flags (or the §6-2 any(fmt==)
+    rule, which the engine mirrors)."""
+    problems = []
+    for name in _MS_FLAG_SPECS:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            problems.append(f'{name}: missing — MS-22 has no ground truth for it')
+            continue
+        live = _rh_live(text)
+        for m in _MS22_INHERIT_RE.finditer(live):
+            ln = live.count('\n', 0, m.start()) + 1
+            problems.append(f'{name} L{ln}: live text inherits a presence flag from exam_config '
+                            f'({m.group(0)!r}) — no step writes those keys; derive the flag '
+                            f'from the allocation (bc.derive_presence_flags; MANIFEST-COMMIT-LAW).')
+        if 'derive_presence_flags(' not in live and "any(fmt == 'FIGURAL'" not in live:
+            problems.append(f'{name}: no derivation of the presence flags in live text — a '
+                            f'blueprint producer must derive figural_present from its allocation.')
+    return problems
+
+
+def check_figure_type_registry_parity(read=_read, root=None):
+    """MS-23 — figure_types.FIGURE_TYPES must name only render classes that S10-6A
+    (MockTestCreate) and figural_core.FIGURE_CLASSES declare, and only kinds that
+    paper_pipeline.SEMANTIC_KINDS declares. Three authorities, one vocabulary."""
+    problems = []
+    try:
+        ft_src = read('figure_types.py')
+        create = read(_MS_CREATE)
+    except FileNotFoundError as e:
+        ft_src = create = None
+        problems.append(f'MS-23 has no ground truth: {e}')
+    m_cls = re.search(r"^RENDER_CLASSES\s*=\s*\(([^)]*)\)", ft_src, re.M | re.S) if ft_src else None
+    m_kinds = re.search(r"^SEMANTIC_KINDS\s*=\s*\(([^)]*)\)", ft_src, re.M | re.S) if ft_src else None
+    if ft_src is not None and (not m_cls or not m_kinds):
+        problems.append('figure_types.py: RENDER_CLASSES / SEMANTIC_KINDS tuples not found — MS-23 cannot compare')
+    ft_classes = set(re.findall(r"'([a-z_]+)'", m_cls.group(1))) if m_cls else set()
+    ft_kinds = set(re.findall(r"'([A-Z_]+)'", m_kinds.group(1))) if m_kinds else set()
+    if m_cls and m_kinds:
+        s10 = re.search(r'## S10-6A — FIGURE CLASS TAXONOMY(.*?)\n## ', create, re.S)
+        spec_classes = set(re.findall(r'^\s*\|\s*`([a-z_]+)`\s*\|', s10.group(1), re.M)) if s10 else set()
+        if not spec_classes:
+            problems.append(f'{_MS_CREATE}: S10-6A class table not found — MS-23 cannot compare')
+        elif ft_classes != spec_classes:
+            problems.append(f'figure_types.RENDER_CLASSES {sorted(ft_classes)} != S10-6A table '
+                            f'{sorted(spec_classes)} — one vocabulary, three copies drifted.')
+        try:
+            fc_src = read('figural_core.py')
+            pp_src = read('paper_pipeline.py')
+        except FileNotFoundError as e:
+            fc_src = pp_src = None
+            problems.append(f'MS-23 engine side unreadable: {e}')
+        if fc_src is not None:
+            m_floor = re.search(r"^ONPAGE_FLOOR_PT\s*=\s*\{(.*?)\}", fc_src, re.M | re.S)
+            fc_classes = set(re.findall(r'"([a-z_]+)"\s*:', m_floor.group(1))) if m_floor else set()
+            if fc_classes and fc_classes != ft_classes:
+                problems.append(f'figure_types.RENDER_CLASSES {sorted(ft_classes)} != '
+                                f'figural_core.FIGURE_CLASSES {sorted(fc_classes)}.')
+            m_pp = re.search(r"^SEMANTIC_KINDS\s*=\s*\(([^)]*)\)", pp_src, re.M | re.S)
+            pp_kinds = set(re.findall(r"'([A-Z_]+)'", m_pp.group(1))) if m_pp else set()
+            if pp_kinds and pp_kinds != ft_kinds:
+                problems.append(f'figure_types.SEMANTIC_KINDS {sorted(ft_kinds)} != '
+                                f'paper_pipeline.SEMANTIC_KINDS {sorted(pp_kinds)}.')
+    return problems
+
+
+def check_kind_coverage_preflight_present(read=_read):
+    """MS-24 — every blueprint producer runs bc.kind_coverage_preflight( in live text
+    and records blueprint figural_fallbacks (FIGURE-TYPE-COVERAGE-LAW F1.4)."""
+    problems = []
+    for name in _MS_FLAG_SPECS:
+        try:
+            live = _rh_live(read(name))
+        except FileNotFoundError:
+            problems.append(f'{name}: missing — MS-24 has no ground truth for it')
+            continue
+        if 'kind_coverage_preflight(' not in live:
+            problems.append(f'{name}: never calls bc.kind_coverage_preflight( in live text — a '
+                            f'blueprint may allocate a dominant figure type nothing can render.')
+        if 'figural_fallbacks' not in live:
+            problems.append(f'{name}: never records figural_fallbacks — a text_disclosed fallback '
+                            f'would be invisible to Step 7 and the footer.')
+    return problems
+
+
+def check_figtype_kind_gate_present(read=_read):
+    """MS-25 — the spec that records figures (MockTestCreate) carries the
+    G-FIGTYPE-KIND checklist item, dispatches REACTION roles to render_scheme, and the
+    auditor carries A-FIGTYPE-KIND (FIGURE-RECORD-INTEGRITY-LAW F2.1)."""
+    problems = []
+    try:
+        live = _rh_live(read(_MS_CREATE))
+        audit = read('audit_canonical.py')
+    except FileNotFoundError as e:
+        return [f'MS-25 has no ground truth: {e}']
+    if 'G-FIGTYPE-KIND' not in live:
+        problems.append(f'{_MS_CREATE}: S4-11 carries no G-FIGTYPE-KIND item — a label that '
+                        f'disagrees with its object would ship ungated.')
+    if 'render_scheme(' not in live:
+        problems.append(f'{_MS_CREATE}: S7-NEW-B2 never dispatches a REACTION role to '
+                        f'cio.render_scheme( — the kind would again be mandated to a renderer '
+                        f'that rejects it.')
+    if "_ok('A-FIGTYPE-KIND'" not in audit or "_fail('A-FIGTYPE-KIND'" not in audit:
+        problems.append('audit_canonical.py: A-FIGTYPE-KIND is not emitted in both states — '
+                        'the auditor twin of G-FIGTYPE-KIND is missing or disarmed.')
+    if '--fig-manifest' not in live:
+        problems.append(f'{_MS_CREATE}: S4-7 STEP B never passes --fig-manifest — A-FIGTYPE-KIND '
+                        f'would be armed only at S13-4c, never per batch.')
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -1013,6 +1182,11 @@ ALL_CHECKS = [
     ('MS-18 STATUS-SET-INVARIANCE', check_status_set_invariance),
     ('MS-19 TRANSITION-FIELD-OWNERSHIP', check_transition_field_ownership),
     ('MS-20 REGISTRY-SOURCE', check_registry_source),
+    ('MS-21 MANIFEST-COMMIT-UNGATED', check_manifest_commit_ungated),
+    ('MS-22 PRESENCE-FLAGS-DERIVED', check_presence_flags_derived),
+    ('MS-23 FIGURE-TYPE-PARITY', check_figure_type_registry_parity),
+    ('MS-24 KIND-COVERAGE-PREFLIGHT', check_kind_coverage_preflight_present),
+    ('MS-25 FIGTYPE-KIND-GATE', check_figtype_kind_gate_present),
 ]
 
 
@@ -1390,6 +1564,97 @@ def self_test():
           check_registry_source(read=fake_reader({**_rs_ok, 'Framework_MockDeliver.md':
               "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
               "bp = glob.glob(f'/mnt/project/{EXAM}*_blueprint.json')\n"})) == [])
+
+    # ── MS-21..MS-25 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY ──
+    # Every emission below is killed by a fixture (MUTATION_BUDGETS: this engine is 0).
+    _c_ok = "  _commit = fa.commit_registry(registry, pending_registry, bp, N)\n"
+    check('ms21_clean_passes', check_manifest_commit_ungated(read=fake_reader({'Framework_MockTestCreate.md': _c_ok})) == [])
+    check('ms21_flag_gated_commit_flagged',
+          any('gated on a producer flag' in x and 'L1' in x for x in check_manifest_commit_ungated(read=fake_reader(
+              {'Framework_MockTestCreate.md': "  if figural_present and os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):\n" + _c_ok}))))
+    check('ms21_di_flag_gate_flagged',
+          any('gated on a producer flag' in x for x in check_manifest_commit_ungated(read=fake_reader(
+              {'Framework_MockTestCreate.md': "  if di_present and di_manifest is not None:\n" + _c_ok}))))
+    check('ms21_quoted_in_comment_allowed',
+          check_manifest_commit_ungated(read=fake_reader(
+              {'Framework_MockTestCreate.md': "  # was: if figural_present and os.path.exists(fig_manifest)\n" + _c_ok})) == [])
+    check('ms21_missing_writer_flagged',
+          any('never calls fa.commit_registry' in x or 'no longer calls fa.commit_registry' in x
+              for x in check_manifest_commit_ungated(read=fake_reader({'Framework_MockTestCreate.md': 'x = 1\n'}))))
+    check('ms21_missing_spec_flagged', any('missing' in x for x in check_manifest_commit_ungated(read=fake_reader({}))))
+
+    _f_ok = {'Framework_Blueprint.md': "figural_present = any(fmt == 'FIGURAL' for fmt in format_map.values())\n",
+             'Framework_ScopedBlueprint.md': "PRESENCE = bc.derive_presence_flags(_all_allocs)\n"}
+    check('ms22_clean_passes', check_presence_flags_derived(read=fake_reader(_f_ok)) == [])
+    check('ms22_inherit_idiom_flagged',
+          any('inherits a presence flag from exam_config' in x and 'L2' in x for x in check_presence_flags_derived(read=fake_reader(
+              {**_f_ok, 'Framework_ScopedBlueprint.md': "PRESENCE = bc.derive_presence_flags(_all_allocs)\n"
+                                                        "    'figural_present': exam_config.get('figural_present', False),\n"}))))
+    check('ms22_inherit_in_comment_allowed',
+          check_presence_flags_derived(read=fake_reader(
+              {**_f_ok, 'Framework_ScopedBlueprint.md': "PRESENCE = bc.derive_presence_flags(_all_allocs)\n"
+                                                        "# was: exam_config.get('figural_present', False)\n"})) == [])
+    check('ms22_no_derivation_flagged',
+          any('no derivation of the presence flags' in x for x in check_presence_flags_derived(read=fake_reader(
+              {**_f_ok, 'Framework_ScopedBlueprint.md': "x = 1\n"}))))
+    check('ms22_missing_spec_flagged', any('missing' in x for x in check_presence_flags_derived(read=fake_reader({}))))
+
+    _ft_src = ("RENDER_CLASSES = ('data_series', 'data_single', 'schematic', 'reasoning_glyph',\n"
+               "                  'option_canvas')\nSEMANTIC_KINDS = ('STRUCTURE', 'REACTION', 'PLOT')\n")
+    _s10 = ("## S10-6A — FIGURE CLASS TAXONOMY\n  | Class | x |\n  | :-- | :-- |\n"
+            "  | `data_series` | a |\n  | `data_single` | b |\n  | `schematic` | c |\n"
+            "  | `reasoning_glyph` | d |\n  | `option_canvas` | e |\n\n## S10-7 — next\n")
+    _fc_src = 'ONPAGE_FLOOR_PT = {\n    "data_series": 9.0,\n    "data_single": 9.0,\n    "schematic": 9.0,\n    "reasoning_glyph": 9.0,\n    "option_canvas": 9.0,\n}\n'
+    _pp_src = "SEMANTIC_KINDS = ('STRUCTURE', 'REACTION', 'PLOT')\n"
+    _p_ok = {'figure_types.py': _ft_src, 'Framework_MockTestCreate.md': _s10, 'figural_core.py': _fc_src, 'paper_pipeline.py': _pp_src}
+    check('ms23_clean_passes', check_figure_type_registry_parity(read=fake_reader(_p_ok)) == [])
+    check('ms23_tuples_missing_flagged',
+          any('tuples not found' in x for x in check_figure_type_registry_parity(read=fake_reader({**_p_ok, 'figure_types.py': 'x = 1\n'}))))
+    check('ms23_s10_table_missing_flagged',
+          any('S10-6A class table not found' in x for x in check_figure_type_registry_parity(read=fake_reader({**_p_ok, 'Framework_MockTestCreate.md': 'nothing\n'}))))
+    check('ms23_spec_class_drift_flagged',
+          any('S10-6A table' in x and '!=' in x for x in check_figure_type_registry_parity(read=fake_reader(
+              {**_p_ok, 'Framework_MockTestCreate.md': _s10.replace('| `option_canvas` | e |\n', '')}))))
+    check('ms23_engine_unreadable_flagged',
+          any('engine side unreadable' in x for x in check_figure_type_registry_parity(read=fake_reader(
+              {k: v for k, v in _p_ok.items() if k != 'figural_core.py'}))))
+    check('ms23_figural_core_class_drift_flagged',
+          any('figural_core.FIGURE_CLASSES' in x for x in check_figure_type_registry_parity(read=fake_reader(
+              {**_p_ok, 'figural_core.py': _fc_src.replace('    "schematic": 9.0,\n', '')}))))
+    check('ms23_kind_drift_flagged',
+          any('paper_pipeline.SEMANTIC_KINDS' in x for x in check_figure_type_registry_parity(read=fake_reader(
+              {**_p_ok, 'paper_pipeline.py': "SEMANTIC_KINDS = ('STRUCTURE', 'PLOT')\n"}))))
+    check('ms23_ground_truth_missing_flagged', any('no ground truth' in x for x in check_figure_type_registry_parity(read=fake_reader({}))))
+
+    _k_ok = {n: "KIND_COVERAGE = bc.kind_coverage_preflight(a, b, ft.coverage)\nblueprint['figural_fallbacks'] = {}\n" for n in _MS_FLAG_SPECS}
+    check('ms24_clean_passes', check_kind_coverage_preflight_present(read=fake_reader(_k_ok)) == [])
+    check('ms24_no_preflight_flagged',
+          any('never calls bc.kind_coverage_preflight' in x for x in check_kind_coverage_preflight_present(read=fake_reader(
+              {**_k_ok, 'Framework_Blueprint.md': "blueprint['figural_fallbacks'] = {}\n"}))))
+    check('ms24_no_fallbacks_flagged',
+          any('never records figural_fallbacks' in x for x in check_kind_coverage_preflight_present(read=fake_reader(
+              {**_k_ok, 'Framework_ScopedBlueprint.md': "KIND_COVERAGE = bc.kind_coverage_preflight(a, b, ft.coverage)\n"}))))
+    check('ms24_comment_does_not_count',
+          any('never calls' in x for x in check_kind_coverage_preflight_present(read=fake_reader(
+              {**_k_ok, 'Framework_Blueprint.md': "# kind_coverage_preflight( is documented here\nblueprint['figural_fallbacks'] = {}\n"}))))
+    check('ms24_missing_spec_flagged', any('missing' in x for x in check_kind_coverage_preflight_present(read=fake_reader({}))))
+
+    _g_ok = {'Framework_MockTestCreate.md': "  [ ] G-FIGTYPE-KIND: x\n  draw = cio.render_scheme(scheme)\n  --fig-manifest /home/claude/x.json\n",
+             'audit_canonical.py': "_ok('A-FIGTYPE-KIND', 'a')\n_fail('A-FIGTYPE-KIND', 'b')\n"}
+    check('ms25_clean_passes', check_figtype_kind_gate_present(read=fake_reader(_g_ok)) == [])
+    check('ms25_no_checklist_item_flagged',
+          any('no G-FIGTYPE-KIND item' in x for x in check_figtype_kind_gate_present(read=fake_reader(
+              {**_g_ok, 'Framework_MockTestCreate.md': "  draw = cio.render_scheme(scheme)\n  --fig-manifest x\n"}))))
+    check('ms25_no_render_scheme_flagged',
+          any('cio.render_scheme(' in x for x in check_figtype_kind_gate_present(read=fake_reader(
+              {**_g_ok, 'Framework_MockTestCreate.md': "  [ ] G-FIGTYPE-KIND: x\n  --fig-manifest x\n"}))))
+    check('ms25_auditor_twin_missing_flagged',
+          any('A-FIGTYPE-KIND is not emitted in both states' in x for x in check_figtype_kind_gate_present(read=fake_reader(
+              {**_g_ok, 'audit_canonical.py': "_ok('A-FIGTYPE-KIND', 'a')\n"}))))
+    check('ms25_no_fig_manifest_flag_flagged',
+          any('--fig-manifest' in x for x in check_figtype_kind_gate_present(read=fake_reader(
+              {**_g_ok, 'Framework_MockTestCreate.md': "  [ ] G-FIGTYPE-KIND: x\n  draw = cio.render_scheme(scheme)\n"}))))
+    check('ms25_ground_truth_missing_flagged', any('no ground truth' in x for x in check_figtype_kind_gate_present(read=fake_reader({}))))
 
     # ── MS-15 — REPAIR-RETIRED-2026-08-27 ───────────────────────────────────
     _rt_ok = {'Framework_MockTestExplain.md': 'On a not-met gate the paper delivers.\n'

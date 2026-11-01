@@ -5182,7 +5182,7 @@ def vision_profile(records, min_dominant=MIN_DOMINANT_OBSERVATIONS, top_n=3,
 GENERATION_MODES = ('unconstrained', 'observed', 'dominant')
 
 
-def figural_generation_profile(pyq_image_analysis):
+def figural_generation_profile(pyq_image_analysis, normalise=None):
     """CONSUMER SIDE. Resolve a section_rules PYQ_IMAGE_ANALYSIS block into a
     figure-generation constraint for Step 7. NEVER raises.
 
@@ -5222,6 +5222,13 @@ def figural_generation_profile(pyq_image_analysis):
     if not isinstance(pyq_image_analysis, dict) or not pyq_image_analysis:
         out['reason'] = 'no PYQ_IMAGE_ANALYSIS block (pre-v2.37 artefact) — EC-V18'
         return out
+    # v1.28 (GAP-2026-11-01 LAW F1.2): an INJECTED normaliser (figure_types.normalise on
+    # every route that loads it) maps legacy free-text strings onto the registry
+    # vocabulary at READ time, so a section_rules written before the registry existed
+    # needs no re-run. Thin-core: this module never imports figure_types (Check AB);
+    # with normalise=None the strings pass through exactly as before v1.28.
+    if normalise is None:
+        normalise = (lambda s: s)
 
     status = pyq_image_analysis.get('vision_status')
     if status in ('unavailable', 'not_applicable'):
@@ -5235,8 +5242,16 @@ def figural_generation_profile(pyq_image_analysis):
     def _clean(seq):
         return [str(x) for x in seq if x] if isinstance(seq, (list, tuple)) else []
 
-    dominant = _clean(ot.get('dominant'))
-    observed = _clean(ot.get('observed'))
+    def _norm(seq):
+        seen, res = set(), []
+        for x in seq:
+            n = str(normalise(x) or '')
+            if n and n not in seen:
+                seen.add(n); res.append(n)
+        return res
+
+    dominant = _norm(_clean(ot.get('dominant')))
+    observed = _norm(_clean(ot.get('observed')))
     out['dominant'] = dominant
     out['observed'] = sorted(set(observed) | set(dominant))
     out['transformation_types'] = _clean(pyq_image_analysis.get('transformation_types'))
@@ -5263,7 +5278,8 @@ DOMINANT_SHARE_FLOOR = 0.55
 
 
 def check_figural_conformance(generated_types, profile,
-                              floor=DOMINANT_SHARE_FLOOR):
+                              floor=DOMINANT_SHARE_FLOOR, kind_check=None,
+                              class_check=None):
     """Did generation honour the figure profile? ONE rule, shared by Steps 7 and 8.
 
     generated_types: the object_type Step 7 RECORDED for each figural question it
@@ -5284,12 +5300,47 @@ def check_figural_conformance(generated_types, profile,
 
     NEVER raises. An unconstrained profile SKIPs, which is what keeps ~200 legacy
     exams passing (EC-V18).
+
+    v1.28 (GAP-2026-11-01 LAW F2.1/F2.4) — EVIDENCE, NOT ONLY LABELS. Each element of
+    generated_types may be a RECORD {'object_type', 'semantic_kind', 'render_class'}
+    instead of a bare label. With an INJECTED kind_check(object_type, kind) ->
+    (verdict, detail) (figure_types.kind_consistent; thin-core forbids importing it
+    here) every record is first checked for TYPE↔KIND consistency: a 'reaction_scheme'
+    label over a STRUCTURE object is a FAIL — a false record — BEFORE any share test
+    (on the reference registry this fires 287 times). class_check(object_type,
+    render_class) likewise. An UNREGISTERED type is never a FAIL: it is counted and
+    named in the detail so the footer can disclose it. Bare labels, or no injected
+    checker, behave exactly as v1.27 — the gate audits recorded intent.
     """
-    types = [str(t) for t in (generated_types or []) if t]
+    recs = [t for t in (generated_types or []) if t]
+    types, kind_fails, class_fails, unregistered = [], [], [], 0
+    for r in recs:
+        if isinstance(r, dict):
+            ot = str(r.get('object_type') or '')
+            if not ot:
+                continue
+            types.append(ot)
+            if kind_check is not None and r.get('semantic_kind'):
+                v, d = kind_check(ot, r.get('semantic_kind'))
+                if v == 'FAIL':
+                    kind_fails.append(f'{r.get("q", "?")}: {d}')
+                elif v == 'UNREGISTERED':
+                    unregistered += 1
+            if class_check is not None and r.get('render_class'):
+                v, d = class_check(ot, r.get('render_class'))
+                if v == 'FAIL':
+                    class_fails.append(f'{r.get("q", "?")}: {d}')
+        else:
+            types.append(str(r))
+    if kind_fails or class_fails:
+        return ('FAIL', 'figure record is inconsistent with itself (TYPE↔KIND/CLASS, '
+                        'LAW F2.1): ' + ' | '.join(kind_fails + class_fails))
     mode = (profile or {}).get('mode', 'unconstrained')
     if mode == 'unconstrained' or not types:
         return ('SKIP', 'no figure profile for this subtopic (EC-V18)'
                 if mode == 'unconstrained' else 'no generated figural questions')
+    _unreg = (f'; {unregistered} record(s) carry an UNREGISTERED figure type — kind '
+              f'not verifiable (add it to figure_types.FIGURE_TYPES)') if unregistered else ''
 
     observed = set((profile or {}).get('observed') or [])
     stray = sorted({t for t in types if t not in observed})
@@ -5302,7 +5353,7 @@ def check_figural_conformance(generated_types, profile,
 
     if mode == 'observed':
         return ('PASS', f'{len(types)} figure(s) drawn from the observed range '
-                        f'{sorted(observed)}; no dominant type to bind to')
+                        f'{sorted(observed)}; no dominant type to bind to' + _unreg)
 
     dominant = set((profile or {}).get('dominant') or [])
     hit = sum(1 for t in types if t in dominant)
@@ -5315,7 +5366,138 @@ def check_figural_conformance(generated_types, profile,
                 f'{int(float(floor) * 100)}%. The mock under-represents what this '
                 f'subtopic actually looks like.')
     return ('PASS', f'{hit}/{len(types)} ({share:.0%}) use a dominant type '
-                    f'(floor {int(float(floor) * 100)}%)')
+                    f'(floor {int(float(floor) * 100)}%)' + _unreg)
+
+
+# ── v1.28 — LAW F1.4 / F3.2 (GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY) ──
+PRESENCE_FLAGS = ('passage_present', 'figural_present', 'di_present',
+                  'multi_present', 'nat_present')
+FIGURE_FALLBACK_POLICIES = ('hard_stop', 'text_disclosed')
+
+
+def derive_presence_flags(allocations, subtopic_list=None, marking_scheme=None,
+                          format_map=None):
+    """The five producer flags DERIVED from what a blueprint actually allocates —
+    never inherited from exam_config (LAW F3.2). One rule for Blueprint (§7-7) and
+    ScopedBlueprint (§7), so a scoped series built from 18 FIGURAL subtopics can no
+    longer be born `figural_present: false` (reference incident: 6 of 21 scoped papers
+    carried no figure record, every one audited green).
+
+    allocations   : [{'subtopic_id', 'format', ...}, ...] over every paper/section
+                    (format may instead come from format_map[subtopic_id])
+    subtopic_list : [{'subtopic_id', 'answer_cardinality', 'answer_type'}, ...]
+    marking_scheme: [{'question_type': 'MCQ'|'MSQ'|'NAT', ...}, ...]  (S6-MS precedent)
+    Returns {flag: bool} for PRESENCE_FLAGS. Pure; never raises."""
+    fmts = set()
+    for a in (allocations or []):
+        if not isinstance(a, dict):
+            continue
+        f = a.get('format')
+        if not f and format_map:
+            f = format_map.get(a.get('subtopic_id'))
+        if f:
+            fmts.add(str(f).strip().upper())
+    allocated = {a.get('subtopic_id') for a in (allocations or []) if isinstance(a, dict)}
+    multi = nat = False
+    for s in (subtopic_list or []):
+        if not isinstance(s, dict) or (allocated and s.get('subtopic_id') not in allocated):
+            continue
+        if str(s.get('answer_cardinality', 'single')).strip().lower() == 'multi':
+            multi = True
+        if str(s.get('answer_type', 'option')).strip().lower() == 'numerical':
+            nat = True
+    ms_types = {str(m.get('question_type', 'MCQ')).upper()
+                for m in (marking_scheme or []) if isinstance(m, dict)}
+    return {'passage_present': 'PASSAGE' in fmts,
+            'figural_present': 'FIGURAL' in fmts,
+            'di_present': 'DI' in fmts,
+            'multi_present': multi or 'MSQ' in ms_types,
+            'nat_present': nat or 'NAT' in ms_types}
+
+
+def kind_coverage_preflight(allocations, image_blocks, coverage, policy='hard_stop',
+                            normalise=None):
+    """LAW F1.4 — a figure type may be DOMINANT in a blueprint only if the framework
+    can render it, and the framework must be able to say so before Q.1.
+
+    allocations : [{'subtopic_id', 'format'}, ...] (every FIGURAL allocation is checked)
+    image_blocks: {subtopic_id: PYQ_IMAGE_ANALYSIS dict} (parse_image_analysis_blocks)
+    coverage    : INJECTED figure_types.coverage (optionally bound to a session
+                  preflight) -> {'supported','unsupported','unregistered','unavailable'}
+    policy      : 'hard_stop' (default) | 'text_disclosed' (exam_config
+                  figure_fallback_policy) — decides what an UNSUPPORTED dominant set does
+    Returns {'status': 'ok'|'stop'|'fallback', 'blockers': [...], 'fallbacks':
+             {sid: [types]}, 'advisories': [...], 'unavailable': [...],
+             'unavailable_blocking': [...], 'checked': n, 'matched': m}.
+      checked  = FIGURAL subtopics whose profile is dominant-mode (the ones actually tested)
+      matched  = FIGURAL subtopics that have ANY Step-5 block (0 with blocks present means
+                 the allocation ids and the block ids disagree — a caller tripwire)
+      unavailable          = every (sid, types) whose renderer this session cannot load
+      unavailable_blocking = the subset where NO dominant member is loadable in this
+                 session — the only entries a Step-7 session pre-flight may stop on (E7:
+                 one loadable supported member satisfies the floor)
+    Rules (edge cases E1–E7, E21):
+      * ≥1 dominant member supported            -> ok (E7)
+      * every dominant member unsupported        -> stop, or fallback under text_disclosed
+      * dominant members only unregistered       -> ADVISORY, never a stop (EC-V18): the
+                                                    type renders as a GENERIC schematic
+      * a supported type whose renderer this SESSION cannot load -> 'unavailable' (Step 7
+        S3 stops on it with the pip line; Step 6 only reports it)
+      * mode observed / unconstrained            -> nothing to check (E4/E5)
+    Pure; never raises."""
+    out = {'status': 'ok', 'blockers': [], 'fallbacks': {}, 'advisories': [],
+           'unavailable': [], 'unavailable_blocking': [], 'checked': 0, 'matched': 0}
+    seen = set()
+    for a in (allocations or []):
+        if not isinstance(a, dict):
+            continue
+        sid = a.get('subtopic_id')
+        if not sid or sid in seen or str(a.get('format', '')).upper() != 'FIGURAL':
+            continue
+        seen.add(sid)
+        if (image_blocks or {}).get(sid):
+            out['matched'] += 1
+        prof = figural_generation_profile((image_blocks or {}).get(sid), normalise=normalise)
+        if prof.get('mode') != 'dominant':
+            continue
+        out['checked'] += 1
+        cov = coverage(prof['dominant'])
+        if cov.get('unavailable'):
+            out['unavailable'].append(f'{sid}: {cov["unavailable"]} (renderer not loadable in this session)')
+        if cov.get('supported'):
+            continue
+        if cov.get('unavailable'):
+            # a registry-SUPPORTED member exists but this session cannot load its renderer:
+            # the remedy is the install line, never the fallback policy (Step 6 reported ok)
+            out['unavailable_blocking'].append(
+                f'{sid}: dominant figure type(s) {cov["unavailable"]} need a renderer this '
+                f'session cannot import')
+            continue
+        if cov.get('unregistered'):
+            # an unregistered member renders as a GENERIC schematic (E6/EC-V18): it
+            # satisfies the floor; the unsupported siblings are simply not drawn
+            out['advisories'].append(
+                f'{sid}: dominant figure type(s) {cov["unregistered"]} are not in '
+                f'figure_types.FIGURE_TYPES — they will render as a GENERIC hand-drawn '
+                f'schematic and A-FIGTYPE-KIND will report them as unverifiable (AMBER). '
+                f'Add a registry row to bind them to a renderer.'
+                + (f' Unsupported sibling(s) {cov["unsupported"]} are not drawn.' if cov.get('unsupported') else ''))
+            continue
+        if cov.get('unsupported'):
+            if policy == 'text_disclosed':
+                out['fallbacks'][sid] = list(cov['unsupported'])
+            else:
+                out['blockers'].append(
+                    f'{sid}: dominant figure type(s) {cov["unsupported"]} are UNSUPPORTED '
+                    f'(figure_types.FIGURE_TYPES status) — line art cannot stand in for '
+                    f'them. Set exam_config.figure_fallback_policy = "text_disclosed" to '
+                    f'allocate this subtopic as TEXT with a footer disclosure, or remove '
+                    f'it from the scope.')
+    if out['blockers']:
+        out['status'] = 'stop'
+    elif out['fallbacks']:
+        out['status'] = 'fallback'
+    return out
 
 
 def parse_image_analysis_blocks(section_rules_text):
@@ -8912,6 +9094,118 @@ PYQ_IMAGE_ANALYSIS:
     check('sg_unanchored_spread_ignores_anchored_types',
           sorted(q for q, x in _mm3.items() if x.startswith('b.b')) == [10, 11]
           and sorted(q for q, x in _mm3.items() if x.startswith('a.a')) == [19, 20])
+
+    # ── v1.28 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY ─────────
+    # Every injected collaborator is a STUB here (thin core: figure_types is never
+    # imported by this module). Each fixture FAILS on v1.27.
+    _ia = {'vision_status': 'observed',
+           'object_types': {'dominant': ['Reaction Scheme', 'reaction_scheme'],
+                            'observed': ['chemical structure', 'Line Graph'], 'avoid': []}}
+    _nrm = lambda s: str(s).strip().lower().replace(' ', '_')
+    _pn = figural_generation_profile(_ia, normalise=_nrm)
+    check('ft_profile_normalises_and_dedupes',
+          _pn['dominant'] == ['reaction_scheme'] and _pn['observed'] == ['chemical_structure', 'line_graph', 'reaction_scheme'])
+    check('ft_profile_no_normaliser_is_v1_27',
+          figural_generation_profile(_ia)['dominant'] == ['Reaction Scheme', 'reaction_scheme'])
+    _prof = figural_generation_profile({'vision_status': 'observed',
+                                        'object_types': {'dominant': ['reaction_scheme'],
+                                                         'observed': ['chemical_structure'], 'avoid': []}})
+    _KIND = {'reaction_scheme': ('REACTION',), 'chemical_structure': ('STRUCTURE', 'COORDINATION')}
+    def _kc(ot, kind):
+        if ot not in _KIND:
+            return ('UNREGISTERED', ot)
+        return ('PASS', '') if kind in _KIND[ot] else ('FAIL', f'{ot} vs {kind}')
+    _bad = [{'q': 1, 'object_type': 'reaction_scheme', 'semantic_kind': 'STRUCTURE'}] * 3
+    _v, _d = check_figural_conformance(_bad, _prof, kind_check=_kc)
+    check('ft_conformance_fails_label_over_wrong_kind', _v == 'FAIL' and 'TYPE' in _d and 'reaction_scheme vs STRUCTURE' in _d)
+    check('ft_conformance_label_only_still_passes_v1_27',
+          check_figural_conformance(['reaction_scheme'] * 3, _prof)[0] == 'PASS')
+    _good = [{'q': 1, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION'}] * 3
+    check('ft_conformance_consistent_records_pass', check_figural_conformance(_good, _prof, kind_check=_kc)[0] == 'PASS')
+    _mix = [{'q': 1, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION'},
+            {'q': 2, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION'},
+            {'q': 3, 'object_type': 'chemical_structure', 'semantic_kind': 'STRUCTURE'}]
+    check('ft_conformance_share_floor_after_kind_check', check_figural_conformance(_mix, _prof, kind_check=_kc)[0] == 'PASS')
+    _unreg = [{'q': 1, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION'},
+              {'q': 2, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION'},
+              {'q': 3, 'object_type': 'zorblax', 'semantic_kind': 'GENERIC'}]
+    _prof_u = figural_generation_profile({'vision_status': 'observed',
+                                          'object_types': {'dominant': ['reaction_scheme'], 'observed': ['zorblax'], 'avoid': []}})
+    _v, _d = check_figural_conformance(_unreg, _prof_u, kind_check=_kc)
+    check('ft_conformance_unregistered_is_disclosed_not_failed', _v == 'PASS' and 'UNREGISTERED' in _d and '1 record' in _d)
+    check('ft_conformance_kind_check_before_skip',
+          check_figural_conformance(_bad, {'mode': 'unconstrained'}, kind_check=_kc)[0] == 'FAIL')
+    _cc = lambda ot, cls: ('PASS', '') if cls in ('schematic', 'option_canvas') else ('FAIL', f'{ot} under {cls}')
+    check('ft_conformance_class_check',
+          check_figural_conformance([{'q': 1, 'object_type': 'reaction_scheme', 'semantic_kind': 'REACTION',
+                                      'render_class': 'data_series'}], _prof, kind_check=_kc, class_check=_cc)[0] == 'FAIL')
+    # derive_presence_flags — the ScopedBlueprint inheritance defect
+    _alloc = [{'subtopic_id': 's1', 'format': 'FIGURAL'}, {'subtopic_id': 's2', 'format': 'TEXT'}]
+    _fl = derive_presence_flags(_alloc)
+    check('ft_flags_figural_from_allocation', _fl['figural_present'] is True and _fl['passage_present'] is False
+          and _fl['di_present'] is False and _fl['multi_present'] is False and _fl['nat_present'] is False)
+    check('ft_flags_all_text', derive_presence_flags([{'subtopic_id': 's2', 'format': 'TEXT'}]) ==
+          {f: False for f in PRESENCE_FLAGS})
+    check('ft_flags_via_format_map', derive_presence_flags([{'subtopic_id': 's9'}], format_map={'s9': 'DI'})['di_present'])
+    check('ft_flags_multi_nat_from_subtopics',
+          derive_presence_flags(_alloc, subtopic_list=[{'subtopic_id': 's1', 'answer_cardinality': 'multi'},
+                                                        {'subtopic_id': 's2', 'answer_type': 'numerical'},
+                                                        {'subtopic_id': 's3', 'answer_type': 'numerical'}])
+          == {'passage_present': False, 'figural_present': True, 'di_present': False,
+              'multi_present': True, 'nat_present': True})
+    check('ft_flags_unallocated_subtopic_ignored',
+          derive_presence_flags(_alloc, subtopic_list=[{'subtopic_id': 's3', 'answer_cardinality': 'multi'}])['multi_present'] is False)
+    check('ft_flags_marking_scheme_overrides',
+          derive_presence_flags(_alloc, marking_scheme=[{'question_type': 'NAT'}, {'question_type': 'MSQ'}])['nat_present']
+          and derive_presence_flags(_alloc, marking_scheme=[{'question_type': 'MSQ'}])['multi_present'])
+    check('ft_flags_empty', derive_presence_flags([]) == {f: False for f in PRESENCE_FLAGS})
+    # kind_coverage_preflight — injected coverage stub
+    _REG = {'reaction_scheme': 'supported', 'micrograph': 'unsupported', 'line_graph': 'supported'}
+    def _cov(types, unavailable=()):
+        out = {'supported': [], 'unsupported': [], 'unregistered': [], 'unavailable': []}
+        for x in types:
+            st = _REG.get(x, 'unregistered')
+            if st == 'supported' and x in unavailable:
+                out['unavailable'].append(x)
+            else:
+                out[st].append(x)
+        return out
+    _blocks = {'org': {'vision_status': 'observed', 'object_types': {'dominant': ['reaction_scheme'], 'observed': [], 'avoid': []}},
+               'bio': {'vision_status': 'observed', 'object_types': {'dominant': ['micrograph'], 'observed': [], 'avoid': []}},
+               'new': {'vision_status': 'observed', 'object_types': {'dominant': ['zorblax'], 'observed': [], 'avoid': []}},
+               'mix': {'vision_status': 'observed', 'object_types': {'dominant': ['micrograph', 'line_graph'], 'observed': [], 'avoid': []}},
+               'obs': {'vision_status': 'observed', 'object_types': {'dominant': [], 'observed': ['micrograph'], 'avoid': []}}}
+    _A = lambda *sids: [{'subtopic_id': s, 'format': 'FIGURAL'} for s in sids]
+    check('ft_preflight_supported_ok', kind_coverage_preflight(_A('org'), _blocks, _cov)['status'] == 'ok')
+    _r = kind_coverage_preflight(_A('bio'), _blocks, _cov)
+    check('ft_preflight_unsupported_stops', _r['status'] == 'stop' and 'bio' in _r['blockers'][0] and 'micrograph' in _r['blockers'][0])
+    _r = kind_coverage_preflight(_A('bio'), _blocks, _cov, policy='text_disclosed')
+    check('ft_preflight_text_disclosed_fallback', _r['status'] == 'fallback' and _r['fallbacks'] == {'bio': ['micrograph']} and not _r['blockers'])
+    _r = kind_coverage_preflight(_A('new'), _blocks, _cov)
+    check('ft_preflight_unregistered_is_advisory_only', _r['status'] == 'ok' and len(_r['advisories']) == 1 and 'zorblax' in _r['advisories'][0])
+    check('ft_preflight_mixed_dominant_passes_on_one_supported', kind_coverage_preflight(_A('mix'), _blocks, _cov)['status'] == 'ok')
+    check('ft_preflight_observed_mode_not_checked', kind_coverage_preflight(_A('obs'), _blocks, _cov)['checked'] == 0)
+    check('ft_preflight_text_format_not_checked',
+          kind_coverage_preflight([{'subtopic_id': 'bio', 'format': 'TEXT'}], _blocks, _cov)['status'] == 'ok')
+    check('ft_preflight_legacy_no_block_ok', kind_coverage_preflight(_A('org'), {}, _cov)['status'] == 'ok')
+    _r = kind_coverage_preflight(_A('org'), _blocks, lambda ts: _cov(ts, unavailable=('reaction_scheme',)))
+    check('ft_preflight_unavailable_reported_not_stopped', _r['status'] == 'ok' and len(_r['unavailable']) == 1)
+    check('ft_preflight_unavailable_sole_member_is_blocking', len(_r['unavailable_blocking']) == 1 and 'org' in _r['unavailable_blocking'][0])
+    _r = kind_coverage_preflight(_A('mix2'), dict(_blocks, mix2={'vision_status': 'observed', 'object_types': {'dominant': ['reaction_scheme', 'line_graph'], 'observed': [], 'avoid': []}}),
+                                 lambda ts: _cov(ts, unavailable=('reaction_scheme',)))
+    check('ft_preflight_unavailable_with_loadable_sibling_not_blocking (E7)',
+          _r['status'] == 'ok' and len(_r['unavailable']) == 1 and _r['unavailable_blocking'] == [])
+    _r = kind_coverage_preflight(_A('mixu'), dict(_blocks, mixu={'vision_status': 'observed', 'object_types': {'dominant': ['micrograph', 'zorblax'], 'observed': [], 'avoid': []}}), _cov)
+    check('ft_preflight_unsupported_plus_unregistered_is_advisory_not_stop', _r['status'] == 'ok' and len(_r['advisories']) == 1 and 'micrograph' in _r['advisories'][0])
+    _r = kind_coverage_preflight(_A('mixa'), dict(_blocks, mixa={'vision_status': 'observed', 'object_types': {'dominant': ['micrograph', 'reaction_scheme'], 'observed': [], 'avoid': []}}),
+                                 lambda ts: _cov(ts, unavailable=('reaction_scheme',)))
+    check('ft_preflight_unsupported_plus_session_unavailable_is_blocking_not_policy', _r['status'] == 'ok' and len(_r['unavailable_blocking']) == 1 and not _r['blockers'] and not _r['fallbacks'])
+    check('ft_preflight_matched_counts_any_block', kind_coverage_preflight(_A('org', 'obs', 'nope'), _blocks, _cov)['matched'] == 2)
+    check('ft_preflight_matched_zero_when_ids_disagree', kind_coverage_preflight(_A('Organic Chemistry'), _blocks, _cov)['matched'] == 0)
+    check('ft_preflight_dedupes_subtopics', kind_coverage_preflight(_A('bio', 'bio'), _blocks, _cov)['checked'] == 1)
+    check('ft_preflight_normaliser_injected',
+          kind_coverage_preflight(_A('x'), {'x': {'vision_status': 'observed', 'object_types': {'dominant': ['MICROGRAPH'], 'observed': [], 'avoid': []}}},
+                                  _cov, normalise=_nrm)['status'] == 'stop')
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

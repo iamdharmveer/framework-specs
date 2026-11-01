@@ -1,4 +1,28 @@
-# Framework_ScopedBlueprint v1.10.1 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.11.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.11.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4 +
+#   LAW F3.2; paired with blueprint_core v1.28, figure_types v1.0, final_assembly v1.10,
+#   Framework_MockTestCreate v5.88, Framework_Blueprint v1.61.0). TWO DEFECTS, both estate-wide.
+#   (1) S8-4 INHERITED the five producer flags (passage/figural/di/multi/nat_present) from
+#   exam_config with default False. No step writes those keys, so every scoped blueprint in
+#   the estate was born `figural_present: false` — on the reference exam beside 17–18 FIGURAL
+#   allocations per paper. Step 7 S13-4 and final_assembly.commit_registry gated the figure
+#   record on that flag, so 6 of 21 scoped papers committed NO figure record (no object_types,
+#   no figure_specs, no semantic_objects): every figure gate went dormant and every paper
+#   audited exit_0/SHIP. FIX: the flags are DERIVED from the scoped allocation through ONE
+#   engine rule shared with the mock Blueprint, bc.derive_presence_flags (formats of the
+#   allocated subtopics; answer_cardinality / answer_type of the allocated subtopics; the
+#   scoped marking_scheme per the S6-MS precedent). exam_config is never consulted for these
+#   five keys again; mock_sync_audit MS-22 forbids the idiom from returning.
+#   (2) No step asked whether a DOMINANT figure type could be rendered: §6 checked format
+#   feasibility (is the section figural-capable?) never TYPE feasibility. NEW S4-5 KIND-
+#   COVERAGE PRE-FLIGHT (bc.kind_coverage_preflight over figure_types.FIGURE_TYPES): a
+#   dominant type the registry marks UNSUPPORTED (a photograph, a micrograph) HARD STOPs
+#   naming subtopic + type, unless exam_config.figure_fallback_policy == 'text_disclosed', in
+#   which case the subtopic is allocated TEXT for the series and blueprint.figural_fallbacks
+#   records it for the footer; an UNREGISTERED type is an advisory (it renders as a GENERIC
+#   schematic; the auditor reports it AMBER) — ~200 legacy exams are never halted by a
+#   vocabulary gap. blueprint.figure_type_coverage records the verdict. S8-6 asserts the
+#   derived flags; DoD gains item 13.
 # v1.10.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. New DoD item 12 (this spec never named its present_files call).
 # v1.10.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
@@ -748,6 +772,75 @@ exact_fill puts Q in every paper. No special-casing needed; the general path han
 batch_target; it is practised exactly like any other, from domain knowledge at generation.)
 ```
 
+### S4-5 — KIND-COVERAGE PRE-FLIGHT (v1.11.0 — LAW F1.4 FIGURE-TYPE-COVERAGE-LAW)
+
+A figure type may be DOMINANT in a blueprint only if the framework can render it, and the
+framework must be able to say so before Q.1. §6 below decides FORMAT feasibility (can this
+scope carry figural questions at all?); this step, run on the §4 allocation BEFORE §5/§6/§8
+read any format, decides TYPE feasibility (can the dominant figure type of each allocated
+FIGURAL subtopic actually be drawn?). Until v1.11.0 nothing in the chain asked, so a
+reaction-dominant subtopic reached Step 7 with a dominant type no renderer existed for, and
+the generator's only lawful moves were to mislabel or omit. A text_disclosed fallback is
+applied to the in-session manifest view (MANIFEST_IDS[sid]['format'] = 'TEXT'), so §6's
+axis feasibility, S8-3's allocations and S8-4a's flags all see ONE format.
+
+```python
+import re
+import blueprint_core as bc
+try:
+    import figure_types as ft          # the registry: type -> render class / kind / renderer
+except ImportError:
+    raise SystemExit("HARD STOP (S4-5): figure_types.py is not in the verified clone — the "
+                     "KIND-COVERAGE pre-flight cannot run. Re-run SKILL Step 0.")
+
+_fig_blocks = bc.parse_image_analysis_blocks(_sr_text)          # {subtopic_id: PYQ_IMAGE_ANALYSIS}
+_cov_allocs = [{'subtopic_id': sid, 'format': MANIFEST_IDS[sid].get('format', 'TEXT')}
+               for k in paper_alloc for sid in paper_alloc[k]]
+FIGURE_FALLBACK_POLICY = str(exam_config.get('figure_fallback_policy', 'hard_stop')).strip().lower()
+if FIGURE_FALLBACK_POLICY not in bc.FIGURE_FALLBACK_POLICIES:
+    raise SystemExit(f"HARD STOP (S4-5): exam_config.figure_fallback_policy={FIGURE_FALLBACK_POLICY!r} "
+                     f"is not one of {bc.FIGURE_FALLBACK_POLICIES}. Fix exam_config.json.")
+FT_SESSION = ft.preflight()                       # which renderers THIS session can load (reported, not stopped on)
+KIND_COVERAGE = bc.kind_coverage_preflight(_cov_allocs, _fig_blocks, lambda types: ft.coverage(types, session=FT_SESSION),
+                                           policy=FIGURE_FALLBACK_POLICY, normalise=ft.normalise)
+# ID-AGREEMENT TRIPWIRE: the allocation ids must be the ids section_rules is written in.
+# Judged against the subtopic_id lines of section_rules (every Step-5 subtopic has one),
+# NOT against the image blocks — a Topic/Subtopic scope whose FIGURAL subtopics are
+# zero-PYQ inferred ones legitimately has no PYQ_IMAGE_ANALYSIS block for them.
+_sr_ids = set(re.findall(r'^\s*subtopic_id:\s*(\S+)\s*$', _sr_text, re.M))
+_fig_sids = {a['subtopic_id'] for a in _cov_allocs if a['format'] == 'FIGURAL'}
+if _fig_sids and _sr_ids and not (_fig_sids & _sr_ids):
+    raise SystemExit("HARD STOP (S4-5): FIGURAL subtopics exist and section_rules carries image "
+                     "blocks, yet the pre-flight matched none — the manifest ids and the Step-5 "
+                     "block ids do not agree. Fix the subtopic_manifest / section_rules ids.")
+for _line in KIND_COVERAGE['advisories']:
+    flag(f"S4-5 KIND-COVERAGE advisory: {_line}")
+for _line in KIND_COVERAGE['unavailable']:
+    flag(f"S4-5 KIND-COVERAGE note: {_line} — a blueprint does not render; Step 7 S3-2a "
+         f"re-checks this in its own session and stops there if the renderer is still absent.")
+if KIND_COVERAGE['status'] == 'stop':
+    raise SystemExit("HARD STOP (S4-5, KIND-COVERAGE — LAW F1.4): a DOMINANT figure type of an "
+                     "allocated FIGURAL subtopic cannot be rendered by this framework:\n  "
+                     + "\n  ".join(KIND_COVERAGE['blockers'])
+                     + "\nONE operator action: set exam_config.figure_fallback_policy = "
+                       "\"text_disclosed\" (the subtopic renders TEXT for this series, disclosed in "
+                       "every footer) or remove the subtopic from the scope. Nothing is generated "
+                       "against a profile the framework cannot honour.")
+FIGURAL_FALLBACKS = dict(KIND_COVERAGE['fallbacks'])      # {subtopic_id: [unsupported types]}
+for _sid, _types in FIGURAL_FALLBACKS.items():
+    MANIFEST_IDS[_sid]['format'] = 'TEXT'                  # in-session view only; the manifest file is untouched
+    flag(f"S4-5 KIND-COVERAGE fallback: {_sid} is allocated TEXT for this series — its dominant "
+         f"figure type(s) {_types} are unsupported (policy text_disclosed). Disclosed in every footer.")
+print(f"S4-5 KIND-COVERAGE: {KIND_COVERAGE['checked']} dominant-mode FIGURAL subtopic(s) checked — "
+      f"status {KIND_COVERAGE['status']}; {len(KIND_COVERAGE['advisories'])} advisory, "
+      f"{len(FIGURAL_FALLBACKS)} fallback, {len(KIND_COVERAGE['unavailable'])} session-unavailable.")
+```
+
+Edge cases (E1–E7, E21 of the GAP): mode 'observed' / 'unconstrained' subtopics are not
+checked (an unsupported OBSERVED type is simply never chosen by Step 7); a mixed dominant set
+passes if ≥1 member is supported; a TEXT-format subtopic is never checked; a legacy
+section_rules with no PYQ_IMAGE_ANALYSIS block checks nothing and stops nothing (EC-V18).
+
 ## §5 — DIFFICULTY (batch-local envelope-bounded ramp, OR fixed-uniform override)
 
 TWO MODES, selected by the trigger's --difficulty value (S1-1):
@@ -1172,7 +1265,10 @@ for k in range(1, N + 1):
         e = MANIFEST_IDS[sid]
         allocs.append({
             'subtopic_id': sid, 'topic': e.get('topic'), 'subtopic': e['display_name'],
-            'q_count': qc, 'format': e.get('format', 'TEXT'),
+            'q_count': qc,
+            # S4-5 (v1.11.0): a subtopic whose dominant figure type is unsupported renders
+            # TEXT for the whole series under policy text_disclosed — recorded, never silent.
+            'format': 'TEXT' if sid in FIGURAL_FALLBACKS else e.get('format', 'TEXT'),
             'type': 'pyq_based' if r_avg[sid] > 0 else 'zero_pyq',
         })
     ssum = sum(a['q_count'] for a in allocs)
@@ -1194,6 +1290,25 @@ _default_msq = {'msq_k_mode': 'n/a', 'msq_k': 'none',
                 'msq_instruction': '(One or more options may be correct)',
                 'negative_marking_by_type': {}, 'partial_credit': False}
 
+# S8-4a — PRODUCER FLAGS ARE DERIVED FROM THE SCOPED ALLOCATION (v1.11.0, LAW F3.2
+# MANIFEST-COMMIT-LAW). Until v1.11.0 these five keys were read from exam_config with
+# default False. NO STEP WRITES THEM THERE, so every scoped blueprint was born
+# `figural_present: false` beside 17-18 FIGURAL allocations, Step 7 S13-4 skipped the figure
+# record on that flag, and six delivered papers audited green with no record at all. The
+# mock Blueprint has derived these from the allocated formats since §7-7 (L3020); this is
+# the SAME rule through ONE engine function. exam_config is never consulted for them
+# (mock_sync_audit MS-22); a hand-edited key there is ignored and said so.
+_all_allocs = []
+for _mk in mocks_json:
+    for _s in _mk['sections']:
+        _all_allocs.extend(_s['subtopic_allocations'])
+PRESENCE = bc.derive_presence_flags(_all_allocs, subtopic_list=subtopic_list,
+                                    marking_scheme=scoped_marking)
+for _k in bc.PRESENCE_FLAGS:
+    if _k in exam_config:
+        flag(f"S8-4a: exam_config.{_k}={exam_config[_k]!r} is NO LONGER READ (v1.11.0) — the "
+             f"flag is derived from the scoped allocation: {PRESENCE[_k]}.")
+
 blueprint = {
     'exam_code': EXAM,
     'exam_name': exam_config.get('exam_name', EXAM),
@@ -1213,13 +1328,20 @@ blueprint = {
     'level': exam_config.get('level', ''),
     'medium': exam_config.get('medium', 'English'),
     'marking_scheme': scoped_marking,             # §7
-    'passage_present': exam_config.get('passage_present', False),
-    'figural_present': exam_config.get('figural_present', False),
-    'di_present': exam_config.get('di_present', False),
-    'multi_present': exam_config.get('multi_present', False),
-    'multi_select_allowed': exam_config.get('multi_select_allowed', False),
-    'nat_present': exam_config.get('nat_present', False),
-    'nat_allowed': exam_config.get('nat_allowed', False),
+    'passage_present': PRESENCE['passage_present'],          # S8-4a — DERIVED, never inherited
+    'figural_present': PRESENCE['figural_present'],
+    'di_present': PRESENCE['di_present'],
+    'multi_present': PRESENCE['multi_present'],
+    'multi_select_allowed': bool(exam_config.get('multi_select_allowed', False)) or PRESENCE['multi_present'],
+    'nat_present': PRESENCE['nat_present'],
+    'nat_allowed': bool(exam_config.get('nat_allowed', False)) or PRESENCE['nat_present'],
+    # S4-5 (v1.11.0) — the KIND-COVERAGE verdict travels with the blueprint so Step 7 and
+    # the Deliver footer can disclose it without re-deriving it.
+    'figure_type_coverage': {'status': KIND_COVERAGE['status'], 'checked': KIND_COVERAGE['checked'],
+                             'advisories': KIND_COVERAGE['advisories'],
+                             'unavailable': KIND_COVERAGE['unavailable'],
+                             'policy': FIGURE_FALLBACK_POLICY},
+    'figural_fallbacks': FIGURAL_FALLBACKS,                   # {subtopic_id: [unsupported types]}
     'nat_contract': exam_config.get('nat_contract', _default_nat),
     'q_types': exam_config.get('q_types', "['MCQ']"),
     'msq_contract': exam_config.get('msq_contract', _default_msq),
@@ -1268,6 +1390,16 @@ for m in blueprint['mocks']:
 # axis_schedule + zero_pyq_rotation keyed by the single section name
 assert set(blueprint['axis_schedule']) == {scope_label}
 assert set(blueprint['zero_pyq_rotation']) == {scope_label}
+# v1.11.0 (LAW F3.2) — the producer flags AGREE with the allocation they describe. A
+# blueprint that allocates a FIGURAL subtopic and says figural_present=False is the
+# defect this release removes; it must be impossible to emit.
+_emitted_fmts = {a['format'] for m in blueprint['mocks'] for a in m['sections'][0]['subtopic_allocations']}
+assert blueprint['figural_present'] == ('FIGURAL' in _emitted_fmts), 'figural_present disagrees with the allocation'
+assert blueprint['passage_present'] == ('PASSAGE' in _emitted_fmts), 'passage_present disagrees with the allocation'
+assert blueprint['di_present'] == ('DI' in _emitted_fmts), 'di_present disagrees with the allocation'
+assert blueprint['figure_type_coverage']['status'] in ('ok', 'fallback')
+assert all(a['format'] == 'TEXT' for m in blueprint['mocks'] for a in m['sections'][0]['subtopic_allocations']
+           if a['subtopic_id'] in blueprint['figural_fallbacks']), 'a fallback subtopic was emitted FIGURAL'
 ```
 
 ### S8-7 — Seed the shared registry template (fresh exam only)
@@ -1367,6 +1499,12 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
   ☐ 12. DELIVERY (Framework_DeliveryFooter section 3, 6S block): the two scoped files, plus
          [ExamCode]_registry.json ONLY when S8-7 seeded a fresh one this run.
+  ☐ 13. FIGURE-TYPE LAWS (v1.11.0): the five producer flags were DERIVED by
+         bc.derive_presence_flags from the scoped allocation (S8-4a) and the S8-6 agreement
+         asserts passed; S4-5 KIND-COVERAGE ran over figure_types.FIGURE_TYPES — status ok or
+         fallback (never a silent substitute); every fallback subtopic is TEXT in every paper and
+         listed in blueprint.figural_fallbacks; every advisory (unregistered dominant type) was
+         printed. A HARD STOP here names the subtopic, the type and the one operator action.
 
   DELIVERY-ECHO (Release B, 2026-09-15 — Framework_DeliveryFooter v1.35 rule R6 / section 9;
   this delivery site was prose-only until now — nothing printed the closed set):
@@ -1388,4 +1526,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.10.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.11.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

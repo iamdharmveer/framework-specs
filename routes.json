@@ -56,7 +56,8 @@
     "corpus_io.py",
     "frequency_xlsx.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "figure_types.py"
   ],
   "MockBlueprint": [
     "Framework_Blueprint.md",
@@ -65,12 +66,14 @@
     "corpus_io.py",
     "syllabus_provenance.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "figure_types.py"
   ],
   "ScopedBlueprint": [
     "Framework_ScopedBlueprint.md",
     "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "figure_types.py"
   ],
   "MockCreate": [
     "Framework_MockTestCreate.md",
@@ -81,7 +84,8 @@
     "corpus_io.py",
     "Framework_DeliveryFooter.md",
     "explain_engine.py",
-    "t3_mathcomp.py"
+    "t3_mathcomp.py",
+    "figure_types.py"
   ],
   "TestCreate": [
     "Framework_MockTestCreate.md",
@@ -92,7 +96,8 @@
     "corpus_io.py",
     "Framework_DeliveryFooter.md",
     "explain_engine.py",
-    "t3_mathcomp.py"
+    "t3_mathcomp.py",
+    "figure_types.py"
   ],
   "MockExplain": [
     "Framework_MockTestExplain.md",
@@ -102,7 +107,8 @@
     "blueprint_core.py",
     "t3_mathcomp.py",
     "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "figure_types.py"
   ],
   "TestExplain": [
     "Framework_MockTestExplain.md",
@@ -112,7 +118,8 @@
     "blueprint_core.py",
     "t3_mathcomp.py",
     "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "figure_types.py"
   ],
   "MockDeliver": [
     "Framework_MockDeliver.md",

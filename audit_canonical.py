@@ -15,6 +15,40 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.33 — 2026-11-01 — GAP-2026-11-01 final review (same release; paired with final_assembly
+#   v1.10, MockTestCreate v5.88). (1) LAW F2 stamp: a figure record carrying record_schema
+#   (commit_registry v1.10) is CURRENT — a legacy annotation on it is a FAIL, never a skip;
+#   'legacy_unlabelled' (E15 resume) is a WARN, disclosed. (2) options_only questions: the
+#   option objects are audited against the label (was WARN 'NOT AUDITED' → S13-4c tripwire).
+#   (3) auditor twin of V4: REACTION needs '>>', STRUCTURE must not. (4) A-FIGPROFILE prints
+#   a reason for every text_disclosed fallback subtopic and FAILs one that carries figures.
+#   (5) --fig-manifest WINS over a registry entry (the live batch is audited) and reads only
+#   this manifest's q<N>_*.figspec.json sidecars. +10 fixtures (49o–49s).
+# v2.32 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired
+#   with figure_types v1.0, blueprint_core v1.28, final_assembly v1.9, corpus_io v1.16,
+#   paper_pipeline v5.40, Framework_MockTestCreate v5.88). A delivered scoped paper with
+#   36 figural questions and NO figure record audited exit_0/SHIP: A-FIGPROFILE's
+#   data-absent branch reported _ok('dormant') while the same file's engine-degraded
+#   branch states the rule it broke ("not _ok — the gate DID NOT RUN"). And a registry
+#   carrying 287 'reaction_scheme' labels over STRUCTURE objects passed A-FIGPROFILE,
+#   because the gate compared a label the generator wrote about itself with the profile
+#   and never with the object beside it. Three changes, every one evidence-first:
+#   (1) EVIDENCE-AWARE DORMANCY (LAW F3.3): before A-FIGPROFILE or A-FIGSPECLABEL
+#       reports dormant, the paper's own evidence is consulted — image-bearing question
+#       blocks in the docx, the registry figural_qs set, axis1_paper[pid].FIGURAL. If
+#       figures exist and the record is absent → _warn('... NOT AUDITED'), which forces
+#       the F1 AMBER footer. _ok is reserved for a paper with no figures.
+#   (2) A-FIGTYPE-KIND (LAW F2.1), new gate: for every figural question the recorded
+#       object_type's registry row (figure_types) must admit the problem semantic
+#       object's kind AND the FigureSpec class. A mismatch is a FAIL — a false record.
+#       An UNREGISTERED type is a WARN naming it (not verifiable), never silence. The
+#       verdict is delegated to bc.check_figural_conformance(records, …) with the
+#       figure_types checkers INJECTED (thin core), so Step 7 and the auditor share
+#       one rule. Three-layer guard as v2.12 (import / capability / call site).
+#   (3) --fig-manifest PATH (edge case E19): on a batch run (--through-q) the paper is
+#       not yet committed, so the figure record is read from the Step-7 sidecar and
+#       A-FIGPROFILE / A-FIGTYPE-KIND run per batch, not only at S13-4c. Registry entry
+#       wins when present. +14 fixtures, each tagged [v2.31-FAILS].
 # v2.31 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
 #   final_assembly v1.8, Framework_MockTestCreate v5.86, Framework_MockTestExplain
 #   v1.51.1). The registry is SHARED by every series (MOCK / SUBJ / TOPIC / SUBTOPIC)
@@ -206,7 +240,7 @@
 # exit code; the caller's certification gate (spec §12-2) decides whether a fixable
 # WARN blocks delivery.
 # ============================================================================
-import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata
+import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata, glob
 import io, zlib, struct, random          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
 import ast                               # v2.24.0 — SELF-ADJUDICATION scans
                                          # EMITTED message literals, not raw lines
@@ -726,6 +760,59 @@ def load_sources(args):
     # neither key and the gate goes dormant.
     src['figural_object_types'] = (fig.get('object_types') or {}) if fig else {}
     src['figural_subtopics'] = (fig.get('subtopic_ids') or {}) if fig else {}
+    # v2.32 — the semantic objects beside the labels (A-FIGTYPE-KIND reads both).
+    src['figural_semantic_objects'] = (fig.get('semantic_objects') or {}) if fig else {}
+    src['figural_record_integrity'] = (fig.get('record_integrity') or {}) if fig else {}
+    # v2.33 — the LAW F2 stamp (final_assembly v1.10). An UNSTAMPED entry is a legacy
+    # record and its record_integrity annotations are honoured; a STAMPED entry is a
+    # current record, and an annotation on it other than 'legacy_unlabelled' (E15
+    # resume) is itself a defect A-FIGTYPE-KIND must FAIL, never skip.
+    src['figural_record_schema'] = (fig.get('record_schema') or None) if fig else None
+    # v2.32 (E19) — --fig-manifest: the Step-7 sidecar for THIS batch. v2.33: the sidecar
+    # is the LIVE state of the paper being authored, so when it is passed it WINS over a
+    # registry entry (a re-generated paper must be audited on what was just drawn, not on
+    # a stale commit); the override is printed once.
+    src['fig_manifest_sidecar'] = None
+    if getattr(args, 'fig_manifest', None):
+        try:
+            _fm = json.load(open(args.fig_manifest, encoding='utf-8'))
+        except (OSError, ValueError) as _e:
+            _fm = None
+            print(f'[note] --fig-manifest {args.fig_manifest}: not readable ({_e}); ignored.')
+        if isinstance(_fm, dict) and isinstance(_fm.get('questions'), dict):
+            src['fig_manifest_sidecar'] = _fm
+            if fig is not None:
+                print(f'[note] --fig-manifest overrides the committed figure record for '
+                      f'{_cur_pid or N} (v2.33: the live batch state is audited).')
+            if True:
+                _qs = _fm['questions']
+                src['figural_object_types'] = {str(q): v.get('object_type') for q, v in _qs.items()
+                                               if isinstance(v, dict) and v.get('object_type')}
+                src['figural_subtopics'] = {str(q): v.get('subtopic_id') for q, v in _qs.items()
+                                            if isinstance(v, dict) and v.get('subtopic_id')}
+                src['figural_semantic_objects'] = {str(q): v.get('semantic_objects') or []
+                                                   for q, v in _qs.items() if isinstance(v, dict)}
+                src['figural_record_integrity'] = {str(q): v.get('record_integrity') for q, v in _qs.items()
+                                                   if isinstance(v, dict) and v.get('record_integrity')}
+                src['figural_record_schema'] = 'sidecar'      # live record: never a legacy skip
+                # v2.33: the sidecar IS the paper's figural set (a stale registry entry for
+                # the same paper_id must not drive A-FIGCOMP / A-AXIS1 / figure_evidence)
+                src['figural_qs'] = set(int(q) for q in _qs if str(q).isdigit())
+                # figure_specs sidecars beside the manifest (write_spec_sidecar names them
+                # after the PNG) — the registry channel is absent before S13-4. v2.33: only
+                # the sidecars of THIS manifest's questions are read (q<N>_*.figspec.json),
+                # so a leftover q7 sidecar from an earlier paper in the same directory can
+                # never be attributed to this paper's Q7-less record.
+                _fsd = os.path.dirname(os.path.abspath(args.fig_manifest))
+                _fs = {}
+                for _qn in sorted(str(q) for q in _qs):
+                    for _p in sorted(glob.glob(os.path.join(_fsd, f'q{_qn}_*.figspec.json'))):
+                        try:
+                            _fs[os.path.basename(_p)[:-len('.figspec.json')] + '.png'] = \
+                                json.load(open(_p, encoding='utf-8'))
+                        except (OSError, ValueError):
+                            pass
+                src['_figure_specs_from_sidecar'] = _fs
     # v2.13 (GAP-2026-08-01-FIGSPEC-TRANSPORT D2): the FigureSpec sidecars, keyed
     # by canonical PNG name. figural_core.write_spec_sidecar() drops these beside
     # each PNG in the STEP-7 session's working dir; that dir is internal and is
@@ -735,6 +822,8 @@ def load_sources(args):
     # the precedent object_types/subtopic_ids set at v5.31. Absent key => {} =>
     # every figure reads as legacy, which is the correct pre-v5.34 behaviour.
     src['figure_specs'] = (fig.get('figure_specs') or {}) if fig else {}
+    if src.get('fig_manifest_sidecar') is not None:
+        src['figure_specs'] = src.get('_figure_specs_from_sidecar') or {}   # v2.33: sidecar wins
     # v2.4: section_rules full text for image_role lookups in gate_images
     src['section_rules_text'] = rt   # already loaded at src['rules_txt']
     # v2.4: concept_map — Step 8 does NOT receive the answer_key sidecar (S0-1),
@@ -2223,6 +2312,154 @@ def gate_frac_ascii(blocks, src):
               + _flist(slash))
 
 
+def figure_evidence(src, img_blocks=0):
+    """v2.32 (LAW F3.3) — does THIS paper have figures? {'n': int, 'why': str}.
+    Witnesses, any one suffices: image-bearing question blocks in the docx; the
+    registry figural_qs set for this paper; axis1_paper[pid].FIGURAL (Step 7's own
+    Axis-1 snapshot, persisted at S13-4). Pure; never raises."""
+    n_reg = len(src.get('figural_qs') or ())
+    pid = _this_paper_id(src)
+    n_ax = 0
+    a1 = ((src.get('registry') or {}).get('axis1_paper') or {}).get(pid) if pid else None
+    if isinstance(a1, dict):
+        for _k, _v in a1.items():
+            if isinstance(_v, dict):
+                try:
+                    n_ax += int(_v.get('FIGURAL', 0) or 0)
+                except (TypeError, ValueError):
+                    pass
+            elif _k == 'FIGURAL':
+                try:
+                    n_ax += int(_v or 0)
+                except (TypeError, ValueError):
+                    pass
+    n = max(int(img_blocks or 0), n_reg, n_ax)
+    why = []
+    if img_blocks:
+        why.append(f'{img_blocks} image-bearing block(s) in the docx')
+    if n_reg:
+        why.append(f'registry figural_qs={n_reg}')
+    if n_ax:
+        why.append(f'axis1_paper FIGURAL={n_ax}')
+    return {'n': n, 'why': '; '.join(why) or 'no witness'}
+
+
+def gate_figtype_kind(src, fig_types, evidence):
+    """A-FIGTYPE-KIND (v2.32, LAW F2.1). See gate_images for the rationale."""
+    if not fig_types:
+        if (evidence or {}).get('n', 0) > 0:
+            _warn('A-FIGTYPE-KIND',
+                  f'paper has {evidence["n"]} figural question(s) but no figure record — '
+                  f'TYPE↔KIND consistency NOT AUDITED (v2.32, LAW F3.3).')
+        else:
+            _ok('A-FIGTYPE-KIND', 'no figural questions — dormant.')
+        return
+    try:
+        import figure_types as _ft                                   # L1
+    except Exception as _e:
+        _warn('A-FIGTYPE-KIND', 'figure_types registry unavailable — TYPE↔KIND consistency '
+                                f'NOT CHECKED (dependency degraded: {type(_e).__name__}: {_e}).')
+        return
+    try:
+        import blueprint_core as _bc                                  # L1
+    except Exception as _e:
+        _warn('A-FIGTYPE-KIND', 'blueprint_core engine unavailable — TYPE↔KIND consistency '
+                                f'NOT CHECKED (dependency degraded: {type(_e).__name__}: {_e}).')
+        return
+    _need = ('kind_consistent', 'class_consistent', 'lookup')
+    _miss = [f for f in _need if not hasattr(_ft, f)]                 # L2
+    if _miss or not hasattr(_bc, 'check_figural_conformance'):
+        _warn('A-FIGTYPE-KIND', 'stale engine — missing ' + ', '.join(_miss or ['check_figural_conformance'])
+                                + '; TYPE↔KIND consistency NOT CHECKED.')
+        return
+    sem = src.get('figural_semantic_objects') or {}
+    specs = src.get('figure_specs') or {}
+    legacy = src.get('figural_record_integrity') or {}
+    stamped = bool(src.get('figural_record_schema'))          # v2.33 — LAW F2 stamp
+    records, unreg, skipped, unlabelled, v4 = [], [], [], [], []
+    for q, ot in sorted(fig_types.items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+        q = str(q)
+        if q in legacy:
+            if legacy[q] == 'legacy_unlabelled':             # E15 resumed question — disclosed
+                unlabelled.append(f'Q{q}')
+                continue
+            if stamped:
+                _fail('A-FIGTYPE-KIND', f'Q{q} is a CURRENT (LAW F2-stamped) figure record carrying the '
+                                        f'legacy annotation {legacy[q]!r} — a current record is audited, '
+                                        f'never annotated; the record is false or was edited outside S13-4.')
+                return
+            skipped.append(f'Q{q}({legacy[q]})')
+            continue
+        _all = [o for o in (sem.get(q) or []) if isinstance(o, dict)]
+        objs = [o for o in _all if str(o.get('role', '')).startswith('problem')]
+        # v2.33 — options_only question: the label describes the OPTION figures, so each
+        # option object is audited against it (no problem object is not "no object").
+        opt_objs = [] if objs else [o for o in _all if str(o.get('role', '')).startswith('option')]
+        for o in _all:                                          # auditor twin of V4 (F2.2)
+            _k, _c = o.get('kind'), str(o.get('canonical', '') or '')
+            if _k == 'REACTION' and _c.count('>') != 2:
+                v4.append(f'Q{q}:REACTION without reactant>>product')
+            elif _k == 'STRUCTURE' and '>' in _c:
+                v4.append(f'Q{q}:STRUCTURE carrying a reaction arrow')
+        spec = specs.get(f'q{q}_problem.png') or specs.get(f'q{q}_problem') or {}
+        cls = spec.get('class') if isinstance(spec, dict) else None
+        if _ft.lookup(ot)['status'] == 'unregistered':
+            unreg.append(f'Q{q}:{_ft.lookup(ot)["type"]}')
+        if opt_objs:
+            for i, o in enumerate(opt_objs, 1):
+                _k = str(o.get('role', '')).split(':', 1)[1] if ':' in str(o.get('role', '')) else ''
+                _k = _k if _k.isdigit() else str(i)          # join by the role's own index when it has one
+                _os = specs.get(f'q{q}_opt{_k}.png') or specs.get(f'q{q}_opt{_k}') or {}
+                records.append({'q': f'Q{q}:{o.get("role")}', 'object_type': ot, 'semantic_kind': o.get('kind'),
+                                'render_class': _os.get('class') if isinstance(_os, dict) else None})
+        else:
+            records.append({'q': f'Q{q}', 'object_type': ot, 'semantic_kind': objs[0].get('kind') if objs else None,
+                            'render_class': cls})
+    if v4:
+        _fail('A-FIGTYPE-KIND', 'degenerate semantic object(s) — a REACTION must carry reactant>>product '
+                                'and a STRUCTURE must not (paper_pipeline V4; LAW F2.2): ' + _flist(v4))
+        return
+    try:                                                              # L3
+        verdict, detail = _bc.check_figural_conformance(
+            records, {'mode': 'unconstrained'},
+            kind_check=_ft.kind_consistent, class_check=_ft.class_consistent)
+    except Exception as _e:
+        _warn('A-FIGTYPE-KIND', 'engine raised during TYPE↔KIND evaluation — NOT CHECKED '
+                                f'({type(_e).__name__}: {_e}). Logged skip; audit continues (RA-9).')
+        return
+    if verdict == 'FAIL':
+        _fail('A-FIGTYPE-KIND', 'figure record contradicts itself — a label that disagrees with '
+                                'the object it describes is a FALSE RECORD and must not ship: '
+                                + detail)
+        return
+    n_kind = sum(1 for r in records if r['semantic_kind'])
+    _tail = (f'; {len(skipped)} legacy-annotated question(s) skipped: ' + _flist(skipped)) if skipped else ''
+    if not records and skipped and not unlabelled:
+        _warn('A-FIGTYPE-KIND', f'every figural question of this paper is legacy-annotated (pre-LAW F2 record, '
+                                f'disclosed in §FOOTER-FT): ' + _flist(skipped))
+        return
+    if unlabelled:
+        _warn('A-FIGTYPE-KIND',
+              f'{len(unlabelled)} question(s) authored before v5.88 and resumed across the fix carry '
+              f'no figure type (record_integrity=legacy_unlabelled) — disclosed in the footer, '
+              f'NOT AUDITABLE: ' + _flist(unlabelled) + _tail)
+        return
+    if unreg:
+        _warn('A-FIGTYPE-KIND',
+              f'{len(unreg)} of {len(records)} figural question(s) carry an UNREGISTERED '
+              f'figure type — kind consistency NOT VERIFIABLE; add the type to '
+              f'figure_types.FIGURE_TYPES: ' + _flist(unreg) + _tail)
+    elif n_kind == 0:
+        _warn('A-FIGTYPE-KIND',
+              f'{len(records)} figural question(s) carry object_types but NO semantic objects '
+              f'(pre-v5.59 record) — TYPE↔KIND consistency NOT AUDITED' + _tail)
+    else:
+        _nq = len({str(r['q']).split(':')[0] for r in records})
+        _ok('A-FIGTYPE-KIND',
+            f'{_nq} figural question(s), {len(records)} figure object(s): object_type ↔ semantic kind ↔ '
+            f'class agree ({n_kind} with a semantic object)' + _tail)
+
+
 def gate_images(blocks, src, media_map):
     """A-MATHRASTER (Tier 1) + A-FIGCOMP (structural, v2.4 image_role-aware)
     + A-FIGTEXT-PROSE (v2.4 — visual prose detector)."""
@@ -2281,6 +2518,7 @@ def gate_images(blocks, src, media_map):
                         f'figure_reference_phrases declared, and the built-in '
                         f'phrase set is ENGLISH-ONLY. Detector NOT RUN — declare '
                         f'figure_reference_phrases to enable it (RA-9).')
+    _img_blocks = 0
     for b in blocks:
         block_imgs = []
         for p in b.paras:
@@ -2290,6 +2528,8 @@ def gate_images(blocks, src, media_map):
             for nm, emb in pim:
                 tgt = media_map.get(emb, '')
                 block_imgs.append((nm or '', tgt))
+        if block_imgs:
+            _img_blocks += 1          # v2.32 — evidence that this paper HAS figures
         # v2.4: A-FIGTEXT-PROSE — zero-image blocks referencing figures
         if not block_imgs:
             stem = ' '.join(para_text(p) for p in b.paras)
@@ -2456,18 +2696,36 @@ def gate_images(blocks, src, media_map):
     # subtopic_id travels with each figural_qs record instead.
     _fig_types = src.get('figural_object_types') or {}
     _fig_subs = src.get('figural_subtopics') or {}
+    # ── v2.32 EVIDENCE OF FIGURES (LAW F3.3) — consulted before ANY figure gate
+    # reports dormant. Three independent witnesses, any one suffices: the docx itself
+    # (image-bearing question blocks), the registry's figural_qs for this paper, and
+    # the Step-7 Axis-1 snapshot axis1_paper[pid].FIGURAL. "I drew 36 figures and
+    # recorded nothing about them" is NOT the same state as "this paper has no
+    # figures", and only the second deserves green.
+    _fig_evidence = figure_evidence(src, _img_blocks)
+    src['_figure_evidence'] = _fig_evidence
     if not _fig_types:
-        # Pre-v5.31 registry, or a mock with no figural questions. Dormant, exactly
-        # like the concept_map-dependent gates above — never a FAIL for a missing
-        # optional input (EC-V18).
-        _ok('A-FIGPROFILE',
-            'registry carries no per-question object_types — dormant. '
-            'EXPECTED when every figural subtopic profile is unconstrained '
-            '(Step 7 omits the entry deliberately, S13 object_types writer); '
-            'also true of a genuinely pre-v5.31 registry. This message no longer '
-            'asserts which (v2.21.7, SEC-3): the earlier wording said '
-            '"pre-v5.31 mock", which MISATTRIBUTED modern v5.34+ output as legacy '
-            'and sent operators looking for a producer fault that was not there.')
+        if _fig_evidence['n'] > 0:
+            _warn('A-FIGPROFILE',
+                  f'paper has {_fig_evidence["n"]} figural question(s) '
+                  f'({_fig_evidence["why"]}) but NO per-question object_types record — '
+                  f'figure-profile conformance NOT AUDITED. The record is written by '
+                  f'S13-4 (final_assembly v1.10 commits it whenever the fig_manifest is '
+                  f'non-empty, regardless of figural_present); on a batch run pass '
+                  f'--fig-manifest. A paper whose figures cannot be audited is AMBER, '
+                  f'never green (v2.32, LAW F3.3).')
+        else:
+            # A paper with no figures, or a pre-v5.31 registry on a text paper. Dormant,
+            # exactly like the concept_map-dependent gates above — never a FAIL for a
+            # missing optional input (EC-V18).
+            _ok('A-FIGPROFILE',
+                'no figural questions and no per-question object_types — dormant. '
+                'EXPECTED when every figural subtopic profile is unconstrained '
+                '(Step 7 omits the entry deliberately, S13 object_types writer); '
+                'also true of a genuinely pre-v5.31 registry. This message no longer '
+                'asserts which (v2.21.7, SEC-3): the earlier wording said '
+                '"pre-v5.31 mock", which MISATTRIBUTED modern v5.34+ output as legacy '
+                'and sent operators looking for a producer fault that was not there.')
     else:
         # ── FIX GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING (D1/D2) — v2.12 ──────
         # BIND THE ENGINE. Until v2.12 `bc` was READ at three sites and BOUND at
@@ -2517,17 +2775,55 @@ def gate_images(blocks, src, media_map):
                   f'NOT CHECKED (dependency degraded: {_bc_why}). Logged skip; '
                   'audit continues (RA-9).')
         else:
+            # v2.32 (LAW F1.2): the profile AND the recorded labels pass through the
+            # figure-type registry's normaliser, exactly as Step 7 S7-NEW-B does, so a
+            # legacy section_rules spelling ('molecular structures') and the canonical
+            # label Step 7 recorded ('chemical_structure') compare as one name. Same
+            # three-layer guard: an absent registry degrades to identity (v2.31
+            # behaviour), never a crash.
+            try:
+                import figure_types as _ft_norm
+                _norm_fn = _ft_norm.normalise if hasattr(_ft_norm, 'normalise') else None
+            except Exception:
+                _norm_fn = None
             try:                                                          # L3
                 _sr_blocks = bc.parse_image_analysis_blocks(
                     src.get('section_rules_text', '') or '')
                 _by_sub = {}
+                _ri_q = src.get('figural_record_integrity') or {}
+                _ri_skipped = []
                 for _qn, _ty in _fig_types.items():
+                    if str(_qn) in _ri_q:
+                        # v2.33 — an annotated question (legacy_* / legacy_unlabelled) is a
+                        # DISCLOSED record, not a generated type: never judged against the
+                        # profile (it would read as a stray type and FAIL a resumed paper).
+                        _ri_skipped.append(f'Q{_qn}({_ri_q[str(_qn)]})')
+                        continue
                     _sid = _fig_subs.get(str(_qn))
                     if _sid:
-                        _by_sub.setdefault(_sid, []).append(_ty)
+                        _by_sub.setdefault(_sid, []).append(
+                            (_norm_fn(_ty) or _ty) if _norm_fn else _ty)
+                if _ri_skipped:
+                    print('[A-FIGPROFILE] annotated question(s) excluded from the profile check '
+                          '(disclosed in §FOOTER-FT): ' + _flist(_ri_skipped))
                 _fig_bad, _fig_ok, _fig_skip = [], 0, 0
+                # v2.33 (E3) — a Step-6 text_disclosed fallback subtopic renders TEXT and
+                # therefore has no figure record; say so, with the reason, so its absence
+                # from _by_sub is a PRINTED skip and never a silent one.
+                _fb = ((src.get('blueprint') or {}).get('figural_fallbacks') or {}) if isinstance(src.get('blueprint'), dict) else {}
+                for _sid, _tys in sorted(_fb.items()):
+                    print(f'[A-FIGPROFILE] {_sid}: skipped — allocated TEXT by Step 6 KIND-COVERAGE '
+                          f'(dominant type(s) {_tys} unsupported; policy text_disclosed). Disclosed in §FOOTER-FT.')
+                    if _sid in _by_sub:
+                        _fig_bad.append(f'{_sid}: a text_disclosed fallback subtopic carries a figure record '
+                                        f'({len(_by_sub[_sid])} figural question(s)) — it must render TEXT')
                 for _sid, _gen_types in sorted(_by_sub.items()):
-                    _prof = bc.figural_generation_profile(_sr_blocks.get(_sid))
+                    if _sid in _fb:
+                        continue
+                    try:
+                        _prof = bc.figural_generation_profile(_sr_blocks.get(_sid), normalise=_norm_fn)
+                    except TypeError:                       # pre-v1.28 engine: no normalise=
+                        _prof = bc.figural_generation_profile(_sr_blocks.get(_sid))
                     _verdict, _detail = bc.check_figural_conformance(_gen_types, _prof)
                     if _verdict == 'FAIL':
                         _fig_bad.append(f'{_sid}: {_detail}')
@@ -2545,6 +2841,10 @@ def gate_images(blocks, src, media_map):
                     _fail('A-FIGPROFILE',
                           'generated figure types do not match the measured PYQ profile — '
                           + _flist(_fig_bad, sep=' | '))
+                elif not _by_sub and _ri_skipped:
+                    _warn('A-FIGPROFILE',
+                          f'every figural question of this paper is annotated ({len(_ri_skipped)}) — '
+                          f'profile conformance NOT AUDITABLE; disclosed in §FOOTER-FT.')
                 elif not _by_sub:
                     # 0/0 is NOT evidence of conformance (edge case 6). The registry
                     # carried object_types but no usable subtopic_ids, so nothing was
@@ -2558,6 +2858,15 @@ def gate_images(blocks, src, media_map):
                     _ok('A-FIGPROFILE',
                         f'{_fig_ok} subtopic(s) conform to the measured figure profile; '
                         f'{_fig_skip} skipped (no usable profile — EC-V18).')
+    # ── A-FIGTYPE-KIND (v2.32, GAP-2026-11-01 LAW F2.1) ──────────────────────
+    # A figure record must agree with ITSELF: the object_type label, the problem
+    # semantic object's kind and the FigureSpec class name one registry row. The
+    # reference registry held 287 'reaction_scheme' labels over STRUCTURE objects and
+    # 44 REACTION objects without '>>', and no gate read the contradiction because
+    # each half was audited alone. Delegated to bc.check_figural_conformance(records)
+    # with figure_types' checkers INJECTED (thin core never imports the registry).
+    gate_figtype_kind(src, _fig_types, _fig_evidence)
+
     # v2.4: A-FIGTEXT-PROSE — figure-reference text in zero-image blocks
     if figtext_prose:
         _fail('A-FIGTEXT-PROSE',
@@ -3020,8 +3329,14 @@ def gate_specfaith(blocks, src):
     """
     specs = src.get('figure_specs') or {}
     if not specs:
-        _ok('A-FIGSPECLABEL', 'registry carries no figure_specs — dormant '
-                              '(pre-v5.34 registry; nothing to check).')
+        _ev = src.get('_figure_evidence') or figure_evidence(src, 0)
+        if _ev.get('n', 0) > 0:
+            _warn('A-FIGSPECLABEL',
+                  f'paper has {_ev["n"]} figural question(s) ({_ev["why"]}) but the registry '
+                  f'carries no figure_specs — label placeholders NOT AUDITED (v2.32, LAW F3.3).')
+        else:
+            _ok('A-FIGSPECLABEL', 'no figural questions and no figure_specs — dormant '
+                                  '(pre-v5.34 registry or text paper; nothing to check).')
         return
     extra = tuple(src.get('figure_label_placeholders') or ())
     pats = [re.compile(_p, re.I) for _p in (
@@ -7444,18 +7759,225 @@ def self_test():
     check('FIGPROFILE-zero-of-zero-warns',
           any(c == 'A-FIGPROFILE' and l == 'WARN' and 'NOT ESTABLISHED' in m for l, c, m in r))
 
-    # 49. LEGACY PATH UNCHANGED — no object_types → dormant _ok. ~200 exams on
-    #     pre-v5.31 output must keep passing exactly as before (EC-V18).
+    # 49. LEGACY PATH — a paper with NO figures and no object_types → dormant _ok.
+    #     ~200 exams on pre-v5.31 output keep delivering (EC-V18): a TEXT paper is
+    #     green exactly as before. (v2.32: the fixture's source now declares no
+    #     figural_qs, because a registry that DOES list figural questions and carries
+    #     no record is fixture 49b — AMBER, never green.)
     _with_bc(None)
-    r = _run_figprofile(_figsrc({}, {}))
+    _s49 = _figsrc({}, {}); _s49['figural_qs'] = set()
+    r = _run_figprofile(_s49)
     check('FIGPROFILE-legacy-dormant-ok',
           any(c == 'A-FIGPROFILE' and l == 'OK' and 'dormant' in m for l, c, m in r))
+
+    # 49b. [v2.31-FAILS] EVIDENCE-AWARE DORMANCY (GAP-2026-11-01 LAW F3.3) — the
+    #      registry lists figural questions, the record is absent → WARN 'NOT AUDITED',
+    #      never _ok. This is the delivered-paper shape: 36 figures, no record, SHIP.
+    _with_bc(None)
+    r = _run_figprofile(_figsrc({}, {}))            # figural_qs = {1, 2}, no object_types
+    check('FIGPROFILE-absent-record-on-figural-paper-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' and 'NOT AUDITED' in m for l, c, m in r)
+          and not any(c == 'A-FIGPROFILE' and l == 'OK' for l, c, _ in r))
+    # 49c. [v2.31-FAILS] the axis1_paper witness alone (registry figural_qs empty).
+    _s49c = _figsrc({}, {}); _s49c['figural_qs'] = set(); _s49c['mock_n'] = 1
+    _a1k = 'axis1_paper'      # a READ-side fixture: never spell the key as a dict literal
+    _s49c['registry'] = {_a1k: {'MOCK:M01': {'S1': {'FIGURAL': 36, 'TEXT': 4}}}}   # (audit_seam)
+    r = _run_figprofile(_s49c)
+    check('FIGPROFILE-axis1-witness-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' and 'axis1_paper FIGURAL=36' in m for l, c, m in r))
+    # 49d. A-FIGTYPE-KIND mirrors the dormancy rule.
+    check('FIGTYPEKIND-absent-record-on-figural-paper-warns',
+          any(c == 'A-FIGTYPE-KIND' and l == 'WARN' and 'NOT AUDITED' in m for l, c, m in
+              [(l, c, m) for l, c, m in RESULTS]))
+    _reset()
 
     # restore the real module state
     if _saved_bc is not None:
         sys.modules['blueprint_core'] = _saved_bc
     else:
         sys.modules.pop('blueprint_core', None)
+
+    # ════════════════════════════════════════════════════════════════════
+    # v2.32 — A-FIGTYPE-KIND (GAP-2026-11-01 LAW F2.1) + --fig-manifest (E19)
+    # ════════════════════════════════════════════════════════════════════
+    # REAL engines (blueprint_core + figure_types from the clone). Each [v2.31-FAILS]:
+    # the gate did not exist, so the false record passed.
+    try:
+        import figure_types as _ft_probe  # noqa: F401
+        _ft_here = True
+    except ImportError:
+        _ft_here = False
+
+    def _run_figtk(obj_types, sem, specs=None, integrity=None, fig_qs=(1, 2), schema=None):
+        s = _figsrc(obj_types, {q: 's.a' for q in obj_types})
+        s['figural_semantic_objects'] = sem
+        s['figure_specs'] = specs or {}
+        s['figural_record_integrity'] = integrity or {}
+        s['figural_record_schema'] = schema
+        s['figural_qs'] = set(fig_qs)
+        p = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset()
+        doc = Document(p); _t, blks = parse_blocks(doc)
+        _safe_gate('A-IMAGES', gate_images, blks, s, {})
+        return [(l, c, m) for l, c, m in RESULTS if c in ('A-FIGTYPE-KIND', 'A-GATEERROR')]
+
+    _SO = lambda kind, canon: [{'role': 'problem', 'kind': kind, 'name': 'x', 'canonical': canon, 'descriptor': {}}]
+    if _ft_here:
+        # 49e. [v2.31-FAILS] the reference defect: 'reaction_scheme' over a STRUCTURE object.
+        r = _run_figtk({'1': 'reaction_scheme', '2': 'reaction_scheme'},
+                       {'1': _SO('STRUCTURE', 'CCO'), '2': _SO('STRUCTURE', 'CCO')})
+        check('FIGTYPEKIND-label-over-wrong-kind-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'FALSE RECORD' in m and 'Q1' in m for l, c, m in r)
+              and not any(c == 'A-GATEERROR' for _, c, _ in r))
+        # 49f. consistent record passes, naming the count.
+        r = _run_figtk({'1': 'chemical_structure', '2': 'reaction_scheme'},
+                       {'1': _SO('STRUCTURE', 'CCO'), '2': _SO('REACTION', 'CCO>>CC=O')})
+        check('FIGTYPEKIND-consistent-record-OK',
+              any(c == 'A-FIGTYPE-KIND' and l == 'OK' and '2 figural question(s)' in m for l, c, m in r))
+        # 49g. [v2.31-FAILS] FigureSpec class disagrees with the type's registry row.
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _SO('REACTION', 'CCO>>CC=O')},
+                       specs={'q1_problem.png': {'class': 'data_series'}})
+        check('FIGTYPEKIND-class-mismatch-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'data_series' in m for l, c, m in r))
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _SO('REACTION', 'CCO>>CC=O')},
+                       specs={'q1_problem.png': {'class': 'schematic'}})
+        check('FIGTYPEKIND-class-match-OK', any(c == 'A-FIGTYPE-KIND' and l == 'OK' for l, c, _ in r))
+        # 49s. [v2.32-FAILS] E3 — a text_disclosed fallback subtopic is a PRINTED skip; a
+        #      figure record on it (it must render TEXT) FAILS.
+        _sr49s = ('--- Subtopic: X\nsubtopic_id: s.a\nPYQ_IMAGE_ANALYSIS:\n  image_role: stem_only\n'
+                  "  vision_status: observed\n  dominant: ['chemical_structure']\n  observed: ['chemical_structure']\n"
+                  '  avoid: []\n')
+        _s49s = _figsrc({'1': 'chemical_structure', '2': 'chemical_structure'}, {'1': 's.a', '2': 's.a'}, rules=_sr49s)
+        _s49s['figural_semantic_objects'] = {'1': _SO('STRUCTURE', 'CCO'), '2': _SO('STRUCTURE', 'CCO')}
+        _s49s['blueprint'] = {'figural_fallbacks': {'s.a': ['micrograph']}}
+        p49s = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset(); doc49s = Document(p49s); _t49s, blks49s = parse_blocks(doc49s)
+        _safe_gate('A-IMAGES', gate_images, blks49s, _s49s, {})
+        check('FIGPROFILE-fallback-subtopic-with-figures-FAILS',
+              any(c == 'A-FIGPROFILE' and l == 'FAIL' and 'text_disclosed fallback' in m for l, c, m in RESULTS))
+        _s49s['blueprint'] = {'figural_fallbacks': {'s.zzz': ['micrograph']}}
+        _reset(); _safe_gate('A-IMAGES', gate_images, blks49s, _s49s, {})
+        check('FIGPROFILE-fallback-elsewhere-does-not-affect-verdict',
+              any(c == 'A-FIGPROFILE' and l == 'OK' for l, c, _ in RESULTS))
+        # 49t. [v2.32-FAILS] E15 — an annotated (legacy_unlabelled) question never reaches the
+        #      profile check as a stray type; its sibling is still judged.
+        _s49t = _figsrc({'1': 'legacy_unlabelled', '2': 'chemical_structure'}, {'1': 's.a', '2': 's.a'}, rules=_sr49s)
+        _s49t['figural_semantic_objects'] = {'1': [], '2': _SO('STRUCTURE', 'CCO')}
+        _s49t['figural_record_integrity'] = {'1': 'legacy_unlabelled'}; _s49t['figural_record_schema'] = 'F2'
+        p49t = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset(); doc49t = Document(p49t); _t49t, blks49t = parse_blocks(doc49t)
+        _safe_gate('A-IMAGES', gate_images, blks49t, _s49t, {})
+        check('FIGPROFILE-annotated-question-not-judged-as-stray-type',
+              any(c == 'A-FIGPROFILE' and l == 'OK' for l, c, _ in RESULTS)
+              and not any(c == 'A-FIGPROFILE' and l == 'FAIL' for l, c, _ in RESULTS))
+        # 49o. [v2.32-FAILS] options_only question: no problem object, option objects audited
+        #      against the label (was: WARN 'NOT AUDITED' → S13-4c tripwire on a sound paper).
+        _OPT = lambda kind, canon: [{'role': f'option:{i}', 'kind': kind, 'name': 'o', 'canonical': canon, 'descriptor': {}}
+                                    for i in range(1, 5)]
+        r = _run_figtk({'1': 'chemical_structure'}, {'1': _OPT('STRUCTURE', 'CCO')}, fig_qs=(1,))
+        check('FIGTYPEKIND-options-only-audited-OK',
+              any(c == 'A-FIGTYPE-KIND' and l == 'OK' and '4 with a semantic object' in m for l, c, m in r)
+              and not any('NOT AUDITED' in m for _, _, m in r))
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _OPT('STRUCTURE', 'CCO')}, fig_qs=(1,))
+        check('FIGTYPEKIND-options-only-label-mismatch-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'option:1' in m for l, c, m in r))
+        # 49p. [v2.32-FAILS] auditor twin of V4: a REACTION without '>>' / a STRUCTURE with one.
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _SO('REACTION', 'BrBr.CCC#CCC')}, fig_qs=(1,))
+        check('FIGTYPEKIND-degenerate-reaction-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'reactant>>product' in m for l, c, m in r))
+        r = _run_figtk({'1': 'chemical_structure'}, {'1': _SO('STRUCTURE', 'CCO>>CC=O')}, fig_qs=(1,))
+        check('FIGTYPEKIND-structure-with-arrow-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'reaction arrow' in m for l, c, m in r))
+        # 49q. [v2.32-FAILS] a STAMPED (current) record carrying a legacy annotation is a
+        #      FAIL, never a skip — the S13-REGCHECK migration can no longer launder it.
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _SO('STRUCTURE', 'CCO')},
+                       integrity={'1': 'legacy_label_mismatch'}, fig_qs=(1,), schema='F2')
+        check('FIGTYPEKIND-stamped-record-annotation-FAILS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' and 'CURRENT' in m for l, c, m in r))
+        r = _run_figtk({'1': 'reaction_scheme'}, {'1': _SO('STRUCTURE', 'CCO')},
+                       integrity={'1': 'legacy_label_mismatch'}, fig_qs=(1,), schema=None)
+        check('FIGTYPEKIND-unstamped-legacy-annotation-skipped',
+              any(c == 'A-FIGTYPE-KIND' and l == 'WARN' and 'legacy-annotated' in m and 'NOT AUDITED' not in m for l, c, m in r)
+              and not any(l == 'FAIL' for l, _, _ in r))
+        # 49r. E15 — resumed pre-v5.88 question committed as legacy_unlabelled: WARN, disclosed,
+        #      and NOT a tripwire string ('NOT AUDITABLE' ≠ 'NOT AUDITED'); a false sibling still FAILS.
+        r = _run_figtk({'1': 'legacy_unlabelled', '2': 'chemical_structure'},
+                       {'1': [], '2': _SO('STRUCTURE', 'CCO')}, integrity={'1': 'legacy_unlabelled'}, schema='F2')
+        check('FIGTYPEKIND-legacy-unlabelled-resume-WARNs-not-tripwire',
+              any(c == 'A-FIGTYPE-KIND' and l == 'WARN' and 'legacy_unlabelled' in m and 'NOT AUDITED' not in m
+                  and 'dormant' not in m and 'NOT CHECKED' not in m for l, c, m in r))
+        r = _run_figtk({'1': 'legacy_unlabelled', '2': 'reaction_scheme'},
+                       {'1': [], '2': _SO('STRUCTURE', 'CCO')}, integrity={'1': 'legacy_unlabelled'}, schema='F2')
+        check('FIGTYPEKIND-legacy-unlabelled-does-not-mask-sibling-FAIL',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' for l, c, _ in r))
+        # 49h. unregistered type → WARN naming it, never FAIL, never OK.
+        r = _run_figtk({'1': 'zorblax_widget', '2': 'chemical_structure'},
+                       {'1': _SO('GENERIC', None), '2': _SO('STRUCTURE', 'CCO')})
+        check('FIGTYPEKIND-unregistered-WARNS-named',
+              any(c == 'A-FIGTYPE-KIND' and l == 'WARN' and 'UNREGISTERED' in m and 'zorblax_widget' in m for l, c, m in r)
+              and not any(c == 'A-FIGTYPE-KIND' and l in ('OK', 'FAIL') for l, c, _ in r))
+        # 49i. record without semantic objects (pre-v5.59) → WARN not audited.
+        r = _run_figtk({'1': 'chemical_structure'}, {})
+        check('FIGTYPEKIND-no-semantic-objects-WARNS',
+              any(c == 'A-FIGTYPE-KIND' and l == 'WARN' and 'NO semantic objects' in m for l, c, m in r))
+        # 49j. legacy-annotated question (migration, final_assembly v1.9) is skipped with a reason.
+        r = _run_figtk({'1': 'reaction_scheme', '2': 'chemical_structure'},
+                       {'1': _SO('STRUCTURE', 'CCO'), '2': _SO('STRUCTURE', 'CCO')},
+                       integrity={'1': 'legacy_label_mismatch'})
+        check('FIGTYPEKIND-legacy-annotation-skipped',
+              any(c == 'A-FIGTYPE-KIND' and l == 'OK' and 'legacy-annotated' in m and 'Q1(legacy_label_mismatch)' in m
+                  for l, c, m in r))
+        # 49k. the registry-level alias path: a spelled variant still binds.
+        r = _run_figtk({'1': 'Reaction Scheme'}, {'1': _SO('STRUCTURE', 'CCO')})
+        check('FIGTYPEKIND-alias-still-checked', any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' for l, c, _ in r))
+        # 49l. [v2.31-FAILS] --fig-manifest (E19): an UNCOMMITTED paper's sidecar arms the
+        #      gates. Driven through load_sources' own branch via a fake args object.
+        import types as _types
+        _fmp = os.path.join(tmp, 'EX_fig_manifest.json')
+        json.dump({'questions': {'1': {'object_type': 'reaction_scheme', 'subtopic_id': 's.a',
+                                       'semantic_objects': _SO('STRUCTURE', 'CCO')}}},
+                  open(_fmp, 'w', encoding='utf-8'))
+        json.dump({'question': 1, 'class': 'schematic', 'role': 'problem'},
+                  open(os.path.join(tmp, 'q1_problem.figspec.json'), 'w', encoding='utf-8'))
+        _s19 = _src_stub(tq=2)
+        _s19['figural_qs'] = set(); _s19['figural_object_types'] = {}; _s19['figural_subtopics'] = {}
+        # replay the loader's sidecar branch verbatim (fig is None on a batch run)
+        _fm19 = json.load(open(_fmp, encoding='utf-8'))
+        _s19['fig_manifest_sidecar'] = _fm19
+        _qs19 = _fm19['questions']
+        _s19['figural_object_types'] = {q: v['object_type'] for q, v in _qs19.items()}
+        _s19['figural_subtopics'] = {q: v['subtopic_id'] for q, v in _qs19.items()}
+        _s19['figural_semantic_objects'] = {q: v['semantic_objects'] for q, v in _qs19.items()}
+        _s19['figural_qs'] = {1}
+        _s19['figure_specs'] = {'q1_problem.png': json.load(open(os.path.join(tmp, 'q1_problem.figspec.json')))}
+        p19 = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset(); doc19 = Document(p19); _t19, blks19 = parse_blocks(doc19)
+        _safe_gate('A-IMAGES', gate_images, blks19, _s19, {})
+        check('FIGTYPEKIND-sidecar-armed-on-batch-run',
+              any(c == 'A-FIGTYPE-KIND' and l == 'FAIL' for l, c, _ in RESULTS)
+              and any(c == 'A-FIGPROFILE' and 'dormant' not in m and 'NOT AUDITED' not in m
+                      for l, c, m in RESULTS))
+        # 49m. --fig-manifest is a real CLI flag and the loader reads it: parse-level pin.
+        _ap19 = argparse.ArgumentParser(); _ap19.add_argument('--fig-manifest', dest='fig_manifest')
+        check('FIGTYPEKIND-fig-manifest-flag-exists',
+              "'--fig-manifest'" in open(__file__, encoding='utf-8').read()
+              and 'fig_manifest' in open(__file__, encoding='utf-8').read().split('def load_sources')[1][:20000])
+        # 49n. [v2.31-FAILS] A-FIGPROFILE normalises BOTH sides: a section_rules written
+        #      with 'molecular structures' and a Step-7 label 'chemical_structure' agree.
+        _sr49 = ('--- Subtopic: X\nsubtopic_id: s.a\nPYQ_IMAGE_ANALYSIS:\n  image_role: stem_only\n'
+                 "  vision_status: observed\n  dominant: ['molecular structures']\n  observed: ['molecular structures']\n"
+                 '  avoid: []\n')
+        _s49n = _figsrc({'1': 'chemical_structure', '2': 'Chemical Structure'}, {'1': 's.a', '2': 's.a'}, rules=_sr49)
+        _s49n['figural_semantic_objects'] = {'1': _SO('STRUCTURE', 'CCO'), '2': _SO('STRUCTURE', 'CCO')}
+        p49 = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset(); doc49 = Document(p49); _t49, blks49 = parse_blocks(doc49)
+        _safe_gate('A-IMAGES', gate_images, blks49, _s49n, {})
+        check('FIGPROFILE-normalises-profile-and-labels',
+              any(c == 'A-FIGPROFILE' and l == 'OK' and '1 subtopic(s) conform' in m for l, c, m in RESULTS)
+              and not any(c == 'A-FIGPROFILE' and l == 'FAIL' for l, c, _ in RESULTS))
+    else:
+        check('FIGTYPEKIND[figure_types-absent-skipped]', True)
+    _reset()
 
     # 50. GATE FAULT ISOLATION (P6) — an exploding gate must become a LOUD, NAMED
     #     FAIL while the run continues. This is the fixture that makes the entire
@@ -9248,8 +9770,10 @@ def self_test():
     try:
         import inspect as _insp, blueprint_core as _bc
         _sigs = {
-            'figural_generation_profile': '(pyq_image_analysis)',
-            'check_figural_conformance': '(generated_types, profile, floor=0.55)',
+            # v2.32 — additive, injected collaborators (thin core): a session that
+            # loads figure_types passes normalise= / kind_check= / class_check=.
+            'figural_generation_profile': '(pyq_image_analysis, normalise=None)',
+            'check_figural_conformance': '(generated_types, profile, floor=0.55, kind_check=None, class_check=None)',
             'derive_image_roles': '(imap)',
         }
         for _fn, _want in _sigs.items():
@@ -9572,6 +10096,9 @@ def main():
                     help='[ExamCode]_pyq_index.json (A-PYQDIST twin; v2.26)')
     ap.add_argument('--stimulus-profile', dest='stimulus_profile',
                     help='[ExamCode]_stimulus_profile.json (A-BLOCK; v2.30)')
+    ap.add_argument('--fig-manifest', dest='fig_manifest',
+                    help='[ExamCode]_fig_manifest.json (v2.32, E19): the Step-7 sidecar for a '
+                         'paper not yet committed; arms A-FIGPROFILE / A-FIGTYPE-KIND per batch.')
     ap.add_argument('--mockN', type=int)
     ap.add_argument('--through-q', dest='through_q', type=int,
                     help='PARTIAL-PAPER MODE (v2.23): audit an intermediate batch '

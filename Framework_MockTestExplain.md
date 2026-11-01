@@ -1,4 +1,14 @@
-# Framework_MockTestExplain v1.51.1
+# Framework_MockTestExplain v1.51.2
+# v1.51.2 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired
+#   with corpus_io v1.16 / explain_engine canonical_structure twin, final_assembly v1.9,
+#   MockTestCreate v5.88). PATCH, S13-2b only: (1) a REACTION object now canonicalises —
+#   explain_engine.canonical_structure accepts reaction SMILES (reactants>agents>products),
+#   so the registered scheme is reconciled per role like a STRUCTURE; (2) a question whose
+#   registry record carries record_integrity (the S13-REGCHECK legacy annotation —
+#   label/kind mismatch or a REACTION without '>>') is reconciled against the TRANSCRIPTION
+#   ALONE with the annotation printed once (edge case E16): the registered object is known
+#   to be a false or degenerate record and must not be used as a cross-check. No gate,
+#   set or engine change here.
 # v1.51.1 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
 #   MockTestCreate v5.86, final_assembly v1.8, audit_canonical v2.31). registry
 #   rc_manifests[] / di_manifests[] / figural_manifests[] are shared by EVERY series
@@ -2549,6 +2559,18 @@ execution path — it does not shrink, soften or delete them.
       from the object. DISAGREE → re-view and re-transcribe ONCE with the registered
       name known; still DISAGREE → §17-3. The registered object is a CROSS-CHECK as
       the manifest always was; pixels still win when §17-3's proof says so.
+      v1.51.2: a REACTION object (kind REACTION, canonical 'reactants>agents>products')
+      reconciles through the same call — explain_engine.canonical_structure canonicalises
+      reaction SMILES component-wise (corpus_io v1.16 twin). A drawn scheme whose
+      product is a placeholder registers an empty product side; agree on the reactants
+      and agents, derive the product yourself.
+    • registry.figural_manifests[].record_integrity[q] present (final_assembly v1.10
+      migration — 'legacy_label_mismatch' / 'legacy_degenerate_reaction', or Step 7
+      S4-12 4c 'legacy_unlabelled' for a question resumed across the v5.88 fix) → the
+      registered object for that question is a KNOWN false or degenerate record: do NOT
+      cross-check against it. Print once "Q[n]: legacy figure record ([annotation]) —
+      reconciled from the transcription alone", and proceed exactly as in the absent
+      case below (edge case E16). Never re-render the figure (S10-7 Q13 posture).
     • absent (older paper, PYQ) → the transcription stands alone; rdkit sanitisation
       (explain_engine.canonical_structure — v1.40.0: it lives in the ENGINE, not in
       paper_pipeline; it never raises and returns (canonical|None, reason)) still runs on
@@ -3536,5 +3558,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.51.1
+# END OF Framework_MockTestExplain v1.51.2
 # ════════════════════════════════════════════════════════════════════════

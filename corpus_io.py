@@ -1,6 +1,38 @@
 """
-corpus_io.py v1.15 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.16 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.16 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.3;
+    paired with figure_types v1.0, paper_pipeline v5.40, final_assembly v1.9,
+    audit_canonical v2.32, blueprint_core v1.28, MockTestCreate v5.88). The REACTION
+    semantic kind existed on paper and was rejected by every function that touched it:
+    canonical_structure returned parse_error on '>>', structure_draw_fn raised, and
+    the registry commit raised — so every reaction-dominant exam shipped a lone molecule
+    with the reaction moved into the stem (measured: 20 of 24 figural organic questions
+    on a real paper are drawn schemes; the delivered paper drew 0). Three additive
+    changes, every molecule path byte-identical:
+      (1) canonical_structure() accepts REACTION SMILES ('reactants>agents>products',
+          exactly two '>' separators; an empty agents or products side is legal — a
+          scheme ending in a placeholder letter has no drawn product). Each component
+          is canonicalised through the unchanged molecule path and re-joined; a
+          dot-separated molecule SET without '>>' is still a molecule set (the
+          REACTION kind now requires '>>' at validate_semantic_object, paper_pipeline
+          v5.40). CROSS-FILE SYNC RULE unchanged: explain_engine.canonical_structure
+          is the byte-identical twin.
+      (2) structure_draw_fn() exposes .raster() (the RGBA array it blits) and .px —
+          additive attributes; render order, palette and extent contract untouched.
+      (3) render_scheme(spec) — the compositor. A declarative scheme in reading order
+          (rows of molecule tiles, '+', arrows carrying reagent text above and
+          conditions below, a reagent drawn as a structure, placeholder letters,
+          bracketed intermediates, labelled option pairs — the G1–G10 grammar read
+          from the real paper) rendered as ONE figural_core draw_fn: every tile comes
+          from structure_draw_fn (G-FIGSEM provenance per tile), arrows and text are
+          matplotlib artists, so the v5.55 fitter, label deconflict, G-FIGINK and
+          G-FIGFIT apply unchanged. The returned draw_fn carries .canonical (the
+          reaction SMILES assembled from the drawn molecules, placeholders omitted),
+          .descriptor (reagent lines, unknowns, arrows, rows), .set_element_colours
+          (colour_content propagates to every tile) and the Q7b.14 attributes an
+          option set needs. scheme_semantic_object() builds the S7-NEW-B2 record.
 
 v1.15 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER. _is_line_art() classed an
     image as line art by "<= 256 distinct colours". Measured 2026-08-30: EVERY
@@ -4397,15 +4429,45 @@ def adjacent_table_pairs(doc):
 def canonical_structure(smiles):
     """Canonical isomeric SMILES via rdkit, with valence sanitisation. Returns
     (canonical|None, reason); reason == 'ok' | 'rdkit_unavailable' | a parse
-    error. NEVER raises — the caller decides what an unavailable rdkit means."""
+    error. NEVER raises — the caller decides what an unavailable rdkit means.
+
+    v1.16 (GAP-2026-11-01, LAW F1.3): a REACTION SMILES — 'reactants>agents>products',
+    exactly two '>' separators — canonicalises component-wise through the molecule
+    path below and is re-joined in the same order. An empty agents side, an empty
+    products side (a scheme that ends in a placeholder letter) or an empty reactants
+    side (a scheme that starts from an unknown and draws the product — G7) are each
+    legal; a reaction with NEITHER a reactant nor a product is not. The molecule path
+    is byte-identical to v1.15, so every pre-existing fixture canonicalises as before."""
     try:
         from rdkit import Chem
         from rdkit import RDLogger
         RDLogger.DisableLog('rdApp.*')
     except Exception:
         return None, 'rdkit_unavailable'
+    s = str(smiles)
+    if '>' in s:
+        parts = s.split('>')
+        if len(parts) != 3:
+            return None, ('parse_error: a reaction SMILES has exactly two ">" separators '
+                          '(reactants>agents>products)')
+        if not parts[0].strip() and not parts[2].strip():
+            return None, 'parse_error: reaction SMILES has neither a reactant nor a product'
+        sides = []
+        for side in parts:
+            comps = []
+            for comp in [c for c in side.strip().split('.') if c.strip()]:
+                try:
+                    m = Chem.MolFromSmiles(comp, sanitize=True)
+                except Exception as e:
+                    return None, f'parse_error: {e}'
+                if m is None:
+                    return None, (f'parse_error: rdkit rejected the SMILES component '
+                                  f'{comp!r} (valence / syntax)')
+                comps.append(Chem.MolToSmiles(m, isomericSmiles=True, canonical=True))
+            sides.append('.'.join(comps))
+        return '>'.join(sides), 'ok'
     try:
-        mol = Chem.MolFromSmiles(str(smiles), sanitize=True)
+        mol = Chem.MolFromSmiles(s, sanitize=True)
     except Exception as e:
         return None, f'parse_error: {e}'
     if mol is None:
@@ -4427,6 +4489,9 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     renders every atom black. The returned draw_fn carries .canonical,
     .coloured_elements and .set_element_colours(flag); render_option_set() uses the
     last two to keep heteroatom colour uniform across an option set."""
+    if '>' in str(smiles or ''):
+        raise ValueError(f'structure_draw_fn: {smiles!r} is a reaction SMILES — a reaction is '
+                         f'drawn by render_scheme (S7-NEW-B2 REACTION path), never as one molecule')
     canon, reason = canonical_structure(smiles)
     if canon is None:
         raise ValueError(f'structure_draw_fn: cannot render {smiles!r}: {reason}')
@@ -4522,7 +4587,359 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     draw.highlight = {'atoms': hl_atoms, 'bonds': hl_bonds}
     draw.set_element_colours = set_element_colours
     draw.palette_note = state['note']
+    # v1.16 — additive: the compositor (render_scheme) blits the same raster as a
+    # tile, so a scheme's molecules carry structure_draw_fn provenance per tile.
+    draw.raster = lambda: holder['arr']
+    draw.px = (int(px[0]), int(px[1]))
     return draw
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REACTION-SCHEME COMPOSITOR (v1.16, GAP-2026-11-01 LAW F1.3)
+#
+# The real exam asks organic questions as DRAWN SCHEMES: substrate → arrow carrying
+# reagents (above) and conditions (below) → product or placeholder letter. Measured
+# on a real paper (07-Jun-2023): 20 of 24 figural organic questions. The grammar the
+# renderer must cover, each element seen on that paper:
+#   G1  substrates joined by '+'            G6  bracketed intermediate [ A ]
+#   G2  right / sequential / left arrows    G7  product drawn when the ask is elsewhere
+#   G3  reagent lines above, conditions     G8  multi-row panels (rows=[...])
+#       below (≤2 lines each)               G9  wedges / charges / numbering (rdkit)
+#   G4  reagent drawn as a structure        G10 option = labelled pair  A = …  B = …
+#   G5  placeholder letters, tile labels
+#
+# SCHEME SPEC (reading order; one list per row):
+#   {'rows': [[item, ...], ...]}   or   {'items': [item, ...]}   (a single row)
+#   item ∈ {'mol': SMILES, 'label': 'A'|None, 'equiv': '(2 equiv)'|None,
+#                 'highlight_atoms': [...], 'highlight_bonds': [...], 'role': 'reactant'|'product'|'agent'}
+#          {'plus': True}
+#          {'arrow': {'dir': 'right'|'left'|'both', 'above': [str, ...], 'below': [str, ...],
+#                     'reagent_mol': SMILES|None}}
+#          {'placeholder': 'A'}            {'bracket': 'A'}            {'text': '...'}
+#          {'pair': [('A', SMILES), ('B', SMILES)]}                    (G10)
+# The role of a molecule defaults by position: before the first arrow of its row →
+# reactant; a reagent_mol → agent; after an arrow → product. The REACTION canonical is
+# assembled per row as 'reactants>agents>products' (placeholders omitted) and joined
+# across rows with ' | ' in .descriptor['row_canonicals']; .canonical is row 1's (one
+# semantic object per row — S7-NEW-B2 role 'problem:<i>').
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SCHEME_TILE_H = 1.0          # data units; the fitter owns the final scale (Q10)
+SCHEME_TILE_W_MAX = 2.2
+SCHEME_GAP = 0.18
+SCHEME_ARROW_L = 1.35
+SCHEME_ROW_GAP = 0.45
+SCHEME_TEXT_PT = 9.0         # reagent/condition lines; FigureSpec fonts scale the rest
+SCHEME_LABEL_PT = 12.0       # placeholder letters / tile labels (bold)
+
+
+def _scheme_rows(spec):
+    if not isinstance(spec, dict):
+        raise ValueError('render_scheme: spec must be a dict')
+    rows = spec.get('rows')
+    if rows is None:
+        rows = [spec.get('items') or []]
+    if not isinstance(rows, (list, tuple)) or not rows or not all(isinstance(r, (list, tuple)) for r in rows):
+        raise ValueError('render_scheme: spec needs rows=[[item,...],...] or items=[item,...]')
+    if not any(r for r in rows):
+        raise ValueError('render_scheme: scheme has no items')
+    return [list(r) for r in rows]
+
+
+def _crop_raster(arr, pad=12):
+    """Crop an RGBA tile to its ink (rdkit pads its canvas heavily, which made every
+    molecule read smaller than the arrow beside it). Pure numpy; returns the input
+    unchanged when it carries no ink."""
+    import numpy as _np
+    a = _np.asarray(arr)
+    if a.ndim != 3 or a.shape[0] < 4 or a.shape[1] < 4:
+        return a
+    if a.shape[2] == 4:
+        ink = a[:, :, 3] > 0
+    else:
+        ink = (a[:, :, :3].astype(int).sum(axis=2) < 3 * 250)
+    ys, xs = _np.where(ink)
+    if ys.size == 0:
+        return a
+    y0, y1 = max(0, ys.min() - pad), min(a.shape[0], ys.max() + pad + 1)
+    x0, x1 = max(0, xs.min() - pad), min(a.shape[1], xs.max() + pad + 1)
+    return a[y0:y1, x0:x1]
+
+
+def _text_width_units(s, pt):
+    """Crude width estimate in data units for layout (the fitter measures the truth)."""
+    return 0.085 * (pt / 9.0) * max(1, len(str(s)))
+
+
+def scheme_canonical(spec):
+    """Reaction SMILES per row, 'reactants>agents>products', placeholders omitted.
+    Pure string work on the spec (no rdkit): the drawn molecules' SMILES as written.
+
+    ROLES BY ARROW DIRECTION (G2: right, sequential, LEFT and bidirectional arrows). A row
+    is split into SEGMENTS by its arrows. Every arrow has a TAIL segment (the side it
+    starts from: left of a right-arrow, right of a left-arrow; both for 'both') and a HEAD
+    segment. A molecule in a tail-only segment is a REACTANT, in a head-only segment a
+    PRODUCT, in a segment that is both (the drawn intermediate of A → B → C) an
+    INTERMEDIATE (recorded in the descriptor, omitted from the canonical). An explicit
+    item role ('reactant' | 'product' | 'agent') always wins. A reagent drawn on an arrow
+    is an AGENT. Returns [row_canonical, ...]; '' only for a row with no molecule in a
+    reactant or product position (render_scheme refuses such a row)."""
+    out = []
+    for row in _scheme_rows(spec):
+        segs = [[]]
+        arrows = []                       # (dir, reagent_mol)
+        for it in row:
+            if 'arrow' in it:
+                a = it['arrow'] or {}
+                arrows.append((a.get('dir', 'right'), a.get('reagent_mol')))
+                segs.append([])
+            elif 'mol' in it:
+                segs[-1].append((it['mol'], it.get('role')))
+            elif 'pair' in it:
+                for _lbl, smi in it['pair']:
+                    segs[-1].append((smi, None))
+        tails, heads = set(), set()
+        for i, (d, _rm) in enumerate(arrows):
+            if d == 'left':
+                tails.add(i + 1); heads.add(i)
+            elif d == 'both':
+                tails.add(i); tails.add(i + 1); heads.add(i); heads.add(i + 1)
+            else:
+                tails.add(i); heads.add(i + 1)
+        react, agents, prods = [], [], []
+        for si, seg in enumerate(segs):
+            for smi, role in seg:
+                if role == 'agent':
+                    agents.append(smi)
+                elif role == 'reactant':
+                    react.append(smi)
+                elif role == 'product':
+                    prods.append(smi)
+                elif si in tails and si not in heads:
+                    react.append(smi)
+                elif si in heads and si not in tails:
+                    prods.append(smi)
+                elif si in tails and si in heads:
+                    if arrows and all(d == 'both' for d, _ in arrows):
+                        (react if si == 0 else prods).append(smi)     # A ⇌ B: left-to-right
+                    # else: an intermediate — omitted from the canonical by design
+                elif not arrows:
+                    react.append(smi)                                  # no arrow: refused by render_scheme
+        agents += [rm for _d, rm in arrows if rm]
+        out.append('.'.join(react) + '>' + '.'.join(agents) + '>' + '.'.join(prods)
+                   if (react or prods) else '')
+    return out
+
+
+def render_scheme(spec, px_tile=(700, 500), element_colours=True):
+    """A figural_core draw_fn (ax, series, palette) that lays out a reaction scheme.
+
+    Every molecule tile is rendered by structure_draw_fn (same rdkit depiction,
+    ATOM_PALETTE, highlight_* and colour_content rules — S10-7C), arrows and text are
+    matplotlib artists, and the whole scheme is ONE draw_fn for figural_core.
+    render_figure, so the v5.55 fitter (Q10), label deconflict (Q11), G-FIGINK and
+    G-FIGFIT apply unchanged. Raises ValueError when rdkit rejects a molecule or the
+    spec is malformed — a scheme is never hand-drawn and never silently degraded.
+
+    Returned draw_fn attributes: .canonical (row 1 reaction SMILES, rdkit-canonical),
+    .row_canonicals, .descriptor (reagent_lines, unknowns, arrows, rows, tiles),
+    .tiles (the per-molecule draw_fns), .coloured_elements, .element_colours,
+    .set_element_colours(flag), .highlight, .palette_note, .suggested_aspect (h/w)."""
+    rows = _scheme_rows(spec)
+    tiles, layout = [], []          # layout: per row, list of (kind, payload, x, w)
+    reagent_lines, unknowns, n_arrows = [], [], 0
+    coloured, notes = set(), []
+    row_w = []
+    H = SCHEME_TILE_H
+
+    def _tile(smiles, hl_a=(), hl_b=()):
+        d = structure_draw_fn(smiles, px=px_tile, element_colours=element_colours,
+                              highlight_atoms=hl_a, highlight_bonds=hl_b)
+        tiles.append(d)
+        arr = _crop_raster(d.raster())
+        asp = arr.shape[1] / float(arr.shape[0]) if arr.shape[0] else 1.0
+        w = min(SCHEME_TILE_W_MAX, H * asp)
+        return d, w, H * (w / (H * asp)) if asp else H
+
+    for row in rows:
+        x = 0.0
+        items = []
+        for it in row:
+            if not isinstance(it, dict):
+                raise ValueError(f'render_scheme: item {it!r} is not a dict')
+            if 'mol' in it:
+                d, w, h = _tile(it['mol'], it.get('highlight_atoms', ()), it.get('highlight_bonds', ()))
+                coloured |= set(d.coloured_elements)
+                if d.palette_note:
+                    notes.append(d.palette_note)
+                items.append(('mol', {'draw': d, 'label': it.get('label'), 'equiv': it.get('equiv'),
+                                      'h': h}, x, w))
+                x += w + SCHEME_GAP
+            elif it.get('plus'):
+                items.append(('plus', {}, x, 0.32)); x += 0.32 + SCHEME_GAP
+            elif 'arrow' in it:
+                a = dict(it['arrow'] or {})
+                above = [str(t) for t in (a.get('above') or []) if t is not None and str(t).strip()]
+                below = [str(t) for t in (a.get('below') or []) if t is not None and str(t).strip()]
+                if len(above) > 2 or len(below) > 2:
+                    raise ValueError('render_scheme: an arrow carries at most 2 lines above '
+                                     'and 2 below (G3) — move the rest into the stem')
+                reagent_lines += above + below
+                n_arrows += 1
+                rm = None
+                if a.get('reagent_mol'):
+                    rm, _rw, _rh = _tile(a['reagent_mol'])     # drawn above the arrow (G4)
+                tw = max([_text_width_units(t, SCHEME_TEXT_PT) for t in above + below] + [0.0])
+                L = max(SCHEME_ARROW_L, tw + 0.3, (0.0 if rm is None else 1.5))
+                items.append(('arrow', {'dir': a.get('dir', 'right'), 'above': above,
+                                        'below': below, 'reagent': rm}, x, L))
+                x += L + SCHEME_GAP
+            elif 'placeholder' in it:
+                unknowns.append(str(it['placeholder']))
+                items.append(('ph', {'text': str(it['placeholder'])}, x, 0.5)); x += 0.5 + SCHEME_GAP
+            elif 'bracket' in it:
+                unknowns.append(str(it['bracket']))
+                items.append(('bracket', {'text': str(it['bracket'])}, x, 0.75)); x += 0.75 + SCHEME_GAP
+            elif 'text' in it:
+                w = _text_width_units(it['text'], SCHEME_LABEL_PT) + 0.2
+                items.append(('text', {'text': str(it['text'])}, x, w)); x += w + SCHEME_GAP
+            elif 'pair' in it:
+                pair = list(it['pair'])
+                if len(pair) != 2:
+                    raise ValueError('render_scheme: a pair holds exactly two (label, SMILES)')
+                for lbl, smi in pair:
+                    d, w, h = _tile(smi)
+                    coloured |= set(d.coloured_elements)
+                    items.append(('pairtile', {'draw': d, 'label': f'{lbl} ='}, x, w + 0.45))
+                    x += w + 0.45 + SCHEME_GAP
+            else:
+                raise ValueError(f'render_scheme: unknown item {sorted(it)}')
+        if not any(k == 'arrow' for k, _p, _x, _w in items):
+            raise ValueError('render_scheme: every row of a scheme carries at least one arrow — '
+                             'a bare structure or structure set is a STRUCTURE figure '
+                             '(structure_draw_fn / render_option_set), not a scheme')
+        layout.append(items)
+        row_w.append(x - SCHEME_GAP if items else 0.0)
+    if not tiles:
+        raise ValueError('render_scheme: a scheme must draw at least one molecule')
+
+    W = max(row_w)
+    n_rows = len(layout)
+    row_h = H + 0.9                       # tile + reagent lines above/below an arrow
+    total_h = n_rows * row_h + (n_rows - 1) * SCHEME_ROW_GAP
+    state = {'colours': bool(element_colours)}
+
+    def draw(ax, series=None, palette=None):
+        from matplotlib.patches import FancyArrowPatch
+        for ri, items in enumerate(layout):
+            cy = total_h - (ri * (row_h + SCHEME_ROW_GAP)) - row_h / 2.0
+            for kind, p, x, w in items:
+                if kind in ('mol', 'pairtile'):
+                    d = p['draw']
+                    arr = _crop_raster(d.raster())
+                    asp = arr.shape[1] / float(arr.shape[0]) if arr.shape[0] else 1.0
+                    tw = w if kind == 'mol' else w - 0.45
+                    th = tw / asp if asp else H
+                    x0 = x if kind == 'mol' else x + 0.45
+                    ax.imshow(arr, extent=(x0, x0 + tw, cy - th / 2.0, cy + th / 2.0),
+                              zorder=2, interpolation='bilinear')
+                    if kind == 'pairtile':
+                        ax.text(x + 0.2, cy, p['label'], ha='center', va='center',
+                                fontsize=SCHEME_LABEL_PT, weight='bold')
+                    _ylab = cy - th / 2.0 - 0.06
+                    if p.get('label'):
+                        ax.text(x0 + tw / 2.0, _ylab, p['label'],
+                                ha='center', va='top', fontsize=SCHEME_LABEL_PT, weight='bold')
+                        _ylab -= 0.24                      # an equivalents line sits under the label
+                    if p.get('equiv'):
+                        ax.text(x0 + tw / 2.0, _ylab, p['equiv'],
+                                ha='center', va='top', fontsize=SCHEME_TEXT_PT)
+                elif kind == 'plus':
+                    ax.text(x + w / 2.0, cy, '+', ha='center', va='center', fontsize=SCHEME_LABEL_PT + 2)
+                elif kind == 'arrow':
+                    d_ = p['dir']
+                    style = {'right': '-|>', 'left': '<|-', 'both': '<|-|>'}.get(d_, '-|>')
+                    ax.add_patch(FancyArrowPatch((x, cy), (x + w, cy), arrowstyle=style,
+                                                 mutation_scale=14, lw=1.6, color='black',
+                                                 zorder=3, shrinkA=0, shrinkB=0))
+                    if p['reagent'] is not None:
+                        arr = _crop_raster(p['reagent'].raster())
+                        asp = arr.shape[1] / float(arr.shape[0]) if arr.shape[0] else 1.0
+                        rw = min(w - 0.1, 1.4); rh = rw / asp if asp else 0.8
+                        ax.imshow(arr, extent=(x + (w - rw) / 2.0, x + (w + rw) / 2.0,
+                                               cy + 0.08, cy + 0.08 + rh), zorder=2,
+                                  interpolation='bilinear')
+                        ybase = cy + 0.08 + rh
+                    else:
+                        ybase = cy + 0.07
+                    for i, t in enumerate(p['above']):
+                        ax.text(x + w / 2.0, ybase + 0.21 * (len(p['above']) - 1 - i), t,
+                                ha='center', va='bottom', fontsize=SCHEME_TEXT_PT)
+                    for i, t in enumerate(p['below']):
+                        ax.text(x + w / 2.0, cy - 0.07 - 0.21 * i, t,
+                                ha='center', va='top', fontsize=SCHEME_TEXT_PT)
+                elif kind == 'ph':
+                    ax.text(x + w / 2.0, cy, p['text'], ha='center', va='center',
+                            fontsize=SCHEME_LABEL_PT + 1, weight='bold')
+                elif kind == 'bracket':
+                    ax.text(x + w / 2.0, cy, f'[ {p["text"]} ]', ha='center', va='center',
+                            fontsize=SCHEME_LABEL_PT + 1, weight='bold')
+                elif kind == 'text':
+                    ax.text(x + w / 2.0, cy, p['text'], ha='center', va='center',
+                            fontsize=SCHEME_LABEL_PT)
+        ax.set_xlim(-0.1, W + 0.1); ax.set_ylim(-0.1, total_h + 0.1)
+        ax.set_aspect('equal')
+        ax.axis('off')
+
+    def set_element_colours(flag):
+        flag = bool(flag)
+        state['colours'] = flag
+        for t in tiles:
+            t.set_element_colours(flag)
+        draw.element_colours = flag
+
+    row_canon = scheme_canonical(spec)
+    canon_rows = []
+    for ri, rc in enumerate(row_canon):
+        if not rc:
+            raise ValueError(f'render_scheme: row {ri + 1} draws no molecule in a reactant or '
+                             f'product position — a scheme needs at least one drawn '
+                             f'reactant or product (placeholders alone cannot be registered)')
+        c, reason = canonical_structure(rc)
+        if c is None and reason != 'rdkit_unavailable':
+            raise ValueError(f'render_scheme: reaction canonical {rc!r} rejected — {reason}')
+        canon_rows.append(c or rc)
+    draw.canonical = canon_rows[0]
+    draw.row_canonicals = canon_rows
+    draw.tiles = tiles
+    draw.descriptor = {'reagent_lines': reagent_lines, 'unknowns': unknowns,
+                       'arrows': n_arrows, 'rows': n_rows, 'tiles': len(tiles),
+                       'row_canonicals': canon_rows,
+                       # drawn 'mol' tiles that are NEITHER a reactant/product of the row's
+                       # canonical NOR an agent/pair member — the sequential-chain
+                       # intermediates (never negative: agents and pair products are counted)
+                       'intermediates': max(0, sum(1 for r in rows for it in r if 'mol' in it)
+                                            - sum(c.count('.') + 1 for rc in canon_rows for c in rc.split('>') if c))}
+    draw.coloured_elements = frozenset(coloured)
+    draw.element_colours = state['colours']
+    draw.set_element_colours = set_element_colours
+    draw.highlight = {'atoms': [a for t in tiles for a in t.highlight['atoms']],
+                      'bonds': [b for t in tiles for b in t.highlight['bonds']]}
+    draw.palette_note = notes[0] if notes else None
+    draw.suggested_aspect = max(0.55, min(1.30, (total_h + 0.2) / max(W + 0.2, 1e-9)))
+    draw.scheme = {'rows': rows}
+    return draw
+
+
+def scheme_semantic_object(draw, role='problem', name='reaction scheme', row=0):
+    """The S7-NEW-B2 semantic object for a rendered scheme (one per row):
+       {'role', 'kind': 'REACTION', 'name', 'canonical': <row reaction SMILES>,
+        'descriptor': {...}}. Validate with paper_pipeline.validate_semantic_object."""
+    canon = draw.row_canonicals[row] if row < len(draw.row_canonicals) else ''
+    desc = dict(draw.descriptor)
+    desc['row'] = row
+    return {'role': role, 'kind': 'REACTION', 'name': str(name), 'canonical': canon,
+            'descriptor': desc}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SELF-TEST
@@ -5548,6 +5965,132 @@ def self_test():
             check('chem_drawfn_colour_roles', 'No module' in str(_e2))
     else:
         check('chem_rdkit_absent_is_soft', _c1 is None and _r1 == 'rdkit_unavailable')
+
+    # ── v1.16 REACTION canonical + scheme compositor (GAP-2026-11-01, LAW F1.3) ──
+    # Each fixture FAILS on v1.15: canonical_structure returned parse_error on '>>'
+    # and render_scheme did not exist.
+    if _r1 == 'ok':
+        _rx, _rr = canonical_structure('CCBr>>CCO')
+        check('rxn_canonical_ok', _rr == 'ok' and _rx == 'CCBr>>CCO')
+        check('rxn_canonical_components_canonicalised',
+              canonical_structure('OC(=O)c1ccccc1O>>Oc1ccccc1C(O)=O')[0] == f'{_c1}>>{_c1}')
+        check('rxn_empty_product_side_ok', canonical_structure('CC(=O)c1ccccc1>>')[1] == 'ok')
+        check('rxn_agent_side_ok', canonical_structure('CC(=O)c1ccccc1>[BH3]>')[0] == 'CC(=O)c1ccccc1>B>')
+        check('rxn_unknown_reactant_ok_G7', canonical_structure('>>CCO') == ('>>CCO', 'ok'))
+        check('rxn_both_sides_empty_rejected', canonical_structure('>>')[0] is None
+              and canonical_structure('>[Pd]>')[0] is None)
+        check('rxn_three_separators_rejected', canonical_structure('C>C>C>C')[0] is None)
+        check('rxn_bad_component_rejected', canonical_structure('C(C)(C)(C)(C)C>>CC')[0] is None)
+        check('rxn_molecule_set_is_still_a_set', canonical_structure('BrBr.CCC#CCC') == ('BrBr.CCC#CCC', 'ok'))
+        check('rxn_molecule_path_byte_identical',
+              canonical_structure('Oc1ccccc1C(O)=O')[0] == _c1
+              and canonical_structure('C(C)(C)(C)(C)C')[1] == 'parse_error: rdkit rejected the SMILES (valence / syntax)')
+        try:
+            import importlib as _il16
+            # importlib, NOT an import statement: validator check AI reads Import nodes,
+            # and this module must never DECLARE a dependency on figural_core (the Create
+            # flow loads it first; the compositor reads it from sys.modules exactly as
+            # structure_draw_fn does). The self-test only needs it to drive render_figure.
+            _fc16 = _il16.import_module('figural_core')
+            import tempfile as _tf16, os as _os16
+            _d16 = _tf16.mkdtemp()
+            _G = {   # one scheme per grammar element G1–G10 (real-paper patterns)
+                'G1_plus': {'items': [{'mol': 'c1ccc2[nH]ccc2c1', 'equiv': '(2 equiv)'}, {'plus': True},
+                                      {'mol': 'O=Cc1ccccc1'}, {'arrow': {'above': ['p-TsOH']}}, {'placeholder': 'A'}]},
+                'G2_sequential': {'items': [{'mol': 'O=C(C(Cl)(Cl)Cl)c1ccccc1'},
+                                            {'arrow': {'above': ['(S)-CBS (cat.)'], 'below': ['BH₃·SMe₂']}},
+                                            {'placeholder': 'A'}, {'arrow': {'above': ['NaOH'], 'below': ['NaN₃']}},
+                                            {'placeholder': 'B'}]},
+                'G2_left': {'items': [{'placeholder': 'A'}, {'arrow': {'dir': 'left', 'above': ['mCPBA']}},
+                                      {'mol': 'CC1=CCCC1'}, {'arrow': {'above': ['i. NBS, H₂O'], 'below': ['ii. NaOH']}},
+                                      {'placeholder': 'B'}]},
+                'G3_two_lines': {'items': [{'mol': 'Oc1ccc2ccccc2c1-c1c(O)ccc2ccccc12'},
+                                           {'arrow': {'above': ['t-BuCl (2 equiv)', 'anhyd. AlCl₃'], 'below': ['CH₂Cl₂, −78 °C']}},
+                                           {'placeholder': '?'}]},
+                'G4_reagent_mol': {'items': [{'mol': 'CC(=O)c1ccccc1'}, {'arrow': {'reagent_mol': 'CC(C)(C)OO', 'below': ['BH₃']}},
+                                             {'placeholder': 'A'}]},
+                'G6_bracket': {'items': [{'mol': 'BrC1(Br)CC2CCCC12'}, {'arrow': {'above': ['heat']}}, {'bracket': 'A'},
+                                         {'arrow': {}}, {'placeholder': 'B'}]},
+                'G7_product_drawn': {'items': [{'mol': 'Cc1ccccc1'}, {'arrow': {'above': ['CrO₂Cl₂']}}, {'mol': 'O=Cc1ccccc1'}]},
+                'G8_rows': {'rows': [[{'mol': 'CC(=O)C', 'label': 'A.'}, {'arrow': {'above': ['LiAlH₄']}}, {'mol': 'CC(O)C'}],
+                                     [{'mol': 'C=CC=C', 'label': 'B.'}, {'plus': True}, {'mol': 'C=CC(=O)OC'},
+                                      {'arrow': {'above': ['Δ']}}, {'placeholder': 'P'}]]},
+                'G9_stereo': {'items': [{'mol': 'C[C@H]1CC=C[C@@H]1C(C)(C)C'}, {'arrow': {'above': ['i. NBS, H₂O'], 'below': ['ii. NaOH']}},
+                                        {'placeholder': 'B'}]},
+                'G10_pair': {'items': [{'mol': 'CC(=O)c1ccccc1'}, {'arrow': {'above': ['(S)-CBS']}},
+                                       {'pair': [('A', 'O[C@H](C)c1ccccc1'), ('B', 'O[C@@H](C)c1ccccc1')]}]},
+                'G7_unknown_reactant': {'items': [{'placeholder': 'A'}, {'arrow': {'above': ['H₂, Pd/C']}},
+                                                  {'mol': 'CCc1ccccc1'}]},
+            }
+            _all_ok = True
+            for _gname, _gspec in _G.items():
+                _dr = render_scheme(_gspec)
+                _fs = _fc16.make_figure_spec(1, 'schematic', 6.0, role='problem', canvas_aspect=_dr.suggested_aspect)
+                _png = _os16.path.join(_d16, _gname + '.png')
+                _fc16.render_figure(_dr, _png, _fs)
+                _hard, _warn = _fc16.audit_figure(_fs, _png)
+                _tri = _fc16.triage(_hard + _warn, _fs)
+                _ok_g = ((_fs.get('fit') or {}).get('status') == 'OK' and not _tri['BLOCKING']
+                         and not _tri['VOID_ITEM'])
+                check(f'scheme_renders_{_gname}', _ok_g)
+                _all_ok = _all_ok and _ok_g
+            _dr = render_scheme(_G['G2_sequential'])
+            check('scheme_canonical_has_reaction_separator', '>>' in _dr.canonical
+                  and _dr.canonical.startswith('O=C(c1ccccc1)C(Cl)(Cl)Cl'))
+            check('scheme_descriptor', _dr.descriptor['unknowns'] == ['A', 'B'] and _dr.descriptor['arrows'] == 2
+                  and _dr.descriptor['rows'] == 1 and 'NaOH' in _dr.descriptor['reagent_lines'])
+            check('scheme_tiles_have_structure_provenance', all(hasattr(_t, 'canonical') for _t in _dr.tiles))
+            _dr4 = render_scheme(_G['G4_reagent_mol'])
+            check('scheme_reagent_mol_is_agent', _dr4.canonical.split('>')[1] == 'CC(C)(C)OO')
+            _dl = render_scheme(_G['G2_left'])
+            check('scheme_left_arrow_roles', _dl.canonical.startswith('CC1=CCCC1>') and _dl.canonical.endswith('>'))
+            _dq = render_scheme({'items': [{'placeholder': 'A'}, {'arrow': {'dir': 'left', 'above': ['mCPBA']}},
+                                           {'mol': 'CC1=CCCC1', 'label': 'S'}, {'arrow': {'above': ['i. NBS, H₂O'], 'below': ['ii. NaOH']}},
+                                           {'placeholder': 'B'}]})          # Q.91: A ← S → B
+            check('scheme_q91_pattern_source_is_reactant', _dq.canonical == 'CC1=CCCC1>>')
+            _dq2 = render_scheme({'items': [{'placeholder': 'A'}, {'arrow': {}}, {'mol': 'CC1=CCCC1'},
+                                            {'arrow': {'dir': 'left'}}, {'placeholder': 'B'}]})   # A → S ← B
+            check('scheme_converging_arrows_make_a_product', _dq2.canonical == '>>CC1=CCCC1')
+            _dseq = render_scheme({'items': [{'mol': 'CC(=O)C'}, {'arrow': {}}, {'mol': 'CC(O)C'}, {'arrow': {}}, {'mol': 'CC=C'}]})
+            check('scheme_sequential_intermediate_omitted', _dseq.canonical == 'CC(C)=O>>C=CC'
+                  and _dseq.descriptor['intermediates'] == 1)
+            _dnone = render_scheme({'items': [{'mol': 'CC(=O)C'}, {'arrow': {'above': [None, 'H₂'], 'below': [None]}}, {'mol': 'CC(O)C'}]})
+            check('scheme_none_reagent_lines_dropped', _dnone.descriptor['reagent_lines'] == ['H₂'])
+            _dg4 = render_scheme({'items': [{'mol': 'CC(=O)C'}, {'arrow': {'reagent_mol': '[H-]'}}, {'mol': 'CC(O)C'}]})
+            _dg10 = render_scheme({'items': [{'mol': 'CC(=O)c1ccccc1'}, {'arrow': {}}, {'pair': [('A', 'O[C@H](C)c1ccccc1'), ('B', 'O[C@@H](C)c1ccccc1')]}]})
+            check('scheme_intermediates_never_negative', _dg4.descriptor['intermediates'] >= 0 and _dg10.descriptor['intermediates'] == 0)
+            try:
+                structure_draw_fn('CCBr>>CCO'); check('structure_draw_fn_rejects_reaction_smiles_with_ValueError', False)
+            except ValueError as _e:
+                check('structure_draw_fn_rejects_reaction_smiles_with_ValueError', 'render_scheme' in str(_e))
+            _deq = render_scheme({'items': [{'mol': 'CC(=O)C'}, {'arrow': {'dir': 'both'}}, {'mol': 'CC(O)=C'}]})
+            check('scheme_equilibrium_left_to_right', _deq.canonical == 'CC(C)=O>>C=C(C)O')
+            _dg7 = render_scheme(_G['G7_unknown_reactant'])
+            check('scheme_unknown_reactant_product_only', _dg7.canonical == '>>CCc1ccccc1')
+            _dr8 = render_scheme(_G['G8_rows'])
+            check('scheme_rows_one_canonical_per_row', len(_dr8.row_canonicals) == 2
+                  and _dr8.row_canonicals[0] == 'CC(C)=O>>CC(C)O' and _dr8.row_canonicals[1].endswith('>>'))
+            _so = scheme_semantic_object(_dr8, role='problem:1', row=1)
+            check('scheme_semantic_object_shape', _so['kind'] == 'REACTION' and _so['role'] == 'problem:1'
+                  and '>>' in _so['canonical'] and _so['descriptor']['row'] == 1)
+            _dr.set_element_colours(False)
+            check('scheme_colour_content_propagates_to_tiles',
+                  _dr.element_colours is False and all(_t.element_colours is False for _t in _dr.tiles))
+            _drh = render_scheme({'items': [{'mol': 'CC=CC', 'highlight_bonds': [1]}, {'arrow': {}}, {'placeholder': 'A'}]})
+            check('scheme_highlight_recorded', _drh.highlight['bonds'] == [1])
+            for _bad, _why in (({'items': [{'arrow': {}}]}, 'no molecule'),
+                               ({'items': [{'mol': 'CCO'}, {'plus': True}, {'mol': 'CC'}]}, 'no arrow'),
+                               ({'items': [{'placeholder': 'A'}, {'arrow': {}}, {'placeholder': 'B'}]}, 'placeholders only'),
+                               ({'items': [{'mol': 'C(C)(C)(C)(C)C'}, {'arrow': {}}]}, 'bad smiles'),
+                               ({'items': [{'mol': 'CC'}, {'arrow': {'above': ['a', 'b', 'c']}}]}, '3 lines'),
+                               ({'items': [{'mol': 'CC'}, {'zorb': 1}]}, 'unknown item'),
+                               ({}, 'empty spec')):
+                try:
+                    render_scheme(_bad); check(f'scheme_rejects_{_why.replace(" ", "_")}', False)
+                except ValueError:
+                    check(f'scheme_rejects_{_why.replace(" ", "_")}', True)
+        except ImportError as _e16:
+            check('scheme_compositor_needs_figural_core', 'No module' in str(_e16))
 
     # ── text_of omml_renderer: structure in place, raw glyphs skipped ─────────
     # lxml is a HARD dependency (python-docx is built on it), so its absence is a

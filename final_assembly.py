@@ -13,6 +13,45 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.10 — GAP-2026-11-01 final review (same release). (a) Every figure record commit_registry
+    writes is STAMPED record_schema='F2'; annotate_legacy_figure_records() annotates only
+    UNSTAMPED entries, so a current paper's false record can never be laundered into
+    "legacy" by the S13-REGCHECK migration that runs right after its own commit — it
+    FAILS A-FIGTYPE-KIND. (b) E15: a question authored pre-v5.88 and resumed across the fix
+    carries record_integrity='legacy_unlabelled' (set by MockTestCreate S4-12); it commits
+    with object_type='legacy_unlabelled', carried into the entry's record_integrity, and is
+    disclosed rather than refused. (c) figural_present_derived is the manifest's truth
+    alone (declared True + empty manifest now reads derived False). (d) migration: roles
+    'problem:N' checked, string FIGURAL counts tolerated, mocks_completed-only registries
+    (axis1_paper keyed by ordinal) get absent_legacy too.
+
+    v1.9 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY, LAW F3 MANIFEST-
+    COMMIT-LAW + F2.3 (paired with MockTestCreate v5.88, ScopedBlueprint v1.11.0,
+    audit_canonical v2.32, blueprint_core v1.28, corpus_io v1.16, paper_pipeline
+    v5.40, figure_types v1.0). commit_registry gated the rc / di / figural manifest
+    blocks on the blueprint's passage_present / di_present / figural_present flags.
+    ScopedBlueprint inherited those flags from exam_config with default False (no step
+    writes them), so every scoped paper of the reference exam — 18 FIGURAL allocations
+    per paper — committed NO figure record: no object_types (A-FIGPROFILE dormant), no
+    figure_specs (every v5.33+ figure gate downgraded to legacy AMBER), no
+    semantic_objects (Step 9 §13-2b blind). Six of 21 scoped papers; all audited green.
+    (1) COMMIT ON EXISTENCE: a manifest block is written whenever its manifest is
+        non-empty, REGARDLESS of the flag. The flags stay informational. When a flag is
+        False while its manifest is non-empty, the disagreement is RECORDED in
+        registry.paper_flags[paper_id] (the derived truth beside the declared flag),
+        printed once, never hidden. A legacy registry (flag True, manifest given)
+        commits byte-identically to v1.8.
+    (2) F2.3 object_types MANDATORY on a paper with figures: a fig_manifest question
+        without object_type raises at commit (closes the label-omitted variant V3 — 6
+        papers audited green with no record of what their figures were).
+    (3) annotate_legacy_figure_records(registry): the forward-only migration run by
+        S13-REGCHECK — a figure record whose object_type kind disagrees with its
+        semantic object is annotated record_integrity='legacy_label_mismatch'; a REACTION
+        object without '>>' is 'legacy_degenerate_reaction'; a completed paper with
+        FIGURAL>0 in axis1_paper and no figure record gets paper_flags[pid]
+        figure_record='absent_legacy'. Nothing is rewritten or deleted; the Deliver
+        footer discloses each annotation (DeliveryFooter §FOOTER-DG precedent).
+
     v1.8 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with MockTestCreate
     v5.86, MockTestExplain v1.51.1, audit_canonical v2.31). The registry is SHARED by
     every series (MOCK, SUBJ, TOPIC, SUBTOPIC), and two writes here still keyed a
@@ -411,7 +450,33 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     # MOCK:M01's manifest and vice versa, and the auditor read whichever entry came
     # first. Same class as options_by_q (v5.56) and axis1_paper (v5.57). Every entry
     # now carries paper_id (the authority); "mock" is kept for legacy readers.
-    if passage_present:
+    # ── v1.9 MANIFEST-COMMIT-LAW (GAP-2026-11-01 LAW F3.1): COMMIT ON EXISTENCE. ──
+    # A producer flag may DESCRIBE a paper; it may never SUPPRESS the record the
+    # producer wrote. The declared flags and the derived truth are both kept:
+    # registry.paper_flags[paper_id] = {flag: declared, flag_derived: from the manifest}.
+    _has_rc = bool(passage_linked_qs) or bool(cloze_linked_qs)
+    _has_di = bool(di_manifest) and bool(di_manifest.get('questions'))
+    _has_fig = bool(fig_manifest) and bool(fig_manifest.get('questions'))
+    _pf = reg.setdefault('paper_flags', {})
+    _pf[_this_pid] = {
+        'passage_present': bool(passage_present), 'passage_present_derived': bool(passage_present) or _has_rc,
+        'di_present': bool(di_present), 'di_present_derived': bool(di_present) or _has_di,
+        'figural_present': bool(figural_present), 'figural_present_derived': _has_fig,
+    }
+    # *_derived is the manifest's truth alone (passage/di keep their v1.9 shape; the
+    # figural flag is derived from the figure manifest only — v1.10, so declared True over
+    # an empty manifest reads as the disagreement it is).
+    for _flag, _declared, _has in (('passage_present', passage_present, _has_rc),
+                                   ('di_present', di_present, _has_di),
+                                   ('figural_present', figural_present, _has_fig)):
+        if _has and not _declared:
+            print(f"S13-4 (final_assembly v1.10, MANIFEST-COMMIT-LAW): blueprint says "
+                  f"{_flag}=False but this paper's manifest is non-empty — the record is "
+                  f"COMMITTED and registry.paper_flags[{_this_pid!r}].{_flag}_derived=True "
+                  f"records the disagreement. Fix the blueprint flag (ScopedBlueprint "
+                  f"v1.11.0 derives it); the record was never optional.")
+
+    if passage_present or _has_rc:
         rc = [e for e in reg.setdefault('rc_manifests', []) if not _stale_sibling(e)]
         rc.append({
             "mock": N, "paper_id": _this_pid,
@@ -420,7 +485,7 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
         })
         reg['rc_manifests'] = rc
 
-    if di_present and di_manifest is not None:
+    if di_manifest is not None and (di_present or _has_di):
         di = [e for e in reg.setdefault('di_manifests', []) if not _stale_sibling(e)]
         di.append({
             "mock": N, "paper_id": _this_pid,
@@ -434,7 +499,29 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
         })
         reg['di_manifests'] = di
 
-    if figural_present and fig_manifest is not None:
+    if fig_manifest is not None and (figural_present or _has_fig):
+        # v1.9 F2.3 — a figure with no recorded type cannot be audited against the
+        # measured profile; the gate would go dormant and report green (variant V3).
+        # E15 — a question authored by a pre-v5.88 session and RESUMED across the fix has
+        # no object_type and never can have one honestly; S4-12 marks it
+        # record_integrity='legacy_unlabelled' and it is committed AS unlabelled, disclosed.
+        fig_manifest = copy.deepcopy(fig_manifest)       # v1.10: never mutate the caller's sidecar
+        _ri_in = {str(q): (v or {}).get('record_integrity')
+                  for q, v in fig_manifest.get('questions', {}).items()
+                  if (v or {}).get('record_integrity')}
+        for _q, _v in fig_manifest.get('questions', {}).items():
+            if _v and not _v.get('object_type') and _ri_in.get(str(_q)) == 'legacy_unlabelled':
+                _v['object_type'] = 'legacy_unlabelled'
+        _no_type = sorted((str(q) for q, v in fig_manifest.get('questions', {}).items()
+                           if not (v or {}).get('object_type')),
+                          key=lambda s: (not s.isdigit(), int(s) if s.isdigit() else s))
+        if _no_type:
+            raise ValueError(
+                f"S13-4 (final_assembly v1.10, LAW F2.3): fig_manifest question(s) "
+                f"{_no_type} carry no object_type — every rendered figural question must "
+                f"record the figure type it was generated AS (MockTestCreate S7-NEW-B; "
+                f"figure_types.FIGURE_TYPES vocabulary). A figure whose type is not "
+                f"recorded cannot be audited and is not committed.")
         fg = [e for e in reg.setdefault('figural_manifests', []) if not _stale_sibling(e)]
         fg.append({
             "mock": N, "paper_id": _this_pid,
@@ -449,7 +536,13 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                              if v.get('subtopic_id')},
             "figure_specs": figure_specs or {},
             # v5.55 — machine-readable identity of every generated figure.
-            "semantic_objects": _validated_semantic_objects(fig_manifest),
+            "semantic_objects": _validated_semantic_objects(
+                fig_manifest, unvalidated=[q for q, r in _ri_in.items() if r == 'legacy_unlabelled']),
+            # v1.10 — LAW F2 record stamp. annotate_legacy_figure_records() annotates ONLY
+            # entries without it, so a CURRENT paper's false record can never be laundered
+            # into "legacy" (it FAILS A-FIGTYPE-KIND instead).
+            "record_schema": FIGURE_RECORD_SCHEMA,
+            **({"record_integrity": _ri_in} if _ri_in else {}),
         })
         reg['figural_manifests'] = fg
 
@@ -632,17 +725,25 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     return {'ok': True, 'fails': [], 'registry': reg, 'paper_id': paper_id}
 
 
-def _validated_semantic_objects(fig_manifest):
+def _validated_semantic_objects(fig_manifest, unvalidated=()):
     """v5.55 — {q: [semantic objects]} from fig_manifest questions[q].semantic_objects,
     each shape-validated (paper_pipeline.validate_semantic_object) and, for a
     STRUCTURE/REACTION, canonicalised through rdkit when available so the
     registry carries the canonical form. Raises ValueError on a malformed object
-    — a figure whose identity cannot be stated is not committed."""
+    — a figure whose identity cannot be stated is not committed.
+    unvalidated (v1.10, E15): question keys marked record_integrity='legacy_unlabelled'
+    — authored by a pre-v5.88 session, so a REACTION object there may carry a molecule
+    canonical (the pre-fix shape). They are committed AS IS (disclosed, skipped by the
+    auditor), never validated against a rule that did not exist when they were written."""
     import paper_pipeline as _pp
     out = {}
+    unvalidated = {str(q) for q in (unvalidated or ())}
     for q, v in (fig_manifest or {}).get('questions', {}).items():
-        objs = v.get('semantic_objects') or []
+        objs = (v or {}).get('semantic_objects') or []
         if not objs:
+            continue
+        if str(q) in unvalidated:
+            out[str(q)] = [dict(o) for o in objs if isinstance(o, dict)]
             continue
         clean = []
         for i, o in enumerate(objs):
@@ -659,6 +760,76 @@ def _validated_semantic_objects(fig_manifest):
             clean.append(o)
         out[str(q)] = clean
     return out
+
+
+FIGURE_RECORD_SCHEMA = 'F2'      # stamp written by commit_registry v1.10 on every figure record
+LEGACY_RECORD_INTEGRITY = ('legacy_label_mismatch', 'legacy_degenerate_reaction', 'legacy_unlabelled')
+
+
+def annotate_legacy_figure_records(registry, kind_of=None):
+    """v1.9 — forward-only MIGRATION for registries committed before LAW F2/F3
+    (GAP-2026-11-01 §6 Migration). Delivered papers are never re-rendered (S10-7 Q13
+    posture); the record is ANNOTATED so a healed registry never looks identical to a
+    clean one. Pure: returns (new_registry, annotations) and mutates nothing.
+
+    kind_of : INJECTED figure_types.default_kind-like callable
+              (object_type) -> (kinds tuple | None). None => the TYPE↔KIND pass is
+              skipped (thin posture; only the '>>' and absent-record passes run).
+    Annotations written (idempotent; an existing annotation is left as it is):
+      figural_manifests[].record_integrity[q] = 'legacy_label_mismatch' |
+                                                'legacy_degenerate_reaction'
+      paper_flags[pid].figure_record          = 'absent_legacy'
+    """
+    reg = copy.deepcopy(registry or {})
+    notes = []
+    for e in reg.get('figural_manifests', []) or []:
+        if e.get('record_schema'):
+            continue            # committed under LAW F2 — audited, never annotated (v1.10)
+        pid = _entry_paper_id(e)
+        ri = e.setdefault('record_integrity', {})
+        so = e.get('semantic_objects') or {}
+        for q, ot in (e.get('object_types') or {}).items():
+            objs = [o for o in so.get(str(q), []) if str((o or {}).get('role', '')).startswith('problem')]
+            if kind_of is not None and objs and ot:
+                kinds = kind_of(ot)
+                if kinds and objs[0].get('kind') not in kinds and str(q) not in ri:
+                    ri[str(q)] = 'legacy_label_mismatch'
+                    notes.append(f'{pid} Q{q}: {ot!r} over {objs[0].get("kind")} — legacy_label_mismatch')
+        for q, objs in so.items():
+            for o in objs or []:
+                if (o or {}).get('kind') == 'REACTION' and '>' not in str(o.get('canonical', '')) \
+                        and str(q) not in ri:
+                    ri[str(q)] = 'legacy_degenerate_reaction'
+                    notes.append(f'{pid} Q{q}: REACTION without ">>" — legacy_degenerate_reaction')
+        if not ri:
+            e.pop('record_integrity', None)
+    have = {_entry_paper_id(e) for e in reg.get('figural_manifests', []) or []}
+    pf = reg.setdefault('paper_flags', {})
+    def _n(x):
+        try:
+            return int(x or 0)
+        except (TypeError, ValueError):
+            return 0
+    _a1_all = reg.get('axis1_paper') or {}
+    _done = [(str(p), str(p)) for p in (reg.get('papers_completed', []) or [])]
+    if not _done:                                   # pre-paper_id registries (mock numbers only;
+        for m in (reg.get('mocks_completed', []) or []):   # axis1_paper keyed by ORDINAL pre-v5.57)
+            _pid = f"MOCK:M{int(m):02d}" if str(m).isdigit() else str(m)
+            _done.append((_pid, str(m) if str(m) in _a1_all else _pid))
+    for pid, _a1_key in _done:
+        a1 = _a1_all.get(_a1_key) or _a1_all.get(pid) or {}
+        n_fig = 0
+        for _sec, _counts in (a1.items() if isinstance(a1, dict) else []):
+            if isinstance(_counts, dict):
+                n_fig += _n(_counts.get('FIGURAL', 0))
+            elif _sec == 'FIGURAL':
+                n_fig += _n(_counts)
+        if n_fig > 0 and pid not in have and 'figure_record' not in pf.get(pid, {}):
+            pf.setdefault(pid, {})['figure_record'] = 'absent_legacy'
+            notes.append(f'{pid}: {n_fig} FIGURAL question(s) in axis1_paper, no figure record — absent_legacy')
+    if not pf:
+        reg.pop('paper_flags', None)
+    return reg, notes
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1398,7 +1569,7 @@ def self_test():
                                passage_present=True, di_present=True, figural_present=True,
                                concept_map=mini_cm(), passage_linked_qs=qs, cloze_linked_qs=[],
                                di_manifest={'questions': {str(q): {} for q in qs}},
-                               fig_manifest={'questions': {str(q): {} for q in qs}})['registry']
+                               fig_manifest={'questions': {str(q): {'object_type': 'line_graph'} for q in qs}})['registry']
     _mf = _commit_fig(_commit_fig(mini_registry(), 1, 'MOCK:M01', [1, 2]), 1, 'SUBJ:X:01', [3])
     for _key in ('rc_manifests', 'di_manifests', 'figural_manifests'):
         check(f'v18_{_key}_mock_and_scoped_coexist',
@@ -1702,7 +1873,7 @@ def self_test():
     check('commit_key_commitments_absent_without_key',
           'key_commitments' not in r1['registry'])
     _fm = {'questions': {'47': {'image_hashes': ['h'], 'object_type': 'structure',
-                                'subtopic_id': 'ex.a',
+                                'subtopic_id': 'ex.a', 'object_type': 'chemical_structure',
                                 'semantic_objects': [{'role': 'problem', 'kind': 'STRUCTURE',
                                                       'name': 'salicylic acid',
                                                       'canonical': 'Oc1ccccc1C(O)=O',
@@ -1720,6 +1891,7 @@ def self_test():
           (not _canon_ok) or _so['47'][0]['canonical'] == _ciot.canonical_structure('OC(=O)c1ccccc1O')[0])
     def _bad_sem():
         _fm2 = {'questions': {'47': {'image_hashes': ['h'], 'subtopic_id': 'ex.a',
+                                     'object_type': 'chemical_structure',
                                      'semantic_objects': [{'role': 'problem', 'kind': 'STRUCTURE',
                                                            'name': 'x', 'canonical': '',
                                                            'descriptor': {}}]}}}
@@ -1732,6 +1904,117 @@ def self_test():
         _bad_sem(); check('commit_semantic_objects_malformed_raises', False)
     except ValueError:
         check('commit_semantic_objects_malformed_raises', True)
+
+    # ── v1.9 — GAP-2026-11-01 MANIFEST-COMMIT-LAW (F3.1) + F2.3 + migration ───────
+    # Each fixture FAILS on v1.8 (the record was suppressed / accepted / unannotated).
+    _fm9 = {'questions': {'1': {'image_hashes': ['h1'], 'subtopic_id': 'ex.a',
+                                'object_type': 'reaction_scheme',
+                                'semantic_objects': [{'role': 'problem', 'kind': 'REACTION', 'name': 'r',
+                                                      'canonical': 'CCBr>>CCO', 'descriptor': {}}]}}}
+    r9 = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='SUBJ:X:01',
+                         batches_completed=3, axis2_window_counts={}, passage_present=False,
+                         di_present=False, figural_present=False, concept_map=mini_cm(), fig_manifest=_fm9)
+    _fg9 = [e for e in r9['registry']['figural_manifests'] if e.get('paper_id') == 'SUBJ:X:01']
+    check('v19_flag_false_manifest_nonempty_STILL_COMMITS', len(_fg9) == 1 and _fg9[0]['object_types'] == {'1': 'reaction_scheme'})
+    _pf9 = r9['registry'].get('paper_flags', {}).get('SUBJ:X:01', {})
+    check('v19_flag_disagreement_recorded', _pf9.get('figural_present') is False and _pf9.get('figural_present_derived') is True)
+    check('v19_reaction_object_commits_end_to_end',
+          _fg9 and _fg9[0]['semantic_objects']['1'][0]['canonical'].count('>') == 2)
+    r9b = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=False, concept_map=mini_cm(), fig_manifest=None)
+    check('v19_no_manifest_no_record_no_disagreement',
+          not r9b['registry'].get('figural_manifests')
+          and r9b['registry']['paper_flags']['MOCK:M01']['figural_present_derived'] is False)
+    r9c = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=True, concept_map=mini_cm(),
+                          fig_manifest={'questions': {}})
+    check('v19_empty_manifest_with_true_flag_commits_as_v1_8',
+          len(r9c['registry'].get('figural_manifests', [])) == 1
+          and r9c['registry']['paper_flags']['MOCK:M01']['figural_present'] is True
+          and r9c['registry']['paper_flags']['MOCK:M01']['figural_present_derived'] is False)   # v1.10: derived = manifest truth only
+    check('v110_record_schema_stamped', r9c['registry']['figural_manifests'][0].get('record_schema') == FIGURE_RECORD_SCHEMA)
+    # E15 — resumed pre-v5.88 question: committed only when S4-12 marked it legacy_unlabelled
+    r9e = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=True, concept_map=mini_cm(),
+                          fig_manifest={'questions': {'7': {'image_hashes': ['h7'], 'subtopic_id': 'ex.a',
+                                                            'record_integrity': 'legacy_unlabelled'}}})
+    _e9e = r9e['registry']['figural_manifests'][0]
+    check('v110_legacy_unlabelled_resume_commits_disclosed',
+          _e9e['object_types'] == {'7': 'legacy_unlabelled'} and _e9e['record_integrity'] == {'7': 'legacy_unlabelled'})
+    # E15 second variant: a pre-v5.88 REACTION object with a MOLECULE canonical commits unvalidated
+    _fm9f = {'questions': {'7': {'image_hashes': ['h7'], 'subtopic_id': 'ex.a', 'record_integrity': 'legacy_unlabelled',
+                                 'semantic_objects': [{'role': 'problem', 'kind': 'REACTION', 'name': 'r', 'canonical': 'CCO', 'descriptor': {}}]}}}
+    r9f = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=True, concept_map=mini_cm(), fig_manifest=_fm9f)
+    check('v110_legacy_unlabelled_degenerate_reaction_commits_unvalidated',
+          r9f['registry']['figural_manifests'][0]['semantic_objects']['7'][0]['canonical'] == 'CCO')
+    check('v110_commit_does_not_mutate_caller_manifest', 'object_type' not in _fm9f['questions']['7'])
+    # v1.10 — a CURRENT (stamped) false record is never annotated into "legacy"
+    _cur = copy.deepcopy(r9e['registry'])
+    _cur['figural_manifests'][0].update({'object_types': {'1': 'reaction_scheme'},
+                                         'semantic_objects': {'1': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'CCO'}]},
+                                         'record_integrity': {}})
+    _m2, _n2 = annotate_legacy_figure_records(_cur, kind_of=lambda ot: ('REACTION',) if ot == 'reaction_scheme' else None)
+    check('v110_migration_skips_stamped_current_records', not _n2 and not _m2['figural_manifests'][0].get('record_integrity'))
+    # legacy shapes: problem:1 roles, string counts, mocks_completed-only registries
+    _lg = {'mocks_completed': [1], 'papers_completed': [], 'figural_manifests': [
+               {'mock': 1, 'paper_id': 'MOCK:M01', 'object_types': {'3': 'reaction_scheme'},
+                'semantic_objects': {'3': [{'role': 'problem:1', 'kind': 'STRUCTURE', 'canonical': 'CCO'}]}}],
+           'mocks_completed': [1, 2]}
+    _a1k = 'axis1_paper'          # READ-side fixture key: never a dict literal (audit_seam)
+    _lg[_a1k] = {'MOCK:M02': {'S1': {'FIGURAL': '4'}}}
+    _m3, _n3 = annotate_legacy_figure_records(_lg, kind_of=lambda ot: ('REACTION',) if ot == 'reaction_scheme' else None)
+    check('v110_migration_multirow_role_and_string_counts',
+          _m3['figural_manifests'][0]['record_integrity'] == {'3': 'legacy_label_mismatch'}
+          and _m3['paper_flags']['MOCK:M02']['figure_record'] == 'absent_legacy')
+    _lg2 = {'mocks_completed': [1], 'figural_manifests': [], _a1k: {'1': {'S1': {'FIGURAL': 5}}}}
+    check('v110_migration_ordinal_keyed_axis1', annotate_legacy_figure_records(_lg2)[0]['paper_flags']['MOCK:M01']['figure_record'] == 'absent_legacy')
+    r9d = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=False, concept_map=mini_cm(),
+                          di_manifest={'questions': {'5': {'subtopic_id': 'ex.b', 'table_shape': [2, 2]}}})
+    check('v19_di_manifest_commits_without_flag', [e for e in r9d['registry']['di_manifests'] if e.get('di_qs') == [5]])
+    r9e = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=False, concept_map=mini_cm(),
+                          passage_linked_qs=[1, 2])
+    check('v19_rc_manifest_commits_without_flag', [e for e in r9e['registry']['rc_manifests'] if e.get('passage_linked') == [1, 2]])
+    def _no_type():
+        commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                        batches_completed=3, axis2_window_counts={}, passage_present=False,
+                        di_present=False, figural_present=True, concept_map=mini_cm(),
+                        fig_manifest={'questions': {'3': {'image_hashes': ['h'], 'subtopic_id': 'ex.a'}}})
+    try:
+        _no_type(); check('v19_missing_object_type_raises', False)
+    except ValueError as _e9:
+        check('v19_missing_object_type_raises', 'object_type' in str(_e9) and "['3']" in str(_e9))
+    # migration annotator
+    _legacy = mini_registry(papers_completed=['MOCK:M01', 'SUBJ:X:01', 'SUBJ:X:02'],
+                            axis1_paper={'SUBJ:X:01': {'S': {'FIGURAL': 36, 'TEXT': 4}},
+                                         'SUBJ:X:02': {'S': {'FIGURAL': 0, 'TEXT': 40}}},
+                            figural_manifests=[{'mock': 1, 'paper_id': 'MOCK:M01',
+                                                'object_types': {'1': 'reaction_scheme', '2': 'reaction_scheme', '3': 'chemical_structure'},
+                                                'semantic_objects': {'1': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'CCO'}],
+                                                                     '2': [{'role': 'problem', 'kind': 'REACTION', 'canonical': 'BrBr.CCC#CCC'}],
+                                                                     '3': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'CCO'}]}}])
+    _kind_of = lambda ot: {'reaction_scheme': ('REACTION',), 'chemical_structure': ('STRUCTURE', 'COORDINATION')}.get(ot)
+    _mig, _notes = annotate_legacy_figure_records(_legacy, kind_of=_kind_of)
+    _ri = _mig['figural_manifests'][0].get('record_integrity', {})
+    check('v19_migration_label_mismatch_annotated', _ri.get('1') == 'legacy_label_mismatch')
+    check('v19_migration_degenerate_reaction_annotated', _ri.get('2') == 'legacy_degenerate_reaction')
+    check('v19_migration_consistent_record_untouched', '3' not in _ri)
+    check('v19_migration_absent_record_flagged',
+          _mig['paper_flags']['SUBJ:X:01']['figure_record'] == 'absent_legacy' and 'SUBJ:X:02' not in _mig['paper_flags'])
+    check('v19_migration_pure', 'paper_flags' not in _legacy and 'record_integrity' not in _legacy['figural_manifests'][0])
+    _mig2, _notes2 = annotate_legacy_figure_records(_mig, kind_of=_kind_of)
+    check('v19_migration_idempotent', _mig2 == _mig and _notes2 == [])
+    check('v19_migration_notes_name_each', len(_notes) == 3 and any('absent_legacy' in n for n in _notes))
+    _mig3, _ = annotate_legacy_figure_records(_legacy)      # no kind_of: '>>' + absent passes only
+    check('v19_migration_without_kind_of', _mig3['figural_manifests'][0]['record_integrity'] == {'2': 'legacy_degenerate_reaction'})
 
     _rc_bad = regcheck(r1['registry'], bp1, N=1, concept_map=mini_cm(), paper_id='MOCK:M01',
                        require_key_commitments=True)

@@ -1,4 +1,20 @@
-# Framework_Blueprint v1.60.1 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.61.0 — Universal Mock Test Blueprint Generator
+# v1.61.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4;
+#   paired with blueprint_core v1.28, figure_types v1.0, Framework_ScopedBlueprint v1.11.0,
+#   Framework_MockTestCreate v5.88). §6 decided FORMAT feasibility (can a section carry
+#   figural questions?) and never TYPE feasibility (can the dominant figure type of a
+#   FIGURAL subtopic be drawn?). A reaction-dominant subtopic therefore reached Step 7 with
+#   a dominant type no renderer existed for; the generator's only lawful moves were to
+#   mislabel or omit, and every paper audited green. NEW S6-1c KIND-COVERAGE PRE-FLIGHT
+#   (bc.kind_coverage_preflight over figure_types.FIGURE_TYPES, run BEFORE the S6-2 flags
+#   so a fallback changes the flags too): a dominant type the registry marks UNSUPPORTED
+#   HARD STOPs naming subtopic + type unless exam_config.figure_fallback_policy ==
+#   'text_disclosed' (the subtopic's format becomes TEXT for the series and
+#   blueprint.figural_fallbacks records it for the footer); an UNREGISTERED type is an
+#   advisory, never a stop (EC-V18 — ~200 legacy exams keep running). The S6-2 flag
+#   derivation is unchanged (it was already correct here; ScopedBlueprint now shares it
+#   through bc.derive_presence_flags). blueprint.json gains figure_type_coverage +
+#   figural_fallbacks (§14, additive). DoD gains one item.
 # v1.60.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. B1, B2 and B3 sites.
 # v1.60.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: transition allocation; requires Framework_PYQSort v1.21.0 and Framework_PYQCount v1.7 (era fields + n_new must exist)
@@ -3006,6 +3022,90 @@ for section in sections:
         # ex missing, or ex == mn, or ex not a valid format value: nothing to do — silent pass.
 ```
 
+### S6-1c — KIND-COVERAGE PRE-FLIGHT (v1.61.0 — LAW F1.4 FIGURE-TYPE-COVERAGE-LAW)
+
+A figure type may be DOMINANT in a blueprint only if the framework can render it, and the
+framework must be able to say so before Q.1. S6-1 decided each subtopic's FORMAT; this step
+asks, for every FIGURAL subtopic whose Step-5 profile names a dominant type, whether that type
+has a renderer in figure_types.FIGURE_TYPES. It runs BEFORE S6-2 so a text_disclosed
+fallback is reflected in format_map and therefore in the exam-level flags.
+
+```python
+import os, json, re
+import blueprint_core as bc
+try:
+    import figure_types as ft          # the registry: type -> render class / kind / renderer
+except ImportError:
+    raise SystemExit("HARD STOP (S6-1c): figure_types.py is not in the verified clone — the "
+                     "KIND-COVERAGE pre-flight cannot run. Re-run SKILL Step 0.")
+EXAM = blueprint['exam_code']                      # trigger ExamCode (S1-2 inventory; §7 binds it the same way)
+try:
+    section_rules_text
+except NameError:
+    try:
+        section_rules_text = open(f'/mnt/project/{EXAM}_section_rules.md', encoding='utf-8').read()
+    except Exception:
+        section_rules_text = ''
+_fp_cfg_path = f'/mnt/project/{EXAM}_exam_config.json'
+_fp_cfg = json.load(open(_fp_cfg_path, encoding='utf-8')) if os.path.exists(_fp_cfg_path) else {}
+FIGURE_FALLBACK_POLICY = str(_fp_cfg.get('figure_fallback_policy', 'hard_stop')).strip().lower()
+if FIGURE_FALLBACK_POLICY not in bc.FIGURE_FALLBACK_POLICIES:
+    raise SystemExit(f"HARD STOP (S6-1c): exam_config.figure_fallback_policy="
+                     f"{FIGURE_FALLBACK_POLICY!r} is not one of {bc.FIGURE_FALLBACK_POLICIES}.")
+_fig_blocks = bc.parse_image_analysis_blocks(section_rules_text)   # keyed by subtopic_id
+# format_map is NAME-keyed (S6-1); the Step-5 blocks are ID-keyed. Resolve every name to its
+# manifest id here (resolve_subtopic_id() is guaranteed to succeed for every accepted S — see
+# S6-1) and keep the id→name map so a fallback can be written back into format_map by NAME.
+_cov_allocs = []
+_cov_name_of = {}                                  # subtopic_id → display name
+for section in sections:
+    for S in pyq_subtopics[section] + zero_pyq_subtopics[section]:
+        _cov_sid = resolve_subtopic_id(S, section)
+        _cov_name_of[_cov_sid] = S
+        _cov_allocs.append({'subtopic_id': _cov_sid, 'format': format_map.get(S, 'TEXT')})
+FT_SESSION = ft.preflight()                       # which renderers THIS session can load (reported, not stopped on)
+KIND_COVERAGE = bc.kind_coverage_preflight(_cov_allocs, _fig_blocks, lambda types: ft.coverage(types, session=FT_SESSION),
+                                           policy=FIGURE_FALLBACK_POLICY, normalise=ft.normalise)
+# ID-AGREEMENT TRIPWIRE: the allocation ids must be the ids section_rules is written in.
+# Judged against the subtopic_id lines of section_rules (every Step-5 subtopic has one),
+# NOT against the image blocks — a Topic/Subtopic scope whose FIGURAL subtopics are
+# zero-PYQ inferred ones legitimately has no PYQ_IMAGE_ANALYSIS block for them.
+_sr_ids = set(re.findall(r'^\s*subtopic_id:\s*(\S+)\s*$', section_rules_text, re.M))
+_fig_sids = {a['subtopic_id'] for a in _cov_allocs if a['format'] == 'FIGURAL'}
+if _fig_sids and _sr_ids and not (_fig_sids & _sr_ids):
+    raise SystemExit("HARD STOP (S6-1c): FIGURAL subtopics exist and section_rules carries image "
+                     "blocks, yet the pre-flight matched none — the allocation ids and the Step-5 "
+                     "block ids do not agree. Fix the subtopic_manifest / section_rules ids.")
+for _line in KIND_COVERAGE['advisories']:
+    note(f"S6-1c KIND-COVERAGE advisory: {_line}")
+for _line in KIND_COVERAGE['unavailable']:
+    note(f"S6-1c KIND-COVERAGE note: {_line} — Step 7 S3-17c re-checks the renderer in its own session.")
+if KIND_COVERAGE['status'] == 'stop':
+    raise SystemExit("HARD STOP (S6-1c, KIND-COVERAGE — LAW F1.4): a DOMINANT figure type of a "
+                     "FIGURAL subtopic cannot be rendered by this framework:\n  "
+                     + "\n  ".join(KIND_COVERAGE['blockers'])
+                     + "\nONE operator action: set exam_config.figure_fallback_policy = "
+                       "\"text_disclosed\" (the subtopic renders TEXT, disclosed in every footer) "
+                       "or retire the subtopic. Nothing is generated against a profile the "
+                       "framework cannot honour.")
+FIGURAL_FALLBACKS = dict(KIND_COVERAGE['fallbacks'])      # {subtopic_id: [unsupported types]}
+for _sid in FIGURAL_FALLBACKS:
+    format_map[_cov_name_of[_sid]] = 'TEXT'                # NAME-keyed; S6-2 flags + S6-3 data follow
+    MANIFEST_IDS[_sid]['format'] = 'TEXT'                  # in-session only (the manifest FILE is untouched):
+                                                           # §7-7 axis schedule / S4-MANDATE read this map
+    note(f"S6-1c KIND-COVERAGE fallback: {_sid} ({_cov_name_of[_sid]}) renders TEXT for this series — "
+         f"dominant type(s) {FIGURAL_FALLBACKS[_sid]} unsupported (policy text_disclosed). "
+         f"Disclosed in every footer.")
+blueprint['figure_type_coverage'] = {'status': KIND_COVERAGE['status'], 'checked': KIND_COVERAGE['checked'],
+                                     'advisories': KIND_COVERAGE['advisories'],
+                                     'unavailable': KIND_COVERAGE['unavailable'],
+                                     'policy': FIGURE_FALLBACK_POLICY}
+blueprint['figural_fallbacks'] = FIGURAL_FALLBACKS
+print(f"S6-1c KIND-COVERAGE: {KIND_COVERAGE['checked']} dominant-mode FIGURAL subtopic(s) checked — "
+      f"status {KIND_COVERAGE['status']}; {len(KIND_COVERAGE['advisories'])} advisory, "
+      f"{len(FIGURAL_FALLBACKS)} fallback.")
+```
+
 ### S6-2 — Set exam-level flags
 
 ```python
@@ -3960,6 +4060,9 @@ Step 7  Write blueprint.json v1:
           level, medium, marking_scheme,          ← v1.19 (declared in §14 S14-1)
           nat_present, nat_allowed, nat_contract, ← v1.10 (§6 S6-2 writes them)
           difficulty_labels,                      ← v1.12 (§6 S6-2 writes it)
+          figure_type_coverage, figural_fallbacks, ← v1.61.0 REQUIRED (§6 S6-1c writes them; Step 7
+                                                     S3-17c and the Deliver footer read them — a
+                                                     blueprint without them is "pre-v1.61.0")
           batch_size_qs, max_rare_per_mock, feasibility_tier,   ← v1.56.0 REQUIRED, DERIVED
           uncovered_subtopics, uncovered_exam_wide,              ← v1.56.0 (§4-0; §14 S14-1)
           [+ OPTIONAL when exam_config carries them: font_name / font_size_pt /
@@ -6367,6 +6470,8 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "marking_scheme"      : [{"q_range":[1,20],"question_type":"MCQ","correct_marks":2,"negative_marks":-0.5}],
   "passage_present"     : true,
   "figural_present"     : true,
+  "figure_type_coverage": {"status": "ok", "checked": 3, "advisories": [], "unavailable": [], "policy": "hard_stop"},
+  "figural_fallbacks"   : {},
   "di_present"          : false,
   "multi_present"         : false,
   "multi_select_allowed": false,
@@ -6485,6 +6590,14 @@ marking_scheme      : list — v1.19. Per-range scoring rules from exam_config.j
                      correct_marks:float, negative_marks:float}.
                      Steps 7/8/9 use for per-Q-position marks/type lookup.
                      Empty list [] when exam_config absent (legacy).
+figure_type_coverage: dict — ADDITIVE as of v1.61.0 (S6-1c KIND-COVERAGE pre-flight).
+                     {status: ok|fallback, checked: n, advisories: [str], unavailable: [str],
+                     policy: hard_stop|text_disclosed}. Absent on a pre-v1.61.0 blueprint
+                     (Step 7 S3-17c then runs its own pre-flight; never a halt for absence).
+figural_fallbacks   : dict — ADDITIVE as of v1.61.0. {subtopic_id: [unsupported figure
+                     types]} — subtopics forced to TEXT for this series under policy
+                     text_disclosed. {} normally. Read by Step 7 S3-17c and the Deliver
+                     footer (one disclosure line per entry).
 passage_present     : bool — True if any subtopic has Format=PASSAGE
 figural_present     : bool — True if any subtopic has Format=FIGURAL
 di_present          : bool — True if any subtopic has Format=DI
@@ -7437,6 +7550,11 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 1.  All input documents read and processed (§2)
 ☐ 2.  r_avg computed for every subtopic (§3)
 ☐ 3.  Format flags set: passage_present, figural_present, di_present (§6)
+☐ 3a. KIND-COVERAGE pre-flight ran (S6-1c, v1.61.0): every dominant figure type of every
+       FIGURAL subtopic is supported in figure_types.FIGURE_TYPES, or the subtopic is a
+       recorded text_disclosed fallback (blueprint.figural_fallbacks, format TEXT), or the
+       run HARD STOPPED naming subtopic + type + the one operator action. Unregistered
+       dominant types were printed as advisories (never a stop).
 ☐ 3A. BV-0A passed: every subtopic from Analysis doc is in pyq_subtopics OR
        zero_pyq_subtopics. Confirmed: 0 subtopics silently excluded. FIGURAL audit passed.
        (ref §9 S9-0A — runs in B1, before blueprint.json v1 is written)
@@ -7889,4 +8007,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.60.1
+# END OF Framework_Blueprint v1.61.0

@@ -229,6 +229,36 @@ def _self_test():
           rc == 1 and 'LAW-COVERAGE' in out and 'REGISTRY-SOURCE-LAW' in out
           and 'Framework_PYQSort.md' in out)
 
+    # ── GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY ─────────────
+    def _drop_governs(law, spec):
+        def _m(r):
+            pth = os.path.join(r, 'LAW_REGISTRY.json')
+            reg = json.load(open(pth, encoding='utf-8'))
+            reg['laws'][law]['governs'] = [g for g in reg['laws'][law]['governs'] if g != spec]
+            json.dump(reg, open(pth, 'w', encoding='utf-8'), indent=2)
+        return _m
+    rc, out = mutated(_drop_governs('FIGURE-TYPE-COVERAGE-LAW', 'Framework_ScopedBlueprint.md'))
+    check("LAW-COVERAGE derives the FIGURE-TYPE-COVERAGE performing set from the presence-flag "
+          "producer idiom (ScopedBlueprint dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'FIGURE-TYPE-COVERAGE-LAW' in out
+          and 'Framework_ScopedBlueprint.md' in out)
+    rc, out = mutated(_drop_governs('MANIFEST-COMMIT-LAW', 'Framework_MockTestCreate.md'))
+    check("LAW-COVERAGE derives the MANIFEST-COMMIT performing set from fa.commit_registry( "
+          "(MockTestCreate dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'MANIFEST-COMMIT-LAW' in out
+          and 'Framework_MockTestCreate.md' in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nflags = {'figural_present': exam_config.get('figural_present', False)}\n```\n"))
+    check("LAW-COVERAGE derives the presence-flag performing set from the RETIRED inheritance "
+          "idiom too (a new spec copying exam_config.get('figural_present' is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'Framework_PYQSort.md' in out
+          and 'MANIFEST-COMMIT-LAW' in out)
+    rc, out = mutated(_drop_governs('FIGURE-RECORD-INTEGRITY-LAW', 'Framework_MockTestCreate.md'))
+    check("LAW-COVERAGE derives the FIGURE-RECORD performing set from validate_semantic_object( "
+          "(MockTestCreate dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'FIGURE-RECORD-INTEGRITY-LAW' in out
+          and 'Framework_MockTestCreate.md' in out)
+
     rc, out = mutated(lambda r: os.remove(os.path.join(r, 'LAW_REGISTRY.json')))
     check("LAW-REGISTRY fires when the registry is missing",
           rc == 1 and 'LAW-REGISTRY' in out)
@@ -765,6 +795,24 @@ _REG_REQUIRED_READ_LIVE = re.compile(
     r"|endswith\(\s*['\"]_registry\.json['\"]\s*\)")
 
 
+# GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY — three detect rules.
+# A spec PERFORMS a presence-flag production when its live text writes the exam-level
+# figural_present flag into a blueprint (the derived idiom of Blueprint §6-2 /
+# ScopedBlueprint S8-4a) OR uses the RETIRED inheritance idiom — so a new spec that
+# copies the retired line inherits the law's checks (MS-22 then fails it).
+_PRESENCE_FLAG_LIVE = re.compile(
+    r"blueprint\['figural_present'\]\s*=(?!=)"
+    r"|'figural_present'\s*:\s*PRESENCE\b"
+    r"|exam_config\.get\(\s*['\"]figural_present['\"]")
+# A spec performs a MANIFEST-COMMIT operation when it calls the one manifest writer
+# (final_assembly.commit_registry) or produces the presence flags.
+_MANIFEST_COMMIT_LIVE = re.compile(r"\bfa\.commit_registry\(")
+# A spec performs a FIGURE-RECORD write when it records a figure's object_type or
+# registers a semantic object.
+_FIGURE_RECORD_LIVE = re.compile(
+    r"\bvalidate_semantic_object\(|\.object_type\s*=(?!=)|\bscheme_semantic_object\(")
+
+
 def _live_text(t):
     """Full-line comments blanked. A spec is expected to QUOTE the defect it fixed;
     a commented-out call is documentation, not a call site."""
@@ -804,7 +852,10 @@ if _REG is not None:
                          'budget_spender_upstream_of_partition',
                          'registry_writer_call',
                          'registry_required_read',
-                         'topic_density_gate_call'):
+                         'topic_density_gate_call',
+                         'presence_flag_producer',
+                         'manifest_commit_or_flag_producer',
+                         'figure_record_writer'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -847,6 +898,23 @@ if _REG is not None:
             # requires the resolver and forbids the direct idiom.
             _performing = {f for f, t in TXT.items()
                            if _REG_REQUIRED_READ_LIVE.search(_live_text(t))}
+        elif _rule == 'presence_flag_producer':
+            # GAP-2026-11-01 FIGURE-TYPE-COVERAGE-LAW. A spec that produces the exam-level
+            # figural_present flag is a blueprint producer and must run the KIND-COVERAGE
+            # pre-flight (verifier: mock_sync_audit MS-23/MS-24).
+            _performing = {f for f, t in TXT.items()
+                           if _PRESENCE_FLAG_LIVE.search(_live_text(t))}
+        elif _rule == 'manifest_commit_or_flag_producer':
+            # GAP-2026-11-01 MANIFEST-COMMIT-LAW. The manifest writer's caller and every
+            # flag producer (verifier: mock_sync_audit MS-21/MS-22).
+            _performing = {f for f, t in TXT.items()
+                           if _MANIFEST_COMMIT_LIVE.search(_live_text(t))
+                           or _PRESENCE_FLAG_LIVE.search(_live_text(t))}
+        elif _rule == 'figure_record_writer':
+            # GAP-2026-11-01 FIGURE-RECORD-INTEGRITY-LAW. A spec that records what a figure
+            # IS must carry the G-FIGTYPE-KIND gate (verifier: mock_sync_audit MS-25).
+            _performing = {f for f, t in TXT.items()
+                           if _FIGURE_RECORD_LIVE.search(_live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

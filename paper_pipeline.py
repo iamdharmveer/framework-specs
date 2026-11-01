@@ -668,6 +668,46 @@ def _self_test():
     ck_raises('SEM-bad-role', lambda: validate_semantic_object(dict(_so, role='figure 1')))
     ck_raises('SEM-bad-kind', lambda: validate_semantic_object(dict(_so, kind='PICTURE')))
     ck('SEM-option-role', validate_semantic_object(dict(_so, role='option:3')))
+    # v5.40 (GAP-2026-11-01 LAW F2.2) — each FAILS on v5.39.
+    ck_raises('SEM-reaction-rejects-molecule-set',
+              lambda: validate_semantic_object(dict(_so, kind='REACTION', canonical='BrBr.CCC#CCC')))
+    ck_raises('SEM-reaction-rejects-single-molecule',
+              lambda: validate_semantic_object(dict(_so, kind='REACTION', canonical='CCBr')))
+    ck('SEM-reaction-accepts-reaction-smiles',
+       validate_semantic_object(dict(_so, kind='REACTION', canonical='BrBr.CCC#CCC>>CCC(Br)=C(Br)CC')))
+    ck('SEM-reaction-accepts-empty-product-side',
+       validate_semantic_object(dict(_so, kind='REACTION', canonical='CC(=O)c1ccccc1>>')))
+    ck_raises('SEM-structure-rejects-reaction-smiles',
+              lambda: validate_semantic_object(dict(_so, kind='STRUCTURE', canonical='CCBr>>CCO')))
+    # §FOOTER-FT — figure_footer_lines (GAP-2026-11-01). Each FAILS before this release.
+    ck('FT-footer-clean-paper-silent', figure_footer_lines({}, {}, 'MOCK:M01') == [])
+    ck('FT-footer-corrupt-inputs-silent', figure_footer_lines('x', None, None) == [])
+    _ftr = {'paper_flags': {'SUBJ:X:01': {'figural_present': False, 'figural_present_derived': True,
+                                          'figure_record': 'absent_legacy'}},
+            'figural_manifests': [{'paper_id': 'SUBJ:X:01', 'record_integrity': {'1': 'legacy_label_mismatch',
+                                                                                  '2': 'legacy_label_mismatch',
+                                                                                  '3': 'legacy_degenerate_reaction'}},
+                                  {'mock': 1, 'record_integrity': {'9': 'legacy_label_mismatch'}}]}
+    _ftb = {'figural_fallbacks': {'bio.x': ['micrograph']},
+            'figure_type_coverage': {'advisories': ['bio.y: zorblax']}}
+    _fl = figure_footer_lines(_ftr, _ftb, 'SUBJ:X:01')
+    ck('FT-footer-fallback-line', any(l.startswith('Figure fallback: bio.x') and 'micrograph' in l for l in _fl))
+    ck('FT-footer-flag-disagreement-line', any('declared figural_present=false' in l for l in _fl))
+    ck('FT-footer-absent-legacy-line', any('ABSENT (legacy paper)' in l for l in _fl))
+    ck('FT-footer-annotation-counts', any('3 question(s) annotated' in l and '2 legacy_label_mismatch' in l
+                                          and '1 legacy_degenerate_reaction' in l for l in _fl))
+    ck('FT-footer-advisory-line', any(l.startswith('Figure types: 1 subtopic') for l in _fl))
+    ck('FT-footer-exactly-five', len(_fl) == 5)
+    ck('FT-footer-other-paper-annotation-not-leaked',
+       not any('1 question(s) annotated' in l for l in _fl))
+    ck('FT-footer-legacy-mock-id', any('1 question(s) annotated' in l for l in figure_footer_lines(_ftr, {}, 'MOCK:M01')))
+    _ftu = {'figural_manifests': [{'paper_id': 'MOCK:M09', 'record_integrity': {'3': 'legacy_unlabelled', '4': 'legacy_unlabelled',
+                                                                                  '5': 'legacy_label_mismatch'}}]}
+    _flu = figure_footer_lines(_ftu, {}, 'MOCK:M09')
+    ck('FT-footer-never-raises-on-odd-integrity-values',
+       figure_footer_lines({'figural_manifests': [{'paper_id': 'M', 'record_integrity': {'1': None, '2': 3, '3': 'x'}}]}, {}, 'M') != [])
+    ck('FT-footer-legacy-unlabelled-resume-line', any('2 question(s) authored before' in l and 'NOT AUDITED' in l for l in _flu)
+       and any('1 question(s) annotated (1 legacy_label_mismatch)' in l for l in _flu))
     ck('SEM-agree-string', semantic_objects_agree(_so, dict(_so))[0]
        and not semantic_objects_agree(_so, dict(_so, canonical='O=C(C)c1ccccc1O'))[0])
     _fake = lambda sm: ({'OC(=O)c1ccccc1O': 'X', 'Oc1ccccc1C(O)=O': 'X',
@@ -1425,6 +1465,20 @@ def validate_semantic_object(obj, ctx=''):
         raise ValueError(f'{ctx}: semantic object kind {kind} needs canonical (SMILES / '
                          f'reaction SMILES) — a structure with no machine-readable '
                          f'identity cannot be reconciled by the explaining step')
+    # v5.40 (GAP-2026-11-01 LAW F2.2): a REACTION is a reaction, not a set of molecules.
+    # 'BrBr.CCC#CCC' is a valid SMILES for two molecules side by side and passed here 44
+    # times on the reference registry — zero of them carried '>>'. The canonical of a
+    # REACTION must have the reactants>agents>products shape (corpus_io.canonical_structure
+    # v1.16 canonicalises it); a STRUCTURE must not.
+    if kind == 'REACTION' and str(obj.get('canonical', '')).count('>') != 2:
+        raise ValueError(f'{ctx}: semantic object kind REACTION needs a REACTION SMILES '
+                         f'(reactants>agents>products — exactly two ">" separators); got '
+                         f'{str(obj.get("canonical"))!r}, which is a molecule or molecule '
+                         f'set. Register the substrate as STRUCTURE, or draw the scheme '
+                         f'(corpus_io.render_scheme) and register its canonical.')
+    if kind == 'STRUCTURE' and '>' in str(obj.get('canonical', '')):
+        raise ValueError(f'{ctx}: semantic object kind STRUCTURE carries a reaction SMILES '
+                         f'{str(obj.get("canonical"))!r}; register it as kind REACTION.')
     if not isinstance(obj.get('descriptor', {}), dict):
         raise ValueError(f'{ctx}: semantic object descriptor must be a dict')
     return True
@@ -2108,6 +2162,72 @@ def style_footer_line(profile_meta):
         return [f'STYLE PROFILE: ACTIVE (schema {schema}, corpus {h})']
     reason = profile_meta.get('reason') or 'unspecified'
     return [f'STYLE PROFILE: DORMANT — {reason}']
+
+
+def figure_footer_lines(registry, blueprint, paper_id):
+    """§FOOTER-FT (DeliveryFooter v1.36, GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-
+    RECORD-INTEGRITY): the ONLY source of the delivered document's figure-record
+    disclosure lines. Returns [] for a paper with nothing to disclose (a clean,
+    current paper delivers exactly as before). One line per fact, never a verdict:
+      * blueprint.figural_fallbacks        -> one line per subtopic rendered TEXT
+                                              (policy text_disclosed)
+      * registry.paper_flags[pid]          -> declared False / derived True (the record
+                                              was committed; the blueprint flag was wrong)
+      * registry.paper_flags[pid].figure_record == 'absent_legacy'
+                                           -> figures were drawn, no record: NOT AUDITED
+      * figural_manifests[pid].record_integrity
+                                           -> N legacy annotations (label mismatch /
+                                              degenerate reaction)
+      * blueprint.figure_type_coverage.advisories
+                                           -> unregistered dominant types (AMBER)
+    NEVER raises: a corrupt value is treated as absent (the style_footer_line rule)."""
+    out = []
+    reg = registry if isinstance(registry, dict) else {}
+    bp = blueprint if isinstance(blueprint, dict) else {}
+    pid = str(paper_id or '')
+    fb = bp.get('figural_fallbacks')
+    if isinstance(fb, dict):
+        for sid, types in fb.items():
+            out.append(f'Figure fallback: {sid} rendered as TEXT in this series — its dominant '
+                       f'figure type(s) {types} are not renderable (policy text_disclosed).')
+    pf = (reg.get('paper_flags') or {}).get(pid) if isinstance(reg.get('paper_flags'), dict) else None
+    if isinstance(pf, dict):
+        for flag in ('figural_present', 'di_present', 'passage_present'):
+            if pf.get(flag) is False and pf.get(flag + '_derived') is True:
+                out.append(f'Figure record: blueprint declared {flag}=false but this paper carries '
+                           f'that content — the record was committed (MANIFEST-COMMIT-LAW); '
+                           f'regenerate the blueprint so the flag is derived.')
+        if pf.get('figure_record') == 'absent_legacy':
+            out.append('Figure record ABSENT (legacy paper): figures were drawn but no per-question '
+                       'record reached the registry, so figure-profile and type↔kind conformance '
+                       'were NOT AUDITED for this paper.')
+    fm = reg.get('figural_manifests')
+    if isinstance(fm, list):
+        for e in fm:
+            if not isinstance(e, dict):
+                continue
+            epid = e.get('paper_id') or (f"MOCK:M{int(e.get('mock')):02d}" if str(e.get('mock', '')).isdigit() else None)
+            ri = e.get('record_integrity')
+            if epid == pid and isinstance(ri, dict) and ri:
+                kinds = {}
+                for q, k in ri.items():
+                    k = str(k) if k is not None else 'unknown'
+                    kinds[k] = kinds.get(k, 0) + 1
+                n_unl = kinds.pop('legacy_unlabelled', 0)
+                if n_unl:                      # E15 — resumed across the v5.88 fix
+                    out.append(f'Figure record: {n_unl} question(s) authored before the figure-record laws '
+                               f'and completed after them carry no figure type — their type↔kind '
+                               f'conformance was NOT AUDITED.')
+                if kinds:
+                    parts = ', '.join(f'{n} {k}' for k, n in sorted(kinds.items()))
+                    out.append(f'Legacy figure record: {sum(kinds.values())} question(s) annotated ({parts}) — '
+                               f'authored before the figure-record laws; not re-rendered, not re-audited.')
+    cov = bp.get('figure_type_coverage')
+    if isinstance(cov, dict) and isinstance(cov.get('advisories'), list) and cov['advisories']:
+        out.append(f'Figure types: {len(cov["advisories"])} subtopic(s) have a dominant figure type '
+                   f'not in the figure-type registry — rendered as generic schematics; '
+                   f'type↔kind conformance not verifiable for them.')
+    return out
 
 
 # ── fleet recovery (gap §9) — pure core; the I/O wrapper lives in __main__ ────────

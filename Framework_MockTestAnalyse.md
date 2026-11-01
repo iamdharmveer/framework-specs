@@ -1,4 +1,14 @@
-# Framework_MockTestAnalyse v2.57.2 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.57.3 — Universal PYQ Pattern Extraction Engine
+# v2.57.3 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.2;
+#   paired with figure_types v1.0, analyse_engine, MockTestCreate v5.88). PATCH: the
+#   PYQ_IMAGE_ANALYSIS contract is unchanged in shape; object_type strings are now
+#   NORMALISED onto the figure-type registry vocabulary at Phase C (analyse_engine.
+#   apply_vision_observations → figure_types.normalise; the raw Phase-B string is kept as
+#   object_type_raw), so Step 7 and the auditor see ONE name for one kind of figure, and
+#   QV-14's line names every object_type the registry does not know (advisory, never a
+#   FAIL — the vocabulary grows by evidence). Phase B step 3 asks for the registry's
+#   canonical names where one fits. Step 5 output on an exam whose strings were already
+#   canonical is byte-identical.
 # v2.57.2 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestCreate v5.85,
 #   blueprint_core Cluster SG, audit_canonical v2.30, mock_sync_audit MS-11 name set).
 #   NEW S1-1b: [ExamCode]_stimulus_profile.json — how this exam builds its question SETS
@@ -2607,7 +2617,14 @@ FOR EACH sheet listed in vision_queue.json['sheets']:
      * A cell labelled [UNRENDERABLE] carries no image: record figure_readable=false.
      * object_type is drawn from what the corpus actually contains. It is NOT a
        closed list and NOT exam-specific — name what is there, in lower_snake_case,
-       and use the SAME name for the same kind of thing across sheets.
+       and use the SAME name for the same kind of thing across sheets. Where the
+       figure-type registry (figure_types.FIGURE_TYPES — chemical_structure,
+       reaction_scheme, line_graph, apparatus_diagram, figure_series, …) already
+       names the kind of thing, use THAT name: Step 7 renders by registry row and the
+       auditor checks the row, so a registered name is a figure the framework can
+       draw and verify. A name the registry lacks is still recorded (Phase C keeps it
+       verbatim as object_type_raw and normalises object_type), is reported by QV-14,
+       and renders as a generic schematic until a registry row binds it (v2.57.3).
 
   4. Write every observation to <VISION_WORKDIR>/vision_observations.json via
      corpus_io.write_vision_observations, as {"observations": [ ... ]}.
@@ -2654,6 +2671,9 @@ Key points:
   BATCH STOP law. Nothing new interrupts a run and no halt is introduced.
 - `apply_vision_observations(progress)` (Phase C, S4-2c) is the ONLY writer of
   `object_type`, `transformation`, `arrangement`, `complexity` and `image_clarity`.
+  v2.57.3: it writes `object_type` NORMALISED through figure_types.normalise (spelling
+  variants and keyword families map onto the registry's canonical names; an unknown
+  string passes through unchanged) and keeps the Phase-B string as `object_type_raw`.
 - Until Phase C runs those fields are ABSENT, not `None` and not guessed.
 - Re-running Phase B is idempotent; Phases A and C need not repeat (EC-V3/EC-V4).
 
@@ -4407,7 +4427,8 @@ PART A — QV results in chat:
    v QV-11 Recency         : PASS
    v QV-12 Dedup           : PASS
    v QV-13 Mechanic identity: PASS (pre-write HARD STOP on FAIL; QV-13b likewise)
-   ! QV-14 Vision coverage  : [PASS | FAIL — footer renders F1 amber]
+   ! QV-14 Vision coverage  : [PASS | FAIL — footer renders F1 amber] [+ "| N object_type
+                               string(s) not in figure_types.FIGURE_TYPES: [...]" when any]
    v QV-15 Heading-truncated: PASS
    v QV-16 original_q_num   : PASS
    ==========================="
@@ -4969,6 +4990,9 @@ CATEGORY B (per subtopic entry — one block per subtopic):
     image_role           str  stem_only | options_only | stem_and_options
                               Computed from E-4 q_roles, not hardcoded. (BUG-B11 fix)
     object_types         dict {dominant:[str], observed:[str], avoid:[str]}
+                              v2.57.3: strings are figure_types canonical names where the
+                              registry knows the kind (normalised at Phase C); an unknown
+                              string is kept verbatim and named in the QV-14 line.
     transformation_types list Observed transformation types.
     complexity_dist      dict {Simple:%, Medium:%, Hard:%}
     images_analysed      int
@@ -5421,4 +5445,4 @@ explicitly rather than silently borrowing old-era proportions — Release C
 consumes these marks in transition allocation. Inactive/legacy exams:
 byte-identical to v2.56.
 
-# END OF Framework_MockTestAnalyse v2.57.2
+# END OF Framework_MockTestAnalyse v2.57.3

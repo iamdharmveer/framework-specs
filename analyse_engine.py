@@ -761,6 +761,34 @@ VISION_PER_SHEET = 6      # 153 figures -> 26 view() calls instead of 153.
                           # A parameter, not a constant of nature: re-tile freely.
 
 
+def normalise_object_type(s):
+    """GAP-2026-11-01 (LAW F1.2) — map a Phase-B object_type string onto the figure-type
+    registry vocabulary (figure_types.normalise) so Step 7 and the auditor see ONE name
+    for one kind of figure. The raw string is kept beside it (object_type_raw). When the
+    registry is not importable the string passes through unchanged — never a halt."""
+    try:
+        import figure_types as _ft
+    except Exception:
+        return s
+    return _ft.normalise(s) or s
+
+
+def unregistered_object_types(questions):
+    """GAP-2026-11-01 — the distinct object_type strings on these questions that
+    figure_types does not know (first-seen order; [] when the registry is absent).
+    Reported by QV-14 so the vocabulary grows by evidence; never a FAIL."""
+    try:
+        import figure_types as _ft
+    except Exception:
+        return []
+    out = []
+    for q in questions:
+        ot = q.get('object_type')
+        if ot and _ft.lookup(ot)['status'] == 'unregistered' and ot not in out:
+            out.append(ot)
+    return out
+
+
 # ═══ FROM Framework_MockTestAnalyse.md §4, fence L3024-3064 (v2.53.1) — VERBATIM ═══
 def apply_vision_observations(progress, workdir=VISION_WORKDIR):
     """Fold Phase-B observations onto the questions. THE ONLY WRITER of image_clarity.
@@ -790,7 +818,8 @@ def apply_vision_observations(progress, workdir=VISION_WORKDIR):
         for q in entries:
             rec = by_key.get((str(q.get('paper_id')), q.get('q_num')))
             if rec:
-                q.update({'object_type'   : rec['object_type'],
+                q.update({'object_type'   : normalise_object_type(rec['object_type']),
+                          'object_type_raw': rec['object_type'],
                           'transformation': rec['transformation_type'],
                           'arrangement'   : rec['arrangement'],
                           'complexity'    : rec['complexity'],
@@ -3332,8 +3361,11 @@ def apply_zero_pyq_format_inference(entries):
             e['nat_freq'] = max(e.get('nat_freq', 0), 100)
         if res['answer_cardinality'] == 'multi':
             e['msq_freq'] = max(e.get('msq_freq', 0), 100)
-        if res['format'] == 'FIGURAL' and not e.get('figural_data'):
-            e['figural_data'] = {                                   # same conservative default as PYQ path
+        if res['format'] == 'FIGURAL' and not e.get('PYQ_IMAGE_ANALYSIS'):
+            # GAP-2026-11-01 final review: this was written under 'figural_data', a key the
+            # section_rules emitter never reads, so an inferred FIGURAL zero-PYQ subtopic got
+            # NO PYQ_IMAGE_ANALYSIS block and Step 6/7 saw it as profile-less.
+            e['PYQ_IMAGE_ANALYSIS'] = {                             # same conservative default as PYQ path
                 'image_role': 'stem_only',
                 'object_types': {'dominant': [], 'observed': [], 'avoid': []},
                 'transformation_types': [], 'arrangement_types': [],
@@ -4896,6 +4928,15 @@ def run_qv(entries, taxonomy, progress):
                 f'check the Phase B protocol was followed for every labelled cell.')
         else:
             results['QV-14'] = ('PASS', f'{seen}/{len(fig_qs)} figures observed')
+        # GAP-2026-11-01 (LAW F1.2 disclosure): figure types the registry does not know
+        # are named here so a dominant type can never reach Step 6 unseen. Advisory —
+        # the verdict above is unchanged; the text carries the list.
+        _unreg = unregistered_object_types(fig_qs)
+        if _unreg:
+            _v, _m = results['QV-14']
+            results['QV-14'] = (_v, _m + f' | {len(_unreg)} object_type string(s) not in '
+                                         f'figure_types.FIGURE_TYPES (will render as GENERIC '
+                                         f'schematics; add registry rows): {_unreg}')
 
     return results
 
@@ -5845,6 +5886,32 @@ def self_test():
           "collisions=[\"ra:dup_key=['ra.alpha', 'ra.beta', 'ra.mid', 'ra.zeta']\"]"
           in _colres['QV-13'][1])
 
+    # ── GAP-2026-11-01 (LAW F1.2) — object_type normalisation + QV-14 disclosure ──
+    # 6 checks. Each FAILS before this release (no normaliser; QV-14 silent on vocabulary).
+    try:
+        import figure_types as _ft11
+        _ft11_here = True
+    except ImportError:
+        _ft11_here = False
+    check('ft_normalise_maps_spelling_variant',
+          (normalise_object_type('Reaction Scheme ') == 'reaction_scheme') if _ft11_here
+          else normalise_object_type('Reaction Scheme ') == 'Reaction Scheme ')
+    check('ft_normalise_keeps_unknown', normalise_object_type('zorblax_widget') == 'zorblax_widget')
+    check('ft_normalise_empty_safe', normalise_object_type('') == '' and normalise_object_type(None) is None)
+    _fq11 = [{'object_type': 'zorblax_widget', 'image_role': 'stem_only', 'image_clarity': 'clear'},
+             {'object_type': 'reaction_scheme', 'image_role': 'stem_only', 'image_clarity': 'clear'},
+             {'object_type': 'zorblax_widget', 'image_role': 'stem_only', 'image_clarity': 'clear'}]
+    check('ft_unregistered_listed_once_first_seen',
+          unregistered_object_types(_fq11) == (['zorblax_widget'] if _ft11_here else []))
+    _p11 = {('P1', 'x'): _fq11, '_meta': {}}
+    _qv11 = run_qv([], {}, _p11)
+    check('ft_qv14_discloses_unregistered',
+          _qv11['QV-14'][0] == 'PASS' and
+          (('zorblax_widget' in _qv11['QV-14'][1] and 'FIGURE_TYPES' in _qv11['QV-14'][1]) if _ft11_here
+           else 'FIGURE_TYPES' not in _qv11['QV-14'][1]))
+    _qv11b = run_qv([], {}, {('P1', 'x'): [_fq11[1]], '_meta': {}})
+    check('ft_qv14_silent_when_all_registered', 'FIGURE_TYPES' not in _qv11b['QV-14'][1])
+
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
 
@@ -6679,7 +6746,14 @@ def self_test():
           and list(_sy_ent['mechanic_mix']) == sorted(_sy_ent['mechanic_mix'])
           and len(_sy_ent['mechanic_mix']) >= 2)
 
-    EXPECTED_CHECKS = 215  # v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
+    _zp = [{'section': 'S', 'topic': 'T', 'subtopic': 'Known', 'observed_count': 3, 'format': 'FIGURAL', 'answer_type': 'option', 'answer_cardinality': 'single'},
+           {'section': 'S', 'topic': 'T', 'subtopic': 'Diagram questions', 'observed_count': 0, 'format': 'TEXT', 'answer_type': 'option', 'answer_cardinality': 'single'}]
+    apply_zero_pyq_format_inference(_zp)
+    check('zero_pyq_inferred_figural_gets_PYQ_IMAGE_ANALYSIS_block',
+          _zp[1].get('format') == 'FIGURAL' and isinstance(_zp[1].get('PYQ_IMAGE_ANALYSIS'), dict)
+          and _zp[1]['PYQ_IMAGE_ANALYSIS'].get('image_role') == 'stem_only' and 'figural_data' not in _zp[1])
+
+    EXPECTED_CHECKS = 222  # GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

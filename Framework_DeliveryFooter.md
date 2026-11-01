@@ -1,4 +1,14 @@
-# Framework_DeliveryFooter v1.35.1 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.36.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.36.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   paper_pipeline v5.40, final_assembly v1.10, MockTestCreate v5.88, MockDeliver v1.23.0).
+#   NEW §FOOTER-FT — FIGURE-RECORD DISCLOSURE LINES, engine-sourced from
+#   pp.figure_footer_lines(reg, bp, paper_id): a text_disclosed fallback subtopic, a
+#   committed record whose blueprint flag said otherwise (registry.paper_flags), a legacy
+#   paper whose figures were never recorded (absent_legacy — NOT AUDITED), legacy figure
+#   records annotated by the migration (label mismatch / degenerate reaction), and
+#   unregistered dominant figure types. A clean current paper prints nothing — the legacy
+#   estate's footers are byte-identical (§7 P1). A healed or annotated registry must never
+#   look identical to a clean one (§FOOTER-DG precedent). No other set, gate or badge change.
 # v1.35.1 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse
 #   v2.57.2, MockTestCreate v5.85). Step 5 final set gains [ExamCode]_stimulus_profile.json
 #   (MANDATORY, badge "Upload to Project Files" — Step 7 stops at a new paper without it):
@@ -622,6 +632,46 @@ never compose them by hand. The set it returns, by record state:
 A legacy paper (no record) prints nothing. A HEALED registry is ALWAYS disclosed:
 a registry healed by pp.dg_preflight must never look identical to one that was
 always clean (MockTestExplain §6A-4: silent degradation is the worse failure).
+
+§FOOTER-FT — FIGURE-RECORD DISCLOSURE LINES (v1.36.0 — GAP-2026-11-01-FIGURE-TYPE-
+COVERAGE-AND-RECORD-INTEGRITY LAW F1.4/F3). Immediately after the §FOOTER-STYLE line
+of the Step 11 F2 footer — the ONE site that delivers a student-facing paper (Step 7
+and Step 9 deliver internal artefacts whose F2 footers carry no paper disclosure
+lines) — print EVERY string returned by
+    pp.figure_footer_lines(registry, blueprint, paper_id)
+(the step's resolved registry dict and the blueprint it selected for this paper), one per
+line, each prefixed "ℹ️ ". The engine is the ONLY source of these lines —
+never compose them by hand. The set it returns:
+    blueprint.figural_fallbacks (text_disclosed)
+                            → "Figure fallback: <subtopic_id> rendered as TEXT in this
+                               series — its dominant figure type(s) [...] are not
+                               renderable (policy text_disclosed)."  (one per subtopic)
+    registry.paper_flags[pid] declared False / derived True
+                            → "Figure record: blueprint declared <flag>=false but this
+                               paper carries that content — the record was committed
+                               (MANIFEST-COMMIT-LAW); regenerate the blueprint so the
+                               flag is derived."
+    paper_flags[pid].figure_record == 'absent_legacy'
+                            → "Figure record ABSENT (legacy paper): figures were drawn
+                               but no per-question record reached the registry, so
+                               figure-profile and type↔kind conformance were NOT
+                               AUDITED for this paper."
+    figural_manifests[pid].record_integrity (S13-REGCHECK migration)
+                            → "Legacy figure record: N question(s) annotated (<counts
+                               by kind>) — authored before the figure-record laws; not
+                               re-rendered, not re-audited."
+    record_integrity == 'legacy_unlabelled' (Step 7 S4-12 4c — a paper resumed across
+    the v5.88 fix)          → "Figure record: N question(s) authored before the
+                               figure-record laws and completed after them carry no
+                               figure type — their type↔kind conformance was NOT
+                               AUDITED."
+    blueprint.figure_type_coverage.advisories
+                            → "Figure types: N subtopic(s) have a dominant figure type
+                               not in the figure-type registry — rendered as generic
+                               schematics; type↔kind conformance not verifiable for them."
+A clean, current paper prints NOTHING (the legacy estate's footers stay byte-identical,
+§7 P1). No per-question detail, no gate verdict, no SMILES ever reaches the delivered
+document; the annotations themselves live in the registry (internal).
 
 §FOOTER-STYLE — STYLE-PROFILE STATUS LINE (v1.30 — GAP-2026-08-29-STYLE-FIDELITY
 §6.7). Immediately after the §FOOTER-DG lines of the Step 11 F2 footer, print

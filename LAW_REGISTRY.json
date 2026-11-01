@@ -111,6 +111,63 @@
         "DECISIONS (owner, 2026-09-14). Q1 both lanes differ → attachment wins. Q2 same chat: attach once; new chat: re-attach or Files, fingerprint pinned against a mid-run swap (nothing to compare against in a brand-new chat — accepted, as the Files lane always was). Q3 Step 11's *_registry.json wildcard scan retired; identical resolver in all three steps. Q4 exact filename + exam_code validated, mismatch = HARD STOP. Q5 scope = Steps 7/9/11 only. Q6 writers, badge, closed set, artefacts unchanged.",
         "HISTORY. Through release 2026.09.14.1 all three steps HARD-STOPPED when the registry was absent from Project Files, and Step 11 additionally HARD-STOPPED on two *_registry.json files in Files. MS-20 fires 8 findings on those specs (regression floor) and 0 on the patched ones."
       ]
+    },
+    "FIGURE-TYPE-COVERAGE-LAW": {
+      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+      "stated_in": "figure_types.py; Framework_Blueprint.md S6-1c; Framework_ScopedBlueprint.md S4-5; Framework_MockTestCreate.md S3-17c / S7-NEW-B / S10-6A",
+      "requires": "A figure type may be DOMINANT in a blueprint only if the framework can render it, and the framework must be able to say so before Q.1. ONE table — figure_types.FIGURE_TYPES — binds every object_type to a render class (S10-6A), a semantic kind (paper_pipeline.SEMANTIC_KINDS) and a renderer. Step 5 normalises its emitted strings onto it; every blueprint spec runs bc.kind_coverage_preflight over the FIGURAL allocations (an UNSUPPORTED dominant type HARD STOPs unless exam_config.figure_fallback_policy == 'text_disclosed', in which case the subtopic is allocated TEXT and recorded in blueprint.figural_fallbacks; an UNREGISTERED type is an advisory, never a stop); Step 7 re-runs the pre-flight against ITS OWN session's loadable renderers (S3-17c) and dispatches every figure BY ITS REGISTRY ROW, never recording a type whose row did not render the figure. Adding a type is a repo change with a fixture, never a per-exam edit.",
+      "detect": "presence_flag_producer",
+      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text produces the exam-level figural_present flag of a blueprint — `blueprint['figural_present'] =` (Blueprint §6-2), `'figural_present': PRESENCE[...]` (ScopedBlueprint S8-4a) — or uses the RETIRED `exam_config.get('figural_present'` inheritance idiom (so a new spec copying it inherits the law's checks). A blueprint producer is where a dominant figure type enters a plan without anyone having asked whether it can be drawn.",
+      "governs": [
+        "Framework_Blueprint.md",
+        "Framework_ScopedBlueprint.md"
+      ],
+      "verified_by": [
+        "mock_sync_audit:MS-23",
+        "mock_sync_audit:MS-24"
+      ],
+      "preconditions": [
+        "THE REGISTRY IS A VOCABULARY, NOT AN EXAM. A chemistry type, a biology type and a reasoning-glyph type sit side by side; a string the registry does not know is NEVER rejected and NEVER silently dropped — lookup() returns status 'unregistered', the figure draws as a GENERIC schematic and every reader discloses it (QV-14 line, Step-6 advisory, A-FIGTYPE-KIND WARN). ~200 exams carry section_rules written before the registry existed; none may be halted by a vocabulary gap.",
+        "THIN CORE. blueprint_core never imports figure_types (validator Check AB); every blueprint_core entry point takes the registry's functions by INJECTION (normalise=, kind_check=, class_check=, coverage=), exactly as paper_pipeline takes canon=.",
+        "RENDERER AVAILABILITY IS A SESSION FACT. figure_types.preflight() imports every supported renderer; Step 6 reports an unloadable one, Step 7 S3-17c STOPs on it with the one operator action (the pip line) — a Type-2 input-integrity stop before Q.1, never a traceback at Q.14."
+      ]
+    },
+    "FIGURE-RECORD-INTEGRITY-LAW": {
+      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+      "stated_in": "Framework_MockTestCreate.md S7-NEW-B / S7-NEW-B2 / S4-11 G-FIGTYPE-KIND; audit_canonical.py A-FIGTYPE-KIND; blueprint_core.check_figural_conformance; paper_pipeline.validate_semantic_object",
+      "requires": "A figure record is consistent with itself, and a gate audits the artefact, never only the label. For every rendered figural question: object_type is RECORDED (final_assembly refuses a commit without it); the recorded type's registry row ADMITS the problem semantic object's kind and the FigureSpec class (a mismatch is a FAIL — a false record; an unregistered type is a disclosed WARN, never silence); a REACTION semantic object carries a reaction SMILES ('reactants>agents>products', '>>' present) and a STRUCTURE never does. One rule — bc.check_figural_conformance(records, …) with the figure_types checkers injected — is shared by Step 7's G-FIGTYPE-KIND and the auditor's A-FIGTYPE-KIND, so the generator and its auditor cannot drift apart.",
+      "detect": "figure_record_writer",
+      "detect_note": "A spec PERFORMS this operation when its live text records a figure's object_type (`.object_type =`, `'object_type':` in a figural_qs / fig_manifest writer) or registers a semantic object (`validate_semantic_object(`).",
+      "governs": [
+        "Framework_MockTestCreate.md"
+      ],
+      "verified_by": [
+        "mock_sync_audit:MS-25"
+      ],
+      "preconditions": [
+        "EVIDENCE OVER LABELS. The reference registry held 287 'reaction_scheme' labels over STRUCTURE objects and 44 REACTION objects with no '>>'; A-FIGPROFILE passed every one because it compared the label with the profile and never with the object beside it.",
+        "LEGACY RECORDS ARE ANNOTATED, NEVER REWRITTEN. final_assembly.annotate_legacy_figure_records (S13-REGCHECK) marks record_integrity per question; A-FIGTYPE-KIND skips an annotated question with a printed reason; the Deliver footer discloses it (§FOOTER-FT)."
+      ]
+    },
+    "MANIFEST-COMMIT-LAW": {
+      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+      "stated_in": "final_assembly.commit_registry v1.10; Framework_MockTestCreate.md S3-2a / S13-4 / S13-4c; Framework_ScopedBlueprint.md S8-4a; audit_canonical.py figure_evidence",
+      "requires": "What the producer wrote is committed; a flag may describe a paper, never suppress its record; a gate with missing evidence on a paper that has the content reports WARN, never OK. The rc / di / figural manifest blocks are written whenever the manifest is non-empty REGARDLESS of passage_present / di_present / figural_present (a disagreement is recorded in registry.paper_flags and printed once). The five producer flags are DERIVED from the allocation (bc.derive_presence_flags) by every blueprint spec and self-corrected in session by Step 7 S3-2a — never inherited from exam_config. Before any figure gate reports dormant it consults the paper's own evidence (image-bearing blocks, registry figural_qs, axis1_paper FIGURAL); on a figural paper S13-4c REQUIRES armed A-FIGPROFILE and A-FIGTYPE-KIND lines.",
+      "detect": "manifest_commit_or_flag_producer",
+      "detect_note": "A spec PERFORMS this operation when its live text calls fa.commit_registry( (the one writer of the manifest blocks) or assigns the exam-level presence flags into a blueprint (`'figural_present':` / `blueprint['figural_present'] =`).",
+      "governs": [
+        "Framework_MockTestCreate.md",
+        "Framework_Blueprint.md",
+        "Framework_ScopedBlueprint.md"
+      ],
+      "verified_by": [
+        "mock_sync_audit:MS-21",
+        "mock_sync_audit:MS-22"
+      ],
+      "preconditions": [
+        "SILENT GREEN IS THE DEFECT. audit_canonical's engine-degraded branch stated the rule ('not _ok — the gate DID NOT RUN; reporting it green is the silent-pass failure') and its data-absent branch violated it; 36 figures, no record, exit_0/SHIP.",
+        "A FLAG IS INFORMATION, NOT AUTHORITY. registry.paper_flags[paper_id] keeps the declared flag beside the derived truth so the disagreement is a record, never a deletion."
+      ]
     }
   },
   "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

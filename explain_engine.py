@@ -786,15 +786,45 @@ def canonical_answer_of_block(blk):
 def canonical_structure(smiles):
     """Canonical isomeric SMILES via rdkit, with valence sanitisation. Returns
     (canonical|None, reason); reason == 'ok' | 'rdkit_unavailable' | a parse
-    error. NEVER raises — the caller decides what an unavailable rdkit means."""
+    error. NEVER raises — the caller decides what an unavailable rdkit means.
+
+    v1.16 (GAP-2026-11-01, LAW F1.3): a REACTION SMILES — 'reactants>agents>products',
+    exactly two '>' separators — canonicalises component-wise through the molecule
+    path below and is re-joined in the same order. An empty agents side, an empty
+    products side (a scheme that ends in a placeholder letter) or an empty reactants
+    side (a scheme that starts from an unknown and draws the product — G7) are each
+    legal; a reaction with NEITHER a reactant nor a product is not. The molecule path
+    is byte-identical to v1.15, so every pre-existing fixture canonicalises as before."""
     try:
         from rdkit import Chem
         from rdkit import RDLogger
         RDLogger.DisableLog('rdApp.*')
     except Exception:
         return None, 'rdkit_unavailable'
+    s = str(smiles)
+    if '>' in s:
+        parts = s.split('>')
+        if len(parts) != 3:
+            return None, ('parse_error: a reaction SMILES has exactly two ">" separators '
+                          '(reactants>agents>products)')
+        if not parts[0].strip() and not parts[2].strip():
+            return None, 'parse_error: reaction SMILES has neither a reactant nor a product'
+        sides = []
+        for side in parts:
+            comps = []
+            for comp in [c for c in side.strip().split('.') if c.strip()]:
+                try:
+                    m = Chem.MolFromSmiles(comp, sanitize=True)
+                except Exception as e:
+                    return None, f'parse_error: {e}'
+                if m is None:
+                    return None, (f'parse_error: rdkit rejected the SMILES component '
+                                  f'{comp!r} (valence / syntax)')
+                comps.append(Chem.MolToSmiles(m, isomericSmiles=True, canonical=True))
+            sides.append('.'.join(comps))
+        return '>'.join(sides), 'ok'
     try:
-        mol = Chem.MolFromSmiles(str(smiles), sanitize=True)
+        mol = Chem.MolFromSmiles(s, sanitize=True)
     except Exception as e:
         return None, f'parse_error: {e}'
     if mol is None:

@@ -12,8 +12,8 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 53
-  SPEC_MANIFEST.json entries : 57
+  MANIFEST.json files        : 54
+  SPEC_MANIFEST.json entries : 58
   routes.json triggers       : 23
 ```
 

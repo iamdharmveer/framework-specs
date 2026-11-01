@@ -1,4 +1,39 @@
-# Framework_MockTestCreate v5.87
+# Framework_MockTestCreate v5.88
+# v5.88 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   figure_types v1.0, corpus_io v1.16, paper_pipeline v5.40, final_assembly v1.10,
+#   audit_canonical v2.33, blueprint_core v1.28, Framework_ScopedBlueprint v1.11.0,
+#   Framework_Blueprint v1.61.0). Estate-wide; the reference exam (CSIR_NET_CHEMICALSCIENCES)
+#   is the incident, not the scope. Measured: a delivered scoped paper with 36 figural
+#   questions shipped exit_0/SHIP with every problem figure a lone molecule where the real
+#   paper draws a reaction SCHEME (20 of 24 figural organic questions on 07-Jun-2023), and
+#   with NO figure record in the registry; across the registry 385 questions were labelled
+#   'reaction_scheme' while 287 of them held a STRUCTURE semantic object and 44 'REACTION'
+#   objects held no reaction SMILES at all. Three root causes, three laws (LAW_REGISTRY.json):
+#   F1 FIGURE-TYPE-COVERAGE — a vocabulary bound to a capability. figure_types.FIGURE_TYPES
+#      binds every object_type to a render class, a semantic kind and a renderer. S7-NEW-B
+#      dispatches a figure BY ITS REGISTRY ROW; "never record a type whose row was not the
+#      one that rendered the figure". REACTION figures render through the NEW compositor
+#      corpus_io.render_scheme (substrate → arrow carrying reagents/conditions → product or
+#      placeholder; G1–G10 grammar) — the kind that S7-NEW-B2 mandated to a single-molecule
+#      renderer that rejected it. NEW S3-17c FIGURE-TYPE SESSION PRE-FLIGHT (HS-17): this
+#      paper's dominant types must be renderable BY THIS SESSION before Q.1 (rdkit absent →
+#      one operator action, the pip line — never a traceback at Q.14). S10-7 Q5 states that
+#      reagent/condition text over an arrow is INTRINSIC figure content.
+#   F2 FIGURE-RECORD-INTEGRITY — the record agrees with itself. object_type is recorded for
+#      EVERY rendered figure (S7-NEW-B; final_assembly refuses a commit without it); a
+#      REACTION canonical must contain '>>' (paper_pipeline v5.40); NEW gate G-FIGTYPE-KIND
+#      (S4-11) / A-FIGTYPE-KIND (auditor): label ↔ semantic kind ↔ FigureSpec class must name
+#      one registry row — a mismatch is a FAIL, a false record; S4-7 STEP B passes
+#      --fig-manifest so the gate is armed per batch, not only at S13-4c.
+#   F3 MANIFEST-COMMIT — the record is committed because it EXISTS. S13-4 no longer gates
+#      the rc/di/figural manifest on passage/di/figural_present (final_assembly v1.10 commits
+#      on existence and records any flag disagreement in registry.paper_flags); S3-2a
+#      HS-15a is SELF-CORRECTING (a false flag beside FIGURAL allocations is set True in
+#      session, printed, and S3-18 / S4-5 CHECK 5 then run); S13-4c REQUIRES armed
+#      A-FIGPROFILE and A-FIGTYPE-KIND lines on a figural paper (dormant = HARD STOP, the
+#      A-QINDEX precedent); S13-REGCHECK runs fa.annotate_legacy_figure_records (forward-
+#      only migration — legacy records are annotated, never rewritten, and the footer
+#      discloses them).
 # v5.87 — 2026-10-27 — GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS (spec only; no engine change).
 #   S3-12b's SAFETY-LOCK validation passed section_names = the SELECTED blueprint's
 #   sections. The stimulus profile is exam-wide, so on a SCOPED paper (SUBJ/TOPIC/
@@ -1333,6 +1368,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   import shutil, os, json, re, glob
   from pathlib import Path
   EXAM = "[ExamCode]"  # from trigger
+  RESUME = False       # from trigger: True when it ends in `resume` (S4-12) — v5.88
 
   # Ledgers — session state (RULE B / RULE C). Initialised EMPTY here at session
   # start, exactly as the §6-3 contract states; persisted to batch_state.json
@@ -1448,10 +1484,41 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             f"Layer 1 batch enforcement (spec-level STOP) will be used. "
             f"Manual gate checklist (S4-11) will replace script gates.")
 
-  # OPTIONAL — figural manifest from prior session:
+  # v5.88 — ENGINE PATH FOR THE PER-EXAM AUDITOR (final review 2026-11-01, finding 13).
+  # The per-exam copy lives in /home/claude and is run BY PATH; python puts the script's
+  # own directory on sys.path, NEVER the cwd, so `cd /tmp/fw && python3 /home/claude/X.py`
+  # could not import blueprint_core / figure_types and every engine-backed gate degraded
+  # to WARN "NOT CHECKED" — which S13-4c now HARD STOPs on. Every auditor subprocess in
+  # this spec therefore runs with AUDIT_ENV: PYTHONPATH = the directory the verified
+  # engines were imported from this session (exam-agnostic; never a hard-coded path).
+  import importlib.util as _ilu
+  _bc_spec = _ilu.find_spec('blueprint_core')
+  if _bc_spec is None or not _bc_spec.origin:
+      raise SystemExit("HARD STOP (S3-9): blueprint_core is not importable from this session — "
+                       "run from the verified clone (SKILL Step 0: cd /tmp/fw_effective).")
+  ENGINE_ROOT = os.path.dirname(os.path.abspath(_bc_spec.origin))
+  AUDIT_ENV = dict(os.environ, PYTHONPATH=ENGINE_ROOT + (os.pathsep + os.environ['PYTHONPATH']
+                                                        if os.environ.get('PYTHONPATH') else ''))
+
+  # OPTIONAL — figural manifest from a prior session of THIS paper (resume). v5.88: a
+  # FRESH paper (no batch_state for M{N} in the session dir, no `resume` trigger) starts
+  # with NO figure manifest and NO figure files: the manifest and every q<N>_*.png /
+  # q<N>_*.figspec.json left by an earlier paper in this session are removed first, so a
+  # stale record or sidecar can never be attributed to this paper (S13-4 commits on
+  # existence since final_assembly v1.10; sidecars are matched by question number).
+  _is_resume = RESUME or os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json')
   fig_src = f'/mnt/project/{EXAM}_fig_manifest.json'
-  if os.path.exists(fig_src):
-      shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
+  if _is_resume:
+      if os.path.exists(fig_src) and not os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
+          shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
+  else:
+      _stale = ([f'/home/claude/{EXAM}_fig_manifest.json'] if os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json') else []) \
+               + glob.glob('/home/claude/q*_*.figspec.json') + glob.glob('/home/claude/q*_*.png')
+      for _f in _stale:
+          os.remove(_f)
+      if _stale or os.path.exists(fig_src):
+          print(f"S3-1: fresh paper — {len(_stale)} figure file(s) from an earlier paper removed from the "
+                f"session dir; a Project Files {EXAM}_fig_manifest.json is used only on a resume.")
 
   # OPTIONAL — EXPLAIN_LEARNINGS (v2.0 GAP-07 fix; v5.56 filename seam fix; v5.78
   # GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM). TWO resolutions, deliberately kept
@@ -1548,6 +1615,32 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   di_present        = bp.get('di_present', False)
   multi_present       = bp.get('multi_present', bp.get('msq_present', False))   # v4.6 (Phase-0 back-compat)
   nat_present         = bp.get('nat_present', False)          # v4.7 (default false ⇒ dormant)
+  # ── S3-2a — PRESENCE-FLAG SELF-CORRECTION (v5.88, LAW F3.4, GAP-2026-11-01) ──────────
+  # HS-15a IS SELF-CORRECTING. A blueprint flag describes
+  # the paper; it never decides whether the paper's figures are recorded. ScopedBlueprint
+  # < v1.11.0 inherited these flags from exam_config (default False), so a scoped paper with
+  # 18 FIGURAL allocations ran with figural_present=False: S3-18's manifest and S4-5 CHECK 5
+  # were skipped and S13-4 committed no figure record. The DERIVED truth wins in session;
+  # the correction is printed; the declared flag is kept for the registry's paper_flags.
+  import blueprint_core as _bc_flags
+  _all_allocs = []
+  for _mk in bp.get('mocks', []):
+      for _s in _mk.get('sections', []):
+          _all_allocs.extend(_s.get('subtopic_allocations', []))
+  DECLARED_FLAGS = {'passage_present': passage_present, 'figural_present': figural_present,
+                    'di_present': di_present}
+  _derived = _bc_flags.derive_presence_flags(_all_allocs, subtopic_list=bp.get('subtopic_list', []),
+                                             marking_scheme=bp.get('marking_scheme', []))
+  for _f in ('passage_present', 'figural_present', 'di_present'):
+      if _derived[_f] and not DECLARED_FLAGS[_f]:
+          print(f"HS-15a (v5.88 self-correcting): blueprint {_f}=False but the allocation "
+                f"carries {_f.split('_')[0].upper()} subtopics — using {_f}=True for this run. "
+                f"Regenerate the blueprint with ScopedBlueprint v1.11.0+ / Blueprint v1.61.0+ "
+                f"(the flag is derived there); the declared value is recorded in "
+                f"registry.paper_flags at S13-4.")
+  passage_present = passage_present or _derived['passage_present']
+  figural_present = figural_present or _derived['figural_present']
+  di_present      = di_present or _derived['di_present']
   sections          = bp['sections']      # [{name, q_range, total_qs, max_attempt}, ...]
   subtopic_list     = bp.get('subtopic_list', [])
   # v5.10: new fields from Step 6 v1.19 (Step 2a v2.5 exam_config contract).
@@ -2312,11 +2405,13 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       import subprocess
       result = subprocess.run(
           ['python3', f'/home/claude/{EXAM}_mock_test_audit.py', '--self-test'],
-          capture_output=True, text=True
+          capture_output=True, text=True, env=AUDIT_ENV          # S3-9: engines importable
       )
-      if result.returncode != 0:
+      if result.returncode != 0 or 'SELF-TEST: ABORT' in (result.stdout or ''):
           raise SystemExit(
-              f"HARD STOP: Audit script self-test failed.\n{result.stdout}\n{result.stderr}")
+              f"HARD STOP: Audit script self-test failed or ABORTED (engines not importable "
+              f"by the per-exam copy — AUDIT_ENV/ENGINE_ROOT from S3-9 must point at the "
+              f"verified clone).\n{result.stdout}\n{result.stderr}")
       print(f"Audit script self-test: {result.stdout.strip()}")
   else:
       print("Audit script not available. Manual gate checklist (S4-11) will be used.")
@@ -3231,6 +3326,82 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   at Final Assembly after 60 questions already exist (the exact, expensive
   discovery-order failure this check exists to shorten).
 
+## S3-17c — FIGURE-TYPE SESSION PRE-FLIGHT (v5.88 — LAW F1.4/F1.5; HS-17; runs BEFORE the S3-18 summary)
+
+  Step 6 proved every dominant figure type is REGISTERED and SUPPORTED. This session must
+  prove it can actually LOAD the renderer for every one this paper needs, before Q.1.
+  Measured cost of not doing so: corpus_io.structure_draw_fn raises ValueError the first
+  time a reaction is drawn, mid-batch, after questions exist.
+
+  ```python
+  import os, json
+  import blueprint_core as bc
+  try:
+      import figure_types as ft
+  except ImportError:
+      raise SystemExit("HARD STOP (S3-17c / HS-17): figure_types.py is not in the verified "
+                       "clone — re-run SKILL Step 0.")
+  FT_SESSION = ft.preflight()                       # which renderers THIS session can load
+  _blocks = bc.parse_image_analysis_blocks(sr_text)              # S3-2's section_rules text
+  _mine = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None) or {}
+  _my_allocs = [a for s in _mine.get('sections', []) for a in s.get('subtopic_allocations', [])]
+  FIGURAL_FALLBACKS = dict(bp.get('figural_fallbacks') or {})      # Step 6 v1.61.0 / 6S v1.11.0
+  # The policy travels with a v1.61.0+ blueprint; a pre-v1.61.0 blueprint has none, so the
+  # exam's own config decides (the same key Step 6 reads). Default hard_stop.
+  _policy = (bp.get('figure_type_coverage') or {}).get('policy')
+  if not _policy:
+      _cfg_path = f'/mnt/project/{EXAM}_exam_config.json'
+      _cfg = json.load(open(_cfg_path, encoding='utf-8')) if os.path.exists(_cfg_path) else {}
+      _policy = str(_cfg.get('figure_fallback_policy', 'hard_stop')).strip().lower()
+  if _policy not in bc.FIGURE_FALLBACK_POLICIES:
+      raise SystemExit(f"HARD STOP (S3-17c): figure_fallback_policy={_policy!r} is not one of "
+                       f"{bc.FIGURE_FALLBACK_POLICIES}. Fix exam_config.json / the blueprint.")
+  KIND_COVERAGE = bc.kind_coverage_preflight(
+      _my_allocs, _blocks, lambda types: ft.coverage(types, session=FT_SESSION),
+      policy=_policy, normalise=ft.normalise)
+  for _line in KIND_COVERAGE['advisories']:
+      print(f"S3-17c advisory: {_line}")
+  for _line in KIND_COVERAGE['unavailable']:
+      print(f"S3-17c note: {_line}")       # informational when a loadable dominant sibling remains (E7)
+  _stops = list(KIND_COVERAGE['blockers'])
+  if KIND_COVERAGE['unavailable_blocking']:    # NO dominant member of that subtopic is loadable here
+      _stops += [f"{u} — missing: {FT_SESSION['missing']}. Run: pip install matplotlib pillow "
+                 f"numpy scipy fonttools rdkit --break-system-packages, then re-run the trigger."
+                 for u in KIND_COVERAGE['unavailable_blocking']]
+  if _stops:
+      raise SystemExit("HARD STOP (S3-17c, HS-17 — LAW F1 FIGURE-TYPE-COVERAGE): this paper "
+                       "needs a figure type this session cannot render:\n  " + "\n  ".join(_stops))
+  _new_fb = {s: ty for s, ty in KIND_COVERAGE['fallbacks'].items() if s not in FIGURAL_FALLBACKS}
+  if _new_fb:
+      # Only a pre-v1.61.0 / pre-v1.11.0 blueprint reaches here (a current one allocated the
+      # subtopic TEXT and recorded it). A fallback computed in-session would be rendered but
+      # NEVER disclosed — the Deliver footer reads blueprint.figural_fallbacks — so the one
+      # honest move is to have the blueprint record it. Type-2 stop, one operator action.
+      raise SystemExit(f"HARD STOP (S3-17c, HS-17): policy text_disclosed applies to {sorted(_new_fb)} "
+                       f"but this blueprint predates the KIND-COVERAGE record (no figural_fallbacks). "
+                       f"Regenerate it with Framework_Blueprint v1.61.0+ / Framework_ScopedBlueprint "
+                       f"v1.11.0+ (the fallback is then allocated TEXT and disclosed in every footer), "
+                       f"then re-run this trigger.")
+  # A fallback subtopic is TEXT for this paper — in EVERY place Step 7 reads a subtopic's
+  # format (S3-18 manifest, S4-5 CHECK 5, S4-7 FORMAT DISPATCH, S7-NEW-B0 budget): the
+  # section_rules format field says FIGURAL (Step 5 wrote it; Step 6 does not rewrite
+  # section_rules), so the override lives here and S13-4 refuses a figure on such a subtopic.
+  FORMAT_OVERRIDE = {_sid: 'TEXT' for _sid in FIGURAL_FALLBACKS}
+  if FIGURAL_FALLBACKS:
+      print("S3-17c: text_disclosed fallbacks for this series (rendered TEXT, disclosed in the "
+            f"footer): {FIGURAL_FALLBACKS} — FORMAT_OVERRIDE forces TEXT for them in this session.")
+  print(f"S3-17c FIGURE-TYPE SESSION PRE-FLIGHT: {KIND_COVERAGE['checked']} dominant-mode "
+        f"subtopic(s) checked; renderers loadable: "
+        f"{sorted(k for k, v in FT_SESSION['renderers'].items() if v)}")
+  ```
+
+  A subtopic in FIGURAL_FALLBACKS was allocated TEXT by Step 6 for every paper of the series
+  and keeps its slot; it renders through the ordinary TEXT path, has no figure record, and so
+  is simply absent from A-FIGPROFILE / A-FIGTYPE-KIND. The footer prints one line per
+  fallback (Framework_DeliveryFooter §FOOTER-FT). sr_text is the
+  section_rules text S3-2 loaded; a pre-v2.37 section_rules (no PYQ_IMAGE_ANALYSIS) checks
+  nothing and stops nothing (EC-V18).
+
 ## S3-18 — Display session start summary + batch plan
 
   Print in chat after all checks pass:
@@ -3257,7 +3428,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   FIGURAL MANIFEST (v5.13 — when figural_present is True):
   ──────────────────────────────────────────────────
   Scan all subtopic_allocations for this mock and list every subtopic
-  whose section_rules format == FIGURAL. For each, read image_role from
+  whose section_rules format == FIGURAL and that is NOT in FORMAT_OVERRIDE
+  (S3-17c: a text_disclosed fallback subtopic is TEXT). For each, read image_role from
   PYQ_IMAGE_ANALYSIS (default 'stem_and_options' if absent):
 
   FIGURAL Qs (matplotlib rendering required — S7-NEW-B OPTION A):
@@ -3282,7 +3454,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   it (v5.77 — the pre-v5.77 "blueprint order" sentence here was guaranteed
   non-conforming with R19 for any subtopic with q_count >= 2).
   This manifest is INFORMATIONAL — the authoritative format source remains
-  section_rules format field per subtopic_id.
+  section_rules format field per subtopic_id, overridden to TEXT by
+  FORMAT_OVERRIDE (S3-17c) for a text_disclosed fallback subtopic.
   ──────────────────────────────────────────────────
 
   AXIS-1 PRE-FLIGHT ADVISORY (v5.50 — when axis1_preflight_shortfalls, S3-17b, is
@@ -3342,12 +3515,25 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         (should be False) or section_rules format fields are stale.
         Non-blocking WARN (not HARD STOP): figural_present may be series-level
         — this specific mock simply has no figural Qs while others in the series do.
-  HS-15a: (v5.13 REVERSE) figural_present is False but ≥1 subtopic in this mock
-        has section_rules format==FIGURAL. The blueprint flag is wrong — should be
-        True. Non-blocking WARN: the FORMAT DISPATCH (S4-7) and G-FIGTEXT (S12-NEW-5)
-        still operate independently of figural_present and will attempt image
-        generation. But the FIGURAL MANIFEST (S3-18) and CHECK 5 (S4-5) will be
-        skipped, reducing early warning. Fix blueprint.json for the next series.
+  HS-15a: (v5.13 REVERSE; v5.88 SELF-CORRECTING — LAW F3.4) figural_present is False
+        but ≥1 subtopic in this mock has format==FIGURAL. The blueprint flag is wrong.
+        Pre-v5.88 this was described as "reducing early warning"; its ACTUAL cost was
+        that S3-18, S4-5 CHECK 5 AND the S13-4 figure-record commit were skipped, so
+        the paper shipped with no object_types / figure_specs / semantic_objects and
+        every figure gate dormant-green (6 of 21 scoped papers on the reference exam).
+        Now: S3-2a derives the flag from the allocation (bc.derive_presence_flags), sets
+        figural_present=True in session, prints the correction, and proceeds — S3-18 and
+        CHECK 5 run, S13-4 commits on existence regardless (final_assembly v1.10). Still
+        non-blocking, because the correct state is now known. Same for di_present /
+        passage_present. Regenerate the blueprint with ScopedBlueprint v1.11.0+.
+  HS-17: (v5.88 — LAW F1 FIGURE-TYPE-COVERAGE) S3-17c FIGURE-TYPE SESSION PRE-FLIGHT
+        found a dominant figure type this paper needs that (a) the registry marks
+        UNSUPPORTED with no text_disclosed fallback recorded in the blueprint, or (b) is
+        supported but its renderer cannot load IN THIS SESSION (rdkit / matplotlib absent).
+        HARD STOP naming subtopic, type and the ONE operator action: (a) regenerate the
+        blueprint under figure_fallback_policy text_disclosed; (b) run the SKILL Step 0
+        pip line and re-run the trigger. A Type-2 input-integrity stop: nothing was
+        authored, so nothing is lost; a figure can never be discovered unrenderable at Q.14.
   HS-16: (v5.13) FIGURAL_BANNED subtopic has no valid REPLACEMENT_RULE. See S3-11.
         HARD STOP — S7-NEW-B OPTION B replacement will fail silently without it.
 
@@ -3541,7 +3727,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                  "Q.[z] ([subtopic_id]) — FIGURAL_BANNED → OPTION B replacement
                   using REPLACEMENT_RULE subtopic."
              If no FIGURAL subtopics in this batch: skip CHECK 5 silently.
-             If figural_present is False: skip CHECK 5 silently.
+             If figural_present is False: skip CHECK 5 silently (v5.88: figural_present
+             is the S3-2a DERIVED value, so this branch means the allocation truly
+             carries no FIGURAL subtopic — never a stale blueprint flag).
 
   Only after all 5 checks pass does generation begin.
 
@@ -3577,7 +3765,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
            dedup (§6), self-containment (§9).
 
            FORMAT DISPATCH (v5.13 — per question, mandatory decision point):
-             Read the subtopic's format from section_rules (by subtopic_id).
+             Read the subtopic's format from section_rules (by subtopic_id); if the
+             subtopic_id is in FORMAT_OVERRIDE (S3-17c — a Step-6 text_disclosed
+             fallback) the format is TEXT, whatever section_rules says (v5.88).
              IF format == FIGURAL AND bc.axis_grant_figural(...) GRANTED the slot:
                (v5.37 — format is ELIGIBILITY, not an imperative. The budget is asked
                 FIRST, per S7-NEW-B0. A DENIED question does not come here at all: it
@@ -3598,7 +3788,39 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                be a bar chart where every PYQ in that subtopic is a micrograph,
                and no gate would notice.
 
-               profile = bc.figural_generation_profile(pyq_image_analysis)
+               import figure_types as ft                       # v5.88 — the registry
+               profile = bc.figural_generation_profile(pyq_image_analysis,
+                                                      normalise=ft.normalise)
+
+               ── DISPATCH BY REGISTRY ROW (v5.88, LAW F1.5) ──────────────────
+               The profile selects a TYPE; the type's registry row selects HOW it
+               is drawn:  row = ft.lookup(object_type)
+                 row['renderer']  == 'corpus_io.structure_draw_fn' → S7-NEW-B2
+                                     STRUCTURE path (rdkit tile)
+                                  == 'corpus_io.render_scheme'     → S7-NEW-B2
+                                     REACTION path (scheme compositor)
+                                  == 'figural_core.render_figure'  → data class
+                                     (data_series / data_single per series count)
+                                  == 'glyph_path'                  → S10-7
+                                     render_figural_image (reasoning_glyph)
+                                  == 'hand_drawn+descriptor'       → matplotlib
+                                     artists + a descriptor (NEWMAN, FISCHER,
+                                     MO_DIAGRAM, ORBITAL_BOXES, GENERIC …)
+                 row['semantic_kinds'][0] is the kind the semantic object registers;
+                 row['render_classes'] bounds the S10-6A class the FigureSpec declares.
+               NEVER RECORD A TYPE WHOSE ROW WAS NOT THE ONE THAT RENDERED THE
+               FIGURE. A 'reaction_scheme' label over a single-molecule tile is a
+               FALSE RECORD (G-FIGTYPE-KIND HARD FAIL, S4-11), not a near miss —
+               the reference registry held 287 of them.
+               FALLBACK CONTRACT: a dominant type the session cannot render never
+               reaches this point (S3-17c HARD STOPs); a subtopic in
+               FIGURAL_FALLBACKS was allocated TEXT by Step 6 and never enters the
+               figural dispatch at all (disclosed by the footer). There is no third
+               path — mislabelling and omission are both gated.
+               An UNREGISTERED type (ft.lookup(...)['status'] == 'unregistered') draws
+               as a GENERIC hand-drawn schematic, registers kind GENERIC with a
+               descriptor, and is reported AMBER by A-FIGTYPE-KIND — add it to
+               figure_types.FIGURE_TYPES (a repo change) to bind it.
 
                profile['mode'] decides how hard the constraint binds:
                  'dominant'  → 70% of generated figures use a type from
@@ -3641,12 +3863,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                  → Default to add_figural_question() (safest — forces all images)
                  → Log: "image_role unknown for [subtopic_id], defaulting to full"
                → Mark figural_qs[str(qnum)].rendered = true in batch_state
-               → Record figural_qs[str(qnum)].object_type = the type this figure was
-                 generated AS, drawn from profile['dominant'] / profile['observed']
-                 (omit when mode == 'unconstrained'). audit.py A-FIGPROFILE audits this
-                 recorded intent against the same profile via the SAME engine function,
-                 bc.check_figural_conformance — one rule, so the generator and its
-                 auditor cannot drift apart.
+               → Record figural_qs[str(qnum)].object_type = the CANONICAL type this
+                 figure was generated AS (ft.lookup(type)['type']), drawn from
+                 profile['dominant'] / profile['observed']; in 'unconstrained' mode the
+                 registry type of whatever was drawn (v5.88, LAW F2.3: ALWAYS recorded —
+                 final_assembly v1.10 refuses to commit a figural question without it; the
+                 pre-v5.88 "omit when unconstrained" left six papers with no record).
+                 The same value goes to fig_manifest questions[str(qnum)].object_type.
+                 audit.py A-FIGPROFILE audits this recorded intent against the same
+                 profile via the SAME engine function, bc.check_figural_conformance — one
+                 rule, so the generator and its auditor cannot drift apart — and
+                 A-FIGTYPE-KIND checks the label against the semantic object and the
+                 FigureSpec class beside it (LAW F2.1).
                → Verify via view tool (9-item visual checklist, §10-S10-7)
                Text stem with add_question_stem() alone is BANNED for a GRANTED figural
                slot. (v5.37: this ban applies to a question the Axis-1 budget granted —
@@ -3740,11 +3968,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               plan; it never re-derives adjacency by eye.)
            2. If AUDIT_AVAILABLE, ALSO run the audit script on the
               cumulative docx and capture STDOUT. The invocation is
-              MANDATED, not left to session judgement — working directory
-              /tmp/fw (or PYTHONPATH=/tmp/fw; the per-exam copy imports
-              engines from the verified clone):
+              MANDATED, not left to session judgement — run with
+              `subprocess.run([...], env=AUDIT_ENV)` (S3-9) or, from a shell,
+              `PYTHONPATH=$ENGINE_ROOT` — the per-exam copy is run BY PATH and
+              python never puts the cwd on sys.path, so a bare `cd /tmp/fw` does
+              NOT make the engines importable (every engine gate would degrade to
+              'NOT CHECKED', which S13-4c hard-stops):
               ```
-              cd /tmp/fw && python3 /home/claude/[ExamCode]_mock_test_audit.py \
+              PYTHONPATH=/tmp/fw python3 /home/claude/[ExamCode]_mock_test_audit.py \
                   /home/claude/<cumulative>.docx \
                   --blueprint [BP_SRC_PATH] \
                   --rules /mnt/project/[ExamCode]_section_rules.md \
@@ -3753,8 +3984,15 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   --profile /mnt/project/[ExamCode]_difficulty_profile.json \
                   --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
+                  --fig-manifest /home/claude/[ExamCode]_fig_manifest.json \
                   --mockN [N] --batch [B] --through-q [last Q in the docx]
               ```
+              --fig-manifest (v5.88, auditor v2.33 — edge case E19): the paper is not
+              committed until S13-4, so on a batch run the auditor reads the figure
+              record from the Step-7 sidecar (object_types, subtopic_ids,
+              semantic_objects; FigureSpec sidecars beside it) and arms A-FIGPROFILE
+              and A-FIGTYPE-KIND PER BATCH. The registry entry wins once it exists.
+              Omit only when the paper has no figural questions.
               [BP_SRC_PATH] (v5.86) is the file S3-2 selected — the
               mock blueprint for a mock, [ExamCode]_[SCOPETAG]_blueprint.json
               for a Subject / Topic / Subtopic paper; never the mock blueprint
@@ -3934,8 +4172,17 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   [ ] G-CONT:     No question content visible in this chat response. (MANDATE 0)
   [ ] G-KEY:      answer_key.json has an entry for every Q in this batch.
   [ ] G-FIGSEM:   (v5.59) every rendered figural Q in this batch carries a validated
-                  semantic object per role; STRUCTURE/REACTION roles rendered via
-                  corpus_io.structure_draw_fn (S7-NEW-B2).
+                  semantic object per role; STRUCTURE roles rendered via
+                  corpus_io.structure_draw_fn, REACTION roles via corpus_io.render_scheme
+                  (S7-NEW-B2; v5.88).
+  [ ] G-FIGTYPE-KIND: (v5.88, LAW F2.1) for every rendered figural Q the recorded
+                  object_type's registry row (figure_types.lookup) ADMITS the problem
+                  semantic object's kind AND the FigureSpec class
+                  (ft.kind_consistent / ft.class_consistent — one rule, shared with the
+                  auditor's A-FIGTYPE-KIND through bc.check_figural_conformance(records)).
+                  A mismatch is a HARD FAIL: it is a FALSE RECORD. An unregistered type
+                  is reported (AMBER), never hidden. object_type is present on EVERY
+                  figural Q (LAW F2.3) — S13-4 refuses to commit without it.
   [ ] G-PROG:     progress.json written if this batch had PASSAGE Qs.
   [ ] G-DEDUP:    Each new stem checked against registry_snapshot (L1/L2).
   [ ] G-CONCEPTDUP: No scenario_key repeats anywhere in this mock (DOUBT-3 RULE B).
@@ -4061,9 +4308,11 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-45 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
-  All 48 items are RUN; items 46-48 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  Items 1-46 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 49 items are RUN; items 47-49 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
+  (v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
+  at the end.)
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -4109,6 +4358,27 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         answer_key concept_map instead (scenario_key values, and (concept_group,
         presentation_key) pairs for every CLASS-2/3 question). Without this, RULE B
         and RULE C are blind to everything generated before the interruption.
+    4c. FIGURE RECORD ACROSS THE v5.88 FIX (E15 — LAW F2.3). A question authored by a
+        pre-v5.88 session recorded no object_type, and this session cannot honestly
+        invent one after the fact. Mark it, once, in the sidecar; final_assembly v1.10
+        commits it AS unlabelled (object_type='legacy_unlabelled', carried into the
+        entry's record_integrity), A-FIGTYPE-KIND reports it WARN (AMBER), §FOOTER-FT
+        discloses it. Questions authored from here on carry object_type (S7-NEW-B).
+        ```python
+        import json, os
+        _fmp = f'/home/claude/{EXAM}_fig_manifest.json'
+        if os.path.exists(_fmp):
+            _fm = json.load(open(_fmp, encoding='utf-8'))
+            _unl = []
+            for _q, _v in (_fm.get('questions') or {}).items():
+                if isinstance(_v, dict) and not _v.get('object_type') and not _v.get('record_integrity'):
+                    _v['record_integrity'] = 'legacy_unlabelled'
+                    _unl.append(str(_q))
+            if _unl:
+                json.dump(_fm, open(_fmp, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+                print(f"S4-12 4c: {len(_unl)} figural question(s) authored before v5.88 carry no "
+                      f"object_type — marked legacy_unlabelled (disclosed, not refused): Q{', Q'.join(_unl)}")
+        ```
     5. Print resume summary:
        "Resuming Mock [N]: [done] batches complete (Q1–Q[last]).
         Next: Batch [current_batch] → [section] Q[start]–Q[end].
@@ -6110,9 +6380,49 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   pp.validate_semantic_object(obj, ctx=f'Q{qnum}')          # raises on a malformed object
   fm['questions'][str(qnum)].setdefault('semantic_objects', []).append(obj)
   ```
-  STRUCTURE / REACTION FIGURES ARE RENDERED FROM THEIR CANONICAL FORM. The draw_fn
-  passed to figural_core.render_figure / render_option_set for such a role is
-  `cio.structure_draw_fn(obj['canonical'])` (v5.80: plus `highlight_bonds=` /
+  STRUCTURE / REACTION FIGURES ARE RENDERED FROM THEIR CANONICAL FORM.
+  ── REACTION (v5.88, LAW F1.3 — corpus_io v1.16) ──────────────────────────────
+  A REACTION role is drawn by the SCHEME COMPOSITOR, never by structure_draw_fn
+  (which draws one molecule and rejects reaction SMILES — the pre-v5.88 contradiction
+  that forced every reaction-dominant exam into lone molecules + a 26-word stem):
+  ```python
+  import figural_core as fc, corpus_io as cio, paper_pipeline as pp
+  stem_text, option_texts = q['stem'], q['options']    # this question's authored text (S7-NEW-A)
+  scheme = {'items': [                                  # reading order; 'rows': [[...], ...] for G8
+      {'mol': 'Oc1ccc2ccccc2c1-c1c(O)ccc2ccccc12'},                        # substrate tile (G1; 'label', 'equiv')
+      {'arrow': {'dir': 'right', 'above': ['t-BuCl (2 equiv)', 'anhyd. AlCl₃'],
+                 'below': ['CH₂Cl₂, −78 °C'], 'reagent_mol': None}},        # G2/G3/G4 (≤2 lines each side)
+      {'placeholder': 'A'},                                               # G5  |  {'bracket': 'A'} → G6
+  ]}
+  draw = cio.render_scheme(scheme)        # ONE draw_fn: tiles via structure_draw_fn, arrows/text artists
+  cc = fc.colour_is_content(stem_text, option_texts)                  # Q7b.13 — monochrome when colour is the ask
+  png = f'/home/claude/q{qnum}_problem.png'                           # S10-8 canonical name
+  spec = fc.make_figure_spec(qnum, 'schematic', 6.0, role='problem',
+                             canvas_aspect=draw.suggested_aspect, colour_content=cc)
+  fc.render_figure(draw, png, spec)       # fitter Q10, deconflict Q11, G-FIGINK/G-FIGFIT unchanged
+  fc.write_spec_sidecar(spec, png)        # S10-8 sidecar — S13-4 / --fig-manifest read the class from it
+  obj = cio.scheme_semantic_object(draw, role='problem', name='Friedel–Crafts t-butylation')
+  pp.validate_semantic_object(obj, ctx=f'Q{qnum}')   # kind REACTION; canonical 'R>A>P' MUST contain '>>'
+  ```
+  `draw.canonical` is the reaction SMILES assembled from the DRAWN molecules
+  (`reactants>agents>products`; placeholders omitted and listed in
+  `descriptor.unknowns`; a reagent drawn as a structure is an AGENT); a multi-row panel
+  registers one REACTION object per row (`role='problem:<i>'`, `scheme_semantic_object(
+  draw, role=..., row=i)`). A molecule SET ('A.B') is a STRUCTURE set, never a REACTION —
+  paper_pipeline v5.40 rejects a REACTION without '>>' at registration — and
+  `render_scheme` itself refuses a row with no arrow, so a pair or a set can never be drawn
+  AS a scheme. The option canvases stay decomposed per R-FIGURAL. G10 (a labelled pair
+  `{'pair': [('A', smi), ('B', smi)]}`) is legal ONLY as the product side of a row that has
+  an arrow (the canonical is then `R>A>smiA.smiB`, one REACTION object); an OPTION that is
+  itself a labelled pair of structures is rendered through `fc.render_option_set` with
+  `cio.structure_draw_fn` per molecule and registers TWO STRUCTURE objects
+  (`role='option:<k>'`, canonical = each molecule's SMILES) — never a REACTION (E12).
+  The registry row (figure_types) for every reaction family names this renderer; the
+  recorded object_type is that row's canonical type (reaction_scheme /
+  reaction_mechanism_scheme / …) and the FigureSpec class is `schematic` (S10-6A).
+  ── STRUCTURE ────────────────────────────────────────────────────────────────
+  The draw_fn passed to figural_core.render_figure / render_option_set for a STRUCTURE
+  role is `cio.structure_draw_fn(obj['canonical'])` (v5.80: plus `highlight_bonds=` /
   `highlight_atoms=` when the stem names a site — S10-7C C9; atom colours come
   from figural_core.ATOM_PALETTE, and an option set's heteroatom colour is decided
   once by render_option_set(), Q7b.14) — rdkit rasterises the molecule inside
@@ -6127,9 +6437,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   default for a kind the list names.
   GATE G-FIGSEM (S12, batch + Final Assembly): every rendered figural Q carries
   ≥1 validated semantic object per role; every STRUCTURE/REACTION role's canonical
-  canonicalises through cio.canonical_structure; its PNG was produced by
-  structure_draw_fn (fig spec engine tag). EC-V18: exams whose figures are not typed
-  objects register GENERIC with a descriptor — nothing halts for lack of chemistry.
+  canonicalises through cio.canonical_structure (v1.16: a REACTION canonical is a
+  reaction SMILES and MUST contain '>>'); a STRUCTURE PNG was produced by
+  structure_draw_fn and a REACTION PNG by render_scheme (every tile of which carries
+  structure_draw_fn provenance). EC-V18: exams whose figures are not typed objects
+  register GENERIC with a descriptor — nothing halts for lack of chemistry.
 
 ## S7-24 — QA mandatory-topic tracking (v4.9 — exam-agnostic; names removed)
 
@@ -7397,6 +7709,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   CLASS INFERENCE PRECEDENCE: (1) declared in the FigureSpec, (2) measured from
   the draw call (series count), (3) keyword match on the stem. Declared always
   wins. If inference yields no class that is a HARD failure — NEVER a default.
+
+  TYPE → CLASS → KIND → RENDERER BINDING (v5.88, LAW F1.1). The table above names
+  CLASSES; the profile vocabulary (Step 5 object_type) is bound to a class, a semantic
+  kind and a renderer by ONE table, `figure_types.FIGURE_TYPES` (repo-only, hash-tracked;
+  mock_sync_audit MS-23 keeps its classes equal to this table and its kinds equal to
+  paper_pipeline.SEMANTIC_KINDS). A reaction scheme (reaction_scheme,
+  reaction_mechanism_scheme, …) is class `schematic`, kind REACTION, renderer
+  corpus_io.render_scheme — no new class, so every palette policy and gate above applies
+  to it unchanged. Adding a figure type is a REPO change with a fixture, never a
+  per-exam edit; an unregistered type draws as a GENERIC `schematic` and is disclosed.
   A defaulted class is how a scientific data figure ended up on the geometry
   path in the first place.
 
@@ -7546,6 +7868,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         option numbers (1/2/3/4) are DOCUMENT TEXT, never inside a raster.
         INTRINSIC figure annotations ARE allowed (mirror-line endpoints M/N,
         geometry vertices A/B/C, axis tick labels) — they label the figure itself.
+        v5.88: the REAGENT and CONDITION text over/under a reaction arrow
+        ('t-BuCl (2 equiv)', 'CH₂Cl₂, −78 °C', 'i. NBS, H₂O / ii. NaOH'), '+' between
+        substrates, placeholder letters (A, B, [ A ]), equivalents and tile labels
+        ARE INTRINSIC — they are the figure, exactly as the printed paper carries
+        them (20 of 24 figural organic questions on the reference paper). Moving them
+        into the stem is the lone-molecule-plus-26-word-stem shape this release ends.
     Q6. REAL REFERENCE GEOMETRY. A mirror line, fold line, number line, or axis is
         DRAWN as an actual line/curve. Never represent a line by two floating
         letters (the M1 "MN" defect).
@@ -8425,7 +8753,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   S12-NEW-5 — G-FIGTEXT (v5.13 — 3-tier expanded detection):
 
     TIER 1 — IMAGE COUNT PER FORMAT=FIGURAL SUBTOPIC (primary):
-      For every subtopic in this mock whose section_rules format==FIGURAL:
+      For every subtopic in this mock whose section_rules format==FIGURAL (and not
+      in FORMAT_OVERRIDE — S3-17c):
         Locate the Q-block by question number (from concept_map in sidecar).
         Read image_role from PYQ_IMAGE_ANALYSIS (default 'stem_and_options').
         COUNT the <w:drawing> inline images in the block.
@@ -9091,20 +9420,36 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   # DI manifest (v5.42, GAP-2026-08-06-DI) — absent-safe: no di_present ⇒ no key ⇒ A-AXIS1
   # reports DI unestablished, as today.
+  # v5.88 (LAW F3.1 MANIFEST-COMMIT-LAW): a manifest is committed because it EXISTS on disk
+  # — the flag never gates it. final_assembly v1.10 records any flag/manifest disagreement
+  # in registry.paper_flags[paper_id] (declared vs derived) and prints it once.
   _di_manifest = None
-  if di_present and os.path.exists(f'/home/claude/{EXAM}_di_manifest.json'):
+  if os.path.exists(f'/home/claude/{EXAM}_di_manifest.json'):
       _di_manifest = json.load(open(f'/home/claude/{EXAM}_di_manifest.json'))
 
   # Figural manifest + the FigureSpec sidecars (v5.34, GAP-2026-08-01-FIGSPEC-TRANSPORT D2),
   # keyed by the CANONICAL PNG name S10-8 stamps on the drawing.
   _fig_manifest, _figure_specs = None, None
-  if figural_present and os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
+  if os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
       _fig_manifest = json.load(open(f'/home/claude/{EXAM}_fig_manifest.json'))
-      _figure_specs = {
-          os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
-              json.load(open(_fs, encoding='utf-8'))
-          for _fs in sorted(glob.glob('/home/claude/*.figspec.json'))
-      }
+      # Only THIS paper's sidecars (q<N>_*.figspec.json for N in the manifest) — a leftover
+      # sidecar from an earlier paper in the same session is never attributed to this one.
+      _figure_specs = {}
+      for _fq in sorted(str(q) for q in (_fig_manifest.get('questions') or {})):
+          for _fs in sorted(glob.glob(f'/home/claude/q{_fq}_*.figspec.json')):
+              _figure_specs[os.path.basename(_fs)[:-len('.figspec.json')] + '.png'] = \
+                  json.load(open(_fs, encoding='utf-8'))
+
+  # v5.88 (LAW F1.4 — E3): a text_disclosed fallback subtopic renders TEXT; a figure
+  # recorded against it is a dispatch error, and the auditor (v2.33) FAILs it. Stop HERE,
+  # naming the questions, rather than committing a record S13-4c will reject.
+  _fb_hit = sorted(str(q) for q, v in ((_fig_manifest or {}).get('questions') or {}).items()
+                   if isinstance(v, dict) and v.get('subtopic_id') in (bp.get('figural_fallbacks') or {}))
+  if _fb_hit:
+      raise SystemExit(f"HARD STOP (S13-4, LAW F1.4): question(s) {_fb_hit} carry a figure on a "
+                       f"text_disclosed fallback subtopic (blueprint.figural_fallbacks) — such a "
+                       f"subtopic renders TEXT (S3-17c FORMAT_OVERRIDE). Re-author them as TEXT "
+                       f"(S7-NEW-B OPTION B) and remove their fig_manifest entries, then re-run S13-4.")
 
   # C2: re-derive identity here (self-contained — bp + N are session-level, always in scope).
   _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
@@ -9125,7 +9470,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       registry, pending_registry, bp, N,
       paper_id=paper_id, batches_completed=batches_completed,
       axis2_window_counts=axis2_window_counts,
-      passage_present=passage_present, di_present=di_present, figural_present=figural_present,
+      # v5.88: the DECLARED blueprint values go here (registry.paper_flags keeps declared
+      # beside derived); the session-corrected S3-2a values decide nothing at commit.
+      passage_present=DECLARED_FLAGS['passage_present'], di_present=DECLARED_FLAGS['di_present'],
+      figural_present=DECLARED_FLAGS['figural_present'],
       concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
       di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs,
       axis1_snapshots=_ax1, axis3_snapshots=_ax3,
@@ -9181,6 +9529,20 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   if not _rc['ok']:
       raise SystemExit(_rc['fails'][0])
   registry = _rc['registry']
+  # v5.88 (GAP-2026-11-01 §6 migration, forward-only): figure records committed before
+  # LAW F2/F3 are ANNOTATED — label/kind mismatch, REACTION without '>>', a completed paper
+  # with FIGURAL>0 and no record — never rewritten, never deleted. A-FIGTYPE-KIND skips an
+  # annotated question with a printed reason; the Deliver footer discloses each (§FOOTER-FT).
+  # ONLY UNSTAMPED entries are touched: S13-4 (final_assembly v1.10) stamps every record it
+  # writes with record_schema='F2', and the migration skips stamped entries — so the paper
+  # committed a moment ago is AUDITED by S13-4c, never annotated into "legacy" (a stamped
+  # entry carrying an annotation is itself an A-FIGTYPE-KIND FAIL).
+  import figure_types as _ft_mig
+  registry, _mig_notes = fa.annotate_legacy_figure_records(
+      registry, kind_of=lambda ot: _ft_mig.lookup(ot)['semantic_kinds']
+      if _ft_mig.lookup(ot)['status'] != 'unregistered' else None)
+  for _n in _mig_notes:
+      print(f"S13-REGCHECK legacy figure record annotated: {_n}")
   if _rc['healed']:
       print(f"S13-REGCHECK: healed drifted template — added "
             f"{_rc['healed']}. Registry now schema-complete.")
@@ -9362,7 +9724,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            # from the SAME profile the planner used and certifies the paper.
            *(['--stimulus-profile', _sgp_final] if _sgp_final else []),
            '--mockN', str(N)],
-          capture_output=True, text=True)
+          capture_output=True, text=True, env=AUDIT_ENV)        # S3-9: engines importable
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
       if _r.returncode != 0:
           raise SystemExit(
@@ -9398,6 +9760,35 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               f"in the registry's commit ledgers, so S13-4 did not commit it. Re-run S13-4 "
               f"in FULL, then S13-REGCHECK, S13-QINDEX and this re-sweep. present_files is "
               f"forbidden until clean (B-7).")
+      # v5.88 FIGURE-RECORD TRIPWIRE (GAP-2026-11-01, LAW F3.3), same shape as the
+      # A-QINDEX tripwire above: a paper that DREW figures must come back with ARMED
+      # A-FIGPROFILE and A-FIGTYPE-KIND lines.
+      # An absent line means a stale auditor (< v2.32); a 'dormant' or 'NOT AUDITED'
+      # line means the figure record never reached the registry; 'NOT CHECKED' means the
+      # auditor could not load its engines (it runs with env=AUDIT_ENV from S3-9, which
+      # puts the verified engines on its PYTHONPATH) — the delivered-paper
+      # defect this release exists to close. Either way the figures were NOT certified
+      # and a clean exit code here would be meaningless.
+      # Keyed on the paper's ACTUAL figures (its fig_manifest questions), not on the flag:
+      # a figural_present paper whose every slot was DENIED by the Axis-1 budget drew
+      # nothing, commits an empty record and is legitimately dormant (edge case E18).
+      _fmp = f'/home/claude/{EXAM}_fig_manifest.json'
+      _fm_qs = (json.load(open(_fmp, encoding='utf-8')).get('questions') or {}) if os.path.exists(_fmp) else {}
+      if _fm_qs:
+          for _g in ('A-FIGPROFILE', 'A-FIGTYPE-KIND'):
+              _gl = [l for l in (_r.stdout or '').splitlines() if re.search(r'\]\s+' + _g + r'\s', l)]
+              # 'NOT CHECKED' = the auditor could not import / call figure_types or
+              # blueprint_core (stale or unimportable engine) — equally uncertified.
+              if not _gl or any(('dormant' in l or 'NOT AUDITED' in l or 'NOT CHECKED' in l
+                                 or 'NOT ESTABLISHED' in l) for l in _gl):
+                  raise SystemExit(
+                      f"HARD STOP (S13-4c, v5.88): the auditor did not certify this paper's "
+                      f"figures — {_g}: {_gl[0].strip() if _gl else 'no line (auditor < v2.32; refresh the per-exam copy from the verified repo audit_canonical.py)'}. "
+                      f"The figure record must be in the registry (S13-4 commits it whenever "
+                      f"{EXAM}_fig_manifest.json is non-empty — final_assembly v1.10) and every "
+                      f"figural question must carry object_type + semantic objects. Re-run S13-4 "
+                      f"in FULL, then S13-REGCHECK and this re-sweep. present_files is forbidden "
+                      f"until clean (B-7).")
       # v5.85 STIMULUS-GROUP TRIPWIRE (GAP-2026-09-21-LINKED-PLACEMENT), same shape
       # as the A-QINDEX tripwire above: a set-placed paper (STIM_ACTIVE) must come
       # back with an ARMED A-BLOCK verdict. An absent line means a stale auditor; a
@@ -10297,7 +10688,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.87
+# END OF Framework_MockTestCreate v5.88
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

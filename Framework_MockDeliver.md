@@ -1,4 +1,10 @@
-# Framework_MockDeliver v1.22.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.23.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.23.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   DeliveryFooter v1.36.0, paper_pipeline v5.40). S1-2 gains item 3e: after the
+#   §FOOTER-STYLE line print EVERY string returned by pp.figure_footer_lines(registry,
+#   blueprint, paper_id) (§FOOTER-FT) — fallback subtopics, committed-despite-flag records, absent
+#   legacy records, migration annotations, unregistered dominant types. A clean current
+#   paper prints nothing. Text only; no set, gate or engine change; never a halt.
 # v1.22.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
 #   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, DeliveryFooter,
 #   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
@@ -433,6 +439,19 @@ Parse:
        registry `style_gate` container, never in the delivered document. An
        absent record is a legacy paper, NEVER a defect and NEVER a stop — the
        style layer cannot withhold a paper in any state (P-4).
+
+    3e. FIGURE-RECORD DISCLOSURE LINES (v1.23.0 — GAP-2026-11-01; §FOOTER-FT).
+       After the §FOOTER-STYLE line print EVERY string returned by
+       pp.figure_footer_lines(registry, blueprint, paper_id) — the resolved registry
+       (§1-3) and the blueprint pp.pick_blueprint selected (§5) — one per line,
+       prefixed "ℹ️ ".
+       The engine is the ONLY source of these lines; a clean current paper prints
+       nothing (legacy footers byte-identical). They disclose: a text_disclosed
+       fallback subtopic (blueprint.figural_fallbacks); a figure record committed
+       although the blueprint flag said otherwise (registry.paper_flags); a legacy
+       paper whose figures were never recorded (NOT AUDITED); legacy records the
+       S13-REGCHECK migration annotated; unregistered dominant figure types. Never a
+       halt, never a verdict, never a SMILES in the delivered document.
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -2026,4 +2045,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.22.0
+# END OF Framework_MockDeliver v1.23.0

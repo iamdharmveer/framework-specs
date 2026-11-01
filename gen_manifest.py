@@ -40,7 +40,15 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               # Tracked so bootstrap checksum-verifies the runner itself: an
               # unverified runner could silently skip steps, which is the exact
               # failure it exists to prevent.
-              "run_ci_gates.py"]
+              "run_ci_gates.py",
+              # GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.1). The
+              # figure-type registry is the one table binding a Step-5 object_type to a
+              # render class, a semantic kind and a renderer; Step 6 pre-flights on it,
+              # Step 7 dispatches by it, the auditor's A-FIGTYPE-KIND checks against it.
+              # Tracked so bootstrap checksum-verifies it like every routed engine: an
+              # unverified registry could silently re-bind a type to a renderer that
+              # cannot draw it, which is the defect class this file closes.
+              "figure_types.py"]
 
 # GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P7). The law-propagation registry is DATA
 # the CI enforces, so it needs the same byte-integrity guarantee as an engine: an

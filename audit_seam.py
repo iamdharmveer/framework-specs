@@ -136,7 +136,14 @@ PRODUCERS = {'Framework_MockTestAnalyse.md': 'Step5',
              # v1.3 — explain_engine populates its own dicts and reads them back;
              # registered on BOTH sides (the analyse_engine v1.1 treatment) so its
              # internal fields do not drown the run in false ORPHAN-READs.
-             'explain_engine.py': 'Step9-engine'}
+             'explain_engine.py': 'Step9-engine',
+             # GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY. figure_types.
+             # preflight() WRITES the session-renderer record (renderers / missing /
+             # unavailable_types / available) that MockTestCreate S3-17c reads; the
+             # registry rows (render_classes / semantic_kinds / renderer / status) are
+             # read by Step 7 S7-NEW-B and the auditor. Registering the writer is the
+             # honest completion, exactly as corpus_io / transport_core were.
+             'figure_types.py': 'figtype-engine'}
 CONSUMERS = {'Framework_Blueprint.md': 'Step6',
              'Framework_MockTestCreate.md': 'Step7',
              'blueprint_core.py': 'engine',

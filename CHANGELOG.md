@@ -1,5 +1,165 @@
 # Changelog
 
+## 2026.11.01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY: a figure type is bound to a renderer, a figure record agrees with itself, a record is committed because it exists
+(NEW figure_types v1.0; corpus_io v1.16, paper_pipeline v5.40, final_assembly v1.10, blueprint_core
+v1.28, audit_canonical v2.33, analyse_engine (QV-14 line + Phase-C normalisation), explain_engine
+canonical_structure twin; MockTestCreate v5.88, ScopedBlueprint v1.11.0, Blueprint v1.61.0,
+MockTestAnalyse v2.57.3, MockTestExplain v1.51.2, MockDeliver v1.23.0, DeliveryFooter v1.36.0;
+LAW_REGISTRY +3 laws; mock_sync_audit MS-21..MS-25; audit_sync +3 detect rules; routes.json;
+gen_manifest TRACKED_PY +figure_types.py.)
+Raised by CSIR_NET_CHEMICALSCIENCES `TestCreate P2 --level subject --scope "Organic Chemistry"`
+(GAP-2026-10-30-REACTION-FIGURE-UNBUILDABLE v3 is the exam-specific case file). ESTATE-WIDE.
+
+**The defect, measured.** The real paper draws organic questions as reaction SCHEMES
+(substrate → arrow carrying reagents/conditions → product or placeholder): 20 of 24 figural
+organic questions on 07-Jun-2023. The framework's only permitted structure renderer drew one
+molecule; the REACTION semantic kind was rejected by canonical_structure, structure_draw_fn and
+the registry commit. So every reaction-dominant paper shipped a lone molecule with the reaction
+in a 26-word stem. Nothing caught it, for three independent reasons, all estate-wide:
+- RC1 vocabulary without capability: Step 5 emits free-text object_type (76 strings on one exam),
+  S10-6A has 5 classes, SEMANTIC_KINDS has 11 kinds, and no table bound a type to a renderer;
+  no step asked whether a dominant type could be drawn.
+- RC2 the gate audited a self-report: A-FIGPROFILE compared the generator's LABEL with the
+  profile and never with the object beside it — 385 'reaction_scheme' labels, 287 over STRUCTURE
+  objects, 44 REACTION objects with no '>>', all PASS.
+- RC3 the record rode a flag: ScopedBlueprint inherited figural_present from exam_config
+  (default False; no step writes it), S13-4 / commit_registry gated the figure record on it, and
+  the auditor reported `_ok('dormant')` on missing evidence — 6 of 21 scoped papers (36 figures
+  each) with no record at all, exit_0 / SHIP.
+
+**The fix — three laws, each machine-checked.**
+- F1 FIGURE-TYPE-COVERAGE-LAW. `figure_types.py` (repo-only, hash-tracked): one table binding
+  every object_type to render class, semantic kind, renderer and status; normalise() with
+  aliases + keyword families; preflight() reports which renderers THIS session can load;
+  unregistered strings are kept, never rejected, always disclosed. Step 5 normalises at Phase C
+  (object_type_raw kept; QV-14 names unknowns). Blueprint S6-1c / ScopedBlueprint S4-5
+  KIND-COVERAGE pre-flight (bc.kind_coverage_preflight): an UNSUPPORTED dominant type HARD STOPs
+  unless exam_config.figure_fallback_policy == 'text_disclosed' (subtopic allocated TEXT,
+  recorded in blueprint.figural_fallbacks); an unregistered type is an advisory. MockTestCreate
+  S3-17c re-checks against the session's loadable renderers (HS-17 — the pip line, before Q.1).
+  S7-NEW-B dispatches BY REGISTRY ROW. corpus_io.render_scheme: the compositor (G1–G10 grammar
+  — '+', right/left/sequential arrows, ≤2 reagent lines above / conditions below, reagent drawn
+  as a structure, placeholders, [ A ], multi-row panels, labelled option pairs) as ONE
+  figural_core draw_fn with structure_draw_fn provenance per tile; canonical_structure accepts
+  reaction SMILES (byte-identical molecule path; explain_engine twin). S10-7 Q5: reagent text
+  over an arrow is intrinsic figure content.
+- F2 FIGURE-RECORD-INTEGRITY-LAW. object_type recorded for EVERY figural question
+  (final_assembly refuses a commit without it); a REACTION canonical must contain '>>' and a
+  STRUCTURE must not (paper_pipeline); NEW G-FIGTYPE-KIND / A-FIGTYPE-KIND: label ↔ semantic
+  kind ↔ FigureSpec class must name one registry row (FAIL = false record; unregistered = WARN);
+  one rule, bc.check_figural_conformance(records, kind_check=, class_check=), shared by Step 7
+  and the auditor; --fig-manifest arms it per batch.
+- F3 MANIFEST-COMMIT-LAW. commit_registry writes rc/di/figural blocks whenever the manifest is
+  non-empty regardless of the flags (disagreement recorded in registry.paper_flags, printed
+  once); bc.derive_presence_flags is the one derivation for Blueprint and ScopedBlueprint
+  (exam_config never consulted); S3-2a HS-15a self-corrects in session; audit_canonical
+  figure_evidence() (docx image blocks / registry figural_qs / axis1_paper) turns a missing
+  record on a figural paper into WARN 'NOT AUDITED', never OK; S13-4c requires armed
+  A-FIGPROFILE + A-FIGTYPE-KIND on a figural paper. Migration (forward-only, S13-REGCHECK):
+  fa.annotate_legacy_figure_records annotates legacy records; §FOOTER-FT
+  (pp.figure_footer_lines) discloses fallbacks, flag disagreements, absent legacy records,
+  annotations and unregistered types; a clean current paper's footer is byte-identical.
+
+**Governance.** LAW_REGISTRY.json: FIGURE-TYPE-COVERAGE-LAW, FIGURE-RECORD-INTEGRITY-LAW,
+MANIFEST-COMMIT-LAW (audit_sync detect rules presence_flag_producer /
+manifest_commit_or_flag_producer / figure_record_writer, each with a LAW-COVERAGE fixture).
+mock_sync_audit MS-21 (no flag-gated commit), MS-22 (flags derived, never inherited), MS-23
+(figure_types classes == S10-6A == figural_core; kinds == paper_pipeline), MS-24 (pre-flight
+present), MS-25 (G-FIGTYPE-KIND + render_scheme dispatch + --fig-manifest + auditor twin);
+each emission killed by a fixture. Fixtures: figure_types 912, corpus_io +42, paper_pipeline
++16, blueprint_core +31, final_assembly +24, audit_canonical +24 ([v2.31-FAILS]),
+analyse_engine +6, mock_sync_audit +36, audit_sync +4.
+
+**Final review before release (two independent passes, 2026-11-01) — what they found and what
+changed.** Each item below was reproduced on the pre-release change set, fixed, and pinned by a
+fixture that fails on the pre-fix code:
+- Blueprint S6-1c passed subtopic NAMES to an id-keyed pre-flight (checked 0 on every mock
+  blueprint); it now resolves ids via resolve_subtopic_id() and writes fallbacks back by name.
+  kind_coverage_preflight returns `matched`; S6-1c / S4-5 HARD STOP when FIGURAL subtopics and
+  Step-5 blocks exist but match nothing (an id disagreement, never a silent pass).
+- A-FIGPROFILE read the profile un-normalised while Step 7 recorded canonical labels; both sides
+  now go through figure_types.normalise (TypeError fallback for a pre-v1.28 engine).
+- S13-REGCHECK's migration ran on the paper just committed and annotated its false record as
+  "legacy"; commit_registry v1.10 STAMPS every entry record_schema='F2', the migration annotates
+  only unstamped entries, and A-FIGTYPE-KIND FAILs a stamped entry carrying an annotation.
+- S13-4c keyed its tripwire on the series flag (HARD STOP on a paper that drew nothing — E18 /
+  HS-15); it is keyed on the paper's fig_manifest questions, traps 'NOT CHECKED' too, and the
+  per-exam auditor subprocesses run with env=AUDIT_ENV (PYTHONPATH = the engine root; a by-path
+  run never puts the cwd on sys.path, so the engines were unimportable and every engine gate
+  degraded).
+- options_only questions (option objects only) were reported 'NOT AUDITED'; the option objects
+  are now audited against the label. The auditor also checks V4 itself (REACTION needs '>>',
+  STRUCTURE must not) and prints a reason for every text_disclosed fallback subtopic (FAIL if
+  such a subtopic carries figures).
+- figure_types inference: 'photo' matched as a prefix (photochemical_* → photograph, unsupported
+  → HARD STOP), 'x_ray' made XRD a raster, 'cell' made a galvanic cell an anatomy diagram,
+  'crystal' made crystal-field splitting a lattice, 'reaction_*' made a reaction-coordinate
+  diagram a scheme. Whole-token raster rule; new rows (diffraction_pattern, chromatogram,
+  voltammogram, thermal_analysis_curve, electrochemical_cell_diagram, tlc_plate,
+  chair_conformation, haworth/sawhorse projections, potential_energy_surface, Latimer / Frost /
+  Pourbaix / Ellingham / Tanabe–Sugano / Walsh / Orgel diagrams) and ordered family rules; 34
+  misbinding fixtures.
+- render_scheme: roles follow arrow DIRECTION (A ← S → B is S>>A and S>>B), a row without an
+  arrow is refused (a pair or set is a STRUCTURE figure, never a scheme — E12 stated in
+  S7-NEW-B2), '>>P' (unknown reactant) is legal, both sides empty is not.
+- E15: a paper resumed across the fix could not commit (pre-v5.88 questions have no
+  object_type); S4-12 4c marks them record_integrity='legacy_unlabelled', commit_registry commits
+  them AS unlabelled, A-FIGTYPE-KIND WARNs, §FOOTER-FT discloses.
+- Step 7 S3-17c stopped on ANY session-unavailable dominant member; it stops only when NO
+  dominant member is loadable (`unavailable_blocking`, E7). ScopedBlueprint's pre-flight moved
+  from S6-5 to S4-5 so a fallback is TEXT before the axis schedule is computed.
+- figural_present_derived is the manifest's truth alone; the migration also covers 'problem:N'
+  roles, string counts and mocks_completed-only registries; --fig-manifest wins over a stale
+  registry entry and reads only this manifest's q<N>_*.figspec.json sidecars (S13-4 likewise).
+
+**Second review round (handshake chain + two further independent reviews, 2026-11-01).** A live
+end-to-end chain (Blueprint S6-1c → ScopedBlueprint S4-5 → Step 7 S3-2a / S3-9 / S3-17c → render →
+S13-4 commit → S13-REGCHECK → the per-exam auditor run BY PATH with AUDIT_ENV → §FOOTER-FT) now
+runs green, 23/23 handoffs. Fixed on the way:
+- E15 was refused one gate earlier: A-FIGPROFILE judged a `legacy_unlabelled` label as a stray type
+  (FAIL → S13-4c stop); annotated questions are now excluded from the profile check (printed), and a
+  pre-v5.88 REACTION object with a molecule canonical commits UNVALIDATED under that annotation.
+- A text_disclosed fallback was allocated TEXT by Step 6 but Step 7 dispatched by the section_rules
+  format (still FIGURAL) and drew it: S3-17c binds FORMAT_OVERRIDE, S3-18 / S4-5 CHECK 5 / S4-7 /
+  S7-NEW-B0 honour it, and S13-4 refuses a figure on a fallback subtopic. Blueprint S6-1c also patches
+  MANIFEST_IDS in session (the axis schedule reads it) and B1's key list names the two new keys.
+- kind_coverage_preflight: a dominant set mixing an UNSUPPORTED type with a session-UNAVAILABLE
+  supported one is `unavailable_blocking` (install line), never a policy stop or a new fallback;
+  unsupported + unregistered is an advisory (the unregistered member renders GENERIC).
+- Inference rules: data-family rules now precede the electrochemical / crystal-field / cell rules
+  (`cell_potential_graph` is a plot, not a cell diagram); a bare `image`/`scan` is raster only when no
+  content word decided first (`reaction_scheme_image` → reaction_scheme). coverage() accepts a bare string.
+- structure_draw_fn raises ValueError (not AttributeError) on a reaction SMILES; render_scheme drops
+  None reagent lines and never records negative `intermediates`; figure_footer_lines never raises on an
+  odd record_integrity value.
+- A fresh paper (not a resume) clears the session dir's q<N>_* PNGs/sidecars and ignores a project-side
+  fig_manifest (two papers in one session can no longer cross-attribute sidecars); --fig-manifest
+  rebuilds figural_qs from the sidecar; option FigureSpecs join by the role's own index.
+- S4-5 / S6-1c id-agreement tripwire is judged against section_rules subtopic_id lines, not image blocks
+  (a Topic scope of zero-PYQ FIGURAL subtopics no longer false-stops); Step 6 reports session
+  availability (ft.preflight()) instead of a dead loop; S3-9 names its HARD STOP when blueprint_core
+  is not importable; S13-4c also traps 'NOT ESTABLISHED'; S7-NEW-B2 writes the FigureSpec sidecar.
+- analyse_engine: an inferred zero-PYQ FIGURAL subtopic wrote its default block under `figural_data`, a
+  key the emitter never read — it is `PYQ_IMAGE_ANALYSIS` now (fixture; EXPECTED_CHECKS 222).
+
+**Deliberate deviations from the GAP's §6 wording (owner-visible).** normalise() keeps an
+unknown string verbatim rather than rewriting it `unregistered:<s>` (both sides of the
+conformance gate must see one string); an unregistered DOMINANT type is an advisory, never
+"treated as unsupported" (≈200 legacy exams are never halted by vocabulary); there is no
+`text_fallback` status — a fallback is a blueprint fact (figural_fallbacks), not a registry row;
+bootstrap does not import renderers (figure_types.preflight() + S3-17c do, per session);
+validate_framework_md carries no registry check (MS-23 covers parity); canonical_structure
+canonicalises reaction SMILES component-wise (rdkit per component, no rdChemReactions
+dependency — a reagent-only or agent-only string is still rejected because at least one of
+reactant / product must parse).
+
+**Per exam: nothing to do for the engines.** Specs reach every project on its next clone unless
+the project overrides one (CLAUDE.md, project-first). An exam whose scoped blueprint was built
+by ScopedBlueprint < v1.11.0 keeps working: S3-2a corrects the flag in session and S13-4 commits
+on existence; regenerate the blueprint to retire the printed correction. The per-exam
+[ExamCode]_mock_test_audit.py copy must be refreshed (Step 6 B3 or S3-9's auto-refresh from the
+verified clone) — S13-4c HARD STOPs on a pre-v2.32 copy of a figural paper, by design.
+
 ## 2026.10.27 — GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS: scoped papers validate the stimulus profile against the EXAM's sections
 (MockTestCreate v5.87; spec only — no engine, route or artefact change).
 Raised by SSC_CGL_TIER1 `TestCreate P1 --level subject --scope "English Comprehension"`.
