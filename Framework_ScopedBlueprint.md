@@ -1,4 +1,15 @@
-# Framework_ScopedBlueprint v1.12.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.13.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.13.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
+#   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0). (1) S8-2d SHAPE
+#   TARGETS: shape_target_per_paper[paper] = bc.shape_targets(shape shares, Q, paper index)
+#   — FLOOR for every shape with share x Q >= 1, CAP = round(share x Q) + 2 (owner OD-6 c),
+#   series rotation below that — from the in-scope subtopics' QUALITY blocks
+#   (bc.quality_block_for_subtopic; first cascade level holding >= bc.SHAPE_MIN_POOL items);
+#   {} (dormant, printed) when section_rules carries no QUALITY block. (2) --refresh
+#   (bp_refresh, OD-10 a): with an EXISTING blueprint attached, writes ONLY the new fields
+#   (shape_target_per_paper, schema_version, producer) for papers AFTER the last registered
+#   one and never touches allocations or schedules of registered papers — a series in
+#   progress keeps its continuity. (3) blueprint.schema_version = 2.
 # v1.12.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY L2 + F8 (paired with
 #   blueprint_core v1.29, MockTestCreate v5.89). Measured defect: every paper of a delivered
 #   Organic scoped series was scheduled 2/14/24 — the exam's PAPER-level mix (not the
@@ -117,6 +128,11 @@
 # TRIGGER FORMAT:
 #   Step 6S: ScopedBlueprint --level <subject|topic|subtopic> --scope "<SCOPE>"
 #            --count N --qs_per_paper Q [--batch_size B] [--difficulty progressive|S:M:H]
+#            [--refresh]
+#   --refresh    : v1.13.0 (OD-10 a) bp_refresh mode — the existing scoped blueprint MUST be
+#                  attached; only the new v1.13.0 fields are written (S8-2d) for papers after
+#                  the last paper registered in the attached registry; every other field is
+#                  copied byte-for-byte. Never changes a registered paper.
 #
 #   Trigger matching is case-insensitive. ExamCode read from exam_config.json.
 #   --level      : subject | topic | subtopic (REQUIRED)
@@ -1391,6 +1407,37 @@ if _wt > 0 and _fig_slots > 0:
     _series = bc.fig_ask_series({t: v / _wt for t, v in _w.items()}, _fig_slots, N)
     FIG_ASK_TARGET = {str(k): {scope_label: _series[k - 1]} for k in range(1, N + 1)}
 
+# S8-2d (v1.13.0 — GAP-2026-11-03 G05; owner OD-6 c) — SHAPE TARGETS per paper. The scope's
+# shape share = sum over in-scope subtopics of (r_avg x the subtopic's QUALITY
+# shape_shares), measured by Step 5 v2.59.0; the pool must hold >= bc.SHAPE_MIN_POOL PYQ
+# items — below that the shares are taken from ALL subtopics of the file (section level).
+# Per paper k: bc.shape_targets(shares, Q, k-1) gives target / FLOOR / CAP per shape and
+# rotates rare shapes across the series. No QUALITY block anywhere -> {} (dormant; Create
+# S3-12d prints it; OD-1: never a stop).
+_shape_w, _shape_n = {}, 0
+def _acc_shape(_sid, _weight):
+    global _shape_n
+    _qb = bc.quality_block_for_subtopic(_sr_text, _sid) or {}
+    _shape_n += int(_qb.get('n') or 0)
+    for _k, _sh in (_qb.get('shape_shares') or {}).items():
+        _shape_w[_k.split('|')[0]] = _shape_w.get(_k.split('|')[0], 0.0) + float(_weight or 0.0) * float(_sh or 0.0)
+for _sid in in_scope_ids:
+    _acc_shape(_sid, r_avg.get(_sid, 0.0))
+if _shape_n < bc.SHAPE_MIN_POOL:
+    import re as _re_sh
+    _shape_w, _shape_n = {}, 0
+    for _sid in _re_sh.findall(r'^subtopic_id:\s*(\S+)', _sr_text, _re_sh.M):
+        _acc_shape(_sid, 1.0)
+_shape_w.pop('other', None)                      # 'other' is the vocabulary's catch-all, never a planned shape
+_swt = sum(_shape_w.values())
+SHAPE_TARGET = {}
+if _swt > 0 and _shape_n >= bc.SHAPE_MIN_POOL:
+    SHAPE_TARGET = {str(k): bc.shape_targets({t: v / _swt for t, v in _shape_w.items()}, Q, k - 1)
+                    for k in range(1, N + 1)}
+else:
+    print(f"S8-2d: shape targets DORMANT — {_shape_n} PYQ items with a QUALITY block (need "
+          f"{bc.SHAPE_MIN_POOL}); run Step 5 of release 2026.11.03, then ScopedBlueprint --refresh.")
+
 # S8-3 — mocks[] (one per paper; §4 paper_alloc → subtopic_allocations, only q_count>0 stored).
 # paper_alloc is keyed by subtopic_id (§4). paper_id numbering RESUMES from paper_start
 # (§2 S2-4: count of existing papers for this scope in the shared registry; 0 for a fresh
@@ -1491,6 +1538,9 @@ blueprint = {
     # (None) only on the no-profile ramp — then Create discloses "unverified".
     **({'difficulty_source': DIFFICULTY_SOURCE} if DIFFICULTY_SOURCE else {}),
     'fig_ask_target_per_mock': FIG_ASK_TARGET,      # v1.12.0 F8 ({} = dormant)
+    'shape_target_per_paper': SHAPE_TARGET,         # v1.13.0 G05 ({} = dormant) — Create S3-12d / A-SHAPEMIX
+    'schema_version': 2,                             # v1.13.0 — G10 readiness reads it
+    'producer': 'Framework_ScopedBlueprint v1.13.0',
     'axis_schedule': {scope_label: axis_schedule},  # §6, keyed by the single section name
     # Zero-PYQ subtopics are covered by the §4 coverage floor (allocated every batch), NOT by
     # the mock's capped rotation — so the rotation list is empty. The KEY is still emitted for
@@ -1673,4 +1723,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.12.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.13.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

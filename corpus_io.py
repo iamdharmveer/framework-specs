@@ -1,7 +1,18 @@
 """
-corpus_io.py v1.17 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.18 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
 
+v1.18 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (G01 R1.2, owner Q-A).
+    Incident: CSIR-NET Organic Test 01 Q32 shipped options 2 and 3 as ONE molecule
+    ((2E,4Z)-hexa-2,4-diene, drawn from `C/C=C/C=C\\C` and `C\\C=C/C=C/C`); the
+    renderer compared nothing. (1) OptionIdentityError(CorpusError) + assert_option_
+    identities(draws): native_option_set() now compares the RE-PERCEIVED identity
+    (bc.structure_identity / bc.reaction_identity of each draw's .canonical) of every
+    pair and raises "LADDER-REPAIR R2o G-OPTDISTINCT ..." on a duplicate — before any
+    pixel is rendered. dHash never decides identity. (2) stereo_declared(draw_fn,
+    declared) records the author's descriptor line on the draw so S10-8 can run
+    bc.stereo_declaration_check (G-STEREODECL) at render time. Everything else is
+    byte-identical to v1.17.
 v1.17 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (F1, F2, F4, F6, F7).
     Generated structures did not look like the exam: coloured atoms, every molecule
     auto-scaled into a fixed 900x700 raster (bond length / label size were accidents),
@@ -521,6 +532,13 @@ class TransportFallback(CorpusError):
     pipeline: correctness does not depend on the predicted partition being right, only
     on the fallback being taken.
     """
+
+
+class OptionIdentityError(CorpusError):
+    """v1.18 (GAP-2026-11-03 G01 R1.2): two options of one item are ONE entity under the
+    identity function of their content kind. Raised by native_option_set() BEFORE any
+    pixel is rendered; the message follows the §Q8b-LADDER convention so S10-8 enters the
+    ladder at R2o (regenerate the distractor only — never the key)."""
 
 
 class EnumerationError(CorpusError):
@@ -5381,15 +5399,76 @@ def _pt_seg_dist(p, a, b):
     return ((p[0] - x) ** 2 + (p[1] - y) ** 2) ** 0.5
 
 
+def option_identities(draws):
+    """v1.18 (G01 R1.1): the re-perceived identity of every draw's .canonical —
+    bc.reaction_identity for a reaction SMILES (two '>'), else bc.structure_identity
+    (2-D MolBlock round trip with wedges). None for a draw without .canonical or an
+    unparseable one. Never raises."""
+    out = []
+    for d in draws or []:
+        c = getattr(d, 'canonical', None)
+        if not isinstance(c, str) or not c.strip() or getattr(d, 'identity_exempt', False):
+            out.append(None)                                     # exempt: a conformer / projection set
+            continue
+        try:
+            out.append(bc.reaction_identity(c) if c.count('>') == 2 else bc.structure_identity(c))
+        except Exception:                                        # noqa: BLE001
+            out.append(None)
+    return out
+
+
+def assert_option_identities(draws):
+    """v1.18 (G01 R1.2): raise OptionIdentityError when two draws of one option set carry
+    EQUAL re-perceived identity. Visual difference does not make two options different.
+    Returns the identity list (stored by S10-8 as option_identities[] on the item)."""
+    ids = option_identities(draws)
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            if ids[i] is not None and ids[i] == ids[j]:
+                raise OptionIdentityError(
+                    f'LADDER-REPAIR R2o G-OPTDISTINCT: options {i + 1} and {j + 1} are ONE entity '
+                    f'({ids[i]}) — regenerate the distractor (never the key); visual '
+                    f'difference does not make two options different (GAP-2026-11-03 G01).')
+    return ids
+
+
+def stereo_declared(draw_fn, declared):
+    """v1.18 (owner Q-A): attach the author's intended stereo-descriptor line to a draw
+    (string such as '2E,4Z' / '(2R,3S)' / 'none'). S10-8 runs
+    bc.stereo_declaration_check(draw_fn.canonical, draw_fn.stereo_declared) before the
+    figure is accepted. Returns draw_fn."""
+    try:
+        draw_fn.stereo_declared = '' if declared is None else str(declared)
+    except Exception:                                            # noqa: BLE001 — a plain callable
+        pass
+    return draw_fn
+
+
+def identity_exempt(draw_fn, exempt=True):
+    """v1.18 (release review): mark a draw whose option set is the SAME molecule drawn in
+    different conformations / projections by design (chair, Newman, Fischer, Haworth,
+    sawhorse — figure_types.identity_kind is None for those types): the identity check
+    (option_identities / assert_option_identities) skips it and the reviewer decides.
+    Returns draw_fn."""
+    try:
+        draw_fn.identity_exempt = bool(exempt)
+    except Exception:                                            # noqa: BLE001 — a plain callable
+        pass
+    return draw_fn
+
+
 def native_option_set(draw_fns, dpi=300):
     """GAP-2026-11-02 F4/F6: an option set at ONE set of tokens on a UNIFORM canvas
     (max width x max height of the set, white, no frame), each picture centred.
     -> [(png_bytes, width_in, meta), ...]; every width_in is equal. Raises ValueError
-    when a draw is not native or the draws' tokens differ (one bond length per set)."""
+    when a draw is not native or the draws' tokens differ (one bond length per set).
+    v1.18: raises OptionIdentityError (G01 R1.2) when two draws are ONE entity —
+    checked FIRST, before any pixel is rendered."""
     from PIL import Image
     draws = list(draw_fns or [])
     if not draws:
         raise ValueError('native_option_set: no draws')
+    assert_option_identities(draws)                              # v1.18 — G-OPTDISTINCT at render
     toks = []
     for d in draws:
         if getattr(d, 'render_mode', None) != 'native_raster' or not callable(getattr(d, 'native_png', None)):
@@ -5449,7 +5528,8 @@ _EXPLICIT_H_RE = re.compile(r'\[\d*H(?![a-z])')
 
 def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
                       element_colours=True, highlight_atoms=(), highlight_bonds=(),
-                      tokens=None, marks=None, abbreviations=None, protect_atoms=()):
+                      tokens=None, marks=None, abbreviations=None, protect_atoms=(),
+                      conformer_set=False):
     """A figural_core draw_fn (ax, series, palette) that rasterises `smiles` with
     rdkit into the axes. The image IS the semantic object: what is registered is
     what was drawn (MockTestCreate v5.59 S7-NEW-B2). Raises ValueError if rdkit
@@ -5619,6 +5699,10 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         draw.marks = list(_native.marks)
         draw.native_png = lambda dpi=300: _native.render(dpi, marked=True)
         draw.native_png_unmarked = lambda dpi=300: _native.render(dpi, marked=False)
+    # v1.18 (release review): `conformer_set=True` marks a draw that belongs to a
+    # conformer / projection option set (the SAME molecule drawn differently by design)
+    # — the option identity check skips it (identity_exempt; reviewer decides).
+    identity_exempt(draw, bool(conformer_set))
     return draw
 
 
@@ -7657,8 +7741,36 @@ def self_test():
                                   ([structure_draw_fn('CCO')], 'legacy_draw')):
                 try:
                     native_option_set(_bad17); check(f'native_option_set_rejects_{_nm17}', False)
-                except ValueError:
+                except (ValueError, OptionIdentityError):
                     check(f'native_option_set_rejects_{_nm17}', True)
+            # v1.18 (GAP-2026-11-03 G01 R1.2) — the INCIDENT: Q32 options 2 and 3 were ONE
+            # molecule from two SMILES strings. The set is refused BEFORE rendering, with the
+            # ladder message; enantiomers / E-Z pairs (the exam's favourite distractors) pass.
+            try:
+                native_option_set([structure_draw_fn(s_, tokens=_TK) for s_ in
+                                   ('C/C=C/C=C/C', 'C/C=C/C=C\\C', 'C\\C=C/C=C/C', 'C=CCCC=C')], 300)
+                check('native_option_set_rejects_q32_duplicate_identity', False)
+            except OptionIdentityError as _e18:
+                check('native_option_set_rejects_q32_duplicate_identity',
+                      'LADDER-REPAIR R2o G-OPTDISTINCT' in str(_e18) and 'options 2 and 3' in str(_e18))
+            try:
+                _ok18 = native_option_set([structure_draw_fn(s_, tokens=_TK) for s_ in
+                                           ('C[C@H](O)CC', 'C[C@@H](O)CC', 'C/C=C/C', 'C/C=C\\C')], 300)
+                check('native_option_set_keeps_enantiomers_and_EZ', len(_ok18) == 4)
+            except OptionIdentityError:
+                check('native_option_set_keeps_enantiomers_and_EZ', False)
+            _ids18 = option_identities([structure_draw_fn('c1ccccc1', tokens=_TK), structure_draw_fn('C1=CC=CC=C1', tokens=_TK),
+                                        lambda: None])
+            check('option_identities_kekule_equal_and_no_canonical_none', _ids18[0] == _ids18[1] and _ids18[2] is None)
+            _ex18 = [structure_draw_fn('C1CCCCC1', tokens=_TK, conformer_set=True) for _ in range(3)]   # chair set
+            check('structure_draw_fn_default_not_exempt', getattr(structure_draw_fn('CCO', tokens=_TK), 'identity_exempt', None) is False)
+            try:
+                assert_option_identities(_ex18); check('identity_exempt_conformer_set_not_refused', option_identities(_ex18) == [None] * 3)
+            except OptionIdentityError:
+                check('identity_exempt_conformer_set_not_refused', False)
+            _sd18 = stereo_declared(structure_draw_fn('C/C=C/C=C\\C', tokens=_TK), '2E,4Z')
+            check('stereo_declared_attaches_line', getattr(_sd18, 'stereo_declared', None) == '2E,4Z'
+                  and bc.stereo_declaration_check(_sd18.canonical, _sd18.stereo_declared)['state'] == 'PASS')
             check('native_leaves_rdkit_depictor_preference_alone', _rdd17.GetPreferCoordGen() == _pref0)
             try:
                 structure_draw_fn('CCO', tokens={'font_pt': 10.0}); check('native_bad_tokens_is_valueerror', False)

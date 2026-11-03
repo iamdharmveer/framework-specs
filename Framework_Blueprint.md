@@ -1,4 +1,18 @@
-# Framework_Blueprint v1.62.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.63.0 — Universal Mock Test Blueprint Generator
+# v1.63.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
+#   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0, ScopedBlueprint
+#   v1.13.0). (1) §7-8 SHAPE TARGETS: blueprint.shape_target_per_paper[mock] =
+#   bc.shape_targets(exam shape shares, total_questions, mock index) — FLOOR for every shape
+#   with share x Q >= 1, CAP = round(share x Q) + 2 (owner OD-6 c), rare shapes rotated
+#   across the series — shares = sum over PYQ subtopics of (r_avg x the subtopic's QUALITY
+#   shape_shares) read by bc.quality_block_for_subtopic from section_rules (Step 5 v2.59.0);
+#   paper-level (one plan per mock, all sections pooled — Create S3-12d plans per paper). {}
+#   (dormant, printed) when fewer than bc.SHAPE_MIN_POOL PYQ items carry a QUALITY block.
+#   (2) --refresh (bp_refresh, OD-10 a): with the EXISTING mock blueprint attached, writes
+#   ONLY the new fields (shape_target_per_paper, schema_version, producer) for mocks AFTER
+#   the last mock registered in the attached registry; every other field is copied
+#   byte-for-byte — a series in progress keeps its continuity. (3) blueprint.schema_version
+#   = 2. OD-1: nothing in this release stops a run — dormancy is printed and recorded.
 # v1.62.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F8 (paired with
 #   blueprint_core v1.29, MockTestCreate v5.89, MockTestAnalyse v2.58.0). S7-7 also emits
 #   fig_ask_target_per_mock[mock][section] — the exam's own figural ASK-TYPE mix
@@ -320,6 +334,15 @@
 #   Step 6: MockBlueprint [N_mocks] --difficulty exam
 #   Step 6: MockBlueprint [N_mocks] --difficulty E:M:H
 #   Step 6: MockBlueprint [N_mocks] --difficulty progressive
+#   Step 6: MockBlueprint --refresh
+#
+#   --refresh   : v1.63.0 (OD-10 a) bp_refresh mode — the existing [ExamCode]_blueprint.json
+#                 MUST be attached (and the registry, if any mock has been delivered); only the
+#                 v1.63.0 fields are written (§7-8: shape_target_per_paper for mocks after the
+#                 last registered one, schema_version, producer); every other field is copied
+#                 byte-for-byte. Never changes a registered mock. Attached blueprint missing ->
+#                 print "bp_refresh: no blueprint attached — running a full build instead" and
+#                 run the normal flow (OD-1: never a stop).
 #
 #   Trigger matching is case-insensitive.
 #   ExamCode read from exam_config.json in project knowledge (set during Step 2a PYQDraft).
@@ -3993,6 +4016,44 @@ for _sec in sections:
             _fig_ask.setdefault(str(_k), {})[_sn] = _row
 blueprint['fig_ask_target_per_mock'] = _fig_ask
 
+# §7-8 (v1.63.0 — GAP-2026-11-03 G05; owner OD-6 c) — SHAPE TARGETS per mock. The exam's
+# shape share = sum over PYQ subtopics of (r_avg x the subtopic's QUALITY shape_shares),
+# measured by Step 5 v2.59.0 and read by bc.quality_block_for_subtopic (topic/section cascade
+# inside the engine). Paper-level: Create S3-12d plans ONE shape plan per paper, so the
+# targets pool all sections over total_questions. Per mock k: bc.shape_targets(shares, Q, k-1)
+# gives target / FLOOR / CAP per shape and rotates rare shapes across the series. Fewer than
+# bc.SHAPE_MIN_POOL PYQ items with a QUALITY block -> {} (dormant; Create S3-12d prints it;
+# OD-1: never a stop). --refresh (bp_refresh) re-runs ONLY this block on the attached
+# blueprint (see §7-8R below).
+_shape_w, _shape_n = {}, 0
+for _sid, _v in MANIFEST_IDS.items():
+    _qb = _bc_ask.quality_block_for_subtopic(section_rules_text, _sid) or {}
+    _shape_n += int(_qb.get('n') or 0)
+    _ra = r_avg.get(_v.get('display_name'), r_avg.get(_sid, 0.0))   # r_avg keyed by display name here
+    for _k, _sh in (_qb.get('shape_shares') or {}).items():
+        _shape_w[_k.split('|')[0]] = _shape_w.get(_k.split('|')[0], 0.0) + float(_ra or 0.0) * float(_sh or 0.0)
+_shape_w.pop('other', None)                      # 'other' is the vocabulary's catch-all, never a planned shape
+_swt = sum(_shape_w.values())
+_shape_tg = {}
+if _swt > 0 and _shape_n >= _bc_ask.SHAPE_MIN_POOL:
+    _shape_tg = {str(k): _bc_ask.shape_targets({t: v / _swt for t, v in _shape_w.items()}, total_qs, k - 1)
+                 for k in range(1, int(blueprint.get('total_mocks') or 1) + 1)}
+else:
+    print(f"§7-8: shape targets DORMANT — {_shape_n} PYQ items with a QUALITY block (need "
+          f"{_bc_ask.SHAPE_MIN_POOL}); run Step 5 of release 2026.11.03, then MockBlueprint --refresh.")
+blueprint['shape_target_per_paper'] = _shape_tg      # v1.63.0 G05 ({} = dormant) — Create S3-12d / A-SHAPEMIX
+blueprint['schema_version'] = 2                        # v1.63.0 — Create S3-2e readiness reads it
+blueprint['producer'] = 'Framework_Blueprint v1.63.0'
+
+# §7-8R (v1.63.0, OD-10 a) — bp_refresh. Trigger `MockBlueprint --refresh` with the existing
+# blueprint attached: load it as `blueprint`, read `total_qs`, `r_avg`, `MANIFEST_IDS` and
+# `section_rules_text` exactly as the full build does (§3, §7), run ONLY the §7-8 block above,
+# then DROP from blueprint['shape_target_per_paper'] every mock key <= the highest mock_id
+# present in the attached [ExamCode]_registry.json (registered papers are never re-targeted;
+# their key is simply absent and Create S3-12d treats an absent key as DORMANT for that
+# paper). Every other blueprint field is written back byte-for-byte. Print one line:
+# "bp_refresh: shape targets written for mocks a..b; mocks 1..(a-1) untouched (registered)."
+
 # v1.35 BUG 4 FIX (GAP-2026-07-22-001): persist the section↔subject mapping so B2/B3
 # can reconstruct per-section subtopic lists correctly. Without this, B2/B3 compare
 # subtopic_list[].section (taxonomy Subject, e.g. "General Biology") against
@@ -6534,6 +6595,9 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "difficulty_schedule" : [...],
   "difficulty_source"   : {...},     // A-DPROFILE schema; v1.62.0 also builder ('Framework_Blueprint.S7-0')
   "fig_ask_target_per_mock": {"1": {"Section A": {"product_prediction": 3}}},  // v1.62.0 F8; {} dormant
+  "shape_target_per_paper": {"1": {"identify_product": {"target": 9, "floor": 1, "cap": 11}}},  // v1.63.0 G05 §7-8; {} dormant; paper-level (all sections pooled)
+  "schema_version"      : 2,                                   // v1.63.0 — Create S3-2e readiness; absent = pre-release blueprint
+  "producer"            : "Framework_Blueprint v1.63.0",       // v1.63.0 — which spec version wrote this file
   "difficulty_amendments": [{"mock": 1, "section": "Section A", "from": "Hard", "to": "Medium",
                             "reason": "measured_band"}],   // IN-RUN only — written by MockTestCreate
                                                            // v5.89 ladder R5 (band labels) and S3-2D
@@ -8059,4 +8123,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.62.0
+# END OF Framework_Blueprint v1.63.0

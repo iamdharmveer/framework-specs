@@ -48,7 +48,13 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               # Tracked so bootstrap checksum-verifies it like every routed engine: an
               # unverified registry could silently re-bind a type to a renderer that
               # cannot draw it, which is the defect class this file closes.
-              "figure_types.py"]
+              "figure_types.py",
+              # GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (release review). The handshake
+              # audit runs the real engines and the real spec fences as ONE chain so every
+              # cross-step artefact is produced by its producer and read by its consumer in
+              # the same run. Tracked so bootstrap checksum-verifies it: an unverified copy
+              # could skip a boundary and report the handshake green.
+              "handshake_audit.py"]
 
 # GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P7). The law-propagation registry is DATA
 # the CI enforces, so it needs the same byte-integrity guarantee as an engine: an

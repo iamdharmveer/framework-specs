@@ -1,9 +1,20 @@
 """
-figure_types.py v1.1 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
+figure_types.py v1.2 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
 object_type (profile vocabulary) to a Step-7 render class, a semantic kind and a
 renderer. GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY, LAW F1.
 
 CHANGELOG
+    v1.2 (2026-11-03) — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (§4.7 no exam-
+         specific code): per-FAMILY quality rows QUALITY_ROWS[family] = {identity_fn,
+         complexity_vector, mechanism_vocabulary} naming blueprint_core functions /
+         vocabularies (chemistry rows point at structure_identity / content_vector /
+         MECHANISM_VOCABULARY['chemistry']; data rows at data_figure_identity; glyph
+         and hand-drawn rows at None = "no identity_fn, the reviewer decides"), and the
+         per-family ask-type vocabulary ASK_TYPES[family] (R5.1): the chemistry family
+         gains multiple_products, outcome_ratio, two_part, quantitative_calculation;
+         physics/graph and text families get their own lists. FIGURAL_ASK_TYPES is kept
+         as the chemistry list's alias so every v1.1 reader is unchanged.
+         normalise_ask_type() learns the four new chemistry shapes.
     v1.1 (2026-11-02) — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (F8, §0.2): closed
          figural ask-type vocabulary FIGURAL_ASK_TYPES + normalise_ask_type(),
          REPRESENTATION_TAGS, SCHEME_GRAMMAR_TAGS, and the scope classes
@@ -58,7 +69,7 @@ PURITY
 import importlib
 import re
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 # ── S10-6A render classes (MockTestCreate) — parity with figural_core.FIGURE_CLASSES is
 #    verified by mock_sync_audit MS-23; this tuple is mirrored, never imported, so the
@@ -311,21 +322,111 @@ CHEM_H_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items()
                                 if r['family'] in ('chem_structure', 'chem_scheme') and r['renderer'] == R_HAND)
 
 # F8 — closed vocabulary of what a figural question ASKS (order is the vocabulary order).
-FIGURAL_ASK_TYPES = ('product_prediction', 'starting_material_identification',
-                     'reagent_identification', 'reagent_sequence',
-                     'intermediate_identification', 'mechanism_identification',
-                     'which_reaction_gives', 'which_structures_satisfy',
-                     'stereochemical_outcome', 'stereoisomer_count', 'property_order',
-                     'spectrum_to_structure', 'nomenclature', 'matching', 'other')
+# v1.2 (GAP-2026-11-03 R5.1): per FAMILY. The chemistry list gains the four shapes the
+# real CSIR-NET paper uses and the vocabulary lacked (multiple_products "A and B",
+# outcome_ratio "A major / B minor", two_part "product and order of reactivity",
+# quantitative_calculation Hammett / NMR-integral). scheme_grammar stays an independent
+# axis — multi_step_lettered is NOT an ask type.
+ASK_TYPES = {
+    'chemistry': ('product_prediction', 'starting_material_identification',
+                  'reagent_identification', 'reagent_sequence',
+                  'intermediate_identification', 'mechanism_identification',
+                  'which_reaction_gives', 'which_structures_satisfy',
+                  'stereochemical_outcome', 'stereoisomer_count', 'property_order',
+                  'spectrum_to_structure', 'nomenclature', 'matching',
+                  'multiple_products', 'outcome_ratio', 'two_part', 'quantitative_calculation',
+                  'other'),
+    'physics_graph': ('read_value', 'compare', 'trend', 'calculate', 'identify_region', 'other'),
+    'data': ('read_value', 'compare', 'trend', 'calculate', 'other'),
+    'text': ('assertion_reason', 'match', 'statement', 'sequence', 'fill_blank', 'direct', 'other'),
+    'reasoning': ('next_in_series', 'odd_one_out', 'analogy', 'count', 'mirror_water_image',
+                  'embedded_figure', 'paper_folding', 'other'),
+}
+FIGURAL_ASK_TYPES = ASK_TYPES['chemistry']            # v1.1 alias — every reader unchanged
 REPRESENTATION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'newman_projection',
                        'fischer_projection', 'haworth_projection', 'sawhorse_projection')
 SCHEME_GRAMMAR_TAGS = ('plus_partner', 'two_way', 'multi_step_lettered',
                        'reagent_as_structure', 'numbered_steps')
 
+# v1.2 — GAP-2026-11-03 §4.7: chemistry (and every other content kind) appears ONLY as
+# registry rows behind generic interfaces. Each FAMILY names the blueprint_core function
+# that gives an option's IDENTITY (G01), the content COMPLEXITY vector (G02 R2.3) and the
+# distractor MECHANISM vocabulary key (G06). None = the kind has no deterministic
+# identity_fn / vector: the reviewer decides (R1.4) and the judge alone bands (R2.3).
+QUALITY_ROWS = {
+    'chem_structure': {'identity_fn': 'blueprint_core.structure_identity',
+                       'complexity_vector': 'blueprint_core.content_vector',
+                       'mechanism_vocabulary': 'chemistry', 'ask_family': 'chemistry'},
+    'chem_scheme':    {'identity_fn': 'blueprint_core.reaction_identity',
+                       'complexity_vector': 'blueprint_core.content_vector',
+                       'mechanism_vocabulary': 'chemistry', 'ask_family': 'chemistry'},
+    'chem_spectrum':  {'identity_fn': 'blueprint_core.data_figure_identity',
+                       'complexity_vector': None, 'mechanism_vocabulary': 'chemistry', 'ask_family': 'chemistry'},
+    'chem_diagram':   {'identity_fn': None, 'complexity_vector': None,
+                       'mechanism_vocabulary': 'chemistry', 'ask_family': 'chemistry'},
+    'data':           {'identity_fn': 'blueprint_core.data_figure_identity',
+                       'complexity_vector': None, 'mechanism_vocabulary': 'quantitative', 'ask_family': 'data'},
+    'physics':        {'identity_fn': 'blueprint_core.data_figure_identity',
+                       'complexity_vector': None, 'mechanism_vocabulary': 'quantitative', 'ask_family': 'physics_graph'},
+    'geometry':       {'identity_fn': None, 'complexity_vector': None,
+                       'mechanism_vocabulary': 'reasoning', 'ask_family': 'reasoning'},
+    'reasoning':      {'identity_fn': None, 'complexity_vector': None,
+                       'mechanism_vocabulary': 'reasoning', 'ask_family': 'reasoning'},
+    'table':          {'identity_fn': 'blueprint_core.text_identity',
+                       'complexity_vector': None, 'mechanism_vocabulary': 'fact', 'ask_family': 'text'},
+    'apparatus':      {'identity_fn': None, 'complexity_vector': None, 'mechanism_vocabulary': 'fact', 'ask_family': 'text'},
+    'biology':        {'identity_fn': None, 'complexity_vector': None, 'mechanism_vocabulary': 'fact', 'ask_family': 'text'},
+    'generic':        {'identity_fn': None, 'complexity_vector': None, 'mechanism_vocabulary': 'fact', 'ask_family': 'text'},
+    'raster':         {'identity_fn': None, 'complexity_vector': None, 'mechanism_vocabulary': 'fact', 'ask_family': 'text'},
+    # non-figural (TEXT) items — the universal row
+    'text':           {'identity_fn': 'blueprint_core.text_identity',
+                       'complexity_vector': None, 'mechanism_vocabulary': 'verbal', 'ask_family': 'text'},
+}
+# TEXT-kind (no figure) — the option payload is the option's text
+IDENTITY_KIND_BY_SEMANTIC = {'STRUCTURE': 'STRUCTURE', 'COORDINATION': 'STRUCTURE', 'REACTION': 'REACTION',
+                             'PLOT': 'DATA', 'TABLE': 'TEXT'}
+
+
+def quality_row(object_type_or_family):
+    """QUALITY_ROWS row for a figure type (via its family) or a family name. An
+    unregistered type / family -> the 'generic' row (no identity_fn: reviewer)."""
+    key = str(object_type_or_family or '')
+    if key in QUALITY_ROWS:
+        return QUALITY_ROWS[key]
+    r = FIGURE_TYPES.get(normalise(key)) if key else None
+    fam = (r or {}).get('family') or 'generic'
+    return QUALITY_ROWS.get(fam, QUALITY_ROWS['generic'])
+
+
+def identity_kind(semantic_kind, object_type=None):
+    """The blueprint_core.option_identity kind for a figure record ('STRUCTURE' |
+    'REACTION' | 'DATA' | 'TEXT') or None when the family has no identity_fn."""
+    row = quality_row(object_type) if object_type else None
+    if row is not None and row.get('identity_fn') is None:
+        return None
+    # v1.2 (release review): a CONFORMATIONAL / projection drawing (chair, Newman,
+    # Fischer, Haworth, sawhorse — render class 'schematic' inside the chem_structure
+    # family) is the SAME molecule drawn four different ways by design: a canonical
+    # SMILES identity would call "which conformer is most stable" a duplicate set.
+    # Those families have no identity_fn: the reviewer decides (dHash may WARN).
+    ft = FIGURE_TYPES.get(normalise(str(object_type or ''))) if object_type else None
+    if ft and ft.get('family') == 'chem_structure' and ft.get('renderer') == R_HAND:
+        return None
+    return IDENTITY_KIND_BY_SEMANTIC.get(str(semantic_kind or '').upper())
+
 # Keyword rules for normalise_ask_type, matched top-down on the lower-cased stem; the
 # first hit wins. ORDER MATTERS: a stem naming both a starting material and a product
 # asks for the starting material; 'sequence of reagents' is not a reagent question.
 _ASK_RULES = (
+    # v1.2 — the four shapes the vocabulary lacked, matched before the generic rules
+    (r'\bproducts?\b.{0,20}\b[a-d]\s*(?:and|&)\s*[a-d]\b|\b[a-d]\s*(?:and|&)\s*[a-d]\b.{0,30}\bproducts?\b',
+     'multiple_products'),
+    (r'\bmajor\b.{0,12}\bminor\b|\bminor\b.{0,12}\bmajor\b|\bratio of (?:the )?products?\b|\bwhich (?:one )?of the following is true\b.{0,40}\breaction\b',
+     'outcome_ratio'),
+    (r'\bproducts?\b.{0,40}\b(?:and|as well as) (?:its|the) (?:order|relative) (?:of )?reactivit|\brespectively\b',
+     'two_part'),
+    (r'\bhammett\b|\bmole (?:percentage|fraction|%)\b|\bintegration\b|\bρ\s*value\b|\bcalculate\b|\bkinetic isotope\b.{0,30}\bvalue\b',
+     'quantitative_calculation'),
     (r'\bnmr\b|spectr(?:um|a|al|oscopic)|\buv\b|m/z|\bcm\s*[-\u2212\u2013]\s*1\b|\bδ\b|chemical shift|\bsignals?\b',
      'spectrum_to_structure'),
     (r'(?:number|how many|total)\b.{0,40}\bstereoisomers?\b|\bstereoisomers?\b.{0,20}\bpossible\b', 'stereoisomer_count'),
@@ -759,6 +860,33 @@ def self_test():
         check(f'row_status_{t}', r['status'] in STATUSES)
         check(f'row_renderer_{t}', (r['renderer'] is None) == (r['status'] == 'unsupported'))
         check(f'row_slug_{t}', _slug(t) == t)
+    # v1.2 — quality rows cover every family in the table; every named identity_fn /
+    # vector resolves in blueprint_core; the four new chemistry shapes normalise.
+    _fams = {r['family'] for r in FIGURE_TYPES.values() if r['family']}
+    check('quality_rows_cover_every_family', _fams <= set(QUALITY_ROWS))
+    check('ask_types_alias_unchanged_prefix', FIGURAL_ASK_TYPES[:14] == ASK_TYPES['chemistry'][:14]
+          and FIGURAL_ASK_TYPES[-1] == 'other' and all(v[-1] == 'other' for v in ASK_TYPES.values()))
+    check('quality_row_lookup', quality_row('reaction_scheme')['identity_fn'] == 'blueprint_core.reaction_identity'
+          and quality_row('number_series')['identity_fn'] is None and quality_row('nope_type')['ask_family'] == 'text'
+          and identity_kind('STRUCTURE', 'chemical_structure') == 'STRUCTURE'
+          and identity_kind('STRUCTURE', 'newman_projection') is None   \
+              and identity_kind('STRUCTURE', 'chair_conformation') is None
+          and identity_kind('GENERIC', 'number_series') is None)
+    check('new_chemistry_shapes_normalise',
+          normalise_ask_type('Identify the major products A and B in the given reactions.') == 'multiple_products'
+          and normalise_ask_type('In the following reaction, which one of the following is true? A = Major; B = Minor') == 'outcome_ratio'
+          and normalise_ask_type('Identify the major product formed in the following reaction and its order of reactivity in the presence of different R groups.') == 'two_part'
+          and normalise_ask_type('The Hammett plot for a reaction series gives a straight line') == 'quantitative_calculation'
+          and normalise_ask_type('Identify the major product, P formed in the given reaction.') == 'product_prediction')
+    try:
+        import importlib as _il_q
+        _bcq = _il_q.import_module('blueprint_core')
+        check('quality_rows_resolve_in_blueprint_core',
+              all(hasattr(_bcq, v.split('.', 1)[1]) for row in QUALITY_ROWS.values()
+                  for v in (row['identity_fn'], row['complexity_vector']) if v)
+              and all(row['mechanism_vocabulary'] in _bcq.MECHANISM_VOCABULARY for row in QUALITY_ROWS.values()))
+    except ImportError:
+        pass
     check('aliases_resolve', all(v in FIGURE_TYPES for v in ALIASES.values()))
     check('alias_keys_are_slugs', all(_slug(k) == k for k in ALIASES))
     check('rules_resolve', all(c in FIGURE_TYPES for _, c in INFERENCE_RULES))
@@ -900,8 +1028,8 @@ def self_test():
           or not pf['available']['rdkit'])
 
     # 7. v1.1 — GAP-2026-11-02 F8 / §0.2
-    check('v1_1_version', __version__ == '1.1')
-    check('ask_types_closed_vocab', len(FIGURAL_ASK_TYPES) == 15 and len(set(FIGURAL_ASK_TYPES)) == 15
+    check('v1_1_version', __version__ == '1.2')
+    check('ask_types_closed_vocab', len(FIGURAL_ASK_TYPES) == 19 and len(set(FIGURAL_ASK_TYPES)) == 19
           and FIGURAL_ASK_TYPES[0] == 'product_prediction' and FIGURAL_ASK_TYPES[-1] == 'other')
     check('representation_tags', REPRESENTATION_TAGS == ('skeletal', 'perspective', 'chair_conformation',
           'newman_projection', 'fischer_projection', 'haworth_projection', 'sawhorse_projection')

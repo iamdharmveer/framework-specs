@@ -12,9 +12,9 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 54
-  SPEC_MANIFEST.json entries : 58
-  routes.json triggers       : 23
+  MANIFEST.json files        : 56
+  SPEC_MANIFEST.json entries : 60
+  routes.json triggers       : 25
 ```
 
 **Do not edit those numbers by hand.** `audit_sync.py` recomputes each one from the files

@@ -42,6 +42,25 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v1.30 (2026-11-03) — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY: NEW Cluster QQ —
+      one item-rule table (ITEM_RULES, item_rule_id, item_rule_suspended; the I-n
+      cross-wiring between analyse_engine and this file is retired), LONGEST_KEY /
+      MIDDLE_VALUE_KEY recomputed on delivered options, option identity per content
+      kind (text_identity, structure_identity re-perceived from the depiction,
+      reaction_identity, data_figure_identity, option_distinct_check — hashes never
+      decide identity), stereo_declaration_check (owner Q-A), QUALITY_INPUTS +
+      quality_readiness / quality_readiness_block (OD-1: printed, recorded, NEVER a
+      stop), EntityLedger + media_reuse_check (G03 / OD-13), tested_concept_lexicon +
+      stem_leak_check + stem_form_check (G04 / OD-3), shape_targets / assign_shape_plan
+      / shape_mix_check with floors AND caps (G05 / OD-6 c), template_fingerprint /
+      template_cap / template_check (G08), MECHANISM_VOCABULARY + CLASS_PREDICATES +
+      REAGENT_LEXICON (>= 300) + class / data-consistency / inventory / mechanism-
+      formula / near-isomer checks (G06), consist_check + iupac_style_check (G09),
+      build_judge_input / final_band_decision / exemplar_bank_write (G02; OD-4 keeps
+      the existing tolerance and R5 mechanism), review_packet / bind_review_verdicts /
+      certificate_uncertified / deliver_allowed (G12; OD-5 a, OD-9 a),
+      producer_release_gate (OD-10 a), false_fail_guard (§4.6), ladder sub-rungs R2s /
+      R2o (LADDER_RUNG_ORDER). ccp_model / ccp_band generalised to >= 2 labels (R2.3).
     v1.29 (2026-11-02) — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: NEW Cluster QF —
       scope-measured difficulty mix (dp_scope_mix) converted POSITIONALLY (mix_to_smh,
       the only dict -> tuple conversion; the alphabetical 2/14/24 defect is a negative
@@ -68,7 +87,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.29'
+BLUEPRINT_CORE_VERSION = '1.30'
 
 __all__ = [
     "AllocationError",
@@ -282,6 +301,90 @@ __all__ = [
     "reconcile_difficulty",
     "ladder_terminal_accept",
     "LADDER_RUNGS",
+    "LADDER_RUNG_ORDER",
+    # v1.30 — Cluster QQ (GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY)
+    "QQ_RELEASE",
+    "ITEM_RULES",
+    "item_rule_id",
+    "item_rule_suspended",
+    "item_longest_key",
+    "item_middle_value_key",
+    "text_identity",
+    "structure_identity",
+    "structure_inchikey",
+    "strip_stereo_identity",
+    "strip_isotope_identity",
+    "reaction_identity",
+    "data_figure_identity",
+    "option_identity",
+    "option_distinct_check",
+    "stereo_from_smiles",
+    "stereo_declaration_check",
+    "QUALITY_INPUTS",
+    "quality_readiness",
+    "quality_readiness_block",
+    "degraded_footer_line",
+    "STANDARD_VALUES",
+    "ENTITY_ROLES",
+    "entity_identity",
+    "heavy_atom_count",
+    "generic_scaffold",
+    "EntityLedger",
+    "text_leak_calibration",
+    "common_entity_list",
+    "media_reuse_check",
+    "tested_concept_lexicon",
+    "stem_leak_check",
+    "stem_word_count",
+    "stem_length_bound",
+    "stem_form_check",
+    "shape_targets",
+    "assign_shape_plan",
+    "shape_mix_check",
+    "DATA_IN_STEM_TYPES",
+    "template_fingerprint",
+    "template_cap",
+    "template_check",
+    "MECHANISM_VOCABULARY",
+    "ISOMER_MECHANISMS",
+    "CLASS_PREDICATES",
+    "class_predicate_check",
+    "molecular_formula",
+    "element_set",
+    "data_consistency_check",
+    "inventory_check",
+    "mcs_ratio",
+    "mechanism_formula_check",
+    "distractor_record_check",
+    "near_isomer_check",
+    "consist_check",
+    "iupac_style_check",
+    "REAGENT_LEXICON",
+    "REAGENT_LEXICON_MIN",
+    "reagent_smiles",
+    "build_judge_input",
+    "final_band_decision",
+    "diff_band_tolerance",
+    "diffdist_info",
+    "exemplar_bank_write",
+    "REVIEW_CHECKLIST",
+    "review_key_agreement",
+    "readiness_mark",
+    "exemplars_for",
+    "review_verdict_file",
+    "review_packet",
+    "bind_review_verdicts",
+    "certificate_uncertified",
+    "deliver_allowed",
+    "producer_release_gate",
+    "false_fail_guard",
+    "pyq_bench_card",
+    "quality_status",
+    "LADDER_SUBRUNGS",
+    "qq_verdict",
+    "read_quality_block",
+    "quality_block_for_subtopic",
+    "QQ_STATES",
     "LADDER_ENTRY_RUNG",
     "ladder_entry",
     "axis_safe_text_fallback",
@@ -9276,7 +9379,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.29')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.30')   # v1.30 — Cluster QQ
     _QL = ['Easy', 'Medium', 'Hard']
 
     def _qf_paper(date, blocks):
@@ -9789,6 +9892,379 @@ PYQ_IMAGE_ANALYSIS:
         _dl = False
     check('qf_fig_format_and_assign_non_dict_inputs', _dl)
 
+    # ── Cluster QQ: QUESTION AND OPTION QUALITY (v1.30 — GAP-2026-11-03) ───────────
+    # Every fixture below is a FACT of the incident paper (CSIR-NET Organic Test 01,
+    # 2026-11-03) or of the GAP document's Appendix C; a fixture that passes on the
+    # defect it was written for tests nothing (CLAUDE.md).
+    _rdk = _qq_rdkit() is not None
+    check('qq_constants_pinned', OPT_DHASH_WARN == 20 and NAMED_RATE_ALLOW == 0.10 and SHAPE_MIN_POOL == 20
+          and LONGEST_KEY_RATIO == 1.5 and PYQ_FALSE_FAIL_MAX == 0.05 and CCP_MIN_POOL == QF_CCP_MIN_POOL
+          and REVIEW_PART_MAX == 30 and PYQ_SPARSE_MIN_ITEMS == 30 and COMMON_ENTITY_SHARE == 0.20
+          and QQ_RELEASE == '2026.11.03')
+    # G07 — one rule table; the cross-wired legacy numbers resolve to DIFFERENT ids
+    check('qq_item_rules_crosswire_resolved',
+          item_rule_id('I-1', 'analyse') == 'LONGEST_KEY' and item_rule_id('I-1', 'bc') == 'STEM_KEY_CLUE'
+          and item_rule_id('I-9', 'analyse') is None and ITEM_RULES['LONGEST_KEY']['hard'] is True)
+    check('qq_rule_suspension_only_by_measurement',
+          item_rule_suspended({'LONGEST_KEY': {'violation_rate': 0.15, 'measured': True}}, 'LONGEST_KEY') is True
+          and item_rule_suspended({'I-1': {'violation_rate': 0.15}}, 'LONGEST_KEY') is True
+          and item_rule_suspended({'LONGEST_KEY': {'violation_rate': 0.09}}, 'LONGEST_KEY') is False
+          and item_rule_suspended({'LONGEST_KEY': {'violation_rate': 0.5, 'measured': False}}, 'LONGEST_KEY') is False
+          and item_rule_suspended({}, 'LONGEST_KEY') is False)
+    _q33 = ['diisobutylaluminium hydride in toluene at -78 C, then aqueous acid work-up',
+            'lithium aluminium hydride in ether, then water', 'hydrogen over palladium on carbon',
+            'sodium borohydride in methanol']                                   # incident Q33: 75/46/33/30
+    _q40 = ['bimolecular alkyl-oxygen cleavage, with hydroxide attacking the ethyl carbon',
+            'unimolecular acyl-oxygen cleavage through an acylium ion',
+            'reversible hydroxide addition to the carbonyl carbon to give a tetrahedral intermediate that can expel either oxygen',
+            'base-promoted E2 elimination to give ethene and benzoate']        # incident Q40: 76/56/116/56
+    _q31 = ['attack of bromine on the protonated carbonyl group', 'acid-catalysed enolisation, involving cleavage of a C-H bond',
+            'loss of HBr from the bromo-oxocarbenium ion', 'protonation of the carbonyl oxygen']   # 1.42x -> PASS
+    check('qq_longest_key_incident', item_longest_key(_q33, 0) == 'FAIL' and item_longest_key(_q40, 2) == 'FAIL'
+          and item_longest_key(_q31, 1) == 'PASS' and item_longest_key(['4', '8', '6', '3'], 0) == 'N/A'
+          and item_longest_key(['A and B only', 'B and C only', 'A and D only', 'A, B and C only'], 3) == 'N/A'
+          and item_longest_key(['', '', '', ''], 0) == 'N/A')
+    check('qq_middle_value_key', item_middle_value_key(['2', '4', '8'], 1) == 'FAIL'
+          and item_middle_value_key(['2', '4', '8'], 0) == 'PASS' and item_middle_value_key(['2', '8', '4'], 1) == 'N/A'
+          and item_middle_value_key(['1', '2', '3', '4'], 1) == 'N/A')
+    # G01 — identity
+    check('qq_text_identity_rules',
+          text_identity('0.50') == text_identity('0.5') == text_identity('½')
+          and text_identity('0.50', sig_fig_sensitive=True) != text_identity('0.5', sig_fig_sensitive=True)
+          and text_identity('CO') != text_identity('Co') and text_identity('HF') != text_identity('Hf')
+          and text_identity('Paris') == text_identity('paris')
+          and text_identity('[Co(NH₃)₅Br]SO₄') != text_identity('[Co(NH₃)₅SO₄]Br')
+          and text_identity('H₂O') == text_identity('H2O'))
+    _dx = option_distinct_check(['0.50', '0.5', '1', '2'], 'TEXT')
+    check('qq_optdistinct_text_fail', _dx['state'] == 'FAIL' and _dx['duplicates'] == [(0, 1)]
+          and option_distinct_check(['0.50', '0.5'], 'TEXT', sig_fig_sensitive=True)['state'] == 'PASS'
+          and option_distinct_check(['CO', 'Co'], 'TEXT')['state'] == 'PASS'
+          and option_distinct_check(['a', 'b'], 'TEXT', md5s=['x', 'x'])['state'] == 'FAIL')
+    _na = option_distinct_check([{'a': 1}, {'a': 2}], 'GLYPH')
+    _nw = option_distinct_check([None, None], 'GLYPH', dhashes=['00', '01'])
+    check('qq_optdistinct_no_identity_fn', _na['state'] == 'N/A' and _nw['state'] == 'WARN'
+          and option_distinct_check([None, None], 'GLYPH', dhashes=['00', 'ffffffffffffffff'])['state'] == 'PASS')
+    check('qq_data_identity_ignores_colour',
+          option_distinct_check([{'series': [1, 2], 'color': 'red'}, {'series': [1, 2], 'color': 'blue'}], 'DATA')['state'] == 'FAIL'
+          and option_distinct_check([{'series': [1, 2]}, {'series': [1, 3]}], 'DATA')['state'] == 'PASS')
+    if _rdk:
+        # Appendix C: C/C=C/C=C\C and C\C=C/C=C/C are ONE molecule (incident Q32 options 2 and 3)
+        _q32 = option_distinct_check(['C/C=C/C=C/C', 'C/C=C/C=C\\C', 'C\\C=C/C=C/C', 'C=CCCC=C'], 'STRUCTURE')
+        check('qq_optdistinct_q32_duplicate', _q32['state'] == 'FAIL' and _q32['duplicates'] == [(1, 2)])
+        check('qq_optdistinct_enantiomers_and_EZ_distinct',
+              option_distinct_check(['C[C@H](O)CC', 'C[C@@H](O)CC'], 'STRUCTURE')['state'] == 'PASS'
+              and option_distinct_check(['C/C=C/C', 'C/C=C\\C'], 'STRUCTURE')['state'] == 'PASS')
+        check('qq_optdistinct_meso_and_kekule_duplicate',
+              option_distinct_check(['C[C@H](O)[C@@H](C)O', 'C[C@@H](O)[C@H](C)O'], 'STRUCTURE')['state'] == 'FAIL'
+              and option_distinct_check(['c1ccccc1', 'C1=CC=CC=C1'], 'STRUCTURE')['state'] == 'FAIL')
+        _tw = option_distinct_check(['O=c1cccc[nH]1', 'Oc1ccccn1'], 'STRUCTURE')
+        check('qq_optdistinct_tautomer_warn', _tw['state'] == 'WARN' and 'tautomer' in _tw['warns'][0]['reason'])
+        _sw = option_distinct_check(['C[C@H](O)CC', 'CC(O)CC'], 'STRUCTURE')
+        check('qq_optdistinct_stereo_ambiguous_warn', _sw['state'] == 'WARN' and 'ambiguous' in _sw['warns'][0]['reason'])
+        check('qq_optdistinct_mixture_multiset', option_distinct_check(['CCO.CC(=O)O', 'CC(=O)O.CCO'], 'STRUCTURE')['state'] == 'FAIL')
+        check('qq_optdistinct_unparseable_is_fail', option_distinct_check(['CCO', 'C(C'], 'STRUCTURE')['state'] == 'FAIL')
+        check('qq_reaction_identity_order_insensitive',
+              reaction_identity('CCO.CC(=O)O>[H+]>CCOC(C)=O.O') == reaction_identity('CC(=O)O.CCO>[H+]>O.CCOC(C)=O'))
+        # Q-A — the Q32 MECHANISM: the author meant (2Z,4Z) and wrote the slashes wrong
+        check('qq_stereodecl_catches_q32_intent', stereo_declaration_check('C\\C=C/C=C/C', '2Z,4Z')['state'] == 'FAIL'
+              and stereo_declaration_check('C/C=C/C=C\\C', '2E,4Z')['state'] == 'PASS'
+              and stereo_declaration_check('C/C=C/C=C/C', '(2E,4E)')['state'] == 'PASS'
+              and stereo_declaration_check('C[C@H](O)CC', '(2S)')['state'] == 'PASS'
+              and stereo_declaration_check('C[C@H](O)CC', '(2R)')['state'] == 'FAIL'
+              and stereo_declaration_check('CCO', '')['state'] == 'WARN'
+              and stereo_declaration_check('CCO', 'none')['state'] == 'PASS'
+              and stereo_declaration_check('C(C', 'R')['state'] == 'N/A')
+        # G06 — incident distractors
+        check('qq_class_predicate_q3', class_predicate_check('alkene', ['CC(C)=C(C)C', 'C=C(C)C(C)C',
+              'CC(C)(OC(C)(C)C)C(C)C', 'CC(C)(O)C(C)C'])['findings'] == [2, 3]
+              and class_predicate_check('alkene', ['CC(C)=C(C)C'])['state'] == 'PASS'
+              and class_predicate_check('zorblax', ['CCO'])['state'] == 'N/A')
+        check('qq_data_consistency_q6', data_consistency_check(['COC(=O)c1ccc(OC)cc1', 'COc1ccc(C(=O)O)cc1'],
+              stated_formula='C₉H₁₀O₃')['findings'][0][0] == 1
+              and data_consistency_check(['COC(=O)c1ccc(OC)cc1'], stated_formula='C9H10O3')['state'] == 'PASS'
+              and data_consistency_check(['CCO'])['state'] == 'N/A')
+        _inv = inventory_check(['CC(C)(OC)CO', 'CC(C)(C)OC'], ['CC1(C)CO1'], ['NaOMe', 'MeOH'], key_smiles='CC(C)(OC)CO',
+                               mechanisms=['regioisomer', 'regioisomer'])
+        check('qq_inventory_mcs', _inv['state'] in ('PASS', 'FAIL') and _inv['reviewer'] is False
+              and inventory_check(['CCO'], ['CC=O'], ['unobtainium-X'])['reviewer'] is True
+              and inventory_check(['CCBr'], ['CCO'], ['NaOH'])['state'] == 'FAIL')
+        _mf = mechanism_formula_check(['CC(C)(C)OC', 'CC(C)(OC)CO'], 'CC(C)(OC)CO', ['regioisomer', 'regioisomer'])
+        check('qq_mechanism_formula_q11', _mf['state'] == 'FAIL' and _mf['findings'][0][0] == 0
+              and mechanism_formula_check(['CC(C)(O)COC'], 'CC(C)(OC)CO', ['regioisomer'])['state'] == 'PASS'
+              and mechanism_formula_check(['CC(C)(O)CO', 'CC(C)(OC)CO'], 'CC(C)(OC)COC', ['over_reaction', 'under_reaction'],
+                                          reagent_unit_formula='CH2')['state'] == 'PASS')
+        check('qq_near_isomer', near_isomer_check(['C[C@H](O)CC', 'C[C@@H](O)CC', 'CC(O)(C)C', 'CCCCO'], 'C[C@H](O)CC', 0.6)['state'] == 'PASS'
+              and near_isomer_check(['CCCCCCCCO', 'c1ccccc1', 'CC', 'C[C@H](O)CC'], 'C[C@H](O)CC', 0.6)['state'] == 'FAIL'
+              and near_isomer_check(['CC'], 'CCO', 0.1)['state'] == 'N/A')
+        # G03 — ledger on incident facts (Q5 key == Q12/Q36 given; Q24/Q38 same picture; Q13/Q40 ethyl benzoate vs 18O)
+        _led = EntityLedger()
+        _led.register(5, 'key', 'COc1ccc(C(C)=O)cc1', 'STRUCTURE')
+        _led.register(12, 'given', 'COc1ccc(C(C)=O)cc1', 'STRUCTURE')
+        _led.register(13, 'given', 'CCOC(=O)c1ccccc1', 'STRUCTURE')
+        _led.register(40, 'given', 'CCOC(=[18O])c1ccccc1', 'STRUCTURE')
+        _led.register(3, 'given', 'CC(C)C(C)(C)Br', 'STRUCTURE')
+        _led.register(14, 'key', 'CC(C)C(C)(C)Br', 'STRUCTURE')
+        _led.register(2, 'key', 'NaBH4', 'TEXT')
+        _led.register(20, 'reagent', 'NaBH4', 'TEXT')
+        _led.register(7, 'given', 'O', 'STRUCTURE')
+        _led.register(8, 'given', 'O', 'STRUCTURE')                            # water: stoplisted (<= 3 heavy)
+        _led.register_picture(24, 'md5-lim', None); _led.register_picture(38, 'md5-lim', None)
+        _r = _led.check()
+        _rules = sorted((x['rule'], x['q'], x['other_q']) for x in _r['findings'])
+        check('qq_entity_ledger_incident', _r['state'] == 'FAIL'
+              and ('a', 12, 5) in _rules and ('a', 14, 3) in _rules and ('b', 40, 13) in _rules and ('c', 38, 24) in _rules
+              and not any(x['q'] in (2, 20, 8) for x in _r['findings']))
+        _led2 = EntityLedger(linked_sets=[[24, 38]])
+        _led2.register_picture(24, 'm', None); _led2.register_picture(38, 'm', None)
+        check('qq_entity_ledger_linked_set_exempt', _led2.check()['state'] == 'PASS')
+        _led3 = EntityLedger(text_calibrated_warn=True)
+        _led3.register(1, 'key', 'India', 'TEXT'); _led3.register(9, 'given', 'india', 'TEXT')
+        check('qq_entity_ledger_text_calibrated_warn', _led3.check()['state'] == 'WARN')
+        check('qq_scaffold_rules', generic_scaffold('c1ccccc1') is None and generic_scaffold('C1CCC2CCCCC2C1') is not None
+              and generic_scaffold('CCCCCCCCCCCC') is None)
+        check('qq_isotope_stripped', strip_isotope_identity('CCOC(=[18O])c1ccccc1') == strip_isotope_identity('CCOC(=O)c1ccccc1'))
+        check('qq_consist_stereo_count_q17', consist_check([], [], ask_type='stereoisomer_count', counted_smiles='C/C=C/C(O)/C=C/C')['state'] == 'FAIL'
+              and consist_check([], [], ask_type='stereoisomer_count', counted_smiles='CC=CC(O)C=CC')['state'] == 'PASS')
+        check('qq_reagent_lexicon_size_and_resolution', len(REAGENT_LEXICON) >= REAGENT_LEXICON_MIN
+              and reagent_smiles('m-cpba') == REAGENT_LEXICON['m-CPBA'] and reagent_smiles('nope-X') is None
+              and all(_qq_rdkit().MolFromSmiles(v) is not None for v in REAGENT_LEXICON.values())
+              and all(_qq_rdkit().MolFromSmarts(v) is not None for v in CLASS_PREDICATES.values()))
+    else:
+        check('qq_structure_identity_none_without_rdkit', structure_identity('CCO') is None
+              and stereo_declaration_check('CCO', 'R')['state'] == 'N/A')
+    # G03 — media reuse (incident: Q12/Q36 and Q24/Q38 share one media part each)
+    _mr = media_reuse_check({'12': ['a'], '36': ['a'], '24': ['b'], '38': ['b'], '1': ['c', 'd']})
+    check('qq_media_reuse_incident', _mr['state'] == 'FAIL' and len(_mr['findings']) == 2
+          and media_reuse_check({'1': ['a'], '2': ['a']}, linked_sets=[[1, 2]])['state'] == 'PASS'
+          and media_reuse_check({'1': ['a'], '2': ['b']})['state'] == 'PASS')
+    check('qq_common_entity_min_papers', common_entity_list({'x': ['p1', 'p2']}, 4) == []
+          and common_entity_list({'x': ['p1', 'p2'], 'y': ['p1']}, 6) == ['x'])
+    check('qq_text_leak_calibration', text_leak_calibration(1, 30) is True and text_leak_calibration(0, 30) is False
+          and text_leak_calibration(1, 90) is False and text_leak_calibration('x', 'y') is False)
+    # G04 — stem leak on incident stems
+    _lex = tested_concept_lexicon(['Friedel-Crafts acylation', 'Diels-Alder', 'iodoform reaction', 'Baeyer-Villiger',
+                                   'Finkelstein', 'Vilsmeier', 'Sharpless', 'alkene'],
+                                  ['electrocyclic'], ask_nouns=['alkene'], reagent_lexicon={'DMF': 'x'})
+    check('qq_lexicon_excludes_ask_noun', 'alkene' not in _lex and 'friedel-crafts acylation' in _lex and 'dmf' not in _lex)
+    _s5 = stem_leak_check('The major product formed in the Friedel-Crafts acylation of anisole under the given conditions is', _lex)
+    _s5b = stem_leak_check('The major product formed in the Friedel-Crafts acylation of anisole is', _lex, named_concept_rate=0.12)
+    check('qq_stemleak_a_named_reaction', _s5['state'] == 'FAIL' and _s5['findings'][0]['rule'] == 'a' and _s5b['state'] == 'PASS')
+    _s13 = stem_leak_check('The major product obtained when ethyl benzoate is treated with excess MeMgBr is', [],
+                           drawn_identities=['id-ethylbenzoate'], named_entities=[('ethyl benzoate', 'id-ethylbenzoate')])
+    check('qq_stemleak_b_shown_entity_named', _s13['state'] == 'FAIL' and _s13['findings'][0]['rule'] == 'b'
+          and stem_leak_check('x', [], drawn_identities=['i'], named_entities=[('e', 'i')], shown_entity_named_rate=0.5)['state'] == 'PASS')
+    _s40 = stem_leak_check('Ethyl benzoate enriched with 18O is partly hydrolysed', [], scheme_annotations=['partial hydrolysis', '(200 °C)', 'excess'],
+                           trailing_placeholders=['P'], asked_placeholders=[])
+    check('qq_stemleak_c_d_q40', _s40['state'] == 'FAIL' and sorted(x['rule'] for x in _s40['findings']) == ['c', 'd'])
+    check('qq_stemleak_lettered_intermediate_allowed',
+          stem_leak_check('Identify the product, B', [], trailing_placeholders=['A', 'B'], asked_placeholders=['B'],
+                          multi_step_lettered_allowed=True)['state'] == 'PASS'
+          and stem_leak_check('Identify P', [], trailing_placeholders=['P'], asked_placeholders=['P'])['state'] == 'PASS')
+    check('qq_stem_form', stem_length_bound({'min': 4, 'max': 46, 'p90': 30}) == (4, 46)
+          and stem_length_bound({'min': 4, 'max': 20, 'p90': 30}) == (4, 36)
+          and stem_form_check('a|b', ['a|b'], 18, (4, 46))['state'] == 'PASS'
+          and stem_form_check('z|z', ['a|b'], 18, (4, 46))['state'] == 'FAIL'
+          and stem_form_check('a|b', ['a|b'], 64, (4, 46))['state'] == 'FAIL'
+          and stem_form_check('a|b', [], 64, (4, 46))['state'] == 'N/A'
+          and stem_word_count('Q line here', []) == 3)
+    # G05 — shapes: floors AND caps (OD-6 c); real paper: statement 3/30 -> N=40 target 4
+    _st = shape_targets({'product': 0.5, 'statement': 0.1, 'rare': 0.01}, 40, 0)
+    check('qq_shape_targets', _st['product'] == {'target': 20, 'floor': 1, 'cap': 22}
+          and _st['statement'] == {'target': 4, 'floor': 1, 'cap': 6} and _st['rare']['floor'] == 0
+          and shape_targets({'rare': 0.01}, 40, 2)['rare']['floor'] == 1)       # 0.4/paper: due in paper index 2
+    _sm = shape_mix_check({'product': 30, 'statement': 0}, _st)
+    check('qq_shape_mix_incident', _sm['state'] == 'FAIL'
+          and {x['shape']: x['direction'] for x in _sm['findings']} == {'product': 'above cap', 'statement': 'below floor'}
+          and shape_mix_check({'product': 20, 'statement': 4}, _st)['state'] == 'PASS'
+          and shape_mix_check({'product': 20}, _st, infeasible=['statement'])['state'] == 'PASS')
+    _plan = assign_shape_plan([{'q': 1, 'subtopic_id': 'a', 'qtype': 'mcq'}, {'q': 2, 'subtopic_id': 'a', 'qtype': 'mcq'},
+                               {'q': 3, 'subtopic_id': 'b', 'qtype': 'mcq'}],
+                              {'a': ['product', 'statement'], 'b': ['product']},
+                              {'product': {'target': 2, 'floor': 1, 'cap': 4}, 'statement': {'target': 1, 'floor': 1, 'cap': 3}}, seed='x')
+    check('qq_shape_plan_floors_first', sorted(v for k, v in _plan.items() if k != '_infeasible') == ['product', 'product', 'statement']
+          and _plan['_infeasible'] == [] and _plan[3] == 'product')
+    check('qq_shape_plan_infeasible_recorded',
+          assign_shape_plan([{'q': 1, 'subtopic_id': 'b', 'qtype': 'mcq'}], {'b': ['product']},
+                            {'statement': {'target': 1, 'floor': 1, 'cap': 1}})['_infeasible'] == ['statement'])
+    # G08 — template caps: incident "reaction + spectra" x3
+    _fp = template_fingerprint('spectrum_to_structure', 'mcq', 'plus_partner', 'spectra')
+    check('qq_template_caps', template_cap(None, 40, 30) == 2 and template_cap(1, 40, 30) == 1 and template_cap(2, 40, 30) == 3
+          and template_cap(1, 40, 30, scope_share=0.5) == 21
+          and template_check({_fp: 3}, {_fp: 2})['state'] == 'FAIL' and template_check({_fp: 2}, {_fp: 2})['state'] == 'PASS'
+          and template_check({}, {}, concept_counts={'c1': 3}, concept_caps={'c1': 2})['state'] == 'FAIL')
+    # G06 — mechanism record
+    check('qq_distractor_record', distractor_record_check(['regioisomer', 'over_reaction', 'starting_material'], 4)['state'] == 'PASS'
+          and distractor_record_check(['regioisomer'], 4)['state'] == 'FAIL'
+          and distractor_record_check(['regioisomer', 'bogus', 'x'], 4)['state'] == 'FAIL'
+          and distractor_record_check([], 0)['state'] == 'N/A')
+    # G09 — consistency + names (incident Q39: stem says aqueous acetonitrile, figure says H2O; Q37 bracket style)
+    check('qq_consist_q39', consist_check(['HgCl2', 'aqueous acetonitrile'], ['HgCl2', 'H2O'])['state'] == 'FAIL'
+          and consist_check(['HgCl₂', 'H2O'], ['HgCl2', 'water'])['state'] == 'PASS'
+          and consist_check([], [], ask_type='product_prediction')['state'] == 'N/A')
+    check('qq_iupac_style_q37', iupac_style_check('(2S,3S)-3-propyloxiran-2-ylmethanol')['state'] == 'FAIL'
+          and iupac_style_check('[(2S,3S)-3-propyloxiran-2-yl]methanol')['state'] == 'PASS'
+          and iupac_style_check('acetone-d6')['state'] == 'FAIL' and iupac_style_check('((x)')['state'] == 'FAIL')
+    # G10 / OD-1 — readiness: this project as it stands -> MISSING / STALE, NEVER a raise
+    _inp = {'style_profile.json': None, 'pyq_index.json': None, 'exemplar_bank.json': None,
+            'difficulty_profile.json': {'_meta': {'schema': 1}, 'papers': {}},
+            'section_rules.md': 'stem_word_count: min=4 max=46 typical=18\n', 'blueprint.json': {'fig_ask_target_per_mock': {}}}
+    _rd = quality_readiness(_inp)
+    check('qq_readiness_incident_project', _rd['controls']['G-STYLE']['status'] == 'MISSING'
+          and _rd['controls']['G-STEMFORM']['status'] == 'STALE' and _rd['controls']['G-STEMLEAK']['status'] == 'STALE'
+          and _rd['controls']['G-SHAPEMIX']['status'] == 'STALE' and 'G-STYLE' in _rd['degraded'] and _rd['sparse'] is False)
+    _blk = quality_readiness_block(_rd)
+    check('qq_readiness_block_is_loud_not_a_stop', 'DEGRADED QUALITY' in _blk and 'Remedies' in _blk and 'never a stop' in _blk
+          and degraded_footer_line(_rd).startswith('DEGRADED QUALITY') and degraded_footer_line({'degraded': []}).startswith('Quality controls: all'))
+    _rs = quality_readiness(_inp, pyq_items=12)
+    check('qq_readiness_sparse_is_na', _rs['sparse'] is True and _rs['controls']['G-STYLE']['status'] == 'N/A'
+          and _rs['controls']['G-SHAPEMIX']['status'] == 'STALE')
+    _full = {'style_profile.json': {'schema': 2, 'paper': {'x': 1}, 'item_rules': {'LONGEST_KEY': {}}}, 'pyq_index.json': {'_meta': {'schema': 1}, 'questions': [1]},
+             'exemplar_bank.json': {'_meta': {'schema_version': 1}, 'cells': {'c': {}}},
+             'difficulty_profile.json': {'_meta': {'schema': 1}, 'papers': {'p': {}}},
+             'section_rules.md': 'named_concept_rate stem_word_count_pct near_isomer_share fingerprint_max_per_paper PYQ_COMMON_ENTITIES',
+             'blueprint.json': {'shape_target_per_paper': {'1': {'x': {}}}}}
+    check('qq_readiness_all_pass', quality_readiness(_full)['degraded'] == [])
+    _rm = readiness_mark(quality_readiness(_full), 'G-SHAPEMIX', 'STALE', 'no targets for paper 3')
+    check('qq_readiness_mark_and_empty_values',
+          'G-SHAPEMIX' in _rm['degraded'] and _rm['controls']['G-SHAPEMIX']['status'] == 'STALE'
+          and 'G-SHAPEMIX' not in readiness_mark(_rm, 'G-SHAPEMIX', 'PASS', '')['degraded']
+          and readiness_mark(None, 'X', 'MISSING', 'r')['degraded'] == ['X']
+          and quality_readiness(dict(_full, **{'blueprint.json': {'shape_target_per_paper': {}}}))['controls']['G-SHAPEMIX']['status'] == 'STALE'
+          and quality_readiness(dict(_full, **{'exemplar_bank.json': {'_meta': {'schema_version': 1}, 'cells': {}}}))['controls']['G-DIFF-JUDGE']['status'] == 'STALE')
+    # G02 — judge packet strips author fields; final band precedence; OD-4 tolerance INFO
+    _pk = build_judge_input({'stem': 's', 'options': ['a', 'b'], 'difficulty_obs': {'deduction_steps': 5}, 'difficulty': 'Hard',
+                             'solution': 'x', 'content_record': {'smiles': 'CCO'}}, {'Hard': [{'stem': 'e', 'solution': 'z'}]}, ['Easy', 'Medium', 'Hard'])
+    check('qq_judge_input_blinded', 'difficulty_obs' not in _pk['item'] and 'difficulty' not in _pk['item'] and 'solution' not in _pk['item']
+          and 'solution' not in _pk['exemplars']['Hard'][0] and len(_pk['sha256']) == 64 and _pk['over_budget'] is False)
+    _L = ['Easy', 'Medium', 'Hard']
+    check('qq_final_band_precedence', final_band_decision('Hard', 'ok', 'Hard', _L) == 'Hard'
+          and final_band_decision('Hard', 'below', 'Easy', _L) == 'Easy' and final_band_decision('Easy', 'above', 'Hard', _L) == 'Easy'
+          and final_band_decision(None, 'below', 'Easy', _L) == 'Easy' and final_band_decision(None, 'dormant', None, _L) is None)
+    check('qq_diff_tol_info', diff_band_tolerance(14) == 1 and diff_band_tolerance(24) == 2 and diff_band_tolerance(40) == 4
+          and diffdist_info({'Hard': 24}, {'Hard': 0})[0]['within'] is False)
+    # generalised CCP: 2-band exam gets one cut; 3-band keeps easy_max/medium_max
+    _pool2 = [({'heavy_atoms': i, 'rings': 0}, 'Lo' if i < 15 else 'Hi') for i in range(5, 35)]
+    _m2 = ccp_model(_pool2, {'Lo': 50, 'Hi': 50}, ['Lo', 'Hi'])
+    _pool3 = [({'heavy_atoms': i, 'rings': 0}, 'E' if i < 12 else ('M' if i < 25 else 'H')) for i in range(5, 35)]
+    _m3 = ccp_model(_pool3, {'E': 20, 'M': 50, 'H': 30}, ['E', 'M', 'H'])
+    check('qq_ccp_model_generalised', _m2['active'] is True and len(_m2['cuts']['cuts_list']) == 1
+          and ccp_band(_m2, {'heavy_atoms': 6}) == 'Lo' and ccp_band(_m2, {'heavy_atoms': 34}) == 'Hi'
+          and _m3['active'] is True and 'easy_max' in _m3['cuts'] and ccp_band(_m3, {'heavy_atoms': 34}) == 'H'
+          and ccp_band({'active': True, 'labels': ['E', 'M', 'H'], 'cuts': {'easy_max': 1.0, 'medium_max': 2.0}, 'fields': _m3['fields']},
+                       {'heavy_atoms': 34}) == 'H')
+    _bk = {'cells': {'oc.a.x': {'Hard': {'mcq': [{'stem': 'h1'}]}},
+                     'oc.a': {'Easy': {'mcq': [{'stem': 'e'}]}, 'Medium': {'nat': [{'stem': 'm'}]}, 'Hard': {'mcq': [{'stem': 'h'}, {'stem': 'h2'}]}}}}
+    _ef = exemplars_for(_bk, 'oc.a.x', 'mcq')
+    _bk2 = {'cells': {'oc.a.x': {'Hard': {'mcq': [{'stem': 'h1'}]}}, 'oc.a.y': {'Medium': {'mcq': [{'stem': 'm2'}]}}}}
+    _ef2 = exemplars_for(_bk2, 'oc.a.x', 'mcq', ['Easy', 'Medium', 'Hard'])
+    check('qq_exemplars_for_prefix_union', _ef2['by_band']['Medium'][0]['stem'] == 'm2' and _ef2['level_used']['Medium'] == 'oc.a'
+          and _ef2['level_used']['Hard'] == 'oc.a.x' and _ef2['complete'] is False and _ef2['by_band']['Easy'] == [])
+    check('qq_exemplars_for_cascade', _ef['level_used'] == {'Easy': 'oc.a', 'Medium': 'oc.a', 'Hard': 'oc.a.x'}
+          and _ef['by_band']['Medium'][0]['stem'] == 'm' and _ef['by_band']['Hard'][0]['stem'] == 'h1' and _ef['complete'] is True
+          and exemplars_for({}, 'oc.a')['by_band'] == {} and exemplars_for(_bk, 'zz')['level_used'] == {}
+          and exemplars_for({'cells': {'oc.a': {'Hard': {'mcq': [{'stem': 'h'}]}}}}, 'oc.a')['complete'] is False
+          and build_judge_input({'stem': 's'}, _ef['by_band'], ['Easy', 'Medium', 'Hard'])['exemplars']['Hard'][0]['stem'] == 'h1')
+    _bank, _dropped = exemplar_bank_write({'c': {'Hard': {'mcq': [{'stem': 'x' * 2000}] * 5}}}, max_kb=5)
+    check('qq_exemplar_bank_budget', len(_bank['cells']['c']['Hard']['mcq']) <= 3 and _dropped >= 1
+          and _bank['_meta']['schema_version'] == 1)
+    # G12 / OD-5 / OD-9 — review packet, binding, certificate, deliver gate
+    _rp = review_packet([{'q': i, 'stem': 's', 'difficulty': 'Hard', 'difficulty_obs': {}} for i in range(1, 62)], {}, 'md5x')
+    check('qq_review_packet', len(_rp['parts']) == 3 and 'difficulty' not in _rp['parts'][0]['items'][0]
+          and _rp['parts'][2]['checklist'] == list(REVIEW_CHECKLIST) and _rp['n_items'] == 61)
+    _ok_v = {'paper_md5': 'md5x', 'items': {str(i): dict({c: 'x' for c in REVIEW_CHECKLIST}, key_agrees=True, verdict='PASS') for i in range(1, 4)}}
+    _bad_v = {'paper_md5': 'other', 'items': {'1': {'own_key': 1}}}
+    _dis_v = {'paper_md5': 'md5x', 'items': {str(i): dict({c: 'x' for c in REVIEW_CHECKLIST}, key_agrees=(i != 2), verdict='PASS',
+                                                      confidence='low' if i == 3 else 'high') for i in range(1, 4)}}
+    check('qq_bind_review_verdicts', bind_review_verdicts(_ok_v, 'md5x', 3)['ok'] is True
+          and bind_review_verdicts(_bad_v, 'md5x', 3)['ok'] is False and len(bind_review_verdicts(_bad_v, 'md5x', 3)['problems']) >= 2
+          and bind_review_verdicts(_dis_v, 'md5x', 3)['disagreements'] == ['2']
+          and bind_review_verdicts(_dis_v, 'md5x', 3)['defects'] == ['2', '3'])
+    check('qq_review_key_agreement', review_key_agreement('b', 2) is True and review_key_agreement('(C)', 2) is False
+          and review_key_agreement('ii', 2) is True and review_key_agreement(['a', 'c'], [1, 3]) is True
+          and review_key_agreement('a, c', [1, 3]) is True and review_key_agreement('a and c', [1, 2]) is False
+          and review_key_agreement('2.50', 2.5) is True and review_key_agreement('2.6', 2.5, (2.4, 2.7)) is True
+          and review_key_agreement(None, 2) is None and review_key_agreement('zz', 2) is None
+          and review_key_agreement(3, 3) is True and review_key_agreement('option 4', 4) is True)
+    _rv, _rvp = review_verdict_file('EX', 'M1', 'md5x', {'2': {c: 'ok' for c in REVIEW_CHECKLIST}, '1': {'own_key': 'b'}})
+    check('qq_review_verdict_file', list(_rv['items']) == ['1', '2'] and _rv['items']['1']['confidence'] == 'low'
+          and _rv['items']['1']['verdict'] == 'FAIL' and _rv['items']['2']['verdict'] == 'PASS'
+          and _rv['items']['2']['key_agrees'] is None and _rv['paper_md5'] == 'md5x' and len(_rvp) == 1
+          and bind_review_verdicts(_rv, 'md5x', 2)['ok'] is True and bind_review_verdicts(_rv, 'md5x', 2)['defects'] == ['1'])
+    check('qq_certificate_and_deliver_gate', certificate_uncertified({'1': 'CERTIFIED', '32': 'UNRESOLVED(A-OPTDISTINCT)', '7': 'UNRESOLVED(x)'}) == ['7', '32']
+          and deliver_allowed({'uncertified_items': []}) == (True, 'certified')
+          and deliver_allowed({'uncertified_items': ['32']})[0] is False
+          and deliver_allowed({'uncertified_items': ['32']}, accept_uncertified=True)[0] is True
+          and quality_status([]) == 'CERTIFIED' and quality_status(['A-OPTDISTINCT', 'A-STEMLEAK']) == 'UNRESOLVED(A-OPTDISTINCT,A-STEMLEAK)')
+    check('qq_producer_release_gate', producer_release_gate('2026.11.03') is True and producer_release_gate('2026.11.02') is False
+          and producer_release_gate(None) is False and producer_release_gate('2026.12.01') is True)
+    # release-review fixtures (2026.11.03 cold review)
+    _rd_saved = globals()['_qq_rdkit']
+    globals()['_qq_rdkit'] = lambda: None
+    _na = option_distinct_check(['CCO', 'CCO', 'CC'], 'STRUCTURE')
+    globals()['_qq_rdkit'] = _rd_saved
+    check('qq_optdistinct_no_rdkit_is_na', _na['state'] == 'N/A' and 'RDKit' in _na['reason']
+          and option_distinct_check([None, '', 'a', 'b'], 'TEXT')['state'] == 'PASS'
+          and option_distinct_check(['', ''], 'TEXT')['state'] == 'PASS')
+    check('qq_text_identity_comma_percent', text_identity('1,5') != text_identity('15')
+          and text_identity('1,500') == text_identity('1500') and text_identity('50%') != text_identity('50')
+          and text_identity('50 %') == text_identity('50%'))
+    _qsub = ('--- Subtopic: A ---\nsubtopic_id: oc.10\nQUALITY (v2.59):\n  n: 30\n  named_concept_rate: 0.9\n'
+             '  shape_shares: {}\n  papers_measured: 3\n--- Subtopic: B ---\nsubtopic_id: oc.1\nQUALITY (v2.59):\n'
+             '  n: 30\n  named_concept_rate: 0.1\n  shape_shares: {}\n  papers_measured: 3\n')
+    check('qq_quality_block_exact_subtopic_match',
+          quality_block_for_subtopic(_qsub, 'oc.1')['named_concept_rate'] == 0.1
+          and quality_block_for_subtopic(_qsub, 'oc.10')['named_concept_rate'] == 0.9
+          and quality_block_for_subtopic(_qsub, 'oc.1')['n'] == 30
+          and quality_block_for_subtopic(_qsub, 'oc') is None and quality_block_for_subtopic(_qsub, '') is None
+          and quality_block_for_subtopic(_qsub.replace('\n', '\r\n'), 'oc.1')['named_concept_rate'] == 0.1)
+    if _qq_rdkit() is not None:
+        check('qq_stereo_decl_relative_vocab',
+              stereo_declaration_check('C/C=C\\C', 'cis')['state'] == 'PASS'
+              and stereo_declaration_check('C[C@H](O)[C@@H](C)O', 'meso')['state'] == 'PASS'
+              and stereo_declaration_check('CCCC', 'trans')['state'] == 'FAIL'
+              and stereo_declaration_check('C/C=C\\C', 'squiggly')['state'] == 'WARN'
+              and stereo_declaration_check('C/C=C\\C', {'E': 'two'})['state'] == 'WARN')
+        check('qq_structure_identity_keeps_axial_stereo',
+              structure_identity('CC=[C@]=CC') != structure_identity('CC=[C@@]=CC')
+              and structure_identity('CC=[C@]=CC') is not None)
+    _tc = template_check({'fp1': 4}, {'fp1': 2}, exempt_qs=['3', '4'], items_by_fingerprint={'fp1': ['1', '2', '3', '4']})
+    _tc2 = template_check({'fp1': 4}, {'fp1': 2}, items_by_fingerprint={'fp1': ['1', '2', '3', '4']})
+    _tc3 = template_check({}, {}, concept_counts={'eas': 3}, concept_caps={'eas': 2}, items_by_concept={'eas': ['1', '2', '3']})
+    _tc4 = template_check({}, {}, concept_counts={'eas': 9}, items_by_concept={'eas': [str(i) for i in range(9)]})
+    check('qq_template_exempt_and_items', _tc['state'] == 'PASS' and _tc2['state'] == 'FAIL'
+          and _tc2['findings'][0]['items'] == ['3', '4']
+          and _tc3['state'] == 'FAIL' and _tc3['findings'][0]['items'] == ['3'] and _tc4['state'] == 'PASS')
+    _lg = EntityLedger(common_entities=['benzene', 'c1ccccc1'])
+    check('qq_ledger_blank_and_qnum', _lg.register('Q12', 'key', '   ', 'TEXT') is None
+          and _lg.register('Q12', 'key', 'Hexanal', 'TEXT') is not None and _lg.rows[-1][0] == 12
+          and _lg.register('Q7', 'given', 'benzene', 'TEXT') is None
+          and (_qq_rdkit() is None or _lg.register('Q8', 'given', 'c1ccccc1', 'STRUCTURE') is None))
+    check('qq_key_index_and_float_guards',
+          item_longest_key(['a', 'bb', 'a much longer option here', 'c'], 'c') == 'FAIL'
+          and item_longest_key(['a', 'bb', 'a much longer option here', 'c'], 'zz') == 'N/A'
+          and _qq_float('unmeasured') == 0.0 and _qq_float('0.4') == 0.4
+          and stem_leak_check('plain stem', ['friedel'], named_concept_rate='unmeasured')['state'] != 'ERROR')
+    _sp = assign_shape_plan([{'q': 'Q1', 'subtopic_id': 's'}, {'q': 2, 'subtopic_id': 's'}],
+                            {'s': None, 't': ['x']}, {'x': {'target': 1}, 'y': {}}, seed='z')
+    check('qq_assign_shape_plan_tolerant', isinstance(_sp, dict) and '_infeasible' in _sp)
+    check('qq_false_fail_guard', false_fail_guard({'A-STEMLEAK': (2, 30), 'A-OPTDISTINCT': (0, 30), 'x': ('a', 'b')})
+          == {'A-STEMLEAK': 'WARN', 'A-OPTDISTINCT': 'HARD', 'x': 'HARD'})
+    _qtxt = ('--- Subtopic: X ---\nsubtopic_id: oc.x\nQUALITY (v2.59):\n  named_concept_rate: 0.25\n'
+             '  shown_entity_named_rate: unmeasured\n  stem_word_count_pct: {"p10": 5, "p50": 10, "p90": 30}\n'
+             '  tested_concept_lexicon: ["a b"]\n  shape_shares: {"product_prediction|none": 1.0}\n'
+             '  fingerprint_max_per_paper: {"f": 2}\n  near_isomer_share: 0.5\n  data_block_layout: inline\n'
+             '  papers_measured: 3\n\nSTYLE (v2.56):\n  legacy_mode: None\n--- Subtopic: Y ---\nsubtopic_id: oc.y\n')
+    _qrd = quality_block_for_subtopic(_qtxt, 'oc.x')
+    check('qq_read_quality_block', _qrd['named_concept_rate'] == 0.25 and _qrd['shown_entity_named_rate'] == 'unmeasured'
+          and _qrd['stem_word_count_pct']['p90'] == 30 and _qrd['tested_concept_lexicon'] == ['a b']
+          and _qrd['papers_measured'] == 3 and _qrd['near_isomer_share'] == 0.5
+          and quality_block_for_subtopic(_qtxt, 'oc.y') is None and read_quality_block('') is None
+          and quality_block_for_subtopic(_qtxt, 'oc.nope') is None)
+    check('qq_bench_card_renders', 'PYQ BENCH CARD' in pyq_bench_card([{'row': 'r', 'paper': 1, 'pyq': 2, 'fail_constant': None, 'state': 'INFO'}]))
+    check('qq_ladder_entry_rungs', ladder_entry('A-OPTDISTINCT') == 'R2o' and ladder_entry('A-STEMLEAK') == 'R2s'
+          and ladder_entry('A-SHAPEMIX') == 'R3' and ladder_entry(['A-OPTDISTINCT', 'A-ENTITYLEAK']) == 'R2o' and ladder_entry(['A-OPTDISTINCT', 'G-FIGLABEL']) == 'R1'
+          and set(LADDER_SUBRUNGS) == {'R2s', 'R2o'})
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -10214,7 +10690,11 @@ def dp_check_profile(profile, exam_code, difficulty_labels):
 # v1.29 (GAP-2026-11-02): optional per-question content keys dp_add_paper carries through.
 DP_CONTENT_KEYS = ('content_objects', 'answer_smiles', 'abbreviations_seen',
                    'site_mark_device', 'figural_ask_type', 'representations',
-                   'scheme_grammar', 'content_confidence')
+                   'scheme_grammar', 'content_confidence',
+                   # v1.30 (GAP-2026-11-03) — PYQExplain v2.26 §13A-3 per-item tags that Step 5's
+                   # QUALITY measurement and the exemplar bank read (additive; schema stays 1)
+                   'ask_type', 'drawn_names', 'near_isomer_set', 'distractor_mechanisms',
+                   'concept', 'named_concepts', 'stereo_decl')
 
 
 def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
@@ -12374,6 +12854,7 @@ QF_BUILDER = 'bc.scoped_difficulty_schedule'
 # A-DPROFILE against the profile). Not recomputable by the scoped builder, never 'unverified'.
 FULL_PAPER_BUILDER = 'Framework_Blueprint.S7-0'
 LADDER_RUNGS = ('R1', 'R2', 'R3', 'R4', 'R5')
+LADDER_RUNG_ORDER = ('R1', 'R2s', 'R2o', 'R2', 'R3', 'R4', 'R5')   # v1.30 — with sub-rungs (GAP-2026-11-03 §4.1)
 LADDER_ENTRY_RUNG = {
     # R1 — deterministic re-render, no new content (GAP §4.2)
     'W-FIGLABELPX': 'R1', 'G-FIGLABEL': 'R1', 'G-FIGCOLLIDE': 'R1', 'G-FIGOVERPRINT': 'R1',
@@ -13169,10 +13650,10 @@ def ccp_model(pool_vectors, band_shares, labels=None):
     fields = {f: sorted(v[f] for v, _ in pool
                         if isinstance(v.get(f), (int, float)) and not isinstance(v.get(f), bool))
               for f in QF_CCP_FIELDS}
-    model = {'active': len(pool) >= QF_CCP_MIN_POOL and len(labels) == 3, 'n': len(pool),
+    model = {'active': len(pool) >= QF_CCP_MIN_POOL and len(labels) >= 2, 'n': len(pool),
              'labels': labels, 'fields': fields, 'cuts': {}, 'achieved_shares': {},
              'calibration': {'agree': 0, 'n': 0}}
-    if len(labels) != 3:
+    if len(labels) < 2:
         return model
     comps = sorted(c for c in (_qf_composite(fields, v) for v, _ in pool) if c is not None)
     sh = {l: _qf_int((band_shares or {}).get(l, 0)) for l in labels}
@@ -13184,11 +13665,19 @@ def ccp_model(pool_vectors, band_shares, labels=None):
             return 101.0
         idx = max(1, int(_m.ceil(len(comps) * share / 100.0)))
         return comps[min(idx, len(comps)) - 1]
-    e_max = _q(sh[labels[0]])
-    m_max = _q(sh[labels[0]] + sh[labels[1]])
-    if sh[labels[2]] <= 0:
-        m_max = 101.0
-    model['cuts'] = {'easy_max': e_max, 'medium_max': max(m_max, e_max)}
+    # v1.30 (GAP-2026-11-03 R2.3): generalised to ANY label count >= 2 — one cumulative
+    # quantile cut per label boundary ('cuts_list', ascending, len = len(labels) - 1).
+    # The 3-label keys easy_max / medium_max are kept byte-compatible for every reader.
+    cuts_list, acc = [], 0
+    for i in range(len(labels) - 1):
+        acc += sh[labels[i]]
+        c_i = _q(acc)
+        if sum(sh[l] for l in labels[i + 1:]) <= 0:
+            c_i = 101.0
+        cuts_list.append(max(c_i, cuts_list[-1]) if cuts_list else c_i)
+    model['cuts'] = {'cuts_list': cuts_list}
+    if len(labels) == 3:
+        model['cuts'].update({'easy_max': cuts_list[0], 'medium_max': cuts_list[1]})
     cnt = {l: 0 for l in labels}
     for v, b in pool:
         cb = ccp_band(dict(model, active=True), v)
@@ -13210,16 +13699,18 @@ def ccp_band(model, vector):
         return None
     labels = model.get('labels') or []
     cuts = model.get('cuts') or {}
-    if len(labels) != 3 or 'easy_max' not in cuts:
+    cl = cuts.get('cuts_list')
+    if cl is None and 'easy_max' in cuts:            # pre-v1.30 model object
+        cl = [cuts['easy_max'], cuts['medium_max']]
+    if len(labels) < 2 or not isinstance(cl, list) or len(cl) != len(labels) - 1:
         return None
     c = _qf_composite(model.get('fields') or {}, vector)
     if c is None:
         return None
-    if c <= cuts['easy_max']:
-        return labels[0]
-    if c <= cuts['medium_max']:
-        return labels[1]
-    return labels[2]
+    for i, cut in enumerate(cl):
+        if c <= cut:
+            return labels[i]
+    return labels[-1]
 
 
 def ccp_floor_check(model, vector, scheduled_band, labels):
@@ -13325,7 +13816,9 @@ def ladder_entry(reasons):
     if isinstance(reasons, str):
         reasons = [reasons]
     rungs = [LADDER_ENTRY_RUNG.get(str(r), 'R2') for r in (reasons or [])]
-    return min(rungs, key=LADDER_RUNGS.index) if rungs else None
+    # v1.30: sub-rungs R2s (stem only) / R2o (option only) sit between R1 and R2 — a
+    # finding set that needs a full regenerate (R2) dominates a stem-only one.
+    return min(rungs, key=LADDER_RUNG_ORDER.index) if rungs else None
 
 
 def axis_safe_text_fallback(observed, target, irreducible=0, observable=None, observed_spread=None):
@@ -13424,6 +13917,2073 @@ def fig_format_check(counts, targets):
     return out
 
 # END CLUSTER QF
+# ════════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER QQ — QUESTION AND OPTION QUALITY  (v1.30 — GAP-2026-11-03-QUESTION-AND-
+# OPTION-QUALITY, release 2026.11.03). Owner decisions OD-1..OD-14 + Q-A of
+# 2026-11-03 are binding and are restated at the function that implements each.
+#
+# PRINCIPLE QQ-0 (the law every gate below obeys): a [CLASS: D] gate reads ONLY what
+# the auditor can recompute from the delivered artefact — docx text, the rendered
+# PNG, the figure record's canonical identity written BY THE RENDERER, the registry
+# key. Author-declared fields (difficulty_obs, scenario_key, mechanisms, entities[])
+# may EXPLAIN a verdict; they never PRODUCE one. The incident paper (CSIR-NET Organic
+# Test 01, 2026-11-03) shipped with every quality control reading a declaration.
+#
+# PRINCIPLE QQ-1 (OD-1, owner): NOTHING IN THIS CLUSTER STOPS A RUN. A missing input
+# is PRINTED (quality_readiness_block) and RECORDED (registry / footer / bench card),
+# and the control reports DORMANT(reason). Dormancy has no certification effect.
+#
+# PRINCIPLE QQ-2 (OD-9, owner): a finding that survives ladder R5 does not stop the run
+# either. The item is delivered with quality_status UNRESOLVED(<finding>), the paper's
+# certificate carries uncertified_items[], and Deliver refuses the paper unless the
+# trigger carries --accept-uncertified (certificate_uncertified / deliver_allowed).
+#
+# Every threshold is a named constant here (P-7 single definition) and is pinned by
+# the self-test (CLUSTER QQ block of self_test()).
+# ════════════════════════════════════════════════════════════════════════════
+import hashlib as _qq_hashlib
+import json as _qq_json
+import re as _qq_re
+import unicodedata as _qq_ud
+
+QQ_RELEASE = '2026.11.03'                 # producer_release stamped on every new paper
+OPT_DHASH_WARN = 20                       # G01 R1.4 — WARN only, never a verdict
+DIFF_BAND_TOL_REL = 0.10                  # G02 (2) — bench-card tolerance (OD-4: INFO only)
+EXEMPLAR_BANK_MAX_KB = 300                # G02 R2.1 — writer-enforced size budget
+EXEMPLAR_K = 3                            # G02 R2.1 — exemplars per cascade cell x band x qtype
+JUDGE_CTX_TOKENS = 8000                   # G02 R2.2 — per-item judge packet ceiling
+CCP_MIN_POOL = 20                         # G02 R2.3 — == QF_CCP_MIN_POOL (asserted in self-test)
+COMMON_ENTITY_SHARE = 0.20                # G03 R3.4 — entity in >= 20 % of PYQ papers
+COMMON_ENTITY_MIN_PAPERS = 5              # G03 (analysis §4 amendment) — list empty below this
+STOPLIST_MAX_HEAVY = 3                    # G03 R3.4 — <= 3 heavy atoms never a ledger entity
+TEXT_LEAK_CALIBRATE_PER = 30              # G03 R3.8 — >= 1 PYQ text leak per 30 items -> WARN
+NAMED_RATE_ALLOW = 0.10                   # G04 R4.3 — naming allowed above this measured rate
+STEM_LEN_P90_FACTOR = 1.2                 # G04 R4.4 — bound = [min, max(max, 1.2 x p90)]
+STEM_PATTERN_MIN_POOL = 5                 # G04 R4.4 — cascade up when the cell has < 5 PYQs
+SHAPE_MIN_POOL = 20                       # G05 (2) — first cascade level with >= 20 items
+SHAPE_TOL_REL = 0.15                      # G05 (2) — round(s x N) +/- max(1, 15 %)
+SHAPE_CAP_EXTRA = 2                       # G05 OD-6(c) — per-paper cap = round(s x N) + 2
+CLASS_SMARTS_TIMEOUT_S = 2                # G06 — RDKit MCS timeout
+MCS_RATIO_MIN = 0.50                      # G06 R6.3(c)
+NEAR_ISOMER_SHARE = 0.50                  # G06 R6.3(f)
+LONGEST_KEY_RATIO = 1.5                   # G07 — == analyse_engine measurement (I-1)
+ITEM_RULE_SUSPEND_RATE = 0.10             # G07 R7.2 — suspended only by MEASURED PYQ rate
+TEMPLATE_CAP_UNMEASURED = 2               # G08 R8.2
+SCAFFOLD_CAP_MIN = 2                      # G03 R3.3
+PYQ_SPARSE_MIN_ITEMS = 30                 # G10 R10.4
+REVIEW_PART_MAX = 30                      # G12 (6)
+PYQ_FALSE_FAIL_MAX = 0.05                 # §4.6 — a new [D] gate failing > 5 % of PYQs -> WARN
+CALIBRATION_AGREE_MIN = 0.60              # G02 R2.9 — judge vs profile labels (INFO under OD-4)
+
+QQ_STATES = ('PASS', 'FAIL', 'WARN', 'N/A', 'DORMANT')
+
+
+def qq_verdict(state, reason='', **extra):
+    """One verdict record. state in QQ_STATES; reason text; extra fields kept as given."""
+    st = state if state in QQ_STATES else 'DORMANT'
+    rec = {'state': st, 'reason': str(reason or '')}
+    rec.update(extra)
+    return rec
+
+
+# ── G07 / G11 — ONE item-rule table (R7.1). analyse_engine (measurement), Create
+# and audit_canonical key on these string IDs; the legacy I-n numbers meant different
+# rules in two engines (I-1 = longest key in analyse_engine, stem-key cluing in this
+# file) so a suspension measured for one silenced the other. Mapped once, retired.
+ITEM_RULES = {
+    'LONGEST_KEY':         {'legacy_analyse': 'I-1', 'legacy_bc': None,
+                            'hard': True,  'desc': 'key is conspicuously the longest option'},
+    'AOTA_NOTA':           {'legacy_analyse': 'I-2', 'legacy_bc': None,
+                            'hard': False, 'desc': 'all/none-of-the-above options'},
+    'STEM_KEY_CLUE':       {'legacy_analyse': 'I-3', 'legacy_bc': 'I-1',
+                            'hard': False, 'desc': 'stem wording clues the key'},
+    'GRAMMAR_CUE':         {'legacy_analyse': 'I-4', 'legacy_bc': None,
+                            'hard': False, 'desc': 'article / grammar cue to the key'},
+    'NEGATIVE_EMPHASIS':   {'legacy_analyse': 'I-5', 'legacy_bc': 'I-5',
+                            'hard': False, 'desc': 'negative stem without emphasis'},
+    'NUMERIC_OVERLAP':     {'legacy_analyse': 'I-6', 'legacy_bc': None,
+                            'hard': False, 'desc': 'overlapping numeric options'},
+    'LENGTH_HOMOGENEITY':  {'legacy_analyse': 'I-7', 'legacy_bc': 'I-2',
+                            'hard': False, 'desc': 'option length homogeneity'},
+    'NUMERIC_ORDER':       {'legacy_analyse': 'I-8', 'legacy_bc': None,
+                            'hard': False, 'desc': 'numeric options not monotone'},
+    'MIDDLE_VALUE_KEY':    {'legacy_analyse': None,  'legacy_bc': None,
+                            'hard': True,  'desc': 'key is the middle value of an ordered numeric set'},
+    'SINGLE_KEY':          {'legacy_analyse': None,  'legacy_bc': 'I-3',
+                            'hard': False, 'desc': 'exactly one defensible key'},
+    'COMBINATION_HYGIENE': {'legacy_analyse': None,  'legacy_bc': 'I-4',
+                            'hard': False, 'desc': 'combination options well formed'},
+    'MECHANISM_PRESENT':   {'legacy_analyse': None,  'legacy_bc': 'I-6',
+                            'hard': False, 'desc': 'authored distractor mechanism present'},
+    'STEM_COMPLETENESS':   {'legacy_analyse': None,  'legacy_bc': 'I-8',
+                            'hard': False, 'desc': 'stem complete without the options'},
+}
+
+
+def item_rule_id(legacy, engine):
+    """Legacy 'I-n' -> stable ID for `engine` in ('analyse', 'bc'). Unknown -> None."""
+    key = 'legacy_analyse' if engine == 'analyse' else 'legacy_bc'
+    for rid, row in ITEM_RULES.items():
+        if row.get(key) == legacy:
+            return rid
+    return None
+
+
+def item_rule_suspended(item_rules_measured, rule_id):
+    """R7.2/R7.3: suspended ONLY when the exam's PYQs were MEASURED and the violation
+    rate is >= ITEM_RULE_SUSPEND_RATE. Absence of measurement -> ACTIVE (never
+    suspension by absence). item_rules_measured: {rule_id | legacy: {'violation_rate',
+    'measured'}}."""
+    m = item_rules_measured if isinstance(item_rules_measured, dict) else {}
+    row = m.get(rule_id)
+    if row is None:
+        leg = ITEM_RULES.get(rule_id, {}).get('legacy_analyse')
+        row = m.get(leg) if leg else None
+    if not isinstance(row, dict) or row.get('measured') is False:
+        return False
+    try:
+        return float(row.get('violation_rate') or 0.0) >= ITEM_RULE_SUSPEND_RATE
+    except (TypeError, ValueError):
+        return False
+
+
+_QQ_NUM_RE = _qq_re.compile(r'^[\s+\-−]*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:\s*[eE][+\-]?\d+)?\s*%?\s*$')
+_QQ_COMBO_RE = _qq_re.compile(r'^\s*(?:[A-Ea-e](?:\s*(?:,|and|&)\s*[A-Ea-e])*)\s*(?:only)?\s*$', _qq_re.I)
+
+
+def _qq_key_index(key_index, n):
+    """0-based option index from an int, a numeric string, or a letter / roman label
+    ('b' -> 1, '(C)' -> 2, 'iii' -> 2); None when unreadable or out of range."""
+    if key_index is None or isinstance(key_index, bool):
+        return None
+    if isinstance(key_index, int):
+        return key_index if 0 <= key_index < n else None
+    t = str(key_index).strip()
+    if t.lstrip('+-').isdigit():                       # numeric string: the same 0-based contract
+        i = int(t)
+        return i if 0 <= i < n else None
+    v = _review_norm_key(t)                            # letter / roman label: 1-based -> 0-based
+    if isinstance(v, int):
+        return v - 1 if 0 <= v - 1 < n else None
+    return None
+
+
+def item_longest_key(options, key_index):
+    """ITEM_RULES.LONGEST_KEY [D] on the DELIVERED options with the registry key.
+    'FAIL' when the key is strictly the longest AND > LONGEST_KEY_RATIO x the mean of
+    the others; 'N/A' for pure-numeric, combination-label, picture (empty) or < 3
+    options; else 'PASS'. Medium-language text only (caller strips the second
+    language)."""
+    opts = [str(o or '') for o in (options or [])]
+    key_index = _qq_key_index(key_index, len(opts))
+    if len(opts) < 3 or key_index is None:
+        return 'N/A'
+    if any(not o.strip() for o in opts):
+        return 'N/A'                                  # picture options — G01/G06 cover them
+    if all(_QQ_NUM_RE.match(o) for o in opts) or all(_QQ_COMBO_RE.match(o) for o in opts):
+        return 'N/A'
+    L = [len(o.strip()) for o in opts]
+    k = L[int(key_index)]
+    others = [x for i, x in enumerate(L) if i != int(key_index)]
+    if k > max(others) and k > LONGEST_KEY_RATIO * (sum(others) / len(others)):
+        return 'FAIL'
+    return 'PASS'
+
+
+def item_middle_value_key(options, key_index):
+    """ITEM_RULES.MIDDLE_VALUE_KEY [D]: all options numeric, sorted ascending or
+    descending as printed, and the key is a strictly interior value with the option
+    count odd (a unique middle). 'N/A' otherwise."""
+    opts = [str(o or '').strip() for o in (options or [])]
+    key_index = _qq_key_index(key_index, len(opts))
+    if len(opts) < 3 or len(opts) % 2 == 0 or key_index is None:
+        return 'N/A'
+    vals = []
+    for o in opts:
+        if not _QQ_NUM_RE.match(o):
+            return 'N/A'
+        try:
+            vals.append(float(o.replace('−', '-').replace(',', '').replace('%', '')))
+        except ValueError:
+            return 'N/A'
+    asc = all(vals[i] < vals[i + 1] for i in range(len(vals) - 1))
+    desc = all(vals[i] > vals[i + 1] for i in range(len(vals) - 1))
+    if not (asc or desc):
+        return 'N/A'
+    return 'FAIL' if int(key_index) == len(vals) // 2 else 'PASS'
+
+
+# ── G01 — option identity (R1.1) ────────────────────────────────────────────────
+_QQ_SUBSUP = str.maketrans('₀₁₂₃₄₅₆₇₈₉⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻₊₋', '01234567890123456789+-+-')
+_QQ_ELEMENTS = ('He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|'
+                'Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|La|Ce|Pr|Nd|Pm|Sm|Eu|Gd|'
+                'Tb|Dy|Ho|Er|Tm|Yb|Lu|Hf|Ta|Re|Os|Ir|Pt|Au|Hg|Tl|Pb|Bi|Po|At|Rn|Fr|Ra|Ac|Th|'
+                'Pa|Np|Pu|Am|Cm|Bk|Cf|Es|Fm|Md|No|Lr|Rf|Db|Sg|Bh|Hs|Mt|Ds|Rg|Cn|Fl|Lv|Ts|Og|'
+                'H|B|C|N|O|F|P|S|K|V|Y|I|W|U')
+_QQ_FORMULA_RE = _qq_re.compile(r'(?<![A-Za-z])(?:' + _QQ_ELEMENTS + r')(?:\d|[\(\)\[\]]|(?:' +
+                                _QQ_ELEMENTS + r'))')
+_QQ_FRACTIONS = {'½': '0.5', '¼': '0.25', '¾': '0.75', '⅓': '0.3333333333', '⅔': '0.6666666667'}
+
+
+def _qq_has_element_symbol(s):
+    return bool(_QQ_FORMULA_RE.search(s or ''))
+
+
+def text_identity(option, sig_fig_sensitive=False):
+    """R1.1 TEXT identity. NFKC + whitespace collapse + Unicode sub/superscript folding;
+    case-PRESERVING when the option contains an element-symbol token (CO vs Co, HF vs
+    Hf), else casefold; formulas compared AS WRITTEN (no Hill reordering — ionisation /
+    coordination isomers are legitimate distinct options); pure numbers compared by
+    value (0.5 = 1/2 = ½) unless the subtopic is sig_fig_sensitive."""
+    s = str(option or '')
+    for k, v in _QQ_FRACTIONS.items():
+        s = s.replace(k, v)                                      # before NFKC: ½ -> 1⁄2 otherwise
+    s = _qq_ud.normalize('NFKC', s).translate(_QQ_SUBSUP).replace('\u2044', '/')
+    s = _qq_re.sub(r'\s+', ' ', s).strip()
+    num = s.replace('−', '-')
+    m = _qq_re.match(r'^([+\-]?\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)$', num)
+    if m and not sig_fig_sensitive:
+        try:
+            if float(m.group(2)) != 0:
+                return 'num:' + repr(round(float(m.group(1)) / float(m.group(2)), 10))
+        except ValueError:
+            pass
+    if _QQ_NUM_RE.match(num) and not sig_fig_sensitive:
+        try:
+            return ('num:' + repr(round(float(num.replace(',', '').replace('%', '').strip()), 10))
+                    + ('%' if '%' in num else ''))
+        except ValueError:
+            pass
+    if _qq_has_element_symbol(s):
+        return 'txt:' + s
+    return 'txt:' + s.casefold()
+
+
+def _qq_rdkit():
+    """rdkit.Chem or None — importlib, never an import statement (validator Check AB:
+    the thin core declares no third-party dependency; absence is a result)."""
+    import importlib as _il
+    try:
+        Chem = _il.import_module('rdkit.Chem')
+        _il.import_module('rdkit.RDLogger').DisableLog('rdApp.*')
+        return Chem
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def _qq_rdmod(name):
+    """A sub-module of rdkit by importlib (same rule), or None."""
+    import importlib as _il
+    try:
+        return _il.import_module(name)
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def structure_identity(smiles, reperceive=True):
+    """R1.1 STRUCTURE identity: canonical isomeric SMILES RE-PERCEIVED from the 2-D
+    depiction (MolBlock round trip with wedge/hash bond directions ->
+    AssignChiralTypesFromBondDirs; double-bond geometry from the 2-D coordinates).
+    Identity is never taken only from the author's input string. Multi-component
+    options ('A.B') -> the sorted multiset of component identities. Returns None when
+    RDKit is unavailable or the SMILES does not parse (the renderer already refuses
+    those — never silently skipped here either: None is reported as 'unparseable')."""
+    Chem = _qq_rdkit()
+    if Chem is None or not isinstance(smiles, str) or not smiles.strip():
+        return None
+    try:
+        AllChem = _qq_rdmod('rdkit.Chem.AllChem')
+        if AllChem is None:
+            return None
+        comps = []
+        for part in smiles.split('.'):
+            m = Chem.MolFromSmiles(part)
+            if m is None:
+                return None
+            if reperceive:
+                AllChem.Compute2DCoords(m)
+                Chem.WedgeMolBonds(m, m.GetConformer())
+                mb = Chem.MolToMolBlock(m)
+                m2 = Chem.MolFromMolBlock(mb, removeHs=False)
+                if m2 is None:
+                    return None
+                Chem.AssignChiralTypesFromBondDirs(m2)
+                Chem.AssignStereochemistry(m2, cleanIt=True, force=True)
+                # axial chirality (allenes, atropisomers) has no wedge representation:
+                # if re-perception DROPPED stereo the input carried, keep the input's own
+                # isomeric canonical form — never collapse an enantiomer pair.
+                _out = Chem.MolToSmiles(m2, isomericSmiles=True)
+                _raw_has = ('@' in part or '/' in part or '\\' in part)
+                if _raw_has and not ('@' in _out or '/' in _out or '\\' in _out):
+                    # the author's SMILES carries a stereo mark RDKit cannot express after
+                    # re-perception (allene / atropisomer axial chirality): keep the raw
+                    # string as the identity so an enantiomer pair stays DISTINCT.
+                    comps.append('raw:' + ' '.join(part.split()))
+                    continue
+                m = m2
+            comps.append(Chem.MolToSmiles(m, isomericSmiles=True))
+        return '.'.join(sorted(comps))
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def structure_inchikey(smiles):
+    """Standard InChIKey (tautomer / mobile-H WARN in option_distinct_check)."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        inchi = _qq_rdmod('rdkit.Chem.inchi')
+        m = Chem.MolFromSmiles(smiles)
+        return inchi.MolToInchiKey(m) if (m is not None and inchi is not None) else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def strip_stereo_identity(smiles):
+    """Canonical SMILES with all stereo removed (stereo-ambiguous-pair WARN; G09 R9.1c)."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        m = Chem.MolFromSmiles(smiles)
+        if m is None:
+            return None
+        Chem.RemoveStereochemistry(m)
+        return Chem.MolToSmiles(m, isomericSmiles=False)
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def strip_isotope_identity(smiles):
+    """R3.6a: identity with isotope labels removed (a labelled compound and its parent
+    are ONE entity for the ledger; the isotope-aware identity is kept for G01)."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        m = Chem.MolFromSmiles(smiles)
+        if m is None:
+            return None
+        for a in m.GetAtoms():
+            a.SetIsotope(0)
+        return Chem.MolToSmiles(m, isomericSmiles=True)
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def reaction_identity(rxn_smiles):
+    """R1.1 REACTION identity: canonical reaction SMILES, components order-insensitive
+    per side (reactants > agents > products)."""
+    if not isinstance(rxn_smiles, str) or rxn_smiles.count('>') != 2:
+        return None
+    sides = []
+    for side in rxn_smiles.split('>'):
+        ids = []
+        for part in [p for p in side.split('.') if p.strip()]:
+            i = structure_identity(part, reperceive=False)
+            if i is None:
+                return None
+            ids.append(i)
+        sides.append('.'.join(sorted(ids)))
+    return '>'.join(sides)
+
+
+def data_figure_identity(semantic):
+    """R1.1 data-figure identity: canonical serialisation of the plotted data and axis
+    semantics (colour, font, size are NOT identity)."""
+    if not isinstance(semantic, dict):
+        return None
+    keep = {k: semantic[k] for k in sorted(semantic)
+            if k not in ('color', 'colour', 'palette', 'font', 'size', 'dpi', 'style',
+                         'title_font', 'line_width')}
+    return 'data:' + _qq_json.dumps(keep, sort_keys=True, default=str)
+
+
+def option_identity(option, kind, sig_fig_sensitive=False):
+    """Dispatch on content kind -> identity string or None (no identity_fn for the
+    kind, or unparseable). kinds: 'TEXT','STRUCTURE','REACTION','DATA'. A kind not
+    listed has NO identity_fn (chem-H hand-drawn, glyph / reasoning figures, mixed)
+    and is decided by the reviewer, never by a hash."""
+    k = str(kind or '').upper()
+    if k == 'TEXT':
+        return text_identity(option, sig_fig_sensitive)
+    if k == 'STRUCTURE':
+        return structure_identity(option)
+    if k == 'REACTION':
+        return reaction_identity(option)
+    if k == 'DATA':
+        return data_figure_identity(option)
+    return None
+
+
+def option_distinct_check(options, kind, md5s=None, dhashes=None, sig_fig_sensitive=False):
+    """G-OPTDISTINCT / A-OPTDISTINCT [D] (R1.3) + R1.4 hash rules.
+    options: list of option payloads (text, SMILES, reaction SMILES or semantic dict);
+    md5s / dhashes: parallel lists for picture options (optional).
+    Returns {'state', 'identities', 'duplicates': [(i, j)], 'warns': [...]}:
+      FAIL  — two options have EQUAL identity, or EQUAL MD5 (picture bytes)
+      WARN  — tautomer pair (equal InChIKey, unequal identity); stereo-ambiguous pair;
+              kinds with NO identity_fn whose dHash distance <= OPT_DHASH_WARN
+      N/A   — kind has no identity_fn and no hash was supplied
+    dHash NEVER produces a FAIL (R1.4); for kinds WITH an identity_fn it gives no verdict."""
+    k = str(kind or '').upper()
+    if k in ('STRUCTURE', 'REACTION') and _qq_rdkit() is None:
+        # R1.4 / OD-1: without RDKit no chemical identity exists; 'unparseable' would be a
+        # false FAIL on every figural option set. Dormant, printed, reviewer decides.
+        return {'state': 'N/A', 'identities': [None] * len(options or []), 'duplicates': [], 'warns': [],
+                'reason': 'RDKit unavailable — no chemical identity could be computed; reviewer decides'}
+    ids = [option_identity(o, kind, sig_fig_sensitive) for o in (options or [])]
+    if k == 'TEXT':
+        # an EMPTY text payload (a picture option whose text is None) has no identity:
+        # two blanks are not 'the same option' (that is A-OPTDISTINCT's picture path).
+        ids = [None if (i is not None and i in ('txt:',)) else i for i in ids]
+    dups, warns = [], []
+    n = len(ids)
+    md5s = list(md5s or [])
+    dhashes = list(dhashes or [])
+    for i in range(n):
+        for j in range(i + 1, n):
+            if i < len(md5s) and j < len(md5s) and md5s[i] and md5s[i] == md5s[j]:
+                dups.append((i, j))
+                continue
+            if ids[i] is not None and ids[i] == ids[j]:
+                dups.append((i, j))
+    if k == 'STRUCTURE':
+        for i in range(n):
+            for j in range(i + 1, n):
+                if (i, j) in dups or ids[i] is None or ids[j] is None:
+                    continue
+                ki, kj = structure_inchikey(options[i]), structure_inchikey(options[j])
+                if ki and ki == kj:
+                    warns.append({'pair': (i, j), 'reason': 'tautomer / mobile-H pair'})
+                    continue
+                si, sj = strip_stereo_identity(options[i]), strip_stereo_identity(options[j])
+                if si and si == sj:
+                    gi, gj = stereo_from_smiles(options[i]) or {}, stereo_from_smiles(options[j]) or {}
+                    if gi.get('n_unassigned', 0) or gj.get('n_unassigned', 0):
+                        warns.append({'pair': (i, j), 'reason': 'stereo-ambiguous pair (same '
+                                                                 'constitution; one side leaves a '
+                                                                 'stereocentre unassigned)'})
+                    # fully defined enantiomers / diastereomers / E-Z pairs: DISTINCT, allowed
+    has_fn = k in ('TEXT', 'STRUCTURE', 'REACTION', 'DATA')
+    if not has_fn:
+        if not md5s and not dhashes:
+            return {'state': 'N/A', 'identities': ids, 'duplicates': [], 'warns': [],
+                    'reason': f'no identity_fn for kind {k or "?"}; reviewer decides'}
+        for i in range(min(n, len(dhashes))):
+            for j in range(i + 1, min(n, len(dhashes))):
+                d = _qq_hamming(dhashes[i], dhashes[j])
+                if d is not None and d <= OPT_DHASH_WARN and (i, j) not in dups:
+                    warns.append({'pair': (i, j), 'reason': f'dHash {d} <= {OPT_DHASH_WARN}: '
+                                                             'reviewer — are these the same?'})
+    if any(ids[i] is None for i in range(n)) and has_fn and k != 'TEXT':
+        bad = [i for i in range(n) if ids[i] is None]
+        return {'state': 'FAIL', 'identities': ids, 'duplicates': dups, 'warns': warns,
+                'reason': f'option(s) {bad} unparseable — no identity could be computed'}
+    state = 'FAIL' if dups else ('WARN' if warns else 'PASS')
+    return {'state': state, 'identities': ids, 'duplicates': dups, 'warns': warns,
+            'reason': ('duplicate option pairs ' + str(dups)) if dups else ''}
+
+
+def _qq_hamming(a, b):
+    try:
+        x = int(str(a), 16) ^ int(str(b), 16)
+        return bin(x).count('1')
+    except (TypeError, ValueError):
+        return None
+
+
+# ── Q-A — A-STEREODECL: the author's SMILES vs the author's declared intent ────────
+_QQ_DESC_RE = _qq_re.compile(r'\(?\s*(\d+)\s*([RSEZrsez])\s*\)?')
+
+
+def stereo_from_smiles(smiles):
+    """{'centers': {atom_idx: 'R'|'S'}, 'bonds': {bond_idx: 'E'|'Z'}, 'n_unassigned'} or
+    None without RDKit / unparseable."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        m = Chem.MolFromSmiles(smiles)
+        if m is None:
+            return None
+        Chem.AssignStereochemistry(m, cleanIt=True, force=True)
+        centers = {}
+        for idx, lab in Chem.FindMolChiralCenters(m, includeUnassigned=True, useLegacyImplementation=False):
+            centers[idx] = lab
+        bonds = {}
+        for b in m.GetBonds():
+            st = b.GetStereo()
+            if st == Chem.BondStereo.STEREOE:
+                bonds[b.GetIdx()] = 'E'
+            elif st == Chem.BondStereo.STEREOZ:
+                bonds[b.GetIdx()] = 'Z'
+            elif st in (Chem.BondStereo.STEREOCIS, Chem.BondStereo.STEREOTRANS):
+                # cis/trans from local neighbours — map through E/Z assignment
+                bonds[b.GetIdx()] = 'Z' if st == Chem.BondStereo.STEREOCIS else 'E'
+        n_un = sum(1 for v in centers.values() if v == '?')
+        return {'centers': {k: v for k, v in centers.items() if v != '?'},
+                'bonds': bonds, 'n_unassigned': n_un}
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def stereo_declaration_check(smiles, declared):
+    """G-STEREODECL / A-STEREODECL [D] (owner Q-A = yes). `declared` is the author's
+    intent: a string of descriptors ('2E,4Z', '(2R,3S)', 'R', 'E') or a dict
+    {'R': n, 'S': n, 'E': n, 'Z': n} of COUNTS. The engine assigns CIP / E-Z from the
+    SMILES and compares the multiset of descriptors (locants are not compared —
+    numbering conventions differ between IUPAC and RDKit indices; the COUNT of each
+    descriptor is what must agree). Returns qq_verdict: FAIL on mismatch, WARN when
+    undeclared (never a block — a missing line is a WARN, OD-1), N/A without RDKit or
+    for an achiral / stereo-free molecule with an empty declaration."""
+    if declared is None or (isinstance(declared, str) and not declared.strip()) \
+            or (isinstance(declared, dict) and not declared):
+        return qq_verdict('WARN', 'undeclared — author gave no stereo-descriptor line')
+    got = stereo_from_smiles(smiles)
+    if got is None:
+        return qq_verdict('N/A', 'RDKit unavailable or SMILES unparseable')
+    want = {'R': 0, 'S': 0, 'E': 0, 'Z': 0}
+    have = {'R': 0, 'S': 0, 'E': 0, 'Z': 0}
+    for v in got['centers'].values():
+        if v in have:
+            have[v] += 1
+    for v in got['bonds'].values():
+        have[v] += 1
+    n_have = sum(have.values()) + int(got.get('n_unassigned') or 0)
+    if isinstance(declared, dict):
+        for k, v in declared.items():
+            if str(k).upper() in want:
+                try:
+                    want[str(k).upper()] = int(v or 0)
+                except (TypeError, ValueError):
+                    return qq_verdict('WARN', f'declaration count for {k!r} is not a number ({v!r})')
+    else:
+        txt = str(declared)
+        if _qq_re.fullmatch(r'\s*(?:none|achiral|no stereo)\s*', txt, _qq_re.I):
+            pass
+        else:
+            for _loc, lab in _QQ_DESC_RE.findall(txt):
+                want[lab.upper()] += 1
+            if not _QQ_DESC_RE.search(txt):
+                for lab in _qq_re.findall(r'\b([RSEZ])\b', txt):
+                    want[lab] += 1
+            if not any(want.values()):
+                # relative / non-CIP vocabulary (cis, trans, syn, anti, meso, erythro,
+                # threo, D/L, alpha/beta, axial/equatorial, exo/endo, (+)/(-), rac):
+                # a declaration of stereo that the descriptor comparison cannot count.
+                if _QQ_RELSTEREO_RE.search(txt):
+                    if n_have:
+                        return qq_verdict('PASS', f'relative descriptor {txt.strip()!r} declared; SMILES carries '
+                                                  f'{n_have} stereo element(s) (count not compared)', have=have)
+                    return qq_verdict('FAIL', f'declared {txt.strip()!r} but the SMILES encodes no stereo element',
+                                      have=have)
+                return qq_verdict('WARN', f'descriptor vocabulary not recognised: {txt.strip()!r} — '
+                                          f'use R/S/E/Z, cis/trans/meso/syn/anti or "none"')
+    if have == want:
+        return qq_verdict('PASS', 'declared descriptors match the SMILES', have=have)
+    return qq_verdict('FAIL', f'SMILES encodes {_qq_fmt_desc(have)}; declared '
+                              f'{_qq_fmt_desc(want)}', have=have, want=want)
+
+
+_QQ_RELSTEREO_RE = _qq_re.compile(
+    r'\b(?:cis|trans|syn|anti|meso|erythro|threo|exo|endo|axial|equatorial|rac(?:emic)?|'
+    r'alpha|beta|[DL])\b|[αβ]|\(\s*[+\-−±]\s*\)', _qq_re.I)
+
+
+def _qq_fmt_desc(d):
+    parts = [f'{v}x{k}' for k, v in d.items() if v]
+    return ','.join(parts) if parts else 'no stereo'
+
+
+# ── G10 (OD-1) — QUALITY READINESS: printed, recorded, NEVER a stop ─────────────
+QUALITY_INPUTS = {
+    # control: (artefact, required_fields (any one path), schema_key, owner_step)
+    'G-STYLE':        ('style_profile.json',   ('paper', 'cells'),             'schema',  'MockTestAnalyse (Step 5)'),
+    'G-PYQ-DIST':     ('pyq_index.json',       ('questions',),                 'schema',  'MockTestAnalyse (Step 5)'),
+    'G-DIFF-JUDGE':   ('exemplar_bank.json',   ('cells',),                     'schema',  'MockTestAnalyse (Step 5) — delivered run file (OD-11)'),
+    'G-DIFF-FLOOR':   ('difficulty_profile.json', ('papers',),                 'schema',  'PYQExplain v2.26 (§13A content records)'),
+    'G-STEMLEAK':     ('section_rules.md',     ('named_concept_rate',),        None,      'MockTestAnalyse (Step 5)'),
+    'G-STEMFORM':     ('section_rules.md',     ('stem_word_count_pct',),       None,      'MockTestAnalyse (Step 5)'),
+    'G-SHAPEMIX':     ('blueprint.json',       ('shape_target_per_paper',),    None,      'Blueprint / ScopedBlueprint (bp_refresh)'),
+    'G-DISTRACTOR':   ('section_rules.md',     ('near_isomer_share',),         None,      'MockTestAnalyse (Step 5)'),
+    'G-TEMPLATE':     ('section_rules.md',     ('fingerprint_max_per_paper',), None,      'MockTestAnalyse (Step 5)'),
+    # field names are the ones the artefact WRITER emits (verified by the handshake test):
+    # Step 5 writes PYQ_COMMON_ENTITIES under === EXAM_QUALITY === and item_rules into the
+    # style profile (analyse_engine.write_style_profile), not into section_rules.
+    'G-ENTITYLEAK':   ('section_rules.md',     ('PYQ_COMMON_ENTITIES',),       None,      'MockTestAnalyse (Step 5)'),
+    'G-ITEM':         ('style_profile.json',   ('item_rules',),                'schema',  'MockTestAnalyse (Step 5)'),
+}
+
+
+def quality_readiness(inputs, pyq_items=None):
+    """OD-1 (owner, 2026-11-03): PURE STATUS QUO + LOUDER PRINT. Computes one record
+    per control — PASS / N/A(reason) / MISSING / STALE — and NEVER raises or stops.
+    inputs: {artefact_name: parsed object | text | None}. A markdown artefact is
+    checked by field-name presence in its text. pyq_items (int) < PYQ_SPARSE_MIN_ITEMS
+    -> every PYQ-statistics control is N/A('sparse'), not MISSING (R10.4).
+    Returns {'controls': {control: {'status','reason','remedy'}}, 'degraded': [...],
+             'sparse': bool}."""
+    out, degraded = {}, []
+    sparse = isinstance(pyq_items, int) and pyq_items < PYQ_SPARSE_MIN_ITEMS
+    for ctl, (art, fields, schema_key, owner) in QUALITY_INPUTS.items():
+        obj = (inputs or {}).get(art)
+        remedy = f'run {owner}; upload {art}'
+        if sparse and ctl not in ('G-SHAPEMIX',):
+            out[ctl] = {'status': 'N/A', 'reason': f'sparse ({pyq_items} < {PYQ_SPARSE_MIN_ITEMS} PYQ items)', 'remedy': ''}
+            continue
+        if obj is None:
+            out[ctl] = {'status': 'MISSING', 'reason': f'{art} not supplied', 'remedy': remedy}
+            degraded.append(ctl)
+            continue
+        present = False
+        if isinstance(obj, str):
+            present = any(f in obj for f in fields)
+        elif isinstance(obj, dict):
+            present = any(_qq_has_key(obj, f) for f in fields)
+        if not present:
+            out[ctl] = {'status': 'STALE', 'reason': f'{art} lacks {"/".join(fields)} (written by an older release)',
+                        'remedy': remedy}
+            degraded.append(ctl)
+            continue
+        if schema_key and isinstance(obj, dict):
+            meta = obj.get('_meta') if isinstance(obj.get('_meta'), dict) else obj
+            if meta.get(schema_key) is None and meta.get('schema_version') is None:
+                out[ctl] = {'status': 'STALE', 'reason': f'{art} carries no schema version', 'remedy': remedy}
+                degraded.append(ctl)
+                continue
+        out[ctl] = {'status': 'PASS', 'reason': '', 'remedy': ''}
+    return {'controls': out, 'degraded': degraded, 'sparse': sparse}
+
+
+def _qq_has_key(obj, key, depth=0):
+    """Key present with a NON-EMPTY value (an empty shape_target_per_paper / cells is a
+    dormant artefact, not a ready one)."""
+    if depth > 3 or not isinstance(obj, dict):
+        return False
+    if key in obj and obj[key] not in (None, {}, [], ''):
+        return True
+    return any(_qq_has_key(v, key, depth + 1) for v in obj.values() if isinstance(v, dict))
+
+
+def readiness_mark(readiness, control, status, reason, remedy=''):
+    """Record a control's status on an existing readiness record (S3-12d: the blueprint
+    may carry shape targets for other papers but none for THIS one). MISSING / STALE
+    join 'degraded'; PASS removes the control from it. Returns the record. Never raises."""
+    r = readiness if isinstance(readiness, dict) else {'controls': {}, 'degraded': [], 'sparse': False}
+    r.setdefault('controls', {})[control] = {'status': status, 'reason': str(reason), 'remedy': str(remedy)}
+    deg = [c for c in (r.get('degraded') or []) if c != control]
+    if status in ('MISSING', 'STALE'):
+        deg.append(control)
+    r['degraded'] = deg
+    return r
+
+
+def quality_readiness_block(readiness):
+    """The LOUD print (OD-1). One line per control; a DEGRADED QUALITY banner when any
+    control is MISSING/STALE, with the remedies in order. Never the candidate-facing
+    paper; registry + delivery footer + bench card carry the same list."""
+    r = readiness if isinstance(readiness, dict) else {}
+    ctl = r.get('controls') or {}
+    lines = ['QUALITY READINESS (release %s) — printed before Q.1; never a stop (OD-1):' % QQ_RELEASE]
+    for name in sorted(ctl):
+        rec = ctl[name]
+        lines.append(f"  {rec.get('status', '?'):8s} {name:14s} {rec.get('reason', '')}")
+    deg = r.get('degraded') or []
+    if deg:
+        lines.append('  DEGRADED QUALITY — the paper is written with these controls DORMANT: ' + ', '.join(deg))
+        lines.append('  Remedies (run in order, then re-run this step):')
+        seen = []
+        for name in deg:
+            rem = ctl.get(name, {}).get('remedy', '')
+            if rem and rem not in seen:
+                seen.append(rem)
+                lines.append(f'    {len(seen)}. {rem}')
+    else:
+        lines.append('  all quality inputs present — every control ACTIVE')
+    return '\n'.join(lines)
+
+
+def degraded_footer_line(readiness):
+    """Delivery-footer line (Framework_DeliveryFooter §2A-style disclosure)."""
+    deg = (readiness or {}).get('degraded') or []
+    if not deg:
+        return 'Quality controls: all ACTIVE.'
+    return 'DEGRADED QUALITY — dormant controls: ' + ', '.join(deg) + ' (inputs missing or stale; OD-1: run continued).'
+
+
+# ── G03 — ENTITY LEDGER (R3.1 .. R3.8) ────────────────────────────────────────────
+STANDARD_VALUES = ('298 K', '298.15 K', '273 K', '273.15 K', '25 °C', '0 °C', '1 atm', '1 bar',
+                   '101.325 kPa', '100 kPa', 'STP', 'SATP', '9.8 m/s2', '9.81 m/s2', '8.314 J/mol K',
+                   '6.022e23', '1.602e-19', '6.626e-34', '3e8 m/s', '96485 C/mol')
+ENTITY_ROLES = ('given', 'reagent', 'intermediate', 'key', 'distractor', 'figure_label')
+LEAK_ROLES = ('given', 'intermediate', 'key', 'distractor', 'figure_label')
+
+
+def _qq_norm_value(text):
+    """'1.00 atm' -> ('1.0', 'atm'); numbers with units parsed loosely."""
+    s = _qq_ud.normalize('NFKC', str(text or '')).translate(_QQ_SUBSUP).replace('−', '-').strip()
+    m = _qq_re.match(r'^([+\-]?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)\s*(.*)$', s)
+    if not m:
+        return None
+    try:
+        return (repr(round(float(m.group(1)), 10)), _qq_re.sub(r'\s+', '', m.group(2)).casefold())
+    except ValueError:
+        return None
+
+
+def entity_identity(payload, kind):
+    """Ledger identity per kind: STRUCTURE -> isotope-stripped canonical SMILES
+    (R3.6a); VALUE -> (number, unit); TEXT -> casefolded NFKC; REACTION -> reaction id."""
+    k = str(kind or '').upper()
+    if k == 'STRUCTURE':
+        return strip_isotope_identity(payload) or structure_identity(payload, reperceive=False)
+    if k == 'VALUE':
+        v = _qq_norm_value(payload)
+        return ('val:%s|%s' % v) if v else None
+    if k == 'REACTION':
+        return reaction_identity(payload)
+    s = _qq_ud.normalize('NFKC', str(payload or '')).translate(_QQ_SUBSUP)
+    return 'txt:' + _qq_re.sub(r'\s+', ' ', s).strip().casefold()
+
+
+def heavy_atom_count(smiles):
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        m = Chem.MolFromSmiles(smiles)
+        return m.GetNumHeavyAtoms() if m is not None else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def generic_scaffold(smiles):
+    """R3.3: RDKit generic Murcko framework, counted only when >= 2 rings or >= 10
+    heavy atoms. A single monocycle is never a scaffold. None otherwise."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        MurckoScaffold = _qq_rdmod('rdkit.Chem.Scaffolds.MurckoScaffold')
+        m = Chem.MolFromSmiles(smiles)
+        if MurckoScaffold is None:
+            return None
+        if m is None:
+            return None
+        sc = MurckoScaffold.GetScaffoldForMol(m)
+        gen = MurckoScaffold.MakeScaffoldGeneric(sc)
+        if gen.GetNumAtoms() == 0:
+            return None
+        ri = gen.GetRingInfo()
+        if ri.NumRings() < 2 and gen.GetNumHeavyAtoms() < 10:
+            return None
+        return Chem.MolToSmiles(gen)
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def _qq_float(v, default=0.0):
+    """float(v) with 'unmeasured' / None / junk -> default (a dormant rate, never a crash)."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _qq_qnum(q):
+    """Question number as int from 12 / '12' / 'Q12' / 'q 12'; 0 when unreadable."""
+    try:
+        return int(_qq_re.sub(r'^\s*[Qq]\s*', '', str(q)).strip())
+    except (TypeError, ValueError):
+        return 0
+
+
+class EntityLedger:
+    """Paper-level ledger (R3.1). register() every entity of every item with its role
+    and identity; check() recomputes rules (a)-(d) deterministically. Kept in
+    batch_state['entity_ledger'] and committed with the paper. Text-entity verdicts
+    are hard FAIL unless `text_calibrated_warn` (R3.8, measured on the exam's PYQs)."""
+
+    def __init__(self, common_entities=(), reagent_lexicon=None, standard_values=STANDARD_VALUES,
+                 linked_sets=None, text_calibrated_warn=False, scaffold_caps=None):
+        self.rows = []                      # (q, role, identity, kind, label, concept)
+        self.common = set(str(c).casefold() for c in (common_entities or ()))
+        for c in list(self.common):                                # canonical form of SMILES entries
+            ci = structure_identity(c, reperceive=False) if c and not c.isalpha() else None
+            if ci:
+                self.common.add(ci.casefold())
+        self.reagents = {str(k).casefold() for k in (reagent_lexicon or {}).keys()}
+        self.standard = {('val:%s|%s' % v) for v in (_qq_norm_value(s) for s in standard_values) if v}
+        self.linked = {}
+        for gi, members in enumerate(linked_sets or []):
+            for q in members:
+                self.linked[_qq_qnum(q)] = gi
+        self.text_warn = bool(text_calibrated_warn)
+        self.scaffold_caps = scaffold_caps if isinstance(scaffold_caps, dict) else {}
+        self.pictures = []                  # (q, md5, identity)
+
+    def register(self, q, role, payload, kind='TEXT', label=None, concept=None):
+        role = str(role)
+        if role not in ENTITY_ROLES:
+            return None
+        ident = entity_identity(payload, kind)
+        if ident is None or not ident[4:].strip():
+            return None                                            # blank payload: no entity
+        k = str(kind or 'TEXT').upper()
+        if k == 'STRUCTURE':
+            ha = heavy_atom_count(payload)
+            if ha is not None and ha <= STOPLIST_MAX_HEAVY:
+                return None                                        # R3.4 stoplist
+        if k == 'TEXT' and (role == 'reagent' or ident[4:] in self.reagents):
+            if role != 'key':
+                return None                                        # reagents / conditions stoplisted
+        if k == 'VALUE' and ident in self.standard:
+            return None
+        if role != 'key' and self._is_common(payload, ident, k):
+            return None                                            # measured common entities (R3.8)
+        self.rows.append((_qq_qnum(q), role, ident, k, label, concept))
+        return ident
+
+    def _is_common(self, payload, ident, k):
+        """R3.8: the exam's own PYQ use this entity across papers (measured by Step 5).
+        TEXT by normalised text; STRUCTURE by canonical identity OR by the raw SMILES /
+        name the measurement recorded (the common list may hold either form)."""
+        if not self.common:
+            return False
+        if k == 'TEXT':
+            return ident[4:].casefold() in self.common
+        if k == 'STRUCTURE':
+            cands = {ident[4:].casefold(), str(payload or '').strip().casefold()}
+            for c in list(cands):
+                ci = structure_identity(c, reperceive=False) if c else None
+                if ci:
+                    cands.add(ci.casefold())
+            return any(c in self.common for c in cands)
+        return False
+
+    def register_picture(self, q, md5, drawn_identity=None):
+        self.pictures.append((_qq_qnum(q), str(md5 or ''), drawn_identity))
+
+    def _same_set(self, a, b):
+        return a in self.linked and b in self.linked and self.linked[a] == self.linked[b]
+
+    def check(self):
+        """Returns {'state', 'findings': [{'rule','q','other_q','identity','severity'}]}.
+        Rule (a) key leak -> FAIL on the LATER item (R2); (b) shared given -> FAIL;
+        (c) repeated picture (MD5 or drawn identity) -> FAIL; (d) distractor-as-given
+        -> WARN; scaffold cap -> FAIL. Text entities -> WARN when calibrated (R3.8)."""
+        f = []
+        keys = [(q, ident, k, concept) for (q, role, ident, k, _l, concept) in self.rows if role == 'key']
+        for (q, ident, k, concept) in keys:
+            for (q2, role2, ident2, k2, _l2, concept2) in self.rows:
+                if q2 == q or ident2 != ident:
+                    continue
+                if role2 == 'reagent':
+                    if concept is not None and concept2 is not None and concept == concept2 and k == 'TEXT':
+                        f.append(self._f('a', max(q, q2), min(q, q2), ident, k, 'reagent key effects the same transformation class elsewhere'))
+                    continue
+                if role2 in LEAK_ROLES and not self._same_set(q, q2):
+                    # R3.2: the finding sits on the LATER item in paper order (the ladder may
+                    # choose the earlier one when that repair is cheaper; recorded by the caller)
+                    f.append(self._f('a', max(q, q2), min(q, q2), ident, k, 'key entity appears in another item'))
+        givens = [(q, ident, k) for (q, role, ident, k, _l, _c) in self.rows if role == 'given']
+        for i in range(len(givens)):
+            for j in range(i + 1, len(givens)):
+                qa, ia, ka = givens[i]
+                qb, ib, kb = givens[j]
+                if qa != qb and ia == ib and not self._same_set(qa, qb):
+                    f.append(self._f('b', max(qa, qb), min(qa, qb), ia, ka, 'two items share a given entity'))
+        for i in range(len(self.pictures)):
+            for j in range(i + 1, len(self.pictures)):
+                qa, ma, da = self.pictures[i]
+                qb, mb, db = self.pictures[j]
+                if qa == qb or self._same_set(qa, qb):
+                    continue
+                if (ma and ma == mb) or (da and da == db):
+                    f.append(self._f('c', max(qa, qb), min(qa, qb), ma or da, 'PICTURE', 'same picture in two items'))
+        dists = [(q, ident) for (q, role, ident, _k, _l, _c) in self.rows if role == 'distractor']
+        for (q, ident) in dists:
+            for (q2, ident2, _k) in givens:
+                if q2 != q and ident == ident2 and not self._same_set(q, q2):
+                    f.append({'rule': 'd', 'q': q, 'other_q': q2, 'identity': ident, 'severity': 'WARN',
+                              'reason': 'a distractor of one item is the given of another'})
+        counts = {}
+        for (q, role, ident, k, _l, _c) in self.rows:
+            if k == 'STRUCTURE' and role in ('given', 'key'):
+                sc = generic_scaffold(ident)
+                if sc:
+                    counts.setdefault(sc, set()).add(q)
+        if self.scaffold_caps:
+            default_cap = max([SCAFFOLD_CAP_MIN] + [int(v) for v in self.scaffold_caps.values() if isinstance(v, int)])
+            for sc, qs in counts.items():
+                cap = int(self.scaffold_caps.get(sc, default_cap))
+                if len(qs) > cap:
+                    f.append({'rule': 'scaffold', 'q': max(qs), 'other_q': sorted(qs), 'identity': sc,
+                              'severity': 'FAIL', 'reason': f'scaffold repeated in {len(qs)} items > cap {cap}'})
+        # de-duplicate
+        seen, uniq = set(), []
+        for x in f:
+            key = (x['rule'], x['q'], str(x['other_q']), x['identity'])
+            if key not in seen:
+                seen.add(key)
+                uniq.append(x)
+        state = 'FAIL' if any(x['severity'] == 'FAIL' for x in uniq) else ('WARN' if uniq else 'PASS')
+        return {'state': state, 'findings': uniq}
+
+    def _f(self, rule, q, other, ident, kind, reason):
+        sev = 'WARN' if (kind == 'TEXT' and self.text_warn) else 'FAIL'
+        return {'rule': rule, 'q': q, 'other_q': other, 'identity': ident, 'severity': sev, 'reason': reason}
+
+    def to_json(self):
+        return {'rows': [list(r) for r in self.rows], 'pictures': [list(p) for p in self.pictures],
+                'text_calibrated_warn': self.text_warn}
+
+
+def text_leak_calibration(pyq_text_leaks, pyq_items):
+    """R3.8: >= 1 text-entity leak per TEXT_LEAK_CALIBRATE_PER PYQ items -> rule (a)
+    becomes WARN for TEXT entities of that exam (molecules stay hard)."""
+    try:
+        return int(pyq_items) > 0 and (float(pyq_text_leaks) / int(pyq_items)) >= (1.0 / TEXT_LEAK_CALIBRATE_PER)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+
+
+def common_entity_list(entity_paper_sets, n_papers):
+    """R3.4 (with the analysis amendment): entities appearing in >= COMMON_ENTITY_SHARE
+    of the exam's PYQ papers, ONLY when n_papers >= COMMON_ENTITY_MIN_PAPERS; else []."""
+    try:
+        n = int(n_papers)
+    except (TypeError, ValueError):
+        return []
+    if n < COMMON_ENTITY_MIN_PAPERS:
+        return []
+    out = []
+    for ent, papers in (entity_paper_sets or {}).items():
+        if len(set(papers)) / float(n) >= COMMON_ENTITY_SHARE:
+            out.append(str(ent))
+    return sorted(out)
+
+
+def media_reuse_check(media_by_q, linked_sets=None):
+    """G-MEDIAREUSE / A-MEDIAREUSE [D] (OD-13 (i)). media_by_q: {q: [md5, ...]} of the
+    pictures placed under each question (stem + options). FAIL when two different
+    questions share a media part unless both are members of one linked set."""
+    linked = {}
+    for gi, members in enumerate(linked_sets or []):
+        for q in members:
+            linked[str(q)] = gi
+    owner = {}
+    f = []
+    for q, md5s in (media_by_q or {}).items():
+        for m in md5s or []:
+            if not m:
+                continue
+            if m in owner and owner[m] != str(q):
+                a, b = owner[m], str(q)
+                if a in linked and b in linked and linked[a] == linked[b]:
+                    continue
+                f.append({'q': b, 'other_q': a, 'md5': m})
+            else:
+                owner.setdefault(m, str(q))
+    return {'state': 'FAIL' if f else 'PASS', 'findings': f}
+
+
+# ── G04 — STEM LEAK / STEM FORM (R4.1 .. R4.7) ───────────────────────────────────
+def tested_concept_lexicon(axiom_terms, concept_terms, ask_nouns=(), topic_titles=(), reagent_lexicon=None):
+    """R4.2: per-subtopic lexicon = named reactions / rules / mechanism labels / method
+    names from PYQExplain AXIOM lines + the taxonomy concept field, EXCLUDING the ask
+    noun(s), topic and subtopic titles, and reagent / condition tokens."""
+    excl = set()
+    for t in list(ask_nouns or ()) + list(topic_titles or ()):
+        excl.add(str(t).casefold().strip())
+    for k in (reagent_lexicon or {}).keys():
+        excl.add(str(k).casefold().strip())
+    lex = []
+    for t in list(axiom_terms or ()) + list(concept_terms or ()):
+        s = str(t).casefold().strip()
+        if len(s) >= 4 and s not in excl and s not in lex:
+            lex.append(s)
+    return lex
+
+
+_QQ_PLACEHOLDER_RE = _qq_re.compile(r'(?:→|->|⟶)\s*([A-Z])\s*$')
+
+
+def stem_leak_check(stem_text, lexicon, named_concept_rate=0.0, drawn_identities=(), named_entities=(),
+                    shown_entity_named_rate=0.0, scheme_annotations=(), condition_vocab=(),
+                    trailing_placeholders=(), asked_placeholders=(), multi_step_lettered_allowed=False):
+    """G-STEMLEAK / A-STEMLEAK [D] (R4.3 a-d). Returns qq_verdict with 'findings'.
+      (a) a tested-concept lexicon term in the stem / non-agent annotation -> FAIL unless
+          named_concept_rate >= NAMED_RATE_ALLOW (OD-3 (a))
+      (b) the stem names an entity whose identity equals a DRAWN entity -> FAIL unless
+          shown_entity_named_rate >= NAMED_RATE_ALLOW. named_entities: [(name, identity)]
+          resolved by the caller (OPSIN when available, else the reviewer supplies them)
+      (c) a scheme annotation outside reagents / conditions / the exam's observed
+          condition vocabulary -> FAIL
+      (d) a trailing final-product placeholder the stem never asks about -> FAIL
+          (allowed for an intermediate label when the cell's PYQs use multi_step_lettered)."""
+    find = []
+    stem = _qq_ud.normalize('NFKC', str(stem_text or ''))
+    low = stem.casefold()
+    if _qq_float(named_concept_rate) < NAMED_RATE_ALLOW:
+        for term in (lexicon or []):
+            if _qq_re.search(r'(?<![a-z0-9])' + _qq_re.escape(str(term).casefold()) + r'(?![a-z0-9])', low):
+                find.append({'rule': 'a', 'term': term})
+    if _qq_float(shown_entity_named_rate) < NAMED_RATE_ALLOW:
+        drawn = set(d for d in (drawn_identities or ()) if d)
+        for name, ident in (named_entities or ()):
+            if ident and ident in drawn:
+                find.append({'rule': 'b', 'name': name})
+    cond = set(str(c).casefold() for c in (condition_vocab or ()))
+    for ann in (scheme_annotations or ()):
+        a = str(ann).casefold().strip().strip('()[]').strip()
+        if not a:
+            continue
+        if a in cond or _qq_re.fullmatch(r'[\d\s.\-–°ckhmin%]+|\(?\s*(?:excess|cat\.?|catalytic|equiv\.?|eq\.?|reflux|rt|r\.t\.|hv|hν|Δ|heat|dry|aq\.?|then)[^a-z]*\)?', a):
+            continue
+        find.append({'rule': 'c', 'annotation': ann})
+    asked = set(str(p).upper() for p in (asked_placeholders or ()))
+    for p in (trailing_placeholders or ()):
+        P = str(p).upper()
+        if P not in asked and not (multi_step_lettered_allowed and P != 'P'):
+            find.append({'rule': 'd', 'placeholder': P})
+    return qq_verdict('FAIL' if find else 'PASS', '; '.join(f"({x['rule']}) {x}" for x in find), findings=find)
+
+
+def stem_word_count(stem_text, data_block_lines=()):
+    """R4.4: question line(s) only — data-block lines and statements excluded."""
+    s = str(stem_text or '')
+    for ln in (data_block_lines or ()):
+        s = s.replace(str(ln), ' ')
+    return len([w for w in _qq_re.split(r'\s+', s.strip()) if w])
+
+
+def stem_length_bound(stats):
+    """R4.4 bound from section_rules stem_word_count {min,max,p90}: [min, max(max, 1.2 x p90)]."""
+    st = stats if isinstance(stats, dict) else {}
+    try:
+        mn = int(st.get('min', 0) or 0)
+        mx = int(st.get('max', 0) or 0)
+        p90 = float(st.get('p90', mx) or mx)
+        return (mn, max(mx, int(round(STEM_LEN_P90_FACTOR * p90))))
+    except (TypeError, ValueError):
+        return (0, 0)
+
+
+def stem_form_check(pattern_key, observed_patterns, word_count, bound, level_used='subtopic'):
+    """G-STEMFORM [D] (R4.4): pattern_key must be one observed in the cascade cell;
+    word_count within bound. No pattern at any level -> N/A(reason). FAIL -> R2s."""
+    obs = set(str(p) for p in (observed_patterns or ()) if p)
+    if not obs:
+        return qq_verdict('N/A', 'no observed pattern at any cascade level')
+    find = []
+    if str(pattern_key or '') not in obs:
+        find.append({'rule': 'pattern', 'pattern_key': pattern_key, 'level_used': level_used})
+    lo, hi = bound if isinstance(bound, tuple) and len(bound) == 2 else (0, 0)
+    if hi and not (lo <= int(word_count or 0) <= hi):
+        find.append({'rule': 'length', 'word_count': word_count, 'bound': [lo, hi]})
+    return qq_verdict('FAIL' if find else 'PASS', str(find) if find else '', findings=find)
+
+
+# ── G05 — SHAPES (R5.3 / R5.4 / R5.7; OD-6 (c): floors AND caps) ───────────────────
+def shape_targets(shares, n_items, series_index=0):
+    """shape_target_per_paper from measured shares {shape: share in [0,1]}.
+    target = round(s x N); FLOOR = 1 for every shape with s x N >= 1; CAP = round(s x N)
+    + SHAPE_CAP_EXTRA; rare shapes (s x N < 1) rotate across the series: present in
+    paper k when floor((k+1) x s x N) > floor(k x s x N). Returns
+    {shape: {'target','floor','cap'}}."""
+    out = {}
+    N = int(n_items or 0)
+    for sh, s in (shares or {}).items():
+        try:
+            sN = float(s) * N
+        except (TypeError, ValueError):
+            continue
+        if sN >= 1:
+            t = int(round(sN))
+            out[str(sh)] = {'target': t, 'floor': 1, 'cap': t + SHAPE_CAP_EXTRA}
+        elif sN > 0:
+            k = int(series_index or 0)
+            due = int((k + 1) * sN) > int(k * sN)
+            out[str(sh)] = {'target': 1 if due else 0, 'floor': 1 if due else 0, 'cap': 1}
+    return out
+
+
+def assign_shape_plan(slots, subtopic_shapes, targets, seed=''):
+    """R5.4 one plan per paper, deterministic (seed = sha256(exam·paper·corpus_hash)).
+    slots: [{'q', 'subtopic_id', 'qtype', 'axis2'}]; subtopic_shapes: {subtopic_id:
+    [shapes its PYQs use]} (topic-level fallback already applied by the caller);
+    targets from shape_targets. Precedence Axis-1 format > qtype > shape > Axis-2 is
+    the CALLER's ordering of slots; here a shape is assignable only when the slot's
+    subtopic has a PYQ of that shape. Floors first (largest remaining floor), then
+    targets, never above cap. Returns {q: shape | None} plus '_infeasible': [shapes
+    whose floor no capable slot could take] (recorded, never a defect — F8 rule)."""
+    rem = {}
+    for s, v in (targets or {}).items():
+        v = v if isinstance(v, dict) else {}
+        t = int(v.get('target') or 0)
+        rem[s] = {'target': t, 'floor': int(v.get('floor') if v.get('floor') is not None else 0),
+                  'cap': int(v.get('cap') if v.get('cap') is not None else t)}
+    subtopic_shapes = {k: list(v or []) for k, v in (subtopic_shapes or {}).items()}
+    order = sorted(slots or [], key=lambda x: (str(x.get('qtype')), str(x.get('subtopic_id')), _qq_qnum(x.get('q', 0))))
+    h = int(_qq_hashlib.sha256(str(seed).encode('utf-8')).hexdigest()[:8], 16)
+    if order:
+        k = h % len(order)
+        order = order[k:] + order[:k]
+    plan, used = {}, {}
+    def _cap_ok(s):
+        return used.get(s, 0) < rem[s]['cap']
+    # pass 1: floors
+    for sl in order:
+        caps = [s for s in (subtopic_shapes or {}).get(sl.get('subtopic_id'), []) if s in rem]
+        want = [s for s in caps if used.get(s, 0) < rem[s]['floor'] and _cap_ok(s)]
+        if want:
+            s = sorted(want, key=lambda x: (-(rem[x]['floor'] - used.get(x, 0)), x))[0]
+            plan[sl['q']] = s
+            used[s] = used.get(s, 0) + 1
+    # pass 2: targets
+    for sl in order:
+        if sl['q'] in plan:
+            continue
+        caps = [s for s in (subtopic_shapes or {}).get(sl.get('subtopic_id'), []) if s in rem]
+        want = [s for s in caps if used.get(s, 0) < rem[s]['target'] and _cap_ok(s)]
+        if not want:
+            want = [s for s in caps if _cap_ok(s)]
+        if want:
+            s = sorted(want, key=lambda x: (-(rem[x]['target'] - used.get(x, 0)), x))[0]
+            plan[sl['q']] = s
+            used[s] = used.get(s, 0) + 1
+        else:
+            plan[sl['q']] = None
+    plan['_infeasible'] = sorted(s for s, v in rem.items() if v['floor'] > used.get(s, 0))
+    return plan
+
+
+def shape_mix_check(counts, targets, infeasible=()):
+    """A-SHAPEMIX [D] (R5.7 + OD-6 (c)): per shape, count within round(sN) +/- max(1,
+    15 %), count >= floor, count <= cap. A shape in `infeasible` is recorded, not a
+    defect. Returns qq_verdict with findings."""
+    find = []
+    c = counts if isinstance(counts, dict) else {}
+    for sh, v in (targets or {}).items():
+        n = int(c.get(sh, 0) or 0)
+        t, fl, cap = int(v.get('target', 0)), int(v.get('floor', 0)), int(v.get('cap', 10 ** 9))
+        if sh in (infeasible or ()):
+            continue
+        tol = max(1, int(round(SHAPE_TOL_REL * t)))
+        if n < fl:
+            find.append({'shape': sh, 'count': n, 'floor': fl, 'direction': 'below floor'})
+        elif n > cap:
+            find.append({'shape': sh, 'count': n, 'cap': cap, 'direction': 'above cap'})
+        elif abs(n - t) > tol:
+            find.append({'shape': sh, 'count': n, 'target': t, 'tolerance': tol,
+                         'direction': 'excess' if n > t else 'shortfall'})
+    return qq_verdict('FAIL' if find else 'PASS', str(find) if find else '', findings=find)
+
+
+# ── G08 — TEMPLATE FINGERPRINT + CAPS (R8.1 .. R8.3) ──────────────────────────────
+DATA_IN_STEM_TYPES = ('none', 'formula', 'spectra', 'kinetic', 'numeric_table', 'other')
+
+
+def template_fingerprint(ask_type, qtype, scheme_grammar, data_in_stem_type='none'):
+    d = data_in_stem_type if data_in_stem_type in DATA_IN_STEM_TYPES else 'other'
+    return '|'.join([str(ask_type or 'other'), str(qtype or 'mcq'), str(scheme_grammar or 'none'), d])
+
+
+def template_cap(measured_max, n_items, mean_scope_items_per_paper, scope_share=None):
+    """R8.2: measured per-paper maximum scaled by N / mean scope items per paper (min 1);
+    common fingerprints (share x N >= 1) get cap >= ceil(share x N) + 1; unmeasured -> 2."""
+    import math as _m
+    N = int(n_items or 0)
+    if measured_max is None:
+        cap = TEMPLATE_CAP_UNMEASURED
+    else:
+        try:
+            scale = N / float(mean_scope_items_per_paper) if mean_scope_items_per_paper else 1.0
+        except (TypeError, ValueError):
+            scale = 1.0
+        cap = max(1, int(round(int(measured_max) * scale)))
+    if scope_share is not None:
+        try:
+            sN = float(scope_share) * N
+            if sN >= 1:
+                cap = max(cap, int(_m.ceil(sN)) + 1)
+        except (TypeError, ValueError):
+            pass
+    return cap
+
+
+def template_check(fingerprint_counts, caps, concept_counts=None, concept_caps=None, exempt_qs=(),
+                   items_by_fingerprint=None, items_by_concept=None):
+    """A-TEMPLATE [D]: any fingerprint (or concept id) over its cap -> FAIL (ladder R3).
+    exempt_qs (R4-rebuilt items) are subtracted from a fingerprint's count when
+    items_by_fingerprint {fp: [q, ...]} is supplied; without it the counts are used as
+    given. Each finding carries 'items' (the over-cap fingerprint's questions, when
+    known) so the ladder has an item to move."""
+    find = []
+    ex = {str(q) for q in (exempt_qs or ())}
+    ibf = {k: [str(q) for q in v] for k, v in (items_by_fingerprint or {}).items()}
+    for fp, n in (fingerprint_counts or {}).items():
+        cap = int((caps or {}).get(fp, TEMPLATE_CAP_UNMEASURED))
+        cnt = int(n or 0)
+        if fp in ibf and ex:
+            cnt = len([q for q in ibf[fp] if q not in ex])
+        if cnt > cap:
+            find.append({'kind': 'fingerprint', 'id': fp, 'count': cnt, 'cap': cap,
+                         'items': [q for q in ibf.get(fp, []) if q not in ex][cap:]})
+    ibc = {k: [str(q) for q in v] for k, v in (items_by_concept or {}).items()}
+    for cid, n in (concept_counts or {}).items():
+        if not concept_caps or cid not in concept_caps:
+            continue                       # concept caps are MEASURED or dormant — never a default (R8.3)
+        cap = int(concept_caps.get(cid))
+        cnt = int(n or 0)
+        if cid in ibc and ex:
+            cnt = len([q for q in ibc[cid] if q not in ex])
+        if cnt > cap:
+            find.append({'kind': 'concept', 'id': cid, 'count': cnt, 'cap': cap,
+                         'items': [q for q in ibc.get(cid, []) if q not in ex][cap:]})
+    return qq_verdict('FAIL' if find else 'PASS', str(find) if find else '', findings=find)
+
+
+# ── G06 — DISTRACTOR MECHANISMS + PLAUSIBILITY (R6.1 .. R6.3) ─────────────────────
+MECHANISM_VOCABULARY = {
+    'chemistry': ('regioisomer', 'stereoisomer_enantiomer', 'stereoisomer_diastereomer', 'stereoisomer_EZ',
+                  'alternative_pathway', 'over_reaction', 'under_reaction', 'wrong_migration',
+                  'protecting_group_retained', 'protecting_group_removed', 'wrong_chemoselectivity',
+                  'starting_material'),
+    'quantitative': ('sign_error', 'unit_error', 'formula_error', 'rounding_error', 'order_of_magnitude'),
+    'verbal': ('near_synonyms_of_headword', 'same_semantic_field', 'morphological_lookalike',
+               'register_or_collocation_trap', 'true_opposite_as_trap', 'commonly_confused_pair'),
+    'fact': ('plausible_same_category', 'swapped_attribute', 'close_date_or_number',
+             'common_misconception', 'adjacent_entity'),
+    'reasoning': ('rule_violation', 'off_by_one', 'mirror_variant', 'rotation_variant', 'partial_mapping'),
+}
+ISOMER_MECHANISMS = ('regioisomer', 'stereoisomer_enantiomer', 'stereoisomer_diastereomer', 'stereoisomer_EZ',
+                     'wrong_migration')
+
+# class word -> SMARTS (R6.3 (a)); the ask noun of the stem decides the row
+CLASS_PREDICATES = {
+    'alkene': '[CX3]=[CX3]', 'olefin': '[CX3]=[CX3]', 'alkyne': '[CX2]#[CX2]', 'alkane': '[CX4;!$(C~[!#6;!#1])]',
+    'alcohol': '[CX4][OX2H]', 'phenol': 'c[OX2H]', 'ether': '[OD2]([#6])[#6]', 'epoxide': 'C1OC1',
+    'aldehyde': '[CX3H1](=O)[#6,#1]', 'ketone': '[#6][CX3](=O)[#6]', 'carbonyl': '[CX3]=[OX1]',
+    'acid': '[CX3](=O)[OX2H1]', 'carboxylic acid': '[CX3](=O)[OX2H1]', 'ester': '[#6][CX3](=O)[OX2][#6]',
+    'lactone': '[#6;R][CX3;R](=O)[OX2;R][#6;R]', 'amide': '[CX3](=O)[NX3]', 'lactam': '[#6;R][CX3;R](=O)[NX3;R]',
+    'amine': '[NX3;H2,H1,H0;!$(NC=O);!$(N=*);!$(N#*)]', 'nitrile': '[CX2]#[NX1]', 'imine': '[CX3]=[NX2]',
+    'enamine': '[CX3]=[CX3][NX3]', 'enol': '[CX3]=[CX3][OX2H]', 'acetal': '[CX4]([OX2][#6])[OX2][#6]',
+    'ketal': '[CX4]([OX2][#6])([OX2][#6])([#6])[#6]', 'halide': '[#6][F,Cl,Br,I]', 'alkyl halide': '[CX4][F,Cl,Br,I]',
+    'bromide': '[#6]Br', 'chloride': '[#6]Cl', 'iodide': '[#6]I', 'diol': '[OX2H][CX4].[CX4][OX2H]',
+    'anhydride': '[CX3](=O)[OX2][CX3](=O)', 'acyl chloride': '[CX3](=O)Cl', 'nitro': '[NX3+](=O)[O-]',
+    'thiol': '[SX2H]', 'sulfide': '[#6][SX2][#6]', 'sulfoxide': '[#6][SX3](=O)[#6]', 'sulfone': '[#6][SX4](=O)(=O)[#6]',
+    'aromatic': 'a', 'arene': 'c', 'cation': '[+]', 'anion': '[-]', 'radical': '[#6;v3]',
+    'cyclopropane': 'C1CC1', 'cyclobutane': 'C1CCC1', 'oxetane': 'C1COC1', 'diene': '[CX3]=[CX3]-[CX3]=[CX3]',
+}
+
+
+def class_predicate_check(class_word, option_smiles):
+    """R6.3 (a) [D] for chemistry: every option must match the SMARTS of the stem's class
+    word. Returns qq_verdict; N/A when the class word is not in CLASS_PREDICATES (reviewer
+    [J]) or RDKit is unavailable."""
+    Chem = _qq_rdkit()
+    cw = str(class_word or '').casefold().strip()
+    patt = CLASS_PREDICATES.get(cw)
+    if Chem is None or not patt:
+        return qq_verdict('N/A', f'no predicate for class word {cw!r}' if patt is None else 'RDKit unavailable')
+    q = Chem.MolFromSmarts(patt)
+    bad = []
+    for i, smi in enumerate(option_smiles or []):
+        m = Chem.MolFromSmiles(str(smi or ''))
+        if m is None or not m.HasSubstructMatch(q):
+            bad.append(i)
+    return qq_verdict('FAIL' if bad else 'PASS', f'options {bad} are not of class {cw!r}' if bad else '',
+                      findings=bad)
+
+
+def molecular_formula(smiles):
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        rdMD = _qq_rdmod('rdkit.Chem.rdMolDescriptors')
+        m = Chem.MolFromSmiles(smiles)
+        return rdMD.CalcMolFormula(m) if (m is not None and rdMD is not None) else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def element_set(smiles):
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    m = Chem.MolFromSmiles(str(smiles or ''))
+    if m is None:
+        return None
+    s = {a.GetSymbol() for a in m.GetAtoms()}
+    s.add('H')
+    return s
+
+
+def data_consistency_check(option_smiles, stated_formula=None, stated_dbe=None, stated_rings=None,
+                           stated_stereocentres=None):
+    """R6.3 (b) [D]: every option satisfies every computable datum the stem gives."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return qq_verdict('N/A', 'RDKit unavailable')
+    if stated_formula is None and stated_dbe is None and stated_rings is None and stated_stereocentres is None:
+        return qq_verdict('N/A', 'no computable datum in the stem')
+    bad = []
+    want_f = _qq_ud.normalize('NFKC', str(stated_formula)).translate(_QQ_SUBSUP).replace(' ', '') if stated_formula else None
+    for i, smi in enumerate(option_smiles or []):
+        m = Chem.MolFromSmiles(str(smi or ''))
+        if m is None:
+            bad.append((i, 'unparseable'))
+            continue
+        if want_f and molecular_formula(smi) != want_f:
+            bad.append((i, f'formula {molecular_formula(smi)} != {want_f}'))
+        if stated_rings is not None and m.GetRingInfo().NumRings() != int(stated_rings):
+            bad.append((i, 'ring count'))
+        if stated_stereocentres is not None:
+            n = len(Chem.FindMolChiralCenters(m, includeUnassigned=True, useLegacyImplementation=False))
+            if n != int(stated_stereocentres):
+                bad.append((i, 'stereocentre count'))
+        if stated_dbe is not None:
+            f = molecular_formula(smi) or ''
+            cnt = {e: int(n or 1) for e, n in _qq_re.findall(r'([A-Z][a-z]?)(\d*)', f)}
+            dbe = (2 * cnt.get('C', 0) + 2 + cnt.get('N', 0) - cnt.get('H', 0) - sum(cnt.get(x, 0) for x in ('F', 'Cl', 'Br', 'I'))) / 2.0
+            if abs(dbe - float(stated_dbe)) > 1e-6:
+                bad.append((i, f'DBE {dbe} != {stated_dbe}'))
+    return qq_verdict('FAIL' if bad else 'PASS', str(bad) if bad else '', findings=bad)
+
+
+def inventory_check(option_smiles, given_smiles, reagent_names, key_smiles=None, mechanisms=None,
+                    reagent_lexicon=None, mcs_timeout_s=CLASS_SMARTS_TIMEOUT_S):
+    """R6.3 (c) [D]: option element SET ⊆ elements of givens ∪ reagents (resolved through
+    REAGENT_LEXICON; an unresolved reagent contributes 'any element' and the item goes
+    to the reviewer); unless the mechanism is alternative_pathway, MCS ratio >= 0.5
+    against the key or the given. Returns qq_verdict with 'reviewer' flag."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return qq_verdict('N/A', 'RDKit unavailable')
+    allowed = set()
+    for g in given_smiles or []:
+        es = element_set(g)
+        if es:
+            allowed |= es
+    any_element = False
+    lex = reagent_lexicon or REAGENT_LEXICON
+    for r in reagent_names or []:
+        smi = lex.get(str(r).strip()) or lex.get(str(r).strip().casefold())
+        if smi is None:
+            any_element = True
+            continue
+        es = element_set(smi)
+        if es:
+            allowed |= es
+    bad, reviewer = [], any_element
+    mech = list(mechanisms or [])
+    for i, smi in enumerate(option_smiles or []):
+        es = element_set(smi)
+        if es is None:
+            bad.append((i, 'unparseable'))
+            continue
+        if not any_element and not es <= allowed:
+            bad.append((i, f'elements {sorted(es - allowed)} not in givens ∪ reagents'))
+        m_i = mech[i] if i < len(mech) else None
+        if m_i != 'alternative_pathway' and (key_smiles or given_smiles):
+            ref = key_smiles or (given_smiles or [None])[0]
+            r = mcs_ratio(smi, ref, mcs_timeout_s)
+            if r is None:
+                reviewer = True
+            elif r < MCS_RATIO_MIN:
+                bad.append((i, f'MCS ratio {r:.2f} < {MCS_RATIO_MIN}'))
+    v = qq_verdict('FAIL' if bad else 'PASS', str(bad) if bad else '', findings=bad)
+    v['reviewer'] = reviewer
+    return v
+
+
+def mcs_ratio(smi_a, smi_b, timeout_s=CLASS_SMARTS_TIMEOUT_S):
+    """MCS atoms / heavy atoms of the smaller molecule; None on timeout / parse failure."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return None
+    try:
+        rdFMCS = _qq_rdmod('rdkit.Chem.rdFMCS')
+        a, b = Chem.MolFromSmiles(str(smi_a or '')), Chem.MolFromSmiles(str(smi_b or ''))
+        if rdFMCS is None:
+            return None
+        if a is None or b is None:
+            return None
+        res = rdFMCS.FindMCS([a, b], timeout=int(timeout_s))
+        if res.canceled:
+            return None
+        small = min(a.GetNumHeavyAtoms(), b.GetNumHeavyAtoms())
+        return (res.numAtoms / float(small)) if small else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def mechanism_formula_check(option_smiles, key_smiles, mechanisms, reagent_unit_formula=None):
+    """R6.3 (c2) [D]: an isomer-class distractor must have the KEY's formula; over/under-
+    reaction must differ by a whole number of the reagent's unit (when given)."""
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return qq_verdict('N/A', 'RDKit unavailable')
+    kf = molecular_formula(key_smiles)
+    if not kf:
+        return qq_verdict('N/A', 'key unparseable')
+    bad = []
+    for i, (smi, mech) in enumerate(zip(option_smiles or [], mechanisms or [])):
+        f = molecular_formula(smi)
+        if mech in ISOMER_MECHANISMS and f != kf:
+            bad.append((i, f'{mech} but formula {f} != key {kf}'))
+        if mech in ('over_reaction', 'under_reaction') and reagent_unit_formula:
+            if not _qq_formula_diff_is_unit_multiple(f, kf, reagent_unit_formula):
+                bad.append((i, f'{mech} but formula difference is not a whole multiple of {reagent_unit_formula}'))
+    return qq_verdict('FAIL' if bad else 'PASS', str(bad) if bad else '', findings=bad)
+
+
+def _qq_formula_counts(f):
+    return {e: int(n or 1) for e, n in _qq_re.findall(r'([A-Z][a-z]?)(\d*)', str(f or ''))}
+
+
+def _qq_formula_diff_is_unit_multiple(f, kf, unit):
+    a, b, u = _qq_formula_counts(f), _qq_formula_counts(kf), _qq_formula_counts(unit)
+    if not u:
+        return True
+    diff = {e: a.get(e, 0) - b.get(e, 0) for e in set(a) | set(b)}
+    ks = [diff.get(e, 0) / float(n) for e, n in u.items() if n]
+    if not ks:
+        return True
+    k = ks[0]
+    return k != 0 and abs(k - round(k)) < 1e-9 and all(abs(x - k) < 1e-9 for x in ks) and \
+        all(diff.get(e, 0) == 0 for e in diff if e not in u)
+
+
+def distractor_record_check(mechanisms, options_count, key_set_size=1, family='chemistry'):
+    """R6.1: the record holds options_count - |key set| mechanisms, each in the family
+    vocabulary; NAT N/A. FAIL otherwise (ladder R2o)."""
+    if int(options_count or 0) == 0:
+        return qq_verdict('N/A', 'NAT item')
+    want = int(options_count) - int(key_set_size or 1)
+    vocab = set(MECHANISM_VOCABULARY.get(family, ())) | set().union(*MECHANISM_VOCABULARY.values())
+    m = list(mechanisms or [])
+    if len(m) != want:
+        return qq_verdict('FAIL', f'{len(m)} mechanisms recorded, {want} required')
+    bad = [x for x in m if str(x) not in vocab]
+    return qq_verdict('FAIL' if bad else 'PASS', f'unknown mechanisms {bad}' if bad else '')
+
+
+def near_isomer_check(option_smiles, key_smiles, cell_near_isomer_share, exempt=False):
+    """R6.3 (f): when >= 50 % of the cell's PYQ items use near-isomer sets, at least two
+    distractors share the key's generic Murcko framework or molecular formula."""
+    if exempt or _qq_float(cell_near_isomer_share) < NEAR_ISOMER_SHARE:
+        return qq_verdict('N/A', 'cell does not use near-isomer sets (or R4 item)')
+    Chem = _qq_rdkit()
+    if Chem is None:
+        return qq_verdict('N/A', 'RDKit unavailable')
+    kf, ks = molecular_formula(key_smiles), generic_scaffold(key_smiles)
+    n = 0
+    for smi in option_smiles or []:
+        if structure_identity(smi, reperceive=False) == structure_identity(key_smiles, reperceive=False):
+            continue
+        if (kf and molecular_formula(smi) == kf) or (ks and generic_scaffold(smi) == ks):
+            n += 1
+    return qq_verdict('PASS' if n >= 2 else 'FAIL', f'{n} near-isomer distractors (need 2)')
+
+
+# ── G09 — CONSISTENCY + NAMES (R9.1 / R9.2) ───────────────────────────────────────
+def consist_check(stem_agents, figure_agents, ask_type=None, counted_smiles=None, pyq_phrase_states_constitution=False):
+    """G-CONSIST / A-CONSIST [D]: (a) every reagent / condition named in the stem is in
+    the figure's agents (normalised), none contradicts; (c) for stereoisomer_count the
+    counted object is drawn WITHOUT stereo marks unless the cell's PYQ phrase states the
+    constitution. Text-only items: N/A."""
+    find = []
+    fa = {_qq_agent_norm(a) for a in (figure_agents or ())}
+    for a in (stem_agents or ()):
+        if _qq_agent_norm(a) not in fa:
+            find.append({'rule': 'a', 'agent': a})
+    if ask_type == 'stereoisomer_count' and counted_smiles and not pyq_phrase_states_constitution:
+        sid = structure_identity(counted_smiles, reperceive=False)
+        flat = strip_stereo_identity(counted_smiles)
+        if sid and flat and sid != flat:
+            find.append({'rule': 'c', 'reason': 'counted object is drawn with stereo marks'})
+    if not stem_agents and not figure_agents and ask_type != 'stereoisomer_count':
+        return qq_verdict('N/A', 'text-only item')
+    return qq_verdict('FAIL' if find else 'PASS', str(find) if find else '', findings=find)
+
+
+_QQ_AGENT_ALIASES = {'h2o': 'water', 'aqueous': 'water', 'aq': 'water', 'h3o+': 'acid workup', 'h+/h2o': 'acid workup',
+                     'δ': 'heat', 'heat': 'heat', 'reflux': 'heat', 'hν': 'light', 'hv': 'light', 'uv': 'light',
+                     'mecn': 'acetonitrile', 'ch3cn': 'acetonitrile', 'acetonitrile': 'acetonitrile'}
+
+
+def _qq_agent_norm(a):
+    s = _qq_ud.normalize('NFKC', str(a or '')).translate(_QQ_SUBSUP).casefold()
+    s = _qq_re.sub(r'[\s·,()]+', '', s)
+    s = _qq_re.sub(r'^(?:aqueous|aq)', 'aqueous', s)
+    return _QQ_AGENT_ALIASES.get(s, s)
+
+
+def iupac_style_check(name):
+    """R9.2 style [D]: balanced brackets around substituent prefixes that carry locants
+    or stereodescriptors ('3-propyloxiran-2-ylmethanol' -> FAIL, needs
+    '[(2S,3S)-3-propyloxiran-2-yl]methanol'); isotope labels as subscripts."""
+    n = str(name or '')
+    if not n.strip():
+        return qq_verdict('N/A', 'no name')
+    if n.count('(') != n.count(')') or n.count('[') != n.count(']'):
+        return qq_verdict('FAIL', 'unbalanced brackets')
+    if _qq_re.search(r'\d-[a-z]+(?:-\d+)?-yl(?:methanol|methyl|amine|ethyl|propyl|ethanol|carboxylate|acetate|carbaldehyde)', n) \
+            and '[' not in n:
+        return qq_verdict('FAIL', 'substituent prefix with locants is not bracketed')
+    if _qq_re.search(r'\b(?:d|D)\d\b|-d\d\b', n):
+        return qq_verdict('FAIL', 'isotope count printed without subscript')
+    return qq_verdict('PASS', '')
+
+
+# ── REAGENT_LEXICON (name / abbreviation -> SMILES). Registry data behind a generic
+# interface (§4.7). Extensible by section_rules REAGENT_LEXICON_EXTRA; every entry is a
+# single-component or dotted SMILES; the self-test parses every one with RDKit when
+# available. ───────────────────────────────────────────────────────────────────────
+REAGENT_LEXICON = {
+    # acids / bases / water
+    'H2O': 'O', 'water': 'O', 'H3O+': '[OH3+]', 'HCl': 'Cl', 'HBr': 'Br', 'HI': 'I', 'HF': 'F',
+    'H2SO4': 'OS(=O)(=O)O', 'HNO3': 'O[N+](=O)[O-]', 'H3PO4': 'OP(=O)(O)O', 'AcOH': 'CC(=O)O',
+    'acetic acid': 'CC(=O)O', 'TFA': 'OC(=O)C(F)(F)F', 'TsOH': 'Cc1ccc(S(=O)(=O)O)cc1', 'p-TsOH': 'Cc1ccc(S(=O)(=O)O)cc1',
+    'MsOH': 'CS(=O)(=O)O', 'HCO2H': 'OC=O', 'formic acid': 'OC=O', 'NaOH': '[Na+].[OH-]', 'KOH': '[K+].[OH-]',
+    'LiOH': '[Li+].[OH-]', 'Ba(OH)2': '[Ba+2].[OH-].[OH-]', 'Ca(OH)2': '[Ca+2].[OH-].[OH-]', 'NH3': 'N', 'ammonia': 'N',
+    'NH4OH': '[NH4+].[OH-]', 'NH4Cl': '[NH4+].[Cl-]', 'Na2CO3': '[Na+].[Na+].[O-]C([O-])=O', 'K2CO3': '[K+].[K+].[O-]C([O-])=O',
+    'NaHCO3': '[Na+].OC([O-])=O', 'Cs2CO3': '[Cs+].[Cs+].[O-]C([O-])=O', 'NaOAc': 'CC(=O)[O-].[Na+]', 'KOAc': 'CC(=O)[O-].[K+]',
+    'NaOMe': 'C[O-].[Na+]', 'NaOEt': 'CC[O-].[Na+]', 'KOtBu': 'CC(C)(C)[O-].[K+]', 't-BuOK': 'CC(C)(C)[O-].[K+]',
+    'NaH': '[Na+].[H-]', 'KH': '[K+].[H-]', 'LDA': 'CC(C)N([Li])C(C)C', 'LiHMDS': 'C[Si](C)(C)N([Li])[Si](C)(C)C',
+    'NaHMDS': 'C[Si](C)(C)N([Na])[Si](C)(C)C', 'KHMDS': 'C[Si](C)(C)N([K])[Si](C)(C)C', 'n-BuLi': 'CCCC[Li]', 'BuLi': 'CCCC[Li]',
+    's-BuLi': 'CCC(C)[Li]', 't-BuLi': 'CC(C)(C)[Li]', 'MeLi': 'C[Li]', 'PhLi': 'c1ccccc1[Li]', 'NaNH2': '[Na+].[NH2-]',
+    'Et3N': 'CCN(CC)CC', 'TEA': 'CCN(CC)CC', 'DIPEA': 'CCN(C(C)C)C(C)C', 'pyridine': 'c1ccncc1', 'DMAP': 'CN(C)c1ccncc1',
+    'DBU': 'C1CCCCN2CCCN=C12', 'DBN': 'C1CCN2CCCN=C2C1', 'imidazole': 'c1cnc[nH]1', 'piperidine': 'C1CCNCC1',
+    'pyrrolidine': 'C1CCNC1', 'morpholine': 'C1COCCN1', 'proline': 'OC(=O)[C@@H]1CCCN1', 'L-proline': 'OC(=O)[C@@H]1CCCN1',
+    'NaOCl': '[Na+].[O-]Cl', 'bleach': '[Na+].[O-]Cl',
+    # reducing agents
+    'NaBH4': '[Na+].[BH4-]', 'LiAlH4': '[Li+].[AlH4-]', 'LAH': '[Li+].[AlH4-]', 'DIBAL': 'CC(C)C[AlH]CC(C)C', 'DIBAL-H': 'CC(C)C[AlH]CC(C)C',
+    'DIBALH': 'CC(C)C[AlH]CC(C)C', 'diisobutylaluminium hydride': 'CC(C)C[AlH]CC(C)C', 'NaBH3CN': '[Na+].[BH3-]C#N',
+    'NaBH(OAc)3': '[Na+].CC(=O)O[BH-](OC(C)=O)OC(C)=O', 'L-Selectride': 'CCC(C)[BH-](C(C)CC)C(C)CC.[Li+]', 'LiBH4': '[Li+].[BH4-]',
+    'BH3': 'B', 'BH3.THF': 'B.C1CCOC1', 'BH3·THF': 'B.C1CCOC1', 'BH3.SMe2': 'B.CSC', '9-BBN': 'B1C2CCCC1CCC2',
+    'Sia2BH': 'CC(C)C(C)BC(C)C(C)C', 'H2': '[H][H]', 'H2, Pd/C': '[H][H].[Pd]', 'Pd/C': '[Pd]', 'Pd(OH)2': '[Pd].O.O',
+    'PtO2': 'O=[Pt]=O', 'Raney Ni': '[Ni]', 'Ni': '[Ni]', 'Lindlar': '[Pd].[Pb]', "Lindlar's catalyst": '[Pd].[Pb]',
+    'Na/NH3': '[Na].N', 'Li/NH3': '[Li].N', 'Na': '[Na]', 'Li': '[Li]', 'Zn': '[Zn]', 'Zn/Hg': '[Zn].[Hg]', 'Zn(Hg)': '[Zn].[Hg]',
+    'Fe': '[Fe]', 'Sn': '[Sn]', 'SnCl2': 'Cl[Sn]Cl', 'Mg': '[Mg]', 'SmI2': 'I[Sm]I', 'Bu3SnH': 'CCCC[SnH](CCCC)CCCC',
+    'AIBN': 'CC(C)(C#N)N=NC(C)(C)C#N', 'Et3SiH': 'CC[SiH](CC)CC', 'N2H4': 'NN', 'hydrazine': 'NN', 'NH2NH2': 'NN',
+    'TsNHNH2': 'Cc1ccc(S(=O)(=O)NN)cc1', 'H2/Pd': '[H][H].[Pd]', 'H2/Pt': '[H][H].[Pt]', 'H2/Ni': '[H][H].[Ni]',
+    'Wilkinson': 'Cl[Rh](P(c1ccccc1)(c1ccccc1)c1ccccc1)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1',
+    '(Ph3P)3RhCl': 'Cl[Rh](P(c1ccccc1)(c1ccccc1)c1ccccc1)(P(c1ccccc1)(c1ccccc1)c1ccccc1)P(c1ccccc1)(c1ccccc1)c1ccccc1',
+    'NaBH4, CeCl3': '[Na+].[BH4-].Cl[Ce](Cl)Cl', 'CeCl3': 'Cl[Ce](Cl)Cl', 'CeCl3·7H2O': 'Cl[Ce](Cl)Cl.O',
+    # oxidants
+    'PCC': 'O=[Cr](=O)([O-])Cl.c1cc[nH+]cc1', 'PDC': 'O=[Cr](=O)([O-])O[Cr](=O)(=O)[O-].c1cc[nH+]cc1.c1cc[nH+]cc1',
+    'CrO3': 'O=[Cr](=O)=O', 'Jones': 'O=[Cr](=O)=O.OS(=O)(=O)O', "Jones' reagent": 'O=[Cr](=O)=O.OS(=O)(=O)O',
+    'K2Cr2O7': '[K+].[K+].[O-][Cr](=O)(=O)O[Cr](=O)(=O)[O-]', 'KMnO4': '[K+].[O-][Mn](=O)(=O)=O', 'MnO2': 'O=[Mn]=O',
+    'DMP': 'CC(=O)OI1(OC(C)=O)(OC(C)=O)OC(=O)c2ccccc21', 'Dess-Martin': 'CC(=O)OI1(OC(C)=O)(OC(C)=O)OC(=O)c2ccccc21',
+    'IBX': 'O=C1OI(=O)(O)c2ccccc21', 'Swern': 'CS(C)=O.ClC(=O)C(=O)Cl.CCN(CC)CC', 'DMSO': 'CS(C)=O', '(COCl)2': 'ClC(=O)C(=O)Cl',
+    'TPAP': 'CCCC[N+](CCCC)(CCCC)CCCC.[O-][Ru](=O)(=O)=O', 'NMO': 'C[N+]1([O-])CCOCC1', 'TEMPO': 'CC1(C)CCCC(C)(C)N1[O]',
+    'OsO4': 'O=[Os](=O)(=O)=O', 'O3': '[O-][O+]=O', 'ozone': '[O-][O+]=O', 'Me2S': 'CSC', 'DMS': 'CSC', 'PPh3': 'c1ccc(P(c2ccccc2)c2ccccc2)cc1',
+    'H2O2': 'OO', 'm-CPBA': 'OOC(=O)c1cccc(Cl)c1', 'mCPBA': 'OOC(=O)c1cccc(Cl)c1', 'MCPBA': 'OOC(=O)c1cccc(Cl)c1',
+    'peracetic acid': 'CC(=O)OO', 'CF3CO3H': 'OOC(=O)C(F)(F)F', 'NaIO4': '[Na+].[O-]I(=O)(=O)=O', 'HIO4': 'OI(=O)(=O)=O',
+    'Pb(OAc)4': 'CC(=O)O[Pb](OC(C)=O)(OC(C)=O)OC(C)=O', 'Ag2O': '[Ag]O[Ag]', 'AgNO3': '[Ag+].[O-][N+](=O)[O-]',
+    "Tollens'": '[Ag+].N.N', 'Ag2CO3': '[Ag+].[Ag+].[O-]C([O-])=O', "Fetizon's": '[Ag+].[Ag+].[O-]C([O-])=O', 'Cu(OAc)2': 'CC(=O)[O-].CC(=O)[O-].[Cu+2]',
+    'CuCl2': 'Cl[Cu]Cl', 'CuI': '[Cu]I', 'CuBr': '[Cu]Br', 'CuCN': '[Cu]C#N', 'Cu': '[Cu]', 'Cu2O': '[Cu]O[Cu]',
+    'SeO2': 'O=[Se]=O', 'DDQ': 'N#CC1=C(C#N)C(=O)C(Cl)=C(Cl)C1=O', 'chloranil': 'O=C1C(Cl)=C(Cl)C(=O)C(Cl)=C1Cl',
+    'NBS': 'O=C1CCC(=O)N1Br', 'NCS': 'O=C1CCC(=O)N1Cl', 'NIS': 'O=C1CCC(=O)N1I', 'Br2': 'BrBr', 'Cl2': 'ClCl', 'I2': 'II',
+    'HOCl': 'OCl', 'HOBr': 'OBr', 'Oxone': '[K+].[K+].[K+].[K+].[K+].[O-]S(=O)(=O)OO.[O-]S(=O)(=O)OO.[O-]S(=O)(=O)[O-].[O-]S(=O)(=O)[O-]',
+    'K3Fe(CN)6': '[K+].[K+].[K+].N#C[Fe-3](C#N)(C#N)(C#N)(C#N)C#N', 'Fe(III)': '[Fe+3]', 'FeCl3': 'Cl[Fe](Cl)Cl',
+    'Sharpless': 'CC(C)O[Ti](OC(C)C)(OC(C)C)OC(C)C.CCOC(=O)[C@H](O)[C@@H](O)C(=O)OCC.CC(C)(C)OO',
+    'Ti(OiPr)4': 'CC(C)O[Ti](OC(C)C)(OC(C)C)OC(C)C', 'DET': 'CCOC(=O)[C@H](O)[C@@H](O)C(=O)OCC', 'L-(+)-DET': 'CCOC(=O)[C@H](O)[C@@H](O)C(=O)OCC',
+    'D-(-)-DET': 'CCOC(=O)[C@@H](O)[C@H](O)C(=O)OCC', 'TBHP': 'CC(C)(C)OO', 't-BuOOH': 'CC(C)(C)OO',
+    'AD-mix-α': 'O=[Os](=O)(=O)=O.[K+].[K+].[K+].N#C[Fe-3](C#N)(C#N)(C#N)(C#N)C#N', 'AD-mix-β': 'O=[Os](=O)(=O)=O.[K+].[K+].[K+].N#C[Fe-3](C#N)(C#N)(C#N)(C#N)C#N',
+    'Hg(OAc)2': 'CC(=O)O[Hg]OC(C)=O', 'HgCl2': 'Cl[Hg]Cl', 'HgSO4': '[Hg+2].[O-]S(=O)(=O)[O-]', 'Hg(II)': '[Hg+2]',
+    # halogenating / activating / acylating
+    'SOCl2': 'O=S(Cl)Cl', 'PCl5': 'ClP(Cl)(Cl)(Cl)Cl', 'PCl3': 'ClP(Cl)Cl', 'PBr3': 'BrP(Br)Br', 'POCl3': 'O=P(Cl)(Cl)Cl',
+    '(COCl)2, DMF': 'ClC(=O)C(=O)Cl.CN(C)C=O', 'Vilsmeier': 'O=P(Cl)(Cl)Cl.CN(C)C=O', 'DMF': 'CN(C)C=O', 'TsCl': 'Cc1ccc(S(=O)(=O)Cl)cc1',
+    'MsCl': 'CS(=O)(=O)Cl', 'Tf2O': 'O=S(=O)(OS(=O)(=O)C(F)(F)F)C(F)(F)F', 'Ac2O': 'CC(=O)OC(C)=O', 'AcCl': 'CC(=O)Cl',
+    'acetyl chloride': 'CC(=O)Cl', 'acetic anhydride': 'CC(=O)OC(C)=O', 'Boc2O': 'CC(C)(C)OC(=O)OC(=O)OC(C)(C)C', '(Boc)2O': 'CC(C)(C)OC(=O)OC(=O)OC(C)(C)C',
+    'CbzCl': 'O=C(Cl)OCc1ccccc1', 'Fmoc-Cl': 'O=C(Cl)OCC1c2ccccc2-c2ccccc21', 'BzCl': 'O=C(Cl)c1ccccc1', 'PhCOCl': 'O=C(Cl)c1ccccc1',
+    'TBSCl': 'C[Si](C)(Cl)C(C)(C)C', 'TBDMSCl': 'C[Si](C)(Cl)C(C)(C)C', 'TMSCl': 'C[Si](C)(C)Cl', 'TIPSCl': 'CC(C)[Si](Cl)(C(C)C)C(C)C',
+    'TBAF': 'CCCC[N+](CCCC)(CCCC)CCCC.[F-]', 'HF·pyridine': 'F.c1ccncc1', 'DCC': 'C1CCC(CC1)N=C=NC1CCCCC1', 'EDC': 'CCN=C=NCCCN(C)C',
+    'HOBt': 'On1nnc2ccccc21', 'HATU': 'CN(C)C(=[N+](C)C)On1nnc2cccnc21.F[P-](F)(F)(F)(F)F', 'CDI': 'O=C(n1ccnc1)n1ccnc1',
+    'DEAD': 'CCOC(=O)N=NC(=O)OCC', 'DIAD': 'CC(C)OC(=O)N=NC(=O)OC(C)C', 'Mitsunobu': 'CCOC(=O)N=NC(=O)OCC.c1ccc(P(c2ccccc2)c2ccccc2)cc1',
+    'MeI': 'CI', 'CH3I': 'CI', 'EtI': 'CCI', 'EtBr': 'CCBr', 'BnBr': 'BrCc1ccccc1', 'benzyl bromide': 'BrCc1ccccc1', 'allyl bromide': 'C=CCBr',
+    'Me2SO4': 'COS(=O)(=O)OC', 'Et2SO4': 'CCOS(=O)(=O)OCC', 'CH2N2': 'C=[N+]=[N-]', 'diazomethane': 'C=[N+]=[N-]', 'TMSCHN2': 'C[Si](C)(C)C=[N+]=[N-]',
+    'NaI': '[Na+].[I-]', 'KI': '[K+].[I-]', 'NaCN': '[Na+].[C-]#N', 'KCN': '[K+].[C-]#N', 'NaN3': '[Na+].[N-]=[N+]=[N-]', 'NaF': '[Na+].[F-]',
+    'KF': '[K+].[F-]', 'LiCl': '[Li+].[Cl-]', 'LiBr': '[Li+].[Br-]', 'NaBr': '[Na+].[Br-]', 'NaCl': '[Na+].[Cl-]', 'MgBr2': '[Mg+2].[Br-].[Br-]',
+    'ZnCl2': 'Cl[Zn]Cl', 'AlCl3': 'Cl[Al](Cl)Cl', 'FeBr3': 'Br[Fe](Br)Br', 'BF3': 'FB(F)F', 'BF3·OEt2': 'FB(F)F.CCOCC', 'BF3.OEt2': 'FB(F)F.CCOCC',
+    'TiCl4': 'Cl[Ti](Cl)(Cl)Cl', 'TiCl3': 'Cl[Ti](Cl)Cl', 'SnCl4': 'Cl[Sn](Cl)(Cl)Cl', 'BBr3': 'BrB(Br)Br', 'BCl3': 'ClB(Cl)Cl',
+    'Sc(OTf)3': 'O=S(=O)([O-])C(F)(F)F.O=S(=O)([O-])C(F)(F)F.O=S(=O)([O-])C(F)(F)F.[Sc+3]', 'Yb(OTf)3': 'O=S(=O)([O-])C(F)(F)F.O=S(=O)([O-])C(F)(F)F.O=S(=O)([O-])C(F)(F)F.[Yb+3]',
+    'TMSOTf': 'C[Si](C)(C)OS(=O)(=O)C(F)(F)F', 'AgOTf': '[Ag+].O=S(=O)([O-])C(F)(F)F', 'Et2AlCl': 'CC[Al](CC)Cl',
+    'AlMe3': 'C[Al](C)C', 'Me3Al': 'C[Al](C)C', 'Et2Zn': 'CC[Zn]CC', 'CH2I2': 'ICI', 'Simmons-Smith': 'ICI.[Zn].[Cu]',
+    'Zn(Cu)': '[Zn].[Cu]', 'Zn-Cu': '[Zn].[Cu]',
+    # organometallics / C-C
+    'MeMgBr': 'C[Mg]Br', 'CH3MgBr': 'C[Mg]Br', 'EtMgBr': 'CC[Mg]Br', 'PhMgBr': 'Br[Mg]c1ccccc1', 'iPrMgCl': 'CC(C)[Mg]Cl',
+    'vinylMgBr': 'C=C[Mg]Br', 'allylMgBr': 'C=CC[Mg]Br', 'Me2CuLi': 'C[Cu-](C)[Li+]', 'Gilman': 'C[Cu-](C)[Li+]', 'Bu2CuLi': 'CCCC[Cu-](CCCC)[Li+]',
+    'Ph3P=CH2': 'C=P(c1ccccc1)(c1ccccc1)c1ccccc1', 'Wittig': 'C=P(c1ccccc1)(c1ccccc1)c1ccccc1', 'Ph3P=CHCO2Et': 'CCOC(=O)C=P(c1ccccc1)(c1ccccc1)c1ccccc1',
+    'MePPh3Br': 'C[P+](c1ccccc1)(c1ccccc1)c1ccccc1.[Br-]', '(EtO)2P(O)CH2CO2Et': 'CCOC(=O)CP(=O)(OCC)OCC', 'HWE': 'CCOC(=O)CP(=O)(OCC)OCC',
+    'Tebbe': 'C[Al](C)Cl.C=[Ti](C1C=CC=C1)C1C=CC=C1', 'Petasis': 'C[Ti](C)(C1C=CC=C1)C1C=CC=C1',
+    'Grubbs': '[Ru]', 'Grubbs II': '[Ru]', 'Grubbs I': '[Ru]', 'Hoveyda-Grubbs': '[Ru]', 'Pd(PPh3)4': '[Pd].c1ccc(P(c2ccccc2)c2ccccc2)cc1',
+    'Pd(OAc)2': 'CC(=O)O[Pd]OC(C)=O', 'PdCl2': 'Cl[Pd]Cl', 'PdCl2(PPh3)2': 'Cl[Pd]Cl.c1ccc(P(c2ccccc2)c2ccccc2)cc1', 'Pd2(dba)3': '[Pd].[Pd].O=C(C=Cc1ccccc1)C=Cc1ccccc1',
+    'Rh(OAc)4': 'CC(=O)O[Rh]OC(C)=O', 'Rh2(OAc)4': 'CC(=O)O[Rh]OC(C)=O', 'Cu(acac)2': 'CC(=O)C=C(C)[O-].CC(=O)C=C(C)[O-].[Cu+2]',
+    'Co2(CO)8': '[Co].[Co].[C-]#[O+]', 'Ni(cod)2': '[Ni].C1CC=CCCC=C1', 'Fe(CO)5': '[Fe].[C-]#[O+]', 'Cr(CO)6': '[Cr].[C-]#[O+]',
+    'B2pin2': 'CC1(C)OB(B2OC(C)(C)C(C)(C)O2)OC1(C)C', 'HBpin': 'CC1(C)OBOC1(C)C', 'catecholborane': 'B1Oc2ccccc2O1',
+    'ethylene glycol': 'OCCO', 'HOCH2CH2OH': 'OCCO', '1,3-propanediol': 'OCCCO', 'MeOH': 'CO', 'methanol': 'CO', 'EtOH': 'CCO', 'ethanol': 'CCO',
+    'iPrOH': 'CC(C)O', 't-BuOH': 'CC(C)(C)O', 'tBuOH': 'CC(C)(C)O', 'acetone': 'CC(C)=O', 'THF': 'C1CCOC1', 'Et2O': 'CCOCC', 'ether': 'CCOCC',
+    'DCM': 'ClCCl', 'CH2Cl2': 'ClCCl', 'CHCl3': 'ClC(Cl)Cl', 'CCl4': 'ClC(Cl)(Cl)Cl', 'benzene': 'c1ccccc1', 'toluene': 'Cc1ccccc1',
+    'xylene': 'Cc1ccccc1C', 'hexane': 'CCCCCC', 'EtOAc': 'CCOC(C)=O', 'MeCN': 'CC#N', 'CH3CN': 'CC#N', 'acetonitrile': 'CC#N',
+    'DMA': 'CN(C)C(C)=O', 'NMP': 'CN1CCCC1=O', 'HMPA': 'CN(C)P(=O)(N(C)C)N(C)C', 'dioxane': 'C1COCCO1', 'DME': 'COCCOC',
+    'HC(OEt)3': 'CCOC(OCC)OCC', 'HC(OMe)3': 'COC(OC)OC', 'ethyl formate': 'CCOC=O', 'ethyl acetate': 'CCOC(C)=O', 'EtOCHO': 'CCOC=O',
+    'diethyl malonate': 'CCOC(=O)CC(=O)OCC', 'ethyl acetoacetate': 'CCOC(=O)CC(C)=O', 'diethyl acetamidomalonate': 'CCOC(=O)C(NC(C)=O)C(=O)OCC',
+    'malononitrile': 'N#CCC#N', 'nitromethane': 'C[N+](=O)[O-]', 'CH3NO2': 'C[N+](=O)[O-]', 'MVK': 'C=CC(C)=O', 'methyl vinyl ketone': 'C=CC(C)=O',
+    'acrolein': 'C=CC=O', 'methyl acrylate': 'C=CC(=O)OC', 'ethyl acrylate': 'C=CC(=O)OCC', 'acrylonitrile': 'C=CC#N', 'maleic anhydride': 'O=C1C=CC(=O)O1',
+    'DMAD': 'COC(=O)C#CC(=O)OC', 'formaldehyde': 'C=O', 'HCHO': 'C=O', 'CH2O': 'C=O', 'paraformaldehyde': 'C=O', 'acetaldehyde': 'CC=O',
+    'benzaldehyde': 'O=Cc1ccccc1', 'PhCHO': 'O=Cc1ccccc1', 'cyclohexanone': 'O=C1CCCCC1', 'isoprene': 'C=CC(C)=C', 'butadiene': 'C=CC=C',
+    '1,3-butadiene': 'C=CC=C', 'cyclopentadiene': 'C1C=CC=C1', 'furan': 'c1ccoc1', 'ethylene': 'C=C', 'propene': 'CC=C', '2-methylpropene': 'CC(C)=C',
+    'isobutylene': 'CC(C)=C', 'CO': '[C-]#[O+]', 'CO2': 'O=C=O', 'dry ice': 'O=C=O', 'HCN': 'C#N', 'TMSCN': 'C[Si](C)(C)C#N', 'KCN/H+': '[K+].[C-]#N',
+    'PhNH2': 'Nc1ccccc1', 'aniline': 'Nc1ccccc1', 'MeNH2': 'CN', 'Me2NH': 'CNC', 'Et2NH': 'CCNCC', 'NH2OH': 'NO', 'hydroxylamine': 'NO', 'NH2OH·HCl': 'NO.Cl',
+    'PhNHNH2': 'NNc1ccccc1', 'phenylhydrazine': 'NNc1ccccc1', '2,4-DNP': 'NNc1ccc(cc1[N+](=O)[O-])[N+](=O)[O-]', 'semicarbazide': 'NNC(N)=O',
+    'urea': 'NC(N)=O', 'thiourea': 'NC(N)=S', 'HSCH2CH2SH': 'SCCS', '1,2-ethanedithiol': 'SCCS', '1,3-propanedithiol': 'SCCCS', 'HSCH2CH2CH2SH': 'SCCCS',
+    '1,3-dithiane': 'C1CSCSC1', 'PhSH': 'Sc1ccccc1', 'thiophenol': 'Sc1ccccc1', 'NaSMe': 'C[S-].[Na+]', 'NaSPh': '[Na+].[S-]c1ccccc1', 'Na2S': '[Na+].[Na+].[S-2]',
+    "Lawesson's": 'COc1ccc(cc1)P1(=S)SP(=S)(S1)c1ccc(OC)cc1', 'P2S5': 'S1P(=S)SP(=S)S1', 'P4S10': 'S1P(=S)SP(=S)S1',
+    'NaNO2': '[Na+].[O-]N=O', 'HNO2': 'ON=O', 'NaNO2/HCl': '[Na+].[O-]N=O.Cl', 'HBF4': 'F[B-](F)(F)F.[H+]', 'CuCl': '[Cu]Cl', 'CuBr/HBr': '[Cu]Br.Br',
+    'H3PO2': 'OP(=O)', 'KI/I2': '[K+].[I-].II', 'NaBH4/MeOH': '[Na+].[BH4-].CO', 'HC≡CNa': '[Na+].[C-]#C', 'NaC≡CH': '[Na+].[C-]#C', 'acetylide': '[C-]#C',
+    'Ph3CBF4': 'F[B-](F)(F)F.[C+](c1ccccc1)(c1ccccc1)c1ccccc1', 'trityl tetrafluoroborate': 'F[B-](F)(F)F.[C+](c1ccccc1)(c1ccccc1)c1ccccc1',
+    'Ph3C+': '[C+](c1ccccc1)(c1ccccc1)c1ccccc1', 'NaIO4/RuCl3': '[Na+].[O-]I(=O)(=O)=O.Cl[Ru](Cl)Cl', 'RuCl3': 'Cl[Ru](Cl)Cl', 'RuO4': 'O=[Ru](=O)(=O)=O',
+    'KOH/EtOH': '[K+].[OH-].CCO', 'NaOH/H2O': '[Na+].[OH-].O', 'H2SO4 (conc.)': 'OS(=O)(=O)O', 'HNO3/H2SO4': 'O[N+](=O)[O-].OS(=O)(=O)O',
+    'SO3': 'O=S(=O)=O', 'SO3/H2SO4': 'O=S(=O)=O.OS(=O)(=O)O', 'ClSO3H': 'OS(=O)(=O)Cl', 'SO2Cl2': 'O=S(=O)(Cl)Cl', 'Me3SiCl': 'C[Si](C)(C)Cl',
+    'Me3SiI': 'C[Si](C)(C)I', 'TMSI': 'C[Si](C)(C)I', 'HBr/AcOH': 'Br.CC(=O)O', 'HI (conc.)': 'I', 'HI/P': 'I.P', 'red P': 'P', 'P': 'P',
+    'Cl2/hν': 'ClCl', 'Br2/hν': 'BrBr', 'Br2/FeBr3': 'BrBr.Br[Fe](Br)Br', 'Br2/H2O': 'BrBr.O', 'Br2/CCl4': 'BrBr.ClC(Cl)(Cl)Cl', 'Cl2/FeCl3': 'ClCl.Cl[Fe](Cl)Cl',
+    'I2/HNO3': 'II.O[N+](=O)[O-]', 'ICl': 'ICl', 'IBr': 'IBr', 'NIS/H2O': 'O=C1CCC(=O)N1I.O', 'NBS/H2O': 'O=C1CCC(=O)N1Br.O', 'NBS, AIBN': 'O=C1CCC(=O)N1Br.CC(C)(C#N)N=NC(C)(C)C#N',
+    'TsNHNH2, NaBH3CN': 'Cc1ccc(S(=O)(=O)NN)cc1.[Na+].[BH3-]C#N', 'Wolff-Kishner': 'NN.[K+].[OH-]', 'Clemmensen': '[Zn].[Hg].Cl', 'Zn(Hg)/HCl': '[Zn].[Hg].Cl',
+    'LiAlH4, then H2O': '[Li+].[AlH4-].O', 'NaBH4, then H2O': '[Na+].[BH4-].O', 'LiAlH(OtBu)3': '[Li+].CC(C)(C)O[AlH-](OC(C)(C)C)OC(C)(C)C',
+    'Red-Al': 'COCCO[AlH2-]OCCOC.[Na+]', 'Bu3SnH, AIBN': 'CCCC[SnH](CCCC)CCCC.CC(C)(C#N)N=NC(C)(C)C#N', 'SmI2, THF': 'I[Sm]I.C1CCOC1',
+    'HOAc': 'CC(=O)O', 'HOAc/H2O': 'CC(=O)O.O', 'H2O/H+': 'O.[H+]', 'H+': '[H+]', 'H2O, heat': 'O', 'dil. HCl': 'Cl.O', 'aq. HCl': 'Cl.O', 'aq. NaOH': '[Na+].[OH-].O',
+    'aq. H2SO4': 'OS(=O)(=O)O.O', 'conc. H2SO4': 'OS(=O)(=O)O', '10% HCl': 'Cl.O', 'aq. NaHCO3': '[Na+].OC([O-])=O.O', 'aq. NH4Cl': '[NH4+].[Cl-].O',
+    'MgSO4': '[Mg+2].[O-]S(=O)(=O)[O-]', 'Na2SO4': '[Na+].[Na+].[O-]S(=O)(=O)[O-]', 'molecular sieves': '[Si]', 'silica': 'O=[Si]=O', 'alumina': 'O=[Al]O[Al]=O',
+    'Amberlyst': 'OS(=O)(=O)c1ccccc1', 'Nafion': 'OS(=O)(=O)C(F)(F)F', 'Dowex': 'OS(=O)(=O)c1ccccc1', 'PPTS': 'Cc1ccc(S(=O)(=O)[O-])cc1.c1cc[nH+]cc1', 'CSA': 'CC1(C)C2CCC1(CS(=O)(=O)O)C(=O)C2',
+    'camphorsulfonic acid': 'CC1(C)C2CCC1(CS(=O)(=O)O)C(=O)C2', 'TfOH': 'OS(=O)(=O)C(F)(F)F', 'HClO4': 'OCl(=O)(=O)=O', 'HBr (48%)': 'Br.O', 'HBr/H2O2': 'Br.OO',
+    'HBr, ROOR': 'Br.COOC', 'ROOR': 'COOC', 'peroxide': 'COOC', 'benzoyl peroxide': 'O=C(OOC(=O)c1ccccc1)c1ccccc1', 'BPO': 'O=C(OOC(=O)c1ccccc1)c1ccccc1',
+    'Et3N·3HF': 'CCN(CC)CC.F.F.F', 'KHF2': '[K+].F.[F-]', 'LiClO4': '[Li+].[O-]Cl(=O)(=O)=O', 'LiI': '[Li+].[I-]', 'LiCl, DMF': '[Li+].[Cl-].CN(C)C=O',
+    'Krapcho': '[Na+].[Cl-].CS(C)=O.O', 'NaCl, DMSO, H2O': '[Na+].[Cl-].CS(C)=O.O', 'Ba(OH)2, heat': '[Ba+2].[OH-].[OH-]', 'soda lime': '[Na+].[OH-].[Ca+2].[OH-].[OH-]',
+    'CaO': '[Ca+2].[O-2]', 'NaOH/CaO': '[Na+].[OH-].[Ca+2].[O-2]', 'KOH, EtOH, heat': '[K+].[OH-].CCO', 'NaOEt/EtOH': 'CC[O-].[Na+].CCO', 'NaOMe/MeOH': 'C[O-].[Na+].CO',
+    'KOtBu/tBuOH': 'CC(C)(C)[O-].[K+].CC(C)(C)O', 't-BuOK, t-BuOH': 'CC(C)(C)[O-].[K+].CC(C)(C)O', 'LDA, THF': 'CC(C)N([Li])C(C)C.C1CCOC1', 'LDA, -78 °C': 'CC(C)N([Li])C(C)C',
+    'n-BuLi, THF': 'CCCC[Li].C1CCOC1', 'HgCl2, CaCO3': 'Cl[Hg]Cl.[Ca+2].[O-]C([O-])=O', 'HgCl2, H2O': 'Cl[Hg]Cl.O', 'HgCl2, MeCN/H2O': 'Cl[Hg]Cl.CC#N.O', 'CaCO3': '[Ca+2].[O-]C([O-])=O',
+    'Hg(OAc)2, H2O': 'CC(=O)O[Hg]OC(C)=O.O', 'Hg(OAc)2, then NaBH4': 'CC(=O)O[Hg]OC(C)=O.[Na+].[BH4-]', 'BH3·THF, then H2O2/NaOH': 'B.C1CCOC1.OO.[Na+].[OH-]',
+    'H2O2, NaOH': 'OO.[Na+].[OH-]', 'H2O2/NaOH': 'OO.[Na+].[OH-]', 'OsO4 (cat.), NMO': 'O=[Os](=O)(=O)=O.C[N+]1([O-])CCOCC1', 'OsO4, NMO': 'O=[Os](=O)(=O)=O.C[N+]1([O-])CCOCC1',
+    'KMnO4, cold, dilute': '[K+].[O-][Mn](=O)(=O)=O', 'KMnO4, hot': '[K+].[O-][Mn](=O)(=O)=O', 'KMnO4/OH-': '[K+].[O-][Mn](=O)(=O)=O.[OH-]', 'O3, then Me2S': '[O-][O+]=O.CSC',
+    'O3, then Zn/H2O': '[O-][O+]=O.[Zn].O', 'O3; Zn, H2O': '[O-][O+]=O.[Zn].O', 'O3, then H2O2': '[O-][O+]=O.OO', 'O3; H2O2': '[O-][O+]=O.OO', 'O3, then PPh3': '[O-][O+]=O.c1ccc(P(c2ccccc2)c2ccccc2)cc1',
+    'm-CPBA, then H3O+': 'OOC(=O)c1cccc(Cl)c1.[OH3+]', 'mCPBA, CH2Cl2': 'OOC(=O)c1cccc(Cl)c1.ClCCl', 'PCC, CH2Cl2': 'O=[Cr](=O)([O-])Cl.c1cc[nH+]cc1.ClCCl',
+    'Swern (DMSO, (COCl)2, Et3N)': 'CS(C)=O.ClC(=O)C(=O)Cl.CCN(CC)CC', 'DMSO, (COCl)2, Et3N': 'CS(C)=O.ClC(=O)C(=O)Cl.CCN(CC)CC', 'Dess-Martin periodinane': 'CC(=O)OI1(OC(C)=O)(OC(C)=O)OC(=O)c2ccccc21',
+    'I2, NaOH': 'II.[Na+].[OH-]', 'I2/NaOH': 'II.[Na+].[OH-]', 'NaOI': '[Na+].[O-]I', 'iodoform': 'II.[Na+].[OH-]', 'Br2, NaOH': 'BrBr.[Na+].[OH-]', 'Hofmann': 'BrBr.[Na+].[OH-]',
+    'NaN3, H2SO4': '[Na+].[N-]=[N+]=[N-].OS(=O)(=O)O', 'Schmidt': '[Na+].[N-]=[N+]=[N-].OS(=O)(=O)O', 'HN3': 'N=[N+]=[N-]', 'DPPA': '[N-]=[N+]=NP(=O)(Oc1ccccc1)Oc1ccccc1',
+    'NaN3, DMF': '[Na+].[N-]=[N+]=[N-].CN(C)C=O', 'NaN3': '[Na+].[N-]=[N+]=[N-]', 'PhN3': '[N-]=[N+]=Nc1ccccc1', 'TsN3': 'Cc1ccc(S(=O)(=O)N=[N+]=[N-])cc1',
+    'Pb(OAc)4, then': 'CC(=O)O[Pb](OC(C)=O)(OC(C)=O)OC(C)=O', 'PhI(OAc)2': 'CC(=O)OI(OC(C)=O)c1ccccc1', 'PIDA': 'CC(=O)OI(OC(C)=O)c1ccccc1', 'PIFA': 'O=C(OI(OC(=O)C(F)(F)F)c1ccccc1)C(F)(F)F',
+    'Koser': 'Cc1ccc(S(=O)(=O)OI(O)c2ccccc2)cc1', 'Selectfluor': 'F[N+]12CC[N+](CCl)(CC1)CC2.F[B-](F)(F)F.F[B-](F)(F)F',
+    'DAST': 'CCN(CC)S(F)(F)F', 'Deoxo-Fluor': 'COCCN(CCOC)S(F)(F)F', 'NFSI': 'O=S(=O)(N(F)S(=O)(=O)c1ccccc1)c1ccccc1', 'HF': 'F', 'KHF2/MeOH': '[K+].F.[F-].CO',
+    'SF4': 'FS(F)(F)F', 'CF3SO3H': 'OS(=O)(=O)C(F)(F)F', 'CF3I': 'FC(F)(F)I', 'TMSCF3': 'C[Si](C)(C)C(F)(F)F', 'Ruppert': 'C[Si](C)(C)C(F)(F)F',
+}
+REAGENT_LEXICON_MIN = 300                 # §8 item 7 — size floor, asserted in self-test
+
+
+def reagent_smiles(name, extra=None):
+    """Resolve a reagent name / abbreviation (case-insensitive, whitespace-tolerant)
+    through REAGENT_LEXICON ∪ extra. None when unresolved (-> 'any element' +
+    reviewer in inventory_check)."""
+    key = _qq_re.sub(r'\s+', ' ', str(name or '')).strip()
+    for lex in ((extra or {}), REAGENT_LEXICON):
+        if key in lex:
+            return lex[key]
+        for k, v in lex.items():
+            if str(k).casefold() == key.casefold():
+                return v
+    return None
+
+
+# ── G02 — JUDGE PACKET / FINAL BAND (R2.2 / R2.4 / OD-4 existing tolerance) ───────
+_QQ_STRIP_FIELDS = ('difficulty_plan', 'difficulty_obs', 'difficulty', 'solution', 'solution_notes',
+                    'rationale', 'author_notes', 'deduction_steps', 'axiom_concepts', 'band', 'scheduled_band',
+                    'difficulty_check', 'why_wrong', 'explanation')
+
+
+def exemplars_for(bank, subtopic_id, qtype='mcq', labels=('Easy', 'Medium', 'Hard'), k=EXEMPLAR_K):
+    """R2.2 cascade: the exemplar rows the judge sees for one item — PER BAND, from the
+    bank's cells[subtopic_id], then its topic-prefix cells, then the section cell: the
+    first level holding >= 1 exemplar of that band; k rows per band; the item's qtype
+    first, any qtype when that qtype has none. Returns {'by_band': {label: [rows]},
+    'level_used': {label: cell key | None}, 'complete': every label has >= 1 row}.
+    Empty bank -> by_band {} (dormant); a band with no exemplar at any level is [] and
+    the judge is told so (the rating is recorded with that caveat, never a stop)."""
+    cells = (bank or {}).get('cells') if isinstance(bank, dict) else None
+    cells = cells if isinstance(cells, dict) else {}
+    sid = str(subtopic_id or '')
+    levels = [sid] + [sid.rsplit('.', i)[0] for i in range(1, sid.count('.') + 1)]
+    levels = [lv for i, lv in enumerate(levels) if lv and lv not in levels[:i]]
+    by_band, used = {}, {}
+    def _rows(cell_keys, lab):
+        # the bank holds LEAF cells (Step 5 writes one per subtopic_id); a topic / section
+        # level is the union of every leaf under that prefix — never a separately written cell
+        own, other = [], []
+        for ck in cell_keys:
+            cell = cells.get(ck)
+            if not isinstance(cell, dict):
+                continue
+            per_q = cell.get(str(lab)) if isinstance(cell.get(str(lab)), dict) else {}
+            own += [r for r in (per_q.get(str(qtype or 'mcq')) or []) if isinstance(r, dict)]
+            other += [r for v in per_q.values() if isinstance(v, list) for r in v if isinstance(r, dict)]
+        rows = own or other
+        return rows[:int(k or EXEMPLAR_K)]
+    for lab in labels:
+        by_band[str(lab)], used[str(lab)] = [], None
+        for lv in levels:
+            keys = [ck for ck in cells if ck == lv or str(ck).startswith(lv + '.')]
+            rows = _rows(keys, lab)
+            if rows:
+                by_band[str(lab)], used[str(lab)] = rows, lv
+                break
+    if not any(by_band.values()):
+        return {'by_band': {}, 'level_used': {}, 'complete': False}
+    return {'by_band': by_band, 'level_used': used, 'complete': all(by_band[str(lab)] for lab in labels)}
+
+
+def build_judge_input(item, exemplars_by_band, labels, scheduled_band=None):
+    """R2.2: the judge prompt is built ONLY from this record. Strips every author
+    difficulty field, solution notes and rationale. Returns {'item', 'exemplars',
+    'labels', 'sha256'} — the sha256 is stored on the item (difficulty_check.judge_input
+    sha256). scheduled_band is deliberately NOT included (the judge must not see it)."""
+    it = {k: v for k, v in (item or {}).items() if k not in _QQ_STRIP_FIELDS}
+    ex = {}
+    for b, rows in (exemplars_by_band or {}).items():
+        ex[str(b)] = [{k: v for k, v in (r or {}).items() if k not in ('band_rationale', 'solution')} for r in rows]
+    packet = {'item': it, 'exemplars': ex, 'labels': list(labels or [])}
+    blob = _qq_json.dumps(packet, sort_keys=True, default=str, ensure_ascii=False)
+    packet['sha256'] = _qq_hashlib.sha256(blob.encode('utf-8')).hexdigest()
+    packet['approx_tokens'] = len(blob) // 4
+    packet['over_budget'] = packet['approx_tokens'] > JUDGE_CTX_TOKENS
+    return packet
+
+
+def final_band_decision(rated_band, ccp_status, ccp_band, labels):
+    """R2.4 precedence: final = rated if ccp_status != 'below'; else min(rated, ccp_band)
+    in label order. The author's counts NEVER raise a band (they are not an input).
+    None rated -> ccp_band (floor only) -> None (dormant)."""
+    labs = list(labels or [])
+    def _ix(b):
+        return labs.index(b) if b in labs else None
+    r, c = _ix(rated_band), _ix(ccp_band)
+    if r is None and c is None:
+        return None
+    if r is None:
+        return ccp_band
+    if ccp_status == 'below' and c is not None and c < r:
+        return ccp_band
+    return rated_band
+
+
+def diff_band_tolerance(n_band):
+    """G02 (2) bench-card tolerance max(1, round(10 % x n)). OD-4: INFO only —
+    enforcement stays the existing CHECK 3c / R5 amend-in-place mechanism."""
+    try:
+        return max(1, int(round(DIFF_BAND_TOL_REL * int(n_band))))
+    except (TypeError, ValueError):
+        return 1
+
+
+def diffdist_info(scheduled_counts, final_counts):
+    """A-DIFFDIST (INFO under OD-4): per band |final - scheduled| vs tolerance."""
+    rows = []
+    for b, n in (scheduled_counts or {}).items():
+        got = int((final_counts or {}).get(b, 0) or 0)
+        tol = diff_band_tolerance(n)
+        rows.append({'band': b, 'scheduled': int(n), 'final': got, 'tolerance': tol,
+                     'within': abs(got - int(n)) <= tol})
+    return rows
+
+
+def exemplar_bank_write(cells, max_kb=EXEMPLAR_BANK_MAX_KB):
+    """R2.1 writer: cells = {cell_key: {band: {qtype: [exemplar, ...]}}} newest-first.
+    Enforces k <= EXEMPLAR_K per leaf and the size budget by dropping OLDEST first, then
+    section-level duplicates. Returns (bank_dict, dropped_count)."""
+    bank = {'_meta': {'schema_version': 1, 'written_by': f'MockTestAnalyse {QQ_RELEASE}', 'max_kb': max_kb},
+            'cells': {}}
+    for cell, bands in (cells or {}).items():
+        bank['cells'][cell] = {}
+        for band, qtypes in (bands or {}).items():
+            bank['cells'][cell][band] = {}
+            for qt, rows in (qtypes or {}).items():
+                bank['cells'][cell][band][qt] = list(rows or [])[:EXEMPLAR_K]
+    dropped = 0
+    def _size():
+        return len(_qq_json.dumps(bank, ensure_ascii=False, default=str).encode('utf-8')) / 1024.0
+    while _size() > max_kb:
+        # drop the oldest exemplar of the largest leaf
+        leaf = None
+        for cell, bands in bank['cells'].items():
+            for band, qtypes in bands.items():
+                for qt, rows in qtypes.items():
+                    if rows and (leaf is None or len(rows) > len(leaf[3])):
+                        leaf = (cell, band, qt, rows)
+        if leaf is None:
+            break
+        leaf[3].pop()
+        dropped += 1
+    return bank, dropped
+
+
+# ── G12 — REVIEW PACKET / VERDICT BINDING / CERTIFICATE (OD-5 (a), OD-9 (a)) ─────
+REVIEW_CHECKLIST = (
+    'own_key', 'single_answer', 'leak_or_paraphrase', 'difficulty_band_with_exemplar',
+    'distractor_existence_and_class', 'consistency_and_names', 'confidence', 'selectivity_basis',
+)
+
+
+def review_packet(paper_items, exemplar_slice, paper_md5, part_max=REVIEW_PART_MAX):
+    """R12.1 input: the delivered paper, the scope's exemplar-bank slice, the checklist
+    and paper_md5 — NO registry, author notes or scheduled bands. Split into parts of
+    <= REVIEW_PART_MAX items, each carrying the full checklist."""
+    items = [{k: v for k, v in (it or {}).items() if k not in _QQ_STRIP_FIELDS} for it in (paper_items or [])]
+    parts = []
+    for i in range(0, max(1, len(items)), part_max):
+        parts.append({'part': len(parts) + 1, 'items': items[i:i + part_max],
+                      'checklist': list(REVIEW_CHECKLIST), 'exemplars': exemplar_slice or {},
+                      'paper_md5': paper_md5})
+    return {'paper_md5': paper_md5, 'parts': parts, 'n_items': len(items)}
+
+
+_REVIEW_ROMAN = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8}
+
+
+def _review_norm_key(value):
+    """Normalise a key token to a 1-based int position, a sorted list of them, or a
+    float (NAT). Letters a..h / A..H, roman i..viii, '(b)', 'option 3', 1..8 are all
+    positions. None when nothing can be read."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (list, tuple, set)):
+        out = [_review_norm_key(x) for x in value]
+        out = [x for x in out if isinstance(x, int)]
+        return sorted(set(out)) or None
+    if isinstance(value, (int, float)):
+        return value if isinstance(value, int) or not float(value).is_integer() else int(value)
+    t = str(value).strip().lower()
+    t = t.replace('option', '').replace('(', '').replace(')', '').strip().rstrip('.').strip()
+    if ',' in t or ' and ' in t or '&' in t:
+        parts = [x for x in __import__('re').split(r'[,&]|\band\b', t) if x.strip()]
+        return _review_norm_key(parts) if len(parts) > 1 else None
+    if t in _REVIEW_ROMAN:
+        return _REVIEW_ROMAN[t]
+    if len(t) == 1 and 'a' <= t <= 'h':
+        return ord(t) - 96
+    try:
+        f = float(t)
+        return int(f) if f.is_integer() else f
+    except ValueError:
+        return None
+
+
+def review_key_agreement(own_key, stored_answer, tolerance=None):
+    """Does the reviewer's independently derived key agree with the sidecar's stored
+    answer (1-based position int, sorted list[int] for MSQ, or the typed value for NAT)?
+    Returns True / False, or None when the reviewer gave no readable key (the caller
+    treats None as a low-confidence record, never as agreement)."""
+    a, b = _review_norm_key(own_key), _review_norm_key(stored_answer)
+    if a is None or b is None:
+        return None
+    if isinstance(a, list) or isinstance(b, list):
+        return (a if isinstance(a, list) else [a]) == (b if isinstance(b, list) else [b])
+    if isinstance(b, float) or isinstance(a, float) or tolerance is not None:
+        try:
+            lo, hi = (tolerance if isinstance(tolerance, (list, tuple)) and len(tolerance) == 2
+                      else (float(b), float(b)))
+            return float(lo) - 1e-9 <= float(a) <= float(hi) + 1e-9
+        except (TypeError, ValueError):
+            return None
+    return a == b
+
+
+def review_verdict_file(exam_code, paper_slug, paper_md5, answers, reviewer='MockReview'):
+    """Assemble the review_verdicts.json record MockReview writes (OD-5 a). `answers` is
+    {q: {checklist fields..., 'verdict', 'reason'}}; every REVIEW_CHECKLIST key is
+    guaranteed present (missing -> 'not assessed' + confidence 'low'); key_agrees is
+    left None — the author's session fills it from the sidecar (the reviewer never sees
+    the key). Returns (record, problems)."""
+    items, probs = {}, []
+    for q, rec in sorted((answers or {}).items(), key=lambda kv: int(str(kv[0])) if str(kv[0]).isdigit() else 0):
+        r = dict(rec or {})
+        missing = [c for c in REVIEW_CHECKLIST if c not in r or r.get(c) in (None, '')]
+        for c in missing:
+            r[c] = 'not assessed'
+        if missing:
+            r['confidence'] = 'low'
+            probs.append(f'Q{q}: reviewer left {missing} blank -> confidence low')
+        r.setdefault('verdict', 'PASS' if r.get('confidence') != 'low' else 'FAIL')
+        r['key_agrees'] = None
+        items[str(q)] = r
+    return ({'schema_version': 1, 'reviewer': reviewer, 'exam_code': exam_code, 'paper_slug': paper_slug,
+             'paper_md5': paper_md5, 'items': items, 'n_items': len(items)}, probs)
+
+
+def bind_review_verdicts(verdicts, paper_md5, n_items):
+    """Verify a review_verdicts.json: bound to paper_md5, one record per item, every
+    checklist key present. Returns {'ok', 'problems', 'disagreements': [q], 'defects': [q]}."""
+    v = verdicts if isinstance(verdicts, dict) else {}
+    probs = []
+    if v.get('paper_md5') != paper_md5:
+        probs.append('verdicts bound to a different paper_md5')
+    recs = v.get('items') if isinstance(v.get('items'), dict) else {}
+    if len(recs) != int(n_items or 0):
+        probs.append(f'{len(recs)} item verdicts != {n_items} items')
+    dis, defects = [], []
+    for q, rec in recs.items():
+        if not isinstance(rec, dict):
+            probs.append(f'Q{q}: verdict is not a record')
+            continue
+        miss = [c for c in REVIEW_CHECKLIST if c not in rec]
+        if miss:
+            probs.append(f'Q{q}: missing {miss}')
+        if rec.get('key_agrees') is False:
+            dis.append(str(q))
+        if rec.get('verdict') == 'FAIL' or rec.get('key_agrees') is False or \
+                rec.get('confidence') == 'low' or str(rec.get('selectivity_basis') or '').lower().startswith('contested'):
+            defects.append(str(q))
+    return {'ok': not probs, 'problems': probs, 'disagreements': dis, 'defects': sorted(set(defects), key=lambda x: int(x) if x.isdigit() else 0)}
+
+
+def certificate_uncertified(item_statuses):
+    """S13-2F certificate field: uncertified_items[] = every item whose quality_status
+    starts with UNRESOLVED (OD-9 (a)). item_statuses: {q: quality_status}."""
+    out = []
+    for q, st in (item_statuses or {}).items():
+        if str(st or '').startswith('UNRESOLVED'):
+            out.append(str(q))
+    return sorted(out, key=lambda x: int(x) if x.isdigit() else 0)
+
+
+def deliver_allowed(certificate, accept_uncertified=False):
+    """MockDeliver / TestDeliver (OD-9 (a)): refuse an uncertified paper unless the
+    trigger carries --accept-uncertified. Returns (allowed, reason). Never a halt of
+    the Deliver run — a refusal is a printed, recorded verdict with the item list."""
+    unc = list((certificate or {}).get('uncertified_items') or [])
+    if not unc:
+        return True, 'certified'
+    if accept_uncertified:
+        return True, f'uncertified items {unc} accepted by owner (--accept-uncertified)'
+    return False, f'NOT CERTIFIED — items {unc} carry UNRESOLVED findings; re-run with --accept-uncertified to deliver'
+
+
+def producer_release_gate(entry_release, new_release=QQ_RELEASE):
+    """OD-10 (a): new gates apply only when the paper's producer_release >= new_release;
+    older papers audit AMBER (EC-V18 legacy tolerance)."""
+    def _t(v):
+        return tuple(int(x) for x in str(v or '0').split('.') if x.isdigit())
+    return _t(entry_release) >= _t(new_release)
+
+
+def false_fail_guard(gate_results_on_pyqs):
+    """§4.6: {gate: (fails, n)} -> {gate: 'HARD' | 'WARN'} — a new [D] gate failing more
+    than PYQ_FALSE_FAIL_MAX of the exam's own PYQ items is wrong for that exam and
+    degrades to WARN there (listed on the bench card)."""
+    out = {}
+    for g, pair in (gate_results_on_pyqs or {}).items():
+        try:
+            fails, n = int(pair[0]), int(pair[1])
+            out[g] = 'WARN' if (n > 0 and fails / float(n) > PYQ_FALSE_FAIL_MAX) else 'HARD'
+        except (TypeError, ValueError, IndexError):
+            out[g] = 'HARD'
+    return out
+
+
+def pyq_bench_card(rows):
+    """A-PYQBENCH renderer: rows = [{'row','paper','pyq','fail_constant'|None,'state'}]
+    -> one-page text table. INFO rows carry fail_constant None."""
+    lines = ['PYQ BENCH CARD — paper vs the scope\'s PYQs (release %s)' % QQ_RELEASE,
+             f"{'row':34s} {'paper':>14s} {'pyq':>14s} {'constant':22s} state"]
+    for r in rows or []:
+        lines.append(f"{str(r.get('row',''))[:34]:34s} {str(r.get('paper',''))[:14]:>14s} "
+                     f"{str(r.get('pyq',''))[:14]:>14s} {str(r.get('fail_constant') or 'INFO')[:22]:22s} "
+                     f"{r.get('state','')}")
+    return '\n'.join(lines)
+
+
+def quality_status(findings_after_r5):
+    """Per-item quality_status: 'CERTIFIED' when no finding survived R5, else
+    'UNRESOLVED(<finding ids>)' (OD-9 (a))."""
+    f = [str(x) for x in (findings_after_r5 or []) if x]
+    return 'CERTIFIED' if not f else 'UNRESOLVED(' + ','.join(sorted(set(f))) + ')'
+
+
+# ── section_rules QUALITY block reader (the named consumer of analyse_engine
+# measure_quality_fields; CLAUDE.md "a measurement with no consumer is not a feature") ──
+_QQ_QBLOCK_RE = _qq_re.compile(r'^QUALITY \(v[\d.]+\):\s*$', _qq_re.M)
+
+
+def read_quality_block(text):
+    """Parse ONE subtopic's QUALITY (v2.59) block from section_rules text (the caller
+    passes the subtopic entry's text, or the whole file to read the FIRST block).
+    Returns the dict measure_quality_fields produced, or None when no block exists.
+    Never raises on a malformed line — that line is skipped."""
+    m = _QQ_QBLOCK_RE.search(str(text or ''))
+    if not m:
+        return None
+    out = {}
+    for ln in str(text)[m.end():].split('\n'):
+        if not ln.startswith('  ') or ':' not in ln:
+            if ln.strip() == '' and out:
+                break
+            if out and not ln.startswith('  '):
+                break
+            continue
+        k, _, v = ln.strip().partition(':')
+        v = v.strip()
+        try:
+            if v in ('unmeasured', 'inline', 'separate_lines') or k in ('data_block_layout',):
+                out[k] = v
+            elif v.startswith('{') or v.startswith('['):
+                out[k] = _qq_json.loads(v)
+            elif _qq_re.fullmatch(r'-?\d+', v):
+                out[k] = int(v)
+            else:
+                out[k] = float(v)
+        except (ValueError, TypeError):
+            out[k] = v
+    return out or None
+
+
+def quality_block_for_subtopic(section_rules_text, subtopic_id):
+    """The QUALITY block of ONE subtopic entry ('--- Subtopic:' .. next '---'), by
+    subtopic_id; None when the entry or the block is absent (-> G10 STALE, OD-1 print)."""
+    txt = str(section_rules_text or '')
+    m = _qq_re.search(r'^[ \t]*subtopic_id:[ \t]*' + _qq_re.escape(str(subtopic_id or '')) + r'[ \t\r]*$', txt, _qq_re.M)
+    if not m or not subtopic_id:
+        return None
+    i = m.start()
+    j = txt.find('\n--- Subtopic:', i)
+    return read_quality_block(txt[i:j if j > 0 else len(txt)])
+
+
+# ladder sub-rungs (GAP §4.1): R2s rewrites the stem only; R2o regenerates option(s) only
+LADDER_SUBRUNGS = ('R2s', 'R2o')
+LADDER_ENTRY_RUNG.update({
+    'G-OPTDISTINCT': 'R2o', 'A-OPTDISTINCT': 'R2o',
+    'G-MEDIAREUSE': 'R2', 'A-MEDIAREUSE': 'R2',
+    'A-ENTITYLEAK': 'R2', 'G-ENTITYLEAK': 'R2',
+    'G-STEMLEAK': 'R2s', 'A-STEMLEAK': 'R2s', 'G-STEMFORM': 'R2s', 'A-STEMFORM': 'R2s',
+    'G-CONSIST': 'R2s', 'A-CONSIST': 'R2s',
+    'G-DISTRACTOR': 'R2o', 'A-DISTRACTOR': 'R2o', 'LONGEST_KEY': 'R2o', 'MIDDLE_VALUE_KEY': 'R2o',
+    'G-ITEMRULE': 'R2o', 'A-ITEMRULE': 'R2o',
+    'G-STEREODECL': 'R2o', 'A-STEREODECL': 'R2o',
+    'A-SHAPEMIX': 'R3', 'G-SHAPEMIX': 'R3', 'A-TEMPLATE': 'R3', 'G-TEMPLATE': 'R3',
+    'A-REVIEW': 'R2', 'review_disagreement': 'R2',
+})
+
+# END CLUSTER QQ
 # ════════════════════════════════════════════════════════════════════════════
 
 

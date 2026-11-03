@@ -99,6 +99,16 @@
     "t3_mathcomp.py",
     "figure_types.py"
   ],
+  "MockReview": [
+    "Framework_MockReview.md",
+    "blueprint_core.py",
+    "Framework_DeliveryFooter.md"
+  ],
+  "TestReview": [
+    "Framework_MockReview.md",
+    "blueprint_core.py",
+    "Framework_DeliveryFooter.md"
+  ],
   "MockExplain": [
     "Framework_MockTestExplain.md",
     "explain_engine.py",
@@ -123,11 +133,13 @@
   ],
   "MockDeliver": [
     "Framework_MockDeliver.md",
+    "blueprint_core.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],
   "TestDeliver": [
     "Framework_MockDeliver.md",
+    "blueprint_core.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],

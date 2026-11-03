@@ -1,4 +1,19 @@
-# Framework_PYQExplain v2.25 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.26 — Universal PYQ Explanation Generator
+# v2.26 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   figure_types v1.2, analyse_engine v1.2, blueprint_core v1.30, MockTestAnalyse v2.59.0).
+#   §13A-3 Phase B records, per EVERY PYQ item (text and figural, every subject), the
+#   tags the new Create / audit gates and Step 5's measurements read: figural_ask_type now
+#   from the PER-FAMILY vocabulary figure_types.ASK_TYPES[family] (the chemistry family
+#   gained multiple_products / outcome_ratio / two_part / quantitative_calculation — the
+#   four shapes the real CSIR-NET paper uses and Test 01 lacked), drawn_names (the names
+#   the stem uses for drawn species — Step 5's shown_entity_named_rate),
+#   near_isomer_set (are the wrong options near-isomers of the key — R6.2 distractor mix),
+#   distractor_mechanisms per wrong option (bc.MECHANISM_VOCABULARY[family]), and
+#   concept (the taxonomy concept id), named_concepts (the AXIOM's named reactions /
+#   rules — Step 5's tested-concept lexicon, R4.2) and stereo_decl. The profile keeps
+#   per-item vectors, bands and tags (bc.DP_CONTENT_KEYS carries every one of them);
+#   Step 5 joins its own stems to these records by stem text and writes the QUALITY
+#   block and the EXEMPLAR BANK from them (OD-11). Schema additive; nothing here stops.
 # v2.25 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
 #   blueprint_core v1.29, figure_types v1.1, MockTestAnalyse v2.58.0, MockTestCreate
 #   v5.89). §13A-3 Phase B also records, per figural question, a CONTENT RECORD
@@ -2047,7 +2062,10 @@ for it in items:
   the bug, not the fix.
 
 ```
-  For each item printed by Phase A, in order:
+  For each item printed by Phase A, in order (the FIGURAL queue — steps 1-2 below), and
+  then — v2.26 (GAP-2026-11-03) — for EVERY remaining question of the paper (text items
+  have no figure to view; they still get their §13A-3 record: ask_type, named_concepts,
+  concept, drawn_names = [], near_isomer_set = null, distractor_mechanisms, stereo_decl):
     1. Call the view tool on item.path.
     2. Record, in your own words, EVERY visible element: labels, axis names and
        scales, arrows and their direction, shapes and their relative position,
@@ -2099,7 +2117,31 @@ for it in items:
                           glyph, data table…) is ALWAYS "other" — never forced into a
                           chemistry ask;
     "representations":   tags from figure_types.REPRESENTATION_TAGS;
-    "scheme_grammar":    tags from figure_types.SCHEME_GRAMMAR_TAGS.
+    "scheme_grammar":    tags from figure_types.SCHEME_GRAMMAR_TAGS;
+    and — v2.26 (GAP-2026-11-03) — for EVERY item, text or figural, every subject:
+    "figural_ask_type":  (text items too, as "ask_type") ONE of
+                          figure_types.ASK_TYPES[family] for the item's family
+                          (figure_types.quality_row(object_type)['ask_family']; text
+                          items: the 'text' family); normalise_ask_type is the default,
+                          corrected when the figure / stem shows otherwise;
+    "drawn_names":       the names the STEM uses in words for species the figure DRAWS
+                          ([] when none) — Step 5's shown_entity_named_rate (R4.1);
+    "near_isomer_set":   true when >= 2 wrong options are near-isomers of the key (same
+                          generic framework or molecular formula), false otherwise, null
+                          when the options are not structures (R6.2);
+    "distractor_mechanisms": one bc.MECHANISM_VOCABULARY[family] member per wrong
+                          option, in option order (R6.2 measured mix);
+    "concept":           the taxonomy concept id of the tested idea (R8.1).
+    "named_concepts":    the named reactions / rules / mechanism labels / method names
+                          the explanation's AXIOM (§8-2) relies on, as printed in the
+                          AXIOM ("Friedel-Crafts acylation", "Baldwin's rules",
+                          "Hückel 4n+2") — [] when the AXIOM names none. Step 5 builds
+                          each subtopic's tested-concept lexicon from these (R4.2):
+                          a mock stem that NAMES the concept it tests leaks the answer
+                          (G-STEMLEAK a) unless the exam's own PYQ do so at >= 20 %.
+    "stereo_decl":       the stereo descriptors the PRINTED stem/options state
+                          ("2E,4Z", "(2R,3S)", "none") — Step 5's stereo-declaration
+                          calibration; null when no structure is printed.
   Transcribe what is PRINTED; never improve the molecule. The engine computes the
   content vector from these objects (bc.dp_add_paper) — never write a vector here.
 ```
@@ -2963,5 +3005,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.25
+# END OF Framework_PYQExplain v2.26
 # ════════════════════════════════════════════════════════════════════════

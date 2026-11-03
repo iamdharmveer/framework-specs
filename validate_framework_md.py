@@ -137,6 +137,7 @@ PIPELINE = {
     'PYQCompress': 'L2',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'TestCreate': '7',
+    'MockReview': '7R', 'TestReview': '7R',
     'MockExplain': '9', 'MockDeliver': '11',
     'TestExplain': '9', 'TestDeliver': '11',
     'NotesBlueprint': 'NB', 'NotesCreate': 'NC',

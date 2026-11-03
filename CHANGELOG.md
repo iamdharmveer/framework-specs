@@ -1,5 +1,133 @@
 # Changelog
 
+## 2026.11.03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY: a content rule names the engine that enforces it, every quality gate reads the artefact, every paper is read once by a context that never saw the key, and a finding that survives the ladder is a recorded NOT CERTIFIED — never a stop
+(blueprint_core v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types v1.2,
+analyse_engine v1.2, audit_canonical v2.35 (15 quality gates, certificate schema 2),
+final_assembly v1.12, mock_sync_audit MS-26, audit_sync quality_gate_producer,
+validate_framework_md PIPELINE 7R; MockTestCreate v5.90, NEW MockReview v1.0.0,
+MockDeliver v1.24.0, DeliveryFooter v1.38.0, MockTestAnalyse v2.59.0, PYQExplain v2.26,
+Blueprint v1.63.0, ScopedBlueprint v1.13.0; routes.json (+MockReview/TestReview; blueprint_core
+-> Mock/TestDeliver); SKILL.md + mocktestframework_SKILL.md; LAW_REGISTRY QUALITY-GATE-LAW.)
+Raised by CSIR_NET_CHEMICALSCIENCES Organic Test 01 (`TestCreate --level subject --scope "Organic
+Chemistry"`, V4 scoped blueprint) measured against the exam's own June-2026 paper. ESTATE-WIDE and
+exam-agnostic: every control reads the exam's own PYQ measurements (section_rules QUALITY blocks,
+the exemplar bank, the difficulty profile) — never an exam name, never a hand table.
+
+**The defect (G01–G12, all independently re-measured from the delivered docx).** (a) option sets that
+were the same species drawn twice (G01) and two defensible answers (G02); (b) the same picture and the
+same entity under two questions (G03) and stems that named the mechanism or the product they asked for
+(G09); (c) distractors that were not real species of the asked class (G04/G06); (d) names, counts and
+figures that disagreed with their own stem (G08/G10); (e) one question SHAPE for 40 items where the
+real paper uses eleven (G05); (f) difficulty rated by the author with no benchmark (G07); (g) every
+verification run in the author's own context (G12); (h) the S2-2 rules R3/R4/R5 that forbid (a)–(d)
+had existed as prose since v1 with NO engine behind them, and the gates that did run read the
+author's own `declared=True` fields.
+
+**Owner decisions (verbatim ids).** OD-1 (c) never a stop — dormancy prints and records; the team
+guarantees inputs. OD-2/3/7/8/10/13 (a). OD-4 keep the existing difficulty tolerance; only WHO
+measures changes. OD-5 (a) mandatory independent review WITH correction. OD-6 (c) shape floors AND
+caps. OD-9 (a) NOT CERTIFIED + `--accept-uncertified` on Deliver, no impact on any other step.
+OD-11/12/14 ignored (exemplar bank is a run file and its absence never halts; 60% Hard kept;
+Step-9 difficulty gate stays mock-only). Q-A yes (A-STEREODECL). Q-B release 2026.11.03.
+
+**Principle QQ-0 — evidence over declarations.** Every new gate reads artefact-derived data only:
+docx text, the renderer-written figure record canonical (SMILES → RDKit identity re-perception
+through importlib, InChIKey for tautomers, Murcko scaffolds, SMARTS class predicates), media-part
+md5s, the registry. No gate reads a field the author wrote about itself.
+
+**What changed, by layer.**
+- *Engine (blueprint_core Cluster QQ, stdlib-only core).* `option_distinct_check` (identity over
+  canonical SMILES / InChIKey / numeric value / normalised text; dHash never decides),
+  `stereo_declaration_check`, `EntityLedger` + `media_reuse_check` (one picture, one entity, one
+  paper; linked sets exempt), `stem_leak_check` + `stem_form_check` (calibrated by the exam's own
+  PYQ named-concept rate), `shape_targets` / `assign_shape_plan` / `shape_mix_check` (floors and
+  caps per paper, rare shapes rotated across the series), `template_check`, `class_predicate_check`,
+  `data_consistency_check`, `inventory_check`, `mechanism_formula_check`, `distractor_record_check`,
+  `near_isomer_check`, `consist_check`, `iupac_style_check`, `build_judge_input` / `final_band_decision`
+  (the judge sees the exam's own exemplars per band), `quality_readiness` (what is dormant, printed
+  and recorded, never a stop), `review_packet` / `bind_review_verdicts` / `review_key_agreement` /
+  `review_verdict_file`, `certificate_uncertified` / `deliver_allowed` / `producer_release_gate`,
+  `quality_block_for_subtopic`, `pyq_bench_card`. Self-test 918/918. corpus_io / figural_core refuse
+  to render an option set whose identities collide (LADDER-REPAIR R2o G-OPTDISTINCT).
+  figure_types `ASK_TYPES` per family + `QUALITY_ROWS` / `identity_kind`. analyse_engine measures
+  the QUALITY block per subtopic (shape shares, named-concept rate, common entities, text-leak
+  calibration) and writes the exemplar bank. final_assembly refuses a commit on media reuse and
+  writes `producer_release`.
+- *Auditor (audit_canonical v2.35).* 15 gates after A-CERT — A-OPTDISTINCT, A-MEDIAREUSE,
+  A-ENTITYLEAK, A-STEMLEAK, A-STEMFORM, A-SHAPEMIX, A-TEMPLATE, A-DISTRACTOR, A-CONSIST,
+  A-STEREODECL, A-ITEMRULE, A-REVIEW, A-PYQBENCH (info card), A-READINESS, A-QUALITYSTATUS —
+  each in both states, each a ladder entry rung (`bc.LADDER_ENTRY_RUNG`, sub-rungs R2s stem-only /
+  R2o options-only). Certificate schema 2 carries `uncertified_items`; a pre-release paper is AMBER
+  (EC-V18), never a FAIL. Mutation: 100% killed on every gate with targets.
+- *Create (v5.90).* S2-2 R1..R5 each NAME their engine (MS-26 i). S3-2e QUALITY_READINESS +
+  EXEMPLAR_BANK_PATH (absent file = dormant, printed). S3-12d SHAPE_PLAN from the blueprint's
+  `shape_target_per_paper` (precedence Axis-1 format > qtype > shape > Axis-2). S7-QUALITY per item.
+  S4-11 +11 items. S13-2F stamps CERTIFIED / UNRESOLVED per item. S13-2G: the step ENDS at
+  AWAITING_REVIEW with a review packet (paper + exemplar slice + checklist + md5; NO key, NO notes,
+  NO bands); `--resume` binds the verdicts, fills key_agrees from the sidecar, repairs flagged items
+  through the ladder (two rounds max), then commits. Footer: DEGRADED / NOT CERTIFIED lines.
+- *NEW MockReview / TestReview (Step 7R).* Fresh chat, packet only. Eight-field checklist per item
+  (`bc.REVIEW_CHECKLIST`), CLASS J; writes `[ExamCode]_[slug]_review_verdicts.json` bound to
+  paper_md5; never reads the key or the registry (MS-26 iv).
+- *Deliver (v1.24.0).* `--accept-uncertified`; item 3f `bc.deliver_allowed` — a NOT CERTIFIED
+  paper is REFUSED with the item list (a verdict, not a stop), or delivered with the footer saying
+  so and `registry.accepted_uncertified` recording owner + timestamp. Explain untouched.
+- *Blueprints.* Blueprint §7-8 and ScopedBlueprint S8-2d write `shape_target_per_paper`,
+  `schema_version: 2`, `producer`; `--refresh` (bp_refresh) adds the new fields to an existing
+  blueprint for papers after the last registered one and never touches a registered paper.
+- *Analyse (v2.59.0) / PYQExplain (v2.26).* QUALITY block per subtopic in section_rules; EXAM_QUALITY
+  block; exemplar bank delivered in its own present_files call (absence downstream is dormant).
+- *Governance.* QUALITY-GATE-LAW (detect `quality_gate_producer`; verifier MS-26: rules name
+  engines, specs call their QQ entry points, auditor twins in both states, reviewer never sees the
+  key, no [HS:QUALITY] stop). PIPELINE step 7R; DeliveryFooter §3 STEP 7R block.
+
+**Not changed (by owner decision).** Difficulty tolerance and the R5 ladder mechanism (OD-4);
+the 60% Hard preset (OD-12); the Step-9 difficulty gate's mock-only scope (OD-14).
+
+**Release review (2026-11-03, two independent cold reads before deploy — every finding verified in
+code, fixed, and covered by a fixture).** The first draft of this release would have dead-ended
+every new paper: A-QUALITYSTATUS FAILed the first sweep (items are stamped only after the
+certificate), S13-4c ran without the sidecar so four gates could not see their data, the
+exemplar bank was always empty (Step 5 read band fields it never had), shape targets were always
+dormant (the QUALITY block never wrote `n`), the production lexicon was always empty (fed only
+the subtopic title), `batch_state` was unbound on `--resume`, and MockDeliver's refusal set a
+flag nobody read. Fixed, in the engines wherever possible: the auditor builds an EFFECTIVE
+concept map (sidecar overlaid with the registry's committed V590 fields), is precommit-tolerant
+of unstamped items, and reconciles UNRESOLVED-only FAILs to WARN (OD-9) so a NOT CERTIFIED
+paper never stops; A-SHAPEMIX / A-TEMPLATE are item gates (every ladder rung has a question);
+infeasible shapes are DERIVED from the subtopic QUALITY blocks; Step 5 joins its stems to the
+explained-PYQ profile (PYQExplain v2.26 named_concepts / concept / drawn_names /
+near_isomer_set — now carried by bc.DP_CONTENT_KEYS) by stem text (ambiguous keys skipped and
+counted) and writes `n`; conformer / projection option sets are identity-exempt
+(structure_draw_fn(conformer_set=True)); RDKit-absent option sets are N/A not FAIL;
+subtopic lookup is an exact (CRLF-safe) match; relative stereo vocabulary (cis/trans/meso/…)
+is understood; numeric identity keeps `1,5` ≠ `15` and `50%` ≠ `50`; the review packet
+withholds the per-option mechanism list (it revealed the key by elimination); readiness
+records empty artefacts as STALE and is read, not re-derived, on resume; the deliver refusal
+ends the step and acceptance is written to registry.accepted_uncertified. Engine self-tests:
+blueprint_core 928, audit_canonical 515, analyse_engine 287, corpus_io 489, figural_core 238,
+figure_types 980, final_assembly 173, mock_sync_audit 124.
+
+**Handshake round (third cold review + NEW `handshake_audit.py`).** A reviewer built the
+producer→consumer matrix from the code and found 10 more mismatches; an integration audit that
+runs the REAL engines and the REAL spec fences as one chain on a synthetic exam (PYQExplain
+profile → Step 5 → blueprints → Create → auditor → review → resume → commit → final audit →
+Deliver) found 5 more. All fixed: `entity_paper_sets` was keyed the wrong way round (common
+entities listed paper names); `key_set_size` was read by A-DISTRACTOR but written by nobody
+(every MSQ item would have failed — now in S7-QUALITY and derived from the answers); 29
+quality-record fields were dropped at commit (QINDEX_V590_FIELDS now carries every field a gate
+reads; the audit asserts the subset); readiness probed field names no artefact carries
+(PYQ_COMMON_ENTITIES / stem_word_count_pct / near_isomer_share / style_profile item_rules);
+the judge's exemplar cascade had no engine (`bc.exemplars_for`, per band, prefix union over
+leaf cells); PYQ_TEXT_LEAK_CALIBRATED measured the wrong thing; GATE_CALIBRATION / PYQ_MODE had
+no reader (A-STEMLEAK now honours the §4.6 WARN); `--style-profile` was never passed (A-ITEMRULE
+suspension could not engage); shape vocabulary was chemistry-only (Step 5 now uses the
+per-family profile tag; `other` is never planned); the planner's infeasible record is committed
+and read; concept caps are measured from the profile or dormant, never a default; the
+certificate is rewritten after review round 2 so A-CERT / footer / Deliver agree; a resumed
+session reloads CERT / UNCERTIFIED_ITEMS from disk. `handshake_audit.py --self-test` (52
+handshakes, relocated roots, runs anywhere) is tracked in MANIFEST and discovered by CI.
+
 ## 2026.11.02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: a figure is drawn the way the real paper draws it, a question is repaired instead of stopping the run, a difficulty schedule carries its own provenance
 (figural_core v5.89, corpus_io v1.17, blueprint_core v1.29, figure_types v1.1, analyse_engine v1.1,
 audit_canonical v2.34, final_assembly v1.11, explain_engine v2.12, paper_pipeline

@@ -1,6 +1,6 @@
 ---
 name: mock-test-framework
-description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockExplain, TestExplain, MockDeliver, TestDeliver, PYQCompress, NotesBlueprint, NotesCreate, NotesAudit, or NotesDeliver — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document, or to blueprint, draft, audit, or deliver exam study notes. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
+description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockReview, TestReview, MockExplain, TestExplain, MockDeliver, TestDeliver, PYQCompress, NotesBlueprint, NotesCreate, NotesAudit, or NotesDeliver — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document, or to blueprint, draft, audit, or deliver exam study notes. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
 ---
 
 # Mock Test Framework — Source of Truth
@@ -10,10 +10,12 @@ project's Files section, THAT copy is authoritative for this run. GitHub supplie
 specs the project does not carry. Precedence is PER FILE — a project may override one spec
 and inherit the rest.
 
-ENGINES ARE REPO-ONLY. All 18 routed engine scripts, plus the 6 tracked-but-never-routed
+ENGINES ARE REPO-ONLY. All 18 routed engine scripts, plus the 9 tracked-but-never-routed
 scripts (validate_framework_md.py the CI validator; audit_canonical.py the canonical auditor
 that Step 6 copies to each exam and Step 7 runs as its self-audit; spec_source.py the
-resolver; and the three baseline auditors spec_name_audit.py, mock_sync_audit.py and
+resolver; run_ci_gates.py the CI-parity gate runner; regression_pyq_fixtures.py the
+cross-exam regression suite; handshake_audit.py the cross-step handshake audit
+(GAP-2026-11-03); and the three baseline auditors spec_name_audit.py, mock_sync_audit.py and
 notes_sync_audit.py), come ONLY from the verified clone. `/mnt/project` is never placed on `sys.path`,
 so a `.py` sitting in a project's Files section is never imported and editing one has no
 effect. `routes.json` and `MANIFEST.json` are likewise repo-only.

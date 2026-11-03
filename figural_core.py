@@ -4,6 +4,13 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.90 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (G01 R1.2).
+render_option_set() now refuses an option set in which two draws carrying
+.canonical are ONE entity (re-perceived identity, blueprint_core.structure_identity /
+reaction_identity) — FiguralError "LADDER-REPAIR R2o G-OPTDISTINCT ...", the same
+message corpus_io.OptionIdentityError carries on the native path, raised before any
+pixel is rendered. Draws without .canonical are untouched (no identity_fn -> the
+reviewer decides, never a hash). Everything else is byte-identical to v5.89.
 v5.89 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (estate-wide,
 exam-agnostic). (1) DRAWING STYLE FROM THE EXAM'S OWN PYQs: FIGURE_STYLE_PROFILE
 (Step 5, one line in section_rules.md) is read by load_style_profile(); its
@@ -1075,6 +1082,39 @@ def is_native(spec):
 def _is_native_draw(draw_fn):
     return (getattr(draw_fn, "render_mode", None) == "native_raster"
             and callable(getattr(draw_fn, "native_png", None)))
+
+
+def option_identities(draw_fns):
+    """v5.90 (GAP-2026-11-03 G01 R1.1): re-perceived identity per draw from its
+    .canonical (blueprint_core.structure_identity / reaction_identity); None when the
+    draw carries no .canonical, the engine is unavailable, or the SMILES does not parse.
+    Never raises."""
+    bc = _try_import("blueprint_core")
+    out = []
+    for fn in draw_fns or []:
+        c = getattr(fn, "canonical", None)
+        if bc is None or not isinstance(c, str) or not c.strip() or getattr(fn, "identity_exempt", False):
+            out.append(None)                                   # exempt: a conformer / projection set
+            continue
+        try:
+            out.append(bc.reaction_identity(c) if c.count(">") == 2 else bc.structure_identity(c))
+        except Exception:                                      # noqa: BLE001
+            out.append(None)
+    return out
+
+
+def assert_option_identities(draw_fns):
+    """v5.90 (G01 R1.2): FiguralError when two draws of one option set are ONE entity.
+    Same message as corpus_io.OptionIdentityError (ladder entry R2o). Returns ids."""
+    ids = option_identities(draw_fns)
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            if ids[i] is not None and ids[i] == ids[j]:
+                raise FiguralError(
+                    f"LADDER-REPAIR R2o G-OPTDISTINCT: options {i + 1} and {j + 1} are ONE entity "
+                    f"({ids[i]}) — regenerate the distractor (never the key); visual "
+                    f"difference does not make two options different (GAP-2026-11-03 G01).")
+    return ids
 
 
 _NATIVE_META_KEYS = ("highlight_bands", "overprint_px", "marks_drawn", "marks_failed",
@@ -2824,6 +2864,7 @@ def render_option_set(draw_fns, out_paths, specs, palette=None):
                            "be the same length (one entry per option).")
     if len(specs) < 2:
         raise FiguralError("G-FIGOPTWINDOW: an option set needs >=2 options.")
+    assert_option_identities(draw_fns)                          # v5.90 — G01 R1.2
     # v5.89: native structure options — one token set, one uniform canvas.
     if all(_is_native_draw(fn) for fn in draw_fns):
         return _render_native_option_set(draw_fns, out_paths, specs)
@@ -3888,6 +3929,26 @@ def self_test():
         render_option_set([_hexopt("Cl"), _hexopt("Br")],
                           [os.path.join(_r2d, f"r2_{i}.png") for i in range(2)],
                           _r2s)
+        # v5.90 (GAP-2026-11-03 G01 R1.2) — two draws that are ONE entity are refused
+        # BEFORE rendering, with the ladder message; draws without .canonical are
+        # untouched (no identity_fn -> reviewer), and an E/Z pair is distinct.
+        _dupA, _dupB = _hexopt("Cl"), _hexopt("Br")
+        _dupA.canonical, _dupB.canonical = "C/C=C/C=C\\C", "C\\C=C/C=C/C"
+        try:
+            render_option_set([_dupA, _dupB],
+                              [os.path.join(_r2d, f"dup_{i}.png") for i in range(2)],
+                              [make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN, role="option") for _ in range(2)])
+            check("optdistinct_render_refuses_one_entity", _try_import("rdkit.Chem") is None)
+        except FiguralError as _e90:
+            check("optdistinct_render_refuses_one_entity",
+                  "LADDER-REPAIR R2o G-OPTDISTINCT" in str(_e90) and "options 1 and 2" in str(_e90))
+        _ezA, _ezB = _hexopt("Cl"), _hexopt("Br")
+        _ezA.canonical, _ezB.canonical = "C/C=C/C", "C/C=C\\C"
+        _ezX = _hexopt("I"); _ezX.identity_exempt = True
+        check("option_identities_identity_exempt_is_none", option_identities([_ezX])[0] is None)
+        _ids90 = option_identities([_ezA, _ezB, _hexopt("I")])
+        check("optdistinct_EZ_distinct_and_no_canonical_is_none",
+              _ids90[2] is None and (_try_import("rdkit.Chem") is None or (_ids90[0] and _ids90[0] != _ids90[1])))
         _asp = _r2s[0]["canvas_aspect"]
         check("R2_square_strokes_get_square_canvas",
               1.05 <= _asp <= 1.25 and _r2s[1]["canvas_aspect"] == _asp)

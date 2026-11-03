@@ -253,6 +253,20 @@ def _self_test():
           "idiom too (a new spec copying exam_config.get('figural_present' is flagged)",
           rc == 1 and 'LAW-COVERAGE' in out and 'Framework_PYQSort.md' in out
           and 'MANIFEST-COMMIT-LAW' in out)
+    rc, out = mutated(_drop_governs('QUALITY-GATE-LAW', 'Framework_MockReview.md'))
+    check("LAW-COVERAGE derives the QUALITY-GATE performing set from the Cluster QQ entry "
+          "points (MockReview dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'QUALITY-GATE-LAW' in out
+          and 'Framework_MockReview.md' in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nx = 1   # bc.deliver_allowed(cert, False)\n```\n"))
+    check("LAW-COVERAGE ignores a QQ entry point named only in a trailing comment",
+          not ('LAW-COVERAGE' in out and 'Framework_PYQSort.md' in out and 'QUALITY-GATE-LAW' in out))
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nok, why = bc.deliver_allowed(cert, False)\n```\n"))
+    check("LAW-COVERAGE flags a NEW spec that calls a QQ entry point without being governed",
+          rc == 1 and 'LAW-COVERAGE' in out and 'Framework_PYQSort.md' in out
+          and 'QUALITY-GATE-LAW' in out)
     rc, out = mutated(_drop_governs('FIGURE-RECORD-INTEGRITY-LAW', 'Framework_MockTestCreate.md'))
     check("LAW-COVERAGE derives the FIGURE-RECORD performing set from validate_semantic_object( "
           "(MockTestCreate dropped from governs is flagged)",
@@ -812,6 +826,12 @@ _MANIFEST_COMMIT_LIVE = re.compile(r"\bfa\.commit_registry\(")
 _FIGURE_RECORD_LIVE = re.compile(
     r"\bvalidate_semantic_object\(|\.object_type\s*=(?!=)|\bscheme_semantic_object\(")
 
+# GAP-2026-11-03 QUALITY-GATE-LAW. A spec performs a QUALITY-GATE operation when its live
+# text calls a blueprint_core Cluster QQ entry point or the Step-5 exemplar-bank writer.
+_QUALITY_GATE_LIVE = re.compile(
+    r"\b(?:quality_readiness|review_packet|bind_review_verdicts|review_verdict_file|"
+    r"deliver_allowed|shape_targets|assign_shape_plan|write_exemplar_bank)\(")
+
 
 def _live_text(t):
     """Full-line comments blanked. A spec is expected to QUOTE the defect it fixed;
@@ -855,7 +875,8 @@ if _REG is not None:
                          'topic_density_gate_call',
                          'presence_flag_producer',
                          'manifest_commit_or_flag_producer',
-                         'figure_record_writer'):
+                         'figure_record_writer',
+                         'quality_gate_producer'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -915,6 +936,19 @@ if _REG is not None:
             # IS must carry the G-FIGTYPE-KIND gate (verifier: mock_sync_audit MS-25).
             _performing = {f for f, t in TXT.items()
                            if _FIGURE_RECORD_LIVE.search(_live_text(t))}
+        elif _rule == 'quality_gate_producer':
+            # GAP-2026-11-03 QUALITY-GATE-LAW. Any spec calling a Cluster QQ entry point
+            # must be governed (verifier: mock_sync_audit MS-26). Trailing `# ...`
+            # comments are cut too: a call name quoted in a comment performs nothing.
+            def _qg_live(t):
+                out = []
+                for ln in _live_text(t).split('\n'):
+                    m = re.search(r"(?<![\'\"\w])#", ln)
+                    if m and ln[:m.start()].count("'") % 2 == 0 and ln[:m.start()].count('"') % 2 == 0:
+                        ln = ln[:m.start()]
+                    out.append(ln)
+                return '\n'.join(out)
+            _performing = {f for f, t in TXT.items() if _QUALITY_GATE_LIVE.search(_qg_live(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

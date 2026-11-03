@@ -1,174 +1,198 @@
 {
-  "_purpose": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, patch P7 — the class-level fix. A remediation that establishes a LAW must be applied to EVERY spec the law governs, and the completeness of that application must be MACHINE-CHECKABLE. GAP-2026-07-26-003 was remediated file-by-file from a changelog list; the PYQ counting path was not on that list; five days later a file split copied the unfixed text forward 'content byte-identical' into a file that never mentions the GAP id. A law enforced by a checklist is a law that will be re-broken by the next file split.",
-  "_enforced_by": "audit_sync.py. This file is DATA, not documentation: audit_sync hard-fails if it is missing, malformed, or out of step with the corpus.",
-  "_derived_not_declared": "The 'governs' list is CHECKED AGAINST THE CORPUS, never trusted. Any spec that performs a governed operation but is absent from 'governs' is a FAIL — that is the half a hand-maintained list can never provide, and it is the half that failed in July. Adding a spec to 'governs' does not exempt it from anything; it subscribes it to 'verified_by'.",
-  "_on_file_split": "Any file split MUST re-run audit_sync against BOTH halves before the split is committed. The 2026-07-31 PYQAnalyse v2.29 -> PYQCount v1.0 split is precisely how this defect entered production.",
-  "laws": {
-    "EXECUTION-BOUNDARY-LAW": {
-      "gap": "GAP-2026-07-26-003",
-      "reaffirmed_by": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION",
-      "stated_in": "CLAUDE.md",
-      "requires": "A tool call cannot happen inside a running python process. Every spec performing a CLASS T operation must declare it as a tagged pass-bodied stub AND inject a RESOLVER over already-materialised results at every injection point. Never inject the CLASS T marker name itself, and never inject a name the spec does not bind.",
-      "detect": "live_injection_point_call",
-      "detect_note": "A spec PERFORMS this operation when its text contains a live (non-comment) call to a documented injection point — audit_callgraph.INJECTION_POINTS. Commented-out historical examples do not count; a spec is expected to quote the defect it fixed.",
-      "governs": [
-        "Framework_MockTestAnalyse.md",
-        "Framework_PYQCount.md",
-        "Framework_PYQPrepare.md",
-        "Framework_PYQSort.md",
-        "Framework_PYQScan.md",
-        "Framework_PYQCompress.md",
-        "Framework_NotesBlueprint.md",
-        "Framework_MockTestCreate.md"
-      ],
-      "verified_by": [
-        "audit_callgraph:C6-PRE",
-        "audit_callgraph:C6",
-        "audit_callgraph:C7",
-        "audit_callgraph:C8",
-        "audit_callgraph:C9"
-      ],
-      "preconditions": [
-        "INSPECTABILITY. No 'CLASS: T' or 'CLASS: J' marker may appear inside a fence that fails ast.parse. audit_callgraph.any_python_blocks() yields only compiling fences BY DESIGN, so a marker in a non-compiling fence is — to C6 — a stub that does not exist: C6 builds an empty class_t set, returns early, and never scans the consumption sites, which compile fine one fence away. The law then reports 0 findings on a file it cannot verify. Measured 2026-08-15 on Framework_MockTestAnalyse.md: untagged fence 321-603 failed ast.parse at line 328 on an em-dash IN PROSE; both gdrive stubs lived in it; two live violations at lines 655 and 658 went unreported while four auditors were green. Enforced by audit_callgraph:C6-PRE. A check that can be structurally disarmed by the shape of its input is not a check; it is a check-shaped hole.",
-        "PRODUCER. A resolver injected at a documented injection point must read a container that something in the same spec actually FILLS — an assignment in compiling python, a parameter with no default, or a defaulted parameter whose absence raises. A bare default of None or {} is not a producer; it is the defect. C6 checks 'declared and passed', C7 checks 'not declared and passed', and neither can see a correct injection over an empty container. Enforced by audit_callgraph:C9."
-      ]
-    },
-    "SESSION-BUDGET-LAW": {
-      "gap": "GAP-2026-08-16-STEP5-SESSION-EXHAUSTION",
-      "stated_in": "CLAUDE.md",
-      "requires": "A session has THREE finite resources, not one. The framework has always budgeted PAYLOAD CHARACTERS (bc.INLINE_BUDGET_CHARS) and PAPER PACING (BATCH_SIZE). It must also budget SPECIFICATION-READ COST and TOOL-CALL COUNT. Concretely: (1) any CLASS T acquisition performed before a context partition MUST be subtracted from that partition's budget via consumed=, and is charged even when it FAILS; (2) a probe must be productive — probe the item the plan will fetch anyway, not the cheapest; (3) a spec above the SPEC-BUDGET threshold must declare a FINAL/NON-FINAL read set, with escalation to a full read MANDATORY and ONE-WAY before any writer runs; (4) a listing transcribed by the model must be asserted against an independently declared count and HARD STOP on mismatch; (5) a partition that admits nothing must SAY SO, never print a sessions estimate computed from an empty set.",
-      "detect": "budget_spender_upstream_of_partition",
-      "detect_note": "A spec PERFORMS this operation when it calls bc.partition_by_transport in a file that also carries a CLASS T acquisition (CHANNEL PROBE / probe_drive_channel / probe_direct_egress), or when it writes DRIVE_LISTING_CACHE, or when its route's summed .md bytes exceed audit_specs_ext.SPEC_BUDGET_BYTES. Prose does not count: the call must be in executable source, per the corollary law that any instruction a CI check must inspect has to live where the CI check can read it.",
-      "governs": [
-        "Framework_MockTestAnalyse.md",
-        "Framework_PYQCount.md",
-        "Framework_PYQCore.md"
-      ],
-      "verified_by": [
-        "audit_callgraph:C10",
-        "audit_callgraph:C11",
-        "mock_sync_audit:MS-12",
-        "mock_sync_audit:MS-13",
-        "audit_specs_ext:SPEC-BUDGET"
-      ],
-      "preconditions": [
-        "DERIVED RANGES. The FINAL/NON-FINAL read set is computed by spec_sections.py from each spec's own headers into SPEC_SECTIONS.json, which gen_manifest.py regenerates and MANIFEST.json tracks by sha256. A hand-copied line number is a second definition of the file's own structure and drifts on the first edit that adds a paragraph; a STALE map is worse than no map, because it sends a reduced read at ranges that no longer bound the sections they name. bootstrap.py therefore fails the build the moment a spec is edited without regenerating the map.",
-        "SAFE DEFAULT. A spec with no declared read set is read IN FULL, and an undecidable session class resolves to FINAL. Reading too much costs a session; reading too little can let a reduced read reach a writer, which is the one failure mode this corpus has actually regressed on (v2.39).",
-        "THE PROBE IS CHARGED ON FAILURE. A probe that raised still consumed the context its bytes occupied. Charging only on success under-admits nothing and over-admits by a whole paper on exactly the runs that are already going wrong."
-      ]
-    },
-    "REGISTRY-HANDOFF-LAW": {
-      "gap": "GAP-2026-08-26-REGISTRY-HANDOFF-SEAM",
-      "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md",
-      "requires": "A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge 'Replace in Project Files', in the same present_files call as its primary artefact. The decision is pp.registry_changed (a fingerprint of the project copy vs the working copy) fed to pp.handoff_set — never a per-step sentence. The 'registry is frozen / not delivered' wording is banned in live spec text.",
-      "detect": "registry_writer_call",
-      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls a registry writer: final_assembly.commit_registry(, pp.dg_write_verdict( or pp.dg_add_rework_snapshot(. Changelog lines quoting a call do not count.",
-      "governs": [
-        "Framework_MockTestCreate.md",
-        "Framework_MockTestExplain.md"
-      ],
-      "verified_by": [
-        "mock_sync_audit:MS-14"
-      ],
-      "preconditions": [
-        "WRITER SET IS DERIVED. paper_pipeline.RH_REGISTRY_WRITING_STEPS names the triggers; audit_sync derives the performing SPECS from the corpus text, so a new spec that calls a writer cannot inherit the surface without the MS-14 checks.",
-        "HISTORY. Through release 2026.08.26.2 four mock-track steps wrote the registry and one delivered it; MockTestExplain S19-1 HARD-STOPPED on a staged registry while §7A-M called the registry 'the ONLY channel to Step 11'. Every gated paper on every exam was undeliverable by a literal run."
-      ]
-    },
-    "GATE-AT-SOURCE-LAW": {
-      "gap": "GAP-2026-08-30-TYPE1-HALT-ELIMINATION",
-      "stated_in": "Framework_PYQCore.md",
-      "requires": "Every structural check a later step enforces on an artifact must run at the step that CREATES the artifact, before delivery, inside a bounded self-correction loop (max reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS constraint-carrying rounds; exhaustion exits AMBER with a finding-keyed amber_status — never a dead stop, never a silent green). A HARD STOP on Claude's own output is a spec violation; only input-integrity (Type-2) stops are permitted and each must name exactly one operator action. ONE RULEBOOK: each structural threshold has exactly one implementation in a routed engine — the over-aggregation gate is reconcile_taxonomy.check_topic_density (one implementation, three call sites: PYQDraft pre-delivery, PYQScan S3-1 tripwire, PYQApprove C6 backstop); specs cite it and its constants, never restate values. Every auto-correction and AMBER exit is recorded in telemetry.",
-      "detect": "topic_density_gate_call",
-      "detect_note": "A spec PERFORMS a GATE-AT-SOURCE operation when its live text names check_topic_density — hosting the gate's normative statement (PYQCore), calling it pre-delivery (PYQDraft), at the S3-1 tripwire (PYQScan), or as the C6 backstop (PYQApprove).",
-      "governs": [
-        "Framework_PYQCore.md",
-        "Framework_PYQDraft.md",
-        "Framework_PYQScan.md",
-        "Framework_PYQApprove.md"
-      ],
-      "verified_by": [
-        "audit_specs_ext:H-SELFSTOP"
-      ]
-    },
-    "REGISTRY-SOURCE-LAW": {
-      "gap": "GAP-2026-09-14-REGISTRY-SOURCE",
-      "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md; paper_pipeline.py CLUSTER RS",
-      "requires": "A step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain, Test/MockDeliver) resolves it ONLY through paper_pipeline.resolve_registry from two lawful lanes: the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The attachment wins when both hold a file (a difference is printed, never a stop); HARD STOP only when both are absent; exact filename and registry.exam_code are validated; a run pins the fingerprint it started from (registry_source_check) and refuses a different registry on a later turn. No spec may open the Files path directly or scan Project Files for *_registry.json.",
-      "detect": "registry_required_read",
-      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls resolve_registry(, or opens /mnt/project/…_registry.json, or scans Project Files with endswith('_registry.json'). An OPTIONAL read on a path bound earlier (Step 6 / 6S) does not count — owner decision 2026-09-14 scoped the law to the three steps that REQUIRE the file.",
-      "governs": [
-        "Framework_MockTestCreate.md",
-        "Framework_MockTestExplain.md",
-        "Framework_MockDeliver.md"
-      ],
-      "verified_by": [
-        "mock_sync_audit:MS-20"
-      ],
-      "preconditions": [
-        "RESOLVER IS THE ONLY READER. paper_pipeline.resolve_registry is pure (THIN-CORE PURITY): the spec injects exists()/loader(); the engine supplies every rule. 28 self-test fixtures against an in-memory filesystem; the ad-hoc mutants (attachment-wins, exam_code check, differ notice, pin check, absent stop, losing-lane validation, lane directories) are all killed.",
-        "PIN LIFECYCLE. Step 7: batch_state.registry_pin (per paper); the working copy is taken from the lane on a fresh run (no batch_state) and kept on continue/resume. Step 9: {EXAMCODE}_registry_pin.json, written on the first turn, retired at the FINAL delivery; the run's own delivered copy put back into a lane between batches is accepted (also_accept). Step 11 is single-turn: no pin.",
-        "DECISIONS (owner, 2026-09-14). Q1 both lanes differ → attachment wins. Q2 same chat: attach once; new chat: re-attach or Files, fingerprint pinned against a mid-run swap (nothing to compare against in a brand-new chat — accepted, as the Files lane always was). Q3 Step 11's *_registry.json wildcard scan retired; identical resolver in all three steps. Q4 exact filename + exam_code validated, mismatch = HARD STOP. Q5 scope = Steps 7/9/11 only. Q6 writers, badge, closed set, artefacts unchanged.",
-        "HISTORY. Through release 2026.09.14.1 all three steps HARD-STOPPED when the registry was absent from Project Files, and Step 11 additionally HARD-STOPPED on two *_registry.json files in Files. MS-20 fires 8 findings on those specs (regression floor) and 0 on the patched ones."
-      ]
-    },
-    "FIGURE-TYPE-COVERAGE-LAW": {
-      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
-      "stated_in": "figure_types.py; Framework_Blueprint.md S6-1c; Framework_ScopedBlueprint.md S4-5; Framework_MockTestCreate.md S3-17c / S7-NEW-B / S10-6A",
-      "requires": "A figure type may be DOMINANT in a blueprint only if the framework can render it, and the framework must be able to say so before Q.1. ONE table — figure_types.FIGURE_TYPES — binds every object_type to a render class (S10-6A), a semantic kind (paper_pipeline.SEMANTIC_KINDS) and a renderer. Step 5 normalises its emitted strings onto it; every blueprint spec runs bc.kind_coverage_preflight over the FIGURAL allocations (an UNSUPPORTED dominant type HARD STOPs unless exam_config.figure_fallback_policy == 'text_disclosed', in which case the subtopic is allocated TEXT and recorded in blueprint.figural_fallbacks; an UNREGISTERED type is an advisory, never a stop); Step 7 re-runs the pre-flight against ITS OWN session's loadable renderers (S3-17c) and dispatches every figure BY ITS REGISTRY ROW, never recording a type whose row did not render the figure. Adding a type is a repo change with a fixture, never a per-exam edit.",
-      "detect": "presence_flag_producer",
-      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text produces the exam-level figural_present flag of a blueprint — `blueprint['figural_present'] =` (Blueprint §6-2), `'figural_present': PRESENCE[...]` (ScopedBlueprint S8-4a) — or uses the RETIRED `exam_config.get('figural_present'` inheritance idiom (so a new spec copying it inherits the law's checks). A blueprint producer is where a dominant figure type enters a plan without anyone having asked whether it can be drawn.",
-      "governs": [
-        "Framework_Blueprint.md",
-        "Framework_ScopedBlueprint.md"
-      ],
-      "verified_by": [
-        "mock_sync_audit:MS-23",
-        "mock_sync_audit:MS-24"
-      ],
-      "preconditions": [
-        "THE REGISTRY IS A VOCABULARY, NOT AN EXAM. A chemistry type, a biology type and a reasoning-glyph type sit side by side; a string the registry does not know is NEVER rejected and NEVER silently dropped — lookup() returns status 'unregistered', the figure draws as a GENERIC schematic and every reader discloses it (QV-14 line, Step-6 advisory, A-FIGTYPE-KIND WARN). ~200 exams carry section_rules written before the registry existed; none may be halted by a vocabulary gap.",
-        "THIN CORE. blueprint_core never imports figure_types (validator Check AB); every blueprint_core entry point takes the registry's functions by INJECTION (normalise=, kind_check=, class_check=, coverage=), exactly as paper_pipeline takes canon=.",
-        "RENDERER AVAILABILITY IS A SESSION FACT. figure_types.preflight() imports every supported renderer; Step 6 reports an unloadable one, Step 7 S3-17c STOPs on it with the one operator action (the pip line) — a Type-2 input-integrity stop before Q.1, never a traceback at Q.14."
-      ]
-    },
-    "FIGURE-RECORD-INTEGRITY-LAW": {
-      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
-      "stated_in": "Framework_MockTestCreate.md S7-NEW-B / S7-NEW-B2 / S4-11 G-FIGTYPE-KIND; audit_canonical.py A-FIGTYPE-KIND; blueprint_core.check_figural_conformance; paper_pipeline.validate_semantic_object",
-      "requires": "A figure record is consistent with itself, and a gate audits the artefact, never only the label. For every rendered figural question: object_type is RECORDED (final_assembly refuses a commit without it); the recorded type's registry row ADMITS the problem semantic object's kind and the FigureSpec class (a mismatch is a FAIL — a false record; an unregistered type is a disclosed WARN, never silence); a REACTION semantic object carries a reaction SMILES ('reactants>agents>products', '>>' present) and a STRUCTURE never does. One rule — bc.check_figural_conformance(records, …) with the figure_types checkers injected — is shared by Step 7's G-FIGTYPE-KIND and the auditor's A-FIGTYPE-KIND, so the generator and its auditor cannot drift apart.",
-      "detect": "figure_record_writer",
-      "detect_note": "A spec PERFORMS this operation when its live text records a figure's object_type (`.object_type =`, `'object_type':` in a figural_qs / fig_manifest writer) or registers a semantic object (`validate_semantic_object(`).",
-      "governs": [
-        "Framework_MockTestCreate.md"
-      ],
-      "verified_by": [
-        "mock_sync_audit:MS-25"
-      ],
-      "preconditions": [
-        "EVIDENCE OVER LABELS. The reference registry held 287 'reaction_scheme' labels over STRUCTURE objects and 44 REACTION objects with no '>>'; A-FIGPROFILE passed every one because it compared the label with the profile and never with the object beside it.",
-        "LEGACY RECORDS ARE ANNOTATED, NEVER REWRITTEN. final_assembly.annotate_legacy_figure_records (S13-REGCHECK) marks record_integrity per question; A-FIGTYPE-KIND skips an annotated question with a printed reason; the Deliver footer discloses it (§FOOTER-FT)."
-      ]
-    },
-    "MANIFEST-COMMIT-LAW": {
-      "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
-      "stated_in": "final_assembly.commit_registry v1.10; Framework_MockTestCreate.md S3-2a / S13-4 / S13-4c; Framework_ScopedBlueprint.md S8-4a; audit_canonical.py figure_evidence",
-      "requires": "What the producer wrote is committed; a flag may describe a paper, never suppress its record; a gate with missing evidence on a paper that has the content reports WARN, never OK. The rc / di / figural manifest blocks are written whenever the manifest is non-empty REGARDLESS of passage_present / di_present / figural_present (a disagreement is recorded in registry.paper_flags and printed once). The five producer flags are DERIVED from the allocation (bc.derive_presence_flags) by every blueprint spec and self-corrected in session by Step 7 S3-2a — never inherited from exam_config. Before any figure gate reports dormant it consults the paper's own evidence (image-bearing blocks, registry figural_qs, axis1_paper FIGURAL); on a figural paper S13-4c REQUIRES armed A-FIGPROFILE and A-FIGTYPE-KIND lines.",
-      "detect": "manifest_commit_or_flag_producer",
-      "detect_note": "A spec PERFORMS this operation when its live text calls fa.commit_registry( (the one writer of the manifest blocks) or assigns the exam-level presence flags into a blueprint (`'figural_present':` / `blueprint['figural_present'] =`).",
-      "governs": [
-        "Framework_MockTestCreate.md",
-        "Framework_Blueprint.md",
-        "Framework_ScopedBlueprint.md"
-      ],
-      "verified_by": [
-        "mock_sync_audit:MS-21",
-        "mock_sync_audit:MS-22"
-      ],
-      "preconditions": [
-        "SILENT GREEN IS THE DEFECT. audit_canonical's engine-degraded branch stated the rule ('not _ok — the gate DID NOT RUN; reporting it green is the silent-pass failure') and its data-absent branch violated it; 36 figures, no record, exit_0/SHIP.",
-        "A FLAG IS INFORMATION, NOT AUTHORITY. registry.paper_flags[paper_id] keeps the declared flag beside the derived truth so the disagreement is a record, never a deletion."
-      ]
-    }
+ "_purpose": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, patch P7 — the class-level fix. A remediation that establishes a LAW must be applied to EVERY spec the law governs, and the completeness of that application must be MACHINE-CHECKABLE. GAP-2026-07-26-003 was remediated file-by-file from a changelog list; the PYQ counting path was not on that list; five days later a file split copied the unfixed text forward 'content byte-identical' into a file that never mentions the GAP id. A law enforced by a checklist is a law that will be re-broken by the next file split.",
+ "_enforced_by": "audit_sync.py. This file is DATA, not documentation: audit_sync hard-fails if it is missing, malformed, or out of step with the corpus.",
+ "_derived_not_declared": "The 'governs' list is CHECKED AGAINST THE CORPUS, never trusted. Any spec that performs a governed operation but is absent from 'governs' is a FAIL — that is the half a hand-maintained list can never provide, and it is the half that failed in July. Adding a spec to 'governs' does not exempt it from anything; it subscribes it to 'verified_by'.",
+ "_on_file_split": "Any file split MUST re-run audit_sync against BOTH halves before the split is committed. The 2026-07-31 PYQAnalyse v2.29 -> PYQCount v1.0 split is precisely how this defect entered production.",
+ "laws": {
+  "EXECUTION-BOUNDARY-LAW": {
+   "gap": "GAP-2026-07-26-003",
+   "reaffirmed_by": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION",
+   "stated_in": "CLAUDE.md",
+   "requires": "A tool call cannot happen inside a running python process. Every spec performing a CLASS T operation must declare it as a tagged pass-bodied stub AND inject a RESOLVER over already-materialised results at every injection point. Never inject the CLASS T marker name itself, and never inject a name the spec does not bind.",
+   "detect": "live_injection_point_call",
+   "detect_note": "A spec PERFORMS this operation when its text contains a live (non-comment) call to a documented injection point — audit_callgraph.INJECTION_POINTS. Commented-out historical examples do not count; a spec is expected to quote the defect it fixed.",
+   "governs": [
+    "Framework_MockTestAnalyse.md",
+    "Framework_PYQCount.md",
+    "Framework_PYQPrepare.md",
+    "Framework_PYQSort.md",
+    "Framework_PYQScan.md",
+    "Framework_PYQCompress.md",
+    "Framework_NotesBlueprint.md",
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "audit_callgraph:C6-PRE",
+    "audit_callgraph:C6",
+    "audit_callgraph:C7",
+    "audit_callgraph:C8",
+    "audit_callgraph:C9"
+   ],
+   "preconditions": [
+    "INSPECTABILITY. No 'CLASS: T' or 'CLASS: J' marker may appear inside a fence that fails ast.parse. audit_callgraph.any_python_blocks() yields only compiling fences BY DESIGN, so a marker in a non-compiling fence is — to C6 — a stub that does not exist: C6 builds an empty class_t set, returns early, and never scans the consumption sites, which compile fine one fence away. The law then reports 0 findings on a file it cannot verify. Measured 2026-08-15 on Framework_MockTestAnalyse.md: untagged fence 321-603 failed ast.parse at line 328 on an em-dash IN PROSE; both gdrive stubs lived in it; two live violations at lines 655 and 658 went unreported while four auditors were green. Enforced by audit_callgraph:C6-PRE. A check that can be structurally disarmed by the shape of its input is not a check; it is a check-shaped hole.",
+    "PRODUCER. A resolver injected at a documented injection point must read a container that something in the same spec actually FILLS — an assignment in compiling python, a parameter with no default, or a defaulted parameter whose absence raises. A bare default of None or {} is not a producer; it is the defect. C6 checks 'declared and passed', C7 checks 'not declared and passed', and neither can see a correct injection over an empty container. Enforced by audit_callgraph:C9."
+   ]
   },
-  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."
+  "SESSION-BUDGET-LAW": {
+   "gap": "GAP-2026-08-16-STEP5-SESSION-EXHAUSTION",
+   "stated_in": "CLAUDE.md",
+   "requires": "A session has THREE finite resources, not one. The framework has always budgeted PAYLOAD CHARACTERS (bc.INLINE_BUDGET_CHARS) and PAPER PACING (BATCH_SIZE). It must also budget SPECIFICATION-READ COST and TOOL-CALL COUNT. Concretely: (1) any CLASS T acquisition performed before a context partition MUST be subtracted from that partition's budget via consumed=, and is charged even when it FAILS; (2) a probe must be productive — probe the item the plan will fetch anyway, not the cheapest; (3) a spec above the SPEC-BUDGET threshold must declare a FINAL/NON-FINAL read set, with escalation to a full read MANDATORY and ONE-WAY before any writer runs; (4) a listing transcribed by the model must be asserted against an independently declared count and HARD STOP on mismatch; (5) a partition that admits nothing must SAY SO, never print a sessions estimate computed from an empty set.",
+   "detect": "budget_spender_upstream_of_partition",
+   "detect_note": "A spec PERFORMS this operation when it calls bc.partition_by_transport in a file that also carries a CLASS T acquisition (CHANNEL PROBE / probe_drive_channel / probe_direct_egress), or when it writes DRIVE_LISTING_CACHE, or when its route's summed .md bytes exceed audit_specs_ext.SPEC_BUDGET_BYTES. Prose does not count: the call must be in executable source, per the corollary law that any instruction a CI check must inspect has to live where the CI check can read it.",
+   "governs": [
+    "Framework_MockTestAnalyse.md",
+    "Framework_PYQCount.md",
+    "Framework_PYQCore.md"
+   ],
+   "verified_by": [
+    "audit_callgraph:C10",
+    "audit_callgraph:C11",
+    "mock_sync_audit:MS-12",
+    "mock_sync_audit:MS-13",
+    "audit_specs_ext:SPEC-BUDGET"
+   ],
+   "preconditions": [
+    "DERIVED RANGES. The FINAL/NON-FINAL read set is computed by spec_sections.py from each spec's own headers into SPEC_SECTIONS.json, which gen_manifest.py regenerates and MANIFEST.json tracks by sha256. A hand-copied line number is a second definition of the file's own structure and drifts on the first edit that adds a paragraph; a STALE map is worse than no map, because it sends a reduced read at ranges that no longer bound the sections they name. bootstrap.py therefore fails the build the moment a spec is edited without regenerating the map.",
+    "SAFE DEFAULT. A spec with no declared read set is read IN FULL, and an undecidable session class resolves to FINAL. Reading too much costs a session; reading too little can let a reduced read reach a writer, which is the one failure mode this corpus has actually regressed on (v2.39).",
+    "THE PROBE IS CHARGED ON FAILURE. A probe that raised still consumed the context its bytes occupied. Charging only on success under-admits nothing and over-admits by a whole paper on exactly the runs that are already going wrong."
+   ]
+  },
+  "REGISTRY-HANDOFF-LAW": {
+   "gap": "GAP-2026-08-26-REGISTRY-HANDOFF-SEAM",
+   "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md",
+   "requires": "A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge 'Replace in Project Files', in the same present_files call as its primary artefact. The decision is pp.registry_changed (a fingerprint of the project copy vs the working copy) fed to pp.handoff_set — never a per-step sentence. The 'registry is frozen / not delivered' wording is banned in live spec text.",
+   "detect": "registry_writer_call",
+   "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls a registry writer: final_assembly.commit_registry(, pp.dg_write_verdict( or pp.dg_add_rework_snapshot(. Changelog lines quoting a call do not count.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_MockTestExplain.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-14"
+   ],
+   "preconditions": [
+    "WRITER SET IS DERIVED. paper_pipeline.RH_REGISTRY_WRITING_STEPS names the triggers; audit_sync derives the performing SPECS from the corpus text, so a new spec that calls a writer cannot inherit the surface without the MS-14 checks.",
+    "HISTORY. Through release 2026.08.26.2 four mock-track steps wrote the registry and one delivered it; MockTestExplain S19-1 HARD-STOPPED on a staged registry while §7A-M called the registry 'the ONLY channel to Step 11'. Every gated paper on every exam was undeliverable by a literal run."
+   ]
+  },
+  "GATE-AT-SOURCE-LAW": {
+   "gap": "GAP-2026-08-30-TYPE1-HALT-ELIMINATION",
+   "stated_in": "Framework_PYQCore.md",
+   "requires": "Every structural check a later step enforces on an artifact must run at the step that CREATES the artifact, before delivery, inside a bounded self-correction loop (max reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS constraint-carrying rounds; exhaustion exits AMBER with a finding-keyed amber_status — never a dead stop, never a silent green). A HARD STOP on Claude's own output is a spec violation; only input-integrity (Type-2) stops are permitted and each must name exactly one operator action. ONE RULEBOOK: each structural threshold has exactly one implementation in a routed engine — the over-aggregation gate is reconcile_taxonomy.check_topic_density (one implementation, three call sites: PYQDraft pre-delivery, PYQScan S3-1 tripwire, PYQApprove C6 backstop); specs cite it and its constants, never restate values. Every auto-correction and AMBER exit is recorded in telemetry.",
+   "detect": "topic_density_gate_call",
+   "detect_note": "A spec PERFORMS a GATE-AT-SOURCE operation when its live text names check_topic_density — hosting the gate's normative statement (PYQCore), calling it pre-delivery (PYQDraft), at the S3-1 tripwire (PYQScan), or as the C6 backstop (PYQApprove).",
+   "governs": [
+    "Framework_PYQCore.md",
+    "Framework_PYQDraft.md",
+    "Framework_PYQScan.md",
+    "Framework_PYQApprove.md"
+   ],
+   "verified_by": [
+    "audit_specs_ext:H-SELFSTOP"
+   ]
+  },
+  "REGISTRY-SOURCE-LAW": {
+   "gap": "GAP-2026-09-14-REGISTRY-SOURCE",
+   "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md; paper_pipeline.py CLUSTER RS",
+   "requires": "A step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain, Test/MockDeliver) resolves it ONLY through paper_pipeline.resolve_registry from two lawful lanes: the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The attachment wins when both hold a file (a difference is printed, never a stop); HARD STOP only when both are absent; exact filename and registry.exam_code are validated; a run pins the fingerprint it started from (registry_source_check) and refuses a different registry on a later turn. No spec may open the Files path directly or scan Project Files for *_registry.json.",
+   "detect": "registry_required_read",
+   "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls resolve_registry(, or opens /mnt/project/…_registry.json, or scans Project Files with endswith('_registry.json'). An OPTIONAL read on a path bound earlier (Step 6 / 6S) does not count — owner decision 2026-09-14 scoped the law to the three steps that REQUIRE the file.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_MockTestExplain.md",
+    "Framework_MockDeliver.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-20"
+   ],
+   "preconditions": [
+    "RESOLVER IS THE ONLY READER. paper_pipeline.resolve_registry is pure (THIN-CORE PURITY): the spec injects exists()/loader(); the engine supplies every rule. 28 self-test fixtures against an in-memory filesystem; the ad-hoc mutants (attachment-wins, exam_code check, differ notice, pin check, absent stop, losing-lane validation, lane directories) are all killed.",
+    "PIN LIFECYCLE. Step 7: batch_state.registry_pin (per paper); the working copy is taken from the lane on a fresh run (no batch_state) and kept on continue/resume. Step 9: {EXAMCODE}_registry_pin.json, written on the first turn, retired at the FINAL delivery; the run's own delivered copy put back into a lane between batches is accepted (also_accept). Step 11 is single-turn: no pin.",
+    "DECISIONS (owner, 2026-09-14). Q1 both lanes differ → attachment wins. Q2 same chat: attach once; new chat: re-attach or Files, fingerprint pinned against a mid-run swap (nothing to compare against in a brand-new chat — accepted, as the Files lane always was). Q3 Step 11's *_registry.json wildcard scan retired; identical resolver in all three steps. Q4 exact filename + exam_code validated, mismatch = HARD STOP. Q5 scope = Steps 7/9/11 only. Q6 writers, badge, closed set, artefacts unchanged.",
+    "HISTORY. Through release 2026.09.14.1 all three steps HARD-STOPPED when the registry was absent from Project Files, and Step 11 additionally HARD-STOPPED on two *_registry.json files in Files. MS-20 fires 8 findings on those specs (regression floor) and 0 on the patched ones."
+   ]
+  },
+  "FIGURE-TYPE-COVERAGE-LAW": {
+   "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+   "stated_in": "figure_types.py; Framework_Blueprint.md S6-1c; Framework_ScopedBlueprint.md S4-5; Framework_MockTestCreate.md S3-17c / S7-NEW-B / S10-6A",
+   "requires": "A figure type may be DOMINANT in a blueprint only if the framework can render it, and the framework must be able to say so before Q.1. ONE table — figure_types.FIGURE_TYPES — binds every object_type to a render class (S10-6A), a semantic kind (paper_pipeline.SEMANTIC_KINDS) and a renderer. Step 5 normalises its emitted strings onto it; every blueprint spec runs bc.kind_coverage_preflight over the FIGURAL allocations (an UNSUPPORTED dominant type HARD STOPs unless exam_config.figure_fallback_policy == 'text_disclosed', in which case the subtopic is allocated TEXT and recorded in blueprint.figural_fallbacks; an UNREGISTERED type is an advisory, never a stop); Step 7 re-runs the pre-flight against ITS OWN session's loadable renderers (S3-17c) and dispatches every figure BY ITS REGISTRY ROW, never recording a type whose row did not render the figure. Adding a type is a repo change with a fixture, never a per-exam edit.",
+   "detect": "presence_flag_producer",
+   "detect_note": "A spec PERFORMS this operation when its live (non-comment) text produces the exam-level figural_present flag of a blueprint — `blueprint['figural_present'] =` (Blueprint §6-2), `'figural_present': PRESENCE[...]` (ScopedBlueprint S8-4a) — or uses the RETIRED `exam_config.get('figural_present'` inheritance idiom (so a new spec copying it inherits the law's checks). A blueprint producer is where a dominant figure type enters a plan without anyone having asked whether it can be drawn.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-23",
+    "mock_sync_audit:MS-24"
+   ],
+   "preconditions": [
+    "THE REGISTRY IS A VOCABULARY, NOT AN EXAM. A chemistry type, a biology type and a reasoning-glyph type sit side by side; a string the registry does not know is NEVER rejected and NEVER silently dropped — lookup() returns status 'unregistered', the figure draws as a GENERIC schematic and every reader discloses it (QV-14 line, Step-6 advisory, A-FIGTYPE-KIND WARN). ~200 exams carry section_rules written before the registry existed; none may be halted by a vocabulary gap.",
+    "THIN CORE. blueprint_core never imports figure_types (validator Check AB); every blueprint_core entry point takes the registry's functions by INJECTION (normalise=, kind_check=, class_check=, coverage=), exactly as paper_pipeline takes canon=.",
+    "RENDERER AVAILABILITY IS A SESSION FACT. figure_types.preflight() imports every supported renderer; Step 6 reports an unloadable one, Step 7 S3-17c STOPs on it with the one operator action (the pip line) — a Type-2 input-integrity stop before Q.1, never a traceback at Q.14."
+   ]
+  },
+  "FIGURE-RECORD-INTEGRITY-LAW": {
+   "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+   "stated_in": "Framework_MockTestCreate.md S7-NEW-B / S7-NEW-B2 / S4-11 G-FIGTYPE-KIND; audit_canonical.py A-FIGTYPE-KIND; blueprint_core.check_figural_conformance; paper_pipeline.validate_semantic_object",
+   "requires": "A figure record is consistent with itself, and a gate audits the artefact, never only the label. For every rendered figural question: object_type is RECORDED (final_assembly refuses a commit without it); the recorded type's registry row ADMITS the problem semantic object's kind and the FigureSpec class (a mismatch is a FAIL — a false record; an unregistered type is a disclosed WARN, never silence); a REACTION semantic object carries a reaction SMILES ('reactants>agents>products', '>>' present) and a STRUCTURE never does. One rule — bc.check_figural_conformance(records, …) with the figure_types checkers injected — is shared by Step 7's G-FIGTYPE-KIND and the auditor's A-FIGTYPE-KIND, so the generator and its auditor cannot drift apart.",
+   "detect": "figure_record_writer",
+   "detect_note": "A spec PERFORMS this operation when its live text records a figure's object_type (`.object_type =`, `'object_type':` in a figural_qs / fig_manifest writer) or registers a semantic object (`validate_semantic_object(`).",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-25"
+   ],
+   "preconditions": [
+    "EVIDENCE OVER LABELS. The reference registry held 287 'reaction_scheme' labels over STRUCTURE objects and 44 REACTION objects with no '>>'; A-FIGPROFILE passed every one because it compared the label with the profile and never with the object beside it.",
+    "LEGACY RECORDS ARE ANNOTATED, NEVER REWRITTEN. final_assembly.annotate_legacy_figure_records (S13-REGCHECK) marks record_integrity per question; A-FIGTYPE-KIND skips an annotated question with a printed reason; the Deliver footer discloses it (§FOOTER-FT)."
+   ]
+  },
+  "MANIFEST-COMMIT-LAW": {
+   "gap": "GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY",
+   "stated_in": "final_assembly.commit_registry v1.10; Framework_MockTestCreate.md S3-2a / S13-4 / S13-4c; Framework_ScopedBlueprint.md S8-4a; audit_canonical.py figure_evidence",
+   "requires": "What the producer wrote is committed; a flag may describe a paper, never suppress its record; a gate with missing evidence on a paper that has the content reports WARN, never OK. The rc / di / figural manifest blocks are written whenever the manifest is non-empty REGARDLESS of passage_present / di_present / figural_present (a disagreement is recorded in registry.paper_flags and printed once). The five producer flags are DERIVED from the allocation (bc.derive_presence_flags) by every blueprint spec and self-corrected in session by Step 7 S3-2a — never inherited from exam_config. Before any figure gate reports dormant it consults the paper's own evidence (image-bearing blocks, registry figural_qs, axis1_paper FIGURAL); on a figural paper S13-4c REQUIRES armed A-FIGPROFILE and A-FIGTYPE-KIND lines.",
+   "detect": "manifest_commit_or_flag_producer",
+   "detect_note": "A spec PERFORMS this operation when its live text calls fa.commit_registry( (the one writer of the manifest blocks) or assigns the exam-level presence flags into a blueprint (`'figural_present':` / `blueprint['figural_present'] =`).",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_Blueprint.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-21",
+    "mock_sync_audit:MS-22"
+   ],
+   "preconditions": [
+    "SILENT GREEN IS THE DEFECT. audit_canonical's engine-degraded branch stated the rule ('not _ok — the gate DID NOT RUN; reporting it green is the silent-pass failure') and its data-absent branch violated it; 36 figures, no record, exit_0/SHIP.",
+    "A FLAG IS INFORMATION, NOT AUTHORITY. registry.paper_flags[paper_id] keeps the declared flag beside the derived truth so the disagreement is a record, never a deletion."
+   ]
+  },
+  "QUALITY-GATE-LAW": {
+   "gap": "GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY",
+   "stated_in": "Framework_MockTestCreate.md S2-2 R1..R5 / S3-2e / S3-12d / S7-QUALITY / S13-2F / S13-2G; Framework_MockReview.md; Framework_MockDeliver.md S1-2 item 3f; Framework_Blueprint.md §7-8; Framework_ScopedBlueprint.md S8-2d; Framework_MockTestAnalyse.md S11-1b; blueprint_core Cluster QQ; audit_canonical v2.35 QQ_GATE_IDS",
+   "requires": "A content rule is a sentence that NAMES the engine function enforcing it, and every quality control reads artefact-derived evidence (docx text, the renderer's own figure record, the registry), never an author declaration (principle QQ-0). Every Create quality gate has an auditor twin emitted in both states. The difficulty judge is run against the exam's own PYQ exemplar bank, and every paper is read once by an INDEPENDENT context that never sees the key, the author notes or the scheduled bands (bc.review_packet strips them; MockReview never reads the key or the registry) — its findings are REPAIRED through the ladder, not listed. A finding that survives ladder R5 is an UNRESOLVED item: the paper is NOT CERTIFIED and MockDeliver refuses it unless the owner passes --accept-uncertified (recorded). OD-1: no quality condition is ever a stop — dormancy is printed and recorded (quality_readiness), a defect is a ladder rung or a recorded status.",
+   "detect": "quality_gate_producer",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster QQ entry point: bc.quality_readiness(, bc.review_packet(, bc.bind_review_verdicts(, bc.review_verdict_file(, bc.deliver_allowed(, bc.shape_targets(, bc.assign_shape_plan(, or analyse_engine write_exemplar_bank(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_MockReview.md",
+    "Framework_MockDeliver.md",
+    "Framework_Blueprint.md",
+    "Framework_ScopedBlueprint.md",
+    "Framework_MockTestAnalyse.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-26"
+   ],
+   "preconditions": [
+    "EVIDENCE OVER DECLARATIONS (QQ-0). The incident paper's gates read declared=True fields the author wrote about itself; a gate that reads the author's declaration measures nothing.",
+    "A RULE WITH NO ENGINE IS PROSE. S2-2 R3/R4/R5 existed for 89 releases and were enforced by nothing; MS-26 (i) requires every content rule to name its function.",
+    "INDEPENDENCE IS A FRESH CONTEXT, NOT A SECOND PASS. The reviewer's packet carries no key; key_agrees is filled by the author's session after binding (bc.review_key_agreement).",
+    "NEVER A STOP (owner OD-1). Dormant controls print and record; the team guarantees inputs; a NOT CERTIFIED paper is a recorded verdict with a one-word remedy on Deliver."
+   ]
+  }
+ },
+ "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."
 }

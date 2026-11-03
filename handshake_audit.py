@@ -1,0 +1,356 @@
+#!/usr/bin/env python3
+"""
+HANDSHAKE AUDIT — release 2026.11.03 (GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY).
+
+WHY THIS FILE EXISTS. Three cold reviews of that release found 48 defects, and 15 of them
+were HANDSHAKE breaks: a producer wrote one shape and its consumer read another — an
+inverted dict (common entities listed paper names), a field no step wrote (key_set_size),
+29 quality-record fields dropped at commit so the final sweep could not see them, a
+readiness probe testing field names no artefact carried, a judge-exemplar cascade with no
+engine behind it. Every static gate in the estate was green through all of it, because a
+static gate reads ONE side of a boundary. This audit runs the REAL engines and the REAL
+executable fences of the specs as ONE chain on a synthetic exam, so each step's actual
+output artefact is the next step's actual input:
+
+  PYQExplain content records -> bc.dp_add_paper -> difficulty profile
+    -> Step 5 (analyse_engine) QUALITY block / EXAM_QUALITY / exemplar bank
+    -> Blueprint §7-8 + ScopedBlueprint S8-2d shape targets
+    -> Create S3-2e readiness, S3-12d shape plan, judge packet
+    -> S7-QUALITY sidecar -> audit_canonical pre-commit sweep -> certificate
+    -> S13-2G phase 1 packet -> MockReview S1-1..S3-2 -> --resume phase 3 (two rounds)
+    -> final_assembly.commit_registry -> audit_canonical final sweep (registry only)
+    -> MockDeliver item 3f (refuse / accept) -> §8 handoff / footer lines.
+
+Every assertion names the producer and the consumer it binds. Absolute paths the spec
+fences hard-code (/home/claude, /mnt/project, /mnt/user-data) are RELOCATED under a
+temporary root for the run, so the audit executes on any machine (CI included) and
+never touches a real project. Run: `python3 handshake_audit.py --self-test`
+(discovery-driven CI runs it). Exit 1 on any failed handshake.
+"""
+import json, os, re, shutil, subprocess, sys, tempfile, textwrap, zipfile, hashlib, copy
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+
+def _relocate(code, root):
+    """Rewrite the absolute roots a spec fence hard-codes to live under `root`."""
+    for pre in ('/home/claude', '/mnt/user-data', '/mnt/project'):
+        code = code.replace("'" + pre, "'" + root + pre).replace('"' + pre, '"' + root + pre)
+    return code
+
+
+def fences(path, marker=None):
+    txt = open(path, encoding='utf-8').read().split('\n'); out = []; cur = None
+    for i, l in enumerate(txt, 1):
+        s = l.strip()
+        if cur is None:
+            if s == '```python': cur = (i, [])
+            continue
+        if s == '```':
+            body = textwrap.dedent('\n'.join(cur[1]))
+            if marker is None or marker in body[:120]: out.append((cur[0], body))
+            cur = None; continue
+        cur[1].append(l)
+    return out
+
+
+def self_test():
+    import blueprint_core as bc, analyse_engine as ae, final_assembly as fa, paper_pipeline as pp, figure_types as ft
+    import audit_canonical as ac
+    from docx import Document
+    OK, BAD = [], []
+    def check(name, cond, note=''):
+        (OK if cond else BAD).append(name + (f' — {note}' if note and not cond else ''))
+        print(('  ok  ' if cond else '  FAIL') + ' ' + name + ('' if cond else f'  <- {note}'))
+    ROOT = tempfile.mkdtemp(prefix='handshake_')
+    W = HERE
+    EXAM = 'HSX'; N = 1; paper_id = 'MOCK:M01'
+    TMP = os.path.join(ROOT, 'tmp'); PROJ = ROOT + '/mnt/project'; OUT = ROOT + '/mnt/user-data/outputs'; UPL = ROOT + '/mnt/user-data/uploads'
+    HOME = ROOT + '/home/claude'
+    for d in (TMP, PROJ, OUT, UPL, HOME): os.makedirs(d, exist_ok=True)
+    def run_fence(code, g):
+        exec(_relocate(code, ROOT), g)
+    try:
+        # ═══ H1  PYQExplain §13A-3 content records + S7A-6  ->  [Exam]_difficulty_profile.json ═══
+        print('H1 PYQExplain -> difficulty profile')
+        NQ = 10   # per paper; 4 papers -> 40 PYQ items (above the sparse / shape-pool thresholds)
+        exam_config = {'exam_code': EXAM, 'total_questions': NQ, 'difficulty_labels': ['Easy', 'Medium', 'Hard'],
+                       'sections': [{'name': 'Section A', 'q_range': [1, NQ]}]}
+        BASE = ['The major product formed in the Friedel-Crafts acylation of anisole with acetyl chloride is',
+                'Identify the reagent sequence that converts cyclohexanone into cyclohexylamine',
+                'The number of stereoisomers possible for 2,3-dibromobutane is',
+                'Arrange the following carbocations in the order of their stability',
+                'Which of the following compounds undergoes nitration fastest under standard conditions',
+                'The product of ozonolysis followed by reductive work-up of 1-methylcyclohexene is',
+                'Identify the compound that shows a singlet at 2.1 ppm and a quartet at 4.1 ppm',
+                'The relative configuration of the two stereocentres in the given aldol product is',
+                'Which reagent converts the given alkyne into a cis alkene selectively',
+                'The total number of signals in the proton NMR spectrum of the given ester is']
+        YEARS = [2025, 2024, 2023, 2022, 2021]
+        STEMS = {y: [f'[{y}] {b}' for b in BASE] for y in YEARS}      # distinct stems per paper (differ inside the 60-char key)
+        ASK = ['identify_product', 'reagent_sequence', 'stereoisomer_count', 'property_order', 'identify_product',
+               'identify_product', 'spectrum_to_structure', 'stereoisomer_count', 'reagent_sequence', 'spectrum_to_structure']
+        def sub_of(i): return 'oc.arom' if i in (1, 2, 5, 6, 9) else 'oc.stereo'
+        def obs(y, i):
+            return {'question_class': ['C-APPLY'], 'deduction_steps': [1, 2, 3, 4, 5, 6, 2, 4, 6, 3][i - 1], 'axiom_concepts': [1, 1, 2, 2, 3, 3, 1, 2, 3, 2][i - 1], 'speed_hack_exists': False,
+                    'derivation_confidence': 'full', 'is_negative': False, 'qtype': 'mcq', 'subtopic_id': sub_of(i),
+                    'stem_snippet': STEMS[y][i - 1][:120],
+                    # v2.26 §13A-3 tags (the keys the PYQExplain spec names)
+                    'ask_type': ASK[i - 1],
+                    'named_concepts': ['Friedel-Crafts acylation'] if i == 1 else ['ozonolysis'] if i == 6 else [], 'concept': 'eas' if sub_of(i) == 'oc.arom' else 'stereo',
+                    'drawn_names': ['anisole'] if i == 1 else [], 'near_isomer_set': (i in (1, 6)),
+                    'distractor_mechanisms': ['regioisomer', 'over_reaction', 'starting_material'], 'stereo_decl': None,
+                    'content_objects': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'COc1ccccc1'}] if i == 1 else []}
+        profile = bc.dp_new_profile(EXAM, exam_config['difficulty_labels'])
+        for y in YEARS:
+            pk = f'HSX_15-Jun-{y}_S1.docx'
+            qs = {str(i): obs(y, i) for i in range(1, NQ + 1)}
+            profile, st, why = bc.dp_add_paper(profile, source_file=pk, exam_config=exam_config, questions=qs,
+                                               paper_positions=list(range(1, NQ + 1)), written_by='test', now='2026-11-03T00:00:00+00:00')
+            check(f'H1 dp_add_paper {pk} accepted', st in ('added', 'replaced', 'ok') or st not in ('excluded',), st)
+        prof_path = f'{PROJ}/{EXAM}_difficulty_profile.json'; json.dump(profile, open(prof_path, 'w'))
+        rec = list(profile['papers'].values())[0]['questions']['1']
+        rec = list(profile['papers'].values())[0]['questions']['1']
+        check('H1 profile record carries v2.26 tags (DP_CONTENT_KEYS)', all(k in rec for k in ('named_concepts', 'concept', 'drawn_names', 'near_isomer_set', 'distractor_mechanisms', 'ask_type')), str(sorted(rec)))
+        check('H1 profile record carries band + stem_snippet', rec.get('band') in ('Easy', 'Medium', 'Hard') and rec.get('stem_snippet'))
+
+        # ═══ H2  Step 5: profile -> QUALITY block (section_rules) + exemplar bank ═══
+        print('H2 Step 5 (analyse_engine) <- profile')
+        qi = ae.profile_quality_inputs(json.load(open(prof_path)))
+        check('H2 profile_quality_inputs joins every PYQ by stem', len([v for v in qi['by_stem'].values() if v]) == 50 and qi['ambiguous'] == 0, str((len(qi['by_stem']), qi['ambiguous'])))
+        def s5q(i, year):
+            return {'stem': STEMS[year][i - 1], 'stem_raw': STEMS[year][i - 1], 'options': ['a', 'b', 'c', 'd'], 'section': 'Section A',
+                    'topic': 'Aromatic' if sub_of(i) == 'oc.arom' else 'Stereo', 'subtopic': 'EAS' if sub_of(i) == 'oc.arom' else 'Isomerism', 'year': year,
+                    'paper_id': f'P{year}', 'q_num': i, 'num': i, 'image_role': 'none', 'is_msq': False, 'option_label': '1/2/3/4'}
+        progress = {('Section A', 'Aromatic', 'EAS'): [s5q(i, y) for y in YEARS for i in range(1, NQ + 1) if sub_of(i) == 'oc.arom'],
+                    ('Section A', 'Stereo', 'Isomerism'): [s5q(i, y) for y in YEARS for i in range(1, NQ + 1) if sub_of(i) == 'oc.stereo'],
+                    '_meta': {'papers_processed': [f'P{y}' for y in YEARS]}}
+        entries = []
+        for (sec, top, sub), qs in [(k, v) for k, v in progress.items() if isinstance(k, tuple)]:
+            e = ae.synthesise_subtopic(sec, top, sub, qs, progress, quality_inputs=qi)
+            entries.append(e)
+        ae.mint_subtopic_ids(entries, {})
+        Q0 = entries[0]['QUALITY']
+        check('H2 QUALITY lexicon measured from profile named_concepts', 'friedel-crafts acylation' in Q0['tested_concept_lexicon'], str(Q0['tested_concept_lexicon']))
+        check('H2 QUALITY n / shown_entity_named_rate / near_isomer_share measured', Q0['n'] == 25 and Q0['shown_entity_named_rate'] != 'unmeasured' and Q0['near_isomer_share'] != 'unmeasured', str({k: Q0[k] for k in ('n', 'shown_entity_named_rate', 'near_isomer_share')}))
+        rules_path = ae.write_section_rules(entries, EXAM, exam_meta=None, progress=progress, out_dir=TMP)
+        all_qs = [q for k, v in progress.items() if isinstance(k, tuple) for q in v]
+        eq = ae.exam_quality_lines(all_qs, 5, entity_paper_sets=ae.entity_paper_sets(qi), text_leaks=None, quality_inputs=qi)
+        open(rules_path, 'a', encoding='utf-8').write('\n' + '\n'.join(eq) + '\n')
+        SR = open(rules_path, encoding='utf-8').read()
+        sid0, sid1 = entries[0]['subtopic_id'], entries[1]['subtopic_id']
+        qb = bc.quality_block_for_subtopic(SR, sid0)
+        check('H2 section_rules QUALITY block round-trips through bc.quality_block_for_subtopic', qb and qb['n'] == 25 and qb['tested_concept_lexicon'] == Q0['tested_concept_lexicon'] and qb['shape_shares'] == Q0['shape_shares'], str(qb)[:200])
+        check('H2 EXAM_QUALITY lines present', '=== EXAM_QUALITY ===' in SR and 'PYQ_COMMON_ENTITIES:' in SR and 'GATE_CALIBRATION:' in SR)
+        _common, _calib = ac._qq_exam_quality_lines({'rules_txt': SR})
+        check('H2 PYQ_COMMON_ENTITIES lists ENTITIES (anisole drawn in all 5 papers), never paper keys', 'anisole' in _common and not any(k.startswith('P2') or 'docx' in k for k in _common), str(_common))
+        check('H2 GATE_CALIBRATION / PYQ_MODE parse in the auditor', isinstance(ac._qq_gate_calibration({'rules_txt': SR}), dict) and ac._qq_pyq_mode({'rules_txt': SR}) in ('sparse', 'full'))
+        check('H2 shape_shares keys come from the profile family tag (ASK[] vocabulary), no "other"', set(k.split('|')[0] for k in Q0['shape_shares']) <= set(ASK) and 'other' not in {k.split('|')[0] for k in Q0['shape_shares']}, str(list(Q0['shape_shares'])))
+        sid_of = {(e['section'], e['topic'], e['subtopic']): e['subtopic_id'] for e in entries}
+        rows = ae.exemplar_rows(all_qs, qi, sid_of)
+        bank_path, bank, dropped = ae.write_exemplar_bank(EXAM, rows, out_dir=TMP)
+        check('H2 exemplar bank non-empty, keyed by the MINTED subtopic_id (what the blueprint / Create use), band, qtype', bank['cells'] and sid0 in bank['cells'] and any(b in bank['cells'][sid0] for b in ('Easy', 'Medium', 'Hard')), str(list(bank['cells']))[:200])
+        check('H2 exemplar bank schema (_meta.schema_version, cells)', bank['_meta'].get('schema_version') == 1 and isinstance(bank['cells'], dict))
+        shutil.copy(rules_path, f'{PROJ}/{EXAM}_section_rules.md'); shutil.copy(bank_path, f'{PROJ}/{EXAM}_exemplar_bank.json')
+
+        # the auditor's reader of EXAM_QUALITY (A-ENTITYLEAK) must parse what Step 5 wrote
+        src_probe = {'rules_txt': SR}
+        _ce = ac._qq_exam_quality_lines(src_probe)
+        check('H2 auditor parses the EXAM_QUALITY lines Step 5 wrote', _ce is not None and _ce != ({}, None) , str(_ce)[:120])
+
+        # ═══ H3  Blueprint §7-8 / ScopedBlueprint S8-2d <- section_rules QUALITY ═══
+        print('H3 blueprints <- section_rules')
+        t = open(f'{W}/Framework_Blueprint.md', encoding='utf-8').read(); i = t.find('# §7-8 (v1.63.0'); j = t.find('# §7-8R', i)
+        g = {'_bc_ask': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
+             'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': 30, 'blueprint': {'total_mocks': 2}}
+        run_fence(t[i:j], g)
+        check('H3 Blueprint §7-8 writes shape_target_per_paper for every mock', set(g['blueprint']['shape_target_per_paper']) == {'1', '2'} and g['blueprint']['schema_version'] == 2, str(g['blueprint'].get('shape_target_per_paper'))[:120])
+        t2 = open(f'{W}/Framework_ScopedBlueprint.md', encoding='utf-8').read(); i = t2.find('# S8-2d (v1.13.0'); j = t2.find('# S8-3', i)
+        g2 = {'bc': bc, '_sr_text': SR, 'in_scope_ids': [sid0, sid1], 'r_avg': {sid0: 2.0, sid1: 1.0}, 'Q': 20, 'N': 2}
+        run_fence(t2[i:j], g2)
+        check('H3 ScopedBlueprint S8-2d writes SHAPE_TARGET', set(g2['SHAPE_TARGET']) == {'1', '2'})
+        BP = {'blueprint_version': 'hs-1', 'total_questions': 4, 'batch_size_qs': 10, 'exam_code': EXAM,
+              'subtopic_list': [{'subtopic_id': sid0, 'section': 'Section A', 'subtopic': 'EAS'}, {'subtopic_id': sid1, 'section': 'Section A', 'subtopic': 'Isomerism'}],
+              'difficulty_labels': ['Easy', 'Medium', 'Hard'], 'difficulty_schedule': [{'mock': 1, 'simple': 1, 'medium': 2, 'hard': 1}],
+              'sections': [{'name': 'Section A', 'section_name': 'Section A', 'q_range': [1, 4], 'total_qs': 4}], 'mocks': [{'mock': 1, 'paper_id': paper_id}],
+              'options_count': 4, 'option_label_format': '1/2/3/4',
+              'shape_target_per_paper': {'1': bc.shape_targets({k.split('|')[0]: v for k, v in Q0['shape_shares'].items()}, 4, 0)}, 'schema_version': 2, 'producer': 'test'}
+        bp_path = f'{PROJ}/{EXAM}_blueprint.json'; json.dump(BP, open(bp_path, 'w'))
+
+        # ═══ H4  Create S3-2e readiness + S3-12d shape plan <- blueprint / section_rules / bank ═══
+        print('H4 Create S3-2e / S3-12d')
+        cre = f'{W}/Framework_MockTestCreate.md'
+        f32e = [b for _, b in fences(cre) if 'S3-2e' in b[:200]]
+        check('H4 S3-2e fence found', len(f32e) >= 1)
+        bs_path = f'{HOME}/{EXAM}_M{N}_batch_state.json'
+        for p in (bs_path,):
+            if os.path.exists(p): os.remove(p)
+        g4 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'bp': BP, 'bs_prev': {}}
+        run_fence(f32e[0], g4)
+        RD = g4['QUALITY_READINESS']
+        check('H4 readiness reads exemplar bank / section_rules / profile / blueprint as PASS', all(RD['controls'][c]['status'] == 'PASS' for c in ('G-DIFF-JUDGE', 'G-STEMLEAK', 'G-STEMFORM', 'G-SHAPEMIX', 'G-DIFF-FLOOR', 'G-TEMPLATE', 'G-DISTRACTOR', 'G-ENTITYLEAK')), str({c: v['status'] for c, v in RD['controls'].items()}))
+        check('H4 readiness: only the artefacts this test did not produce are MISSING (style_profile, pyq_index)', set(RD['degraded']) <= {'G-STYLE', 'G-PYQ-DIST', 'G-ITEM'}, str(RD['degraded']))
+        check('H4 EXEMPLAR_BANK_PATH bound to the delivered run file', g4.get('EXEMPLAR_BANK_PATH') and os.path.exists(g4['EXEMPLAR_BANK_PATH']))
+        f312d = [b for _, b in fences(cre) if 'S3-12d (executable' in b[:200]]
+        g4.update({'subtopic_by_qnum': {1: sid0, 2: sid0, 3: sid1, 4: sid1}, '_qtype_by_q': {}, 'SECTION_RULES_TEXT': SR})
+        run_fence(f312d[0], g4)
+        PLAN = g4['SHAPE_PLAN']
+        check('H4 S3-12d assigns a shape to every slot from the blueprint targets', all(str(q) in PLAN for q in (1, 2, 3, 4)) and all(PLAN[str(q)] in BP['shape_target_per_paper']['1'] or PLAN[str(q)] is None for q in (1, 2, 3, 4)), str(PLAN))
+        # S7-QUALITY judge packet <- exemplar bank slice
+        item = {'stem': BASE[0] + ' variant', 'options': ['a', 'b', 'c', 'd'], 'difficulty_plan': 'Hard', 'solution': 'x', 'subtopic_id': sid0}
+        EX = bc.exemplars_for(g4['EXEMPLAR_BANK'], sid0, 'mcq', BP['difficulty_labels'])
+        check('H4 bc.exemplars_for finds exemplars for every band from the Step-5 bank', EX['complete'] is True and all(EX['by_band'].get(b) for b in BP['difficulty_labels']), str({k: len(v) for k, v in EX['by_band'].items()}) + ' level=' + str(EX['level_used']))
+        jin = bc.build_judge_input(item, EX['by_band'], BP['difficulty_labels'])
+        check('H4 build_judge_input strips author fields and carries exemplars per band', isinstance(jin, dict) and 'solution' not in json.dumps(jin.get('item', jin)) and 'difficulty_plan' not in json.dumps(jin.get('item', jin)) and jin['exemplars'], str(jin)[:200])
+
+        # ═══ H5  S7-QUALITY sidecar -> S13-2F auditor (precommit) -> stamps -> certificate ═══
+        print('H5 sidecar -> auditor precommit')
+        import re as _re
+        def pattern_keys_for(sid):
+            m = _re.search(r'^[ \t]*subtopic_id:[ \t]*' + _re.escape(sid) + r'[ \t\r]*$', SR, _re.M)
+            seg = SR[m.start():(SR.find('\n--- Subtopic:', m.start()) if m and SR.find('\n--- Subtopic:', m.start()) > 0 else len(SR))] if m else ''
+            return _re.findall(r'"pattern_key":\s*"([^"]+)"', seg)
+        MQ = NQ
+        order = [sid0 if i % 2 else sid1 for i in range(1, MQ + 1)]        # alternate subtopics: no adjacent same concept group
+        d = Document()
+        for n in range(1, MQ + 1):
+            d.add_paragraph(f'Q.{n}  {" ".join(BASE[(n-1) % len(BASE)].split()[:12])} (mock {n})?')
+            for i, o in enumerate(['Alpha', 'Beta', 'Gamma', 'Delta'], 1): d.add_paragraph(f'{i}.  {o}')
+            d.add_paragraph('')
+        docx = f'{OUT}/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'; d.save(docx)
+        BP['total_questions'] = MQ; BP['sections'][0]['q_range'] = [1, MQ]; BP['sections'][0]['total_qs'] = MQ
+        BP['difficulty_schedule'] = [{'mock': 1, 'simple': 3, 'medium': 4, 'hard': 3}]
+        t = open(f'{W}/Framework_Blueprint.md', encoding='utf-8').read(); i = t.find('# §7-8 (v1.63.0'); j = t.find('# §7-8R', i)
+        g78 = {'_bc_ask': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
+               'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': MQ, 'blueprint': {'total_mocks': 1}}
+        run_fence(t[i:j], g78); BP['shape_target_per_paper'] = g78['blueprint']['shape_target_per_paper']
+        check('H5 blueprint §7-8 targets for the mock paper (both subtopics pooled)', set(BP['shape_target_per_paper']) == {'1'} and len(BP['shape_target_per_paper']['1']) >= 3, str(BP['shape_target_per_paper'])[:160])
+        json.dump(BP, open(bp_path, 'w'))
+        g4b = dict(g4); g4b.update({'subtopic_by_qnum': {n: order[n-1] for n in range(1, MQ + 1)}, 'bp': BP}); run_fence(f312d[0], g4b); PLAN = g4b['SHAPE_PLAN']
+        bands = ['Easy'] * 3 + ['Medium'] * 4 + ['Hard'] * 3
+        cm = {str(n): {'subtopic_id': order[n-1], 'difficulty': bands[n-1],
+                       'shape': PLAN.get(str(n)) or 'identify_product', 'scheme_grammar': 'none', 'fingerprint': f'fp{n}', 'concept': f'c{n}',
+                       'pattern_key': (pattern_keys_for(order[n-1]) or [None])[0],
+                       'distractor_mechanisms': ['regioisomer', 'over_reaction', 'starting_material'], 'mechanism_family': 'chemistry',
+                       'stem_text': ' '.join(BASE[(n-1) % len(BASE)].split()[:12]) + f' (mock {n})?', 'option_texts': ['Alpha', 'Beta', 'Gamma', 'Delta'], 'figure_files': []} for n in range(1, MQ + 1)}
+        check('H5 S7-QUALITY pattern_key resolvable from section_rules PATTERN_KEYS', all(cm[str(n)]['pattern_key'] for n in range(1, MQ + 1)), str(pattern_keys_for(sid0))[:100])
+        key_path = f'{HOME}/{EXAM}_M{N}_answer_key.json'
+        ANS = {str(n): 1 + (n % 4) for n in range(1, MQ + 1)}
+        ANS['2'] = [1, 3]; cm['2']['distractor_mechanisms'] = ['regioisomer', 'over_reaction']; cm['2']['key_set_size'] = 2   # MSQ item (M2)
+        json.dump({'answers': ANS, 'concept_map': cm}, open(key_path, 'w'))
+        reg = {'exam_code': EXAM, 'schema_version': '1.0', 'mocks_completed': [], 'papers_completed': [], 'question_hashes': [], 'stem_texts': [], 'semantic_tuples': [],
+               'semantic_usage': [], 'exhausted_subtopics': {}, 'question_index': [], 'image_phashes': [], 'image_sources_used': [], 'session_log': [],
+               'content_tracking': {k: [] for k in fa._REQUIRED_CT}, 'section_names': [], 'rc_manifests': [], 'figural_manifests': [], 'di_manifests': []}
+        prev = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1, axis2_window_counts={}, passage_present=False, di_present=False,
+                                  figural_present=False, concept_map=cm, quality_readiness=RD)
+        check('H5 commit_registry preview ok and carries producer_release + V590 fields + quality_readiness', prev['ok'] and prev['registry']['question_index'][0]['qindex_cert']['producer_release'] == bc.QQ_RELEASE
+              and 'shape' in prev['registry']['question_index'][0]['questions'][0] and prev['registry']['question_index'][0].get('quality_readiness'), str(prev.get('problems') or prev.get('error'))[:200])
+        prev_path = f'{TMP}/prev.json'; json.dump(prev['registry'], open(prev_path, 'w'))
+        def audit(phase, extra):
+            cmd = [sys.executable, f'{W}/audit_canonical.py', docx, '--phase', phase, '--item-findings', f'{TMP}/if.json', '--write-certificate', f'{TMP}/cert.json',
+                   '--blueprint', bp_path, '--rules', f'{PROJ}/{EXAM}_section_rules.md', '--registry', prev_path, '--mockN', str(N)] + extra
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            return r, {l.split(']')[1].split()[0]: l.split(']')[0].strip('[ ') for l in r.stdout.split('\n') if l.startswith('[') and ']' in l}
+        r, lv = audit('precommit', ['--key', key_path, '--profile', prof_path])
+        qq = {g: lv.get(g) for g in ('A-QUALITYSTATUS', 'A-REVIEW', 'A-SHAPEMIX', 'A-TEMPLATE', 'A-STEMLEAK', 'A-DISTRACTOR', 'A-READINESS', 'A-OPTDISTINCT', 'A-ITEMRULE')}
+        check('H5 precommit: no quality gate FAILs on a clean unstamped paper', all(v != 'FAIL' for v in qq.values()), str(qq))
+        check('H5 precommit: A-READINESS reads the committed readiness record', lv.get('A-READINESS') in ('ok', 'WARN'), str(lv.get('A-READINESS')))
+        check('H5 precommit: A-SHAPEMIX ARMED (reads concept_map.shape vs blueprint targets)', 'DORMANT' not in (r.stdout.split('A-SHAPEMIX')[1][:80] if 'A-SHAPEMIX' in r.stdout else 'DORMANT'), r.stdout.split('A-SHAPEMIX')[1][:120] if 'A-SHAPEMIX' in r.stdout else '')
+        fails_other = [l for l in r.stdout.split('\n') if l.startswith('[ FAIL]')]
+        check('H5 precommit: whole auditor clean on the synthetic paper (certificate written)', os.path.exists(f'{TMP}/cert.json'), '\n'.join(fails_other)[:600])
+        CERT = json.load(open(f'{TMP}/cert.json')) if os.path.exists(f'{TMP}/cert.json') else {}
+        check('H5 certificate schema 2 with uncertified_items / certified', CERT.get('schema') == 2 and 'uncertified_items' in CERT and CERT.get('certified') is True, str(CERT)[:200])
+        # S13-2F stamps (as the spec does): CERTIFIED on every item
+        kd = json.load(open(key_path))
+        for q, e in kd['concept_map'].items():
+            if not str(e.get('quality_status', '')).startswith('UNRESOLVED'): e['quality_status'] = 'CERTIFIED'
+        json.dump(kd, open(key_path, 'w'))
+
+        # ═══ H6  S13-2G phase 1 -> MockReview -> phase 3 ═══
+        print('H6 review handshake')
+        json.dump({'state': 'BATCHES', 'batches_completed': [1], 'current_batch': 2, 'quality_readiness': RD, 'shape_plan': PLAN, 'uncertified_items': []}, open(bs_path, 'w'))
+        ph = fences(cre, 'S13-2G phase')
+        g6 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}
+        run_fence(ph[0][1], g6)
+        pk = json.loads(zipfile.ZipFile(g6['_pkt']).read('review_packet.json'))
+        check('H6 packet: md5 of the delivered docx, whole paper, exemplar slice for the paper subtopics', pk['paper_md5'] == hashlib.md5(open(docx, 'rb').read()).hexdigest() and pk['n_items'] == MQ and pk['parts'][0]['exemplars'], str(list(pk['parts'][0]['exemplars']))[:100])
+        _pk_keys = set().union(*[set(it) for part in pk['parts'] for it in part['items']])
+        check('H6 packet items carry no key / difficulty / solution / per-option mechanisms', not (_pk_keys & {'difficulty', 'difficulty_plan', 'solution', 'answers', 'distractor_mechanisms', 'key', 'correct_option', 'band'}), str(sorted(_pk_keys)))
+        shutil.copy(g6['_pkt'], UPL)
+        mr = fences(f'{W}/Framework_MockReview.md')
+        g7 = {}; run_fence(mr[0][1], g7); run_fence(mr[1][1], g7)
+        q = json.load(open(HOME + '/review/queue.json'))
+        check('H6 MockReview queue: exam/slug from packet, every item with stem/options/exemplars', q['exam'] == EXAM and len(q['items']) == MQ and all(it['stem'] and it['options'] for it in q['items']) and q['items'][0]['exemplars'], str(q['items'][0])[:200])
+        ans = {str(n): dict({c: 'ok' for c in bc.REVIEW_CHECKLIST}, own_key=('a, c' if n == 2 else 'abcd'[ANS[str(n)] - 1]), confidence='high', selectivity_basis='clean', verdict='PASS', reason='') for n in range(1, MQ + 1)}
+        ans['3']['own_key'] = 'abcd'[ANS['3'] % 4]  # reviewer disagrees on Q3
+        json.dump(ans, open(HOME + '/review/answers.json', 'w'))
+        run_fence(mr[2][1], g7); run_fence(mr[3][1], g7)
+        VF = json.load(open(g7['out']))
+        check('H6 verdict file bound to packet md5, key_agrees null (reviewer never saw the key)', VF['paper_md5'] == pk['paper_md5'] and all(v['key_agrees'] is None for v in VF['items'].values()))
+        shutil.copy(g7['out'], UPL)
+        g8 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g8)
+        kd = json.load(open(key_path)); bs = json.load(open(bs_path))
+        check('H6 phase 3: key_agrees computed from sidecar answers (Q3 disagreement, MSQ Q2 agrees), state REVIEW_REPAIR, defects persisted',
+              kd['concept_map']['1']['review']['key_agrees'] is True and kd['concept_map']['2']['review']['key_agrees'] is True and kd['concept_map']['3']['review']['key_agrees'] is False and bs['state'] == 'REVIEW_REPAIR' and bs['review_defects'] == ['3'], str((bs.get('state'), bs.get('review_defects'), kd['concept_map']['2']['review'].get('key_agrees'))))
+        bs['state'] = 'AWAITING_REVIEW'; json.dump(bs, open(bs_path, 'w'))
+        shutil.copy(f'{TMP}/cert.json', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json')
+        g9 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g9)
+        _c_after = json.load(open(f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'))
+        check('H6 round 2: the S13-2F certificate now says the same as the stamps (uncertified_items, certified False)', _c_after['uncertified_items'] == ['3'] and _c_after['certified'] is False, str(_c_after))
+        kd = json.load(open(key_path)); bs = json.load(open(bs_path))
+        check('H6 round 2: Q3 stamped UNRESOLVED(A-REVIEW), REVIEWED, uncertified persisted', kd['concept_map']['3']['quality_status'] == 'UNRESOLVED(A-REVIEW)' and bs['state'] == 'REVIEWED' and bs['uncertified_items'] == ['3'])
+
+        # ═══ H7  S13-4 commit -> S13-4c final audit (registry only) -> MockDeliver 3f -> footer ═══
+        print('H7 commit -> final audit -> deliver')
+        final = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1, axis2_window_counts={}, passage_present=False, di_present=False,
+                                   figural_present=False, concept_map=kd['concept_map'], quality_readiness=bs['quality_readiness'],
+                                   shape_infeasible=list((bs.get('shape_plan') or {}).get('_infeasible') or []))
+        check('H7 every field commit_registry carries is a field the auditor overlay reads (QINDEX_V590_FIELDS <= _QQ_V590_FIELDS)',
+              set(fa.QINDEX_V590_FIELDS) <= set(ac._QQ_V590_FIELDS), str(set(fa.QINDEX_V590_FIELDS) - set(ac._QQ_V590_FIELDS)))
+        check('H7 commit carries pattern_key / scheme_grammar / key_set_size (fields the S13-4c gates read)', all(k in final['registry']['question_index'][0]['questions'][1] for k in ('pattern_key', 'scheme_grammar', 'key_set_size')), str(sorted(final['registry']['question_index'][0]['questions'][1]))[:300])
+        check('H7 commit carries review + quality_status per question', final['ok'] and all('review' in qq and 'quality_status' in qq for qq in final['registry']['question_index'][0]['questions']))
+        reg_path = f'{HOME}/{EXAM}_registry.json'; json.dump(final['registry'], open(reg_path, 'w')); prev_path = reg_path
+        r2, lv2 = audit('final', ['--profile', prof_path, '--certificate', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'])   # NO --key: registry overlay only
+        check('H7 final audit: A-CERT reads the rewritten certificate (WARN NOT CERTIFIED, never FAIL), A-DISTRACTOR ok for the MSQ item from the registry record', lv2.get('A-CERT') == 'WARN' and lv2.get('A-DISTRACTOR') != 'FAIL', str((lv2.get('A-CERT'), lv2.get('A-DISTRACTOR'))))
+        check('H7 final audit without sidecar: A-REVIEW reconciled to WARN (UNRESOLVED item), A-QUALITYSTATUS WARN NOT CERTIFIED, rc 0',
+              lv2.get('A-REVIEW') == 'WARN' and lv2.get('A-QUALITYSTATUS') == 'WARN' and r2.returncode == 0,
+              str((lv2.get('A-REVIEW'), lv2.get('A-QUALITYSTATUS'), r2.returncode, [l for l in r2.stdout.split('\n') if l.startswith('[ FAIL]')][:5])))
+        # MockDeliver 3f
+        t3 = open(f'{W}/Framework_MockDeliver.md', encoding='utf-8').read(); i = t3.find('# ── S1-2 item 3f (executable'); j = t3.find('# Build the tag-value lookup table', i)
+        R = json.load(open(reg_path)); FP_BEFORE = pp.registry_fingerprint(R)
+        gD = {'blueprint': BP, 'registry': R, 'N': N, 'ACCEPT_UNCERTIFIED': False}
+        try:
+            run_fence(t3[i:j], gD); refused = False
+        except SystemExit as e:
+            refused = (e.code == 0)
+        check('H7 MockDeliver refuses the NOT CERTIFIED paper (SystemExit 0 before render)', refused)
+        gD = {'blueprint': BP, 'registry': R, 'N': N, 'ACCEPT_UNCERTIFIED': True}; run_fence(t3[i:j], gD)
+        check('H7 MockDeliver --accept-uncertified records registry.accepted_uncertified and proceeds', gD['registry']['accepted_uncertified'][paper_id]['items'] == ['3'] and gD['UNCERTIFIED_ITEMS'] == ['3'])
+        check('H7 registry change detected -> delivered under §8', pp.registry_changed(FP_BEFORE, gD['registry']) is True)
+        # footer lines
+        fl = bc.degraded_footer_line(bs['quality_readiness'])
+        check('H7 DeliveryFooter QUALITY_FOOTER_LINE from the persisted readiness', isinstance(fl, str) and fl)
+        check('H7 certificate_uncertified(registry stamps) == batch_state uncertified_items == Deliver list',
+              bc.certificate_uncertified({str(qq['q']): qq.get('quality_status') for qq in R['question_index'][0]['questions']}) == bs['uncertified_items'] == ['3'])
+
+
+    finally:
+        shutil.rmtree(ROOT, ignore_errors=True)
+    print(f'\nHANDSHAKE AUDIT: {len(OK)} ok, {len(BAD)} FAIL')
+    for b in BAD:
+        print('   FAIL', b)
+    if len(OK) + len(BAD) != EXPECTED_CHECKS:
+        print(f'HANDSHAKE AUDIT: ran {len(OK) + len(BAD)} checks, expected {EXPECTED_CHECKS} — a check was '
+              f'skipped or added without updating EXPECTED_CHECKS (a skipped handshake is not a passing one)')
+        return False
+    return not BAD
+
+
+EXPECTED_CHECKS = 52
+
+
+if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(0 if self_test() else 1)
+    print(__doc__)

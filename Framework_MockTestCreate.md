@@ -1,4 +1,49 @@
-# Framework_MockTestCreate v5.89
+# Framework_MockTestCreate v5.90
+# v5.90 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with blueprint_core
+#   v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types v1.2, analyse_engine
+#   v1.2, audit_canonical v2.35, final_assembly v1.12, Framework_MockTestAnalyse v2.59,
+#   Framework_PYQExplain v2.26, Framework_Blueprint v1.63.0, Framework_ScopedBlueprint v1.13.0,
+#   Framework_MockDeliver v1.24.0, Framework_DeliveryFooter v1.38.0, NEW Framework_MockReview
+#   v1.0.0). Estate-wide, exam-agnostic; the CSIR-NET Organic Test 01 paper (40 items, all keys
+#   right, quality far below the real paper) is the incident, not the scope. OWNER DECISIONS
+#   2026-11-03, binding: OD-1 NEVER A STOP — a missing quality input is PRINTED (S3-2e
+#   readiness block) and RECORDED, nothing more; OD-2 entity reuse hard for molecules /
+#   values, text calibrated (R3.8); OD-3 naming the tested reaction / drawn substrate banned
+#   unless the cell's PYQ rate >= 10 %; OD-4 the EXISTING difficulty tolerance and R5
+#   amend-in-place mechanism are kept — only WHO MEASURES changes (judge + content floor,
+#   never the author's counts); OD-5 INDEPENDENT REVIEW mandatory on every paper, two-session
+#   protocol (S13-2G AWAITING_REVIEW -> MockReview in a fresh chat -> --resume repairs);
+#   OD-6 shape FLOORS AND CAPS; OD-7 longest-key 1.5x hard, suspended only by MEASURED PYQ
+#   rate; OD-8 layout / drawing style out of scope; OD-9 a finding that survives R5 ->
+#   quality_status UNRESOLVED, paper NOT CERTIFIED, Deliver refuses without
+#   --accept-uncertified (never a stop); OD-10 new gates HARD only for papers whose
+#   producer_release >= 2026.11.03 (older papers AMBER), bp_refresh is additive; OD-11
+#   exemplar bank is a DELIVERED RUN FILE, absent -> judge DORMANT; OD-12 the 60 % Hard
+#   target stays; OD-13 G-MEDIAREUSE at commit + validator law; OD-14 Step-9 difficulty_gate
+#   stays MOCK-only (the Create-side judge runs on scoped papers); Q-A G-STEREODECL yes.
+#   WHAT CHANGES: S2-2 R3/R4/R5 now NAME their engine functions (they were prose with no code
+#   behind them); S3-2e QUALITY READINESS; S3-12d SHAPE PLAN; S7 authoring records
+#   (stereo_declared per structure, distractor_mechanisms + pathway MANDATORY, entities[],
+#   named_entities, stem_agents, class_word, stated_formula, scheme_annotations, trailing /
+#   asked placeholders, shape, fingerprint, pattern_key) and CHECK 3c's judge now reads the
+#   EXEMPLAR BANK through bc.build_judge_input (author fields stripped); S10-8 render-time
+#   G-OPTDISTINCT / G-STEREODECL; S4-11 gains eleven must-PASS quality items; §Q8b-LADDER
+#   gains sub-rungs R2s / R2o; S13-2F stamps quality_status and writes certificate schema 2;
+#   S13-2G REVIEW HANDOFF + --resume; S13-4 producer_release; footer DEGRADED / uncertified.
+#   RELEASE REVIEW (2026-11-03, cold read — every item verified in code): (1) S13-2G phases
+#   1 and 3 RELOAD batch_state from disk (a --resume session never ran S3-16); phase 3
+#   persists review_defects / uncertified_items; round 2 always carries the WHOLE paper
+#   and is the last round (< 2). (2) S7-QUALITY `shape` is the BARE ask type (the plan /
+#   target key); `scheme_grammar` is its own field; stem_text / option_texts /
+#   figure_files are recorded so the review packet is self-contained. (3) S3-12d reads a
+#   FROZEN plan on resume and records G-SHAPEMIX STALE on the readiness record when this
+#   paper has no targets (bc.readiness_mark); S3-16 persists quality_readiness + shape_plan
+#   (no bare batch_state write before the initialiser). (4) S13-2F's _qq_gates includes the
+#   paper-level item gates (A-SHAPEMIX / A-TEMPLATE / A-QUALITYSTATUS); the auditor itself
+#   is precommit-tolerant of unstamped items and reconciles UNRESOLVED-only FAILs to WARN
+#   (OD-9), so a NOT CERTIFIED paper never dead-ends at sweep 4 or at S13-4c. (5) S13-4c
+#   passes --key and --fig-manifest (the certified sweep's own inputs) and commit_registry
+#   receives quality_readiness. (6) S2-2 R1 / R2 name their engines (MS-26 i).
 # v5.89 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with figural_core
 #   v5.89, corpus_io v1.17, blueprint_core v1.29, figure_types v1.1, analyse_engine v1.1,
 #   audit_canonical v2.34, final_assembly v1.11, Framework_ScopedBlueprint v1.12.0,
@@ -944,13 +989,42 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
 ## S2-2 — Universal Absolute Rules table
 
-  R1:  Never copy PYQ verbatim or near-verbatim.
-  R2:  No question repeated across mocks (registry dedup L1-L18).
-  R3:  No image reused across any 2 questions (dHash + MD5).
-  R4:  Every question has exactly 4 unique options (unless options_count≠4).
+  R1:  Never copy PYQ verbatim or near-verbatim. ENFORCED BY bc.pyq_textual_verdict (8-shingle
+       Jaccard against the PYQ index inside evaluate_attempt, S7-NEW-A) and its auditor twin
+       audit_canonical.gate_pyqdist (A-PYQDIST).
+  R2:  No question repeated across mocks (registry dedup L1-L18). ENFORCED BY
+       audit_canonical.gate_dup (A-DUP: exact and near stems against EVERY registry
+       stem_texts entry) at S4-7 STEP B and S13-4c.
+  R3:  No picture and no ENTITY reused across any 2 questions of one paper. v5.90 — this
+       rule had NO code behind it through v5.89 (dHash/MD5 were prose). ENFORCED BY:
+       final_assembly.commit_registry G-MEDIAREUSE (bc.media_reuse_check over the
+       fig_manifest image hashes — a shared media part REFUSES the commit with
+       "LADDER-REPAIR R2 G-MEDIAREUSE"; linked sets exempt) and bc.EntityLedger
+       (G-ENTITYLEAK at S13-2F / A-ENTITYLEAK: a key entity of one item in another item's
+       given / intermediate / key / distractor / figure-label role, two items sharing a
+       given, a scaffold over its measured cap — identities re-perceived, isotope-stripped;
+       reagents, <= 3-heavy-atom species, standard values and the exam's measured common
+       entities stoplisted; text entities WARN when the exam's own PYQs leak them, R3.8).
+  R4:  Every question has exactly 4 DISTINCT options (unless options_count≠4). v5.90 —
+       DISTINCT means distinct IDENTITY under the content kind's identity_fn
+       (figure_types.QUALITY_ROWS -> bc.option_identity): two differently drawn pictures of
+       ONE molecule are ONE option. ENFORCED BY: corpus_io.assert_option_identities at
+       render (native_option_set raises OptionIdentityError "LADDER-REPAIR R2o
+       G-OPTDISTINCT" before any pixel), figural_core.render_option_set (same message), and
+       A-OPTDISTINCT at S13-2F / S13-4c. dHash NEVER decides identity (bc.OPT_DHASH_WARN
+       only routes a no-identity_fn pair to the reviewer).
        — v4.7 NAT EXEMPTION: a NAT question (answer_type=='numerical') has ZERO options.
          R4 does not apply to it; option-count is governed by G-NAT-NOOPT instead.
-  R5:  No answer key, correct marker, or hint anywhere in the paper.
+  R5:  No answer key, correct marker, or HINT anywhere in the paper. v5.90 — a hint is
+       DEFINED (GAP-2026-11-03 G04): text in the stem or in a non-agent figure annotation
+       that the item does not need to be well-posed and that (i) names a tested-concept
+       lexicon term, (ii) names an entity the figure already draws, (iii) states an
+       option-eliminating qualifier, or (iv) supplies data that decide the key without the
+       tested skill. (i)-(ii) ENFORCED BY bc.stem_leak_check (G-STEMLEAK / A-STEMLEAK; the
+       lexicon and the measured allowances come from the subtopic's QUALITY block, OD-3:
+       allowed only where the cell's PYQ named_concept_rate >= bc.NAMED_RATE_ALLOW);
+       (iii)-(iv) are the reviewer's (Framework_MockReview S2-2: leak_or_paraphrase, single_answer). Surface cues to the key —
+       bc.item_longest_key / bc.item_middle_value_key (G-ITEMRULE / A-ITEMRULE, OD-7).
        — INCLUDES: no answer key page at end of docx
        — INCLUDES: no asterisk, no bold correct option, no "correct" annotation
        — DETECTION: scan docx for "Answer Key", "Answers:", "Key:", "Q\.\d+.*→.*[1-4]"
@@ -2388,6 +2462,78 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   `generated_at` wins (PYQExplain having since added keys makes distractor_mix
   available where it was 'unavailable').
 
+## S3-2e — QUALITY READINESS (v5.90 — GAP-2026-11-03 G10; owner decision OD-1: PURE STATUS QUO + LOUDER PRINT)
+
+  WHY. On the incident run every quality control added since v5.82 — the style profile,
+  the PYQ index, the content floor, the figural ask-type targets — lacked its input and ran
+  DORMANT; the only trace was a footer line, and the paper shipped carrying the scheduled
+  Hard labels. The V4 project even regenerated its blueprint after the release and got an
+  EMPTY fig_ask_target_per_mock, silently. The owner's decision (OD-1, 2026-11-03) is that a
+  missing input is NEVER a stop and has NO certification effect — the team guarantees the
+  inputs. What changes is VISIBILITY: the state of every control is computed once, PRINTED
+  before Q.1 as a block nobody can miss, and RECORDED on the paper (batch_state ->
+  registry.question_index[].quality_readiness, the delivery footer, the audit's A-READINESS
+  line and the bench card). Nothing here raises, ever.
+
+  ```python
+  # ── S3-2e (executable; after S3-2b/S3-2D, before S3-3) ───────────────────────────
+  import json, os, blueprint_core as bc
+  _rd_in = {}
+  for _art, _path in (('style_profile.json', f'/mnt/project/{EXAM}_style_profile.json'),
+                      ('pyq_index.json', f'/mnt/project/{EXAM}_pyq_index.json'),
+                      ('difficulty_profile.json', f'/mnt/project/{EXAM}_difficulty_profile.json')):
+      try:
+          _rd_in[_art] = json.load(open(_path, encoding='utf-8')) if os.path.exists(_path) else None
+      except Exception:                                    # a corrupt file reads as STALE, never a stop
+          _rd_in[_art] = {}
+  # OD-11: the exemplar bank is a DELIVERED RUN FILE, attached beside the registry — never
+  # project knowledge. Absent -> the judge is DORMANT (CHECK 3c (a) prints "no exemplar bank").
+  _eb_candidates = [p for p in (f'/mnt/user-data/uploads/{EXAM}_exemplar_bank.json',   # attached to this run (OD-11)
+                                f'/home/claude/{EXAM}_exemplar_bank.json',               # staged earlier this session
+                                f'/mnt/project/{EXAM}_exemplar_bank.json') if os.path.exists(p)]   # kept in Project Files
+  EXEMPLAR_BANK_PATH = _eb_candidates[0] if _eb_candidates else None
+  try:
+      EXEMPLAR_BANK = json.load(open(EXEMPLAR_BANK_PATH, encoding='utf-8')) if EXEMPLAR_BANK_PATH else {}
+  except (OSError, ValueError):
+      EXEMPLAR_BANK = {}                                      # unreadable bank = absent (dormant, printed)
+  try:
+      _rd_in['exemplar_bank.json'] = json.load(open(EXEMPLAR_BANK_PATH, encoding='utf-8')) if EXEMPLAR_BANK_PATH else None
+  except Exception:
+      _rd_in['exemplar_bank.json'] = {}
+  _sr_path = f'/mnt/project/{EXAM}_section_rules.md'
+  _rd_in['section_rules.md'] = open(_sr_path, encoding='utf-8').read() if os.path.exists(_sr_path) else None
+  SECTION_RULES_TEXT = _rd_in['section_rules.md'] or ''        # read by S3-12d / S7-QUALITY / S13-2F
+  _rd_in['blueprint.json'] = bp
+  _pyq_n = None
+  try:                                                     # R10.4 sparse mode, from the profile
+      _pyq_n = sum(int((p or {}).get('q_scored') or 0) for p in ((_rd_in.get('difficulty_profile.json') or {}).get('papers') or {}).values()) or None
+  except Exception:
+      _pyq_n = None
+  QUALITY_READINESS = bc.quality_readiness(_rd_in, pyq_items=_pyq_n)
+  # A RESUMED paper reads the record S3-16 persisted (the controls that were active when
+  # the paper STARTED are what its items were authored under — S4-12: READ, never
+  # re-derived); a fresh paper records this run's measurement.
+  _bs_rd = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  if os.path.exists(_bs_rd):
+      try:
+          _prev_rd = json.load(open(_bs_rd, encoding='utf-8')).get('quality_readiness')
+      except (OSError, ValueError):
+          _prev_rd = None
+      if isinstance(_prev_rd, dict) and _prev_rd.get('controls'):
+          QUALITY_READINESS = _prev_rd
+          print(f"S3-2e: readiness record READ from batch_state (resumed paper; degraded: {_prev_rd.get('degraded') or 'none'}).")
+  print(bc.quality_readiness_block(QUALITY_READINESS))     # the LOUD print — before Q.1, every run
+  # QUALITY_READINESS is persisted by the batch_state initialiser (S3-16 'quality_readiness').
+  QUALITY_DEGRADED = list(QUALITY_READINESS.get('degraded') or [])
+  QUALITY_FOOTER_LINE = bc.degraded_footer_line(QUALITY_READINESS)   # -> DeliveryFooter §2B
+  ```
+  RULES. (1) The block prints on EVERY run, PASS or not. (2) DEGRADED is a list of control
+  ids; each DORMANT control still reports its state on every item it would have judged
+  (DORMANT(reason), §4.3) — never silence. (3) A control that is N/A(sparse) is not degraded
+  (R10.4). (4) No `[HS:INPUT]` for a quality input exists in this spec (owner decision OD-1);
+  the only input stops remain the pre-existing structural ones (blueprint / registry /
+  engine absent, L6).
+
 ## S3-3 — Load section_rules.md — read ALL fields
 
   (Unchanged from v1.0 — see §3 S3-3 in v1.0 spec for full field list)
@@ -3161,6 +3307,66 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   questions, per the difficulty profile. When the difficulty profile is
   DORMANT every mechanic is permitted in every band. NEVER a hand table.
 
+## S3-12d — SHAPE PLAN per paper (v5.90 — GAP-2026-11-03 G05; owner decision OD-6 (c): FLOORS AND CAPS)
+
+  WHY. The real paper uses eleven question SHAPES — "identify P", "A and B", a lettered
+  intermediate, the correct reagent sequence, "A major / B minor", a two-part "respectively",
+  Hammett / NMR-integral quantities, and multi-statement "A and B only" items at 3 of 30 —
+  and Test 01 delivered none of the last six: Axis-2 quotas were 10-paper WINDOW targets with
+  an empty guarantee list, the figural ask-type control (F8) was dormant, and the vocabulary
+  lacked four shapes. ONE PLAN, ONE PRECEDENCE now: Axis-1 format > qtype > SHAPE PLAN >
+  Axis-2. Shape floors REPLACE axis2_guarantee for the Axis-2 classes they cover.
+
+  ```python
+  # ── S3-12d (executable; after S3-12c, before S3-13) ──────────────────────────────
+  import blueprint_core as bc
+  _shape_tg = ((bp.get('shape_target_per_paper') or {}).get(str(N))
+               or (bp.get('shape_target_per_paper') or {}).get(N) or {})
+  if 'shape_plan' in bs_prev and bs_prev.get('batches_completed'):
+      # ── FROZEN (EC-19): the plan was persisted at S3-16 and items were authored to it.
+      # A resumed run NEVER re-assigns shapes — not even after Step 5 / bp_refresh changed
+      # the targets (that applies to the NEXT paper).
+      SHAPE_PLAN = dict(bs_prev['shape_plan'] or {})
+      print(f"S3-12d: shape plan FROZEN from batch_state ({len([q for q in SHAPE_PLAN if q != '_infeasible'])} slots"
+            f"{'; DORMANT when the paper started' if not SHAPE_PLAN else ''}).")
+  elif not _shape_tg:
+      # OD-1: no targets (blueprint built before Blueprint v1.63.0 / ScopedBlueprint v1.13.0,
+      # or section_rules without QUALITY blocks) -> the control is DORMANT, printed, recorded
+      # on the readiness record (S3-2e) that S3-16 persists and S13-4 commits.
+      print("S3-12d: shape plan DORMANT — blueprint carries no shape_target_per_paper for "
+            f"paper {N} (run bp_refresh after Step 5 of release 2026.11.03). Recorded in "
+            "quality_readiness as G-SHAPEMIX STALE.")
+      QUALITY_READINESS = bc.readiness_mark(QUALITY_READINESS, 'G-SHAPEMIX', 'STALE',
+                                            f'no shape_target_per_paper for paper {N}',
+                                            'run Step 5 (2026.11.03), then MockBlueprint / ScopedBlueprint --refresh')
+      QUALITY_DEGRADED = list(QUALITY_READINESS.get('degraded') or [])
+      QUALITY_FOOTER_LINE = bc.degraded_footer_line(QUALITY_READINESS)
+      SHAPE_PLAN = {}
+  else:
+      _slots = [{'q': q, 'subtopic_id': subtopic_by_qnum[q], 'qtype': _qtype_by_q.get(q, 'mcq')}
+                for q in sorted(subtopic_by_qnum)]
+      # shapes each subtopic's PYQs use: the QUALITY block's shape_shares keys (topic-level
+      # fallback when the subtopic block lists none — bc.quality_block_for_subtopic)
+      _sub_shapes = {}
+      for _sid in set(subtopic_by_qnum.values()):
+          _qb = bc.quality_block_for_subtopic(SECTION_RULES_TEXT, _sid) or {}
+          _sub_shapes[_sid] = [k.split('|')[0] for k in (_qb.get('shape_shares') or {}).keys()] or list(_shape_tg.keys())
+      import hashlib as _hl
+      SHAPE_PLAN = bc.assign_shape_plan(_slots, _sub_shapes, _shape_tg,
+                                        seed=bc.brief_seed(EXAM, paper_id, _hl.sha256(SECTION_RULES_TEXT.encode('utf-8')).hexdigest(), 0))
+      print(f"S3-12d: shape plan for paper {N}: " + ', '.join(f"{k}={v}" for k, v in sorted(
+            ((s, sum(1 for q, v in SHAPE_PLAN.items() if q != '_infeasible' and v == s)) for s in _shape_tg)))
+            + (f"; infeasible (recorded, not a defect): {SHAPE_PLAN['_infeasible']}" if SHAPE_PLAN.get('_infeasible') else ''))
+  SHAPE_PLAN = {str(k): v for k, v in SHAPE_PLAN.items()}   # FROZEN by the S3-16 batch_state initialiser ('shape_plan', EC-19)
+  ```
+  RULES. (1) A resumed run NEVER re-assigns shapes (S4-12 reads batch_state['shape_plan']).
+  (2) The item MUST render its assigned shape (S7-QUALITY `shape`); a mismatch is an item
+  defect at R3, which moves it only to an UNDER-target shape valid for the subtopic. (3) A
+  figure-backed combination shape (structures A-D + "A and B only") renders through S10-8's
+  multi-panel path; answer verification treats each statement as a set member (R-ANSWER
+  multi-mode internally; the item stays single-key). (4) A-SHAPEMIX checks floors and caps
+  per paper; a shape no capable slot could take is recorded infeasibility, never a defect.
+
 ## S3-13 — Build answer position budget (PRE-Q1 — v2.0 GAP-08 fix)
 
   CRITICAL: Budget MUST be built before Q1, not post-generation.
@@ -3396,6 +3602,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       'batch_plan': batch_plan,
       'batches_completed': [],
       'current_batch': 1,
+      'quality_readiness': QUALITY_READINESS,   # v5.90 S3-2e record (A-READINESS reads it)
+      'shape_plan': SHAPE_PLAN,                  # v5.90 S3-12d plan, frozen (S4-12 reads it; never re-assigned)
       'mechanics_used': {},
       'templates_used': {},
       'rotation_state': {},
@@ -4596,6 +4804,53 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   MSQ/NAT instruction remains INSIDE the Q.N line; MATCH lists
                   remain REAL tables, never sub-part lines. (S10-2b) HARD FAIL.
 
+  [ ] G-OPTDISTINCT: (v5.90) Every option set: no two options are ONE entity under the
+                  content kind's identity_fn (bc.option_distinct_check over the figure
+                  records' canonical for pictures, bc.text_identity over delivered text);
+                  a figural paper with no option figure record FAILS, never dormant.
+                  Ladder R2o. Twin: A-OPTDISTINCT. HARD FAIL.
+  [ ] G-MEDIAREUSE: (v5.90, OD-13) No media part placed under two questions (linked sets
+                  exempt) — final_assembly.commit_registry REFUSES the commit; the later
+                  item enters the ladder at R2. Twin: A-MEDIAREUSE. HARD FAIL.
+  [ ] G-ENTITYLEAK: (v5.90, OD-2) bc.EntityLedger over the paper: a key entity in another
+                  item's given / intermediate / key / distractor / figure-label role, two
+                  items sharing a given, a scaffold over its measured cap -> FAIL on the
+                  LATER item (R2); distractor-as-given -> reviewer; text entities WARN
+                  where the exam's PYQs are calibrated (R3.8). Twin: A-ENTITYLEAK. HARD FAIL.
+  [ ] G-STEMLEAK: (v5.90, OD-3) bc.stem_leak_check: a tested-concept lexicon term in the
+                  stem (unless the cell's named_concept_rate >= bc.NAMED_RATE_ALLOW), a
+                  drawn entity also named in words (unless shown_entity_named_rate >= 10 %),
+                  a non-agent scheme annotation, an unasked trailing placeholder -> FAIL,
+                  ladder R2s (stem only). DORMANT (printed) without a QUALITY block.
+                  Twin: A-STEMLEAK. HARD FAIL.
+  [ ] G-STEMFORM: (v5.90) bc.stem_form_check: pattern_key observed in the cascade cell;
+                  question-line word count within [min, max(max, 1.2 x p90)]. R2s.
+                  Twin: A-STEMFORM. HARD FAIL.
+  [ ] G-DISTRACTOR: (v5.90) bc.distractor_record_check (mechanisms MANDATORY, in
+                  vocabulary), bc.class_predicate_check (class word SMARTS),
+                  bc.data_consistency_check (stated formula / DBE), bc.inventory_check
+                  (element set ⊆ givens ∪ reagents; MCS >= 0.5 unless alternative pathway),
+                  bc.mechanism_formula_check (isomer distractors carry the key's formula),
+                  bc.near_isomer_check (>= 2 near-isomers where the cell uses them). R2o.
+                  Twin: A-DISTRACTOR. HARD FAIL.
+  [ ] G-CONSIST: (v5.90) bc.consist_check: every stem agent in the figure's agents;
+                  a stereoisomer-count object drawn without stereo marks. R2s.
+                  Twin: A-CONSIST. HARD FAIL.
+  [ ] G-STEREODECL: (v5.90, owner Q-A) bc.stereo_declaration_check per drawn structure:
+                  the SMILES encodes the declared descriptor multiset. R2o; undeclared is a
+                  recorded WARN. Twin: A-STEREODECL. HARD FAIL.
+  [ ] G-ITEMRULE: (v5.90, OD-7) bc.item_longest_key (key longest AND > 1.5x the mean of
+                  the others) and bc.item_middle_value_key on DELIVERED text options with
+                  the key as a 0-BASED index (sidecar correct_pos - 1; a letter label is
+                  accepted too); suspended ONLY by a MEASURED PYQ rate >= 10 %
+                  (bc.item_rule_suspended), never by absence. R2o. Twin: A-ITEMRULE. HARD FAIL.
+  [ ] G-SHAPEMIX: (v5.90, OD-6 c) bc.shape_mix_check: every planned shape within
+                  round(sN) +/- max(1, 15 %), at or above its FLOOR, at or below its CAP;
+                  recorded infeasibility is not a defect. R3. Twin: A-SHAPEMIX. HARD FAIL.
+  [ ] G-TEMPLATE: (v5.90) bc.template_check: no template fingerprint (or concept id)
+                  above its cap (measured per-paper maximum scaled by bc.template_cap;
+                  unmeasured -> 2). R3. Twin: A-TEMPLATE. HARD FAIL.
+
   [ ] G-STYLE: (v5.82, ADVISORY) Paper-so-far style distance D against the
                   profile cell (section x answer_type, falling back to the paper
                   cell): mean of mechanic-mix JS, form-mix JS, polarity delta,
@@ -4620,17 +4875,31 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-46 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
-  All 49 items are RUN; items 47-49 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  Items 1-57 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 60 items are RUN; items 58-60 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
   (v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
-  at the end.)
+  at the end. v5.90 — GAP-2026-11-03 G11 / OD-1: the eleven QUALITY items above are
+  must-PASS ITEM gates — each has an objective per-item verdict and a ladder rung — while
+  the distribution checks G-STYLE / G-PYQ-DIST stay advisory; "must PASS" means the item
+  is REPAIRED through the ladder, never that the run stops; a gate whose INPUT is missing
+  reports DORMANT(reason), which is neither PASS nor FAIL and is listed by S3-2e.)
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
 
-  TRIGGER: MockCreate M[N] resume
+  TRIGGER: MockCreate M[N] resume   (also `TestCreate ... --resume` / `MockCreate M[N] --resume`)
   OR: batch_state.json indicates an incomplete mock (batches_completed not full).
+
+  v5.90 (GAP-2026-11-03 OD-5) — REVIEW STATES. After step 1 below, read
+  batch_state.get('state'): 'AWAITING_REVIEW' -> every question is authored and swept;
+  go STRAIGHT to S13-2G phase 3 (bind the review verdicts, repair, re-sweep or proceed to
+  S13-3 / S13-4). 'REVIEW_REPAIR' -> the flagged items are being repaired; continue from
+  §Q8b-LADDER on batch_state['review_defects'] (persisted by phase 3), then S13-2F, then
+  S13-2G phase 1 with the WHOLE paper (round 2; the binding is per paper).
+  'REVIEWED' -> S13-3 / S13-4 / S13-4c. Any other value (or none) -> the batch recovery
+  below. batch_state['shape_plan'] (S3-12d) and ['quality_readiness'] (S3-2e) are READ,
+  never re-derived, on every resume (FROZEN-PLAN LAW).
 
   RECOVERY PROCEDURE:
     0. S3-1 has already run this turn (it runs at EVERY session start): the registry
@@ -5376,30 +5645,54 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         declared 5-6 steps and labelled Hard were easier than the real exam's
         Medium items. Two checks anchor the label to the EXAM ITSELF:
           (a) INDEPENDENT RATING — every item, every exam [CLASS: J]. After the
-              item and its solution are final, rate it BLIND: take
-              EX = bc.difficulty_exemplars(DIFFICULTY_PROFILE, subtopic_id,
-              section, difficulty_labels, k=3,
-              gap_days=PROFILE_CFG.get('cycle_gap_days')) — real past questions of THIS
-              exam per band (subtopic -> topic -> section cascade) — and, WITHOUT
-              looking at difficulty_plan[q] or difficulty_obs, decide which
+              item and its solution are final, rate it BLIND. v5.90 (GAP-2026-11-03
+              G02 R2.1/R2.2): the exemplars are CONTENT-CARRYING — from the
+              exemplar bank (S3-2e EXEMPLAR_BANK_PATH; per cascade cell x band x
+              qtype: stem, options, key, the figure CONTENT RECORD) — because a
+              <= 120-character stem snippet of a figural item ("Identify the major
+              product, P ...") carries no chemistry and lets the rater compare
+              only the author's own step counts (the incident's "agree" on 29 Easy
+              items labelled Hard). Build the packet with
+              EX = bc.exemplars_for(EXEMPLAR_BANK, subtopic_id, qtype, difficulty_labels)
+              PK = bc.build_judge_input(item_record, EX['by_band'], difficulty_labels)
+              where EXEMPLAR_BANK is the parsed S3-2e bank ({} when absent) and
+              bc.exemplars_for walks the cascade cells[subtopic_id -> topic -> section]
+              [band][qtype] PER BAND (first level holding >= 1 exemplar of that band,
+              k <= 3; record EX['level_used'] (per band) and EX['complete'] — a band
+              with no exemplar at any level is rated with that caveat in the
+              rationale, never a stop) — the packet STRIPS difficulty_plan /
+              difficulty_obs / solution / rationale, and PK['sha256'] is stored
+              as difficulty_check.judge_input_sha256. Rate ONLY from PK: which
               band's exemplars the new item most resembles in what a candidate
-              must know and do. Write the rationale (one sentence citing the
-              exemplar it matches) and the band: rated_band. This is model
-              judgement over data already in context; it is recorded, never
-              re-derived from the author's own counts. DORMANT when EX holds no
-              exemplar for at least two bands (no profile, or a profile without
-              this scope's questions): rated_band = difficulty_plan[q] (no
-              anchor, so no override), recorded with rationale "no exemplars".
-          (b) CONTENT FLOOR — chemistry structure items (chem-R) only. When
+              must know and do; write the rationale (one sentence citing the
+              exemplar it matches) and the band: rated_band; also the pairwise
+              verdict harder / comparable / easier against the scheduled band's
+              median exemplar (recorded). Fallback when the bank is ABSENT
+              (OD-11: it is a delivered run file, not project knowledge): EX =
+              bc.difficulty_exemplars(DIFFICULTY_PROFILE, subtopic_id, section,
+              difficulty_labels, k=3, gap_days=PROFILE_CFG.get('cycle_gap_days'))
+              snippets, rated with rationale prefixed "snippets only — no exemplar
+              bank"; S3-2e has already printed G-DIFF-JUDGE MISSING. DORMANT when
+              neither source holds an exemplar for at least two bands: rated_band
+              = difficulty_plan[q] (no anchor, so no override), rationale "no
+              exemplars". Never a stop (OD-1).
+          (b) CONTENT FLOOR — every content kind whose figure_types.QUALITY_ROWS
+              row names a complexity_vector (chemistry: bc.content_vector; a kind
+              with None -> N/A(listed), the judge alone decides). When
               DIFFICULTY_PROFILE carries per-question content vectors (PYQExplain
-              v2.25 §13A) and CCP_MODEL (built once for this paper's scope, S3) is active:
+              v2.25 §13A) and CCP_MODEL (built once for this paper's scope, S3;
+              v5.90: any label count >= 2, bc.ccp_model v1.30) is active:
               ccp = bc.ccp_floor_check(CCP_MODEL, bc.content_vector(objects,
               answer_smiles, METHOD_LEXICON), difficulty_plan[q],
               difficulty_labels). 'below' means the drawn chemistry is simpler
               than the exam's own items of that band — a finding; 'above' is
               allowed and recorded. Dormant (footer "level control: rubric + independent rating only (content-complexity model dormant)")
               when the pool has < 20 transcribed items.
-          DECISION: r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
+          DECISION (v5.90: the band is bc.final_band_decision(rated_band,
+          ccp['status'] if ccp else None, ccp['ccp_band'] if ccp else None,
+          difficulty_labels) — rated unless the floor says 'below', then the
+          lower of the two; the author's counts never raise it):
+          r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
           ccp['status'] if ccp else None, labels=difficulty_labels). 'agree' ->
           ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER with reason
           r['reason'] ('harder' / 'easier'; A-DIFFRATING / A-CONTENTLEVEL), R2
@@ -6454,7 +6747,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           representations=None,      # F8 representation tags
                           scheme_grammar=None,       # F8 scheme grammar tag
                           marked_sites=None,         # Q7b.8' declaration (figural Qs)
-                          ladder=None):              # L4 {rung, reasons, attempts}
+                          ladder=None,               # L4 {rung, reasons, attempts}
+                          # v5.90 (GAP-2026-11-03) — the QUALITY RECORD, keyword-only, NO
+                          # default on a 2026.11.03 paper (S7-QUALITY lists every key; a
+                          # missing key is an item defect at S13-2F, never a silent null):
+                          quality=None):             # dict — see S7-QUALITY
       # v5.82 (GAP-2026-08-29-STYLE-FIDELITY §6.5.5): the three style fields are
       # keyword-only with NO default, on the v5.52 argument exactly and for the
       # same reason — a default lets a call site silently persist `null` and the
@@ -6565,6 +6862,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                      ("marked_sites", marked_sites), ("ladder", ladder)):
           if _v is not None:
               key_data["concept_map"][str(qnum)][_k] = _v
+      # v5.90 — the QUALITY RECORD is spread onto the entry key by key: the auditor reads
+      # every field by name (A-STEMLEAK reads named_entities / scheme_annotations /
+      # trailing_placeholders; A-DISTRACTOR reads distractor_mechanisms / class_word /
+      # stated_formula / given_smiles / reagents; A-CONSIST reads stem_agents; A-SHAPEMIX
+      # reads shape; A-TEMPLATE reads fingerprint; A-STEMFORM reads pattern_key;
+      # A-ENTITYLEAK reads entities) and final_assembly v1.12 carries QINDEX_V590_FIELDS
+      # into registry.question_index. quality_status is stamped at S13-2F, never here.
+      if isinstance(quality, dict):
+          for _k, _v in quality.items():
+              if _v is not None and _k != 'quality_status':
+                  key_data["concept_map"][str(qnum)][_k] = _v
 
       if is_ga and fact_text:
           key_data["sources"][str(qnum)] = {
@@ -6751,6 +7059,90 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     NEVER mark as "Image will be added later."
     A question is either a real image (Option A) or a real text replacement (Option B).
     Nothing in between. LADDER-REPAIR R4 [HS:LADDER] if a text placeholder is found before delivery.
+
+## S7-QUALITY — THE QUALITY RECORD every item carries (v5.90 — GAP-2026-11-03; every exam)
+
+  PRINCIPLE QQ-0 (blueprint_core Cluster QQ). A [CLASS: D] gate reads ONLY what the auditor
+  can recompute from the delivered artefact — the docx text, the rendered picture, the
+  figure record's canonical identity WRITTEN BY THE RENDERER, the registry key. The fields
+  below are the author's DECLARATIONS; they EXPLAIN a verdict and feed the reviewer, they
+  never PRODUCE a [D] verdict. The incident paper shipped with every quality control
+  reading a declaration (deduction_steps, scenario_key, "mechanism present"); that is the
+  class of defect this section removes.
+
+  For EVERY item, before write_q_to_sidecar(..., quality=Q), build Q with these keys
+  (None only where the key does not apply — e.g. no `class_word` when the stem names no
+  class; NEVER omit a key that applies):
+
+    shape                 the BARE ask type the item RENDERS (figure_types.ASK_TYPES[family]
+                          vocabulary; the key of shape_target_per_paper and the value of
+                          batch_state['shape_plan'][q] — never 'ask|grammar'). A mismatch
+                          with batch_state['shape_plan'][q] is an item defect (R3).
+    scheme_grammar        the scheme grammar tag (figure_types.SCHEME_GRAMMAR_TAGS; 'none'
+                          for a text item) — the second half of the Step-5 shape share key.
+    fingerprint           bc.template_fingerprint(ask_type, qtype, scheme_grammar,
+                          data_in_stem_type) — G08 caps are counted on it.
+    stem_text / option_texts / figure_files
+                          the delivered stem (plain text), the option texts in label order
+                          ([] for picture options) and the figure file names placed under
+                          the item — the S13-2G review packet is built from these (the
+                          reviewer reads the docx too; these make the queue self-contained).
+    concept               the taxonomy concept id of the tested idea (G08 concept counts).
+    pattern_key           the stem pattern authored to (mechanic|form|polarity|answer_type|
+                          option_shape, section_rules PATTERN_KEYS) — G-STEMFORM.
+    key_set_size          |key set|: 1 for a single-answer item, len(correct_pos) for an MSQ
+                          (the auditor derives it from the sidecar answers when absent).
+    distractor_mechanisms MANDATORY list of length options_count - key_set_size, one
+                          bc.MECHANISM_VOCABULARY[family] member per wrong option, each with
+                          a one-line pathway in `distractor_pathways` (same order). NAT: [].
+                          A record that is short, or names a mechanism outside the
+                          vocabulary, is an item defect at R2o (bc.distractor_record_check).
+    mechanism_family      'chemistry' | 'quantitative' | 'verbal' | 'fact' | 'reasoning'.
+    class_word            the class noun the stem asks for ("alkene", "acid", "reagent",
+                          "capital city") — bc.CLASS_PREDICATES decides [D] for chemistry,
+                          the reviewer for the rest.
+    stated_formula / stated_dbe / stated_rings / stated_stereocentres
+                          every computable datum the stem states (G06 R6.3 b).
+    given_smiles          SMILES of every drawn given (the same strings the figure record
+                          carries — the auditor re-perceives identity from the record).
+    reagents              reagent / condition names as printed on the scheme (resolved
+                          through bc.REAGENT_LEXICON; an unresolved name -> reviewer).
+    reagent_unit_formula  for over-/under-reaction distractors, the unit added/removed.
+    stem_agents           every reagent / condition the STEM TEXT names (G-CONSIST a).
+    entities              [{'role', 'text', 'kind', 'concept'}] — every named entity of a
+                          TEXT item (GK: "India", "1947"; verbal: the target word) with its
+                          role in bc.ENTITY_ROLES; molecules are NOT listed here (the figure
+                          record is their source of truth).
+    named_entities        [(name_in_stem, identity)] — every entity the stem names in words
+                          that is ALSO drawn, with the identity bc.structure_identity gives
+                          its SMILES (py2opsin / OPSIN when available; otherwise the author
+                          supplies the SMILES it drew for that name). G-STEMLEAK (b).
+    scheme_annotations    every text on the scheme that is not a reagent / condition
+                          ("partial hydrolysis", "(labelled)") — G-STEMLEAK (c) FAILs any.
+    condition_vocab       the exam's observed condition tokens the scheme used.
+    trailing_placeholders / asked_placeholders
+                          letters drawn after an arrow ("-> P") and letters the stem asks for.
+    multi_step_lettered_allowed  True only when the cascade cell's PYQs use that grammar.
+    pyq_phrase_states_constitution  stereoisomer-count items: True when the cell's PYQ
+                          phrase counts the drawn constitution (G-CONSIST c exemption).
+    stereo_declared       per drawn structure, on the DRAW itself: corpus_io.stereo_declared
+                          (draw_fn, '2E,4Z' | '(2R,3S)' | 'none') — owner Q-A; S10-8 runs
+                          bc.stereo_declaration_check before the figure is accepted
+                          (G-STEREODECL: the author's SMILES must encode the author's intent).
+
+  THE JUDGE PACKET (G02; OD-4 keeps the existing tolerance and R5): CHECK 3c (a) now
+  builds its blind input with bc.build_judge_input(item, EXEMPLARS, difficulty_labels) —
+  the author's difficulty_plan / difficulty_obs / solution / rationale are STRIPPED and the
+  sha256 of the packet is stored as difficulty_check.judge_input_sha256. EXEMPLARS come
+  from the exemplar bank (S3-2e EXEMPLAR_BANK_PATH; content-carrying: stem, options, key,
+  content record), cascade subtopic -> topic -> section; bc.difficulty_exemplars' snippets
+  are the fallback ONLY when the bank is absent, and then the rating is recorded with
+  rationale "snippets only — no exemplar bank (OD-11)". The content floor (b) runs for any
+  label count >= 2 (bc.ccp_model v1.30) and the band is bc.final_band_decision(rated,
+  ccp_status, ccp_band, labels): the author's counts NEVER raise a band.
+
+  INDEPENDENT REVIEW (OD-5) is NOT here: it runs in a fresh chat (Framework_MockReview)
+  after the S13-2F sweep, and its verdicts are bound to the paper at --resume (S13-2G).
 
 ## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)
 
@@ -7173,6 +7565,30 @@ def widen_scenario_space(subtopic_data, exhausted_source):
        geometry, and the border box drawn by the RENDERER (Q10.4), never by
        draw_fn. v5.55: rendering an option set by looping the single-figure
        helper is a G-FIGOPTWINDOW defect.
+       v5.90 (GAP-2026-11-03 G01 R1.2 + owner Q-A) — TWO CHECKS AT RENDER, BEFORE
+       ANY PIXEL: (i) G-OPTDISTINCT — corpus_io.native_option_set and
+       figural_core.render_option_set both call assert_option_identities(draws):
+       two draws whose RE-PERCEIVED identity (bc.structure_identity /
+       bc.reaction_identity of .canonical) is equal raise OptionIdentityError /
+       FiguralError "LADDER-REPAIR R2o G-OPTDISTINCT: options i and j are ONE
+       entity" — catch it, enter §Q8b-LADDER at R2o (regenerate THAT distractor,
+       never the key; the (2E,4Z)/(2E,4Z) pair of the incident's Q32 is exactly
+       this). Store the returned identities as quality['option_identities'].
+       (ii) G-STEREODECL — every structure draw carries the author's intent:
+       cio.stereo_declared(draw_fn, '2E,4Z' | '(2R,3S)' | 'none'); then
+       v = bc.stereo_declaration_check(draw_fn.canonical, draw_fn.stereo_declared):
+       FAIL -> "LADDER-REPAIR R2o G-STEREODECL: SMILES encodes X; declared Y" (the
+       author mis-wrote a directional / chiral SMILES — the Q32 MECHANISM, which
+       no duplicate check can see when it hits the KEY); WARN (undeclared) is
+       recorded, never a block (OD-1). Record v on the semantic object as
+       stereo_declared (S7-NEW-B2) so A-STEREODECL recomputes it.
+       (iii) CONFORMER / PROJECTION SETS (release review) — an option set that is the
+       SAME molecule drawn as chair / Newman / Fischer / Haworth / sawhorse by design
+       (figure_types.identity_kind is None for those hand-drawn types) is NOT a
+       duplicate set: build each such draw with cio.structure_draw_fn(...,
+       conformer_set=True) (or cio.identity_exempt(draw_fn) on a hand-drawn draw)
+       BEFORE the set renders; assert_option_identities skips exempt draws and the
+       reviewer decides (dHash may WARN). Never exempt an rdkit-drawn skeletal set.
     2. Places them via add_figural_question() (§10-S10-8): Q.N-first stem text,
        the problem image(s), then the N option images stacked SINGLE-COLUMN, each
        bound 1:1 to its "i." label (one option image per line; never two on a
@@ -8625,6 +9041,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | abbreviations -> toggle depictor. Also every formatting repair the
         |    | [HS:LADDER R1] rules name (strip a key, re-emit OMML, re-embed a
         |    | stimulus, reorder Q.N-first, ...). | each action once, then re-gate |
+        | R2s| (v5.90) Rewrite the STEM only — figure, options and key unchanged.
+        |    | Entry for G-STEMLEAK / G-STEMFORM / G-CONSIST. | <= 3 |
+        | R2o| (v5.90) Regenerate one or more OPTIONS only — the key's content is
+        |    | unchanged. Entry for G-OPTDISTINCT / G-DISTRACTOR / G-STEREODECL /
+        |    | G-ITEMRULE (LONGEST_KEY / MIDDLE_VALUE_KEY: rebalance wording). | <= 3 |
         | R2 | Regenerate the SAME item: same subtopic, band and ask type; every
         |    | failure reason passed in as a constraint. | <= 3 |
         | R3 | Regenerate: same subtopic and band; the next ask type that is
@@ -8666,9 +9087,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               bc.LADDER_ENTRY_RUNG (R1: W-FIGLABELPX / G-FIGLABEL / G-FIGLABELPX
               on a native or raster structure, G-FIGCOLLIDE, G-FIGOVERPRINT,
               G-FIGBONDORDER, G-FIGMARK, G-FIGOPTUNIF, G-FIGOPTWINDOW, G-FIGFIT,
-              overflow; R2: G-FIGMONO, G-FIGOPTELEM, A-CONTENTLEVEL, A-DIFFRATING,
-              A-FIGFORMAT, key verification). Several reasons -> the lowest rung
-              first; all reasons travel to the next attempt.
+              overflow; R2s: G-STEMLEAK, G-STEMFORM, G-CONSIST; R2o: G-OPTDISTINCT,
+              G-DISTRACTOR, G-STEREODECL, G-ITEMRULE; R2: G-FIGMONO, G-FIGOPTELEM,
+              A-CONTENTLEVEL, A-DIFFRATING, A-FIGFORMAT, G-MEDIAREUSE, G-ENTITYLEAK
+              (the LATER item), key verification, review disagreement; R3:
+              G-SHAPEMIX, G-TEMPLATE — bc.LADDER_RUNG_ORDER R1 < R2s < R2o < R2 <
+              R3 < R4 < R5). Several reasons -> the lowest rung first; all reasons
+              travel to the next attempt. R4 / R4' items are EXEMPT from G-SHAPEMIX /
+              G-TEMPLATE counts and from the near-isomer floor (R6.3 f), NEVER from
+              G-OPTDISTINCT, G-ENTITYLEAK (a), G-STEMLEAK, G-DISTRACTOR (a)-(c) or
+              G-CONSIST.
           L2. No accept-best for defects. S7-STYLE author_slot's accept-best on
               budget keeps its seven STYLE reasons only. Ladder attempts do NOT
               consume max_retries_per_paper.
@@ -8688,6 +9116,15 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           L5. Systemic flag: >= 3 items of one paper reaching a terminal rung for
               the same finding -> footer line "systemic: <finding>" and a GAP stub
               in the audit report. The paper still completes.
+          L7. (v5.90, owner decision OD-9) A QUALITY finding (any G-/A- gate of
+              S7-QUALITY's eleven) still failing after R5 does NOT stop the run and
+              is NOT absorbed: the item is delivered with quality_status =
+              bc.quality_status(<surviving finding ids>) = 'UNRESOLVED(...)'
+              (stamped at S13-2F), the paper's certificate lists it in
+              uncertified_items[] and is NOT CERTIFIED, the footer and the bench
+              card name it, and MockDeliver / TestDeliver refuse the paper unless
+              the Deliver trigger carries --accept-uncertified. A render /
+              infrastructure finding at sweep 4 keeps its [HS:INFRA] classing.
           L6. The ONLY remaining run stops are INFRASTRUCTURE faults ([HS:INFRA]:
               engine missing or failing its self-test, bootstrap failure, a
               corrupt/unreadable file, the docx changed after its item-sweep
@@ -10103,9 +10540,20 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   its question(s) in its message and is repaired by that gate's own [HS:LADDER R<n>] rule.
   Sweeps 1-2 repair at the entry rung; sweep 3 sends every item still failing straight to
   its TERMINAL rung (R4 / R4' / R5 — constructed to pass every item gate); sweep 4 only
-  confirms. A sweep-4 failure is infrastructure ([HS:INFRA]: a renderer or gate is broken —
-  its self-test). The sweep counter lives in a state file, so a resumed session continues
-  the count. A paper never fails S13-2F for a QUALITY reason.
+  confirms. A sweep-4 failure on a RENDER / structural gate is infrastructure ([HS:INFRA]:
+  a renderer or gate is broken — its self-test). v5.90 (GAP-2026-11-03, owner decision
+  OD-9): a sweep-4 failure on a QUALITY gate (bc.ITEM_RULES / the eleven S7-QUALITY gates —
+  audit_canonical.QQ_GATE_IDS) is NOT infrastructure and NOT a stop: the block below stamps
+  quality_status = bc.quality_status(<its gate ids>) = 'UNRESOLVED(...)' on that item's
+  sidecar entry, every other item gets 'CERTIFIED', and sweep 5 runs ONCE MORE: the
+  auditor's A-QUALITYSTATUS then lists the UNRESOLVED items, the certificate is written
+  with schema 2 — uncertified_items[] non-empty, certified: false — and the paper proceeds
+  NOT CERTIFIED (A-CERT reports it as a WARN; TestDeliver refuses it without
+  --accept-uncertified). The sweep counter lives in a state file, so a resumed session
+  continues the count. A paper never fails S13-2F for a QUALITY reason.
+  AFTER a clean (or NOT-CERTIFIED) sweep the step does NOT go on to S13-3: it enters S13-2G
+  (independent review, OD-5) and ENDS NORMALLY at state AWAITING_REVIEW; the commit happens
+  on --resume.
 
 ```python
 import json, os, subprocess
@@ -10155,7 +10603,8 @@ if AUDIT_AVAILABLE:
            '--mockN', str(N)]
     _sgp_pre = globals().get('STIM_PROFILE_PATH')     # v5.85 A-BLOCK — same source as S13-4c
     for _flag, _path in (('--profile', _pf), ('--key', _key), ('--fig-manifest', _fmj),
-                         ('--stimulus-profile', _sgp_pre)):
+                         ('--stimulus-profile', _sgp_pre),
+                         ('--style-profile', f'/mnt/project/{EXAM}_style_profile.json')):   # A-ITEMRULE suspension (R7.2)
         if _path and os.path.exists(_path):
             cmd += [_flag, _path]
     _r = subprocess.run(cmd, capture_output=True, text=True, env=AUDIT_ENV)
@@ -10166,12 +10615,44 @@ if AUDIT_AVAILABLE:
                          f"file (rc={_r.returncode}) — it crashed or is a pre-v2.34 copy. "
                          f"STDERR:\n{_r.stderr[-3000:]}")
     _wl = json.load(open(_ifj, encoding='utf-8'))
-    if os.path.exists(_cert):                         # CLEAN sweep
+    if os.path.exists(_cert):                         # CLEAN sweep (or NOT CERTIFIED, OD-9)
         CERT = json.load(open(_cert, encoding='utf-8'))
         AMBER_NOTES = list(CERT.get('amber_notes') or [])   # -> DeliveryFooter §5
+        UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # -> footer / Deliver (OD-9)
+        _bs2f = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+        _bs2f['uncertified_items'] = UNCERTIFIED_ITEMS
+        json.dump(_bs2f, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
         os.remove(_stp)
-        print(f"S13-2F: CERTIFIED after sweep {_st['sweep']}.")
+        # v5.90: every item not UNRESOLVED is stamped CERTIFIED in the sidecar (the auditor's
+        # A-QUALITYSTATUS requires a stamp on every item of a 2026.11.03 paper)
+        _kd = json.load(open(_key, encoding='utf-8'))
+        for _qn, _e in (_kd.get('concept_map') or {}).items():
+            if not str(_e.get('quality_status', '')).startswith('UNRESOLVED'):
+                _e['quality_status'] = 'CERTIFIED'
+        json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
+        print(f"S13-2F: {'NOT CERTIFIED — uncertified items ' + str(UNCERTIFIED_ITEMS) if UNCERTIFIED_ITEMS else 'CERTIFIED'} "
+              f"after sweep {_st['sweep']}.")
     else:
+        _wl0 = json.load(open(_ifj, encoding='utf-8'))
+        _qq_gates = set(bc.ITEM_RULES) | {'A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
+                                          'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
+                                          'A-SHAPEMIX', 'A-TEMPLATE', 'A-QUALITYSTATUS'}   # = audit_canonical QQ_GATE_IDS (+status)
+        _only_quality = bool(_wl0.get('item_findings')) and all(
+            f.get('gate') in _qq_gates for f in _wl0.get('item_findings') or []) and not [
+            fl for fl in (_wl0.get('fail_lines') or []) if fl.get('check') not in _qq_gates]
+        if _st['sweep'] >= 4 and _only_quality:
+            # OD-9 (owner): a quality finding that survived R5 is UNRESOLVED, never a stop
+            _kd = json.load(open(_key, encoding='utf-8'))
+            _byq = {}
+            for _f in _wl0.get('item_findings') or []:
+                _byq.setdefault(str(_f.get('q')), []).append(_f['gate'])
+            for _qn, _gs in _byq.items():
+                _kd.setdefault('concept_map', {}).setdefault(_qn, {})['quality_status'] = bc.quality_status(_gs)
+            json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
+            print(f"S13-2F sweep {_st['sweep']}: quality findings survived R5 on {sorted(_byq)} — stamped "
+                  f"UNRESOLVED (OD-9); the paper will be NOT CERTIFIED. Run the next sweep (preview + this block).")
+            raise RuntimeError("LADDER-REPAIR [HS:LADDER] (S13-2F): UNRESOLVED stamps written — run the next "
+                               "sweep (preview + this block) to write the NOT-CERTIFIED certificate.")
         if _st['sweep'] >= 4:
             raise SystemExit(f"HARD STOP [HS:INFRA] (S13-2F): sweep 4 is not clean although "
                              f"every remaining item was rebuilt at its terminal rung — a "
@@ -10192,6 +10673,142 @@ if AUDIT_AVAILABLE:
                            f"correction procedure), record registry question_index ladder "
                            f"data in the sidecar, then run the next sweep (preview + this block).")
 ```
+
+## S13-2G — INDEPENDENT REVIEW HANDOFF and --resume (v5.90 — GAP-2026-11-03 G12; owner decision OD-5 (a))
+
+  WHY. Every verification of the incident paper — answer, difficulty rating, "is a second
+  option defensible" — ran in the author's own context and agreed with itself. A fresh
+  context is the only review that cannot be anchored by having written the item. The owner
+  chose it MANDATORY on every paper, with CORRECTION: a review that ends in a list of
+  findings is worthless; the flagged items are REPAIRED through the ladder before the commit.
+
+  TWO-SESSION PROTOCOL (runtime-neutral; a sub-agent runtime collapses it into one run):
+
+  PHASE 1 — this session, right after S13-2F (clean or NOT CERTIFIED):
+  ```python
+  # ── S13-2G phase 1 (executable) ───────────────────────────────────────────────
+  import json, os, hashlib, zipfile, blueprint_core as bc, paper_pipeline as pp
+  # batch_state is RELOADED from disk: this block also runs after a --resume (S4-12 /
+  # REVIEW_REPAIR), where the S3-16 initialiser did not run in this session, and the
+  # on-disk copy carries the batch ledgers a stale in-memory copy would overwrite.
+  batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  _docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
+  _key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  _kd = json.load(open(_key, encoding='utf-8'))
+  PAPER_MD5 = hashlib.md5(open(_docx, 'rb').read()).hexdigest()
+  _items = []
+  for _qn in sorted((_kd.get('concept_map') or {}), key=int):
+      _e = _kd['concept_map'][_qn]
+      # stem_text / option_texts / figure_files are S7-QUALITY record fields (the sidecar
+      # carries them since v5.90); the reviewer ALSO reads the docx in the packet.
+      _items.append({'q': int(_qn), 'subtopic_id': _e.get('subtopic_id'),
+                     'stem': _e.get('stem_text'), 'options': _e.get('option_texts'),
+                     'figures': _e.get('figure_files') or [],
+                     'content_record': {k: _e.get(k) for k in ('given_smiles', 'reagents', 'scheme_grammar',
+                                                                'stated_formula', 'named_entities') if _e.get(k) is not None},
+                     'class_word': _e.get('class_word'), 'stem_agents': _e.get('stem_agents'),
+                     # the per-option mechanism list would reveal the key by elimination (one
+                     # mechanism per WRONG option): the reviewer gets only the COUNT recorded.
+                     'distractor_mechanisms_recorded': len(_e.get('distractor_mechanisms') or [])})
+      # NOTE: no key, no difficulty, no author notes — bc.review_packet strips the rest
+  _bank = json.load(open(EXEMPLAR_BANK_PATH, encoding='utf-8')) if EXEMPLAR_BANK_PATH else {}
+  _slice = {c: v for c, v in (_bank.get('cells') or {}).items()
+            if any(c == str(_e.get('subtopic_id') or '') or str(_e.get('subtopic_id') or '').startswith(c + '.')
+                   for _e in _kd.get('concept_map', {}).values())}
+  PACKET = bc.review_packet(_items, _slice, PAPER_MD5)
+  PACKET['exam'], PACKET['paper_slug'] = EXAM, pp.paper_slug(paper_id)     # MockReview reads these (an exam code may contain '_')
+  PACKET['review_round'] = int(batch_state.get('review_round', 0)) + 1
+  _pkt = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_review_packet.zip'
+  with zipfile.ZipFile(_pkt, 'w', zipfile.ZIP_DEFLATED) as _z:
+      _z.write(_docx, os.path.basename(_docx))
+      _z.writestr('review_packet.json', json.dumps(PACKET, ensure_ascii=False, indent=1))
+      _z.writestr('README.txt', 'Run MockReview in a NEW chat with this zip attached. It writes '
+                                f'{EXAM}_{pp.paper_slug(paper_id)}_review_verdicts.json; attach that file and the '
+                                'registry to this chat and run TestCreate --resume.')
+  batch_state['state'] = 'AWAITING_REVIEW'
+  batch_state['paper_md5'] = PAPER_MD5
+  json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
+  print(f"STATE: AWAITING_REVIEW — paper {paper_id} swept; run MockReview in a NEW chat with "
+        f"{os.path.basename(_pkt)}, then TestCreate --resume here. (Normal end of this step — not a stop.)")
+  ```
+  Then, in the model's own turn (CLASS T — never from python): present_files([_pkt]) — the
+  packet ALONE, in its own call; the S13-8 closed-set delivery happens only after --resume.
+  The step ENDS here, normally (like a batch boundary). Nothing is committed; the registry
+  is unchanged. The review packet contains the paper, the exemplar-bank slice, the checklist
+  and paper_md5 — NO registry, NO author notes, NO scheduled bands (bc.review_packet).
+
+  PHASE 2 — the owner runs `MockReview` in a NEW chat (Framework_MockReview.md). It writes
+  `[ExamCode]_[slug]_review_verdicts.json` bound to paper_md5.
+
+  PHASE 3 — `TestCreate --resume` / `MockCreate --resume` in THIS chat (S4-12 recovery finds
+  batch_state.state == 'AWAITING_REVIEW'):
+  ```python
+  # ── S13-2G phase 3 (executable; S4-12 dispatches here when state == AWAITING_REVIEW) ──
+  import json, os, glob, blueprint_core as bc, paper_pipeline as pp
+  batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))   # --resume: reload
+  _vp = sorted(glob.glob(f'/mnt/user-data/uploads/{EXAM}_{pp.paper_slug(paper_id)}_review_verdicts.json'))
+  if not _vp:
+      raise SystemExit(f"HARD STOP [HS:INPUT] (S13-2G --resume): attach {EXAM}_{pp.paper_slug(paper_id)}"
+                       "_review_verdicts.json (written by MockReview) to this chat, then re-run --resume.")
+  VERDICTS = json.load(open(_vp[0], encoding='utf-8'))
+  _kd = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  # The reviewer never saw the key (bc.review_packet strips it; MockReview writes
+  # key_agrees = null). THIS session owns the sidecar, so it fills key_agrees here from the
+  # reviewer's own_key vs the stored answer (1-based position / sorted list / NAT value,
+  # ca_range tolerance) — bc.review_key_agreement; None (unreadable own_key) is kept as None
+  # and the record's confidence is forced 'low' so bind counts it as a defect.
+  for _qn, _rec in (VERDICTS.get('items') or {}).items():
+      if isinstance(_rec, dict):
+          _cm_e = (_kd.get('concept_map') or {}).get(str(_qn)) or {}
+          _rec['key_agrees'] = bc.review_key_agreement(_rec.get('own_key'), (_kd.get('answers') or {}).get(str(_qn)),
+                                                       _cm_e.get('ca_range'))
+          if _rec['key_agrees'] is None:
+              _rec['confidence'] = 'low'
+  _bind = bc.bind_review_verdicts(VERDICTS, batch_state.get('paper_md5'), len(_kd.get('concept_map') or {}))
+  if not _bind['ok']:
+      raise SystemExit("HARD STOP [HS:INPUT] (S13-2G --resume): the verdict file does not bind to this "
+                       f"paper: {_bind['problems']} — re-run MockReview on the CURRENT packet.")
+  for _qn, _rec in (VERDICTS.get('items') or {}).items():          # the verdict lives ON the item (§4.3)
+      _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=batch_state.get('paper_md5'))
+  json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
+  REVIEW_DEFECTS = _bind['defects']                                 # key disagreement / low confidence / contested
+  batch_state['review_round'] = int(batch_state.get('review_round', 0)) + 1
+  batch_state['review_defects'] = list(REVIEW_DEFECTS)              # persisted: a resumed session continues from it
+  if REVIEW_DEFECTS and batch_state['review_round'] < 2:            # exactly ONE more review round
+      print(f"S13-2G: reviewer flagged {REVIEW_DEFECTS} — repair each through §Q8b-LADDER (entry "
+            f"bc.ladder_entry('review_disagreement') = R2; the reviewer's reason is the constraint), "
+            "re-run S13-2F (a changed docx needs a fresh certificate), then phase 1 again — the "
+            "packet ALWAYS carries the WHOLE paper (the binding is per paper, never per item).")
+      batch_state['state'] = 'REVIEW_REPAIR'
+  else:
+      if REVIEW_DEFECTS:                                            # round 2 still disputed -> OD-9
+          for _qn in REVIEW_DEFECTS:
+              _kd['concept_map'].setdefault(str(_qn), {})['quality_status'] = bc.quality_status(['A-REVIEW'])
+          json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
+          UNCERTIFIED_ITEMS = sorted(set([str(q) for q in (batch_state.get('uncertified_items') or [])]       # S13-2F's list (persisted)
+                                         + [str(q) for q in (globals().get('UNCERTIFIED_ITEMS') or [])]
+                                         + [str(q) for q in REVIEW_DEFECTS]),
+                                     key=lambda x: int(x) if str(x).isdigit() else 0)
+          batch_state['uncertified_items'] = list(UNCERTIFIED_ITEMS)   # -> footer / registry (OD-9)
+          # the S13-2F certificate must say the same as the stamps (A-CERT / footer / Deliver
+          # read different artefacts; they never disagree)
+          _cert_p3 = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'
+          if os.path.exists(_cert_p3):
+              _c3 = json.load(open(_cert_p3, encoding='utf-8'))
+              _c3['uncertified_items'] = list(UNCERTIFIED_ITEMS)
+              _c3['certified'] = not UNCERTIFIED_ITEMS
+              json.dump(_c3, open(_cert_p3, 'w', encoding='utf-8'), indent=1, sort_keys=True)
+          print(f"S13-2G: items {REVIEW_DEFECTS} still disputed after two review rounds — stamped "
+                "UNRESOLVED(A-REVIEW); the paper proceeds NOT CERTIFIED (OD-9).")
+      batch_state['state'] = 'REVIEWED'
+  json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
+  ```
+  REVIEW_REPAIR -> repair the items in batch_state['review_defects'], S13-2F re-sweep (a
+  changed docx needs a fresh certificate), phase 1 again with the WHOLE paper (round 2);
+  REVIEWED -> S13-3 / S13-4 / S13-4c as before. The S13-4c auditor's A-REVIEW reads the
+  review record final_assembly committed on EVERY item (the auditor's effective concept
+  map overlays the registry record — it needs no sidecar at S13-4c); an item stamped
+  UNRESOLVED(A-REVIEW) is reconciled by the auditor to a WARN (OD-9), never a FAIL.
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -10305,7 +10922,9 @@ if AUDIT_AVAILABLE:
       concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
       di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs,
       axis1_snapshots=_ax1, axis3_snapshots=_ax3,
-      answer_key=_akd)                      # v5.59 — key commitments (S13-4 / Explain §7-8)
+      answer_key=_akd,                      # v5.59 — key commitments (S13-4 / Explain §7-8)
+      quality_readiness=_bs.get('quality_readiness'),   # v5.90 — S3-2e record -> A-READINESS / footer
+      shape_infeasible=list((_bs.get('shape_plan') or {}).get('_infeasible') or []))   # v5.90 — S3-12d planner record -> A-SHAPEMIX
   except ValueError as _e_commit:
       # LAW F2.3: a figure record without object_type (or another per-question record
       # defect) raises inside commit_registry — an ITEM defect, repaired via the ladder.
@@ -10321,6 +10940,9 @@ if AUDIT_AVAILABLE:
       if _s13_preview:
           # S13-2F preview: an FK failure is an ITEM defect (a concept_map subtopic_id
           # not in this blueprint) — repaired through the ladder, never a stop.
+          # v5.90 (OD-13 i): a G-MEDIAREUSE refusal (final_assembly v1.12 — one media part
+          # under two questions) arrives here in the same shape; its message names the
+          # LATER item and its rung (R2). Same handling: repair, next sweep.
           raise RuntimeError(f"LADDER-REPAIR R2 [HS:LADDER] (S13-4 preview): {_commit['fails']} — "
                              f"re-author the named question(s) on a blueprint subtopic, then run "
                              f"the next S13-2F sweep (step 1 preview with S13_PREVIEW = True, then "
@@ -10562,6 +11184,14 @@ if AUDIT_AVAILABLE:
 
   ```python
   _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
+  # v5.90: a RESUMED session (S13-2G --resume) never ran S13-2F in this chat — CERT,
+  # AMBER_NOTES and UNCERTIFIED_ITEMS (DeliveryFooter §LADDER lines) are re-read from the
+  # certificate file and batch_state, the artefacts the stamps live in.
+  CERT = json.load(open(_cert, encoding='utf-8')) if os.path.exists(_cert) else None
+  AMBER_NOTES = list((CERT or {}).get('amber_notes') or [])
+  UNCERTIFIED_ITEMS = list((json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+                            if os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json') else {}).get('uncertified_items')
+                           or (CERT or {}).get('uncertified_items') or [])
   _pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
   if AUDIT_AVAILABLE and os.path.exists(_out):
       # v5.85: the paper's OWN profile snapshot (S3-12b) — absent on a legacy paper
@@ -10590,15 +11220,29 @@ if AUDIT_AVAILABLE:
            # docx is the one certified; --profile arms A-DPROFILE / A-DIFFSRC.
            '--certificate', _cert,   # ALWAYS: a skipped / lost S13-2F FAILs A-CERT (INFRA)
            *(['--profile', _pf] if os.path.exists(_pf) else []),
+           # v5.90: the SAME per-item inputs S13-2F audited with — the sidecar (quality
+           # records, review, stamps) and the figure manifest — so the final sweep is the
+           # certified sweep re-run on the committed registry, not a weaker one. The
+           # auditor also overlays the registry's committed V590 fields, so a missing
+           # sidecar (a resumed session) still audits every item.
+           *(['--key', f'/home/claude/{EXAM}_M{N}_answer_key.json']
+             if os.path.exists(f'/home/claude/{EXAM}_M{N}_answer_key.json') else []),
+           *(['--fig-manifest', f'/home/claude/{EXAM}_fig_manifest.json']
+             if os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json') else []),
+           *(['--style-profile', f'/mnt/project/{EXAM}_style_profile.json']
+             if os.path.exists(f'/mnt/project/{EXAM}_style_profile.json') else []),   # A-ITEMRULE suspension (R7.2)
            '--mockN', str(N)],
           capture_output=True, text=True, env=AUDIT_ENV)        # S3-9: engines importable
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
       if _r.returncode != 0:
           # v5.89: S13-2F certified this docx against the PREVIEW of this very commit
           # with every gate (no FAIL line of any gate), and AMBER advisories are WARN
-          # lines (no exit 1). A non-zero exit here therefore means the committed record
-          # differs from its preview, or the docx changed after certification (A-CERT) —
-          # INFRASTRUCTURE, never a question-quality matter.
+          # lines (no exit 1). v5.90 (OD-9): a quality finding that sits ONLY on items
+          # stamped UNRESOLVED is reconciled by the auditor to a WARN line (the paper is
+          # NOT CERTIFIED, which Deliver reads) — it never exits 1 either. A non-zero exit
+          # here therefore means the committed record differs from its preview, or the
+          # docx changed after certification (A-CERT) — INFRASTRUCTURE, never a
+          # question-quality matter.
           raise SystemExit(
               "HARD STOP [HS:INFRA] (S13-4c re-sweep, v5.89): the committed paper fails a gate "
               "its S13-2F preview passed (or A-CERT: the docx changed after certification) — "
@@ -11618,7 +12262,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.89
+# END OF Framework_MockTestCreate v5.90
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

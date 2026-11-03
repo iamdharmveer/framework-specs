@@ -1,4 +1,10 @@
-# Framework_DeliveryFooter v1.37.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.38.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.38.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   MockTestCreate v5.90, MockDeliver v1.24.0, MockReview v1.0.0, audit_canonical v2.35).
+#   §LADDER gains the QUALITY disclosure lines: the DEGRADED QUALITY line
+#   (bc.degraded_footer_line — OD-1: dormant controls listed, nothing stopped), the
+#   NOT CERTIFIED line with uncertified_items (OD-9), the AWAITING_REVIEW / review-round
+#   lines (OD-5), the shape-plan infeasibility line (OD-6) and the bench-card pointer.
 # v1.37.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
 #   MockTestCreate v5.89, audit_canonical v2.34, final_assembly v1.11). NEW §LADDER —
 #   the repair-ladder and drawing/level disclosure lines for Step 7 (terminal-rung items,
@@ -509,11 +515,40 @@ CONDITIONAL additions, each only when its condition holds):
   (v1.27: [ExamCode]_M[N]_audit_dossier.json is INTERNAL — written to /home/claude,
    never delivered. Operator decision 2026-08-26.)
 
-NEXT STEP  : Step 9: MockExplain M[N]   (mock paper)
-             Step 9: TestExplain P[N]   (scoped paper — v1.24; the M alias HARD-STOPs
-                                         on a scoped docx, MockTestExplain S2-1)
+NEXT STEP  : (v1.38.0 — GAP-2026-11-03 G12, OD-5 a) the step now ENDS at S13-2G phase 1
+             with STATE: AWAITING_REVIEW and ONE extra deliverable:
+  [ExamCode]_[slug]_review_packet.zip → Use locally (attach to a NEW chat)
+             Step 7R: MockReview   (mock paper — in a NEW chat with ONLY the packet)
+             Step 7R: TestReview   (scoped paper — same step, same packet)
+             then, back in THIS chat with the verdict file + registry attached:
+             Step 7: MockCreate --resume / TestCreate --resume  (S13-2G phase 3: binds the
+                     verdicts, repairs flagged items through the ladder, then commits and
+                     prints the FINAL DELIVERABLES above)
+             After the resumed commit: Step 9: MockExplain M[N] (mock paper) /
+                                       Step 9: TestExplain P[N] (scoped paper — v1.24; the M
+                                       alias HARD-STOPs on a scoped docx, MockTestExplain S2-1)
 
   (v1.13 — Step 8 is RETIRED; never print it as a next step.)
+
+═══════════════════════════════════════════════════════════════════════
+STEP 7R — MockReview / TestReview (v1.38.0 — GAP-2026-11-03 G12; owner OD-5 a)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 (single response; a long paper is reviewed in the packet's parts of <= 30
+             items, all within the one response)
+FOOTER TYPE: F2 (step-complete)
+
+RUNS IN A NEW CHAT with ONLY [ExamCode]_[slug]_review_packet.zip attached — no registry, no
+answer key, no blueprint (an attached key anchors the review and is ignored with a printed
+warning; Framework_MockReview S1-1).
+
+FINAL DELIVERABLES (EXACTLY one — Framework_MockReview S3-2):
+  [ExamCode]_[slug]_review_verdicts.json → Use locally (attach to the AUTHOR's chat)
+
+NEXT STEP  : Step 7: MockCreate --resume  (mock paper — in the AUTHOR's chat, with the
+             verdict file AND [ExamCode]_registry.json attached)
+             Step 7: TestCreate --resume  (scoped paper — same)
+             The footer prints the review tallies (FAIL / low-confidence / contested counts)
+             exactly as S3-1 printed them; no per-item verdict text in the footer (P-11).
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 9 — MockExplain
@@ -556,9 +591,11 @@ FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
   [ExamCode]_Mock[N]_Final.docx     → Use locally
-  [ExamCode]_registry.json          → Replace in Project Files — ONLY when S1-2 3b
-                                       healed the record (pp.registry_changed, MockDeliver §8;
-                                       or attach it to the next step's trigger — v1.33 §8)
+  [ExamCode]_registry.json          → Replace in Project Files — ONLY when the run changed
+                                       it: S1-2 3b healed the record, or (v1.38.0) S1-2 3f
+                                       recorded accepted_uncertified (pp.registry_changed,
+                                       MockDeliver §8; or attach it to the next step's
+                                       trigger — v1.33 §8)
 
 NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
              Next mock paper   : Step 7: MockCreate M[N+1]
@@ -1126,6 +1163,18 @@ force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the fo
     AMBER-CLASS.
   • Step 9 (Framework_MockTestExplain self-audit terminal rung): "Q<n> explanation degraded (<item>)" —
     AMBER-CLASS, one per disclosed block.
+  • v1.38.0 (GAP-2026-11-03) QUALITY LINES, Step 7 / Step 11:
+      - QUALITY_FOOTER_LINE (S3-2e; bc.degraded_footer_line): "DEGRADED QUALITY — dormant
+        controls: <ids> (inputs missing or stale; OD-1: run continued)" — AMBER-CLASS; or
+        "Quality controls: all ACTIVE." — INFORMATIONAL.
+      - "NOT CERTIFIED — uncertified items: Q<a>, Q<b> (<finding ids>)" — AMBER-CLASS; one
+        line when certificate.uncertified_items is non-empty (OD-9). Step 11 adds
+        "delivered with --accept-uncertified (owner)" — INFORMATIONAL — when it was.
+      - "STATE: AWAITING_REVIEW — run MockReview in a new chat with <packet>, then
+        TestCreate --resume" — INFORMATIONAL (a normal end of Step 7, not a defect);
+        "review round <k>: <n> item(s) repaired after the independent review" — INFORMATIONAL.
+      - "shape plan: <shape> infeasible in this paper (no capable slot)" — INFORMATIONAL.
+      - "bench card: see A-PYQBENCH in the audit report" — INFORMATIONAL.
   Every line not marked INFORMATIONAL above is AMBER-CLASS. A clean paper (no repair past
   R3, no amendment, measured or no figures, verified schedule) renders green.
 These lines are DISCLOSURE: nothing here stops, voids or re-runs anything.

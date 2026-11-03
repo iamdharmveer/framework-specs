@@ -82,6 +82,20 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       MockTestCreate carries G-FIGTYPE-KIND, dispatches REACTION
                       to cio.render_scheme and passes --fig-manifest; the auditor
                       emits A-FIGTYPE-KIND in both states (FIGURE-RECORD-INTEGRITY-LAW).
+  MS-26 QUALITY-GATE   QUALITY-GATE-LAW (GAP-2026-11-03). (i) every S2-2 content rule
+                      R1..R5 of MockTestCreate names the engine function that enforces
+                      it (bc./cio./fa.<name>( in the rule's own text) — a rule with no
+                      engine is prose, which is how G01..G12 shipped; (ii) the Create /
+                      Deliver / Review / Blueprint / ScopedBlueprint / Analyse specs each
+                      call their QQ engine entry point (quality_readiness, review_packet
+                      + bind_review_verdicts + review_key_agreement, deliver_allowed +
+                      --accept-uncertified, review_verdict_file, shape_targets +
+                      shape_target_per_paper, write_exemplar_bank); (iii) the auditor
+                      emits every v2.35 quality gate in BOTH states; (iv) MockReview's
+                      live text never reads the answer key or the registry (a reviewer
+                      that sees the key is the author again); (v) OD-1 — no quality
+                      gate in the Create spec is followed by a raise SystemExit on the
+                      same fence line.
   MS-11 DELIVERY-SET-PARITY
                       MockTestAnalyse's Step-5 final delivery: the code's
                       unconditional/conditional deliverable sets (parsed from
@@ -1161,6 +1175,122 @@ def check_figtype_kind_gate_present(read=_read):
     return problems
 
 
+# ── MS-26 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (QUALITY-GATE-LAW) ──────
+# WHY. Every rule the incident paper broke (S2-2 R3/R4/R5: entity reuse, option
+# identity, hints) existed as prose and was enforced by nothing; every verification
+# ran in the author's own context. The law: a content rule is a sentence that NAMES
+# the engine function enforcing it, every quality gate has an auditor twin in both
+# states, the independent reviewer never sees the key, and no quality finding is a stop.
+_MS26_SPEC_CALLS = {
+    'Framework_MockTestCreate.md': ('quality_readiness(', 'review_packet(', 'bind_review_verdicts(',
+                                    'review_key_agreement(', 'assign_shape_plan('),
+    'Framework_MockDeliver.md': ('deliver_allowed(', '--accept-uncertified'),
+    'Framework_MockReview.md': ('review_verdict_file(', 'bind_review_verdicts('),
+    'Framework_Blueprint.md': ('shape_targets(', "'shape_target_per_paper'"),
+    'Framework_ScopedBlueprint.md': ('shape_targets(', "'shape_target_per_paper'"),
+    'Framework_MockTestAnalyse.md': ('write_exemplar_bank(',),
+}
+_MS26_AUDIT_GATES = ('A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
+                     'A-SHAPEMIX', 'A-TEMPLATE', 'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL',
+                     'A-ITEMRULE', 'A-REVIEW', 'A-READINESS', 'A-QUALITYSTATUS')
+# A-PYQBENCH is an INFO card (one state by design) and is not in the both-states set.
+# A-READINESS / A-QUALITYSTATUS are advisory (OD-1): their second state is _warn.
+_MS26_RULE_RE = re.compile(r'^\s{2}R([1-5]):\s', re.M)
+_MS26_ENGINE_RE = re.compile(r'\b(?:bc|cio|fa|fc|pp)\.[A-Za-z_][A-Za-z0-9_]*(?:\(|\b)|\b(?:final_assembly|blueprint_core|corpus_io|audit_canonical)\.[A-Za-z_]+')
+_MS26_REVIEW_FORBIDDEN = ('_answer_key.json', '_registry.json', "'answers'", '"answers"')
+
+
+def _ms26_live(text):
+    """MS-26 live text: full-line comments blanked (as _rh_live) AND trailing `# ...`
+    comments cut — a call name quoted in a trailing comment is documentation, not a
+    call site (release-review finding on MS-26 / audit_sync quality_gate_producer)."""
+    out = []
+    for ln in str(text or '').split('\n'):
+        if ln.lstrip().startswith('#'):
+            out.append('')
+            continue
+        m = re.search(r"(?<![\'\"\w])#", ln)
+        if m:
+            head = ln[:m.start()]
+            if head.count("'") % 2 == 0 and head.count('"') % 2 == 0:
+                ln = head
+        out.append(ln)
+    return '\n'.join(out)
+
+
+def _ms26_s22_rules(create_text):
+    """The S2-2 rule paragraphs R1..R5 (each runs to the next '  R<n>:' line or a
+    blank line followed by a non-indented heading)."""
+    i = create_text.find('## S2-2')
+    if i < 0:
+        return None
+    j = create_text.find('\n## ', i + 5)
+    sec = create_text[i:j if j > 0 else None]
+    hits = list(_MS26_RULE_RE.finditer(sec))
+    out = {}
+    for k, m in enumerate(hits):
+        end = hits[k + 1].start() if k + 1 < len(hits) else len(sec)
+        out[m.group(1)] = sec[m.start():end]
+    return out
+
+
+def check_quality_gate_law(read=_read):
+    """MS-26 — QUALITY-GATE-LAW: rules name engines, specs call their QQ entry points,
+    the auditor emits every quality gate in both states, the reviewer never sees the
+    key, and no quality gate stops a run (OD-1)."""
+    problems = []
+    try:
+        create = read('Framework_MockTestCreate.md')
+    except FileNotFoundError as e:
+        return [f'MS-26 has no ground truth: {e}']
+    rules = _ms26_s22_rules(create)
+    if rules is None:
+        problems.append('Framework_MockTestCreate.md: S2-2 heading not found — the content rules '
+                        'cannot be checked for an enforcing engine.')
+    else:
+        for r in ('1', '2', '3', '4', '5'):
+            if r not in rules:
+                problems.append(f'Framework_MockTestCreate.md S2-2: rule R{r} is missing.')
+            elif not _MS26_ENGINE_RE.search(rules[r]):
+                problems.append(f'Framework_MockTestCreate.md S2-2 R{r}: names NO engine function '
+                                f'(bc./cio./fa.<name>) — a rule with no engine is prose, which is '
+                                f'how GAP-2026-11-03 G01..G12 shipped.')
+    for spec, calls in _MS26_SPEC_CALLS.items():
+        try:
+            live = _ms26_live(read(spec))
+        except FileNotFoundError:
+            problems.append(f'{spec}: missing — QUALITY-GATE-LAW cannot be verified for it.')
+            continue
+        for c in calls:
+            if c not in live:
+                problems.append(f'{spec}: live text never uses {c!r} — its quality control is '
+                                f'disconnected from the engine (QUALITY-GATE-LAW).')
+        if spec == 'Framework_MockReview.md':
+            for f in _MS26_REVIEW_FORBIDDEN:
+                if f in live:
+                    problems.append(f'{spec}: live text reads {f!r} — a reviewer that sees the key '
+                                    f'or the registry is the author again (OD-5 independence).')
+        if spec == 'Framework_MockTestCreate.md':
+            for ln_no, ln in enumerate(live.split('\n'), 1):
+                if 'raise SystemExit' in ln and 'HS:QUALITY' in ln:
+                    problems.append(f'{spec} L{ln_no}: a quality condition raises SystemExit '
+                                    f'([HS:QUALITY]) — OD-1: a quality finding is a ladder repair '
+                                    f'or a recorded UNRESOLVED item, never a stop.')
+    try:
+        audit = read('audit_canonical.py')
+    except FileNotFoundError:
+        problems.append('audit_canonical.py: missing — the quality gates have no auditor twin.')
+        audit = ''
+    if audit:
+        audit = _ms26_live(audit)
+        for g in _MS26_AUDIT_GATES:
+            _second = any(f"{fn}('{g}'" in audit for fn in ('_fail', '_qq_fail_or_amber', '_warn'))
+            if f"_ok('{g}'" not in audit or not _second:
+                problems.append(f'audit_canonical.py: {g} is not emitted in both states — the '
+                                f'auditor twin of a Create quality gate is missing or disarmed.')
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -1187,6 +1317,7 @@ ALL_CHECKS = [
     ('MS-23 FIGURE-TYPE-PARITY', check_figure_type_registry_parity),
     ('MS-24 KIND-COVERAGE-PREFLIGHT', check_kind_coverage_preflight_present),
     ('MS-25 FIGTYPE-KIND-GATE', check_figtype_kind_gate_present),
+    ('MS-26 QUALITY-GATE', check_quality_gate_law),
 ]
 
 
@@ -1720,6 +1851,10 @@ def self_test():
     check('ms16_new_caller_fails',
           any('new determine_strip_mode caller' in p
               for p in check_content_path_table_free(read=_rd(_eng_leak))))
+    # 2026.11.03 — inherited survivor killed: the no-`return None` emission had no fixture.
+    check('ms16_no_content_return_fails',
+          any('no content-class `return None`' in p
+              for p in check_content_path_table_free(read=_rd(_eng_ok.replace('return None', 'return x')))))
     check('ms16_is_registered', any(n.startswith('MS-16') for n, _ in ALL_CHECKS))
 
     # ── MS-4 — S4-11 checklist count tripwire (v5.82 §6.5.6) ─────────────────
@@ -1773,6 +1908,66 @@ def self_test():
       check_status_set_invariance(read=fake_reader(_w_ok)) == [])
     check("MS-19 live corpus: every transition field written only by its owner",
       check_transition_field_ownership() == [])
+
+
+    # ── MS-26 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (QUALITY-GATE-LAW) ──
+    _q_create = ("## S2-2 — rules\n  R1:  x bc.ngram_overlap( y\n  R2:  registry dedup cio.dedup(\n"
+                 "  R3:  entity bc.EntityLedger\n  R4:  options bc.option_distinct_check(\n"
+                 "  R5:  hints bc.stem_leak_check(\n\n## S2-3 — next\n"
+                 "```python\nQR = bc.quality_readiness(inputs)\nP = bc.review_packet(i, s, m)\n"
+                 "B = bc.bind_review_verdicts(v, m, n)\nk = bc.review_key_agreement(a, b)\n"
+                 "SP = bc.assign_shape_plan(s, t, g, seed=1)\n```\n")
+    _q_audit = ''.join(f"_ok('{g}', 1)\n_fail('{g}', 1)\n" for g in _MS26_AUDIT_GATES)
+    _q_ok = {'Framework_MockTestCreate.md': _q_create,
+             'Framework_MockDeliver.md': "ok = bc.deliver_allowed(c, a)\n# --accept-uncertified\nflag = '--accept-uncertified' in t\n",
+             'Framework_MockReview.md': "V, p = bc.review_verdict_file(e, s, m, a)\nb = bc.bind_review_verdicts(V, m, n)\n",
+             'Framework_Blueprint.md': "t = bc.shape_targets(s, q, 0)\nblueprint['shape_target_per_paper'] = t\n",
+             'Framework_ScopedBlueprint.md': "t = bc.shape_targets(s, q, 0)\nx = {'shape_target_per_paper': t}\n",
+             'Framework_MockTestAnalyse.md': "ae.write_exemplar_bank(EXAM, rows, out)\n",
+             'audit_canonical.py': _q_audit}
+    check('ms26_clean_passes', check_quality_gate_law(read=fake_reader(_q_ok)) == [])
+    check('ms26_rule_without_engine_flagged',
+          any('S2-2 R3: names NO engine' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockTestCreate.md': _q_create.replace('  R3:  entity bc.EntityLedger\n', '  R3:  entity reuse is forbidden\n')}))))
+    check('ms26_missing_rule_flagged',
+          any('rule R5 is missing' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockTestCreate.md': _q_create.replace('  R5:  hints bc.stem_leak_check(\n', '')}))))
+    check('ms26_no_s22_flagged',
+          any('S2-2 heading not found' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockTestCreate.md': _q_create.replace('## S2-2', '## S2-9')}))))
+    check('ms26_missing_call_flagged',
+          any("never uses 'deliver_allowed('" in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockDeliver.md': "flag = '--accept-uncertified' in t\n"}))))
+    check('ms26_call_in_trailing_comment_not_live',
+          any("never uses 'deliver_allowed('" in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockDeliver.md': "flag = '--accept-uncertified' in t   # bc.deliver_allowed(c, a)\n"}))))
+    check('ms26_hash_inside_string_is_live',
+          check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockDeliver.md': "x = '#'; ok = bc.deliver_allowed(c, a)\nflag = '--accept-uncertified' in t\n"})) == [])
+    check('ms26_audit_fail_in_comment_not_counted',
+          any('A-STEMLEAK is not emitted in both states' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'audit_canonical.py': _q_audit.replace("_fail('A-STEMLEAK', 1)\n", "x = 1  # _fail('A-STEMLEAK', 1)\n")}))))
+    check('ms26_call_in_comment_not_live',
+          any("never uses 'write_exemplar_bank('" in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockTestAnalyse.md': "# ae.write_exemplar_bank(EXAM, rows, out)\n"}))))
+    check('ms26_missing_spec_flagged',
+          any('Framework_MockReview.md: missing' in x for x in check_quality_gate_law(read=fake_reader(
+              {k: v for k, v in _q_ok.items() if k != 'Framework_MockReview.md'}))))
+    check('ms26_reviewer_reads_key_flagged',
+          any('reads' in x and 'author again' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockReview.md': _q_ok['Framework_MockReview.md'] + "k = json.load(open(f'/home/claude/{EXAM}_M1_answer_key.json'))\n"}))))
+    check('ms26_quality_stop_flagged',
+          any('raises SystemExit' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'Framework_MockTestCreate.md': _q_create + "```python\nraise SystemExit('HARD STOP [HS:QUALITY] x')\n```\n"}))))
+    check('ms26_audit_gate_one_state_flagged',
+          any('A-STEMLEAK is not emitted in both states' in x for x in check_quality_gate_law(read=fake_reader(
+              {**_q_ok, 'audit_canonical.py': _q_audit.replace("_fail('A-STEMLEAK', 1)\n", '')}))))
+    check('ms26_missing_auditor_flagged',
+          any('audit_canonical.py: missing' in x for x in check_quality_gate_law(read=fake_reader(
+              {k: v for k, v in _q_ok.items() if k != 'audit_canonical.py'}))))
+    check('ms26_missing_create_is_ground_truth',
+          any('no ground truth' in x for x in check_quality_gate_law(read=fake_reader({}))))
+    check('ms26_live_corpus_clean', check_quality_gate_law() == [])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

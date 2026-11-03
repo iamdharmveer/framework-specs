@@ -1,4 +1,18 @@
-# Framework_MockDeliver v1.23.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.24.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.24.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decision OD-9 (a);
+#   paired with MockTestCreate v5.90, audit_canonical v2.35, blueprint_core v1.30,
+#   DeliveryFooter v1.38.0). S1-1 gains the trigger flag --accept-uncertified; S1-2 gains
+#   item 3f: the paper's S13-2F certificate (registry question_index[].quality_status ->
+#   bc.certificate_uncertified) is read and bc.deliver_allowed(cert, accept) decides — a NOT
+#   CERTIFIED paper (items whose quality findings survived ladder R5) is REFUSED with the
+#   item list unless the trigger carries --accept-uncertified, in which case it is
+#   delivered, the footer says so, and registry.accepted_uncertified records owner +
+#   timestamp (written by the 3f block itself; the registry is then delivered under §8).
+#   A refusal is a printed, recorded verdict that ENDS the step before any rendering
+#   (SystemExit 0 — not a stop class of any kind: nothing is broken, the owner's one-flag re-run
+#   is the remedy); no other step changes (Explain is untouched — it reads the status).
+#   Release review 2026-11-03: the 3f block lives in §5 Phase 1 (after total_questions),
+#   so every name it reads is bound by executable code.
 # v1.23.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
 #   DeliveryFooter v1.36.0, paper_pipeline v5.40). S1-2 gains item 3e: after the
 #   §FOOTER-STYLE line print EVERY string returned by pp.figure_footer_lines(registry,
@@ -271,8 +285,11 @@ The output Word document is NOT finished until ALL hold:
 ## S1-1 — Trigger parsing
 
 ```
-Trigger: TestDeliver P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
+Trigger: TestDeliver P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>] [--accept-uncertified]
 Trigger matching is case-insensitive.
+  --accept-uncertified (v1.24.0, OD-9): the OWNER's per-run decision to deliver a paper
+  whose certificate lists uncertified_items (quality findings that survived ladder R5).
+  Never stored in exam_config; never a default. ACCEPT_UNCERTIFIED = True iff present.
 
 ALIAS (v1.9 — mock-only, working alias, unchanged behaviour):
   MockDeliver M[N]   ==   TestDeliver P[N] --level mock
@@ -455,6 +472,28 @@ Parse:
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
+
+   3f. CERTIFICATION VERDICT (v1.24.0 — GAP-2026-11-03, owner decision OD-9 (a)).
+       The S13-2F certificate of a 2026.11.03 paper lives on its items (executable
+       block in §5 Phase 1, "S1-2 item 3f (executable)", right after total_questions is
+       bound; it finds this paper's registry question_index entry by paper_id).
+       A pre-2026.11.03 entry (no quality_status on any item) gives an empty list —
+       LEGACY, deliver exactly as before.
+         _ok True, 'certified'                 → PROCEED.
+         _ok False                             → REFUSE: print _why verbatim ("NOT CERTIFIED —
+                                                 items [...] carry UNRESOLVED findings; re-run
+                                                 with --accept-uncertified to deliver"), print
+                                                 each item's quality_status, and END THE STEP
+                                                 without a Final docx. This is a recorded
+                                                 verdict, not a stop of any class: nothing is
+                                                 broken, the owner has a one-word remedy.
+         _ok True, 'accepted by owner'         → PROCEED; §FOOTER prints "NOT CERTIFIED —
+                                                 uncertified items: Q…" and "delivered with
+                                                 --accept-uncertified (owner)"; the registry
+                                                 records accepted_uncertified[paper_id] =
+                                                 {'items': [...], 'by': 'owner', 'at': <utc>}
+                                                 and is DELIVERED (Replace in Project Files,
+                                                 §8 / REGISTRY-HANDOFF-LAW).
 
 4. Verify question_index[mock_N] has exactly total_questions entries
    with q = 1..total_questions (sorted, unique, complete).
@@ -1001,6 +1040,7 @@ import paper_pipeline as pp
 
 # ── Session variables (set from trigger and uploaded file) ──
 N = MOCK_NUMBER                 # integer from "MockDeliver M[N]" / "TestDeliver P[N]"
+ACCEPT_UNCERTIFIED = bool(ACCEPT_UNCERTIFIED_FLAG)   # v1.24.0 S1-1: True iff the trigger carried --accept-uncertified
 src_path = UPLOADED_FILE_PATH   # path to the attached Solutions docx
 
 os.makedirs('/home/claude/deliver_work/inputs_safe', exist_ok=True)
@@ -1076,6 +1116,37 @@ if paper_slug != docx_slug:
     raise SystemExit(f"HARD STOP [HS:INPUT]: uploaded docx paper_slug {docx_slug!r} does not match "
                      f"blueprint mock/paper {N}'s paper_slug {paper_slug!r}.")
 total_questions = blueprint['total_questions']
+
+# ── S1-2 item 3f (executable; v1.24.0 — OD-9 a) ────────────────────────────────────
+import blueprint_core as bc
+_tp3f = next((mk for mk in blueprint.get('mocks', []) if mk.get('mock') == N), None)
+_pid3f = (_tp3f or {}).get('paper_id', f"MOCK:M{int(N):02d}")
+_qi3f = next((e for e in registry.get('question_index', [])
+              if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == _pid3f), None)
+_qs = (_qi3f or {}).get('questions') or []
+_cert = {'uncertified_items': bc.certificate_uncertified(
+             {str(q.get('q')): q.get('quality_status') for q in _qs})}
+_ok, _why = bc.deliver_allowed(_cert, accept_uncertified=ACCEPT_UNCERTIFIED)
+print(f"S1-2 3f: certification — {_why}" + (f"; items {_cert['uncertified_items']}" if _cert['uncertified_items'] else ''))
+UNCERTIFIED_ITEMS = list(_cert['uncertified_items'])
+if not _ok:
+    for q in _qs:
+        if str(q.get('q')) in _cert['uncertified_items']:
+            print(f"   Q{q.get('q')}: {q.get('quality_status')}")
+    # The verdict ENDS the step here: no tag lookup, no render, no Final docx, no
+    # present_files. It is an OD-9 decision the owner reverses with one trigger flag — the
+    # paper, the registry and every input are untouched. (Not a stop of any class: nothing is
+    # broken; SystemExit is only the way a python block ends a step early.)
+    print(f"DELIVERY REFUSED (OD-9): {_pid3f} is NOT CERTIFIED — re-run the SAME trigger with "
+          f"--accept-uncertified to deliver it; the footer and registry will record that decision.")
+    raise SystemExit(0)
+if _cert['uncertified_items']:
+    # accepted by the owner: recorded on the registry (delivered — REGISTRY-HANDOFF-LAW §8)
+    import datetime as _dt3f
+    registry.setdefault('accepted_uncertified', {})[_pid3f] = {
+        'items': list(_cert['uncertified_items']), 'by': 'owner',
+        'at': _dt3f.datetime.now(_dt3f.timezone.utc).isoformat(timespec='seconds')}
+    print(f"S1-2 3f: accepted_uncertified[{_pid3f}] recorded — {len(_cert['uncertified_items'])} item(s), by owner.")
 
 # Build the tag-value lookup table (§3)
 tag_lookup = build_tag_lookup(blueprint, registry, N)
@@ -2045,4 +2116,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.23.0
+# END OF Framework_MockDeliver v1.24.0

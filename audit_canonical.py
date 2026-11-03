@@ -15,6 +15,27 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.35 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   blueprint_core v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types
+#   v1.2, analyse_engine v1.2, final_assembly v1.12, Framework_MockTestCreate v5.90,
+#   Framework_MockTestAnalyse v2.59, Framework_MockReview v1.0). Owner decisions
+#   2026-11-03 OD-1..OD-14 + Q-A. Fifteen gates, every [D] verdict RECOMPUTED from the
+#   delivered docx / the renderer-written figure records / section_rules, never from an
+#   author declaration: A-OPTDISTINCT (two options ONE entity — the Q32 incident),
+#   A-MEDIAREUSE (one media part under two questions — Q12/Q36, Q24/Q38), A-ENTITYLEAK
+#   (key of one item is the given/option of another — Q5->Q12/Q36, Q14->Q3, Q13/Q40),
+#   A-STEMLEAK (named reaction / named drawn substrate / non-agent annotation / unasked
+#   "-> P"), A-STEMFORM (pattern_key + length bound), A-DISTRACTOR (class SMARTS, stated
+#   formula, element inventory + MCS, mechanism-consistent formula, near-isomers),
+#   A-CONSIST (stem agents vs figure agents; stereo-count object), A-STEREODECL (author
+#   SMILES vs declared descriptors), A-ITEMRULE (LONGEST_KEY / MIDDLE_VALUE_KEY hard,
+#   suspended only by MEASURED PYQ rate), A-SHAPEMIX (floors AND caps), A-TEMPLATE,
+#   A-REVIEW (independent review record mandatory, final phase), A-QUALITYSTATUS
+#   (UNRESOLVED items -> certificate.uncertified_items, NOT CERTIFIED), A-READINESS
+#   (DEGRADED list, advisory — OD-1) and A-PYQBENCH (INFO bench card). OD-10: HARD only
+#   on a paper whose qindex_cert.producer_release >= 2026.11.03; older papers AMBER.
+#   Certificate schema 2 (uncertified_items, certified); A-CERT accepts a NOT CERTIFIED
+#   paper as a WARN. Nothing here stops a run (OD-1 / OD-9).
 # v2.34 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
 #   figural_core v5.89, corpus_io v1.17, blueprint_core v1.29, analyse_engine v1.1,
 #   figure_types v1.1, Framework_MockTestCreate v5.89). (1) G1: an AMBER figure finding is a
@@ -255,6 +276,7 @@
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata, glob
 import io, zlib, struct, random          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
 import ast                               # v2.24.0 — SELF-ADJUDICATION scans
+import copy                              # v2.35 — _qq_cm overlay
                                          # EMITTED message literals, not raw lines
 import inspect                           # v2.21.9 — the CLEAN-SHAPE MATRIX (5g)
                                          # DISCOVERS gates instead of listing them
@@ -292,6 +314,7 @@ def _fail(c, m): RESULTS.append(('FAIL', c, m))
 def _reset():
     RESULTS.clear()
     ITEM_FINDINGS.clear()
+    UNCERTIFIED_ITEMS.clear()     # v2.35
 
 
 # v2.34 (GAP-2026-11-02 G1) — ITEM-QUALITY findings, one record per question, for
@@ -300,11 +323,16 @@ def _reset():
 # difficulty profile — never the registry — so they are deterministic on identical
 # inputs and a certificate over them is meaningful.
 ITEM_FINDINGS = []
+UNCERTIFIED_ITEMS = set()   # v2.35 (OD-9): items whose findings survived R5; filled by gate_qualitystatus
 ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE',
                  'A-FIGOVERPRINT', 'A-FIGBONDORDER', 'A-FIGMARK', 'A-FIGFIT',
                  'A-FIGINK', 'A-FIGOPTUNIF', 'A-FIGOPTWINDOW', 'A-FIGMONO',
                  'A-FIGOPTELEM', 'A-FIGSCALE', 'A-FIGDPI', 'A-FIGDEGEN',
-                 'A-OPTKEEP', 'A-CONTENTLEVEL')
+                 'A-OPTKEEP', 'A-CONTENTLEVEL',
+                 # v2.35 — GAP-2026-11-03 quality item gates (ladder entry per bc.LADDER_ENTRY_RUNG)
+                 'A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
+                 'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
+                 'A-SHAPEMIX', 'A-TEMPLATE')
 
 
 def _item(gate, q, finding, severity='VOID_ITEM'):
@@ -708,6 +736,17 @@ def load_sources(args):
     src['registry']  = json.load(open(args.registry,  encoding='utf-8')) if args.registry  else {}
     src['manifest']  = json.load(open(args.manifest,  encoding='utf-8')) if args.manifest  else {}
     src['rules_txt'] = open(args.rules, encoding='utf-8').read() if args.rules else ''
+    # v2.35 — subtopic sig_fig sensitivity (A-OPTDISTINCT numeric identity): read from the
+    # blueprint subtopic_list / manifest entries that declare `sig_fig_sensitive`; no
+    # producer writes it today, so this is {} (0.5 == 1/2) until one does — documented.
+    _sf = {}
+    for _e in ((src['blueprint'].get('subtopic_list') or []) if isinstance(src['blueprint'], dict) else []):
+        if isinstance(_e, dict) and _e.get('subtopic_id') and _e.get('sig_fig_sensitive') is not None:
+            _sf[str(_e['subtopic_id'])] = bool(_e['sig_fig_sensitive'])
+    for _k, _e in (src['manifest'].items() if isinstance(src['manifest'], dict) else []):
+        if isinstance(_e, dict) and _e.get('sig_fig_sensitive') is not None:
+            _sf[str(_e.get('subtopic_id') or _k)] = bool(_e['sig_fig_sensitive'])
+    src['subtopic_sig_fig'] = _sf
     # v2.31: the difficulty profile is OPTIONAL (written by PYQExplain S7A-6; absent on
     # an exam that has not run it), yet Step 7 passes --profile on EVERY run. A path to
     # an absent file crashed the whole auditor with FileNotFoundError; it now means
@@ -4687,6 +4726,876 @@ def gate_item(blocks, src):
     (_ok if warns == 0 else _warn)('A-ITEM', msg)
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY: the QUALITY gates.
+#
+# Owner decisions 2026-11-03 (binding): OD-1 nothing here stops a run — a missing
+# input is a DORMANT line, printed; OD-9 a finding that survives ladder R5 leaves the
+# item UNRESOLVED and the paper NOT CERTIFIED (certificate.uncertified_items; Deliver
+# refuses without --accept-uncertified); OD-10 the new gates are HARD only on a paper
+# whose question_index entry carries producer_release >= 2026.11.03 — an older paper
+# audits AMBER (WARN) under EC-V18. Every [D] verdict below is RECOMPUTED from the
+# delivered docx, the figure records (semantic_objects canonical written by the
+# renderer) and section_rules — never from an author declaration (QQ-0).
+# ═══════════════════════════════════════════════════════════════════════════════
+QQ_GATE_IDS = ('A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
+               'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
+               'A-SHAPEMIX', 'A-TEMPLATE')
+
+
+def _qq_bc():
+    import blueprint_core as bc      # local: the file's import-order discipline (v2.21.9)
+    return bc
+
+
+def _qq_entry(src):
+    """THIS paper's question_index entry (registry preview at S13-2F, committed at
+    S13-4c) or None."""
+    reg = src.get('registry') or {}
+    N = src.get('_mockN') or src.get('mock_n')
+    pid = _this_paper_id(src)
+    return _pick_paper_entry(reg.get('question_index', []), pid, N)
+
+
+_QQ_V590_FIELDS = ('option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint', 'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family', 'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres', 'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities', 'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed', 'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist', 'stereo_decl', 'review', 'quality_status', 'judge_input_sha256',
+                   'subtopic_id', 'difficulty', 'difficulty_check', 'ca_range', 'stimulus_group_id', 'correct_option', 'key', 'answer',
+                   'figural_ask_type')
+
+
+def _qq_cm(src):
+    """The EFFECTIVE concept_map for the quality gates: the --key sidecar's concept_map
+    (pre-commit) overlaid, field by field, with the V590 fields final_assembly committed
+    into this paper's registry question_index entry (S13-4c runs with --dossier and
+    --registry only, so the sidecar may be absent there). A field present in the
+    sidecar wins; a question absent from the sidecar is built from the registry
+    record."""
+    cm = {str(q): (dict(e) if isinstance(e, dict) else {}) for q, e in (src.get('concept_map') or {}).items()}
+    e = _qq_entry(src) or {}
+    for rec in (e.get('questions') or []):
+        if not isinstance(rec, dict) or rec.get('q') is None:
+            continue
+        q = str(rec.get('q'))
+        tgt = cm.setdefault(q, {})
+        for f in _QQ_V590_FIELDS:
+            if f in rec and f not in tgt:
+                tgt[f] = copy.deepcopy(rec[f])
+    return cm
+
+
+def _qq_unresolved(src):
+    """Question numbers (str) whose quality_status is UNRESOLVED(...) (OD-9)."""
+    return {q for q, e in _qq_cm(src).items()
+            if isinstance(e, dict) and str(e.get('quality_status') or '').startswith('UNRESOLVED')}
+
+
+def _qq_reconcile_unresolved(phase):
+    """OD-9 (a), post-pass after every gate ran: a FAIL of a quality gate whose item
+    findings sit ONLY on UNRESOLVED-stamped items is a recorded verdict, not a
+    blocking defect — downgraded to WARN (the certificate / commit / Deliver read the
+    stamps). Runs in both phases; at precommit it is what lets the NOT-CERTIFIED
+    certificate be written on the sweep after the stamps (never a stop)."""
+    unres = set(UNCERTIFIED_ITEMS)
+    if not unres:
+        return
+    by_gate = {}
+    for f in ITEM_FINDINGS:
+        by_gate.setdefault(f.get('gate'), set()).add(str(f.get('q')))
+    for i, (lvl, code, msg) in enumerate(list(RESULTS)):
+        if lvl != 'FAIL' or code not in QQ_GATE_IDS:
+            continue
+        qs = by_gate.get(code) or set()
+        if qs and qs <= unres:
+            RESULTS[i] = ('WARN', code, 'UNRESOLVED (OD-9: items ' + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
+                          + ' stamped; paper NOT CERTIFIED) — ' + str(msg))
+
+
+def _paper_is_qq(src):
+    """OD-10 (a): the new gates are HARD on a paper produced under release >= 2026.11.03
+    (qindex_cert.producer_release), or whose concept_map already carries quality
+    verdicts (the pre-commit preview). Older papers: AMBER."""
+    bc = _qq_bc()
+    e = _qq_entry(src)
+    if e and bc.producer_release_gate(((e.get('qindex_cert') or {}).get('producer_release'))):
+        return True
+    cm = _qq_cm(src)
+    return any(isinstance(v, dict) and 'quality_status' in v for v in cm.values())
+
+
+def _qq_fail_or_amber(code, msg, src):
+    if _paper_is_qq(src):
+        _fail(code, msg)
+    else:
+        _warn(code, 'AMBER (pre-2026.11.03 paper, EC-V18) — ' + msg)
+
+
+def _qq_options_by_q(src):
+    """{q: [(label, kind, payload)]} of OPTION semantic objects from the figure records,
+    label order; kind per figure_types.identity_kind."""
+    import figure_types as _ft
+    sem = src.get('figural_semantic_objects') or {}
+    types = src.get('figural_object_types') or {}
+    out = {}
+    for q, objs in sem.items():
+        rows = []
+        for o in (objs or []):
+            if not isinstance(o, dict):
+                continue
+            role = str(o.get('role') or '')
+            if not role.startswith('option:'):
+                continue
+            kind = _ft.identity_kind(o.get('kind'), types.get(str(q)))
+            rows.append((role.split(':', 1)[1], kind, o.get('canonical') if kind != 'DATA' else o.get('descriptor')))
+        if rows:
+            rows.sort(key=lambda r: (len(r[0]), r[0]))
+            out[str(q)] = rows
+    return out
+
+
+def _qq_key_index(src, q, n_opts):
+    """0-based key index from the dossier / key file; None when unknown."""
+    cm = _qq_cm(src).get(str(q)) or {}
+    ans = (src.get('answers') or {}).get(str(q))
+    k = cm.get('correct_option') or cm.get('key') or cm.get('answer') or ans
+    try:
+        k = int(str(k).strip())
+        return k - 1 if 1 <= k <= n_opts else None
+    except (TypeError, ValueError):
+        return None
+
+
+def gate_optdistinct(blocks, src):
+    """A-OPTDISTINCT [D] (G01 R1.3). Picture options: identity recomputed from the figure
+    record's canonical (figure_types.identity_kind -> bc.option_distinct_check); text
+    options: bc.text_identity over the DELIVERED option text. On a figural paper with
+    NO figure record the gate FAILs (never dormant — LAW F3.3). dHash never decides."""
+    bc = _qq_bc()
+    opts_by_q = _qq_options_by_q(src)
+    fig_qs = src.get('figural_qs') or set()
+    bad, bad_warn, checked = [], [], 0
+    sig = src.get('subtopic_sig_fig') or {}
+    for b in blocks:
+        q = str(b.qnum)
+        cm = _qq_cm(src).get(q) or {}
+        sigf = bool(sig.get(cm.get('subtopic_id'))) if isinstance(sig, dict) else False
+        if q in opts_by_q:
+            rows = opts_by_q[q]
+            kinds = {k for _l, k, _p in rows}
+            if len(kinds) == 1 and None not in kinds:
+                r = bc.option_distinct_check([p for _l, _k, p in rows], rows[0][1], sig_fig_sensitive=sigf)
+                checked += 1
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q}: {r['reason']}")
+                for w in r.get('warns') or []:
+                    bad_warn.append(f"Q{q} options {w['pair'][0] + 1}/{w['pair'][1] + 1}: {w['reason']}")
+            continue
+        texts = [t for _tok, _full, t in _label_paras(b)]
+        if texts and all(texts):
+            r = bc.option_distinct_check(texts, 'TEXT', sig_fig_sensitive=sigf)
+            checked += 1
+            if r['state'] == 'FAIL':
+                bad.append(f"Q{q}: {r['reason']}")
+        elif int(b.qnum) in fig_qs and src.get('figural_manifest_present'):
+            bad.append(f'Q{q}: figural question with picture options but NO option figure record '
+                        '(semantic_objects role option:<i>) — identity cannot be computed')
+    for d in bad:
+        _item('A-OPTDISTINCT', d.split(':')[0][1:], 'A-OPTDISTINCT: ' + d, 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-OPTDISTINCT', f'ITEM DEFECT — {len(bad)} question(s) with two options that are ONE '
+                                           f'entity (or no computable identity): ' + _flist(bad)
+                                           + ' — ladder R2o (regenerate the distractor, never the key).', src)
+    elif bad_warn:
+        _warn('A-OPTDISTINCT', f'{checked} option set(s) distinct; reviewer — ' + _flist(bad_warn))
+    elif checked:
+        _ok('A-OPTDISTINCT', f'{checked} option set(s): every option a distinct entity.')
+    else:
+        _ok('A-OPTDISTINCT', 'dormant — no option set to compare (NAT paper or no options).')
+
+
+def gate_mediareuse(blocks, src):
+    """A-MEDIAREUSE [D] (G03 R3.2 c; OD-13 i). Two questions share a media PART of the
+    docx (the incident: Q12/Q36 and Q24/Q38 each embedded ONE part) -> FAIL, unless both
+    belong to one linked set (passage / cloze / stimulus group)."""
+    bc = _qq_bc()
+    by_q = {}
+    for b in blocks:
+        parts = [im.get('part') or im.get('rid') for im in (b.images or []) if isinstance(im, dict)]
+        if parts:
+            by_q[str(b.qnum)] = [p for p in parts if p]
+    linked = [[str(q) for q in src.get('passage_linked') or ()], [str(q) for q in src.get('cloze_linked') or ()]]
+    groups = {}
+    for q, e in _qq_cm(src).items():
+        if isinstance(e, dict) and e.get('stimulus_group_id') not in (None, ''):
+            groups.setdefault(str(e['stimulus_group_id']), []).append(str(q))
+    linked += list(groups.values())
+    if not by_q:
+        _ok('A-MEDIAREUSE', 'dormant — no pictures in the paper.')
+        return
+    r = bc.media_reuse_check(by_q, linked_sets=[g for g in linked if g])
+    if r['state'] == 'FAIL':
+        for f in r['findings']:
+            _item('A-MEDIAREUSE', f['q'], f"A-MEDIAREUSE: Q{f['q']} reuses Q{f['other_q']}'s picture ({f['md5']})", 'VOID_ITEM')
+        _qq_fail_or_amber('A-MEDIAREUSE', f"ITEM DEFECT — the same picture is placed under two questions: "
+                                          + _flist([f"Q{f['q']}=Q{f['other_q']}" for f in r['findings']])
+                                          + ' — regenerate the later item (ladder R2).', src)
+    else:
+        _ok('A-MEDIAREUSE', f'{sum(len(v) for v in by_q.values())} picture placement(s), no media part shared across questions.')
+
+
+def _qq_exam_quality_lines(src):
+    """PYQ_COMMON_ENTITIES / PYQ_TEXT_LEAK_CALIBRATED lines of section_rules (Step 5)."""
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    m = re.search(r'^PYQ_COMMON_ENTITIES:\s*(\[.*\])\s*$', txt, re.M)
+    common = []
+    if m:
+        try:
+            common = json.loads(m.group(1))
+        except ValueError:
+            common = []
+    m2 = re.search(r'^PYQ_TEXT_LEAK_CALIBRATED:\s*(true|false)\s*$', txt, re.M | re.I)
+    return common, bool(m2 and m2.group(1).lower() == 'true')
+
+
+def _qq_gate_calibration(src):
+    """GATE_CALIBRATION line of section_rules (Step 5 §4.6 false-FAIL guard): {gate: 'HARD'
+    | 'WARN'} — a [D] gate that fails > PYQ_FALSE_FAIL_MAX of the exam's OWN PYQ items is
+    wrong for that exam and degrades to WARN there. {} when the line is absent."""
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    m = re.search(r'^GATE_CALIBRATION:\s*(\{.*\})\s*$', txt, re.M)
+    if not m:
+        return {}
+    try:
+        d = json.loads(m.group(1))
+    except ValueError:
+        return {}
+    return {str(g): str((v or {}).get('mode') or 'HARD').upper() for g, v in d.items() if isinstance(v, dict)}
+
+
+def _qq_pyq_mode(src):
+    """PYQ_MODE line of section_rules ('sparse' | 'full'); None when absent."""
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    m = re.search(r'^PYQ_MODE:\s*(sparse|full)\s*$', txt, re.M | re.I)
+    return m.group(1).lower() if m else None
+
+
+def gate_entityleak(blocks, src):
+    """A-ENTITYLEAK [D] (G03 R3.2 a-d, R3.3). Ledger recomputed from the figure records:
+    problem objects -> given (reaction reactants -> given, agents -> reagent, drawn
+    products -> figure_label), option:<key> -> key, other options -> distractor; text
+    entities from the dossier's declared entities[] ([J] part, recorded); pictures from
+    the docx media parts. Text verdicts WARN when the exam's PYQs are calibrated (R3.8)."""
+    bc = _qq_bc()
+    sem = src.get('figural_semantic_objects') or {}
+    common, calibrated = _qq_exam_quality_lines(src)
+    led = bc.EntityLedger(common_entities=common, text_calibrated_warn=calibrated,
+                          linked_sets=[[str(q) for q in src.get('passage_linked') or ()], [str(q) for q in src.get('cloze_linked') or ()]])
+    cm = _qq_cm(src)
+    n_reg = 0
+    for b in blocks:
+        q = int(b.qnum)
+        objs = sem.get(str(q)) or []
+        opts = [o for o in objs if isinstance(o, dict) and str(o.get('role') or '').startswith('option:')]
+        kidx = _qq_key_index(src, q, len(opts)) if opts else None
+        opts.sort(key=lambda o: (len(str(o['role'])), str(o['role'])))
+        for i, o in enumerate(opts):
+            if o.get('kind') in ('STRUCTURE', 'COORDINATION') and o.get('canonical'):
+                led.register(q, 'key' if i == kidx else 'distractor', o['canonical'], 'STRUCTURE'); n_reg += 1
+        for o in objs:
+            if not isinstance(o, dict) or str(o.get('role') or '').startswith('option:'):
+                continue
+            c = o.get('canonical')
+            if o.get('kind') in ('STRUCTURE', 'COORDINATION') and c:
+                led.register(q, 'given', c, 'STRUCTURE'); n_reg += 1
+            elif o.get('kind') == 'REACTION' and isinstance(c, str) and c.count('>') == 2:
+                rs, ag, ps = c.split('>')
+                for part in [p for p in rs.split('.') if p]:
+                    led.register(q, 'given', part, 'STRUCTURE'); n_reg += 1
+                for part in [p for p in ag.split('.') if p]:
+                    led.register(q, 'reagent', part, 'STRUCTURE')
+                for part in [p for p in ps.split('.') if p]:
+                    led.register(q, 'figure_label', part, 'STRUCTURE'); n_reg += 1
+        for ent in ((cm.get(str(q)) or {}).get('entities') or []):
+            if isinstance(ent, dict) and ent.get('role') in bc.ENTITY_ROLES:
+                led.register(q, ent['role'], ent.get('text'), ent.get('kind') or 'TEXT', concept=ent.get('concept')); n_reg += 1
+        for im in (b.images or []):
+            if isinstance(im, dict) and (im.get('part') or im.get('rid')):
+                led.register_picture(q, im.get('part') or im.get('rid'))
+    if n_reg == 0:
+        _ok('A-ENTITYLEAK', 'dormant — no entity could be read from the figure records or the dossier.')
+        return
+    r = led.check()
+    bad = [f for f in r['findings'] if f['severity'] == 'FAIL' and f['rule'] != 'c']   # (c) is A-MEDIAREUSE's
+    bad_warn = [f for f in r['findings'] if f['severity'] == 'WARN']
+    for f in bad:
+        _item('A-ENTITYLEAK', f['q'], f"A-ENTITYLEAK ({f['rule']}): Q{f['q']} vs Q{f['other_q']} — {f['reason']}", 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-ENTITYLEAK', f'ITEM DEFECT — {len(bad)} entity leak(s) / reuse(s) across questions: '
+                                          + _flist([f"Q{f['q']}<->Q{f['other_q']} ({f['rule']})" for f in bad])
+                                          + ' — ladder R2 on the later item.', src)
+    elif bad_warn:
+        _warn('A-ENTITYLEAK', f'{n_reg} entities registered; reviewer — '
+                              + _flist([f"Q{f['q']}<->Q{f['other_q']} ({f['rule']}): {f['reason']}" for f in bad_warn]))
+    else:
+        _ok('A-ENTITYLEAK', f'{n_reg} entities registered across {len(blocks)} questions; no leak, no shared given.')
+
+
+def _qq_quality_for(src, q):
+    """The subtopic QUALITY block for question q (via concept_map subtopic_id), or None."""
+    bc = _qq_bc()
+    cm = _qq_cm(src).get(str(q)) or {}
+    sid = cm.get('subtopic_id')
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    return bc.quality_block_for_subtopic(txt, sid) if sid else None
+
+
+def gate_stemleak(blocks, src):
+    """A-STEMLEAK [D] (G04 R4.3 a-d; OD-3 a). Lexicon, named_concept_rate and
+    shown_entity_named_rate from the subtopic's QUALITY block (section_rules, Step 5);
+    drawn identities from the figure records; named entities / annotations / trailing
+    placeholders from the dossier record (resolved by OPSIN or the reviewer — recorded,
+    never invented here). No QUALITY block -> DORMANT (printed; OD-1)."""
+    bc = _qq_bc()
+    sem = src.get('figural_semantic_objects') or {}
+    cm = _qq_cm(src)
+    bad, dormant, checked = [], 0, 0
+    for b in blocks:
+        q = str(b.qnum)
+        qb = _qq_quality_for(src, q)
+        if not qb:
+            dormant += 1
+            continue
+        rec = cm.get(q) or {}
+        drawn = []
+        for o in (sem.get(q) or []):
+            if isinstance(o, dict) and o.get('canonical') and o.get('kind') in ('STRUCTURE', 'COORDINATION'):
+                drawn.append(bc.structure_identity(o['canonical'], reperceive=False))
+        named = [(n, i) for n, i in (rec.get('named_entities') or []) if n]
+        stem = block_stem_text(b)
+        asked = re.findall(r'\b([A-Z])\b(?=\s*(?:is|are|,|\.|\?|$))', stem)
+        r = bc.stem_leak_check(stem, qb.get('tested_concept_lexicon') or [],
+                               named_concept_rate=qb.get('named_concept_rate') or 0.0,
+                               drawn_identities=drawn, named_entities=named,
+                               shown_entity_named_rate=(qb.get('shown_entity_named_rate') if isinstance(qb.get('shown_entity_named_rate'), (int, float)) else 0.0),
+                               scheme_annotations=rec.get('scheme_annotations') or [],
+                               condition_vocab=rec.get('condition_vocab') or [],
+                               trailing_placeholders=rec.get('trailing_placeholders') or [],
+                               asked_placeholders=list(set(asked) | set(rec.get('asked_placeholders') or [])),
+                               multi_step_lettered_allowed=bool(rec.get('multi_step_lettered_allowed')))
+        checked += 1
+        if r['state'] == 'FAIL':
+            bad.append(f"Q{q}: {r['reason']}")
+            _item('A-STEMLEAK', q, 'A-STEMLEAK: ' + r['reason'], 'VOID_ITEM')
+    if bad and _qq_gate_calibration(src).get('A-STEMLEAK') == 'WARN':
+        # §4.6: Step 5 measured this gate failing > PYQ_FALSE_FAIL_MAX of the exam's OWN
+        # PYQ stems — the rule is wrong for this exam; WARN (listed on the bench card)
+        for f in list(ITEM_FINDINGS):
+            if f.get('gate') == 'A-STEMLEAK':
+                ITEM_FINDINGS.remove(f)
+        _warn('A-STEMLEAK', f'CALIBRATED WARN (GATE_CALIBRATION: the exam\'s own PYQ fail this rule) — {len(bad)} stem(s): ' + _flist(bad))
+    elif bad:
+        _qq_fail_or_amber('A-STEMLEAK', f'ITEM DEFECT — {len(bad)} stem(s) give the answer away or carry a non-agent '
+                                        f'annotation / unasked placeholder: ' + _flist(bad) + ' — ladder R2s (rewrite the stem only).', src)
+    elif checked:
+        _ok('A-STEMLEAK', f'{checked} stem(s) checked; {dormant} DORMANT (no QUALITY block).')
+    else:
+        _ok('A-STEMLEAK', f'DORMANT — no subtopic QUALITY block in section_rules (run Step 5 of release 2026.11.03); {dormant} question(s) unchecked — OD-1: recorded, never a stop.')
+
+
+def gate_stemform(blocks, src):
+    """A-STEMFORM [D] (G04 R4.4). pattern_key (dossier) must be one the subtopic's
+    PYQs observe (section_rules PATTERN_KEYS of that entry, cascading to the whole
+    file when the entry lists < 5); the question line's word count within
+    [min, max(max, 1.2 x p90)]. No pattern anywhere -> N/A for that item."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    all_pk = set(re.findall(r'"pattern_key":\s*"([^"]+)"', txt))
+    bad, checked = [], 0
+    for b in blocks:
+        q = str(b.qnum)
+        rec = cm.get(q) or {}
+        qb = _qq_quality_for(src, q)
+        if not qb:
+            continue
+        sid = rec.get('subtopic_id')
+        _m = re.search(r'^[ \t]*subtopic_id:[ \t]*' + re.escape(str(sid)) + r'[ \t\r]*$', txt, re.M) if sid else None
+        i = _m.start() if _m else -1
+        j = txt.find('\n--- Subtopic:', i) if i >= 0 else -1
+        entry = txt[i:j if j > 0 else len(txt)] if i >= 0 else ''
+        pks = set(re.findall(r'"pattern_key":\s*"([^"]+)"', entry))
+        level = 'subtopic'
+        if len(re.findall(r'"raw_count":\s*(\d+)', entry)) and sum(int(x) for x in re.findall(r'"raw_count":\s*(\d+)', entry)) < bc.STEM_PATTERN_MIN_POOL:
+            pks, level = all_pk, 'section'
+        m = re.search(r'stem_word_count: min=(\d+) max=(\d+)', entry)
+        stats = {'min': int(m.group(1)) if m else 0, 'max': int(m.group(2)) if m else 0,
+                 'p90': (qb.get('stem_word_count_pct') or {}).get('p90', int(m.group(2)) if m else 0)}
+        wc = bc.stem_word_count(block_stem_text(b).split('\n')[0])
+        r = bc.stem_form_check(rec.get('pattern_key'), pks, wc, bc.stem_length_bound(stats), level)
+        if r['state'] == 'N/A':
+            continue
+        checked += 1
+        if r['state'] == 'FAIL':
+            bad.append(f"Q{q}: {r['reason']}")
+            _item('A-STEMFORM', q, 'A-STEMFORM: ' + r['reason'], 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-STEMFORM', f'ITEM DEFECT — {len(bad)} stem(s) off the exam\'s observed pattern or length: '
+                                        + _flist(bad) + ' — ladder R2s.', src)
+    elif checked:
+        _ok('A-STEMFORM', f'{checked} stem(s) match an observed pattern_key within the length bound.')
+    else:
+        _ok('A-STEMFORM', 'DORMANT — no QUALITY block / no observed pattern (OD-1: recorded).')
+
+
+def gate_distractor(blocks, src):
+    """A-DISTRACTOR [D] (G06 R6.1 / R6.3 a, b, c, c2, f). Options and key from the figure
+    records; mechanisms, class word, stated formula, reagents from the dossier record.
+    [J] parts (existence, text-option class) are the reviewer's (A-REVIEW)."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    opts_by_q = _qq_options_by_q(src)
+    bad, checked, reviewer = [], 0, []
+    for b in blocks:
+        q = str(b.qnum)
+        rec = cm.get(q) or {}
+        labs = _label_paras(b)
+        n_opts = len(opts_by_q.get(q) or labs)
+        if n_opts == 0:
+            continue
+        mech = rec.get('distractor_mechanisms')
+        if mech is not None or _paper_is_qq(src):
+            _ans = (src.get('answers') or {}).get(str(q))
+            _kss = int(rec.get('key_set_size') or (len(_ans) if isinstance(_ans, (list, tuple)) else 1) or 1)
+            rr = bc.distractor_record_check(mech or [], n_opts, _kss,
+                                            rec.get('mechanism_family') or 'chemistry')
+            if rr['state'] == 'FAIL':
+                bad.append(f"Q{q} record: {rr['reason']}")
+        rows = opts_by_q.get(q)
+        if rows and all(k == 'STRUCTURE' for _l, k, _p in rows):
+            smiles = [p for _l, _k, p in rows]
+            kidx = _qq_key_index(src, q, len(smiles))
+            key = smiles[kidx] if kidx is not None else None
+            checked += 1
+            if rec.get('class_word'):
+                r = bc.class_predicate_check(rec['class_word'], smiles)
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q} (a): {r['reason']}")
+            if rec.get('stated_formula') or rec.get('stated_dbe') is not None:
+                r = bc.data_consistency_check(smiles, rec.get('stated_formula'), rec.get('stated_dbe'))
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q} (b): {r['reason']}")
+            if key is not None and mech:
+                dmech = [m for i, m in enumerate(mech)] if len(mech) == len(smiles) - 1 else mech
+                dist = [s for i, s in enumerate(smiles) if i != kidx]
+                r = bc.mechanism_formula_check(dist, key, dmech, rec.get('reagent_unit_formula'))
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q} (c2): {r['reason']}")
+                givens = rec.get('given_smiles') or []
+                r = bc.inventory_check(dist, givens, rec.get('reagents') or [], key_smiles=key, mechanisms=dmech)
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q} (c): {r['reason']}")
+                if r.get('reviewer'):
+                    reviewer.append(f'Q{q}')
+                qb = _qq_quality_for(src, q) or {}
+                share = qb.get('near_isomer_share')
+                r = bc.near_isomer_check(dist, key, share if isinstance(share, (int, float)) else 0.0,
+                                         exempt=str((rec.get('ladder') or {}).get('rung', '')) in ('R4', "R4'"))
+                if r['state'] == 'FAIL':
+                    bad.append(f"Q{q} (f): {r['reason']}")
+    for f in bad:
+        _item('A-DISTRACTOR', f.split(' ')[0][1:], 'A-DISTRACTOR: ' + f, 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-DISTRACTOR', f'ITEM DEFECT — {len(bad)} implausible / eliminable / unrecorded distractor finding(s): '
+                                          + _flist(bad) + ' — ladder R2o.', src)
+    elif checked or reviewer:
+        _ok('A-DISTRACTOR', f'{checked} structure option set(s) pass class / data / inventory / mechanism checks'
+                            + (f'; reviewer: {_flist(reviewer)}' if reviewer else '') + '.')
+    else:
+        _ok('A-DISTRACTOR', 'dormant — no structure option set with a recorded key (text options -> A-REVIEW).')
+
+
+def gate_consist(blocks, src):
+    """A-CONSIST [D] (G09 R9.1 a, c): stem agents (dossier stem_agents) ⊆ figure agents
+    (REACTION canonical middle part / descriptor agents); a stereoisomer_count item's
+    counted object drawn without stereo marks."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    sem = src.get('figural_semantic_objects') or {}
+    bad, checked = [], 0
+    for b in blocks:
+        q = str(b.qnum)
+        rec = cm.get(q) or {}
+        objs = [o for o in (sem.get(q) or []) if isinstance(o, dict)]
+        fig_agents = []
+        counted = None
+        for o in objs:
+            c = o.get('canonical')
+            if o.get('kind') == 'REACTION' and isinstance(c, str) and c.count('>') == 2:
+                fig_agents += [a for a in c.split('>')[1].split('.') if a]
+            d = o.get('descriptor') if isinstance(o.get('descriptor'), dict) else {}
+            fig_agents += [str(a) for a in (d.get('agents') or []) if a]
+            if str(o.get('role') or '') == 'problem' and o.get('kind') in ('STRUCTURE', 'COORDINATION') and counted is None:
+                counted = c
+        stem_agents = rec.get('stem_agents') or []
+        ask = str(rec.get('shape') or rec.get('figural_ask_type') or '').split('|')[0] or None
+        if not stem_agents and ask != 'stereoisomer_count':
+            continue
+        r = bc.consist_check(stem_agents, fig_agents, ask_type=ask, counted_smiles=counted,
+                             pyq_phrase_states_constitution=bool(rec.get('pyq_phrase_states_constitution')))
+        if r['state'] == 'N/A':
+            continue
+        checked += 1
+        if r['state'] == 'FAIL':
+            bad.append(f"Q{q}: {r['reason']}")
+            _item('A-CONSIST', q, 'A-CONSIST: ' + r['reason'], 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-CONSIST', f'ITEM DEFECT — {len(bad)} stem/figure inconsistenc(ies): ' + _flist(bad) + ' — ladder R2s.', src)
+    elif checked:
+        _ok('A-CONSIST', f'{checked} item(s): every stem agent is in its figure; counted objects drawn without stereo marks.')
+    else:
+        _ok('A-CONSIST', 'dormant — no stem agents / stereoisomer-count item recorded.')
+
+
+def gate_stereodecl(src):
+    """A-STEREODECL [D] (owner Q-A). Every figure object carrying stereo_declared is checked
+    bc.stereo_declaration_check(canonical, declared); undeclared on a 2026.11.03 paper is
+    a WARN (never a block)."""
+    bc = _qq_bc()
+    sem = src.get('figural_semantic_objects') or {}
+    bad, undeclared, checked = [], 0, 0
+    for q, objs in sem.items():
+        for o in (objs or []):
+            if not isinstance(o, dict) or o.get('kind') not in ('STRUCTURE', 'COORDINATION') or not o.get('canonical'):
+                continue
+            if 'stereo_declared' not in o:
+                undeclared += 1
+                continue
+            r = bc.stereo_declaration_check(o['canonical'], o.get('stereo_declared'))
+            if r['state'] == 'N/A':
+                continue
+            checked += 1
+            if r['state'] == 'FAIL':
+                bad.append(f"Q{q} {o.get('role')}: {r['reason']}")
+            elif r['state'] == 'WARN':
+                undeclared += 1
+    for f in bad:
+        _item('A-STEREODECL', f.split(' ')[0][1:], 'A-STEREODECL: ' + f, 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-STEREODECL', f'ITEM DEFECT — {len(bad)} structure(s) whose SMILES encodes a different '
+                                          f'stereo-descriptor set than the author declared: ' + _flist(bad) + ' — ladder R2o.', src)
+    elif undeclared and _paper_is_qq(src):
+        _warn('A-STEREODECL', f'{checked} declaration(s) agree; {undeclared} structure(s) carry no stereo_declared line (R1.6: declare intent per structure).')
+    elif checked:
+        _ok('A-STEREODECL', f'{checked} stereo declaration(s) agree with their SMILES.')
+    else:
+        _ok('A-STEREODECL', 'dormant — no structure carries a stereo_declared line (pre-2026.11.03 paper or no structures).')
+
+
+def gate_itemrule(blocks, src):
+    """A-ITEMRULE [D] (G07 R7.2-R7.4; G11). ITEM_RULES.LONGEST_KEY and MIDDLE_VALUE_KEY
+    recomputed on the DELIVERED option text with the registry / dossier key; suspended
+    only by MEASURED PYQ rate (style_profile.item_rules) — never by absence."""
+    bc = _qq_bc()
+    ir = (src.get('style_profile') or {}).get('item_rules') or {}
+    bad, checked, suspended = [], 0, []
+    for rid in ('LONGEST_KEY', 'MIDDLE_VALUE_KEY'):
+        if bc.item_rule_suspended(ir, rid):
+            suspended.append(rid)
+    for b in blocks:
+        labs = _label_paras(b)
+        texts = [t for _tok, _full, t in labs]
+        if not texts or not all(texts):
+            continue
+        k = _qq_key_index(src, b.qnum, len(texts))
+        if k is None:
+            continue
+        checked += 1
+        for rid, fn in (('LONGEST_KEY', bc.item_longest_key), ('MIDDLE_VALUE_KEY', bc.item_middle_value_key)):
+            if rid in suspended:
+                continue
+            if fn(texts, k) == 'FAIL':
+                bad.append(f'Q{b.qnum}: {rid}')
+                _item('A-ITEMRULE', b.qnum, f'A-ITEMRULE: {rid}', 'VOID_ITEM')
+    if bad:
+        _qq_fail_or_amber('A-ITEMRULE', f'ITEM DEFECT — {len(bad)} surface cue(s) to the key: ' + _flist(bad)
+                                        + ' — ladder R2o (rebalance option wording; the key\'s meaning never changes).', src)
+    elif checked:
+        _ok('A-ITEMRULE', f'{checked} keyed text-option item(s): no longest-key / middle-value cue'
+                          + (f' (suspended by PYQ measurement: {suspended})' if suspended else '') + '.')
+    else:
+        _ok('A-ITEMRULE', 'dormant — no keyed text-option item (picture options -> A-OPTDISTINCT / A-DISTRACTOR).')
+
+
+def gate_review(src, args=None):
+    """A-REVIEW (G12 R12.1; OD-5 a). FINAL phase on a 2026.11.03 paper: every item carries
+    a review record (concept_map[q].review, written by MockReview and bound by
+    paper_md5); a key disagreement, low confidence or contested selectivity is an item
+    defect (ladder R2). Pre-commit phase: dormant (the review runs after the sweep)."""
+    phase = getattr(args, 'phase', 'final') if args is not None else src.get('_phase', 'final')
+    cm = _qq_cm(src)
+    if phase == 'precommit':
+        _ok('A-REVIEW', 'dormant — pre-commit sweep; the independent review runs after it (AWAITING_REVIEW).')
+        return
+    if not _paper_is_qq(src):
+        _ok('A-REVIEW', 'dormant — pre-2026.11.03 paper (EC-V18).')
+        return
+    bad_missing = sorted((q for q, e in cm.items() if not isinstance(e, dict) or not isinstance(e.get('review'), dict)),
+                     key=lambda x: int(x) if str(x).isdigit() else 0)
+    bad_defect = []
+    for q, e in cm.items():
+        rv = e.get('review') if isinstance(e, dict) else None
+        if not isinstance(rv, dict):
+            continue
+        if rv.get('key_agrees') is False or rv.get('confidence') == 'low' \
+                or str(rv.get('selectivity_basis') or '').lower().startswith('contested') or rv.get('verdict') == 'FAIL':
+            bad_defect.append(f'Q{q}')
+            _item('A-REVIEW', q, 'A-REVIEW: ' + str(rv.get('reason') or 'reviewer disagrees / low confidence'), 'VOID_ITEM')
+    if bad_missing:
+        _fail('A-REVIEW', f'{len(bad_missing)} item(s) carry NO independent-review record (OD-5: review is mandatory on every '
+                          f'paper; run MockReview in a fresh chat, then TestCreate --resume): ' + _flist(bad_missing))
+    elif bad_defect:
+        _fail('A-REVIEW', f'ITEM DEFECT — reviewer disagrees with the key or rates confidence low on: ' + _flist(bad_defect) + ' — ladder R2.')
+    else:
+        _ok('A-REVIEW', f'{len(cm)} item(s) independently reviewed; every key agreed.')
+
+
+def gate_qualitystatus(src, args=None):
+    """A-QUALITYSTATUS (OD-9 a). On a 2026.11.03 paper every item carries quality_status;
+    UNRESOLVED items are listed here (UNCERTIFIED_ITEMS -> the certificate's
+    uncertified_items) and the paper is reported NOT CERTIFIED — a WARN, never a stop;
+    Deliver refuses it without --accept-uncertified."""
+    cm = _qq_cm(src)
+    if not _paper_is_qq(src):
+        _ok('A-QUALITYSTATUS', 'dormant — pre-2026.11.03 paper.')
+        return
+    bc = _qq_bc()
+    unres = bc.certificate_uncertified({q: (e.get('quality_status') if isinstance(e, dict) else None) for q, e in cm.items()})
+    UNCERTIFIED_ITEMS.clear()
+    UNCERTIFIED_ITEMS.update(unres)
+    bad_missing = [q for q, e in cm.items() if not isinstance(e, dict) or 'quality_status' not in e]
+    phase = getattr(args, 'phase', 'final') if args is not None else src.get('_phase', 'final')
+    if bad_missing and phase == 'precommit':
+        # The stamps are written by S13-2F WHEN the certificate is issued — on the sweep
+        # itself they are legitimately absent (a stamp before the audit would be a lie).
+        if unres:
+            _warn('A-QUALITYSTATUS', f'NOT CERTIFIED — {len(unres)} item(s) stamped UNRESOLVED: '
+                                     + _flist([f'Q{q}' for q in unres]) + f'; {len(bad_missing)} item(s) await their stamp (written with the certificate).')
+        else:
+            _ok('A-QUALITYSTATUS', f'pre-commit sweep — {len(bad_missing)} item(s) await their stamp (written with the certificate); none UNRESOLVED.')
+    elif bad_missing:
+        _fail('A-QUALITYSTATUS', f'{len(bad_missing)} item(s) carry no quality_status (S13-2F must stamp CERTIFIED / UNRESOLVED on every item): ' + _flist(sorted(bad_missing)))
+    elif unres:
+        _warn('A-QUALITYSTATUS', f'NOT CERTIFIED — {len(unres)} item(s) carry findings that survived ladder R5: '
+                                 + _flist([f'Q{q}' for q in unres]) + ' (certificate.uncertified_items; TestDeliver refuses without --accept-uncertified).')
+    else:
+        _ok('A-QUALITYSTATUS', f'{len(cm)} item(s) CERTIFIED.')
+
+
+def gate_readiness(src):
+    """A-READINESS (G10, OD-1 — advisory by owner decision). Prints the paper's recorded
+    quality-readiness (registry question_index entry quality_readiness, written at S3)
+    so a DEGRADED paper is visible in the audit, never only in a footer line."""
+    e = _qq_entry(src) or {}
+    _reg_rd = (src.get('registry') or {}).get('quality_readiness')
+    rd = e.get('quality_readiness') or ((_reg_rd or {}).get(_this_paper_id(src) or '') if isinstance(_reg_rd, dict) else None)
+    if not isinstance(rd, dict):
+        _ok('A-READINESS', 'dormant — no quality_readiness record on this paper (pre-2026.11.03 run).')
+        return
+    deg = rd.get('degraded') or []
+    if deg:
+        _warn('A-READINESS', 'DEGRADED QUALITY — these controls were DORMANT when the paper was written (OD-1: run continued): ' + _flist(deg))
+    else:
+        _ok('A-READINESS', 'every quality control was ACTIVE when the paper was written.')
+
+
+def gate_shapemix(src):
+    """A-SHAPEMIX [D] (G05 R5.7; OD-6 c floors AND caps). Counts of concept_map[q].shape
+    against blueprint shape_target_per_paper[<mock>]; infeasible shapes recorded in the
+    blueprint are never a defect."""
+    bc = _qq_bc()
+    bp = src.get('blueprint') or {}
+    tg = (bp.get('shape_target_per_paper') or {})
+    mk = str(src.get('_mockN') or src.get('mock_n') or '')
+    per = tg.get(mk) if isinstance(tg, dict) else None
+    cm = _qq_cm(src)
+    if not isinstance(per, dict) or not per or not cm:
+        _ok('A-SHAPEMIX', 'DORMANT — no shape_target_per_paper for this paper (run bp_refresh / ScopedBlueprint 1.13.0) or no concept_map (OD-1: recorded).')
+        return
+    if src.get('through_q'):
+        _ok('A-SHAPEMIX', 'dormant — partial-paper mode; the shape mix is a whole-paper target.')
+        return
+    # shape recorded as 'ask_type' or 'ask_type|grammar' — the plan keys are bare ask types
+    counts, items_by_shape = {}, {}
+    for q, e in cm.items():
+        if isinstance(e, dict) and e.get('shape'):
+            sh = str(e['shape']).split('|')[0].strip()
+            counts[sh] = counts.get(sh, 0) + 1
+            items_by_shape.setdefault(sh, []).append(str(q))
+    # infeasibility is DERIVED from the artefacts (QQ-0): a planned shape no subtopic of
+    # this paper's items uses in the exam's own PYQ (QUALITY block shape_shares) cannot
+    # be met and is recorded, never a defect.
+    txt = src.get('section_rules_text') or src.get('rules_txt') or ''
+    usable = set()
+    for q, e in cm.items():
+        qb = _qq_quality_for(src, q) or {}
+        for k in (qb.get('shape_shares') or {}):
+            usable.add(str(k).split('|')[0].strip())
+    infeasible = [sh for sh in per if usable and sh not in usable]
+    # the PLANNER's own record (S3-12d SHAPE_PLAN['_infeasible'], committed on the entry):
+    # a floor it could not place with the slots it had is recorded, never a defect
+    _ent = _qq_entry(src) or {}
+    for sh in (_ent.get('shape_infeasible') or []):
+        if sh in per and sh not in infeasible:
+            infeasible.append(sh)
+    per = {k: v for k, v in per.items() if k != 'other'}      # 'other' is not a shape to plan or count
+    r = bc.shape_mix_check(counts, per, infeasible=infeasible)
+    if r['state'] == 'FAIL':
+        # ITEM findings so the ladder has a question to move: an over-cap / excess shape
+        # names its surplus items; a below-floor / shortfall shape names items of the
+        # shapes that are ABOVE their target (the ones a rebuild into the short shape
+        # would come from). Every named item is a ladder R3 candidate, never a stop.
+        over = {f['shape']: f for f in r['findings'] if f['direction'] in ('above cap', 'excess')}
+        short = [f for f in r['findings'] if f['direction'] in ('below floor', 'shortfall')]
+        named = set()
+        for sh, f in over.items():
+            lim = int(f.get('cap') if f['direction'] == 'above cap' else f.get('target') or 0)
+            for q in items_by_shape.get(sh, [])[lim:]:
+                named.add(q)
+        if short:
+            donors = [sh for sh in counts if counts[sh] > int((per.get(sh) or {}).get('target') or 0)]
+            deficit = sum(int(f.get('floor') if f['direction'] == 'below floor' else f.get('target') or 0) - f['count'] for f in short)
+            for sh in donors:
+                surplus = counts[sh] - int((per.get(sh) or {}).get('target') or 0)
+                for q in items_by_shape.get(sh, [])[-surplus:] if surplus > 0 else []:
+                    if deficit <= 0:
+                        break
+                    named.add(q); deficit -= 1
+        for q in sorted(named, key=lambda x: int(x) if x.isdigit() else 0):
+            _item('A-SHAPEMIX', q, 'A-SHAPEMIX: shape mix off plan — rebuild into an under-target shape valid for the subtopic', 'VOID_ITEM')
+        _msg_sm = ('shape mix off the exam\'s measured plan: ' + _flist([f"{f['shape']} {f['count']} ({f['direction']})" for f in r['findings']])
+                   + (f'; infeasible (recorded): {infeasible}' if infeasible else ''))
+        if named:
+            _qq_fail_or_amber('A-SHAPEMIX', _msg_sm + f' — ladder R3 on {_flist(sorted("Q" + q for q in named))}', src)
+        else:
+            # no item can move (every shape at or under target, or the paper recorded no
+            # shapes): a FAIL with no item would have no ladder rung and no UNRESOLVED
+            # stamp to carry it — recorded as a WARN (OD-1 / OD-9), never a dead end.
+            _warn('A-SHAPEMIX', _msg_sm + ' — no movable item; recorded (a paper whose items record no shape cannot be rebalanced).')
+    else:
+        _ok('A-SHAPEMIX', f'{sum(counts.values())} item(s) across {len(per)} planned shape(s): floors met, caps kept'
+                          + (f'; infeasible for this paper\'s subtopics (recorded): {infeasible}' if infeasible else '') + '.')
+
+
+def _qq_concept_caps(src, n_items):
+    """{concept_id: cap} measured from the difficulty profile's per-item `concept` tags:
+    per paper, count each concept; cap = bc.template_cap(max count, n_items, mean items
+    per profile paper). {} when the profile carries no concept tags."""
+    bc = _qq_bc()
+    prof = src.get('profile') or {}
+    papers = prof.get('papers') if isinstance(prof, dict) else None
+    if not isinstance(papers, dict):
+        return {}
+    per_paper, sizes = {}, []
+    for pk, paper in papers.items():
+        qs = (paper or {}).get('questions') if isinstance(paper, dict) else None
+        if not isinstance(qs, dict):
+            continue
+        sizes.append(len(qs))
+        cnt = {}
+        for rec in qs.values():
+            c = rec.get('concept') if isinstance(rec, dict) else None
+            if c:
+                cnt[str(c)] = cnt.get(str(c), 0) + 1
+        for c, k in cnt.items():
+            per_paper[c] = max(per_paper.get(c, 0), k)
+    if not per_paper:
+        return {}
+    mean_sz = (sum(sizes) / len(sizes)) if sizes else None
+    return {c: bc.template_cap(k, int(n_items or 0), mean_sz) for c, k in per_paper.items()}
+
+
+def gate_template(src):
+    """A-TEMPLATE [D] (G08 R8.3). Counts of concept_map[q].fingerprint (and concept) vs
+    caps from the subtopic QUALITY blocks (fingerprint_max_per_paper scaled by
+    bc.template_cap; unmeasured -> 2)."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    N = int(src.get('total_questions') or len(cm) or 0)
+    fcounts, ccounts, caps, ibf, ibc = {}, {}, {}, {}, {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        fp = e.get('fingerprint')
+        if fp:
+            fcounts[fp] = fcounts.get(fp, 0) + 1
+            ibf.setdefault(fp, []).append(str(q))
+            qb = _qq_quality_for(src, q) or {}
+            mx = (qb.get('fingerprint_max_per_paper') or {}).get(fp)
+            n_per = (qb.get('n') or 0) / float(qb.get('papers_measured') or 1) if qb.get('papers_measured') else None
+            share = (qb.get('shape_shares') or {}).get('|'.join(fp.split('|')[0:1] + fp.split('|')[2:3]))
+            caps[fp] = bc.template_cap(mx, N, n_per, share)
+        if e.get('concept'):
+            ccounts[e['concept']] = ccounts.get(e['concept'], 0) + 1
+            ibc.setdefault(e['concept'], []).append(str(q))
+    if not fcounts:
+        _ok('A-TEMPLATE', 'DORMANT — no fingerprint recorded on this paper\'s items (OD-1: recorded).')
+        return
+    exempt = {q for q, e in cm.items() if isinstance(e, dict) and str((e.get('ladder') or {}).get('rung', '')) in ('R4', "R4'")}
+    # concept caps are MEASURED from the exam's own explained PYQ (difficulty profile,
+    # PYQExplain v2.26 `concept` per item): the max count of each concept id in one PYQ
+    # paper, scaled to this paper's size like the fingerprint caps. No profile / no
+    # concept tags -> concept caps dormant (never a default cap on a concept — R8.3).
+    concept_caps = _qq_concept_caps(src, N)
+    r = bc.template_check(fcounts, caps, concept_counts=ccounts, concept_caps=concept_caps, exempt_qs=exempt,
+                          items_by_fingerprint=ibf, items_by_concept=ibc)
+    if r['state'] == 'FAIL':
+        for f in r['findings']:
+            for q in f.get('items') or []:
+                _item('A-TEMPLATE', q, f"A-TEMPLATE: {f['kind']} {f['id']} repeats beyond cap {f['cap']} — rebuild on another template", 'VOID_ITEM')
+        _qq_fail_or_amber('A-TEMPLATE', 'the same template repeats inside one paper beyond the exam\'s measured maximum: '
+                                        + _flist([f"{f['kind']} {f['id']} x{f['count']} > cap {f['cap']}" for f in r['findings']]) + ' — ladder R3.', src)
+    else:
+        _ok('A-TEMPLATE', f'{len(fcounts)} template fingerprint(s), every count within its cap.')
+
+
+def gate_pyqbench(src):
+    """A-PYQBENCH (G12 R12.2) — INFO. One-page bench card comparing the paper with the
+    scope's PYQs on the rows the other gates already computed; printed, never a verdict."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    e = _qq_entry(src) or {}
+    rows = []
+    sched = {}
+    for d in ((src.get('blueprint') or {}).get('difficulty_schedule') or []):
+        if isinstance(d, dict) and str(d.get('mock')) == str(src.get('_mockN') or src.get('mock_n')):
+            for lab in ('simple', 'medium', 'hard'):
+                if lab in d:
+                    sched[{'simple': 'Easy', 'medium': 'Medium', 'hard': 'Hard'}[lab]] = int(d[lab] or 0)
+    final = {}
+    for q in (e.get('questions') or []):
+        b = ((q.get('difficulty_check') or {}).get('final_band')) or q.get('difficulty')
+        if b:
+            final[b] = final.get(b, 0) + 1
+    for row in bc.diffdist_info(sched, final):
+        rows.append({'row': f"difficulty {row['band']}", 'paper': row['final'], 'pyq': row['scheduled'],
+                     'fail_constant': None, 'state': 'INFO' + ('' if row['within'] else ' (outside ±%d)' % row['tolerance'])})
+    shapes = {}
+    for x in cm.values():
+        if isinstance(x, dict) and x.get('shape'):
+            shapes[x['shape']] = shapes.get(x['shape'], 0) + 1
+    for sh, n in sorted(shapes.items()):
+        rows.append({'row': f'shape {sh}', 'paper': n, 'pyq': '', 'fail_constant': 'A-SHAPEMIX', 'state': 'see A-SHAPEMIX'})
+    deg = (e.get('quality_readiness') or {}).get('degraded') or []
+    rows.append({'row': 'dormant controls', 'paper': len(deg), 'pyq': 0, 'fail_constant': None, 'state': 'INFO' if not deg else 'DEGRADED'})
+    _cal = _qq_gate_calibration(src)
+    if _cal or _qq_pyq_mode(src):
+        rows.append({'row': 'PYQ mode / calibrated gates', 'paper': _qq_pyq_mode(src) or '?', 'pyq': ','.join(g for g, m in _cal.items() if m == 'WARN') or 'none',
+                     'fail_constant': None, 'state': 'INFO'})
+    if not rows:
+        _ok('A-PYQBENCH', 'dormant — nothing to tabulate.')
+        return
+    _ok('A-PYQBENCH', 'INFO — bench card:\n' + bc.pyq_bench_card(rows))
+
+
 def run_audit(args):
     _reset()
     src = load_sources(args)
@@ -4753,6 +5662,23 @@ def run_audit(args):
     _safe_gate('A-FIGFORMAT', gate_figformat, src)           # advisory — ask-type mix
     _safe_gate('A-DIFFSRC', gate_diffsrc, src)               # advisory — schedule provenance
     _safe_gate('A-CERT', gate_cert, src, args)               # S13-4c — certified docx unchanged
+    # ── v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decisions OD-1..OD-14) ──
+    _safe_gate('A-READINESS', gate_readiness, src)            # advisory (OD-1) — DEGRADED list
+    _safe_gate('A-OPTDISTINCT', gate_optdistinct, blocks, src) # item gate — G01 identity
+    _safe_gate('A-MEDIAREUSE', gate_mediareuse, blocks, src)   # item gate — G03 (c) / OD-13
+    _safe_gate('A-ENTITYLEAK', gate_entityleak, blocks, src)   # item gate — G03 (a)(b)(d)
+    _safe_gate('A-STEMLEAK', gate_stemleak, blocks, src)       # item gate — G04 (a)-(d)
+    _safe_gate('A-STEMFORM', gate_stemform, blocks, src)       # item gate — G04 R4.4
+    _safe_gate('A-DISTRACTOR', gate_distractor, blocks, src)   # item gate — G06
+    _safe_gate('A-CONSIST', gate_consist, blocks, src)         # item gate — G09
+    _safe_gate('A-STEREODECL', gate_stereodecl, src)           # item gate — owner Q-A
+    _safe_gate('A-ITEMRULE', gate_itemrule, blocks, src)       # item gate — G07 hard rules
+    _safe_gate('A-SHAPEMIX', gate_shapemix, src)               # paper gate — G05 (OD-6 c)
+    _safe_gate('A-TEMPLATE', gate_template, src)               # paper gate — G08
+    _safe_gate('A-REVIEW', gate_review, src, args)             # G12 — OD-5 (final phase)
+    _safe_gate('A-QUALITYSTATUS', gate_qualitystatus, src, args)  # OD-9 — NOT CERTIFIED list
+    _safe_gate('A-PYQBENCH', gate_pyqbench, src)               # INFO — bench card
+    _qq_reconcile_unresolved(getattr(args, 'phase', 'final'))  # OD-9: UNRESOLVED-only FAILs -> WARN
     rc = print_results()
     _okw = write_item_outputs(args)
     if getattr(args, 'write_certificate', None) and not _okw:
@@ -4832,7 +5758,7 @@ def gate_contentlevel(src):
     Question keys are compared as TEXT: a concept_map keyed by int (a JSON round trip
     through a dict built with int keys) must not skip the label check, and a key such
     as '²' (isdigit() True, int() raises) must not crash the sort."""
-    cm = src.get('concept_map') or {}
+    cm = _qq_cm(src)
     if not isinstance(cm, dict):
         cm = {}
     # one row PER ENTRY, label read from that same entry (never cm.get(str(q)), which
@@ -4878,7 +5804,7 @@ def gate_figformat(src):
         bp = {}
     tgt = (bp.get('fig_ask_target_per_mock') or {})
     mk = str(src.get('_mockN') or '')
-    cm = src.get('concept_map') or {}
+    cm = _qq_cm(src)
     if tgt and not isinstance(tgt, dict):
         _warn('A-FIGFORMAT', f'NOT CHECKED — fig_ask_target_per_mock is not a dict '
                              f'({type(tgt).__name__}).')
@@ -5013,15 +5939,21 @@ def gate_cert(src, args):
                         f"({str(cert.get('docx_sha256'))[:12]} != {now[:12]}) — INFRA: "
                         'never repair after commit; re-run from S13-2F.')
         return
-    if int(cert.get('findings', -1)) != 0:
+    _unc = set(str(x) for x in (cert.get('uncertified_items') or []))
+    if int(cert.get('findings', -1)) != 0 and not _unc:
         _fail('A-CERT', f"certificate records {cert.get('findings')} unresolved item "
                         f"finding(s) — S13-2F did not finish; INFRA.")
         return
-    _late = [r for r in ITEM_FINDINGS]
+    # v2.35 (OD-9 a): findings on items the certificate lists as UNRESOLVED are expected
+    _late = [r for r in ITEM_FINDINGS if str(r.get('q')) not in _unc]
     if _late:
         _fail('A-CERT', f'{len(_late)} item finding(s) now on a paper certified clean — '
                         f'the item gates are not deterministic on identical inputs (INFRA): '
                         + _flist([f"Q{r['q']}:{r['gate']}" for r in _late]))
+        return
+    if _unc:
+        _warn('A-CERT', f"paper is the one swept at S13-2F ({now[:12]}) but NOT CERTIFIED — "
+                        f"uncertified_items {sorted(_unc)} (OD-9: Deliver refuses without --accept-uncertified).")
         return
     _ok('A-CERT', f"paper is the one certified at S13-2F ({now[:12]}); "
                   f"{len(cert.get('amber_notes') or [])} amber note(s) carried to the footer.")
@@ -5046,17 +5978,27 @@ def write_item_outputs(args):
         # no FAIL line of ANY gate. S13-2F runs the auditor against the S13-4 PREVIEW
         # registry (--registry), so registry-reading gates (A-OPTN, A-QINDEX, ...) are
         # assessable before the commit and nothing is deferred past it (pass-1 review A1).
-        blocking = [f'{c}: {m}' for lvl, c, m in RESULTS if lvl == 'FAIL']
-        if ITEM_FINDINGS or blocking:
-            print(f'CERTIFICATE: NOT WRITTEN — {len(ITEM_FINDINGS)} item finding(s), '
+        # v2.35 (OD-9 a): a finding that survived ladder R5 sits on an item stamped
+        # UNRESOLVED (A-QUALITYSTATUS -> UNCERTIFIED_ITEMS). Those findings do not block the
+        # certificate; they are LISTED in it (uncertified_items) and the paper is NOT
+        # CERTIFIED — Deliver refuses it without --accept-uncertified. Never a stop.
+        _unres = set(UNCERTIFIED_ITEMS)
+        _open_items = [f for f in ITEM_FINDINGS if str(f.get('q')) not in _unres]
+        _unres_gates = {f['gate'] for f in ITEM_FINDINGS if str(f.get('q')) in _unres}
+        blocking = [f'{c}: {m}' for lvl, c, m in RESULTS
+                    if lvl == 'FAIL' and not (c in _unres_gates and _unres)]
+        if _open_items or blocking:
+            print(f'CERTIFICATE: NOT WRITTEN — {len(_open_items)} item finding(s), '
                   f'{len(blocking)} blocking FAIL line(s) remain.')
             return False
         amber = [f'{c}: {m}' for lvl, c, m in RESULTS
                  if lvl == 'WARN' and str(m).startswith('AMBER')]
-        cert = {'schema': 1, 'docx_sha256': _sha256_file(args.docx),
+        cert = {'schema': 2, 'docx_sha256': _sha256_file(args.docx),
                 'phase': 'precommit', 'gate_ids': list(ITEM_GATE_IDS),
-                'findings': 0, 'amber_notes': amber,
-                'auditor': 'audit_canonical v2.34'}
+                'findings': len(ITEM_FINDINGS) - len(_open_items), 'amber_notes': amber,
+                'uncertified_items': sorted(_unres, key=lambda x: int(x) if str(x).isdigit() else 0),
+                'certified': not _unres,
+                'auditor': 'audit_canonical v2.35'}
         with open(wc, 'w', encoding='utf-8') as fh:
             json.dump(cert, fh, indent=1, sort_keys=True)
         print(f'CERTIFICATE: WRITTEN {wc} ({len(amber)} amber note(s)).')
@@ -10749,6 +11691,355 @@ def self_test():
           and [l for l, c, m in RESULTS] == ['WARN'] and 'NOT CHECKED' in RESULTS[0][2])
     _reset()
 
+
+    # ════════════════════════════════════════════════════════════════════════
+    # v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY. Every fixture is a FACT of
+    # the incident paper (CSIR-NET Organic Test 01) or of the GAP's Appendix C, and
+    # every finding emission of the new gates is KILLED by one of them.
+    # ════════════════════════════════════════════════════════════════════════
+    def _lv(code):
+        return [l for l, c, m in RESULTS if c == code]
+    def _msg(code):
+        return next((m for l, c, m in RESULTS if c == code), '')
+    def _items(code):
+        return [f['q'] for f in ITEM_FINDINGS if f['gate'] == code]
+    _rdk35 = True
+    try:
+        import importlib as _il35
+        _il35.import_module('rdkit.Chem')
+    except Exception:                                        # noqa: BLE001
+        _rdk35 = False
+    _QQ_ENTRY = {'mock': 1, 'paper_id': 'MOCK:M01', 'qindex_cert': {'producer_release': '2026.11.03'},
+                 'questions': [{'q': 1, 'difficulty': 'Hard', 'difficulty_check': {'final_band': 'Easy'}},
+                               {'q': 2, 'difficulty': 'Hard'}],
+                 'quality_readiness': {'degraded': ['G-STYLE', 'G-PYQ-DIST']}}
+    def _src35(**kw):
+        s = _src_stub(tq=2)
+        s['registry'] = {'question_index': [_QQ_ENTRY]}
+        s['_mockN'] = 1
+        s['figural_manifest_present'] = True
+        s.update(kw)
+        return s
+    def _opt_objs(smiles_list, problem=None, kind='STRUCTURE', extra=None):
+        objs = []
+        if problem:
+            objs.append(dict({'role': 'problem', 'kind': 'REACTION' if '>' in problem else 'STRUCTURE',
+                              'name': 'p', 'canonical': problem, 'descriptor': {}}, **(extra or {})))
+        for i, smi in enumerate(smiles_list, 1):
+            objs.append({'role': f'option:{i}', 'kind': kind, 'name': f'o{i}', 'canonical': smi, 'descriptor': {}})
+        return objs
+    # paper: Q1 = Q32 of the incident (picture options), Q2 = text options (Q33 lengths)
+    def _b35(d):
+        _add_q(d, 1, opts=('', '', '', ''), stem='Irradiation of (2E,4Z)-hexa-2,4-diene brings about a four-electron ring closure to a cyclobutene. On heating, this cyclobutene ring-opens to give Q. Q is')
+        _add_q(d, 2, opts=('diisobutylaluminium hydride in toluene at -78 C, then aqueous acid work-up',
+                           'lithium aluminium hydride in ether, then water',
+                           'hydrogen over palladium on carbon', 'sodium borohydride in methanol'),
+               stem='The reagent system X that converts the nitrile shown into the corresponding aldehyde without over-reduction is')
+    _p35 = _mini_doc(tmp, _b35)
+    _t35, _bl35 = parse_blocks(Document(_p35))
+    # ---- OD-10 predicate ------------------------------------------------------------
+    check('qq-paper-is-qq-by-producer-release-or-verdicts',
+          _paper_is_qq(_src35()) is True
+          and _paper_is_qq(_src35(registry={'question_index': [dict(_QQ_ENTRY, qindex_cert={'producer_release': '2026.11.02'})]})) is False
+          and _paper_is_qq(_src35(registry={}, concept_map={'1': {'quality_status': 'CERTIFIED'}})) is True)
+    _reset(); _qq_fail_or_amber('A-X', 'm', _src35(registry={}, concept_map={}))
+    check('qq-legacy-paper-is-amber-not-fail', _lv('A-X') == ['WARN'] and _msg('A-X').startswith('AMBER'))
+    # ---- A-OPTDISTINCT ------------------------------------------------------------
+    if _rdk35:
+        _reset(); gate_optdistinct(_bl35, _src35(figural_semantic_objects={'1': _opt_objs(['C/C=C/C=C/C', 'C/C=C/C=C\\C', 'C\\C=C/C=C/C', 'C=CCCC=C'])},
+                                             figural_object_types={'1': 'chemical_structure'}))
+        check('A-OPTDISTINCT-q32-two-options-one-molecule', _lv('A-OPTDISTINCT') == ['FAIL'] and _items('A-OPTDISTINCT') == ['1']
+              and 'options 2 and 3' in _msg('A-OPTDISTINCT').replace('(1, 2)', 'options 2 and 3'))
+        _reset(); gate_optdistinct(_bl35, _src35(figural_semantic_objects={'1': _opt_objs(['O=c1cccc[nH]1', 'Oc1ccccn1', 'CCO', 'CCC'])},
+                                             figural_object_types={'1': 'chemical_structure'}))
+        check('A-OPTDISTINCT-tautomer-pair-is-reviewer-warn', _lv('A-OPTDISTINCT') == ['WARN'] and 'tautomer' in _msg('A-OPTDISTINCT'))
+        _reset(); gate_optdistinct(_bl35, _src35(figural_semantic_objects={'1': _opt_objs(['C[C@H](O)CC', 'C[C@@H](O)CC', 'C/C=C/C', 'C/C=C\\C'])},
+                                             figural_object_types={'1': 'chemical_structure'}))
+        check('A-OPTDISTINCT-enantiomers-EZ-pass', _lv('A-OPTDISTINCT') == ['OK'])
+    # text options duplicate (0.50 vs 0.5) and no-record figural
+    def _b35t(d):
+        _add_q(d, 1, opts=('0.50', '0.5', '1', '2'), stem='Value?')
+        _add_q(d, 2, opts=('', '', '', ''), stem='Picture options with no record')
+    _bl35t = parse_blocks(Document(_mini_doc(tmp, _b35t)))[1]
+    _reset(); gate_optdistinct(_bl35t, _src35(figural_qs={2}, figural_semantic_objects={}))
+    check('A-OPTDISTINCT-text-dup-and-missing-record-fail',
+          _lv('A-OPTDISTINCT') == ['FAIL'] and sorted(_items('A-OPTDISTINCT')) == ['1', '2']
+          and 'NO option figure record' in _msg('A-OPTDISTINCT'))
+    _reset(); gate_optdistinct(_bl35t, _src35(figural_qs=set(), figural_semantic_objects={}, subtopic_sig_fig={'x': True},
+                                           concept_map={'1': {'subtopic_id': 'x'}}))
+    check('A-OPTDISTINCT-sig-fig-subtopic-keeps-0.50-vs-0.5', _lv('A-OPTDISTINCT') == ['OK'])
+    # ---- A-MEDIAREUSE -------------------------------------------------------------
+    class _BI:                                               # a block with media parts
+        def __init__(self, q, parts):
+            self.qnum, self.images, self.paras = q, [{'part': p, 'rid': 'r' + p} for p in parts], []
+    _reset(); gate_mediareuse([_BI(12, ['image47.png']), _BI(36, ['image47.png']), _BI(24, ['image82.png']), _BI(38, ['image82.png']), _BI(1, ['image1.png'])], _src35())
+    check('A-MEDIAREUSE-incident-q12-q36-q24-q38', _lv('A-MEDIAREUSE') == ['FAIL'] and sorted(_items('A-MEDIAREUSE')) == ['36', '38']
+          and 'Q36=Q12' in _msg('A-MEDIAREUSE'))
+    _reset(); gate_mediareuse([_BI(12, ['a']), _BI(36, ['a'])], _src35(concept_map={'12': {'stimulus_group_id': 'S'}, '36': {'stimulus_group_id': 'S'}}))
+    check('A-MEDIAREUSE-linked-set-exempt', _lv('A-MEDIAREUSE') == ['OK'])
+    _reset(); gate_mediareuse([_BI(1, [])], _src35())
+    check('A-MEDIAREUSE-dormant-no-pictures', _lv('A-MEDIAREUSE') == ['OK'] and 'dormant' in _msg('A-MEDIAREUSE'))
+    # ---- A-ENTITYLEAK -------------------------------------------------------------
+    if _rdk35:
+        _sem_leak = {'5': _opt_objs(['COc1ccc(C(C)=O)cc1', 'COc1ccc(C(=O)O)cc1', 'CC(=O)c1ccccc1', 'COc1ccccc1'], problem='COc1ccccc1>CC(=O)Cl.AlCl3>'),
+                     '12': _opt_objs(['COc1ccc(C(=O)O)cc1', 'CCO', 'CCC', 'CCCC'], problem='COc1ccc(C(C)=O)cc1')}
+        _cm_leak = {'5': {'correct_option': 1}, '12': {'correct_option': 1}}
+        _reset(); gate_entityleak([_BI(5, ['a']), _BI(12, ['b'])], _src35(figural_semantic_objects=_sem_leak, concept_map=_cm_leak))
+        check('A-ENTITYLEAK-q5-key-is-q12-given', _lv('A-ENTITYLEAK') == ['FAIL'] and set(_items('A-ENTITYLEAK')) == {'12'} and '(a)' in _msg('A-ENTITYLEAK'))
+        _cm_leak2 = {'5': {'correct_option': 1, 'entities': [{'role': 'key', 'text': 'India', 'kind': 'TEXT'}]},
+                     '12': {'correct_option': 2, 'entities': [{'role': 'given', 'text': 'india', 'kind': 'TEXT'}]}}
+        _sem_ok = {'5': _opt_objs(['CCCCCCO', 'CCCCCCCO', 'CCCCCCCCO', 'CCCCCCCCCO']), '12': _opt_objs(['c1ccccc1C', 'c1ccccc1CC', 'c1ccccc1CCC', 'c1ccccc1CCCC'])}
+        _reset(); gate_entityleak([_BI(5, ['a']), _BI(12, ['b'])], _src35(figural_semantic_objects=_sem_ok, concept_map=_cm_leak2,
+                                                                     section_rules_text='PYQ_TEXT_LEAK_CALIBRATED: true\n'))
+        check('A-ENTITYLEAK-text-leak-calibrated-is-warn', _lv('A-ENTITYLEAK') == ['WARN'] and 'reviewer' in _msg('A-ENTITYLEAK'))
+        _reset(); gate_entityleak([_BI(5, ['a']), _BI(12, ['b'])], _src35(figural_semantic_objects=_sem_ok, concept_map={'5': {'correct_option': 1}, '12': {'correct_option': 2}}))
+        check('A-ENTITYLEAK-clean', _lv('A-ENTITYLEAK') == ['OK'] and 'no leak' in _msg('A-ENTITYLEAK'))
+    _reset(); gate_entityleak([_BI(1, [])], _src35(figural_semantic_objects={}, concept_map={}))
+    check('A-ENTITYLEAK-dormant', _lv('A-ENTITYLEAK') == ['OK'] and 'dormant' in _msg('A-ENTITYLEAK'))
+    # ---- A-STEMLEAK / A-STEMFORM --------------------------------------------------
+    _SR35 = ('--- Subtopic: X ---\nsubtopic_id: oc.x\nstem_word_count: min=6 max=20 typical=10\n'
+             '  {"pattern_key": "product_prediction|DIRECT|positive|mcq|figure", "raw_count": 9}\n'
+             'QUALITY (v2.59):\n  named_concept_rate: 0.0\n  shown_entity_named_rate: 0.0\n'
+             '  stem_word_count_pct: {"p10": 8, "p50": 10, "p90": 15}\n'
+             '  tested_concept_lexicon: ["four-electron ring closure", "electrocyclic", "over-reduction"]\n'
+             '  shape_shares: {"product_prediction|none": 1.0}\n  fingerprint_max_per_paper: {"product_prediction|mcq|none|none": 2}\n'
+             '  near_isomer_share: 0.6\n  data_block_layout: inline\n  papers_measured: 3\n\n--- Subtopic: Y ---\nsubtopic_id: oc.y\n')
+    _cm35 = {'1': {'subtopic_id': 'oc.x', 'pattern_key': 'product_prediction|DIRECT|positive|mcq|figure'},
+             '2': {'subtopic_id': 'oc.x', 'pattern_key': 'reagent_identification|DIRECT|positive|mcq|text',
+                   'scheme_annotations': ['partial hydrolysis'], 'trailing_placeholders': ['P']}}
+    _reset(); gate_stemleak(_bl35, _src35(section_rules_text=_SR35, concept_map=_cm35))
+    check('A-STEMLEAK-incident-stems-fail', _lv('A-STEMLEAK') == ['FAIL'] and sorted(_items('A-STEMLEAK')) == ['1', '2']
+          and '(a)' in _msg('A-STEMLEAK') and '(c)' in _msg('A-STEMLEAK') and '(d)' in _msg('A-STEMLEAK'))
+    # §4.6 GATE_CALIBRATION (Step 5): the exam's own PYQ fail this rule -> WARN, no item findings
+    _SR35c = _SR35 + '\n=== EXAM_QUALITY ===\nPYQ_MODE: full\nGATE_CALIBRATION: {"A-STEMLEAK": {"fails": 4, "n": 30, "mode": "WARN"}}\n'
+    _reset(); gate_stemleak(_bl35, _src35(section_rules_text=_SR35c, concept_map=_cm35))
+    check('A-STEMLEAK-calibrated-warn', _lv('A-STEMLEAK') == ['WARN'] and 'CALIBRATED' in _msg('A-STEMLEAK') and _items('A-STEMLEAK') == []
+          and _qq_gate_calibration({'rules_txt': _SR35c}) == {'A-STEMLEAK': 'WARN'} and _qq_gate_calibration({'rules_txt': 'GATE_CALIBRATION: {bad\n'}) == {}
+          and _qq_pyq_mode({'rules_txt': _SR35c}) == 'full' and _qq_pyq_mode({'rules_txt': ''}) is None)
+    _reset(); gate_stemleak(_bl35, _src35(section_rules_text=_SR35.replace('named_concept_rate: 0.0', 'named_concept_rate: 0.2'),
+                                         concept_map={'1': {'subtopic_id': 'oc.x'}, '2': {'subtopic_id': 'oc.x'}}))
+    check('A-STEMLEAK-measured-allowance-passes', _lv('A-STEMLEAK') == ['OK'] and '2 stem(s) checked' in _msg('A-STEMLEAK'))
+    _reset(); gate_stemleak(_bl35, _src35(section_rules_text='', concept_map=_cm35))
+    check('A-STEMLEAK-dormant-without-quality-block', _lv('A-STEMLEAK') == ['OK'] and 'DORMANT' in _msg('A-STEMLEAK'))
+    _reset(); gate_stemform(_bl35, _src35(section_rules_text=_SR35, concept_map=_cm35))
+    check('A-STEMFORM-unobserved-pattern-and-length-fail', _lv('A-STEMFORM') == ['FAIL'] and sorted(_items('A-STEMFORM')) == ['1', '2'])
+    _cm35ok = {'1': {'subtopic_id': 'oc.x', 'pattern_key': 'product_prediction|DIRECT|positive|mcq|figure'}}
+    def _b35s(d):
+        _add_q(d, 1, opts=('a', 'b', 'c', 'd'), stem='The major product P formed in the following reaction is')
+    _bl35s = parse_blocks(Document(_mini_doc(tmp, _b35s)))[1]
+    _reset(); gate_stemform(_bl35s, _src35(section_rules_text=_SR35, concept_map=_cm35ok))
+    check('A-STEMFORM-observed-pattern-in-bound-passes', _lv('A-STEMFORM') == ['OK'] and '1 stem(s)' in _msg('A-STEMFORM'))
+    _reset(); gate_stemform(_bl35s, _src35(section_rules_text='', concept_map=_cm35ok))
+    check('A-STEMFORM-dormant', _lv('A-STEMFORM') == ['OK'] and 'DORMANT' in _msg('A-STEMFORM'))
+    # ---- A-DISTRACTOR -------------------------------------------------------------
+    if _rdk35:
+        # Q3 of the incident: ask "alkene", options 3-4 an ether and an alcohol; Q6 formula
+        _sem_d = {'1': _opt_objs(['CC(C)=C(C)C', 'C=C(C)C(C)C', 'CC(C)(OC(C)(C)C)C(C)C', 'CC(C)(O)C(C)C'], problem='CC(C)C(C)(C)Br')}
+        _cm_d = {'1': {'correct_option': 1, 'class_word': 'alkene', 'distractor_mechanisms': ['regioisomer', 'regioisomer', 'regioisomer'],
+                       'given_smiles': ['CC(C)C(C)(C)Br'], 'reagents': ['t-BuOK'], 'subtopic_id': 'oc.x'}}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d, concept_map=_cm_d, section_rules_text=_SR35))
+        check('A-DISTRACTOR-q3-wrong-class-and-formula-fail', _lv('A-DISTRACTOR') == ['FAIL'] and _items('A-DISTRACTOR')
+              and '(a)' in _msg('A-DISTRACTOR') and '(c2)' in _msg('A-DISTRACTOR'))
+        _cm_d2 = {'1': {'correct_option': 1, 'stated_formula': 'C9H10O3', 'distractor_mechanisms': ['regioisomer'] * 3}}
+        _sem_d2 = {'1': _opt_objs(['COC(=O)c1ccc(OC)cc1', 'COc1ccc(C(=O)O)cc1', 'COC(=O)c1cccc(OC)c1', 'CC(=O)Oc1ccc(OC)cc1'])}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d2, concept_map=_cm_d2))
+        check('A-DISTRACTOR-q6-violates-stated-formula', _lv('A-DISTRACTOR') == ['FAIL'] and '(b)' in _msg('A-DISTRACTOR'))
+        _cm_d3 = {'1': {'correct_option': 1, 'distractor_mechanisms': ['regioisomer'], 'mechanism_family': 'chemistry'}}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d2, concept_map=_cm_d3))
+        check('A-DISTRACTOR-record-short', _lv('A-DISTRACTOR') == ['FAIL'] and 'record:' in _msg('A-DISTRACTOR'))
+        # M2 (handshake review): an MSQ item (key set of 2 among 4 options) needs 2 mechanisms —
+        # key_set_size derived from the sidecar answers list when the record lacks it
+        _cm_d3m = {'1': {'distractor_mechanisms': ['regioisomer', 'over_reaction'], 'mechanism_family': 'chemistry'}}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d2, concept_map=_cm_d3m, answers={'1': [1, 3]}))
+        check('A-DISTRACTOR-msq-key-set-from-answers', 'Q1 record:' not in _msg('A-DISTRACTOR'))
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d2, concept_map=dict(_cm_d3m, **{'1': dict(_cm_d3m['1'], key_set_size=2)})))
+        check('A-DISTRACTOR-msq-key-set-size-recorded', 'Q1 record:' not in _msg('A-DISTRACTOR'))
+        _cm_d4 = {'1': {'correct_option': 1, 'distractor_mechanisms': ['alternative_pathway'] * 3, 'given_smiles': ['CCO'], 'reagents': ['NaOH']}}
+        _sem_d4 = {'1': _opt_objs(['CCO', 'CCBr', 'CCCl', 'CCI'])}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d4, concept_map=_cm_d4))
+        check('A-DISTRACTOR-inventory-elements-not-in-givens', _lv('A-DISTRACTOR') == ['FAIL'] and '(c)' in _msg('A-DISTRACTOR'))
+        _cm_d5 = {'1': {'correct_option': 1, 'distractor_mechanisms': ['regioisomer'] * 3, 'given_smiles': ['CCCCO'], 'reagents': ['PCC'], 'subtopic_id': 'oc.x'}}
+        _sem_d5 = {'1': _opt_objs(['CCCC=O', 'CCCCCCCCCCCCCCCC=O', 'c1ccccc1', 'C1CC1'])}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d5, concept_map=_cm_d5, section_rules_text=_SR35))
+        check('A-DISTRACTOR-near-isomer-floor', _lv('A-DISTRACTOR') == ['FAIL'] and '(f)' in _msg('A-DISTRACTOR'))
+        _cm_d6 = {'1': {'correct_option': 1, 'distractor_mechanisms': ['regioisomer', 'stereoisomer_EZ', 'regioisomer'], 'given_smiles': ['CC(C)C(C)(C)Br'],
+                        'reagents': ['t-BuOK'], 'class_word': 'alkene', 'subtopic_id': 'oc.x'},
+                  '2': {'correct_option': 1, 'distractor_mechanisms': ['sign_error', 'unit_error', 'rounding_error'], 'mechanism_family': 'quantitative'}}
+        _sem_d6 = {'1': _opt_objs(['CC(C)=C(C)C', 'C=C(C)C(C)C', 'CCC=C(C)C', 'CCC=CCC'])}
+        _reset(); gate_distractor(_bl35, _src35(figural_semantic_objects=_sem_d6, concept_map=_cm_d6, section_rules_text=_SR35))
+        check('A-DISTRACTOR-near-isomer-set-passes', _lv('A-DISTRACTOR') == ['OK'] and '1 structure option set' in _msg('A-DISTRACTOR'))
+    _reset(); gate_distractor([_BI(1, [])], _src35(figural_semantic_objects={}, concept_map={}))
+    check('A-DISTRACTOR-dormant', _lv('A-DISTRACTOR') == ['OK'] and 'dormant' in _msg('A-DISTRACTOR'))
+    # ---- A-CONSIST -----------------------------------------------------------------
+    if _rdk35:
+        _sem_c = {'1': [{'role': 'problem', 'kind': 'REACTION', 'name': 'r', 'canonical': 'c1ccccc1C1SCCCS1>CCCC[Li].CI.Cl[Hg]Cl.O>',
+                         'descriptor': {'agents': ['n-BuLi', 'MeI', 'HgCl2', 'H2O']}}],
+                  '2': [{'role': 'problem', 'kind': 'STRUCTURE', 'name': 's', 'canonical': 'C/C=C/C(O)/C=C/C', 'descriptor': {}}]}
+        _cm_c = {'1': {'stem_agents': ['n-BuLi', 'MeI', 'HgCl2', 'aqueous acetonitrile']},
+                 '2': {'figural_ask_type': 'stereoisomer_count'}}
+        _reset(); gate_consist(_bl35, _src35(figural_semantic_objects=_sem_c, concept_map=_cm_c))
+        check('A-CONSIST-q39-and-q17-fail', _lv('A-CONSIST') == ['FAIL'] and sorted(_items('A-CONSIST')) == ['1', '2'])
+        _cm_c2 = {'1': {'stem_agents': ['HgCl2']}, '2': {'figural_ask_type': 'stereoisomer_count', 'pyq_phrase_states_constitution': True}}
+        _reset(); gate_consist(_bl35, _src35(figural_semantic_objects=_sem_c, concept_map=_cm_c2))
+        check('A-CONSIST-agent-in-figure-and-phrase-exemption-pass', _lv('A-CONSIST') == ['OK'] and 'every stem agent' in _msg('A-CONSIST'))
+    _reset(); gate_consist(_bl35, _src35(figural_semantic_objects={}, concept_map={}))
+    check('A-CONSIST-dormant', _lv('A-CONSIST') == ['OK'] and 'dormant' in _msg('A-CONSIST'))
+    # ---- A-STEREODECL --------------------------------------------------------------
+    if _rdk35:
+        _sem_s = {'1': [{'role': 'option:2', 'kind': 'STRUCTURE', 'name': 'x', 'canonical': 'C\\C=C/C=C/C', 'descriptor': {}, 'stereo_declared': '2Z,4Z'},
+                        {'role': 'option:1', 'kind': 'STRUCTURE', 'name': 'y', 'canonical': 'C/C=C/C=C/C', 'descriptor': {}, 'stereo_declared': '2E,4E'}]}
+        _reset(); gate_stereodecl(_src35(figural_semantic_objects=_sem_s))
+        check('A-STEREODECL-q32-intent-mismatch', _lv('A-STEREODECL') == ['FAIL'] and _items('A-STEREODECL') == ['1'] and 'declared' in _msg('A-STEREODECL'))
+        _sem_s2 = {'1': [{'role': 'option:1', 'kind': 'STRUCTURE', 'name': 'y', 'canonical': 'C/C=C/C=C/C', 'descriptor': {}, 'stereo_declared': '2E,4E'},
+                         {'role': 'option:2', 'kind': 'STRUCTURE', 'name': 'z', 'canonical': 'CCO', 'descriptor': {}}]}
+        _reset(); gate_stereodecl(_src35(figural_semantic_objects=_sem_s2))
+        check('A-STEREODECL-undeclared-is-warn-on-new-paper', _lv('A-STEREODECL') == ['WARN'] and 'no stereo_declared' in _msg('A-STEREODECL'))
+        _sem_s3 = {'1': [{'role': 'option:1', 'kind': 'STRUCTURE', 'name': 'y', 'canonical': 'C/C=C/C=C/C', 'descriptor': {}, 'stereo_declared': '2E,4E'}]}
+        _reset(); gate_stereodecl(_src35(figural_semantic_objects=_sem_s3))
+        check('A-STEREODECL-agree', _lv('A-STEREODECL') == ['OK'] and 'agree' in _msg('A-STEREODECL'))
+    _reset(); gate_stereodecl(_src35(figural_semantic_objects={}))
+    check('A-STEREODECL-dormant', _lv('A-STEREODECL') == ['OK'] and 'dormant' in _msg('A-STEREODECL'))
+    # ---- A-ITEMRULE (G07) ---------------------------------------------------------
+    _reset(); gate_itemrule(_bl35, _src35(concept_map={'2': {'correct_option': 1}}))
+    check('A-ITEMRULE-q33-longest-key-fail', _lv('A-ITEMRULE') == ['FAIL'] and _items('A-ITEMRULE') == ['2'] and 'LONGEST_KEY' in _msg('A-ITEMRULE'))
+    _reset(); gate_itemrule(_bl35, _src35(concept_map={'2': {'correct_option': 1}},
+                                          style_profile={'item_rules': {'LONGEST_KEY': {'violation_rate': 0.15, 'measured': True}}}))
+    check('A-ITEMRULE-suspended-by-measurement', _lv('A-ITEMRULE') == ['OK'] and 'suspended' in _msg('A-ITEMRULE'))
+    _reset(); gate_itemrule(_bl35, _src35(concept_map={'2': {'correct_option': 1}},
+                                          style_profile={'item_rules': {'LONGEST_KEY': {'violation_rate': None, 'measured': False}}}))
+    check('A-ITEMRULE-never-suspended-by-absence', _lv('A-ITEMRULE') == ['FAIL'])
+    _reset(); gate_itemrule(_bl35, _src35(concept_map={'2': {'correct_option': 3}}))
+    check('A-ITEMRULE-pass', _lv('A-ITEMRULE') == ['OK'] and 'no longest-key' in _msg('A-ITEMRULE'))
+    _reset(); gate_itemrule(_bl35, _src35(concept_map={}))
+    check('A-ITEMRULE-dormant-no-key', _lv('A-ITEMRULE') == ['OK'] and 'dormant' in _msg('A-ITEMRULE'))
+    # ---- A-SHAPEMIX / A-TEMPLATE ------------------------------------------------------
+    _bp35 = {'shape_target_per_paper': {'1': {'product': {'target': 1, 'floor': 1, 'cap': 3}, 'statement': {'target': 1, 'floor': 1, 'cap': 3}}}}
+    _reset(); gate_shapemix(_src35(blueprint=_bp35, concept_map={'1': {'shape': 'product'}, '2': {'shape': 'product'}}))
+    check('A-SHAPEMIX-statement-below-floor', _lv('A-SHAPEMIX') == ['FAIL'] and 'below floor' in _msg('A-SHAPEMIX'))
+    check('A-SHAPEMIX-below-floor-names-donor-item', _items('A-SHAPEMIX') == ['2'])
+    _reset(); gate_shapemix(_src35(blueprint=_bp35, concept_map={'1': {'shape': 'product'}, '2': {'shape': 'statement'}}))
+    check('A-SHAPEMIX-floors-met', _lv('A-SHAPEMIX') == ['OK'] and 'floors met' in _msg('A-SHAPEMIX'))
+    # release review: item findings (a donor item of the over-target shape), '|grammar'
+    # suffix normalised, infeasibility DERIVED from the subtopic QUALITY blocks
+    _bp35c = {'shape_target_per_paper': {'1': {'product': {'target': 1, 'floor': 0, 'cap': 1}}}}
+    _reset(); gate_shapemix(_src35(blueprint=_bp35c, concept_map={'1': {'shape': 'product|none'}, '2': {'shape': 'product|arrow'}}))
+    check('A-SHAPEMIX-above-cap-names-surplus-item', _lv('A-SHAPEMIX') == ['FAIL'] and 'above cap' in _msg('A-SHAPEMIX') and _items('A-SHAPEMIX') == ['2'])
+    _rules35 = ('--- Subtopic: X ---\nsubtopic_id: oc.x\nQUALITY (v2.59):\n  n: 30\n  shape_shares: {"product|none": 1.0}\n  papers_measured: 3\n')
+    _reset(); gate_shapemix(_src35(blueprint=_bp35, rules_txt=_rules35,
+                                   concept_map={'1': {'shape': 'product', 'subtopic_id': 'oc.x'}, '2': {'shape': 'product', 'subtopic_id': 'oc.x'}}))
+    check('A-SHAPEMIX-infeasible-shape-derived-not-defect', _lv('A-SHAPEMIX') == ['OK'] and 'infeasible' in _msg('A-SHAPEMIX') and 'statement' in _msg('A-SHAPEMIX'))
+    # M5/M9 (handshake review): 'other' is never a planned shape; the planner's own
+    # infeasible record on the registry entry is honoured
+    _bp35o = {'shape_target_per_paper': {'1': {'product': {'target': 1, 'floor': 1, 'cap': 3}, 'other': {'target': 1, 'floor': 1, 'cap': 3}}}}
+    _reset(); gate_shapemix(_src35(blueprint=_bp35o, concept_map={'1': {'shape': 'product'}, '2': {'shape': 'statement'}}))
+    check('A-SHAPEMIX-other-ignored', _lv('A-SHAPEMIX') == ['OK'])
+    _src_inf = _src35(blueprint=_bp35, concept_map={'1': {'shape': 'product'}, '2': {'shape': 'product'}})
+    _src_inf['registry'] = {'question_index': [dict(_QQ_ENTRY, shape_infeasible=['statement'])]}
+    _reset(); gate_shapemix(_src_inf)
+    check('A-SHAPEMIX-planner-infeasible-record-honoured', _lv('A-SHAPEMIX') == ['OK'] and 'infeasible' in _msg('A-SHAPEMIX'))
+    _reset(); gate_shapemix(_src35(blueprint=_bp35, concept_map={'1': {'subtopic_id': 'oc.x'}, '2': {'subtopic_id': 'oc.x'}}))
+    check('A-SHAPEMIX-no-movable-item-is-warn', _lv('A-SHAPEMIX') == ['WARN'] and 'no movable item' in _msg('A-SHAPEMIX') and _items('A-SHAPEMIX') == [])
+    _reset(); gate_shapemix(_src35(blueprint={}, concept_map={'1': {'shape': 'product'}}))
+    check('A-SHAPEMIX-dormant-no-target', _lv('A-SHAPEMIX') == ['OK'] and 'DORMANT' in _msg('A-SHAPEMIX'))
+    _fp35 = 'product_prediction|mcq|none|none'
+    _cmt = {str(i): {'subtopic_id': 'oc.x', 'fingerprint': _fp35} for i in range(1, 6)}
+    _reset(); gate_template(_src35(section_rules_text=_SR35.replace('"product_prediction|none": 1.0', '"product_prediction|none": 0.1'),
+                                   concept_map=_cmt, total_questions=5))
+    check('A-TEMPLATE-over-cap', _lv('A-TEMPLATE') == ['FAIL'] and 'x5' in _msg('A-TEMPLATE'))
+    check('A-TEMPLATE-over-cap-names-surplus-items', len(_items('A-TEMPLATE')) >= 1 and '5' in _items('A-TEMPLATE'))
+    _prof_c = {'papers': {'p1': {'questions': {'1': {'concept': 'eas'}, '2': {'concept': 'x'}, '3': {'concept': 'y'}}}}}
+    _reset(); gate_template(_src35(section_rules_text=_SR35, total_questions=3, profile=_prof_c,
+                                   concept_map={str(i): {'subtopic_id': 'oc.x', 'fingerprint': f'fp{i}', 'concept': 'eas'} for i in range(1, 4)}))
+    check('A-TEMPLATE-concept-over-measured-cap-names-items', _lv('A-TEMPLATE') == ['FAIL'] and 'concept eas x3' in _msg('A-TEMPLATE') and _items('A-TEMPLATE') == ['2', '3'])
+    _reset(); gate_template(_src35(section_rules_text=_SR35, total_questions=3,
+                                   concept_map={str(i): {'subtopic_id': 'oc.x', 'fingerprint': f'fp{i}', 'concept': 'eas'} for i in range(1, 4)}))
+    check('A-TEMPLATE-concept-cap-dormant-without-profile', _lv('A-TEMPLATE') == ['OK'])
+    check('QQ-concept-caps-measured', _qq_concept_caps({'profile': _prof_c}, 3) == {'eas': 1, 'x': 1, 'y': 1} and _qq_concept_caps({'profile': {}}, 3) == {}
+          and _qq_concept_caps({'profile': {'papers': {'p': 'junk'}}}, 3) == {})
+    _reset(); gate_template(_src35(section_rules_text=_SR35, concept_map={'1': {'subtopic_id': 'oc.x', 'fingerprint': _fp35}}, total_questions=1))
+    check('A-TEMPLATE-within-cap', _lv('A-TEMPLATE') == ['OK'])
+    _reset(); gate_template(_src35(concept_map={'1': {}}))
+    check('A-TEMPLATE-dormant', _lv('A-TEMPLATE') == ['OK'] and 'DORMANT' in _msg('A-TEMPLATE'))
+    # ---- A-REVIEW / A-QUALITYSTATUS / A-READINESS / A-PYQBENCH -------------------------
+    class _A35:
+        phase = 'final'
+    _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {}}), _A35())
+    check('A-REVIEW-missing-record-fail', _lv('A-REVIEW') == ['FAIL'] and 'NO independent-review' in _msg('A-REVIEW'))
+    _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': False, 'reason': 'key is 3'}}, '2': {'review': {'key_agrees': True}}}), _A35())
+    check('A-REVIEW-disagreement-is-item-defect', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1'])
+    _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {'review': {'key_agrees': True}}}), _A35())
+    check('A-REVIEW-all-agreed', _lv('A-REVIEW') == ['OK'])
+    # release review: the effective map overlays the REGISTRY record (S13-4c runs with
+    # --dossier/--registry only) — review / quality_status committed by final_assembly
+    # are read even when the sidecar is absent; a sidecar field wins over the registry
+    _QQ_ENTRY_V = dict(_QQ_ENTRY, questions=[{'q': 1, 'review': {'key_agrees': True}, 'quality_status': 'CERTIFIED'},
+                                             {'q': 2, 'review': {'key_agrees': True}, 'quality_status': 'CERTIFIED'}])
+    _src_ov = _src35(concept_map={}); _src_ov['registry'] = {'question_index': [_QQ_ENTRY_V]}
+    _reset(); gate_review(_src_ov, _A35()); gate_qualitystatus(_src_ov, _A35())
+    check('QQ-overlay-registry-fields-read-without-sidecar', _lv('A-REVIEW') == ['OK'] and _lv('A-QUALITYSTATUS') == ['OK'])
+    _src_ov2 = _src35(concept_map={'1': {'review': {'key_agrees': False, 'reason': 'x'}}}); _src_ov2['registry'] = {'question_index': [_QQ_ENTRY_V]}
+    check('QQ-overlay-sidecar-wins', _qq_cm(_src_ov2)['1']['review']['key_agrees'] is False and _qq_cm(_src_ov2)['2']['review']['key_agrees'] is True)
+    _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': True, 'selectivity_basis': 'contested: trivia'}}, '2': {'review': {'key_agrees': True}}}), _A35())
+    check('A-REVIEW-contested-prefix-is-defect', _items('A-REVIEW') == ['1'])
+    class _A35p:
+        phase = 'precommit'
+    _reset(); gate_review(_src35(concept_map={'1': {}}), _A35p())
+    check('A-REVIEW-dormant-precommit', _lv('A-REVIEW') == ['OK'] and 'pre-commit' in _msg('A-REVIEW'))
+    _reset(); gate_qualitystatus(_src35(concept_map={'1': {'quality_status': 'CERTIFIED'}, '2': {'quality_status': 'UNRESOLVED(A-OPTDISTINCT)'}}), _A35())
+    check('A-QUALITYSTATUS-not-certified-lists-items', _lv('A-QUALITYSTATUS') == ['WARN'] and 'NOT CERTIFIED' in _msg('A-QUALITYSTATUS')
+          and UNCERTIFIED_ITEMS == {'2'})
+    _reset(); gate_qualitystatus(_src35(concept_map={'1': {'quality_status': 'CERTIFIED'}, '2': {}}), _A35())
+    check('A-QUALITYSTATUS-missing-stamp-fail', _lv('A-QUALITYSTATUS') == ['FAIL'])
+    _reset(); gate_qualitystatus(_src35(concept_map={'1': {'quality_status': 'CERTIFIED'}, '2': {'quality_status': 'CERTIFIED'}}), _A35())
+    check('A-QUALITYSTATUS-all-certified', _lv('A-QUALITYSTATUS') == ['OK'] and UNCERTIFIED_ITEMS == set())
+    # release review: on the PRE-COMMIT sweep the stamps are legitimately absent (written
+    # with the certificate) — never a FAIL there; UNRESOLVED stamps are still listed
+    _reset(); gate_qualitystatus(_src35(concept_map={'1': {}, '2': {}}), _A35p())
+    check('A-QUALITYSTATUS-precommit-unstamped-ok', _lv('A-QUALITYSTATUS') == ['OK'] and 'await their stamp' in _msg('A-QUALITYSTATUS'))
+    _reset(); gate_qualitystatus(_src35(concept_map={'1': {}, '2': {'quality_status': 'UNRESOLVED(A-STEMLEAK)'}}), _A35p())
+    check('A-QUALITYSTATUS-precommit-unresolved-listed', _lv('A-QUALITYSTATUS') == ['WARN'] and UNCERTIFIED_ITEMS == {'2'})
+    # release review: a FAIL whose item findings sit only on UNRESOLVED items is a recorded
+    # verdict (OD-9) — reconciled to WARN; a FAIL with an open item stays a FAIL
+    _reset(); UNCERTIFIED_ITEMS.clear(); UNCERTIFIED_ITEMS.add('2')
+    _fail('A-STEMLEAK', 'x'); _item('A-STEMLEAK', 2, 'A-STEMLEAK: y', 'VOID_ITEM')
+    _fail('A-CONSIST', 'z'); _item('A-CONSIST', 1, 'A-CONSIST: w', 'VOID_ITEM'); _item('A-CONSIST', 2, 'A-CONSIST: w', 'VOID_ITEM')
+    _fail('A-OPTN', 'not a quality gate')
+    _qq_reconcile_unresolved('final')
+    check('QQ-reconcile-unresolved-only-fail-to-warn', _lv('A-STEMLEAK') == ['WARN'] and 'UNRESOLVED (OD-9' in _msg('A-STEMLEAK')
+          and _lv('A-CONSIST') == ['FAIL'] and _lv('A-OPTN') == ['FAIL'])
+    UNCERTIFIED_ITEMS.clear()
+    _reset(); gate_readiness(_src35())
+    check('A-READINESS-degraded-list-printed', _lv('A-READINESS') == ['WARN'] and 'G-STYLE' in _msg('A-READINESS'))
+    _reset(); gate_readiness(_src35(registry={'question_index': [dict(_QQ_ENTRY, quality_readiness={'degraded': []})]}))
+    check('A-READINESS-all-active', _lv('A-READINESS') == ['OK'] and 'ACTIVE' in _msg('A-READINESS'))
+    _reset(); gate_pyqbench(_src35(blueprint={'difficulty_schedule': [{'mock': 1, 'simple': 0, 'medium': 0, 'hard': 2}]},
+                                   concept_map={'1': {'shape': 'product'}}))
+    check('A-PYQBENCH-info-card', _lv('A-PYQBENCH') == ['OK'] and 'PYQ BENCH CARD' in _msg('A-PYQBENCH') and 'difficulty Hard' in _msg('A-PYQBENCH'))
+    # ---- certificate with uncertified items (OD-9) --------------------------------------
+    _reset()
+    UNCERTIFIED_ITEMS.update({'2'})
+    _item('A-OPTDISTINCT', '2', 'x', 'VOID_ITEM')
+    _fail('A-OPTDISTINCT', 'ITEM DEFECT on Q2')
+    class _A35c:
+        docx = _p35
+        item_findings = None
+        write_certificate = os.path.join(tmp, 'cert35.json')
+        phase = 'precommit'
+    _wrote = write_item_outputs(_A35c())
+    _cert35 = json.load(open(_A35c.write_certificate, encoding='utf-8'))
+    check('certificate-written-NOT-CERTIFIED-with-uncertified-items',
+          _wrote is True and _cert35['uncertified_items'] == ['2'] and _cert35['certified'] is False
+          and _cert35['schema'] == 2 and _cert35['findings'] == 1)
+    _reset()
+    _item('A-OPTDISTINCT', '1', 'x', 'VOID_ITEM')
+    check('certificate-not-written-with-open-item-finding', write_item_outputs(_A35c()) is False)
+    _reset()
+    class _A35g:
+        docx = _p35
+        certificate = _A35c.write_certificate
+    gate_cert({}, _A35g())
+    check('A-CERT-accepts-NOT-CERTIFIED-paper-as-warn', _lv('A-CERT') == ['WARN'] and 'NOT CERTIFIED' in _msg('A-CERT'))
+    _reset()
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')

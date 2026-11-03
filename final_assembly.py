@@ -13,6 +13,19 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.12 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (OD-13 (i), OD-10 (a), G12).
+    (a) G-MEDIAREUSE at commit: the incident docx embedded ONE media part under Q12 and
+    Q36 and one under Q24 and Q38 (byte-identical PNGs for two different questions).
+    commit_registry now runs bc.media_reuse_check over fig_manifest image_hashes per
+    question (linked sets exempt) and REFUSES the commit with the ladder message
+    ("LADDER-REPAIR R2 G-MEDIAREUSE ...") in the same {'ok': False, 'fails': [...]}
+    shape as the FK gate — the S13-4 caller repairs the later item and re-commits; the
+    run never stops. (b) qindex_cert carries producer_release = bc.QQ_RELEASE (OD-10:
+    new gates apply only to papers whose entry carries >= the new release; older
+    entries audit AMBER). (c) QINDEX_V590_FIELDS — option_identities, entities, shape,
+    fingerprint, distractor_mechanisms, stem_leak, consist, stereo_decl, review,
+    quality_status — carried concept_map -> question_index when present, so Explain /
+    Deliver / the auditor READ verdicts and never recompute them differently (§4.3).
     v1.11 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY P2/P3. predelivery_checklist
     accepts `extra_deliverables`: a CONDITIONAL addition to the closed set, used only for
     the in-run blueprint when it differs from the project copy (S3-2D recomputation / R5
@@ -289,6 +302,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 import paper_pipeline as pp
+import blueprint_core as bc      # v1.12 — G-MEDIAREUSE (GAP-2026-11-03 OD-13) + producer_release
 
 __all__ = [
     "commit_registry",
@@ -349,6 +363,20 @@ def _entry_number(e):
 # v1.11 — optional per-question fields carried concept_map -> registry.question_index.
 QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
                       'scheme_grammar', 'marked_sites', 'ladder')
+# v1.12 — GAP-2026-11-03 §4.3: every quality verdict lives ON the item and is READ
+# downstream, never recomputed differently.
+QINDEX_V590_FIELDS = (
+    # every S7-QUALITY record field a quality gate reads (a SUBSET of audit_canonical
+    # _QQ_V590_FIELDS, which adds identity / key fields the registry never carries;
+    # handshake_audit.py asserts the subset — final_assembly never imports the auditor): the final S13-4c sweep audits the registry
+    # record, not the sidecar, so a field absent here is invisible to its gate at S13-4c.
+    'option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint',
+    'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family',
+    'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres',
+    'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities',
+    'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed',
+    'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist',
+    'stereo_decl', 'review', 'quality_status', 'judge_input_sha256')
 
 
 def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
@@ -358,7 +386,7 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      di_manifest=None, fig_manifest=None, figure_specs=None,
                      axis1_snapshots=None, axis3_snapshots=None,
                      framework_repo_commit=None, spec_source_report=None,
-                     timestamp=None, answer_key=None):
+                     timestamp=None, answer_key=None, quality_readiness=None, shape_infeasible=None):
     """Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.48.0 QINDEX-FK
     enforcement; v5.52 idempotency — see module docstring deviation 4;
     v5.54 same-series dedupe + axis snapshot persistence — see the module
@@ -534,6 +562,28 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                 f"record the figure type it was generated AS (MockTestCreate S7-NEW-B; "
                 f"figure_types.FIGURE_TYPES vocabulary). A figure whose type is not "
                 f"recorded cannot be audited and is not committed.")
+        # v1.12 — G-MEDIAREUSE (GAP-2026-11-03 OD-13 (i)): no two questions share a
+        # picture (MD5 of the media part) unless both belong to ONE linked set. Refused in
+        # the FK gate's shape; the S13-4 caller sends the LATER item to the ladder (R2).
+        _linked = []
+        for _grp in (passage_linked_qs or ()), (cloze_linked_qs or ()):
+            if _grp:
+                _linked.append([str(q) for q in _grp])
+        _sg = {}
+        for _qn, _cm in (concept_map or {}).items():
+            if isinstance(_cm, dict) and _cm.get('stimulus_group_id') not in (None, ''):
+                _sg.setdefault(str(_cm['stimulus_group_id']), []).append(str(_qn))
+        _linked += list(_sg.values())
+        _mr = bc.media_reuse_check({str(q): list(v.get('image_hashes', []))
+                                    for q, v in fig_manifest.get('questions', {}).items()
+                                    if isinstance(v, dict)}, linked_sets=_linked)
+        if _mr['state'] == 'FAIL':
+            fail_msg = ("LADDER-REPAIR R2 G-MEDIAREUSE (final_assembly v1.12, GAP-2026-11-03): the same "
+                        "picture is placed under two questions — "
+                        + "; ".join(f"Q{f['q']} reuses Q{f['other_q']}'s media ({f['md5'][:10]})" for f in _mr['findings'])
+                        + ". Regenerate the LATER item (new given entity, new picture), rebuild the "
+                          "sidecar, re-run S13-4. Never hand-patch the manifest.")
+            return {'ok': False, 'fails': [fail_msg], 'registry': registry, 'paper_id': paper_id}
         fg = [e for e in reg.setdefault('figural_manifests', []) if not _stale_sibling(e)]
         fg.append({
             "mock": N, "paper_id": _this_pid,
@@ -631,12 +681,16 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # (CHECK 3c), ask type / representations / scheme grammar (F8), declared marks
             # (MARK-IFF-NAMED) and the repair-ladder trace (L4) — carried ONLY when the
             # concept_map entry has them, so a legacy entry stays byte-identical.
-            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V589_FIELDS if _k in concept_map[qn]}}
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V589_FIELDS if _k in concept_map[qn]},
+            # v1.12 (GAP-2026-11-03): the quality verdicts, carried only when present.
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V590_FIELDS if _k in concept_map[qn]}}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(
                         s.get("subtopic_id") or "" for s in bp.get("subtopic_list", [])
-                    )).encode("utf-8")).hexdigest()[:16]}
+                    )).encode("utf-8")).hexdigest()[:16],
+                    # v1.12 (OD-10 a): the release that produced this paper
+                    "producer_release": bc.QQ_RELEASE}
     if framework_repo_commit is not None:
         _qindex_cert["framework_repo_commit"] = framework_repo_commit
     if spec_source_report is not None:
@@ -657,7 +711,15 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     reg.setdefault('question_index', [])
     reg['question_index'] = [e for e in reg['question_index'] if not _stale_sibling(e)]
     reg['question_index'].append({"mock": N, "paper_id": paper_id,
-                                  "qindex_cert": _qindex_cert, "questions": _qi})
+                                  "qindex_cert": _qindex_cert, "questions": _qi,
+                                  # v1.12 — S3-2e readiness record (A-READINESS reads it; a
+                                  # DEGRADED paper is visible in the audit, not only in a footer)
+                                  **({"quality_readiness": copy.deepcopy(quality_readiness)}
+                                     if isinstance(quality_readiness, dict) else {}),
+                                  # v1.12 — S3-12d planner record: shapes whose floor no capable
+                                  # slot could take (A-SHAPEMIX reads it; recorded, never a defect)
+                                  **({"shape_infeasible": [str(x) for x in shape_infeasible]}
+                                     if isinstance(shape_infeasible, (list, tuple)) else {})})
 
     # ── Ledgers — idempotent (deviation 4) ───────────────────────────────────
     # v5.55 (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED): mocks_completed is the
@@ -2028,6 +2090,61 @@ def self_test():
     check('v110_legacy_unlabelled_degenerate_reaction_commits_unvalidated',
           r9f['registry']['figural_manifests'][0]['semantic_objects']['7'][0]['canonical'] == 'CCO')
     check('v110_commit_does_not_mutate_caller_manifest', 'object_type' not in _fm9f['questions']['7'])
+    # v1.12 — G-MEDIAREUSE (GAP-2026-11-03 OD-13 (i)): the incident shape — one media part
+    # under two questions — is REFUSED at commit with the ladder message; a linked set
+    # (stimulus_group_id) sharing its stimulus picture commits; distinct pictures commit.
+    _cm12 = mini_cm()
+    _fm12 = {'questions': {'7': {'image_hashes': ['same-md5'], 'subtopic_id': 'ex.a', 'object_type': 'line_graph'},
+                           '8': {'image_hashes': ['same-md5'], 'subtopic_id': 'ex.a', 'object_type': 'line_graph'}}}
+    r12 = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                          batches_completed=3, axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=True, concept_map=_cm12, fig_manifest=_fm12)
+    check('v112_media_reuse_refused_at_commit',
+          r12['ok'] is False and 'LADDER-REPAIR R2 G-MEDIAREUSE' in r12['fails'][0] and 'Q8 reuses Q7' in r12['fails'][0]
+          and r12['registry'] is mini_registry() or r12['registry'].get('figural_manifests', []) == [])
+    _cm12l = copy.deepcopy(_cm12)
+    for _k in list(_cm12l)[:2]:
+        _cm12l[_k]['stimulus_group_id'] = 'SG1'
+    _fm12l = {'questions': {str(_k): {'image_hashes': ['same-md5'], 'subtopic_id': 'ex.a', 'object_type': 'line_graph'}
+                            for _k in list(_cm12l)[:2]}}
+    r12l = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                           batches_completed=3, axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=True, concept_map=_cm12l, fig_manifest=_fm12l)
+    _fm12d = {'questions': {'7': {'image_hashes': ['a'], 'subtopic_id': 'ex.a', 'object_type': 'line_graph'},
+                            '8': {'image_hashes': ['b'], 'subtopic_id': 'ex.a', 'object_type': 'line_graph'}}}
+    r12d = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                           batches_completed=3, axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=True, concept_map=_cm12, fig_manifest=_fm12d)
+    check('v112_media_reuse_linked_set_and_distinct_commit', r12l['ok'] is True and r12d['ok'] is True)
+    # v1.12 — producer_release on the certificate; V590 verdict fields carried only when present
+    _cm12v = mini_cm()
+    _k0 = sorted(_cm12v, key=int)[0]
+    _cm12v[_k0].update({'quality_status': 'UNRESOLVED(A-STEMLEAK)', 'shape': 'product_prediction|none',
+                        'option_identities': ['a', 'b'], 'review': {'key_agrees': True}})
+    r12v = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                           batches_completed=1, axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=False, concept_map=_cm12v)
+    _e12v = r12v['registry']['question_index'][0]
+    _e12r = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=1,
+                            axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                            concept_map=mini_cm(), quality_readiness={'degraded': ['G-X'], 'controls': {}})
+    _e12rv = _e12r['registry']['question_index'][0]
+    check('v112_quality_readiness_committed', _e12rv.get('quality_readiness', {}).get('degraded') == ['G-X']
+          and 'quality_readiness' not in _e12v)
+    _e12s = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=1,
+                            axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                            concept_map=mini_cm(), shape_infeasible=['two_part'])
+    check('v112_shape_infeasible_committed', _e12s['registry']['question_index'][0].get('shape_infeasible') == ['two_part']
+          and 'shape_infeasible' not in _e12rv)
+    _e12n = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=1,
+                            axis2_window_counts={}, passage_present=False, di_present=False, figural_present=True,
+                            concept_map=None, fig_manifest={'questions': {}})
+    check('v112_none_concept_map_tolerated', isinstance(_e12n, dict) and 'registry' in _e12n)
+    check('v112_producer_release_and_v590_fields',
+          _e12v['qindex_cert']['producer_release'] == bc.QQ_RELEASE
+          and _e12v['questions'][0]['quality_status'] == 'UNRESOLVED(A-STEMLEAK)'
+          and _e12v['questions'][0]['shape'] == 'product_prediction|none'
+          and not any(k in _e12v['questions'][1] for k in QINDEX_V590_FIELDS))
     # v1.10 — a CURRENT (stamped) false record is never annotated into "legacy"
     _cur = copy.deepcopy(r9e['registry'])
     _cur['figural_manifests'][0].update({'object_types': {'1': 'reaction_scheme'},
