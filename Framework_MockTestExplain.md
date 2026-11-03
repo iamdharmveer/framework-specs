@@ -1,4 +1,9 @@
-# Framework_MockTestExplain v1.51.2
+# Framework_MockTestExplain v1.52.0
+# v1.52.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   explain_engine v2.12, figural_core v5.89, corpus_io v1.17, MockTestCreate v5.89).
+#   Explanation structures are drawn print-true at the paper's problem tokens with the
+#   decisive site as a mark (no highlight band). MANDATE D: only a fidelity breach stops
+#   (INFRA); every other self-audit finding is repaired in place ([HS:LADDER]).
 # v1.51.2 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired
 #   with corpus_io v1.16 / explain_engine canonical_structure twin, final_assembly v1.9,
 #   MockTestCreate v5.88). PATCH, S13-2b only: (1) a REACTION object now canonicalises —
@@ -24,7 +29,7 @@
 #   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
 #   trigger in chat beside the _Create.docx, (2) Project Files. S19-0a resolves it through
 #   pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment WINS when
-#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP only when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE] only when
 #   BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated. The run
 #   PINS the fingerprint it started from ({EXAMCODE}_registry_pin.json beside REG_WORK) and
 #   every later turn's S19-0a refuses a DIFFERENT registry (pp.registry_source_check).
@@ -90,7 +95,7 @@
 #   migration line. PASSED/1 and DISCLOSED/1 (written by the retired repair step) stay
 #   legal and deliverable as LEGACY repaired papers; a re-run of this step on one carries
 #   the spent count (ROUND-MONOTONIC unchanged). S2-1: a _Create_Repaired*.docx upload is
-#   a HARD STOP on every trigger (rename a legacy repaired paper to _Create.docx; P3's
+#   a HARD STOP [HS:PROSE] on every trigger (rename a legacy repaired paper to _Create.docx; P3's
 #   stem hash-match against registry.stem_texts proves identity). S19-0b: the repair-run
 #   stop and HANDOFF_STEP's repair values are removed. PENDING is the ONLY blocking gate
 #   state and its remedy is this step. No explanation rule changed.
@@ -109,7 +114,7 @@
 #   "_Complete" class, one filename later). S2-1 / P1 / §7A-R R2 now accept BOTH forms
 #   and derive the slug by stripping whichever suffix is present; the repaired form is
 #   accepted ONLY on a *Repair trigger, and a fresh TestExplain on a _Repaired.docx is a
-#   HARD STOP (a re-judge after a repair runs on the same repaired paper via
+#   HARD STOP [HS:PROSE] (a re-judge after a repair runs on the same repaired paper via
 #   TestExplainRepair, never as a fresh explain). Found by the release's own
 #   filename-chain re-verification. ALSO: S19-0 is split — S19-0a (session start at P1:
 #   binds `reg`, the project fingerprint and persist_registry BEFORE §7A-M's preflight can
@@ -121,7 +126,7 @@
 #   explain_engine v2.9, final_assembly v5.60; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
 #   mock_sync_audit MS-14). P0, every exam. §7A-M (v1.42.0+) writes the difficulty-gate
 #   verdict into registry.json and calls the registry "the ONLY channel to Step 11" —
-#   while S0-2, MANDATE D, S19-1 check 5 (`outputs == {Explanation.docx}`, a HARD STOP),
+#   while S0-2, MANDATE D, S19-1 check 5 (`outputs == {Explanation.docx}`, a HARD STOP [HS:PROSE]),
 #   §21 item 12 and DeliveryFooter §3 all still carried the pre-v1.42 "registry is frozen,
 #   never delivered" rule, and the "S19 write" §7A-M relied on was defined nowhere. Under
 #   a literal run the verdict lived only in /home/claude, the project copy stayed
@@ -244,7 +249,7 @@
                                             Files (where the operator REPLACED it after
                                             Step 7 — REGISTRY-HANDOFF-LAW). Resolved ONLY
                                             by pp.resolve_registry at S19-0a — attachment
-                                            wins when both exist; HARD STOP only when
+                                            wins when both exist; HARD STOP [HS:INPUT] only when
                                             both are absent; exam_code validated;
                                             read for figural_manifests[] /
                                             rc_manifests[] cross-checks + dedup context +
@@ -327,7 +332,7 @@
 #   overrides every other instruction.
 
 # ════════════════════════════════════════════════════════════════════════
-# MANDATE A — explain_engine.py IS MANDATORY (HARD STOP)
+# MANDATE A — explain_engine.py IS MANDATORY (HARD STOP [HS:INFRA])
 # ════════════════════════════════════════════════════════════════════════
 #   Every explanation MUST enter the docx through explain_engine.py
 #   (ExplanationBlock + build_interleaved_docx + add_math_text). It is the only path,
@@ -341,8 +346,8 @@
 #   Files (/mnt/project) is NEVER imported — /mnt/project is never placed on sys.path —
 #   because it carries no manifest entry and cannot be verified. If the file is absent
 #   from the verified clone:
-#     HARD STOP. Print:
-#       "HARD STOP (MANDATE A): explain_engine.py not found in the verified framework
+#     HARD STOP [HS:INFRA]. Print:
+#       "HARD STOP [HS:INFRA] (MANDATE A): explain_engine.py not found in the verified framework
 #        clone (/tmp/fw). Step 9 cannot build explanations without it. Re-run Step 0;
 #        if the clone still lacks it the release is broken — do not substitute a copy
 #        from project Files or from memory."
@@ -384,7 +389,10 @@
 #   the per-batch coverage assertion here is the ONLY coverage check that will ever run.
 
 # ════════════════════════════════════════════════════════════════════════
-# MANDATE D — WHOLE-PAPER EACH BATCH, ONLY AFTER SELF-AUDIT CLEAN (HARD STOP)
+# MANDATE D — WHOLE-PAPER EACH BATCH, ONLY AFTER SELF-AUDIT CLEAN (HARD STOP [HS:INFRA] only
+#   for a fidelity breach — the Step-7 source changed; every other self-audit finding is
+#   an ITEM finding repaired in place before delivery: LADDER-REPAIR R1 re-render /
+#   R2 re-author that explanation [HS:LADDER], never a run stop — v1.52.0)
 # ════════════════════════════════════════════════════════════════════════
 #   present_files is FORBIDDEN until the current batch's self-audit (§18) is clean:
 #   engine validate() on every block + verify_fidelity (whole paper byte-identical to
@@ -638,17 +646,17 @@ execution path — it does not shrink, soften or delete them.
   the upload. (v1.47.0 — REPAIR-RETIRED-2026-08-27) The ONLY accepted paper attachment
   is [ExamCode]_[paper_slug]_Create.docx. Any upload whose name contains
   `_Create_Repaired` (the artefact of the RETIRED repair step, with or without a
-  `_PARTIAL_` suffix) is a HARD STOP on EVERY trigger: "The repair steps are retired
+  `_PARTIAL_` suffix) is a HARD STOP [HS:INPUT] on EVERY trigger: "The repair steps are retired
   (2026-08-27). If this is a previously repaired paper, rename it to
   [ExamCode]_[paper_slug]_Create.docx and re-attach — P3's stem hash-match against
   registry.stem_texts proves it is the paper of record." A retired trigger is itself a
-  HARD STOP with the same notice (TestExplainRepair / MockExplainRepair are retired) and
+  HARD STOP [HS:INPUT] with the same notice (TestExplainRepair / MockExplainRepair are retired) and
   the next step from pp.dg_next_step. (v1.24: this and the FRESH line above said "Create_Complete" — a filename
   RETIRED at v1.21.0 that no step produces (see the header note); a session following the
   old wording literally would refuse the valid _Create.docx upload forever. The operative
   P1 discovery always used _Create.docx; the trigger contract now says the same thing.)
   --level, when given, is cross-checked (not required) against the blueprint
-  pp.pick_blueprint resolves via the uploaded docx (P1) — a mismatch is a HARD STOP.
+  pp.pick_blueprint resolves via the uploaded docx (P1) — a mismatch is a HARD STOP [HS:INPUT].
   MockExplain M[N] always implies level='mock'.
 
 ## S2-2 — Mock/paper-number resolution (do this BEFORE loading questions)
@@ -656,7 +664,7 @@ execution path — it does not shrink, soften or delete them.
   Resolve N from the trigger. Confirm registry.papers_completed CONTAINS this paper's
   paper_id (Step 7 appends it at Final Assembly) — falling back to legacy
   registry.mocks_completed containing N for a mock on an older registry. If neither holds:
-    HARD STOP: "registry.papers_completed = [...] does not contain paper_id [paper_id].
+    HARD STOP [HS:INPUT]: "registry.papers_completed = [...] does not contain paper_id [paper_id].
     Step 9 explains a paper Step 7 has completed; run Step 7 on it first."
   This is a read-only alignment check — nothing is written here; the only registry
   writes in this step are §7A-M via Cluster DG, persisted at S19-0.
@@ -690,9 +698,9 @@ execution path — it does not shrink, soften or delete them.
       blueprints" on two perfectly valid files), import paper_pipeline as pp, and call
       pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug) to select the
       ONE blueprint that produced this paper (cross-checked against --level if given;
-      PickError → HARD STOP, never a guess). SAFETY CHECK (kept as the second net):
+      PickError → HARD STOP [HS:INPUT], never a guess). SAFETY CHECK (kept as the second net):
       verify the selected blueprint's exam_code equals [ExamCode] exactly; a mismatch
-      is a HARD STOP → subtopic_manifest.json → registry.json (already resolved at
+      is a HARD STOP [HS:INPUT] → subtopic_manifest.json → registry.json (already resolved at
       S19-0a: chat attachment OR Project Files — never a Files-only read) →
       explain_engine.py (from the Step-0 verified clone /tmp/fw ONLY — v1.40.0; a
       project-Files copy is never imported, MANDATE A). Copy the engine to /home/claude and run
@@ -861,7 +869,7 @@ execution path — it does not shrink, soften or delete them.
   # docx-driven way P1 does, never the hardcoded mock filename. The old literal
   # f'{EXAM}_blueprint.json' load meant every SCOPED Explain either compared the
   # uploaded scoped docx against the MOCK blueprint (unconditional false P10/0
-  # HARD STOP) or FileNotFoundError'd if no mock blueprint existed — the v1.24
+  # HARD STOP [HS:PROSE]) or FileNotFoundError'd if no mock blueprint existed — the v1.24
   # gate could never pass for the resumed-scoped papers it was written about.
   # Selection key: the blueprint that CONTAINS a paper whose slug matches the
   # uploaded docx (PAPER_SLUG, parsed at P1) — P1's own semantics, restated
@@ -877,7 +885,7 @@ execution path — it does not shrink, soften or delete them.
       for mk in b.get('mocks', []))), None)
   if _p10_bp is None:
       raise SystemExit(
-          f"HARD STOP (P10/0): no blueprint under /mnt/project/{EXAM}*_blueprint.json "
+          f"HARD STOP [HS:INPUT] (P10/0): no blueprint under /mnt/project/{EXAM}*_blueprint.json "
           f"contains a paper whose slug matches the uploaded docx {PAPER_SLUG!r}. "
           f"The blueprint that produced this paper is missing from the project — "
           f"restore it (or re-run Step 6/6S), then re-trigger.")
@@ -906,7 +914,7 @@ execution path — it does not shrink, soften or delete them.
   # from the uploaded _Create.docx filename at P1.
   if pp.paper_slug(_p10_pid) != PAPER_SLUG:
       raise SystemExit(
-          f"HARD STOP (P10/0): trigger paper N={N} resolves to paper_slug "
+          f"HARD STOP [HS:INPUT] (P10/0): trigger paper N={N} resolves to paper_slug "
           f"{pp.paper_slug(_p10_pid)!r}, but the uploaded docx carries "
           f"{PAPER_SLUG!r}. Wrong P[N] for this upload (on a resumed scoped "
           f"series remember N is the blueprint ORDINAL, not the filename's series "
@@ -950,7 +958,7 @@ execution path — it does not shrink, soften or delete them.
       if _p10_badd:
           _p10_fails.append(f"P10/4: difficulty value(s) not in {_p10_canon}: {_p10_badd}")
   if _p10_fails:
-      raise SystemExit("HARD STOP (P10 registry-FK tripwire, v1.23):\n  "
+      raise SystemExit("HARD STOP [HS:INPUT] (P10 registry-FK tripwire, v1.23):\n  "
                        + "\n  ".join(_p10_fails)
                        + "\nFix upstream (Step 7 / registry patch) and re-trigger Step 9. "
                          "Explaining a paper whose index cannot JOIN wastes the whole "
@@ -1433,7 +1441,15 @@ execution path — it does not shrink, soften or delete them.
   explain_engine.REPRESENTATION_RENDERERS[...]['colour'] is the authority;
   explain_engine.colour_contract() returns the live values):
       STRUCTURE_GRAPH : draw = explain_engine.structure_draw(canonical_smiles,
-                        highlight_bonds=[...] / highlight_atoms=[...]) — the ONE
+                        highlight_bonds=[...] / highlight_atoms=[...],
+                        tokens=fc.structure_tokens(fc.load_style_profile(
+                        '/mnt/project/[ExamCode]_section_rules.md'), 'problem'))
+                        — v1.52.0 (GAP-2026-11-02): the PRINT-TRUE native raster at the
+                        paper's own problem sizes and style; the decisive site is drawn
+                        as a MARK clear of every label (no opaque band — measured: the
+                        old band hid the answer's Br); the PNG is draw.native_png(300)
+                        placed at its natural width. Without a usable rdkit the v1.49
+                        path below applies unchanged (degrade, recorded). — the ONE
                         call for structures: it loads figural_core FIRST and then
                         runs corpus_io.structure_draw_fn (which reads the palette
                         from the already-loaded module and never imports it, so a
@@ -1843,7 +1859,7 @@ execution path — it does not shrink, soften or delete them.
   decision 2026-08-27): the repair steps are RETIRED and nothing is rewritten
   on the gate's say-so. The LEGAL STATE MACHINE (pp.DG_LEGAL_STATES):
       (absent)          legacy paper                     Step 11 DELIVERS
-      PENDING   / 0     born; gate has not run           Step 11 HARD STOP → TestExplain
+      PENDING   / 0     born; gate has not run           Step 11 HARD STOP [HS:INPUT] → TestExplain
       PASSED    / 0     gate passed                      Step 11 DELIVERS
       DISCLOSED / 0     gate not met; disclosed          Step 11 DELIVERS + §FOOTER-DG line
       DORMANT   / 0     gate not applicable              Step 11 DELIVERS + dormancy line
@@ -1855,7 +1871,7 @@ execution path — it does not shrink, soften or delete them.
   DISCLOSED/0 and RETURNS A DISCLOSURE that MUST be printed in chat and that
   the delivery footer prints from rec['migrations']. Silent healing is
   forbidden; disclosed healing is mandatory. An UNKNOWN status is never
-  healed — pp raises DGIllegalState and the run HARD-STOPS with its message.
+  healed — pp raises DGIllegalState and the run HARD-STOPS [HS:INFRA] with its message.
   HISTORY, so it is never rediscovered: through v1.46.3 a FAILED verdict
   blocked Step 11 and the only exit was a repair pair whose two steps each
   read one field of this record; a session once wrote a pair no step could
@@ -1892,7 +1908,7 @@ execution path — it does not shrink, soften or delete them.
     DELIVERED at the final batch — pp.registry_changed sees the healing). rec is None for a LEGACY
     paper (no record): the gate is DORMANT with reason legacy — write NOTHING
     (a legacy paper is never gated retroactively; Step 11's ABSENT branch
-    delivers it). A DGIllegalState raised here (unknown status) is a HARD STOP:
+    delivers it). A DGIllegalState raised here (unknown status) is a HARD STOP [HS:INFRA]:
     print its message verbatim and stop.
 
   DORMANCY IS A WRITTEN VERDICT, NEVER A SILENT SKIP (v1.44.0 —
@@ -1911,7 +1927,7 @@ execution path — it does not shrink, soften or delete them.
   same verdict and is idempotent. A pre-v5.58 scoped paper born PENDING is
   resolved by exactly this write.)
   WHY THIS IS MANDATORY. final_assembly stamps every mock 'PENDING' at
-  commit, and MockDeliver S1-2 3b HARD-STOPS on 'PENDING'. A gate that went
+  commit, and MockDeliver S1-2 3b HARD-STOPS [HS:INPUT] on 'PENDING'. A gate that went
   dormant WITHOUT writing left the paper PENDING forever and it could NEVER
   be delivered. Measured before this fix: every scoped paper and every exam
   with a non-3-band difficulty vocabulary was permanently undeliverable, in
@@ -2979,6 +2995,17 @@ execution path — it does not shrink, soften or delete them.
       enumerated objects or carry a recorded justification
 ```
   Any item open → fix, re-build, re-audit. present_files is FORBIDDEN until ALL hold.
+  v1.52.0 (MANDATE D) TERMINAL RUNG: a PER-QUESTION item still open after TWO re-author
+  attempts is resolved by REMOVAL, never by shipping it unrepaired (§21-3c): the failing
+  ELEMENT is removed from the block — the claim / AXIOM that fails its neighbour test, the
+  SPEED HACK that fails part 3, the figure that does not land (declared == landed after
+  removal), the misaligned representation — the block is marked degraded in the §20-R
+  report, the footer carries "Q<n> explanation degraded (<item>)" (DeliveryFooter §LADDER,
+  AMBER-CLASS), and the item then holds. It is never a run stop. NOT removable, so they
+  must hold: KEY RECONCILIATION (a MISMATCHED key is an answer-correctness fault — resolve it
+  per §7-8) and the WHOLE-PAPER fidelity / scope items — count invariants,
+  strip-and-re-audit, coverage assertion, NO COVERAGE BANNER, no sidecar leak (a failure
+  there is a fidelity breach, [HS:INFRA]).
   All hold → SELF_AUDIT_CLEAN = True; coverage assertion passed → COVERAGE_OK = True
   (S4-4 D; read by S19-1).
   Why verify_explanations exists alongside verify_structure: the latter re-validates the
@@ -3039,7 +3066,7 @@ import paper_pipeline as pp
 # REGISTRY-SOURCE-LAW (v1.51.0, GAP-2026-09-14-REGISTRY-SOURCE): the registry this run
 # reads comes from EITHER lane — the chat attachment (/mnt/user-data/uploads) or Project
 # Files (/mnt/project) — resolved ONLY by pp.resolve_registry: attachment wins when both
-# exist (a difference is printed, never a stop); HARD STOP only when both are absent;
+# exist (a difference is printed, never a stop); HARD STOP [HS:INPUT] only when both are absent;
 # exact filename + exam_code validated. Never open the Files path directly (MS-20).
 try:
     REG_SRC = pp.resolve_registry(EXAMCODE, exists=os.path.exists,
@@ -3052,7 +3079,7 @@ REG_WORK    = f'/home/claude/{EXAMCODE}_registry.json'      # this run's working
 REG_PIN     = f'/home/claude/{EXAMCODE}_registry_pin.json'  # R4: what this run STARTED from
 # R4 — a run reads ONE registry. The pin is written on the first turn of a paper's run
 # and RETIRED at its final delivery (S19-0b); every later turn of the SAME run that
-# resolves a DIFFERENT registry is a HARD STOP — the §7A-M verdict would otherwise be
+# resolves a DIFFERENT registry is a HARD STOP [HS:INFRA] — the §7A-M verdict would otherwise be
 # written into a registry the run never loaded. The run's OWN working copy is never a
 # swap (also_accept): this step delivers the registry on every batch that changed it,
 # and an operator who REPLACES / attaches that delivered copy between batches has put
@@ -3119,7 +3146,7 @@ BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 
 leaked = [f for f in present - set(HANDOFF['files']) if any(b in f.lower() for b in BANNED)]
 # v1.46.0 — check 5 is the REGISTRY-HANDOFF-LAW gate: outputs must equal the closed set
 # S19-0 decided (docx every batch; + registry.json when changed; + report at the final
-# batch). Through v1.45.1 this line read `present == {sol}` and HARD-STOPPED any run that
+# batch). Through v1.45.1 this line read `present == {sol}` and HARD-STOPPED [HS:PROSE] any run that
 # staged the registry §7A-M had just written — the seam this release closes.
 _v = pp.verify_handoff_outputs(present, HANDOFF)
 checks = [
@@ -3133,7 +3160,7 @@ checks = [
 ]
 fails = [n for n, ok in checks if not ok]
 if fails:
-    raise SystemExit('HARD STOP (S19-1): ' + '; '.join(fails)
+    raise SystemExit('HARD STOP [HS:INFRA] (S19-1): ' + '; '.join(fails)
                      + (f" — missing {_v['missing']}, stray {_v['stray']}" if not _v['ok'] else '')
                      + '. Fix, then re-run S19-1. Do NOT call present_files yet.')
 for _line in pp.handoff_footer_lines(HANDOFF):
@@ -3558,5 +3585,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.51.2
+# END OF Framework_MockTestExplain v1.52.0
 # ════════════════════════════════════════════════════════════════════════

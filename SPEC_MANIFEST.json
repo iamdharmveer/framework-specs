@@ -1,46 +1,46 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.61.0",
-      "lines": 8010,
-      "sha256": "9c395aa1d8d50bbd3476034fadb6559ccc7395a772f91a2c4f3207094424cdab",
-      "size_bytes": 449788,
-      "version_header": "# Framework_Blueprint v1.61.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.62.0",
+      "lines": 8062,
+      "sha256": "5ad4915d2c840c3d6a6f4fb5a1a47bb02f2c5cd007f09753a116a209a9ba7940",
+      "size_bytes": 453381,
+      "version_header": "# Framework_Blueprint v1.62.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1222,
-      "sha256": "43c0ec0fe10a058a94bf801124b6690d068141265899aa3073150259eb7b2a54",
-      "size_bytes": 72003,
-      "version_header": "# Framework_DeliveryFooter v1.36.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1307,
+      "sha256": "73a6b8d7fcf73e21d7b55ee799ba4824cee6d75dae1538b2f0c8853b65f4f037",
+      "size_bytes": 78456,
+      "version_header": "# Framework_DeliveryFooter v1.37.0 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.23.0",
       "lines": 2048,
-      "sha256": "514586edfa569d824c50b79617354cb32695b6d2dd4deea06ab53c6926109e71",
-      "size_bytes": 106709,
+      "sha256": "f66539f0c2ec31f1972728ba789941582c3a299594de18e482e71aedb30755e9",
+      "size_bytes": 107116,
       "version_header": "# Framework_MockDeliver v1.23.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.57.3",
-      "lines": 5448,
-      "sha256": "cd8a349a1ef08e18e894c5dc70ae33ad88c99bee5a24d17fd0ce8b1810d426be",
-      "size_bytes": 320698,
-      "version_header": "# Framework_MockTestAnalyse v2.57.3 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.58.0",
+      "lines": 5550,
+      "sha256": "669b0a209bcd53f40b7f1bc19fd41673bc086b52a151b28b7eacd850fdd1cd7d",
+      "size_bytes": 327758,
+      "version_header": "# Framework_MockTestAnalyse v2.58.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 10771,
-      "sha256": "8e3c61f8b47b56adfdbc2013f9155c55583bf2a3cf93aacf8a0c7ecc19658439",
-      "size_bytes": 694049,
-      "version_header": "# Framework_MockTestCreate v5.88"
+      "lines": 11701,
+      "sha256": "3d210f56d501dfc3cb9311e2b14b31ac9cf91b2122ad4b530918f6b33bbb1719",
+      "size_bytes": 762581,
+      "version_header": "# Framework_MockTestCreate v5.89"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3562,
-      "sha256": "42c08db5d436c62286d8db0a93be3003931657aae2f6b2f5effbe7205b35856b",
-      "size_bytes": 273735,
-      "version_header": "# Framework_MockTestExplain v1.51.2"
+      "lines": 3589,
+      "sha256": "68de1689a7a15016a6f20415f7eaf86b322df9ad821b4e908852a7a162075af2",
+      "size_bytes": 276319,
+      "version_header": "# Framework_MockTestExplain v1.52.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.8.0",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2911,
-      "sha256": "d2c5b93ea2dbcc16a528e7c7309e2e6cafc7f19b232b26f9bfa5cb366f323315",
-      "size_bytes": 206946,
-      "version_header": "# Framework_PYQExplain v2.24 — Universal PYQ Explanation Generator"
+      "lines": 2967,
+      "sha256": "b14a7858ac073534509e16c48dcf2a4da7a4ab1d4a6663e736994b0ca223592f",
+      "size_bytes": 211047,
+      "version_header": "# Framework_PYQExplain v2.25 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.1)**",
@@ -155,11 +155,11 @@
       "version_header": "# Framework_PYQSort v1.21.1 — Universal PYQ Sorter"
     },
     "Framework_ScopedBlueprint.md": {
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.11.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)",
-      "lines": 1529,
-      "sha256": "b44fe281318f6fbc09829afcddad3ec1ba5ebcc2e35da32b2fad091c5bfbe531",
-      "size_bytes": 91094,
-      "version_header": "# Framework_ScopedBlueprint v1.11.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.12.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)",
+      "lines": 1676,
+      "sha256": "c04e4a3e132fcdd9223fb43efadc6505844baef0376a2922e341e34500091fca",
+      "size_bytes": 101117,
+      "version_header": "# Framework_ScopedBlueprint v1.12.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator"
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 10214,
-      "sha256": "f3617d2eb5c63a786605a9a9ea4dfba306d28e573679a576c20612165072af45",
-      "size_bytes": 585287,
+      "lines": 10894,
+      "sha256": "a3ff8a54ec436eb3bbea20e8f38ed8d505c1b5f5dc3f409b72fa559b662e24f6",
+      "size_bytes": 625848,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -198,9 +198,9 @@
     },
     "audit_seam.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 534,
-      "sha256": "0f048bef581b956781bc9bde7008178cf2f6bc62d823376a23a080a0ba99b0d1",
-      "size_bytes": 32281,
+      "lines": 537,
+      "sha256": "9036c77008b326a6e3071f51bd10d94f0a522776213848f95ee195b8f220a6f3",
+      "size_bytes": 32560,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_specs_ext.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 11736,
-      "sha256": "6aca3f008a0b628db1599e951bc68627a83644f283b9dcc9d806c5d2426c3634",
-      "size_bytes": 649316,
+      "lines": 13434,
+      "sha256": "daadc39a05cdaf8c7268530a4e806bfeac16ba88acc4b5ddf50cc6f87ae548f5",
+      "size_bytes": 745837,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -254,23 +254,23 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 6221,
-      "sha256": "1eb1bd5c36183ed2f3839efe47d82783ed0650e73157b7df8ab4c476afcceb83",
-      "size_bytes": 331009,
+      "lines": 7953,
+      "sha256": "2c523a9e980582f4ba9667b6742fae99f7d9805f0f065a384b8ee7a28efb762f",
+      "size_bytes": 429533,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 4566,
-      "sha256": "5cd76f2e8d0701ea06520fd004727c15677b302df125a7fc7e9814a2d90650b8",
-      "size_bytes": 267585,
+      "lines": 4598,
+      "sha256": "f7e9902789490314a1a3273b01e3eff7e40de66d64b71a819654c9059be61acd",
+      "size_bytes": 269651,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
       "end_sentinel": "    print(\"figural_core.py — shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 3263,
-      "sha256": "fcb742958cec9ce4c43688c6c5baea2406344d1c1e2d3be0e263b1b213034166",
-      "size_bytes": 161907,
+      "lines": 4781,
+      "sha256": "620e2a3fe7951920be86dc10383bc1b632697eeb01d045a16d52a380d07a24d3",
+      "size_bytes": 250023,
       "version_header": "\"\"\""
     },
     "figural_vision.py": {
@@ -317,9 +317,9 @@
     },
     "paper_pipeline.py": {
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 2631,
-      "sha256": "a8c9ad1b07bd68f7135378708ff2c8e76edb2c2098f587699107b1c1d367d647",
-      "size_bytes": 160585,
+      "lines": 2774,
+      "sha256": "8fedbbf1404c3d523be4f0a7b73fd43d6286869c5308d70270307281662c6ef1",
+      "size_bytes": 170522,
       "version_header": "\"\"\""
     },
     "reconcile_taxonomy.py": {
@@ -331,9 +331,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 199,
-      "sha256": "db2c5cf02838310d8ca0b49fee2ff3754a410d27e14ac7da91f008e98f492def",
-      "size_bytes": 4643,
+      "lines": 200,
+      "sha256": "a934b4426ccbe28684a2c7df478e21b17cccf26af3695c08528f48f603bbc46b",
+      "size_bytes": 4666,
       "version_header": "{"
     },
     "spec_source.py": {
@@ -359,9 +359,9 @@
     },
     "validate_framework_md.py": {
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2464,
-      "sha256": "74052901d801c802d41a5d1beb3fb693968672b405b66f7ffa53f6c4a6dacab4",
-      "size_bytes": 141696,
+      "lines": 2515,
+      "sha256": "39d8791a8b39c5cdbadc8e8988f51f94fe255e8460f73bc76896b8c653bfc099",
+      "size_bytes": 144738,
       "version_header": "#!/usr/bin/env python3"
     },
     "notes_docx.py": {
@@ -380,9 +380,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 2111,
-      "sha256": "c98d8ff1e1702d813e0cc97db50c69f9fde00d979982630a075ba20fbfa6b722",
-      "size_bytes": 133726,
+      "lines": 2186,
+      "sha256": "8f81082cc06daf7c66f4834ee839311228bf7936975eb15dc3212e72e4c9003b",
+      "size_bytes": 139085,
       "version_header": "\"\"\""
     },
     "spec_name_audit.py": {
@@ -401,9 +401,9 @@
     },
     "figure_types.py": {
       "end_sentinel": "    print(\"figure_types.py — figure-type registry. Run with --self-test or --preflight.\")",
-      "lines": 814,
-      "sha256": "e77fc813a5ca3d1831b379e5259558bed898a9527e9b3234c8cefd506ddd6d6b",
-      "size_bytes": 54370,
+      "lines": 1004,
+      "sha256": "5a27fc6ee6d6d433695b1a297fe54b2e3dadec7548dad23bd9c24ef6e77031ee",
+      "size_bytes": 68507,
       "version_header": "\"\"\""
     }
   },

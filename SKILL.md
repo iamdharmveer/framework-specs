@@ -57,7 +57,7 @@ cd "$FW" && python3 bootstrap.py \
 # audit — every gate degrades to DORMANT-but-reported — but a Create step
 # CANNOT draw a figure without matplotlib, so install it here rather than
 # discover it as a traceback mid-paper.
-pip install matplotlib pillow numpy scipy fonttools rdkit --break-system-packages -q 2>/dev/null \
+pip install matplotlib pillow numpy scipy fonttools rdkit scikit-image --break-system-packages -q 2>/dev/null \
   || echo "WARN: figure dependencies incomplete — run figural_core.preflight() and expect DORMANT figure gates."
 python3 -c "import figural_core as fc, json; print('FIGURE PREFLIGHT:', json.dumps(fc.preflight()['available']))" 2>/dev/null || true
 # ── PROJECT-FIRST SPEC RESOLUTION (2026.08.03.8) ────────────────────────────
@@ -77,7 +77,9 @@ cd /tmp/fw_effective
    clone with any project specs laid over it) that matches the step the user asked for
    (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md) and READ IT IN FULL — the read-in-full rule applies to .md SPEC files ONLY; .py ENGINE files in the route are EXECUTED via `import` inside the spec's code blocks and must NOT be read into context — every line to
    its "# END OF ..." sentinel. Some specs are thousands of lines (Blueprint ~6400) — read
-   all pages, never a partial.
+   all pages, never a partial. Trimmed, summarised or partial WORKING COPIES of a spec are
+   PROHIBITED (GAP-2026-11-02 P1); `python3 bootstrap.py --trigger <Step> --receipt` prints
+   the exact bytes the run is held to, and the delivery footer repeats them.
 
 2a. RUN `python3 bootstrap.py --trigger <Step> --progress <the exam's *_analysis_progress.json,
    if one exists>` FIRST. It prints the entry files split by role AND the PRE-WORK READ

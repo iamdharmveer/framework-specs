@@ -1,4 +1,20 @@
-# Framework_ScopedBlueprint v1.11.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.12.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.12.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY L2 + F8 (paired with
+#   blueprint_core v1.29, MockTestCreate v5.89). Measured defect: every paper of a delivered
+#   Organic scoped series was scheduled 2/14/24 — the exam's PAPER-level mix (not the
+#   scope's) run through '+30% harder' and then read in ALPHABETICAL key order (Easy, Hard,
+#   Medium); this spec had no 'harder' form and no dict->tuple rule, so a session improvised.
+#   §5 S5-P (new, runs whenever a difficulty profile exists): EVERY form is computed by ONE
+#   engine call, bc.scoped_difficulty_schedule, on the SCOPE's measured mix
+#   (bc.dp_scope_mix: equal-weight over window cycles, empty cycles skipped, cascade
+#   scope -> topic -> section -> paper below 20 questions), converted ONLY by bc.mix_to_smh
+#   (positional, exam_config.difficulty_labels order). Forms: 'harder' (DEFAULT — owner
+#   decision O3, same default as the mock Blueprint since v1.58), 'exam' (now the SCOPE's
+#   mix, no longer the paper's), 'S:M:H', 'progressive'. The blueprint records
+#   difficulty_source (A-DPROFILE schema + builder + profile hash) so Create S3-2D and the
+#   auditor's A-DIFFSRC recompute it. CSIR Organic: 1 Easy / 23 Medium / 16 Hard per 40.
+#   No profile -> the v1.5 envelope ramp (§5 Branch A) unchanged. S8-2c (new):
+#   fig_ask_target_per_mock from section_rules figural_ask_type_counts (bc.fig_ask_series).
 # v1.11.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4 +
 #   LAW F3.2; paired with blueprint_core v1.28, figure_types v1.0, final_assembly v1.10,
 #   Framework_MockTestCreate v5.88, Framework_Blueprint v1.61.0). TWO DEFECTS, both estate-wide.
@@ -177,7 +193,23 @@ Parse and validate the trigger:
   --qs_per_paper Q : positive integer > 0. If missing → ERROR:
                   "--qs_per_paper is required (a scoped test has no exam-pattern total)."
   --batch_size B : optional, default 10. Positive integer > 0.
-  --difficulty  : optional. Two accepted forms (case-insensitive keyword; mutually exclusive):
+  --difficulty  : optional. v1.12.0 — WITH a difficulty profile in project Files every form
+                  below is computed by bc.scoped_difficulty_schedule on the SCOPE's measured
+                  mix (§5 S5-P) and NO form is ever converted dict->tuple by hand:
+                    (none)      -> 'harder' (DEFAULT, owner decision O3, 2026-11-02):
+                                   dp_harder(scope mix), every paper identical.
+                    'harder'    -> the same, stated explicitly.
+                    'exam'      -> the scope's measured mix itself (v1.12.0: the SCOPE's, no
+                                   longer the whole paper's).
+                    'S:M:H'     -> the given ratio (validation below).
+                    'progressive' -> paper k of N: Hard = base_H - 10 + 20*(k-1)/(N-1) around
+                                   the harder scope mix, each band clipped to the range that
+                                   spans BOTH the harder mix and the scope's per-cycle
+                                   [min, max], widened by 10 (one paper -> exactly 'harder').
+                  WITHOUT a profile the v1.11.0 forms below apply unchanged ('harder' and
+                  'exam' then ERROR: "'--difficulty <form>' needs [ExamCode]_difficulty_
+                  profile.json (run PYQExplain on the latest sittings and upload it)").
+                  v1.11.0 forms (no profile):
                   (a) 'progressive' — default behaviour anyway (§5 S5-1..S5-3).
                   (b) 'S:M:H' fixed-uniform override (§5 S5-3 Branch B, v1.6) — full bypass of the
                       scope envelope, per explicit user instruction:
@@ -191,17 +223,15 @@ Parse and validate the trigger:
                       (no auto-correct; user must re-enter). Values may include levels absent
                       from the scope's observed PYQ — proceed exactly as given, no warning,
                       no substitution (§5 S5-3 Branch B).
-                  (c) 'exam' (v1.10 — GAP-2026-08-27-DIFFICULTY-PROFILE): fixed-uniform override
-                      whose ratio is the exam's OWN paper-level mix from the difficulty profile
-                      (bc.dp_recommend(DIFFICULTY_PROFILE, PROFILE_CFG)['paper_level']['pct']).
-                      No profile in project Files, or a dormant one → ERROR: "'--difficulty exam'
-                      needs [ExamCode]_difficulty_profile.json (run PYQExplain on the latest
-                      sittings and upload it)." Otherwise identical to form (b).
-                  Neither form given → default envelope-bounded ramp (§5 S5-1..S5-3, unchanged).
-                  Value given but recognised as NEITHER 'progressive' NOR a well-formed 3-part
-                  ratio (e.g. wrong count of numbers, non-numeric, empty) → ERROR:
-                  "--difficulty must be 'progressive' or three whole numbers S:M:H summing to
-                  100 (e.g. 15:30:55). Received: {raw_value}." Never guess or silently default.
+                  (c) 'harder' / 'exam' — need a profile (v1.12.0 forms above). No profile in
+                      project Files, or a dormant one → the ERROR quoted above. (Through v1.11.0
+                      'exam' meant the PAPER-level mix; v1.12.0 uses the SCOPE's mix — S5-P.)
+                  Neither form given, no profile → default envelope-bounded ramp (§5 S5-1..S5-3).
+                  Value given but recognised as NONE of 'harder', 'exam', 'progressive' or a
+                  well-formed 3-part ratio (e.g. wrong count of numbers, non-numeric, empty) →
+                  ERROR: "--difficulty must be 'harder', 'exam', 'progressive' or three whole
+                  numbers S:M:H summing to 100 (e.g. 15:30:55). Received: {raw_value}." Never
+                  guess or silently default.
 
   If --level or --scope or --count or --qs_per_paper is missing → ERROR listing the
   missing flag(s) and the trigger format. Never guess a scope or a count.
@@ -868,6 +898,51 @@ mock), audited within tolerance downstream — true in both modes.
 #   override_mode = True  if trigger had '--difficulty S:M:H' (any valid ratio)
 #   override_mode = False if trigger had no --difficulty flag, or '--difficulty progressive'
 # override_pct = (s_pct, m_pct, h_pct) when override_mode else None
+#
+# v1.12.0 — DIFFICULTY_MODE (read by §5 S5-P whenever a difficulty profile exists):
+#   None          no --difficulty flag            -> 'harder' (owner decision O3)
+#   'harder'      --difficulty harder
+#   'exam'        --difficulty exam               (the SCOPE's mix, v1.12.0)
+#   'progressive' --difficulty progressive
+#   (s, m, h)     --difficulty S:M:H              (== override_pct)
+# S1-1 binds DIFFICULTY_MODE from the trigger's --difficulty value (None when absent) —
+# 'progressive' and 'exam' MUST be bound here, override_mode alone cannot express them.
+# This block makes the binding explicit and total, so a run whose S1-1 left it unbound
+# never meets a NameError at S5-P.
+import re
+override_mode = bool(globals().get('override_mode'))           # S1-1; absent == no S:M:H
+override_pct = globals().get('override_pct') if override_mode else None
+if override_mode and not override_pct and not globals().get('DIFFICULTY_MODE'):
+    raise SystemExit("HARD STOP [HS:INPUT] (S5-0): override_mode is set but no S:M:H ratio "
+                     "(override_pct) was parsed from --difficulty — re-run with "
+                     "--difficulty S:M:H (three whole numbers summing to 100).")
+_dm = globals().get('DIFFICULTY_MODE')
+if _dm is None and globals().get('override_mode') and globals().get('override_pct'):
+    try:
+        _dm = tuple(int(x) for x in globals()['override_pct'])      # --difficulty S:M:H
+    except (TypeError, ValueError):
+        _dm = globals()['override_pct']                             # -> the S5-0 HARD STOP below
+if isinstance(_dm, str):
+    _dm = _dm.strip().lower() or None
+    _parts = [x for x in re.split(r'[:\s,]+', _dm or '') if x]
+    if len(_parts) == 3 and all(re.fullmatch(r'\d+', x) for x in _parts):
+        _dm = tuple(int(x) for x in _parts)                         # "15:30:55" / "15 30 55"
+if isinstance(_dm, list):
+    _dm = tuple(_dm)
+if isinstance(_dm, tuple) and len(_dm) == 3 and all(
+        isinstance(x, (int, float)) and float(x).is_integer() for x in _dm):
+    _dm = tuple(int(x) for x in _dm)                                # 15.0 -> 15 (whole numbers only)
+if not (_dm in (None, 'harder', 'exam', 'progressive')
+        or (isinstance(_dm, tuple) and len(_dm) == 3 and all(isinstance(x, int) for x in _dm)
+            and all(x >= 0 for x in _dm) and sum(_dm) == 100)):
+    raise SystemExit(f"HARD STOP [HS:INPUT] (S5-0): --difficulty must be 'harder', 'exam', "
+                     f"'progressive' or three whole numbers S:M:H summing to 100. Received: {_dm!r}.")
+DIFFICULTY_MODE = _dm
+if isinstance(DIFFICULTY_MODE, tuple):                      # an S:M:H ratio IS the override
+    override_mode, override_pct = True, DIFFICULTY_MODE     # (S5-3 Branch B without a profile)
+elif DIFFICULTY_MODE is not None:                           # 'harder' / 'exam' / 'progressive'
+    override_mode, override_pct = False, None               # are never the S:M:H override
+DIFFICULTY_BY_SECTION = None
 ```
 
 ### S5-1 — Per-subtopic observed difficulty envelope
@@ -1003,6 +1078,45 @@ else:
         if 'Simple' not in ENVELOPE: assert s_ == 0
         if 'Medium' not in ENVELOPE: assert m_ == 0
         if 'Hard'   not in ENVELOPE: assert h_ == 0
+```
+
+### S5-P — PROFILE-MEASURED SCHEDULE (v1.12.0 — GAP-2026-11-02 L2; REPLACES S5-1..S5-3 whenever
+### a difficulty profile exists)
+
+```python
+import blueprint_core as bc
+# DIFFICULTY_MODE from S1-1: None (no flag) | 'harder' | 'exam' | 'progressive' | (s,m,h).
+# ONE engine call builds the whole series AND its provenance. It reads the SCOPE's measured
+# mix (bc.dp_scope_mix — equal-weight mean over the window cycles of the in-scope questions'
+# bands; cycles with no in-scope question skipped; below 20 questions it cascades topic ->
+# section -> paper and says which level it used) and converts it ONLY through
+# bc.mix_to_smh (positional, difficulty_labels order). Alphabetical order is a self-tested
+# negative in the engine. Never re-implement any of this in a session.
+DIFFICULTY_SOURCE = None
+if DIFFICULTY_PROFILE is not None and PROFILE_CFG['difficulty_labels'] \
+        and len(PROFILE_CFG['difficulty_labels']) == 3:
+    _mode = ('ratio' if isinstance(DIFFICULTY_MODE, tuple)
+             else (DIFFICULTY_MODE or 'harder'))          # O3: default 'harder'
+    _res = bc.scoped_difficulty_schedule(
+        DIFFICULTY_PROFILE, list(in_scope_ids), PROFILE_CFG['difficulty_labels'],
+        n_papers=N, q_per_paper=Q, mode=_mode,
+        ratio=(DIFFICULTY_MODE if isinstance(DIFFICULTY_MODE, tuple) else None),
+        section_name=scope_label,
+        gap_days=PROFILE_CFG.get('cycle_gap_days'))   # the exam's own cycle definition
+    if not _res.get('dormant'):
+        difficulty_schedule = {e['mock']: (e['simple'], e['medium'], e['hard'])
+                               for e in _res['schedule']}
+        DIFFICULTY_BY_SECTION = {e['mock']: e.get('by_section') for e in _res['schedule']}
+        DIFFICULTY_SOURCE = _res['difficulty_source']
+        print(f"S5-P: mode={DIFFICULTY_SOURCE.get('mode')} "
+              f"level_used={DIFFICULTY_SOURCE.get('level_used')} "
+              f"measured={DIFFICULTY_SOURCE.get('measured_pct')} "
+              f"applied={DIFFICULTY_SOURCE.get('applied_pct')} -> paper 1 "
+              f"{difficulty_schedule.get(1)}")
+    else:
+        print(f"S5-P: profile carries no usable in-scope data ({_res.get('reason')}) — "
+              f"the §5 Branch A/B build below is used; the schedule is recorded UNVERIFIED.")
+# S5-P supersedes S5-1..S5-3 when it produced a schedule; otherwise S5-1..S5-3 run as before.
 ```
 
 ### S5-4 — Degenerate envelopes (Branch A / override_mode == False only)
@@ -1250,9 +1364,32 @@ subtopic_list = [{
 
 # S8-2 — difficulty_schedule[] (one entry per PAPER; §5). Length == N; each sums to Q.
 difficulty_sched_json = [
-    {'mock': k, 'band': 'ScopedRamp', 'simple': s, 'medium': m, 'hard': h}
+    {'mock': k, 'band': ('ScopedProfile' if DIFFICULTY_SOURCE else 'ScopedRamp'),
+     'simple': s, 'medium': m, 'hard': h,
+     **({'by_section': (DIFFICULTY_BY_SECTION or {}).get(k)}
+        if DIFFICULTY_SOURCE and (DIFFICULTY_BY_SECTION or {}).get(k) else {})}
     for k, (s, m, h) in sorted(difficulty_schedule.items())
 ]
+
+# S8-2c (v1.12.0 — GAP-2026-11-02 F8) — ASK-TYPE TARGETS per paper. The section's ask-type
+# share = sum over in-scope subtopics of (its figural share x its PYQ ask-type share), from
+# section_rules PYQ_IMAGE_ANALYSIS.figural_ask_type_counts (Step 5 v2.58.0); apportioned over
+# the series cumulatively by bc.fig_ask_series so a 5% type is never rounded away.
+# No counts in section_rules (Step 5 < v2.58.0) -> {} (Create's ask-type control dormant).
+_img_blocks = bc.parse_image_analysis_blocks(_sr_text)
+_w = {}
+for _sid in in_scope_ids:
+    _ac = ((_img_blocks.get(_sid) or {}).get('figural_ask_type_counts') or {})
+    _tot = sum(int(v or 0) for v in _ac.values())
+    for _t, _n in _ac.items():
+        if _tot:
+            _w[_t] = _w.get(_t, 0.0) + (r_avg.get(_sid, 0.0) or 0.0) * int(_n or 0) / _tot
+_wt = sum(_w.values())
+_fig_slots = int(round((axis_schedule.get('axis1_target_per_mock') or {}).get('FIGURAL', 0)))
+FIG_ASK_TARGET = {}
+if _wt > 0 and _fig_slots > 0:
+    _series = bc.fig_ask_series({t: v / _wt for t, v in _w.items()}, _fig_slots, N)
+    FIG_ASK_TARGET = {str(k): {scope_label: _series[k - 1]} for k in range(1, N + 1)}
 
 # S8-3 — mocks[] (one per paper; §4 paper_alloc → subtopic_allocations, only q_count>0 stored).
 # paper_alloc is keyed by subtopic_id (§4). paper_id numbering RESUMES from paper_start
@@ -1349,6 +1486,11 @@ blueprint = {
     'sections': sections,                          # single synthetic section (§2)
     'subtopic_list': subtopic_list,
     'difficulty_schedule': difficulty_sched_json,
+    # v1.12.0 (GAP-2026-11-02 L2): provenance in the mock blueprint's A-DPROFILE schema +
+    # builder/profile hash, so Create S3-2D and A-DIFFSRC recompute the schedule. Absent
+    # (None) only on the no-profile ramp — then Create discloses "unverified".
+    **({'difficulty_source': DIFFICULTY_SOURCE} if DIFFICULTY_SOURCE else {}),
+    'fig_ask_target_per_mock': FIG_ASK_TARGET,      # v1.12.0 F8 ({} = dormant)
     'axis_schedule': {scope_label: axis_schedule},  # §6, keyed by the single section name
     # Zero-PYQ subtopics are covered by the §4 coverage floor (allocated every batch), NOT by
     # the mock's capped rotation — so the rotation list is empty. The KEY is still emitted for
@@ -1476,7 +1618,12 @@ strict-global uniqueness holds across all tiers:
   ☐ 5.  ALLOCATION (§4): EC-11 feasibility passed; every paper has exactly Q questions; every
          in-scope subtopic (PYQ and Zero-PYQ) appears ≥1 in every batch (coverage floor);
          series total == Q×N.
-  ☐ 6.  DIFFICULTY (§5): each paper's simple+medium+hard == Q, in BOTH modes.
+  ☐ 6.  DIFFICULTY (§5): each paper's simple+medium+hard == Q, in EVERY mode.
+         WITH a profile (v1.12.0, S5-P): the schedule is bc.scoped_difficulty_schedule's
+         output verbatim and difficulty_source names builder 'bc.scoped_difficulty_schedule'
+         (MockTestCreate S3-2D recomputes it); 'harder'/'exam'/'S:M:H' papers identical,
+         'progressive' Hard non-decreasing across the series. The envelope/ramp checks
+         below apply only WITHOUT a profile:
          override_mode == False (default/progressive): no level scheduled outside the scope
          envelope; batch-local ramp (Hard non-decreasing within a batch when in-envelope).
          override_mode == True (--difficulty S:M:H, v1.6): every paper IDENTICAL to the
@@ -1526,4 +1673,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.11.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.12.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

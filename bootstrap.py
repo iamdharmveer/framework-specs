@@ -46,9 +46,16 @@ session's context for zero benefit — the split exists because a route lists
 BOTH kinds and the old single-line advisory said "read IN FULL" for all of
 them). Verification always covers all files regardless of trigger.
 
+--receipt (2026.11.02, GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY P1) with --trigger prints
+one READ RECEIPT line per routed .md spec — {spec, lines, sha256, end_sentinel} — into the
+run log. Reading a spec in full is the framework's own rule; a session once worked from
+"trimmed working copies" and nothing recorded it. The receipt makes the spec a run was
+held to VISIBLE (the delivery footer repeats it); it cannot make skipped reading impossible.
+
 Usage:
     python3 bootstrap.py                     # verify whole framework
     python3 bootstrap.py --trigger MockDeliver
+    python3 bootstrap.py --trigger MockCreate --receipt
 """
 import argparse, hashlib, json, os, sys
 
@@ -219,6 +226,8 @@ def main():
                     help="path to [ExamCode]_analysis_progress.json — decides SESSION "
                          "CLASS and prints the exact read plan (GAP-2026-08-16)")
     ap.add_argument("--manifest", default="MANIFEST.json")
+    ap.add_argument("--receipt", action="store_true",
+                    help="with --trigger: print a READ RECEIPT per routed spec (P1)")
     args = ap.parse_args()
 
     if not os.path.exists(args.manifest):
@@ -372,6 +381,24 @@ def main():
             if engines:
                 print(f"Routed engine(s) for '{args.trigger}' — EXECUTE via `import` inside the "
                       f"spec's code blocks; do NOT read these into context: {engines}")
+            if args.receipt:
+                # P1 (GAP-2026-11-02): the exact spec bytes this run is held to.
+                for f in specs:
+                    if not os.path.exists(f):
+                        continue
+                    _ls = read_lines(f)
+                    _nb = [l for l in _ls if l.strip() != ""]
+                    print("READ RECEIPT " + json.dumps(
+                        {"spec": f, "lines": len(_ls), "sha256": sha256(f),
+                         "end_sentinel": (_nb[-1] if _nb else ""),
+                         # the spec's own "# END OF <spec> vX" line (None when it has none):
+                         # a reader that reached it has read the whole spec body
+                         "end_marker": next((l for l in reversed(_nb)
+                                             if l.startswith("# END OF")), None)},
+                        ensure_ascii=False))
+                print("READ RULE: trimmed, summarised or partial working copies of a spec "
+                      "are PROHIBITED; a run that declares one records finding A-READ in its "
+                      "delivery footer.")
         else:
             print(f"[note] trigger '{args.trigger}' not in advisory routes; "
                   f"read the spec whose header matches your step. All files are verified & present.")

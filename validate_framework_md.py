@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-validate_framework_md.py v3.2 — Universal Framework .md Validator
+validate_framework_md.py v3.3 — Universal Framework .md Validator
 Replaces both the old Step-8-specific validator AND the universal validator.
 Runs universal checks on ANY framework .md file, PLUS auto-detects and runs
 extended checks when the file contains patterns that warrant them:
@@ -166,6 +166,33 @@ def _fenced_python(text):
         else:
             cur.append(line)
     return out
+
+# v3.3 — HS-CLASS scope: the specs that RUN a paper (generation, explanation, delivery).
+HS_CLASS_FILES = ('Framework_MockTestCreate.md', 'Framework_MockTestExplain.md',
+                  'Framework_MockDeliver.md')
+
+
+def _hs_class_self_test():
+    """HS-CLASS: an untagged stop -> 1 issue; a [HS:QUALITY] tag -> 2 (untagged class +
+    quality); correctly tagged lines -> 0. Exact counts, so a disabled rule fails."""
+    import tempfile as _tf, io as _io, contextlib as _cl
+    d = _tf.mkdtemp()
+    ok = True
+    for body, expect in (('x HARD STOP here\n', 1), ('x HARD STOP [HS:INFRA] y\n', 0),
+                         ('LADDER-REPAIR R2 [HS:LADDER]\n', 0),
+                         ('x HARD STOP [HS:QUALITY] y\n', 2),
+                         ('x HARD STOP [HS:LADDER] y\n', 1)):
+        p = os.path.join(d, 'Framework_MockDeliver.md')
+        open(p, 'w', encoding='utf-8').write('# Framework_MockDeliver v9.9\n' + body)
+        with _cl.redirect_stdout(_io.StringIO()) as _o:
+            validate(p)
+        got = sum(1 for ln in _o.getvalue().splitlines()
+                  if ln.strip().startswith('- line') and 'HARD STOP' in ln
+                  or ln.strip().startswith('- line') and 'QUALITY condition' in ln)
+        ok = ok and got == expect
+    print('HS-CLASS self-test:', 'PASS' if ok else 'FAIL')
+    return ok
+
 
 def validate(path, all_texts=None):
     """all_texts: optional {basename: text} for every file in the current batch run,
@@ -401,6 +428,28 @@ def validate(path, all_texts=None):
                 if claimed != len(check_names):
                     add('J-SELFTEST', f'prose claims SELF-TEST {claimed}/{claimed} '
                         f'but self_test() has {len(check_names)} unique test names')
+
+    # ─────────────── HS-CLASS: RUN-STOP CLASSIFICATION (v3.3) ──────────────
+    # GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY G6 (owner requirement: a run never stops
+    # for a QUALITY reason). In the three specs that run a paper, every "HARD STOP" /
+    # "HARD-STOP" carries its class on the same line: [HS:INFRA] (toolchain broken),
+    # [HS:INPUT] (operator input, before generation) or [HS:PROSE] (commentary). A quality
+    # condition is never a stop: it is written "LADDER-REPAIR R<n> [HS:LADDER]". An
+    # untagged stop, or a [HS:QUALITY] tag, is an issue — so a future edit cannot add a
+    # quality stop without this gate going red.
+    if fname in HS_CLASS_FILES:
+        for _i, _l in enumerate(lines, 1):
+            if re.search(r'HARD[ -]STOP', _l) and not re.search(
+                    r'\[HS:(INFRA|INPUT|PROSE|LADDER)\b', _l):
+                add('HS-CLASS', f'line {_i}: run-stop without a class tag '
+                                f'([HS:INFRA]/[HS:INPUT]/[HS:PROSE]): {_l.strip()[:90]}')
+            if '[HS:QUALITY' in _l:
+                add('HS-CLASS', f'line {_i}: a QUALITY condition may never stop a run — '
+                                f'write it as LADDER-REPAIR R<n> [HS:LADDER]')
+            if re.search(r'HARD[ -]STOP\s*\[HS:LADDER', _l):
+                add('HS-CLASS', f'line {_i}: a QUALITY condition may never stop a run — '
+                                f'"HARD STOP [HS:LADDER]" is a contradiction; write '
+                                f'LADDER-REPAIR R<n> [HS:LADDER]')
 
     # ─────────────────── K: DUPLICATE SECTIONS ───────────────────
     sec_defs = re.findall(r'^(#+\s+§\d+\b[^\n]*)', text, re.M)
@@ -2301,7 +2350,9 @@ if __name__ == '__main__':
     # runs Check V's catch/clean fixtures (synthetic tempdir corpus; never touches
     # the live tree) and exits. The file-validation CLI below is unchanged.
     if '--self-test' in sys.argv:
-        sys.exit(0 if _check_v_self_test() else 1)
+        _v_ok = _check_v_self_test()
+        _hs_ok = _hs_class_self_test()          # v3.3 — GAP-2026-11-02 G6
+        sys.exit(0 if (_v_ok and _hs_ok) else 1)
     if len(sys.argv) < 2:
         print('Usage: python3 validate_framework_md.py <file.md> [file2.md ...]')
         sys.exit(1)

@@ -13,6 +13,13 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.11 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY P2/P3. predelivery_checklist
+    accepts `extra_deliverables`: a CONDITIONAL addition to the closed set, used only for
+    the in-run blueprint when it differs from the project copy (S3-2D recomputation / R5
+    amendment — "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER") and the
+    per-exam auditor when the run audited with the verified repo copy ("UPLOAD THIS
+    AUDITOR TO THE PROJECT"). An extra must be a blueprint or the per-exam auditor by
+    NAME; anything else is refused (closed set unchanged otherwise).
     v1.10 — GAP-2026-11-01 final review (same release). (a) Every figure record commit_registry
     writes is STAMPED record_schema='F2'; annotate_legacy_figure_records() annotates only
     UNSTAMPED entries, so a current paper's false record can never be laundered into
@@ -339,6 +346,11 @@ def _entry_number(e):
     return n if n is not None else e.get('mock')
 
 
+# v1.11 — optional per-question fields carried concept_map -> registry.question_index.
+QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
+                      'scheme_grammar', 'marked_sites', 'ladder')
+
+
 def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      axis2_window_counts, passage_present, di_present,
                      figural_present, concept_map,
@@ -614,7 +626,12 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # when the concept_map entry has the key (a set-placed paper) — a legacy
             # paper's question_index entry is byte-identical to v1.6.
             **({"stimulus_group_id": concept_map[qn]["stimulus_group_id"]}
-               if "stimulus_group_id" in concept_map[qn] else {})}
+               if "stimulus_group_id" in concept_map[qn] else {}),
+            # v1.11 (GAP-2026-11-02): the per-question v5.89 records — difficulty decision
+            # (CHECK 3c), ask type / representations / scheme grammar (F8), declared marks
+            # (MARK-IFF-NAMED) and the repair-ladder trace (L4) — carried ONLY when the
+            # concept_map entry has them, so a legacy entry stays byte-identical.
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V589_FIELDS if _k in concept_map[qn]}}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(
@@ -1089,7 +1106,8 @@ def qindex_certify(registry, bp, N):
 # S13-7 — predelivery_checklist()
 # ══════════════════════════════════════════════════════════════════════════
 def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None,
-                          regcheck_ok, qindex_ok, listdir=None, exists=None):
+                          regcheck_ok, qindex_ok, listdir=None, exists=None,
+                          extra_deliverables=()):
     """7-point pre-delivery checklist (v3.5). The one function in this module
     that reads the filesystem (os.path.exists/os.listdir) — inherently can't
     be pure, since its entire job is verifying real files landed in a real
@@ -1135,7 +1153,13 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
     if dossier_name and dossier_name in staged and dossier_name not in leaked:
         leaked.append(dossier_name)
     checks.append(("5 no internal sidecars in outputs", len(leaked) == 0))
-    expected_set = {docx_name, reg_name}
+    # v1.11 (GAP-2026-11-02 P2/P3): conditional extras — ONLY a blueprint json or the
+    # per-exam auditor, by name. Anything else passed here is ignored (never widens
+    # the set), so a caller cannot launder a sidecar into the delivery.
+    _extras = {e for e in (extra_deliverables or ())
+               if isinstance(e, str) and (e.endswith('_blueprint.json')
+                                          or e.endswith('_mock_test_audit.py'))}
+    expected_set = {docx_name, reg_name} | _extras
     checks.append((f"6 outputs == exactly the {len(expected_set)} deliverables",
                   staged == expected_set))
     checks.append(("7 question_index certified (G-QINDEX)", bool(qindex_ok)))
@@ -1275,6 +1299,25 @@ def self_test():
           [q.get('stimulus_group_id', 'ABSENT') for q in
            _r_sg['registry']['question_index'][0]['questions']]
           == ['ex.rc#1', 'ex.rc#1', None])
+
+    # v1.11 (GAP-2026-11-02): v5.89 per-question records carried only when present
+    _v9_cm = mini_cm()
+    _v9_cm['1'].update({'difficulty_check': {'decision': 'agree', 'final_band': 'Hard'},
+                        'figural_ask_type': 'product_prediction', 'marked_sites': [],
+                        'ladder': {'rung': 'R1', 'reasons': ['G-FIGMARK'], 'attempts': 1}})
+    _r_v9 = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                            batches_completed=1, axis2_window_counts={},
+                            passage_present=False, di_present=False,
+                            figural_present=False, concept_map=_v9_cm)
+    _q_v9 = _r_v9['registry']['question_index'][0]['questions']
+    check('commit_qindex_carries_v589_fields_only_when_present',
+          _q_v9[0]['figural_ask_type'] == 'product_prediction'
+          and _q_v9[0]['ladder']['rung'] == 'R1' and _q_v9[0]['marked_sites'] == []
+          and _q_v9[0]['difficulty_check']['final_band'] == 'Hard'
+          and not any(k in _q_v9[1] for k in QINDEX_V589_FIELDS))
+    _v9_cm['1']['ladder']['rung'] = 'R4'                 # the caller edits its record later
+    check('commit_qindex_v589_fields_are_copies_not_aliases',
+          _q_v9[0]['ladder']['rung'] == 'R1')
 
     # non-first-mock: existing fields preserved + extended
     reg2 = copy.deepcopy(r1['registry'])
@@ -1823,6 +1866,38 @@ def self_test():
                                    regcheck_ok=True, qindex_ok=True, listdir=ld8b, exists=ex8b)
     check('predelivery_two_file_closed_set_clean', chk_8b['ok'] is True
           and '2 deliverables' in chk_8b['checks'][5][0])
+
+    # v1.11 — conditional extras (P2/P3): a recomputed blueprint and a repo auditor
+    # copy join the closed set only when named; a sidecar can never be laundered in.
+    _x = files_ok | {'EX_SUBJ_ORG_blueprint.json', 'EX_mock_test_audit.py'}
+    ld9, ex9 = fake_fs(_x)
+    chk_9 = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
+                                  reg_name='EX_registry.json', regcheck_ok=True,
+                                  qindex_ok=True, listdir=ld9, exists=ex9,
+                                  extra_deliverables=('EX_SUBJ_ORG_blueprint.json',
+                                                      'EX_mock_test_audit.py'))
+    check('predelivery_v111_blueprint_and_auditor_extras_accepted', chk_9['ok'] is True)
+    ld9b, ex9b = fake_fs(_x)
+    chk_9b = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
+                                   reg_name='EX_registry.json', regcheck_ok=True,
+                                   qindex_ok=True, listdir=ld9b, exists=ex9b)
+    check('predelivery_v111_extras_not_named_still_break_closed_set', chk_9b['ok'] is False)
+    _x2 = files_ok | {'EX_M1_answer_key.json'}
+    ld9c, ex9c = fake_fs(_x2)
+    chk_9c = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
+                                   reg_name='EX_registry.json', regcheck_ok=True,
+                                   qindex_ok=True, listdir=ld9c, exists=ex9c,
+                                   extra_deliverables=('EX_M1_answer_key.json',))
+    check('predelivery_v111_sidecar_cannot_be_laundered_as_extra', chk_9c['ok'] is False)
+    # a name that trips NO other check (not an answer key, not a known internal sidecar):
+    # only the extras filter (*_blueprint.json / *_mock_test_audit.py) can reject it
+    _x3 = files_ok | {'EX_M1_notes.json'}
+    ld9d, ex9d = fake_fs(_x3)
+    chk_9d = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
+                                   reg_name='EX_registry.json', regcheck_ok=True,
+                                   qindex_ok=True, listdir=ld9d, exists=ex9d,
+                                   extra_deliverables=('EX_M1_notes.json',))
+    check('predelivery_v111_only_blueprint_or_auditor_names_are_extras', chk_9d['ok'] is False)
 
     # missing outputs_dir entirely does not crash (§ Angle 6 of the design's
     # adversarial review — first-run-before-makedirs case)

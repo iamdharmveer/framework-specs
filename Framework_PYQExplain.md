@@ -1,4 +1,14 @@
-# Framework_PYQExplain v2.24 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.25 — Universal PYQ Explanation Generator
+# v2.25 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   blueprint_core v1.29, figure_types v1.1, MockTestAnalyse v2.58.0, MockTestCreate
+#   v5.89). §13A-3 Phase B also records, per figural question, a CONTENT RECORD
+#   (/home/claude/pyq_content_objects.json): chemistry species as SMILES / scheme specs,
+#   the answer SMILES, content_confidence, abbreviations exactly as printed and the
+#   site-mark device; and for every figural question of any subject the ask type /
+#   representation / scheme-grammar tags (closed vocabularies, figure_types). S7A-6
+#   joins it to the scored observations; bc.dp_add_paper carries the optional keys and
+#   COMPUTES content_vector. Profile schema unchanged (additive keys). Step 5 aggregates
+#   the tags; Create builds the content-complexity floor from the vectors.
 # v2.24 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
 #   with MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident: the FINAL batch
 #   shipped only the Explanation docx and left pyq_explain_progress.json +
@@ -1475,6 +1485,19 @@ _positions = sorted(int(k) for k in (_h.get('qtype') or {}))     # v2.20: the pa
 if not _positions:
     raise SystemExit('HARD STOP (S7A-6): qtype map missing from the handoff — S7A-4 did not run')
 _unscored_reasons = _h.get('difficulty_unscored') or {}            # v2.20: {q: reason}, may be empty
+# v2.25 (GAP-2026-11-02): §13A-3's per-question content record joins each scored
+# observation; dp_add_paper carries the optional keys and COMPUTES content_vector.
+_cop = '/home/claude/pyq_content_objects.json'
+if os.path.exists(_cop):
+    _content = json.load(open(_cop, encoding='utf-8'))
+    if ((_content or {}).get('_meta') or {}).get('source_file') != os.path.basename(CLEAN_ROW_FILE):
+        print(f"S7A-6: {_cop} belongs to another paper "
+              f"({((_content or {}).get('_meta') or {}).get('source_file')!r}) — not merged.")
+        _content = {}
+    for _q, _rec in (_content or {}).items():
+        if str(_q) in _obs and isinstance(_rec, dict):
+            _obs[str(_q)] = {**_obs[str(_q)],
+                             **{k: v for k, v in _rec.items() if k in bc.DP_CONTENT_KEYS}}
 if len(_ec['difficulty_labels']) != 3:
     # DORMANT exam (non-3-band vocabulary): the profile contract is 3-band; nothing is written,
     # nothing is delivered, §R13 says DORMANT. The observations stay in the handoff json.
@@ -2046,6 +2069,39 @@ for it in items:
        not halt.
   Then write every transcription to /home/claude/pyq_figural_transcripts.json
   as {item_key: {"text": "...", "sha256": "<item sha256>"}}.
+
+  v2.25 — CONTENT RECORD PER FIGURAL QUESTION (GAP-2026-11-02 L1/F7/F8/F3). For
+  every figural question whose figures are chemistry STRUCTURES or REACTIONS
+  (figure_types.CHEM_R_OBJECT_TYPES), ALSO record, once per question, in
+  /home/claude/pyq_content_objects.json as
+  {"_meta": {"source_file": "<basename of CLEAN_ROW_FILE>"}, "<q>": {...}} — written
+  FRESH for each paper (overwrite, never append): S7A-6 joins it only to the paper whose
+  source_file it names, so a file left over from another paper is never merged:
+    "content_objects":   every drawn species: [{"role": "problem"|"option:<k>",
+                          "kind": "STRUCTURE"|"REACTION", "canonical": <SMILES or
+                          'reactants>agents>products'>, "scheme": <render_scheme
+                          spec items, when a scheme>}]  — the §13-2b objects;
+    "answer_smiles":     the keyed answer's SMILES (when the answer is a structure);
+    "content_confidence": "full" | "partial" | "unreadable" — "full" only when every
+                          drawn species canonicalises through
+                          explain_engine.canonical_structure;
+    "abbreviations_seen": the group abbreviations EXACTLY as printed (e.g. "CO2CH3",
+                          "OTs", "SiMe3"); [] when every group is drawn out;
+    "site_mark_device":  how the paper marks the site its stem names: "underline" |
+                          "asterisk" | "letter" | "arrow" | "bold" | "highlight"
+                          (null when the stem names no site);
+    and, for EVERY figural question of any subject:
+    "figural_ask_type":  ONE of figure_types.FIGURAL_ASK_TYPES (what the question
+                          asks; figure_types.normalise_ask_type(stem, object_type) is
+                          the default, correct it when the figure shows otherwise). The
+                          vocabulary is CHEMISTRY's: a figure that is not a chemistry
+                          structure / scheme (graph, circuit, geometry, reasoning
+                          glyph, data table…) is ALWAYS "other" — never forced into a
+                          chemistry ask;
+    "representations":   tags from figure_types.REPRESENTATION_TAGS;
+    "scheme_grammar":    tags from figure_types.SCHEME_GRAMMAR_TAGS.
+  Transcribe what is PRINTED; never improve the molecule. The engine computes the
+  content vector from these objects (bc.dp_add_paper) — never write a vector here.
 ```
 
   MANDATE 0 STILL BINDS. The transcriptions go to a FILE. No stem, option,
@@ -2907,5 +2963,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.24
+# END OF Framework_PYQExplain v2.25
 # ════════════════════════════════════════════════════════════════════════

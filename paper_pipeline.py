@@ -234,8 +234,9 @@ def apply_mock_offset(blueprint, registry):
     labels. When there are no prior mocks (offset == 0) the blueprint is returned UNCHANGED, so an
     exam's first mock series is byte-identical to before.
 
-    Offsets: mocks[].mock, mocks[].paper_id, and difficulty_schedule[].mock (the auditor looks up
-    difficulty by mock number, so it must move too). Records blueprint['mock_offset'] for audit.
+    Offsets: mocks[].mock, mocks[].paper_id, difficulty_schedule[].mock (the auditor looks up
+    difficulty by mock number, so it must move too) and the keys of fig_ask_target_per_mock
+    (2026.11.02 — looked up by mock number in Create and the auditor). Records blueprint['mock_offset'] for audit.
     Idempotent-guarded: refuses to double-apply (a blueprint already carrying mock_offset).
     """
     if blueprint.get('mock_offset'):
@@ -248,6 +249,12 @@ def apply_mock_offset(blueprint, registry):
         mk['paper_id'] = f"MOCK:M{mk['mock']:02d}"
     for d in blueprint.get('difficulty_schedule', []):
         d['mock'] = d['mock'] + offset
+    # 2026.11.02 (Blueprint v1.62.0 F8): the ask-type targets are keyed by mock NUMBER
+    # (str), and Create / the auditor look them up by the relabelled number.
+    _fa = blueprint.get('fig_ask_target_per_mock')
+    if isinstance(_fa, dict) and _fa:
+        blueprint['fig_ask_target_per_mock'] = {
+            (str(int(k) + offset) if str(k).isdecimal() else k): v for k, v in _fa.items()}
     blueprint['mock_offset'] = offset
     return blueprint
 
@@ -392,6 +399,11 @@ def _self_test():
     ck('offset10_difficulty', [d['mock'] for d in bp10['difficulty_schedule']] == [11, 12, 13])
     ck('offset10_sections_untouched', [mk['sections'] for mk in bp10['mocks']] == [[1], [2], [3]])
     ck('offset10_records', bp10['mock_offset'] == 10)
+    _fa_bp = dict(copy.deepcopy(fresh_bp), fig_ask_target_per_mock={'1': {'S': {'x': 1}}, '3': {'S': {'y': 2}}})
+    _fa10 = apply_mock_offset(_fa_bp, {'papers_completed': [f'MOCK:M{i:02d}' for i in range(1, 11)]})
+    ck('offset10_fig_ask_targets_follow_the_mock_numbers',
+       sorted(_fa10['fig_ask_target_per_mock']) == ['11', '13']
+       and _fa10['fig_ask_target_per_mock']['13'] == {'S': {'y': 2}})
     try:
         apply_mock_offset(bp10, {'papers_completed': ['MOCK:M40']})
         ck('offset_double_guard', False)
@@ -575,6 +587,24 @@ def _self_test():
                 _qreg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
                        {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}]),
                 _QBP6, mock_n=1)[1]['fails'][0])
+    # 2026.11.02 handshake: a 2-band exam whose (ScopedBlueprint ramp) schedule speaks
+    # simple/medium/hard is DORMANT for check 6; a schedule in its OWN labels is enforced
+    _Q2 = [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Standard'},
+           {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Standard'}]
+    _QBP2a = dict(_QBP, difficulty_labels=['Standard', 'Advanced'],
+                  difficulty_schedule=[{'mock': 1, 'simple': 0, 'medium': 1, 'hard': 1}])
+    ck('QINDEX-quota-dormant-for-2band-exam-with-smh-schedule',
+       validate_question_index(_qreg(_Q2), _QBP2a, mock_n=1)[0])
+    _QBP2b = dict(_QBP2a, difficulty_schedule=[{'mock': 1, 'Standard': 1, 'Advanced': 1}])
+    # an exam whose labels OVERLAP Easy/Medium/Hard is still dormant for an S/M/H schedule
+    _QBP2c = dict(_QBP, difficulty_labels=['Easy', 'Hard'],
+                  difficulty_schedule=[{'mock': 1, 'simple': 1, 'medium': 0, 'hard': 1}])
+    ck('QINDEX-quota-dormant-for-overlapping-2band-labels-with-smh-schedule',
+       validate_question_index(_qreg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+                                      {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Easy'}]),
+                               _QBP2c, mock_n=1)[0])
+    ck('QINDEX-quota-enforced-for-2band-schedule-in-own-labels',
+       not validate_question_index(_qreg(_Q2), _QBP2b, mock_n=1)[0])
     ck('QINDEX-quota-dormant-when-exam-has-no-schedule',
        # _QBP (no difficulty_schedule key) must still certify a clean set —
        # check 6 must never be invented for an exam that never declared one.
@@ -988,6 +1018,52 @@ def _self_test():
        reg_name='r', registry_changed=False, final=False, report_docx='rep.docx'), RHIllegalHandoff))
     ck('RH-extra-local-dedup', handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json',
        registry_changed=True, extra_local=('a.docx', 'b.json'))['files'] == ['a.docx', 'r.json', 'b.json'])
+    _hu = handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json', registry_changed=True,
+                      extra_upload=('X_SUBJ_blueprint.json', 'X_mock_test_audit.py'))
+    _hr = handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json', registry_changed=True,
+                      extra_upload=('X_mock_test_audit.py',), extra_replace=('X_SUBJ_blueprint.json',))
+    ck('RH-extra-replace-badged-when-project-copy-exists',
+       _hr['badges']['X_SUBJ_blueprint.json'] == RH_BADGE_REPLACE
+       and _hr['badges']['X_mock_test_audit.py'] == RH_BADGE_UPLOAD
+       and any(l.startswith('REPLACE (TestCreate)') for l in _hr['lines'])
+       and verify_handoff_outputs(['a.docx', 'r.json', 'X_mock_test_audit.py',
+                                   'X_SUBJ_blueprint.json'], _hr)['ok'])
+    ck('RH-extra-upload-badged-and-in-closed-set',
+       _hu['files'] == ['a.docx', 'r.json', 'X_SUBJ_blueprint.json', 'X_mock_test_audit.py']
+       and _hu['badges']['X_SUBJ_blueprint.json'] == RH_BADGE_UPLOAD
+       and sum(1 for l in _hu['lines'] if l.startswith('UPLOAD (TestCreate)')) == 2
+       and verify_handoff_outputs(['a.docx', 'r.json', 'X_SUBJ_blueprint.json',
+                                   'X_mock_test_audit.py'], _hu)['ok'])
+    # 2026.11.02 pass-3 (property fuzz) — each FAILS on the pre-fix handoff_set
+    # (a) the extra upload/replace name filter == predelivery_checklist's extras filter
+    ck('RH-extra-upload-name-filter-agrees-with-predelivery',
+       _raises(lambda: handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json',
+                                   registry_changed=True, extra_upload=('EX_M1_concept_map.json',)),
+               RHIllegalHandoff)
+       and _raises(lambda: handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json',
+                                       registry_changed=True, extra_replace=('notes.json',)),
+                   RHIllegalHandoff))
+    # (b) a name in both extra_local and extra_upload is the UPLOAD (badge + line)
+    _hb = handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json', registry_changed=True,
+                      extra_local=('X_blueprint.json',), extra_upload=('X_blueprint.json',))
+    ck('RH-extra-local-and-upload-is-upload',
+       _hb['badges'].get('X_blueprint.json') == RH_BADGE_UPLOAD
+       and _hb['files'].count('X_blueprint.json') == 1
+       and any(l.startswith('UPLOAD (TestCreate): X_blueprint.json') for l in _hb['lines']))
+    # (c) the registry / primary docx are never extras; (d) a plain str is refused
+    ck('RH-extra-local-refuses-plain-str', _raises(lambda: handoff_set(
+        'TestCreate', primary_docx='a.docx', reg_name='r.json', registry_changed=True,
+        extra_local='b.json'), RHIllegalHandoff))
+    ck('RH-extra-upload-refuses-registry-docx-and-plain-str',
+       _raises(lambda: handoff_set('TestCreate', primary_docx='a.docx', reg_name='EX_blueprint.json',
+                                   registry_changed=False, extra_upload=('EX_blueprint.json',)),
+               RHIllegalHandoff)
+       and _raises(lambda: handoff_set('TestCreate', primary_docx='P_blueprint.json', reg_name='r.json',
+                                       registry_changed=False, extra_replace=('P_blueprint.json',)),
+                   RHIllegalHandoff)
+       and _raises(lambda: handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json',
+                                       registry_changed=True, extra_upload='X_blueprint.json'),
+                   RHIllegalHandoff))
     _v = verify_handoff_outputs(['EX_Mock01_Explanation.docx', 'EX_registry.json',
                                  'EX_Mock01_Explain_Report.docx'], _hs)
     ck('RH-verify-ok', _v['ok'] and _v['missing'] == [] and _v['stray'] == [])
@@ -1611,13 +1687,20 @@ def validate_question_index(registry, blueprint, mock_n=None, paper_id=None):
                     continue
                 lab = alias3.get(k, k)
                 want[lab] = want.get(lab, 0) + v
+            # 2026.11.02 (handshake): a schedule whose bands do not NAME this exam's
+            # vocabulary (simple/medium/hard counts on a 2- or 4-band exam — the
+            # ScopedBlueprint ramp emits those) cannot be compared: check 6 is DORMANT
+            # for it, exactly as Create's difficulty plan is, never an impossible quota.
+            _comparable = len(canon) == 3 or (
+                {k for k, v in sched.items()
+                 if k not in ('mock', 'band') and isinstance(v, int)} <= set(canon))
             want = {lab: want.get(lab, 0) for lab in canon}
             got = {lab: 0 for lab in canon}
             for x in qs:
                 d = x.get('difficulty')
                 if d in got:
                     got[d] += 1
-            if got != want:
+            if _comparable and got != want:
                 fails.append(f'A-QINDEX/6: difficulty distribution {got} != '
                              f'schedule quota {want}')
     return (not fails), {'fails': fails, 'bad_ids': bad_ids, 'paper_id': paper_id,
@@ -2305,6 +2388,7 @@ def dg_fleet_heal(reg, *, apply):
 RH_GAP_ID = 'GAP-2026-08-26-REGISTRY-HANDOFF-SEAM'
 RH_BADGE_REPLACE = 'Replace in Project Files'
 RH_BADGE_LOCAL = 'Use locally'
+RH_BADGE_UPLOAD = 'Upload to Project Files'   # v5.41 — a file the NEXT run reads from Files
 RH_REPORT_SUFFIX = '_Explain_Report.docx'   # Step 9 END-OF-MOCK REPORT as a docx (final batch)
 # Every mock-track trigger that may call present_files. The WRITING subset is the set
 # of steps that own a registry writer (final_assembly.commit_registry, dg_write_verdict,
@@ -2409,7 +2493,7 @@ def report_docx_name(exam_code, paper_id):
 
 
 def handoff_set(step, *, primary_docx, reg_name, registry_changed, final=True,
-                report_docx=None, extra_local=()):
+                report_docx=None, extra_local=(), extra_upload=(), extra_replace=()):
     """Decide the CLOSED deliverable set for one present_files call.
 
     step             one of RH_MOCK_TRACK_STEPS
@@ -2419,12 +2503,37 @@ def handoff_set(step, *, primary_docx, reg_name, registry_changed, final=True,
     final            False for a non-final batch (Step 7 / Step 9 mid-run)
     report_docx      Step 9 report docx name — final batch only
     extra_local      any further 'Use locally' files the spec lists (closed set)
+    extra_upload     v5.41 (GAP-2026-11-02): files the next run must find in Project Files
+                     (an amended blueprint, a repo auditor copy) that are NOT there yet —
+                     badge 'Upload to Project Files'; closed set like extra_local
+    extra_replace    the same, for a file whose (older) copy IS already in Project Files —
+                     badge 'Replace in Project Files' (DeliveryFooter §2 get_badge rule)
 
     Returns {'files': [ordered], 'badges': {name: badge}, 'registry_delivered': bool,
              'lines': [operator-facing lines]}. Raises RHIllegalHandoff on a request
-    the law cannot honour. NEVER silently drops a changed registry."""
+    the law cannot honour. NEVER silently drops a changed registry.
+
+    2026.11.02 (fuzz): every extra_* is an ITERABLE of names (a plain str was iterated
+    character by character) — a str is refused; extra_upload / extra_replace accept
+    ONLY the names final_assembly.predelivery_checklist accepts as extra deliverables
+    (*_blueprint.json / *_mock_test_audit.py) and never reg_name / primary_docx, so the
+    two closed-set laws agree; a name in both extra_local and extra_upload/replace is
+    badged and announced as the upload/replace (the next run must find it in Project
+    Files), never silently 'Use locally'."""
     if step not in RH_MOCK_TRACK_STEPS:
         raise RHIllegalHandoff(f'{RH_GAP_ID}: unknown mock-track step {step!r}')
+    extra_local = _rh_names(extra_local, 'extra_local')
+    extra_upload = _rh_names(extra_upload, 'extra_upload')
+    extra_replace = _rh_names(extra_replace, 'extra_replace')
+    for x in extra_upload + extra_replace:
+        if x in (reg_name, primary_docx):
+            raise RHIllegalHandoff(f'{RH_GAP_ID}: {x!r} is the registry / primary docx — it is '
+                                   f'delivered by its own rule, never as an extra upload')
+        if not _rh_extra_deliverable(x):
+            raise RHIllegalHandoff(f'{RH_GAP_ID}: extra upload/replace {x!r} is not a '
+                                   f'*_blueprint.json or *_mock_test_audit.py — the closed '
+                                   f'delivery set (predelivery_checklist check 6) refuses it')
+    _promoted = set(extra_upload) | set(extra_replace)
     if report_docx and not final:
         raise RHIllegalHandoff(f'{RH_GAP_ID}: the report docx is a FINAL-batch '
                                f'deliverable; step {step} asked for it mid-run')
@@ -2443,11 +2552,45 @@ def handoff_set(step, *, primary_docx, reg_name, registry_changed, final=True,
         files.append(report_docx)
         badges[report_docx] = RH_BADGE_LOCAL
     for x in extra_local:
-        if x not in files:
+        if x not in files and x not in _promoted:
             files.append(x)
             badges[x] = RH_BADGE_LOCAL
+    for x in extra_upload:
+        if x not in files:
+            files.append(x)
+            badges[x] = RH_BADGE_UPLOAD
+            lines.append(f'UPLOAD ({step}): {x} — upload it to Project Files before the '
+                         f'next paper.')
+    for x in extra_replace:
+        if x not in files:
+            files.append(x)
+            badges[x] = RH_BADGE_REPLACE
+            lines.append(f'REPLACE ({step}): {x} — replace the older copy in Project Files '
+                         f'with this one before the next paper (never keep both).')
     return {'files': files, 'badges': badges, 'registry_delivered': bool(registry_changed),
             'lines': lines}
+
+
+def _rh_names(arg, which):
+    """An extra_* argument as a list of names. None -> []; a plain str / bytes is
+    refused (iterating it yields characters, never file names)."""
+    if arg is None:
+        return []
+    if isinstance(arg, (str, bytes)):
+        raise RHIllegalHandoff(f'{RH_GAP_ID}: {which} must be an iterable of file names, '
+                               f'not the single string {arg!r} — pass ({arg!r},)')
+    try:
+        return list(arg)
+    except TypeError:
+        raise RHIllegalHandoff(f'{RH_GAP_ID}: {which} must be an iterable of file names; '
+                               f'got {type(arg).__name__}')
+
+
+def _rh_extra_deliverable(name):
+    """The name filter final_assembly.predelivery_checklist applies to
+    extra_deliverables (check 6): only a blueprint json or the per-exam auditor."""
+    return isinstance(name, str) and (name.endswith('_blueprint.json')
+                                      or name.endswith('_mock_test_audit.py'))
 
 
 def verify_handoff_outputs(staged_names, hs):

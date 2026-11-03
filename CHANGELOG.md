@@ -1,5 +1,142 @@
 # Changelog
 
+## 2026.11.02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: a figure is drawn the way the real paper draws it, a question is repaired instead of stopping the run, a difficulty schedule carries its own provenance
+(figural_core v5.89, corpus_io v1.17, blueprint_core v1.29, figure_types v1.1, analyse_engine v1.1,
+audit_canonical v2.34, final_assembly v1.11, explain_engine v2.12, paper_pipeline
+(handoff_set extra_upload), bootstrap --receipt, validate_framework_md v3.3 HS-CLASS, audit_seam; MockTestCreate v5.89, ScopedBlueprint v1.12.0, Blueprint v1.62.0,
+MockTestAnalyse v2.58.0, PYQExplain v2.25, MockTestExplain v1.52.0, DeliveryFooter v1.37.0,
+MockDeliver (HARD STOP class tags only); routes.json; SKILL.md + mocktestframework_SKILL.md;
+validate.yml (+scipy, scikit-image).)
+Raised by CSIR_NET_CHEMICALSCIENCES `TestCreate --level subject --scope "Organic Chemistry"`.
+ESTATE-WIDE: every change is driven by measurements of the exam's own PYQ papers, never by an
+exam name.
+
+**The defect.** A subject paper shipped (a) coloured, over-sized, accent-banded structure drawings
+unlike the printed paper; (b) highlight marks on sites the question never names; (c) option labels
+stranded on one page with their picture on the next; (d) an Easy/Medium/Hard schedule taken from
+the whole-paper default instead of the scope's own PYQ mix; (e) quality failures that STOPPED the
+run instead of repairing the question; (f) no ask-type mix (most figural questions asked the same
+way); (g) nothing proving the agent had read the spec it ran.
+
+**The fix.**
+- F1 PRINT-TRUE NATIVE DRAWING. Step 5 measures FIGURE_STYLE_PROFILE from the PYQ docx (cap
+  height, stroke, colour, frame); figural_core.structure_tokens turns it into fixed POINT sizes;
+  corpus_io draws every structure natively at those sizes, black-and-white by default (owner O1),
+  placed at natural size. Gates G-FIGLABELPX, G-FIGOVERPRINT, G-FIGBONDORDER.
+- F2 MARK-IFF-NAMED (owner O2). A mark is drawn only when the stem names the site
+  (marked_sites [{site, device, stem_phrase}]); gate G-FIGMARK.
+- F5 KEEP INVARIANT (owner O5: label-then-picture stays). S10-8 binds every option label to its
+  picture with keep_with_next / keep_together; auditor A-OPTKEEP. The gap report measured 25 of
+  108 option labels stranded (in 25 of 27 questions); this release's own re-render of that layout
+  reproduced 19 of 108 before the fix and 0 of 48 after it.
+- F7/L1 CONTENT RECORD. PYQExplain writes pyq_content_objects.json (owner O6: PYQ chemistry
+  transcribed to SMILES); content_vector / ccp_model give a CONTENT-COMPLEXITY FLOOR (used as a
+  floor only), auditor A-CONTENTLEVEL.
+- F8 ASK-TYPE MIX. Step 5 counts figural ask types; blueprint carries fig_ask_target_per_mock;
+  MockTestCreate assigns ask types to the measured mix; auditor A-FIGFORMAT (WARN).
+- L2 SCOPED DIFFICULTY. ScopedBlueprint builds the schedule from the scope's own PYQ mix
+  (harder = +30% by default, owner O3, positional), records difficulty_source; MockTestCreate S3-2D
+  recomputes and amends; an independent blind rating is reconciled per question (CHECK 3c).
+- Q8b REPAIR LADDER (owner O4: never drop a question). R1 deterministic re-render (no new
+  content) -> R2 regenerate the same item -> R3 regenerate with the next under-target ask type
+  -> R4 / R4' terminal (axis-safe text fallback / simplest figure) -> R5 accept at the measured
+  band (schedule amended) or reassign the slot. Every quality HARD STOP became LADDER-REPAIR
+  [HS:LADDER]; every remaining HARD STOP is classed [HS:INFRA] / [HS:INPUT] / [HS:PROSE] and the
+  validator HS-CLASS check fails any untagged one.
+- S13-2F PRE-COMMIT ITEM SWEEP + CERTIFICATE. The auditor runs per item before commit and writes a
+  certificate; S13-4c verifies it (A-CERT). AMBER findings are WARN lines, VOID findings are repaired.
+- P3 REPO AUDITOR FALLBACK (owner O7). A project without its own auditor uses the repo copy and
+  ships it as a deliverable; final_assembly accepts *_blueprint.json and *_mock_test_audit.py extras.
+- G7 READ RECEIPT. `bootstrap.py --receipt` prints per-spec sha256 + line counts; the delivery
+  footer carries the receipt line, so skipped reading is visible.
+
+**Pre-release review.** Before release, independent reviewers read every changed line in two
+rounds and ran the code. The defects they confirmed were fixed; where the fix lives in engine
+code it carries a self-test fixture, where it lives in spec prose it is covered by the spec
+validators (validate_framework_md, spec_name_audit, audit_deep, audit_callgraph, audit_sync).
+Main corrections:
+- S13-2F certifies against a PREVIEW of the very commit S13-4 will make (commit_registry is
+  pure), so every gate — registry-reading ones included — is assessed before the commit; the
+  certificate needs zero FAIL lines; one sweep per execution, repairs through the ladder, a
+  fresh preview per sweep; S13-4c always demands the certificate.
+- Delivery: extras (amended blueprint, repo auditor) are in the closed set with the badge
+  "Upload to Project Files" (paper_pipeline.handoff_set extra_upload); every "two files" text updated.
+- Difficulty: R5 amendments survive recompute (replayed) and resume (plan restored from
+  batch_state); the exam's cycle_gap_days defines the scope window; 'progressive' ramps around
+  the harder mix; full-paper blueprints (with or without builder) are never "unverified";
+  CHECK 3c label/plan/evidence rules made consistent; blind rating dormant without exemplars.
+- Records: write_q_to_sidecar takes difficulty_check / figural_ask_type / representations /
+  scheme_grammar / marked_sites / ladder; final_assembly carries them into question_index.
+- Ask types are CHEMISTRY's vocabulary: any non-chemistry figure is "other" (no constraint);
+  the full-paper Blueprint ask targets read r_avg by display name.
+- Drawing: site-mark lexicon no longer fires on ordinary reaction wording ("over the arrow",
+  "indicated below", "position 2"); bold on a double bond keeps both lines (triple: not
+  drawable -> ladder); scheme tile marks reach the figure record; explicit H keeps its index;
+  atom arrows drawable; letter marks carry their own letter; option canvases default to no
+  mark; colour option sets keep colour with one set-wide decision; scheme captions not
+  clipped; option-frame rule scoped to options and to measured evidence; underline below a
+  subscript; framed option canvases placed at their true width; degraded mode draws asterisk
+  and bold marks as highlights.
+- Auditor: A-OPTKEEP armed for every label format and reads keepNext w:val; A-FIGFORMAT
+  dormant on intermediate batches; every item gate has an explicit ladder entry rung (R1 for
+  placement/raster findings); "HARD STOP [HS:LADDER]" is rejected by HS-CLASS.
+- Footer: AMBER-CLASS vs INFORMATIONAL §LADDER lines, so a clean paper renders green.
+- Step 5: one corrupt PYQ docx (or a picture without an extent) is skipped, not allowed to
+  reset the style measurement; PYQExplain's content record is bound to its own paper.
+- End-to-end simulation (a scoped chemistry paper and a non-chemistry full mock, every
+  changed fence executed): the per-section difficulty plan is built over the BLUEPRINT's
+  sections (a scoped paper no longer stops before Q.1); a saved plan / sweep counter is
+  adopted only by the same paper_id; a figure in the stem is placed at its spec's size with
+  alt text; a commit_registry ValueError in preview is a ladder repair; S13-2F passes the
+  stimulus profile like S13-4c; rdkit is provisioned only when a chemistry structure/scheme
+  is in scope; the difficulty profile is read only when a schedule exists.
+- Explanation step: a per-question self-audit item still open after two re-authors is
+  resolved by REMOVING the failing element (never shipped unrepaired) and disclosed ("Q<n>
+  explanation degraded"); key reconciliation and fidelity / scope items still must hold.
+- Confirmation round: missing PYQ image-analysis evidence never disables the native
+  chemistry renderer (and every legacy chemistry draw is disclosed); the product ask rule
+  fires only when the stem OPENS with the product; the footer's "no difficulty profile"
+  variant is informational; malformed mark declarations are findings, not crashes.
+- ScopedBlueprint binds DIFFICULTY_MODE explicitly (S5-0); the read receipt names each spec's
+  "# END OF" line; ask-type rules read the ASKED noun (product before reagent words; 'IR' /
+  '1H' matched case-sensitively).
+
+**Handshake round (machine-built input/output maps of all 23 steps, two independent methods,
+plus live cross-step runs and random-input stress tests).** Fixed: ask-type targets follow the
+mock renumbering of a continuing series (paper_pipeline.apply_mock_offset); the PYQ-1 footer and
+the next-step table tell the operator to re-run Step 5 --synthesise ALL after the last PYQExplain
+paper (Step 5 reads PYQExplain's tags); Step 5 measures drawing style from every lane the PYQ
+docx can be in (this session's Drive downloads, uploads, Project Files; browser-renamed copies
+matched) and keys pictures by the Sorted docx's own question number; a bad / foreign difficulty
+profile never halts Step 5; Step 7 reads the exam's real [ExamCode]_exam_config.json for the
+difficulty window and sections (legacy style overrides deliberately unchanged); extras carry
+"Replace in Project Files" when an older copy exists, else "Upload"; a resumed paper keeps its
+amended blueprint only while the project copy is the one it started from; a band swap keeps the
+difficulty decision record in step. The live chain run (PYQExplain -> Step 5 -> blueprints ->
+Create -> Explain -> Deliver, two papers, chemistry / non-chemistry / 2-band exams) also fixed:
+Step 5 crashed when the difficulty profile was present (a later `import json` in the same
+function shadowed the name); A-QINDEX check 6 is dormant for a 2- or 4-band exam whose schedule
+speaks simple/medium/hard (pre-existing: such an exam could never commit a paper) and still
+enforced for a schedule in the exam's own labels; ScopedBlueprint S5-0 binds override_mode too;
+default print sizes under a measured style are disclosed. Second verification round (all
+checks re-run green; small hardening): a cycle id still matches when an earlier paper of the
+same sitting is explained later; A-QINDEX check 6 decides comparability from the raw schedule
+keys (dormant also when a 2-band vocabulary overlaps Easy/Hard); no difficulty profile shape
+can halt Step 5; A-DIFFSRC is dormant (not "regenerate") when a blueprint was built without a
+profile or for a non-3-band vocabulary; ScopedBlueprint S5-0 validates the S:M:H sum and never
+leaves the override flag set for a named mode; an implausible measured cap-height / stroke
+ratio (outside 1-50) falls back to the default.
+
+**Honest limits.** The ask-type vocabulary is chemistry's (non-chemistry figures are "other",
+so ask-type mixing is effectively a chemistry feature); ask-type tags travel in the difficulty
+profile, which exists only for 3-band difficulty vocabularies; the method-tier lexicon is not
+built (counts only); per-exam site-mark phrase extensions are not measured (the built-in
+lexicon is used); a resume in a NEW container (fresh /home/claude) loses in-run state — answer
+key, batch state and any in-run blueprint amendment not yet delivered (pre-existing); the style profile
+schema stays 1 (additive keys); style measurement needs the PYQ docx on disk at Step 5 (otherwise
+DEFAULT_STYLE_PROFILE + a printed note); the independent difficulty rating is model judgement; the
+read receipt makes skipped reading visible, not impossible.
+
 ## 2026.11.01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY: a figure type is bound to a renderer, a figure record agrees with itself, a record is committed because it exists
 (NEW figure_types v1.0; corpus_io v1.16, paper_pipeline v5.40, final_assembly v1.10, blueprint_core
 v1.28, audit_canonical v2.33, analyse_engine (QV-14 line + Phase-C normalisation), explain_engine

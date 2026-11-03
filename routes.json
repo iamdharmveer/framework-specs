@@ -140,7 +140,8 @@
     "figural_vision.py",
     "blueprint_core.py",
     "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "figure_types.py"
   ],
   "PYQFormat": [
     "Framework_PYQFormat.md",

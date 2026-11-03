@@ -1,4 +1,10 @@
-# Framework_Blueprint v1.61.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.62.0 — Universal Mock Test Blueprint Generator
+# v1.62.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F8 (paired with
+#   blueprint_core v1.29, MockTestCreate v5.89, MockTestAnalyse v2.58.0). S7-7 also emits
+#   fig_ask_target_per_mock[mock][section] — the exam's own figural ASK-TYPE mix
+#   (figure_types.FIGURAL_ASK_TYPES) apportioned over the series by bc.fig_ask_series;
+#   {} (dormant) when section_rules carries no figural_ask_type_counts. The difficulty
+#   default is UNCHANGED ('+30% harder', positional — owner decision O3 confirmed).
 # v1.61.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4;
 #   paired with blueprint_core v1.28, figure_types v1.0, Framework_ScopedBlueprint v1.11.0,
 #   Framework_MockTestCreate v5.88). §6 decided FORMAT feasibility (can a section carry
@@ -3409,7 +3415,11 @@ difficulty_source = {'mode': None, 'profile_file': (f'{EXAM}_difficulty_profile.
                      'questions_held': (RECOMMEND or {}).get('paper_level', {}).get('size', 0),
                      'recommended_by_section': MEASURED_BY_SECTION,
                      'harder_by_section': HARDER_BY_SECTION,
-                     'chosen_by_section': chosen_by_section, 'overrides_confirmed': []}
+                     'chosen_by_section': chosen_by_section, 'overrides_confirmed': [],
+                     # v1.62.0 (GAP-2026-11-02 review #8): names its builder, so MockTestCreate
+                     # S3-2D and A-DIFFSRC know the schedule is the full-paper S7-0 dialogue's
+                     # (validated by A-DPROFILE) and never report it as 'unverified'.
+                     'builder': bc.FULL_PAPER_BUILDER}
 ```
 
   DISPLAY (always, before any mix is accepted). Section names are the exam's own.
@@ -3949,6 +3959,39 @@ for section in sections:
              f"within tolerance by Step 7's audit.py.")
 
 blueprint['axis_schedule'] = axis_schedule
+
+# v1.62.0 (GAP-2026-11-02 F8) — ASK-TYPE TARGETS per mock and section. A section's ask-type
+# share = sum over its subtopics of (subtopic r_avg x the subtopic's PYQ ask-type share),
+# from section_rules PYQ_IMAGE_ANALYSIS.figural_ask_type_counts (Step 5 v2.58.0), apportioned
+# over the series cumulatively by bc.fig_ask_series (a 5% type is never rounded away; the
+# per-paper sum is the section's Axis-1 FIGURAL target). No counts (Step 5 < v2.58.0) -> {}
+# and Create's ask-type control is dormant. MockTestCreate v5.89 assigns and A-FIGFORMAT
+# reports against it.
+import blueprint_core as _bc_ask
+_img_blk = _bc_ask.parse_image_analysis_blocks(section_rules_text)
+_fig_ask = {}
+for _sec in sections:
+    _sn = _sec['name']
+    _w = {}
+    for _sid, _v in MANIFEST_IDS.items():
+        if _v.get('section') not in subjects_for_section(_sn):
+            continue
+        _ac = (_img_blk.get(_sid) or {}).get('figural_ask_type_counts') or {}
+        _tot = sum(int(x or 0) for x in _ac.values())
+        for _t, _n in _ac.items():
+            if _tot:
+                # r_avg is keyed by DISPLAY NAME in this spec (see the M4 group allocation)
+                _ra = r_avg.get(_v.get('display_name'), r_avg.get(_sid, 0.0))
+                _w[_t] = _w.get(_t, 0.0) + float(_ra or 0.0) * int(_n or 0) / _tot
+    _wt = sum(_w.values())
+    _slots = int(round(((axis_schedule.get(_sn) or {}).get('axis1_target_per_mock') or {})
+                       .get('FIGURAL', 0)))
+    if _wt > 0 and _slots > 0:
+        _ser = _bc_ask.fig_ask_series({t: v / _wt for t, v in _w.items()}, _slots,
+                                      int(blueprint.get('total_mocks') or 1))
+        for _k, _row in enumerate(_ser, 1):
+            _fig_ask.setdefault(str(_k), {})[_sn] = _row
+blueprint['fig_ask_target_per_mock'] = _fig_ask
 
 # v1.35 BUG 4 FIX (GAP-2026-07-22-001): persist the section↔subject mapping so B2/B3
 # can reconstruct per-section subtopic lists correctly. Without this, B2/B3 compare
@@ -6489,6 +6532,15 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "sections"            : [...],
   "subtopic_list"       : [...],
   "difficulty_schedule" : [...],
+  "difficulty_source"   : {...},     // A-DPROFILE schema; v1.62.0 also builder ('Framework_Blueprint.S7-0')
+  "fig_ask_target_per_mock": {"1": {"Section A": {"product_prediction": 3}}},  // v1.62.0 F8; {} dormant
+  "difficulty_amendments": [{"mock": 1, "section": "Section A", "from": "Hard", "to": "Medium",
+                            "reason": "measured_band"}],   // IN-RUN only — written by MockTestCreate
+                                                           // v5.89 ladder R5 (band labels) and S3-2D
+                                                           // (reason 'recomputed', section null, from/to
+                                                           // = [simple, medium, hard]); delivered for upload
+  "allocation_amendments": [{"mock": 1, "from": "<subtopic_id>", "to": "<subtopic_id>",
+                            "reason": "reassigned"}],      // IN-RUN only — ladder R5 slot reassignment
   "axis_schedule"       : {...},
   "zero_pyq_rotation"   : {...},
   "mocks"               : [...]
@@ -8007,4 +8059,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.61.0
+# END OF Framework_Blueprint v1.62.0

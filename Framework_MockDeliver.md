@@ -11,9 +11,9 @@
 #   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
 #   trigger in chat beside the _Explanation.docx, (2) Project Files. Phase 1 resolves it
 #   through pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment
-#   WINS when both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP
+#   WINS when both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE]
 #   only when BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated.
-#   The v1.16.0 wildcard scan of /mnt/project (`*_registry.json`, HARD STOP on two files)
+#   The v1.16.0 wildcard scan of /mnt/project (`*_registry.json`, HARD STOP [HS:PROSE] on two files)
 #   is RETIRED: the resolver looks for the exact name, so a sibling exam's registry is
 #   simply invisible and "the file is in two places" is never a stop. The registry is
 #   resolved AFTER EXAM is bound from the blueprints (it needs the exact name). The §8
@@ -283,13 +283,13 @@ Parse:
              (single-active-default / docx-driven resolution — §5 Phase 1).
   ExamCode : derived from the *_blueprint.json file(s) found in project knowledge
              (v1.9: every [ExamCode]*_blueprint.json, not just one — §5 Phase 1).
-             If none found → HARD STOP:
+             If none found → HARD STOP [HS:INPUT]:
                "No *_blueprint.json found in project knowledge.
                 Run MockBlueprint or ScopedBlueprint first and upload
                 its blueprint.json to this project."
 ```
 
-## S1-2 — Preflight (HARD STOP on any failure)
+## S1-2 — Preflight (HARD STOP [HS:INPUT] on any failure)
 
 ```
 1. Verify Solutions docx attached. Accept either:
@@ -299,7 +299,7 @@ Parse:
                                                          still accepted, never produced)
    (v1.9: paper_slug is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock, else
    the scoped slug; parsed from the uploaded filename itself, §5 Phase 1.)
-   If neither attached → HARD STOP: "Attach the Solutions docx for [N]."
+   If neither attached → HARD STOP [HS:INPUT]: "Attach the Solutions docx for [N]."
    (v1.16.0) A [ExamCode]_[paper_slug]_Explain_Report.docx attached alongside is the
    Step-9 report (MockTestExplain S20-R) — IGNORE it; it is never the input and its
    suffix can never match the two accepted names above.
@@ -309,12 +309,12 @@ Parse:
    Read: exam_code, total_questions, sections[], subtopic_list[],
          difficulty_labels, q_types, marking_scheme[] (v1.7 — optional; absent/empty
          is valid and means subtopic-based Question Type resolution, see §3 S3-2a).
-   If exam_code missing → HARD STOP.
+   If exam_code missing → HARD STOP [HS:INPUT].
 
 3. Resolve registry.json — REGISTRY-SOURCE-LAW (v1.22.0): from EITHER lane, the chat
    attachment (beside the Explanation docx) OR project knowledge, via
    pp.resolve_registry (Phase 1, after EXAM is bound from the blueprints). Attachment
-   wins when both exist — a difference is printed, never a stop; HARD STOP only when
+   wins when both exist — a difference is printed, never a stop; HARD STOP [HS:INPUT] only when
    both are absent; exam_code validated. Print REG_SRC['lines'] so the operator sees
    which copy this delivery used.
    REGISTRY-HANDOFF-LAW precondition (v1.16.0): the registry this step reads must CARRY
@@ -340,7 +340,7 @@ Parse:
         NO question_index entry — the entry was dropped by a later registry
         write. Its delivery will hard-stop until the paper is recreated via
         Step 7 (the per-question data cannot be recovered)."
-   THEN, if no mock N entry in question_index → HARD STOP with the Class-A
+   THEN, if no mock N entry in question_index → HARD STOP [HS:INPUT] with the Class-A
    finding above when mock N is in the ledger (data loss — remedy: re-run
    Step 7 for Mock [N]); otherwise:
    3b. DIFFICULTY GATE VERDICT (v1.13.0 — GAP-2026-08-24-DIFFICULTY-GATE-
@@ -352,7 +352,7 @@ Parse:
        An illegal (status, repair_rounds_used) pair is healed per DG-INVARIANT
        and disclosure['line'] is printed VERBATIM in chat; the healed registry
        is DELIVERED with the Final docx — Replace in Project Files — per §8 /
-       REGISTRY-HANDOFF-LAW (§FOOTER-DG also prints it from rec['migrations']). A DGIllegalState (unknown status) HARD-STOPS with
+       REGISTRY-HANDOFF-LAW (§FOOTER-DG also prints it from rec['migrations']). A DGIllegalState (unknown status) HARD-STOPS [HS:INFRA] with
        its message verbatim. An illegal record must NEVER be silently read as
        one of the branches below.
        THEN:
@@ -360,7 +360,7 @@ Parse:
        and act on it — d is the verdict, this table is what it encodes:
          absent            → LEGACY paper (pre-gate). Deliver exactly as
                              before — operator decision 2026-08-24.
-         ('PENDING',   0)  → HARD STOP: "This paper has not passed the
+         ('PENDING',   0)  → HARD STOP [HS:INPUT]: "This paper has not passed the
                              difficulty check. Run: " + d['next_step'] + "
                              then return here."
          ('DISCLOSED', 0)  → PROCEED (v1.18.0 — REPAIR-RETIRED-2026-08-27:
@@ -421,7 +421,7 @@ Parse:
          key absent (pre-v1.57.0 blueprint) → print nothing (legacy series).
          (The 30% in the 'profile_harder' line is bc.DP_HARDER_FRAC, printed as a
           whole percentage; the sentence never carries an exam value.)
-       Never invent a mode; a value outside this set is a data defect → HARD STOP
+       Never invent a mode; a value outside this set is a data defect → HARD STOP [HS:INPUT]
        naming blueprint.json.
 
     3d. STYLE-PROFILE STATUS LINE (v1.20.0 — GAP-2026-08-29-STYLE-FIDELITY §6.7;
@@ -458,11 +458,11 @@ Parse:
 
 4. Verify question_index[mock_N] has exactly total_questions entries
    with q = 1..total_questions (sorted, unique, complete).
-   If mismatch → HARD STOP: report the gap.
+   If mismatch → HARD STOP [HS:INPUT]: report the gap.
 
 5. Verify every question in question_index[mock_N] resolves to an entry in
    blueprint.subtopic_list[] — by subtopic_id when present, else by
-   (section, subtopic). If any unresolved → HARD STOP: list the unresolved keys.
+   (section, subtopic). If any unresolved → HARD STOP [HS:INPUT]: list the unresolved keys.
 
 6. Defensive-copy the uploaded docx to /home/claude/deliver_work/inputs_safe/.
    (Gate C16(b) needs this pristine pre-edit source to prove the delivered file
@@ -508,7 +508,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
     )
     if qi_entry is None:
         raise SystemExit(
-            f"HARD STOP: No question_index entry for paper {_pid} in registry.json.")
+            f"HARD STOP [HS:INPUT]: No question_index entry for paper {_pid} in registry.json.")
 
     # 2. Build TWO lookup maps from blueprint.subtopic_list so the JOIN works
     #    whether the registry stores subtopic_id (preferred) or only the
@@ -529,7 +529,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
         name_key = (st['section'], st['subtopic'])
         if name_key in st_by_name:
             raise SystemExit(
-                f"HARD STOP: blueprint.subtopic_list has two rows sharing "
+                f"HARD STOP [HS:INPUT]: blueprint.subtopic_list has two rows sharing "
                 f"(section, subtopic) = {name_key}. The (section, subtopic) JOIN "
                 f"fallback would be ambiguous. Give these subtopics distinct "
                 f"subtopic_id values AND ensure the registry carries subtopic_id.")
@@ -590,7 +590,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
                     return qt
                 break
         raise SystemExit(
-            f"HARD STOP: Q{qnum} — Question Type resolution is position_based "
+            f"HARD STOP [HS:INPUT]: Q{qnum} — Question Type resolution is position_based "
             f"(blueprint.marking_scheme has {sorted(_distinct_q_types)} across its "
             f"ranges) but Q{qnum} does not resolve to a usable question_type from any "
             f"marking_scheme q_range. blueprint.marking_scheme is corrupt, stale, or "
@@ -612,7 +612,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
 
         if not difficulty:
             raise SystemExit(
-                f"HARD STOP: Q{q} has no 'difficulty' field in "
+                f"HARD STOP [HS:INPUT]: Q{q} has no 'difficulty' field in "
                 f"registry.question_index. Registry may be corrupt or pre-v1.12.")
 
         # Resolve subtopic metadata: prefer subtopic_id; fall back to
@@ -637,7 +637,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
         # Validate difficulty is in the canonical set
         if difficulty not in difficulty_labels:
             raise SystemExit(
-                f"HARD STOP: Q{q} difficulty '{difficulty}' not in "
+                f"HARD STOP [HS:INPUT]: Q{q} difficulty '{difficulty}' not in "
                 f"difficulty_labels {difficulty_labels}.")
 
         lookup[q] = {
@@ -675,7 +675,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
                 _lines.append(f"Q{_q} [W2 — leaf reworded, HUMAN CONFIRM]: {_stale!r}\n"
                               f"     candidates: {_cand or '(none ≥0.5 — check taxonomy)'}")
         raise SystemExit(
-            "HARD STOP (S1-3 JOIN, v1.12.0): " + str(len(_unresolved)) + " question(s) "
+            "HARD STOP [HS:INPUT] (S1-3 JOIN, v1.12.0): " + str(len(_unresolved)) + " question(s) "
             "carry a subtopic_id that is not in blueprint.subtopic_list. Per-question "
             "classification and remedy:\n  " + "\n  ".join(_lines) + "\n"
             "W1 patches are safe to apply mechanically to the registry (then replace the "
@@ -764,7 +764,7 @@ When position-based: for question number `q`, scan `marking_scheme[]` for the
 entry whose `q_range = [start, end]` satisfies `start <= q <= end`, and return
 that entry's `question_type`. The subtopic's `answer_type` / `answer_cardinality`
 are IGNORED for this tag in this mode. If no entry covers `q` (or the matching
-entry has no usable `question_type`) → HARD STOP (marking_scheme does not fully
+entry has no usable `question_type`) → HARD STOP [HS:INPUT] (marking_scheme does not fully
 cover the paper — a data-integrity fault, never silently guessed).
 
 When subtopic-based: use S3-2b, unchanged from v1.6.
@@ -818,7 +818,7 @@ def validate_tag_lookup(lookup, total_questions):
     return issues
 ```
 
-If any issues → HARD STOP. Never insert partial or empty tags.
+If any issues → HARD STOP [HS:INPUT]. Never insert partial or empty tags.
 
 ---
 
@@ -1011,19 +1011,19 @@ os.makedirs('/home/claude/deliver_work/out', exist_ok=True)
 
 # BLUEPRINT DISCOVERY (v1.9, paper_pipeline.py): load EVERY *_blueprint.json present — the
 # mock blueprint AND any scoped ([ExamCode]_[SCOPETAG]_blueprint.json) blueprints. No
-# collision HARD STOP here: multiple blueprint files is the NORMAL state once any scoped
+# collision HARD STOP [HS:PROSE] here: multiple blueprint files is the NORMAL state once any scoped
 # tier has been generated alongside the mock series. pp.pick_blueprint (below) selects
 # the ONE this delivery is actually for, driven by the uploaded docx.
 bp_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
               if f.endswith('_blueprint.json')]
 if not bp_matches:
-    raise SystemExit("HARD STOP: No *_blueprint.json in project knowledge. "
+    raise SystemExit("HARD STOP [HS:INPUT]: No *_blueprint.json in project knowledge. "
                      "Run MockBlueprint or ScopedBlueprint first.")
 blueprints = [json.load(open(p, encoding='utf-8')) for p in bp_matches]
 _exam_codes = {b['exam_code'] for b in blueprints}
 if len(_exam_codes) > 1:
     raise SystemExit(
-        f"HARD STOP: blueprint files disagree on exam_code: {_exam_codes}\n"
+        f"HARD STOP [HS:INPUT]: blueprint files disagree on exam_code: {_exam_codes}\n"
         f"Only one ExamCode's files should exist per project.")
 EXAM = next(iter(_exam_codes))
 
@@ -1031,7 +1031,7 @@ EXAM = next(iter(_exam_codes))
 # Read from EITHER lane: the chat attachment (/mnt/user-data/uploads, beside the
 # Explanation docx) OR Project Files (/mnt/project). pp.resolve_registry is the ONE
 # implementation Steps 7/9/11 share: attachment wins when both exist (a difference is
-# printed, never a stop); HARD STOP only when both are absent; exact filename +
+# printed, never a stop); HARD STOP [HS:INPUT] only when both are absent; exact filename +
 # exam_code validated. The registry is still exactly ONE ledger per ExamCode (mock AND
 # every scoped tier); a sibling exam's file is invisible to the exact-name lookup.
 # Never open the Files path directly (MS-20).
@@ -1053,7 +1053,7 @@ _reg_fp_loaded = REG_SRC['fingerprint']
 _uploaded_name = os.path.basename(src_path)
 _slug_m = re.match(rf'^{re.escape(EXAM)}_(.+)_Explanation(?:_Complete)?\.docx$', _uploaded_name)
 if not _slug_m:
-    raise SystemExit(f"HARD STOP: could not parse a paper_slug from the uploaded filename "
+    raise SystemExit(f"HARD STOP [HS:INPUT]: could not parse a paper_slug from the uploaded filename "
                      f"{_uploaded_name!r}. Expected [ExamCode]_[paper_slug]_Explanation.docx "
                      f"or [ExamCode]_[paper_slug]_Explanation_Complete.docx.")
 docx_slug = _slug_m.group(1)
@@ -1061,7 +1061,7 @@ docx_slug = _slug_m.group(1)
 try:
     blueprint = pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=docx_slug)
 except pp.PickError as e:
-    raise SystemExit(f"HARD STOP: {e}")
+    raise SystemExit(f"HARD STOP [HS:INPUT]: {e}")
 
 safe_path = f'/home/claude/deliver_work/inputs_safe/{docx_slug}_src.docx'
 shutil.copy(src_path, safe_path)
@@ -1073,7 +1073,7 @@ _tp = next((mk for mk in blueprint.get('mocks', []) if mk.get('mock') == N), Non
 paper_id   = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
 paper_slug = pp.paper_slug(paper_id)
 if paper_slug != docx_slug:
-    raise SystemExit(f"HARD STOP: uploaded docx paper_slug {docx_slug!r} does not match "
+    raise SystemExit(f"HARD STOP [HS:INPUT]: uploaded docx paper_slug {docx_slug!r} does not match "
                      f"blueprint mock/paper {N}'s paper_slug {paper_slug!r}.")
 total_questions = blueprint['total_questions']
 
@@ -1081,7 +1081,7 @@ total_questions = blueprint['total_questions']
 tag_lookup = build_tag_lookup(blueprint, registry, N)
 issues = validate_tag_lookup(tag_lookup, total_questions)
 if issues:
-    raise SystemExit("HARD STOP: Tag lookup validation failed:\n" +
+    raise SystemExit("HARD STOP [HS:INPUT]: Tag lookup validation failed:\n" +
                      "\n".join(issues))
 
 # Open source docx as ZIP; extract document.xml as lxml tree
@@ -1274,7 +1274,7 @@ in the ZIP. Zero dangling relationships and zero dangling Overrides.
 **C11** Math PRESERVATION (INVERTED, v1.11.0): the delivered `document.xml`
 `<m:oMath>` count == `<m:oMath>` count from C5 (== source). `omml_count` from
 Phase 4 equals that count and `linearized_strings` is empty. ZERO linearization;
-NO `<m:oMath>` was replaced by text. A shortfall is a HARD STOP — it means math
+NO `<m:oMath>` was replaced by text. A shortfall is a HARD STOP [HS:INFRA] — it means math
 was lost.
 
 **C12** Delivered docx opens as a valid ZIP; `document.xml` parses without error.
@@ -1325,7 +1325,7 @@ non-negative. A numeric-labeled MCQ's `Correct Answer: 3` is legitimately
 charset-identical to a NAT value and is correctly NOT checked here (scoped by
 `question_type`, not by pattern-matching the value, which would be ambiguous); an MSQ's
 `Correct Answer: 2, 4` is a different field entirely and is also correctly out of scope.
-Any violation → HARD STOP (this is the LAST gate; there is no later step to catch it).
+Any violation → HARD STOP [HS:INFRA] (this is the LAST gate; there is no later step to catch it).
 
 ```python
 import re, posixpath, zipfile
@@ -1410,12 +1410,12 @@ def gate_c17_natcharset(out_docx, tag_lookup):
     return (len(bad) == 0, {'bad': bad})
 ```
 
-Any C16 or C17 FAIL → HARD STOP (fix and re-run).
+Any C16 or C17 FAIL → HARD STOP [HS:INFRA] (fix and re-run).
 
 **Optional stronger gate — OOXML XSD validation (recommended for a 200-exam guarantee):**
 If the OOXML `wml.xsd` schema set is available in the environment, validate the
 delivered `word/document.xml` against it with `lxml.etree.XMLSchema`. A schema
-failure is a HARD STOP. This catches element-order and structural violations that the
+failure is a HARD STOP [HS:INFRA]. This catches element-order and structural violations that the
 targeted gates above may not enumerate. If the XSD is not present, skip (do not block),
 and rely on C16 + the mandatory Word open (§10 step 13).
 
@@ -1763,7 +1763,7 @@ if HANDOFF['registry_delivered']:          # the ONE case Step 11 changes the re
     shutil.copy(f'/home/claude/{_reg_name}', f'/mnt/user-data/outputs/{_reg_name}')
 _v = pp.verify_handoff_outputs(os.listdir('/mnt/user-data/outputs'), HANDOFF)
 if not _v['ok']:
-    raise SystemExit(f"HARD STOP (§8): outputs != closed set — missing {_v['missing']}, "
+    raise SystemExit(f"HARD STOP [HS:INFRA] (§8): outputs != closed set — missing {_v['missing']}, "
                      f"stray {_v['stray']}. Do NOT call present_files.")
 for _line in pp.handoff_footer_lines(HANDOFF):
     print(_line)
@@ -1927,7 +1927,7 @@ in its original font (so Word can font-substitute) and lists it under
 "Unresolved glyph defects" in the delivery report. The text layer is intact (copy-paste
 correct); only the visual glyph is at risk. If a learner-visible marker is affected,
 add a covering font (e.g. Noto Sans Symbols) to the preflight font set and `_SAFE_STACK`,
-then re-run. Not a HARD STOP.
+then re-run. Not a HARD STOP [HS:PROSE].
 
 ## EC-13 — Position-based exam where subtopic-level type disagrees with position-level type (v1.7)
 
@@ -1953,7 +1953,7 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 3. ☐ Preflight: load blueprint.json + registry.json (registry via pp.resolve_registry —
      chat attachment OR Project Files, REGISTRY-SOURCE-LAW); build tag lookup table;
      verify BOTH DejaVu Sans AND FreeSans fonts (install FreeSans if missing);
-     verify fontTools importable. HARD STOP if any missing. (`soffice`,
+     verify fontTools importable. HARD STOP [HS:INFRA] if any missing. (`soffice`,
      `pdftotext`, `pypdf` NOT needed.)
 4. ☐ Phase 1: parse source docx via lxml + zipfile. `get_para_text()` walks
      both `<w:t>` and `<m:t>`.
@@ -1976,7 +1976,7 @@ when in position-based mode. No warning is logged; this is not a data-quality si
      needs the inputs_safe/ source for C16(b); C17 = NAT portal grading-value
      charset, needs `tag_lookup` — already built at Preflight, never re-derived).
      Optionally validate document.xml against the OOXML wml.xsd if present. Any
-     FAIL → HARD STOP, fix and re-run.
+     FAIL → HARD STOP [HS:INFRA], fix and re-run.
 11. ☐ `present_files([output_path])`.
 12. ☐ Print delivery report (§8).
 13. ☐ FINAL ACCEPTANCE (mandatory, at least for the FIRST mock of each exam): open

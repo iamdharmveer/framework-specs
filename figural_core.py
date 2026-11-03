@@ -4,6 +4,27 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.89 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (estate-wide,
+exam-agnostic). (1) DRAWING STYLE FROM THE EXAM'S OWN PYQs: FIGURE_STYLE_PROFILE
+(Step 5, one line in section_rules.md) is read by load_style_profile(); its
+MEASURED generic flags — monochrome, option frame — apply to every figure class
+of every exam; unmeasured exams keep today's non-chemistry behaviour exactly.
+(2) PRINT-TRUE NATIVE RASTER for chemistry structures and schemes: a draw_fn
+with render_mode 'native_raster' (corpus_io, tokens=) draws itself at fixed
+printed sizes from structure_tokens(); render_figure()/render_option_set()
+place it at natural size (scale 1.0), one bond length per role, monochrome by
+default (owner decision O1), no option frame unless the exam frames them, and
+NO highlight bands. G-FIGLABEL now sees the atom-label size (the 2.3 pt option
+defect). (3) Q7b.8 AMENDED: chemistry figures are exempt from ACCENT PRESENCE;
+MARK-IFF-NAMED replaces it (G-FIGMARK: a mark appears iff the stem names the
+site, with the device word the stem uses). (4) G-FIGOVERPRINT, G-FIGBONDORDER
+(VOID_ITEM — repaired in place through the ladder, never dropped, never a
+halt); legacy highlight bands are reported AMBER. (5) G-FIGLABELPX: a rasterised
+structure on the degraded legacy path with illegible labels voids the item.
+(6) native_raster_probe()/ensure_native_raster(): feature probe + one pinned
+rdkit install (RDKIT_PIN); unavailable -> legacy path + AMBER 'renderer
+degraded' note, never a halt. Every pre-v5.89 sidecar audits exactly as before.
+
 v5.81 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT. apply_data_window() forced a
 data-unit aspect on EVERY axes; an 'auto' chart now takes the window as given and
 scales x/y independently (aspect-locked axes byte-identical to v5.55). G-FIGFIT
@@ -129,7 +150,7 @@ DEPENDENCIES = {
                   "corpus_io.structure_draw_fn RAISES without it — "
                   "GAP-2026-08-28-RDKIT-UNDECLARED)",
 }
-PIP_INSTALL = "pip install matplotlib pillow numpy scipy fonttools rdkit --break-system-packages"
+PIP_INSTALL = "pip install matplotlib pillow numpy scipy fonttools rdkit scikit-image --break-system-packages"
 
 
 def _try_import(name):
@@ -161,8 +182,13 @@ def preflight():
     missing package is a stated precondition rather than a traceback.
     """
     have = {m: _have(m) for m in DEPENDENCIES}
+    _nr = native_raster_probe()
     return {
         "available": have,
+        "native_raster": _nr["available"],
+        "native_raster_missing": _nr["missing"],
+        "rdkit_version": _nr["rdkit_version"],
+        "rdkit_pin": RDKIT_PIN,
         "can_render": have["matplotlib"],
         "can_gate_pixels": have["PIL"] and have["numpy"],
         "can_render_structures": have["rdkit"],
@@ -378,6 +404,14 @@ SEVERITY = {
     # exact shape that shipped Q44. Legacy (no content_bbox_px) is silent.
     "G-FIGINK":     "BLOCKING",
     "W-FIGINK":     "AMBER",       # v5.57 — the same check on an axis-ON render
+    # v5.89 GAP-2026-11-02. VOID_ITEM means REPAIR THE ITEM IN PLACE through
+    # the ladder (MockTestCreate §Q8b-LADDER) — never drop it, never halt.
+    "G-FIGMARK":       "VOID_ITEM",
+    "G-FIGOVERPRINT":  "VOID_ITEM",
+    "G-FIGBONDORDER":  "VOID_ITEM",
+    "G-FIGLABELPX":    "VOID_ITEM",   # legacy-raster structure only
+    "W-FIGOVERPRINT":  "AMBER",
+    "W-FIGBONDORDER":  "AMBER",
 }
 NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO",
                             "G-FIGTEXTINK", "G-FIGSERIESCAP", "G-FIGFILLADJ",
@@ -415,6 +449,13 @@ AUDIT_GATE_ID = {
     "G-FIGFILLADJ":       "A-FIGFILLADJ",
     "G-FIGCOLOURCONTENT": "A-FIGCOLOURCONTENT",
     "G-FIGOPTELEM":       "A-FIGOPTELEM",
+    # v5.89 GAP-2026-11-02
+    "G-FIGMARK":        "A-FIGMARK",
+    "G-FIGOVERPRINT":   "A-FIGOVERPRINT",
+    "W-FIGOVERPRINT":   "A-FIGOVERPRINTLEGACY",
+    "G-FIGBONDORDER":   "A-FIGBONDORDER",
+    "W-FIGBONDORDER":   "A-FIGBONDORDERLEGACY",
+    "G-FIGLABELPX":     "A-FIGLABELRASTER",
 }
 
 
@@ -486,7 +527,9 @@ class FiguralError(AssertionError):
 def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
                      key_mode="none", target_onpage_pt=ONPAGE_TARGET_PT,
                      role="problem", canvas_aspect=None,
-                     colour_content=False, highlight=None):
+                     colour_content=False, highlight=None,
+                     style_profile=None, marked_sites=None, stem=None,
+                     chem=False):
     """Build the sidecar record. Gates cross-check this against the PNG.
 
     v5.80: colour_content — True when colour_is_content(stem, options) says the
@@ -499,6 +542,14 @@ def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
 
     A spec that declares two hues while the PNG contains one is a HARD failure —
     this is the check that would have caught the monochrome defect on day one.
+
+    v5.89 (GAP-2026-11-02): style_profile — the exam's FIGURE_STYLE_PROFILE
+    (load_style_profile); its MEASURED generic flags are recorded as
+    style_monochrome / style_option_frame and honoured by render_figure() for
+    every class. marked_sites — the S7 author's declaration
+    [{site, device, stem_phrase}] (MARK-IFF-NAMED, Q7b.8'); [] means "this
+    figure carries no mark of any kind". stem — the question stem, recorded
+    so G-FIGMARK can verify each stem_phrase occurs verbatim in it.
     """
     if fig_class in ("data_series", "data_single") and \
             float(display_in) < FIG_MIN_DATA_DISPLAY_IN:
@@ -556,6 +607,21 @@ def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
         "highlight": highlight,
         # set by render_option_set(): "uniform" | "black" (set-wide decision)
         "element_colours": None,
+        # v5.89 GAP-2026-11-02. Absent on every earlier sidecar -> the new
+        # gates are silent on it (EC-V18 posture).
+        "render_mode": "matplotlib",
+        "profile_status": style_flags(style_profile)["profile_status"],
+        "style_monochrome": style_flags(style_profile)["monochrome_generic"],
+        "style_option_frame": style_flags(style_profile)["option_frame"],
+        # v5.89: an OPTION canvas defaults to [] (no mark) — an option set is built in one
+        # loop with no stem of its own; a mark on an option still needs a declaration.
+        "marked_sites": ([] if marked_sites is None and str(role).startswith("option")
+                         else None if marked_sites is None else
+                         [dict(m) for m in (marked_sites or [])]),
+        "stem": (None if stem is None else str(stem)),
+        # chem-R / chem-H figure (figure_types.CHEM_R/CHEM_H_OBJECT_TYPES):
+        # exempt from ACCENT PRESENCE (Q7b.8 amended), MARK-IFF-NAMED applies.
+        "chem": bool(chem),
     }
 
 
@@ -651,6 +717,10 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
     The caller MUST place the PNG at exactly spec['display_in'] inches
     (capped to FIG_COLUMN_IN). S10-8 does this; nothing else may.
     """
+    # v5.89: a print-true structure / scheme draws itself at fixed printed
+    # sizes; matplotlib is never involved (GAP-2026-11-02 F1).
+    if _is_native_draw(draw_fn):
+        return _render_native(draw_fn, out_path, spec)
     if not _have("matplotlib"):
         raise FiguralError(
             "G-FIGDEP: matplotlib is required to render a figure and is not "
@@ -663,7 +733,10 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
 
     # v5.80: a question that interrogates a colour renders monochrome —
     # colour IS the examinable content there, so showing it is a leak.
-    mono = spec["class"] in MONO_REQUIRED or bool(spec.get("colour_content"))
+    # v5.89: an exam whose PYQ figures were MEASURED monochrome renders every
+    # figure black (series stay distinct by linestyle/marker — Q7b.2).
+    mono = (spec["class"] in MONO_REQUIRED or bool(spec.get("colour_content"))
+            or spec.get("style_monochrome") is True)
     base = list(palette) if palette else OKABE_ITO
     palette = ["#000000"] * len(base) if mono else base
     style = figure_style(spec)
@@ -690,7 +763,7 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
         # to colour_content only — the pre-v5.80 reasoning_glyph path is
         # untouched (G-FIGMONO keeps voiding a coloured glyph).
         _series = spec["series"]
-        if spec.get("colour_content"):
+        if spec.get("colour_content") or spec.get("style_monochrome") is True:
             _series = [({**x, "colour": "#000000"} if isinstance(x, dict) else x)
                        for x in (_series or [])]
             # A structure draw_fn blits a pre-rasterised array and reads neither
@@ -707,8 +780,13 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
         # the frame. Runs for every class: a data figure can overprint a
         # legend on a curve exactly as a structure overprints two labels.
         rec = fit_and_deconflict(fig, ax, spec, window=window)
-        if full_bleed:
+        if full_bleed and not (str(spec.get("role", "")).startswith("option")
+                               and spec.get("style_option_frame") is False):
             # The frame is the RENDERER's, drawn last, above every artist.
+            # v5.89: omitted when the exam's PYQs were MEASURED unframed.
+            # 2026.11.02 B8: that measurement is about OPTION pictures, so it
+            # removes the frame of an option canvas only — a problem-role
+            # full-bleed figure (reasoning_glyph) keeps its frame.
             draw_frame(ax)
         rec["data_window"] = [float(ax.get_xlim()[0]), float(ax.get_ylim()[0]),
                               float(ax.get_xlim()[1]), float(ax.get_ylim()[1])]
@@ -732,6 +810,491 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
         "floor": fp["_floor"],
     }
     return spec
+
+
+# =============================================================================
+# v5.89 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY
+# DRAWING STYLE FROM THE EXAM'S OWN PYQs + PRINT-TRUE NATIVE RASTER PATH
+# =============================================================================
+# WHY. A chemistry structure used to be rasterised by rdkit into a fixed
+# 900x700 canvas and blitted into matplotlib axes, so every molecule was scaled
+# to fill its box: bond length, line weight and atom-label size were accidents
+# of the molecule's shape, option labels printed at ~2.3 pt (real exam 11 pt),
+# atoms were coloured where the exam is black-and-white, and a 6x-line-width
+# highlight band overprinted O / Br / N / C+ labels. The arithmetic label gate
+# could not see any of it because the labels lived inside a picture.
+#
+# THE CONTRACT. A draw_fn that carries render_mode == 'native_raster' and a
+# callable native_png(dpi) (corpus_io.structure_draw_fn / render_scheme called
+# with tokens=) is drawn at FIXED PRINTED SIZES: tokens['font_pt'] atom labels,
+# tokens['bond_pt'] bonds, tokens['line_pt'] strokes. One token set per role per
+# paper, so every structure of a role shares ONE bond length. The PNG carries
+# dpi metadata and is placed at its natural width (placement_scale == 1.0),
+# except when it is wider than the text column — then it is scaled down only
+# while the atom label stays at or above the class floor; below that G-FIGLABEL
+# fires and the item enters the repair ladder (never a halt).
+#
+# STYLE. Step 5 measures FIGURE_STYLE_PROFILE from the exam's PYQ documents
+# (analyse_engine.measure_docx_figure_style / aggregate_figure_style) and writes
+# it as ONE line into section_rules.md. parse_figure_style_block() below is a
+# BYTE-IDENTICAL copy of analyse_engine's writer-side parser (single reader,
+# drift-locked in self_test). Generic flags (monochrome, option frame) apply to
+# every figure of every exam WHEN MEASURED; with no evidence the non-chemistry
+# figures keep today's behaviour exactly, and chemistry structures default to
+# monochrome / no frame (owner decision O1, 2026-11-02).
+# =============================================================================
+CAP_HEIGHT_RATIO = 0.711        # printed cap height / font size (measured, DejaVu)
+BOND_FONT_RATIO = 1.44          # bond length / font size (ACS-1996 house ratio)
+CAP_STROKE_DEFAULT = 7.0        # cap height / stroke when unmeasured
+STRUCTURE_FONT_MAX_PT = 16.0
+STRUCTURE_LINE_MIN_PT = 0.5
+STRUCTURE_LINE_MAX_PT = 2.0
+STYLE_MIN_PICTURES = 10         # a role needs >= this many measured pictures
+RDKIT_PIN = "2026.09.1"         # the version every release self-test ran on
+PIP_INSTALL_RDKIT_PINNED = ("pip install rdkit==" + RDKIT_PIN
+                            + " --break-system-packages")
+
+DEFAULT_STYLE_PROFILE = {
+    "schema": 1, "scope_generic": "all", "scope_tokens": "chem-R",
+    "evidence": {"pictures": 0, "chem_pictures": 0, "papers": 0,
+                 "excluded_low_res": 0, "status": "none"},
+    "monochrome": True, "monochrome_by_role": {"problem": None, "option": None},
+    "coloured_share": None, "option_frame": False, "option_frame_share": None,
+    "option_label_same_paragraph_share": None,
+    "problem": None, "option": None, "cap_stroke_pooled": None,
+    "abbreviates": None, "abbreviation_labels": [],
+    "site_mark_devices": [], "site_mark_lexicon_extra": [],
+}
+
+
+def parse_figure_style_block(text):
+    """FIGURE_STYLE_PROFILE dict from section_rules.md text, else None.
+    The LAST line that starts with 'FIGURE_STYLE_PROFILE: ' wins; malformed JSON or a
+    non-object payload => None. Never raises. Pure, stdlib-only and self-contained ON
+    PURPOSE: figural_core carries a byte-identical copy under a drift lock (one shared
+    artefact, one reader) — do not make it call a helper or read a module constant."""
+    payload = None
+    # split on '\n' ONLY: str.splitlines() also breaks on U+0085 / U+2028 / U+2029 (and
+    # \x0b \x0c \x1c-\x1e), which may sit inside a JSON string value; a trailing '\r'
+    # is JSON whitespace (fuzz 2026-11-02).
+    for line in str(text or '').split('\n'):
+        if line.startswith('FIGURE_STYLE_PROFILE: '):
+            payload = line[len('FIGURE_STYLE_PROFILE: '):]
+    if payload is None:
+        return None
+    try:
+        value = json.loads(payload)
+    except ValueError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def load_style_profile(source=None):
+    """section_rules.md path OR its text OR an already-parsed dict -> profile.
+
+    NEVER raises. A missing file, a legacy section_rules.md without the block
+    (every exam before this release) or a malformed block returns a COPY of
+    DEFAULT_STYLE_PROFILE with evidence.status 'none' — the defaults are the
+    documented behaviour, never a halt (EC-V18)."""
+    import copy
+    prof = None
+    if isinstance(source, dict):
+        prof = source
+    elif isinstance(source, str):
+        txt = source
+        if "\n" not in source and len(source) < 4096 and os.path.exists(source):
+            try:
+                with open(source, encoding="utf-8") as fh:
+                    txt = fh.read()
+            except OSError:
+                txt = ""
+        prof = parse_figure_style_block(txt)
+    out = copy.deepcopy(DEFAULT_STYLE_PROFILE)
+    if isinstance(prof, dict):
+        for k, v in prof.items():
+            out[k] = v
+    ev = out.get("evidence") if isinstance(out.get("evidence"), dict) else {}
+    out["evidence"] = {**DEFAULT_STYLE_PROFILE["evidence"], **ev}
+    return out
+
+
+def _profile_status(profile):
+    p = profile if isinstance(profile, dict) else {}
+    ev = p.get("evidence") if isinstance(p.get("evidence"), dict) else {}
+    return str(ev.get("status") or "none")
+
+
+def style_flags(profile):
+    """Generic style flags for EVERY figure class.
+
+    monochrome_generic : True/False only when the profile was MEASURED; None
+        otherwise (non-chemistry figures then keep today's colour behaviour).
+    option_frame : measured flag; None when unmeasured (matplotlib option
+        canvases then keep today's Q10.4 frame; native structures get none).
+        2026.11.02 B8: also None when option_frame_share is None — a measured
+        profile that saw no option pictures has no evidence about frames, and
+        the DEFAULT_STYLE_PROFILE 'option_frame': False must not read as one.
+    """
+    p = profile if isinstance(profile, dict) else {}       # non-dict -> defaults
+    measured = _profile_status(p) == "measured"
+    return {
+        "profile_status": _profile_status(p),
+        "monochrome_generic": (bool(p.get("monochrome")) if measured else None),
+        "option_frame": (bool(p.get("option_frame"))
+                         if measured and p.get("option_frame_share") is not None
+                         else None),
+    }
+
+
+def _pct(d, k):
+    """A measured percentile; None when absent, unreadable or non-finite."""
+    try:
+        v = float((d if isinstance(d, dict) else {}).get(k))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def _nint(v):
+    """Coerce a measured picture count; anything unreadable counts as 0 — including
+    'inf' / JSON Infinity / 1e309 (int(inf) raises OverflowError) and nan."""
+    try:
+        return max(0, int(float(v)))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def structure_tokens(profile=None, role="problem"):
+    """Deterministic print tokens for chemistry structures (chem-R; also the
+    matplotlib rc sizes for chem-H). Pure; never raises.
+
+      cap_stroke : pooled p50 when >= STYLE_MIN_PICTURES pictures were
+                   measured, else CAP_STROKE_DEFAULT
+      font_pt    : role not placement-imposed and measured (n >= min):
+                   clamp(cap_p50 / CAP_HEIGHT_RATIO, class floor, 16.0);
+                   otherwise ONPAGE_TARGET_PT (10.0)
+      line_pt    : clamp(font_pt * CAP_HEIGHT_RATIO / cap_stroke, 0.5, 2.0)
+      bond_pt    : BOND_FONT_RATIO * font_pt
+    Explanation figures use role 'problem'. monochrome follows the profile when
+    measured, and is True with no evidence (owner decision O1)."""
+    p = load_style_profile(profile)
+    role = "option" if str(role).startswith("option") else "problem"
+    floor = ONPAGE_FLOOR_PT["option_canvas" if role == "option" else "schematic"]
+    pooled = p.get("cap_stroke_pooled") if isinstance(p.get("cap_stroke_pooled"), dict) else None
+    n_all = 0
+    for r in ("problem", "option"):
+        rr = p.get(r) if isinstance(p.get(r), dict) else None
+        n_all += _nint((rr or {}).get("n"))
+    cs = _pct(pooled, "p50") if pooled else None
+    # a measured cap-height / stroke ratio is plausible only inside [1, 50] (printed
+    # structures sit around 5-12); anything else is a measurement artefact -> default
+    cap_stroke = (cs if (cs and 1.0 <= cs <= 50.0 and n_all >= STYLE_MIN_PICTURES)
+                  else CAP_STROKE_DEFAULT)
+    rr = p.get(role) if isinstance(p.get(role), dict) else None
+    source = "default"
+    font = ONPAGE_TARGET_PT
+    measured = _profile_status(p) == "measured"       # never 'measured' tokens from a non-measured profile
+    if not measured:
+        cap_stroke = CAP_STROKE_DEFAULT
+    if (measured and rr and not rr.get("placement_imposed")
+            and _nint(rr.get("n")) >= STYLE_MIN_PICTURES):
+        cap50 = _pct(rr.get("cap_pt"), "p50")
+        if cap50 and cap50 > 0:
+            font = min(max(cap50 / CAP_HEIGHT_RATIO, floor), STRUCTURE_FONT_MAX_PT)
+            source = "measured"
+    line = min(max(font * CAP_HEIGHT_RATIO / cap_stroke, STRUCTURE_LINE_MIN_PT),
+               STRUCTURE_LINE_MAX_PT)
+    mono = p.get("monochrome")
+    mono = True if (_profile_status(p) != "measured" or mono is None) else bool(mono)
+    return {"font_pt": round(font, 3), "line_pt": round(line, 3),
+            "bond_pt": round(BOND_FONT_RATIO * font, 3), "monochrome": mono,
+            "mark_colour": "#000000", "role": role, "source": source,
+            "cap_stroke": round(cap_stroke, 3),
+            "profile_status": _profile_status(p)}
+
+
+def native_raster_probe():
+    """Feature probe for the native path. Never raises.
+    -> {'available': bool, 'missing': [...], 'rdkit_version': str|None}"""
+    missing = []
+    ver = None
+    Chem = _try_import("rdkit.Chem")
+    if Chem is None:
+        return {"available": False, "missing": ["rdkit"], "rdkit_version": None}
+    rdkit = _try_import("rdkit")
+    ver = getattr(rdkit, "__version__", None)
+    try:
+        from rdkit.Chem.Draw import rdMolDraw2D
+        o = rdMolDraw2D.MolDraw2DCairo(10, 10).drawOptions()
+        for attr in ("fixedBondLength", "fixedFontSize", "useBWAtomPalette",
+                     "scaleBondWidth", "multipleBondOffset"):
+            if not hasattr(o, attr):
+                missing.append(f"drawOptions.{attr}")
+    except Exception as e:                                     # noqa: BLE001
+        missing.append(f"MolDraw2DCairo ({type(e).__name__})")
+    ab = _try_import("rdkit.Chem.rdAbbreviations")
+    if ab is None or not hasattr(ab, "CondenseAbbreviationSubstanceGroups"):
+        missing.append("rdAbbreviations.CondenseAbbreviationSubstanceGroups")
+    if _try_import("PIL.ImageDraw") is None:
+        missing.append("PIL")
+    return {"available": not missing, "missing": missing, "rdkit_version": ver}
+
+
+def ensure_native_raster(install=True):
+    """Probe; if a feature is missing run the PINNED rdkit install ONCE and
+    probe again. No network / no wheel / failed install all read the same as
+    'still missing'. NEVER raises, NEVER halts: unavailable means Create uses
+    the legacy path and every chem figure carries the AMBER footer note
+    'renderer degraded' (S10-7C C8 doctrine)."""
+    st = native_raster_probe()
+    if st["available"] or not install:
+        st["installed"] = False
+        return st
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.run([_sys.executable, "-m", "pip", "install", "-q",
+                        "rdkit==" + RDKIT_PIN, "--break-system-packages"],
+                       check=False, timeout=600,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:                                          # noqa: BLE001
+        pass
+    import importlib
+    for m in [k for k in list(_sys.modules) if k == "rdkit" or k.startswith("rdkit.")]:
+        _sys.modules.pop(m, None)
+    importlib.invalidate_caches()
+    st = native_raster_probe()
+    st["installed"] = True
+    return st
+
+
+def is_native(spec):
+    return (spec or {}).get("render_mode") == "native_raster"
+
+
+def _is_native_draw(draw_fn):
+    return (getattr(draw_fn, "render_mode", None) == "native_raster"
+            and callable(getattr(draw_fn, "native_png", None)))
+
+
+_NATIVE_META_KEYS = ("highlight_bands", "overprint_px", "marks_drawn", "marks_failed",
+                     "abbreviations", "cross_note", "reflowed", "rows_after_reflow",
+                     "overflow", "reagent_lines_moved_to_stem", "converted_from_highlight",
+                     "depictor", "label_boxes_px")
+
+
+def _shift_native_meta(meta, ox, oy):
+    """Translate every pixel coordinate of a native meta record by (ox, oy).
+    Never raises: a non-dict meta reads as {} and malformed entries are kept as is."""
+    m = dict(meta) if isinstance(meta, dict) else {}
+    if not (ox or oy):
+        return m
+
+    def _box(b):
+        try:
+            return [b[0] + ox, b[1] + oy, b[2] + ox, b[3] + oy] if isinstance(b, (list, tuple)) and len(b) == 4 else b
+        except TypeError:                                     # non-numeric entries: left as is
+            return b
+
+    def _pt(q):
+        try:
+            if isinstance(q, (list, tuple)) and len(q) >= 2:
+                p = [q[0] + ox, q[1] + oy]
+                return tuple(p) if isinstance(q, tuple) else p   # container kept
+            return q
+        except TypeError:
+            return q
+
+    def _seg(e):
+        if isinstance(e, (list, tuple)) and len(e) == 2:
+            p = [_pt(e[0]), _pt(e[1])]
+            return tuple(p) if isinstance(e, tuple) else p
+        return e
+    if isinstance(m.get("label_boxes_px"), list):
+        m["label_boxes_px"] = [_box(b) for b in m["label_boxes_px"]]
+    for key in ("marks_drawn", "marks_failed"):
+        if isinstance(m.get(key), list):
+            out = []
+            for mk in m[key]:
+                mk = dict(mk) if isinstance(mk, dict) else mk
+                if isinstance(mk, dict):
+                    if "bbox_px" in mk:
+                        mk["bbox_px"] = _box(mk["bbox_px"])
+                    # malformed endpoint entries are carried unchanged, never raised
+                    for _ek in ("bond_px_endpoints",):
+                        if isinstance(mk.get(_ek), list):
+                            mk[_ek] = [_pt(q) for q in mk[_ek]]
+                    if isinstance(mk.get("bold_line_endpoints"), list):   # [[p0, p1], ...]
+                        mk["bold_line_endpoints"] = [_seg(e) for e in mk["bold_line_endpoints"]]
+                out.append(mk)
+            m[key] = out
+    return m
+
+
+def _frame_png(png_bytes, line_px, pad_px, mode="L"):
+    """Draw a thin frame around a native canvas (only when the exam's PYQs
+    frame their options — FIGURE_STYLE_PROFILE.option_frame).
+    2026.11.02 B6: mode "L" (monochrome tokens — unchanged) or "RGB" (a
+    colour token set keeps its colour; the frame is black either way)."""
+    import io
+    from PIL import Image, ImageDraw
+    im = Image.open(io.BytesIO(png_bytes))
+    dpi = im.info.get("dpi", (FIGURAL_DPI, FIGURAL_DPI))
+    im = im.convert(mode)
+    W, H = im.width + 2 * pad_px, im.height + 2 * pad_px
+    c = Image.new(mode, (W, H), 255 if mode == "L" else (255, 255, 255))
+    c.paste(im, (pad_px, pad_px))
+    d = ImageDraw.Draw(c)
+    for k in range(max(1, line_px)):
+        d.rectangle([k, k, W - 1 - k, H - 1 - k], outline=0 if mode == "L" else (0, 0, 0))
+    b = io.BytesIO()
+    c.save(b, "PNG", dpi=dpi)
+    return b.getvalue()
+
+
+def _apply_native(spec, png_bytes, natural_w_in, meta, out_path, tokens):
+    """Write the native PNG and record the facts every gate reads."""
+    from PIL import Image
+    import io
+    with open(out_path, "wb") as fh:
+        fh.write(png_bytes)
+    im = Image.open(io.BytesIO(png_bytes))
+    dpi = im.info.get("dpi", (FIGURAL_DPI, FIGURAL_DPI))[0] or FIGURAL_DPI
+    native_in = im.width / float(dpi)
+    placed = min(native_in, FIG_COLUMN_IN)
+    scale = placed / native_in if native_in else None
+    atom = float(meta.get("atom_label_pt") or tokens.get("font_pt") or ONPAGE_TARGET_PT)
+    text = float(meta.get("reagent_text_pt") or atom)
+    small = min(atom, text)
+    floor = ONPAGE_FLOOR_PT.get(spec.get("class"), min(ONPAGE_FLOOR_PT.values()))
+    spec["render_mode"] = "native_raster"
+    spec["tokens"] = {k: tokens.get(k) for k in ("font_pt", "line_pt", "bond_pt",
+                                                  "monochrome", "mark_colour",
+                                                  "role", "source", "cap_stroke",
+                                                  "profile_status")}
+    spec["natural_width_in"] = round(native_in, 4)
+    spec["display_in"] = round(native_in, 4)
+    spec["placed_in"] = round(placed, 4)
+    spec["png_px"] = [im.width, im.height]
+    spec["png_dpi"] = round(float(dpi))
+    spec["placement_scale"] = round(scale, 4) if scale else None
+    spec["font_pt_native"] = {"body": round(atom, 3), "small": round(small, 3),
+                              "atom_label": round(atom, 3), "floor": floor}
+    spec["native_meta"] = {k: meta.get(k) for k in _NATIVE_META_KEYS if k in meta}
+    spec["native_meta"].setdefault("highlight_bands", 0)
+    spec["native_meta"].setdefault("overprint_px", 0)
+    # A native canvas IS the ink crop + margin: the fit record states that fact
+    # so the shared-window and set gates read one uniform shape.
+    spec["fit"] = {"render_mode": "native", "status": "OK",
+                   "clearance_in": None, "collisions_after": 0,
+                   "content_bbox_px": [0, 0, im.width - 1, im.height - 1],
+                   "axes_bbox_px": [0, 0, im.width - 1, im.height - 1],
+                   "axis_on": False, "data_window": [0.0, 0.0, float(im.width),
+                                                     float(im.height)]}
+    return spec
+
+
+def _render_native(draw_fn, out_path, spec):
+    tokens = dict(getattr(draw_fn, "tokens", None) or spec.get("tokens") or {})
+    # Q7b.13 / measured monochrome: a stem that interrogates colour, or an exam measured
+    # monochrome, renders black on the native path too (as the matplotlib path and the
+    # native option-set path already do) — colour must never answer the question.
+    if (spec.get("colour_content") or spec.get("style_monochrome") is True) \
+            and tokens.get("monochrome") is False and callable(getattr(draw_fn, "set_element_colours", None)):
+        draw_fn.set_element_colours(False)
+        tokens["monochrome"] = True
+        spec["element_colours"] = "black"
+    png, w_in, meta = draw_fn.native_png(dpi=FIGURAL_DPI)
+    meta = dict(meta or {})
+    if (str(spec.get("role", "")).startswith("option")
+            and spec.get("style_option_frame") is True):
+        import io
+        from PIL import Image
+        k = FIGURAL_DPI / 72.0
+        pad = int(round(0.3 * float(tokens.get("bond_pt") or 14.4) * k))
+        png = _frame_png(png, int(round(float(tokens.get("line_pt") or 1.0) * k)), pad,
+                         mode=_native_mode(tokens))
+        meta = _shift_native_meta(meta, pad, pad)               # coordinates in the framed canvas
+        w_in = Image.open(io.BytesIO(png)).width / float(FIGURAL_DPI)   # the framed width
+    return _apply_native(spec, png, w_in, meta, out_path, tokens)
+
+
+def _native_mode(tokens):
+    """PIL mode a native canvas is composed in: "L" for monochrome tokens (the
+    default, byte-identical to v5.89) and "RGB" only when the token set is
+    explicitly NOT monochrome (2026.11.02 B6: colour was silently discarded)."""
+    return "RGB" if (tokens or {}).get("monochrome") is False else "L"
+
+
+def _render_native_option_set(draw_fns, out_paths, specs):
+    """Uniform canvas for a native option set: every option at the SAME tokens
+    (one bond length), centred on a canvas = max width x max height. Replaces
+    the matplotlib shared-window pass for native draws; G-FIGOPTUNIF,
+    G-FIGOPTWINDOW and assert_uniform_options hold by construction."""
+    import io
+    from PIL import Image
+    toks = [dict(getattr(fn, "tokens", None) or {}) for fn in draw_fns]
+    keyset = [(t.get("font_pt"), t.get("line_pt"), t.get("bond_pt"),
+               t.get("monochrome")) for t in toks]
+    if len(set(keyset)) != 1:
+        raise FiguralError("G-FIGOPTWINDOW: native option set drawn with differing "
+                           f"tokens {sorted(set(map(str, keyset)))}; one token set per "
+                           "option set is mandatory (one bond length).")
+    mode = _native_mode(toks[0])
+    decision = "black"
+    if mode == "RGB":
+        # 2026.11.02 B6 — Q7b.14 ONE element-colour decision for the whole set,
+        # exactly as the matplotlib path makes it: options that differ in which
+        # coloured elements they carry (or a colour-content question, or an
+        # author who drew some options black) render EVERY option black, so
+        # heteroatom colour can never single an option out. The decision only
+        # ever downgrades to black; it never recolours an authored black draw.
+        if any(s.get("colour_content") for s in specs):
+            for s in specs:
+                s["colour_content"] = True
+        _elem = [getattr(fn, "coloured_elements", None) for fn in draw_fns]
+        _modes = {bool(getattr(fn, "element_colours", True)) for fn in draw_fns}
+        _uniform = (all(e is not None for e in _elem)
+                    and len({frozenset(e) for e in _elem}) == 1 and len(_modes) == 1)
+        if all(e is None for e in _elem) and not any(s.get("colour_content") for s in specs):
+            decision = "uniform"            # not structures: nothing to decide (as matplotlib)
+        elif not _uniform or any(s.get("colour_content") for s in specs):
+            for fn in draw_fns:
+                _set = getattr(fn, "set_element_colours", None)
+                if callable(_set):
+                    _set(False)
+            decision = "black"
+        else:
+            decision = "black" if _modes == {False} else "uniform"
+    rendered = []
+    for fn in draw_fns:
+        png, w_in, meta = fn.native_png(dpi=FIGURAL_DPI)
+        rendered.append((Image.open(io.BytesIO(png)).convert(mode), dict(meta or {})))
+    W = max(im.width for im, _ in rendered)
+    H = max(im.height for im, _ in rendered)
+    for (im, meta), p, s, t in zip(rendered, out_paths, specs, toks):
+        c = Image.new(mode, (W, H), 255 if mode == "L" else (255, 255, 255))
+        ox, oy = (W - im.width) // 2, (H - im.height) // 2
+        c.paste(im, (ox, oy))
+        b = io.BytesIO()
+        c.save(b, "PNG", dpi=(FIGURAL_DPI, FIGURAL_DPI))
+        png = b.getvalue()
+        if s.get("style_option_frame") is True:
+            k = FIGURAL_DPI / 72.0
+            pad = int(round(0.3 * float(t.get("bond_pt") or 14.4) * k))
+            png = _frame_png(png, int(round(float(t.get("line_pt") or 1.0) * k)), pad, mode=mode)
+            ox, oy = ox + pad, oy + pad
+        # every pixel coordinate the gates read is in the FINAL canvas (centring + frame
+        # pad), and the natural width is the FINAL PNG's — never the pre-frame width,
+        # which would place a framed canvas smaller than its designed print size.
+        meta = _shift_native_meta(meta, ox, oy)
+        _final_w = Image.open(io.BytesIO(png)).width
+        _apply_native(s, png, _final_w / float(FIGURAL_DPI), meta, p, t)
+        # truthful record: monochrome tokens are black; a colour set records the
+        # set decision above (B6 — it used to say "uniform" over a greyscale PNG)
+        s["element_colours"] = "black" if mode == "L" else decision
+        s["fit"]["window_shared"] = True
+    return specs
 
 
 def write_spec_sidecar(spec, png_path):
@@ -1466,7 +2029,12 @@ def fit_and_deconflict(fig, ax, spec, *, window=None):
 def g_figdegen(spec, png_path):
     """Catches the one failure arithmetic cannot see: a figure whose plot area
     collapsed, so the PNG is the right size and the fonts the right points but
-    there is nothing legible inside."""
+    there is nothing legible inside.
+
+    v5.89: not applicable to a native raster — its canvas IS the ink crop, so
+    there is no plot area to collapse (recorded n/a, never pass/fail)."""
+    if is_native(spec):
+        return []
     np = _try_import("numpy")
     Image = _try_import("PIL.Image")
     if np is None or Image is None:
@@ -1520,7 +2088,10 @@ def g_figlabel(spec):
     if not f or s is None:
         return ["G-FIGLABEL: font metrics or placement scale not recorded."]
     floor = _floor_of(spec)
-    onpage = f["small"] * s
+    # v5.89 (G4): a native raster records the ATOM-LABEL size too, so the
+    # BLOCKING label gate finally sees the text inside a structure picture.
+    _sizes = [f.get(k) for k in ("small", "atom_label") if f.get(k) is not None]
+    onpage = min(float(x) for x in _sizes) * s
     if onpage < floor - 1e-6:
         return [f"G-FIGLABEL: smallest label lands at {onpage:.2f} pt on page "
                 f"(floor {floor} pt for class {_class_of(spec)}); scale {s:.2f}x."]
@@ -1551,6 +2122,13 @@ def g_figlabel_pixels(spec, png_path):
     s = spec.get("placement_scale") or 1.0
     onpage = float(np.median(hs)) / dpi * 72 / 0.70 * s
     floor = _floor_of(spec)
+    if onpage < floor * 0.75 and (spec or {}).get("raster_content"):
+        # v5.89: a structure rasterised by the LEGACY path (degraded renderer)
+        # hides its labels from G-FIGLABEL; the pixel estimate is then the only
+        # witness and an illegible option is unanswerable -> repair the item.
+        return [f"G-FIGLABELPX: pixel estimate {onpage:.1f} pt vs floor {floor} pt "
+                f"on a rasterised structure (legacy renderer) — illegible; the "
+                f"item enters the repair ladder at R1."]
     if onpage < floor * 0.75:
         return [f"W-FIGLABELPX: pixel estimate {onpage:.1f} pt vs floor {floor} pt. "
                 f"ADVISORY — this statistic under-reads figures containing "
@@ -1562,6 +2140,8 @@ def g_figcolour(spec, png_path):
     if _class_of(spec) not in COLOUR_REQUIRED:
         return []
     if spec.get("colour_content"):      # v5.80 Q7b.13: monochrome by design
+        return []
+    if spec.get("style_monochrome") is True:   # v5.89: exam measured monochrome
         return []
     frac = coloured_fraction(png_path)
     hues = dominant_hues(png_path)
@@ -1597,6 +2177,11 @@ def g_figaccent(spec, png_path):
     if _class_of(spec) not in ACCENT_REQUIRED:
         return []
     if spec.get("colour_content"):      # v5.80 Q7b.13: monochrome by design
+        return []
+    # v5.89 (Q7b.8 amended, GAP-2026-11-02 F3): chemistry drawings are EXEMPT —
+    # a mark appears only where the stem names a site (G-FIGMARK); and an exam
+    # MEASURED monochrome has no accent to carry.
+    if spec.get("chem") or is_native(spec) or spec.get("style_monochrome") is True:
         return []
     frac = coloured_fraction(png_path)
     if frac is None:
@@ -1936,6 +2521,8 @@ def g_figfit(spec):
     superscript/subscript bias Q9.6 documents. figural_core.g_figfit_pixels()
     is the WARN-level cross-check.
     """
+    if is_native(spec):
+        return []          # v5.89: ink inside the canvas by construction (crop)
     f = spec.get("fit")
     if f is None:
         if is_legacy(spec):
@@ -1971,6 +2558,8 @@ def g_figcollide(spec):
     not mask. An option a candidate cannot read is not a degraded option, it is
     an unanswerable one — so the ITEM is void and regenerated. The RUN never
     halts (CLAUDE.md: silence is the defect; a halt is not the remedy)."""
+    if is_native(spec):
+        return []          # v5.89: overprint on a native raster is G-FIGOVERPRINT's
     f = spec.get("fit")
     if f is None:
         return [] if is_legacy(spec) else [
@@ -1995,6 +2584,8 @@ def g_figfit_pixels(spec, png_path):
     shipped defect from the delivered file alone, with no sidecar, which is
     what makes ~200 legacy exams auditable without re-rendering them.
     """
+    if is_native(spec):
+        return []          # v5.89: a native canvas has no frame to be outside of
     np = _try_import("numpy")
     Image = _try_import("PIL.Image")
     if np is None or Image is None:
@@ -2084,6 +2675,18 @@ def g_figink(spec, png_path):
         a = np.array(Image.open(png_path).convert("L")).astype(int)
     except Exception as e:
         return [f"G-FIGINK: DORMANT — cannot read {os.path.basename(png_path)}: {e}"]
+    if is_native(spec):
+        # v5.89: the canvas is the ink crop + margin, so the census box is the
+        # whole canvas. The one defect left to catch is a CLIPPED stroke — ink
+        # on the outermost row/column (an unframed native canvas has none).
+        if (spec.get("style_option_frame") is True
+                and str(spec.get("role", "")).startswith("option")):
+            return []                  # the frame IS edge ink; only option canvases are framed
+        edge = int((a[0] < 160).sum() + (a[-1] < 160).sum()
+                   + (a[:, 0] < 160).sum() + (a[:, -1] < 160).sum())
+        return [] if edge == 0 else [
+            f"G-FIGINK: native raster {os.path.basename(png_path)} has {edge} ink "
+            f"px on its outermost edge — a stroke was clipped by the crop."]
     ink, content, _framed = _ink_mask_and_frame(a, np)
     if not content.any():
         return []
@@ -2168,6 +2771,21 @@ def g_figoptwindow(specs):
     """
     if len(specs) < 2:
         return []
+    if all(is_native(s) for s in specs):
+        # v5.89: one token set (one bond length) and one canvas per set.
+        tk = {json.dumps({k: (s.get("tokens") or {}).get(k)
+                          for k in ("font_pt", "line_pt", "bond_pt")}, sort_keys=True)
+              for s in specs}
+        canv = {tuple(s.get("png_px") or ()) for s in specs}
+        out = []
+        if len(tk) != 1:
+            out.append(f"G-FIGOPTWINDOW: native options drawn with {len(tk)} different "
+                       f"token sets; bond length differs across the set (size cue).")
+        if len(canv) != 1:
+            out.append(f"G-FIGOPTWINDOW: native option canvases differ: {sorted(canv)}.")
+        return out
+    if any(is_native(s) for s in specs):
+        return ["G-FIGOPTWINDOW: option set mixes native and matplotlib renders."]
     wins = []
     canv = set()
     for s in specs:
@@ -2206,6 +2824,12 @@ def render_option_set(draw_fns, out_paths, specs, palette=None):
                            "be the same length (one entry per option).")
     if len(specs) < 2:
         raise FiguralError("G-FIGOPTWINDOW: an option set needs >=2 options.")
+    # v5.89: native structure options — one token set, one uniform canvas.
+    if all(_is_native_draw(fn) for fn in draw_fns):
+        return _render_native_option_set(draw_fns, out_paths, specs)
+    if any(_is_native_draw(fn) for fn in draw_fns):
+        raise FiguralError("G-FIGOPTWINDOW: an option set mixes native and "
+                           "matplotlib draws; render every option the same way.")
     # v5.80 Q7b.14: ONE element-colour decision for the whole set. A draw_fn
     # made by corpus_io.structure_draw_fn exposes .coloured_elements (the set of
     # heteroatom symbols it would colour) and .set_element_colours(flag). If
@@ -2327,8 +2951,324 @@ def render_option_set(draw_fns, out_paths, specs, palette=None):
     return specs
 
 
-def audit_figure(spec, png_path, descr=None):
-    """Run every gate. Returns (hard_failures, warnings)."""
+# =============================================================================
+# v5.89 — GAP-2026-11-02 F2/F3: MARK-IFF-NAMED, OVERPRINT, BOND ORDER
+# =============================================================================
+# A mark (underline, asterisk, letter, arrow, bold bond) appears on a figure IF
+# AND ONLY IF the stem names the site, and the stem names the SAME device that
+# is drawn. Measured defect: 22 of 40 problem figures of a delivered paper were
+# marked though no stem named a site, and several marks pointed at the answer
+# (stereocentres circled in "count the stereoisomers"; the CH2 that loses
+# hydride). The author DECLARES marked_sites=[{site, device, stem_phrase}] at S7;
+# this gate verifies the declaration against the stem and against what the
+# renderer actually drew. English default lexicon; Step 5 may extend it from the
+# exam's own stems (FIGURE_STYLE_PROFILE.site_mark_lexicon_extra).
+SITE_MARK_LEXICON = {
+    "underline": r"\bunderlined?\b",
+    "highlight": r"\bhighlighted\b|\bshown in (bold|colou?r)\b|\bin bold\b",
+    # 2026.11.02 B1: a mark word names a SITE only beside a site noun ("the carbon
+    # indicated", "marked by an arrow"); bare "indicated" / "arrow" is ordinary
+    # reaction wording ("the reagent over the arrow", "the reaction indicated below").
+    "marked": (r"\b(atoms?|carbons?|bonds?|protons?|hydrogens?|sites?|positions?|groups?)\s+"
+               r"(marked|indicated|pointed\s+(out|to)|shown\s+by\s+(an?\s+)?arrows?)\b"
+               r"|\b(marked|indicated|pointed)\s+(by|with)\s+(an?\s+)?arrows?\b"
+               r"|\b(encircled|circled)\b"),
+    "asterisk": r"\(\s*\*\s*\)|\basterisk(ed)?\b|\bstarred\b",
+    "letters": (r"\b(sites?|positions?|protons?|carbons?|bonds?|hydrogens?)\s+"
+                r"(\(?[a-h]\)?(\s*,\s*|\s+and\s+|\s+or\s+))+\(?[a-h]\)?\b"
+                r"|\bH\s?[a-h]\b|\bH_?\{?[a-h]\}?\b"),
+    # B1: only C-numbered locants ("the C2–C3 bond", "carbon C-4", "the C3 carbon");
+    # "position 2 of pyridine" is nomenclature, not a drawn site.
+    "locants": (r"\bC-?\d+\s*[-–]\s*C-?\d+\s+bond\b|\b(carbon|atom)\s+C-?\d+\b"
+                r"|\bC-?\d+\s+(carbon|atom)\b"),
+    "isotope_label": (r"\b(¹⁴C|13C|¹³C|14C|D|²H|¹⁸O|18O|deuterium|tritium)[- ]?"
+                      r"label(l)?ed\b"),
+}
+CASE_SENSITIVE_LEXICON = ("letters",)
+# drawn device -> lexicon entries whose words may name it in the stem (F2 e.3)
+DEVICE_WORDS = {
+    "underline": ("underline",),
+    "asterisk": ("asterisk", "isotope_label"),
+    "letter": ("letters", "locants"),
+    "arrow": ("marked",),
+    "bold": ("highlight", "marked"),
+}
+MARK_DEVICES = tuple(DEVICE_WORDS)
+
+
+def _lexicon(extra=None):
+    lex = dict(SITE_MARK_LEXICON)
+    for i, rx in enumerate(extra if isinstance(extra, (list, tuple)) else ()):
+        if isinstance(rx, str) and rx:
+            lex[f"extra_{i}"] = rx
+    return lex
+
+
+def stem_site_matches(stem, lexicon_extra=None):
+    """[(lexicon_key, matched_text)] for every site-naming phrase in the stem.
+    Case-insensitive except 'letters' (so placeholder A / B / P never match)."""
+    out = []
+    for k, rx in _lexicon(lexicon_extra).items():
+        flags = 0 if k in CASE_SENSITIVE_LEXICON else re.IGNORECASE
+        try:
+            for m in re.finditer(rx, stem if isinstance(stem, str) else "", flags):
+                out.append((k, m.group(0)))
+        except re.error:
+            continue
+    return out
+
+
+def stem_names_site(stem, lexicon_extra=None):
+    return bool(stem_site_matches(stem, lexicon_extra))
+
+
+def _mark_ix(v):
+    """An index / tile as its canonical text: 1 and 1.0 (a JSON round trip of a
+    float) are the same site; anything else keeps str()."""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v)
+
+
+def _mark_key(m):
+    m = m if isinstance(m, dict) else {}
+    site = m.get("site") if isinstance(m.get("site"), dict) else {}
+    dev = str(m.get("device"))
+    # v5.89: a letter mark is identified by its letter too ("carbon b" != drawn "a").
+    txt = str((m or {}).get("text") or "").strip() if dev == "letter" else ""
+    # 2026.11.02 B3: a scheme mark is identified by its TILE too (index into
+    # render_scheme's .tiles); a single-molecule figure has none. A missing tile
+    # reads as None on BOTH sides, so an untiled declaration still matches a
+    # single-molecule figure and never matches a tile mark of a scheme.
+    tile = (m or {}).get("tile", site.get("tile") if isinstance(site, dict) else None)
+    return (str(site.get("kind")), _mark_ix(site.get("index", site.get("name"))), dev, txt,
+            "" if tile is None else _mark_ix(tile))
+
+
+def g_figmark(spec, stem=None, lexicon_extra=None):
+    """VOID_ITEM -> repair ladder R1 (MARK-IFF-NAMED, Q7b.8'). Checks:
+    (i)   every declared stem_phrase occurs verbatim in the stem;
+    (ii)  the picture carries exactly the declared marks (renderer record);
+    (iii) an empty declaration means the picture carries NO mark of any kind;
+    (iv)  a stem that names a site (lexicon) has a declared phrase covering it;
+    (v)   the device word in each stem_phrase names the device drawn;
+    plus  any mark the renderer could not place clear of labels (marks_failed).
+    2026.11.02 B3: a scheme's marks carry 'tile' (render_scheme .tiles index) and
+    are matched with it; a declaration without 'tile' matches an untiled mark only.
+    Silent on sidecars written before v5.89 and on non-chemistry figures that
+    declare nothing (EC-V18).
+    A malformed sidecar (native_meta / marks_drawn / marks_failed / highlight of the
+    wrong JSON type, a non-text stem) is a FINDING, never an exception."""
+    sp = spec if isinstance(spec, dict) else {}
+    if "render_mode" not in sp:
+        return []                                   # pre-v5.89 sidecar
+    declared = sp.get("marked_sites")
+    if declared is None and not (sp.get("chem") or is_native(sp)):
+        return []
+    out = []
+    stem = stem if stem is not None else sp.get("stem")
+    if stem is not None and not isinstance(stem, str):
+        out.append(f"G-FIGMARK: stem is not text ({type(stem).__name__}); the stem checks "
+                   f"could not run.")
+        stem = None
+    if declared is None:
+        declared = []
+        out.append("G-FIGMARK: chemistry figure carries no marked_sites declaration "
+                   "(S7 must declare [] when the stem names no site).")
+    # a malformed declaration is a FINDING (ladder R1), never a crash that would drop the
+    # whole figure from the audit
+    if not isinstance(declared, list):
+        out.append(f"G-FIGMARK: marked_sites is not a list ({type(declared).__name__}).")
+        declared = []
+    _bad_decl = [m for m in declared
+                 if not isinstance(m, dict) or not isinstance(m.get("site"), dict)]
+    if _bad_decl:
+        out.append(f"G-FIGMARK: malformed declaration(s) {_bad_decl[:3]!r} — each entry is "
+                   f"{{'site': {{'kind', 'index'|'name'}}, 'device', 'stem_phrase'}}.")
+        declared = [m for m in declared if m not in _bad_decl]
+    meta = sp.get("native_meta") or {}
+    if not isinstance(meta, dict):
+        out.append(f"G-FIGMARK: native_meta is not a dict ({type(meta).__name__}).")
+        meta = {}
+    drawn = meta.get("marks_drawn") or sp.get("marks_drawn") or []
+    if not isinstance(drawn, (list, tuple)):
+        out.append(f"G-FIGMARK: marks_drawn is not a list ({type(drawn).__name__}).")
+        drawn = []
+    drawn = list(drawn)
+    legacy_hl = sp.get("highlight") or {}
+    if isinstance(legacy_hl, dict) and (legacy_hl.get("atoms") or legacy_hl.get("bonds")):
+        _hl = {}
+        for _k in ("bonds", "atoms"):
+            _v = legacy_hl.get(_k) or []
+            if not isinstance(_v, (list, tuple)):
+                out.append(f"G-FIGMARK: highlight.{_k} is not a list ({type(_v).__name__}).")
+                _v = []
+            _hl[_k] = _v
+        drawn += [{"site": {"kind": "bond", "index": b}, "device": "bold"}
+                  for b in _hl["bonds"]]
+        drawn += [{"site": {"kind": "atom", "index": a}, "device": "asterisk"}
+                  for a in _hl["atoms"]]
+    for m in declared:
+        ph = (m or {}).get("stem_phrase") or ""
+        if not isinstance(ph, str):
+            out.append(f"G-FIGMARK: stem_phrase {ph!r} is not text.")
+            ph = ""
+        dev = (m or {}).get("device")
+        if dev not in MARK_DEVICES:
+            out.append(f"G-FIGMARK: declared device {dev!r} is not one of {MARK_DEVICES}.")
+            continue
+        if stem is not None and (not ph or ph not in stem):
+            out.append(f"G-FIGMARK: stem_phrase {ph!r} does not occur verbatim in the stem.")
+        if dev == "letter":
+            txt = str((m or {}).get("text") or "").strip()
+            if not txt:
+                out.append("G-FIGMARK: a letter mark declares no 'text' (the letter the stem names).")
+            elif not re.search(r"(?:(?<![A-Za-z])|(?<=H))" + re.escape(txt) + r"(?![A-Za-z])", ph):
+                out.append(f"G-FIGMARK: letter {txt!r} does not occur in its stem_phrase {ph!r}.")
+        keys = {k for k, _ in stem_site_matches(ph, lexicon_extra)}
+        if ph and not keys & set(DEVICE_WORDS[dev]):
+            out.append(f"G-FIGMARK: stem_phrase {ph!r} does not name the drawn device "
+                       f"{dev!r} (allowed words: {DEVICE_WORDS[dev]}).")
+    dset = {_mark_key(m) for m in declared}
+    rset = {_mark_key(m) for m in drawn}
+    if not declared and drawn:
+        out.append(f"G-FIGMARK: {len(drawn)} mark(s) drawn but the stem names no site "
+                   f"— an unnamed mark is an answer cue (Q7b.8').")
+    elif dset != rset:
+        out.append(f"G-FIGMARK: drawn marks {sorted(rset)} differ from declared "
+                   f"{sorted(dset)}.")
+    _mf = meta.get("marks_failed")
+    if _mf and not isinstance(_mf, (list, tuple)):
+        out.append(f"G-FIGMARK: marks_failed is not a list ({type(_mf).__name__}).")
+    elif _mf:
+        out.append(f"G-FIGMARK: {len(_mf)} declared mark(s) could not "
+                   f"be placed clear of labels and bonds.")
+    if stem is not None:
+        named = stem_site_matches(stem, lexicon_extra)
+        covered = " ".join(str((m or {}).get("stem_phrase") or "") for m in declared
+                       if isinstance((m or {}).get("stem_phrase") or "", str))
+        for k, txt in named:
+            if txt not in covered:
+                out.append(f"G-FIGMARK: the stem names a site ({txt!r}, {k}) that no "
+                           f"declared stem_phrase covers.")
+                break
+    return out
+
+
+def _meta_count(v):
+    """A sidecar pixel / band / line count -> (int, None), or (None, why) when it is
+    not a finite whole number (str 'x', inf, nan, a list...). Never raises: a
+    malformed sidecar is a finding, not an exception (fuzz 2026-11-02)."""
+    if v is None or v == "":
+        return 0, None
+    try:
+        if isinstance(v, float) and not math.isfinite(v):
+            raise ValueError("non-finite")
+        if isinstance(v, (list, tuple, dict, set)):
+            raise TypeError(type(v).__name__)
+        return int(v), None
+    except (TypeError, ValueError, OverflowError):
+        return None, f"{v!r}"[:40]
+
+
+def _native_meta_dict(sp, gate, out):
+    meta = sp.get("native_meta") or {}
+    if not isinstance(meta, dict):
+        out.append(f"{gate}: native_meta is not a dict ({type(meta).__name__}) — "
+                   f"re-render natively.")
+        return {}
+    return meta
+
+
+def g_figoverprint(spec):
+    """VOID_ITEM -> ladder R1. Differential render: pixels inside any atom-label
+    box that change when the marks are drawn (corpus_io computes overprint_px
+    from the marked vs unmarked native renders at the renderer's own label
+    coordinates). Legacy highlighted structures are reported AMBER. An
+    unreadable overprint_px (str / inf / nan) is a finding, never an exception."""
+    sp = spec if isinstance(spec, dict) else {}
+    if is_native(sp):
+        out = []
+        n, bad = _meta_count(_native_meta_dict(sp, "G-FIGOVERPRINT", out).get("overprint_px"))
+        if bad is not None:
+            return out + [f"G-FIGOVERPRINT: overprint_px {bad} is not a pixel count — "
+                          f"the overprint check could not run; re-render natively."]
+        return out if n == 0 else out + [
+            f"G-FIGOVERPRINT: a mark changes {n} px inside atom-label boxes — a "
+            f"label is overprinted."]
+    hl = sp.get("highlight") or {}
+    if "render_mode" in sp and isinstance(hl, dict) and (hl.get("atoms") or hl.get("bonds")):
+        return ["W-FIGOVERPRINT: legacy opaque highlight band (6x line width) on a "
+                "structure — may overprint atom labels; re-render natively."]
+    return []
+
+
+def g_figbondorder(spec):
+    """VOID_ITEM -> ladder R1. A highlighted single bond must never read as a
+    double bond. The native renderer draws NO highlight bands and a 'bold'
+    mark as ONE line, so highlight_bands must be 0. Legacy highlighted bonds
+    are reported AMBER (they are the measured defect: Q13/Q24/Q32).
+    Unreadable numeric fields (str / inf / nan) are findings, never exceptions."""
+    sp = spec if isinstance(spec, dict) else {}
+    if is_native(sp):
+        out = []
+        meta = _native_meta_dict(sp, "G-FIGBONDORDER", out)
+        n, bad = _meta_count(meta.get("highlight_bands"))
+        if bad is not None:
+            out.append(f"G-FIGBONDORDER: highlight_bands {bad} is not a count — the "
+                       f"band check could not run; re-render natively.")
+        elif n != 0:
+            out.append(
+            f"G-FIGBONDORDER: {n} highlight band(s) on a native structure — a "
+            f"single bond can read as a double bond.")
+        # 2026.11.02 B2: the converse defect. ONE thick bar laid along a double /
+        # triple bond fills the gap between its lines, so C=C prints as a single
+        # bar. corpus_io records the bond's drawn line count ('bond_lines') and
+        # how many lines the bold mark thickened ('bold_lines'); fewer bold lines
+        # than drawn lines means the multiple bond was overpainted as one.
+        _md = meta.get("marks_drawn") or []
+        if not isinstance(_md, (list, tuple)):
+            out.append(f"G-FIGBONDORDER: marks_drawn is not a list ({type(_md).__name__}).")
+            _md = []
+        for m in _md:
+            if not isinstance(m, dict) or m.get("device") != "bold":
+                continue
+            _site = m.get("site") if isinstance(m.get("site"), dict) else {}
+            if _site.get("kind") != "bond":
+                continue
+            lines = m.get("bond_lines")
+            if lines is None:
+                try:
+                    order = float(m.get("bond_order") or 0)
+                except (TypeError, ValueError, OverflowError):
+                    order = 0.0
+                if not math.isfinite(order):
+                    order = 0.0
+                lines = int(round(order)) if order >= 2 else 1
+            lines, bad_l = _meta_count(lines or 1)
+            bold, bad_b = _meta_count(m.get("bold_lines") or 1)
+            if bad_l is not None or bad_b is not None:
+                out.append(f"G-FIGBONDORDER: bold mark on bond {_site.get('index')!r} has an "
+                           f"unreadable line count (bond_lines {bad_l or lines!r}, bold_lines "
+                           f"{bad_b or bold!r}) — re-render natively.")
+                continue
+            if lines >= 2 and bold < lines:
+                out.append(f"G-FIGBONDORDER: bold mark on bond "
+                           f"{_site.get('index')} drawn as one bar "
+                           f"over a {lines}-line bond — the multiple bond reads "
+                           f"as a single bond.")
+        return out
+    hl = sp.get("highlight") or {}
+    if "render_mode" in sp and isinstance(hl, dict) and hl.get("bonds"):
+        return [f"W-FIGBONDORDER: {len(hl['bonds'])} legacy highlight band(s) on bonds "
+                f"— a single bond may read as a double bond; re-render natively."]
+    return []
+
+
+def audit_figure(spec, png_path, descr=None, stem=None, lexicon_extra=None):
+    """Run every gate. Returns (hard_failures, warnings).
+    v5.89: stem / lexicon_extra feed G-FIGMARK (the sidecar's own stem is used
+    when stem is None)."""
     hard = []
     hard += g_figdpi(spec, png_path)
     hard += g_figdegen(spec, png_path)
@@ -2348,8 +3288,16 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figseriescap(spec)            # v5.80 Q7b.12
     hard += g_figfilladj(spec)              # v5.80 Q7b.11
     hard += g_figcolourcontent(spec, png_path)   # v5.80 Q7b.13
-    warn = []
-    warn += g_figlabel_pixels(spec, png_path)
+    # v5.89 GAP-2026-11-02: MARK-IFF-NAMED, overprint, bond order. A W-* line
+    # (legacy highlight) is advisory and goes to warn.
+    for _g in (g_figmark(spec, stem, lexicon_extra), g_figoverprint(spec),
+               g_figbondorder(spec)):
+        hard += [x for x in _g if not x.startswith("W-")]
+    _adv = [x for x in g_figoverprint(spec) + g_figbondorder(spec) if x.startswith("W-")]
+    warn = list(_adv)
+    _lpx = g_figlabel_pixels(spec, png_path)
+    hard += [x for x in _lpx if x.startswith("G-FIGLABELPX")]
+    warn += [x for x in _lpx if not x.startswith("G-FIGLABELPX")]
     warn += [x for x in _ink if not (x.startswith("G-FIGINK") and "DORMANT" not in x)]
     warn += g_figfit_pixels(spec, png_path)   # v5.55 — legacy-auditable
     warn += g_figalt(descr)
@@ -2665,9 +3613,11 @@ def self_test():
     # v5.55: 13 -> 17 (+G-FIGFIT, +G-FIGCOLLIDE, +G-FIGOPTWINDOW, +W-FIGFITPX).
     # v5.57: 17 -> 19 (+G-FIGINK, +W-FIGINK). v5.80: 19 -> 24 (+G-FIGTEXTINK,
     # +G-FIGSERIESCAP, +G-FIGFILLADJ, +G-FIGCOLOURCONTENT, +G-FIGOPTELEM).
+    # v5.89: 24 -> 30 (+G-FIGMARK, +G-FIGOVERPRINT, +W-FIGOVERPRINT,
+    # +G-FIGBONDORDER, +W-FIGBONDORDER, +G-FIGLABELPX).
     # The count is asserted, not hardcoded in prose, so a gate added without a
     # severity cannot ship silently at the default.
-    check("gate_count_is_twentyfour", len(SEVERITY) == 24)
+    check("gate_count_is_thirty", len(SEVERITY) == 30)
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit
@@ -3249,6 +4199,574 @@ def self_test():
     check("C6_atom_palette_is_text_tier",
           all(wcag_contrast("#%02X%02X%02X" % tuple(int(round(c * 255)) for c in v))
               >= WCAG_TEXT_MIN for v in ATOM_PALETTE.values()))
+
+    # ======================================================================
+    # v5.89 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY fixtures. Every
+    # fixture reproduces the shipped defect and asserts the gate catches it.
+    # ======================================================================
+    _csir = {"schema": 1, "evidence": {"status": "measured", "pictures": 110},
+             "monochrome": True, "option_frame": False,
+             "problem": {"n": 26, "placement_imposed": True,
+                         "cap_pt": {"p10": 5.2, "p50": 6.4, "p90": 8.3}},
+             "option": {"n": 84, "placement_imposed": False,
+                        "cap_pt": {"p10": 6.2, "p50": 11.1, "p90": 13.2}},
+             "cap_stroke_pooled": {"p10": 6.2, "p50": 7.3, "p90": 8.5}}
+    _tp = structure_tokens(_csir, "problem")
+    _to = structure_tokens(_csir, "option")
+    _td = structure_tokens(None, "option")
+    check("N1_tokens_placement_imposed_role_uses_target",
+          _tp["font_pt"] == ONPAGE_TARGET_PT and _tp["source"] == "default")
+    check("N1_tokens_measured_option_role",
+          abs(_to["font_pt"] - 15.612) < 0.01 and abs(_to["line_pt"] - 1.521) < 0.01
+          and abs(_to["bond_pt"] - 1.44 * _to["font_pt"]) < 0.01)
+    check("N1_tokens_no_evidence_defaults",
+          _td["font_pt"] == 10.0 and abs(_td["line_pt"] - 1.016) < 0.01
+          and _td["bond_pt"] == 14.4 and _td["monochrome"] is True)
+    _blk = ("x\nFIGURE_STYLE_PROFILE: {\"monochrome\":false,\"evidence\":{\"status\":\"measured\"}}\n"
+            "FIGURE_STYLE_PROFILE: {\"monochrome\":true,\"evidence\":{\"status\":\"measured\"}}\n")
+    check("N2_parse_reads_last_block", parse_figure_style_block(_blk)["monochrome"] is True)
+    check("N2_legacy_rules_give_defaults",
+          load_style_profile("## no profile block here\n")["evidence"]["status"] == "none"
+          and load_style_profile(None)["monochrome"] is True)
+    check("N2_malformed_block_is_none",
+          parse_figure_style_block("FIGURE_STYLE_PROFILE: {not json\n") is None)
+    check("N3_unmeasured_profile_leaves_non_chem_untouched",
+          style_flags(None) == {"profile_status": "none", "monochrome_generic": None,
+                                "option_frame": None})
+    # The writer-side parser in analyse_engine and this reader must be byte-
+    # identical (one artefact, one reader; drift-locked).
+    # Read the WRITER's source as text (never imported: analyse_engine is a Step-5
+    # engine and is not routed to the Create/Explain triggers that load this file).
+    try:
+        import inspect as _insp
+        _ae_txt = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "analyse_engine.py"), encoding="utf-8").read()
+        _mine = _insp.getsource(parse_figure_style_block)
+        _same = _mine in _ae_txt
+    except Exception:                                          # noqa: BLE001
+        _same = False
+    check("N2_style_block_parser_drift_lock", _same)
+
+    def _fake_native(width_in, atom_pt, tokens=None, meta_extra=None, edge_ink=False):
+        from PIL import Image as _I, ImageDraw as _D
+        import io as _io
+
+        def _d(ax=None, series=None, palette=None):
+            raise AssertionError("native draw must not be drawn by matplotlib")
+        _d.render_mode = "native_raster"
+        _d.tokens = dict(tokens or {"font_pt": atom_pt, "line_pt": 1.0,
+                                    "bond_pt": 1.44 * atom_pt, "monochrome": True})
+
+        def _np(dpi=300):
+            W = int(round(width_in * dpi)); H = int(round(0.6 * dpi))
+            im = _I.new("L", (W, H), 255); dr = _D.Draw(im)
+            dr.line([W // 4, H // 2, 3 * W // 4, H // 2], fill=0, width=4)
+            if edge_ink:
+                dr.line([0, 0, 0, H - 1], fill=0, width=2)
+            b = _io.BytesIO(); im.save(b, "PNG", dpi=(dpi, dpi))
+            meta = {"atom_label_pt": atom_pt, "highlight_bands": 0, "overprint_px": 0,
+                    "marks_drawn": [], "marks_failed": []}
+            meta.update(meta_extra or {})
+            return b.getvalue(), W / float(dpi), meta
+        _d.native_png = _np
+        return _d
+    _ns = make_figure_spec(7, "schematic", 6.0, chem=True, marked_sites=[],
+                           stem="Identify the major product, P.")
+    _np1 = os.path.join(tmp, "n4.png")
+    render_figure(_fake_native(3.2, 10.0), _np1, _ns)
+    _h4, _w4 = audit_figure(_ns, _np1, descr="x")
+    check("N4_native_is_placed_at_natural_size",
+          _ns["render_mode"] == "native_raster" and _ns["placement_scale"] == 1.0
+          and abs(_ns["placed_in"] - 3.2) < 0.01 and _ns["font_pt_native"]["atom_label"] == 10.0)
+    check("N4_native_clean_render_passes_every_gate", _h4 == [])
+    _no = make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                           chem=True, marked_sites=[])
+    render_figure(_fake_native(1.3, 2.3), os.path.join(tmp, "n5.png"), _no)
+    check("N5_shipped_2pt_option_label_is_caught",
+          any("G-FIGLABEL" in m for m in g_figlabel(_no)))
+    _no2 = make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                            chem=True, marked_sites=[])
+    render_figure(_fake_native(1.6, 15.6), os.path.join(tmp, "n5b.png"), _no2)
+    check("N5_measured_option_label_passes", g_figlabel(_no2) == [])
+    # N5 (2026.11.02 review): the ATOM-LABEL term is what makes the gate see text
+    # inside a structure picture. A native record whose reagent/body text is large
+    # but whose atom labels print at 2.3 pt must fire; reading 'small' alone (the
+    # pre-v5.89 gate) passes it.
+    _no3 = {**_no2, "font_pt_native": {**_no2["font_pt_native"], "small": 15.6,
+                                       "body": 15.6, "atom_label": 2.3}}
+    check("N5_atom_label_term_is_read",
+          any("G-FIGLABEL" in m for m in g_figlabel(_no3))
+          and g_figlabel({**_no3, "font_pt_native": {**_no3["font_pt_native"],
+                                                     "atom_label": 15.6}}) == [])
+    _nw = make_figure_spec(7, "schematic", 6.0, chem=True, marked_sites=[])
+    render_figure(_fake_native(8.0, 10.0), os.path.join(tmp, "n6.png"), _nw)
+    check("N6_overwide_native_scaled_below_floor_is_caught",
+          abs(_nw["placement_scale"] - 0.75) < 0.01
+          and any("G-FIGLABEL" in m for m in g_figlabel(_nw))
+          and g_figscale(_nw) == [])
+    _os = [make_figure_spec(8, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                            chem=True, marked_sites=[]) for _ in range(3)]
+    _od = os.path.join(tmp, "n7"); os.makedirs(_od, exist_ok=True)
+    _op = [os.path.join(_od, f"o{i}.png") for i in range(3)]
+    render_option_set([_fake_native(w, 15.6) for w in (1.1, 1.9, 1.4)], _op, _os)
+    check("N7_native_option_set_uniform_canvas",
+          len({tuple(s_["png_px"]) for s_ in _os}) == 1
+          and g_figoptwindow(_os) == [] and g_figoptunif(_os, _op) == [])
+    try:
+        render_option_set([_fake_native(1.1, 15.6), _fake_native(1.2, 12.0)],
+                          _op[:2], _os[:2])
+        _raised = False
+    except FiguralError:
+        _raised = True
+    check("N7_native_set_with_two_bond_lengths_refused", _raised)
+    # N22 (2026.11.02 pass-2): a single native figure whose stem interrogates colour
+    # renders black even under colour tokens (Q7b.13 on the native path).
+    _c22 = _fake_native(1.2, 10.0, tokens={"font_pt": 10.0, "line_pt": 1.0, "bond_pt": 14.4,
+                                           "monochrome": False})
+    _calls22 = []
+    _c22.set_element_colours = lambda v: _calls22.append(v)
+    _s22 = make_figure_spec(22, "schematic", 6.0, chem=True, marked_sites=[], colour_content=True)
+    render_figure(_c22, os.path.join(tmp, "n22.png"), _s22)
+    check("N22_native_colour_content_renders_black",
+          _calls22 == [False] and _s22.get("element_colours") == "black")
+    # N23: a single FRAMED native option records its framed width and shifted boxes.
+    _s23 = make_figure_spec(23, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                            chem=True, marked_sites=[])
+    _s23["style_option_frame"] = True
+    _p23 = os.path.join(tmp, "n23.png")
+    render_figure(_fake_native(1.1, 15.6, meta_extra={"label_boxes_px": [[10, 10, 20, 20]]}), _p23, _s23)
+    from PIL import Image as _I23
+    check("N23_single_framed_option_width_and_coordinates_are_final",
+          abs(_s23["placed_in"] - _I23.open(_p23).width / float(FIGURAL_DPI)) < 1e-3
+          and (_s23["native_meta"].get("label_boxes_px") or [[0]])[0][0] > 10)
+    # N21 (2026.11.02 review): a FRAMED native option set records the framed width and
+    # gate coordinates in the final canvas (centring offset + frame pad).
+    _fs21 = [make_figure_spec(21, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                              chem=True, marked_sites=[]) for _ in range(2)]
+    for _s21 in _fs21:
+        _s21["style_option_frame"] = True
+    _p21 = [os.path.join(_od, f"f{i}.png") for i in range(2)]
+    render_option_set([_fake_native(1.1, 15.6, meta_extra={"label_boxes_px": [[10, 10, 20, 20]]}),
+                       _fake_native(1.5, 15.6, meta_extra={"label_boxes_px": [[10, 10, 20, 20]]})],
+                      _p21, _fs21)
+    from PIL import Image as _I21
+    _w21 = _I21.open(_p21[0]).width
+    _lb0 = _fs21[0]["native_meta"].get("label_boxes_px") or [[0, 0, 0, 0]]
+    _lb1 = _fs21[1]["native_meta"].get("label_boxes_px") or [[0, 0, 0, 0]]
+    check("N21_framed_option_set_width_and_coordinates_are_final",
+          abs(_fs21[0]["placed_in"] - _w21 / float(FIGURAL_DPI)) < 1e-3
+          and _lb0[0][0] > _lb1[0][0] > 10)
+    _bad = [dict(_os[0]), dict(_os[1])]
+    _bad[1]["tokens"] = {**_bad[1]["tokens"], "bond_pt": 9.0}
+    check("N7_optwindow_catches_differing_tokens",
+          any("G-FIGOPTWINDOW" in m for m in g_figoptwindow(_bad)))
+    # N8 MARK-IFF-NAMED. The 18 owner fixtures (GAP-2026-11-02 F3(g)).
+    _cases = [
+        ("In which of the following compounds, the underlined proton possesses the lowest pKa value?", True),
+        ("In ¹H NMR, the multiplicity pattern expected for the highlighted protons in the following compounds is", True),
+        ("The isopentenyl pyrophosphate formed through mevalonate pathway using acetyl CoA containing a ¹⁴C labelled (*) carbonyl carbon is", True),
+        ("The number of optically active stereoisomers for the following compound is", False),
+        ("Which of the following compounds exhibit R-configuration?", False),
+        ("Identify the products A and B in the following reaction.", False),
+        ("Identify the major product, P formed in the following reaction.", False),
+        ("The correct sequence of reagents to effect the following transformation is", False),
+        ("The total number of stereoisomers possible for pentane-2,3,4-triol (shown) is", False),
+        ("Cycloheptatriene (shown) is treated with triphenylmethyl tetrafluoroborate in CH2Cl2. The major product is", False),
+        ("The bond marked in bold in the following compound is cleaved on heating. The product is", True),
+        ("The carbon indicated by the arrow in the following carbocation migrates to give", True),
+        ("The relative rates of deprotonation at sites a, b and c of the compound shown are", True),
+        ("Arrange the protons Ha, Hb and Hc in the following compound in decreasing order of chemical shift.", True),
+        ("The C2–C3 bond of the diene shown rotates during", True),
+        ("Compound A on heating gives B. Identify A.", False),
+        ("Match List I with List II.", False),
+        ("The deuterium-labelled benzaldehyde shown undergoes the Cannizzaro reaction. The alcohol formed is", True),
+    ]
+    check("N8_stem_lexicon_18_of_18",
+          all(stem_names_site(st) == exp for st, exp in _cases))
+    _q37 = "The total number of stereoisomers possible for pentane-2,3,4-triol (shown) is"
+    _m_unnamed = make_figure_spec(37, "schematic", 6.0, chem=True, marked_sites=[], stem=_q37)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "atom", "index": 2}, "device": "asterisk"}]}),
+        os.path.join(tmp, "n8a.png"), _m_unnamed)
+    check("N8_unnamed_mark_is_caught (Q37 circled stereocentres)",
+          any("G-FIGMARK" in m for m in g_figmark(_m_unnamed)))
+    _q41 = "In which of the following compounds, the underlined proton possesses the lowest pKa value?"
+    _decl = [{"site": {"kind": "atom", "index": 4}, "device": "underline",
+              "stem_phrase": "the underlined proton"}]
+    _m_ok = make_figure_spec(41, "schematic", 6.0, chem=True, marked_sites=_decl, stem=_q41)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "atom", "index": 4}, "device": "underline"}]}),
+        os.path.join(tmp, "n8b.png"), _m_ok)
+    check("N8_declared_named_mark_passes", g_figmark(_m_ok) == [])
+    _m_dev = make_figure_spec(41, "schematic", 6.0, chem=True, stem=_q41,
+                              marked_sites=[{**_decl[0], "device": "bold"}])
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "atom", "index": 4}, "device": "bold"}]}),
+        os.path.join(tmp, "n8c.png"), _m_dev)
+    check("N8_device_word_mismatch_is_caught",
+          any("does not name the drawn device" in m for m in g_figmark(_m_dev)))
+    _m_miss = make_figure_spec(41, "schematic", 6.0, chem=True, marked_sites=[], stem=_q41)
+    render_figure(_fake_native(2.0, 10.0), os.path.join(tmp, "n8d.png"), _m_miss)
+    check("N8_named_site_without_declaration_is_caught",
+          any("no declared stem_phrase covers" in m for m in g_figmark(_m_miss)))
+    _m_fail = make_figure_spec(41, "schematic", 6.0, chem=True, marked_sites=_decl, stem=_q41)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={
+        "marks_drawn": [{"site": {"kind": "atom", "index": 4}, "device": "underline"}],
+        "marks_failed": [{"site": {"kind": "atom", "index": 4}, "device": "underline"}]}),
+        os.path.join(tmp, "n8e.png"), _m_fail)
+    check("N8_unplaceable_mark_is_caught",
+          any("could not be placed" in m for m in g_figmark(_m_fail)))
+    check("N8_legacy_sidecar_is_silent", g_figmark({"class": "schematic"}) == [])
+    # N18 (v5.89 review): a letter mark carries ITS letter; drawn letters must match.
+    _q18 = "The protons a and b in the compound shown are"
+    _d18 = [{"site": {"kind": "atom", "index": 1}, "device": "letter", "text": "a",
+             "stem_phrase": "protons a and b"},
+            {"site": {"kind": "atom", "index": 2}, "device": "letter", "text": "b",
+             "stem_phrase": "protons a and b"}]
+    _m18 = make_figure_spec(18, "schematic", 6.0, chem=True, marked_sites=_d18, stem=_q18)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "atom", "index": 1}, "device": "letter", "text": "a"},
+        {"site": {"kind": "atom", "index": 2}, "device": "letter", "text": "b"}]}),
+        os.path.join(tmp, "n18a.png"), _m18)
+    check("N18_letter_marks_with_their_letters_pass", g_figmark(_m18) == [])
+    _m18b = make_figure_spec(18, "schematic", 6.0, chem=True, marked_sites=_d18, stem=_q18)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "atom", "index": 1}, "device": "letter", "text": "a"},
+        {"site": {"kind": "atom", "index": 2}, "device": "letter", "text": "a"}]}),
+        os.path.join(tmp, "n18b.png"), _m18b)
+    check("N18_drawn_letter_differing_from_declared_is_caught",
+          any("G-FIGMARK" in m for m in g_figmark(_m18b)))
+    _d18c = [dict(_d18[0], text=""), _d18[1]]
+    check("N18_letter_without_text_is_caught",
+          any("declares no 'text'" in m for m in g_figmark(
+              make_figure_spec(18, "schematic", 6.0, chem=True, marked_sites=_d18c, stem=_q18))))
+    _d18d = [dict(_d18[0], text="c"), _d18[1]]
+    check("N18_letter_absent_from_phrase_is_caught",
+          any("does not occur in its stem_phrase" in m for m in g_figmark(
+              make_figure_spec(18, "schematic", 6.0, chem=True, marked_sites=_d18d, stem=_q18))))
+    check("N18_letter_after_H_counts",
+          not any("does not occur in its stem_phrase" in m for m in g_figmark(
+              make_figure_spec(18, "schematic", 6.0, chem=True, stem="Ha is the most acidic",
+                               marked_sites=[{"site": {"kind": "atom", "index": 1},
+                                              "device": "letter", "text": "a",
+                                              "stem_phrase": "Ha"}]))))
+    # N19 (v5.89 review): an option canvas defaults to an EMPTY declaration (no mark).
+    _m24 = make_figure_spec(24, "schematic", 6.0, chem=True, stem="The underlined proton is",
+                            marked_sites=[{"site": "C3", "device": "underline",
+                                           "stem_phrase": "The underlined proton"}])
+    render_figure(_fake_native(2.0, 10.0), os.path.join(tmp, "n24.png"), _m24)
+    try:
+        _r24 = g_figmark(_m24)
+        _ok24 = any("malformed declaration" in m for m in _r24)
+    except Exception:                                          # noqa: BLE001
+        _ok24 = False
+    check("N24_malformed_mark_declaration_is_a_finding_not_a_crash", _ok24)
+    _m24b = make_figure_spec(24, "schematic", 6.0, chem=True, stem="The underlined proton is",
+                             marked_sites=[{"site": {"kind": "atom", "index": 1}, "device": "underline",
+                                            "stem_phrase": 7}])
+    render_figure(_fake_native(2.0, 10.0), os.path.join(tmp, "n24b.png"), _m24b)
+    try:
+        _ok24b = any("is not text" in m for m in g_figmark(_m24b))
+    except Exception:                                          # noqa: BLE001
+        _ok24b = False
+    check("N24_non_text_stem_phrase_is_a_finding_not_a_crash", _ok24b)
+    _s25 = make_figure_spec(25, "schematic", 6.0, chem=True, marked_sites=[])
+    _p25 = os.path.join(tmp, "n25.png")
+    render_figure(_fake_native(1.5, 10.0, edge_ink=True), _p25, _s25)
+    _s25["style_option_frame"] = True          # an exam that frames its OPTIONS
+    check("N25_problem_figure_clip_check_not_skipped_by_option_frame_flag",
+          any("outermost edge" in m for m in g_figink(_s25, _p25)))
+    check("N19_option_role_defaults_to_no_mark_declaration",
+          make_figure_spec(19, "schematic", 1.3, chem=True, role="option")["marked_sites"] == []
+          and make_figure_spec(19, "schematic", 6.0, chem=True)["marked_sites"] is None)
+    _m_ov = make_figure_spec(7, "schematic", 6.0, chem=True, marked_sites=[])
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"overprint_px": 37,
+                                                      "highlight_bands": 2}),
+                  os.path.join(tmp, "n9.png"), _m_ov)
+    check("N9_overprint_is_caught", any("G-FIGOVERPRINT" in m for m in g_figoverprint(_m_ov)))
+    check("N10_highlight_band_is_caught",
+          any("G-FIGBONDORDER" in m for m in g_figbondorder(_m_ov)))
+    _leg_hl = {**make_figure_spec(7, "schematic", 6.0), "highlight": {"atoms": [], "bonds": [3]}}
+    check("N10_legacy_highlight_band_reported_amber",
+          [m[:16] for m in g_figbondorder(_leg_hl)] == ["W-FIGBONDORDER: "]
+          and severity_of("W-FIGBONDORDER") == "AMBER")
+    _chem_black = make_figure_spec(7, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                                   series=series_defaults(1), chem=True)
+    # 2026.11.02 review: the drawing must be GENUINELY accent-free (draw2 inked its
+    # series from series[i]["colour"], so the old fixture passed with or without the
+    # chem exemption). The non-chem control on the SAME PNG proves it would fire.
+    render_figure(lambda ax, s_, pal: draw_schem(ax, s_, pal, "#000000"),
+                  os.path.join(tmp, "n11.png"), _chem_black)
+    check("N11_chemistry_exempt_from_accent_presence",
+          g_figaccent(_chem_black, os.path.join(tmp, "n11.png")) == []
+          and any("G-FIGACCENT" in m for m in
+                  g_figaccent({**_chem_black, "chem": False}, os.path.join(tmp, "n11.png"))))
+    _mono_prof = {"evidence": {"status": "measured"}, "monochrome": True,
+                  "option_frame": False, "option_frame_share": 0.0}
+    _ms = make_figure_spec(4, "data_series", FIG_PROBLEM_DISPLAY_IN,
+                           series=series_defaults(2), key_mode="legend",
+                           style_profile=_mono_prof)
+    _mp = os.path.join(tmp, "n12.png")
+    render_figure(draw2, _mp, _ms)
+    check("N12_measured_monochrome_exam_renders_black",
+          coloured_fraction(_mp) < ACCENT_MIN_FRAC and g_figcolour(_ms, _mp) == []
+          and g_figseries(_ms) == [])
+    _fs = [make_figure_spec(5, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                            style_profile=_mono_prof) for _ in range(2)]
+    _fp = [os.path.join(tmp, f"n13_{i}.png") for i in range(2)]
+    render_option_set([_fake_struct({"O"}, []), _fake_struct({"O"}, [])], _fp, _fs)
+    _np_ = _try_import("numpy"); _PI = _try_import("PIL.Image")
+    _framed13 = _ink_mask_and_frame(_np_.array(_PI.open(_fp[0]).convert("L")).astype(int),
+                                    _np_)[2]
+    check("N13_measured_unframed_exam_draws_no_option_frame", _framed13 is False)
+    _ec = make_figure_spec(7, "schematic", 6.0, chem=True, marked_sites=[])
+    _ecp = os.path.join(tmp, "n14.png")
+    render_figure(_fake_native(2.0, 10.0, edge_ink=True), _ecp, _ec)
+    check("N14_clipped_native_stroke_is_caught",
+          any(m.startswith("G-FIGINK") for m in g_figink(_ec, _ecp)))
+    check("N15_new_gates_void_the_item_never_block",
+          all(severity_of(g) == "VOID_ITEM" for g in
+              ("G-FIGMARK", "G-FIGOVERPRINT", "G-FIGBONDORDER", "G-FIGLABELPX")))
+    _rs = {**make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN, role="option"),
+           "raster_content": True, "png_dpi": 300, "placement_scale": 1.0}
+    _rp = os.path.join(tmp, "n16.png")
+    _PI.new("L", (390, 280), 255).save(_rp, dpi=(300, 300))
+    from PIL import ImageDraw as _PD
+    _ri = _PI.open(_rp).convert("L"); _rd = _PD.Draw(_ri)
+    from PIL import ImageFont as _PF
+    try:
+        import matplotlib.font_manager as _fmx
+        _fnt = _PF.truetype(_fmx.findfont("DejaVu Sans"), 11)   # ~2.6 pt at 300 dpi
+    except Exception:                                          # noqa: BLE001
+        _fnt = None
+    for _k in range(12):
+        _rd.text((20 + 28 * _k, 120), "O", fill=0, font=_fnt)
+    _ri.save(_rp, dpi=(300, 300))
+    check("N16_legacy_raster_tiny_labels_enter_ladder",
+          any(m.startswith("G-FIGLABELPX") for m in g_figlabel_pixels(_rs, _rp)))
+    # N20 (v5.89 review): structure_tokens never raises on malformed evidence, and a
+    # profile that is not 'measured' never yields 'measured' tokens.
+    _bad_profiles = [{"problem": {"n": "12.5", "cap_pt": {"p50": 7.0}}},
+                     {"problem": {"n": "x", "cap_pt": [1, 2]}},
+                     {"problem": {"n": 30, "cap_pt": "7"}, "cap_stroke_pooled": {"p50": "y"}},
+                     {"problem": [], "option": None}, "junk", None]
+    _ok20 = True
+    for _bpf in _bad_profiles:
+        try:
+            _t20 = structure_tokens(_bpf)
+            _ok20 = _ok20 and _t20["source"] == "default" and _t20["font_pt"] == ONPAGE_TARGET_PT
+        except Exception:                                      # noqa: BLE001
+            _ok20 = False
+    check("N20_structure_tokens_never_raises_and_never_fakes_measured", _ok20)
+    # ======================================================================
+    # 2026.11.02 review fixtures (B1, B2, B3, B6, B8). Each FAILS on the code
+    # before the fix it names.
+    # ======================================================================
+    # B1 ordinary reaction wording names no site; the real site phrases still do.
+    _fp_stems = ["The reagent required over the arrow in the following conversion is",
+                 "Identify the reagents indicated for the following transformation.",
+                 "The product of the reaction indicated below is",
+                 "Substitution at position 2 of pyridine gives"]
+    _ok_b1 = True
+    for _i, _st in enumerate(_fp_stems):
+        _sb1 = make_figure_spec(70 + _i, "schematic", 6.0, chem=True, marked_sites=[], stem=_st)
+        render_figure(_fake_native(2.0, 10.0), os.path.join(tmp, f"b1_{_i}.png"), _sb1)
+        _ok_b1 = _ok_b1 and g_figmark(_sb1) == [] and not stem_names_site(_st)
+    check("B1_reaction_wording_is_not_a_site_name", _ok_b1)
+    check("B1_site_phrases_still_named",
+          stem_names_site("The C2–C3 bond of the diene shown rotates during")
+          and stem_names_site("The substituent on carbon C-4 is")
+          and stem_names_site("The C3 carbon of the ring is")
+          and stem_names_site("The proton marked with an asterisk is")
+          and stem_names_site("The group indicated by an arrow is")
+          and stem_names_site("The encircled atom is")
+          and {"locants"} <= {k for k, _ in stem_site_matches("The C2–C3 bond of the diene")}
+          and {"marked"} <= {k for k, _ in stem_site_matches("the bond marked in bold")})
+    # B2 a bold mark recorded as ONE bar over a two-line bond is caught natively.
+    _b2 = make_figure_spec(80, "schematic", 6.0, chem=True)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "bond", "index": 0}, "device": "bold", "bond_order": 2.0,
+         "bond_lines": 2, "bold_lines": 1}]}), os.path.join(tmp, "b2a.png"), _b2)
+    _b2ok = make_figure_spec(80, "schematic", 6.0, chem=True)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "bond", "index": 0}, "device": "bold", "bond_order": 2.0,
+         "bond_lines": 2, "bold_lines": 2},
+        {"site": {"kind": "bond", "index": 1}, "device": "bold", "bond_order": 1.0,
+         "bond_lines": 1, "bold_lines": 1}]}), os.path.join(tmp, "b2b.png"), _b2ok)
+    _b2leg = make_figure_spec(80, "schematic", 6.0, chem=True)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "bond", "index": 0}, "device": "bold", "bond_order": 3.0}]}),
+        os.path.join(tmp, "b2c.png"), _b2leg)
+    check("B2_bold_bar_over_multiple_bond_is_caught",
+          any("G-FIGBONDORDER" in m and "one bar" in m for m in g_figbondorder(_b2))
+          and any("G-FIGBONDORDER" in m for m in g_figbondorder(_b2leg))
+          and g_figbondorder(_b2ok) == []
+          and any("G-FIGBONDORDER" in m for m in audit_figure(_b2, os.path.join(tmp, "b2a.png"))[0]))
+    # B3 a scheme's marks carry their tile; an untiled declaration matches only an
+    # untiled (single-molecule) record.
+    _q63 = "The bond marked in bold in the following scheme is cleaved."
+    _decl3 = [{"site": {"kind": "bond", "index": 1}, "device": "bold",
+               "stem_phrase": "The bond marked in bold", "tile": 0}]
+    _drawn3 = [{"site": {"kind": "bond", "index": 1}, "device": "bold", "tile": 0}]
+    _s3 = make_figure_spec(63, "schematic", 6.0, chem=True, marked_sites=_decl3, stem=_q63)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": _drawn3}),
+                  os.path.join(tmp, "b3a.png"), _s3)
+    _s3u = make_figure_spec(63, "schematic", 6.0, chem=True, stem=_q63,
+                            marked_sites=[{k: v for k, v in _decl3[0].items() if k != "tile"}])
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": _drawn3}),
+                  os.path.join(tmp, "b3b.png"), _s3u)
+    _s3w = make_figure_spec(63, "schematic", 6.0, chem=True, marked_sites=_decl3, stem=_q63)
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [dict(_drawn3[0], tile=2)]}),
+                  os.path.join(tmp, "b3c.png"), _s3w)
+    _s3m = make_figure_spec(63, "schematic", 6.0, chem=True, stem=_q63,
+                            marked_sites=[{k: v for k, v in _decl3[0].items() if k != "tile"}])
+    render_figure(_fake_native(2.0, 10.0, meta_extra={"marks_drawn": [
+        {"site": {"kind": "bond", "index": 1}, "device": "bold"}]}),
+        os.path.join(tmp, "b3d.png"), _s3m)
+    check("B3_scheme_marks_matched_by_tile",
+          g_figmark(_s3) == [] and g_figmark(_s3m) == []
+          and any("differ from declared" in m for m in g_figmark(_s3u))
+          and any("differ from declared" in m for m in g_figmark(_s3w))
+          and _mark_key({"site": {"kind": "atom", "index": 1}, "device": "asterisk"})
+          == _mark_key({"site": {"kind": "atom", "index": 1}, "device": "asterisk", "tile": None}))
+    # B6 a colour (monochrome=False) native option set keeps RGB; a set whose options
+    # differ in coloured elements is switched black ONCE for the whole set; the
+    # monochrome default is unchanged (greyscale, "black").
+    def _fake_colour(elems, log, width_in=1.2):
+        from PIL import Image as _I6, ImageDraw as _D6
+        import io as _io6
+        st = {"c": True}
+
+        def _d(ax=None, series=None, palette=None):
+            raise AssertionError("native draw must not be drawn by matplotlib")
+        _d.render_mode = "native_raster"
+        _d.tokens = {"font_pt": 15.6, "line_pt": 1.0, "bond_pt": 22.5, "monochrome": False}
+        _d.coloured_elements = frozenset(elems)
+        _d.element_colours = True
+
+        def _sec(flag):
+            log.append(bool(flag)); st["c"] = bool(flag); _d.element_colours = bool(flag)
+        _d.set_element_colours = _sec
+
+        def _np6(dpi=300):
+            W6, H6 = int(width_in * dpi), int(0.5 * dpi)
+            im6 = _I6.new("RGB", (W6, H6), (255, 255, 255)); dr6 = _D6.Draw(im6)
+            dr6.line([W6 // 4, H6 // 2, 3 * W6 // 4, H6 // 2], fill=(0, 0, 0), width=4)
+            dr6.rectangle([W6 // 2 - 20, H6 // 2 - 30, W6 // 2 + 20, H6 // 2 - 10],
+                          fill=(213, 94, 0) if st["c"] else (0, 0, 0))
+            b6 = _io6.BytesIO(); im6.save(b6, "PNG", dpi=(dpi, dpi))
+            return b6.getvalue(), W6 / float(dpi), {"atom_label_pt": 15.6, "marks_drawn": [],
+                                                     "marks_failed": []}
+        _d.native_png = _np6
+        return _d
+    _l6u, _l6d = [], []
+    _s6u = [make_figure_spec(66, "option_canvas", FIG_OPT_DISPLAY_IN, role="option", chem=True)
+            for _ in range(2)]
+    _p6u = [os.path.join(tmp, f"b6u{i}.png") for i in range(2)]
+    render_option_set([_fake_colour({"O"}, _l6u), _fake_colour({"O"}, _l6u, 1.5)], _p6u, _s6u)
+    _s6d = [make_figure_spec(66, "option_canvas", FIG_OPT_DISPLAY_IN, role="option", chem=True)
+            for _ in range(2)]
+    _p6d = [os.path.join(tmp, f"b6d{i}.png") for i in range(2)]
+    render_option_set([_fake_colour({"O"}, _l6d), _fake_colour({"Br"}, _l6d)], _p6d, _s6d)
+    _s6m = [make_figure_spec(66, "option_canvas", FIG_OPT_DISPLAY_IN, role="option", chem=True)
+            for _ in range(2)]
+    _p6m = [os.path.join(tmp, f"b6m{i}.png") for i in range(2)]
+    render_option_set([_fake_native(1.2, 15.6), _fake_native(1.4, 15.6)], _p6m, _s6m)
+    check("B6_colour_native_option_set_keeps_rgb_and_decides_once",
+          all(_PI.open(p_).mode == "RGB" for p_ in _p6u + _p6d)
+          and all(coloured_fraction(p_) > ACCENT_MIN_FRAC for p_ in _p6u)
+          and all(s_["element_colours"] == "uniform" for s_ in _s6u) and _l6u == []
+          and _l6d == [False, False] and all(s_["element_colours"] == "black" for s_ in _s6d)
+          and all(coloured_fraction(p_) < ACCENT_MIN_FRAC for p_ in _p6d)
+          and g_figoptelem(_s6u) == [] and g_figoptelem(_s6d) == [])
+    check("B6_monochrome_native_option_set_unchanged",
+          all(_PI.open(p_).mode == "L" for p_ in _p6m)
+          and all(s_["element_colours"] == "black" for s_ in _s6m))
+    # B8 the measured option-frame flag touches OPTION canvases only, and is evidence
+    # only when option_frame_share was measured.
+    _b8 = make_figure_spec(88, "reasoning_glyph", 2.0, style_profile=_mono_prof)
+    _b8p = os.path.join(tmp, "b8.png")
+    render_figure(lambda ax, s_, pal: ax.plot([0.2, 0.8], [0.5, 0.5], color="#000000"), _b8p, _b8)
+    _framed_b8 = _ink_mask_and_frame(_np_.array(_PI.open(_b8p).convert("L")).astype(int), _np_)[2]
+    check("B8_problem_glyph_keeps_frame_under_unframed_option_profile",
+          _b8["style_option_frame"] is False and _framed_b8 is True)
+    check("B8_option_frame_flag_needs_measured_share",
+          style_flags({"evidence": {"status": "measured"}, "option_frame": False})["option_frame"] is None
+          and style_flags({"evidence": {"status": "measured"}, "option_frame": True})["option_frame"] is None
+          and style_flags({"evidence": {"status": "measured"}, "option_frame": False,
+                           "option_frame_share": 0.05})["option_frame"] is False
+          and style_flags({"evidence": {"status": "measured"}, "option_frame": True,
+                           "option_frame_share": 0.9})["option_frame"] is True)
+    check("N17_option_display_invariant_now_scoped_to_non_native",
+          FIG_OPT_DISPLAY_IN == 1.3 and _no2["placed_in"] != FIG_OPT_DISPLAY_IN)
+
+    # ── property-fuzz hardening (2026.11.02 pass-3); each FAILS on the pre-fix engine ──
+    def _never(fn):
+        try:
+            return fn()
+        except Exception as _e:                                # noqa: BLE001
+            return _e
+    # D6: U+0085 / U+2028 / U+2029 inside a value — the reader splits on '\n' only
+    check("FZ_style_block_reader_ignores_unicode_line_separators",
+          _never(lambda: parse_figure_style_block(
+              'x\nFIGURE_STYLE_PROFILE: {"abbreviation_labels":["a\x85b","c\u2028d"]}\nmore'))
+          == {"abbreviation_labels": ["a\x85b", "c\u2028d"]})
+    # D7: a measured count of inf / JSON Infinity never raises OverflowError
+    _t7 = _never(lambda: structure_tokens(
+        'FIGURE_STYLE_PROFILE: {"evidence":{"status":"measured"},"problem":{"n":Infinity}}'))
+    _t7b = _never(lambda: structure_tokens({"evidence": {"status": "measured"},
+                                            "problem": {"n": float("inf"), "cap_pt": {"p50": 7}},
+                                            "cap_stroke_pooled": {"p50": "inf"}}))
+    check("FZ_structure_tokens_non_finite_counts",
+          isinstance(_t7, dict) and isinstance(_t7b, dict) and _t7b["font_pt"] == ONPAGE_TARGET_PT
+          and _t7b["cap_stroke"] == CAP_STROKE_DEFAULT and _never(lambda: _nint("1e309")) == 0)
+    # D7 (_pct): a measured role with ENOUGH pictures but a non-finite cap height keeps the
+    # default font (the n-path alone cannot reach this: n is large and finite here)
+    _t7c = _never(lambda: structure_tokens({"evidence": {"status": "measured"},
+                                            "problem": {"n": 50, "cap_pt": {"p50": float("inf")}}}))
+    _t7d = structure_tokens({"evidence": {"status": "measured"},
+                             "option": {"n": 10.0}, "cap_stroke_pooled": {"p50": 7.47e-78}})
+    check("FZ_structure_tokens_implausible_cap_stroke_is_default",
+          _t7d["cap_stroke"] == CAP_STROKE_DEFAULT and _t7d["cap_stroke"] > 0)
+    check("FZ_structure_tokens_non_finite_cap_height_keeps_default",
+          isinstance(_t7c, dict) and _t7c["font_pt"] == ONPAGE_TARGET_PT and _t7c["source"] == "default")
+    # D14: malformed sidecars are findings; index 1 and 1.0 are the same site
+    _f14 = [_never(lambda sp=sp: g_figmark(sp)) for sp in (
+        {"render_mode": "native_raster", "chem": True, "marked_sites": [], "native_meta": True},
+        {"render_mode": "native_raster", "chem": True, "marked_sites": [], "native_meta": {"marks_drawn": 3}},
+        {"render_mode": "native_raster", "chem": True, "marked_sites": [], "native_meta": {"marks_failed": 2}},
+        {"render_mode": "native_raster", "chem": True, "marked_sites": [], "stem": 5},
+        {"render_mode": "matplotlib", "chem": True, "marked_sites": [], "highlight": {"atoms": True}})]
+    check("FZ_g_figmark_malformed_sidecar_is_finding",
+          all(isinstance(f, list) and any(x.startswith("G-FIGMARK") for x in f) for f in _f14))
+    _m14 = {"site": {"kind": "atom", "index": 1}, "device": "asterisk",
+            "stem_phrase": "the atom marked (*)"}
+    check("FZ_g_figmark_int_and_float_index_match",
+          _never(lambda: g_figmark({"render_mode": "native_raster", "chem": True, "marked_sites": [_m14],
+                                    "stem": "Consider the atom marked (*).",
+                                    "native_meta": {"marks_drawn": [dict(_m14, site={"kind": "atom",
+                                                                                     "index": 1.0})],
+                                                    "marks_failed": []}})) == [])
+    # D15: str / inf / nan numeric fields -> a finding, never an exception
+    _f15 = [_never(lambda sp=sp: g_figoverprint(sp) + g_figbondorder(sp)) for sp in (
+        {"render_mode": "native_raster", "native_meta": {"overprint_px": "x", "highlight_bands": float("nan")}},
+        {"render_mode": "native_raster", "native_meta": {"overprint_px": float("inf")}},
+        {"render_mode": "native_raster", "native_meta": {"marks_drawn": [
+            {"device": "bold", "site": {"kind": "bond", "index": 0}, "bond_order": float("inf"),
+             "bold_lines": "x"}]}},
+        {"render_mode": "native_raster", "native_meta": [1]})]
+    check("FZ_overprint_bondorder_numeric_fields_are_findings",
+          all(isinstance(f, list) and f for f in _f15))
+    # Low: malformed endpoint entries are carried, never raised; non-dict profile -> defaults
+    _sh = _never(lambda: _shift_native_meta({"marks_drawn": [{"bond_px_endpoints": [1, [2, 3]],
+                                                              "bold_line_endpoints": [5, [[0, 0], [1, 1]]]}]},
+                                            2, 3))
+    check("FZ_shift_native_meta_malformed_endpoints",
+          isinstance(_sh, dict) and _sh["marks_drawn"][0]["bond_px_endpoints"] == [1, [4, 6]]
+          and _sh["marks_drawn"][0]["bold_line_endpoints"] == [5, [[2, 3], [3, 4]]])
+    check("FZ_style_flags_non_dict_profile_defaults",
+          _never(lambda: style_flags([1, 2])) == style_flags(None)
+          and _never(lambda: style_flags({"evidence": [1]})) == style_flags(None))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

@@ -1,6 +1,36 @@
 """
-corpus_io.py v1.16 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.17 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.17 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (F1, F2, F4, F6, F7).
+    Generated structures did not look like the exam: coloured atoms, every molecule
+    auto-scaled into a fixed 900x700 raster (bond length / label size were accidents),
+    an opaque highlight band 6x the line width overprinting O / Br / N / C+ and making
+    single bonds read double, option labels printing at ~2.3 pt. Adds an opt-in
+    PRINT-TRUE NATIVE RASTER path; with tokens=None every v1.16 path is unchanged.
+      (1) structure_draw_fn(..., tokens=None, marks=None, abbreviations=None,
+          protect_atoms=()) — with `tokens` (font_pt / line_pt / bond_pt in printed
+          points, monochrome, mark_colour; passed in as a plain dict, figural_core is
+          never imported) the draw gains render_mode='native_raster', .tokens,
+          .native_png(dpi) and .native_png_unmarked(dpi) -> (png, natural_width_in, meta):
+          rdkit at fixedBondLength / fixedFontSize / bondLineWidth from the tokens,
+          canvas sized from the 2-D coordinates, cropped to ink + 0.15 bond, dpi
+          metadata, BW atom palette when monochrome. NEVER a highlight band: highlight_*
+          become marks; marks (underline / asterisk / letter / arrow / bold) are placed
+          from rdkit's own geometry clear of every label and bond (8 rotations, else
+          marks_failed — never dropped); meta['overprint_px'] is the G2 differential
+          count. CoordGen depiction with quaternary-cross re-depiction (rdkit, then
+          canonOrient). ABBREVIATION_LEXICON / ABBREVIATION_DISPLAY and
+          abbreviation_protected_atoms() (rdFMCS) condense only the exam's labels and
+          never a protected or marked atom; .canonical stays the uncondensed SMILES.
+      (2) render_scheme(..., tokens=None, max_width_in=6.0) — with `tokens`,
+          .native_png(dpi) composes the scheme with PIL at natural size (every tile at
+          the same tokens, arrows / text in points); overflow: re-flow multi-arrow rows
+          repeating the break tile, stack reagent text (excess -> stem), else
+          meta['overflow'] (never scaled). .canonical / .descriptor unchanged.
+      (3) native_option_set(draw_fns, dpi) — uniform max-width x max-height canvas,
+          no frame, equal widths; ValueError on mismatched tokens.
+    Self-test 428 -> 478 (50 new checks, each failing on the defect it guards).
 
 v1.16 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.3;
     paired with figure_types v1.0, paper_pipeline v5.40, final_assembly v1.9,
@@ -4475,8 +4505,951 @@ def canonical_structure(smiles):
     return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True), 'ok'
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRINT-TRUE NATIVE RASTER (v1.17, GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F1/F2/F4/F6/F7)
+#
+# One TOKENS dict per paper role — {'font_pt', 'line_pt', 'bond_pt', 'monochrome',
+# 'mark_colour'}, every size in PRINTED points — is passed in by the caller
+# (figural_core.structure_tokens; this module never imports figural_core). Every
+# molecule drawn with the same tokens shares one bond length, one label size and one
+# stroke, and the PNG's natural size at its dpi IS its print size. No highlight band is
+# ever drawn on this path: an interrogated site is a MARK (underline / asterisk /
+# letter / arrow / bold) placed clear of every atom label and bond, using the
+# renderer's own geometry (rdkit's SVG twin of the same drawing gives each label's glyph
+# boxes and each bond's drawn segments, in the same canvas coordinates as the raster).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# RDKit ParseAbbreviations text: "label SMILES display reversed_display" (the attachment
+# dummy is implicit; rdkit adds the degree / ring constraints). LARGEST GROUPS FIRST —
+# LabelMolAbbreviations takes the first match, so 'Et' must not pre-empt a C9 chain.
+# Methyl is deliberately ABSENT: Me is drawn as a line (house style of every exam measured).
+_NALKYL_LEX = ''.join(
+    f'C{_n}H{2 * _n + 1} {"C" * _n} C<sub>{_n}</sub>H<sub>{2 * _n + 1}</sub> '
+    f'H<sub>{2 * _n + 1}</sub>C<sub>{_n}</sub>\n' for _n in range(20, 6, -1))
+ABBREVIATION_LEXICON = _NALKYL_LEX + """\
+TBDPS [Si](c1ccccc1)(c1ccccc1)C(C)(C)C TBDPS TBDPSO
+TBS [Si](C)(C)C(C)(C)C TBS TBS
+OTs OS(=O)(=O)c1ccc(C)cc1 OTs TsO
+OTf OS(=O)(=O)C(F)(F)F OTf TfO
+OMs OS(=O)(=O)C OMs MsO
+Cbz C(=O)OCc1ccccc1 Cbz Cbz
+Boc C(=O)OC(C)(C)C Boc Boc
+CO2Et C(=O)OCC CO<sub>2</sub>Et EtO<sub>2</sub>C
+CO2Me C(=O)OC CO<sub>2</sub>Me MeO<sub>2</sub>C
+OAc OC(=O)C OAc AcO
+SiMe3 [Si](C)(C)C SiMe<sub>3</sub> Me<sub>3</sub>Si
+Bn Cc1ccccc1 Bn Bn
+Ph c1ccccc1 Ph Ph
+tBu C(C)(C)C tBu tBu
+iPr C(C)C iPr iPr
+OEt OCC OEt EtO
+OMe OC OMe MeO
+NO2 [N+](=O)[O-] NO<sub>2</sub> O<sub>2</sub>N
+Ac C(=O)C Ac Ac
+CHO C=O CHO OHC
+CN C#N CN NC
+Et CC Et Et
+"""
+_ABBREV_ENTRIES = [tuple(_l.split()) for _l in ABBREVIATION_LEXICON.splitlines() if _l.strip()]
+# Display hook: label -> the spelling drawn. Identity by default (the lexicon's own
+# display); an exam's measured spelling (e.g. 'CO2Me' -> 'CO<sub>2</sub>CH<sub>3</sub>')
+# is passed per call in `abbreviations` or set here by the caller.
+ABBREVIATION_DISPLAY = {_e[0]: _e[2] for _e in _ABBREV_ENTRIES}
+
+NATIVE_MARK_DEVICES = ('underline', 'asterisk', 'letter', 'arrow', 'bold')
+_RDKIT_SUBSUP_SCALE = 0.66        # rdkit DrawText sub/superscript scale (measured 0.66-0.68)
+_NATIVE_FONT_CANDIDATES = {
+    'regular': ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 'DejaVuSans.ttf'),
+    'bold': ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'DejaVuSans-Bold.ttf'),
+    'italic': ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf', 'DejaVuSans-Oblique.ttf'),
+}
+
+
+def _native_font(style, px):
+    """(PIL font, font_file) for a TrueType face available in the container. Looks in
+    the system DejaVu directory, then matplotlib's bundled DejaVu (already a framework
+    dependency). PIL's built-in scalable default is the last resort ('pil_default')."""
+    from PIL import ImageFont
+    cands = list(_NATIVE_FONT_CANDIDATES[style])
+    try:
+        import matplotlib as _mpl
+        cands.append(os.path.join(os.path.dirname(_mpl.__file__), 'mpl-data', 'fonts', 'ttf',
+                                  _NATIVE_FONT_CANDIDATES[style][1]))
+    except Exception:
+        pass
+    size = max(1, int(round(px)))
+    for c in cands:
+        if os.path.isabs(c) and os.path.exists(c):
+            try:
+                return ImageFont.truetype(c, size), c
+            except Exception:
+                continue
+    try:
+        return ImageFont.truetype(_NATIVE_FONT_CANDIDATES[style][1], size), _NATIVE_FONT_CANDIDATES[style][1]
+    except Exception:
+        return ImageFont.load_default(size=size), 'pil_default'
+
+
+# Sane printed-size bounds for the native tokens (points). Outside them rdkit / Cairo
+# fail obscurely (int(inf) OverflowError, 'PNG header not recognized' on a giant canvas)
+# or the picture is unprintable; a clear ValueError names the token instead.
+NATIVE_TOKEN_BOUNDS_PT = {'font_pt': (1.0, 72.0), 'line_pt': (0.1, 72.0), 'bond_pt': (1.0, 72.0)}
+
+
+def _native_tokens(tokens):
+    """Validate + normalise a tokens dict. Raises ValueError on a malformed dict, and on
+    a non-finite or out-of-range size (NATIVE_TOKEN_BOUNDS_PT)."""
+    if not isinstance(tokens, dict):
+        raise ValueError('native raster: tokens must be a dict')
+    out = {}
+    for k in ('font_pt', 'line_pt', 'bond_pt'):
+        try:
+            v = float(tokens[k])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            raise ValueError(f'native raster: tokens[{k!r}] missing or not a number')
+        if not v > 0:
+            raise ValueError(f'native raster: tokens[{k!r}] must be > 0')
+        lo, hi = NATIVE_TOKEN_BOUNDS_PT[k]
+        if not (v == v and v not in (float('inf'), float('-inf')) and lo <= v <= hi):
+            raise ValueError(f'native raster: tokens[{k!r}] = {v!r} pt is outside the sane '
+                             f'printed range {lo:g}..{hi:g} pt')
+        out[k] = v
+    out['monochrome'] = bool(tokens.get('monochrome', True))
+    mc = str(tokens.get('mark_colour') or '#000000')
+    if not re.fullmatch(r'#[0-9A-Fa-f]{6}', mc):
+        raise ValueError(f'native raster: mark_colour {mc!r} is not #RRGGBB')
+    out['mark_colour'] = mc.upper()
+    return out
+
+
+def abbreviation_protected_atoms(reactant_smiles, product_smiles, timeout=2):
+    """GAP-2026-11-02 F7 (e.2.i): atoms that change in a reaction must never hide inside
+    an abbreviation. Returns (protect_idx_reactant, protect_idx_product): the atoms of
+    each molecule OUTSIDE the rdFMCS maximum common substructure. On timeout, an
+    unparseable SMILES, an empty MCS or any rdkit failure, EVERY atom of both molecules
+    is returned — i.e. nothing in either molecule is abbreviated. Never raises."""
+    def _all(smi):
+        try:
+            from rdkit import Chem
+            m = Chem.MolFromSmiles(str(smi or ''))
+            return list(range(m.GetNumAtoms())) if m is not None else []
+        except Exception:
+            return []
+    try:
+        from rdkit import Chem, RDLogger
+        from rdkit.Chem import rdFMCS
+        RDLogger.DisableLog('rdApp.*')
+        r = Chem.MolFromSmiles(str(reactant_smiles or ''))
+        p = Chem.MolFromSmiles(str(product_smiles or ''))
+        if r is None or p is None:
+            return _all(reactant_smiles), _all(product_smiles)
+        res = rdFMCS.FindMCS([r, p], timeout=max(1, int(round(timeout))),
+                             ringMatchesRingOnly=True, completeRingsOnly=True)
+        if res.canceled or not res.numAtoms or not res.smartsString:
+            return _all(reactant_smiles), _all(product_smiles)
+        q = Chem.MolFromSmarts(res.smartsString)
+        mr, mp = r.GetSubstructMatch(q), p.GetSubstructMatch(q)
+        if not mr or not mp:
+            return _all(reactant_smiles), _all(product_smiles)
+        return ([i for i in range(r.GetNumAtoms()) if i not in set(mr)],
+                [i for i in range(p.GetNumAtoms()) if i not in set(mp)])
+    except Exception:
+        return _all(reactant_smiles), _all(product_smiles)
+
+
+def _native_abbreviate(mol, abbreviations, protect):
+    """-> (mol_to_draw, applied_labels, orig_to_drawn_atom_map). `abbreviations` None/[]
+    -> nothing condensed. Otherwise only lexicon entries whose label the exam uses are
+    applied; an entry may be 'label', ('label', 'display') or a {label: display} dict.
+    No group touching a protected atom is condensed."""
+    from rdkit import Chem, RDLogger
+    ident = {i: i for i in range(mol.GetNumAtoms())}
+    if not abbreviations:
+        return mol, [], ident
+    wanted = {}
+    if isinstance(abbreviations, dict):
+        wanted = {str(k): (str(v) if v else None) for k, v in abbreviations.items()}
+    else:
+        for e in abbreviations:
+            if isinstance(e, (tuple, list)) and e:
+                wanted[str(e[0])] = str(e[1]) if len(e) > 1 and e[1] else None
+            else:
+                wanted[str(e)] = None
+    lines = []
+    for label, smi, disp, disp_w in _ABBREV_ENTRIES:
+        if label not in wanted:
+            continue
+        shown = wanted[label] or ABBREVIATION_DISPLAY.get(label) or disp
+        shown_w = disp_w if shown == disp else shown
+        lines.append(f'{label} {smi} {shown} {shown_w}')
+    if not lines:
+        return mol, [], ident
+    from rdkit.Chem import rdAbbreviations
+    RDLogger.DisableLog('rdApp.*')    # 'no suitable SubstanceGroups' when nothing matched
+    ab = rdAbbreviations.ParseAbbreviations('\n'.join(lines))
+    m0 = Chem.Mol(mol)
+    for a in m0.GetAtoms():
+        a.SetIntProp('_cio_orig', a.GetIdx())
+    m1 = rdAbbreviations.LabelMolAbbreviations(m0, ab, maxCoverage=0.6)
+    protect = set(int(i) for i in protect)
+    keep = [sg for sg in Chem.GetMolSubstanceGroups(m1) if not set(sg.GetAtoms()) & protect]
+    if not keep:
+        return mol, [], ident
+    covered = set()
+    for sg in keep:
+        covered |= set(sg.GetAtoms())
+    labels = [sg.GetProp('LABEL') if sg.HasProp('LABEL') else '?' for sg in keep]
+    Chem.ClearMolSubstanceGroups(m1)
+    for sg in keep:
+        Chem.AddMolSubstanceGroup(m1, sg)
+    m2 = rdAbbreviations.CondenseAbbreviationSubstanceGroups(m1)
+    amap = {}
+    for a in m2.GetAtoms():
+        if a.HasProp('_cio_orig') and a.GetAtomicNum() != 0:
+            o = a.GetIntProp('_cio_orig')
+            if o not in covered:
+                amap[o] = a.GetIdx()
+    return m2, labels, amap
+
+
+def _native_depict(mol, which, canon_orient=False):
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor
+    m = Chem.Mol(mol)
+    m.RemoveAllConformers()
+    if which == 'coordgen':
+        from rdkit.Chem import rdCoordGen
+        rdCoordGen.AddCoords(m)
+    else:
+        prev = rdDepictor.GetPreferCoordGen()
+        rdDepictor.SetPreferCoordGen(False)          # global rdkit state: always restored
+        try:
+            rdDepictor.Compute2DCoords(m, canonOrient=bool(canon_orient))
+        finally:
+            rdDepictor.SetPreferCoordGen(prev)
+        # rdDepictor lays bonds out at 1.5 units, CoordGen (and the drawer's
+        # fixedBondLength) at 1.0: rescale so an rdkit-depicted structure prints at the
+        # token bond length too (it printed 1.5x — G-FIGSCALE; fuzz 2026-11-02).
+        import math
+        c = m.GetConformer()
+        ls = [math.dist(tuple(c.GetAtomPosition(b.GetBeginAtomIdx()))[:2],
+                        tuple(c.GetAtomPosition(b.GetEndAtomIdx()))[:2]) for b in m.GetBonds()]
+        ls = [x for x in ls if math.isfinite(x) and x > 0]
+        if ls:
+            f = len(ls) / sum(ls)
+            from rdkit.Geometry import Point3D
+            for i in range(m.GetNumAtoms()):
+                p = c.GetAtomPosition(i)
+                c.SetAtomPosition(i, Point3D(p.x * f, p.y * f, p.z * f))
+    return m
+
+
+def _native_cross_atoms(mol):
+    """sp3 atoms with 4 heavy neighbours drawn as a 90-degree '+' (all four angles
+    90 +/- 10 degrees) — the quaternary-cross defect of F7."""
+    import math
+    out = []
+    if not mol.GetNumConformers():
+        return out
+    c = mol.GetConformer()
+    for a in mol.GetAtoms():
+        if a.GetIsAromatic():
+            continue
+        nb = [n for n in a.GetNeighbors() if n.GetAtomicNum() > 1]
+        if len(nb) != 4 or any(b.GetBondTypeAsDouble() != 1.0 for b in a.GetBonds()):
+            continue
+        p = c.GetAtomPosition(a.GetIdx())
+        angs = sorted(math.degrees(math.atan2(c.GetAtomPosition(n.GetIdx()).y - p.y,
+                                              c.GetAtomPosition(n.GetIdx()).x - p.x)) % 360.0
+                      for n in nb)
+        gaps = [angs[i + 1] - angs[i] for i in range(3)] + [angs[0] + 360.0 - angs[3]]
+        if all(abs(g - 90.0) <= 10.0 for g in gaps):
+            out.append(a.GetIdx())
+    return out
+
+
+NATIVE_MIN_BOND_RATIO = 0.7      # shortest / longest depicted bond below this = distorted
+
+
+def _native_coords_finite(m):
+    """True when every atom of `m` has finite 2D coordinates (CoordGen returns NaN for
+    an H-only species: '[H+]', '[H]', '[2H]', '[H][H]')."""
+    import math
+    if not m.GetNumConformers():
+        return False
+    c = m.GetConformer()
+    for i in range(m.GetNumAtoms()):
+        p = c.GetAtomPosition(i)
+        if not (math.isfinite(p.x) and math.isfinite(p.y)):
+            return False
+    return True
+
+
+def _native_bond_ratio(m):
+    """min / max depicted bond length (1.0 with no bond). CoordGen squashes some
+    bridged rings (2,3-disubstituted norbornanes: 'CC1CC2CCC1C2N' at 0.33x)."""
+    import math
+    c = m.GetConformer()
+    ls = [math.dist(tuple(c.GetAtomPosition(b.GetBeginAtomIdx()))[:2],
+                    tuple(c.GetAtomPosition(b.GetEndAtomIdx()))[:2]) for b in m.GetBonds()]
+    ls = [x for x in ls if math.isfinite(x)]
+    if not ls or max(ls) <= 0:
+        return 1.0
+    return min(ls) / max(ls)
+
+
+def _native_layout(mol):
+    """-> (mol_with_coords, depictor, cross_note). CoordGen first; non-finite CoordGen
+    coordinates (an H-only species) or a distorted CoordGen layout (shortest / longest
+    bond < NATIVE_MIN_BOND_RATIO) are re-depicted with rdkit's depictor, keeping the
+    better layout; a quaternary cross is re-depicted with rdkit's depictor, then with
+    canonOrient=True; else kept + noted."""
+    m0, dep0 = _native_depict(mol, 'coordgen'), 'coordgen'
+    if not _native_coords_finite(m0):
+        m0, dep0 = _native_depict(mol, 'rdkit'), 'rdkit'
+    elif _native_bond_ratio(m0) < NATIVE_MIN_BOND_RATIO:
+        m1 = _native_depict(mol, 'rdkit')
+        if _native_coords_finite(m1) and _native_bond_ratio(m1) > _native_bond_ratio(m0):
+            m0, dep0 = m1, 'rdkit'
+    if not _native_cross_atoms(m0):
+        return m0, dep0, None
+    m1 = _native_depict(mol, 'rdkit')
+    if not _native_cross_atoms(m1):
+        return m1, 'rdkit', None
+    m2 = _native_depict(mol, 'rdkit', canon_orient=True)
+    if not _native_cross_atoms(m2):
+        return m2, 'rdkit', None
+    return m0, dep0, (f'quaternary atom(s) {_native_cross_atoms(m0)} drawn as a 90-degree '
+                      f'cross by both depictors and canonOrient (style only)')
+
+
+def _seg_hits_rect(p, q, r):
+    """Liang-Barsky: does segment p-q intersect rect r=[x0,y0,x1,y1]?"""
+    x0, y0 = p
+    dx, dy = q[0] - x0, q[1] - y0
+    t0, t1 = 0.0, 1.0
+    for pp, qq in ((-dx, x0 - r[0]), (dx, r[2] - x0), (-dy, y0 - r[1]), (dy, r[3] - y0)):
+        if pp == 0:
+            if qq < 0:
+                return False
+        else:
+            t = qq / pp
+            if pp < 0:
+                t0 = max(t0, t)
+            else:
+                t1 = min(t1, t)
+            if t0 > t1:
+                return False
+    return True
+
+
+def _rects_overlap(a, b, pad=0.0):
+    return not (a[2] + pad <= b[0] or b[2] + pad <= a[0] or a[3] + pad <= b[1] or b[3] + pad <= a[1])
+
+
+def _grow(r, g):
+    return [r[0] - g, r[1] - g, r[2] + g, r[3] + g]
+
+
+class _NativeStructure:
+    """Holds one prepared molecule (depicted, abbreviated, marks resolved) and renders
+    it at any dpi with the token sizes. Results are cached per dpi."""
+
+    def __init__(self, mol, tokens, marks, abbreviations, protect_atoms, palette, converted):
+        from rdkit import Chem
+        self.tk = tokens
+        self.palette = palette            # (atom_pal or {}, colours_flag)
+        self.converted = bool(converted)
+        self.marks = [dict(m) for m in (marks or [])]
+        n_at, n_bd = mol.GetNumAtoms(), mol.GetNumBonds()
+        protect = set(int(i) for i in (protect_atoms or ()))
+        for mk in self.marks:
+            site = mk.get('site') or {}
+            kind, idx = site.get('kind'), site.get('index')
+            if mk.get('device') not in NATIVE_MARK_DEVICES:
+                raise ValueError(f'structure_draw_fn: mark device {mk.get("device")!r} not in '
+                                 f'{NATIVE_MARK_DEVICES}')
+            if kind not in ('atom', 'bond') or not isinstance(idx, int):
+                raise ValueError(f'structure_draw_fn: mark site {site!r} needs kind atom|bond and an int index')
+            if kind == 'atom':
+                if not 0 <= idx < n_at:
+                    raise ValueError(f'structure_draw_fn: mark atom index {idx} outside 0..{n_at - 1}')
+                protect.add(idx)
+            else:
+                if not 0 <= idx < n_bd:
+                    raise ValueError(f'structure_draw_fn: mark bond index {idx} outside 0..{n_bd - 1}')
+                b = mol.GetBondWithIdx(idx)
+                protect |= {b.GetBeginAtomIdx(), b.GetEndAtomIdx()}
+        self.orig = mol
+        drawn, self.abbrev_labels, self.amap = _native_abbreviate(mol, abbreviations, protect)
+        self.mol, self.depictor, self.cross_note = _native_layout(drawn)
+        self._cache = {}
+
+    # ── drawing primitives ────────────────────────────────────────────────────
+    def _opts(self, d, dpi):
+        k = dpi / 72.0
+        o = d.drawOptions()
+        o.fixedBondLength = self.tk['bond_pt'] * k
+        o.bondLineWidth = max(1, int(round(self.tk['line_pt'] * k)))
+        o.scaleBondWidth = False
+        o.fixedFontSize = int(round(self.tk['font_pt'] * k))
+        o.multipleBondOffset = 0.18
+        o.padding = 0.0
+        o.additionalAtomLabelPadding = 0.066
+        o.clearBackground = True
+        o.setBackgroundColour((1.0, 1.0, 1.0, 1.0))
+        pal, colours = self.palette
+        if (not self.tk['monochrome']) and colours and pal and hasattr(o, 'updateAtomPalette'):
+            o.updateAtomPalette({int(kk): tuple(v) for kk, v in pal.items()})
+            _missing = {a.GetAtomicNum() for a in self.mol.GetAtoms()} - set(pal)
+            if _missing:
+                o.updateAtomPalette({int(kk): (0.0, 0.0, 0.0) for kk in _missing})
+        else:
+            o.useBWAtomPalette()
+
+    def _canvas(self, dpi):
+        import math
+        bond_px = self.tk['bond_pt'] * dpi / 72.0
+        c = self.mol.GetConformer()
+        xs = [c.GetAtomPosition(i).x for i in range(self.mol.GetNumAtoms())]
+        ys = [c.GetAtomPosition(i).y for i in range(self.mol.GetNumAtoms())]
+        bl = [math.dist((xs[b.GetBeginAtomIdx()], ys[b.GetBeginAtomIdx()]),
+                        (xs[b.GetEndAtomIdx()], ys[b.GetEndAtomIdx()])) for b in self.mol.GetBonds()]
+        mbl = (sum(bl) / len(bl)) if bl and sum(bl) > 0 else 1.5
+        sx = (max(xs) - min(xs)) / mbl * bond_px if len(xs) > 1 else 0.0
+        sy = (max(ys) - min(ys)) / mbl * bond_px if len(ys) > 1 else 0.0
+        return int(sx + 6 * bond_px), int(sy + 6 * bond_px)
+
+    def _draw_base(self, dpi):
+        """-> (PIL RGB image, geometry) of the UNMARKED molecule on the full canvas."""
+        from rdkit.Chem.Draw import rdMolDraw2D
+        from PIL import Image
+        W, H = self._canvas(dpi)
+        dc = rdMolDraw2D.MolDraw2DCairo(W, H)
+        self._opts(dc, dpi)
+        rdMolDraw2D.PrepareAndDrawMolecule(dc, self.mol)
+        dc.FinishDrawing()
+        img = Image.open(io.BytesIO(dc.GetDrawingText())).convert('RGB')
+        coords = {i: tuple(dc.GetDrawCoords(i)) for i in range(self.mol.GetNumAtoms())}
+        ds = rdMolDraw2D.MolDraw2DSVG(W, H)
+        self._opts(ds, dpi)
+        rdMolDraw2D.PrepareAndDrawMolecule(ds, self.mol)
+        ds.FinishDrawing()
+        svg = ds.GetDrawingText()
+        glyphs, bonds = {}, {}
+        for mm in re.finditer(r"<path class='([^']*)' d='([^']*)'", svg):
+            cls = mm.group(1).split()
+            nums = [float(v) for v in re.findall(r'-?\d+(?:\.\d+)?', mm.group(2))]
+            pts = list(zip(nums[0::2], nums[1::2]))
+            if not pts or not cls:
+                continue
+            if cls[0].startswith('bond-'):
+                bonds.setdefault(int(cls[0][5:]), []).append(pts)
+            elif cls[0].startswith('atom-'):
+                xs_, ys_ = [p[0] for p in pts], [p[1] for p in pts]
+                glyphs.setdefault(int(cls[0][5:]), []).append([min(xs_), min(ys_), max(xs_), max(ys_)])
+        labels = {a: [min(g[0] for g in gs), min(g[1] for g in gs), max(g[2] for g in gs),
+                      max(g[3] for g in gs)] for a, gs in glyphs.items()}
+        segs = []
+        for bi, polys in bonds.items():
+            for pts in polys:
+                for j in range(len(pts) - 1):
+                    segs.append((bi, pts[j], pts[j + 1]))
+        return img, {'coords': coords, 'glyphs': glyphs, 'labels': labels, 'bond_paths': bonds,
+                     'segs': segs, 'W': W, 'H': H}
+
+    def _small_pt(self):
+        """Smallest text rdkit draws for this molecule: a label carrying a subscript H
+        count, a charge or an isotope is drawn partly at rdkit's sub/superscript scale."""
+        from rdkit import Chem
+        fp = self.tk['font_pt']
+        small = fp
+        for a in self.mol.GetAtoms():
+            labelled = a.GetAtomicNum() != 6 or a.GetFormalCharge() or a.GetIsotope() or a.GetDegree() == 0
+            if a.HasProp('_displayLabel'):
+                if '<sub>' in a.GetProp('_displayLabel') or '<sup>' in a.GetProp('_displayLabel'):
+                    small = min(small, fp * _RDKIT_SUBSUP_SCALE)
+                continue
+            if labelled and a.GetAtomicNum() > 0 and (a.GetTotalNumHs() >= 2 or a.GetFormalCharge()
+                                                      or a.GetIsotope() or a.GetNumRadicalElectrons()):
+                small = min(small, fp * _RDKIT_SUBSUP_SCALE)
+        return small
+
+    # ── marks ─────────────────────────────────────────────────────────────────
+    def _place_marks(self, img, geo, dpi):
+        """Draw the marks onto `img` (in place). -> (drawn, failed, min_text_pt, bold_atoms)."""
+        import math
+        from PIL import ImageDraw, ImageFilter
+        tk = self.tk
+        k = dpi / 72.0
+        bond_px, font_px, line_px = tk['bond_pt'] * k, tk['font_pt'] * k, max(1.0, tk['line_pt'] * k)
+        colour = tuple(int(tk['mark_colour'][i:i + 2], 16) for i in (1, 3, 5))
+        pad = max(1.0, 0.04 * bond_px)
+        dr = ImageDraw.Draw(img)
+        coords, labels, glyphs, segs = geo['coords'], geo['labels'], geo['glyphs'], geo['segs']
+        W, H = geo['W'], geo['H']
+        placed, drawn, failed, bold_atoms = [], [], [], []
+        min_pt = None
+        all_pts = list(coords.values())
+        mcx = sum(p[0] for p in all_pts) / len(all_pts)
+        mcy = sum(p[1] for p in all_pts) / len(all_pts)
+
+        def _free_rect(r, skip_bonds=()):
+            if r[0] < 0 or r[1] < 0 or r[2] > W or r[3] > H:
+                return False
+            if any(_rects_overlap(r, lb, pad) for lb in labels.values()):
+                return False
+            if any(_rects_overlap(r, pr, pad) for pr in placed):
+                return False
+            g = _grow(r, line_px / 2.0 + pad)
+            return not any(_seg_hits_rect(p, q, g) for bi, p, q in segs if bi not in skip_bonds)
+
+        def _free_seg(p, q, half, skip_bonds=()):
+            for lb in labels.values():
+                if _seg_hits_rect(p, q, _grow(lb, half + pad)):
+                    return False
+            for pr in placed:
+                if _seg_hits_rect(p, q, _grow(pr, half + pad)):
+                    return False
+            for bi, a, b in segs:
+                if bi in skip_bonds:
+                    continue
+                # thick segment vs thick segment: sample along p-q
+                for t in [i / 12.0 for i in range(13)]:
+                    x, y = p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])
+                    if _pt_seg_dist((x, y), a, b) < half + line_px / 2.0 + pad:
+                        return False
+            return 0 <= min(p[0], q[0]) and max(p[0], q[0]) <= W and 0 <= min(p[1], q[1]) and max(p[1], q[1]) <= H
+
+        def _rotations(ux, uy):
+            out = []
+            for deg in (0, 45, -45, 90, -90, 135, -135, 180):
+                r = math.radians(deg)
+                out.append((ux * math.cos(r) - uy * math.sin(r), ux * math.sin(r) + uy * math.cos(r)))
+            return out
+
+        def _unit(x, y, fx=0.0, fy=-1.0):
+            n = math.hypot(x, y)
+            return (x / n, y / n) if n > 1e-9 else (fx, fy)
+
+        def _drawn_atom(i):
+            return self.amap.get(i)
+
+        def _drawn_bond(i):
+            b = self.orig.GetBondWithIdx(i)
+            a0, a1 = self.amap.get(b.GetBeginAtomIdx()), self.amap.get(b.GetEndAtomIdx())
+            if a0 is None or a1 is None:
+                return None
+            bb = self.mol.GetBondBetweenAtoms(a0, a1)
+            return None if bb is None else bb.GetIdx()
+
+        def _text_mark(mk, text, style, size_px, anchor, direction):
+            f, _ff = _native_font(style, size_px)
+            bx = f.getbbox(text)
+            tw, th = bx[2] - bx[0], bx[3] - bx[1]
+            dist = 0.55 * bond_px
+            for ux, uy in _rotations(*direction):
+                cx, cy = anchor[0] + ux * dist, anchor[1] + uy * dist
+                r = [cx - tw / 2.0, cy - th / 2.0, cx + tw / 2.0, cy + th / 2.0]
+                if _free_rect(r):
+                    dr.text((cx - (bx[0] + bx[2]) / 2.0, cy - (bx[1] + bx[3]) / 2.0), text, font=f, fill=colour)
+                    placed.append(r)
+                    return r
+            return None
+
+        def _arrow(anchor, direction, own, skip_bonds=()):
+            """Arrow pointing AT `anchor` from outside, tried along `direction` first and
+            then the _rotations of it; the tip stands 0.15 bond clear of the outermost
+            of `own` (a double bond's offset line, an atom's label box) on that side.
+            Draws it and returns its bbox, or None when no rotation is clear."""
+            gap, length = 0.15 * bond_px, 0.6 * bond_px
+            head_l = max(4.0 * line_px, 0.2 * bond_px)
+            head_w = 0.35 * head_l
+            done = None
+            for ux, uy in _rotations(*direction):
+                reach = max([0.0] + [(q[0] - anchor[0]) * ux + (q[1] - anchor[1]) * uy for q in own])
+                g_ = gap + min(reach, 0.5 * bond_px) + line_px / 2.0
+                tip = (anchor[0] + ux * g_, anchor[1] + uy * g_)
+                tail = (anchor[0] + ux * (g_ + length), anchor[1] + uy * (g_ + length))
+                if _free_seg(tip, tail, max(head_w, line_px / 2.0), skip_bonds=skip_bonds):
+                    done = (tip, tail, ux, uy)
+                    break
+            if done is None:
+                return None
+            tip, tail, ux, uy = done
+            base = (tip[0] + ux * head_l, tip[1] + uy * head_l)
+            dr.line([tail, base], fill=colour, width=max(1, int(round(line_px))))
+            dr.polygon([tip, (base[0] - uy * head_w, base[1] + ux * head_w),
+                        (base[0] + uy * head_w, base[1] - ux * head_w)], fill=colour)
+            r = [min(tip[0], tail[0]) - head_w, min(tip[1], tail[1]) - head_w,
+                 max(tip[0], tail[0]) + head_w, max(tip[1], tail[1]) + head_w]
+            placed.append(r)
+            return r
+
+        for mk in self.marks:
+            site, dev = mk['site'], mk['device']
+            rec = dict(mk)
+            if site['kind'] == 'atom':
+                ai = _drawn_atom(site['index'])
+                if ai is None:
+                    failed.append(dict(rec, reason='site_condensed')); continue
+                labelled = ai in labels
+                p = coords[ai]
+                nbrs = [coords[n.GetIdx()] for n in self.mol.GetAtomWithIdx(ai).GetNeighbors()
+                        if n.GetIdx() in coords]
+                if nbrs:
+                    direction = _unit(p[0] - sum(q[0] for q in nbrs) / len(nbrs),
+                                      p[1] - sum(q[1] for q in nbrs) / len(nbrs))
+                else:
+                    direction = (0.0, -1.0)
+                if dev == 'letter' and not str(mk.get('text') or '').strip():
+                    # v1.17: a letter mark names ITS letter (Q7b.8' 'text'); never a default.
+                    failed.append(dict(rec, reason='letter_text_missing')); continue
+                if dev in ('asterisk', 'letter'):
+                    text = '*' if dev == 'asterisk' else str(mk.get('text')).strip()
+                    size_pt = tk['font_pt'] * (0.8 if dev == 'asterisk' else 1.0)
+                    r = _text_mark(mk, text, 'regular' if dev == 'asterisk' else 'italic',
+                                   size_pt * k, p, direction)
+                    if r is None:
+                        failed.append(dict(rec, reason='no_clear_position')); continue
+                    min_pt = size_pt if min_pt is None else min(min_pt, size_pt)
+                    drawn.append(dict(rec, bbox_px=r))
+                elif dev == 'underline':
+                    if not labelled:
+                        failed.append(dict(rec, reason='device_not_drawable')); continue
+                    gs = glyphs[ai]
+                    hmax = max(g[3] - g[1] for g in gs)
+                    main = [g for g in gs if (g[3] - g[1]) >= 0.8 * hmax]
+                    base = sorted(g[3] for g in main)[len(main) // 2]
+                    t = max(1.0, 0.6 * line_px)
+                    y0 = base + 0.15 * font_px
+                    # 2026.11.02 B9: the site's OWN subscript glyphs (the 2 of NH2, the 4
+                    # of CH4) hang below the baseline, so a baseline underline always
+                    # collided with them and NCC(=O)O atom 0 could never be underlined.
+                    # The underline now runs under the FULL label: below the lowest
+                    # subscript, spanning it. A label without a subscript is unchanged.
+                    sub = [g for g in gs if g not in main and g[3] > base + 0.05 * font_px]
+                    if sub:
+                        y0 = max(y0, max(g[3] for g in sub) + 0.1 * font_px)
+                    span = main + sub
+                    r = [min(g[0] for g in span), y0, max(g[2] for g in span), y0 + t]
+                    ok = (r[3] <= H and not any(_rects_overlap(r, g) for gg in glyphs.values() for g in gg)
+                          and not any(_rects_overlap(r, pr, pad) for pr in placed)
+                          and not any(_seg_hits_rect(a, b, _grow(r, line_px / 2.0)) for _bi, a, b in segs))
+                    if not ok:
+                        failed.append(dict(rec, reason='no_clear_position')); continue
+                    dr.rectangle([r[0], r[1], r[2], r[1] + max(0.0, t - 1.0)], fill=colour)
+                    placed.append(r)
+                    drawn.append(dict(rec, bbox_px=r))
+                elif dev == 'bold':
+                    if not labelled:
+                        failed.append(dict(rec, reason='device_not_drawable')); continue
+                    lb = labels[ai]
+                    box = (int(math.floor(lb[0])), int(math.floor(lb[1])), int(math.ceil(lb[2])) + 1,
+                           int(math.ceil(lb[3])) + 1)
+                    reg = img.crop(box).filter(ImageFilter.MinFilter(3))
+                    img.paste(reg, box[:2])
+                    bold_atoms.append(ai)
+                    drawn.append(dict(rec, bbox_px=list(lb)))
+                else:                                   # arrow on an atom
+                    # 2026.11.02 B5: an arrow pointing AT the atom from outside, along
+                    # the bisector away from its bonds, its tip clear of the atom's own
+                    # label (the shared _arrow placer — same geometry as a bond arrow).
+                    lb_ = labels.get(ai)
+                    own = ([(lb_[0], lb_[1]), (lb_[2], lb_[1]), (lb_[0], lb_[3]), (lb_[2], lb_[3])]
+                           if labelled else [p])
+                    r = _arrow(p, direction, own, skip_bonds=())
+                    if r is None:
+                        failed.append(dict(rec, reason='no_clear_position')); continue
+                    drawn.append(dict(rec, bbox_px=r))
+                continue
+            # ── bond sites ──
+            bi = _drawn_bond(site['index'])
+            if bi is None:
+                failed.append(dict(rec, reason='site_condensed')); continue
+            b = self.mol.GetBondWithIdx(bi)
+            a0, a1 = b.GetBeginAtomIdx(), b.GetEndAtomIdx()
+            p0, p1 = coords[a0], coords[a1]
+            mid = ((p0[0] + p1[0]) / 2.0, (p0[1] + p1[1]) / 2.0)
+            ax_u = _unit(p1[0] - p0[0], p1[1] - p0[1], 1.0, 0.0)
+            perp = (-ax_u[1], ax_u[0])
+            others = [coords[n.GetIdx()] for at in (a0, a1)
+                      for n in self.mol.GetAtomWithIdx(at).GetNeighbors() if n.GetIdx() not in (a0, a1)]
+            ref = ((sum(q[0] for q in others) / len(others), sum(q[1] for q in others) / len(others))
+                   if others else (mcx, mcy))
+            if (mid[0] - ref[0]) * perp[0] + (mid[1] - ref[1]) * perp[1] < 0:
+                perp = (-perp[0], -perp[1])             # the convex (outward) side
+            paths = geo['bond_paths'].get(bi, [])
+            order = float(b.GetBondTypeAsDouble())
+            n_lines = len(paths) if order >= 1.5 else 1
+            if dev == 'bold' and n_lines >= 2:
+                # 2026.11.02 B2: ONE thick bar along the axis of a double bond fills the
+                # gap between its two lines, so C=C printed as a single bar. Each drawn
+                # line is now thickened SEPARATELY and grown OUTWARD (away from the
+                # other line), so the inner gap rdkit drew is preserved exactly. A
+                # triple bond's middle line has no outward side: device_not_drawable,
+                # and the repair ladder re-authors the mark with another device.
+                if n_lines != 2:
+                    failed.append(dict(rec, reason='device_not_drawable', bond_order=order,
+                                       bond_lines=n_lines)); continue
+                wbold = max(2, int(round(2.0 * tk['line_pt'] * k)))
+                grow = max(0.0, (wbold - line_px) / 2.0)
+                L = math.dist(p0, p1) or 1.0
+                cent = []
+                for pts in paths:
+                    cx_ = sum(q[0] for q in pts) / len(pts)
+                    cy_ = sum(q[1] for q in pts) / len(pts)
+                    cent.append((cx_ - mid[0]) * (-ax_u[1]) + (cy_ - mid[1]) * ax_u[0])
+                segs_b, ok = [], True
+                for j, pts in enumerate(paths):
+                    sgn = 1.0 if cent[j] >= cent[1 - j] else -1.0
+                    nx_, ny_ = -ax_u[1] * sgn * grow, ax_u[0] * sgn * grow
+                    ts = [((q[0] - p0[0]) * ax_u[0] + (q[1] - p0[1]) * ax_u[1]) / L for q in pts]
+                    t0, t1 = min(ts), max(ts)
+                    off = cent[j]
+                    if a0 in labels:                    # same label trim as a single bond
+                        t0 += line_px / L
+                    if a1 in labels:
+                        t1 -= line_px / L
+                    q0 = (p0[0] + t0 * (p1[0] - p0[0]) - ax_u[1] * off + nx_,
+                          p0[1] + t0 * (p1[1] - p0[1]) + ax_u[0] * off + ny_)
+                    q1 = (p0[0] + t1 * (p1[0] - p0[0]) - ax_u[1] * off + nx_,
+                          p0[1] + t1 * (p1[1] - p0[1]) + ax_u[0] * off + ny_)
+                    if t1 <= t0 or any(_seg_hits_rect(q0, q1, _grow(g, wbold / 2.0))
+                                       for gg in glyphs.values() for g in gg):
+                        ok = False
+                        break
+                    segs_b.append((q0, q1))
+                if not ok:
+                    failed.append(dict(rec, reason='no_clear_position', bond_order=order,
+                                       bond_lines=n_lines)); continue
+                xs_b, ys_b = [], []
+                for q0, q1 in segs_b:
+                    dr.line([q0, q1], fill=colour, width=wbold)
+                    xs_b += [q0[0], q1[0]]; ys_b += [q0[1], q1[1]]
+                r = [min(xs_b) - wbold / 2.0, min(ys_b) - wbold / 2.0,
+                     max(xs_b) + wbold / 2.0, max(ys_b) + wbold / 2.0]
+                drawn.append(dict(rec, bbox_px=r, bond_order=order, bond_lines=n_lines,
+                                  bold_lines=len(segs_b),
+                                  bond_px_endpoints=[list(segs_b[0][0]), list(segs_b[0][1])],
+                                  bold_line_endpoints=[[list(q0), list(q1)] for q0, q1 in segs_b]))
+            elif dev == 'bold':
+                # ONE line along the bond axis, spanning exactly what rdkit drew for this
+                # bond (its segments projected on the axis) — never an offset second line.
+                L = math.dist(p0, p1) or 1.0
+                ts = [((q[0] - p0[0]) * ax_u[0] + (q[1] - p0[1]) * ax_u[1]) / L
+                      for pts in geo['bond_paths'].get(bi, []) for q in pts]
+                if not ts:
+                    failed.append(dict(rec, reason='no_clear_position')); continue
+                t0, t1 = max(0.0, min(ts)), min(1.0, max(ts))
+                trim = line_px / L
+                if a0 in labels:
+                    t0 += trim
+                if a1 in labels:
+                    t1 -= trim
+                q0 = (p0[0] + t0 * (p1[0] - p0[0]), p0[1] + t0 * (p1[1] - p0[1]))
+                q1 = (p0[0] + t1 * (p1[0] - p0[0]), p0[1] + t1 * (p1[1] - p0[1]))
+                wbold = max(2, int(round(2.0 * tk['line_pt'] * k)))
+                if t1 <= t0 or any(_seg_hits_rect(q0, q1, _grow(g, wbold / 2.0))
+                                   for gg in glyphs.values() for g in gg):
+                    failed.append(dict(rec, reason='no_clear_position')); continue
+                dr.line([q0, q1], fill=colour, width=wbold)
+                r = [min(q0[0], q1[0]) - wbold / 2.0, min(q0[1], q1[1]) - wbold / 2.0,
+                     max(q0[0], q1[0]) + wbold / 2.0, max(q0[1], q1[1]) + wbold / 2.0]
+                drawn.append(dict(rec, bbox_px=r, bond_px_endpoints=[list(q0), list(q1)],
+                                  bond_order=order, bond_lines=n_lines, bold_lines=1))
+            elif dev == 'letter':
+                if not str(mk.get('text') or '').strip():
+                    failed.append(dict(rec, reason='letter_text_missing')); continue
+                text = str(mk.get('text')).strip()
+                r = _text_mark(mk, text, 'italic', tk['font_pt'] * k, mid, perp)
+                if r is None:
+                    failed.append(dict(rec, reason='no_clear_position')); continue
+                min_pt = tk['font_pt'] if min_pt is None else min(min_pt, tk['font_pt'])
+                drawn.append(dict(rec, bbox_px=r))
+            elif dev == 'arrow':
+                own = [q for pts in geo['bond_paths'].get(bi, []) for q in pts]
+                r = _arrow(mid, perp, own, skip_bonds=(bi,))
+                if r is None:
+                    failed.append(dict(rec, reason='no_clear_position')); continue
+                drawn.append(dict(rec, bbox_px=r))
+            else:                                       # underline / asterisk on a bond
+                failed.append(dict(rec, reason='device_not_drawable'))
+        return drawn, failed, min_pt, bold_atoms
+
+    # ── public renders ────────────────────────────────────────────────────────
+    def render(self, dpi=300, marked=True):
+        key = (int(dpi), bool(marked))
+        if key in self._cache:
+            return self._cache[key]
+        import numpy as _np
+        from PIL import Image
+        dpi = int(dpi)
+        bond_px = self.tk['bond_pt'] * dpi / 72.0
+        base, geo = self._draw_base(dpi)
+        img = base.copy()
+        drawn, failed, min_pt, bold_atoms = ([], [], None, [])
+        if marked and self.marks:
+            drawn, failed, min_pt, bold_atoms = self._place_marks(img, geo, dpi)
+        a = _np.asarray(img).astype(int)
+        b = _np.asarray(base).astype(int)
+        # crop to ink (union of marked + unmarked so both share one frame) + 0.15 bond
+        ink = (a.min(axis=2) < 250) | (b.min(axis=2) < 250)
+        ys, xs = _np.where(ink)
+        padc = int(round(0.15 * bond_px))
+        if not ys.size:
+            # a structure that renders NO ink is a failed render, never a blank picture
+            raise ValueError(f'native raster: the structure ({self.orig.GetNumAtoms()} atom(s)) '
+                             f'rendered no ink')
+        box = (max(0, int(xs.min()) - padc), max(0, int(ys.min()) - padc),
+               min(img.width, int(xs.max()) + padc + 1), min(img.height, int(ys.max()) + padc + 1))
+        # every drawn mark's recorded box lies inside the PNG (at small tokens a mark's
+        # box can reach past ink + 0.15 bond; fuzz 2026-11-02)
+        import math as _m
+        for d in drawn:
+            bb = d.get('bbox_px')
+            if isinstance(bb, (list, tuple)) and len(bb) == 4:
+                box = (max(0, min(box[0], int(_m.floor(bb[0])))), max(0, min(box[1], int(_m.floor(bb[1])))),
+                       min(img.width, max(box[2], int(_m.ceil(bb[2])))),
+                       min(img.height, max(box[3], int(_m.ceil(bb[3])))))
+        # G2 differential overprint: pixels inside any atom-label GLYPH box that differ
+        # between the marked and unmarked renders (a bold-label mark is the label itself).
+        overprint = _native_overprint(a, b, geo['glyphs'], skip=bold_atoms)
+        out = img.crop(box)
+        buf = io.BytesIO()
+        out.save(buf, 'PNG', dpi=(dpi, dpi))
+        ox, oy = box[0], box[1]
+
+        def _sh(r):
+            return [round(r[0] - ox, 1), round(r[1] - oy, 1), round(r[2] - ox, 1), round(r[3] - oy, 1)]
+        for d in drawn:
+            d['bbox_px'] = _sh(d['bbox_px'])
+            if 'bond_px_endpoints' in d:
+                d['bond_px_endpoints'] = [[round(p[0] - ox, 1), round(p[1] - oy, 1)] for p in d['bond_px_endpoints']]
+            if 'bold_line_endpoints' in d:
+                d['bold_line_endpoints'] = [[[round(p[0] - ox, 1), round(p[1] - oy, 1)] for p in ln]
+                                            for ln in d['bold_line_endpoints']]
+        small = self._small_pt()
+        if min_pt is not None:
+            small = min(small, min_pt)
+        bl = [((geo['coords'][bb.GetBeginAtomIdx()][0] - geo['coords'][bb.GetEndAtomIdx()][0]) ** 2
+               + (geo['coords'][bb.GetBeginAtomIdx()][1] - geo['coords'][bb.GetEndAtomIdx()][1]) ** 2) ** 0.5
+              for bb in self.mol.GetBonds()]
+        meta = {
+            'atom_label_pt': self.tk['font_pt'], 'small_pt': round(small, 3),
+            'bond_pt': self.tk['bond_pt'], 'line_pt': self.tk['line_pt'],
+            'monochrome': self.tk['monochrome'], 'highlight_bands': 0,
+            'marks_drawn': drawn, 'marks_failed': failed,
+            'label_boxes_px': [_sh(geo['labels'][k_]) for k_ in sorted(geo['labels'])],
+            'abbreviations': list(self.abbrev_labels), 'cross_note': self.cross_note,
+            'depictor': self.depictor, 'overprint_px': overprint,
+            'natural_width_in': out.width / float(dpi), 'natural_height_in': out.height / float(dpi),
+            'converted_from_highlight': self.converted, 'dpi': dpi,
+            'bond_px_measured': (sum(bl) / len(bl)) if bl else None,
+            'crop_box_px': list(box),
+        }
+        res = (buf.getvalue(), out.width / float(dpi), meta)
+        self._cache[key] = res
+        return res
+
+
+def _native_overprint(marked, unmarked, glyphs, skip=()):
+    """G2 differential check: count of pixels inside any atom-label glyph box that
+    differ between the marked and the unmarked render (arrays HxWx3, same frame).
+    A label deliberately emboldened by a 'bold' mark (atoms in `skip`) is excluded."""
+    import numpy as _np
+    a, b = _np.asarray(marked).astype(int), _np.asarray(unmarked).astype(int)
+    diff = (a != b).any(axis=2)
+    mask = _np.zeros(diff.shape, dtype=bool)
+    for ai, gs in glyphs.items():
+        if ai in skip:
+            continue
+        for g in gs:
+            x0, y0 = max(0, int(_np.floor(g[0]))), max(0, int(_np.floor(g[1])))
+            x1, y1 = min(diff.shape[1], int(_np.ceil(g[2])) + 1), min(diff.shape[0], int(_np.ceil(g[3])) + 1)
+            mask[y0:y1, x0:x1] = True
+    return int((diff & mask).sum())
+
+
+def _pt_seg_dist(p, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L2 = dx * dx + dy * dy
+    if L2 <= 0:
+        return ((p[0] - a[0]) ** 2 + (p[1] - a[1]) ** 2) ** 0.5
+    t = max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2))
+    x, y = a[0] + t * dx, a[1] + t * dy
+    return ((p[0] - x) ** 2 + (p[1] - y) ** 2) ** 0.5
+
+
+def native_option_set(draw_fns, dpi=300):
+    """GAP-2026-11-02 F4/F6: an option set at ONE set of tokens on a UNIFORM canvas
+    (max width x max height of the set, white, no frame), each picture centred.
+    -> [(png_bytes, width_in, meta), ...]; every width_in is equal. Raises ValueError
+    when a draw is not native or the draws' tokens differ (one bond length per set)."""
+    from PIL import Image
+    draws = list(draw_fns or [])
+    if not draws:
+        raise ValueError('native_option_set: no draws')
+    toks = []
+    for d in draws:
+        if getattr(d, 'render_mode', None) != 'native_raster' or not callable(getattr(d, 'native_png', None)):
+            raise ValueError('native_option_set: every draw must be a native-raster draw (tokens=...)')
+        toks.append(tuple(sorted((k, v) for k, v in (getattr(d, 'tokens', None) or {}).items())))
+    if len(set(toks)) != 1:
+        raise ValueError('native_option_set: the draws were rendered with different tokens — an '
+                         'option set shares one bond length / label size')
+    if (getattr(draws[0], 'tokens', None) or {}).get('monochrome') is False:
+        # 2026.11.02 B6 — Q7b.14 one element-colour decision per SET: options that differ
+        # in which coloured elements they carry render every option black, so heteroatom
+        # colour cannot single an option out (only ever a downgrade to black).
+        elems = [getattr(d, 'coloured_elements', None) for d in draws]
+        modes = {bool(getattr(d, 'element_colours', True)) for d in draws}
+        if not (all(e is not None for e in elems) and len({frozenset(e) for e in elems}) == 1
+                and len(modes) == 1):
+            for d in draws:
+                if callable(getattr(d, 'set_element_colours', None)):
+                    d.set_element_colours(False)
+    rendered = [d.native_png(dpi) for d in draws]
+    ims = [Image.open(io.BytesIO(png)).convert('RGB') for png, _w, _m in rendered]
+    W, H = max(i.width for i in ims), max(i.height for i in ims)
+    out = []
+    for im, (_png, _w, meta) in zip(ims, rendered):
+        c = Image.new('RGB', (W, H), (255, 255, 255))
+        ox, oy = (W - im.width) // 2, (H - im.height) // 2
+        c.paste(im, (ox, oy))
+        buf = io.BytesIO()
+        c.save(buf, 'PNG', dpi=(int(dpi), int(dpi)))
+        m2 = dict(meta)
+        m2['label_boxes_px'] = [[b[0] + ox, b[1] + oy, b[2] + ox, b[3] + oy] for b in meta.get('label_boxes_px', [])]
+        def _shift_mk(mk):
+            d = dict(mk)
+            if d.get('bbox_px'):
+                d['bbox_px'] = [d['bbox_px'][0] + ox, d['bbox_px'][1] + oy,
+                                d['bbox_px'][2] + ox, d['bbox_px'][3] + oy]
+            if isinstance(d.get('bond_px_endpoints'), list):
+                d['bond_px_endpoints'] = [[q[0] + ox, q[1] + oy] for q in d['bond_px_endpoints']]
+            if isinstance(d.get('bold_line_endpoints'), list):
+                d['bold_line_endpoints'] = [[[a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy]]
+                                            for a, b in d['bold_line_endpoints']]
+            return d
+        m2['marks_drawn'] = [_shift_mk(mk) for mk in meta.get('marks_drawn', [])]
+        m2['marks_failed'] = [_shift_mk(mk) for mk in meta.get('marks_failed', [])]
+        m2['natural_width_in'] = W / float(dpi)
+        m2['natural_height_in'] = H / float(dpi)
+        m2['option_canvas_px'] = [W, H]
+        m2['option_offset_px'] = [ox, oy]
+        m2['frame'] = False
+        out.append((buf.getvalue(), W / float(dpi), m2))
+    return out
+
+
+# an explicit hydrogen atom in a SMILES: [H], [2H], [H+], [H:3], [2H:1] — never He/Hg/Hf/Ho/Hs
+_EXPLICIT_H_RE = re.compile(r'\[\d*H(?![a-z])')
+
+
 def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
-                      element_colours=True, highlight_atoms=(), highlight_bonds=()):
+                      element_colours=True, highlight_atoms=(), highlight_bonds=(),
+                      tokens=None, marks=None, abbreviations=None, protect_atoms=()):
     """A figural_core draw_fn (ax, series, palette) that rasterises `smiles` with
     rdkit into the axes. The image IS the semantic object: what is registered is
     what was drawn (MockTestCreate v5.59 S7-NEW-B2). Raises ValueError if rdkit
@@ -4488,7 +5461,18 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     redirected to its incident bonds, never under the symbol); `element_colours=False`
     renders every atom black. The returned draw_fn carries .canonical,
     .coloured_elements and .set_element_colours(flag); render_option_set() uses the
-    last two to keep heteroatom colour uniform across an option set."""
+    last two to keep heteroatom colour uniform across an option set.
+
+    v1.17 (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F1/F2/F4/F7) — PRINT-TRUE NATIVE
+    RASTER, opt-in: with `tokens` ({'font_pt','line_pt','bond_pt','monochrome',
+    'mark_colour'}, printed points) the draw also carries render_mode='native_raster',
+    .tokens, .native_png(dpi=300) and .native_png_unmarked(dpi=300), each ->
+    (png_bytes, natural_width_in, meta). No highlight band is ever drawn on that path:
+    highlight_* are converted to marks (bond -> bold, atom -> asterisk) and `marks`
+    places underline / asterisk / letter / arrow / bold clear of every label and bond.
+    `abbreviations` (None/[] = none) condenses only the listed lexicon labels, never
+    over protect_atoms or a marked site. tokens=None: every v1.16 behaviour unchanged
+    (marks / abbreviations / protect_atoms are then ignored)."""
     if '>' in str(smiles or ''):
         raise ValueError(f'structure_draw_fn: {smiles!r} is a reaction SMILES — a reaction is '
                          f'drawn by render_scheme (S7-NEW-B2 REACTION path), never as one molecule')
@@ -4501,9 +5485,9 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     from PIL import Image as _Image
     # DEPENDENCY DIRECTION (validator check AI): corpus_io is routed to every PYQ
     # step, where figural_core is NOT loaded, so this module never imports it.
-    # The palette is read from figural_core ONLY IF the Create flow has already
-    # imported it in this process (S7-NEW-B2: `import figural_core as fc`
-    # precedes every render). Without it the structure renders BLACK-AND-WHITE
+    # The palette is read out of figural_core ONLY IF the Create flow has already
+    # imported it in this process (S7-NEW-B2: the Create flow imports figural_core as fc
+    # before every render). Without it the structure renders BLACK-AND-WHITE
     # — deterministic, never rdkit's default — and records draw.palette_note.
     import sys as _sys
     _fc = _sys.modules.get('figural_core')
@@ -4515,6 +5499,22 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         _atom_pal, _coloured, _hl, _hl_mult = {}, frozenset(), '#0072B2', 6
         _pal_note = 'figural_core not loaded in this process — BW atom palette used'
     mol = Chem.MolFromSmiles(smiles)
+    if tokens is not None and _EXPLICIT_H_RE.search(str(smiles)):
+        # 2026.11.02 B4: rdkit's default parse REMOVES explicit [H] atoms (and mapped
+        # [H:n]), renumbering every later atom, so a mark index read off the SMILES
+        # landed on the wrong atom and a mark on the H itself was impossible. On the
+        # native path the explicit H atoms are kept: the molecule that is validated,
+        # marked and drawn is the one the SMILES spells, atom for atom. The legacy
+        # path (tokens=None) is unchanged.
+        _pp = Chem.SmilesParserParams()
+        _pp.removeHs = False
+        _mh = Chem.MolFromSmiles(smiles, _pp)
+        if _mh is not None:
+            mol = _mh
+    if tokens is not None and mol.GetNumAtoms() == 0:
+        # '' parses to an EMPTY molecule: on the native path that is an invalid SMILES
+        # (a blank picture would pass every gate), never a figure.
+        raise ValueError(f'structure_draw_fn: cannot render {smiles!r}: no atoms')
     present = {a.GetSymbol() for a in mol.GetAtoms()}
     state = {'colours': bool(element_colours), 'note': _pal_note}
     # Atom highlights are FILLED discs on every rdkit build tested (fillHighlights
@@ -4538,6 +5538,22 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         else:
             hl_bonds += [b.GetIdx() for b in a.GetBonds() if b.GetIdx() not in hl_bonds]
     hl_rgb = tuple(int(_hl[i:i + 2], 16) / 255.0 for i in (1, 3, 5))
+    _native = None
+    if tokens is not None:
+        # v1.17 NATIVE RASTER: never a highlight band (GAP-2026-11-02 F2). The requested
+        # highlights become marks; the matplotlib raster below is drawn without them.
+        _tk = _native_tokens(tokens)
+        _marks = [dict(m) for m in (marks or [])]
+        _conv = bool(highlight_bonds or highlight_atoms)
+        _marks += [{'site': {'kind': 'bond', 'index': int(i)}, 'device': 'bold'}
+                   for i in (highlight_bonds or ())]
+        _marks += [{'site': {'kind': 'atom', 'index': int(i)}, 'device': 'asterisk'}
+                   for i in (highlight_atoms or ())]
+        hl_atoms, hl_bonds = [], []
+        if _tk['monochrome']:
+            state['colours'] = False
+        _native = _NativeStructure(mol, _tk, _marks, abbreviations, protect_atoms,
+                                   (_atom_pal, bool(element_colours)), _conv)
 
     def _raster():
         d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
@@ -4578,6 +5594,11 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         if flag != state['colours']:
             state['colours'] = flag
             holder['arr'] = _raster()
+        if _native is not None and _native.palette[1] != flag:
+            # 2026.11.02 B6: the native raster honours the set-wide decision too
+            # (a no-op for monochrome tokens, which always draw the BW palette)
+            _native.palette = (_native.palette[0], flag)
+            _native._cache.clear()
         draw.element_colours = state['colours']
         draw.palette_note = state['note']
 
@@ -4591,6 +5612,13 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     # tile, so a scheme's molecules carry structure_draw_fn provenance per tile.
     draw.raster = lambda: holder['arr']
     draw.px = (int(px[0]), int(px[1]))
+    if _native is not None:
+        # v1.17 — additive, only when tokens were given (legacy draws carry none of these)
+        draw.render_mode = 'native_raster'
+        draw.tokens = dict(_tk)
+        draw.marks = list(_native.marks)
+        draw.native_png = lambda dpi=300: _native.render(dpi, marked=True)
+        draw.native_png_unmarked = lambda dpi=300: _native.render(dpi, marked=False)
     return draw
 
 
@@ -4731,7 +5759,268 @@ def scheme_canonical(spec):
     return out
 
 
-def render_scheme(spec, px_tile=(700, 500), element_colours=True):
+def _scheme_native_items(rows, tiles):
+    """Pair every spec item with the tile(s) render_scheme created for it, in the same
+    order the legacy walk called structure_draw_fn (mol -> 1, reagent_mol -> 1, pair -> 2)."""
+    it_tiles = iter(tiles)
+    out = []
+    for row in rows:
+        r = []
+        for it in row:
+            if 'mol' in it:
+                r.append({'kind': 'mol', 'tile': next(it_tiles), 'label': it.get('label'),
+                          'equiv': it.get('equiv')})
+            elif it.get('plus'):
+                r.append({'kind': 'plus'})
+            elif 'arrow' in it:
+                a = dict(it['arrow'] or {})
+                above = [str(t) for t in (a.get('above') or []) if t is not None and str(t).strip()]
+                below = [str(t) for t in (a.get('below') or []) if t is not None and str(t).strip()]
+                rm = next(it_tiles) if a.get('reagent_mol') else None
+                r.append({'kind': 'arrow', 'dir': a.get('dir', 'right'), 'above': above,
+                          'below': below, 'reagent': rm})
+            elif 'placeholder' in it:
+                r.append({'kind': 'ph', 'text': str(it['placeholder'])})
+            elif 'bracket' in it:
+                r.append({'kind': 'bracket', 'text': f'[ {it["bracket"]} ]'})
+            elif 'text' in it:
+                r.append({'kind': 'text', 'text': str(it['text'])})
+            elif 'pair' in it:
+                r.append({'kind': 'pair', 'members': [(f'{lbl} =', next(it_tiles)) for lbl, _s in it['pair']]})
+        out.append(r)
+    return out
+
+
+def _tile_index(tiles, t):
+    for i, x in enumerate(tiles):
+        if x is t:
+            return i
+    return None
+
+
+def _scheme_native_render(rows, tiles, tk, max_width_in, dpi=300):
+    """Compose a scheme at NATURAL size with PIL (no matplotlib): every tile from the
+    native structure path at the same tokens, arrows and text in points. Overflow:
+    (1) split multi-arrow rows after a product/intermediate tile, repeating it;
+    (2) stack reagent text (<= 2 lines above / below; excess to the stem);
+    (3) else meta['overflow'] = True — never scaled here (the caller decides)."""
+    from PIL import Image, ImageDraw
+    dpi = int(dpi)
+    k = dpi / 72.0
+    font_px, line_px, bond_px = tk['font_pt'] * k, max(1.0, tk['line_pt'] * k), tk['bond_pt'] * k
+    f_reg, font_file = _native_font('regular', font_px)
+    f_bold, _fb = _native_font('bold', font_px)
+    G = 0.5 * font_px                       # gap between items
+    line_h = 1.2 * font_px
+    tgap = 0.3 * font_px                    # text clearance from the arrow shaft
+    head_l = max(3.5 * line_px, 0.5 * font_px)
+    head_w = 0.38 * head_l
+    M = int(round(0.15 * bond_px))
+    max_w_px = float(max_width_in) * dpi
+    ink = tuple(int(tk['mark_colour'][i:i + 2], 16) for i in (1, 3, 5)) if not tk['monochrome'] else (0, 0, 0)
+
+    # render each tile once at this dpi
+    rendered = {}
+    tile_metas = []
+    for t in tiles:
+        png, _w, meta = t.native_png(dpi)
+        rendered[id(t)] = Image.open(io.BytesIO(png)).convert('RGB')
+        tile_metas.append(meta)
+
+    def _tw(s, f=f_reg):
+        return float(f.getlength(str(s)))
+
+    def _arrow_len(e):
+        texts = e['above'] + e['below']
+        L = max(3.0 * bond_px, (max(_tw(t) for t in texts) + 0.5 * font_px) if texts else 0.0)
+        if e['reagent'] is not None:
+            L = max(L, rendered[id(e['reagent'])].width + 0.5 * font_px)
+        return L
+
+    def _dims(e):
+        """(width, up, down) about the row's arrow line."""
+        kd = e['kind']
+        if kd == 'mol':
+            im = rendered[id(e['tile'])]
+            extra = line_h * (bool(e.get('label')) + bool(e.get('equiv')))
+            # 2026.11.02 B7: a caption wider than its molecule ('(2 equiv)' under a
+            # small tile) was clipped by the neighbour / canvas edge; the tile is as
+            # wide as the widest of image, label and equiv line, molecule centred.
+            w = max(float(im.width),
+                    _tw(e['label'], f_bold) if e.get('label') else 0.0,
+                    _tw(e['equiv'], f_reg) if e.get('equiv') else 0.0)
+            return w, im.height / 2.0, im.height / 2.0 + extra
+        if kd == 'arrow':
+            up = tgap + line_h * len(e['above']) + max(head_w, line_px / 2.0)
+            if e['reagent'] is not None:
+                up += rendered[id(e['reagent'])].height + tgap
+            return _arrow_len(e), up, tgap + line_h * len(e['below']) + max(head_w, line_px / 2.0)
+        if kd == 'pair':
+            w, h = 0.0, 0.0
+            for lbl, t in e['members']:
+                im = rendered[id(t)]
+                w += _tw(lbl, f_bold) + 0.3 * font_px + im.width + G
+                h = max(h, im.height)
+            return w - G, h / 2.0, h / 2.0
+        f = f_reg if kd in ('plus', 'text') else f_bold
+        txt = '+' if kd == 'plus' else e['text']
+        return _tw(txt, f), 0.6 * font_px, 0.6 * font_px
+
+    def _row_w(r):
+        return sum(_dims(e)[0] for e in r) + G * max(0, len(r) - 1)
+
+    layout = [list(r) for r in _scheme_native_items(rows, tiles)]
+    reflowed = False
+    # (1) re-flow multi-arrow rows: break after a 'mol' tile with an arrow on each side,
+    #     repeat that tile at the head of the continuation row; as few splits as needed.
+    out_rows = []
+    for r in layout:
+        start = 0
+        while _row_w(r[start:]) + 2 * M > max_w_px:
+            arrows = [i for i, e in enumerate(r) if e['kind'] == 'arrow']
+            cands = [i for i, e in enumerate(r) if e['kind'] == 'mol' and i > start
+                     and any(start < a < i for a in arrows) and any(a > i for a in arrows)]
+            if not cands:
+                break
+            fit = [i for i in cands if _row_w(r[start:i + 1]) + 2 * M <= max_w_px]
+            kk = max(fit) if fit else min(cands)
+            out_rows.append(r[start:kk + 1])
+            start = kk
+            reflowed = True
+        out_rows.append(r[start:])
+    layout = out_rows
+    # (2) stack reagent text into <= 2 lines above / below; excess lines go to the stem
+    moved = []
+    for r in layout:
+        excess = _row_w(r) + 2 * M - max_w_px
+        if excess <= 0:
+            continue
+        for e in sorted([e for e in r if e['kind'] == 'arrow'], key=_arrow_len, reverse=True):
+            if excess <= 0:
+                break
+            L0 = _arrow_len(e)
+            target = max(3.0 * bond_px, L0 - excess) - 0.5 * font_px
+            new = {}
+            for side in ('above', 'below'):
+                pieces = [p for ln in e[side] for p in re.split(r'(?<=[,;])\s+', ln) if p.strip()]
+                lines = []
+                for p in pieces:
+                    if lines and _tw(lines[-1] + ' ' + p) <= target:
+                        lines[-1] = lines[-1] + ' ' + p
+                    else:
+                        lines.append(p)
+                new[side] = lines
+            if all(new[s] == e[s] for s in ('above', 'below')):
+                continue
+            e2 = dict(e)
+            for side in ('above', 'below'):
+                e2[side] = new[side][:2]
+            if _arrow_len(e2) < L0:
+                for side in ('above', 'below'):
+                    moved += new[side][2:]
+                    e[side] = e2[side]
+                excess -= L0 - _arrow_len(e)
+    overflow = any(_row_w(r) + 2 * M > max_w_px for r in layout)
+
+    # compose
+    dims = [[_dims(e) for e in r] for r in layout]
+    row_up = [max([d[1] for d in ds] + [0.0]) for ds in dims]
+    row_dn = [max([d[2] for d in ds] + [0.0]) for ds in dims]
+    row_gap = 0.8 * font_px
+    Wc = int(round(max(_row_w(r) for r in layout) + 2 * M))
+    Hc = int(round(sum(u + d for u, d in zip(row_up, row_dn)) + row_gap * (len(layout) - 1) + 2 * M))
+    img = Image.new('RGB', (max(1, Wc), max(1, Hc)), (255, 255, 255))
+    dr = ImageDraw.Draw(img)
+    tile_off = {}                           # id(tile) -> (x, y) of its FIRST paste
+    y = float(M)
+    for r, ds, up, dn in zip(layout, dims, row_up, row_dn):
+        cy = y + up
+        x = float(M)
+        for e, (w, _u, _d) in zip(r, ds):
+            kd = e['kind']
+            if kd == 'mol':
+                im = rendered[id(e['tile'])]
+                _px = (int(round(x + (w - im.width) / 2.0)), int(round(cy - im.height / 2.0)))
+                img.paste(im, _px)
+                tile_off.setdefault(id(e['tile']), _px)
+                ty = cy + im.height / 2.0
+                if e.get('label'):
+                    dr.text((x + w / 2.0, ty), str(e['label']), font=f_bold, fill=ink, anchor='ma')
+                    ty += line_h
+                if e.get('equiv'):
+                    dr.text((x + w / 2.0, ty), str(e['equiv']), font=f_reg, fill=ink, anchor='ma')
+            elif kd == 'arrow':
+                L = w
+                d_ = e['dir']
+                x0s = x + (head_l if d_ in ('left', 'both') else 0.0)
+                x1s = x + L - (head_l if d_ in ('right', 'both') else 0.0)
+                dr.rectangle([x0s, cy - line_px / 2.0, x1s, cy + line_px / 2.0 - 1], fill=ink)
+                if d_ in ('right', 'both'):
+                    dr.polygon([(x + L, cy), (x + L - head_l, cy - head_w), (x + L - head_l, cy + head_w)], fill=ink)
+                if d_ in ('left', 'both'):
+                    dr.polygon([(x, cy), (x + head_l, cy - head_w), (x + head_l, cy + head_w)], fill=ink)
+                ybase = cy - max(head_w, line_px / 2.0) - tgap
+                if e['reagent'] is not None:
+                    im = rendered[id(e['reagent'])]
+                    _px = (int(round(x + (L - im.width) / 2.0)), int(round(ybase - im.height)))
+                    img.paste(im, _px)
+                    tile_off.setdefault(id(e['reagent']), _px)
+                    ybase -= im.height + tgap
+                for i, t in enumerate(reversed(e['above'])):
+                    dr.text((x + L / 2.0, ybase - i * line_h), t, font=f_reg, fill=ink, anchor='md')
+                yb = cy + max(head_w, line_px / 2.0) + tgap
+                for i, t in enumerate(e['below']):
+                    dr.text((x + L / 2.0, yb + i * line_h), t, font=f_reg, fill=ink, anchor='ma')
+            elif kd == 'pair':
+                xx = x
+                for lbl, t in e['members']:
+                    dr.text((xx, cy), lbl, font=f_bold, fill=ink, anchor='lm')
+                    xx += _tw(lbl, f_bold) + 0.3 * font_px
+                    im = rendered[id(t)]
+                    _px = (int(round(xx)), int(round(cy - im.height / 2.0)))
+                    img.paste(im, _px)
+                    tile_off.setdefault(id(t), _px)
+                    xx += im.width + G
+            else:
+                f = f_reg if kd in ('plus', 'text') else f_bold
+                dr.text((x + w / 2.0, cy), '+' if kd == 'plus' else e['text'], font=f, fill=ink, anchor='mm')
+            x += w + G
+        y += up + dn + row_gap
+    buf = io.BytesIO()
+    img.save(buf, 'PNG', dpi=(dpi, dpi))
+    # 2026.11.02 B3: every tile's marks reach the SCHEME's own record, each carrying
+    # 'tile' (its index in render_scheme's .tiles) and its bbox in scheme pixels.
+    # They used to live only in tile_metas, which figural_core never reads, so a
+    # marked scheme recorded no mark and an unplaceable one no failure.
+    marks_drawn, marks_failed = [], []
+    for ti, (t, tm) in enumerate(zip(tiles, tile_metas)):
+        off = tile_off.get(id(t))
+        for mk in tm.get('marks_drawn') or []:
+            m2 = dict(mk, tile=ti)
+            if off is not None and mk.get('bbox_px'):
+                b_ = mk['bbox_px']
+                m2['bbox_px'] = [b_[0] + off[0], b_[1] + off[1], b_[2] + off[0], b_[3] + off[1]]
+            marks_drawn.append(m2)
+        marks_failed += [dict(mk, tile=ti) for mk in tm.get('marks_failed') or []]
+    meta = {
+        'marks_drawn': marks_drawn, 'marks_failed': marks_failed,
+        'atom_label_pt': tk['font_pt'],
+        'small_pt': round(min([tk['font_pt']] + [m['small_pt'] for m in tile_metas]), 3),
+        'bond_pt': tk['bond_pt'], 'line_pt': tk['line_pt'], 'monochrome': tk['monochrome'],
+        'highlight_bands': 0, 'rows_after_reflow': len(layout), 'reflowed': reflowed,
+        'reagent_lines_moved_to_stem': moved, 'overflow': bool(overflow),
+        'tile_metas': tile_metas, 'natural_width_in': img.width / float(dpi),
+        'natural_height_in': img.height / float(dpi),
+        'overprint_px': int(sum(m['overprint_px'] for m in tile_metas)),
+        'font_file': font_file, 'max_width_in': float(max_width_in), 'dpi': dpi,
+        'row_leads': [r[0]['kind'] for r in layout],
+        'row_lead_tiles': [_tile_index(tiles, r[0]['tile']) if r[0]['kind'] == 'mol' else None for r in layout],
+    }
+    return buf.getvalue(), img.width / float(dpi), meta
+
+
+def render_scheme(spec, px_tile=(700, 500), element_colours=True, tokens=None,
+                  max_width_in=6.0):
     """A figural_core draw_fn (ax, series, palette) that lays out a reaction scheme.
 
     Every molecule tile is rendered by structure_draw_fn (same rdkit depiction,
@@ -4744,17 +6033,33 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
     Returned draw_fn attributes: .canonical (row 1 reaction SMILES, rdkit-canonical),
     .row_canonicals, .descriptor (reagent_lines, unknowns, arrows, rows, tiles),
     .tiles (the per-molecule draw_fns), .coloured_elements, .element_colours,
-    .set_element_colours(flag), .highlight, .palette_note, .suggested_aspect (h/w)."""
+    .set_element_colours(flag), .highlight, .palette_note, .suggested_aspect (h/w).
+
+    v1.17 (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F1): with `tokens` every tile is
+    a native-raster structure at those tokens (one bond length across the scheme) and
+    the draw also carries render_mode='native_raster', .tokens and .native_png(dpi=300)
+    -> (png_bytes, natural_width_in, meta), composed with PIL at natural size (no
+    matplotlib), re-flowed / stacked to fit max_width_in, never scaled. tokens=None:
+    unchanged. .canonical / .row_canonicals / .descriptor are computed identically."""
     rows = _scheme_rows(spec)
+    if tokens is not None:
+        _ntk = _native_tokens(tokens)
     tiles, layout = [], []          # layout: per row, list of (kind, payload, x, w)
     reagent_lines, unknowns, n_arrows = [], [], 0
     coloured, notes = set(), []
     row_w = []
     H = SCHEME_TILE_H
 
-    def _tile(smiles, hl_a=(), hl_b=()):
-        d = structure_draw_fn(smiles, px=px_tile, element_colours=element_colours,
-                              highlight_atoms=hl_a, highlight_bonds=hl_b)
+    def _tile(smiles, hl_a=(), hl_b=(), item=None):
+        if tokens is None:
+            d = structure_draw_fn(smiles, px=px_tile, element_colours=element_colours,
+                                  highlight_atoms=hl_a, highlight_bonds=hl_b)
+        else:
+            item = item or {}
+            d = structure_draw_fn(smiles, px=px_tile, element_colours=element_colours,
+                                  highlight_atoms=hl_a, highlight_bonds=hl_b, tokens=tokens,
+                                  marks=item.get('marks'), abbreviations=item.get('abbreviations'),
+                                  protect_atoms=item.get('protect_atoms') or ())
         tiles.append(d)
         arr = _crop_raster(d.raster())
         asp = arr.shape[1] / float(arr.shape[0]) if arr.shape[0] else 1.0
@@ -4768,7 +6073,7 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
             if not isinstance(it, dict):
                 raise ValueError(f'render_scheme: item {it!r} is not a dict')
             if 'mol' in it:
-                d, w, h = _tile(it['mol'], it.get('highlight_atoms', ()), it.get('highlight_bonds', ()))
+                d, w, h = _tile(it['mol'], it.get('highlight_atoms', ()), it.get('highlight_bonds', ()), it)
                 coloured |= set(d.coloured_elements)
                 if d.palette_note:
                     notes.append(d.palette_note)
@@ -4788,7 +6093,8 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
                 n_arrows += 1
                 rm = None
                 if a.get('reagent_mol'):
-                    rm, _rw, _rh = _tile(a['reagent_mol'])     # drawn above the arrow (G4)
+                    # drawn above the arrow (G4); 2026.11.02 B3: its own marks via 'reagent_marks'
+                    rm, _rw, _rh = _tile(a['reagent_mol'], item={'marks': a.get('reagent_marks')})
                 tw = max([_text_width_units(t, SCHEME_TEXT_PT) for t in above + below] + [0.0])
                 L = max(SCHEME_ARROW_L, tw + 0.3, (0.0 if rm is None else 1.5))
                 items.append(('arrow', {'dir': a.get('dir', 'right'), 'above': above,
@@ -4807,8 +6113,9 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
                 pair = list(it['pair'])
                 if len(pair) != 2:
                     raise ValueError('render_scheme: a pair holds exactly two (label, SMILES)')
-                for lbl, smi in pair:
-                    d, w, h = _tile(smi)
+                _pm = list(it.get('pair_marks') or [None, None])   # B3: per-member marks
+                for (lbl, smi), _mk in zip(pair, _pm + [None] * (2 - len(_pm))):
+                    d, w, h = _tile(smi, item={'marks': _mk})
                     coloured |= set(d.coloured_elements)
                     items.append(('pairtile', {'draw': d, 'label': f'{lbl} ='}, x, w + 0.45))
                     x += w + 0.45 + SCHEME_GAP
@@ -4897,6 +6204,8 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
         for t in tiles:
             t.set_element_colours(flag)
         draw.element_colours = flag
+        if tokens is not None:
+            _ncache.clear()                      # B6: the composed scheme re-renders too
 
     row_canon = scheme_canonical(spec)
     canon_rows = []
@@ -4928,6 +6237,19 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True):
     draw.palette_note = notes[0] if notes else None
     draw.suggested_aspect = max(0.55, min(1.30, (total_h + 0.2) / max(W + 0.2, 1e-9)))
     draw.scheme = {'rows': rows}
+    if tokens is not None:
+        # v1.17 — additive, only when tokens were given
+        _ncache = {}
+
+        def native_png(dpi=300):
+            key = int(dpi)
+            if key not in _ncache:
+                _ncache[key] = _scheme_native_render(rows, tiles, _ntk, max_width_in, key)
+            return _ncache[key]
+        draw.render_mode = 'native_raster'
+        draw.tokens = dict(_ntk)
+        draw.max_width_in = float(max_width_in)
+        draw.native_png = native_png
     return draw
 
 
@@ -6092,6 +7414,357 @@ def self_test():
         except ImportError as _e16:
             check('scheme_compositor_needs_figural_core', 'No module' in str(_e16))
 
+    # ── v1.17 PRINT-TRUE NATIVE RASTER (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY) ──
+    # Each fixture FAILS on the defect it guards (named in the comment beside it).
+    if _r1 == 'ok':
+        try:
+            import numpy as _np17
+            from PIL import Image as _Im17
+            from rdkit.Chem import rdDepictor as _rdd17
+            _TK = {'font_pt': 10.0, 'line_pt': 1.0, 'bond_pt': 14.4, 'monochrome': True,
+                   'mark_colour': '#000000'}
+            _k17 = 300 / 72.0
+
+            def _arr17(png):
+                return _np17.asarray(_Im17.open(io.BytesIO(png)).convert('RGB')).astype(int)
+
+            def _chroma17(a):
+                return int((((a.max(-1) - a.min(-1)) > 60) & (a.mean(-1) < 200)).sum())
+
+            # (9) legacy path untouched — no native attribute on a tokens=None draw
+            _pref0 = _rdd17.GetPreferCoordGen()
+            _leg = structure_draw_fn('CCO')
+            _legs = render_scheme({'items': [{'mol': 'CCO'}, {'arrow': {}}, {'mol': 'CC=O'}]})
+            check('native_legacy_structure_has_no_native_attrs',
+                  not hasattr(_leg, 'render_mode') and not hasattr(_leg, 'native_png'))
+            check('native_legacy_scheme_has_no_native_attrs',
+                  not hasattr(_legs, 'render_mode') and not hasattr(_legs, 'native_png'))
+            # (1) monochrome: 0 chromatic ink pixels (fails without useBWAtomPalette — the
+            #     colour control below proves the same molecules DO colour when allowed)
+            _n_es = structure_draw_fn('CC(=O)OC', tokens=_TK)
+            _n_br = structure_draw_fn('CCBr', tokens=_TK)
+            _p_es, _w_es, _m_es = _n_es.native_png(300)
+            _p_br, _w_br, _m_br = _n_br.native_png(300)
+            check('native_mono_ester_bromide_zero_chroma',
+                  _chroma17(_arr17(_p_es)) == 0 and _chroma17(_arr17(_p_br)) == 0
+                  and _m_es['monochrome'] is True)
+            import sys as _sys17
+            if 'figural_core' in _sys17.modules:
+                _n_col = structure_draw_fn('CC(=O)OC', tokens=dict(_TK, monochrome=False))
+                check('native_colour_control_colours_when_not_monochrome',
+                      _chroma17(_arr17(_n_col.native_png(300)[0])) > 0)
+            check('native_draw_contract_attrs',
+                  _n_es.render_mode == 'native_raster' and callable(_n_es.native_png_unmarked)
+                  and _n_es.canonical == canonical_structure('CC(=O)OC')[0])
+            _req = {'atom_label_pt', 'small_pt', 'bond_pt', 'line_pt', 'monochrome', 'highlight_bands',
+                    'marks_drawn', 'marks_failed', 'label_boxes_px', 'abbreviations', 'cross_note',
+                    'depictor', 'overprint_px', 'natural_width_in', 'natural_height_in'}
+            check('native_meta_has_every_contract_key', _req <= set(_m_es))
+            _im_es = _Im17.open(io.BytesIO(_p_es))
+            check('native_png_dpi_and_natural_size',
+                  round(_im_es.info.get('dpi', (0, 0))[0]) == 300
+                  and abs(_w_es - _im_es.width / 300.0) < 1e-9
+                  and abs(_m_es['natural_height_in'] - _im_es.height / 300.0) < 1e-9)
+            _a_es = _arr17(_p_es)
+            check('native_white_background_cropped_to_ink',
+                  (_a_es[0, :] >= 250).all() and (_a_es[-1, :] >= 250).all()
+                  and (_a_es[:, 0] >= 250).all() and (_a_es[:, -1] >= 250).all()
+                  and _a_es.shape[0] < 0.6 * 300 * 2)
+            # (2) one bond length for every molecule at one set of tokens (fails when the
+            #     molecule is auto-scaled to a fixed canvas, the legacy 900x700 behaviour)
+            _n_big = structure_draw_fn('CC(C)(C)c1ccc(cc1)C(=O)OCC', tokens=_TK)
+            _m_big = _n_big.native_png(300)[2]
+            check('native_same_bond_length_across_molecules',
+                  abs(_m_big['bond_px_measured'] - _m_es['bond_px_measured']) <= 1.0
+                  and abs(_m_es['bond_px_measured'] - 14.4 * _k17) <= 1.0)
+            # (3) atom-label cap height ~ 0.711 * font_pt (and it SCALES with font_pt — fails
+            #     when fixedFontSize is not applied and rdkit sizes labels itself)
+            def _o_cap(draw):
+                png, _w, meta = draw.native_png(300)
+                a = _arr17(png)
+                hs = []
+                for b in meta['label_boxes_px']:
+                    x0, y0, x1, y1 = [int(round(v)) for v in b]
+                    rows = _np17.where((a[max(0, y0):y1 + 1, max(0, x0):x1 + 1].min(axis=2) < 128).any(axis=1))[0]
+                    if rows.size:
+                        hs.append(rows.max() - rows.min() + 1)
+                return min(hs) if hs else 0
+            _cap10 = _o_cap(_n_es)
+            _cap14 = _o_cap(structure_draw_fn('CC(=O)OC', tokens=dict(_TK, font_pt=14.0)))
+            _want10 = 0.711 * 10.0 * _k17
+            check('native_label_cap_height_matches_font_pt',
+                  abs(_cap10 - _want10) <= 0.25 * _want10
+                  and abs(_cap14 - 1.4 * _want10) <= 0.25 * 1.4 * _want10)
+            # (4) marks
+            _n_bold = structure_draw_fn('CCBr', tokens=_TK,
+                                        marks=[{'site': {'kind': 'bond', 'index': 0}, 'device': 'bold'},
+                                               {'site': {'kind': 'bond', 'index': 1}, 'device': 'bold'}])
+            _pb, _wb, _mb = _n_bold.native_png(300)
+            _ab = _arr17(_pb)
+
+            def _runs_across(a, p0, p1, half):
+                """ink runs along the perpendicular through the midpoint of p0-p1"""
+                mx, my = (p0[0] + p1[0]) / 2.0, (p0[1] + p1[1]) / 2.0
+                dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+                n = (dx * dx + dy * dy) ** 0.5 or 1.0
+                px_, py_ = -dy / n, dx / n
+                prof = []
+                for t in _np17.arange(-half, half + 0.01, 0.25):
+                    x, y = int(round(mx + px_ * t)), int(round(my + py_ * t))
+                    prof.append(0 <= y < a.shape[0] and 0 <= x < a.shape[1] and a[y, x].min() < 128)
+                runs = sum(1 for i, v in enumerate(prof) if v and (i == 0 or not prof[i - 1]))
+                return runs, sum(prof) * 0.25
+            _bd0 = [d for d in _mb['marks_drawn'] if d['site']['index'] == 0]
+            _runs, _width = (_runs_across(_ab, *_bd0[0]['bond_px_endpoints'], 0.3 * 14.4 * _k17)
+                             if _bd0 else (0, 0))
+            check('native_bold_single_bond_is_one_stroke_at_2x_line',
+                  _runs == 1 and _width >= 1.6 * 1.0 * _k17 and len(_mb['marks_drawn']) == 2)
+            check('native_bold_no_overprint', _mb['overprint_px'] == 0 and _mb['highlight_bands'] == 0)
+            # the differential detector itself: a stroke over a label MUST register
+            _un = _arr17(_n_bold.native_png_unmarked(300)[0])
+            _hit = _un.copy()
+            _lb = [int(round(v)) for v in _n_bold.native_png_unmarked(300)[2]['label_boxes_px'][0]]
+            _hit[(_lb[1] + _lb[3]) // 2, _lb[0]:_lb[2]] = 0
+            check('native_overprint_detector_registers_label_damage',
+                  _native_overprint(_hit, _un, {0: [_lb]}) > 0 and _native_overprint(_un, _un, {0: [_lb]}) == 0)
+            _n_ul = structure_draw_fn('CCBr', tokens=_TK,
+                                      marks=[{'site': {'kind': 'atom', 'index': 0}, 'device': 'underline'},
+                                             {'site': {'kind': 'atom', 'index': 2}, 'device': 'underline'}])
+            _mu = _n_ul.native_png(300)[2]
+            check('native_underline_unlabelled_carbon_fails_never_dropped',
+                  [f['reason'] for f in _mu['marks_failed']] == ['device_not_drawable']
+                  and _mu['marks_failed'][0]['site']['index'] == 0
+                  and [d['site']['index'] for d in _mu['marks_drawn']] == [2] and _mu['overprint_px'] == 0)
+            _n_ast = structure_draw_fn('OC(Br)C(=O)N', tokens=_TK,
+                                       marks=[{'site': {'kind': 'atom', 'index': 1}, 'device': 'asterisk'},
+                                              {'site': {'kind': 'bond', 'index': 2}, 'device': 'arrow'},
+                                              {'site': {'kind': 'atom', 'index': 3}, 'device': 'letter', 'text': 'b'}])
+            _ma = _n_ast.native_png(300)[2]
+            _ast = [d for d in _ma['marks_drawn'] if d['device'] == 'asterisk']
+            # an asterisk on the O of an OH label: its first (bisector) position lands on
+            # the 'H' glyph, so this fails when placement ignores label boxes
+            _m_lt = structure_draw_fn('CCO', tokens=_TK, marks=[
+                {'site': {'kind': 'atom', 'index': 1}, 'device': 'letter'},
+                {'site': {'kind': 'bond', 'index': 0}, 'device': 'letter'}]).native_png(300)[2]
+            check('native_letter_mark_without_its_letter_fails_never_defaults',
+                  sorted(f['reason'] for f in _m_lt['marks_failed'])
+                  == ['letter_text_missing', 'letter_text_missing'] and not _m_lt['marks_drawn'])
+            check('native_letter_mark_keeps_its_letter',
+                  [d.get('text') for d in _ma['marks_drawn'] if d['device'] == 'letter'] == ['b'])
+            _m_oh = structure_draw_fn('CCO', tokens=_TK, marks=[{'site': {'kind': 'atom', 'index': 2},
+                                                                 'device': 'asterisk'}]).native_png(300)[2]
+            check('native_asterisk_rotates_off_its_own_label',
+                  len(_m_oh['marks_drawn']) + len(_m_oh['marks_failed']) == 1 and _m_oh['overprint_px'] == 0
+                  and not any(_rects_overlap(d['bbox_px'], b) for d in _m_oh['marks_drawn']
+                              for b in _m_oh['label_boxes_px']))
+            check('native_asterisk_clear_of_every_label_box',
+                  len(_ast) == 1 and not any(_rects_overlap(_ast[0]['bbox_px'], b) for b in _ma['label_boxes_px'])
+                  and not any(_rects_overlap(d['bbox_px'], b) for d in _ma['marks_drawn'] for b in _ma['label_boxes_px'])
+                  and len(_ma['marks_drawn']) + len(_ma['marks_failed']) == 3 and _ma['overprint_px'] == 0
+                  and abs(_ma['small_pt'] - 10.0 * _RDKIT_SUBSUP_SCALE) < 1e-6)   # NH2 subscript < asterisk 8 pt
+            try:
+                structure_draw_fn('CCO', tokens=_TK, marks=[{'site': {'kind': 'atom', 'index': 0}, 'device': 'circle'}])
+                check('native_unknown_mark_device_is_valueerror', False)
+            except ValueError:
+                check('native_unknown_mark_device_is_valueerror', True)
+            # (5) highlight_* in native mode -> marks, never a band (fails if the band or
+            #     the legacy raster's highlight colour survives)
+            _n_hl = structure_draw_fn('CC=CC', tokens=_TK, highlight_bonds=[1], highlight_atoms=[0])
+            _mh = _n_hl.native_png(300)[2]
+            _rr = _n_hl.raster()
+            check('native_highlight_converted_to_marks_no_band',
+                  _mh['highlight_bands'] == 0 and _mh['converted_from_highlight'] is True
+                  and sorted((d['site']['kind'], d['device']) for d in _mh['marks_drawn'] + _mh['marks_failed'])
+                  == [('atom', 'asterisk'), ('bond', 'bold')]
+                  and _chroma17(_arr17(_n_hl.native_png(300)[0])) == 0
+                  and not ((_rr[..., :3] == (0, 0x72, 0xB2)).all(-1) & (_rr[..., 3] > 128)).any()
+                  and _n_hl.highlight == {'atoms': [], 'bonds': []})
+            # (6) abbreviations: none unless asked; only listed labels; never over a
+            #     protected atom; canonical always the uncondensed SMILES
+            _sm6 = 'COc1ccccc1C(=O)O'
+            _n6a = structure_draw_fn(_sm6, tokens=_TK)
+            _n6b = structure_draw_fn(_sm6, tokens=_TK, abbreviations=['OMe'], protect_atoms=[8, 9, 10])
+            _n6c = structure_draw_fn(_sm6, tokens=_TK, abbreviations=['OMe'], protect_atoms=[0])
+            _n6d = structure_draw_fn(_sm6, tokens=_TK, abbreviations=['Ac'], protect_atoms=[8, 9, 10])
+            check('native_abbrev_none_by_default', _n6a.native_png(300)[2]['abbreviations'] == []
+                  and structure_draw_fn(_sm6, tokens=_TK, abbreviations=[]).native_png(300)[2]['abbreviations'] == [])
+            check('native_abbrev_only_listed_label_and_canonical_unchanged',
+                  _n6b.native_png(300)[2]['abbreviations'] == ['OMe']
+                  and _n6b.canonical == _n6a.canonical == canonical_structure(_sm6)[0]
+                  and _n6d.native_png(300)[2]['abbreviations'] == [])
+            check('native_abbrev_never_covers_protected_atom', _n6c.native_png(300)[2]['abbreviations'] == [])
+            check('native_abbrev_lexicon_long_chain_before_ethyl',
+                  structure_draw_fn('CCCCCCCCCc1ccc(O)cc1', tokens=_TK, abbreviations=['C9H19', 'Et'])
+                  .native_png(300)[2]['abbreviations'] == ['C9H19'])
+            check('native_abbrev_lexicon_seed',
+                  {'Et', 'iPr', 'tBu', 'Ph', 'Bn', 'OMe', 'OEt', 'OAc', 'OTs', 'OMs', 'OTf', 'CO2Me', 'CO2Et',
+                   'Ac', 'CHO', 'CN', 'NO2', 'SiMe3', 'TBS', 'TBDPS', 'Boc', 'Cbz', 'C7H15', 'C12H25'}
+                  <= set(ABBREVIATION_DISPLAY) and 'Me' not in ABBREVIATION_DISPLAY)
+            _pr, _pp = abbreviation_protected_atoms('CC(=O)c1ccccc1', 'CC(O)c1ccccc1')
+            check('native_mcs_protects_reacting_atoms', 2 in _pr and 2 in _pp and 5 not in _pr)
+            check('native_mcs_failure_protects_everything',
+                  abbreviation_protected_atoms('CCO', 'not a smiles') == ([0, 1, 2], []))
+            # F7 quaternary cross detector (fails if a '+' depiction is not recognised)
+            from rdkit import Chem as _Ch17
+            from rdkit.Geometry import Point3D as _P3
+            _cx = _Ch17.MolFromSmiles('CC(C)(C)C')
+            _conf = _Ch17.Conformer(5)
+            for _i, (_x, _y) in enumerate([(-1.5, 0), (0, 0), (0, 1.5), (0, -1.5), (1.5, 0)]):
+                _conf.SetAtomPosition(_i, _P3(_x, _y, 0))
+            _cx.AddConformer(_conf)
+            check('native_cross_detector', _native_cross_atoms(_cx) == [1]
+                  and _native_layout(_Ch17.MolFromSmiles('CCC(C)(C)Br'))[2] is None)
+            # (7) scheme: one bond length, re-flow after the intermediate (repeated)
+            _sp7 = {'items': [{'mol': 'CC(=O)c1ccccc1'}, {'arrow': {'above': ['NaBH₄'], 'below': ['MeOH']}},
+                              {'mol': 'CC(O)c1ccccc1'}, {'arrow': {'above': ['H₂SO₄'], 'below': ['Δ']}},
+                              {'mol': 'C=Cc1ccccc1'}]}
+            _s7w = render_scheme(_sp7, tokens=_TK, max_width_in=6.0)
+            _s7n = render_scheme(_sp7, tokens=_TK, max_width_in=3.0)
+            _pw, _ww, _mw = _s7w.native_png(300)
+            _pn, _wn, _mn = _s7n.native_png(300)
+            check('native_scheme_contract', _s7n.render_mode == 'native_raster'
+                  and _req - {'marks_drawn', 'marks_failed', 'label_boxes_px', 'abbreviations', 'cross_note',
+                              'depictor'} <= set(_mn)
+                  and {'rows_after_reflow', 'reflowed', 'reagent_lines_moved_to_stem', 'overflow',
+                       'tile_metas', 'font_file'} <= set(_mn) and _mn['highlight_bands'] == 0)
+            check('native_scheme_one_bond_length',
+                  len({round(m['bond_px_measured']) for m in _mn['tile_metas']}) == 1)
+            check('native_scheme_fits_one_row_when_wide_enough',
+                  _mw['rows_after_reflow'] == 1 and not _mw['reflowed'] and _ww > 3.0 and _ww <= 6.0)
+            check('native_scheme_reflows_repeating_break_tile',
+                  _mn['rows_after_reflow'] == 2 and _mn['reflowed'] and not _mn['overflow']
+                  and _mn['row_lead_tiles'] == [0, 1] and _wn <= 3.0
+                  and _s7n.canonical == _s7w.canonical == render_scheme(_sp7).canonical
+                  and _s7n.descriptor == render_scheme(_sp7).descriptor)
+            check('native_scheme_zero_chroma', _chroma17(_arr17(_pn)) == 0)
+            _sp7b = {'items': [{'mol': 'CCO'}, {'arrow': {'above': ['reagent one, reagent two, reagent three, reagent four']}},
+                               {'placeholder': 'A'}]}
+            _m7b = render_scheme(_sp7b, tokens=_TK, max_width_in=2.0).native_png(300)[2]
+            _m7c = render_scheme({'items': [{'mol': 'CCCCCCCCCCCCCCCCCCCC'}, {'arrow': {}}, {'placeholder': 'A'}]},
+                                 tokens=_TK, max_width_in=1.0).native_png(300)[2]
+            check('native_scheme_stacks_text_then_flags_overflow',
+                  _m7b['reagent_lines_moved_to_stem'] != [] and _m7c['overflow'] is True
+                  and _m7c['rows_after_reflow'] == 1)
+            # (8) option set: one canvas, equal widths; mismatched tokens refused
+            _opts = native_option_set([structure_draw_fn(s_, tokens=_TK) for s_ in
+                                       ('CCBr', 'CC(=O)OC', 'CC(C)(C)c1ccc(cc1)C(=O)OCC', 'C')], 300)
+            check('native_option_set_uniform_canvas',
+                  len({w_ for _p, w_, _m in _opts}) == 1
+                  and len({_Im17.open(io.BytesIO(p_)).size for p_, _w, _m in _opts}) == 1
+                  and all(m_['frame'] is False for _p, _w, m_ in _opts))
+            for _bad17, _nm17 in (([structure_draw_fn('CCO', tokens=_TK),
+                                    structure_draw_fn('CCO', tokens=dict(_TK, font_pt=12.0))], 'mismatched_tokens'),
+                                  ([structure_draw_fn('CCO')], 'legacy_draw')):
+                try:
+                    native_option_set(_bad17); check(f'native_option_set_rejects_{_nm17}', False)
+                except ValueError:
+                    check(f'native_option_set_rejects_{_nm17}', True)
+            check('native_leaves_rdkit_depictor_preference_alone', _rdd17.GetPreferCoordGen() == _pref0)
+            try:
+                structure_draw_fn('CCO', tokens={'font_pt': 10.0}); check('native_bad_tokens_is_valueerror', False)
+            except ValueError:
+                check('native_bad_tokens_is_valueerror', True)
+            # ── 2026.11.02 review fixtures B2-B9: each FAILS on the defect it names ──
+            def _mk(kind, i, dev, **kw):
+                return dict(site={'kind': kind, 'index': i}, device=dev, **kw)
+            # B2 a bold mark on a double bond keeps BOTH lines (one bar over C=C read
+            # as a single bond); a triple bond is refused, never overpainted
+            _p_b2, _w_b2, _m_b2 = structure_draw_fn('C=C', tokens=_TK, marks=[_mk('bond', 0, 'bold')]).native_png(300)
+            _d_b2 = _m_b2['marks_drawn']
+            _r_b2 = (_runs_across(_arr17(_p_b2), *_d_b2[0]['bond_px_endpoints'], 0.3 * 14.4 * _k17)[0]
+                     if _d_b2 else 0)
+            check('B2_bold_double_bond_keeps_two_lines',
+                  len(_d_b2) == 1 and _d_b2[0].get('bold_lines') == 2 and _d_b2[0].get('bond_lines') == 2
+                  and _r_b2 == 2 and _m_b2['overprint_px'] == 0)
+            _m_b2t = structure_draw_fn('C#N', tokens=_TK, marks=[_mk('bond', 0, 'bold')]).native_png(300)[2]
+            check('B2_bold_triple_bond_is_device_not_drawable',
+                  [f['reason'] for f in _m_b2t['marks_failed']] == ['device_not_drawable']
+                  and not _m_b2t['marks_drawn'])
+            check('B2_bold_single_bond_records_one_line',
+                  [(d.get('bond_lines'), d.get('bold_lines')) for d in _mb['marks_drawn']] == [(1, 1), (1, 1)])
+            # B3 a scheme carries its tiles' marks (with 'tile' and scheme-pixel bboxes);
+            # reagent_mol and pair members take their own marks
+            _s_b3 = render_scheme({'items': [{'mol': 'CC(=O)OC', 'marks': [_mk('bond', 1, 'bold')]},
+                                             {'arrow': {'reagent_mol': 'CCO',
+                                                        'reagent_marks': [_mk('atom', 2, 'underline')]}},
+                                             {'mol': 'CC(=O)O'},
+                                             {'pair': [('A', 'CCO'), ('B', 'CC=O')],
+                                              'pair_marks': [None, [_mk('atom', 2, 'underline')]]}]},
+                                  tokens=_TK, max_width_in=9.0)
+            _p_b3, _w_b3, _m_b3 = _s_b3.native_png(300)
+            _t_b3 = sorted((d['tile'], d['site']['index'], d['device']) for d in _m_b3.get('marks_drawn', []))
+            _off_b3 = [d for d in _m_b3.get('marks_drawn', []) if d['tile'] == 4]
+            _tile4 = _s_b3.tiles[4].native_png(300)[2]['marks_drawn']
+            check('B3_scheme_meta_carries_tile_marks',
+                  _t_b3 == [(0, 1, 'bold'), (1, 2, 'underline'), (4, 2, 'underline')]
+                  and _m_b3.get('marks_failed') == []
+                  and len(_off_b3) == 1 and len(_tile4) == 1
+                  and _off_b3[0]['bbox_px'][0] > _tile4[0]['bbox_px'][0] + 0.5 * _Im17.open(io.BytesIO(_p_b3)).width)
+            _m_b3f = render_scheme({'items': [{'mol': 'CCC', 'marks': [_mk('atom', 0, 'underline')]},
+                                              {'arrow': {}}, {'mol': 'CCO'}]},
+                                   tokens=_TK).native_png(300)[2]
+            check('B3_scheme_meta_carries_tile_failures',
+                  [(f['tile'], f['reason']) for f in _m_b3f.get('marks_failed', [])]
+                  == [(0, 'device_not_drawable')])
+            # B4 explicit [H] kept on the native path: a mark index counts the SMILES' atoms,
+            # and a mark on the H lands on that H
+            try:
+                _d_b4 = structure_draw_fn('[H]C([H])([H])O', tokens=_TK,
+                                          marks=[_mk('atom', 0, 'asterisk'), _mk('atom', 4, 'underline')])
+                _m_b4 = _d_b4.native_png(300)[2]
+                _ast4 = [d for d in _m_b4['marks_drawn'] if d['device'] == 'asterisk']
+                _lb4 = _m_b4['label_boxes_px']
+
+                def _dist4(b, r):
+                    cx, cy = (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0
+                    return max(b[0] - cx, 0, cx - b[2]) + max(b[1] - cy, 0, cy - b[3])
+                _ok4 = (len(_m_b4['marks_drawn']) == 2 and len(_lb4) == 4 and len(_ast4) == 1
+                        and min(range(4), key=lambda j: _dist4(_lb4[j], _ast4[0]['bbox_px'])) == 0
+                        and _m_b4['overprint_px'] == 0)
+            except ValueError:
+                _ok4 = False
+            check('B4_explicit_H_kept_and_marked_on_native_path', _ok4)
+            check('B4_legacy_path_still_strips_explicit_H',
+                  structure_draw_fn('[H]C([H])([H])O').canonical == canonical_structure('CO')[0])
+            # B5 an arrow mark on an ATOM is drawn (it was always device_not_drawable),
+            # outside the molecule and clear of every label
+            _p_b5, _w_b5, _m_b5 = structure_draw_fn('CC(C)O', tokens=_TK,
+                                                    marks=[_mk('atom', 3, 'arrow')]).native_png(300)
+            check('B5_atom_arrow_drawn_clear_of_labels',
+                  [d['site']['index'] for d in _m_b5['marks_drawn']] == [3] and not _m_b5['marks_failed']
+                  and _m_b5['overprint_px'] == 0
+                  and not any(_rects_overlap(_m_b5['marks_drawn'][0]['bbox_px'], b) for b in _m_b5['label_boxes_px']))
+            # B6 a colour token set honours the set-wide decision: options differing in their
+            # coloured elements are all switched to black (native draws re-render)
+            _tkc = dict(_TK, monochrome=False)
+            _d_b6 = [structure_draw_fn(s_, tokens=_tkc) for s_ in ('CCBr', 'CCO', 'CCC')]
+            native_option_set(_d_b6, 300)
+            _d_b6u = [structure_draw_fn(s_, tokens=_tkc) for s_ in ('CCO', 'CCCO')]
+            native_option_set(_d_b6u, 300)
+            check('B6_native_option_set_divergent_elements_all_black',
+                  all(d.element_colours is False for d in _d_b6)
+                  and all(d.element_colours is True for d in _d_b6u)
+                  and all(_chroma17(_arr17(d.native_png(300)[0])) == 0 for d in _d_b6))
+            # B7 a caption wider than its molecule widens the tile (it was clipped)
+            _s_b7 = render_scheme({'items': [{'mol': 'O', 'label': '1', 'equiv': '(10 equiv, excess)'},
+                                             {'arrow': {}}, {'mol': 'CCO'}]}, tokens=_TK, max_width_in=6.0)
+            _p_b7, _w_b7, _m_b7 = _s_b7.native_png(300)
+            _a_b7 = _arr17(_p_b7).min(axis=2) < 128
+            _band = _a_b7[int(0.75 * _a_b7.shape[0]):, :]
+            _cols = _np17.where(_band.any(axis=0))[0]
+            _f7, _ff7 = _native_font('regular', 10.0 * _k17)
+            check('B7_scheme_caption_not_clipped',
+                  _cols.size > 0 and _cols.min() >= int(0.15 * 14.4 * _k17) - 2
+                  and (_cols.max() - _cols.min() + 1) >= 0.9 * _f7.getlength('(10 equiv, excess)'))
+            # B9 an underline on a label with a subscript (H2N) is drawn under the full label
+            _m_b9 = structure_draw_fn('NCC(=O)O', tokens=_TK, marks=[_mk('atom', 0, 'underline')]).native_png(300)[2]
+            check('B9_underline_under_subscripted_label',
+                  [d['site']['index'] for d in _m_b9['marks_drawn']] == [0] and not _m_b9['marks_failed']
+                  and _m_b9['overprint_px'] == 0
+                  and _m_b9['marks_drawn'][0]['bbox_px'][1] >= _m_b9['label_boxes_px'][0][3])
+        except ImportError as _e17:
+            check('native_raster_needs_numpy_pil', 'No module' in str(_e17))
+
     # ── text_of omml_renderer: structure in place, raw glyphs skipped ─────────
     # lxml is a HARD dependency (python-docx is built on it), so its absence is a
     # broken environment, not a tolerable one. The old fallback emitted
@@ -6206,6 +7879,65 @@ def self_test():
                   and 'image1.png' in next(iter(_res)))
         except OSError as _ex:
             check('extract_images_dir_entry', False)
+
+    # ── property-fuzz hardening (2026.11.02 pass-3) — native path; each FAILS pre-fix ──
+    if _r1 == 'ok':
+        import numpy as _npF
+        from PIL import Image as _ImF
+        from rdkit import Chem as _ChF
+        _TKF = {'font_pt': 10.0, 'line_pt': 1.0, 'bond_pt': 14.4, 'monochrome': True,
+                'mark_colour': '#000000'}
+        # D4: H-only species had NaN CoordGen coords -> blank PNG ('[H][H]' raised NaN);
+        # '' parsed to a 0-atom molecule and rendered blank.
+        _d4 = True
+        for _hs in ('[H+]', '[H-]', '[H]', '[2H]', '[H][H]'):
+            try:
+                _a4 = _npF.asarray(_ImF.open(io.BytesIO(
+                    structure_draw_fn(_hs, tokens=_TKF).native_png(300)[0])).convert('L'))
+                _d4 = _d4 and int((_a4 < 128).sum()) > 0
+            except Exception:                            # noqa: BLE001
+                _d4 = False
+        check('native_h_only_species_render_ink', _d4)
+        try:
+            structure_draw_fn('', tokens=_TKF)
+            check('native_empty_smiles_rejected', False)
+        except ValueError:
+            check('native_empty_smiles_rejected', True)
+        # D16: at small tokens a mark's recorded box reached past the cropped PNG
+        try:
+            _png16, _w16, _m16 = structure_draw_fn(
+                'C=CCC(C)(C)CN', tokens=dict(_TKF, font_pt=7.0, bond_pt=8.0),
+                marks=[{'site': {'kind': 'atom', 'index': 4}, 'device': 'asterisk'}]).native_png(300)
+            _W16, _H16 = _ImF.open(io.BytesIO(_png16)).size
+            check('native_mark_bbox_inside_png_small_tokens',
+                  bool(_m16['marks_drawn']) and all(
+                      _b[0] >= -0.5 and _b[1] >= -0.5 and _b[2] <= _W16 + 0.5 and _b[3] <= _H16 + 0.5
+                      for _b in (_mk['bbox_px'] for _mk in _m16['marks_drawn'])))
+        except Exception:                                # noqa: BLE001
+            check('native_mark_bbox_inside_png_small_tokens', False)
+        # D17: CoordGen squashes 2,3-disubstituted norbornanes (one bond at 0.33x); the
+        # layout is re-depicted and still prints at the token bond length
+        try:
+            _ns17 = structure_draw_fn('CC1CC2CCC1C2N', tokens=_TKF)
+            _m17 = _ns17.native_png(300)[2]
+            _from_rdkit = _ChF.MolFromSmiles('CC1CC2CCC1C2N')
+            _lay = _native_layout(_from_rdkit)[0]
+            check('native_distorted_coordgen_layout_redepicted',
+                  _m17['depictor'] == 'rdkit' and _native_bond_ratio(_lay) >= NATIVE_MIN_BOND_RATIO
+                  and abs(_m17['bond_px_measured'] - 14.4 * 300 / 72.0) < 0.5)
+        except Exception:                                # noqa: BLE001
+            check('native_distorted_coordgen_layout_redepicted', False)
+        # D18: non-finite / absurd token sizes -> a clear ValueError naming the token
+        _d18 = []
+        for _bad in (dict(_TKF, bond_pt=float('inf')), dict(_TKF, font_pt=1e6), dict(_TKF, line_pt=1e-9)):
+            try:
+                structure_draw_fn('CCO', tokens=_bad).native_png(300)
+                _d18.append(False)
+            except ValueError as _e18:
+                _d18.append('outside the sane' in str(_e18))
+            except Exception:                            # noqa: BLE001
+                _d18.append(False)
+        check('native_tokens_finite_and_bounded', all(_d18))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

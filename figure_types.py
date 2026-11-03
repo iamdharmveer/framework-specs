@@ -1,7 +1,14 @@
 """
-figure_types.py v1.0 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
+figure_types.py v1.1 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
 object_type (profile vocabulary) to a Step-7 render class, a semantic kind and a
 renderer. GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY, LAW F1.
+
+CHANGELOG
+    v1.1 (2026-11-02) — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (F8, §0.2): closed
+         figural ask-type vocabulary FIGURAL_ASK_TYPES + normalise_ask_type(),
+         REPRESENTATION_TAGS, SCHEME_GRAMMAR_TAGS, and the scope classes
+         CHEM_R_OBJECT_TYPES / CHEM_H_OBJECT_TYPES DERIVED from FIGURE_TYPES.
+    v1.0 (2026-11-01) — the registry (GAP-2026-11-01).
 
 WHY THIS FILE EXISTS
     Three vocabularies described a figure and none was bound to the others:
@@ -51,7 +58,7 @@ PURITY
 import importlib
 import re
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 # ── S10-6A render classes (MockTestCreate) — parity with figural_core.FIGURE_CLASSES is
 #    verified by mock_sync_audit MS-23; this tuple is mirrored, never imported, so the
@@ -290,6 +297,100 @@ FIGURE_TYPES = {
     'scanned_handwriting':            _row(SCHEMATIC, 'GENERIC', None, status='unsupported', family='raster'),
     'artwork_reproduction':           _row(SCHEMATIC, 'GENERIC', None, status='unsupported', family='raster'),
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v1.1 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY
+# ═══════════════════════════════════════════════════════════════════════════════
+# §0.2 scope classes, DERIVED from the table above (never a second hand-kept list):
+#   [chem-R] RDKit-rendered chemistry — renderer corpus_io.structure_draw_fn or
+#            corpus_io.render_scheme;
+#   [chem-H] hand-drawn chemistry drawings — family chem_structure / chem_scheme drawn
+#            by the hand_drawn+descriptor path.
+CHEM_R_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items() if r['renderer'] in (R_STRUCT, R_SCHEME))
+CHEM_H_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items()
+                                if r['family'] in ('chem_structure', 'chem_scheme') and r['renderer'] == R_HAND)
+
+# F8 — closed vocabulary of what a figural question ASKS (order is the vocabulary order).
+FIGURAL_ASK_TYPES = ('product_prediction', 'starting_material_identification',
+                     'reagent_identification', 'reagent_sequence',
+                     'intermediate_identification', 'mechanism_identification',
+                     'which_reaction_gives', 'which_structures_satisfy',
+                     'stereochemical_outcome', 'stereoisomer_count', 'property_order',
+                     'spectrum_to_structure', 'nomenclature', 'matching', 'other')
+REPRESENTATION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'newman_projection',
+                       'fischer_projection', 'haworth_projection', 'sawhorse_projection')
+SCHEME_GRAMMAR_TAGS = ('plus_partner', 'two_way', 'multi_step_lettered',
+                       'reagent_as_structure', 'numbered_steps')
+
+# Keyword rules for normalise_ask_type, matched top-down on the lower-cased stem; the
+# first hit wins. ORDER MATTERS: a stem naming both a starting material and a product
+# asks for the starting material; 'sequence of reagents' is not a reagent question.
+_ASK_RULES = (
+    (r'\bnmr\b|spectr(?:um|a|al|oscopic)|\buv\b|m/z|\bcm\s*[-\u2212\u2013]\s*1\b|\bδ\b|chemical shift|\bsignals?\b',
+     'spectrum_to_structure'),
+    (r'(?:number|how many|total)\b.{0,40}\bstereoisomers?\b|\bstereoisomers?\b.{0,20}\bpossible\b', 'stereoisomer_count'),
+    (r'\bsequence of (?:reagents?|steps|reactions?|conditions)\b|\b(?:reagents?|conditions)\b.{0,30}\b(?:sequence|order)\b',
+     'reagent_sequence'),
+    (r'\bwhich (?:one )?of the following (?:reactions?|transformations?|sequences?)\b|\bwhich reactions?\b',
+     'which_reaction_gives'),
+    # the ASKED noun is the product — the stem OPENS with it ("The major product of …",
+    # "The product formed …"); a stem that opens with another noun ("The reagent required
+    # to obtain the major product …") asks for that noun, matched by the rules below:
+    # before starting material / reagent / catalyst words that merely appear in the stem
+    (r'^\s*(?:the\s+)?(?:(?:major|main|final|expected|principal)\s+)?products?\b'
+     r'(?:\s+(?:formed|obtained|of|in|is|are|from|when|that)\b)', 'product_prediction'),
+    (r'\bstarting (?:materials?|compounds?)\b|\bprecursors?\b|\bsubstrates?\b', 'starting_material_identification'),
+    (r'\bintermediates?\b', 'intermediate_identification'),
+    (r'\bmechanis(?:m|ms|tic)\b', 'mechanism_identification'),
+    (r'\breagents?\b|\bcatalysts?\b', 'reagent_identification'),
+    (r'\bmatch(?:ing|es)?\b|\bcolumn[- ]?(?:i|1|a)\b', 'matching'),
+    (r'\biupac\b|\bname of\b|\bnamed as\b|\bnomenclature\b', 'nomenclature'),
+    (r'\border of\b|\b(?:increasing|decreasing) order\b|\barrange\b|\branks?\b', 'property_order'),
+    (r'\bstereochemi(?:stry|cal outcome)\b|\bconfiguration\b|\b(?:r|s)\s*/\s*(?:r|s)\b|\bdiastereo|\benantiomer',
+     'stereochemical_outcome'),
+    (r'\bwhich (?:one )?of the following (?:compounds?|structures?|molecules?|species|ions?|carbocations?|'
+     r'carbanions?|radicals?|alkenes?|dienes?|isomers?)\b(?!.{0,30}\b(?:products?|formed)\b)',
+     'which_structures_satisfy'),
+    (r'\bproducts?\b|\bformed\b|\bobtained\b|\byields?\b|\bgives?\b', 'product_prediction'),
+    (r'\bwhich (?:one )?of the following\b.{0,40}\b(?:is|are)\b', 'which_structures_satisfy'),
+)
+
+
+def normalise_ask_type(text, object_type=None):
+    """Free-text ask (a stem, or a transcriber's label) -> one of FIGURAL_ASK_TYPES.
+    An exact vocabulary member (any case / spacing) is returned as is; otherwise the
+    keyword rules above apply; 'other' when nothing matches. NEVER raises.
+
+    The vocabulary is CHEMISTRY's (what a structure / scheme question asks). When
+    `object_type` is given and is NOT a chemistry structure/scheme type (chem-R or
+    chem-H — a graph, circuit, geometry or reasoning figure), the answer is always
+    'other': "How many triangles are formed" is not a product prediction."""
+    if object_type is not None:
+        try:
+            _ct = lookup(object_type)['type']
+        except Exception:                                   # noqa: BLE001
+            _ct = None
+        if _ct not in CHEM_R_OBJECT_TYPES and _ct not in CHEM_H_OBJECT_TYPES:
+            return 'other'
+    if text is None:
+        return 'other'
+    try:
+        raw = str(text).strip()                     # a hostile __str__ must not escape
+    except Exception:                               # noqa: BLE001
+        return 'other'
+    slug = _slug(raw)
+    if slug in FIGURAL_ASK_TYPES:
+        return slug
+    # spectroscopy abbreviations are matched CASE-SENSITIVELY on the raw text: 'IR' (not
+    # iridium 'Ir'), '1H' / '13C' not followed by '-' (not '1H-indole' nomenclature)
+    if re.search(r'\bIR\b|\b1H\b(?![-\u2013])|\b13C\b(?![-\u2013])|¹H|¹³C', raw):
+        return 'spectrum_to_structure'
+    low = ' ' + raw.lower() + ' '
+    for pat, ask in _ASK_RULES:
+        if re.search(pat, low):
+            return ask
+    return 'other'
+
 
 # Exact-string aliases (after _slug()). Keep SMALL and OBVIOUS; the keyword rules below
 # carry the long tail.
@@ -797,6 +898,95 @@ def self_test():
           (pf['available']['rdkit'] and pf['available']['matplotlib']) ==
           ('reaction_scheme' not in pf['unavailable_types'] and 'chemical_structure' not in pf['unavailable_types'])
           or not pf['available']['rdkit'])
+
+    # 7. v1.1 — GAP-2026-11-02 F8 / §0.2
+    check('v1_1_version', __version__ == '1.1')
+    check('ask_types_closed_vocab', len(FIGURAL_ASK_TYPES) == 15 and len(set(FIGURAL_ASK_TYPES)) == 15
+          and FIGURAL_ASK_TYPES[0] == 'product_prediction' and FIGURAL_ASK_TYPES[-1] == 'other')
+    check('representation_tags', REPRESENTATION_TAGS == ('skeletal', 'perspective', 'chair_conformation',
+          'newman_projection', 'fischer_projection', 'haworth_projection', 'sawhorse_projection')
+          and all(t in FIGURE_TYPES for t in REPRESENTATION_TAGS[2:]))
+    check('scheme_grammar_tags', SCHEME_GRAMMAR_TAGS == ('plus_partner', 'two_way', 'multi_step_lettered',
+          'reagent_as_structure', 'numbered_steps'))
+    # §0.2 membership, pinned: a registry row that changes renderer/family moves a type
+    # between classes and MUST be noticed here.
+    check('chem_r_derived_matches_gap_0_2', CHEM_R_OBJECT_TYPES == frozenset((
+        'chemical_structure', 'organometallic_structure', 'coordination_complex_structure',
+        'metal_cluster_structure', 'supramolecular_structure', 'bioinorganic_active_site',
+        'molecular_model', 'reaction_scheme', 'reaction_mechanism_scheme', 'reaction_cycle_scheme',
+        'synthesis_flow_diagram')))
+    check('chem_h_derived_matches_gap_0_2', CHEM_H_OBJECT_TYPES == frozenset((
+        'newman_projection', 'fischer_projection', 'chair_conformation', 'haworth_projection',
+        'sawhorse_projection', 'crystal_lattice_diagram', 'qualitative_analysis_scheme',
+        'isolobal_relationship_scheme')))
+    check('chem_r_h_examples', 'chemical_structure' in CHEM_R_OBJECT_TYPES and 'reaction_scheme' in CHEM_R_OBJECT_TYPES
+          and 'newman_projection' in CHEM_H_OBJECT_TYPES and 'newman_projection' not in CHEM_R_OBJECT_TYPES
+          and not (CHEM_R_OBJECT_TYPES & CHEM_H_OBJECT_TYPES)
+          and 'nmr_spectrum' not in CHEM_R_OBJECT_TYPES | CHEM_H_OBJECT_TYPES
+          and 'molecular_orbital_diagram' not in CHEM_R_OBJECT_TYPES | CHEM_H_OBJECT_TYPES)
+    for _s, _want in (
+            # real stems from GAP-2026-11-02 / the CSIR papers
+            ('Identify the major product, P formed in the given reaction.', 'product_prediction'),
+            ('Which of the following is the correct sequence of reagents/conditions in the given reaction?', 'reagent_sequence'),
+            ('In the following reaction which one of the following starting materials, A gives the product, P?',
+             'starting_material_identification'),
+            ('The major product formed in the following reaction is', 'product_prediction'),
+            ('The reagent(s) required for the following transformation is/are', 'reagent_identification'),
+            ('The key intermediate involved in the following reaction is', 'intermediate_identification'),
+            ('The total number of stereoisomers possible for the following compound is', 'stereoisomer_count'),
+            ('Which of the following reactions gives the product shown?', 'which_reaction_gives'),
+            ('Match the compounds in Column I with their properties in Column II', 'matching'),
+            ('The correct IUPAC name of the following compound is', 'nomenclature'),
+            ('The correct order of acidity of the following compounds is', 'property_order'),
+            ('A compound C8H10O shows the following 1H NMR data: δ 7.2 (5H), 4.6 (1H)', 'spectrum_to_structure'),
+            ('The IR spectrum shows a strong band at 1715 cm-1. The compound is', 'spectrum_to_structure'),
+            ('The mechanism of the following transformation involves', 'mechanism_identification'),
+            ('The stereochemical outcome of the following SN2 reaction is', 'stereochemical_outcome'),
+            ('Which of the following compounds is aromatic?', 'which_structures_satisfy'),
+            ('Which of the following compounds gives a positive iodoform test?', 'which_structures_satisfy'),
+            ('Which of the following is the major product of the reaction?', 'product_prediction'),
+            ('Which of the following compounds is the product formed?', 'product_prediction'),
+            ('reagent_sequence', 'reagent_sequence'), ('Product Prediction', 'product_prediction'),
+            ('', 'other'), (None, 'other'), ('Consider the following.', 'other')):
+        check(f'ask_norm_{_s!r}'[:70], normalise_ask_type(_s) == _want)
+    check('ask_norm_always_in_vocab', all(normalise_ask_type(x) in FIGURAL_ASK_TYPES
+                                          for x in ('zz', 12, 'which of the', 'IR', 'match')))
+    # the ASKED noun decides (pass-2 review): product asks are not reagent / starting
+    # material asks because those words appear; 'Ir' / '1H-indole' are not spectroscopy
+    for _s5, _w5 in (('The major product formed when the compound reacts with the reagent shown is', 'product_prediction'),
+                     ('The product of the reaction in the presence of a Pd catalyst is', 'product_prediction'),
+                     ('Oxidative addition of H2 to [Ir(CO)Cl(PPh3)2] gives the product', 'product_prediction'),
+                     ('The IUPAC name of the 1H-indole derivative is', 'nomenclature'),
+                     ('The major product of the reaction of the substrate with NaBH4 is', 'product_prediction'),
+                     ('Which of the following reactions gives the major product shown?', 'which_reaction_gives'),
+                     ('The starting material required to give the product shown is', 'starting_material_identification'),
+                     ('The reagent required to obtain the major product shown is', 'reagent_identification'),
+                     ('The intermediate involved in the formation of the major product is', 'intermediate_identification'),
+                     ('The mechanism by which the major product is formed is', 'mechanism_identification'),
+                     ('The IUPAC name of the major product is', 'nomenclature'),
+                     ('The starting material that gives the major product shown below is', 'starting_material_identification'),
+                     ('The catalyst required to obtain the major product is', 'reagent_identification')):
+        check(f'ask_norm_asked_noun_{_s5[:40]!r}', normalise_ask_type(_s5) == _w5)
+    # the vocabulary is chemistry's: a non-chemistry figure is always 'other'
+    check('ask_norm_non_chem_object_type_is_other',
+          normalise_ask_type('How many triangles are formed in the figure?', 'geometric_figure') == 'other'
+          and normalise_ask_type('Which year gives the highest profit?', 'line_graph') == 'other'
+          and normalise_ask_type('x', 'zorblax_unregistered') == 'other')
+    check('ask_norm_chem_object_type_keeps_rules',
+          normalise_ask_type('The major product formed in the following reaction is',
+                             'reaction_scheme') == 'product_prediction'
+          and normalise_ask_type('The major product formed is', 'chemical_structure') == 'product_prediction'
+          and normalise_ask_type('The major product formed is', 'chair_conformation') == 'product_prediction')   # chem-H
+
+    # D20 (fuzz 2026-11-02): str() of the input is inside the never-raise guard
+    class _BadStr:
+        def __str__(self):
+            raise RuntimeError('boom')
+    try:
+        _d20 = normalise_ask_type(_BadStr()) == 'other' and normalise_ask_type(_BadStr(), 'reaction_scheme') == 'other'
+    except Exception:                                   # noqa: BLE001
+        _d20 = False
+    check('ask_norm_hostile_str_never_raises', _d20)
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS — FAILED: {fails}')

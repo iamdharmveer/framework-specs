@@ -1,4 +1,31 @@
-# Framework_MockTestCreate v5.88
+# Framework_MockTestCreate v5.89
+# v5.89 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with figural_core
+#   v5.89, corpus_io v1.17, blueprint_core v1.29, figure_types v1.1, analyse_engine v1.1,
+#   audit_canonical v2.34, final_assembly v1.11, Framework_ScopedBlueprint v1.12.0,
+#   Framework_Blueprint v1.62.0, Framework_MockTestAnalyse v2.58.0, Framework_PYQExplain v2.25,
+#   Framework_MockTestExplain v1.52.0, Framework_DeliveryFooter v1.37.0). Estate-wide and
+#   exam-agnostic; the CSIR Organic paper is the incident, not the scope. Owner decisions
+#   2026-11-02: one release; O1 monochrome structures; O2 MARK-IFF-NAMED; O3 '+30% harder'
+#   kept as the default, applied to the SCOPE mix positionally; O4 never drop / ladder; O5
+#   NOT adopted — the label-then-picture SHAPE is kept and bound by keep_with_next instead;
+#   O6 PYQ structure transcription; O7 audit with the repo copy when the project has none;
+#   plus difficulty anchored for EVERY exam (independent blind rating against the exam's
+#   own past questions), style measured for EVERY figure type, content measure as a floor.
+#   (1) S3-2S: drawing style from FIGURE_STYLE_PROFILE (Step 5) -> print-true native
+#   structure tokens TOK per role; S10-7C C1/C8/C9 rewritten (monochrome default, natural
+#   size, one bond length, abbreviations only as the exam abbreviates, highlight bands
+#   retired). (2) Q7b.8 amended (chemistry exempt) + Q7b.8' MARK-IFF-NAMED (G-FIGMARK).
+#   (3) S10-8 KEEP INVARIANT: every option label kept with its picture (gap report: 25 of 108
+#   labels stranded, in 25 of 27 questions; re-measured 19 of 108 before, 0 after, LibreOffice PDF). (4) §Q8b-LADDER: every
+#   item defect is repaired in place (R1-R5); 49 quality run-stops converted ([HS:LADDER]);
+#   every remaining "HARD STOP" carries [HS:INFRA] / [HS:INPUT] / [HS:PROSE]; G-ALTGROUP /
+#   G-GROUPMANDATE / G-MINCOUNT repair instead of exit; the text fallback (R4) is used only
+#   when the paper keeps its Axis-1 budget (else R4'). (5) S13-2F pre-commit item sweep +
+#   certificate; S13-4c confirms (A-CERT); AMBER advisories no longer stop a run. (6) S3-1
+#   P3: no project auditor -> the verified repo copy audits and is delivered. (7) S3-2D:
+#   the difficulty schedule is recomputed from its provenance and the in-run blueprint is
+#   amended + delivered (P2). (8) CHECK 3c: independent blind rating + content floor decide
+#   the band; A-CONTENTLEVEL. (9) ask-type apportionment (F8). Full text: GAP document.
 # v5.88 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
 #   figure_types v1.0, corpus_io v1.16, paper_pipeline v5.40, final_assembly v1.10,
 #   audit_canonical v2.33, blueprint_core v1.28, Framework_ScopedBlueprint v1.11.0,
@@ -30,7 +57,7 @@
 #      on existence and records any flag disagreement in registry.paper_flags); S3-2a
 #      HS-15a is SELF-CORRECTING (a false flag beside FIGURAL allocations is set True in
 #      session, printed, and S3-18 / S4-5 CHECK 5 then run); S13-4c REQUIRES armed
-#      A-FIGPROFILE and A-FIGTYPE-KIND lines on a figural paper (dormant = HARD STOP, the
+#      A-FIGPROFILE and A-FIGTYPE-KIND lines on a figural paper (dormant = HARD STOP [HS:PROSE], the
 #      A-QINDEX precedent); S13-REGCHECK runs fa.annotate_legacy_figure_records (forward-
 #      only migration — legacy records are annotated, never rewritten, and the footer
 #      discloses them).
@@ -38,7 +65,7 @@
 #   S3-12b's SAFETY-LOCK validation passed section_names = the SELECTED blueprint's
 #   sections. The stimulus profile is exam-wide, so on a SCOPED paper (SUBJ/TOPIC/
 #   SUBTOPIC) of a multi-section exam every set type belonging to another section was
-#   reported "not a section of this exam" and Step 7 HARD STOPPED before Q.1 — with a
+#   reported "not a section of this exam" and Step 7 HARD STOPPED [HS:PROSE] before Q.1 — with a
 #   remedy (re-run PYQExtract --stimulus-profile) that could never clear it. Measured:
 #   SSC_CGL_TIER1 `TestCreate P1 --level subject --scope "English Comprehension"`
 #   stopped on gir.analogy / gir.classification / qa.statistics_data_interpretation.
@@ -52,7 +79,7 @@
 #   series (MOCK / SUBJ / TOPIC / SUBTOPIC) and every paper size; several places assumed every
 #   paper was the size and series of the one being built. Measured: the first 40-Q scoped
 #   paper (CSIR_NET_MATHEMATICAL_SCIENCES SUBJ:UNIT 1:01) built after 20 explained 120-Q mocks
-#   HARD STOPPED at S13-2 on A-DGATE — MOCK:M13's legal DISCLOSED verdict (bands = 120) was
+#   HARD STOPPED [HS:PROSE] at S13-2 on A-DGATE — MOCK:M13's legal DISCLOSED verdict (bands = 120) was
 #   checked against this paper's 40. Fixed in the engines, for every exam and paper type:
 #   (1) A-DGATE checks each difficulty_gate record against ITS OWN paper's size;
 #   (2) A-DPROFILE certifies the exam-level difficulty profile on its own terms beside a
@@ -79,7 +106,7 @@
 #   positions and asked cloze blanks 5,3,...,1) because the only set path read a
 #   manifest field Step 5 never writes. S3-12b: a NEW paper reads
 #   [ExamCode]_stimulus_profile.json (written by PYQExtract --stimulus-profile or by final synthesis);
-#   SAFETY LOCK — no profile, HARD STOP before Q.1; bc.compose_stimulus_groups splits the
+#   SAFETY LOCK — no profile, HARD STOP [HS:PROSE] before Q.1; bc.compose_stimulus_groups splits the
 #   blueprint's EXISTING allocation into sets (never a re-allocation) and
 #   bc.place_with_stimulus_groups places each set where the past papers place it (D-B);
 #   the plan is frozen in batch_state['stimulus_groups'] with the profile SNAPSHOT it was
@@ -87,7 +114,7 @@
 #   entry — right for scoped papers). A paper already in progress — plan persisted
 #   without that key, OR questions authored in its first unfinished batch — finishes on
 #   the legacy path, byte-for-byte. A set-placed paper whose batch_state lost its plan
-#   is rebuilt deterministically and PROVEN against every authored question (HARD STOP
+#   is rebuilt deterministically and PROVEN against every authored question (HARD STOP [HS:PROSE]
 #   on any disagreement).
 #   NEW S7-STIMGROUP (R-STIMGROUP + stim_register): one stimulus per set, reused
 #   verbatim across batch boundaries; cloze blanks asked in order. S7-NEW-A writes
@@ -101,7 +128,7 @@
 #   no longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to
 #   the trigger in chat, (2) Project Files — and S3-1 resolves it through
 #   pp.resolve_registry (the ONE implementation Steps 7/9/11 share). Attachment WINS when
-#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP only when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE] only when
 #   BOTH lanes are empty; exact filename + registry.exam_code == [ExamCode] are validated
 #   on the way in; the run PINS the fingerprint it started from (batch_state.registry_pin,
 #   S3-16) and S3-1 refuses a DIFFERENT registry on any later turn (pp.registry_source_check
@@ -260,7 +287,7 @@
 #   as FROZEN (never re-placed; pre-fix papers are audited via
 #   bc.audit_placement and reported, never rewritten); (3) S3-13's two
 #   `except NameError` silent fallbacks are DELETED — a missing plan is a
-#   producer fault and HARD STOPs (an empty set silently put every MSQ/NAT
+#   producer fault and HARD STOP [HS:PROSE]s (an empty set silently put every MSQ/NAT
 #   question into the free answer pool and corrupted K-BAL paper-wide);
 #   (4) S3-18's blueprint-order sentence is DELETED and replaced by a pointer
 #   to the persisted plan; (5) S4-7 STEP B and B-7 change from either/or to
@@ -272,14 +299,14 @@
 #   structural FAILs (GAP-2026-08-28-AUDIT-PARTIAL-PAPER). ALSO:
 #   S3-3's EXPLAIN_LEARNINGS glob widened to *_EXPLAIN_LEARNINGS_v*.md with a
 #   loud WARN on a non-{EXAM} prefix (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB);
-#   S3-19 gains a structure-renderer pre-flight HARD STOP and figural_core
+#   S3-19 gains a structure-renderer pre-flight HARD STOP [HS:PROSE] and figural_core
 #   declares rdkit (GAP-2026-08-28-RDKIT-UNDECLARED); S13-4c passes
 #   --rules/--manifest so ship-time A-CLUSTER runs at full concept-group
 #   strength. S3-12b's middle branch is the pre-v5.77 UPGRADE PATH: authored
 #   questions frozen from the answer_key concept_map, the un-authored
 #   remainder placed fresh into each section's remaining contiguous range —
 #   adjacency on a resume is ALWAYS a §R13 disclosure and the only resume
-#   HARD STOPs are artefact-consistency faults. Allocation is summed from the
+#   HARD STOP [HS:PROSE]s are artefact-consistency faults. Allocation is summed from the
 #   RAW blueprint entries (S3-2's alloc_ids collapses duplicates by
 #   overwrite). Difficulty-plan
 #   figural-blindness (GAP-2026-08-28-DIFFICULTY-FIGURAL-BLIND) is NOT in
@@ -516,12 +543,12 @@
 #   pipelines (the §7A divergence note's adopted contract: same RUBRIC, different
 #   mechanisms). (1) S3 builds difficulty_plan via bc.assign_difficulty_bands —
 #   deterministic, seed-rotated per mock, bottom band only on positions whose floor
-#   allows it — after bc.difficulty_feasibility HARD STOPS any count the exam shape
+#   allows it — after bc.difficulty_feasibility HARD STOPS [HS:PROSE] any count the exam shape
 #   cannot honestly hold (with the achievable maximum named). (2) CHECK 3c / G-DIFF:
 #   author TO the band via bc.difficulty_authoring_profile, record difficulty_obs from
 #   the derivation already performed for the sidecar, and accept only when
 #   bc.verify_difficulty_obs(label, obs) agrees — MAX_DIFF_TRIES=6, then a quota-
-#   preserving band-swap escape, then HARD STOP; a label an evidence contradicts never
+#   preserving band-swap escape, then HARD STOP [HS:PROSE]; a label an evidence contradicts never
 #   ships. (3) write_q_to_sidecar carries difficulty_obs (keyword-only, NO default —
 #   the v5.52 argument) into concept_map; final_assembly v1.6 carries it into
 #   registry.question_index. (4) A-QINDEX check 7 FAILs bottom-band labels on MSQ/NAT
@@ -669,7 +696,7 @@
 #     IF MISSING: Step 7 CANNOT run the script but CAN still run using
 #     spec-level (Claude-executed) gate checking per S4-10/S4-11.
 #     v5.36 DECISION (unchanged mechanism, raised stakes): audit.py absence remains
-#     WARN (not HARD STOP) + manual checklist — but the warning must state explicitly,
+#     WARN (not HARD STOP [HS:PROSE]) + manual checklist — but the warning must state explicitly,
 #     in the batch report, that NO machine audit will run over this paper at any step.
 #
 # THEREFORE:
@@ -838,7 +865,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   LAW_REGISTRY.json / mock_sync_audit MS-14.
   REGISTRY-SOURCE-LAW (v5.84): the registry this step READS may come from EITHER lane —
   attached to the trigger in chat, or Project Files. Resolved ONLY by pp.resolve_registry
-  (S3-1): attachment wins when both are present, HARD STOP only when both are absent,
+  (S3-1): attachment wins when both are present, HARD STOP [HS:INPUT] only when both are absent,
   exam_code validated, fingerprint pinned for the run. LAW_REGISTRY.json / MS-20.
   Step 9 (MockExplain) → consumes outputs of this step (v5.36: directly — the former
                                Step 8 audit between them has been retired)
@@ -898,7 +925,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
     subtopic        → requires --scope identifying the subtopic-scoped blueprint
     Omitted (Test* with no --level): single-active default — resolves automatically
     ONLY if exactly one blueprint file is present; otherwise pp.pick_blueprint raises
-    PickError and Claude HARD STOPS with its actionable message (does not guess).
+    PickError and Claude HARD STOPS [HS:INPUT] with its actionable message (does not guess).
     MockCreate M[N] always sets level='mock' implicitly — --level is never needed
     (and is ignored if given) on the Mock* alias.
 
@@ -927,7 +954,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        — INCLUDES: no answer key page at end of docx
        — INCLUDES: no asterisk, no bold correct option, no "correct" annotation
        — DETECTION: scan docx for "Answer Key", "Answers:", "Key:", "Q\.\d+.*→.*[1-4]"
-       — HARD STOP if found: do not deliver until removed.
+       — LADDER-REPAIR R1 [HS:LADDER] if found: do not deliver until removed.
   R6:  Match blueprint allocations exactly.
   R7:  Q1 through QN continuous, no gaps, monotonic in document order.
   R8:  No section headings inside the paper body.
@@ -940,7 +967,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          body line equal to a section name (blueprint sections[].section_name) is a leaked
          header. Detection is PROVENANCE-BASED (matched against this paper's own section names),
          never a generic word list — exam-agnostic.
-       — HARD STOP. Detection: scan all body paragraphs (a header may sit before the first Q
+       — LADDER-REPAIR R1 [HS:LADDER]. Detection: scan all body paragraphs (a header may sit before the first Q
          or between sections), before and during assembly. Independently re-verified by
          audit.py A-SECHDR.
   R8b: No title / info / scoring / cover / instruction block before Q.1 (v5.18).
@@ -959,7 +986,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          explicitly declares `paper_header_block` (a deliberate per-exam opt-in), a printed
          header matching that declaration is permitted and gate G-PREQ1 is dormant. No current
          section_rules.md declares it, so the ban is absolute for every present exam.
-       — HARD STOP. Detection: scan every paragraph before the first "Q.<N>" stem, before and
+       — LADDER-REPAIR R1 [HS:LADDER]. Detection: scan every paragraph before the first "Q.<N>" stem, before and
          during assembly. Enforced by gate G-PREQ1; re-verified by audit.py
          A-HEADER (which strips the block, not merely validates it). Distinct from R8
          (section-name headers inside the body) and R9 (docx page header/footer region).
@@ -1010,22 +1037,28 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        — Stems: configured font, configured size, bold.
        — Options: configured font, configured size, normal weight.
        — Verify: scan all runs; if run.font.name not in [configured_font, None]: fix.
-  R-DELIVER (v5.36, HARD STOP): Step 7 delivers EXACTLY the CLOSED SET at Final
-       Assembly and NOTHING else. The set is the CLOSED pair below (v5.73):
+  R-DELIVER (v5.36, HARD STOP [HS:INFRA]): Step 7 delivers EXACTLY the CLOSED SET at Final
+       Assembly and NOTHING else. The set is the CLOSED set below (v5.73; v5.89):
          1. [ExamCode]_Mock[N]_Create.docx        — always (scoped slug for a scoped paper)
          2. [ExamCode]_registry.json              — always (Replace in Project Files)
+         3. EXTRA_DELIVERABLES (S13-6, v5.89)     — ONLY when S13-6 decided them: the
+            amended in-run *_blueprint.json and/or the repo [ExamCode]_mock_test_audit.py
+            (Replace in Project Files when an older copy is there, else Upload). Empty on
+            most runs.
        "EXACTLY" is the operative word in BOTH directions: nothing missing and
-       nothing extra. The Tier-A audit dossier ([ExamCode]_M[N]_audit_dossier.json)
+       nothing outside this set. The Tier-A audit dossier ([ExamCode]_M[N]_audit_dossier.json)
        is INTERNAL from v5.73 (operator decision 2026-08-26): S13-4b writes it to
        /home/claude and S13-4c reads it there; staged in outputs it is a LEAK
-       (final_assembly.predelivery_checklist check 5). Because the set no longer
-       varies, the v5.35/v5.36/v5.54.1 count-drift class cannot recur. Producing a standalone answer-key file (any format:
+       (final_assembly.predelivery_checklist check 5). The set is DECIDED by code
+       (S13-6 EXTRA_DELIVERABLES -> predelivery_checklist(extra_deliverables=) ->
+       pp.handoff_set(extra_upload=)), never by hand, so the v5.35/v5.36/v5.54.1
+       count-drift class cannot recur. Producing a standalone answer-key file (any format:
        .docx/.pdf/.json/.txt) as a deliverable is forbidden with the same force
        as R5 (no answer key in the paper). Internal sidecars (answer_key.json,
        fig_manifest.json, batch_state.json, progress.json, audit_dossier.json) are NEVER delivered.
        The learner-facing answer key is a Step-4 (MockExplain) artefact, not
        a Step-7 one. Enforced by S13-6, S13-7, and gate G-DELIVERY-SET.
-  R-LINKED (v3.6, HARD STOP): Every question must be SELF-CONTAINED for
+  R-LINKED (v3.6, LADDER-REPAIR R1 [HS:LADDER]): Every question must be SELF-CONTAINED for
        one-question-at-a-time online rendering. For any linked-stimulus group
        (CLASS 4 — RC passage→Qs, DI table/graph→Qs, Cloze passage→blanks, puzzle
        set→Qs, or any shared dataset backing ≥2 questions), the shared stimulus
@@ -1041,7 +1074,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          use Model A. Never rely on a loose lead-in paragraph (that is neither).
        — A "lead-in only" layout (stimulus before Q1 of the group, absent from
          Q2..Qn) is BANNED with the same force as R5/R8.
-       — Q.N-FIRST (v3.7, HARD STOP): every question block — single OR linked —
+       — Q.N-FIRST (v3.7, LADDER-REPAIR R1 [HS:LADDER]): every question block — single OR linked —
          MUST OPEN with its "Q.<N>" paragraph. No paragraph, table, chart, or
          passage may precede the Q-number. For a linked group the Q-number
          attaches to the SHARED CONTEXT / INSTRUCTION line, e.g.
@@ -1060,7 +1093,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          (R14). Stimulus embedding, atomic-group batching, and self-containment are
          orthogonal to whether a member has options — so NAT members compose without any
          change to the linked machinery beyond permitting the 0-option member.
-  R-FIGURAL (v4.0, HARD STOP): Every figural MCQ must be DECOMPOSED, not a
+  R-FIGURAL (v4.0, LADDER-REPAIR R1 [HS:LADDER]): Every figural MCQ must be DECOMPOSED, not a
        composite panel. It is rendered as the problem/series figure(s) as their
        OWN image(s) PLUS one SEPARATE image per option, bound 1:1 to its "i."
        label and stacked SINGLE-COLUMN (exactly one option image per line — never
@@ -1087,7 +1120,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          (q{N}_problem[_k]) discipline. The answer obeys the NAT value+tolerance contract
          (R-ANSWER numerical branch) and the stem carries the nat_instruction (R14). Without
          this variant a valid figural-NAT would be hard-stopped for "missing option images".
-  R-UNDERLINE (v4.1, HARD STOP): Every question that asks about an UNDERLINED
+  R-UNDERLINE (v4.1, LADDER-REPAIR R1 [HS:LADDER]): Every question that asks about an UNDERLINED
        span — vocabulary/grammar items presented as 'sentence_embedded_underlined'
        (antonym/synonym/of-the-underlined-word), sentence-improvement ("improve the
        underlined part of the sentence"), error-spotting on an underlined segment,
@@ -1103,7 +1136,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        part…") is NOT underlined; only the target span is. Enforced by §10-S10-2
        (add_stem_with_underline + UNDERLINE_TRIGGER), the tightened render-
        consistency contract (§7 G4 stem_matches_format), and gate G-UNDERLINE.
-  R-OPTREF (v4.2, HARD STOP): A stem may not REFERENCE a terminal/escape option
+  R-OPTREF (v4.2, LADDER-REPAIR R2 [HS:LADDER]): A stem may not REFERENCE a terminal/escape option
        that the option set does not actually contain, and the instruction's promised
        option-structure must match the rendered options. Specifically:
        — If the stem instructs the candidate to choose a terminal escape option in
@@ -1125,7 +1158,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        (error-spotting, sentence-improvement, fill-in-sentence) must also place the
        instruction and the sentence on SEPARATE paragraphs (§10-S10-2, generalised
        in v4.2 — no run-on). Enforced by §10-S10-2 layout + gate G-OPTREF.
-  R-SUBPART (v5.79, HARD STOP at authoring): A stem that carries TWO OR MORE
+  R-SUBPART (v5.79, LADDER-REPAIR R1 [HS:LADDER] at authoring): A stem that carries TWO OR MORE
        enumerated sub-parts (reagent/procedure steps, test lists, statement sets,
        sentences-to-arrange, assertion–reason pairs — any labelled enumeration
        that is neither the option set nor a MATCH list) renders ONE bold
@@ -1138,7 +1171,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        (raises at authoring, §10 S10-3), layout §10 S10-2b, and checklist item
        G-STEM-SUBPART (S4-11). MATCH lists remain REAL tables (G-MATCH-TABLE);
        MSQ/NAT instructions remain inside the Q.N line (G-MSQ-INSTR/G-NAT-INSTR).
-  R-ANSWER (v4.5, HARD STOP at generation — generalises v4.2 R-UNIQUE; single source
+  R-ANSWER (v4.5, LADDER-REPAIR R2 [HS:LADDER] at generation — generalises v4.2 R-UNIQUE; single source
        of truth; the former audit-side mirror of this rule is retired — this is now the
        sole statement of it anywhere). The contract is parameterised by the
        subtopic's answer_cardinality (blueprint subtopic_list; default 'single'):
@@ -1169,7 +1202,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
            — the dangerous failure is a BORDERLINE out-set option that should arguably be
            in S (the MSQ analogue of the two-defensible-answers single-mode defect);
          • S is a NON-EMPTY PROPER subset of {1..options_count}: 1 ≤ |S| ≤ options_count−1
-           (k=0 "empty" and k=n "all-correct" are HARD-STOP defects by default);
+           (k=0 "empty" and k=n "all-correct" are LADDER-REPAIR R2 [HS:LADDER] defects by default);
          • when msq_k_mode == 'fixed', |S| == msq_k EXACTLY;
          • NEGATION composes: for a negated multi stem ("which are NOT correct"), S is the
            set of options satisfying the NEGATED predicate — derive S, then apply the rules
@@ -1186,7 +1219,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          • the stem must determine the value UNIQUELY — exactly one numerical answer follows
            from a fair reading (the NAT analogue of "exactly one defensible option"); a stem
            admitting two defensible values (ambiguous rounding convention, under-specified
-           figure, missing unit) is a HARD-STOP defect — DISAMBIGUATE the stem;
+           figure, missing unit) is a LADDER-REPAIR R2 [HS:LADDER] defect — DISAMBIGUATE the stem;
          • the value's form must match nat_answer_type (blueprint nat_contract): 'integer' ⇒
            an exact integer, no decimals; 'real' ⇒ a decimal carried to the exam's stated
            precision;
@@ -1311,7 +1344,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   (`nat_grading_type`, `nat_grading_value`) are populated FROM this function's output, never
   independently derived by the sidecar writer itself (single source of truth; see S7-NEW-A).
   A `ValueError` from `derive_nat_grading` (the NOT-SUPPORTED negative-range case) is a
-  HARD-STOP defect on the QUESTION, not a formatting bug — DISAMBIGUATE/rework the stem's
+  LADDER-REPAIR R2 [HS:LADDER] defect on the QUESTION, not a formatting bug — DISAMBIGUATE/rework the stem's
   numbers so both bounds are non-negative, exactly as any other well-posedness failure in this
   section is handled; never suppress or work around it.
 
@@ -1327,7 +1360,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        msq_allow_aota=true (default false), in which case the gate stands down. "None of
        these" is permitted only as an ordinary selectable option (it is the sole member of
        S when correct, i.e. |S|=1 — never an empty set). Enforced inside G-MSQ-SET.
-  R-MATH-OMML (v4.3, HARD STOP): Every algebraic/symbolic expression that
+  R-MATH-OMML (v4.3, LADDER-REPAIR R1 [HS:LADDER]): Every algebraic/symbolic expression that
        contains a STACKED FRACTION, an EXPONENT/SUPERSCRIPT, a RADICAL, or any
        built-up structure (per the §10-S10-4 decision tree rules 3-6) MUST render
        as native OMML (python-docx <m:oMath>) inline in the document text. Three
@@ -1380,7 +1413,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   mock_scenario_ledger     = globals().get('mock_scenario_ledger', set())
   mock_presentation_ledger = globals().get('mock_presentation_ledger', set())
 
-  # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing.
+  # MANDATORY COPIES (non-blueprint) — HARD STOP [HS:INPUT] if any missing.
   # (v5.85: [ExamCode]_stimulus_profile.json is deliberately NOT here — only a NEW paper
   # needs it; S3-12b's SAFETY LOCK enforces that, so an in-progress paper is unaffected.)
   required = [
@@ -1390,14 +1423,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   for f in required:
       src = f'/mnt/project/{f}'
       if not os.path.exists(src):
-          raise SystemExit(f"HARD STOP: {f} not found in project knowledge. "
+          raise SystemExit(f"HARD STOP [HS:INPUT]: {f} not found in project knowledge. "
                            f"Upload it to [{EXAM}] project Files, then retry.")
       shutil.copy(src, f'/home/claude/{f}')
 
   # REGISTRY (MANDATORY) — REGISTRY-SOURCE-LAW (v5.84, GAP-2026-09-14-REGISTRY-SOURCE).
   # Read from EITHER lane: the chat attachment (/mnt/user-data/uploads) OR Project Files
   # (/mnt/project). pp.resolve_registry is the ONE implementation Steps 7/9/11 share:
-  # attachment wins when both exist (a difference is printed, never a stop); HARD STOP
+  # attachment wins when both exist (a difference is printed, never a stop); HARD STOP [HS:INPUT]
   # only when both are absent; exact filename + exam_code validated. NEVER open
   # /mnt/project/{EXAM}_registry.json directly here (MS-20). The working copy is
   # written ONCE per run: on a continue/resume turn the copy already in /home/claude is
@@ -1412,7 +1445,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       print(_line)
   # R4 — a run reads ONE registry. batch_state.registry_pin (S3-16) is what this run
   # started from; a later turn of THIS paper that resolves a DIFFERENT registry is a
-  # HARD STOP. The run's own working copy is never a swap (also_accept).
+  # HARD STOP [HS:INFRA]. The run's own working copy is never a swap (also_accept).
   _bs_pin_path = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _bs_state = (json.load(open(_bs_pin_path, encoding='utf-8'))
                if os.path.exists(_bs_pin_path) else None)
@@ -1440,17 +1473,43 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # (pp.pick_blueprint) decides which ONE of these this trigger actually generates from.
   blueprint_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))
   if not blueprint_srcs:
-      raise SystemExit(f"HARD STOP: no {EXAM}*_blueprint.json found in project knowledge. "
+      raise SystemExit(f"HARD STOP [HS:INPUT]: no {EXAM}*_blueprint.json found in project knowledge. "
                        f"Run MockBlueprint or ScopedBlueprint first, then retry.")
   BLUEPRINT_PATHS = []
+  import hashlib as _hl_bp
+  BP_PROJECT_SHA = {}          # {blueprint file name: sha256 of the PROJECT copy} — S3-16
   for src in blueprint_srcs:
       fname = os.path.basename(src)
-      shutil.copy(src, f'/home/claude/{fname}')
-      BLUEPRINT_PATHS.append(f'/home/claude/{fname}')
+      _dst_bp = f'/home/claude/{fname}'
+      BP_PROJECT_SHA[fname] = _hl_bp.sha256(open(src, 'rb').read()).hexdigest()
+      # v5.89 (GAP-2026-11-02 L3): a RESUMED run keeps the in-run blueprint it already
+      # amended (S3-2D / R5 / allocation) — re-copying the project copy would silently
+      # undo every amendment the earlier batches were generated and audited against.
+      _keep_bp = False
+      if os.path.exists(_dst_bp) and os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json'):
+          try:
+              _old_bp = json.load(open(_dst_bp, encoding='utf-8'))
+              _old_bs = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json',
+                                       encoding='utf-8'))
+              # keep the amended copy ONLY while the project copy is the one this paper
+              # started from — a newly uploaded / regenerated blueprint always wins
+              _same_src = ('bp_project_sha' not in _old_bs     # state written before the key
+                           or (_old_bs.get('bp_project_sha') or {}).get(fname)
+                           == BP_PROJECT_SHA[fname])
+              _keep_bp = _same_src and bool(_old_bp.get('difficulty_amendments')
+                                            or _old_bp.get('allocation_amendments'))
+          except Exception:
+              _keep_bp = False
+      if _keep_bp:
+          print(f"S3-1: resumed run — keeping the AMENDED in-run {fname} (not re-copied).")
+      else:
+          shutil.copy(src, _dst_bp)
+      BLUEPRINT_PATHS.append(_dst_bp)
 
   # OPTIONAL — audit script (Layer 2 guard — not required for Layer 1):
   audit_py = f'/mnt/project/{EXAM}_mock_test_audit.py'
   AUDIT_AVAILABLE = os.path.exists(audit_py)
+  AUDITOR_FROM_REPO = False      # v5.89 P3 — True when this run audits with the repo copy
   if AUDIT_AVAILABLE:
       shutil.copy(audit_py, f'/home/claude/{EXAM}_mock_test_audit.py')
       # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT) introduced the refresh; v5.86
@@ -1474,27 +1533,64 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                 f"from Project Files is used AS IS and may be stale.")
       elif open(audit_py, 'rb').read() != open(_repo_audit, 'rb').read():
           shutil.copy(_repo_audit, f'/home/claude/{EXAM}_mock_test_audit.py')
+          AUDITOR_FROM_REPO = True          # v5.89 P3: delivered at S13-6 for upload
           print(f"AUDITOR REFRESHED: {EXAM}_mock_test_audit.py in Project Files "
                 f"differs from the verified repo audit_canonical.py — this run audits "
                 f"with the verified repo copy instead.")
   else:
-      print(f"NOTE: {EXAM}_mock_test_audit.py not found in project. "
-            f"This file is auto-generated by Step 6 (MockBlueprint) v1.20+. "
-            f"Verify Step 6 outputs were uploaded to project Files. "
-            f"Layer 1 batch enforcement (spec-level STOP) will be used. "
-            f"Manual gate checklist (S4-11) will replace script gates.")
+      # v5.89 (GAP-2026-11-02 P3, owner decision O7): a project with NO auditor copy
+      # used to skip the whole machine audit (S4-7 STEP B, S13-2F and S13-4c are all
+      # gated on AUDIT_AVAILABLE). No paper ships without an audit: the verified repo
+      # audit_canonical.py is copied in under the per-exam name and used, and the copy
+      # is DELIVERED at S13-6 with "UPLOAD THIS AUDITOR TO THE PROJECT".
+      _repo_audit = next((_c for _c in ('/tmp/fw/audit_canonical.py',
+                                        '/tmp/fw_effective/audit_canonical.py',
+                                        os.path.join(os.getcwd(), 'audit_canonical.py'))
+                          if os.path.exists(_c)), None)
+      if _repo_audit is not None:
+          shutil.copy(_repo_audit, f'/home/claude/{EXAM}_mock_test_audit.py')
+          AUDIT_AVAILABLE = True
+          AUDITOR_FROM_REPO = True
+          print(f"AUDITOR FROM REPO: {EXAM}_mock_test_audit.py was not in Project Files; "
+                f"this run audits with the verified repo audit_canonical.py and delivers "
+                f"that copy — UPLOAD THIS AUDITOR TO THE PROJECT.")
+      else:
+          print(f"NOTE: {EXAM}_mock_test_audit.py not found in project and no verified "
+                f"repo audit_canonical.py beside this session (Step 0 bootstrap). "
+                f"Layer 1 batch enforcement (spec-level STOP) will be used. "
+                f"Manual gate checklist (S4-11) will replace script gates.")
+
+  # v5.89 (GAP-2026-11-02 P1) — READ RECEIPT. The spec bytes this run is held to are
+  # printed into the run log (and repeated by the delivery footer): spec, exact line count,
+  # sha256, END sentinel. Trimmed, summarised or partial working copies of a spec are
+  # PROHIBITED; a run that worked from one records finding A-READ in its footer.
+  import subprocess
+  READ_RECEIPTS = []
+  for _rr_dir in ('/tmp/fw_effective', '/tmp/fw'):          # first verified clone present
+      if os.path.isfile(os.path.join(_rr_dir, 'bootstrap.py')):
+          try:
+              _rr = subprocess.run(['python3', 'bootstrap.py', '--trigger', 'MockCreate',
+                                    '--receipt'], capture_output=True, text=True,
+                                   cwd=_rr_dir, timeout=300)
+              READ_RECEIPTS = [l for l in (_rr.stdout or '').splitlines()
+                               if l.startswith('READ RECEIPT ')]
+          except Exception as _rr_e:                       # disclosed, never fatal
+              print(f"READ RECEIPT: bootstrap failed ({type(_rr_e).__name__})")
+          break
+  print('\n'.join(READ_RECEIPTS) or 'READ RECEIPT: unavailable (bootstrap not found beside '
+                                     'this session) — disclosed in the footer')
 
   # v5.88 — ENGINE PATH FOR THE PER-EXAM AUDITOR (final review 2026-11-01, finding 13).
   # The per-exam copy lives in /home/claude and is run BY PATH; python puts the script's
   # own directory on sys.path, NEVER the cwd, so `cd /tmp/fw && python3 /home/claude/X.py`
   # could not import blueprint_core / figure_types and every engine-backed gate degraded
-  # to WARN "NOT CHECKED" — which S13-4c now HARD STOPs on. Every auditor subprocess in
+  # to WARN "NOT CHECKED" — which S13-4c now HARD STOP [HS:INFRA]s on. Every auditor subprocess in
   # this spec therefore runs with AUDIT_ENV: PYTHONPATH = the directory the verified
   # engines were imported from this session (exam-agnostic; never a hard-coded path).
   import importlib.util as _ilu
   _bc_spec = _ilu.find_spec('blueprint_core')
   if _bc_spec is None or not _bc_spec.origin:
-      raise SystemExit("HARD STOP (S3-9): blueprint_core is not importable from this session — "
+      raise SystemExit("HARD STOP [HS:INFRA] (S3-9): blueprint_core is not importable from this session — "
                        "run from the verified clone (SKILL Step 0: cd /tmp/fw_effective).")
   ENGINE_ROOT = os.path.dirname(os.path.abspath(_bc_spec.origin))
   AUDIT_ENV = dict(os.environ, PYTHONPATH=ENGINE_ROOT + (os.pathsep + os.environ['PYTHONPATH']
@@ -1579,7 +1675,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       bp = pp.pick_blueprint(blueprints, level=LEVEL, scope_subject=SCOPE_SUBJECT,
                               scope_topic=SCOPE_TOPIC)
   except pp.PickError as e:
-      raise SystemExit(f"HARD STOP: {e}")
+      raise SystemExit(f"HARD STOP [HS:INPUT]: {e}")
 
   # v5.29 SAFETY CHECK: the {EXAM}*_blueprint.json glob (S3-1) is a PREFIX match — if a
   # different ExamCode's files were ever uploaded into this same project (e.g. "SSC_CGL"
@@ -1588,7 +1684,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # not, so it must be checked explicitly rather than trusted implicitly.
   if bp['exam_code'] != EXAM:
       raise SystemExit(
-          f"HARD STOP: selected blueprint's exam_code {bp['exam_code']!r} does not "
+          f"HARD STOP [HS:INPUT]: selected blueprint's exam_code {bp['exam_code']!r} does not "
           f"match the trigger's ExamCode {EXAM!r}. A blueprint file from a different "
           f"ExamCode may have been picked up by the {EXAM}*_blueprint.json glob (S3-1) "
           f"— check this project for a similarly-prefixed ExamCode's files.")
@@ -1734,6 +1830,23 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       _ecfg = json.load(open(_ecfg_path, encoding='utf-8'))
   elif os.path.exists(f'/mnt/project/exam_config.json'):
       _ecfg = json.load(open(f'/mnt/project/exam_config.json', encoding='utf-8'))
+  # v5.89 (GAP-2026-11-02 handshake): the exam's REAL config, as Step 2a delivers it
+  # ([ExamCode]_exam_config.json in Project Files — S3-17c reads the same file). It feeds
+  # ONLY the difficulty values this release needs (cycle_gap_days, sections), so Create's
+  # cycle window and section plan equal ScopedBlueprint's. The legacy style overrides above
+  # are deliberately left on their old lookup (switching them on would change every exam's
+  # fonts/labels — a separate decision).
+  _ecfg_exam = {}
+  _ecfg_exam_path = f'/mnt/project/{EXAM}_exam_config.json'
+  if os.path.exists(_ecfg_exam_path):
+      try:
+          _ecfg_exam = json.load(open(_ecfg_exam_path, encoding='utf-8')) or {}
+      except (ValueError, OSError):
+          _ecfg_exam = {}
+      if not isinstance(_ecfg_exam, dict):
+          _ecfg_exam = {}
+  _ecfg_dp = {'sections': _ecfg_exam.get('sections', _ecfg.get('sections')),
+              'cycle_gap_days': _ecfg_exam.get('cycle_gap_days', _ecfg.get('cycle_gap_days'))}
 
   def _sr_field(field, default):
       """Read a CATEGORY-A field from section_rules.md (same source as audit.py cat_c)."""
@@ -1765,7 +1878,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       try:
           _sr_label, _resolved_family = pp.resolve_option_label(_sr_label)
       except pp.LabelFormatError as e:
-          raise SystemExit(f"HARD STOP: {e}")
+          raise SystemExit(f"HARD STOP [HS:INPUT]: {e}")
   # v5.65: the former bp.get('option_label_format') tier is REMOVED — no writer
   # emits that blueprint key (Blueprint §14 writes option_label, visibility-only),
   # so the tier could never fire; chain: exam_config -> section_rules -> default.
@@ -1775,7 +1888,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # falls back to 'num' for alpha/roman templates) and asserted equal to the
   # family the auditor will classify from section_rules (or its '1/2/3/4'
   # default when section_rules declares no label). Refuse at PRE-GENERATION —
-  # a guessed label reaches the delivered paper; this HARD STOP happens before Q1.
+  # a guessed label reaches the delivered paper; this HARD STOP [HS:INPUT] happens before Q1.
   def _label_family_of_template(_tpl):
       for _tk, _fm in (('{i}', 'num'),
                        ('{alpha_upper}', 'alpha'), ('{alpha_lower}', 'alpha'),
@@ -1788,18 +1901,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       try:
           _ecfg_label, _ = pp.resolve_option_label(_ecfg_label)
       except pp.LabelFormatError as e:
-          raise SystemExit(f"HARD STOP: {e}")
+          raise SystemExit(f"HARD STOP [HS:INPUT]: {e}")
       _ecfg_family = _label_family_of_template(_ecfg_label)
       if _ecfg_family is None:
           raise SystemExit(
-              "HARD STOP (ECFG-LABEL PARITY): exam_config option_label_format "
+              "HARD STOP [HS:INPUT] (ECFG-LABEL PARITY): exam_config option_label_format "
               f"{_ecfg.get('option_label_format')!r} resolves to a template with no "
               "recognised label token ({i}/{alpha_*}/{roman_*}) — it cannot be "
               "rendered or audited. Declare a supported notation or template.")
       _audit_family = _resolved_family or 'num'
       if _ecfg_family != _audit_family:
           raise SystemExit(
-              "HARD STOP (ECFG-LABEL PARITY): exam_config option_label_format "
+              "HARD STOP [HS:INPUT] (ECFG-LABEL PARITY): exam_config option_label_format "
               f"renders {_ecfg_family!r} labels but the auditor will classify the "
               f"{_audit_family!r} family from section_rules"
               + ("" if _resolved_family else " (its '1/2/3/4' default — section_rules "
@@ -1825,7 +1938,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   mock_entry = next((m for m in bp['mocks'] if m['mock'] == N), None)
   if not mock_entry:
-      raise SystemExit(f"HARD STOP: Mock {N} not found in blueprint.json mocks[].")
+      raise SystemExit(f"HARD STOP [HS:INPUT]: Mock {N} not found in blueprint.json mocks[].")
 
   # BUILD allocations dict from actual blueprint schema:
   # blueprint stores: mocks[i].sections[j].subtopic_allocations
@@ -1841,7 +1954,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           allocations[sec_name][sa['subtopic']] = sa['q_count']
           # subtopic_id is the JOIN KEY (v3.4 contract). Blueprint v1.7+ always
           # carries it. If absent (legacy blueprint) → contract gate S3-CONTRACT
-          # will HARD STOP; do not silently fall back to name matching.
+          # will HARD STOP [HS:INPUT]; do not silently fall back to name matching.
           sid = sa.get('subtopic_id')
           alloc_ids[sec_name][sid] = {'q_count': sa['q_count'],
                                       'display_name': sa['subtopic']}
@@ -1864,6 +1977,118 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       'math_seed_base': N * 100,
       'reasoning_seed_base': N * 50
   })
+
+  # ── S3-2D — DIFFICULTY SCHEDULE RECOMPUTED FROM ITS PROVENANCE (v5.89 — GAP-2026-11-02
+  # L2/P2). The delivered Organic scoped schedule 2/14/24 came from the PAPER-level mix
+  # (not the scope's) converted in ALPHABETICAL key order (Easy, Hard, Medium). A blueprint
+  # built by ScopedBlueprint v1.12.0+ / Blueprint v1.62.0+ carries difficulty_source with
+  # its builder; the schedule is recomputed from it and the exam's difficulty profile with
+  # bc.recompute_difficulty_schedule. On a mismatch the IN-RUN blueprint (BP_SRC_PATH — the
+  # file every auditor run reads with --blueprint) is amended IN PLACE and the amendment is
+  # logged in difficulty_amendments[]; the amended blueprint is DELIVERED at S13-6 with
+  # "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER". A legacy blueprint (no
+  # provenance) is used as is, with the footer line "difficulty schedule unverified"
+  # (+ "outside the expected range" when bc says so). Never a stop.
+  import json, os
+  import blueprint_core as _bc_dsrc
+  BLUEPRINT_AMENDED = False
+  DIFF_SRC_NOTE = None
+
+  def persist_bp_amendment():
+      # v5.89 L3: EVERY in-place amendment of `bp` (S3-2D recompute, R5 accept-at-measured,
+      # R5 subtopic reassignment) is written to BP_SRC_PATH IMMEDIATELY, so every later
+      # auditor run (--blueprint BP_SRC_PATH), the S13-6 byte comparison and a resumed
+      # session all see the same amended file. Call it right after each amendment.
+      global BLUEPRINT_AMENDED
+      json.dump(bp, open(BP_SRC_PATH, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+      BLUEPRINT_AMENDED = True
+  _pf_dsrc = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  try:   # read ONLY when this blueprint schedules difficulty (never a stop otherwise)
+      _prof_dsrc = (json.load(open(_pf_dsrc, encoding='utf-8'))
+                    if bp.get('difficulty_schedule') and os.path.exists(_pf_dsrc) else None)
+  except (ValueError, OSError) as _e_dsrc:
+      raise SystemExit(f"HARD STOP [HS:INPUT] (S3-2D): {EXAM}_difficulty_profile.json is not "
+                       f"readable JSON ({type(_e_dsrc).__name__}: {_e_dsrc}) — re-upload it.")
+  # The full-paper Blueprint's S7-0 schedule (builder 'Framework_Blueprint.S7-0', or a
+  # pre-v1.62 full-paper difficulty_source with no builder and no subtopic_ids) is the
+  # operator-chosen mix validated by A-DPROFILE — never reported as 'unverified'.
+  _ds_dsrc = bp.get('difficulty_source')
+  _full_paper_src = isinstance(_ds_dsrc, dict) and (
+      _ds_dsrc.get('builder') == 'Framework_Blueprint.S7-0'
+      or (not _ds_dsrc.get('builder') and not _ds_dsrc.get('subtopic_ids')))
+  if bp.get('difficulty_schedule') and _prof_dsrc is not None:
+      _rc = _bc_dsrc.recompute_difficulty_schedule(bp, _prof_dsrc)
+      if _rc.get('ok') is False:
+          for _mm in _rc.get('mismatches') or []:
+              print(f"S3-2D: difficulty_schedule mock {_mm.get('mock')} recomputed "
+                    f"{_mm.get('from')} -> {_mm.get('to')} ({_rc.get('reason')})")
+          _exp = {e['mock']: e for e in (_rc.get('expected') or [])}
+          for _e in bp['difficulty_schedule']:
+              if _e.get('mock') in _exp:
+                  for _k in ('simple', 'medium', 'hard', 'by_section'):
+                      if _k in _exp[_e['mock']]:
+                          _e[_k] = _exp[_e['mock']][_k]
+          bp.setdefault('difficulty_amendments', []).extend(
+              {'mock': _mm.get('mock'), 'section': None,
+               'from': list(_mm.get('from') or ()), 'to': list(_mm.get('to') or ()),
+               'reason': 'recomputed'} for _mm in (_rc.get('mismatches') or []))
+          persist_bp_amendment()
+      elif _rc.get('ok') is None and _rc.get('reason') != 'full_paper_builder':
+          # full_paper_builder: the full Blueprint's S7-0 per-section mix, validated by
+          # A-DPROFILE — verified, just not recomputable; no footer note.
+          DIFF_SRC_NOTE = ('difficulty schedule unverified'
+                           + (' — outside the expected range' if _rc.get('outside_expected_range')
+                              else ''))
+  elif bp.get('difficulty_schedule') and not _full_paper_src:
+      DIFF_SRC_NOTE = 'difficulty schedule unverified (no difficulty profile in the project)'
+  difficulty_schedule = bp.get('difficulty_schedule', difficulty_schedule)
+
+  # ── S3-2S — DRAWING STYLE + STRUCTURE TOKENS (v5.89 — GAP-2026-11-02 F1). Computed ONCE
+  # per paper; every figure of a role uses the SAME tokens (one bond length per role).
+  # A paper with no CHEMISTRY figure (CHEM_FIGURES below) draws no structure: no rdkit
+  # provisioning, no style note — the footer stays green for every other exam.
+  import figural_core as _fc_style
+  STYLE_PROFILE = _fc_style.load_style_profile(f'/home/claude/{EXAM}_section_rules.md')
+  TOK = {'problem': _fc_style.structure_tokens(STYLE_PROFILE, 'problem'),
+         'option': _fc_style.structure_tokens(STYLE_PROFILE, 'option')}
+  ABBREV = (list(STYLE_PROFILE.get('abbreviation_labels') or [])
+            if STYLE_PROFILE.get('abbreviates') is True else None)   # None => no abbreviation
+  STYLE_NOTES = []
+  # The native structure renderer (rdkit) is provisioned unless the in-scope PYQ evidence
+  # shows NO chemistry structure / scheme (section_rules PYQ_IMAGE_ANALYSIS object types,
+  # dominant or observed, none in figure_types.CHEM_R_OBJECT_TYPES). A chart / geometry /
+  # reasoning exam with that evidence never provisions rdkit and never carries a
+  # "renderer degraded" note; an exam WITHOUT the evidence is treated as possibly chemical.
+  import figure_types as _ft_style
+  _img_style = _bc_dsrc.parse_image_analysis_blocks(sr_text)
+  _scope_style = {x.get('subtopic_id') for x in subtopic_list if isinstance(x, dict)}
+  _style_types = []
+  for _sid_s, _rec_s in _img_style.items():
+      if _sid_s in _scope_style:
+          _ots_s = _rec_s.get('object_types') or {}
+          _style_types += list(_ots_s.get('dominant') or []) + list(_ots_s.get('observed') or [])
+  # No recorded object types (no PYQ_IMAGE_ANALYSIS block, empty lists, vision unavailable)
+  # is NOT evidence of "no chemistry": the renderer is then provisioned as before.
+  CHEM_FIGURES = bool(figural_present) and (not _style_types or any(
+      _ft_style.lookup(_ot)['type'] in _ft_style.CHEM_R_OBJECT_TYPES for _ot in _style_types))
+  if CHEM_FIGURES:
+      NATIVE = _fc_style.ensure_native_raster(install=True)
+      NATIVE_OK = bool(NATIVE.get('available'))
+      if STYLE_PROFILE['evidence']['status'] != 'measured':
+          STYLE_NOTES.append('drawing style from framework defaults')
+      elif 'default' in (TOK['problem'].get('source'), TOK['option'].get('source')):
+          # colour / frame were measured, but too few chemistry pictures for print sizes
+          STYLE_NOTES.append('drawing style measured; structure print sizes from framework '
+                             'defaults (too few measured chemistry pictures, or the PYQ '
+                             'pictures are placed at one fixed width)')
+      if not NATIVE_OK:
+          STYLE_NOTES.append('renderer degraded (native structure raster unavailable: '
+                             + ', '.join(NATIVE.get('missing') or []) + ')')
+  else:
+      NATIVE, NATIVE_OK = {'available': False,
+                           'missing': ['not needed: no chemistry structure/scheme in scope']}, False
+  print(f"S3-2S: style={STYLE_PROFILE['evidence']['status']} TOK={TOK} "
+        f"abbreviations={ABBREV} native_raster={NATIVE_OK}")
 
   diff_entry = next((d for d in difficulty_schedule if d['mock'] == N), {})
   n_simple = diff_entry.get('simple', total_questions // 4)
@@ -1916,7 +2141,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       if _dshort:
           _lab, _d = next(iter(_dshort.items()))
           raise SystemExit(
-              f"HARD STOP (S3 difficulty feasibility, v5.60): the schedule asks for "
+              f"HARD STOP [HS:INPUT] (S3 difficulty feasibility, v5.60): the schedule asks for "
               f"{_d['requested']} '{_lab}' questions but this exam's shape can honestly "
               f"hold at most {_d['max_achievable']} — the shared rubric's qtype floor "
               f"makes '{_lab}' unreachable on MSQ/NAT positions (an options-free or "
@@ -1934,20 +2159,53 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # exactly as before.
       _by_sec = diff_entry.get('by_section')
       if _by_sec:
+          # v5.89: by_section is keyed by the BLUEPRINT's own section names (Blueprint S7-5
+          # and ScopedBlueprint S5-P both write them) — so the plan is built over the
+          # blueprint's sections. A scoped paper's single section ("Organic Chemistry",
+          # 1..Q) is not an exam_config section; exam_config.sections is used only when
+          # the blueprint's names do not cover by_section (a pre-v1.57 blueprint).
+          _bp_secs = [{'name': _s['name'], 'q_range': _s['q_range']} for _s in sections
+                      if isinstance(_s, dict) and _s.get('name') and _s.get('q_range')]
+          _plan_secs = (_bp_secs if _bp_secs and set(_by_sec) <= {_s['name'] for _s in _bp_secs}
+                        else _ecfg_dp.get('sections'))
           try:
               difficulty_plan = bc.assign_difficulty_bands_by_section(
-                  _by_sec, _qtype_by_q, _ecfg.get('sections'), difficulty_labels, seed=N)
+                  _by_sec, _qtype_by_q, _plan_secs, difficulty_labels, seed=N)
           except bc.DPError as _e:
-              raise SystemExit(f"HARD STOP (S3 per-section difficulty plan, v5.75): {_e}")
+              raise SystemExit(f"HARD STOP [HS:INPUT] (S3 per-section difficulty plan, v5.75): {_e}")
       else:
           difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
                                                        difficulty_labels, seed=N)
       difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
+      # v5.89: on a RESUMED paper the persisted plan is authoritative — band swaps and R5
+      # accept-at-measured updates changed it after S3; a recomputed plan would disagree
+      # with questions already accepted (G-QINDEX check 6).
+      import os as _os_dp, json as _json_dp
+      _bs_dp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+      # The saved plan is adopted ONLY when it is provably THIS paper's: same paper_id
+      # (batch_state is keyed by the paper NUMBER, so a scoped P1 and MOCK:M01 share
+      # the file), exactly positions 1..total, and the band counts this schedule entry
+      # (which already carries any R5 amendment) asks for.
+      _pid_dp = next((_mk.get('paper_id') for _mk in bp.get('mocks', [])
+                      if _mk.get('mock') == N), None) or f"MOCK:M{N:02d}"
+      if _os_dp.path.exists(_bs_dp):
+          _bsd = _json_dp.load(open(_bs_dp, encoding='utf-8')) or {}
+          _saved_dp = _bsd.get('difficulty_plan')
+          if _saved_dp and _bsd.get('paper_id') == _pid_dp:
+              _cand = {int(k): v for k, v in _saved_dp.items()}
+              _want = {difficulty_labels[0]: n_simple, difficulty_labels[1]: n_medium,
+                       difficulty_labels[2]: n_hard}
+              _have = {l: sum(1 for v in _cand.values() if v == l) for l in difficulty_labels}
+              if set(_cand) == set(range(1, total_questions + 1)) and _have == _want:
+                  difficulty_plan = _cand
+              else:
+                  print(f"S3: saved difficulty_plan does not match this schedule "
+                        f"({_have} vs {_want}) — the fresh plan is used.")
       # v5.75: the profile for CHECK 3c calibration examples — optional, validated
       import os as _os, json as _json
       _pf_p = f'/mnt/project/{EXAM}_difficulty_profile.json'
       PROFILE_CFG = {'exam_code': EXAM, 'total_questions': total_questions,
-                     'sections': _ecfg.get('sections'), 'cycle_gap_days': _ecfg.get('cycle_gap_days'),
+                     'sections': _ecfg_dp.get('sections'), 'cycle_gap_days': _ecfg_dp.get('cycle_gap_days'),
                      'difficulty_labels': difficulty_labels}
       DIFFICULTY_PROFILE = None
       if _os.path.exists(_pf_p):
@@ -1955,7 +2213,29 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               DIFFICULTY_PROFILE = bc.dp_check_profile(_json.load(open(_pf_p, encoding='utf-8')),
                                                        EXAM, difficulty_labels)
           except bc.DPError as _e:
-              raise SystemExit(f"HARD STOP (S3 difficulty profile, v5.75): {_e}")
+              raise SystemExit(f"HARD STOP [HS:INPUT] (S3 difficulty profile, v5.75): {_e}")
+      # v5.89 (GAP-2026-11-02 L1) — CONTENT-COMPLEXITY MODEL for CHECK 3c (b). Built
+      # ONCE from the profile's per-question content vectors (PYQExplain v2.25 §13A) of the
+      # questions in THIS paper's scope; dormant (None / active False) otherwise.
+      CCP_MODEL, METHOD_LEXICON = None, None
+      if DIFFICULTY_PROFILE:
+          _scope_ids = {x.get('subtopic_id') for x in subtopic_list}
+          _pool = []
+          for _pp in (DIFFICULTY_PROFILE.get('papers') or {}).values():
+              for _qr in (_pp.get('questions') or {}).values():
+                  if (isinstance(_qr, dict) and _qr.get('content_vector')
+                          and _qr.get('content_confidence', 'full') == 'full'
+                          and _qr.get('subtopic_id') in _scope_ids
+                          and _qr.get('band') in difficulty_labels):
+                      _pool.append((_qr['content_vector'], _qr['band']))
+          if _pool:
+              _mix = bc.dp_scope_mix(DIFFICULTY_PROFILE, sorted(_scope_ids),
+                                     difficulty_labels,
+                                     gap_days=PROFILE_CFG.get('cycle_gap_days'))
+              CCP_MODEL = bc.ccp_model(_pool, _mix['pct'])
+          if not (CCP_MODEL or {}).get('active'):
+              STYLE_NOTES.append('level control: rubric + independent rating only '
+                                 '(content-complexity model dormant)')
       # Persisted as batch_state.json['difficulty_plan'] = {str(q): label} alongside
       # the rest of the S3 state (same write, same file) so `continue` resumes the
       # identical plan and the CHECK 3c band-swap escape can update it in place.
@@ -2286,9 +2566,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   bp_code  = bp['exam_code']
   reg_code = reg.get('exam_code', bp_code)
   assert bp_code == EXAM, \
-      f"HARD STOP: trigger ExamCode '{EXAM}' != blueprint '{bp_code}'"
+      f"HARD STOP [HS:INFRA]: trigger ExamCode '{EXAM}' != blueprint '{bp_code}'"
   assert bp_code == reg_code, \
-      f"HARD STOP: blueprint exam_code '{bp_code}' != registry '{reg_code}'"
+      f"HARD STOP [HS:INFRA]: blueprint exam_code '{bp_code}' != registry '{reg_code}'"
   ```
 
 ## S3-7 — Blueprint version compatibility check
@@ -2305,7 +2585,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           return (0,)
   if _ver_tuple(blueprint_version) < MIN_BLUEPRINT_VERSION:
       raise SystemExit(
-          f"HARD STOP: blueprint_version '{blueprint_version}' < minimum "
+          f"HARD STOP [HS:INPUT]: blueprint_version '{blueprint_version}' < minimum "
           f"'{'.'.join(str(x) for x in MIN_BLUEPRINT_VERSION)}'. "
           f"Regenerate the blueprint with Framework_Blueprint v1.7+ (subtopic_id contract required).")
   ```
@@ -2327,7 +2607,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           shutil.copy(alt, manifest_path)
   if not os.path.exists(manifest_path):
       raise SystemExit(
-          f"HARD STOP (S3-8 contract): {EXAM}_subtopic_manifest.json not found. "
+          f"HARD STOP [HS:INPUT] (S3-8 contract): {EXAM}_subtopic_manifest.json not found. "
           f"Step 0 publishes it and the user uploads it to the {EXAM} project "
           f"Files section alongside section_rules.md. Upload it, then retry.")
   manifest = json.load(open(manifest_path, encoding='utf-8'))
@@ -2338,7 +2618,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   sr_block_ids = set(re.findall(r'^subtopic_id:\s*(\S+)\s*$', sr_text, re.MULTILINE))
 
   # CONTRACT GATE — every blueprint id must exist in BOTH the manifest AND
-  # section_rules. A missing id = HARD STOP naming the exact id (no silent fallback).
+  # section_rules. A missing id = HARD STOP [HS:INPUT] naming the exact id (no silent fallback).
   contract_failures = []
   legacy_blueprint = False
   for sec_name, id_map in alloc_ids.items():
@@ -2353,14 +2633,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   if legacy_blueprint:
       raise SystemExit(
-          "HARD STOP (S3-8 contract): this blueprint has subtopic_allocations "
+          "HARD STOP [HS:INPUT] (S3-8 contract): this blueprint has subtopic_allocations "
           "without 'subtopic_id'. It predates the v1.7 contract. Regenerate the "
           "blueprint with Framework_Blueprint v1.7+ (which reads the Step 0 "
           "manifest and emits subtopic_id), OR run the one-time migration to add "
           "ids. Step 7 will not string-match — it requires ids.")
   if contract_failures:
       raise SystemExit(
-          "HARD STOP (S3-8 contract): these blueprint subtopic_ids are not "
+          "HARD STOP [HS:INPUT] (S3-8 contract): these blueprint subtopic_ids are not "
           "joinable. Re-run Step 0 (manifest+section_rules) and/or Step 1 so all "
           "three agree:\n  - " + "\n  - ".join(sorted(set(contract_failures))))
 
@@ -2394,7 +2674,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       actual   = sum(allocations.get(sec_name, {}).values())
       if actual != expected:
           raise SystemExit(
-              f"HARD STOP: Section '{sec_name}' allocations sum={actual}, "
+              f"HARD STOP [HS:INPUT]: Section '{sec_name}' allocations sum={actual}, "
               f"expected={expected}. Blueprint may be corrupt or wrong mock.")
   ```
 
@@ -2409,7 +2689,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       )
       if result.returncode != 0 or 'SELF-TEST: ABORT' in (result.stdout or ''):
           raise SystemExit(
-              f"HARD STOP: Audit script self-test failed or ABORTED (engines not importable "
+              f"HARD STOP [HS:INFRA]: Audit script self-test failed or ABORTED (engines not importable "
               f"by the per-exam copy — AUDIT_ENV/ENGINE_ROOT from S3-9 must point at the "
               f"verified clone).\n{result.stdout}\n{result.stderr}")
       print(f"Audit script self-test: {result.stdout.strip()}")
@@ -2429,7 +2709,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   REPLACEMENT_RULE entry for it, pointing to a valid format=TEXT
   subtopic_id (in the same section, or in any section if the entire
   section is FIGURAL_BANNED). If REPLACEMENT_RULE is missing, empty, or
-  points to a nonexistent subtopic_id → HS-16 HARD STOP:
+  points to a nonexistent subtopic_id → HS-16 HARD STOP [HS:INPUT]:
   "FIGURAL_BANNED subtopic [id] has no valid REPLACEMENT_RULE. S7-NEW-B
   OPTION B replacement will fail. Add REPLACEMENT_RULE to section_rules
   before proceeding."
@@ -2520,14 +2800,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                    if os.path.exists(f'{_d}/{EXAM}_stimulus_profile.json')), None)
       if _sgp is None:
           raise SystemExit(
-              f"HARD STOP (S3-12b SAFETY LOCK, v5.85): {EXAM}_stimulus_profile.json "
+              f"HARD STOP [HS:INPUT] (S3-12b SAFETY LOCK, v5.85): {EXAM}_stimulus_profile.json "
               f"is not in Project Files. Run PYQExtract --stimulus-profile first (it "
               f"needs {EXAM}_analysis_progress.json), upload the file it delivers, and "
               f"re-run. A paper already in progress is not affected by this lock.")
       try:
           _prof = json.load(open(_sgp, encoding='utf-8'))
       except (OSError, ValueError) as _e:
-          raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} is not readable "
+          raise SystemExit(f"HARD STOP [HS:INPUT] (S3-12b): {os.path.basename(_sgp)} is not readable "
                            f"JSON ({_e}). Re-run PYQExtract --stimulus-profile and "
                            f"replace the file.")
       # v5.87 (GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS): the profile is EXAM-wide
@@ -2536,7 +2816,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # is the same source the profile was built from — never against `sections`,
       # which for a SUBJ/TOPIC/SUBTOPIC paper holds only the scoped section(s).
       # Before v5.87 every scoped paper of a multi-section exam whose profile
-      # carried a set type in another section HARD STOPPED here. A mock paper
+      # carried a set type in another section HARD STOPPED [HS:PROSE] here. A mock paper
       # (sections == every exam section) is byte-identical in effect.
       _exam_sections = sorted({_r.get('section') for _r in MANIFEST_IDS.values()
                                if isinstance(_r, dict) and _r.get('section')}
@@ -2545,7 +2825,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           _prof, exam_code=EXAM, manifest={'subtopics': MANIFEST_IDS},
           section_names=_exam_sections)
       if _probs:
-          raise SystemExit(f"HARD STOP (S3-12b): {os.path.basename(_sgp)} does not fit "
+          raise SystemExit(f"HARD STOP [HS:INPUT] (S3-12b): {os.path.basename(_sgp)} does not fit "
                            f"this exam — " + '; '.join(_probs) + ". Re-run PYQExtract "
                            "--stimulus-profile (after any taxonomy change) and replace "
                            "the file.")
@@ -2566,7 +2846,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   _alloc_q, tuple(_s['q_range']), _meta_q, _sg_groups, _prof,
                   seed=paper_index)
           except bc.PlacementError as _e:
-              raise SystemExit(f"HARD STOP (S3-12b): section '{_s['name']}': "
+              raise SystemExit(f"HARD STOP [HS:INPUT] (S3-12b): section '{_s['name']}': "
                                f"{_e} — the blueprint allocation is "
                                f"structurally impossible for this section; "
                                f"fix it at MockBlueprint, never by dropping "
@@ -2620,7 +2900,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # ── v5.85 SET-PLACED PAPER WHOSE batch_state LOST ITS PLAN (S4-12 step 2
       # rebuilt it from the docx). The plan is DETERMINISTIC, so it is rebuilt from
       # the profile and PROVEN against every authored question before it is used;
-      # any disagreement (e.g. the profile was replaced meanwhile) is a HARD STOP —
+      # any disagreement (e.g. the profile was replaced meanwhile) is a HARD STOP [HS:INFRA] —
       # re-placing authored questions is never an option.
       STIM_PROFILE = _stim_load_profile()
       subtopic_by_qnum, placement_report, STIM_PLAN, STIM_GID_BY_Q = \
@@ -2632,7 +2912,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                  or STIM_GID_BY_Q.get(int(_q)) != (_r or {}).get('stimulus_group_id')]
       if _bad_rb:
           raise SystemExit(
-              f"HARD STOP (S3-12b RESUME, v5.85): batch_state lost its plan and the "
+              f"HARD STOP [HS:INFRA] (S3-12b RESUME, v5.85): batch_state lost its plan and the "
               f"rebuilt set plan disagrees with authored Q.{sorted(_bad_rb)[:10]} — the "
               f"stimulus profile or blueprint changed after this paper started. Restore "
               f"{EXAM}_M{N}_batch_state.json (or the profile it was built with) and "
@@ -2669,7 +2949,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               _authored[int(_qs)] = _asid
       if not _authored:
           raise SystemExit(
-          "HARD STOP (S3-12b RESUME): batch_state says batches are complete "
+          "HARD STOP [HS:INFRA] (S3-12b RESUME): batch_state says batches are complete "
           "but the answer_key concept_map yields no q->subtopic map — the "
           "authored questions cannot be frozen without it. This is data "
           "corruption (missing/empty answer_key), not an adjacency finding; "
@@ -2687,7 +2967,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               _remaining[_sid] = _remaining.get(_sid, 0) - 1
           if any(v < 0 for v in _remaining.values()):
               raise SystemExit(
-              f"HARD STOP (S3-12b RESUME): section '{_s['name']}': the "
+              f"HARD STOP [HS:INFRA] (S3-12b RESUME): section '{_s['name']}': the "
               f"answer_key concept_map holds MORE questions of some subtopic "
               f"than the blueprint allocates — the two artefacts disagree "
               f"about what was built. Data corruption, not an adjacency "
@@ -2696,7 +2976,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           _rem_lo = (max(_sect_auth) + 1) if _sect_auth else _lo
           if sum(_remaining.values()) != _hi - _rem_lo + 1:
               raise SystemExit(
-              f"HARD STOP (S3-12b RESUME): section '{_s['name']}': remaining "
+              f"HARD STOP [HS:INFRA] (S3-12b RESUME): section '{_s['name']}': remaining "
               f"allocation sums to {sum(_remaining.values())} but "
               f"Q.{_rem_lo}-Q.{_hi} holds {_hi - _rem_lo + 1} position(s) — "
               f"authored questions are not the contiguous prefix the Batch "
@@ -2716,12 +2996,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                     f"pairs come from the old blueprint-order placement or "
                     f"sit on the authored/remaining boundary, which cannot "
                     f"be re-arranged); record this as a §R13 limitation in "
-                    f"the delivery footer. NEVER a HARD STOP on a resume.")
+                    f"the delivery footer. NEVER a HARD STOP [HS:PROSE] on a resume.")
 
   else:
       # ── FRESH PAPER: build the plan, one section at a time. ────────────────
       # v5.85 (GAP-2026-09-21-LINKED-PLACEMENT): a NEW paper is ALWAYS set-aware —
-      # _stim_load_profile is the SAFETY LOCK (no profile → HARD STOP before Q.1).
+      # _stim_load_profile is the SAFETY LOCK (no profile → HARD STOP [HS:INPUT] before Q.1).
       # ONE exception keeps the legacy promise: questions already authored in the
       # first, unfinished batch of a paper started before the profile existed
       # (answer_key concept_map without stimulus_group_id). That paper is placed
@@ -2745,7 +3025,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           _got = len(_rp['adjacent_same_concept_group'])
           if _got > _floor:
               raise SystemExit(
-                  f"HARD STOP (S3-12b / G-CLUSTER): section '{_sn}' placement "
+                  f"HARD STOP [HS:INFRA] (S3-12b / G-CLUSTER): section '{_sn}' placement "
                   f"leaves {_got} adjacent same-concept_group pair(s); {_floor} "
                   f"is provably the minimum for this allocation "
                   f"(bc.min_possible_adjacent over concept-group-aggregated "
@@ -2772,7 +3052,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   THE THREE BRANCHES, in law form: a paper WITH a persisted plan resumes on
   it FROZEN; a pre-v5.77 paper WITH authored questions freezes them from the
   answer_key concept_map and places only the un-authored remainder (adjacency
-  findings on it are §R13 DISCLOSURES, never stops — the only HARD STOPs on
+  findings on it are §R13 DISCLOSURES, never stops — the only HARD STOP [HS:INFRA]s on
   a resume are artefact-consistency faults, where answer_key, batch_state and
   blueprint disagree about what exists); a paper with NO authored questions
   is placed fresh and gated by the G-CLUSTER pre-flight.
@@ -2985,7 +3265,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # way") was FALSE and is retracted: an empty exclusion set puts every multi Q into the
   # free answer pool and skews K-BAL paper-wide (GAP-2026-08-28-PLACEMENT-UNSPECIFIED).
   # The plan is ALWAYS materialised — S3-12b runs before this step — and the reads
-  # below HARD STOP if it is not. The empty set below is an initialiser only.
+  # below HARD STOP [HS:INFRA] if it is not. The empty set below is an initialiser only.
   msq_positions = set()
   if multi_present:
       if _position_based_typing:
@@ -3002,7 +3282,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           # exam without position-based typing. A missing plan is a producer
           # fault, never a dormancy condition.
           if not subtopic_by_qnum:
-              raise SystemExit("HARD STOP (S3-13): no placement plan. S3-12b "
+              raise SystemExit("HARD STOP [HS:INFRA] (S3-13): no placement plan. S3-12b "
                                "must run before the answer budget — the MSQ "
                                "exclusions are derived from placement.")
           msq_positions = {q for q, sid in subtopic_by_qnum.items() if sid in multi_ids}
@@ -3016,9 +3296,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           nat_positions = {q for q in range(1, total_questions + 1) if _type_for_q(q) == 'NAT'}
       else:
           nat_ids = {sid for sid, at in answer_type_by_id.items() if at == 'numerical'}
-          # v5.77 FIX-3 (same law as the MSQ read above): no plan ⇒ HARD STOP.
+          # v5.77 FIX-3 (same law as the MSQ read above): no plan ⇒ HARD STOP [HS:INFRA].
           if not subtopic_by_qnum:
-              raise SystemExit("HARD STOP (S3-13): no placement plan. S3-12b "
+              raise SystemExit("HARD STOP [HS:INFRA] (S3-13): no placement plan. S3-12b "
                                "must run before the answer budget — the NAT "
                                "exclusions are derived from placement.")
           nat_positions = {q for q, sid in subtopic_by_qnum.items() if sid in nat_ids}
@@ -3139,6 +3419,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                                      # resume reads). Each group's 'stimulus' is
                                      # filled ONCE by stim_register (R-STIMGROUP)
                                      # and reused verbatim by every member.
+      # v5.89: the plan S3 built, persisted at INIT so a resume restores it (S3 checks
+      # paper_id + counts); band swaps and R5 rewrite it in place. None = dormant.
+      'difficulty_plan': ({str(q): lab for q, lab in difficulty_plan.items()}
+                          if difficulty_plan else None),
+      'bp_project_sha': dict(BP_PROJECT_SHA),   # v5.89: which project blueprint this paper
+                                                # started from (S3-1 keep-amended rule)
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
                                       # Populated at S3-18 from the figural manifest scan.
                                       # At generation time: set rendered=true after
@@ -3215,13 +3501,13 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   if problems:
       raise SystemExit(
-          "HARD STOP (S3-17): blueprint mandate/alternation violations for Mock "
+          "HARD STOP [HS:INPUT] (S3-17): blueprint mandate/alternation violations for Mock "
           f"{N}:\n  - " + "\n  - ".join(problems) +
           "\n\nThese are BLUEPRINT defects (Step 1 should prevent them at build "
           "time under Framework_Blueprint v1.11 RULE M1/M2/M4/M5/M6). Fix: "
           "regenerate the blueprint with v1.11 (enforces mandates by construction), "
-          "or correct this mock's allocation, then retry. Step 7 does not auto-edit "
-          "the blueprint.")
+          "or correct this mock's allocation, then retry. Step 7 never auto-edits the "
+          "blueprint to resolve this (its only in-run edits are S3-2D and ladder R5).")
   ```
 
   NOTE ON THE OLD FALSE ALARMS: under the manifest contract, "Mensuration 3D
@@ -3270,7 +3556,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   parameter and returns `{}` UNCONDITIONALLY whenever it is True, so the check is
   simply inert — never wrong — on any exam where it would not be meaningful.
 
-  ADVISORY ONLY — never a HARD STOP, mirroring `axis1_feasibility`'s own established
+  ADVISORY ONLY — never a HARD STOP [HS:PROSE], mirroring `axis1_feasibility`'s own established
   contract exactly ("Subtopic is hard #1"; Axis-1/Axis-3 are locked CONSEQUENCES of
   allocation, steered and audited within tolerance, never force-blocking on it).
   Absent-safe: no `axis_schedule` (pre-v1.23 blueprint), a section whose status isn't
@@ -3339,7 +3625,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   try:
       import figure_types as ft
   except ImportError:
-      raise SystemExit("HARD STOP (S3-17c / HS-17): figure_types.py is not in the verified "
+      raise SystemExit("HARD STOP [HS:INFRA] (S3-17c / HS-17): figure_types.py is not in the verified "
                        "clone — re-run SKILL Step 0.")
   FT_SESSION = ft.preflight()                       # which renderers THIS session can load
   _blocks = bc.parse_image_analysis_blocks(sr_text)              # S3-2's section_rules text
@@ -3354,7 +3640,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       _cfg = json.load(open(_cfg_path, encoding='utf-8')) if os.path.exists(_cfg_path) else {}
       _policy = str(_cfg.get('figure_fallback_policy', 'hard_stop')).strip().lower()
   if _policy not in bc.FIGURE_FALLBACK_POLICIES:
-      raise SystemExit(f"HARD STOP (S3-17c): figure_fallback_policy={_policy!r} is not one of "
+      raise SystemExit(f"HARD STOP [HS:INPUT] (S3-17c): figure_fallback_policy={_policy!r} is not one of "
                        f"{bc.FIGURE_FALLBACK_POLICIES}. Fix exam_config.json / the blueprint.")
   KIND_COVERAGE = bc.kind_coverage_preflight(
       _my_allocs, _blocks, lambda types: ft.coverage(types, session=FT_SESSION),
@@ -3369,7 +3655,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                  f"numpy scipy fonttools rdkit --break-system-packages, then re-run the trigger."
                  for u in KIND_COVERAGE['unavailable_blocking']]
   if _stops:
-      raise SystemExit("HARD STOP (S3-17c, HS-17 — LAW F1 FIGURE-TYPE-COVERAGE): this paper "
+      raise SystemExit("HARD STOP [HS:INFRA] (S3-17c, HS-17 — LAW F1 FIGURE-TYPE-COVERAGE): this paper "
                        "needs a figure type this session cannot render:\n  " + "\n  ".join(_stops))
   _new_fb = {s: ty for s, ty in KIND_COVERAGE['fallbacks'].items() if s not in FIGURAL_FALLBACKS}
   if _new_fb:
@@ -3377,7 +3663,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # subtopic TEXT and recorded it). A fallback computed in-session would be rendered but
       # NEVER disclosed — the Deliver footer reads blueprint.figural_fallbacks — so the one
       # honest move is to have the blueprint record it. Type-2 stop, one operator action.
-      raise SystemExit(f"HARD STOP (S3-17c, HS-17): policy text_disclosed applies to {sorted(_new_fb)} "
+      raise SystemExit(f"HARD STOP [HS:INPUT] (S3-17c, HS-17): policy text_disclosed applies to {sorted(_new_fb)} "
                        f"but this blueprint predates the KIND-COVERAGE record (no figural_fallbacks). "
                        f"Regenerate it with Framework_Blueprint v1.61.0+ / Framework_ScopedBlueprint "
                        f"v1.11.0+ (the fallback is then allocated TEXT and disclosed in every footer), "
@@ -3489,7 +3775,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   ```
   STOP HERE. Wait for "continue".
 
-## S3-19 — HARD STOP conditions
+## S3-19 — HARD STOP [HS:INPUT] / [HS:INFRA] conditions (each line carries its own class)
 
   HS-1: Any mandatory file missing from /mnt/project/
   HS-2: Section allocation sums mismatch
@@ -3513,7 +3799,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   HS-15: (v5.13) figural_present is True but zero subtopics in this mock have
         section_rules format==FIGURAL. Either the blueprint flag is wrong
         (should be False) or section_rules format fields are stale.
-        Non-blocking WARN (not HARD STOP): figural_present may be series-level
+        Non-blocking WARN (not HARD STOP [HS:PROSE]): figural_present may be series-level
         — this specific mock simply has no figural Qs while others in the series do.
   HS-15a: (v5.13 REVERSE; v5.88 SELF-CORRECTING — LAW F3.4) figural_present is False
         but ≥1 subtopic in this mock has format==FIGURAL. The blueprint flag is wrong.
@@ -3530,12 +3816,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         found a dominant figure type this paper needs that (a) the registry marks
         UNSUPPORTED with no text_disclosed fallback recorded in the blueprint, or (b) is
         supported but its renderer cannot load IN THIS SESSION (rdkit / matplotlib absent).
-        HARD STOP naming subtopic, type and the ONE operator action: (a) regenerate the
+        HARD STOP [HS:INFRA] naming subtopic, type and the ONE operator action: (a) regenerate the
         blueprint under figure_fallback_policy text_disclosed; (b) run the SKILL Step 0
         pip line and re-run the trigger. A Type-2 input-integrity stop: nothing was
         authored, so nothing is lost; a figure can never be discovered unrenderable at Q.14.
   HS-16: (v5.13) FIGURAL_BANNED subtopic has no valid REPLACEMENT_RULE. See S3-11.
-        HARD STOP — S7-NEW-B OPTION B replacement will fail silently without it.
+        HARD STOP [HS:INPUT] — S7-NEW-B OPTION B replacement will fail silently without it.
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -3557,7 +3843,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   HS-16: (v5.77 — GAP-2026-08-28-RDKIT-UNDECLARED) STRUCTURE-RENDERER
         PRE-FLIGHT. If ≥1 subtopic allocated to THIS paper has section_rules
         format==FIGURAL, run figural_core.preflight() and require
-        preflight()['can_render_structures'] (rdkit importable). HARD STOP
+        preflight()['can_render_structures'] (rdkit importable). HARD STOP [HS:INFRA]
         with the exact install line — `pip install matplotlib pillow numpy
         scipy fonttools rdkit --break-system-packages` — if it is False.
         WHY BEFORE Q.1: corpus_io.structure_draw_fn RAISES when rdkit is
@@ -3808,12 +4094,38 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                                      MO_DIAGRAM, ORBITAL_BOXES, GENERIC …)
                  row['semantic_kinds'][0] is the kind the semantic object registers;
                  row['render_classes'] bounds the S10-6A class the FigureSpec declares.
+               ── ASK TYPE (v5.89 — GAP-2026-11-02 F8) ─────────────────────────
+               What the figure ASKS is apportioned like everything else the exam
+               measures: the blueprint carries fig_ask_target_per_mock[N][section]
+               ({ask_type: count}, bc.fig_ask_series over the series — a 5% type
+               appears about every second paper and is never rounded away), and
+               section_rules PYQ_IMAGE_ANALYSIS carries the subtopic's
+               figural_ask_type_counts (Step 5, from PYQExplain's per-question
+               tags; vocabulary figure_types.FIGURAL_ASK_TYPES — CHEMISTRY's: every
+               non-chemistry figure is tagged "other", and a slot assigned "other"
+               carries no ask-type constraint at all). Each figural slot
+               takes ask_type = bc.assign_ask_type(remaining, subtopic_shares)
+               (largest remaining target with share > 0 in this subtopic; ties:
+               larger subtopic share, then alphabetical). Formats seen in the
+               exam's PYQs are therefore produced in the exam's proportion —
+               "identify the start", "the reagents", "which reaction A-D", "which
+               structures A-D", stereoisomer counts, chairs, "+" partners — and the
+               reagents-in-figure choice follows the subtopic's numbered_steps /
+               reagent_as_structure share. RECORD figural_ask_type, representations
+               and scheme_grammar on the item: pass them (and marked_sites) to
+               write_q_to_sidecar (concept_map -> question_index, final_assembly v1.11).
+               A-FIGFORMAT reports the per-paper mix (+/- max(1, 15%)); the ladder
+               switches an over-target item only to an UNDER-target type valid for
+               its subtopic (R3), so it never pushes another type out of band; a
+               deviation it cannot remove is recorded as target infeasibility,
+               never a defect. No target in the blueprint (built before v1.62.0 /
+               ScopedBlueprint v1.12.0) or no counts in section_rules -> dormant.
                NEVER RECORD A TYPE WHOSE ROW WAS NOT THE ONE THAT RENDERED THE
                FIGURE. A 'reaction_scheme' label over a single-molecule tile is a
                FALSE RECORD (G-FIGTYPE-KIND HARD FAIL, S4-11), not a near miss —
                the reference registry held 287 of them.
                FALLBACK CONTRACT: a dominant type the session cannot render never
-               reaches this point (S3-17c HARD STOPs); a subtopic in
+               reaches this point (S3-17c HARD STOP [HS:INFRA]s); a subtopic in
                FIGURAL_FALLBACKS was allocated TEXT by Step 6 and never enters the
                figural dispatch at all (disclosed by the footer). There is no third
                path — mislabelling and omission are both gated.
@@ -4326,7 +4638,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        and checked against batch_state.registry_pin. In a BRAND-NEW chat the
        attachment from the earlier chat is gone — re-attach the SAME registry to the
        resume trigger, or have it in Project Files; a missing registry in both lanes
-       is the S3-1 HARD STOP, a different one is the R4 HARD STOP.
+       is the S3-1 HARD STOP [HS:INPUT], a different one is the R4 HARD STOP [HS:INPUT].
     1. Load batch_state.json. Read current_batch and batches_completed.
     2. If batch_state.json is missing:
          - Load the most recent cumulative docx for Mock N.
@@ -4348,7 +4660,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         remaining contiguous range, the whole map is audited with
         bc.audit_placement, and adjacency findings are reported as a §R13
         limitation. Adjacency NEVER hard-stops a resume; the only resume
-        HARD STOPs are artefact-consistency faults (answer_key, batch_state
+        HARD STOP [HS:INFRA]s are artefact-consistency faults (answer_key, batch_state
         and blueprint disagreeing about what exists).
     4b. REHYDRATE THE LEDGERS (v3.9 G3 — mandatory, else resume can clone):
         mock_scenario_ledger     = set(bs.get('concept_ledger', []))
@@ -4893,7 +5205,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
     WHERE SUBTOPIC_CLASS IS SET (G1): during the S3-8 subtopic_id join, for every
     joined subtopic do `subtopic_data['SUBTOPIC_CLASS'] = classify_subtopic(...)`.
-    S7-CONCEPT asserts it is present before generating; absence is a HARD STOP
+    S7-CONCEPT asserts it is present before generating; absence is a HARD STOP [HS:INFRA]
     (generator bug, not a silent default).
     v4.5: at the SAME join, set `subtopic_data['answer_cardinality'] =
     answer_cardinality_by_id.get(subtopic_id, 'single')` (whole-subtopic mode from the
@@ -5058,6 +5370,57 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         Counting a question in a lower level's step-units inflates
         every score and mislabels the whole paper for its audience; Step 9's
         §7A-M re-count at the same anchor is the cross-check that exposes it.
+        v5.89 — TWO EVIDENCE CHECKS THE AUTHOR DOES NOT CONTROL (GAP-2026-11-02
+        L1/L3; owner decision 2026-11-02 "holes 2-4"). The rubric above scores
+        evidence the AUTHOR declares; measured on a delivered paper, 24 items
+        declared 5-6 steps and labelled Hard were easier than the real exam's
+        Medium items. Two checks anchor the label to the EXAM ITSELF:
+          (a) INDEPENDENT RATING — every item, every exam [CLASS: J]. After the
+              item and its solution are final, rate it BLIND: take
+              EX = bc.difficulty_exemplars(DIFFICULTY_PROFILE, subtopic_id,
+              section, difficulty_labels, k=3,
+              gap_days=PROFILE_CFG.get('cycle_gap_days')) — real past questions of THIS
+              exam per band (subtopic -> topic -> section cascade) — and, WITHOUT
+              looking at difficulty_plan[q] or difficulty_obs, decide which
+              band's exemplars the new item most resembles in what a candidate
+              must know and do. Write the rationale (one sentence citing the
+              exemplar it matches) and the band: rated_band. This is model
+              judgement over data already in context; it is recorded, never
+              re-derived from the author's own counts. DORMANT when EX holds no
+              exemplar for at least two bands (no profile, or a profile without
+              this scope's questions): rated_band = difficulty_plan[q] (no
+              anchor, so no override), recorded with rationale "no exemplars".
+          (b) CONTENT FLOOR — chemistry structure items (chem-R) only. When
+              DIFFICULTY_PROFILE carries per-question content vectors (PYQExplain
+              v2.25 §13A) and CCP_MODEL (built once for this paper's scope, S3) is active:
+              ccp = bc.ccp_floor_check(CCP_MODEL, bc.content_vector(objects,
+              answer_smiles, METHOD_LEXICON), difficulty_plan[q],
+              difficulty_labels). 'below' means the drawn chemistry is simpler
+              than the exam's own items of that band — a finding; 'above' is
+              allowed and recorded. Dormant (footer "level control: rubric + independent rating only (content-complexity model dormant)")
+              when the pool has < 20 transcribed items.
+          DECISION: r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
+          ccp['status'] if ccp else None, labels=difficulty_labels). 'agree' ->
+          ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER with reason
+          r['reason'] ('harder' / 'easier'; A-DIFFRATING / A-CONTENTLEVEL), R2
+          first. At R5, bc.ladder_terminal_accept(scheduled, measured) accepts
+          at the measured band with the in-run schedule amended (above) — ONLY
+          when difficulty_min_band allows the measured band at this slot's
+          qtype; otherwise R5 takes its REASSIGN path (§Q8b-LADDER) at the
+          scheduled band. Either way set difficulty_plan[q] = final_band and
+          persist batch_state['difficulty_plan'] in the same write.
+          PRECEDENCE (one rule): the independent rating and the content floor
+          DECIDE the band (final_band). difficulty_obs is the author's count of
+          the item's derivation load; where it disagrees with final_band the
+          COUNTS are re-done from the written solution (never the label bent to
+          the counts) BEFORE THE GATE below runs — so THE GATE checks the
+          corrected obs against final_band, and its REJECT path is reached only
+          when the written item itself does not support final_band.
+          RECORD on the item (write_q_to_sidecar -> concept_map -> registry
+          question_index): difficulty_check = {'scheduled', 'rated', 'rationale',
+          'ccp_status', 'ccp_composite', 'decision', 'final_band'}; the item's
+          difficulty label IS final_band. Auditor gate A-CONTENTLEVEL verifies
+          the record is resolved.
         THE GATE: ok, measured = bc.verify_difficulty_obs(difficulty_plan[q],
         difficulty_obs, difficulty_labels). If not ok:
           → REJECT. Regenerate TOWARD the band using the profile (add or remove
@@ -5067,11 +5430,24 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             slot q' exists in the SAME section with difficulty_plan[q'] ==
             measured and difficulty_min_band allows this slot's band at q',
             swap the two plan entries (quota unchanged, floors re-checked) and
-            accept; update batch_state['difficulty_plan']. Otherwise HARD STOP
-            naming q, the band, the measured label and the six profiles tried —
-            never accept a question whose label its own evidence contradicts.
-        On ACCEPT: pass difficulty=difficulty_plan[q] AND difficulty_obs to
-        write_q_to_sidecar — the label and its evidence travel together into
+            accept; update batch_state['difficulty_plan'] AND set this item's
+            difficulty_check.final_band (and decision 'agree') to its swapped band —
+            A-CONTENTLEVEL requires label == final_band. Otherwise the slot
+            enters the REPAIR LADDER (§Q8b-LADDER) with reason 'harder'/'easier':
+            R2 (regenerate, same subtopic/band/ask type) -> R3 (next under-target
+            ask type) -> R4/R4' (terminal) -> R5: ACCEPT AT THE MEASURED BAND and
+            amend the IN-RUN blueprint in place with
+            bc.amend_schedule_in_place(bp, N, section, band, measured,
+            'measured_band') followed AT ONCE by persist_bp_amendment() (S3-2D),
+            difficulty_plan[q] = measured and batch_state['difficulty_plan'] saved —
+            one count moves from the scheduled band to the measured one, logged in
+            bp['difficulty_amendments'] and written to BP_SRC_PATH [HS:LADDER R5].
+            The label then MATCHES its evidence, so the rule "never accept a
+            question whose label its own evidence contradicts" still holds, and
+            the run never stops for it.
+        On ACCEPT: pass difficulty=final_band (== difficulty_plan[q], kept in
+        step by the band swap and R5 above), difficulty_obs AND
+        difficulty_check to write_q_to_sidecar — the label and its evidence travel together into
         registry.question_index (S13-4) and are what A-QINDEX checks 7/8 and
         Step 9's advisory re-measure (TestExplain §7A-M) verify downstream.
 
@@ -5081,17 +5457,17 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         ```python
         def g_diff_gate(q, band, qtype, difficulty_obs, difficulty_labels,
                         diff_tries):
-            """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_STOP' for this candidate."""
+            """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_LADDER' for this candidate."""
             import blueprint_core as bc          # S1-2b engine (already on sys.path)
             MAX_DIFF_TRIES = 6
             profile = bc.difficulty_authoring_profile(band, qtype,
                                                       difficulty_labels)
             # profile is None ONLY for a bottom-band MSQ/NAT slot, which the S3
             # plan can never produce (floors) — None here means the plan was
-            # modified outside bc.assign_difficulty_bands: a tamper HARD STOP,
+            # modified outside bc.assign_difficulty_bands: a tamper HARD STOP [HS:INFRA],
             # never a skip.
             if profile is None:
-                raise SystemExit(f"HARD STOP (G-DIFF, v5.60): no authoring "
+                raise SystemExit(f"HARD STOP [HS:INFRA] (G-DIFF, v5.60): no authoring "
                                  f"profile for band {band!r} at Q{q} ({qtype}) "
                                  f"— rebuild the difficulty_plan.")
             # (the candidate was authored INSIDE `profile`, its answer derived,
@@ -5103,7 +5479,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
             if diff_tries[str(q)] < MAX_DIFF_TRIES:
                 return 'RETRY'          # regenerate toward `band`, per profile['note']
-            return 'SWAP_OR_STOP'       # band-swap escape, else HARD STOP (rules above)
+            return 'SWAP_OR_LADDER'     # band-swap escape, else LADDER-REPAIR R5 [HS:LADDER] (rules above)
         ```
 
       Only when CHECK 1, 1b, 2, 3 all PASS:
@@ -5143,7 +5519,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 ## S6-9 — Cross-mock variant rotation (v4.4 — exam-agnostic; config-driven)
 
   v4.4 CHANGE: This section no longer hardcodes any subtopic name, pair, or
-  parity table. It carries NO mutual-exclusion HARD STOP. It mirrors S3-17's
+  parity table. It carries NO mutual-exclusion HARD STOP [HS:PROSE]. It mirrors S3-17's
   contract: read structured policy from config (manifest + section_rules) by
   subtopic_id; if the config declares nothing, this is a no-op (never a stop).
 
@@ -5151,7 +5527,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   ── A. MUTUAL EXCLUSION (members must NOT co-occur in one mock) ──
     NOT enforced here. This invariant is owned SOLELY by S3-17, which reads
-    manifest.alternation_groups by subtopic_id BEFORE generation and HARD STOPs
+    manifest.alternation_groups by subtopic_id BEFORE generation and HARD STOP [HS:INPUT]s
     if any group has >1 member allocated to the mock (HS-12). The post-generation
     audit backstop is G-ALTGROUP (S12-NEW-6). S6-9 holds no pair list and never
     re-checks this — duplicating it with hardcoded names is exactly the v3.4
@@ -6023,24 +6399,24 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   def stim_register(qnum, stimulus_text=None):
       """Return THE stimulus of qnum's set. First call for a set (stimulus_text
       given) stores it in batch_state and on disk; every later call returns the
-      stored text — passing a DIFFERENT text is a HARD STOP (rule 1)."""
+      stored text — passing a DIFFERENT text is a LADDER-REPAIR R1 [HS:LADDER] (rule 1)."""
       import hashlib
       gid = stim_group_of(qnum)
       if gid is None:
-          raise SystemExit(f"HARD STOP (R-STIMGROUP): Q.{qnum} is not in a set.")
+          raise SystemExit(f"HARD STOP [HS:INFRA] (R-STIMGROUP): Q.{qnum} is not in a set.")
       _bsp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
       _bs = json.load(open(_bsp, encoding='utf-8'))
       _g = _bs['stimulus_groups'][gid]
       if _g.get('stimulus') is None:
           if not stimulus_text:
-              raise SystemExit(f"HARD STOP (R-STIMGROUP): set {gid} has no stimulus "
+              raise RuntimeError(f"LADDER-REPAIR R2 [HS:LADDER] (R-STIMGROUP): set {gid} has no stimulus "
                                f"yet — author it and pass it for its first member.")
           _g['stimulus'] = stimulus_text
           _g['stimulus_sha256'] = hashlib.sha256(stimulus_text.encode('utf-8')).hexdigest()
           json.dump(_bs, open(_bsp, 'w', encoding='utf-8'))
           STIM_PLAN[gid] = _g
       elif stimulus_text is not None and stimulus_text != _g['stimulus']:
-          raise SystemExit(f"HARD STOP (R-STIMGROUP): Q.{qnum} carries a stimulus that "
+          raise RuntimeError(f"LADDER-REPAIR R1 [HS:LADDER] (R-STIMGROUP): Q.{qnum} carries a stimulus that "
                            f"differs from set {gid}'s registered stimulus — every "
                            f"member embeds the registered text byte-identically.")
       return _g['stimulus']
@@ -6069,7 +6445,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           nat_grading_type=None, nat_grading_value=None,
                           stem_precision=None,
                           subtopic_id, difficulty, difficulty_obs,
-                          style_obs, distractor_mechanisms, pyq_dist):
+                          style_obs, distractor_mechanisms, pyq_dist,
+                          # v5.89 (GAP-2026-11-02) — OPTIONAL per-question records, written
+                          # only when given (a legacy record stays byte-identical) and carried
+                          # into registry.question_index by final_assembly v1.11:
+                          difficulty_check=None,     # CHECK 3c decision record (A-CONTENTLEVEL)
+                          figural_ask_type=None,     # F8 ask type (A-FIGFORMAT)
+                          representations=None,      # F8 representation tags
+                          scheme_grammar=None,       # F8 scheme grammar tag
+                          marked_sites=None,         # Q7b.8' declaration (figural Qs)
+                          ladder=None):              # L4 {rung, reasons, attempts}
       # v5.82 (GAP-2026-08-29-STYLE-FIDELITY §6.5.5): the three style fields are
       # keyword-only with NO default, on the v5.52 argument exactly and for the
       # same reason — a default lets a call site silently persist `null` and the
@@ -6174,6 +6559,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       if STIM_ACTIVE:
           key_data["concept_map"][str(qnum)]["stimulus_group_id"] = \
               STIM_GID_BY_Q.get(int(qnum))
+      # v5.89 — the optional records, ONLY when given (never a null placeholder)
+      for _k, _v in (("difficulty_check", difficulty_check), ("figural_ask_type", figural_ask_type),
+                     ("representations", representations), ("scheme_grammar", scheme_grammar),
+                     ("marked_sites", marked_sites), ("ladder", ladder)):
+          if _v is not None:
+              key_data["concept_map"][str(qnum)][_k] = _v
 
       if is_ga and fact_text:
           key_data["sources"][str(qnum)] = {
@@ -6330,7 +6721,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   OPTION A (generate real image — DECOMPOSED, v4.0):
     Render via matplotlib at FIGURAL_DPI=300 and place via §10-S10-7/S10-8.
-    DECOMPOSITION MANDATE (R-FIGURAL — HARD STOP): a figural MCQ is rendered as
+    DECOMPOSITION MANDATE (R-FIGURAL — LADDER-REPAIR R1 [HS:LADDER]): a figural MCQ is rendered as
       • the problem/series figure(s) as their OWN image(s), AND
       • EACH option as its OWN separate image — one image per option,
         bound 1:1 to its "i." label, stacked SINGLE-COLUMN (one option per line).
@@ -6359,7 +6750,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     NEVER deliver: text descriptions of what an image would show.
     NEVER mark as "Image will be added later."
     A question is either a real image (Option A) or a real text replacement (Option B).
-    Nothing in between. HARD STOP if a text placeholder is found before delivery.
+    Nothing in between. LADDER-REPAIR R4 [HS:LADDER] if a text placeholder is found before delivery.
 
 ## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)
 
@@ -6394,12 +6785,30 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                  'below': ['CH₂Cl₂, −78 °C'], 'reagent_mol': None}},        # G2/G3/G4 (≤2 lines each side)
       {'placeholder': 'A'},                                               # G5  |  {'bracket': 'A'} → G6
   ]}
-  draw = cio.render_scheme(scheme)        # ONE draw_fn: tiles via structure_draw_fn, arrows/text artists
+  # v5.89 (GAP-2026-11-02 F1): PRINT-TRUE — the scheme draws itself at the paper's
+  # problem tokens (TOK, S3-2S): one bond length for every molecule of every scheme,
+  # monochrome unless the exam's PYQs are measured coloured, natural size, re-flow on
+  # overflow. NATIVE_OK False (degraded rdkit) -> legacy call, AMBER footer note.
+  draw = (cio.render_scheme(scheme, tokens=TOK['problem']) if NATIVE_OK
+          else cio.render_scheme(scheme))
   cc = fc.colour_is_content(stem_text, option_texts)                  # Q7b.13 — monochrome when colour is the ask
   png = f'/home/claude/q{qnum}_problem.png'                           # S10-8 canonical name
+  # marked_sites: the S7 author's MARK-IFF-NAMED declaration (Q7b.8'); [] when the stem
+  # names no site — the figure then carries no mark of any kind. For a SCHEME every entry
+  # also carries "tile": the molecule's index in draw.tiles (molecules numbered in drawing
+  # order — each {'mol'} item, an arrow's reagent_mol, and each member of a 'pair' count
+  # one each), and the SAME mark is placed on that molecule in the scheme spec itself:
+  # {'mol': smi, 'marks': [...]}, {'arrow': {..., 'reagent_marks': [...]}} or
+  # {'pair': [...], 'pair_marks': [marks_A, marks_B]} (corpus_io v1.17). G-FIGMARK
+  # matches declared and drawn marks by (tile, site, device[, text]).
   spec = fc.make_figure_spec(qnum, 'schematic', 6.0, role='problem',
-                             canvas_aspect=draw.suggested_aspect, colour_content=cc)
-  fc.render_figure(draw, png, spec)       # fitter Q10, deconflict Q11, G-FIGINK/G-FIGFIT unchanged
+                             canvas_aspect=getattr(draw, 'suggested_aspect', None),
+                             colour_content=cc, style_profile=STYLE_PROFILE,
+                             marked_sites=q.get('marked_sites', []), stem=stem_text,
+                             chem=True)
+  if not NATIVE_OK:
+      spec['raster_content'] = True       # G-FIGLABELPX witnesses labels on the legacy path
+  fc.render_figure(draw, png, spec)       # native: natural size, scale 1.0; legacy: fitter Q10/Q11
   fc.write_spec_sidecar(spec, png)        # S10-8 sidecar — S13-4 / --fig-manifest read the class from it
   obj = cio.scheme_semantic_object(draw, role='problem', name='Friedel–Crafts t-butylation')
   pp.validate_semantic_object(obj, ctx=f'Q{qnum}')   # kind REACTION; canonical 'R>A>P' MUST contain '>>'
@@ -6422,12 +6831,56 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   reaction_mechanism_scheme / …) and the FigureSpec class is `schematic` (S10-6A).
   ── STRUCTURE ────────────────────────────────────────────────────────────────
   The draw_fn passed to figural_core.render_figure / render_option_set for a STRUCTURE
-  role is `cio.structure_draw_fn(obj['canonical'])` (v5.80: plus `highlight_bonds=` /
-  `highlight_atoms=` when the stem names a site — S10-7C C9; atom colours come
-  from figural_core.ATOM_PALETTE, and an option set's heteroatom colour is decided
-  once by render_option_set(), Q7b.14) — rdkit rasterises the molecule inside
-  the axes, the frame and every v5.57 gate apply unchanged, and `draw.canonical`
-  is what gets registered. Hand-placed bonds (ring_pts / bond / substituent
+  role is (v5.89 — GAP-2026-11-02 F1/F2/F7):
+  ```python
+  import corpus_io as cio
+
+  def make_structure_draw(obj, marked_sites, TOK, ABBREV, NATIVE_OK, protect_atoms=()):
+      """v5.89: the ONE structure draw_fn factory. protect_atoms: atoms no abbreviation
+      may cover — for a scheme molecule cio.abbreviation_protected_atoms(reactant,
+      product); for an option set the atoms outside the MCS common to all options."""
+      if not NATIVE_OK:                   # degraded rdkit: legacy path + AMBER note
+          _note = ('renderer degraded (a chemistry structure was drawn on the legacy path: '
+                   + ', '.join(NATIVE.get('missing') or ['native raster unavailable']) + ')')
+          if _note not in STYLE_NOTES and not any(n.startswith('renderer degraded') for n in STYLE_NOTES):
+              STYLE_NOTES.append(_note)  # the footer discloses EVERY legacy chemistry draw
+          # The legacy renderer can draw only an atom ASTERISK (as an atom highlight)
+          # and a BOLD bond (as a bond highlight); pass the same dict to make_figure_spec
+          # as highlight=legacy_highlight(marked_sites) so G-FIGMARK sees what was drawn.
+          # A declaration using another device fails G-FIGMARK -> ladder R1 re-authors the
+          # stem with a drawable device.
+          _hl = legacy_highlight(marked_sites)
+          return cio.structure_draw_fn(obj['canonical'], highlight_atoms=_hl['atoms'],
+                                       highlight_bonds=_hl['bonds'])
+      _role = str(obj.get('role', 'problem'))
+      return cio.structure_draw_fn(
+          obj['canonical'],
+          tokens=TOK['option' if _role.startswith('option') else 'problem'],
+          marks=[{k: m[k] for k in ('site', 'device', 'text') if k in m}
+                 for m in (marked_sites or [])],     # 'text' = the letter of a letter mark
+          abbreviations=ABBREV,           # None => no abbreviation at all
+          protect_atoms=tuple(protect_atoms))
+
+  def legacy_highlight(marked_sites):
+      """Degraded mode only: the marks the legacy renderer can draw."""
+      ms = marked_sites or []
+      return {'atoms': [m['site']['index'] for m in ms
+                        if m.get('device') == 'asterisk' and m['site'].get('kind') == 'atom'],
+              'bonds': [m['site']['index'] for m in ms
+                        if m.get('device') == 'bold' and m['site'].get('kind') == 'bond']}
+  # every PROBLEM figure spec: fc.make_figure_spec(..., style_profile=STYLE_PROFILE,
+  #     marked_sites=<declaration>, stem=<stem text>, chem=True). An OPTION spec passes
+  #     marked_sites=<that option's own declaration> and stem=<stem text> ONLY when that
+  #     option declares a mark; otherwise marked_sites=[] and stem=None (a site the stem
+  #     names belongs to the problem figure, not to every option canvas). Legacy path
+  #     (NATIVE_OK False) adds highlight=legacy_highlight(marked_sites) to make_figure_spec
+  #     and spec['raster_content'] = True.
+  ```
+  An option set is rendered with ONE token set through fc.render_option_set (uniform
+  canvas, one bond length; G-FIGOPTWINDOW). The native raster IS the figure: it is
+  placed at its natural width and `draw.canonical` (the UNcondensed canonical SMILES)
+  is what gets registered. v5.80's highlight_* arguments are retired for structures
+  (S10-7C C9). Hand-placed bonds (ring_pts / bond / substituent
   helpers) for a STRUCTURE role are a G-FIGSEM HARD FAIL: that is exactly the
   drawing whose carboxyl was read as a ketone because nothing recorded otherwise.
   A SMILES rdkit rejects (valence / syntax) never renders — fix the molecule.
@@ -6453,7 +6906,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     once as DATA (Step 0 emits mandate_every_mock=true → manifest.mandatory_every_mock;
     Framework_MockTestAnalyse v2.10). Enforcement:
       • Step 1 RULE M1 force-places 1Q of each mandated id in every mock;
-      • Step 7 S3-17 HARD STOPs pre-generation if a mandated id is absent (HS-8);
+      • Step 7 S3-17 HARD STOP [HS:INPUT]s pre-generation if a mandated id is absent (HS-8);
       • G-ALLOC-SUBTOPIC guarantees each allocated subtopic reaches its q_count, so a
         mandated subtopic is also present in the GENERATED questions (not just allocated).
     Empty config ⇒ vacuous no-op, never a false stop.
@@ -6726,7 +7179,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
        line, never a table row of options).
     3. Records the question in the figural manifest; the per-block image count
        (≥ n_options + 1) and one-image-per-option-line invariant are enforced by
-       G-FIGURAL-COMPOSITE (S12-NEW-13). HARD STOP on a single-image (composite)
+       G-FIGURAL-COMPOSITE (S12-NEW-13). LADDER-REPAIR R1 [HS:LADDER] on a single-image (composite)
        figural block or any multi-image line.
 
 ## S8-7 through S8-9 — (unchanged from v1.0)
@@ -6894,7 +7347,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   omitting it is forbidden. An implementer who read S10 in isolation (as
   Mock 10's batch-authoring scripts effectively did) had no local signal that
   concept_map needed populating at all, until — if the Final-Assembly gate
-  happened to run — a HARD STOP arrived hundreds of questions later.
+  happened to run — a HARD STOP [HS:PROSE] arrived hundreds of questions later.
 
   THE STRUCTURAL BACKSTOP (v5.52): §S7-NEW-A's write_q_to_sidecar() no longer
   defaults subtopic_id/difficulty to None. Omitting either now raises
@@ -7535,7 +7988,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   UNIT_LABEL_RE = _MM_UNIT   # retired compatibility alias (v5.47.3)
 
   # v5.47.3 — the ORIGINAL v4.3-scope raster ban. assert_not_math (figural
-  # HARD STOP) tests THIS, not the widened MATH_TRIGGER_RE: normalised-axis
+  # LADDER-REPAIR R1 [HS:LADDER]) tests THIS, not the widened MATH_TRIGGER_RE: normalised-axis
   # figure labels (σ/σ₀, α/β, Δv/Δt) are legitimate figural text and must not
   # abort builds; whole built-up expressions still never rasterise.
   RASTER_BAN_RE = re.compile(
@@ -7557,7 +8010,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   def assert_not_math(label):
       """Guard called by the FIGURAL path (S10-7). A built-up expression must
-      NEVER reach the raster pipeline. R-MATH-OMML HARD STOP."""
+      NEVER reach the raster pipeline. R-MATH-OMML LADDER-REPAIR R1 [HS:LADDER]."""
       if needs_omml(label, pattern=RASTER_BAN_RE):
           raise AssertionError(
               f"R-MATH-OMML: refusing to RASTERISE a math expression "
@@ -7599,7 +8052,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   GENERATION ROUTING (mandatory): when build_question() prepares a stem or an
   option, it FIRST tests needs_omml() on the rendered text. If true, the segment
-  is emitted via add_math_stem / emit_math_inline (OMML). It is a HARD STOP to
+  is emitted via add_math_stem / emit_math_inline (OMML). It is a LADDER-REPAIR R1 [HS:LADDER] to
   route such a segment to render_figural_image() — that function now calls
   assert_not_math() and will raise. Geometric figures (mensuration/coordinate
   diagrams, reasoning panels) are the ONLY content the figural raster path
@@ -7958,6 +8411,52 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            monochrome under Q7b.7; option canvases of accent-class parents
            keep the identical style budget of Q7b.6. EC-V18: legacy figures
            with no FigureSpec sidecar are silent under this gate.
+           v5.89 AMENDMENT (GAP-2026-11-02 F3, owner decision O2): CHEMISTRY
+           figures — every object_type in figure_types.CHEM_R_OBJECT_TYPES or
+           CHEM_H_OBJECT_TYPES (make_figure_spec(..., chem=True)) — are EXEMPT
+           from ACCENT PRESENCE, and so is every figure of an exam whose PYQs
+           were MEASURED monochrome (FIGURE_STYLE_PROFILE). Measured defect: the
+           MUST plus a FAIL-severity AMBER finding on every unaccented
+           hydrocarbon pushed authors to mark 22 of 40 problem figures although
+           no stem named a site, and the "item under interrogation" was usually
+           the answer. ACCENT_REQUIRED keeps `data_single` and `schematic` for
+           every other figure.
+        8'. MARK-IFF-NAMED (v5.89 — GAP-2026-11-02 F3; gate G-FIGMARK, catalogue
+           A-FIGMARK, VOID_ITEM -> repair ladder R1). A figure carries a mark
+           (underline, asterisk, letter, arrow, bold bond) IF AND ONLY IF the
+           stem names that site, using the word for the device that is drawn.
+           The S7 author DECLARES, for every figure:
+             marked_sites = [{"tile": k,                       # SCHEME only (S7-NEW-B2)
+                              "site": {"kind": "atom"|"bond", "index": i}   # chem-R,
+                                                                          # uncondensed index
+                                  or {"kind": "anchor", "name": "front_C1"}, # chem-H
+                              "device": "underline"|"asterisk"|"letter"|"arrow"|"bold",
+                              "text": "<the letter>",   # REQUIRED iff device == "letter"
+                              "stem_phrase": "<exact substring of the stem>"}]
+           and passes it to make_figure_spec(marked_sites=..., stem=...) and,
+           for chem-R, to cio.structure_draw_fn(marks=[{site, device, text}])
+           through make_structure_draw (S7-NEW-B2; 'text' only for a letter). With no
+           named site the list is EMPTY and the figure carries no mark of any
+           kind. The device may only be one DRAWABLE at the site under the
+           exam's profile, so stem and figure always agree:
+             • a monochrome exam never says "highlighted" — it says "shown in
+               bold" (device bold) or "marked" (arrow);
+             • an unlabelled carbon cannot be "underlined" — use "marked with an
+               asterisk" or a letter;
+             • "the underlined proton" — draw that H explicitly, then underline.
+           G-FIGMARK verifies: (i) every stem_phrase occurs verbatim in the stem;
+           (ii) the renderer drew exactly the declared marks; (iii) an empty
+           declaration means no mark at all; (iv) a stem that names a site
+           (fc.SITE_MARK_LEXICON, extended by FIGURE_STYLE_PROFILE.
+           site_mark_lexicon_extra) has a declared phrase covering it; (v) the
+           device word in each stem_phrase names the drawn device
+           (fc.DEVICE_WORDS); (vi) a letter mark declares its letter ("text")
+           and that letter occurs in its stem_phrase; and no mark failed to find
+           a clear position.
+           Placeholder letters A, B, P are never sites (the letter lexicon is
+           case-sensitive). An isotope label (D, ¹⁴C*) and drawn atom numbering
+           are marks. Option canvases carry marks only under their own declared
+           phrase.
         9. TEXT INK (v5.80 — GAP-2026-08-29-FIGURE-COLOUR-ROLES). A coloured
            LABEL or ANNOTATION is text, and text on the mandated white ground
            must clear WCAG 2.x SC 1.4.3 (>= 4.5:1). Only blue (5.19) and black
@@ -8046,7 +8545,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         Any other inline-image name (e.g. "q{N}_e1.png" for a rasterised
         expression) is an UNAUTHORISED raster and fails gate G-MATH-RASTER.
         render_figural_image() calls assert_not_math() on the figure's name/label
-        and HARD-STOPS if handed a math expression.
+        and enters LADDER-REPAIR R1 [HS:LADDER] if handed a math expression.
     Q8b. SEVERITY — NO COLOUR CONDITION MAY EVER HALT A RUN (v5.33, owner
         directive). This is not a concession to convenience; it is this
         framework's own doctrine, stated in CLAUDE.md: "A CLASS T failure must
@@ -8054,11 +8553,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         conflated them... Silence is the defect; a halt is not the remedy." A
         grey figure is a DEGRADED paper, never a void one. Three modes, defined
         in figural_core.SEVERITY:
-          AMBER      — report at FAIL severity, force the amber delivery footer
-                       (Framework_DeliveryFooter §5), ALWAYS complete. Every
-                       colour and accessibility condition lives here:
-                       G-FIGCOLOUR, G-FIGCVD, G-FIGSERIES, G-FIGGLYPH,
-                       G-FIGALT, W-FIGLABELPX.
+          AMBER      — report as an AMBER WARN line (v5.89: no longer a FAIL —
+                       a FAIL made the auditor exit 1 and S13-4c then stopped the
+                       run, which contradicted "ALWAYS complete"; GAP-2026-11-02
+                       G1), force the amber delivery footer (Framework_
+                       DeliveryFooter §5 — triggered by the certificate's
+                       amber_notes, not by the exit code), ALWAYS complete. Every
+                       colour and accessibility ADVISORY on a non-chemistry
+                       figure lives here: G-FIGCOLOUR, G-FIGCVD, G-FIGSERIES,
+                       G-FIGGLYPH, G-FIGALT, W-FIGLABELPX, and the legacy
+                       W-FIGOVERPRINT / W-FIGBONDORDER notes.
           VOID_ITEM  — the rendering leaks an ANSWER CUE or is unreadable, so
                        this QUESTION is invalid: G-FIGMONO (colour in a
                        reasoning glyph), G-FIGOPTUNIF (option canvases not
@@ -8067,9 +8571,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                        a degraded option, it is an unanswerable one) and
                        G-FIGOPTWINDOW (options drawn at divergent scales, so
                        relative size — which in a structure question is
-                       MEANING — became a renderer artefact). Drop or
-                       regenerate the single question. The paper continues.
-                       Never halts the run.
+                       MEANING — became a renderer artefact). From v5.89 also
+                       G-FIGMARK, G-FIGOVERPRINT, G-FIGBONDORDER, G-FIGLABELPX
+                       and G-FIGOPTELEM. v5.89: VOID_ITEM means REPAIR THE ITEM
+                       IN PLACE through the REPAIR LADDER (§Q8b-LADDER below) at
+                       the entry rung bc.LADDER_ENTRY_RUNG gives. "Drop" is
+                       DELETED (GAP-2026-11-02 G5): the question count and the
+                       allocation are always kept. The paper continues. Never
+                       halts the run.
           BLOCKING   — reserved for RENDERER-CONTRACT REGRESSION on v5.33+
                        output only: G-FIGSCALE, G-FIGLABEL, G-FIGDPI,
                        G-FIGDEGEN, and from v5.55 G-FIGFIT. G-FIGFIT is safe to
@@ -8084,11 +8593,108 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                        144 figures spanning 1.3–7.5 in, 2–8 series and four
                        label sets including full scientific notation. A firing
                        means someone reintroduced headroom or a tight bbox.
+                       v5.89 (GAP-2026-11-02, §Q8b-LADDER L6): "BLOCKING" now means
+                       the FIGURE may not ship as drawn — never that the RUN stops.
+                       A BLOCKING firing is an item finding repaired through the
+                       ladder (G-FIGLABEL / G-FIGFIT enter at R1 per L1; G-FIGSCALE,
+                       G-FIGDPI, G-FIGDEGEN at R1 via bc.LADDER_ENTRY_RUNG). The
+                       native renderer CAN fire G-FIGLABEL (overflow down-scaling),
+                       so the "unfireable" note above applies to the matplotlib path
+                       only. A firing that survives sweep 4 of S13-2F is [HS:INFRA].
         EC-V18 LEGACY TOLERANCE, NON-NEGOTIABLE: output with no FigureSpec
         sidecar predates v5.33. Every BLOCKING gate downgrades to AMBER for it,
         so roughly 200 existing exams keep auditing and delivering untouched
         while still reporting the defect loudly. figural_core.triage() NEVER
         raises and NEVER halts.
+
+    §Q8b-LADDER — THE REPAIR LADDER (v5.89 — GAP-2026-11-02 §4; owner decision
+        O4). REQ: no defect reaches a delivered paper AND no run stops for a
+        quality reason. A defect is made impossible by construction or repaired
+        automatically before delivery. The ladder runs at S7 per slot (after
+        render, before the sidecar write) and at S13-2F (pre-commit sweep).
+        Every spec line tagged [HS:LADDER] — and every engine/gate message that
+        begins "LADDER-REPAIR R<n>" — is an ENTRY into this ladder for the named
+        item at rung R<n>, never a run stop. Catch such a RuntimeError, read its
+        rung and reason, repair, continue.
+
+        | Rung | Action | Attempts |
+        | R1 | Deterministic re-render, NO new content, in this order: recompute
+        |    | tokens -> re-flow the scheme -> re-render the whole option set at a
+        |    | larger common width (non-native options) -> remove undeclared
+        |    | decorations -> alternative mark device / rotation -> drop
+        |    | abbreviations -> toggle depictor. Also every formatting repair the
+        |    | [HS:LADDER R1] rules name (strip a key, re-emit OMML, re-embed a
+        |    | stimulus, reorder Q.N-first, ...). | each action once, then re-gate |
+        | R2 | Regenerate the SAME item: same subtopic, band and ask type; every
+        |    | failure reason passed in as a constraint. | <= 3 |
+        | R3 | Regenerate: same subtopic and band; the next ask type that is
+        |    | under target and valid for the subtopic (bc.assign_ask_type).
+        |    | Skipped when none exists. | <= 3 |
+        | R4 | TERMINAL, reducible subtopic: TEXT-format item of the same
+        |    | subtopic and band (S7-NEW-B OPTION B / REPLACEMENT_RULE) — ONLY IF
+        |    | bc.axis_safe_text_fallback(observed, target, ...) is True, i.e. the
+        |    | paper still passes A-AXIS1 after the swap. Otherwise R4'. | own loop |
+        | R4'| TERMINAL, irreducible subtopic OR axis-unsafe swap: the SIMPLEST
+        |    | CONSTRUCTIVE FIGURE. chem-R: one structure in the stem or none; the
+        |    | blueprint's total_options single-molecule options; no marks, no
+        |    | abbreviations, native raster; molecules chosen so the natural width
+        |    | at the role tokens is <= FIG_COLUMN_IN, checked from the 2-D
+        |    | coordinate span BEFORE drawing (overflow impossible). Other figure
+        |    | types: the subtopic's most frequent object_type by its existing
+        |    | renderer at minimal complexity. The CCP size target is waived here;
+        |    | level is settled by R5. | <= 3 |
+        | R5 | LAST RESORT, only for a reason still failing after R4/R4':
+        |    | content level -> ACCEPT AT THE MEASURED BAND and amend the IN-RUN
+        |    | blueprint in place: bc.amend_schedule_in_place(bp, N, section,
+        |    | scheduled, measured, 'measured_band') (difficulty_schedule[k] and
+        |    | its by_section move one count; logged in difficulty_amendments[]).
+        |    | Render defect on ANY R4' figure (chemistry included), or a key never verified ->
+        |    | REASSIGN the slot to another in-scope subtopic (same topic first,
+        |    | largest allocation first, then same section) that keeps every
+        |    | manifest group constraint (G-ALTGROUP / G-GROUPMANDATE /
+        |    | G-MINCOUNT); amend subtopic q_count in the in-run blueprint, update
+        |    | alloc_ids and subtopic_by_qnum in the same step, log it in
+        |    | allocation_amendments[], then persist_bp_amendment(). A candidate
+        |    | qualifies ONLY if it keeps the slot's qtype (MCQ/MSQ/NAT), answer
+        |    | type, cardinality, Axis-1 format and stimulus-group membership
+        |    | (a slot inside a linked set is never reassigned — the set is
+        |    | rebuilt at R2 instead) and stays inside its answer-position budget. Each candidate subtopic goes through
+        |    | R2 -> R4/R4'. | <= 3 candidate subtopics |
+
+        Rules:
+          L1. Entry rung per finding: bc.ladder_entry(reasons) over
+              bc.LADDER_ENTRY_RUNG (R1: W-FIGLABELPX / G-FIGLABEL / G-FIGLABELPX
+              on a native or raster structure, G-FIGCOLLIDE, G-FIGOVERPRINT,
+              G-FIGBONDORDER, G-FIGMARK, G-FIGOPTUNIF, G-FIGOPTWINDOW, G-FIGFIT,
+              overflow; R2: G-FIGMONO, G-FIGOPTELEM, A-CONTENTLEVEL, A-DIFFRATING,
+              A-FIGFORMAT, key verification). Several reasons -> the lowest rung
+              first; all reasons travel to the next attempt.
+          L2. No accept-best for defects. S7-STYLE author_slot's accept-best on
+              budget keeps its seven STYLE reasons only. Ladder attempts do NOT
+              consume max_retries_per_paper.
+          L3. The in-run blueprint (BP_SRC_PATH) is the one the auditor reads
+              (--blueprint BP_SRC_PATH), so A-QINDEX's exact count check (G-QINDEX
+              check 6), A-COUNT and A-DPROFILE see the amended schedule and
+              allocation and stay exactly consistent. EVERY R5 amendment (difficulty
+              or allocation) is followed at once by persist_bp_amendment() (S3-2D),
+              which writes bp to BP_SRC_PATH — an amendment held only in memory is a
+              defect (the auditor and S13-6 read the FILE). A resumed run keeps the
+              amended in-run file (S3-1).
+          L4. Disclosure: R4 / R4' / R5 items are listed in the delivery footer
+              (Framework_DeliveryFooter §LADDER); R1-R3 go to
+              registry.question_index[].ladder = {rung, reasons[], attempts} —
+              passed as write_q_to_sidecar(ladder=...) (re-written when a later
+              rung repairs the item) — and the audit report.
+          L5. Systemic flag: >= 3 items of one paper reaching a terminal rung for
+              the same finding -> footer line "systemic: <finding>" and a GAP stub
+              in the audit report. The paper still completes.
+          L6. The ONLY remaining run stops are INFRASTRUCTURE faults ([HS:INFRA]:
+              engine missing or failing its self-test, bootstrap failure, a
+              corrupt/unreadable file, the docx changed after its item-sweep
+              certificate) and pre-generation INPUT faults ([HS:INPUT]). If three
+              R5 candidate subtopics all fail KEY VERIFICATION for one slot, the
+              key verifier itself is suspect — that is classed [HS:INFRA] ("key
+              verifier failing") and reported with every attempt.
     Q9. LABEL CONTRACT (v5.33 — new). The property the owner actually
         complained about, and the one no rule previously covered.
         1. ON-PAGE LABEL FLOORS, AT DISPLAY SIZE — not on the native canvas:
@@ -8325,7 +8931,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       Returns PNG bytes at FIGURAL_DPI with headroom. Caller embeds at the
       display size below (so the on-page image is supersampled = crisp).
       """
-      # v4.3 R-MATH-OMML HARD STOP: the figural path is geometry-only. A built-up
+      # v4.3 R-MATH-OMML LADDER-REPAIR R1 [HS:LADDER]: the figural path is geometry-only. A built-up
       # algebraic expression must NEVER be rasterised — route it to OMML (S10-4).
       assert_not_math(name)
       transparent = (bg == "transparent")
@@ -8397,6 +9003,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   THE CONTRACT — mandatory for any draw_fn that carries text labels:
     C1. NEVER draw the option border box. It is the renderer's (Q10.4).
+        v5.89: the renderer draws it only when the exam's PYQ options are framed
+        (FIGURE_STYLE_PROFILE.option_frame measured True) or, for a non-chemistry
+        option canvas, when the profile is unmeasured (today's behaviour). A
+        native chemistry option canvas is never framed without that evidence.
     C2. NEVER hand-fix the axis limits and never call bbox_inches="tight".
         The window is the fitter's (Q10.1). A draw_fn that sets its own limits
         is asserting a fit it did not measure.
@@ -8417,25 +9027,53 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         thin strokes (Q7b.9-Q7b.11). A heat map or gradient uses the viridis
         family only (perceptually uniform; rainbow/jet is banned — Crameri,
         Shephard & Heron 2020).
-    C8. (v5.80) STRUCTURES: `cio.structure_draw_fn` is the ONLY structure
-        renderer and it colours atoms from figural_core.ATOM_PALETTE — CPK hue
-        FAMILIES kept (O red-family #C25604, N blue #0072B2, halogens
-        green-family #158663), VALUES at the TEXT tier because an atom symbol
-        is text, sulfur/phosphorus/metals BLACK because no CVD-safe hue renders
-        "yellow"/"orange" text at 4.5:1. Never rdkit's default palette (unpinned
-        across versions; fails 3.0:1 on Cl/S/F/P). An rdkit that lacks
-        updateAtomPalette degrades to its BW palette and records
-        `draw.palette_note` — never a halt.
-    C9. (v5.80) INTERROGATED SITE: when the stem refers to a marked bond or
-        centre ("the bond marked", "the carbon indicated"), pass
-        `highlight_bonds=` / `highlight_atoms=` to structure_draw_fn and record
-        the same dict as `highlight=` on the FigureSpec. The accent is OPAQUE
-        OKABE_ITO[0] under the site (5.19:1); a labelled heteroatom is accented
-        through its incident bonds so its symbol is never overprinted. The
-        highlight marks the site the STEM names — never the answer — and it is
-        what satisfies Q7b.8 for a hydrocarbon that otherwise has no coloured
-        atom. A hydrocarbon problem figure with no interrogated site keeps the
-        G-FIGACCENT AMBER note as the advisory it is.
+    C8. (v5.80; v5.89 REWRITTEN — GAP-2026-11-02 F1, owner decision O1)
+        STRUCTURES are drawn PRINT-TRUE in the EXAM'S OWN STYLE:
+          • `cio.structure_draw_fn(smiles, tokens=TOK[role], marks=..., 
+            abbreviations=ABBREV, protect_atoms=...)` and
+            `cio.render_scheme(scheme, tokens=TOK['problem'])` are the ONLY
+            structure renderers; TOK = {'problem': fc.structure_tokens(PROFILE,
+            'problem'), 'option': fc.structure_tokens(PROFILE, 'option')}
+            computed ONCE per paper at S3 from PROFILE =
+            fc.load_style_profile(section_rules.md). One token set per role per
+            paper -> every structure of a role has ONE bond length.
+          • MONOCHROME when the exam's PYQs are monochrome or there is no
+            evidence (tokens['monochrome']); atoms coloured from
+            figural_core.ATOM_PALETTE only when the PYQs were MEASURED coloured.
+          • The PNG is placed at its natural width (scale 1.0). Overflow
+            (natural width > FIG_COLUMN_IN = 6.0 in), in this order: re-flow a
+            multi-arrow row (the break tile is repeated); stack reagent text (<=2
+            lines above and below, excess moved to the stem); scale the whole
+            picture only while the atom label stays >= its class floor
+            (G-FIGLABEL); otherwise the item enters the ladder with reason
+            'overflow'.
+          • ABBREVIATIONS only as the exam abbreviates (PROFILE.abbreviates True
+            -> ABBREV = PROFILE.abbreviation_labels; False / unmeasured -> NONE).
+            Never over a reacting atom (cio.abbreviation_protected_atoms), a
+            group the stem names, or a marked site. The registered SMILES is the
+            uncondensed canonical.
+          • A quaternary carbon drawn as a 90-degree cross is re-depicted
+            automatically (cross_note recorded if it cannot be).
+          • PREFLIGHT: fc.ensure_native_raster(install=True) once at S3. If it
+            reports available False, the LEGACY path is used unchanged
+            (structure_draw_fn without tokens), every chem figure carries the
+            AMBER footer note "renderer degraded", and its specs carry
+            raster_content=True so an illegible label is still repaired
+            (G-FIGLABELPX). Never a halt.
+    C9. (v5.80; v5.89 REWRITTEN — GAP-2026-11-02 F2/F3) INTERROGATED SITE:
+        HIGHLIGHT BANDS ARE RETIRED for structures — the v5.80 opaque band (6x
+        line width) was measured overprinting O, Br, N and C+ labels and making
+        single bonds read as double bonds, contrary to this clause's own claim.
+        A site is marked ONLY when the stem names it (Q7b.8' MARK-IFF-NAMED) and
+        ONLY with the declared device, passed as `marks=` to
+        structure_draw_fn and as `marked_sites=` (with stem_phrase) to
+        make_figure_spec. Devices: underline (a labelled atom or explicit H),
+        asterisk / letter (any atom), arrow (bonds), bold (a bond redrawn as ONE
+        heavier line, never offset). The renderer places each mark clear of every
+        label and bond (8 rotations); G-FIGOVERPRINT (differential render) and
+        G-FIGBONDORDER verify it. A figure whose stem names no site carries NO
+        mark. Passing highlight_* in native mode is converted to marks and must
+        then be declared like any other mark.
   A draw_fn that honours C1-C9 needs no repair; the fitter then only maximises
   fill. A draw_fn that does not is repaired where possible and REPORTED where
   not. Neither path can ship a silent defect, which is the whole objective.
@@ -8474,9 +9112,32 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       p = doc.add_paragraph()
       run = p.add_run()
       run.add_picture(io.BytesIO(png_bytes), width=Inches(width_in))
+      p.paragraph_format.keep_together = True        # v5.89 F5 (python-docx only)
       if spec is not None:
           _set_last_drawing_alt(doc, figural_core.alt_text(spec))   # Q9.5
       return p
+
+  def _keep_block_with_next(doc, n_before):
+      """v5.89 (GAP-2026-11-02 F5). Set keep_with_next on EVERY paragraph added
+      since the body held `n_before` block items (w:p / w:tbl) — including every
+      paragraph inside a stem table — so the Q.N stem, any problem label and the
+      problem figure(s) are kept on the page of the FIRST option. python-docx
+      properties ONLY: they write w:keepNext in schema order. Hand-written
+      keepNext XML is FORBIDDEN here (Framework_PYQFormat line 847: keepNext after
+      spacing/ind produced 146 schema errors)."""
+      from docx.oxml.ns import qn
+      from docx.text.paragraph import Paragraph
+      kids = [e for e in doc.element.body.iterchildren()
+              if e.tag in (qn('w:p'), qn('w:tbl'))]
+      for el in kids[n_before:]:
+          paras = [el] if el.tag == qn('w:p') else list(el.iter(qn('w:p')))
+          for pe in paras:
+              Paragraph(pe, doc).paragraph_format.keep_with_next = True
+
+  def _n_block_items(doc):
+      from docx.oxml.ns import qn
+      return sum(1 for e in doc.element.body.iterchildren()
+                 if e.tag in (qn('w:p'), qn('w:tbl')))
 
   def _set_last_drawing_alt(doc, descr):
       """Stamp wp:docPr/@descr on the most-recently added inline drawing (Q9.5).
@@ -8526,6 +9187,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       assert len(option_pngs) >= 2, "figural MCQ needs ≥2 option images"
       assert_uniform_options(option_pngs)
 
+      # v5.89 F5: remember where this question's block starts (keep rules).
+      _n0 = _n_block_items(doc)
+
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
       add_question_stem(doc, qnum, stem)            # S10-3
 
@@ -8542,11 +9206,22 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                    else f"q{qnum}_problem_{k}.png"
               _name_last_drawing(doc, nm)           # canonical name (S10-7 Q8)
 
+      # v5.89 F5: stem block (Q.N .. last problem figure) kept with option 1.
+      _keep_block_with_next(doc, _n0)
+
       # Options: SINGLE COLUMN — one option per line, label bound to its image.
+      # v5.89 (GAP-2026-11-02 F5; owner decision 2026-11-02: the two-paragraph
+      # label-then-picture SHAPE is kept): each label paragraph carries
+      # keep_with_next + keep_together, so an option number can NEVER be left at
+      # a page foot with its picture on the next page (measured: 25 of 108 labels,
+      # in 25 of 27 structure-option questions, stranded). Gate A-OPTKEEP verifies it. The
+      # LAST option picture carries no keep_with_next.
       for i, opt_png in enumerate(option_pngs, 1):
           lp = doc.add_paragraph()                  # the "i." label line
-          lr = lp.add_run(f"{_option_label(i)}.")     # option label (configured format)
+          lr = lp.add_run(_option_label(i))         # option label, exactly the configured format (v5.89: no extra ".")
           lr.bold = False; lr.font.name = FONT_NAME; lr.font.size = Pt(FONT_SIZE_PT)
+          lp.paragraph_format.keep_with_next = True   # v5.89 F5 — bound to its picture
+          lp.paragraph_format.keep_together = True
           _add_image_para(doc, opt_png, FIG_OPT_DISPLAY_IN,
                           spec=option_specs[i - 1] if option_specs else None)
           _name_last_drawing(doc, f"q{qnum}_opt{i}.png")      # canonical name (Q8)
@@ -8572,6 +9247,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   paragraph and options are NEVER placed in a table row or shared paragraph, no
   line ever carries more than one option. Verified by G-FIGURAL-COMPOSITE.
 
+  KEEP INVARIANT (v5.89 — GAP-2026-11-02 F5): every option-label paragraph that
+  precedes an option picture carries w:keepNext (python-docx keep_with_next), and
+  every paragraph of the stem block carries it too. The label and its picture can
+  therefore never be split by a page break. If the whole block is taller than a
+  page, Word breaks it between options — never between a label and its picture.
+  Verified by auditor gate A-OPTKEEP on every paper whose FigureSpecs are v5.89+.
+
   COMPOSITE BAN: a figural block that contains only ONE image (problem + options
   fused) is a hard defect — the online engine renders one option region per screen
   and cannot slice a baked panel, and the figures are decoupled from their labels.
@@ -8585,12 +9267,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   ```python
   def add_figural_stem_question(doc, qnum, stem, problem_pngs, text_options,
-                                problem_label=None):
+                                problem_label=None, problem_specs=None):
       """
       qnum         : int
       stem         : str   — the question instruction (DOCUMENT text, Q.N-first)
       problem_pngs : [bytes] — 1+ problem/series images (geometry only, 300 DPI)
       text_options : [str]  — text option strings (NOT images)
+      problem_specs: [FigureSpec] — v5.89: the spec that RENDERED each problem PNG (same
+                     order). Its placed_in / natural size and alt text are used, exactly
+                     as add_figural_question does; omitting it places at the layout
+                     constant (legacy behaviour) and the figure carries no alt text.
       Layout (R-FIGURAL stem_only / R14 / G-QNUM-FIRST):
         Q.N stem  →  problem image(s)   (v5.70: NO label line by default)
                   →  text options via add_text_options()
@@ -8600,7 +9286,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       path was add_figural_question() which HARD ASSERTs option images.
       """
       assert len(problem_pngs) >= 1, "stem_only figural MCQ needs ≥1 problem image"
+      assert problem_specs is None or len(problem_specs) == len(problem_pngs), \
+          "problem_specs must give one FigureSpec per problem PNG (same order)"
       assert len(text_options) >= 2, "MCQ needs ≥2 text options"
+      _n0 = _n_block_items(doc)                         # v5.89 F5
 
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
       add_question_stem(doc, qnum, stem)                # S10-3
@@ -8611,10 +9300,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           lab = doc.add_paragraph(); r = lab.add_run(problem_label)
           r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
       for k, pb in enumerate(problem_pngs, 1):
-          _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN)
+          _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
+                          spec=(problem_specs[k - 1] if problem_specs else None))
           nm = (f"q{qnum}_problem.png" if len(problem_pngs) == 1
                 else f"q{qnum}_problem_{k}.png")
           _name_last_drawing(doc, nm)                   # canonical name (S10-7 Q8)
+      _keep_block_with_next(doc, _n0)                   # v5.89 F5: stem+figure with option 1
 
       # Options: TEXT, not images. Standard text option placement.
       add_text_options(doc, text_options)                # S10-3
@@ -8622,8 +9313,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       add_blank_separator(doc)                           # R13
 
   # USAGE (per stem_only figural question, from S8-6):
-  #   prob = render_figural_image(draw_problem, kind="problem")
-  #   add_figural_stem_question(doc, q.num, q.stem, [prob], text_options)
+  #   prob = render_figural_image(draw_problem, kind="problem")      # reasoning glyph, or
+  #   fc.render_figure(draw, png, spec); prob = open(png, 'rb').read() # chart / structure
+  #   add_figural_stem_question(doc, q.num, q.stem, [prob], text_options,
+  #                             problem_specs=[spec])   # v5.89: ALWAYS when a spec exists
   ```
 
   WHEN TO USE THIS vs add_figural_question():
@@ -8686,7 +9379,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                   return False
       return True
   ```
-  If this returns False → HARD STOP. Remove answer key from docx before delivery.
+  If this returns False → LADDER-REPAIR R1 [HS:LADDER]. Remove answer key from docx before delivery.
 
 ## S11-5 — K-INT verification (v5.4 — MSQ/NAT-aware)
 
@@ -8819,13 +9512,18 @@ def widen_scenario_space(subtopic_data, exhausted_source):
             # v5.53.2: raise SystemExit, not sys.exit — `sys` was never imported by any
             # earlier block in this file (spec_name_audit.py finding); SystemExit needs
             # no import and is this file's own house style (every other gate uses it).
-            raise SystemExit(f"G-ALTGROUP: Mock {N} — alternation group '{group}' has "
-                     f"{len(present)} members present ({', '.join(disp)}); ≤1 allowed.")
+            # v5.89 (GAP-2026-11-02 G6): S3-17 already rejected a violating allocation,
+            # so a violation here means generation drifted from it (or an R5 slot
+            # reassignment — which MUST update alloc_ids in the same step as
+            # allocation_amendments, §Q8b-LADDER R5). Repaired, never a run stop.
+            raise RuntimeError(f"LADDER-REPAIR R5 [HS:LADDER] (G-ALTGROUP): Mock {N} — "
+                     f"alternation group '{group}' has {len(present)} members present "
+                     f"({', '.join(disp)}); ≤1 allowed — reassign the later slot(s).")
     ```
     Empty alternation_groups ⇒ nothing to enforce ⇒ pass (no false stop).
     Zero hardcoded subtopic names. Fixable: drop the member that the blueprint
-    parity assigns to the other mock, then regenerate (Step 7 does not auto-edit
-    the blueprint).
+    parity assigns to the other mock, then regenerate (Step 7 never auto-edits the
+    blueprint to resolve this; its only in-run edits are S3-2D and ladder R5).
 
   S12-NEW-24 — G-GROUPMANDATE (v5.0 — group-presence backstop, Issue 2b):
     Exam-agnostic post-gen backstop to S3-17 CHECK 3, mirroring G-ALTGROUP. Reads
@@ -8842,8 +9540,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         have    = sum(1 for m in members if counts.get(m, 0) > 0)
         if have < need:
             disp = [manifest['subtopics'].get(m, {}).get('display_name', m) for m in members]
-            raise SystemExit(f"G-GROUPMANDATE: Mock {N} — group '{group}' has {have} of "
-                     f"[{', '.join(disp)}] present; needs >={need}.")  # v5.53.2: was sys.exit, sys never imported
+            raise RuntimeError(f"LADDER-REPAIR R2 [HS:LADDER] (G-GROUPMANDATE): Mock {N} — "
+                     f"group '{group}' has {have} of [{', '.join(disp)}] present; "
+                     f"needs >={need} — regenerate a slot of a missing member.")
     ```
     Empty mandatory_groups ⇒ pass. Fixable: regenerate so ≥min members appear
     (Step 1 RULE M4 should have guaranteed this in the blueprint).
@@ -8857,8 +9556,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         c = counts.get(mid, 0)
         if c < k:
             disp = manifest['subtopics'].get(mid, {}).get('display_name', mid)
-            raise SystemExit(f"G-MINCOUNT: Mock {N} — {mid} ('{disp}') has {c}Q generated; "
-                     f"needs >={k}.")  # v5.53.2: was sys.exit, sys never imported
+            raise RuntimeError(f"LADDER-REPAIR R2 [HS:LADDER] (G-MINCOUNT): Mock {N} — {mid} "
+                     f"('{disp}') has {c}Q generated; needs >={k} — regenerate the "
+                     f"missing slot(s) of this subtopic.")
     ```
     Empty min_counts ⇒ pass. NOTE: manifest.cadence_windows is intentionally NOT
     gated in Step 7 — cadence is cross-mock (see S3-17 note + Step 1 RULE M5).
@@ -8895,7 +9595,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     A subtopic with distinct scenarios but the wrong count → FAIL.
     Both conditions must pass for the mock to ship.
 
-  S12-NEW-10 — G-STIMULUS-ORPHAN (v3.6 — linked self-containment, HARD STOP):
+  S12-NEW-10 — G-STIMULUS-ORPHAN (v3.6 — linked self-containment, LADDER-REPAIR R1 [HS:LADDER]):
     Enforces R-LINKED / §9. Scans EVERY question block in the cumulative docx and
     verifies that any question depending on a shared stimulus physically carries
     that stimulus in its OWN block.
@@ -8927,7 +9627,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     stimulus not present in its own block (linked_group_id=[gid]). Embed the
     shared stimulus into Q.[n] (Model A) and re-check."
 
-  S12-NEW-11 — G-QNUM-FIRST (v3.7 — Q.N-FIRST block contract, HARD STOP):
+  S12-NEW-11 — G-QNUM-FIRST (v3.7 — Q.N-FIRST block contract, LADDER-REPAIR R1 [HS:LADDER]):
     Enforces R14 / R-LINKED Q.N-FIRST clause. Segments the cumulative docx into
     question blocks (a block runs from one "Q.<N>" paragraph to the next). For
     EACH block, the FIRST non-empty body element must be the "Q.<N>" paragraph
@@ -8947,7 +9647,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Report (MANDATE 0 — no content): "G-QNUM-FIRST: block for Q.[n] opens with
     [table/passage/preamble], not 'Q.[n]'. Re-emit Q.N context line first."
 
-  S12-NEW-12 — G-FORMATDUP (v3.8; v3.9 hardened — RULE C, HARD STOP):
+  S12-NEW-12 — G-FORMATDUP (v3.8; v3.9 hardened — RULE C, LADDER-REPAIR R2 [HS:LADDER]):
     Enforces §6-3c. Reads the per-question concept_map from the answer_key
     sidecar. SELECTS questions by subtopic_class ∈ {CLASS2, CLASS3} (v3.9 G5 fix —
     NOT by "presentation_key not None", which would let a missing-key question, the
@@ -8982,7 +9682,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Report is MANDATE-0 safe (no stem content — only Q numbers, concept_group,
     and menu tokens).
 
-  S12-NEW-13 — G-FIGURAL-COMPOSITE (v5.13 — image_role-aware, HARD STOP):
+  S12-NEW-13 — G-FIGURAL-COMPOSITE (v5.13 — image_role-aware, LADDER-REPAIR R1 [HS:LADDER]):
     Enforces R-FIGURAL / §10-S10-8 / §10-S10-8A. For every FIGURAL question, the
     rendered block must be correctly structured per its image_role variant.
     IDENTIFY figural blocks: use the figural manifest q-list when present; else a
@@ -9029,7 +9729,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Report (MANDATE 0 — no content): "G-FIGURAL-COMPOSITE: Q.[n] image_role=[role],
     holds [k] image(s) (expected ≥[min]). Re-render with the correct helper."
 
-  S12-NEW-14 — G-UNDERLINE (v4.1 — underline-span rendering, HARD STOP):
+  S12-NEW-14 — G-UNDERLINE (v4.1 — underline-span rendering, LADDER-REPAIR R1 [HS:LADDER]):
     Catches the M1 defect where an underline-class question shipped its target span
     as a plain-text annotation ("(underlined: senior than me)") instead of a real
     underlined run. Parallel to G-FIGTEXT (figural-as-text), for underline-as-text.
@@ -9065,7 +9765,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     span but [renders it as a '(underlined: …)' annotation / has no underlined run].
     Re-render with add_stem_with_underline (target as a real underlined run)."
 
-  S12-NEW-15 — G-OPTREF (v4.2 — stem↔option reference consistency, HARD STOP):
+  S12-NEW-15 — G-OPTREF (v4.2 — stem↔option reference consistency, LADDER-REPAIR R2 [HS:LADDER]):
     Catches the M1 Q.100 mismatch (instruction promised a "no error → last option"
     escape the option set did not contain). EXAM-AGNOSTIC: escape tokens / option
     structures are read from section_rules (none_of_above_map S3-12,
@@ -9100,7 +9800,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Report (MANDATE 0): "G-OPTREF: Q.[n] references a '[want]' option that is absent
     / mis-positioned. Add the escape option (or switch to the matching template)."
 
-  S12-NEW-16 — G-UNIQUE (v4.5 — answer-contract record, HARD STOP; generalises v4.2):
+  S12-NEW-16 — G-UNIQUE (v4.5 — answer-contract record, LADDER-REPAIR R2 [HS:LADDER]; generalises v4.2):
     Enforces R-ANSWER (both modes). The answer contract is decided at GENERATION
     (CHECK 3 verify_answer, §7) because verbal ambiguity needs reasoning, not
     regex; this gate is the RECORD-PRESENCE backstop (same pattern as G-CONCEPTDUP
@@ -9121,7 +9821,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     relation / pin the convention via section_rules / constrain the rule) or
     move/remove the colliding option, then regenerate.
 
-  S12-NEW-18 — G-MSQ-SET (v4.5 — MSQ set well-formedness, HARD STOP; MULTI ONLY):
+  S12-NEW-18 — G-MSQ-SET (v4.5 — MSQ set well-formedness, LADDER-REPAIR R2 [HS:LADDER]; MULTI ONLY):
     Runs ONLY for questions whose concept_map answer_cardinality=='multi' (skipped entirely
     when blueprint multi_present is false — fully dormant). Enforces the structural half
     of R-ANSWER multi + R-MSQ-ESCAPE. EXAM-AGNOSTIC.
@@ -9136,14 +9836,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     option / split an over-broad stem), then re-run CHECK 3.
     Report (MANDATE 0): "G-MSQ-SET: Q.[n] MSQ key is ill-formed ([reason])."
 
-  S12-NEW-19 — G-MSQ-CARD (v4.5 — MSQ fixed-k cardinality, HARD STOP; MULTI + FIXED ONLY):
+  S12-NEW-19 — G-MSQ-CARD (v4.5 — MSQ fixed-k cardinality, LADDER-REPAIR R2 [HS:LADDER]; MULTI + FIXED ONLY):
     Runs ONLY when answer_cardinality=='multi' AND section_rules msq_k_mode=='fixed'.
     ALGORITHM: if |answers[q]| != msq_k → Exit 1.
     For "Select TWO"/"Select THREE" exams this guarantees the rendered set matches the
     instructed count. Variable-k exams skip this gate (no fixed cardinality to check).
     Report: "G-MSQ-CARD: Q.[n] has |S|=[got], expected msq_k=[k]."
 
-  S12-NEW-20 — G-MSQ-INSTR (v4.5 — MSQ instruction line present, HARD STOP; MULTI ONLY):
+  S12-NEW-20 — G-MSQ-INSTR (v4.5 — MSQ instruction line present, LADDER-REPAIR R1 [HS:LADDER]; MULTI ONLY):
     Runs ONLY for answer_cardinality=='multi' questions. The multi instruction phrase
     ("(One or more options may be correct)" / "(Select TWO)" / localized equivalent
     from section_rules) MUST appear INSIDE the bold Q.<N>-first stem paragraph (R14 /
@@ -9157,7 +9857,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Report (MANDATE 0): "G-UNIQUE: Q.[n] has no answer_verified record —
     generation did not run the R-ANSWER check. Re-verify and disambiguate if needed."
 
-  S12-NEW-21 — G-NAT-NOOPT (v4.7 — NAT zero-option, HARD STOP; NUMERICAL ONLY):
+  S12-NEW-21 — G-NAT-NOOPT (v4.7 — NAT zero-option, LADDER-REPAIR R1 [HS:LADDER]; NUMERICAL ONLY):
     Runs ONLY for answer_type=='numerical' questions. A NAT question is a typed-value
     question with NO options (R4 / R13 NAT exemption). AUTHORITATIVE: scans the rendered
     docx, locates the question's Q.<N> block, and counts option-label paragraphs (the R10
@@ -9166,7 +9866,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Fully dormant when nat_present=false. EXAM-AGNOSTIC.
     Report: "G-NAT-NOOPT: Q.[n] (NAT) has [k] option paragraph(s); must have none."
 
-  S12-NEW-22 — G-NAT-ANSWER (v4.7 — NAT value well-formed, HARD STOP; NUMERICAL ONLY):
+  S12-NEW-22 — G-NAT-ANSWER (v4.7 — NAT value well-formed, LADDER-REPAIR R2 [HS:LADDER]; NUMERICAL ONLY):
     Runs ONLY for answer_type=='numerical' questions. Reads the stored answer VALUE
     (answers[q], tested 'is None' so 0/negative/fractional are valid) and the per-Q
     ca_range, against nat_meta.nat_answer_type. Exit 1 when: (a) no value recorded; (b)
@@ -9176,7 +9876,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     independently RE-DERIVES the value and checks it lies in the band. EXAM-AGNOSTIC.
     Report: "G-NAT-ANSWER: Q.[n] [value/ca_range problem]."
 
-  S12-NEW-23 — G-NAT-INSTR (v4.7 — NAT instruction line present, HARD STOP; NUMERICAL ONLY):
+  S12-NEW-23 — G-NAT-INSTR (v4.7 — NAT instruction line present, LADDER-REPAIR R1 [HS:LADDER]; NUMERICAL ONLY):
     Runs ONLY for answer_type=='numerical' questions. The nat_instruction (blueprint
     nat_contract; e.g. "Enter your answer as a numerical value.", localized) MUST appear
     INSIDE the bold Q.<N>-first stem paragraph (R14 / G-QNUM-FIRST — no paper-level
@@ -9186,7 +9886,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Fully dormant when nat_present=false. EXAM-AGNOSTIC.
     Report: "G-NAT-INSTR: Q.[n] (NAT) has no numerical-entry instruction in its Q.N stem line."
 
-  S12-NEW-29 — G-NAT-GRADE (v5.25 — NAT portal grading value well-formed, HARD STOP;
+  S12-NEW-29 — G-NAT-GRADE (v5.25 — NAT portal grading value well-formed, LADDER-REPAIR R2 [HS:LADDER];
     NUMERICAL ONLY): Runs ONLY for answer_type=='numerical' questions. Reads the sidecar's
     nat_grading_type/nat_grading_value (S7-NEW-C) and re-runs `derive_nat_grading()` against
     the SAME (value, ca_range, stem_precision) inputs. Exit 1 when: (a) nat_grading_value is
@@ -9202,7 +9902,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     from scratch, exactly as A-NAT-ANSWER does for the math value. EXAM-AGNOSTIC.
     Report: "G-NAT-GRADE: Q.[n] [charset/type/determinism problem]."
 
-  S12-NEW-30 — G-MATH-RESIDUE (v5.70 — ASCII-dialect math residue, HARD STOP per
+  S12-NEW-30 — G-MATH-RESIDUE (v5.70 — ASCII-dialect math residue, LADDER-REPAIR R1 [HS:LADDER] per
     batch AND at the S13-2 sweep): Enforces R-MATH-OMML's TEXT arm at delivery time
     — the enforcement the funnel lacked (GAP-2026-08-24-MATH-RESIDUE-SHIPPED:
     flat-underscore orbital labels shipped in stems/options with 0 OMML while the
@@ -9220,7 +9920,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     catch+clean self-test fixtures — the enforcement of record.
 
 
-  S12-NEW-17 — G-MATH-RASTER (v4.3 — math-as-OMML routing, HARD STOP):
+  S12-NEW-17 — G-MATH-RASTER (v4.3 — math-as-OMML routing, LADDER-REPAIR R1 [HS:LADDER]):
     Enforces R-MATH-OMML / §10-S10-4. Catches the M1 Q.55 defect where two
     algebraic expressions ("x + 1/x = 5", "x²+1/x²") shipped as 300-DPI matplotlib
     PNGs (q55_e1.png, q55_e2.png) instead of native OMML. Parallel to G-FIGTEXT
@@ -9282,7 +9982,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
             for q, nm, mc, mn in offenders:
                 print(f"G-MATH-RASTER: Q.{q} carries unauthorised raster {nm!r} "
                       f"(math_context={mc}, math_name={mn}).")
-            raise SystemExit(1)                      # Exit 1 — HARD STOP
+            raise RuntimeError("LADDER-REPAIR R1 [HS:LADDER] (G-MATH-RASTER): "
+                               f"{len(offenders)} unauthorised raster(s) — re-render as OMML")
     ```
     NOT FIXABLE BY EDITING TEXT: re-render the expression as OMML via §10-S10-4
     add_math_stem / emit_math_inline (interleave <m:oMath> with the stem text);
@@ -9319,10 +10020,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   stem/option is a per-batch HARD FAIL; t3 compile-fallback regions stay AMBER.
   Total gates: 70.
 
-  S12-NEW-26 — G-QINDEX (v5.2 — question-index certification, HARD STOP; runs at Final
+  S12-NEW-26 — G-QINDEX (v5.2 — question-index certification, HARD STOP [HS:INFRA]; runs at Final
     Assembly; executable home S13-QINDEX, after S13-REGCHECK). Certifies the mock-N
     registry.question_index this session built (S13-4) — the per-question {subtopic_id,
-    difficulty} record Step 6 renders as the five tags. Six checks, all HARD STOP:
+    difficulty} record Step 6 renders as the five tags. Six checks, all HARD STOP [HS:INFRA]:
       1  an index object exists for mock N;
       2  it has exactly total_questions question entries;
       3  its q set is exactly {1..total_questions} — sorted, no gaps, no duplicates;
@@ -9338,7 +10039,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     were proven in the Phase-1 harness before encoding.
     Report: "G-QINDEX: <failing check(s)>." 
 
-  S12-NEW-27 — G-PREQ1 (v5.18 — pre-Q.1 body-block ban, HARD STOP; per-batch S4-11 AND the
+  S12-NEW-27 — G-PREQ1 (v5.18 — pre-Q.1 body-block ban, LADDER-REPAIR R1 [HS:LADDER]; per-batch S4-11 AND the
     S13-2 Final-Assembly sweep):
     Scan every paragraph BEFORE the first Q.<N> stem paragraph in the docx body. A paragraph
     is a violation if it carries non-blank text (by construction nothing before Q.1 can be a
@@ -9369,6 +10070,128 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 ## S13-1 — Final Assembly trigger (unchanged)
 
 ## S13-2 — Complete gate sweep (all 81 gates)
+
+## S13-2F — PRE-COMMIT ITEM SWEEP + CERTIFICATE (v5.89 — GAP-2026-11-02 G1)
+
+  Runs after S13-2 and BEFORE S13-4 commits anything.
+
+  WHY. Through v5.88 the auditor's final run (S13-4c) came AFTER the S13-4 commit, and S13-4
+  is only partly idempotent (final_assembly's dedup logs are extended), so a defective item
+  found there could not be repaired — and S13-4c stopped the run on ANY non-zero exit,
+  including AMBER advisories that Q8b says must ALWAYS complete. Every defect is now found
+  and REPAIRED here, before the commit, through §Q8b-LADDER; S13-4c only confirms.
+
+  THE RULE. When AUDIT_AVAILABLE (always true when a verified repo auditor exists — S3-1
+  v5.89 P3), each SWEEP is:
+    1. PREVIEW: set S13_PREVIEW = True, execute the S13-4 code block, then set
+       S13_PREVIEW = False. In preview mode that block computes exactly the commit S13-4
+       will make (commit_registry is pure) plus the S13-REGCHECK self-heal, writes it ONLY
+       to /home/claude/[ExamCode]_M[N]_registry_preview.json and persists nothing.
+    2. Execute the code block below. It runs the auditor in PRE-COMMIT mode over the final
+       docx with every source S13-4c uses — including --registry <preview>, so the
+       registry-reading gates (A-OPTN, A-QINDEX, A-NAT…, A-AXIS3, A-DUP) are assessed now
+       — plus --profile, --key (this paper's concept_map) and --fig-manifest.
+    3. CLEAN (no item finding, no FAIL line of any gate) -> the certificate is written and
+       the block binds CERT / AMBER_NOTES. Go on to S13-3 / S13-4.
+       NOT CLEAN -> the block prints the worklist and raises LADDER-REPAIR [HS:LADDER]:
+       repair each named question at its rung (§Q8b-LADDER) IN THE FINAL DOCX, in place —
+       the S4-6 correction procedure: edit only that question's block, re-render its
+       figures, update its sidecar/answer-key entry and fig_manifest record, keep every
+       other question byte-unchanged — then run the next sweep (1-3 again).
+  Item findings enter at bc.ladder_entry over bc.LADDER_ENTRY_RUNG. A FAIL line with no
+  item record (A-ANSKEY, A-SECHDR, A-QNFIRST, A-OPTREF, A-OMML, A-FIGTYPE-KIND, …) names
+  its question(s) in its message and is repaired by that gate's own [HS:LADDER R<n>] rule.
+  Sweeps 1-2 repair at the entry rung; sweep 3 sends every item still failing straight to
+  its TERMINAL rung (R4 / R4' / R5 — constructed to pass every item gate); sweep 4 only
+  confirms. A sweep-4 failure is infrastructure ([HS:INFRA]: a renderer or gate is broken —
+  its self-test). The sweep counter lives in a state file, so a resumed session continues
+  the count. A paper never fails S13-2F for a QUALITY reason.
+
+```python
+import json, os, subprocess
+import blueprint_core as bc
+import paper_pipeline as pp
+_docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'   # final docx
+_cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'
+_ifj = f'/home/claude/{EXAM}_M{N}_item_findings.json'
+_key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+_pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
+_fmj = f'/home/claude/{EXAM}_fig_manifest.json'
+_prev = f'/home/claude/{EXAM}_M{N}_registry_preview.json'   # written by step 1 (S13_PREVIEW)
+_stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'
+
+# v5.89 (LAW F1.4 — moved here from S13-4): a figure recorded on a text_disclosed fallback
+# subtopic is an ITEM defect, repaired BEFORE the certificate — after the certificate any
+# docx change would void it (A-CERT). Re-author each named question as TEXT (S7-NEW-B
+# OPTION B), drop its fig_manifest entry, then run the next sweep.
+_fm_fb = json.load(open(_fmj, encoding='utf-8')) if os.path.exists(_fmj) else {}
+_fb_hit_pre = sorted(str(q) for q, v in ((_fm_fb or {}).get('questions') or {}).items()
+                     if isinstance(v, dict) and v.get('subtopic_id') in (bp.get('figural_fallbacks') or {}))
+if _fb_hit_pre:
+    raise RuntimeError(f"LADDER-REPAIR R4 [HS:LADDER] (S13-2F, LAW F1.4): question(s) {_fb_hit_pre} "
+                       f"carry a figure on a text_disclosed fallback subtopic — re-author them as "
+                       f"TEXT, remove their fig_manifest entries, then run the next sweep.")
+
+CERT, AMBER_NOTES = None, []
+if AUDIT_AVAILABLE:
+    if not os.path.exists(_prev):
+        raise SystemExit("HARD STOP [HS:INFRA] (S13-2F): no registry preview — run step 1 "
+                         "(the S13-4 block with S13_PREVIEW = True) before this block.")
+    _st = json.load(open(_stp, encoding='utf-8')) if os.path.exists(_stp) else {}
+    if _st.get('paper_id') != paper_id:               # another paper's counter never carries over
+        _st = {'paper_id': paper_id, 'sweep': 0}
+    _st['sweep'] = int(_st.get('sweep', 0)) + 1
+    json.dump(_st, open(_stp, 'w', encoding='utf-8'))
+    for _old in (_ifj, _cert):                        # never re-read a previous sweep's files
+        if os.path.exists(_old):
+            os.remove(_old)
+    cmd = ['python3', f'/home/claude/{EXAM}_mock_test_audit.py', _docx,
+           '--phase', 'precommit', '--item-findings', _ifj,
+           '--write-certificate', _cert,
+           '--blueprint', BP_SRC_PATH,
+           '--rules', f'/mnt/project/{EXAM}_section_rules.md',
+           '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
+           '--registry', _prev,
+           '--mockN', str(N)]
+    _sgp_pre = globals().get('STIM_PROFILE_PATH')     # v5.85 A-BLOCK — same source as S13-4c
+    for _flag, _path in (('--profile', _pf), ('--key', _key), ('--fig-manifest', _fmj),
+                         ('--stimulus-profile', _sgp_pre)):
+        if _path and os.path.exists(_path):
+            cmd += [_flag, _path]
+    _r = subprocess.run(cmd, capture_output=True, text=True, env=AUDIT_ENV)
+    print(_r.stdout)                                  # real STDOUT (B-7)
+    os.remove(_prev)                                  # consumed: every sweep needs a FRESH preview
+    if not os.path.exists(_ifj):
+        raise SystemExit(f"HARD STOP [HS:INFRA] (S13-2F): the auditor wrote no item-findings "
+                         f"file (rc={_r.returncode}) — it crashed or is a pre-v2.34 copy. "
+                         f"STDERR:\n{_r.stderr[-3000:]}")
+    _wl = json.load(open(_ifj, encoding='utf-8'))
+    if os.path.exists(_cert):                         # CLEAN sweep
+        CERT = json.load(open(_cert, encoding='utf-8'))
+        AMBER_NOTES = list(CERT.get('amber_notes') or [])   # -> DeliveryFooter §5
+        os.remove(_stp)
+        print(f"S13-2F: CERTIFIED after sweep {_st['sweep']}.")
+    else:
+        if _st['sweep'] >= 4:
+            raise SystemExit(f"HARD STOP [HS:INFRA] (S13-2F): sweep 4 is not clean although "
+                             f"every remaining item was rebuilt at its terminal rung — a "
+                             f"renderer or gate is broken (run its self-test), or an INPUT file "
+                             f"(blueprint / profile / manifest) contradicts the paper — the FAIL "
+                             f"lines name which. Worklist: "
+                             f"{_wl.get('item_findings')} {_wl.get('fail_lines')}")
+        _by_q = {}
+        for _f in _wl.get('item_findings') or []:
+            _by_q.setdefault(_f.get('q'), []).append(_f['gate'])
+        for _q, _reasons in sorted(_by_q.items(), key=lambda kv: str(kv[0])):
+            _rung = 'TERMINAL' if _st['sweep'] >= 3 else bc.ladder_entry(_reasons)
+            print(f"S13-2F sweep {_st['sweep']}: Q{_q} {sorted(set(_reasons))} -> ladder {_rung}")
+        for _fl in _wl.get('fail_lines') or []:
+            print(f"S13-2F sweep {_st['sweep']}: FAIL {_fl['check']}: {_fl['message']}")
+        raise RuntimeError(f"LADDER-REPAIR [HS:LADDER] (S13-2F sweep {_st['sweep']}): repair "
+                           f"the questions above at their rungs in the final docx (S4-6 "
+                           f"correction procedure), record registry question_index ladder "
+                           f"data in the sidecar, then run the next sweep (preview + this block).")
+```
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -9446,10 +10269,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   _fb_hit = sorted(str(q) for q, v in ((_fig_manifest or {}).get('questions') or {}).items()
                    if isinstance(v, dict) and v.get('subtopic_id') in (bp.get('figural_fallbacks') or {}))
   if _fb_hit:
-      raise SystemExit(f"HARD STOP (S13-4, LAW F1.4): question(s) {_fb_hit} carry a figure on a "
+      raise RuntimeError(f"LADDER-REPAIR R4 [HS:LADDER] (S13-4, LAW F1.4): question(s) {_fb_hit} carry a figure on a "
                        f"text_disclosed fallback subtopic (blueprint.figural_fallbacks) — such a "
                        f"subtopic renders TEXT (S3-17c FORMAT_OVERRIDE). Re-author them as TEXT "
-                       f"(S7-NEW-B OPTION B) and remove their fig_manifest entries, then re-run S13-4.")
+                       f"(S7-NEW-B OPTION B) and remove their fig_manifest entries, then re-run "
+                       f"S13-1, S13-2F (a new certificate) and S13-4 — never S13-4 alone.")
 
   # C2: re-derive identity here (self-contained — bp + N are session-level, always in scope).
   _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
@@ -9466,7 +10290,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   _ax1 = globals().get('axis1_paper_counts') or {}
   _ax3 = globals().get('axis3_paper_counts') or {}
 
-  _commit = fa.commit_registry(
+  _s13_preview = bool(globals().get('S13_PREVIEW'))      # v5.89: S13-2F step 1 sets it
+  globals()['S13_PREVIEW'] = False                        # consumed: a later real S13-4 commits
+  _s13_preview_path = f'/home/claude/{EXAM}_M{N}_registry_preview.json'
+  try:
+    _commit = fa.commit_registry(
       registry, pending_registry, bp, N,
       paper_id=paper_id, batches_completed=batches_completed,
       axis2_window_counts=axis2_window_counts,
@@ -9478,8 +10306,28 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs,
       axis1_snapshots=_ax1, axis3_snapshots=_ax3,
       answer_key=_akd)                      # v5.59 — key commitments (S13-4 / Explain §7-8)
+  except ValueError as _e_commit:
+      # LAW F2.3: a figure record without object_type (or another per-question record
+      # defect) raises inside commit_registry — an ITEM defect, repaired via the ladder.
+      if _s13_preview:
+          raise RuntimeError(f"LADDER-REPAIR R1 [HS:LADDER] (S13-4 preview): {_e_commit} — "
+                             f"complete the named figure record(s) (fig_manifest object_type / "
+                             f"figspec sidecar), then run the next S13-2F sweep (step 1 preview "
+                             f"with S13_PREVIEW = True, then the S13-2F block).")
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-4): {_e_commit} — the S13-2F preview of this "
+                       f"same commit passed, so the inputs changed after certification. "
+                       f"Re-run S13-2F.")
   if not _commit['ok']:
-      raise SystemExit(_commit['fails'][0])
+      if _s13_preview:
+          # S13-2F preview: an FK failure is an ITEM defect (a concept_map subtopic_id
+          # not in this blueprint) — repaired through the ladder, never a stop.
+          raise RuntimeError(f"LADDER-REPAIR R2 [HS:LADDER] (S13-4 preview): {_commit['fails']} — "
+                             f"re-author the named question(s) on a blueprint subtopic, then run "
+                             f"the next S13-2F sweep (step 1 preview with S13_PREVIEW = True, then "
+                             f"the S13-2F block).")
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-4): {_commit['fails'][0]} — the S13-2F "
+                       f"preview of this same commit passed, so the inputs changed after "
+                       f"certification. Re-run S13-2F.")
   registry = _commit['registry']
   paper_id = _commit['paper_id']
 
@@ -9491,8 +10339,21 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   # so registry.json on disk is COMPLETELY UNTOUCHED on failure — never partially written.
   # G-COMMIT-COMPLETE (S13-REGCHECK) is the downstream detector if this rule is ever violated
   # by a future edit; this comment is the upstream prevention.
-  json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
-            indent=2, ensure_ascii=False)
+  if _s13_preview:
+      # v5.89 S13-2F PREVIEW (GAP-2026-11-02 G1). commit_registry is PURE: the same commit,
+      # plus the S13-REGCHECK self-heal, is written ONLY to the preview file, so the
+      # pre-commit sweep audits against exactly the registry S13-4 will commit. Nothing is
+      # persisted: registry.json and every ledger are untouched, `registry` is reloaded.
+      _rcp = fa.regcheck(registry, bp, N=N, concept_map=_cm,
+                         msq_meta=_akd.get('msq_meta', {}), paper_id=paper_id,
+                         require_key_commitments=True)
+      json.dump(_rcp['registry'] if _rcp.get('ok') else registry,
+                open(_s13_preview_path, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+      registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
+      print(f"S13-4 PREVIEW: {_s13_preview_path} written — nothing committed.")
+  else:
+      json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
+                indent=2, ensure_ascii=False)
   ```
 
 ## S13-REGCHECK — Registry schema-completeness gate (v3.5 — runs after S13-4 commit; v5.53 — extracted)
@@ -9506,7 +10367,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   v5.53: the schema self-heal and the v5.52 G-COMMIT-COMPLETE cross-ledger check (S13-4's
   three ledgers — mocks_completed/papers_completed, session_log, question_index — can drift
   apart if a session ever hand-rolls or partially re-derives S13-4) now live in
-  `final_assembly.regcheck()`. THIS mock's own commit is a HARD STOP if incomplete; a
+  `final_assembly.regcheck()`. THIS mock's own commit is a HARD STOP [HS:INFRA] if incomplete; a
   PRE-EXISTING partial commit from an earlier mock is a WARN, not a hard stop — same trigger
   conditions, same wording, as before extraction.
 
@@ -9591,13 +10452,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   parity-tested against audit_canonical.py's gate_qindex() (that module's own "QINDEX PARITY"
   self-test) — reusing it collapses what would otherwise be a fifth independent copy of the
   same six checks. One disclosed, non-observable-here behaviour change: check 6 is DORMANT
-  (not a false HARD STOP) when an exam's blueprint declares no difficulty_schedule at all;
+  (not a false HARD STOP [HS:PROSE]) when an exam's blueprint declares no difficulty_schedule at all;
   IIT_JAM_BIOTECHNOLOGY always declares one, so nothing changes for this exam.
 
   ```python
   _qi = fa.qindex_certify(registry, bp, N)
   if not _qi['ok']:
-      raise SystemExit("HARD STOP (G-QINDEX): " + "; ".join(_qi['fails'])
+      raise SystemExit("HARD STOP [HS:INFRA] (G-QINDEX): " + "; ".join(_qi['fails'])
                        + ". Fix the per-Q subtopic_id/difficulty capture (S7-NEW-A) or the "
                        + "schedule-first assignment, rebuild question_index (S13-4), re-run.")
   QINDEX_OK = True
@@ -9700,6 +10561,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   Executed as:
 
   ```python
+  _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
+  _pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
   if AUDIT_AVAILABLE and os.path.exists(_out):
       # v5.85: the paper's OWN profile snapshot (S3-12b) — absent on a legacy paper
       _sgp_final = STIM_PROFILE_PATH if os.path.exists(STIM_PROFILE_PATH) else None
@@ -9723,14 +10586,26 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            # v5.85 — arm A-BLOCK: the auditor recomputes the stimulus groups
            # from the SAME profile the planner used and certifies the paper.
            *(['--stimulus-profile', _sgp_final] if _sgp_final else []),
+           # v5.89 (GAP-2026-11-02 G1): the S13-2F certificate — A-CERT confirms the
+           # docx is the one certified; --profile arms A-DPROFILE / A-DIFFSRC.
+           '--certificate', _cert,   # ALWAYS: a skipped / lost S13-2F FAILs A-CERT (INFRA)
+           *(['--profile', _pf] if os.path.exists(_pf) else []),
            '--mockN', str(N)],
           capture_output=True, text=True, env=AUDIT_ENV)        # S3-9: engines importable
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
       if _r.returncode != 0:
+          # v5.89: S13-2F certified this docx against the PREVIEW of this very commit
+          # with every gate (no FAIL line of any gate), and AMBER advisories are WARN
+          # lines (no exit 1). A non-zero exit here therefore means the committed record
+          # differs from its preview, or the docx changed after certification (A-CERT) —
+          # INFRASTRUCTURE, never a question-quality matter.
           raise SystemExit(
-              "HARD STOP (S13-4c re-sweep, v5.48.0): auditor FAILed — see STDOUT "
-              "above (A-QINDEX FK violations are listed by Q-number). Fix and "
-              "re-run; present_files is forbidden until clean (B-7).")
+              "HARD STOP [HS:INFRA] (S13-4c re-sweep, v5.89): the committed paper fails a gate "
+              "its S13-2F preview passed (or A-CERT: the docx changed after certification) — "
+              "see STDOUT above. The registry is committed: restore "
+              "/home/claude/[ExamCode]_registry.json from REG_SRC['path'] (the registry this "
+              "run started from, S3-1), then re-run S13-2F, "
+              "S13-4 and this re-sweep. present_files is forbidden until clean (B-7).")
       # STALE-COPY TRIPWIRE. [ExamCode]_mock_test_audit.py is a Step-6-delivered
       # copy in the PROJECT — a push to production does NOT refresh it. A pre-
       # v5.48 copy already accepts --registry/--blueprint/--mockN (they predate
@@ -9742,7 +10617,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       # ABSENCE is unambiguous evidence of a stale copy, never of a pass.
       if 'A-QINDEX' not in (_r.stdout or ''):
           raise SystemExit(
-              f"HARD STOP (S13-4c, v5.48.0): {EXAM}_mock_test_audit.py printed no "
+              f"HARD STOP [HS:INFRA] (S13-4c, v5.48.0): {EXAM}_mock_test_audit.py printed no "
               "A-QINDEX line, so it predates the FK gate and the question_index "
               "was NOT certified — a clean exit code here would be meaningless. "
               "Refresh the per-exam auditor (re-run Step 6 B3, or replace the "
@@ -9756,7 +10631,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       if any(re.search(r'\]\s+A-QINDEX\s+dormant\b', l)
              for l in (_r.stdout or '').splitlines()):
           raise SystemExit(
-              f"HARD STOP (S13-4c, v5.86): A-QINDEX reported dormant — this paper is not "
+              f"HARD STOP [HS:INFRA] (S13-4c, v5.86): A-QINDEX reported dormant — this paper is not "
               f"in the registry's commit ledgers, so S13-4 did not commit it. Re-run S13-4 "
               f"in FULL, then S13-REGCHECK, S13-QINDEX and this re-sweep. present_files is "
               f"forbidden until clean (B-7).")
@@ -9782,7 +10657,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               if not _gl or any(('dormant' in l or 'NOT AUDITED' in l or 'NOT CHECKED' in l
                                  or 'NOT ESTABLISHED' in l) for l in _gl):
                   raise SystemExit(
-                      f"HARD STOP (S13-4c, v5.88): the auditor did not certify this paper's "
+                      f"HARD STOP [HS:INFRA] (S13-4c, v5.88): the auditor did not certify this paper's "
                       f"figures — {_g}: {_gl[0].strip() if _gl else 'no line (auditor < v2.32; refresh the per-exam copy from the verified repo audit_canonical.py)'}. "
                       f"The figure record must be in the registry (S13-4 commits it whenever "
                       f"{EXAM}_fig_manifest.json is non-empty — final_assembly v1.10) and every "
@@ -9799,7 +10674,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                  if re.search(r'\]\s+A-BLOCK\s', l)]
           if not _ab or any('dormant' in l for l in _ab):
               raise SystemExit(
-                  f"HARD STOP (S13-4c, v5.85): the auditor did not certify the "
+                  f"HARD STOP [HS:INFRA] (S13-4c, v5.85): the auditor did not certify the "
                   f"stimulus groups of this set-placed paper "
                   f"({_ab[0].strip() if _ab else 'no A-BLOCK line'}). The paper's "
                   f"profile snapshot {STIM_PROFILE_PATH} must exist (S3-12b writes it) "
@@ -9809,7 +10684,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   v5.48.0: this re-sweep now ALSO arms A-QINDEX (the engine-enforced FK gate over the
   question_index committed at S13-4) via --registry/--blueprint/--mockN, and a nonzero
-  exit here is a HARD STOP. For the dossier-fed gates it remains the same auditor, the
+  exit here is a HARD STOP [HS:INFRA] — v5.89: S13-2F already certified the docx against a
+  preview of this exact commit with every gate, so only a commit that differs from its
+  preview, or a docx changed after certification (A-CERT), can cause it. For the dossier-fed gates it remains the same auditor, the
   same A-* catalogue, and the same paper that S13-2 already swept clean — run once more so
   those two gates read facts rather than defaults. A FAIL here is handled exactly as a
   FAIL in S13-2 is handled (fix, re-run, present_files forbidden until clean, B-7).
@@ -9822,7 +10699,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 ## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)
 
   At Final Assembly, Step 7 delivers the CLOSED SET to the user, and NOTHING
-  ELSE — EXACTLY the two files below. This is an exhaustive, closed list — not a
+  ELSE — EXACTLY the two files below (v5.89: plus, ONLY when their condition holds, the
+  two CONDITIONAL ADDITIONS listed after them). This is an exhaustive, closed list — not a
   minimum. (v5.73: the dossier left the set by operator decision; the set no
   longer varies, so the v5.54.1 count-drift cannot recur.)
 
@@ -9833,6 +10711,42 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     2. [ExamCode]_registry.json             — updated dedup/tracking registry
                                               → Replace in Project Files (REGISTRY-HANDOFF-LAW)
 
+  CONDITIONAL ADDITIONS (v5.89 — GAP-2026-11-02 P2/P3; same present_files call; named to
+  fa.predelivery_checklist(extra_deliverables=...), which accepts ONLY these two shapes):
+    3. the IN-RUN blueprint (basename of BP_SRC_PATH) — ONLY when its bytes differ from the
+       project copy /mnt/project/<same name> (S3-2D recomputation, R5 schedule/allocation
+       amendments). Print, verbatim:
+         "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER"
+       and add the footer line (Framework_DeliveryFooter §LADDER). Measured defect: the
+       project still held the pre-fix Organic blueprint after a run had regenerated it.
+    4. [ExamCode]_mock_test_audit.py — ONLY when AUDITOR_FROM_REPO (S3-1: the project had
+       no copy, or a stale one). Print, verbatim:
+         "UPLOAD THIS AUDITOR TO THE PROJECT"
+  ```python
+  import os, shutil
+  _extras, _replace = [], set()
+  _bp_name = os.path.basename(BP_SRC_PATH)
+  _bp_proj = f'/mnt/project/{_bp_name}'
+  if (not os.path.exists(_bp_proj)
+          or open(_bp_proj, 'rb').read() != open(BP_SRC_PATH, 'rb').read()):
+      shutil.copy(BP_SRC_PATH, f'/mnt/user-data/outputs/{_bp_name}')
+      _extras.append(_bp_name)
+      if os.path.exists(_bp_proj):
+          _replace.add(_bp_name)            # an older copy is in Project Files: REPLACE it
+      print("UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER"
+            + (" (replace the older copy)" if os.path.exists(_bp_proj) else ""))
+  if AUDITOR_FROM_REPO:
+      shutil.copy(f'/home/claude/{EXAM}_mock_test_audit.py',
+                  f'/mnt/user-data/outputs/{EXAM}_mock_test_audit.py')
+      _extras.append(f'{EXAM}_mock_test_audit.py')
+      if os.path.exists(f'/mnt/project/{EXAM}_mock_test_audit.py'):
+          _replace.add(f'{EXAM}_mock_test_audit.py')
+      print("UPLOAD THIS AUDITOR TO THE PROJECT"
+            + (" (replace the stale copy)" if f'{EXAM}_mock_test_audit.py' in _replace else ""))
+  EXTRA_DELIVERABLES = tuple(_extras)
+  EXTRA_REPLACE = tuple(x for x in _extras if x in _replace)   # badge 'Replace in Project Files'
+  ```
+
   DO NOT DELIVER (internal — never passed to present_files):
     ✗ [ExamCode]_M[N]_audit_dossier.json    — Tier-A dossier, /home/claude (S13-4b, v5.73)
     ✗ [ExamCode]_M[N]_answer_key.json       — internal sidecar (S3-14)
@@ -9840,12 +10754,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     ✗ [ExamCode]_fig_manifest.json          — internal
     ✗ [ExamCode]_M[N]_batch_state.json      — internal
     ✗ [ExamCode]_M[N]_progress.json         — internal
+    ✗ [ExamCode]_M[N]_item_sweep_certificate.json / _item_findings.json — internal (S13-2F)
     ✗ any per-batch cumulative docx (Q1to[k]) — superseded by _Create.docx
 
   This is the inline anchor for R-DELIVER. The answers exist ONLY in the
   internal answer_key.json sidecar (S3-14), which is NEVER delivered. If the
   user wants a learner-facing answer key, that is a Step-4 (MockExplain)
-  artefact, not a Step-7 one. Step 7 ships the paper + registry, full stop.
+  artefact, not a Step-7 one. Step 7 ships the paper + registry, plus only the
+  EXTRA_DELIVERABLES S13-6 decided (v5.89).
 
 ## S13-7 — Pre-delivery checklist (v3.5 — MANDATORY before present_files; v5.53 — extracted)
 
@@ -9871,10 +10787,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   _pdc = fa.predelivery_checklist(
       out, docx_name=docx_name, reg_name=reg_name, dossier_name=dossier_name,
-      regcheck_ok=globals().get('REGCHECK_OK'), qindex_ok=globals().get('QINDEX_OK'))
+      regcheck_ok=globals().get('REGCHECK_OK'), qindex_ok=globals().get('QINDEX_OK'),
+      extra_deliverables=globals().get('EXTRA_DELIVERABLES', ()))   # v5.89 P2/P3
   if not _pdc['ok']:
       raise SystemExit(
-          "HARD STOP (S13-7): pre-delivery checklist failed: "
+          "HARD STOP [HS:INFRA] (S13-7): pre-delivery checklist failed: "
           + "; ".join(_pdc['fails'])
           + ". Fix each, then re-run S13-7. Do NOT call present_files yet. "
           + "If item 4 fails, DELETE the off-spec answer-key file from outputs. "
@@ -9885,21 +10802,26 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   Stage ONLY the deliverables in /mnt/user-data/outputs; keep every internal file
   in /home/claude. Item 6 enforces the closed set.
-  THE CLOSED SET (v5.73): the rectified docx + registry.json. Nothing else, ever.
+  THE CLOSED SET (v5.73): the rectified docx + registry.json, plus (v5.89 P2/P3) ONLY the
+  EXTRA_DELIVERABLES S13-6 decided (an amended *_blueprint.json, a repo *_mock_test_audit.py).
   A staged [ExamCode]_M[N]_audit_dossier.json fails item 5 (internal sidecar leak).
 
 ## S13-8 — Deliver (v3.5 — the SINGLE present_files call)
 
-  Call present_files ONCE, with BOTH files, docx first (most relevant):
+  Call present_files ONCE, docx first (most relevant), then the registry, then every
+  EXTRA_DELIVERABLES file (v5.89 — empty on most runs):
     present_files([
         docx_path,        # C2: paper-scoped ({EXAM}_{paper_slug}_Create.docx — zero-padded mock or scoped slug)
-        reg_path
+        reg_path,
+        *[f'/mnt/user-data/outputs/{x}' for x in EXTRA_DELIVERABLES]
     ])
 
   THE SET IS DECIDED BY THE ENGINE, NOT BY THIS PROSE (v5.76 — REGISTRY-HANDOFF-LAW,
   DeliveryFooter §8, mock_sync_audit MS-14). Before the call, build and verify the
   closed set exactly as Step 9 does at S19-0b — commit_registry ALWAYS changes the
-  registry (it appends the paper), so the set is the two files above, every time:
+  registry (it appends the paper), so the set is the paper + registry, every time, plus
+  the EXTRA_DELIVERABLES S13-6 decided (v5.89; badge "Replace in Project Files" when an older
+  copy is there — EXTRA_REPLACE — else "Upload to Project Files"):
 
   ```python
   import os, json
@@ -9915,13 +10837,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   _hs = pp.handoff_set(HANDOFF_STEP,
                        primary_docx=f'{EXAM}_{pp.paper_slug(paper_id)}_Create.docx',
                        reg_name=f'{EXAM}_registry.json',
-                       registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True)
+                       registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True,
+                       extra_upload=tuple(x for x in globals().get('EXTRA_DELIVERABLES', ())
+                                          if x not in globals().get('EXTRA_REPLACE', ())),
+                       extra_replace=tuple(globals().get('EXTRA_REPLACE', ())))   # v5.89 P2/P3
   if not _hs['registry_delivered']:
-      raise SystemExit('HARD STOP (S13-8): registry unchanged after Final Assembly — '
+      raise SystemExit('HARD STOP [HS:INFRA] (S13-8): registry unchanged after Final Assembly — '
                        'commit_registry did not run; nothing is delivered.')
   _v = pp.verify_handoff_outputs(os.listdir('/mnt/user-data/outputs'), _hs)
   if not _v['ok']:
-      raise SystemExit(f"HARD STOP (S13-8): outputs != closed set — missing {_v['missing']}, "
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-8): outputs != closed set — missing {_v['missing']}, "
                        f"stray {_v['stray']}. Fix, then re-run. Do NOT call present_files.")
   for _line in pp.handoff_footer_lines(_hs):
       print(_line)
@@ -9929,7 +10854,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   This is the ONLY present_files call at Final Assembly. Do NOT call it once
   per file. Do NOT call it for any internal file. The per-batch habit of "one
-  docx per present_files" does NOT apply here — Final Assembly ships TWO files.
+  docx per present_files" does NOT apply here — Final Assembly ships the paper and the
+  registry (plus any EXTRA_DELIVERABLES) in ONE call.
 
 ## S13-9 — Handoff message (v3.5 — print after present_files, then END)
 
@@ -9937,9 +10863,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   ```
   === MOCK [N] COMPLETE — Step 7 done ===
-  Delivered (2 files):
+  Delivered ([2 + len(EXTRA_DELIVERABLES)] files):
     • [ExamCode]_Mock[N]_Create.docx   — the mock paper            → Use locally
     • [ExamCode]_registry.json           — updated registry           → Replace in Project Files
+    [one line per EXTRA_DELIVERABLES file, ONLY when S13-6 decided it (v5.89):]
+    • [ExamCode]_..._blueprint.json      — amended in-run blueprint   → Replace / Upload in Project Files
+    • [ExamCode]_mock_test_audit.py      — the repo auditor copy      → Replace / Upload in Project Files
+      (Replace when an older copy is in Project Files — EXTRA_REPLACE — else Upload)
 
   ⚠ REGISTRY HANDOFF — REQUIRED before generating the next mock:
     Replace registry.json in your [ExamCode] project knowledge with the one
@@ -10107,7 +11037,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     printed REGISTRY SOURCE lines, and batch_state.registry_pin matched every turn (v5.84)  **
 
   DELIVERY (v3.5 — closed contract):
-  □ The closed set delivered: EXACTLY final .docx + registry.json (S13-6, R-DELIVER; v5.73 — the audit dossier is internal)  **
+  □ The closed set delivered: EXACTLY final .docx + registry.json + the EXTRA_DELIVERABLES S13-6 decided (S13-6, R-DELIVER; v5.73 — the audit dossier is internal; v5.89 extras)  **
   □ registry.json staged in /mnt/user-data/outputs and present_files'd (S13-8)  **
   □ NO standalone answer-key file in any format delivered (R-DELIVER)  **
   □ NO internal sidecar (answer_key/fig/batch_state/progress/audit_dossier) delivered  **
@@ -10195,11 +11125,11 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   | Gate Code      | Checks                                          | Fix? | Fix                                  |
   |----------------|-------------------------------------------------|------|--------------------------------------|
-  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry (v5.73 — the audit dossier is internal; the set no longer varies) | YES  | Remove stray/internal files; add reg |
+  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry + EXTRA_DELIVERABLES (v5.73 — the audit dossier is internal; v5.89 extras decided by S13-6) | YES  | Remove stray/internal files; add reg |
 
   G-DELIVERY-SET (definition): at Final Assembly, /mnt/user-data/outputs must
   contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json }
-  — no more, no fewer. A standalone answer-key file, a leaked internal sidecar,
+  ∪ EXTRA_DELIVERABLES (v5.89 — S13-6) — no more, no fewer. A standalone answer-key file, a leaked internal sidecar,
   or a missing registry → Exit 1. This is the machine-checkable form of the
   S13-6 closed contract (identical to S13-7 items 4–6) and runs inside the S13-2
   sweep so the off-spec set is caught even if S13-7 is skipped.
@@ -10688,7 +11618,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.88
+# END OF Framework_MockTestCreate v5.89
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
@@ -10745,7 +11675,7 @@ difficulty replaces inheritance (R12/R10 cadence).
 #       with no PYQ guidance).
 #     - S3-17 used hardcoded literals ('Mensuration 3D', 'Direction Sense', ...).
 #       The blueprint had 3D mensuration under granular names ("Right Circular
-#       Cone" etc.), so the literal check FALSELY reported it absent → HARD STOP.
+#       Cone" etc.), so the literal check FALSELY reported it absent → HARD STOP [HS:PROSE].
 #   v3.4 removes string-matching entirely. Joins are by subtopic_id, which all
 #   three steps now share via the manifest. False "absent" alarms are impossible.
 #
@@ -10753,7 +11683,7 @@ difficulty replaces inheritance (R12/R10 cadence).
 #   1. JOIN BY ID: S3-8 joins blueprint ↔ section_rules on subtopic_id. The
 #      display name is decorative; nothing matches on it.
 #   2. CONTRACT GATE: every blueprint id must exist in BOTH the manifest AND
-#      section_rules, else HARD STOP naming the exact id (no silent Zero-PYQ
+#      section_rules, else HARD STOP [HS:PROSE] naming the exact id (no silent Zero-PYQ
 #      fallback that would quietly degrade quality).
 #   3. MANDATES BY DATA: S3-17 reads manifest.mandatory_every_mock and
 #      manifest.alternation_groups (structured data minted by Step 0). Zero

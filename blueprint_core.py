@@ -41,6 +41,19 @@ PROVENANCE
       determine_strip_mode ..... E-10 (taxonomy → strip mode, RIGID-5 Hindi)
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
+VERSION
+    v1.29 (2026-11-02) — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: NEW Cluster QF —
+      scope-measured difficulty mix (dp_scope_mix) converted POSITIONALLY (mix_to_smh,
+      the only dict -> tuple conversion; the alphabetical 2/14/24 defect is a negative
+      self-test fixture), scoped_difficulty_schedule (default 'harder') with A-DPROFILE
+      provenance, recompute_difficulty_schedule, amend_schedule_in_place (never-halt
+      R5), CCP content_vector / ccp_model / ccp_band / ccp_floor_check (floor only),
+      exam-anchored blind rating support (difficulty_exemplars, reconcile_difficulty,
+      ladder_terminal_accept), repair-ladder entry (LADDER_ENTRY_RUNG, ladder_entry),
+      axis_safe_text_fallback, figural ask-type apportionment (fig_ask_series,
+      assign_ask_type, fig_format_check).
+    v1.28 (2026-11-01) — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY.
+
 THIN-CORE INVARIANT (enforced by validate_framework_md.py)
     This module is PURE. It performs no I/O, imports nothing exam-specific, and has
     ZERO knowledge of: mandates, sections, the subtopic manifest structure, the
@@ -54,6 +67,8 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 
 import math
 import re
+
+BLUEPRINT_CORE_VERSION = '1.29'
 
 __all__ = [
     "AllocationError",
@@ -251,6 +266,28 @@ __all__ = [
     "bv_topic_check",
     "bv_coverage_report",
     "transition_footer_lines",
+    # v1.29 — Cluster QF (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY)
+    "BLUEPRINT_CORE_VERSION",
+    "FULL_PAPER_BUILDER",
+    "dp_scope_mix",
+    "mix_to_smh",
+    "scoped_difficulty_schedule",
+    "recompute_difficulty_schedule",
+    "amend_schedule_in_place",
+    "content_vector",
+    "ccp_model",
+    "ccp_band",
+    "ccp_floor_check",
+    "difficulty_exemplars",
+    "reconcile_difficulty",
+    "ladder_terminal_accept",
+    "LADDER_RUNGS",
+    "LADDER_ENTRY_RUNG",
+    "ladder_entry",
+    "axis_safe_text_fallback",
+    "fig_ask_series",
+    "assign_ask_type",
+    "fig_format_check",
 ]
 
 
@@ -5574,6 +5611,19 @@ def parse_image_analysis_blocks(section_rules_text):
         v = _s('dominant_suppressed')
         if v is not None:
             rec['dominant_suppressed'] = v.strip('"')
+        # v1.29 (GAP-2026-11-02 F8): closed-vocabulary COUNTS written by analyse_engine
+        # v1.1 from PYQExplain's per-question tags. Absent on a legacy block (EC-V18).
+        for key in ('figural_ask_type_counts', 'representation_counts',
+                    'scheme_grammar_counts'):
+            v = _s(key)
+            if v is not None:
+                _d = _lit(v, {})
+                if isinstance(_d, dict):
+                    # finite counts only: 1e999 parses to inf (int() -> OverflowError)
+                    # and nan has no int; both are dropped, never raised.
+                    rec[key] = {str(k): int(n) for k, n in _d.items()
+                                if isinstance(n, (int, float))
+                                and (not isinstance(n, float) or math.isfinite(n))}
         out[sid] = rec
     return out
 
@@ -8109,6 +8159,23 @@ PYQ_IMAGE_ANALYSIS:
           and [c['label'] for c in dp_cycles(P2)][0] == 'Sep 2025')
     # re-explaining the same paper REPLACES it (idempotent); excluded then fixed → moves back
     P3, st, _ = dp_add_paper(P2, source_file='SSC_CGL_T1_01-Oct-2025_Shift_3.docx', exam_config=_SSC, questions=_paper([(25, 0, 0)] * 4))
+    # v1.29 (GAP-2026-11-02): optional content keys are carried; the content vector is
+    # COMPUTED from the transcribed objects; a record without them is byte-unchanged.
+    _qc = _paper([(25, 0, 0)] * 4)
+    _q1 = sorted(_qc)[0]
+    _qc[_q1] = {**_qc[_q1], 'content_objects': [{'kind': 'STRUCTURE', 'canonical': 'CC(=O)OCC'}],
+                'abbreviations_seen': ['CO2Et'], 'figural_ask_type': 'product_prediction'}
+    _PC, _stc, _ = dp_add_paper(P2, source_file='SSC_CGL_T1_01-Oct-2025_Shift_3.docx',
+                                exam_config=_SSC, questions=_qc)
+    _rc = _PC['papers']['01-Oct-2025_Shift_3']['questions'][str(_q1)]
+    _rn = _PC['papers']['01-Oct-2025_Shift_3']['questions'][str(sorted(_qc)[1])]
+    check('dp_add_paper_v129_content_keys_carried',
+          _rc.get('abbreviations_seen') == ['CO2Et']
+          and _rc.get('figural_ask_type') == 'product_prediction'
+          and not any(k in _rn for k in DP_CONTENT_KEYS + ('content_vector',)))
+    check('dp_add_paper_v129_content_vector_is_computed_not_declared',
+          (_rc.get('content_vector') or {}).get('heavy_atoms') == 6
+          or content_vector([{'kind': 'STRUCTURE', 'canonical': 'C'}]) is None)
     check('dp_add_paper_idempotent_and_unexclude', st == 'added' and '01-Oct-2025_Shift_3' in P3['papers']
           and '01-Oct-2025_Shift_3' not in P3['excluded_papers'] and len(P3['papers']) == 6
           and dp_cycles(P3)[0]['papers'][0] == '01-Oct-2025_Shift_3' and dp_cycles(P3)[0]['label'] == 'Sep–Oct 2025')
@@ -9207,6 +9274,521 @@ PYQ_IMAGE_ANALYSIS:
           kind_coverage_preflight(_A('x'), {'x': {'vision_status': 'observed', 'object_types': {'dominant': ['MICROGRAPH'], 'observed': [], 'avoid': []}}},
                                   _cov, normalise=_nrm)['status'] == 'stop')
 
+    # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
+    # Every fixture FAILS on the defect it guards (named in the check id or comment).
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.29')
+    _QL = ['Easy', 'Medium', 'Hard']
+
+    def _qf_paper(date, blocks):
+        qs, q = {}, 1
+        for sid, counts in blocks:
+            for b, n in zip(_QL, counts):
+                for _i in range(n):
+                    qs[str(q)] = {'section': 'C', 'subtopic_id': sid, 'band': b, 'steps': q % 6,
+                                  'concepts': 1 + q % 3, 'class': ['C-X'], 'confidence': 'full',
+                                  'stem_snippet': f'{date} Q{q}'}
+                    q += 1
+        return {'date': date, 'questions': qs}
+    # The CSIR Organic scope's real per-cycle counts (GAP L2 / tools/reproduce_difficulty_findings),
+    # split over two subtopics, plus an all-Easy inorganic block that drags the PAPER mix
+    # away from the scope mix (a reader that used the paper-level mix fails qf_scope_mix_csir).
+    _QP = {'_meta': {'difficulty_labels': _QL}, 'papers': {
+        'J26': _qf_paper('2026-07-18', [('oc.1.1', (0, 10, 6)), ('oc.2.1', (0, 10, 5)), ('ic.1.1', (12, 0, 0))]),
+        'D25': _qf_paper('2025-12-15', [('oc.1.1', (1, 16, 1)), ('oc.2.1', (0, 15, 0)), ('ic.1.1', (12, 0, 0))]),
+        'J25': _qf_paper('2025-06-20', [('oc.1.1', (1, 12, 2)), ('oc.2.1', (0, 13, 2)), ('ic.1.1', (12, 0, 0))])}}
+    _QS = ['oc.1.1', 'oc.2.1']
+    # (1) THE SHIPPED DEFECT, reproduced: paper-level 7/83/10 -> dp_harder -> sorted keys.
+    _qh = dp_harder({'Easy': 7, 'Medium': 83, 'Hard': 10}, _QL)
+    check('qf_harder_paper_level_is_5_60_35', _qh == {'Easy': 5, 'Medium': 60, 'Hard': 35})
+    _alpha = tuple(v for _, v in sorted(_qh.items()))
+    check('qf_NEGATIVE_alphabetical_order_gives_2_14_24',
+          _alpha == (5, 35, 60) and difficulty_counts(40, *_alpha) == (2, 14, 24)
+          and difficulty_counts(40, *_alpha) != difficulty_counts(40, *mix_to_smh(_qh, _QL)))
+    check('qf_mix_to_smh_positional_5_60_35_to_2_24_14',
+          mix_to_smh(_qh, _QL) == (5, 60, 35) and difficulty_counts(40, *mix_to_smh(_qh, _QL)) == (2, 24, 14))
+    # a dict built in alphabetical insertion order: tuple(mix.values()) would be (5, 35, 60)
+    check('qf_mix_to_smh_ignores_dict_order',
+          mix_to_smh({'Easy': 5, 'Hard': 35, 'Medium': 60}, _QL) == (5, 60, 35))
+    _r1 = _r2 = False
+    try:
+        mix_to_smh({'Easy': 5, 'Medium': 95}, _QL)
+    except DPError:
+        _r1 = True
+    try:
+        mix_to_smh({'Easy': 50, 'Hard': 50}, ['Easy', 'Hard'])
+    except DPError:
+        _r2 = True
+    check('qf_mix_to_smh_raises_missing_label_and_non_3_band', _r1 and _r2)
+    # (2) scope mix: equal-weight cycles, scope not paper
+    _sm = dp_scope_mix(_QP, _QS, _QL)
+    check('qf_scope_mix_csir_2_81_17',
+          _sm['pct'] == {'Easy': 2, 'Medium': 81, 'Hard': 17} and _sm['level_used'] == 'scope' and _sm['n'] == 94)
+    check('qf_scope_mix_per_cycle_and_bounds',
+          _sm['per_cycle']['Jul 2026'] == {'Easy': 0, 'Medium': 20, 'Hard': 11}
+          and _sm['window_cycles'] == ['Jul 2026', 'Dec 2025', 'Jun 2025']
+          and _sm['cycle_min']['Hard'] == 3 and _sm['cycle_max']['Hard'] == 35)
+    check('qf_scope_harder_csir_2_57_41', dp_harder(_sm['pct'], _QL) == {'Easy': 2, 'Medium': 57, 'Hard': 41})
+    # pooled (not equal-weight) counts would give 2/81/17 too for these numbers, so the
+    # equal-weight rule is pinned by a skewed fixture: cycle A 10 Hard of 10, cycle B 0 of 90.
+    _QPw = {'papers': {'A': _qf_paper('2026-07-01', [('x.1.1', (0, 0, 10))]),
+                       'B': _qf_paper('2025-07-01', [('x.1.1', (0, 90, 0))])}}
+    check('qf_scope_mix_equal_weight_not_pooled',
+          dp_scope_mix(_QPw, ['x.1.1'], _QL)['pct'] == {'Easy': 0, 'Medium': 50, 'Hard': 50})
+    # a window cycle with 0 in-scope questions is SKIPPED, not averaged in as 0/0/0
+    _QPz = {'papers': dict(_QP['papers'], N27=_qf_paper('2027-01-10', [('ic.1.1', (20, 0, 0))]))}
+    _smz = dp_scope_mix(_QPz, _QS, _QL, window_cycles=4)
+    check('qf_scope_mix_skips_zero_cycle', _smz['pct'] == _sm['pct'] and len(_smz['window_cycles']) == 4
+          and len(_smz['per_cycle']) == 3)
+    # cascade: an empty subtopic falls to topic ('oc.9' empty) then section ('oc')
+    _smc = dp_scope_mix(_QP, ['oc.9.9'], _QL)
+    check('qf_scope_mix_cascade_to_section', _smc['level_used'] == 'section' and _smc['pct'] == _sm['pct'])
+    check('qf_scope_mix_cascade_to_topic',
+          dp_scope_mix(_QP, ['oc.1.7'], _QL)['level_used'] == 'topic')
+    check('qf_scope_mix_cascade_to_paper',
+          dp_scope_mix(_QP, ['zz.1.1'], _QL)['level_used'] == 'paper' and dp_scope_mix(_QP, ['zz.1.1'], _QL)['n'] == 130)
+    check('qf_scope_mix_min_n_respected',
+          dp_scope_mix(_QP, ['oc.1.1'], _QL, min_n=60)['level_used'] == 'section'
+          and dp_scope_mix(_QP, ['oc.1.1'], _QL, min_n=20)['level_used'] == 'scope')
+    _QPbad = {'papers': {'X': {'date': 'not a date', 'questions': {'1': {'band': 'Easy'}}},
+                         'Y': {'date': '2026-01-01', 'questions': {'1': 'junk', '2': {'band': 'Weird', 'subtopic_id': 'oc.1.1'}}}}}
+    try:
+        _smb = dp_scope_mix(_QPbad, _QS, _QL)
+        check('qf_scope_mix_never_raises_on_bad_data', _smb['pct'] is None and _smb['n'] == 0)
+    except Exception:                                       # noqa: BLE001
+        check('qf_scope_mix_never_raises_on_bad_data', False)
+    # (3) scoped_difficulty_schedule — default harder, positional, A-DPROFILE schema
+    _sd = scoped_difficulty_schedule(_QP, _QS, _QL, 10, 40)
+    check('qf_scoped_default_harder_every_paper_1_23_16',
+          len(_sd['schedule']) == 10
+          and all((e['simple'], e['medium'], e['hard']) == (1, 23, 16) for e in _sd['schedule'])
+          and _sd['difficulty_source']['mode'] == 'profile_harder')
+    _ds = _sd['difficulty_source']
+    check('qf_scoped_source_a_dprofile_shape',
+          _ds['mode'] in ('profile', 'profile_harder', 'profile_confirmed', 'operator_no_pyq', 'flag', 'progressive')
+          and all(sum(int(p.get(l, 0)) for l in _QL) == 100 for p in _ds['chosen_by_section'].values())
+          and _ds['overrides_confirmed'] == []
+          and all(sum(v[_QL[i]] for v in e['by_section'].values()) == e[k]
+                  for e in _sd['schedule'] for i, k in enumerate(('simple', 'medium', 'hard'))))
+    check('qf_scoped_source_provenance_keys',
+          {'level_used', 'labels', 'profile_sha256', 'window_cycles', 'measured_pct', 'applied_pct', 'builder'}
+          <= set(_ds) and _ds['builder'] == 'bc.scoped_difficulty_schedule'
+          and _ds['measured_pct'] == {'Easy': 2, 'Medium': 81, 'Hard': 17}
+          and _ds['applied_pct'] == {'Easy': 2, 'Medium': 57, 'Hard': 41} and len(_ds['profile_sha256']) == 64)
+    _se = scoped_difficulty_schedule(_QP, _QS, _QL, 2, 40, mode='exam')
+    check('qf_scoped_exam_1_32_7', _se['difficulty_source']['mode'] == 'profile'
+          and (_se['schedule'][0]['simple'], _se['schedule'][0]['medium'], _se['schedule'][0]['hard']) == (1, 32, 7))
+    _sr = scoped_difficulty_schedule(_QP, _QS, _QL, 2, 40, mode='ratio', ratio=(20, 50, 30))
+    check('qf_scoped_ratio_flag', _sr['difficulty_source']['mode'] == 'flag'
+          and (_sr['schedule'][1]['simple'], _sr['schedule'][1]['medium'], _sr['schedule'][1]['hard']) == (8, 20, 12))
+    _rr = False
+    try:
+        scoped_difficulty_schedule(_QP, _QS, _QL, 2, 40, mode='ratio', ratio=(20, 50, 31))
+    except DPError:
+        _rr = True
+    check('qf_scoped_ratio_must_sum_100', _rr)
+    _sp = scoped_difficulty_schedule(_QP, _QS, _QL, 10, 40, mode='progressive')
+    _hs = [e['hard'] for e in _sp['schedule']]
+    check('qf_scoped_progressive_ramps_and_clips',
+          _sp['difficulty_source']['mode'] == 'progressive'
+          and _hs == sorted(_hs) and _hs[0] < _hs[-1]
+          and all(e['simple'] + e['medium'] + e['hard'] == 40 for e in _sp['schedule'])
+          and _sp['difficulty_source']['per_paper_pct'][0]['Hard'] == 31
+          and _sp['difficulty_source']['per_paper_pct'][-1]['Hard'] == 51
+          and all(p['Hard'] <= 51 for p in _sp['difficulty_source']['per_paper_pct']))   # max(harder 41, cycle max 35) + δ
+    # a 'harder' base outside the measured per-cycle range still ramps (review C4)
+    _QF = {'_meta': {'difficulty_labels': _QL}, 'papers': {
+        k: _qf_paper(d, [('f.1.1', (10, 70, 20))]) for k, d in
+        (('x', '2026-07-01'), ('y', '2025-07-01'), ('z', '2024-07-01'))}}
+    _spf = scoped_difficulty_schedule(_QF, ['f.1.1'], _QL, 5, 40, mode='progressive')
+    _spfh = [e['hard'] for e in _spf['schedule']]
+    check('qf_scoped_progressive_ramps_around_harder_base',
+          _spfh == sorted(_spfh) and _spfh[0] < _spfh[-1] and _spfh[2] ==
+          scoped_difficulty_schedule(_QF, ['f.1.1'], _QL, 1, 40, mode='harder')['schedule'][0]['hard'])
+    _sp1 = scoped_difficulty_schedule(_QP, _QS, _QL, 1, 40, mode='progressive')
+    check('qf_scoped_progressive_single_paper_is_harder',
+          (_sp1['schedule'][0]['simple'], _sp1['schedule'][0]['medium'], _sp1['schedule'][0]['hard']) == (1, 23, 16))
+    check('qf_scoped_non_3_band_dormant',
+          scoped_difficulty_schedule(_QP, _QS, ['Easy', 'Hard'], 2, 40)['dormant'] is True)
+    # (4) recompute — fresh, tampered, legacy
+    _bp = {'total_questions': 40, 'difficulty_labels': _QL, 'subtopic_list': [{'subtopic_id': s} for s in _QS],
+           'difficulty_schedule': [dict(e, by_section={k: dict(v) for k, v in e['by_section'].items()})
+                                   for e in _sd['schedule']],
+           'difficulty_source': _sd['difficulty_source']}
+    _rc = recompute_difficulty_schedule(_bp, _QP)
+    check('qf_recompute_fresh_ok', _rc['ok'] is True and _rc['mismatches'] == [] and _rc['profile_sha256_match'] is True)
+    _bpt = dict(_bp, difficulty_schedule=[dict(e) for e in _bp['difficulty_schedule']])
+    _bpt['difficulty_schedule'][3] = dict(_bpt['difficulty_schedule'][3], simple=2, medium=14, hard=24)
+    _rct = recompute_difficulty_schedule(_bpt, _QP)
+    check('qf_recompute_detects_tampered_paper',
+          _rct['ok'] is False and _rct['mismatches'] == [{'mock': 4, 'from': (2, 14, 24), 'to': (1, 23, 16)}])
+    # the exam's cycle_gap_days defines the window (same as dp_recommend; review C3)
+    _QG = {'_meta': {'difficulty_labels': _QL}, 'papers': {
+        'a': _qf_paper('2026-07-01', [('g.1.1', (0, 1, 0))]), 'b': _qf_paper('2026-04-02', [('g.1.1', (0, 1, 0))]),
+        'c': _qf_paper('2025-07-01', [('g.1.1', (0, 0, 1))]), 'd': _qf_paper('2025-04-02', [('g.1.1', (0, 0, 1))]),
+        'e': _qf_paper('2024-07-01', [('g.1.1', (1, 0, 0))]), 'f': _qf_paper('2024-04-02', [('g.1.1', (1, 0, 0))])}}
+    _mg = dp_scope_mix(_QG, ['g.1.1'], _QL, min_n=1, gap_days=120)
+    check('qf_scope_mix_honours_exam_cycle_gap',
+          _mg['window_cycles'] == ['Apr–Jul 2026', 'Apr–Jul 2025', 'Apr–Jul 2024']
+          and _mg['pct'] == {'Easy': 34, 'Medium': 33, 'Hard': 33}
+          and dp_scope_mix(_QG, ['g.1.1'], _QL, min_n=1)['window_cycles'] == ['Jul 2026', 'Apr 2026', 'Jul 2025'])
+    _sg = scoped_difficulty_schedule(_QG, ['g.1.1'], _QL, 1, 30, mode='exam', min_n=1, gap_days=120)
+    check('qf_schedule_records_and_recompute_reuses_gap',
+          _sg['difficulty_source']['params']['gap_days'] == 120
+          and recompute_difficulty_schedule({'total_questions': 30, 'difficulty_labels': _QL,
+                                             'difficulty_schedule': _sg['schedule'],
+                                             'difficulty_source': _sg['difficulty_source']}, _QG)['ok'] is True)
+    # an R5 ladder amendment survives recompute (never undone by S3-2D on resume)
+    import copy as _cpq
+    _bpr = _cpq.deepcopy(_bp)
+    _sec_r = next(iter(_bpr['difficulty_schedule'][0].get('by_section') or {None: 0}))
+    amend_schedule_in_place(_bpr, _bpr['difficulty_schedule'][0]['mock'], _sec_r, _QL[2], _QL[1], 'measured_band')
+    _rcr = recompute_difficulty_schedule(_bpr, _QP)
+    check('qf_recompute_keeps_r5_amendment',
+          _rcr['ok'] is True and _rcr['replayed_amendments'] == 1 and _rcr['mismatches'] == [])
+    _bpr2 = _cpq.deepcopy(_bpr)
+    _bpr2['difficulty_amendments'][0]['reason'] = 'recomputed'
+    check('qf_recompute_does_not_replay_recomputed_entries',
+          recompute_difficulty_schedule(_bpr2, _QP)['ok'] is False)
+    _bpl = {'total_questions': 40, 'difficulty_labels': _QL, 'subtopic_list': [{'subtopic_id': s} for s in _QS],
+            'difficulty_schedule': [{'mock': k, 'simple': 2, 'medium': 14, 'hard': 24} for k in (1, 2)]}
+    _rcl = recompute_difficulty_schedule(_bpl, _QP)
+    check('qf_recompute_legacy_shipped_schedule_outside_range',
+          _rcl['ok'] is None and _rcl['reason'] == 'legacy_no_provenance' and _rcl['outside_expected_range'] is True)
+    _bpl2 = dict(_bpl, difficulty_schedule=[{'mock': 1, 'simple': 1, 'medium': 23, 'hard': 16}])
+    check('qf_recompute_legacy_in_range', recompute_difficulty_schedule(_bpl2, _QP)['outside_expected_range'] is False)
+    _rcf = recompute_difficulty_schedule(dict(_bpl, difficulty_source={'mode': 'profile_harder',
+                                                                     'builder': FULL_PAPER_BUILDER}), _QP)
+    check('qf_recompute_full_paper_builder_is_not_unverified',
+          _rcf['ok'] is None and _rcf['reason'] == 'full_paper_builder'
+          and _rcf['verified_by'] == 'A-DPROFILE' and 'outside_expected_range' not in _rcf)
+    check('qf_recompute_legacy_full_paper_dict_is_full_paper_builder',
+          recompute_difficulty_schedule(dict(_bpl, difficulty_source={'mode': 'profile_harder'}), _QP)['reason']
+          == 'full_paper_builder')
+    check('qf_recompute_foreign_builder_with_scope_stays_unverified',
+          recompute_difficulty_schedule(dict(_bpl, difficulty_source={'mode': 'profile_harder',
+                                                                       'subtopic_ids': list(_QS)}), _QP)['reason']
+          == 'not_built_by_scoped_builder')
+    # (5) amend in place (R5 accept-at-measured; never halt)
+    _bpa = {'difficulty_labels': _QL, 'difficulty_schedule': [
+        {'mock': 1, 'simple': 1, 'medium': 23, 'hard': 16, 'by_section': {'C': {'Easy': 1, 'Medium': 23, 'Hard': 16}}}]}
+    _ae = amend_schedule_in_place(_bpa, 1, 'C', 'Hard', 'Medium', 'R5 measured')
+    check('qf_amend_moves_one_count_and_by_section',
+          (_ae['simple'], _ae['medium'], _ae['hard']) == (1, 24, 15)
+          and _ae['by_section']['C'] == {'Easy': 1, 'Medium': 24, 'Hard': 15}
+          and _bpa['difficulty_amendments'] == [{'mock': 1, 'section': 'C', 'from': 'Hard', 'to': 'Medium',
+                                                 'reason': 'R5 measured'}])
+    _an = False
+    try:
+        amend_schedule_in_place(_bpa, 1, 'C', 'Easy', 'Hard', 'x')
+        amend_schedule_in_place(_bpa, 1, 'C', 'Easy', 'Hard', 'x')
+    except DPError:
+        _an = True
+    check('qf_amend_never_negative', _an and _bpa['difficulty_schedule'][0]['simple'] == 0
+          and len(_bpa['difficulty_amendments']) == 2)
+    _au = False
+    try:
+        amend_schedule_in_place(_bpa, 1, 'Nope', 'Medium', 'Hard', 'x')
+    except DPError:
+        _au = True
+    check('qf_amend_unknown_section_raises', _au)
+    # (6) CCP — content vector (RDKit; None when absent), model, floor
+    # reagent lines given as a STRING / tuple never raise (pass-2 review)
+    _cv_ok = True
+    for _ab in ('NaBH4', ('1. NaBH4', '2. H3O+'), None, 5):
+        try:
+            content_vector([{'kind': 'REACTION', 'canonical': 'CC=O>>CCO',
+                             'scheme': {'items': [{'arrow': {'above': _ab, 'below': _ab}}]}}])
+        except Exception:                                   # noqa: BLE001
+            _cv_ok = False
+    check('qf_cv_reagent_lines_any_shape_never_raise', _cv_ok)
+    check('qf_lines_shapes', _qf_lines('a') == ['a'] and _qf_lines(('a', 'b')) == ['a', 'b']
+          and _qf_lines(None) == [] and _qf_lines(3) == [])
+    _mp_ok = True
+    for _ds_mp in ({'builder': QF_BUILDER, 'mode': 'profile_harder',      # reaches the params read
+                    'subtopic_ids': ['x'], 'params': [1, 2]},
+                   {'builder': 'someone_else', 'mode': 'profile_harder',   # reaches _range_check
+                    'subtopic_ids': ['x'], 'params': [1, 2]}):
+        try:
+            _r_mp = recompute_difficulty_schedule(
+                {'difficulty_schedule': [{'mock': 1, 'simple': 1, 'medium': 1, 'hard': 1}],
+                 'difficulty_source': _ds_mp}, _QP)
+            _mp_ok = _mp_ok and isinstance(_r_mp, dict) and _r_mp.get('reason') not in ('mode_not_recomputable',)
+        except Exception:                                    # noqa: BLE001
+            _mp_ok = False
+    check('qf_recompute_malformed_params_never_raises', _mp_ok)
+    _cv = content_vector([{'kind': 'STRUCTURE', 'canonical': 'C1CC2CCC1C2'}])
+    _has_rd = _cv is not None
+    if _has_rd:
+        _cvs = lambda smi: content_vector([{'kind': 'STRUCTURE', 'canonical': smi}])
+        check('qf_cv_ring_system_ord',
+              _cv['ring_system_ord'] == 2 and _cvs('C1CCC2CCCCC2C1')['ring_system_ord'] == 1
+              and _cvs('C1CCC2(C1)CCCC2')['ring_system_ord'] == 1 and _cvs('C1CCCCC1')['ring_system_ord'] == 0)
+        check('qf_cv_heavy_atoms_rings_of_largest',
+              content_vector([{'kind': 'STRUCTURE', 'canonical': 'CCO.C1CCC2CCCCC2C1'}])['heavy_atoms'] == 10
+              and content_vector([{'kind': 'STRUCTURE', 'canonical': 'CCO.C1CCC2CCCCC2C1'}])['rings'] == 2)
+        check('qf_cv_stereo', _cvs('C/C=C/[C@H](O)CC')['stereo_specified'] == 2 and _cvs('CC=CC(O)CC')['stereo_specified'] == 0)
+        _cvr = content_vector([{'kind': 'REACTION', 'canonical': 'CCO>>CC=O',
+                                'scheme': {'items': [{'mol': 'CCO'}, {'arrow': {'above': ['1. LDA', '2. MeI']}}]}}],
+                              answer_smiles='CC=O', method_lexicon={'lda': 2, 'swern': 3})
+        check('qf_cv_steps_bonds_method',
+              _cvr['steps'] == 2 and _cvr['bonds_changed'] == 2 and _cvr['method_tier'] == 2)
+        _cvb = content_vector([{'kind': 'STRUCTURE', 'canonical': 'C1CC(('}, {'kind': 'STRUCTURE', 'canonical': 'CCO'}])
+        check('qf_cv_bad_smiles_skipped_not_raised', _cvb['heavy_atoms'] == 3 and len(_cvb['_skipped']) == 1)
+        check('qf_cv_numbered_steps_not_decimals',
+              content_vector([{'kind': 'REACTION', 'canonical': 'CCO>>CC=O', 'scheme': {'items': [
+                  {'arrow': {'above': ['NaH (1.5 equiv)', 'THF, 0.5 h']}}]}}])['steps'] == 1
+              and content_vector([{'kind': 'REACTION', 'canonical': 'CCO>>CC=O', 'scheme': {'items': [
+                  {'arrow': {'above': ['(i) O3; (ii) Me2S', 'iii) NaBH4']}}]}}])['steps'] == 3)
+        check('qf_cv_no_lexicon_method_null',
+              content_vector([{'kind': 'REACTION', 'canonical': 'CCO>>CC=O'}])['method_tier'] is None
+              and content_vector([{'kind': 'REACTION', 'canonical': 'CCO>>CC=O'}])['steps'] == 1)
+    else:                                                    # no RDKit: the documented None
+        for _n in ('qf_cv_ring_system_ord', 'qf_cv_heavy_atoms_rings_of_largest', 'qf_cv_stereo',
+                   'qf_cv_steps_bonds_method', 'qf_cv_bad_smiles_skipped_not_raised', 'qf_cv_numbered_steps_not_decimals',
+                   'qf_cv_no_lexicon_method_null'):
+            check(_n, _cv is None)
+    _pool = [({'heavy_atoms': i, 'rings': i // 10, 'stereo_specified': i % 3, 'steps': 1 + i // 15,
+               'bonds_changed': None, 'method_tier': None, 'ring_system_ord': 0},
+              'Easy' if i < 3 else ('Medium' if i < 21 else 'Hard')) for i in range(30)]
+    # band_shares in ALPHABETICAL insertion order; labels fix the meaning positionally
+    _cm = ccp_model(_pool, {'Easy': 10, 'Hard': 30, 'Medium': 60}, labels=_QL)
+    check('qf_ccp_model_active_cuts_positional',
+          _cm['active'] and _cm['n'] == 30 and _cm['cuts']['easy_max'] < _cm['cuts']['medium_max']
+          and _cm['achieved_shares'] == {'Easy': 10.0, 'Medium': 60.0, 'Hard': 30.0})
+    check('qf_ccp_model_fields_sorted_nulls_skipped',
+          _cm['fields']['heavy_atoms'] == list(range(30)) and _cm['fields']['bonds_changed'] == [])
+    check('qf_ccp_band_easy_and_hard',
+          ccp_band(_cm, _pool[0][0]) == 'Easy' and ccp_band(_cm, _pool[29][0]) == 'Hard'
+          and ccp_band(_cm, {'heavy_atoms': 100, 'rings': 9, 'stereo_specified': 9, 'steps': 9}) == 'Hard')
+    check('qf_ccp_calibration_reported', _cm['calibration']['n'] == 30
+          and _cm['calibration']['agree'] == sum(int(ccp_band(_cm, _v) == _b) for _v, _b in _pool) == 22)
+    _cm19 = ccp_model(_pool[:19], {'Easy': 10, 'Medium': 60, 'Hard': 30}, labels=_QL)
+    check('qf_ccp_dormant_below_20', _cm19['active'] is False and ccp_band(_cm19, _pool[0][0]) is None)
+    check('qf_ccp_floor_below_is_finding',
+          ccp_floor_check(_cm, _pool[0][0], 'Hard', _QL)['status'] == 'below')
+    check('qf_ccp_floor_above_allowed',
+          ccp_floor_check(_cm, _pool[29][0], 'Easy', _QL)['status'] == 'above'
+          and ccp_floor_check(_cm, _pool[29][0], 'Hard', _QL)['status'] == 'ok'
+          and ccp_floor_check(_cm19, _pool[0][0], 'Hard', _QL)['status'] == 'dormant')
+    # (7) independent rating support
+    _ex = difficulty_exemplars(_QP, 'oc.1.1', 'C', _QL, k=2)
+    check('qf_exemplars_recent_first_then_qnum',
+          [(_e['paper'], _e['q']) for _e in _ex['Medium']] == [('J26', 1), ('J26', 2)]
+          and [(_e['paper'], _e['q']) for _e in _ex['Easy']] == [('D25', 1), ('J25', 1)]
+          and _ex['level_used'] == {'Easy': 'subtopic', 'Medium': 'subtopic', 'Hard': 'subtopic'})
+    _ex2 = difficulty_exemplars(_QP, 'oc.2.1', 'C', _QL, k=3)
+    check('qf_exemplars_cascade_per_band',
+          _ex2['level_used']['Easy'] == 'topic' or _ex2['level_used']['Easy'] == 'section')
+    _ex3 = difficulty_exemplars(_QP, 'oc.2.1', None, _QL, k=3)
+    check('qf_exemplars_easy_cascades_to_section_with_snippets',
+          _ex3['level_used']['Easy'] == 'section' and _ex3['level_used']['Medium'] == 'subtopic'
+          and all('stem_snippet' in _e and 'class' in _e for _e in _ex3['Easy']) and len(_ex3['Easy']) == 2)
+    check('qf_exemplars_deterministic', difficulty_exemplars(_QP, 'oc.2.1', 'C', _QL) == difficulty_exemplars(_QP, 'oc.2.1', 'C', _QL))
+    # A scoped paper passes its SCOPE label as `section` ("Organic Chemistry") while the
+    # profile records the paper PART ("C"); a label join would silently match nothing and
+    # fall to paper level. The cascade keys on the subtopic id prefix instead.
+    _ex4 = difficulty_exemplars(_QP, 'oc.2.1', 'Organic Chemistry', _QL, k=3)
+    check('qf_exemplars_scope_label_never_joins_on_section_label',
+          _ex4['level_used']['Easy'] == _ex3['level_used']['Easy'] == 'section'
+          and [(_e['paper'], _e['q']) for _e in _ex4['Easy']]
+          == [(_e['paper'], _e['q']) for _e in _ex3['Easy']])
+    check('qf_reconcile_agree', reconcile_difficulty('Hard', 'Hard', 'ok', _QL)['decision'] == 'agree')
+    check('qf_reconcile_rated_harder', reconcile_difficulty('Medium', 'Hard', None, _QL)['reason'] == 'harder')
+    check('qf_reconcile_rated_easier', reconcile_difficulty('Hard', 'Medium', None, _QL)['reason'] == 'easier')
+    check('qf_reconcile_ccp_below_overrides_agreeing_rating',
+          reconcile_difficulty('Hard', 'Hard', 'below', _QL) ['decision'] == 'ladder'
+          and reconcile_difficulty('Hard', 'Hard', 'below', _QL)['reason'] == 'easier')
+    check('qf_reconcile_ccp_above_is_not_a_finding',                 # floor, not a two-sided gate
+          reconcile_difficulty('Easy', 'Easy', 'above', _QL)['decision'] == 'agree')
+    check('qf_ladder_terminal_accept',
+          ladder_terminal_accept('Hard', 'Medium')['decision'] == 'accept_measured'
+          and ladder_terminal_accept('Hard', 'Medium')['final_band'] == 'Medium'
+          and ladder_terminal_accept('Hard', 'Hard')['decision'] == 'agree')
+    # (8) ladder entry + axis-safe text fallback
+    check('qf_ladder_entry_lowest',
+          ladder_entry(['G-FIGMONO', 'G-FIGFIT']) == 'R1' and ladder_entry(['A-CONTENTLEVEL']) == 'R2'
+          and ladder_entry('G-FIGOVERPRINT') == 'R1' and ladder_entry(['zorblax']) == 'R2' and ladder_entry([]) is None)
+    check('qf_ladder_entry_table_per_gap_4_2',
+          all(LADDER_ENTRY_RUNG[f] == 'R1' for f in ('W-FIGLABELPX', 'G-FIGLABEL', 'G-FIGCOLLIDE', 'G-FIGOVERPRINT',
+                                                     'G-FIGBONDORDER', 'G-FIGMARK', 'G-FIGOPTUNIF', 'G-FIGOPTWINDOW',
+                                                     'G-FIGFIT', 'overflow'))
+          and all(LADDER_ENTRY_RUNG[f] == 'R2' for f in ('G-FIGMONO', 'G-FIGOPTELEM', 'A-CONTENTLEVEL', 'A-FIGFORMAT',
+                                                         'A-DIFFRATING', 'key_verification')))
+    _tgt = {'FIGURAL': 4, 'TEXT': 96}
+    check('qf_axis_text_fallback_breaks_budget_refused',
+          axis_safe_text_fallback({'FIGURAL': 2, 'TEXT': 98}, _tgt) is False
+          and check_axis_conformance({'FIGURAL': 1, 'TEXT': 99}, _tgt)[0] == 'FAIL')
+    check('qf_axis_text_fallback_within_budget_allowed',
+          axis_safe_text_fallback({'FIGURAL': 4, 'TEXT': 96}, _tgt) is True
+          and axis_safe_text_fallback({'FIGURAL': 0, 'TEXT': 100}, _tgt) is False
+          and axis_safe_text_fallback({'FIGURAL': 2, 'TEXT': 98}, {}) is True)        # no budget: SKIP
+    # (9) F8 ask-type apportionment
+    _fs = fig_ask_series({'product_prediction': 0.60, 'starting_material_identification': 0.20,
+                          'reagent_identification': 0.15, 'stereoisomer_count': 0.05}, 10, 10)
+    _five = [p['stereoisomer_count'] for p in _fs]
+    check('qf_fig_series_5pct_every_second_paper_never_rounded_away',
+          _five == [1, 0, 1, 0, 1, 0, 1, 0, 1, 0] and sum(_five) == 5
+          and round(0.05 * 10) == 0)                         # the per-paper rounding it replaces drops it
+    check('qf_fig_series_per_paper_sum_and_totals',
+          all(sum(p.values()) == 10 for p in _fs)
+          and {t: sum(p[t] for p in _fs) for t in _fs[0]} == {'product_prediction': 60, 'starting_material_identification': 20,
+                                                               'reagent_identification': 15, 'stereoisomer_count': 5})
+    _fs3 = fig_ask_series({'a': 1, 'b': 1, 'c': 1}, 4, 3)
+    check('qf_fig_series_largest_remainder_correction', all(sum(p.values()) == 4 for p in _fs3)
+          and {t: sum(p[t] for p in _fs3) for t in 'abc'} == {'a': 4, 'b': 4, 'c': 4})
+    check('qf_assign_ask_type_largest_remaining_valid_for_subtopic',
+          assign_ask_type({'a': 3, 'b': 5, 'c': 9}, {'a': 0.5, 'b': 0.5, 'c': 0}) == 'b'
+          and assign_ask_type({'a': 2, 'b': 2}, {'a': 0.3, 'b': 0.7}) == 'b'
+          and assign_ask_type({'a': 2, 'b': 2}, {'a': 0.5, 'b': 0.5}) == 'a'
+          and assign_ask_type({'a': 2}, {'z': 0}) is None)
+    _ff = fig_format_check({'a': 10, 'b': 0, 'c': 3}, {'a': 8, 'b': 2, 'c': 3})
+    check('qf_fig_format_check_band',
+          [(_f['ask_type'], _f['direction']) for _f in _ff] == [('a', 'excess'), ('b', 'shortfall')]
+          and fig_format_check({'a': 9, 'b': 1}, {'a': 8, 'b': 2}) == [])
+
+    # (10) property-fuzz hardening (2026.11.02 pass-3). Each fixture is the fuzzer's
+    # minimal counterexample and FAILS on the pre-fix engine.
+    # D1 — two sittings with the same cycle LABEL (gap_days small) are two cycles
+    _QD = {'papers': {'P0': _qf_paper('2022-06-01', [('d.1.1', (1, 0, 0))]),
+                      'P1': _qf_paper('2022-06-03', [('d.1.1', (0, 0, 1))])}}
+    _smd = dp_scope_mix(_QD, ['d.1.1'], _QL, min_n=1, gap_days=1)
+    check('qf_scope_mix_same_label_sittings_not_collapsed',
+          len(_smd['per_cycle']) == 2 and _smd['pct'] == {'Easy': 50, 'Medium': 0, 'Hard': 50}
+          and _smd.get('window_cycle_ids') == ['Jun 2022 [2022-06-03]', 'Jun 2022 [2022-06-01]'])
+    _QD3 = {'papers': {'P0': _qf_paper('2022-06-01', [('d.1.1', (1, 0, 0))]),
+                       'P1': _qf_paper('2022-06-03', [('d.1.1', (0, 1, 0))]),
+                       'P2': {'date': '2023-12-10', 'questions': {}},
+                       'P3': {'date': '2024-06-16', 'questions': {}}}}
+    _sdd = scoped_difficulty_schedule(_QD3, [], _QL, 1, 1, mode='harder', gap_days=1)
+    _rdd = recompute_difficulty_schedule({'difficulty_labels': _QL, 'total_questions': 1,
+                                          'difficulty_schedule': _cpq.deepcopy(_sdd['schedule']),
+                                          'difficulty_source': _cpq.deepcopy(_sdd['difficulty_source'])}, _QD3)
+    # an EARLIER paper of the same sitting explained later moves the cycle start: the
+    # recorded id still names that cycle (pass-2 verification)
+    _QS1 = {'_meta': {'difficulty_labels': _QL}, 'papers': {
+        'b': _qf_paper('2024-06-16', [('s.1.1', (2, 10, 8))]),
+        'c': _qf_paper('2023-06-16', [('s.1.1', (3, 11, 6))]),
+        'd': _qf_paper('2022-06-16', [('s.1.1', (2, 12, 6))])}}
+    _sd_s = scoped_difficulty_schedule(_QS1, ['s.1.1'], _QL, 1, 40, mode='harder')
+    _QS2 = {'_meta': _QS1['_meta'], 'papers': dict(_QS1['papers'],
+                                                  a=_qf_paper('2024-06-15', [('s.1.1', (2, 10, 8))]))}
+    check('qf_recompute_cycle_id_survives_an_earlier_paper_of_the_same_sitting',
+          recompute_difficulty_schedule({'total_questions': 40, 'difficulty_labels': _QL,
+                                         'difficulty_schedule': _sd_s['schedule'],
+                                         'difficulty_source': _sd_s['difficulty_source']},
+                                        _QS2)['ok'] is True)
+    check('qf_recompute_replays_unique_cycle_ids',
+          _sdd['difficulty_source']['window_cycles']
+          == ['Jun 2024 [2024-06-16]', 'Dec 2023 [2023-12-10]', 'Jun 2022 [2022-06-03]']
+          and _rdd['ok'] is True)
+    _bpleg = _cpq.deepcopy(_bp)                             # pre-2026.11.02 blueprint: labels
+    _bpleg['difficulty_source']['window_cycles'] = ['Jul 2026', 'Dec 2025', 'Jun 2025']
+    check('qf_recompute_legacy_label_window_still_replays',
+          recompute_difficulty_schedule(_bpleg, _QP)['ok'] is True)
+    # D2 — non-finite JSON numbers never reach int()
+    _inf = float('inf')
+    _d2 = True
+    for _call in (lambda: recompute_difficulty_schedule(
+                      {'difficulty_schedule': [{'mock': 1, 'simple': _inf, 'medium': 0, 'hard': 0}]}, _QP),
+                  lambda: recompute_difficulty_schedule(
+                      {'difficulty_schedule': [{'mock': 1, 'simple': 1, 'medium': 0, 'hard': 0}],
+                       'difficulty_source': {'builder': QF_BUILDER, 'mode': 'profile', 'subtopic_ids': ['a'],
+                                             'labels': _QL, 'params': {'q_per_paper': _inf}}}, {}),
+                  lambda: fig_format_check({'a': _inf}, {'a': 1}),
+                  lambda: fig_ask_series({'a': 1}, _inf, 1),
+                  lambda: assign_ask_type({'a': _inf}, {'a': 1}),
+                  lambda: difficulty_exemplars({}, 'a', None, _QL, k=_inf),
+                  lambda: dp_scope_mix({}, ['a'], _QL, min_n=_inf)):
+        try:
+            _call()
+        except Exception:                                   # noqa: BLE001
+            _d2 = False
+    try:
+        _d2 = (_d2 and _qf_int(_inf, 7) == 7 and _qf_int(float('nan'), 7) == 7 and _qf_int(-_inf) == 0
+               and _qf_int(3.0) == 3)
+    except Exception:                                       # noqa: BLE001
+        _d2 = False
+    check('qf_int_non_finite_is_default_never_overflow', _d2)
+    # D3 — malformed provenance types -> ok None 'malformed_provenance', never raise
+    _d3 = []
+    for _mb in ({'difficulty_schedule': True},
+                dict(_cpq.deepcopy(_bp), difficulty_amendments={'mock': 1}),
+                dict(_cpq.deepcopy(_bp), difficulty_source=dict(_bp['difficulty_source'], subtopic_ids=5)),
+                dict(_cpq.deepcopy(_bp), difficulty_source=dict(_bp['difficulty_source'], window_cycles=3)),
+                dict(_cpq.deepcopy(_bp), difficulty_source=dict(_bp['difficulty_source'], window_cycles=True))):
+        try:
+            _r3 = recompute_difficulty_schedule(_mb, _QP)
+            _d3.append(_r3['ok'] is None and _r3['reason'] == 'malformed_provenance')
+        except Exception:                                   # noqa: BLE001
+            _d3.append(False)
+    check('qf_recompute_malformed_provenance_never_raises', all(_d3) and len(_d3) == 5)
+    # D5 — '²' question key (isdigit True, int raises); integer paper keys
+    _d5 = True
+    try:
+        _m5 = dp_scope_mix({'papers': {'P': {'date': '2024-06-16', 'questions': {
+            '²': {'subtopic_id': 'a.b.c', 'band': 'Easy'}}}}}, ['a.b.c'], _QL, min_n=1)
+        _m6 = dp_scope_mix({'papers': {1: {'date': '2024-06-16', 'questions': {
+            '1': {'subtopic_id': 'a.b.c', 'band': 'Easy'}}}}}, ['a.b.c'], _QL, min_n=1)
+        _e6 = difficulty_exemplars({'papers': {1: {'date': '2024-06-16', 'questions': {
+            '²': {'subtopic_id': 'a.b.c', 'band': 'Easy'}}}}}, 'a.b.c', None, _QL)
+        _d5 = (_m5['n'] == 1 and _m6['n'] == 1 and _e6['Easy'][0]['paper'] == 1
+               and _e6['Easy'][0]['q'] == '²')
+    except Exception:                                       # noqa: BLE001
+        _d5 = False
+    check('qf_scope_mix_superscript_qkey_and_int_paper_key', _d5)
+    # D8 — non-finite counts in a PYQ_IMAGE_ANALYSIS block are dropped, never raised
+    try:
+        _p8 = parse_image_analysis_blocks(
+            "--- Subtopic: X\nsubtopic_id: a.b\nPYQ_IMAGE_ANALYSIS:\n"
+            "  figural_ask_type_counts: {'product_prediction': 1e999, 'reagent_identification': 2}\n")
+        _d8 = _p8['a.b']['figural_ask_type_counts'] == {'reagent_identification': 2}
+    except Exception:                                       # noqa: BLE001
+        _d8 = False
+    check('qf_image_analysis_counts_finite_only', _d8)
+    # D11 — a negative progressive δ is refused up front
+    _d11 = False
+    try:
+        scoped_difficulty_schedule(_QP, _QS, _QL, 3, 40, mode='progressive', delta=-43)
+    except DPError as _e11:
+        _d11 = 'delta' in str(_e11)
+    check('qf_progressive_negative_delta_raises', _d11)
+    # a finite-but-absurd count (JSON 1e308 -> a 309-digit int) is refused, never a hang
+    _dn = False
+    try:
+        scoped_difficulty_schedule(_QP, _QS, _QL, 10 ** 30, 40, mode='exam')
+    except DPError:
+        _dn = True
+    except Exception:                                       # noqa: BLE001
+        _dn = False
+    try:
+        _rn = recompute_difficulty_schedule(dict(_cpq.deepcopy(_bp), difficulty_source=dict(
+            _bp['difficulty_source'], params=dict(_bp['difficulty_source']['params'], n_papers=1e308))), _QP)
+    except Exception:                                       # noqa: BLE001
+        _rn = {'ok': False, 'reason': 'raised'}
+    check('qf_scoped_absurd_counts_refused', _dn and _rn['ok'] is None
+          and _rn['reason'].startswith('not recomputable'))
+    # D12 — a custom topic_of / section_of is recorded and not recomputable
+    _s12 = scoped_difficulty_schedule(_QP, ['oc.9.9'], _QL, 1, 40, mode='exam',
+                                      topic_of=lambda x: 'oc.1' if str(x).startswith('oc') else x)
+    _r12 = recompute_difficulty_schedule({'difficulty_labels': _QL, 'total_questions': 40,
+                                          'difficulty_schedule': _s12['schedule'],
+                                          'difficulty_source': _s12['difficulty_source']}, _QP)
+    check('qf_custom_mapper_recorded_and_not_recomputable',
+          _s12['difficulty_source'].get('custom_cascade') is True
+          and 'custom_cascade' not in _sd['difficulty_source']
+          and _r12['ok'] is None and _r12['reason'] == 'custom_mapper_not_recomputable')
+    # D19 — keys 1 and '1' are one type; their shares SUM
+    check('qf_fig_ask_series_colliding_keys_sum',
+          fig_ask_series({1: 0.5, '1': 0.5, 'b': 1}, 4, 1) == [{'1': 2, 'b': 2}])
+    # Low — non-dict inputs read as {}
+    _dl = True
+    try:
+        _dl = (fig_format_check([1], None) == [] and fig_format_check('ab', {'a': 2})[0]['count'] == 0
+               and assign_ask_type([1], {'a': 1}) == 'a' and assign_ask_type({}, [1]) is None)
+    except Exception:                                       # noqa: BLE001
+        _dl = False
+    check('qf_fig_format_and_assign_non_dict_inputs', _dl)
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -9629,6 +10211,12 @@ def dp_check_profile(profile, exam_code, difficulty_labels):
     return profile
 
 
+# v1.29 (GAP-2026-11-02): optional per-question content keys dp_add_paper carries through.
+DP_CONTENT_KEYS = ('content_objects', 'answer_smiles', 'abbreviations_seen',
+                   'site_mark_device', 'figural_ask_type', 'representations',
+                   'scheme_grammar', 'content_confidence')
+
+
 def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
                  now='', paper_positions=None, unscored_reasons=None):
     """SINGLE WRITER. Add (or replace) one explained PYQ paper.
@@ -9727,6 +10315,21 @@ def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
             'speed_hack': bool(obs.get('speed_hack_exists')),
             'score': score, 'band': band,
             'stem_snippet': str(obs.get('stem_snippet') or '')[:120]}
+        # v1.29 (GAP-2026-11-02 L1/F7/F8) — OPTIONAL content fields written by PYQExplain
+        # §13A for figural questions. Additive: a reader of the v1.28 record ignores them
+        # (the profile schema stays 1). content_vector is COMPUTED here from the
+        # transcribed objects (never declared by an author); a transcription that is not
+        # 'full' is recorded but kept out of the content pool by its content_confidence.
+        for _k in DP_CONTENT_KEYS:
+            _v = obs.get(_k)
+            if _v not in (None, '', [], {}):
+                rec[str(qi)][_k] = _v
+        if obs.get('content_objects'):
+            _cv = content_vector(obs.get('content_objects'), obs.get('answer_smiles'))
+            if _cv:
+                rec[str(qi)]['content_vector'] = _cv
+                rec[str(qi)]['content_confidence'] = str(
+                    obs.get('content_confidence') or 'full').lower()
     _ur = {}
     for q, why in (unscored_reasons or {}).items():
         try:
@@ -11726,6 +12329,1101 @@ def transition_footer_lines(block, n_new, coverage_text=None,
 # END RELEASE C EXTENSION
 
 # END CLUSTER SYLLABUS ERA (Release A+B+C surface)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER QF — QUESTION AND FIGURE FIDELITY  (v1.29 —
+#              GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY, L1 / L2 / L3 / F8 / G6 / §4)
+# ════════════════════════════════════════════════════════════════════════════
+# Owner decisions binding on this cluster (2026-11-02), which supersede the GAP text
+# where they differ:
+#   * The difficulty default stays '+30 % harder' (dp_harder), applied to the SCOPE's
+#     measured mix and converted to (S, M, H) POSITIONALLY in difficulty_labels order
+#     (mix_to_smh is the only sanctioned dict -> tuple conversion). The shipped defect:
+#     paper-level 7/83/10 -> dp_harder -> {Easy 5, Medium 60, Hard 35} -> keys sorted
+#     alphabetically -> (5, 35, 60) -> difficulty_counts(40, ...) = (2, 14, 24). The
+#     correct CSIR Organic scope schedule is dp_harder(2/81/17) = 2/57/41 -> (1, 23, 16).
+#   * The content-complexity measure (CCP) is a FLOOR in this release: an item whose
+#     CCP band is BELOW its scheduled band is a finding (ladder reason 'easier'); an item
+#     ABOVE is allowed and recorded. Not a two-sided gate.
+#   * Every item of every exam gets an independent difficulty rating anchored to the
+#     exam's own past questions (difficulty_exemplars picks them; the model rates blind;
+#     reconcile_difficulty decides).
+#   * Never halt for quality: an item still measuring a different band after repair is
+#     accepted at R5 and the in-run schedule is amended in place (amend_schedule_in_place).
+#   * The FIGURAL -> TEXT fallback may never break the Axis-1 budget
+#     (axis_safe_text_fallback); otherwise the 'simplest constructive figure' rung is used.
+# PURE. RDKit (content_vector only) is loaded lazily through importlib inside the
+# function and its absence returns None, so this module stays importable everywhere.
+
+QF_DIFFICULTY_MODES = {'exam': 'profile', 'harder': 'profile_harder',
+                       'ratio': 'flag', 'progressive': 'progressive'}
+QF_MODE_FROM_SOURCE = {v: k for k, v in QF_DIFFICULTY_MODES.items()}
+QF_PROGRESSIVE_DELTA = 10      # δ in percentage points (GAP L2 (e) 3)
+QF_SCOPE_MIN_N = 20            # cascade threshold (GAP L2 (e) 1)
+QF_CCP_MIN_POOL = 20           # CCP activation (GAP L1 (e) 5)
+QF_CCP_FIELDS = ('heavy_atoms', 'rings', 'ring_system_ord', 'stereo_specified',
+                 'steps', 'bonds_changed', 'method_tier')
+QF_MCS_TIMEOUT_S = 2
+QF_MAX_PAPERS = 10000           # sanity bounds for scoped_difficulty_schedule inputs
+QF_MAX_Q_PER_PAPER = 100000
+QF_FORMAT_REL_TOL = 0.15       # A-FIGFORMAT ± max(1, 15 % of target)
+QF_BUILDER = 'bc.scoped_difficulty_schedule'
+# The full-paper Blueprint's S7-0 dialogue (operator-chosen per-section mix, validated by
+# A-DPROFILE against the profile). Not recomputable by the scoped builder, never 'unverified'.
+FULL_PAPER_BUILDER = 'Framework_Blueprint.S7-0'
+LADDER_RUNGS = ('R1', 'R2', 'R3', 'R4', 'R5')
+LADDER_ENTRY_RUNG = {
+    # R1 — deterministic re-render, no new content (GAP §4.2)
+    'W-FIGLABELPX': 'R1', 'G-FIGLABEL': 'R1', 'G-FIGCOLLIDE': 'R1', 'G-FIGOVERPRINT': 'R1',
+    'G-FIGBONDORDER': 'R1', 'G-FIGMARK': 'R1', 'G-FIGOPTUNIF': 'R1', 'G-FIGOPTWINDOW': 'R1',
+    'G-FIGFIT': 'R1', 'overflow': 'R1',
+    'A-FIGLABELPX': 'R1', 'A-FIGLABEL': 'R1', 'A-FIGCOLLIDE': 'R1', 'A-FIGOVERPRINT': 'R1',
+    'A-FIGBONDORDER': 'R1', 'A-FIGMARK': 'R1', 'A-FIGOPTUNIF': 'R1', 'A-FIGOPTWINDOW': 'R1',
+    'A-FIGFIT': 'R1',
+    # placement / raster findings — also a deterministic re-render or re-placement (S10-8)
+    'G-FIGLABELPX': 'R1', 'G-FIGINK': 'R1', 'G-FIGSCALE': 'R1', 'G-FIGDPI': 'R1', 'G-FIGDEGEN': 'R1',
+    'A-OPTKEEP': 'R1', 'A-FIGINK': 'R1', 'A-FIGLABELRASTER': 'R1', 'A-FIGSCALE': 'R1',
+    'A-FIGDPI': 'R1', 'A-FIGDEGEN': 'R1',
+    # R2 — regenerate the same item
+    'G-FIGMONO': 'R2', 'G-FIGOPTELEM': 'R2', 'A-FIGMONO': 'R2', 'A-FIGOPTELEM': 'R2',
+    'A-CONTENTLEVEL': 'R2', 'A-FIGFORMAT': 'R2', 'A-DIFFRATING': 'R2',
+    'key_verification': 'R2',
+    'harder': 'R2', 'easier': 'R2', 'format': 'R2',
+}
+
+
+def _qf_int(v, default=0):
+    """int(v), else `default`. Bools and non-finite floats (inf / nan — JSON 1e999,
+    Infinity, NaN) give `default` like _as_int: int(inf) raises OverflowError, which
+    is neither a TypeError nor a ValueError and escaped the guard (fuzz 2026-11-02)."""
+    try:
+        if isinstance(v, bool):
+            return default
+        if isinstance(v, float) and not math.isfinite(v):
+            return default
+        return int(v)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
+def _qf_labels(labels):
+    labels = list(labels) if isinstance(labels, (list, tuple)) else []
+    return labels
+
+
+def _qf_topic_of(sid):
+    parts = str(sid or '').split('.')
+    return '.'.join(parts[:2]) if len(parts) >= 2 else parts[0]
+
+
+def _qf_section_of(sid):
+    return str(sid or '').split('.')[0]
+
+
+def _qf_rec_band(rec, labels):
+    """The band of one profile question under `labels`; None when unusable."""
+    if not isinstance(rec, dict):
+        return None
+    b = rec.get('band')
+    if b in labels:
+        return b
+    sc = rec.get('score')
+    if isinstance(sc, (int, float)) and not isinstance(sc, bool) and len(labels) == 3:
+        try:
+            b = band_for_score(sc, labels)
+        except Exception:                                   # noqa: BLE001 — bad data skipped
+            return None
+        return b if b in labels else None
+    return None
+
+
+def _qf_window(profile, window_cycles=None, gap_days=None):
+    """Window cycles NEWEST FIRST as [(cycle_id, label, [paper keys newest first])].
+    Papers with an unreadable date or a malformed record are skipped, never raised.
+    `window_cycles`: None -> DP_CYCLES_WINDOW, an int -> that many, a list of cycle ids
+    (or, legacy, cycle labels) -> those. `gap_days`: the exam's
+    exam_config.cycle_gap_days (None -> DP_CYCLE_GAP_DAYS), the same cycle definition
+    dp_recommend uses. Paper keys are the PROFILE's own keys (an int key stays an int)."""
+    papers = (profile or {}).get('papers') if isinstance(profile, dict) else None
+    if not isinstance(papers, dict):
+        return []
+    clean = {k: p for k, p in papers.items()
+             if isinstance(p, dict) and dp_iso_date(p.get('date')) and isinstance(p.get('questions'), dict)}
+    # dp_cycles keys papers by str(key); map back to the profile's own keys so an
+    # integer paper key ({1: {...}}) is read, never a KeyError '1' (fuzz 2026-11-02).
+    # Keys whose str() collides (1 and '1') get a distinct proxy; others keep str(key),
+    # so the within-cycle order of ordinary keys is unchanged.
+    seen, orig, proxied = {}, {}, {}
+    for k, p in clean.items():
+        s = str(k)
+        if s in seen:
+            s = f'{s}\x00{seen[str(k)]}'
+        seen[str(k)] = seen.get(str(k), 0) + 1
+        orig[s] = k
+        proxied[s] = p
+    try:
+        cyc = dp_cycles({'papers': proxied}, gap_days)
+    except DPError:
+        return []
+    if isinstance(window_cycles, (list, tuple)):
+        # An entry is a unique cycle id (_qf_cycle_id, written since 2026.11.02) or a
+        # bare LABEL (blueprints written before it: a label selects every cycle that
+        # carries it — the legacy behaviour, kept for backward compatibility).
+        want = {str(w) for w in window_cycles}
+        cyc = [c for c in cyc if c['label'] in want or any(_qf_id_matches(w, c) for w in want)]
+    else:
+        n = _qf_int(window_cycles, DP_CYCLES_WINDOW) if window_cycles is not None else DP_CYCLES_WINDOW
+        cyc = cyc[:max(1, n)]
+    return [(_qf_cycle_id(c), c['label'], [orig[s] for s in c['papers'] if s in orig]) for c in cyc]
+
+
+def _qf_cycle_id(c):
+    """Unique id of one dp_cycles cycle: its label plus its start date. Two sittings in
+    the same month with cycle_gap_days small share a LABEL ('Jun 2022') but never a
+    start date, so per-cycle counts and the recorded window never collapse them."""
+    return f"{c['label']} [{c['start']}]"
+
+
+_QF_CYCLE_ID_RE = re.compile(r' \[\d{4}-\d{2}-\d{2}\]$')
+
+
+def _qf_id_matches(cid, c):
+    """A recorded cycle id ('<label> [<start>]') still names cycle `c` when the labels
+    agree and the recorded date lies inside c's [start, end]: explaining an EARLIER paper
+    of the same sitting later moves the cycle's start back, never into another cycle."""
+    m = re.match(r'^(.*) \[(\d{4}-\d{2}-\d{2})\]$', str(cid))
+    if not m or m.group(1) != c.get('label'):
+        return False
+    d = m.group(2)
+    return str(c.get('start') or '') <= d <= str(c.get('end') or c.get('start') or '')
+
+
+def _qf_qkey(q):
+    s = str(q)
+    if s.isdecimal():                     # '²'.isdigit() is True but int('²') raises
+        try:
+            return (0, int(s), s)
+        except ValueError:
+            pass
+    return (1, 0, s)
+
+
+def dp_scope_mix(profile, subtopic_ids, labels, window_cycles=None, min_n=QF_SCOPE_MIN_N,
+                 topic_of=None, section_of=None, gap_days=None):
+    """The SCOPE's measured Easy:Medium:Hard mix (GAP L2 (e) 1).
+
+    Equal-weight mean over the window cycles of the in-scope band shares; a cycle with
+    0 in-scope questions is skipped (it neither votes nor dilutes). When the window holds
+    fewer than `min_n` in-scope questions the scope cascades to its topics
+    (topic_of: subtopic_id -> topic key, default the 'a.b' prefix), then its sections
+    (section_of, default the 'a' prefix), then the whole paper. Questions whose band is
+    not in `labels` are ignored. Deterministic; never raises on bad profile data.
+
+    Returns {'pct': {label: int} summing to 100 (dp_round_pct) or None when nothing at
+    any level, 'level_used': 'scope'|'topic'|'section'|'paper', 'n': int,
+    'per_cycle': {cycle: {label: count}} (cycles that voted), 'window_cycles': [labels],
+    'window_cycle_ids': [unique cycle ids], 'cycle_min': {label: pct}, 'cycle_max':
+    {label: pct}}. A per_cycle key is the cycle LABEL, or its unique id (label + start
+    date) when two window cycles share a label — two same-month sittings with a small
+    cycle_gap_days are two votes, never one overwritten by the other."""
+    labels = _qf_labels(labels)
+    topic_of = topic_of or _qf_topic_of
+    section_of = section_of or _qf_section_of
+    scope = {str(s) for s in (subtopic_ids or [])}
+    topics = {topic_of(s) for s in scope}
+    sections = {section_of(s) for s in scope}
+    win = _qf_window(profile, window_cycles, gap_days)
+    tests = (('scope', lambda sid: sid in scope),
+             ('topic', lambda sid: topic_of(sid) in topics),
+             ('section', lambda sid: section_of(sid) in sections),
+             ('paper', lambda sid: True))
+    papers = (profile or {}).get('papers') or {} if isinstance(profile, dict) else {}
+    _labs = [lab for _cid, lab, _k in win]
+    chosen = None
+    for level, inside in tests:
+        per_cycle = {}
+        n_tot = 0
+        for cid, lab, keys in win:
+            c = {l: 0 for l in labels}
+            for key in keys:
+                for q, rec in sorted((papers[key].get('questions') or {}).items(), key=lambda kv: _qf_qkey(kv[0])):
+                    sid = str((rec or {}).get('subtopic_id') or '') if isinstance(rec, dict) else ''
+                    try:
+                        ok = inside(sid)
+                    except Exception:                       # noqa: BLE001 — a bad mapper skips the row
+                        ok = False
+                    if not ok:
+                        continue
+                    b = _qf_rec_band(rec, labels)
+                    if b is None:
+                        continue
+                    c[b] += 1
+            n = sum(c.values())
+            if n:
+                per_cycle[lab if _labs.count(lab) == 1 else cid] = c
+                n_tot += n
+        chosen = (level, per_cycle, n_tot)
+        if n_tot >= _qf_int(min_n, QF_SCOPE_MIN_N):
+            break
+    level, per_cycle, n_tot = chosen if chosen else ('paper', {}, 0)
+    out = {'pct': None, 'level_used': level, 'n': n_tot, 'per_cycle': per_cycle,
+           'window_cycles': _labs, 'window_cycle_ids': [cid for cid, _l, _k in win],
+           'cycle_min': {}, 'cycle_max': {}}
+    if not per_cycle or not labels:
+        return out
+    shares = [_dp_pct_from_counts(c, labels) for c in per_cycle.values()]
+    mean = {l: sum(s[l] for s in shares) / len(shares) for l in labels}
+    out['pct'] = dp_round_pct(mean, labels)
+    rounded = [dp_round_pct(s, labels) for s in shares]
+    out['cycle_min'] = {l: min(r[l] for r in rounded) for l in labels}
+    out['cycle_max'] = {l: max(r[l] for r in rounded) for l in labels}
+    return out
+
+
+def mix_to_smh(mix, labels):
+    """{label: pct} -> (S, M, H) in exam_config.difficulty_labels ORDER. The ONLY
+    sanctioned dict -> tuple conversion (GAP L2 (e) 2): sorting the keys reorders
+    Easy/Hard/Medium alphabetically and turned the harder preset 5/60/35 into a
+    2 / 14 / 24 schedule. Raises DPError for a non-3-band vocabulary or a missing label."""
+    labels = _qf_labels(labels)
+    if len(labels) != 3:
+        raise DPError(f'mix_to_smh needs exactly 3 difficulty labels; got {labels!r}')
+    if not isinstance(mix, dict):
+        raise DPError('mix_to_smh: mix is not a {label: pct} dict')
+    missing = [l for l in labels if l not in mix]
+    if missing:
+        raise DPError(f'mix_to_smh: label(s) {missing} missing from {sorted(mix)}')
+    return tuple(mix[l] for l in labels)
+
+
+def _qf_renorm(vals, labels):
+    """Non-negative numbers -> whole percentages summing to 100 (largest remainder)."""
+    from fractions import Fraction
+    tot = sum(Fraction(v) for v in vals.values())
+    if tot <= 0:
+        raise DPError('cannot renormalise an all-zero mix')
+    return dp_round_pct({l: Fraction(vals[l]) * 100 / tot for l in labels}, labels)
+
+
+def _qf_progressive(base, scope_mix, labels, k, n, delta):
+    from fractions import Fraction
+    E, M, H = labels
+    w = Fraction(_qf_int(delta, QF_PROGRESSIVE_DELTA))       # clip widening: always δ
+    d = w if n > 1 else Fraction(0)                           # ramp: δ, or 0 for one paper
+    h = Fraction(base[H]) - d + (2 * d * (k - 1) / (n - 1) if n > 1 else 0)
+    vals = {E: Fraction(base[E]), M: Fraction(base[M]) + (Fraction(base[H]) - h), H: h}
+    cmin, cmax = scope_mix.get('cycle_min') or {}, scope_mix.get('cycle_max') or {}
+    for l in labels:
+        # the clip window always CONTAINS the base mix (the 'harder' base usually lies
+        # outside the measured per-cycle range — clipping to that range alone flattened
+        # the ramp; pass-1 review C4), widened by δ on each side.
+        b = Fraction(base[l])
+        lo = max(Fraction(0), min(b, Fraction(_qf_int(cmin.get(l, 0)))) - w) if l in cmin else Fraction(0)
+        hi = min(Fraction(100), max(b, Fraction(_qf_int(cmax.get(l, 100)))) + w) if l in cmax else Fraction(100)
+        vals[l] = min(max(vals[l], lo), hi)
+        if vals[l] < 0:
+            vals[l] = Fraction(0)
+    return _qf_renorm(vals, labels)
+
+
+def scoped_difficulty_schedule(profile, subtopic_ids, labels, n_papers, q_per_paper,
+                               mode='harder', ratio=None, delta=QF_PROGRESSIVE_DELTA,
+                               section_name=None, **cascade_kw):
+    """The scoped blueprint's per-paper difficulty schedule from the SCOPE's own PYQs
+    (GAP L2 (e) 3-4). mode: 'harder' (DEFAULT, owner decision O3) = dp_harder(scope mix);
+    'exam' = scope mix; 'ratio' = the given (s, m, h) ints summing to 100; 'progressive'
+    = paper k of N: Hard = base_H - δ + 2δ(k-1)/(N-1) on the harder scope mix, Medium
+    absorbs the difference, each band clipped to the scope's per-cycle [min, max]
+    widened by δ, renormalised by largest remainder (N == 1 -> δ = 0). Counts per paper
+    are difficulty_counts(q_per_paper, *mix_to_smh(mix, labels)) — positional, never
+    alphabetical. cascade_kw go to dp_scope_mix (window_cycles, min_n, gap_days, topic_of,
+    section_of). section_name (default 'Paper') keys chosen_by_section and by_section.
+
+    Returns {'schedule': [{'mock','simple','medium','hard','by_section'}],
+             'difficulty_source': {...A-DPROFILE schema + provenance...},
+             'dormant': bool, 'reason': str|None}."""
+    import hashlib as _hl
+    import json as _json
+    labels = _qf_labels(labels)
+    sec = str(section_name or DP_SECTIONLESS)
+    out = {'schedule': [], 'difficulty_source': None, 'dormant': False, 'reason': None}
+    if len(labels) != 3:
+        out.update(dormant=True, reason='difficulty vocabulary is not 3-band')
+        return out
+    if mode not in QF_DIFFICULTY_MODES:
+        raise DPError(f"difficulty mode {mode!r} not in {sorted(QF_DIFFICULTY_MODES)}")
+    if mode == 'progressive' and _qf_int(delta, QF_PROGRESSIVE_DELTA) < 0:
+        # a negative δ inverts the ramp and narrows the clip window below the base mix
+        # (flattened / all-zero renormalise DPError deep inside); refuse it up front.
+        raise DPError(f'progressive delta must be >= 0; got {delta!r}')
+    n_papers = _qf_int(n_papers)
+    q_per_paper = _qf_int(q_per_paper)
+    if n_papers < 1 or q_per_paper < 0:
+        raise DPError('n_papers must be >= 1 and q_per_paper >= 0')
+    if n_papers > QF_MAX_PAPERS or q_per_paper > QF_MAX_Q_PER_PAPER:
+        # a JSON 1e308 is a finite float: int() gives a 309-digit count and the
+        # per-paper loop never ends (fuzz 2026-11-02) — refuse, never hang
+        raise DPError(f'n_papers {n_papers} / q_per_paper {q_per_paper} out of range '
+                      f'(<= {QF_MAX_PAPERS} / <= {QF_MAX_Q_PER_PAPER})')
+    sm = dp_scope_mix(profile, subtopic_ids, labels, **cascade_kw)
+    measured = sm['pct']
+    harder = dp_harder(measured, labels) if measured else None
+    per_paper = []
+    if mode == 'ratio':
+        r = list(ratio) if isinstance(ratio, (list, tuple)) else (
+            list(mix_to_smh(ratio, labels)) if isinstance(ratio, dict) else None)
+        if not r or len(r) != 3 or any(_qf_int(x, -1) < 0 for x in r) or sum(_qf_int(x) for x in r) != 100:
+            raise DPError(f'ratio must be three non-negative integers summing to 100; got {ratio!r}')
+        applied = dict(zip(labels, (_qf_int(x) for x in r)))
+        per_paper = [applied] * n_papers
+    else:
+        if measured is None:
+            out.update(dormant=True, reason='no in-window profile question at any level')
+            return out
+        if mode == 'exam':
+            applied = dict(measured)
+            per_paper = [applied] * n_papers
+        elif mode == 'harder':
+            applied = dict(harder)
+            per_paper = [applied] * n_papers
+        else:
+            applied = dict(harder)
+            per_paper = [_qf_progressive(harder, sm, labels, k, n_papers, delta)
+                         for k in range(1, n_papers + 1)]
+    sched = []
+    for k, mix in enumerate(per_paper, 1):
+        s, m, h = difficulty_counts(q_per_paper, *mix_to_smh(mix, labels))
+        sched.append({'mock': k, 'simple': s, 'medium': m, 'hard': h,
+                      'by_section': {sec: {labels[0]: s, labels[1]: m, labels[2]: h}}})
+    try:
+        sha = _hl.sha256(_json.dumps(profile, sort_keys=True).encode('utf-8')).hexdigest()
+    except (TypeError, ValueError):
+        sha = None
+    ds = {'mode': QF_DIFFICULTY_MODES[mode],
+          'chosen_by_section': {sec: dict(applied)},
+          'overrides_confirmed': [],
+          'recommended_by_section': {sec: dict(measured) if measured else None},
+          'harder_by_section': {sec: dict(harder) if harder else None},
+          'cycles_used': list(sm['per_cycle']),
+          'questions_scored': sm['n'],
+          'level_used': sm['level_used'], 'labels': list(labels), 'profile_sha256': sha,
+          # unique cycle ids (label + start date), never bare labels: two same-label
+          # sittings must replay as the cycles actually used (recompute reads these).
+          'window_cycles': list(sm['window_cycle_ids']),
+          'measured_pct': dict(measured) if measured else None,
+          'applied_pct': dict(applied), 'builder': QF_BUILDER,
+          'subtopic_ids': sorted(str(s) for s in (subtopic_ids or [])),
+          'params': {'n_papers': n_papers, 'q_per_paper': q_per_paper,
+                     'delta': _qf_int(delta, QF_PROGRESSIVE_DELTA),
+                     'min_n': _qf_int(cascade_kw.get('min_n', QF_SCOPE_MIN_N)),
+                     'window_cycles': cascade_kw.get('window_cycles'),
+                     'gap_days': cascade_kw.get('gap_days'),
+                     'ratio': list(mix_to_smh(applied, labels)) if mode == 'ratio' else None,
+                     'section_name': sec}}
+    if mode == 'progressive':
+        ds['per_paper_pct'] = [dict(p) for p in per_paper]
+    if cascade_kw.get('topic_of') is not None or cascade_kw.get('section_of') is not None:
+        # a caller-supplied mapper is code, not data: it cannot be recorded, so the
+        # schedule is flagged and recompute reports it not recomputable (never a
+        # silent default-mapper mismatch).
+        ds['custom_cascade'] = True
+    out['schedule'] = sched
+    out['difficulty_source'] = ds
+    return out
+
+
+def _qf_sched_rows(schedule):
+    return [(_qf_int(e.get('mock')), _qf_int(e.get('simple')), _qf_int(e.get('medium')),
+             _qf_int(e.get('hard'))) for e in (schedule or []) if isinstance(e, dict)]
+
+
+def recompute_difficulty_schedule(blueprint, profile):
+    """Create S3 recomputation (GAP L2 (e) 5). Recomputes the schedule from
+    blueprint['difficulty_source'] and compares it with blueprint['difficulty_schedule'].
+
+    Returns {'ok': True|False|None, 'expected': schedule|None, 'actual': schedule,
+             'mismatches': [{'mock','from','to'}], 'reason': str}
+    ok None = not verifiable: 'legacy_no_provenance' (no difficulty_source; the dict
+    then also carries 'outside_expected_range': bool and 'hard_pct': [...] — Hard share
+    below the scope's lowest per-cycle Hard share - δ, or above the harder Hard share
+    + δ), 'full_paper_builder' (Blueprint S7-0; validated by A-DPROFILE, not an
+    'unverified' schedule), 'not_built_by_scoped_builder', 'mode_not_recomputable',
+    'custom_mapper_not_recomputable' (built with a caller-supplied topic_of /
+    section_of — code, not recordable data), 'no_profile_data', 'malformed_provenance'
+    (difficulty_schedule / difficulty_amendments / subtopic_ids / window_cycles of the
+    wrong JSON type, or any other unreadable provenance; 'malformed' names the fields).
+    Never raises on bad data; the caller writes `expected` into the in-run blueprint
+    through amend_schedule_in_place / direct replacement and logs 'recomputed'."""
+    bp = blueprint if isinstance(blueprint, dict) else {}
+    _seq = (list, tuple)
+    sched = bp.get('difficulty_schedule')
+    bad = []
+    if sched is not None and not isinstance(sched, _seq):
+        bad.append('difficulty_schedule')
+    if bp.get('difficulty_amendments') is not None and not isinstance(bp.get('difficulty_amendments'), _seq):
+        bad.append('difficulty_amendments')
+    ds = bp.get('difficulty_source')
+    if isinstance(ds, dict):
+        for f in ('subtopic_ids', 'window_cycles'):
+            if ds.get(f) is not None and not isinstance(ds.get(f), _seq):
+                bad.append(f'difficulty_source.{f}')
+        if isinstance(ds.get('labels'), _seq) and not all(isinstance(l, str) for l in ds['labels']):
+            bad.append('difficulty_source.labels')
+    if bad:
+        return {'ok': None, 'expected': None, 'actual': list(sched) if isinstance(sched, _seq) else [],
+                'mismatches': [], 'reason': 'malformed_provenance', 'malformed': bad}
+    try:
+        return _qf_recompute(bp, profile)
+    except Exception as e:                                  # noqa: BLE001 — never raise on bad data
+        return {'ok': None, 'expected': None, 'actual': list(sched or []), 'mismatches': [],
+                'reason': 'malformed_provenance', 'malformed': [f'{type(e).__name__}: {e}'[:200]]}
+
+
+def _qf_recompute(bp, profile):
+    actual = list(bp.get('difficulty_schedule') or [])
+    ds = bp.get('difficulty_source')
+    labels = _qf_labels((ds or {}).get('labels') if isinstance(ds, dict) else None) \
+        or _qf_labels(bp.get('difficulty_labels')) or ['Easy', 'Medium', 'Hard']
+    _sl = bp.get('subtopic_list') if isinstance(bp.get('subtopic_list'), (list, tuple)) else []
+    sids = ((ds or {}).get('subtopic_ids') if isinstance(ds, dict) else None) or \
+        [s.get('subtopic_id') for s in _sl if isinstance(s, dict) and s.get('subtopic_id')]
+    out = {'ok': None, 'expected': None, 'actual': actual, 'mismatches': [], 'reason': ''}
+
+    def _range_check():
+        if len(labels) != 3:
+            return False, []
+        _g = ((ds.get('params') or {}).get('gap_days')
+              if isinstance(ds, dict) and isinstance(ds.get('params'), dict) else None)
+        sm = dp_scope_mix(profile, sids, labels, gap_days=_g)
+        if not sm['pct']:
+            return False, []
+        H = labels[2]
+        lo = sm['cycle_min'].get(H, 0) - QF_PROGRESSIVE_DELTA
+        hi = dp_harder(sm['pct'], labels)[H] + QF_PROGRESSIVE_DELTA
+        pcts, outside = [], False
+        for _m, s, m, h in _qf_sched_rows(actual):
+            tot = s + m + h
+            p = (100.0 * h / tot) if tot else 0.0
+            pcts.append(round(p, 2))
+            if p < lo or p > hi:
+                outside = True
+        return outside, pcts
+
+    if not isinstance(ds, dict):
+        o, p = _range_check()
+        out.update(reason='legacy_no_provenance', outside_expected_range=o, hard_pct=p)
+        return out
+    # A difficulty_source dict with no builder and no subtopic_ids can only come from the
+    # full-paper Blueprint v1.57-v1.61 (ScopedBlueprint wrote none before v1.12.0): the
+    # same S7-0 dialogue, validated by A-DPROFILE (pass-1 review C5).
+    if ds.get('builder') == FULL_PAPER_BUILDER or (
+            not ds.get('builder') and not ds.get('subtopic_ids')):
+        out.update(reason='full_paper_builder', verified_by='A-DPROFILE')
+        return out
+    if ds.get('builder') != QF_BUILDER:
+        o, p = _range_check()
+        out.update(reason='not_built_by_scoped_builder', outside_expected_range=o, hard_pct=p)
+        return out
+    if ds.get('custom_cascade'):
+        out['reason'] = 'custom_mapper_not_recomputable'
+        return out
+    _m = ds.get('mode')
+    mode = QF_MODE_FROM_SOURCE.get(_m) if isinstance(_m, str) else None
+    if mode is None:
+        out['reason'] = 'mode_not_recomputable'
+        return out
+    prm = ds.get('params') if isinstance(ds.get('params'), dict) else {}
+    n_papers = _qf_int(prm.get('n_papers')) or len(actual) or 1
+    q = _qf_int(prm.get('q_per_paper')) or _qf_int(bp.get('total_questions'))
+    kw = {}
+    _wc = ds.get('window_cycles')
+    if _wc and all(isinstance(w, str) and _QF_CYCLE_ID_RE.search(w) for w in _wc):
+        # unique cycle ids (2026.11.02+): replay EXACTLY the cycles the build used
+        kw['window_cycles'] = list(_wc)
+    elif prm.get('window_cycles') is not None:
+        kw['window_cycles'] = prm.get('window_cycles')
+    elif _wc:
+        kw['window_cycles'] = list(_wc)                      # legacy: cycle labels
+    if prm.get('min_n') is not None:
+        kw['min_n'] = _qf_int(prm.get('min_n'), QF_SCOPE_MIN_N)
+    if prm.get('gap_days') is not None:
+        kw['gap_days'] = prm.get('gap_days')
+    try:
+        r = scoped_difficulty_schedule(profile, sids, labels, n_papers, q, mode=mode,
+                                       ratio=prm.get('ratio'),
+                                       delta=_qf_int(prm.get('delta'), QF_PROGRESSIVE_DELTA),
+                                       section_name=prm.get('section_name'), **kw)
+    except DPError as e:
+        out['reason'] = f'not recomputable: {e}'
+        return out
+    if r['dormant']:
+        out['reason'] = 'no_profile_data'
+        return out
+    exp = r['schedule']
+    # Ladder amendments (R5 accept-at-measured, reason != 'recomputed') are part of the
+    # schedule the paper was built and audited against: replay them onto the recomputed
+    # schedule, so a resumed run / the next paper never undoes them (pass-1 review C1).
+    _amends = [am for am in (bp.get('difficulty_amendments') or [])
+               if isinstance(am, dict) and am.get('reason') != 'recomputed']
+    if _amends:
+        import copy
+        _tmp = {'difficulty_labels': labels, 'difficulty_schedule': copy.deepcopy(exp)}
+        unreplayed = []
+        for am in _amends:
+            try:
+                amend_schedule_in_place(_tmp, am.get('mock'), am.get('section'),
+                                        am.get('from'), am.get('to'), am.get('reason'))
+            except (DPError, TypeError, ValueError) as e:   # an unhashable section / band
+                unreplayed.append({'amendment': am, 'error': str(e)})
+        exp = _tmp['difficulty_schedule']
+        out['replayed_amendments'] = len(_amends) - len(unreplayed)
+        if unreplayed:
+            out['unreplayed_amendments'] = unreplayed
+    out['expected'] = exp
+    a = {m: (s, md, h) for m, s, md, h in _qf_sched_rows(actual)}
+    for m, s, md, h in _qf_sched_rows(exp):
+        if a.get(m) != (s, md, h):
+            out['mismatches'].append({'mock': m, 'from': a.get(m), 'to': (s, md, h)})
+    sha = ds.get('profile_sha256')
+    out['profile_sha256_match'] = (sha == (r['difficulty_source'] or {}).get('profile_sha256')) if sha else None
+    out['ok'] = not out['mismatches']
+    out['reason'] = 'match' if out['ok'] else 'recomputed schedule differs'
+    return out
+
+
+def amend_schedule_in_place(blueprint, mock, section, from_band, to_band, reason):
+    """Move ONE count of paper `mock` from `from_band` to `to_band` in the IN-RUN
+    blueprint (G6.1 / R5 accept-at-measured). Bands are difficulty labels (or the keys
+    simple/medium/hard) mapped POSITIONALLY. by_section[section] is moved too when the
+    entry carries by_section, so A-DPROFILE's sum check and A-QINDEX's exact count both
+    read a consistent file. Appends {'mock','section','from','to','reason'} to
+    blueprint['difficulty_amendments']. Raises DPError when the paper, section or band
+    is unknown or a count would go negative. Returns the amended entry."""
+    if not isinstance(blueprint, dict):
+        raise DPError('amend_schedule_in_place: blueprint is not a dict')
+    labels = _qf_labels(blueprint.get('difficulty_labels')) or \
+        _qf_labels((blueprint.get('difficulty_source') or {}).get('labels')
+                   if isinstance(blueprint.get('difficulty_source'), dict) else None) or \
+        ['Easy', 'Medium', 'Hard']
+    if len(labels) != 3:
+        raise DPError('amend_schedule_in_place needs a 3-band vocabulary')
+    keys = ('simple', 'medium', 'hard')
+
+    def _idx(b):
+        if b in labels:
+            return labels.index(b)
+        if b in keys:
+            return keys.index(b)
+        raise DPError(f'unknown band {b!r}; expected one of {labels}')
+    i, j = _idx(from_band), _idx(to_band)
+    if i == j:
+        raise DPError('from_band and to_band are the same band')
+    entry = next((e for e in (blueprint.get('difficulty_schedule') or [])
+                  if isinstance(e, dict) and _qf_int(e.get('mock'), -1) == _qf_int(mock, -2)), None)
+    if entry is None:
+        raise DPError(f'no difficulty_schedule entry for mock {mock!r}')
+    if _qf_int(entry.get(keys[i])) < 1:
+        raise DPError(f'mock {mock}: {keys[i]} count is {entry.get(keys[i])}; cannot move one away')
+    bs = entry.get('by_section')
+    sub = None
+    if isinstance(bs, dict) and bs:
+        if section not in bs:
+            raise DPError(f'mock {mock}: section {section!r} not in by_section {sorted(bs)}')
+        sub = bs[section]
+        fk = labels[i] if labels[i] in sub or keys[i] not in sub else keys[i]
+        tk = labels[j] if labels[j] in sub or keys[j] not in sub else keys[j]
+        if _qf_int(sub.get(fk)) < 1:
+            raise DPError(f'mock {mock} section {section!r}: {fk} count is {sub.get(fk)}; cannot move one away')
+    entry[keys[i]] = _qf_int(entry.get(keys[i])) - 1
+    entry[keys[j]] = _qf_int(entry.get(keys[j])) + 1
+    if sub is not None:
+        sub[fk] = _qf_int(sub.get(fk)) - 1
+        sub[tk] = _qf_int(sub.get(tk)) + 1
+    blueprint.setdefault('difficulty_amendments', []).append(
+        {'mock': entry.get('mock'), 'section': section, 'from': labels[i], 'to': labels[j],
+         'reason': reason})
+    return entry
+
+
+# ── CCP — content complexity of [chem-R] items (GAP L1) ──────────────────────────
+
+def _qf_rdkit():
+    """(Chem, rdFMCS, rdMolDescriptors, RDLogger) or None. importlib, never an import
+    statement: the thin core declares no third-party dependency (validator Check AB)."""
+    import importlib as _il
+    try:
+        return (_il.import_module('rdkit.Chem'), _il.import_module('rdkit.Chem.rdFMCS'),
+                _il.import_module('rdkit.Chem.rdMolDescriptors'), _il.import_module('rdkit.RDLogger'))
+    except Exception:                                       # noqa: BLE001 — absence is a result
+        return None
+
+
+_QF_NUM_MARK = re.compile(r'(?:^|[\s;,/])\(?((?:\d{1,2})|(?:i{1,3}|iv|vi{0,3}|ix|x))(?:\.\s+|\)\s*)(?=\S)', re.I)
+
+
+def _qf_lines(v):
+    """A scheme arrow's 'above' / 'below' as a list of lines: a single string is ONE
+    line, a list/tuple is kept, anything else is no line (content_vector never raises)."""
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, (list, tuple)):
+        return list(v)
+    return []
+
+
+def _qf_numbered(lines):
+    marks = []
+    for t in lines or []:
+        for m in _QF_NUM_MARK.finditer(' ' + str(t)):
+            marks.append(m.group(1).lower())
+    return len(set(marks))
+
+
+def content_vector(objects, answer_smiles=None, method_lexicon=None):
+    """Content vector of the drawn chemistry (GAP L1 (e) 3). Engine-computed, never
+    declared by an author. objects: [{'kind': 'STRUCTURE'|'REACTION', 'canonical':
+    smiles | 'reactants>agents>products', 'scheme': optional render_scheme spec}].
+
+    heavy_atoms      max over drawn species
+    rings            SSSR count of that species
+    ring_system_ord  none 0, fused 1, spiro 1, bridged 2 (max over species)
+    stereo_specified specified stereocentres + stereo double bonds over all species
+    steps            arrows (one per REACTION object, or the scheme's arrow items) +
+                     numbered reagent entries beyond the first per arrow
+    bonds_changed    MCS diff largest reactant <-> answer (timeout 2 s), else None
+    method_tier      max lexicon tier matched in reagent text / agents, else None
+    '_skipped'       [{'smiles','reason'}] — a bad SMILES is skipped, never raised.
+    Returns None when RDKit is unavailable."""
+    rd = _qf_rdkit()
+    if rd is None:
+        return None
+    Chem, rdFMCS, rdMD, RDLogger = rd
+    try:
+        RDLogger.DisableLog('rdApp.*')
+    except Exception:                                       # noqa: BLE001
+        pass
+    skipped = []
+    species, reactants, reagent_text = [], [], []
+    steps = 0
+
+    def _mol(smi):
+        if not isinstance(smi, str) or not smi.strip():
+            skipped.append({'smiles': smi, 'reason': 'empty or not a string'})
+            return None
+        try:
+            m = Chem.MolFromSmiles(smi.strip())
+        except Exception:                                   # noqa: BLE001
+            m = None
+        if m is None:
+            skipped.append({'smiles': smi, 'reason': 'RDKit could not parse'})
+        return m
+
+    def _add(smi, is_reactant=False):
+        m = _mol(smi)
+        if m is None:
+            return
+        species.append((smi, m))
+        if is_reactant:
+            reactants.append(m)
+
+    for ob in objects or []:
+        if not isinstance(ob, dict):
+            skipped.append({'smiles': None, 'reason': 'object is not a dict'})
+            continue
+        kind = str(ob.get('kind') or '').upper()
+        can = ob.get('canonical')
+        scheme = ob.get('scheme') if isinstance(ob.get('scheme'), dict) else None
+        if kind == 'REACTION':
+            parts = str(can or '').split('>')
+            if can and len(parts) == 3:
+                for s in filter(None, parts[0].split('.')):
+                    _add(s, True)
+                for s in filter(None, parts[2].split('.')):
+                    _add(s)
+                reagent_text += [s for s in parts[1].split('.') if s]
+            elif can:
+                skipped.append({'smiles': can, 'reason': "reaction SMILES is not 'r>a>p'"})
+            arrows = 0
+            if scheme:
+                rows = scheme.get('rows') if isinstance(scheme.get('rows'), (list, tuple)) else [scheme.get('items') or []]
+                for row in rows:
+                    for it in (row if isinstance(row, (list, tuple)) else []):
+                        if not isinstance(it, dict):
+                            continue
+                        if 'mol' in it and not can:
+                            _add(it.get('mol'), arrows == 0)
+                        if 'arrow' in it:
+                            a = it.get('arrow') or {}
+                            if not isinstance(a, dict):
+                                a = {}
+                            arrows += 1
+                            lines = [str(t) for t in _qf_lines(a.get('above')) + _qf_lines(a.get('below'))
+                                     if t is not None]
+                            reagent_text += lines
+                            steps += max(0, _qf_numbered(_qf_lines(a.get('above'))) - 1)
+                            if a.get('reagent_mol'):
+                                _add(a.get('reagent_mol'))
+            steps += arrows if arrows else 1
+        elif kind == 'STRUCTURE':
+            for s in filter(None, str(can or '').split('.')):
+                _add(s)
+        else:
+            skipped.append({'smiles': can, 'reason': f'kind {kind!r} is not STRUCTURE/REACTION'})
+
+    v = {f: None for f in QF_CCP_FIELDS}
+    v['_skipped'] = skipped
+    v['steps'] = steps
+    if species:
+        def _ha(m):
+            return m.GetNumHeavyAtoms()
+        big = max(species, key=lambda sm: _ha(sm[1]))[1]
+        v['heavy_atoms'] = _ha(big)
+        sssr = Chem.GetSSSR(big)
+        v['rings'] = len(sssr) if hasattr(sssr, '__len__') else int(sssr)
+        ords, stereo = [], 0
+        for _s, m in species:
+            ri = m.GetRingInfo()
+            o = 0
+            try:
+                if rdMD.CalcNumBridgeheadAtoms(m) > 0:
+                    o = 2
+                elif rdMD.CalcNumSpiroAtoms(m) > 0:
+                    o = 1
+                else:
+                    br = [set(r) for r in ri.BondRings()]
+                    if any(br[a] & br[b] for a in range(len(br)) for b in range(a + 1, len(br))):
+                        o = 1
+            except Exception:                               # noqa: BLE001
+                o = 0
+            ords.append(o)
+            try:
+                cc = Chem.FindMolChiralCenters(m, includeUnassigned=False, useLegacyImplementation=False)
+            except TypeError:
+                cc = Chem.FindMolChiralCenters(m, includeUnassigned=False)
+            stereo += len(cc)
+            SN = Chem.BondStereo
+            for b in m.GetBonds():
+                if b.GetStereo() in (SN.STEREOE, SN.STEREOZ, SN.STEREOCIS, SN.STEREOTRANS):
+                    stereo += 1
+        v['ring_system_ord'] = max(ords) if ords else 0
+        v['stereo_specified'] = stereo
+    if answer_smiles and reactants:
+        ans = _mol(answer_smiles)
+        if ans is not None:
+            r = max(reactants, key=lambda m: m.GetNumHeavyAtoms())
+            try:
+                res = rdFMCS.FindMCS([r, ans], timeout=QF_MCS_TIMEOUT_S, ringMatchesRingOnly=True)
+                if not res.canceled:
+                    v['bonds_changed'] = (r.GetNumBonds() - res.numBonds) + (ans.GetNumBonds() - res.numBonds)
+            except Exception:                               # noqa: BLE001
+                v['bonds_changed'] = None
+    if isinstance(method_lexicon, dict) and method_lexicon:
+        text = ' '.join(str(t) for t in reagent_text).lower()
+        tiers = []
+        for key, tier in sorted(method_lexicon.items()):
+            k = str(key).strip().lower()
+            if k and re.search(r'(?<![a-z0-9])' + re.escape(k) + r'(?![a-z0-9])', text):
+                t = _qf_int(tier, 0)
+                if t > 0:
+                    tiers.append(t)
+        v['method_tier'] = max(tiers) if tiers else None
+    return v
+
+
+def _qf_midrank(sorted_vals, x):
+    """Mid-rank percentile of x against a sorted pool: ties share their average rank."""
+    import bisect
+    n = len(sorted_vals)
+    if not n:
+        return None
+    lo = bisect.bisect_left(sorted_vals, x)
+    hi = bisect.bisect_right(sorted_vals, x)
+    return 100.0 * (lo + 0.5 * (hi - lo)) / n
+
+
+def _qf_composite(fields, vector):
+    ps = []
+    for f in QF_CCP_FIELDS:
+        vals = fields.get(f) or []
+        x = (vector or {}).get(f)
+        if not vals or x is None or isinstance(x, bool) or not isinstance(x, (int, float)):
+            continue
+        ps.append(_qf_midrank(vals, x))
+    return (sum(ps) / len(ps)) if ps else None
+
+
+def ccp_model(pool_vectors, band_shares, labels=None):
+    """The exam's Content-Complexity model from its own PYQs (GAP L1 (e) 4-5).
+    pool_vectors: [(vector, band)] of confidence-full PYQ items; band_shares
+    {label: pct} — read in `labels` order (default: the dict's insertion order; never
+    alphabetical). Per field the pool's sorted non-null values; composite = mean of the
+    available mid-rank field percentiles; cuts easy_max = the composite quantile at the
+    Easy share, medium_max at Easy + Medium (sentinels -1.0 / 101.0 when a band is 0 %).
+    Returns {'active': n >= 20, 'n', 'labels', 'fields', 'cuts', 'achieved_shares',
+             'calibration': {'agree','n'}}."""
+    import math as _m
+    pool = [(v, b) for v, b in (pool_vectors or []) if isinstance(v, dict)]
+    labels = _qf_labels(labels) or list((band_shares or {}).keys())
+    fields = {f: sorted(v[f] for v, _ in pool
+                        if isinstance(v.get(f), (int, float)) and not isinstance(v.get(f), bool))
+              for f in QF_CCP_FIELDS}
+    model = {'active': len(pool) >= QF_CCP_MIN_POOL and len(labels) == 3, 'n': len(pool),
+             'labels': labels, 'fields': fields, 'cuts': {}, 'achieved_shares': {},
+             'calibration': {'agree': 0, 'n': 0}}
+    if len(labels) != 3:
+        return model
+    comps = sorted(c for c in (_qf_composite(fields, v) for v, _ in pool) if c is not None)
+    sh = {l: _qf_int((band_shares or {}).get(l, 0)) for l in labels}
+
+    def _q(share):
+        if not comps or share <= 0:
+            return -1.0
+        if share >= 100:
+            return 101.0
+        idx = max(1, int(_m.ceil(len(comps) * share / 100.0)))
+        return comps[min(idx, len(comps)) - 1]
+    e_max = _q(sh[labels[0]])
+    m_max = _q(sh[labels[0]] + sh[labels[1]])
+    if sh[labels[2]] <= 0:
+        m_max = 101.0
+    model['cuts'] = {'easy_max': e_max, 'medium_max': max(m_max, e_max)}
+    cnt = {l: 0 for l in labels}
+    for v, b in pool:
+        cb = ccp_band(dict(model, active=True), v)
+        if cb is None:
+            continue
+        cnt[cb] += 1
+        if b in labels:
+            model['calibration']['n'] += 1
+            model['calibration']['agree'] += int(cb == b)
+    tot = sum(cnt.values())
+    model['achieved_shares'] = {l: (round(100.0 * cnt[l] / tot, 1) if tot else 0.0) for l in labels}
+    return model
+
+
+def ccp_band(model, vector):
+    """CCP band of one item against the model; None when the model is dormant or the
+    vector has no field the pool also has."""
+    if not isinstance(model, dict) or not model.get('active') or not isinstance(vector, dict):
+        return None
+    labels = model.get('labels') or []
+    cuts = model.get('cuts') or {}
+    if len(labels) != 3 or 'easy_max' not in cuts:
+        return None
+    c = _qf_composite(model.get('fields') or {}, vector)
+    if c is None:
+        return None
+    if c <= cuts['easy_max']:
+        return labels[0]
+    if c <= cuts['medium_max']:
+        return labels[1]
+    return labels[2]
+
+
+def ccp_floor_check(model, vector, scheduled_band, labels):
+    """CCP as a FLOOR (owner decision 2026-11-02). 'below' (CCP band under the
+    scheduled band) is the finding -> ladder reason 'easier'; 'above' is allowed and
+    recorded; 'ok' equal; 'dormant' when no CCP band can be computed."""
+    labels = _qf_labels(labels) or list((model or {}).get('labels') or [])
+    b = ccp_band(model, vector)
+    comp = _qf_composite((model or {}).get('fields') or {}, vector) if b is not None else None
+    if b is None or scheduled_band not in labels or b not in labels:
+        return {'status': 'dormant', 'ccp_band': b, 'composite': comp}
+    d = labels.index(b) - labels.index(scheduled_band)
+    st = 'ok' if d == 0 else ('below' if d < 0 else 'above')
+    return {'status': st, 'ccp_band': b, 'composite': comp}
+
+
+# ── Independent difficulty rating, anchored to the exam's own PYQs (exam-agnostic) ──
+
+def difficulty_exemplars(profile, subtopic_id, section, labels, k=3, window_cycles=None,
+                         gap_days=None):
+    """Exemplar past questions per band for the BLIND difficulty rating of one item.
+    Per band, the first level that has any exemplar wins: subtopic -> topic ('a.b'
+    prefix) -> section (the profile record's 'section' == `section`; when `section` is
+    falsy, the subtopic id's first dotted component) -> whole paper. Order: most recent
+    cycle first, newest paper first, then question number. Flagged-confidence questions
+    are excluded. Returns {label: [{'paper','q','stem_snippet','steps','concepts',
+    'class'} ...up to k], 'level_used': {label: level | None}}. Deterministic."""
+    labels = _qf_labels(labels)
+    k = max(0, _qf_int(k, 3))
+    sid = str(subtopic_id or '')
+    rows = []
+    papers = (profile or {}).get('papers') or {} if isinstance(profile, dict) else {}
+    for ci, (_cid, _lab, keys) in enumerate(_qf_window(profile, window_cycles, gap_days)):
+        for pi, key in enumerate(keys):
+            for q, rec in sorted((papers[key].get('questions') or {}).items(), key=lambda kv: _qf_qkey(kv[0])):
+                if not isinstance(rec, dict) or str(rec.get('confidence', 'full')).lower() == 'flagged':
+                    continue
+                b = _qf_rec_band(rec, labels)
+                if b is None:
+                    continue
+                rows.append((ci, pi, _qf_qkey(q), key, q, b, rec))
+    rows.sort(key=lambda r: (r[0], r[1], r[2]))
+    rsid = lambda r: str(r[6].get('subtopic_id') or '')
+    levels = (('subtopic', lambda r: rsid(r) == sid),
+              ('topic', lambda r: bool(sid) and _qf_topic_of(rsid(r)) == _qf_topic_of(sid)),
+              # Section level by the subtopic ID PREFIX (taxonomy subject), never by a
+              # section LABEL: a scoped paper's section ("Organic Chemistry") and the
+              # profile's paper part ("Part B") are different vocabularies, and a label
+              # join matches nothing silently (GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE).
+              # `section` is accepted for API stability and only labels the output.
+              ('section', lambda r: bool(sid) and _qf_section_of(rsid(r)) == _qf_section_of(sid)),
+              ('paper', lambda r: True))
+    out = {'level_used': {}}
+    for l in labels:
+        out[l] = []
+        out['level_used'][l] = None
+        for lev, test in levels:
+            hit = [r for r in rows if r[5] == l and test(r)]
+            if hit:
+                out['level_used'][l] = lev
+                out[l] = [{'paper': r[3], 'q': _qf_int(r[4], r[4]) if str(r[4]).isdecimal() else r[4],
+                           'stem_snippet': r[6].get('stem_snippet', ''), 'steps': r[6].get('steps'),
+                           'concepts': r[6].get('concepts'), 'class': r[6].get('class')}
+                          for r in hit[:k]]
+                break
+    return out
+
+
+def reconcile_difficulty(scheduled, rated, ccp_status=None, labels=('Easy', 'Medium', 'Hard')):
+    """Reconcile the blind rating (and the CCP floor) with the scheduled band.
+    agree  — rated == scheduled (or no rating) and the CCP floor is not 'below';
+    ladder — reason 'easier' when the CCP floor is 'below' or the rating is below the
+             schedule, 'harder' when the rating is above (the floor finding wins when
+             both apply; 'reasons' lists every one).
+    'accept_measured' is produced only by ladder_terminal_accept at R5."""
+    labels = _qf_labels(labels)
+    reasons = []
+    if ccp_status == 'below':
+        reasons.append('easier')
+    if rated in labels and scheduled in labels and rated != scheduled:
+        r = 'harder' if labels.index(rated) > labels.index(scheduled) else 'easier'
+        if r not in reasons:
+            reasons.append(r)
+    if not reasons:
+        return {'final_band': scheduled, 'decision': 'agree',
+                'reason': 'agree' if rated in labels else 'no_rating', 'reasons': []}
+    return {'final_band': scheduled, 'decision': 'ladder', 'reason': reasons[0], 'reasons': reasons}
+
+
+def ladder_terminal_accept(scheduled, measured):
+    """R5 (G6.1): an item that still measures a different band after R2-R4' is accepted
+    at its measured band; the caller then calls amend_schedule_in_place(...)."""
+    if measured is None or measured == scheduled:
+        return {'final_band': scheduled, 'decision': 'agree', 'reason': 'agree'}
+    return {'final_band': measured, 'decision': 'accept_measured',
+            'reason': f'R5: measured {measured}, scheduled {scheduled}; schedule amended in place',
+            'from': scheduled, 'to': measured}
+
+
+def ladder_entry(reasons):
+    """Lowest entry rung over the finding ids / reasons (GAP §4.2); an unknown reason
+    enters at R2; no reason -> None."""
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    rungs = [LADDER_ENTRY_RUNG.get(str(r), 'R2') for r in (reasons or [])]
+    return min(rungs, key=LADDER_RUNGS.index) if rungs else None
+
+
+def axis_safe_text_fallback(observed, target, irreducible=0, observable=None, observed_spread=None):
+    """True iff moving ONE question from FIGURAL to TEXT in `observed` still gives
+    check_axis_conformance(...) PASS or SKIP — the R4 text fallback may never break the
+    paper's Axis-1 budget (owner decision 2026-11-02); otherwise R4' is used."""
+    obs = dict(observed or {})
+    if _qf_int(obs.get('FIGURAL')) < 1:
+        return False
+    obs['FIGURAL'] = _qf_int(obs.get('FIGURAL')) - 1
+    obs['TEXT'] = _qf_int(obs.get('TEXT')) + 1
+    v = check_axis_conformance(obs, target, irreducible, 'axis1', observable, observed_spread)[0]
+    return v in ('PASS', 'SKIP')
+
+
+# ── F8 — figural ask-type apportionment ──────────────────────────────────────────
+
+def fig_ask_series(section_shares, figural_slots_per_paper, n_papers):
+    """Series apportionment of figural ask types (GAP F8 (e) 3). Cumulative target
+    T_k(type) = round_half_up(k x share x slots); paper k receives T_k minus what papers
+    1..k-1 actually received; the per-paper sum is fixed to `slots` by largest-remainder
+    correction (key: larger cumulative deficit k x share x slots - assigned, then
+    alphabetical; removals take the largest surplus, never below 0). Shares are
+    normalised. A 5 % type in a 10-slot series appears in about every second paper and
+    is never rounded away. Returns [{ask_type: int}] per paper (every type keyed)."""
+    from fractions import Fraction
+    slots = max(0, _qf_int(figural_slots_per_paper))
+    n = max(0, _qf_int(n_papers))
+    sh = {}
+    for t, s in (section_shares.items() if isinstance(section_shares, dict) else ()):
+        try:
+            f = Fraction(str(s))
+        except (ValueError, TypeError, ZeroDivisionError):
+            continue
+        if f > 0:
+            # keys are normalised to str; 1 and '1' are ONE type whose shares add up
+            # (an overwrite silently dropped one share — fuzz 2026-11-02)
+            sh[str(t)] = sh.get(str(t), 0) + f
+    tot = sum(sh.values())
+    types = sorted(sh)
+    if not types or tot <= 0:
+        return [{} for _ in range(n)]
+    sh = {t: sh[t] / tot for t in types}
+    got = {t: 0 for t in types}
+    out = []
+    for k in range(1, n + 1):
+        exact = {t: k * sh[t] * slots for t in types}
+        T = {t: int(exact[t] + Fraction(1, 2)) for t in types}          # round half up (non-negative)
+        p = {t: max(0, T[t] - got[t]) for t in types}
+        diff = slots - sum(p.values())
+        while diff > 0:
+            t = min(types, key=lambda x: (-(exact[x] - got[x] - p[x]), x))
+            p[t] += 1
+            diff -= 1
+        while diff < 0:
+            cand = [x for x in types if p[x] > 0]
+            t = min(cand, key=lambda x: ((exact[x] - got[x] - p[x]), x))
+            p[t] -= 1
+            diff += 1
+        for t in types:
+            got[t] += p[t]
+        out.append(dict(p))
+    return out
+
+
+def assign_ask_type(remaining_targets, subtopic_shares):
+    """Create S7 assignment (GAP F8 (e) 4): the ask type with the largest remaining
+    (target - assigned) among the types with share > 0 in the slot's subtopic; ties:
+    larger subtopic share, then alphabetical. None when the subtopic has no type."""
+    cand = []
+    for t, s in (subtopic_shares.items() if isinstance(subtopic_shares, dict) else ()):
+        try:
+            fs = float(s)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if fs > 0:
+            cand.append((t, fs))
+    if not cand:
+        return None
+    rem = remaining_targets if isinstance(remaining_targets, dict) else {}
+    return min(cand, key=lambda ts: (-_qf_int(rem.get(ts[0], 0)), -ts[1], str(ts[0])))[0]
+
+
+def fig_format_check(counts, targets):
+    """A-FIGFORMAT (GAP F8 (e) 5): each type's count within ± max(1, 15 % of target).
+    Returns [{'ask_type','count','target','tolerance','direction'}] (empty = PASS)."""
+    out = []
+    c = counts if isinstance(counts, dict) else {}           # non-dict input reads as {}
+    t = targets if isinstance(targets, dict) else {}
+    for ty in sorted(set(c) | set(t), key=str):
+        n, tg = _qf_int(c.get(ty)), _qf_int(t.get(ty))
+        tol = max(1.0, QF_FORMAT_REL_TOL * tg)
+        if abs(n - tg) > tol:
+            out.append({'ask_type': ty, 'count': n, 'target': tg, 'tolerance': tol,
+                        'direction': 'excess' if n > tg else 'shortfall'})
+    return out
+
+# END CLUSTER QF
 # ════════════════════════════════════════════════════════════════════════════
 
 

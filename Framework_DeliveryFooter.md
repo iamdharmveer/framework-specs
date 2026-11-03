@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.36.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.37.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.37.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   MockTestCreate v5.89, audit_canonical v2.34, final_assembly v1.11). NEW §LADDER —
+#   the repair-ladder and drawing/level disclosure lines for Step 7 (terminal-rung items,
+#   systemic flags, schedule/allocation amendments, style defaults, renderer degraded,
+#   level control dormant, difficulty schedule unverified, upload blueprint / auditor).
+#   §5 Q0: an AMBER advisory is now a WARN line in the auditor (no exit 1) and forces
+#   F1 through the S13-2F certificate's amber_notes, never through the exit code. §3
+#   STEP 7 final set: two CONDITIONAL additions (in-run blueprint when it differs from
+#   the project copy; the per-exam auditor when the run audited with the repo copy).
 # v1.36.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
 #   paper_pipeline v5.40, final_assembly v1.10, MockTestCreate v5.88, MockDeliver v1.23.0).
 #   NEW §FOOTER-FT — FIGURE-RECORD DISCLOSURE LINES, engine-sourced from
@@ -482,10 +491,21 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
   [ExamCode]_Mock[N]_Q1to[K].docx    → Use locally
   (K = last Q number in this batch; filename grows: Q1to10, Q1to20, ...)
 
-FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73):
+FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73; v1.37.0: plus the two
+CONDITIONAL additions, each only when its condition holds):
   [ExamCode]_Mock[N]_Create.docx   → Use locally
   [ExamCode]_registry.json           → Replace in Project Files
                                        (or attach it to the Step 9 trigger — v1.33 §8)
+  [the in-run blueprint].json        → Replace in Project Files when an older copy is there,
+                                       else Upload to Project Files — ONLY when it differs
+                                       from the project copy (S3-2D recomputation / R5
+                                       amendments). Footer line: "UPLOAD THIS BLUEPRINT TO
+                                       THE PROJECT BEFORE THE NEXT PAPER".
+  [ExamCode]_mock_test_audit.py      → Replace in Project Files when a stale copy is there,
+                                       else Upload to Project Files — ONLY when the run audited
+                                       with the verified repo auditor (project copy missing
+                                       or stale). Footer line: "UPLOAD THIS AUDITOR TO THE
+                                       PROJECT".
   (v1.27: [ExamCode]_M[N]_audit_dossier.json is INTERNAL — written to /home/claude,
    never delivered. Operator decision 2026-08-26.)
 
@@ -576,6 +596,15 @@ habit of "one docx per present_files" does NOT apply to the final batch):
 
 NEXT STEP  : PYQ-3: PYQFormat (student-facing document) · PYQ-4: PYQDeliver (portal)
              — both take the PYQ-1 docx + progress json directly, in a new chat.
+             v1.37.0 (GAP-2026-11-02 handshake): after the LAST PYQ paper of the exam
+             is explained and its difficulty_profile.json replaced in Project Files,
+             re-run Step 5: PYQExtract --synthesise ALL, with the Sorted PYQ .docx
+             files attached to that chat or in Project Files (Step 5 also re-measures the
+             drawing style from them; without them the style falls back to defaults) —
+             Step 5 reads the profile's
+             per-question ask / representation / scheme-grammar tags and abbreviation
+             evidence into section_rules.md (Steps 6 / 6S / 7 read them from there).
+             Print this line on the PYQ-1 F2 footer whenever the profile was delivered.
 
 PYQ-3 — PYQFormat
 PARTS      : 1 (single response)
@@ -1011,6 +1040,18 @@ After every present_files call, Claude evaluates:
 
             NO  → continue to Q1.
 
+      Q0c (v1.37.0, Steps 7 and 9): does the run carry any AMBER-CLASS §LADDER line —
+            a certificate amber_note, a terminal-rung repair ("Q<n> repaired at …"),
+            "systemic: …", a difficulty or allocation amendment, "difficulty schedule
+            unverified…" (EXCEPT its "(no difficulty profile in the project)" variant,
+            which is INFORMATIONAL), "renderer degraded (…)", "Q<n> explanation degraded
+            (…)" (Step 9), or "A-READ: …"? The auditor reports
+            AMBER figure advisories as WARN lines (no exit 1 — Q8b "ALWAYS complete");
+            the certificate is what carries them here.
+            YES → Render F1 (AMBER) and print every §LADDER line. The paper IS
+                  certified and IS delivered.
+            NO  → print the INFORMATIONAL §LADDER lines (if any) and continue to Q1.
+
       WHY THIS EXISTS. A step could report a FAIL and still render green — the
       reference run shipped 153/153 figural questions unobserved under a green F2.
       THIS IS NOT A HALT: the step completes and delivers; amber reports, never
@@ -1052,6 +1093,46 @@ After every present_files call, Claude evaluates:
 
 ---
 
+## §LADDER — REPAIR-LADDER, DRAWING AND LEVEL DISCLOSURE (v1.37.0 — GAP-2026-11-02)
+
+```
+Step 7 prints, one per line, every line that applies. AMBER-CLASS lines (prefix "⚠️ ")
+force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the footer colour:
+  • "Q<n> repaired at <R4|R4'|R5> (<finding>)" — every item that reached a TERMINAL rung
+    (R1-R3 repairs are recorded in registry.question_index[].ladder, not printed).
+  • "systemic: <finding>" — >= 3 items of this paper reached a terminal rung for it.
+  • "difficulty schedule amended: mock <k> <section> <from> -> <to>" — one line per
+    bp['difficulty_amendments'] entry whose reason is NOT 'recomputed' (every R5
+    accept-at-measured; the entry carries no question number — the question is named by
+    its "Q<n> repaired at R5" line above).
+  • "allocation amended: <from_subtopic> -> <to_subtopic>" — every R5 reassignment.
+  • "difficulty schedule recomputed from its provenance (mock <k>: <from> -> <to>)" — one
+    line per difficulty_amendments entry with reason 'recomputed' (S3-2D).
+  • DIFF_SRC_NOTE: "difficulty schedule unverified[ — outside the expected range]" —
+    AMBER-CLASS (the blueprint can be regenerated with provenance); its variant
+    "difficulty schedule unverified (no difficulty profile in the project)" —
+    INFORMATIONAL (no profile exists to verify against: a 2-/4-band vocabulary, or an
+    exam that has not run PYQExplain — nothing the run could have done differently).
+  • STYLE_NOTES "renderer degraded (…)" — AMBER-CLASS.
+  • STYLE_NOTES "drawing style from framework defaults" / "drawing style measured;
+    structure print sizes from framework defaults (…)" / "level control: rubric +
+    independent rating only (content-complexity model dormant)" — INFORMATIONAL.
+  • every certificate amber_note (AMBER figure advisory), verbatim.
+  • "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER" / "UPLOAD THIS AUDITOR
+    TO THE PROJECT" — when delivered — INFORMATIONAL (an instruction, not a defect).
+  • "spec read: <spec> <lines> lines sha <first 12 of sha256>" — one per READ RECEIPT
+    (MockTestCreate S3-1, bootstrap --receipt) — INFORMATIONAL; "A-READ: <what>" when the
+    run declared a trimmed / summarised / partial working copy of a spec (prohibited) —
+    AMBER-CLASS.
+  • Step 9 (Framework_MockTestExplain self-audit terminal rung): "Q<n> explanation degraded (<item>)" —
+    AMBER-CLASS, one per disclosed block.
+  Every line not marked INFORMATIONAL above is AMBER-CLASS. A clean paper (no repair past
+  R3, no amendment, measured or no figures, verified schedule) renders green.
+These lines are DISCLOSURE: nothing here stops, voids or re-runs anything.
+```
+
+---
+
 ## §6 — NEXT-STEP REFERENCE TABLE
 
 ```
@@ -1062,6 +1143,10 @@ After Step 2c  → Step 3: PYQSort (sort all Row files, then Step 4)
 After Step 3   → Step 4: PYQCount
 After Step 4   → Step 5: PYQExtract
 After Step 5   → Step 6: MockBlueprint (if not already done)
+After PYQ-1    → (after the exam's LAST PYQ paper) Step 5: PYQExtract --synthesise ALL
+                 again, with the Sorted PYQ .docx files attached or in Project Files, so
+                 section_rules.md carries the profile's ask-type / representation
+                 / abbreviation evidence (v1.37.0); then Step 6 / 6S as usual
 After Step 6   → Step 7: MockCreate M1
 After Step 6S  → Step 7: TestCreate P1 --level … --scope …          (v1.24)
 After Step 7   → Step 9: MockExplain M[N] · TestExplain P[N] (scoped)   (Step 8 retired — 2026.08.03.5)

@@ -340,6 +340,10 @@ TRANSFER_SECTIONS = ('AXIOM', 'SPEED_HACK', 'WHY_WRONG', 'COMMON_PITFALLS', 'DED
 # v2.8 — neighbour provenance for a §7-7 claim.
 TRANSFER_NEIGHBOUR_SOURCE_RE = re.compile(r'^(?:GENERATED|CURATED:[A-Za-z0-9][A-Za-z0-9_.-]*)$')
 
+# v2.12 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: structure_draw gains
+#   tokens= / marks= (additive) -> the print-true native raster at the paper's problem tokens,
+#   with highlights drawn as marks clear of every label (no opaque band). tokens=None is the
+#   v2.11 path unchanged. +2 fixtures (V32-*).
 # v2.11 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with
 #   Framework_MockTestExplain v1.49.0, Framework_PYQExplain v2.21, routes.json:
 #   figural_core.py + corpus_io.py routed to MockExplain / TestExplain / PYQExplain).
@@ -437,7 +441,8 @@ def colour_contract():
     return out
 
 
-def structure_draw(smiles, highlight_bonds=(), highlight_atoms=(), px=(1200, 864)):
+def structure_draw(smiles, highlight_bonds=(), highlight_atoms=(), px=(1200, 864),
+                   tokens=None, marks=None):
     """v2.11 — THE structure renderer for an explanation figure (S6A-6 COLOUR,
     STRUCTURE_GRAPH). Loads the palette owner FIRST, then draws: corpus_io.
     structure_draw_fn reads figural_core.ATOM_PALETTE from sys.modules and never
@@ -449,8 +454,18 @@ def structure_draw(smiles, highlight_bonds=(), highlight_atoms=(), px=(1200, 864
     carries the reason and the session records it (§6A-4 degrade, never silent)."""
     cc = colour_contract()                      # imports figural_core if it can
     import corpus_io as cio
-    draw = cio.structure_draw_fn(smiles, px=px, highlight_bonds=highlight_bonds,
-                                 highlight_atoms=highlight_atoms)
+    # v2.12 (GAP-2026-11-02 F1/F2): `tokens` (fc.structure_tokens(profile, 'problem'))
+    # selects the PRINT-TRUE native raster — the same bond length and label size as the
+    # paper's problem figures, and NO opaque highlight band (highlight_* become marks
+    # drawn clear of every label; `marks` may be given directly). tokens=None keeps the
+    # v2.11 behaviour byte-for-byte.
+    if tokens is not None:
+        draw = cio.structure_draw_fn(smiles, px=px, highlight_bonds=highlight_bonds,
+                                     highlight_atoms=highlight_atoms, tokens=tokens,
+                                     marks=marks)
+    else:
+        draw = cio.structure_draw_fn(smiles, px=px, highlight_bonds=highlight_bonds,
+                                     highlight_atoms=highlight_atoms)
     if not cc.get('available') and not getattr(draw, 'palette_note', None):
         draw.palette_note = cc.get('reason', 'palette owner unavailable')
     return draw
@@ -3916,6 +3931,23 @@ def self_test():
                   _sd_run.returncode == 0 and "['O'] None" in _sd_run.stdout)
         except Exception:
             check('V31-STRUCTURE-DRAW-LOADS-PALETTE-OWNER-FIRST', False)
+        # v2.12 (GAP-2026-11-02 F2): with tokens the explanation figure is the print-true
+        # native raster — a highlight becomes a mark, never an opaque band over a label.
+        try:
+            _tk = {'font_pt': 10.0, 'line_pt': 1.0, 'bond_pt': 14.4, 'monochrome': True,
+                   'mark_colour': '#000000'}
+            _nd = structure_draw('CC(=O)OCC', highlight_bonds=[1], tokens=_tk)
+            _png, _w, _meta = _nd.native_png(dpi=300)
+            check('V32-EXPLAIN-STRUCTURE-NATIVE-NO-BAND',
+                  getattr(_nd, 'render_mode', None) == 'native_raster'
+                  and _meta.get('highlight_bands') == 0 and _meta.get('overprint_px') == 0
+                  and _w > 0)
+            _ld = structure_draw('CCO')
+            check('V32-EXPLAIN-STRUCTURE-LEGACY-UNCHANGED',
+                  getattr(_ld, 'render_mode', None) != 'native_raster')
+        except Exception:
+            check('V32-EXPLAIN-STRUCTURE-NATIVE-NO-BAND', False)
+            check('V32-EXPLAIN-STRUCTURE-LEGACY-UNCHANGED', False)
         _cc = colour_contract()
         if _cc.get('available'):
             import figural_core as _fc

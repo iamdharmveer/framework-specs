@@ -160,6 +160,9 @@ CONSUMERS = {'Framework_Blueprint.md': 'Step6',
 # Fields legitimately written by one side only. Each needs a REASON, so the list cannot
 # quietly become a place to bury real findings.
 ALLOW = {
+    'option_label_same_paragraph': 'per-document count in measure_docx_figure_style summary, '
+                                   'emitted for auditability; the profile carries the pooled '
+                                   'option_label_same_paragraph_share (GAP-2026-11-02)',
     'figural_denominator': 'emitted for auditability of figural_rate; no consumer by design',
     'option_image_rate':   'emitted for auditability of figural_reducible; round-trips via the section_rules parser',
     'figural_q_count':     'read by the section_rules parser and by Step 6 via count_by_subtopic_by_class',

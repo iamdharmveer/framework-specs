@@ -15,6 +15,18 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.34 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   figural_core v5.89, corpus_io v1.17, blueprint_core v1.29, analyse_engine v1.1,
+#   figure_types v1.1, Framework_MockTestCreate v5.89). (1) G1: an AMBER figure finding is a
+#   WARN line (it was a FAIL, which made S13-4c stop the run in contradiction of Q8b
+#   "ALWAYS complete"); VOID_ITEM is "repair through the ladder", never "drop". (2) New
+#   gates A-FIGMARK, A-FIGOVERPRINT(+LEGACY), A-FIGBONDORDER(+LEGACY), A-FIGLABELRASTER
+#   (figural_core v5.89), A-OPTKEEP (option label bound to its picture by w:keepNext),
+#   A-CONTENTLEVEL (difficulty decision record), A-FIGFORMAT (ask-type mix, advisory),
+#   A-DIFFSRC (difficulty schedule recomputed from its provenance), A-CERT (item-sweep
+#   certificate). (3) --phase precommit + --item-findings + --write-certificate: the
+#   S13-2F pre-commit item sweep; --certificate: S13-4c confirms the docx is the one
+#   certified. (4) G3: A-FIGTYPE-KIND looks up every q{N}_problem_{k} panel.
 # v2.33 — 2026-11-01 — GAP-2026-11-01 final review (same release; paired with final_assembly
 #   v1.10, MockTestCreate v5.88). (1) LAW F2 stamp: a figure record carrying record_schema
 #   (commit_registry v1.10) is CURRENT — a legacy annotation on it is a FAIL, never a skip;
@@ -277,7 +289,27 @@ RESULTS = []   # list of (level, code, message)
 def _ok(c, m):   RESULTS.append(('OK',   c, m))
 def _warn(c, m): RESULTS.append(('WARN', c, m))
 def _fail(c, m): RESULTS.append(('FAIL', c, m))
-def _reset():    RESULTS.clear()
+def _reset():
+    RESULTS.clear()
+    ITEM_FINDINGS.clear()
+
+
+# v2.34 (GAP-2026-11-02 G1) — ITEM-QUALITY findings, one record per question, for
+# the S13-2F pre-commit sweep: [{'gate', 'q', 'finding', 'severity'}]. These gates
+# read only the docx, its FigureSpec sidecars, the concept_map/key and the
+# difficulty profile — never the registry — so they are deterministic on identical
+# inputs and a certificate over them is meaningful.
+ITEM_FINDINGS = []
+ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE',
+                 'A-FIGOVERPRINT', 'A-FIGBONDORDER', 'A-FIGMARK', 'A-FIGFIT',
+                 'A-FIGINK', 'A-FIGOPTUNIF', 'A-FIGOPTWINDOW', 'A-FIGMONO',
+                 'A-FIGOPTELEM', 'A-FIGSCALE', 'A-FIGDPI', 'A-FIGDEGEN',
+                 'A-OPTKEEP', 'A-CONTENTLEVEL')
+
+
+def _item(gate, q, finding, severity='VOID_ITEM'):
+    ITEM_FINDINGS.append({'gate': gate, 'q': (str(q) if q is not None else None),
+                          'finding': str(finding), 'severity': severity})
 
 # ---- block model -----------------------------------------------------------
 QNUM_RE = re.compile(r'^\s*Q\.?\s*(\d+)\b')
@@ -2402,6 +2434,15 @@ def gate_figtype_kind(src, fig_types, evidence):
             elif _k == 'STRUCTURE' and '>' in _c:
                 v4.append(f'Q{q}:STRUCTURE carrying a reaction arrow')
         spec = specs.get(f'q{q}_problem.png') or specs.get(f'q{q}_problem') or {}
+        # v2.34 (GAP-2026-11-02 G3): a multi-panel problem figure is stored as
+        # q{N}_problem_{k}.png; the v2.33 lookup saw only the single-panel name,
+        # so the class leg was skipped for every two-panel figure. Every panel
+        # is now looked up and audited.
+        _panels = [v for k, v in sorted(specs.items())
+                   if isinstance(v, dict)
+                   and re.fullmatch(rf'q{q}_problem(_\d+)?(\.png)?', str(k))]
+        if not spec and _panels:
+            spec = _panels[0]
         cls = spec.get('class') if isinstance(spec, dict) else None
         if _ft.lookup(ot)['status'] == 'unregistered':
             unreg.append(f'Q{q}:{_ft.lookup(ot)["type"]}')
@@ -2415,6 +2456,10 @@ def gate_figtype_kind(src, fig_types, evidence):
         else:
             records.append({'q': f'Q{q}', 'object_type': ot, 'semantic_kind': objs[0].get('kind') if objs else None,
                             'render_class': cls})
+            for _pi, _ps in enumerate(_panels[1:], 2):          # v2.34 G3: every panel
+                records.append({'q': f'Q{q}:panel{_pi}', 'object_type': ot,
+                                'semantic_kind': objs[0].get('kind') if objs else None,
+                                'render_class': _ps.get('class')})
     if v4:
         _fail('A-FIGTYPE-KIND', 'degenerate semantic object(s) — a REACTION must carry reactant>>product '
                                 'and a STRUCTURE must not (paper_pipeline V4; LAW F2.2): ' + _flist(v4))
@@ -2918,7 +2963,10 @@ def gate_images(blocks, src, media_map):
         for _g in ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
                    'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGACCENT',
                    'A-FIGCVD',
-                   'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX'):
+                   'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX',
+                   # v2.34 GAP-2026-11-02
+                   'A-FIGMARK', 'A-FIGOVERPRINT', 'A-FIGOVERPRINTLEGACY',
+                   'A-FIGBONDORDER', 'A-FIGBONDORDERLEGACY', 'A-FIGLABELRASTER'):
             _warn(_g, 'figural_core engine unavailable — gate NOT RUN '
                       f'(dependency degraded: {_fc_why}).')
     else:
@@ -2927,6 +2975,13 @@ def gate_images(blocks, src, media_map):
         _seen, _legacy_n = 0, 0
         _declared, _unusable = 0, 0
         _opt_sets = {}          # v2.25: question -> [option FigureSpec, ...]
+        # v2.34: the exam's FIGURE_STYLE_PROFILE extends the site-naming lexicon
+        # G-FIGMARK reads (Step 5 measured it from the exam's own stems).
+        try:
+            _lex_extra = (fc.load_style_profile(src.get('rules_txt') or '')
+                          .get('site_mark_lexicon_extra') or [])
+        except Exception:
+            _lex_extra = []
         for _blk in blocks:
             for _img in (getattr(_blk, 'images', None) or []):
                 _declared += 1
@@ -2949,13 +3004,29 @@ def gate_images(blocks, src, media_map):
                 # gates their verdict. Skipped figures are counted and REPORTED,
                 # never silently dropped.
                 try:
-                    _hard, _warns = fc.audit_figure(_spec, _png,
-                                                    descr=_img.get('descr'))
+                    # figural_core < v5.89 (stale engine) has no lexicon_extra — decided
+                    # from the SIGNATURE, so a TypeError raised INSIDE a current engine is
+                    # never mistaken for an old signature (it reaches the except below).
+                    if 'lexicon_extra' in inspect.signature(fc.audit_figure).parameters:
+                        _hard, _warns = fc.audit_figure(_spec, _png,
+                                                        descr=_img.get('descr'),
+                                                        lexicon_extra=_lex_extra)
+                    else:
+                        _hard, _warns = fc.audit_figure(_spec, _png,
+                                                        descr=_img.get('descr'))
                     _t = fc.triage(_hard + _warns, _spec)
                     _leg = bool(fc.is_legacy(_spec))
                 except Exception:
                     _unusable += 1
                     continue
+                # v2.34: item findings for the S13-2F sweep (repairable per item)
+                if not _leg:
+                    _qq = (_spec or {}).get('question') if isinstance(_spec, dict) else None
+                    if _qq is None:
+                        _qq = getattr(_blk, 'qnum', None)
+                    for _sev_k in ('VOID_ITEM', 'BLOCKING'):
+                        for _f in _t[_sev_k]:
+                            _item(fc.audit_gate_id(_f), _qq, _f, _sev_k)
                 _seen += 1
                 if _leg:
                     _legacy_n += 1
@@ -3001,6 +3072,10 @@ def gate_images(blocks, src, media_map):
                 _amber += [(_f, _sl) for _f in _st['AMBER']]
                 _void += [(_f, _sl) for _f in _st['VOID_ITEM']]
                 _block += [(_f, _sl) for _f in _st['BLOCKING']]
+                if not _sl:
+                    for _sev_k in ('VOID_ITEM', 'BLOCKING'):
+                        for _f in _st[_sev_k]:
+                            _item(fc.audit_gate_id(_f), _q, _f, _sev_k)
 
         _by_gate = {}
         for _sev, _findings in (('BLOCKING', _block), ('VOID_ITEM', _void),
@@ -3077,13 +3152,18 @@ def gate_images(blocks, src, media_map):
                            f'{_nl} figure(s) carrying a FigureSpec' + _mix
                            + ':' + _cov + f' {_detail}')
             elif _sev == 'VOID_ITEM':
-                _fail(gid, f'ANSWER-CUE LEAK — {len(_msgs)} item(s) VOID; drop or '
-                           f'regenerate those questions, the paper continues:'
+                # v2.34 (GAP-2026-11-02 G5): never "drop" — the item is REPAIRED in
+                # place through the ladder at S13-2F (MockTestCreate §Q8b-LADDER).
+                _fail(gid, f'ITEM DEFECT — {len(_msgs)} item(s) must be REPAIRED through '
+                           f'the ladder (S13-2F; entry rung bc.LADDER_ENTRY_RUNG), never '
+                           f'dropped; the paper continues:'
                            + _cov + f' {_detail}')
             else:
-                # AMBER: FAIL severity forces the amber delivery footer
-                # (Framework_DeliveryFooter §5) and NEVER halts the run.
-                _fail(gid, f'DEGRADED, NOT VOID — delivery continues under an '
+                # AMBER. v2.34 (GAP-2026-11-02 G1): a WARN line, NOT a FAIL — a FAIL
+                # made the auditor exit 1 and S13-4c stopped the run, contradicting
+                # Q8b "ALWAYS complete". The amber delivery footer is driven by the
+                # S13-2F certificate's amber_notes (Framework_DeliveryFooter §5).
+                _warn(gid, f'AMBER — DEGRADED, NOT VOID — delivery continues under an '
                            f'amber footer; {_nl} figure(s) carrying a FigureSpec'
                            + _mix + ':' + _cov + f' {_detail}')
 
@@ -3115,6 +3195,13 @@ def gate_images(blocks, src, media_map):
         _fig_verdict('A-FIGOPTELEM', _by_gate)
         _fig_verdict('A-FIGALT', _by_gate)
         _fig_verdict('A-FIGLABELPX', _by_gate)
+        # v2.34 GAP-2026-11-02 (figural_core v5.89)
+        _fig_verdict('A-FIGMARK', _by_gate)
+        _fig_verdict('A-FIGOVERPRINT', _by_gate)
+        _fig_verdict('A-FIGOVERPRINTLEGACY', _by_gate)
+        _fig_verdict('A-FIGBONDORDER', _by_gate)
+        _fig_verdict('A-FIGBONDORDERLEGACY', _by_gate)
+        _fig_verdict('A-FIGLABELRASTER', _by_gate)
 
         # v2.13: the EC-V18 legacy count was previously emitted as a SECOND
         # A-FIGDPI line, which breaks the v2.12 roster rule ("EVERY gate prints
@@ -4615,7 +4702,9 @@ def run_audit(args):
         _fail('A-DOCXOPEN',
               f'cannot open/parse the paper ({type(_e).__name__}: {_e}) — the audit '
               f'surface is unreadable. Re-upload an intact docx (P0.5).')
-        return print_results()
+        _rc0 = print_results()
+        write_item_outputs(args)        # v2.34: the S13-2F worklist exists on EVERY path
+        return _rc0
     # v2.13 (D1) — bind every inline drawing to its extracted PNG BEFORE the
     # gates run. Guarded and non-fatal by construction: extract_media() never
     # raises, and a resolution shortfall becomes a coverage WARN inside
@@ -4658,12 +4747,320 @@ def run_audit(args):
     _safe_gate('A-STYLE', gate_style, src)        # v2.26 — G-STYLE twin; dormant without --style-profile/--dossier
     _safe_gate('A-PYQDIST', gate_pyqdist, src)    # v2.26 — G-PYQ-DIST twin; dormant without --pyq-index/--dossier
     _safe_gate('A-ITEM', gate_item, blocks, src)  # v2.26 — I-2/I-3/I-4/I-6 recompute; advisory
+    # v2.34 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY
+    _safe_gate('A-OPTKEEP', gate_optkeep, blocks, src)       # item gate — label bound to picture
+    _safe_gate('A-CONTENTLEVEL', gate_contentlevel, src)     # item gate — level decision resolved
+    _safe_gate('A-FIGFORMAT', gate_figformat, src)           # advisory — ask-type mix
+    _safe_gate('A-DIFFSRC', gate_diffsrc, src)               # advisory — schedule provenance
+    _safe_gate('A-CERT', gate_cert, src, args)               # S13-4c — certified docx unchanged
     rc = print_results()
+    _okw = write_item_outputs(args)
+    if getattr(args, 'write_certificate', None) and not _okw:
+        rc = 1
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
         cg = completion_gate(args.audit_state, src.get('total_questions'), blocks, doc)
         return 0 if (rc == 0 and cg == 0) else 1
     return rc
+
+
+# ============================================================================
+# v2.34 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY: new gates
+# ============================================================================
+def _paper_is_v589(src):
+    """A paper rendered under figural_core v5.89+ (its FigureSpecs carry
+    render_mode). Older papers are audited leniently (EC-V18)."""
+    return any(isinstance(v, dict) and 'render_mode' in v
+               for v in (src.get('figure_specs') or {}).values())
+
+
+_OPT_KEEP_LABEL_RE = re.compile(r'^\s*\(?\s*([0-9]+|[A-Za-z]|[ivxIVX]+)\s*\)?\s*[.):]?\s*$')
+
+
+def gate_optkeep(blocks, src):
+    """A-OPTKEEP (item gate). Every BARE option-label paragraph ('1.' alone) that is
+    followed by a picture paragraph must carry w:keepNext, so a page break can never
+    separate an option number from its picture (measured: 25 of 27 structure-option
+    questions stranded). v5.89+ papers: a missing keepNext is an ITEM DEFECT (repair
+    R1: re-place the question with S10-8). Older papers: one advisory WARN."""
+    missing, checked = [], 0
+    for b in blocks:
+        ps = list(b.paras)
+        for i, p in enumerate(ps[:-1]):
+            t = para_text(p).strip()
+            if QNUM_RE.match(t) or para_images(p):
+                continue
+            # a BARE label paragraph in ANY configured format: "1.", "(A)", "a)", "iv."
+            # and a punctuation-less "A" / "3" (OPTION_LABEL_FMT '{alpha_upper} {text}')
+            m = _OPT_KEEP_LABEL_RE.match(t)
+            if not m:
+                continue
+            if not para_images(ps[i + 1]):
+                continue
+            checked += 1
+            ppr = p._element.pPr
+            _kn = ppr.find(qn('w:keepNext')) if ppr is not None else None
+            # <w:keepNext w:val="0|false|off"/> switches it OFF (OOXML on/off type)
+            if _kn is None or str(_kn.get(qn('w:val'), 'true')).lower() in ('0', 'false', 'off'):
+                missing.append(f'Q{b.qnum}:{m.group(1)}')
+    if not checked:
+        _ok('A-OPTKEEP', 'no bare option label followed by a picture — dormant.')
+        return
+    if not missing:
+        _ok('A-OPTKEEP', f'{checked} option label(s) bound to their pictures (w:keepNext).')
+        return
+    if _paper_is_v589(src):
+        for _m in missing:
+            _item('A-OPTKEEP', _m.split(':')[0][1:], f'A-OPTKEEP: {_m} label not kept with '
+                                                    f'its picture', 'VOID_ITEM')
+        _fail('A-OPTKEEP', f'ITEM DEFECT — {len(missing)} option label(s) can be stranded '
+                           f'from their picture by a page break (no w:keepNext): '
+                           + _flist(missing) + ' — re-place via S10-8 (ladder R1).')
+    else:
+        _warn('A-OPTKEEP', f'legacy layout (pre-v5.89): {len(missing)} option label(s) '
+                           f'carry no w:keepNext and may be stranded at a page foot: '
+                           + _flist(missing))
+
+
+def gate_contentlevel(src):
+    """A-CONTENTLEVEL (item gate). The difficulty decision S7 recorded per item
+    (concept_map[q]['difficulty_check'] = {scheduled, rated, ccp_status, decision,
+    final_band}) must be RESOLVED: decision 'agree' or 'accept_measured' (R5, with
+    the in-run schedule amended), final_band equal to the item's difficulty label,
+    and never ccp_status 'below' left unrepaired. Dormant on papers without the
+    record (pre-v5.89).
+    Question keys are compared as TEXT: a concept_map keyed by int (a JSON round trip
+    through a dict built with int keys) must not skip the label check, and a key such
+    as '²' (isdigit() True, int() raises) must not crash the sort."""
+    cm = src.get('concept_map') or {}
+    if not isinstance(cm, dict):
+        cm = {}
+    # one row PER ENTRY, label read from that same entry (never cm.get(str(q)), which
+    # missed every int key and silently skipped the label check)
+    recs = [(str(q), e, e.get('difficulty_check')) for q, e in cm.items()
+            if isinstance(e, dict) and isinstance(e.get('difficulty_check'), dict)]
+    if not recs:
+        _ok('A-CONTENTLEVEL', 'dormant — no difficulty_check record (pre-v5.89 paper or '
+                              'no concept_map supplied).')
+        return
+    bad = []
+    for q, e, r in sorted(recs, key=lambda t: (0, int(t[0]), t[0]) if t[0].isdecimal() else (1, 0, t[0])):
+        lab = e.get('difficulty')
+        dec = r.get('decision')
+        why = None
+        if dec not in ('agree', 'accept_measured'):
+            why = f'decision {dec!r} unresolved'
+        elif r.get('ccp_status') == 'below' and dec != 'accept_measured':
+            why = 'content measured below its band and not repaired'
+        elif lab is not None and r.get('final_band') not in (None, lab):
+            why = f"label {lab!r} != final band {r.get('final_band')!r}"
+        if why:
+            bad.append(f'Q{q}: {why}')
+            _item('A-CONTENTLEVEL', q, f'A-CONTENTLEVEL: Q{q} {why}', 'VOID_ITEM')
+    if bad:
+        _fail('A-CONTENTLEVEL', f'ITEM DEFECT — {len(bad)} item(s) whose level is not '
+                                f'resolved (ladder R2, R5 accept-at-measured): ' + _flist(bad))
+    else:
+        _ok('A-CONTENTLEVEL', f'{len(recs)} item(s) carry a resolved, evidence-anchored '
+                              f'difficulty decision.')
+
+
+def gate_figformat(src):
+    """A-FIGFORMAT (advisory). Ask-type counts of this paper's figural items
+    (concept_map[q]['figural_ask_type']) against the blueprint's
+    fig_ask_target_per_mock[mock][section] (bc.fig_format_check: +/- max(1, 15%)).
+    A deviation the ladder could not remove is a TARGET INFEASIBILITY, recorded,
+    never a defect — so this gate WARNs and never FAILs: a malformed target or
+    concept_map is WARN 'NOT CHECKED', never an exception (which _safe_gate would turn
+    into a FAIL)."""
+    bp = src.get('bp') or src.get('blueprint') or {}
+    if not isinstance(bp, dict):
+        bp = {}
+    tgt = (bp.get('fig_ask_target_per_mock') or {})
+    mk = str(src.get('_mockN') or '')
+    cm = src.get('concept_map') or {}
+    if tgt and not isinstance(tgt, dict):
+        _warn('A-FIGFORMAT', f'NOT CHECKED — fig_ask_target_per_mock is not a dict '
+                             f'({type(tgt).__name__}).')
+        return
+    if cm and not isinstance(cm, dict):
+        cm = {}
+    if not tgt or not mk or not cm:
+        _ok('A-FIGFORMAT', 'dormant — no fig_ask_target_per_mock / mock / concept_map.')
+        return
+    if src.get('through_q'):
+        _ok('A-FIGFORMAT', 'dormant — partial-paper mode (--through-q): the ask-type mix is '
+                           'a whole-paper target, checked at Final Assembly.')
+        return
+    try:
+        import blueprint_core as _bcx
+        _chk = getattr(_bcx, 'fig_format_check', None)
+    except Exception:
+        _chk = None
+    if not callable(_chk):
+        _warn('A-FIGFORMAT', 'blueprint_core.fig_format_check unavailable — NOT CHECKED.')
+        return
+    per_sec = tgt.get(mk) or tgt.get(int(mk)) if mk.isdecimal() else tgt.get(mk)
+    if not isinstance(per_sec, dict):
+        _ok('A-FIGFORMAT', f'dormant — no ask-type target for mock {mk}.')
+        return
+    counts = {}
+    for e in cm.values():
+        if isinstance(e, dict) and e.get('figural_ask_type'):
+            _t = e['figural_ask_type']
+            if not isinstance(_t, str):          # an unhashable / non-text tag is not an ask type
+                _t = repr(_t)
+            counts[_t] = counts.get(_t, 0) + 1
+    target = {}
+    try:
+        for v in per_sec.values():
+            if isinstance(v, dict):
+                for k, n in v.items():
+                    _n = int(n or 0)
+                    target[k] = target.get(k, 0) + _n
+    except (TypeError, ValueError, OverflowError) as _e:
+        _warn('A-FIGFORMAT', f'NOT CHECKED — malformed ask-type target for mock {mk} '
+                             f'({type(_e).__name__}: {_e}).')
+        return
+    try:
+        f = list(_chk(counts, target) or [])
+    except Exception as _e:
+        _warn('A-FIGFORMAT', f'NOT CHECKED ({type(_e).__name__}: {_e}).')
+        return
+    if f:
+        _warn('A-FIGFORMAT', 'ask-type mix outside +/-max(1,15%) — recorded as target '
+                             'infeasibility where the ladder could not switch: ' + _flist(f))
+    else:
+        _ok('A-FIGFORMAT', f'ask-type mix within band ({sum(counts.values())} figural item(s)).')
+
+
+def gate_diffsrc(src):
+    """A-DIFFSRC (advisory). A blueprint whose difficulty_source names its builder
+    (bc.scoped_difficulty_schedule) is RECOMPUTED from that provenance and the
+    exam's difficulty profile. Create S3 amends the in-run blueprint on mismatch,
+    so a mismatch here means the run used an un-recomputed schedule. Legacy
+    blueprints (no provenance) -> WARN 'difficulty schedule unverified'."""
+    bp = src.get('bp') or src.get('blueprint') or {}
+    prof = src.get('profile') or None
+    ds = bp.get('difficulty_source')
+    if not bp.get('difficulty_schedule'):
+        _ok('A-DIFFSRC', 'dormant — blueprint carries no difficulty_schedule.')
+        return
+    if not isinstance(ds, dict):
+        _labs = bp.get('difficulty_labels')
+        if (isinstance(_labs, list) and len(_labs) != 3) or not isinstance(prof, dict):
+            # a blueprint built WITHOUT a profile (or for a 2-/4-band vocabulary) records no
+            # provenance by design — regenerating would produce the same file
+            _ok('A-DIFFSRC', 'dormant — no difficulty profile / non-3-band vocabulary: the '
+                             'schedule carries no provenance by design.')
+            return
+        _warn('A-DIFFSRC', 'difficulty schedule unverified — the blueprint carries no '
+                           'difficulty_source (built before it was recorded) although a '
+                           'difficulty profile exists; regenerate the blueprint.')
+        return
+    if ds.get('builder') == 'Framework_Blueprint.S7-0' or (
+            not ds.get('builder') and not ds.get('subtopic_ids')):
+        # full-paper Blueprint S7-0 (v1.57-v1.61 wrote no builder; ScopedBlueprint wrote
+        # no difficulty_source at all before v1.12.0)
+        _ok('A-DIFFSRC', 'full-paper Blueprint S7-0 schedule — operator-chosen per section, '
+                         'validated against the profile by A-DPROFILE (not recomputed).')
+        return
+    if not isinstance(prof, dict):
+        _ok('A-DIFFSRC', 'dormant — no --profile supplied to recompute against.')
+        return
+    try:
+        import blueprint_core as _bcx
+        r = _bcx.recompute_difficulty_schedule(bp, prof)
+    except Exception as _e:
+        _warn('A-DIFFSRC', f'NOT CHECKED ({type(_e).__name__}: {_e}).')
+        return
+    if r.get('ok'):
+        _ok('A-DIFFSRC', f"difficulty schedule reproduces from its provenance "
+                         f"({ds.get('mode')}, {ds.get('level_used')}).")
+    elif r.get('ok') is None:
+        _warn('A-DIFFSRC', f"difficulty schedule unverified: {r.get('reason')}")
+    else:
+        _warn('A-DIFFSRC', f"difficulty schedule differs from its provenance on "
+                           f"{len(r.get('mismatches') or [])} paper(s) — Create S3 must "
+                           f"amend the in-run blueprint: {r.get('reason')}")
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def gate_cert(src, args):
+    """A-CERT. S13-4c passes --certificate (written by the S13-2F sweep). The docx
+    audited now must be byte-identical to the one certified; anything else means
+    the paper changed after its item sweep — an INFRASTRUCTURE fault, never an item
+    to repair at this point (the commit has happened)."""
+    cp = getattr(args, 'certificate', None)
+    if not cp:
+        _ok('A-CERT', 'dormant — no --certificate (batch / pre-commit run).')
+        return
+    try:
+        cert = json.load(open(cp, encoding='utf-8'))
+    except Exception as _e:
+        _fail('A-CERT', f'certificate unreadable ({type(_e).__name__}: {_e}) — INFRA.')
+        return
+    now = _sha256_file(args.docx)
+    if cert.get('docx_sha256') != now:
+        _fail('A-CERT', 'the paper changed after its S13-2F item-sweep certificate '
+                        f"({str(cert.get('docx_sha256'))[:12]} != {now[:12]}) — INFRA: "
+                        'never repair after commit; re-run from S13-2F.')
+        return
+    if int(cert.get('findings', -1)) != 0:
+        _fail('A-CERT', f"certificate records {cert.get('findings')} unresolved item "
+                        f"finding(s) — S13-2F did not finish; INFRA.")
+        return
+    _late = [r for r in ITEM_FINDINGS]
+    if _late:
+        _fail('A-CERT', f'{len(_late)} item finding(s) now on a paper certified clean — '
+                        f'the item gates are not deterministic on identical inputs (INFRA): '
+                        + _flist([f"Q{r['q']}:{r['gate']}" for r in _late]))
+        return
+    _ok('A-CERT', f"paper is the one certified at S13-2F ({now[:12]}); "
+                  f"{len(cert.get('amber_notes') or [])} amber note(s) carried to the footer.")
+
+
+def write_item_outputs(args):
+    """--item-findings PATH: the S13-2F ladder worklist. --write-certificate PATH:
+    written ONLY when no item finding remains and no FAIL line exists."""
+    out = {'phase': getattr(args, 'phase', 'final'), 'docx': args.docx,
+           'item_findings': list(ITEM_FINDINGS),
+           # every FAIL line, so the S13-2F worklist also names non-item defects
+           # (A-ANSKEY, A-SECHDR, A-QNFIRST, A-OPTREF, ...) for their ladder rule
+           'fail_lines': [{'check': c, 'message': str(m)} for lvl, c, m in RESULTS
+                          if lvl == 'FAIL']}
+    ip = getattr(args, 'item_findings', None)
+    if ip:
+        with open(ip, 'w', encoding='utf-8') as fh:
+            json.dump(out, fh, indent=1, sort_keys=True)
+    wc = getattr(args, 'write_certificate', None)
+    if wc:
+        # The pre-commit certificate is written only by a CLEAN sweep: no item finding and
+        # no FAIL line of ANY gate. S13-2F runs the auditor against the S13-4 PREVIEW
+        # registry (--registry), so registry-reading gates (A-OPTN, A-QINDEX, ...) are
+        # assessable before the commit and nothing is deferred past it (pass-1 review A1).
+        blocking = [f'{c}: {m}' for lvl, c, m in RESULTS if lvl == 'FAIL']
+        if ITEM_FINDINGS or blocking:
+            print(f'CERTIFICATE: NOT WRITTEN — {len(ITEM_FINDINGS)} item finding(s), '
+                  f'{len(blocking)} blocking FAIL line(s) remain.')
+            return False
+        amber = [f'{c}: {m}' for lvl, c, m in RESULTS
+                 if lvl == 'WARN' and str(m).startswith('AMBER')]
+        cert = {'schema': 1, 'docx_sha256': _sha256_file(args.docx),
+                'phase': 'precommit', 'gate_ids': list(ITEM_GATE_IDS),
+                'findings': 0, 'amber_notes': amber,
+                'auditor': 'audit_canonical v2.34'}
+        with open(wc, 'w', encoding='utf-8') as fh:
+            json.dump(cert, fh, indent=1, sort_keys=True)
+        print(f'CERTIFICATE: WRITTEN {wc} ({len(amber)} amber note(s)).')
+    return True
 
 
 def gate_qindex(src):
@@ -4756,13 +5153,20 @@ def gate_qindex(src):
                     continue
                 lab = alias3.get(k, k)
                 want[lab] = want.get(lab, 0) + v
+            # 2026.11.02 (handshake): a schedule whose bands do not NAME this exam's
+            # vocabulary (simple/medium/hard counts on a 2- or 4-band exam — the
+            # ScopedBlueprint ramp emits those) cannot be compared: check 6 is DORMANT
+            # for it, exactly as Create's difficulty plan is, never an impossible quota.
+            _comparable = len(canon) == 3 or (
+                {k for k, v in sched.items()
+                 if k not in ('mock', 'band') and isinstance(v, int)} <= set(canon))
             want = {lab: want.get(lab, 0) for lab in canon}
             got = {lab: 0 for lab in canon}
             for x in qs:
                 d = x.get('difficulty')
                 if d in got:
                     got[d] += 1
-            if got != want:
+            if _comparable and got != want:
                 fails.append(f'difficulty distribution {got} != schedule quota {want}')
     # ── GAP-2026-08-21-DIFFICULTY-STICKER-LABELS — checks 7 + 8 ─────────────
     # Check 7 — STRUCTURAL FLOOR (zero-judgment; runs on EVERY registry, old or
@@ -5852,7 +6256,10 @@ def self_test():
         d.add_paragraph().add_run().add_picture(
             io.BytesIO(_png_bytes()), width=Inches(2.0))
         for _i in range(1, 5):
-            d.add_paragraph(f'{_i}.')
+            _lp = d.add_paragraph(f'{_i}.')
+            # v2.34 (GAP-2026-11-02 F5): a conformant label is BOUND to its picture
+            # (MockTestCreate v5.89 S10-8 sets keep_with_next); A-OPTKEEP checks it.
+            _lp.paragraph_format.keep_with_next = True
             d.add_paragraph().add_run().add_picture(
                 io.BytesIO(_png_bytes()), width=Inches(1.0))
         d.add_paragraph('')
@@ -6149,6 +6556,28 @@ def self_test():
               [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
                {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}]))]
           == ['FAIL'])
+    def _q_run2(sched):
+        _reset()
+        gate_qindex({'total_questions': 2,
+                     'blueprint': dict(_QBP, difficulty_labels=['Standard', 'Advanced'],
+                                       difficulty_schedule=[dict(sched, mock=1)]),
+                     'registry': _q_reg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Standard'},
+                                         {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Standard'}]),
+                     '_mockN': 1})
+        return [l for l, c, m in RESULTS if c == 'A-QINDEX']
+    check('A-QINDEX-quota-dormant-for-2band-exam-with-smh-schedule',
+          _q_run2({'simple': 0, 'medium': 1, 'hard': 1}) == ['OK'])
+    _reset()
+    gate_qindex({'total_questions': 2,
+                 'blueprint': dict(_QBP, difficulty_labels=['Easy', 'Hard'],
+                                   difficulty_schedule=[{'mock': 1, 'simple': 1, 'medium': 0, 'hard': 1}]),
+                 'registry': _q_reg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+                                     {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Easy'}]),
+                 '_mockN': 1})
+    check('A-QINDEX-quota-dormant-for-overlapping-2band-labels-with-smh-schedule',
+          [l for l, c, m in RESULTS if c == 'A-QINDEX'] == ['OK'])
+    check('A-QINDEX-quota-enforced-for-2band-schedule-in-own-labels',
+          _q_run2({'Standard': 1, 'Advanced': 1}) == ['FAIL'])
     check('A-QINDEX-quota-dormant-when-exam-has-no-schedule',
           # _QBP (no difficulty_schedule key) must still certify a clean set —
           # check 6 must never be invented for an exam that never declared one.
@@ -8103,14 +8532,17 @@ def self_test():
             return 'A-' + _g[2:] if _g.startswith('G-') or _g.startswith('W-') else _g
         @staticmethod
         def triage(findings, spec=None):
-            sev = 'AMBER' if _StubFC.LEGACY else 'BLOCKING'
+            sev = 'AMBER' if _StubFC.LEGACY else _StubFC.SEV
             return {'BLOCKING': findings if sev == 'BLOCKING' else [],
-                    'VOID_ITEM': [], 'AMBER': findings if sev == 'AMBER' else []}
+                    'VOID_ITEM': findings if sev == 'VOID_ITEM' else [],
+                    'AMBER': findings if sev == 'AMBER' else []}
+        SEV = 'BLOCKING'      # v2.34: per-fixture severity for non-legacy specs
 
     _saved_fc = sys.modules.get('figural_core')
 
-    def _run_figgates(blks, specs=None, legacy=True, findings=(), setfindings=(), setraise=False):
-        _StubFC.LEGACY = legacy; _StubFC.FINDINGS = list(findings)
+    def _run_figgates(blks, specs=None, legacy=True, findings=(), setfindings=(), setraise=False,
+                      sev='BLOCKING'):
+        _StubFC.LEGACY = legacy; _StubFC.FINDINGS = list(findings); _StubFC.SEV = sev
         _StubFC.SETFINDINGS = list(setfindings); _StubFC.SETRAISE = bool(setraise)
         sys.modules['figural_core'] = _StubFC
         s = _src_stub(tq=1)
@@ -8128,7 +8560,10 @@ def self_test():
                  'A-FIGFIT', 'A-FIGCOLLIDE', 'A-FIGINK', 'A-FIGINKPX',
                  'A-FIGFITPX', 'A-FIGOPTWINDOW', 'A-FIGTEXTINK',
                  'A-FIGSERIESCAP', 'A-FIGFILLADJ', 'A-FIGCOLOURCONTENT',
-                 'A-FIGOPTELEM')
+                 'A-FIGOPTELEM',
+                 # v2.34 — GAP-2026-11-02
+                 'A-FIGMARK', 'A-FIGOVERPRINT', 'A-FIGOVERPRINTLEGACY',
+                 'A-FIGBONDORDER', 'A-FIGBONDORDERLEGACY', 'A-FIGLABELRASTER')
 
     # 53. BLOCK.IMAGES IS POPULATED — the fixture whose absence WAS the defect.
     #     Nothing in this suite had ever asserted that a block carries an image.
@@ -8865,6 +9300,22 @@ def self_test():
     r = _run_figgates(_b53, legacy=False, findings=['A-FIGTEXTINK: text colour #D55E00 is 3.87:1'])
     check('FIGGATES-v580-colour-finding-is-printed',
           any(c == 'A-FIGTEXTINK' and l == 'FAIL' and '3.87' in m for l, c, m in r))
+    # 56b-2 v2.34 (GAP-2026-11-02 G1): an AMBER finding is a WARN line, never a FAIL —
+    #   a FAIL made the auditor exit 1 and S13-4c stop the run ("ALWAYS complete"
+    #   contradicted). On v2.33 this fixture fails: the AMBER line was a FAIL.
+    r = _run_figgates(_b53, legacy=False, sev='AMBER',
+                      findings=['A-FIGCOLOUR: 0.000% coloured pixels'])
+    check('FIGGATES-v234-amber-is-warn-not-fail',
+          any(c == 'A-FIGCOLOUR' and l == 'WARN' and m.startswith('AMBER') for l, c, m in r)
+          and not any(l == 'FAIL' for l, c, m in r))
+    # 56b-3 v2.34 (G5): VOID_ITEM is REPAIRED via the ladder — never "drop" — and is
+    #   recorded per question for the S13-2F worklist.
+    r = _run_figgates(_b53, legacy=False, sev='VOID_ITEM',
+                      findings=['G-FIGMARK: 1 mark(s) drawn but the stem names no site'])
+    check('FIGGATES-v234-void-item-is-repair-not-drop',
+          any(c == 'A-FIGMARK' and l == 'FAIL' and 'REPAIRED through' in m
+              and 'drop or' not in m for l, c, m in r)
+          and any(f['gate'] == 'A-FIGMARK' and f['q'] == '1' for f in ITEM_FINDINGS))
     # 56c. v2.25 — SET-LEVEL gates run on the option set, not per figure.
     _b56c = [Block(1)]
     _b56c[0].images = [{'name': f'q1_opt{i}.png', 'rid': f'rId{i}', 'part': f'image{i}.png',
@@ -10078,6 +10529,226 @@ def self_test():
     except TypeError:
         check('mockN-guard-no-typeerror', False)
 
+    # ══════════════════════════════════════════════════════════════════════
+    # v2.34 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY fixtures
+    # ══════════════════════════════════════════════════════════════════════
+    def _optkeep_doc(keep, lab=lambda i: f'{i}.'):
+        def _b(d):
+            d.add_paragraph('Q.1  Identify the major product, P.')
+            for _i in range(1, 5):
+                _lp = d.add_paragraph(lab(_i))
+                if keep:
+                    _lp.paragraph_format.keep_with_next = True
+                d.add_paragraph().add_run().add_picture(
+                    io.BytesIO(_png_bytes()), width=Inches(1.0))
+        _p = _mini_doc(tempfile.mkdtemp(), _b)
+        _t, _bl = parse_blocks(Document(_p))
+        return _bl
+    _v589 = {'q1_opt1.png': {'question': 1, 'render_mode': 'native_raster'}}
+    _reset(); gate_optkeep(_optkeep_doc(False), {'figure_specs': _v589})
+    check('A-OPTKEEP-v589-stranding-label-is-item-defect',
+          any(c == 'A-OPTKEEP' and l == 'FAIL' for l, c, m in RESULTS)
+          and sum(1 for f in ITEM_FINDINGS if f['gate'] == 'A-OPTKEEP') == 4)
+    _reset(); gate_optkeep(_optkeep_doc(True), {'figure_specs': _v589})
+    check('A-OPTKEEP-bound-labels-pass',
+          [l for l, c, m in RESULTS if c == 'A-OPTKEEP'] == ['OK'] and not ITEM_FINDINGS)
+    _offdoc = _optkeep_doc(True)
+    for _b0 in _offdoc:
+        for _p0 in _b0.paras:
+            _k0 = _p0._element.pPr.find(qn('w:keepNext')) if _p0._element.pPr is not None else None
+            if _k0 is not None:
+                _k0.set(qn('w:val'), '0')
+    _reset(); gate_optkeep(_offdoc, {'figure_specs': _v589})
+    check('A-OPTKEEP-keepNext-val-0-is-off',
+          sum(1 for f in ITEM_FINDINGS if f['gate'] == 'A-OPTKEEP') == 4)
+    _fmts_ok = True
+    for _lab in (lambda i: f'({chr(64 + i)})', lambda i: chr(64 + i), lambda i: f'{chr(96 + i)})',
+                 lambda i: ('i.', 'ii.', 'iii.', 'iv.')[i - 1]):
+        _reset(); gate_optkeep(_optkeep_doc(False, _lab), {'figure_specs': _v589})
+        _fmts_ok = _fmts_ok and sum(1 for f in ITEM_FINDINGS if f['gate'] == 'A-OPTKEEP') == 4
+    check('A-OPTKEEP-armed-for-every-label-format', _fmts_ok)
+    _reset(); gate_optkeep(_optkeep_doc(False, lambda i: f'{i}. Benzene derivative'), {'figure_specs': _v589})
+    check('A-OPTKEEP-label-with-text-is-not-a-bare-label',
+          not ITEM_FINDINGS and [l for l, c, m in RESULTS if c == 'A-OPTKEEP'] == ['OK'])
+    _reset(); gate_optkeep(_optkeep_doc(False), {'figure_specs': {}})
+    check('A-OPTKEEP-legacy-paper-warns-never-fails',
+          [l for l, c, m in RESULTS if c == 'A-OPTKEEP'] == ['WARN'] and not ITEM_FINDINGS)
+    _cm_bad = {'1': {'difficulty': 'Hard', 'difficulty_check': {
+        'scheduled': 'Hard', 'rated': 'Medium', 'ccp_status': 'below',
+        'decision': 'ladder', 'final_band': None}}}
+    _cm_ok = {'1': {'difficulty': 'Medium', 'difficulty_check': {
+        'scheduled': 'Hard', 'rated': 'Medium', 'ccp_status': 'ok',
+        'decision': 'accept_measured', 'final_band': 'Medium'}}}
+    _reset(); gate_contentlevel({'concept_map': _cm_bad})
+    check('A-CONTENTLEVEL-unresolved-hard-label-is-item-defect',
+          any(c == 'A-CONTENTLEVEL' and l == 'FAIL' for l, c, m in RESULTS)
+          and any(f['gate'] == 'A-CONTENTLEVEL' and f['q'] == '1' for f in ITEM_FINDINGS))
+    _reset(); gate_contentlevel({'concept_map': _cm_ok})
+    check('A-CONTENTLEVEL-accepted-at-measured-band-passes',
+          [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['OK'])
+    _cm_mis = {'1': {'difficulty': 'Hard', 'difficulty_check': {
+        'decision': 'agree', 'final_band': 'Medium'}}}
+    _reset(); gate_contentlevel({'concept_map': _cm_mis})
+    check('A-CONTENTLEVEL-label-contradicting-decision-is-caught',
+          any(c == 'A-CONTENTLEVEL' and l == 'FAIL' for l, c, m in RESULTS))
+    _reset(); gate_contentlevel({'concept_map': {'1': {'subtopic_id': 'x'}}})
+    check('A-CONTENTLEVEL-dormant-on-legacy', [l for l, c, m in RESULTS] == ['OK'])
+    # A-CERT: certificate written only when clean; S13-4c detects a changed docx.
+    _ct = tempfile.mkdtemp()
+    _cd = _mini_doc(_ct, lambda d: d.add_paragraph('Q.1  x'))
+    _cp = os.path.join(_ct, 'cert.json')
+    _ca = argparse.Namespace(docx=_cd, phase='precommit', item_findings=os.path.join(_ct, 'i.json'),
+                             write_certificate=_cp, certificate=None)
+    _reset(); _item('A-FIGMARK', '1', 'G-FIGMARK: x')
+    check('A-CERT-not-written-while-item-findings-remain',
+          write_item_outputs(_ca) is False and not os.path.exists(_cp)
+          and json.load(open(_ca.item_findings))['item_findings'][0]['q'] == '1')
+    _reset(); RESULTS.append(('WARN', 'A-FIGCVD', 'AMBER — DEGRADED, NOT VOID — x'))
+    check('A-CERT-written-when-clean-with-amber-notes',
+          write_item_outputs(_ca) is True
+          and json.load(open(_cp))['amber_notes'] == ['A-FIGCVD: AMBER — DEGRADED, NOT VOID — x'])
+    if os.path.exists(_cp):
+        os.remove(_cp)
+    _reset(); RESULTS.append(('FAIL', 'A-ANSKEY', 'answer key line before Q.1'))
+    check('A-CERT-any-fail-blocks-and-is-listed-for-repair',
+          write_item_outputs(_ca) is False and not os.path.exists(_cp)
+          and json.load(open(_ca.item_findings))['fail_lines']
+          == [{'check': 'A-ANSKEY', 'message': 'answer key line before Q.1'}])
+    _reset(); RESULTS.append(('FAIL', 'A-FIGMARK', 'x'))
+    check('A-CERT-item-gate-fail-blocks', write_item_outputs(_ca) is False)
+    _reset(); RESULTS.append(('FAIL', 'A-DOCXOPEN', 'unreadable'))
+    check('A-CERT-unreadable-docx-blocks', write_item_outputs(_ca) is False)
+    # An unreadable docx (early-return path) still writes the S13-2F worklist and never
+    # a certificate.
+    _bad = os.path.join(_ct, 'bad.docx')
+    with open(_bad, 'wb') as _fh:
+        _fh.write(b'not a docx')
+    _bi, _bc = os.path.join(_ct, 'bi.json'), os.path.join(_ct, 'bc.json')
+    import subprocess
+    subprocess.run([sys.executable, os.path.abspath(__file__), _bad, '--phase', 'precommit',
+                    '--item-findings', _bi, '--write-certificate', _bc],
+                   capture_output=True, text=True, timeout=120)
+    check('A-CERT-unreadable-docx-still-writes-worklist-not-certificate',
+          os.path.exists(_bi) and not os.path.exists(_bc))
+    _reset(); RESULTS.append(('WARN', 'A-FIGCVD', 'AMBER — DEGRADED, NOT VOID — x'))
+    write_item_outputs(_ca)
+    _reset(); gate_cert({}, argparse.Namespace(docx=_cd, certificate=_cp))
+    check('A-CERT-same-docx-confirms', [l for l, c, m in RESULTS] == ['OK'])
+    with open(_cd, 'ab') as _fh:
+        _fh.write(b'\\0')
+    _reset(); gate_cert({}, argparse.Namespace(docx=_cd, certificate=_cp))
+    check('A-CERT-changed-docx-after-certification-is-infra-fail',
+          [l for l, c, m in RESULTS] == ['FAIL'] and 'INFRA' in RESULTS[0][2])
+    _reset(); gate_diffsrc({'blueprint': {'difficulty_schedule': [{'mock': 1}]}, 'profile': {'_meta': {}}})
+    check('A-DIFFSRC-legacy-blueprint-warns-unverified',
+          [l for l, c, m in RESULTS] == ['WARN'] and 'unverified' in RESULTS[0][2])
+    _reset(); gate_diffsrc({'blueprint': {'difficulty_schedule': [{'mock': 1}],
+                                          'difficulty_labels': ['Standard', 'Advanced']},
+                            'profile': {'_meta': {}}})
+    _ds_d1 = [l for l, c, m in RESULTS]
+    _reset(); gate_diffsrc({'blueprint': {'difficulty_schedule': [{'mock': 1}]}})
+    check('A-DIFFSRC-no-profile-or-non-3band-is-dormant-not-regenerate',
+          _ds_d1 == ['OK'] and [l for l, c, m in RESULTS] == ['OK'])
+    _reset(); gate_diffsrc({'blueprint': {'difficulty_schedule': [{'mock': 1}],
+                                          'difficulty_source': {'mode': 'flag'}}})
+    check('A-DIFFSRC-pre-v1.62-full-paper-blueprint-is-not-unverified',
+          [l for l, c, m in RESULTS] == ['OK'])
+    _reset(); gate_diffsrc({'blueprint': {'difficulty_schedule': [{'mock': 1}],
+                                          'difficulty_source': {'mode': 'profile_harder',
+                                                                'builder': 'Framework_Blueprint.S7-0'}}})
+    check('A-DIFFSRC-full-paper-blueprint-is-not-unverified',
+          [l for l, c, m in RESULTS] == ['OK'] and 'A-DPROFILE' in RESULTS[0][2])
+    # every item gate has an explicit ladder entry rung (never the R2 default)
+    try:
+        import blueprint_core as _bc_lr
+        _missing_rung = [g for g in ITEM_GATE_IDS if g not in _bc_lr.LADDER_ENTRY_RUNG]
+    except Exception as _e_lr:                       # noqa: BLE001
+        _missing_rung = [f'blueprint_core not importable: {_e_lr}']
+    check('every-item-gate-has-an-explicit-ladder-entry-rung', _missing_rung == [])
+    # active path: within tolerance -> OK; outside -> WARN naming the type (never FAIL)
+    _ff_bp = {'fig_ask_target_per_mock': {'1': {'S': {'product_prediction': 4, 'nomenclature': 1}}}}
+    _ff_ok = {str(i): {'figural_ask_type': 'product_prediction'} for i in range(1, 5)}
+    _ff_ok['5'] = {'figural_ask_type': 'nomenclature'}
+    _reset(); gate_figformat({'blueprint': _ff_bp, '_mockN': 1, 'concept_map': _ff_ok})
+    check('A-FIGFORMAT-active-mix-within-tolerance-ok',
+          [l for l, c, m in RESULTS if c == 'A-FIGFORMAT'] == ['OK'])
+    _ff_bad = {str(i): {'figural_ask_type': 'nomenclature'} for i in range(1, 6)}
+    _reset(); gate_figformat({'blueprint': _ff_bp, '_mockN': 1, 'concept_map': _ff_bad})
+    check('A-FIGFORMAT-active-mix-outside-tolerance-warns-never-fails',
+          [l for l, c, m in RESULTS if c == 'A-FIGFORMAT'] == ['WARN']
+          and 'product_prediction' in RESULTS[0][2])
+    # A-DIFFSRC recompute path: a scoped schedule reproduces from its provenance; a
+    # tampered one is reported (WARN, never FAIL)
+    try:
+        import blueprint_core as _bc_ds
+        _L = ['Easy', 'Medium', 'Hard']
+        def _pp(d, c):
+            q, n = {}, 1
+            for b, k in zip(_L, c):
+                for _i in range(k):
+                    q[str(n)] = {'section': 'C', 'subtopic_id': 'z.1.1', 'band': b, 'confidence': 'full'}
+                    n += 1
+            return {'date': d, 'questions': q}
+        _prof_ds = {'_meta': {'difficulty_labels': _L}, 'papers': {
+            'a': _pp('2026-07-01', (2, 10, 8)), 'b': _pp('2025-07-01', (2, 12, 6)),
+            'c': _pp('2024-07-01', (3, 11, 6))}}
+        _sd_ds = _bc_ds.scoped_difficulty_schedule(_prof_ds, ['z.1.1'], _L, 2, 20, mode='harder')
+        _bp_ds = {'difficulty_labels': _L, 'total_questions': 20,
+                  'difficulty_schedule': _sd_ds['schedule'],
+                  'difficulty_source': _sd_ds['difficulty_source']}
+        _reset(); gate_diffsrc({'blueprint': _bp_ds, 'profile': _prof_ds})
+        _ds_ok = [l for l, c, m in RESULTS if c == 'A-DIFFSRC'] == ['OK']
+        _bp_t = dict(_bp_ds, difficulty_schedule=[dict(e) for e in _sd_ds['schedule']])
+        _bp_t['difficulty_schedule'][0].update(simple=0, medium=0, hard=20)
+        _reset(); gate_diffsrc({'blueprint': _bp_t, 'profile': _prof_ds})
+        _ds_warn = ([l for l, c, m in RESULTS if c == 'A-DIFFSRC'] == ['WARN']
+                    and 'differs' in RESULTS[0][2])
+    except Exception:                                        # noqa: BLE001
+        _ds_ok = _ds_warn = False
+    check('A-DIFFSRC-recompute-path-reproduces', _ds_ok)
+    check('A-DIFFSRC-recompute-path-reports-tampered-schedule', _ds_warn)
+    _reset(); gate_figformat({'blueprint': {'fig_ask_target_per_mock': {'1': {'S': {'x': 3}}}},
+                              '_mockN': 1, 'concept_map': {'1': {'figural_ask_type': 'y'}},
+                              'through_q': 10})
+    check('A-FIGFORMAT-dormant-on-intermediate-batch',
+          [l for l, c, m in RESULTS] == ['OK'] and 'through-q' in RESULTS[0][2])
+    _runner = inspect.getsource(run_audit)
+    check('v234-new-gates-wired-into-run_audit',
+          all(g in _runner for g in ('gate_optkeep', 'gate_contentlevel', 'gate_figformat',
+                                     'gate_diffsrc', 'gate_cert', 'write_item_outputs')))
+    _reset()
+    # property-fuzz hardening (2026.11.02 pass-3); each FAILS on the pre-fix gate.
+    # D9: an INT-keyed concept_map skipped the label check (cm.get('1') missed key 1);
+    # a '²' key (isdigit() True, int() raises) crashed the sort.
+    _reset()
+    _safe_gate('A-CONTENTLEVEL', gate_contentlevel, {'concept_map': {
+        1: {'difficulty': 'Hard', 'difficulty_check': {'decision': 'agree', 'final_band': 'Easy'}},
+        '²': {'difficulty': 'Easy', 'difficulty_check': {'decision': 'agree', 'final_band': 'Easy'}}}})
+    check('A-CONTENTLEVEL-int-keyed-concept-map-label-checked-and-odd-key-sorts',
+          [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['FAIL']
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-CONTENTLEVEL'] == ['1']
+          and not any(c == 'A-GATEERROR' for l, c, m in RESULTS))
+    # D10: a malformed target (inf / text / list) or mock key is WARN 'NOT CHECKED' —
+    # never an exception that _safe_gate turns into a FAIL of an advisory gate
+    _ff10 = []
+    for _t10, _mk10 in (({'1': {'S': {'x': float('inf')}}}, 1), ({'1': {'S': {'x': 'many'}}}, 1),
+                        ({'1': {'S': {'x': [2]}}}, 1), ({'1': {'S': {'x': 1}}}, '²'), ([1], 1)):
+        _reset()
+        _safe_gate('A-FIGFORMAT', gate_figformat, {'blueprint': {'fig_ask_target_per_mock': _t10},
+                                                   '_mockN': _mk10,
+                                                   'concept_map': {'1': {'figural_ask_type': ['x']}}})
+        _ff10.append(bool(RESULTS) and not any(l == 'FAIL' for l, c, m in RESULTS))
+    _reset()
+    try:
+        gate_figformat({'blueprint': {'fig_ask_target_per_mock': {'1': {'S': {'x': float('inf')}}}},
+                        '_mockN': 1, 'concept_map': {'1': {'figural_ask_type': 'x'}}})
+    except Exception:                                        # noqa: BLE001
+        _ff10.append(False)
+    check('A-FIGFORMAT-malformed-target-warns-not-checked-never-fails',
+          all(_ff10) and len(_ff10) == 5
+          and [l for l, c, m in RESULTS] == ['WARN'] and 'NOT CHECKED' in RESULTS[0][2])
+    _reset()
+
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
@@ -10100,6 +10771,15 @@ def main():
                     help='[ExamCode]_fig_manifest.json (v2.32, E19): the Step-7 sidecar for a '
                          'paper not yet committed; arms A-FIGPROFILE / A-FIGTYPE-KIND per batch.')
     ap.add_argument('--mockN', type=int)
+    # v2.34 GAP-2026-11-02 — S13-2F pre-commit item sweep + certificate
+    ap.add_argument('--phase', choices=('precommit', 'final'), default='final',
+                    help='precommit = S13-2F item sweep (before S13-4 commit); final = S13-4c')
+    ap.add_argument('--item-findings', dest='item_findings',
+                    help='write the per-question item findings (ladder worklist) as JSON')
+    ap.add_argument('--write-certificate', dest='write_certificate',
+                    help='S13-2F: write the item-sweep certificate when no item finding remains')
+    ap.add_argument('--certificate', dest='certificate',
+                    help='S13-4c: the S13-2F certificate; A-CERT verifies the docx is unchanged')
     ap.add_argument('--through-q', dest='through_q', type=int,
                     help='PARTIAL-PAPER MODE (v2.23): audit an intermediate batch '
                          'as complete through Q.N — structural gates measure '
