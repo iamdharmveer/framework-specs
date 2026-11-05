@@ -832,6 +832,11 @@ _QUALITY_GATE_LIVE = re.compile(
     r"\b(?:quality_readiness|review_packet|bind_review_verdicts|review_verdict_file|"
     r"deliver_allowed|shape_targets|assign_shape_plan|write_exemplar_bank)\(")
 
+# GAP-2026-11-04 STEP-CONTRACT-LAW. A spec performs a STEP-CONTRACT operation when its live
+# text decides a final deliverable set or writes a user-waiting end state.
+_STEP_CONTRACT_LIVE = re.compile(
+    r"\bhandoff_set\(|\[['\"]state['\"]\]\s*=\s*['\"]AWAITING_")
+
 
 def _live_text(t):
     """Full-line comments blanked. A spec is expected to QUOTE the defect it fixed;
@@ -876,7 +881,8 @@ if _REG is not None:
                          'presence_flag_producer',
                          'manifest_commit_or_flag_producer',
                          'figure_record_writer',
-                         'quality_gate_producer'):
+                         'quality_gate_producer',
+                         'step_contract_spec'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -949,6 +955,13 @@ if _REG is not None:
                     out.append(ln)
                 return '\n'.join(out)
             _performing = {f for f, t in TXT.items() if _QUALITY_GATE_LIVE.search(_qg_live(t))}
+        elif _rule == 'step_contract_spec':
+            # GAP-2026-11-04 STEP-CONTRACT-LAW (owner decision D6). A spec that decides a
+            # step's final deliverable set (pp.handoff_set) or ends a step in a user-waiting
+            # AWAITING_* state carries a user contract and must be governed (verifier:
+            # mock_sync_audit MS-27 against STEP_CONTRACTS.json).
+            _performing = {f for f, t in TXT.items()
+                           if _STEP_CONTRACT_LIVE.search(_live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

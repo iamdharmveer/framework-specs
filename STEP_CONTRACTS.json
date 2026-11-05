@@ -1,0 +1,119 @@
+{
+  "_purpose": "STEP-CONTRACT-LAW (GAP-2026-11-04-STEP7-CONTRACT-RESTORE, owner decision D6, 2026-11-04). A step's USER CONTRACT — what the operator receives at the end, the states the step may end in, and the only actions it may ask of the operator — is DATA, machine-checked by mock_sync_audit MS-27 against the specs, DeliveryFooter, routes.json and both SKILL trigger lists. Release 2026.11.03 changed all three parts of Step 7's contract (a review packet instead of two files; an AWAITING_REVIEW end state; a new-chat review, a verdict file to carry back and a --resume to type) with no test and no explicit sign-off; every exam project on the estate inherited it on its next paper.",
+  "_change_rule": "An entry here changes ONLY with an owner decision id cited in the same CHANGELOG.md entry (release checklist line: 'Does this release add a user action, a deliverable, or an end state to any step? If yes: owner decision id + updated STEP_CONTRACTS.json + a legacy-project end-to-end test'). A release that needs MS-27 relaxed to ship has changed a contract.",
+  "_enforced_by": "mock_sync_audit.py MS-27 STEP-CONTRACT (LAW_REGISTRY.json STEP-CONTRACT-LAW).",
+  "retired_triggers": {
+    "MockReview": "GAP-2026-11-04 owner decision D2 (a): the independent review runs inside Step 7 (MockTestCreate S13-2G).",
+    "TestReview": "GAP-2026-11-04 owner decision D2 (a): the independent review runs inside Step 7 (MockTestCreate S13-2G)."
+  },
+  "forbidden_live_idioms": {
+    "_note": "In the LIVE text (full-line comments blanked) of every contract spec. Each is the exact shape of a user hand-off release 2026.11.03 introduced. A line carrying the word 'legacy' or 'retired' may name a retired state or file (S4-12 continues a parked legacy paper).",
+    "idioms": [
+      "present_files([_pkt])",
+      "_review_packet.zip'",
+      "TWO-SESSION PROTOCOL",
+      "in a NEW chat",
+      "in a new chat",
+      "run MockReview",
+      "run TestReview"
+    ],
+    "end_state_regex": "['\"]state['\"]\\]?\\s*[:=]\\s*['\"]AWAITING_|\\bstate\\s*=\\s*['\"]AWAITING_"
+  },
+  "steps": {
+    "MockCreate": {
+      "spec": "Framework_MockTestCreate.md",
+      "final_deliverables": [
+        "[ExamCode]_[slug]_Create.docx",
+        "[ExamCode]_registry.json"
+      ],
+      "final_deliverable_count": 2,
+      "allowed_end_states": [
+        "DELIVERED"
+      ],
+      "user_actions": [
+        "continue (between batches, or after an interrupted response)",
+        "registry handoff: replace / attach the delivered [ExamCode]_registry.json before the next paper (REGISTRY-HANDOFF-LAW — unchanged, not a Step 7 action)"
+      ],
+      "footer_block": "STEP 7 — MockCreate",
+      "owner_decision": "D0 / D3 (a) / D6 — 2026-11-04"
+    },
+    "TestCreate": {
+      "spec": "Framework_MockTestCreate.md",
+      "final_deliverables": [
+        "[ExamCode]_[slug]_Create.docx",
+        "[ExamCode]_registry.json"
+      ],
+      "final_deliverable_count": 2,
+      "allowed_end_states": [
+        "DELIVERED"
+      ],
+      "user_actions": [
+        "continue (between batches, or after an interrupted response)",
+        "registry handoff: replace / attach the delivered [ExamCode]_registry.json before the next paper (REGISTRY-HANDOFF-LAW — unchanged, not a Step 7 action)"
+      ],
+      "footer_block": "STEP 7 — MockCreate",
+      "owner_decision": "D0 / D3 (a) / D6 — 2026-11-04"
+    },
+    "MockExplain": {
+      "spec": "Framework_MockTestExplain.md",
+      "final_deliverables": [
+        "pp.handoff_set('MockExplain', final=True)"
+      ],
+      "allowed_end_states": [
+        "DELIVERED"
+      ],
+      "user_actions": [
+        "continue"
+      ],
+      "owner_decision": "D6 — 2026-11-04 (recorded as is; no change)"
+    },
+    "TestExplain": {
+      "spec": "Framework_MockTestExplain.md",
+      "final_deliverables": [
+        "pp.handoff_set('TestExplain', final=True)"
+      ],
+      "allowed_end_states": [
+        "DELIVERED"
+      ],
+      "user_actions": [
+        "continue"
+      ],
+      "owner_decision": "D6 — 2026-11-04 (recorded as is; no change)"
+    },
+    "MockDeliver": {
+      "spec": "Framework_MockDeliver.md",
+      "final_deliverables": [
+        "pp.handoff_set('MockDeliver', final=True)"
+      ],
+      "allowed_end_states": [
+        "DELIVERED",
+        "REFUSED_NOT_CERTIFIED"
+      ],
+      "user_actions": [
+        "--accept-uncertified (owner, only for a genuine measured defect — OD-9 restated, D0)"
+      ],
+      "owner_decision": "D5 (a) / D6 — 2026-11-04"
+    },
+    "TestDeliver": {
+      "spec": "Framework_MockDeliver.md",
+      "final_deliverables": [
+        "pp.handoff_set('TestDeliver', final=True)"
+      ],
+      "allowed_end_states": [
+        "DELIVERED",
+        "REFUSED_NOT_CERTIFIED"
+      ],
+      "user_actions": [
+        "--accept-uncertified (owner, only for a genuine measured defect — OD-9 restated, D0)"
+      ],
+      "owner_decision": "D5 (a) / D6 — 2026-11-04"
+    }
+  },
+  "override_floor": {
+    "_note": "Project-first spec resolution (spec_source.py) will NOT load a project Files copy of these specs whose version header is BELOW the floor: such a copy predates the Step 7 contract restore and would silently re-break it (a v5.90 Create ends at AWAITING_REVIEW; a v1.0.0 MockReview cannot read the internal packet). The verified repo copy is used and Step 0 prints [STALE — NOT LOADED]. Never a stop. Raise a floor only with an owner decision id (same rule as the contracts).",
+    "Framework_MockTestCreate.md": "5.91",
+    "Framework_MockReview.md": "2.0.0",
+    "Framework_MockDeliver.md": "1.25.0",
+    "Framework_DeliveryFooter.md": "1.39.0"
+  }
+}

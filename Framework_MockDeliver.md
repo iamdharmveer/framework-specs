@@ -1,4 +1,13 @@
-# Framework_MockDeliver v1.24.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.25.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.25.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D5 (a);
+#   paired with MockTestCreate v5.91, audit_canonical v2.36, blueprint_core v1.31,
+#   DeliveryFooter v1.39.0). S1-2 item 3f reads the certificate through
+#   bc.certificate_uncertified_active(statuses, entry.quality_readiness, stamps release):
+#   an item whose only UNRESOLVED finding is an A-TEMPLATE stamp written by release
+#   2026.11.03 (its default template cap of 2 — untrustworthy) is RE-CERTIFIED
+#   automatically with one INFORMATIONAL line (RECERTIFIED_ITEMS -> footer). OD-9 restated
+#   (D0): NOT CERTIFIED only from an ACTIVE, measured gate; --accept-uncertified is needed
+#   only for such a genuine, measured defect.
 # v1.24.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decision OD-9 (a);
 #   paired with MockTestCreate v5.90, audit_canonical v2.35, blueprint_core v1.30,
 #   DeliveryFooter v1.38.0). S1-1 gains the trigger flag --accept-uncertified; S1-2 gains
@@ -1124,8 +1133,21 @@ _pid3f = (_tp3f or {}).get('paper_id', f"MOCK:M{int(N):02d}")
 _qi3f = next((e for e in registry.get('question_index', [])
               if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == _pid3f), None)
 _qs = (_qi3f or {}).get('questions') or []
-_cert = {'uncertified_items': bc.certificate_uncertified(
-             {str(q.get('q')): q.get('quality_status') for q in _qs})}
+# v1.25.0 (GAP-2026-11-04 B9 / owner decision D5 a): an item whose only UNRESOLVED finding is
+# an A-TEMPLATE stamp written by release 2026.11.03 (default cap of 2, paper-wide count) is
+# RE-CERTIFIED here, automatically, with one informational line. A stamp written by a later
+# release (qindex_cert.stamps_release) is a measured finding and is never re-certified.
+_qc3f = (_qi3f or {}).get('qindex_cert') or {}
+_active3f, _recert3f = bc.certificate_uncertified_active(
+    {str(q.get('q')): q.get('quality_status') for q in _qs}, (_qi3f or {}).get('quality_readiness'),
+    # the release whose gates WROTE the stamps: stamps_release (2026.11.04+), else the paper's
+    # producer_release (a 2026.11.03 paper's stamps; its A-TEMPLATE-only stamps are re-certified)
+    producer_release=_qc3f.get('stamps_release') or _qc3f.get('producer_release'))
+_cert = {'uncertified_items': _active3f}
+RECERTIFIED_ITEMS = list(_recert3f)
+if RECERTIFIED_ITEMS:
+    print(f"S1-2 3f: re-certified {len(RECERTIFIED_ITEMS)} item(s) {RECERTIFIED_ITEMS} — their only finding was a "
+          f"2026.11.03 A-TEMPLATE stamp (default cap / paper-wide count — not trustworthy); informational, no action needed.")
 _ok, _why = bc.deliver_allowed(_cert, accept_uncertified=ACCEPT_UNCERTIFIED)
 print(f"S1-2 3f: certification — {_why}" + (f"; items {_cert['uncertified_items']}" if _cert['uncertified_items'] else ''))
 UNCERTIFIED_ITEMS = list(_cert['uncertified_items'])
@@ -2116,4 +2138,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.24.0
+# END OF Framework_MockDeliver v1.25.0

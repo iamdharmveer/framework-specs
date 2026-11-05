@@ -1291,6 +1291,115 @@ def check_quality_gate_law(read=_read):
     return problems
 
 
+# ── MS-27 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (STEP-CONTRACT-LAW, owner decision D6) ──
+# Release 2026.11.03 changed Step 7's USER CONTRACT — its deliverables (a review packet
+# instead of two files), its end state (AWAITING_REVIEW) and the actions it asked of the
+# operator (a new chat, a verdict file to carry back, a --resume) — with no test and no
+# sign-off, and every exam project inherited it on its next paper. The contract is now
+# DATA (STEP_CONTRACTS.json) and this check holds the specs, the footer, routes.json, both
+# SKILL trigger lists and the PIPELINE table to it.
+_MS27_FILE = 'STEP_CONTRACTS.json'
+_MS27_EXCUSE_RE = re.compile(r'\b(legacy|retired)\b', re.I)
+_MS27_FOOTER = 'Framework_DeliveryFooter.md'
+_MS27_FOOTER_BANNED = ('--resume', '_review_packet', 'UPLOAD THIS', 'Step 7R')
+
+
+def _ms27_footer_block(footer, header):
+    """The DeliveryFooter §3 block that starts at `header` and ends at the next banner."""
+    i = footer.find(header)
+    if i < 0:
+        return None
+    j = footer.find('\n═══', i + len(header) + 80)
+    return footer[i:j if j > 0 else len(footer)]
+
+
+def check_step_contract(read=_read):
+    """MS-27 — STEP-CONTRACT-LAW: every step in STEP_CONTRACTS.json keeps its declared user
+    contract. (a) the trigger routes to the declared spec; (b) no user hand-off idiom and no
+    AWAITING_* end state in the spec's live text (a line naming a legacy / retired state is
+    excused — S4-12 continues a parked legacy paper); (c) a two-file step stages no extras
+    (EXTRA_DELIVERABLES = () and no extra_upload= / extra_replace=) and its DeliveryFooter
+    block names both files and no --resume / review packet / upload instruction; (d) a
+    retired trigger is in neither routes.json, nor either SKILL trigger list, nor PIPELINE."""
+    problems = []
+    try:
+        C = json.loads(read(_MS27_FILE))
+    except (FileNotFoundError, ValueError) as e:
+        return [f'MS-27 has no ground truth: {_MS27_FILE} unreadable ({type(e).__name__}) — the '
+                f'step contracts are not machine-checkable.']
+    try:
+        routes = json.loads(read('routes.json'))
+    except (FileNotFoundError, ValueError):
+        routes = {}
+    rsrc = routes.get('routes', routes) if isinstance(routes, dict) else {}
+    idioms = list((C.get('forbidden_live_idioms') or {}).get('idioms') or [])
+    end_re = re.compile((C.get('forbidden_live_idioms') or {}).get('end_state_regex') or r'(?!x)x')
+    seen = set()
+    for step, ct in sorted((C.get('steps') or {}).items()):
+        spec = ct.get('spec')
+        if (rsrc.get(step) or [None])[0] != spec:
+            problems.append(f'{step}: routes.json does not route it to its contract spec {spec!r}.')
+        try:
+            live = _rh_live(read(spec))
+        except (FileNotFoundError, TypeError):
+            problems.append(f'{step}: contract spec {spec!r} is missing.')
+            continue
+        if spec not in seen:
+            seen.add(spec)
+            for i, ln in enumerate(live.split('\n'), 1):
+                # the excuse words count only in the line's TEXT, never in a trailing `# ...`
+                # comment (`x = 'AWAITING_REVIEW'  # not legacy` is still a live end state)
+                _m = re.search(r"(?<![\'\"\w])#", ln)
+                _body = ln[:_m.start()] if _m and ln[:_m.start()].count("'") % 2 == 0 and ln[:_m.start()].count('"') % 2 == 0 else ln
+                if _MS27_EXCUSE_RE.search(_body):
+                    continue
+                hit = next((x for x in idioms if x.lower() in ln.lower()), None)
+                if hit:
+                    problems.append(f'{spec} L{i}: user hand-off idiom {hit!r} in live text — a step '
+                                    f'may ask only {sorted(set(ct.get("user_actions") or []))} of the operator.')
+                elif end_re.search(ln):
+                    problems.append(f'{spec} L{i}: the step ends in a user-waiting AWAITING_* state — '
+                                    f'allowed end states are {ct.get("allowed_end_states")}.')
+        if int(ct.get('final_deliverable_count') or 0) == 2:
+            _assigns = re.findall(r'\bEXTRA_DELIVERABLES\s*(\+?=)\s*([^\n#]*)', live)
+            if not _assigns or any(op != '=' or val.strip() != '()' for op, val in _assigns):
+                problems.append(f'{step}: {spec} must pin EXTRA_DELIVERABLES = () and never assign or '
+                                f'extend it otherwise — a two-file step may not stage a conditional extra file.')
+            _kw = re.search(r'\bextra_(upload|replace)\s*=', live)
+            if _kw:
+                problems.append(f'{step}: {spec} passes {_kw.group(0).strip()} to the handoff — a third '
+                                f'file breaks the two-file contract.')
+            try:
+                blk = _ms27_footer_block(read(_MS27_FOOTER), ct.get('footer_block') or '')
+            except FileNotFoundError:
+                blk = None
+            if blk is None:
+                problems.append(f'{step}: {_MS27_FOOTER} has no block {ct.get("footer_block")!r}.')
+            else:
+                for need in ('_Create.docx', '_registry.json'):
+                    if need not in blk:
+                        problems.append(f'{step}: footer block never names the {need} deliverable.')
+                for bad in _MS27_FOOTER_BANNED:
+                    if bad in blk.replace('RETIRED', '').split('(STEP 7R')[0]:
+                        problems.append(f'{step}: footer block carries {bad!r} — a user step the '
+                                        f'contract does not allow.')
+    for t in sorted(C.get('retired_triggers') or {}):
+        if t in rsrc:
+            problems.append(f'routes.json: retired trigger {t!r} is still routed.')
+        for name in ('SKILL.md', 'mocktestframework_SKILL.md'):
+            try:
+                if re.search(r'\b' + re.escape(t) + r'\b', read(name).split('\n---', 1)[0]):
+                    problems.append(f'{name}: retired trigger {t!r} is still in the trigger list.')
+            except FileNotFoundError:
+                pass
+        try:
+            if re.search(r"^\s*['\"]" + re.escape(t) + r"['\"]\s*:", read('validate_framework_md.py'), re.M):
+                problems.append(f'validate_framework_md.py: retired trigger {t!r} is still in PIPELINE.')
+        except FileNotFoundError:
+            pass
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -1318,6 +1427,7 @@ ALL_CHECKS = [
     ('MS-24 KIND-COVERAGE-PREFLIGHT', check_kind_coverage_preflight_present),
     ('MS-25 FIGTYPE-KIND-GATE', check_figtype_kind_gate_present),
     ('MS-26 QUALITY-GATE', check_quality_gate_law),
+    ('MS-27 STEP-CONTRACT', check_step_contract),
 ]
 
 
@@ -1968,6 +2078,49 @@ def self_test():
     check('ms26_missing_create_is_ground_truth',
           any('no ground truth' in x for x in check_quality_gate_law(read=fake_reader({}))))
     check('ms26_live_corpus_clean', check_quality_gate_law() == [])
+
+    # ── MS-27 — GAP-2026-11-04 (STEP-CONTRACT-LAW) — every emission killed by a fixture ──
+    _c27 = {'retired_triggers': {'MockReview': 'x'},
+            'forbidden_live_idioms': {'idioms': ['present_files([_pkt])', 'in a new chat'],
+                                      'end_state_regex': json.loads(_read(_MS27_FILE))['forbidden_live_idioms']['end_state_regex']},
+            'steps': {'TestCreate': {'spec': 'C.md', 'final_deliverable_count': 2, 'user_actions': ['continue'],
+                                     'allowed_end_states': ['DELIVERED'], 'footer_block': 'STEP 7 — MockCreate'},
+                      'TestExplain': {'spec': 'E.md', 'user_actions': ['continue'], 'allowed_end_states': ['DELIVERED']}}}
+    _f27 = ('x\nSTEP 7 — MockCreate\n' + '-' * 90 + '\n  X_Create.docx\n  X_registry.json\nNEXT: Step 9\n'
+            '(STEP 7R — RETIRED note --resume)\n═══\nSTEP 9\n')
+    _ok27 = {'STEP_CONTRACTS.json': json.dumps(_c27),
+             'routes.json': json.dumps({'TestCreate': ['C.md'], 'TestExplain': ['E.md']}),
+             'C.md': "```python\nEXTRA_DELIVERABLES = ()\nbatch_state['state'] = 'REVIEWED'\n```\n'AWAITING_REVIEW' is a LEGACY state\n",
+             'E.md': 'fine\n', 'Framework_DeliveryFooter.md': _f27,
+             'SKILL.md': '---\ndescription: MockCreate, TestCreate\n---\nbody MockReview history\n',
+             'mocktestframework_SKILL.md': 'description: TestCreate\n',
+             'validate_framework_md.py': "PIPELINE = {\n    'TestCreate': '7',\n    # 'MockReview' retired\n}\n"}
+    _m27 = lambda **kw: check_step_contract(read=fake_reader({**_ok27, **kw}))
+    check('ms27_clean_passes', _m27() == [])
+    check('ms27_no_ground_truth', any('no ground truth' in x for x in check_step_contract(read=fake_reader({}))))
+    check('ms27_route_mismatch_flagged', any('does not route it' in x for x in _m27(**{'routes.json': json.dumps({'TestCreate': ['Z.md'], 'TestExplain': ['E.md']})})))
+    check('ms27_missing_spec_flagged', any('is missing' in x for x in check_step_contract(read=fake_reader({k: v for k, v in _ok27.items() if k != 'E.md'}))))
+    check('ms27_handoff_idiom_flagged', any('hand-off idiom' in x for x in _m27(**{'E.md': 'then present_files([_pkt]) now\n'})))
+    check('ms27_new_chat_idiom_flagged', any("'in a new chat'" in x for x in _m27(**{'E.md': 'run the review in a new chat\n'})))
+    check('ms27_legacy_line_excused', _m27(**{'E.md': 'a legacy paper ran in a new chat\n'}) == [])
+    check('ms27_comment_line_excused', _m27(**{'E.md': '# run it in a new chat\n'}) == [])
+    check('ms27_awaiting_end_state_flagged', any('AWAITING_* state' in x for x in _m27(**{'E.md': "batch_state['state'] = 'AWAITING_REVIEW'\n"})))
+    check('ms27_extra_not_pinned_flagged', any('EXTRA_DELIVERABLES = ()' in x for x in _m27(**{'C.md': 'EXTRA_DELIVERABLES = tuple(x)\n'})))
+    check('ms27_extra_upload_flagged', any('extra_upload=' in x for x in _m27(**{'C.md': _ok27['C.md'] + 'pp.handoff_set(s, extra_upload=e)\n'})))
+    check('ms27_extra_upload_spaced_flagged', any('extra_replace =' in x for x in _m27(**{'C.md': _ok27['C.md'] + 'pp.handoff_set(s, extra_replace = e)\n'})))
+    check('ms27_extra_reassigned_flagged', any('must pin' in x for x in _m27(**{'C.md': _ok27['C.md'] + 'EXTRA_DELIVERABLES = (pkt,)\n'}))
+          and any('must pin' in x for x in _m27(**{'C.md': _ok27['C.md'] + 'EXTRA_DELIVERABLES += (pkt,)\n'})))
+    check('ms27_trailing_comment_never_excuses', any('AWAITING_* state' in x for x in _m27(**{'E.md': "batch_state['state'] = 'AWAITING_REVIEW'   # not a legacy path\n"})))
+    check('ms27_idiom_case_insensitive', any("'in a new chat'" in x for x in _m27(**{'E.md': 'run it In A New Chat\n'})))
+    check('ms27_update_dict_end_state_flagged', any('AWAITING_* state' in x for x in _m27(**{'E.md': "batch_state.update({'state': 'AWAITING_REVIEW'})\n"})))
+    check('ms27_footer_block_missing_flagged', any('has no block' in x for x in _m27(**{'Framework_DeliveryFooter.md': 'nothing\n'})))
+    check('ms27_footer_missing_registry_flagged', any('_registry.json deliverable' in x for x in _m27(**{'Framework_DeliveryFooter.md': _f27.replace('X_registry.json', 'X_reg')})))
+    check('ms27_footer_resume_flagged', any("'--resume'" in x for x in _m27(**{'Framework_DeliveryFooter.md': _f27.replace('NEXT: Step 9', 'NEXT: TestCreate --resume')})))
+    check('ms27_footer_missing_file_flagged', any('has no block' in x for x in check_step_contract(read=fake_reader({k: v for k, v in _ok27.items() if k != 'Framework_DeliveryFooter.md'}))))
+    check('ms27_retired_trigger_routed_flagged', any('still routed' in x for x in _m27(**{'routes.json': json.dumps({'TestCreate': ['C.md'], 'TestExplain': ['E.md'], 'MockReview': ['R.md']})})))
+    check('ms27_retired_trigger_in_skill_flagged', any('SKILL.md: retired trigger' in x for x in _m27(**{'SKILL.md': '---\ndescription: TestCreate, MockReview\n---\n'})))
+    check('ms27_retired_trigger_in_pipeline_flagged', any('still in PIPELINE' in x for x in _m27(**{'validate_framework_md.py': "PIPELINE = {\n    'MockReview': '7R',\n}\n"})))
+    check('ms27_live_corpus_clean', check_step_contract() == [])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

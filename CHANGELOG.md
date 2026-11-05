@@ -1,5 +1,125 @@
 # Changelog
 
+## 2026.11.04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE: Step 7 ends with exactly the paper and the registry again, the independent review runs inside the run, and an unmeasured control can never make a paper NOT CERTIFIED
+(blueprint_core v1.31, audit_canonical v2.36, final_assembly v1.13, mock_sync_audit MS-27,
+audit_sync step_contract_spec, handshake_audit H5-LEGACY / H6 rewritten / H7 D5,
+validate_framework_md PIPELINE −7R; MockTestCreate v5.91, MockReview v2.0.0 (internal reviewer
+brief), MockDeliver v1.25.0, DeliveryFooter v1.39.0; routes.json (−MockReview, −TestReview;
+Framework_MockReview.md routed with MockCreate / TestCreate); SKILL.md + mocktestframework_SKILL.md;
+LAW_REGISTRY STEP-CONTRACT-LAW; NEW STEP_CONTRACTS.json; CLAUDE.md FRAMEWORK COUNTS triggers 23.)
+Raised by SSC_GD_CONSTABLE_Tier1, `TestCreate P2` (SUBJ: General Intelligence & Reasoning, 50 MCQs,
+13 figural), run 2026-11-04 on production 816d5e4 with no project-side spec override.
+
+**The defects (both estate-wide — every exam, every paper produced under 2026.11.03).**
+(1) Step 7 no longer ended with its two files: Final Assembly stopped at AWAITING_REVIEW and handed
+the owner a review packet, a new chat, a verdict file to carry back and a `--resume`; the registry
+was not committed meanwhile (and a parked paper was invisible to the next paper's dedup). The
+uploaded verdict file was not even found (exact-name glob vs a random upload prefix and a sanitised
+slug), and the leftover packet in outputs would have failed S13-7 check 6. (2) A-TEMPLATE fell back
+to a cap of 2 repeats per template whenever the exam had no measured cap — i.e. on every existing
+project — while a reasoning family has only 8 ask types (at most 16 compliant items). The sweep
+stamped 35 of 50 items UNRESOLVED and wrote a NOT CERTIFIED certificate that Deliver refuses
+without `--accept-uncertified`. The readiness record already said G-TEMPLATE STALE; the gate never
+read it.
+
+**Owner decisions (2026-11-04).** D0 — OD-5 restated: the independent review is mandatory and runs
+INSIDE the run; never a user step, never ends Step 7, never a user-visible file. OD-9 restated:
+NOT CERTIFIED only from an ACTIVE, measured gate. D1 — no sub-agent (or a part failing twice):
+same-session cold review, disclosed; NOT_RUN (A-REVIEW WARN) only if even that fails. D2 (a) —
+MockReview / TestReview triggers retired. D3 (a) — no third file (repo auditor, amended blueprint):
+informational footer lines. D4 — reviewer isolation by instruction accepted. D5 (a) — Deliver
+re-certifies a paper whose only UNRESOLVED findings come from dormant controls. D6 —
+STEP-CONTRACT-LAW + STEP_CONTRACTS.json.
+
+**What changed.**
+- *Create (v5.91).* S13-2F continues to S13-2G in the same response. S13-2G is an IN-SESSION review:
+  phase 1 writes the packet under /home/claude only (never outputs, never present_files); phase 2
+  (CLASS T) starts one FRESH sub-agent per <= 30-item part (a passage group never split) with the
+  verbatim reviewer brief, one retry, then the D1 fallback; phase 3 merges (bc.review_merge_parts),
+  fills key_agrees, binds, repairs round-1 defects at R2, re-sweeps, re-reviews the whole paper
+  (round 2), and continues to S13-3 .. S13-8 in the same response. S4-12 continues
+  REVIEW_RUNNING / REVIEW_REPAIR / legacy AWAITING_REVIEW on "continue" (a legacy verdict file is
+  found by CONTENT — exam_code + paper_md5). S13-2F stamps ladder.terminal_sweep. S13-6 has no
+  conditional additions; S13-7 clears this run's leftovers (fa.outputs_to_clear); S13-8 judges
+  fa.delivery_scope. Footer: "independent review: round k, n item(s) repaired" (informational).
+- *Auditor (v2.36).* A-TEMPLATE per (subtopic, fingerprint) vs THAT subtopic's measured, scaled
+  cap; unmeasured -> not checked; nothing measured -> DORMANT; infeasible -> OK INFEASIBLE; R4
+  exemption only on the engine's terminal stamp. Readiness rule: G-TEMPLATE MISSING / STALE / N/A
+  -> fingerprint caps DORMANT (concept caps and every other gate unchanged). Per-batch level == pre-commit
+  level (a v5.90 paper is recognised by its fingerprint records). A-REVIEW: NOT_RUN is a WARN;
+  the missing-record FAIL names no user step.
+- *Engines.* blueprint_core v1.31: TEMPLATE_CAP_UNMEASURED = None, template_feasible_caps,
+  QQ_GATE_CONTROL, readiness_dormant, certificate_uncertified_active, group-aware review_packet,
+  review_merge_parts, review_not_run. final_assembly v1.13: the closed set is always the two files;
+  outputs_to_clear, delivery_scope. MockDeliver v1.25.0 S1-2 3f uses
+  certificate_uncertified_active (RECERTIFIED_ITEMS -> informational line).
+- *Governance.* STEP_CONTRACTS.json declares every mock-track step's user contract; MS-27 holds the
+  specs, DeliveryFooter, routes.json, both SKILL lists and PIPELINE to it; LAW_REGISTRY
+  STEP-CONTRACT-LAW derives the performing set (handoff_set / AWAITING_* writers).
+
+**Release checklist (D-3, permanent).** Does this release add a user action, a deliverable, or an
+end state to any step? If yes: owner decision id + updated STEP_CONTRACTS.json + a
+legacy-project end-to-end test (handshake H5-LEGACY shape). Every new quality gate: dormant when
+its measured input is absent (readiness rule; no hard-coded fallback limit). Every file a step
+writes to /mnt/user-data/outputs is in that step's declared deliverable set.
+
+**Independent release review (2026-11-04, fresh context, before shipping) — all fixed in this release.**
+(1) per-batch audits would have FAILed A-REVIEW / A-QUALITYSTATUS once a v5.90 paper is recognised per
+batch -> both dormant without a registry entry; (2) the same-session fallback now runs the whole
+reviewer brief (S1-1 .. S3-2) so verdicts.json is always written; (3) a paper parked by 2026.11.03
+kept its 35 default-cap UNRESOLVED stamps -> S13-2F clears stamps only an unmeasured / 2026.11.03
+template control wrote, on every sweep, and S4-12 re-runs S13-2F first on a legacy paper; (4)
+"continue" after an interrupted Final Assembly re-enters §13 instead of looking for a next batch;
+(5) the readiness rule applies to A-TEMPLATE's fingerprint caps only — every other gate keeps its
+2026.11.03 behaviour; (6) G-TEMPLATE STALE no longer switches off measured CONCEPT caps; (7) the R4 terminal
+record lives in the engine's S13-2F state file and is merged before each sweep (the author's repair
+rewrites the sidecar entry); (8) Deliver also re-certifies A-TEMPLATE-only stamps written by
+2026.11.03; (9) outputs_to_clear touches only THIS paper's artefacts (never another step's blueprint,
+auditor copy or answer-bearing file).
+
+**Second independent review (2026-11-04, two fresh reviewers, every changed line) — all fixed.**
+(1) the S13-2F stamp clean-up also strips the cleared stamps from the registry preview (the auditor
+overlays it; otherwise the legacy paper stayed NOT CERTIFIED) — handshake H5-LEGACY-STAMPS runs the
+real fence; (2) A-TEMPLATE stamps of THIS release (measured concept caps) are never re-certified by
+readiness (no clear/re-stamp loop, no silent Deliver re-certification); (3) qindex_cert.stamps_release
+lets Deliver tell 2026.11.03 stamps from this release's; (4) S4-12 dispatch: an authored-but-
+uncommitted paper always re-enters §13, and REVIEWED runs the full S13-3 .. S13-9 sequence;
+REVIEW_REPAIR resume skips repairs already written; (5) template feasibility judged only on items
+with a measured cap and caps scaled with ceil (no false INFEASIBLE, no hidden over-cap); (6) the
+readiness rule is A-TEMPLATE-fingerprint-only; (7) internal-file clean-up and check 5 anchored to
+this run's names (another step's *_scan_progress.json is never deleted or blocking); (8) the reviewer
+brief takes its part folder from the environment (each script is a fresh process) and S1-2 is guarded;
+(9) MS-27 hardened (case-insensitive idioms, trailing-comment excuses ignored, any EXTRA_DELIVERABLES
+re-assignment / extra_* kwarg flagged, dict-style AWAITING_ state flagged).
+
+**Third independent verification (2026-11-04) — the nine fixes above confirmed; two more fixed.**
+(1) the S4-11 per-batch checklist item G-TEMPLATE still told the author "unmeasured -> 2" (inherited
+from 2026.11.03) — rewritten to the measured, per-subtopic, never-default rule; (2) "continue" after an
+interruption AFTER the S13-4 commit resumes delivery (REVIEW_* / REVIEWED states), and S13-9 marks the
+paper DELIVERED so a later "continue" never re-enters §13. Measured CONCEPT caps keep 2026.11.03's
+rounding (template_cap rounding='round'); only fingerprint caps use ceil. A final focused check: "continue" on a DELIVERED paper is checked FIRST
+(never a phantom batch); S13-9 sets DELIVERED only after present_files succeeded and renders the
+S13-9A footer before ending; three comments / printed lines now match the behaviour exactly.
+
+**Cross-step I/O handshake audit (2026-11-04, machine-extracted I/O maps of BOTH trees, diffed).**
+No broken handshake inside the release (Step 5 -> 6 -> 7 -> 9 -> 11, the in-Step-7 block order and
+the reviewer handshake all verified). One conditional break OUTSIDE the repo closed: a project
+holding an OLD copy of a contract spec in its Files section would have overridden the fix for that
+exam. NEW contract floor: spec_source.py never loads a project copy below STEP_CONTRACTS.json
+`override_floor` (MockTestCreate 5.91, MockReview 2.0.0, MockDeliver 1.25.0, DeliveryFooter 1.39.0);
+the verified repo copy is used and Step 0 prints [STALE — NOT LOADED] — never a stop; a malformed
+copy of these four specs is treated the same way (spec_source self-test 32/32). Differential test vs production 816d5e4: 45,500 random inputs, 0 unintended
+differences; AST diff confirms only the intended functions changed.
+
+**Evidence.** blueprint_core self-test 936/936; audit_canonical 541/541 (SSC GD incident replayed:
+50 items, no QUALITY block -> A-TEMPLATE DORMANT, 0 items stamped; per-batch dormancy; concept caps
+kept; A-ITEMRULE never readiness-dormant); final_assembly 179/179; mock_sync_audit 148/148 (MS-27
+every emission killed); handshake_audit 70 ok (H5-LEGACY + H5-LEGACY-STAMPS certified on a legacy section_rules; H6
+in-session review: nothing reaches outputs, two rounds, NOT_RUN, prefixed / sanitised legacy verdict
+found by content; H7 D5 re-certification); validate 0 issues; audit_sync 0 findings; check_triggers
+23 consistent; bootstrap 57/57. Replay of the real SSC GD P2 data (project section_rules + evidence
+batch_state + the 50 recorded fingerprints): production 816d5e4 flags 35 items, this release 0.
+
 ## 2026.11.03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY: a content rule names the engine that enforces it, every quality gate reads the artefact, every paper is read once by a context that never saw the key, and a finding that survives the ladder is a recorded NOT CERTIFIED — never a stop
 (blueprint_core v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types v1.2,
 analyse_engine v1.2, audit_canonical v2.35 (15 quality gates, certificate schema 2),

@@ -12,9 +12,9 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 56
+  MANIFEST.json files        : 57
   SPEC_MANIFEST.json entries : 60
-  routes.json triggers       : 25
+  routes.json triggers       : 23
 ```
 
 **Do not edit those numbers by hand.** `audit_sync.py` recomputes each one from the files
@@ -137,6 +137,10 @@ clone with any `Framework_*.md` from `/mnt/project` laid over it — and does `c
 
 **SPECS ARE PROJECT-FIRST.** A `Framework_*.md` in the exam project's Files section wins over
 the repo copy, per file. This is the framework owner's rule, set deliberately.
+**Except below the CONTRACT FLOOR (2026.11.04, owner decisions D0/D6).** `spec_source.py` never
+loads a project copy of a spec listed in `STEP_CONTRACTS.json` `override_floor` whose version is
+below its floor: the verified repo copy is used and the report prints `[STALE — NOT LOADED]`.
+A stale copy predates a user-contract change and would silently re-break it for that exam.
 
 **ENGINES ARE NOT.** Every `.py` still comes from the verified clone, and **no spec and no
 engine ever places `/mnt/project` on `sys.path`** (grep-verified across the corpus). A `.py`

@@ -13,6 +13,19 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.13 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D3 (a), D6).
+    THE STEP 7 USER CONTRACT IS EXACTLY TWO FILES (STEP_CONTRACTS.json). (a)
+    predelivery_checklist check 6: the closed set is ALWAYS {Create.docx, registry.json};
+    `extra_deliverables` is still ACCEPTED as a keyword (every call site compiles) but no
+    longer widens the set — the repo auditor / an amended blueprint are never delivered to
+    the exam user (D3 a; disclosed by an informational footer line). (b) NEW pure
+    outputs_to_clear(staged, ...): the files THIS paper's run staged in outputs that are
+    not deliverables (per-batch Q1to[K].docx, a legacy review packet / verdict file, an
+    auditor or blueprint copy, any internal sidecar) — S13-7 removes them BEFORE the
+    checklist, so check 6 passes with no manual step (GAP A8; the 2026.11.03 packet left in
+    outputs made S13-7 HARD STOP "move internal files back"). Files of OTHER papers/steps
+    in the same chat are not this run's and are never touched.
+
     v1.12 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (OD-13 (i), OD-10 (a), G12).
     (a) G-MEDIAREUSE at commit: the incident docx embedded ONE media part under Q12 and
     Q36 and one under Q24 and Q38 (byte-identical PNGs for two different questions).
@@ -309,6 +322,8 @@ __all__ = [
     "regcheck",
     "qindex_certify",
     "predelivery_checklist",
+    "outputs_to_clear",
+    "delivery_scope",
 ]
 
 
@@ -690,7 +705,11 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                         s.get("subtopic_id") or "" for s in bp.get("subtopic_list", [])
                     )).encode("utf-8")).hexdigest()[:16],
                     # v1.12 (OD-10 a): the release that produced this paper
-                    "producer_release": bc.QQ_RELEASE}
+                    "producer_release": bc.QQ_RELEASE,
+                    # v1.13 (GAP-2026-11-04 D5): the release whose quality gates wrote this
+                    # paper's quality_status stamps — Deliver re-certifies A-TEMPLATE-only
+                    # stamps ONLY when they were written by 2026.11.03 (no stamps_release)
+                    "stamps_release": bc.STAMPS_RELEASE}
     if framework_repo_commit is not None:
         _qindex_cert["framework_repo_commit"] = framework_repo_commit
     if spec_source_report is not None:
@@ -1164,6 +1183,99 @@ def qindex_certify(registry, bp, N):
     return {'ok': ok, 'fails': list(report.get('fails', []))}
 
 
+
+# ══════════════════════════════════════════════════════════════════════════
+# S13-7 pre-step — outputs_to_clear() (v1.13, GAP-2026-11-04 A8 / D3)
+# ══════════════════════════════════════════════════════════════════════════
+_INTERNAL_MARKERS = ('_answer_key.json', '_fig_manifest.json', '_batch_state.json',
+                     '_progress.json', '_audit_dossier.json', '_item_sweep_certificate.json',
+                     '_item_findings.json', '_registry_preview.json')
+# release review (2026-11-04): THIS run's internal files, ANCHORED to the names Step 7 writes
+# (<EXAM>_M<N>_<kind>.json, <EXAM>_fig_manifest.json) — a substring match deleted other steps'
+# deliverables (e.g. PYQScan's <EXAM>_scan_progress.json).
+_RUN_INTERNAL_KINDS = ('answer_key', 'batch_state', 'progress', 'audit_dossier', 'item_sweep_certificate',
+                       'item_findings', 'registry_preview', 's13_2f_state', 'stimulus_profile', 'repair_state')
+
+
+def _is_run_internal(name, exam):
+    import re as _re
+    return bool(exam) and (name == f'{exam}_fig_manifest.json' or _re.fullmatch(
+        _re.escape(exam) + r'_M\d+_(?:' + '|'.join(_RUN_INTERNAL_KINDS) + r')\.json', name) is not None)
+
+
+def _exam_and_slug(docx_name, reg_name):
+    """('EXAM', 'slug') from the two deliverable names: reg = '<EXAM>_registry.json',
+    docx = '<EXAM>_<slug>_Create.docx' (an exam code may contain '_', so the registry
+    name — never a split — gives the exam)."""
+    exam = str(reg_name or '')[:-len('_registry.json')] if str(reg_name or '').endswith('_registry.json') else ''
+    d = str(docx_name or '')
+    slug = d[len(exam) + 1:-len('_Create.docx')] if exam and d.startswith(exam + '_') and d.endswith('_Create.docx') else ''
+    return exam, slug
+
+
+def _is_other_paper_deliverable(name, docx_name, reg_name):
+    """A previous paper's Create.docx of the same exam, delivered earlier in the same chat:
+    history, not this run's artefact — never deleted, never a check-6 failure."""
+    exam, _slug = _exam_and_slug(docx_name, reg_name)
+    return bool(exam) and name != docx_name and name.startswith(exam + '_') and name.endswith('_Create.docx')
+
+
+def delivery_scope(staged, *, docx_name, reg_name):
+    """PURE. The names in `staged` that THIS paper's Step 7 delivery is judged on: the two
+    deliverables, every file outputs_to_clear recognises as this run's artefact, and any
+    other file carrying this paper's prefix <EXAM>_<slug>_ (an unrecognised file of THIS
+    paper is still a closed-set breach). Another exam's, step's or paper's earlier output
+    in the same chat is NOT in scope — present_files names its two paths explicitly, so
+    such history is never delivered and never blocks the delivery (GAP-2026-11-04).
+    S13-7 check 6 requires scope == {docx, registry}; S13-8 passes the scope, not the raw
+    listing, to pp.verify_handoff_outputs."""
+    exam, slug = _exam_and_slug(docx_name, reg_name)
+    pfx = f'{exam}_{slug}_' if exam and slug else None
+    st = set(staged or ())
+    out = {f for f in st if f in (docx_name, reg_name)}
+    out |= set(outputs_to_clear(st, docx_name=docx_name, reg_name=reg_name))
+    out |= {f for f in st if (pfx is None or f.startswith(pfx)) and not _is_other_paper_deliverable(f, docx_name, reg_name)
+            and (pfx is not None or f not in (docx_name, reg_name))}
+    out |= {f for f in st if _is_run_internal(f, exam)}
+    return sorted(out)
+
+
+def outputs_to_clear(staged, *, docx_name, reg_name):
+    """PURE. The names in `staged` (the outputs folder listing) that THIS paper's Step 7 run
+    put there and that are NOT one of the two deliverables — S13-7 removes each before
+    predelivery_checklist, so the delivery is exactly {Create.docx, registry.json} with no
+    manual step:
+      - per-batch cumulative docx  <EXAM>_<slug>_Q1to<k>.docx
+      - a legacy (2026.11.03) review packet / verdict file  <EXAM>_<slug>_review_packet.zip,
+        *_review_verdicts.json of this paper
+      - any internal sidecar of this exam (answer key, batch state, certificate, …)
+      - an answer-key file of THIS paper in any format
+    Files of other exams, other steps or other papers are never returned."""
+    import re as _re
+    exam, slug = _exam_and_slug(docx_name, reg_name)
+    if not exam:
+        return []
+    keep = {docx_name, reg_name}
+    out = []
+    for f in sorted(staged or ()):
+        if f in keep or not f.startswith(exam + '_'):
+            continue
+        rest = f[len(exam) + 1:]
+        # release review (2026-11-04): ONLY names this paper's Create run produces. A
+        # blueprint (ScopedBlueprint / MockBlueprint deliverable) or the Step-6 auditor copy
+        # presented earlier in the same chat is ANOTHER step's output — never deleted here
+        # (it is outside delivery_scope, so it never blocks the delivery either).
+        hit = (
+            (slug and _re.fullmatch(_re.escape(slug) + r'_Q1to\d+\.docx', rest) is not None)
+            or (slug and rest in (slug + '_review_packet.zip', slug + '_review_verdicts.json'))
+            or _is_run_internal(f, exam)
+            or (slug and rest.startswith(slug + '_') and 'answer' in rest.lower())
+        )
+        if hit:
+            out.append(f)
+    return out
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # S13-7 — predelivery_checklist()
 # ══════════════════════════════════════════════════════════════════════════
@@ -1211,19 +1323,25 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
     # call site still compiles; it now names the file check 5 must NOT see.
     internal = ['_answer_key.json', '_fig_manifest.json', '_batch_state.json',
                 '_progress.json', '_audit_dossier.json']
-    leaked = [f for f in staged if any(m in f for m in internal)]
+    # v1.13 (release review): judged on THIS paper's delivery scope — another step's file that
+    # merely contains a marker (PYQScan's <EXAM>_scan_progress.json) is not this run's leak
+    _scope5 = set(delivery_scope(staged, docx_name=docx_name, reg_name=reg_name))
+    leaked = [f for f in staged if any(m in f for m in internal) and (f in _scope5 or not _exam_and_slug(docx_name, reg_name)[0])]
     if dossier_name and dossier_name in staged and dossier_name not in leaked:
         leaked.append(dossier_name)
     checks.append(("5 no internal sidecars in outputs", len(leaked) == 0))
     # v1.11 (GAP-2026-11-02 P2/P3): conditional extras — ONLY a blueprint json or the
     # per-exam auditor, by name. Anything else passed here is ignored (never widens
     # the set), so a caller cannot launder a sidecar into the delivery.
-    _extras = {e for e in (extra_deliverables or ())
-               if isinstance(e, str) and (e.endswith('_blueprint.json')
-                                          or e.endswith('_mock_test_audit.py'))}
-    expected_set = {docx_name, reg_name} | _extras
+    # v1.13 (GAP-2026-11-04 D3 a): extras NEVER widen the set — the Step 7 contract is
+    # exactly two files. `extra_deliverables` is accepted and ignored (call-site compat).
+    # Check 6 judges the files THIS run stages: the two deliverables plus anything
+    # outputs_to_clear recognises as this paper's run artefact; files of other papers /
+    # steps of the same chat are not part of this delivery (present_files names its two
+    # paths explicitly) and never block it.
+    expected_set = {docx_name, reg_name}
     checks.append((f"6 outputs == exactly the {len(expected_set)} deliverables",
-                  staged == expected_set))
+                  set(delivery_scope(staged, docx_name=docx_name, reg_name=reg_name)) == expected_set))
     checks.append(("7 question_index certified (G-QINDEX)", bool(qindex_ok)))
 
     fails = [name for name, ok in checks if not ok]
@@ -1897,12 +2015,46 @@ def self_test():
                                   qindex_ok=True, listdir=ld5, exists=ex5)
     check('predelivery_check5_internal_sidecar_leaked', chk_5['checks'][4][1] is False)
 
-    files_extra = files_ok | {'stray_file.txt'}
+    files_extra = files_ok | {'EX_Mock01_scratch.txt'}
     ld6, ex6 = fake_fs(files_extra)
     chk_6 = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
                                   reg_name='EX_registry.json', regcheck_ok=True,
                                   qindex_ok=True, listdir=ld6, exists=ex6)
     check('predelivery_check6_extra_file', chk_6['checks'][5][1] is False)
+    # v1.13 (GAP-2026-11-04): another step's / exam's / paper's earlier output in the same
+    # chat is not this delivery and never blocks it; this run's leftovers are cleared first
+    _hist = files_ok | {'stray_file.txt', 'OTHER_registry.json', 'EX_Mock00_Create.docx', 'EX_Mock00_Explain.docx'}
+    ld6b, ex6b = fake_fs(_hist)
+    check('predelivery_v113_unrelated_history_never_blocks', predelivery_checklist(
+        '/out', docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json', regcheck_ok=True,
+        qindex_ok=True, listdir=ld6b, exists=ex6b)['ok'] is True)
+    _run = {'EX_Mock01_Q1to25.docx', 'EX_Mock01_Q1to50.docx', 'EX_Mock01_review_packet.zip',
+            'EX_Mock01_review_verdicts.json', 'EX_M1_batch_state.json', 'EX_mock_test_audit.py',
+            'EX_SUBJ_X_blueprint.json', 'EX_Mock00_Create.docx', 'stray_file.txt', 'EXAMPLE_Mock01_Q1to5.docx',
+            'EX_Mock00_answer_sheet.docx', 'EX_Mock01_answers.pdf'}
+    _clr = outputs_to_clear(files_ok | _run, docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json')
+    check('outputs_to_clear_this_run_only', _clr == sorted(_run - {'EX_Mock00_Create.docx', 'stray_file.txt', 'EXAMPLE_Mock01_Q1to5.docx',
+                                                                    'EX_mock_test_audit.py', 'EX_SUBJ_X_blueprint.json',
+                                                                    'EX_Mock00_answer_sheet.docx'})
+          and outputs_to_clear(files_ok, docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json') == []
+          and outputs_to_clear(_run, docx_name='x.docx', reg_name='nope.json') == [])
+    check('internal_markers_anchored_to_this_run',
+          outputs_to_clear(files_ok | {'EX_scan_progress.json', 'EX_M2_stimulus_profile.json', 'EX_M1_s13_2f_state.json', 'EX_fig_manifest.json'},
+                           docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json')
+          == ['EX_M1_s13_2f_state.json', 'EX_M2_stimulus_profile.json', 'EX_fig_manifest.json']
+          and predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json', regcheck_ok=True,
+                                    qindex_ok=True, listdir=fake_fs(files_ok | {'EX_scan_progress.json'})[0],
+                                    exists=fake_fs(files_ok | {'EX_scan_progress.json'})[1])['ok'] is True
+          and predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json', regcheck_ok=True,
+                                    qindex_ok=True, listdir=fake_fs(files_ok | {'EX_M1_s13_2f_state.json'})[0],
+                                    exists=fake_fs(files_ok | {'EX_M1_s13_2f_state.json'})[1])['ok'] is False)
+    check('delivery_scope_this_paper_only', delivery_scope(_hist | {'EX_Mock01_Q1to5.docx'}, docx_name='EX_Mock01_Create.docx',
+                                                           reg_name='EX_registry.json')
+          == ['EX_Mock01_Create.docx', 'EX_Mock01_Q1to5.docx', 'EX_registry.json'])
+    ld6c, ex6c = fake_fs(files_ok | {'EX_Mock01_Q1to50.docx', 'EX_Mock01_review_packet.zip'})
+    check('predelivery_v113_leftover_packet_breaks_until_cleared', predelivery_checklist(
+        '/out', docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json', regcheck_ok=True,
+        qindex_ok=True, listdir=ld6c, exists=ex6c)['ok'] is False)
 
     ld7, ex7 = fake_fs(files_ok)
     chk_7 = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
@@ -1938,12 +2090,19 @@ def self_test():
                                   qindex_ok=True, listdir=ld9, exists=ex9,
                                   extra_deliverables=('EX_SUBJ_ORG_blueprint.json',
                                                       'EX_mock_test_audit.py'))
-    check('predelivery_v111_blueprint_and_auditor_extras_accepted', chk_9['ok'] is True)
+    # v1.13 (D3 a): extras are NEVER delivered — named or not, they break the 2-file set,
+    # and outputs_to_clear names them so S13-7 removes them before the checklist
+    # another step's blueprint / auditor copy presented earlier in the chat is outside this
+    # paper's delivery scope: never deleted, never delivered, never blocking (release review)
+    check('predelivery_v113_extras_never_widen_the_set', chk_9['ok'] is True
+          and outputs_to_clear(_x, docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json') == []
+          and delivery_scope(_x, docx_name='EX_Mock01_Create.docx', reg_name='EX_registry.json')
+          == ['EX_Mock01_Create.docx', 'EX_registry.json'])
     ld9b, ex9b = fake_fs(_x)
     chk_9b = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
                                    reg_name='EX_registry.json', regcheck_ok=True,
                                    qindex_ok=True, listdir=ld9b, exists=ex9b)
-    check('predelivery_v111_extras_not_named_still_break_closed_set', chk_9b['ok'] is False)
+    check('predelivery_v113_other_step_outputs_not_in_scope', chk_9b['ok'] is True)
     _x2 = files_ok | {'EX_M1_answer_key.json'}
     ld9c, ex9c = fake_fs(_x2)
     chk_9c = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
@@ -1953,12 +2112,12 @@ def self_test():
     check('predelivery_v111_sidecar_cannot_be_laundered_as_extra', chk_9c['ok'] is False)
     # a name that trips NO other check (not an answer key, not a known internal sidecar):
     # only the extras filter (*_blueprint.json / *_mock_test_audit.py) can reject it
-    _x3 = files_ok | {'EX_M1_notes.json'}
+    _x3 = files_ok | {'EX_Mock01_notes.json'}
     ld9d, ex9d = fake_fs(_x3)
     chk_9d = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
                                    reg_name='EX_registry.json', regcheck_ok=True,
                                    qindex_ok=True, listdir=ld9d, exists=ex9d,
-                                   extra_deliverables=('EX_M1_notes.json',))
+                                   extra_deliverables=('EX_Mock01_notes.json',))
     check('predelivery_v111_only_blueprint_or_auditor_names_are_extras', chk_9d['ok'] is False)
 
     # missing outputs_dir entirely does not crash (§ Angle 6 of the design's
@@ -2142,6 +2301,7 @@ def self_test():
     check('v112_none_concept_map_tolerated', isinstance(_e12n, dict) and 'registry' in _e12n)
     check('v112_producer_release_and_v590_fields',
           _e12v['qindex_cert']['producer_release'] == bc.QQ_RELEASE
+          and _e12v['qindex_cert']['stamps_release'] == bc.STAMPS_RELEASE == '2026.11.04'
           and _e12v['questions'][0]['quality_status'] == 'UNRESOLVED(A-STEMLEAK)'
           and _e12v['questions'][0]['shape'] == 'product_prediction|none'
           and not any(k in _e12v['questions'][1] for k in QINDEX_V590_FIELDS))

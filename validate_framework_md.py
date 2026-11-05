@@ -137,7 +137,8 @@ PIPELINE = {
     'PYQCompress': 'L2',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'TestCreate': '7',
-    'MockReview': '7R', 'TestReview': '7R',
+    # 'MockReview' / 'TestReview' (7R) retired 2026.11.04 — GAP-2026-11-04 D2 (a): the
+    # independent review runs inside Step 7 (MockTestCreate S13-2G).
     'MockExplain': '9', 'MockDeliver': '11',
     'TestExplain': '9', 'TestDeliver': '11',
     'NotesBlueprint': 'NB', 'NotesCreate': 'NC',

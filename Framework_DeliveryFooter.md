@@ -1,4 +1,14 @@
-# Framework_DeliveryFooter v1.38.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.39.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.39.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D2 (a),
+#   D3 (a), D5 (a), D6; paired with MockTestCreate v5.91, MockReview v2.0.0, MockDeliver
+#   v1.25.0, audit_canonical v2.36, final_assembly v1.13, STEP_CONTRACTS.json). STEP 7 FINAL
+#   DELIVERABLES are EXACTLY two files again — [ExamCode]_[slug]_Create.docx +
+#   [ExamCode]_registry.json — and NEXT STEP is Step 9. The v1.38.0 AWAITING_REVIEW end, the
+#   review packet deliverable and the whole STEP 7R block are RETIRED (the review runs inside
+#   Step 7; the MockReview / TestReview triggers no longer exist). The v1.37.0 conditional
+#   third / fourth files (in-run blueprint, repo auditor copy) are RETIRED: one
+#   INFORMATIONAL line each. §LADDER gains the INFORMATIONAL independent-review line and the
+#   Step 11 re-certification line.
 # v1.38.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
 #   MockTestCreate v5.90, MockDeliver v1.24.0, MockReview v1.0.0, audit_canonical v2.35).
 #   §LADDER gains the QUALITY disclosure lines: the DEGRADED QUALITY line
@@ -497,58 +507,28 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
   [ExamCode]_Mock[N]_Q1to[K].docx    → Use locally
   (K = last Q number in this batch; filename grows: Q1to10, Q1to20, ...)
 
-FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73; v1.37.0: plus the two
-CONDITIONAL additions, each only when its condition holds):
+FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73; v1.39.0 — always exactly
+these two, STEP_CONTRACTS.json; no conditional additions, no review packet):
   [ExamCode]_Mock[N]_Create.docx   → Use locally
+                                     (scoped paper: [ExamCode]_[slug]_Create.docx)
   [ExamCode]_registry.json           → Replace in Project Files
                                        (or attach it to the Step 9 trigger — v1.33 §8)
-  [the in-run blueprint].json        → Replace in Project Files when an older copy is there,
-                                       else Upload to Project Files — ONLY when it differs
-                                       from the project copy (S3-2D recomputation / R5
-                                       amendments). Footer line: "UPLOAD THIS BLUEPRINT TO
-                                       THE PROJECT BEFORE THE NEXT PAPER".
-  [ExamCode]_mock_test_audit.py      → Replace in Project Files when a stale copy is there,
-                                       else Upload to Project Files — ONLY when the run audited
-                                       with the verified repo auditor (project copy missing
-                                       or stale). Footer line: "UPLOAD THIS AUDITOR TO THE
-                                       PROJECT".
   (v1.27: [ExamCode]_M[N]_audit_dossier.json is INTERNAL — written to /home/claude,
    never delivered. Operator decision 2026-08-26.)
+  (v1.39.0: the independent review runs INSIDE Step 7 (MockTestCreate S13-2G) — it is never a
+   user step and produces no user-visible file. An in-run blueprint amendment or a stale /
+   missing project auditor copy is disclosed by one INFORMATIONAL §LADDER line — never a
+   file to upload.)
 
-NEXT STEP  : (v1.38.0 — GAP-2026-11-03 G12, OD-5 a) the step now ENDS at S13-2G phase 1
-             with STATE: AWAITING_REVIEW and ONE extra deliverable:
-  [ExamCode]_[slug]_review_packet.zip → Use locally (attach to a NEW chat)
-             Step 7R: MockReview   (mock paper — in a NEW chat with ONLY the packet)
-             Step 7R: TestReview   (scoped paper — same step, same packet)
-             then, back in THIS chat with the verdict file + registry attached:
-             Step 7: MockCreate --resume / TestCreate --resume  (S13-2G phase 3: binds the
-                     verdicts, repairs flagged items through the ladder, then commits and
-                     prints the FINAL DELIVERABLES above)
-             After the resumed commit: Step 9: MockExplain M[N] (mock paper) /
-                                       Step 9: TestExplain P[N] (scoped paper — v1.24; the M
-                                       alias HARD-STOPs on a scoped docx, MockTestExplain S2-1)
+NEXT STEP  : Step 9: MockExplain M[N] (mock paper) /
+             Step 9: TestExplain P[N] (scoped paper — v1.24; the M alias HARD-STOPs on a
+             scoped docx, MockTestExplain S2-1)
 
   (v1.13 — Step 8 is RETIRED; never print it as a next step.)
 
-═══════════════════════════════════════════════════════════════════════
-STEP 7R — MockReview / TestReview (v1.38.0 — GAP-2026-11-03 G12; owner OD-5 a)
-═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 (single response; a long paper is reviewed in the packet's parts of <= 30
-             items, all within the one response)
-FOOTER TYPE: F2 (step-complete)
-
-RUNS IN A NEW CHAT with ONLY [ExamCode]_[slug]_review_packet.zip attached — no registry, no
-answer key, no blueprint (an attached key anchors the review and is ignored with a printed
-warning; Framework_MockReview S1-1).
-
-FINAL DELIVERABLES (EXACTLY one — Framework_MockReview S3-2):
-  [ExamCode]_[slug]_review_verdicts.json → Use locally (attach to the AUTHOR's chat)
-
-NEXT STEP  : Step 7: MockCreate --resume  (mock paper — in the AUTHOR's chat, with the
-             verdict file AND [ExamCode]_registry.json attached)
-             Step 7: TestCreate --resume  (scoped paper — same)
-             The footer prints the review tallies (FAIL / low-confidence / contested counts)
-             exactly as S3-1 printed them; no per-item verdict text in the footer (P-11).
+(STEP 7R — MockReview / TestReview — RETIRED in v1.39.0, owner decision D2 (a): the
+ independent review runs inside Step 7 (MockTestCreate S13-2G); never print 7R, a review
+ packet or a verdict file as a deliverable or a next step.)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 9 — MockExplain
@@ -1155,8 +1135,10 @@ force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the fo
     structure print sizes from framework defaults (…)" / "level control: rubric +
     independent rating only (content-complexity model dormant)" — INFORMATIONAL.
   • every certificate amber_note (AMBER figure advisory), verbatim.
-  • "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER" / "UPLOAD THIS AUDITOR
-    TO THE PROJECT" — when delivered — INFORMATIONAL (an instruction, not a defect).
+  • v1.39.0 (D3 a): "blueprint amended in this run (…) — informational; nothing to upload" /
+    "project auditor copy is missing or older than the verified repo auditor — this run used
+    the verified repo auditor; informational, nothing to upload" (MockTestCreate S13-6
+    INFO_LINES_S136) — INFORMATIONAL. Never an upload instruction, never a third file.
   • "spec read: <spec> <lines> lines sha <first 12 of sha256>" — one per READ RECEIPT
     (MockTestCreate S3-1, bootstrap --receipt) — INFORMATIONAL; "A-READ: <what>" when the
     run declared a trimmed / summarised / partial working copy of a spec (prohibited) —
@@ -1170,9 +1152,15 @@ force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the fo
       - "NOT CERTIFIED — uncertified items: Q<a>, Q<b> (<finding ids>)" — AMBER-CLASS; one
         line when certificate.uncertified_items is non-empty (OD-9). Step 11 adds
         "delivered with --accept-uncertified (owner)" — INFORMATIONAL — when it was.
-      - "STATE: AWAITING_REVIEW — run MockReview in a new chat with <packet>, then
-        TestCreate --resume" — INFORMATIONAL (a normal end of Step 7, not a defect);
-        "review round <k>: <n> item(s) repaired after the independent review" — INFORMATIONAL.
+      - v1.39.0 (D0): "independent review: round <k>, <n> item(s) repaired" — INFORMATIONAL
+        (batch_state.review_summary); "+ (same-session review — no sub-agent in this
+        runtime)" appended when review_summary.reviewer lists 'same-session' (D1) —
+        INFORMATIONAL; "independent review not run on Q<a>, Q<b> (<reason>)" when
+        review_summary.not_run is non-empty — AMBER-CLASS. Never a user instruction: the
+        review is never handed to the user and there is no review packet or --resume.
+      - Step 11 (MockDeliver v1.25.0, D5 a): "re-certified Q<a>, … — their only finding was a
+        2026.11.03 A-TEMPLATE stamp (default cap / paper-wide count)" (RECERTIFIED_ITEMS) —
+        INFORMATIONAL.
       - "shape plan: <shape> infeasible in this paper (no capable slot)" — INFORMATIONAL.
       - "bench card: see A-PYQBENCH in the audit report" — INFORMATIONAL.
   Every line not marked INFORMATIONAL above is AMBER-CLASS. A clean paper (no repair past

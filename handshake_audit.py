@@ -17,7 +17,8 @@ output artefact is the next step's actual input:
     -> Blueprint §7-8 + ScopedBlueprint S8-2d shape targets
     -> Create S3-2e readiness, S3-12d shape plan, judge packet
     -> S7-QUALITY sidecar -> audit_canonical pre-commit sweep -> certificate
-    -> S13-2G phase 1 packet -> MockReview S1-1..S3-2 -> --resume phase 3 (two rounds)
+    -> S13-2G phase 1 packet (internal) -> reviewer brief (MockReview S1-1..S3-2, a fresh
+       sub-agent's work) -> phase 3 (two rounds; NOT_RUN; legacy verdict by content) — all in-run
     -> final_assembly.commit_registry -> audit_canonical final sweep (registry only)
     -> MockDeliver item 3f (refuse / accept) -> §8 handoff / footer lines.
 
@@ -261,45 +262,166 @@ def self_test():
         check('H5 precommit: whole auditor clean on the synthetic paper (certificate written)', os.path.exists(f'{TMP}/cert.json'), '\n'.join(fails_other)[:600])
         CERT = json.load(open(f'{TMP}/cert.json')) if os.path.exists(f'{TMP}/cert.json') else {}
         check('H5 certificate schema 2 with uncertified_items / certified', CERT.get('schema') == 2 and 'uncertified_items' in CERT and CERT.get('certified') is True, str(CERT)[:200])
+        # ═══ H5-LEGACY (GAP-2026-11-04 T1): a project whose Step 5 predates the QUALITY
+        # measurement (section_rules WITHOUT QUALITY / EXAM_QUALITY blocks — every existing
+        # project) and a paper whose items all repeat ONE template: A-TEMPLATE is DORMANT,
+        # no item is stamped, the certificate is certified. Release 2026.11.03 failed this
+        # (default cap 2 -> UNRESOLVED -> NOT CERTIFIED).
+        _sr_legacy = re.sub(r'QUALITY \(v[\d.]+\):\n(?:  .*\n?)*', '', SR).split('=== EXAM_QUALITY ===')[0]
+        _rl = f'{TMP}/{EXAM}_section_rules_legacy.md'; open(_rl, 'w', encoding='utf-8').write(_sr_legacy)
+        _kl = json.load(open(key_path))
+        for _q, _e in _kl['concept_map'].items():
+            _e['fingerprint'] = 'other|mcq|none|none'
+        _klp = f'{TMP}/{EXAM}_M9_answer_key.json'; json.dump(_kl, open(_klp, 'w'))
+        _rlg = subprocess.run([sys.executable, f'{W}/audit_canonical.py', docx, '--phase', 'precommit', '--item-findings', f'{TMP}/if_l.json',
+                               '--write-certificate', f'{TMP}/cert_l.json', '--blueprint', bp_path, '--rules', _rl, '--registry', prev_path,
+                               '--mockN', str(N), '--key', _klp, '--profile', prof_path], capture_output=True, text=True)
+        _tl = [l for l in _rlg.stdout.split('\n') if 'A-TEMPLATE' in l][:1]
+        check('H5-LEGACY T1: no QUALITY blocks -> A-TEMPLATE DORMANT (never a default cap), no A-TEMPLATE item finding',
+              bool(_tl) and '[  ok ]' in _tl[0] and 'DORMANT' in _tl[0]
+              and not [f for f in (json.load(open(f'{TMP}/if_l.json')).get('item_findings') or []) if f.get('gate') == 'A-TEMPLATE'], str(_tl))
+        check('H5-LEGACY T1: certificate certified (no item UNRESOLVED by an unmeasured control)',
+              os.path.exists(f'{TMP}/cert_l.json') and json.load(open(f'{TMP}/cert_l.json')).get('uncertified_items') == [],
+              (_rlg.stdout[-800:] if not os.path.exists(f'{TMP}/cert_l.json') else str(json.load(open(f'{TMP}/cert_l.json')).get('uncertified_items'))))
+        # ═══ H5-LEGACY-STAMPS (GAP-2026-11-04 release review): a paper PARKED by 2026.11.03 carries
+        # UNRESOLVED(A-TEMPLATE) stamps from the default cap (sidecar AND registry preview). The REAL
+        # S13-2F fence must clear them in both, and its certificate must come out certified.
+        _kd_keep = open(key_path).read()
+        _kl2 = json.load(open(key_path))
+        for _q, _e in _kl2['concept_map'].items():
+            _e['quality_status'] = 'UNRESOLVED(A-TEMPLATE)' if _q in ('1', '2') else 'CERTIFIED'
+        json.dump(_kl2, open(key_path, 'w'))
+        _pv2 = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1, axis2_window_counts={},
+                                  passage_present=False, di_present=False, figural_present=False, concept_map=_kl2['concept_map'], quality_readiness=RD)
+        json.dump(_pv2['registry'], open(f'{HOME}/{EXAM}_M{N}_registry_preview.json', 'w'))
+        json.dump({'state': 'AWAITING_REVIEW', 'quality_readiness': RD, 'uncertified_items': ['1', '2']}, open(f'{HOME}/{EXAM}_M{N}_batch_state.json', 'w'))
+        shutil.copy(f'{W}/audit_canonical.py', f'{HOME}/{EXAM}_mock_test_audit.py')
+        if not os.path.exists(f'{PROJ}/{EXAM}_subtopic_manifest.json'):
+            json.dump({'subtopics': []}, open(f'{PROJ}/{EXAM}_subtopic_manifest.json', 'w'))
+        _f2f = [b for _l, b in fences(cre) if "_stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'" in b]
+        check('H5-LEGACY-STAMPS S13-2F fence found', len(_f2f) == 1)
+        g2f = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'bp': BP, 'BP_SRC_PATH': bp_path, 'AUDIT_AVAILABLE': True,
+               'AUDIT_ENV': dict(os.environ, PYTHONPATH=W), 'STIM_PROFILE_PATH': None}
+        _raised = None
+        try:
+            run_fence(_f2f[0], g2f)
+        except BaseException as _ex:      # a LADDER-REPAIR raise means the sweep was NOT clean
+            _raised = repr(_ex)[:300]
+        _kl3 = json.load(open(key_path))
+        _c2f = g2f.get('CERT') or {}
+        check('H5-LEGACY-STAMPS: 2026.11.03 default-cap stamps cleared in sidecar AND preview; certificate certified; items re-stamped CERTIFIED',
+              _raised is None and _c2f.get('uncertified_items') == [] and _c2f.get('certified') is True
+              and _kl3['concept_map']['1'].get('quality_status') == 'CERTIFIED' and _kl3['concept_map']['2'].get('quality_status') == 'CERTIFIED',
+              str((_raised, _c2f.get('uncertified_items'), _kl3['concept_map']['1'].get('quality_status'))))
+        open(key_path, 'w').write(_kd_keep)
+        for _f in (f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json', f'{HOME}/{EXAM}_M{N}_item_findings.json'):
+            if os.path.exists(_f): os.remove(_f)
         # S13-2F stamps (as the spec does): CERTIFIED on every item
         kd = json.load(open(key_path))
         for q, e in kd['concept_map'].items():
             if not str(e.get('quality_status', '')).startswith('UNRESOLVED'): e['quality_status'] = 'CERTIFIED'
         json.dump(kd, open(key_path, 'w'))
 
-        # ═══ H6  S13-2G phase 1 -> MockReview -> phase 3 ═══
-        print('H6 review handshake')
+        # ═══ H6  S13-2G IN-SESSION review: phase 1 -> reviewer (MockReview internal brief) -> phase 3 ═══
+        # 2026.11.04 (GAP-2026-11-04 A1-A7, T4/T5/T7/T8): the review never leaves the run. The
+        # packet lives under /home/claude ONLY; the reviewer (here: the brief's fences, exactly
+        # what a fresh sub-agent executes) writes verdicts.json inside its part folder; phase 3
+        # binds automatically. NOTHING may reach the user's outputs folder but the paper.
+        print('H6 in-session review handshake')
         json.dump({'state': 'BATCHES', 'batches_completed': [1], 'current_batch': 2, 'quality_readiness': RD, 'shape_plan': PLAN, 'uncertified_items': []}, open(bs_path, 'w'))
         ph = fences(cre, 'S13-2G phase')
+        check('H6 S13-2G has exactly two executable phases (1 and 3); phase 2 is CLASS T prose', len(ph) == 2 and 'phase 1' in ph[0][1][:80] and 'phase 3' in ph[1][1][:80], str([x[1][:60] for x in ph]))
+        _cre_txt = open(cre, encoding='utf-8').read()
+        _g2 = _cre_txt[_cre_txt.index('## S13-2G'):_cre_txt.index('## S13-3')]
+        check('H6 S13-2G never hands the review to the user: no outputs path, no present_files of a packet, no new chat, no --resume step',
+              '/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_review_packet' not in _g2 and 'present_files([_pkt])' not in _g2
+              and 'AWAITING_REVIEW' not in _g2.split('PHASE 1')[1].split('PHASE 2')[0].replace("'AWAITING_REVIEW' is a LEGACY", ''),
+              'phase-1 text still stages a packet for the user')
+        _outs_before = sorted(os.listdir(OUT))
         g6 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}
         run_fence(ph[0][1], g6)
-        pk = json.loads(zipfile.ZipFile(g6['_pkt']).read('review_packet.json'))
-        check('H6 packet: md5 of the delivered docx, whole paper, exemplar slice for the paper subtopics', pk['paper_md5'] == hashlib.md5(open(docx, 'rb').read()).hexdigest() and pk['n_items'] == MQ and pk['parts'][0]['exemplars'], str(list(pk['parts'][0]['exemplars']))[:100])
+        check('H6 phase 1 writes NOTHING to the user outputs folder (contract: exactly the two files at the end)', sorted(os.listdir(OUT)) == _outs_before, str(sorted(set(os.listdir(OUT)) - set(_outs_before))))
+        RQ = json.load(open(os.path.join(g6['REVIEW_DIR'], 'queue.json')))
+        check('H6 review dir is internal (/home/claude), state REVIEW_RUNNING persisted', g6['REVIEW_DIR'].startswith(HOME) and json.load(open(bs_path))['state'] == 'REVIEW_RUNNING')
+        pk = json.load(open(os.path.join(RQ['parts'][0]['dir'], 'review_packet.json')))
+        check('H6 packet: md5 of the delivered docx, whole paper, exemplar slice for the paper subtopics', pk['paper_md5'] == hashlib.md5(open(docx, 'rb').read()).hexdigest() and sum(len(p_['qs']) for p_ in RQ['parts']) == MQ and pk['parts'][0]['exemplars'], str(list(pk['parts'][0]['exemplars']))[:100])
         _pk_keys = set().union(*[set(it) for part in pk['parts'] for it in part['items']])
         check('H6 packet items carry no key / difficulty / solution / per-option mechanisms', not (_pk_keys & {'difficulty', 'difficulty_plan', 'solution', 'answers', 'distractor_mechanisms', 'key', 'correct_option', 'band'}), str(sorted(_pk_keys)))
-        shutil.copy(g6['_pkt'], UPL)
         mr = fences(f'{W}/Framework_MockReview.md')
-        g7 = {}; run_fence(mr[0][1], g7); run_fence(mr[1][1], g7)
-        q = json.load(open(HOME + '/review/queue.json'))
-        check('H6 MockReview queue: exam/slug from packet, every item with stem/options/exemplars', q['exam'] == EXAM and len(q['items']) == MQ and all(it['stem'] and it['options'] for it in q['items']) and q['items'][0]['exemplars'], str(q['items'][0])[:200])
-        ans = {str(n): dict({c: 'ok' for c in bc.REVIEW_CHECKLIST}, own_key=('a, c' if n == 2 else 'abcd'[ANS[str(n)] - 1]), confidence='high', selectivity_basis='clean', verdict='PASS', reason='') for n in range(1, MQ + 1)}
-        ans['3']['own_key'] = 'abcd'[ANS['3'] % 4]  # reviewer disagrees on Q3
-        json.dump(ans, open(HOME + '/review/answers.json', 'w'))
-        run_fence(mr[2][1], g7); run_fence(mr[3][1], g7)
-        VF = json.load(open(g7['out']))
-        check('H6 verdict file bound to packet md5, key_agrees null (reviewer never saw the key)', VF['paper_md5'] == pk['paper_md5'] and all(v['key_agrees'] is None for v in VF['items'].values()))
-        shutil.copy(g7['out'], UPL)
+        def _review(part_dir, disagree_q=None):
+            g7 = {'WORK': part_dir, 'REVIEWER': 'sub-agent'}; run_fence(mr[0][1], g7); run_fence(mr[1][1], g7)
+            qq = json.load(open(os.path.join(part_dir, 'queue.json')))
+            ans = {str(it['q']): dict({c: 'ok' for c in bc.REVIEW_CHECKLIST}, own_key=('a, c' if it['q'] == 2 else 'abcd'[ANS[str(it['q'])] - 1]),
+                                      confidence='high', selectivity_basis='clean', verdict='PASS', reason='') for it in qq['items']}
+            if disagree_q and str(disagree_q) in ans:
+                ans[str(disagree_q)]['own_key'] = 'abcd'[ANS[str(disagree_q)] % 4]
+            json.dump(ans, open(os.path.join(part_dir, 'answers.json'), 'w'))
+            run_fence(mr[2][1], g7); run_fence(mr[3][1], g7)
+            return qq, json.load(open(os.path.join(part_dir, 'verdicts.json')))
+        qq, VF = _review(RQ['parts'][0]['dir'], disagree_q=3)
+        check('H6 reviewer queue: exam/slug from packet, every item with stem/options/exemplars', qq['exam'] == EXAM and all(it['stem'] and it['options'] for it in qq['items']) and qq['items'][0]['exemplars'], str(qq['items'][0])[:200])
+        check('H6 verdicts written INSIDE the part folder, bound to the packet md5, key_agrees null, reviewer recorded', VF['paper_md5'] == pk['paper_md5'] and all(v['key_agrees'] is None for v in VF['items'].values()) and VF['reviewer'] == 'sub-agent' and sorted(os.listdir(OUT)) == _outs_before)
+        # the sub-agent runs each script as a FRESH python process: WORK / REVIEWER come from the
+        # environment (REVIEW_WORK / REVIEWER), never from a global it cannot have
+        os.environ['REVIEW_WORK'] = RQ['parts'][0]['dir']; os.environ['REVIEWER'] = 'sub-agent'
+        try:
+            g7e = {}; run_fence(mr[0][1], g7e)
+        finally:
+            os.environ.pop('REVIEW_WORK', None); os.environ.pop('REVIEWER', None)
+        check('H6 reviewer brief reads its part folder from the ENVIRONMENT (fresh process, no globals)',
+              g7e.get('PACKET') is not None and g7e.get('WORK') == RQ['parts'][0]['dir'] and g7e.get('REVIEWER') == 'sub-agent')
+        for p_ in RQ['parts'][1:]:
+            _review(p_['dir'])
         g8 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g8)
         kd = json.load(open(key_path)); bs = json.load(open(bs_path))
         check('H6 phase 3: key_agrees computed from sidecar answers (Q3 disagreement, MSQ Q2 agrees), state REVIEW_REPAIR, defects persisted',
               kd['concept_map']['1']['review']['key_agrees'] is True and kd['concept_map']['2']['review']['key_agrees'] is True and kd['concept_map']['3']['review']['key_agrees'] is False and bs['state'] == 'REVIEW_REPAIR' and bs['review_defects'] == ['3'], str((bs.get('state'), bs.get('review_defects'), kd['concept_map']['2']['review'].get('key_agrees'))))
-        bs['state'] = 'AWAITING_REVIEW'; json.dump(bs, open(bs_path, 'w'))
+        # round 2 (T5): the whole paper again; the reviewer still disagrees on Q3 -> UNRESOLVED(A-REVIEW)
         shutil.copy(f'{TMP}/cert.json', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json')
+        g6b = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}; run_fence(ph[0][1], g6b)
+        RQ2 = json.load(open(os.path.join(g6b['REVIEW_DIR'], 'queue.json')))
+        check('H6 round 2 packet is a NEW round folder with the WHOLE paper', g6b['REVIEW_DIR'].endswith('round2') and sum(len(p_['qs']) for p_ in RQ2['parts']) == MQ)
+        for i_, p_ in enumerate(RQ2['parts']):
+            _review(p_['dir'], disagree_q=3)
         g9 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g9)
         _c_after = json.load(open(f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'))
         check('H6 round 2: the S13-2F certificate now says the same as the stamps (uncertified_items, certified False)', _c_after['uncertified_items'] == ['3'] and _c_after['certified'] is False, str(_c_after))
         kd = json.load(open(key_path)); bs = json.load(open(bs_path))
-        check('H6 round 2: Q3 stamped UNRESOLVED(A-REVIEW), REVIEWED, uncertified persisted', kd['concept_map']['3']['quality_status'] == 'UNRESOLVED(A-REVIEW)' and bs['state'] == 'REVIEWED' and bs['uncertified_items'] == ['3'])
+        check('H6 round 2: Q3 stamped UNRESOLVED(A-REVIEW), REVIEWED, uncertified persisted, review_summary recorded', kd['concept_map']['3']['quality_status'] == 'UNRESOLVED(A-REVIEW)' and bs['state'] == 'REVIEWED' and bs['uncertified_items'] == ['3']
+              and bs['review_summary']['repaired'] == ['3'] and bs['review_summary']['reviewer'] == ['sub-agent'])
+        check('H6 the whole review left the user outputs folder untouched (T4/T5: exactly the paper so far)', sorted(os.listdir(OUT)) == _outs_before, str(sorted(os.listdir(OUT))))
+        # T7: a part whose reviewer produced nothing (after the retry) -> NOT_RUN records, never a stop
+        _kd_save = json.load(open(key_path)); _bs_save = json.load(open(bs_path))
+        _bs_t7 = dict(_bs_save, review_round=0); json.dump(_bs_t7, open(bs_path, 'w'))
+        g6c = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}; run_fence(ph[0][1], g6c)
+        RQ3 = json.load(open(os.path.join(g6c['REVIEW_DIR'], 'queue.json')))
+        RQ3['parts'][0]['error'] = 'sub-agent timed out twice'
+        json.dump(RQ3, open(os.path.join(g6c['REVIEW_DIR'], 'queue.json'), 'w'))
+        g10 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g10)
+        kd3 = json.load(open(key_path))
+        check('H6 T7: no verdict for a part -> every item NOT_RUN with the reason; no exception, no user step',
+              all((kd3['concept_map'][str(q_)]['review'] or {}).get('status') == 'NOT_RUN' and 'timed out' in kd3['concept_map'][str(q_)]['review']['reason'] for q_ in RQ3['parts'][0]['qs']))
+        _lv_nr = {}
+        ac._reset(); ac.gate_review({'concept_map': kd3['concept_map'], '_mockN': N, 'registry': {'question_index': [{'mock': N, 'paper_id': paper_id, 'qindex_cert': {'producer_release': '2026.11.03'}}]}}, type('A', (), {'phase': 'final'})())
+        _lv_nr = [l_ for l_, c_, m_ in ac.RESULTS if c_ == 'A-REVIEW']
+        check('H6 T7: the auditor reports NOT_RUN as WARN, never FAIL', _lv_nr == ['WARN'], str(_lv_nr))
+        json.dump(_kd_save, open(key_path, 'w')); json.dump(_bs_save, open(bs_path, 'w'))
+        # T8: a legacy AWAITING_REVIEW paper with a PREFIXED, SANITISED verdict upload is found by CONTENT
+        s412 = fences(cre, 'S4-12 legacy verdict lookup')
+        check('H6 S4-12 legacy lookup fence present', len(s412) == 1)
+        _vf_legacy = dict(VF, exam_code=EXAM, paper_md5=hashlib.md5(open(docx, 'rb').read()).hexdigest())
+        json.dump(_vf_legacy, open(f'{UPL}/ed4a4461-{EXAM}_SUBJ_General_Intelligence__Reasoning_02_review_verdicts.json', 'w'))
+        json.dump(dict(_vf_legacy, paper_md5='other'), open(f'{UPL}/0badc0de-{EXAM}_x_review_verdicts.json', 'w'))
+        g11 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(s412[0][1], g11)
+        check('H6 T8/E10: legacy verdict file found by content despite the upload prefix and sanitised slug; another md5 ignored', isinstance(g11.get('LEGACY_VERDICTS'), dict) and g11['LEGACY_VERDICTS']['paper_md5'] != 'other')
+        for _f in os.listdir(UPL):
+            if _f.endswith('_review_verdicts.json'): os.remove(os.path.join(UPL, _f))
+        # A8/U8: a legacy packet and per-batch docx left in outputs are cleared before S13-7 check 6
+        _leg = [f'{EXAM}_{pp.paper_slug(paper_id)}_review_packet.zip', f'{EXAM}_{pp.paper_slug(paper_id)}_Q1to2.docx']
+        for _f in _leg: open(os.path.join(OUT, _f), 'w').write('x')
+        _clr = fa.outputs_to_clear(os.listdir(OUT), docx_name=os.path.basename(docx), reg_name=f'{EXAM}_registry.json')
+        check('H6 A8: fa.outputs_to_clear names this run\'s leftovers (legacy packet, per-batch docx) and never the paper', sorted(_clr) == sorted(_leg) and os.path.basename(docx) not in _clr, str(_clr))
+        for _f in _leg: os.remove(os.path.join(OUT, _f))
 
         # ═══ H7  S13-4 commit -> S13-4c final audit (registry only) -> MockDeliver 3f -> footer ═══
         print('H7 commit -> final audit -> deliver')
@@ -328,6 +450,31 @@ def self_test():
         gD = {'blueprint': BP, 'registry': R, 'N': N, 'ACCEPT_UNCERTIFIED': True}; run_fence(t3[i:j], gD)
         check('H7 MockDeliver --accept-uncertified records registry.accepted_uncertified and proceeds', gD['registry']['accepted_uncertified'][paper_id]['items'] == ['3'] and gD['UNCERTIFIED_ITEMS'] == ['3'])
         check('H7 registry change detected -> delivered under §8', pp.registry_changed(FP_BEFORE, gD['registry']) is True)
+        # D5 (GAP-2026-11-04 U9): a paper committed NOT CERTIFIED under 2026.11.03 ONLY by the
+        # unmeasured template cap (readiness G-TEMPLATE STALE) is re-certified at Deliver with no flag
+        R5 = copy.deepcopy(R)
+        _e5 = R5['question_index'][0]
+        for _qq in _e5['questions']:
+            _qq['quality_status'] = 'UNRESOLVED(A-TEMPLATE)' if str(_qq['q']) in ('1', '2') else 'CERTIFIED'
+        _e5['quality_readiness'] = {'controls': {'G-TEMPLATE': {'status': 'STALE', 'reason': 'section_rules.md lacks fingerprint_max_per_paper'}}, 'degraded': ['G-TEMPLATE']}
+        # a paper COMMITTED under 2026.11.03 has no qindex_cert.stamps_release
+        R5b = copy.deepcopy(R5)                                  # same stamps, written by THIS release
+        _e5['qindex_cert'] = {k: v for k, v in (_e5.get('qindex_cert') or {}).items() if k != 'stamps_release'}
+        _e5['qindex_cert']['producer_release'] = '2026.11.03'
+        gD5b = {'blueprint': BP, 'registry': R5b, 'N': N, 'ACCEPT_UNCERTIFIED': False}
+        try:
+            run_fence(t3[i:j], gD5b); _refused5b = False
+        except SystemExit:
+            _refused5b = True
+        check('H7 D5: an A-TEMPLATE stamp written by THIS release (a measured concept cap) is never re-certified — refused without the flag',
+              _refused5b is True and R5b['question_index'][0]['qindex_cert'].get('stamps_release') == bc.STAMPS_RELEASE)
+        gD5 = {'blueprint': BP, 'registry': R5, 'N': N, 'ACCEPT_UNCERTIFIED': False}
+        try:
+            run_fence(t3[i:j], gD5); _refused5 = False
+        except SystemExit:
+            _refused5 = True
+        check('H7 D5: a dormant-control-only NOT CERTIFIED paper is re-certified at Deliver (no --accept-uncertified, informational line)',
+              not _refused5 and gD5.get('RECERTIFIED_ITEMS') == ['1', '2'] and gD5.get('UNCERTIFIED_ITEMS') == [], str((gD5.get('RECERTIFIED_ITEMS'), gD5.get('UNCERTIFIED_ITEMS'))))
         # footer lines
         fl = bc.degraded_footer_line(bs['quality_readiness'])
         check('H7 DeliveryFooter QUALITY_FOOTER_LINE from the persisted readiness', isinstance(fl, str) and fl)
@@ -347,7 +494,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 52
+EXPECTED_CHECKS = 70
 
 
 if __name__ == '__main__':

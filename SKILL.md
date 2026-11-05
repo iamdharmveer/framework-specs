@@ -1,6 +1,6 @@
 ---
 name: mock-test-framework
-description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockReview, TestReview, MockExplain, TestExplain, MockDeliver, TestDeliver, PYQCompress, NotesBlueprint, NotesCreate, NotesAudit, or NotesDeliver — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document, or to blueprint, draft, audit, or deliver exam study notes. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
+description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockExplain, TestExplain, MockDeliver, TestDeliver, PYQCompress, NotesBlueprint, NotesCreate, NotesAudit, or NotesDeliver — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document, or to blueprint, draft, audit, or deliver exam study notes. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
 ---
 
 # Mock Test Framework — Source of Truth
@@ -9,6 +9,10 @@ SPECS ARE PROJECT-FIRST (2026.08.03.8). If a `Framework_*.md` is present in the 
 project's Files section, THAT copy is authoritative for this run. GitHub supplies only the
 specs the project does not carry. Precedence is PER FILE — a project may override one spec
 and inherit the rest.
+CONTRACT FLOOR (2026.11.04): a project copy of a spec named in STEP_CONTRACTS.json
+`override_floor` whose version is BELOW its floor is NOT loaded — the verified repo copy is
+used and Step 0 prints `[STALE — NOT LOADED]` (never a stop). It protects the Step 7 user
+contract (two files, review in-session) from an outdated project copy.
 
 ENGINES ARE REPO-ONLY. All 18 routed engine scripts, plus the 9 tracked-but-never-routed
 scripts (validate_framework_md.py the CI validator; audit_canonical.py the canonical auditor

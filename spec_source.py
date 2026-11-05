@@ -71,6 +71,17 @@ project holding a spec for a RETIRED step (e.g. Framework_MockTestCreateAudit.md
 deleted in 2026.08.03.5) has no trigger pointing at it and is never loaded. It is
 reported as ORPHAN so it can be cleaned up, not silently executed.
 
+CONTRACT FLOOR (2026.11.04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE, STEP-CONTRACT-LAW)
+--------------------------------------------------------------------------------------
+STEP_CONTRACTS.json 'override_floor' names, per spec, the lowest version a project copy
+may have and still be loaded. A project copy BELOW its floor predates a user-contract
+change and would silently re-break it for that exam (a v5.90 Create ends at
+AWAITING_REVIEW and hands the review to the user; a v1.0.0 MockReview cannot read the
+in-session packet). Such a copy is NOT loaded: the verified repo copy is used and the
+report prints [STALE — NOT LOADED]. A MALFORMED copy of a floored spec (P1-P5) is treated
+the same way. Never a stop. A well-formed copy AT or ABOVE the floor follows the
+project-first rule unchanged.
+
 USAGE
     python3 spec_source.py --resolve            # build overlay, print provenance
     python3 spec_source.py --resolve --trigger PYQScan
@@ -85,6 +96,32 @@ SPEC_RE = re.compile(r"^Framework_[A-Za-z0-9_]+\.md$")
 HEADER_RE = re.compile(r"^#\s*(Framework_[A-Za-z0-9_]+)\s+v([0-9][0-9A-Za-z._-]*)")
 SENTINEL_RE = re.compile(r"(?:END OF|End of)\s+(Framework_[A-Za-z0-9_]+)"
                          r"(?:\.md)?\s*\(?v?([0-9][0-9A-Za-z._-]*)?")
+
+
+def _vtuple(v, width=0):
+    """'5.91' -> (5, 91); '2.0.0' -> (2, 0, 0); non-numeric parts ignored; zero-padded to
+    `width` so '2.0' == '2.0.0' and '1.39' == '1.39.0'."""
+    t = tuple(int(x) for x in re.findall(r"\d+", str(v or "")))
+    return t + (0,) * max(0, width - len(t))
+
+
+def contract_floor(repo_dir):
+    """{spec file: min version} from the repo's STEP_CONTRACTS.json 'override_floor'
+    ({} when absent or unreadable — then no floor applies, exactly as before)."""
+    p = os.path.join(repo_dir, "STEP_CONTRACTS.json")
+    try:
+        fl = (json.load(open(p, encoding="utf-8")) or {}).get("override_floor") or {}
+    except (OSError, ValueError):
+        return {}
+    return {k: str(v) for k, v in fl.items() if SPEC_RE.match(k)}
+
+
+def below_floor(version, floor):
+    """True when a parsed header version is strictly below the floor version."""
+    if not floor:
+        return False
+    w = max(len(_vtuple(version)), len(_vtuple(floor)))
+    return _vtuple(version, w) < _vtuple(floor, w)
 
 
 class SpecDefect(Exception):
@@ -197,9 +234,29 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
     for entry in routes.values():
         routed.update(f for f in entry if f.endswith(".md"))
 
-    overridden, orphan, repo_only = [], [], []
+    overridden, orphan, repo_only, stale = [], [], [], []
+    floors = contract_floor(repo_dir)
     for fname in discover(project_dir):
         src = os.path.join(project_dir, fname)
+        if fname in floors:
+            # contract floor (2026.11.04): an older copy is never loaded — checked BEFORE the
+            # P1-P5 well-formedness checks, so a stale copy can never cause a stop either
+            try:
+                _m = HEADER_RE.match((_read(src) or "").split("\n")[0].strip())
+            except SpecDefect:
+                _m = None                      # an unreadable copy of a floored spec: not loaded
+            _v = _m.group(2) if _m else None
+            if _v is None or below_floor(_v, floors[fname]):
+                stale.append({"file": fname, "version": _v, "floor": floors[fname]})
+                continue
+            try:
+                check_project_spec(src, repo_dir=repo_dir)
+            except SpecDefect as _exc:
+                # a malformed copy of a CONTRACT spec is never half-applied and never a stop:
+                # the verified repo copy is used (it carries the user contract)
+                stale.append({"file": fname, "version": _v, "floor": floors[fname],
+                              "reason": "malformed: %s" % _exc})
+                continue
         name, ver = check_project_spec(src, repo_dir=repo_dir)   # raises on P1-P5 failure
         if routed and fname not in routed:
             orphan.append({"file": fname, "version": ver})
@@ -218,7 +275,8 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
     rep = {"overlay_dir": overlay_dir,
            "project_unverified": overridden,
            "repo_verified": repo_only,
-           "orphan_project_specs": orphan}
+           "orphan_project_specs": orphan,
+           "stale_project_specs": stale}
 
     # Write the provenance record INTO the overlay.
     #
@@ -242,7 +300,8 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
             "project_dir": project_dir,
             "project_unverified": [{"file": e["file"], "sha256": e["sha256"],
                                     "version": e["version"]} for e in overridden],
-            "orphan_project_specs": [o["file"] for o in orphan]}
+            "orphan_project_specs": [o["file"] for o in orphan],
+            "stale_project_specs": [x["file"] for x in stale]}
     assert all(f["file"].endswith(".md") for f in prov["project_unverified"]), \
         "provenance may only excuse .md specs — never an engine"
     with open(os.path.join(overlay_dir, PROVENANCE_FILE), "w", encoding="utf-8") as fh:
@@ -254,7 +313,11 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
 def format_report(rep, trigger=None):
     out = []
     n = len(rep["project_unverified"])
-    if n == 0:
+    if n == 0 and (rep.get("stale_project_specs") or rep.get("orphan_project_specs")):
+        out.append("SPEC SOURCE: 100%% REPO-VERIFIED — no project spec loaded (the Framework_*.md "
+                   "files in %s listed below are ignored). bootstrap.py's guarantee holds in full."
+                   % PROJECT_DIR)
+    elif n == 0:
         out.append("SPEC SOURCE: 100%% REPO-VERIFIED — no Framework_*.md in %s. "
                    "bootstrap.py's guarantee holds in full." % PROJECT_DIR)
     else:
@@ -269,6 +332,11 @@ def format_report(rep, trigger=None):
     for o in rep["orphan_project_specs"]:
         out.append("  [ORPHAN — NOT LOADED] %s: no trigger routes this spec. It is ignored. "
                    "If it belongs to a retired step, delete it from project Files." % o["file"])
+    for x in rep.get("stale_project_specs") or []:
+        _why = (x.get("reason") or ("older than the STEP-CONTRACT floor v%s" % x["floor"]))
+        out.append("  [STALE — NOT LOADED] %s %s is %s: the verified repo copy is used instead. "
+                   "Delete it from project Files (or replace it with a current copy)."
+                   % (x["file"], ("v" + x["version"]) if x["version"] else "(no version header)", _why))
     out.append("  REPO-VERIFIED specs: %d" % len(rep["repo_verified"]))
     out.append("  Engines: ALWAYS from the verified clone. /mnt/project is never on sys.path.")
     if trigger:
@@ -408,6 +476,43 @@ def _self_test():
        all(e["file"].endswith(".md") for e in pv["project_unverified"]))
     ok("provenance records orphans separately",
        pv["orphan_project_specs"] == ["Framework_Retired.md"])
+
+    # contract floor (2026.11.04): a project copy below the STEP_CONTRACTS floor is NOT
+    # loaded (repo copy used, reported, never a stop); at/above the floor it is loaded
+    shutil.copytree(repo, os.path.join(d, "repoF"))
+    json.dump({"override_floor": {"Framework_Demo.md": "5.0"}},
+              open(os.path.join(d, "repoF", "STEP_CONTRACTS.json"), "w", encoding="utf-8"))
+    projF = os.path.join(d, "projF"); os.makedirs(projF)
+    open(os.path.join(projF, "Framework_Demo.md"), "w", encoding="utf-8").write(
+        "# Framework_Demo v4.9\n# END OF Framework_Demo v4.9\n")
+    repF = resolve(os.path.join(d, "repoF"), projF, os.path.join(d, "effF"))
+    ok("floor: an older project copy is NOT loaded (repo copy kept)",
+       repF["project_unverified"] == [] and [x["file"] for x in repF["stale_project_specs"]] == ["Framework_Demo.md"]
+       and "v4.9" not in open(os.path.join(d, "effF", "Framework_Demo.md"), encoding="utf-8").read()
+       and "STALE — NOT LOADED" in format_report(repF))
+    open(os.path.join(projF, "Framework_Demo.md"), "w", encoding="utf-8").write("   \n")
+    repF2 = resolve(os.path.join(d, "repoF"), projF, os.path.join(d, "effF2"))
+    ok("floor: a malformed copy of a floored spec is ignored, never a stop",
+       [x["file"] for x in repF2["stale_project_specs"]] == ["Framework_Demo.md"])
+    open(os.path.join(projF, "Framework_Demo.md"), "w", encoding="utf-8").write(
+        "# Framework_Demo v5.10\n# END OF Framework_Demo v5.10\n")
+    repF3 = resolve(os.path.join(d, "repoF"), projF, os.path.join(d, "effF3"))
+    ok("floor: a copy at/above the floor follows project-first (5.10 >= 5.0)",
+       [e["file"] for e in repF3["project_unverified"]] == ["Framework_Demo.md"] and repF3["stale_project_specs"] == []
+       and below_floor("5.90", "5.91") and not below_floor("5.91", "5.91") and below_floor("1.9", "1.25.0")
+       and not below_floor("2.0", "2.0.0") and not below_floor("1.39", "1.39.0") and below_floor("1.38.9", "1.39")
+       and contract_floor(os.path.join(d, "nope")) == {})
+
+    open(os.path.join(projF, "Framework_Demo.md"), "w", encoding="utf-8").write(
+        " # Framework_Demo v5.10\n# END OF Framework_Demo v5.10\n")
+    ok("floor: leading whitespace before the header is tolerated (loaded, as without a floor)",
+       [x["file"] for x in resolve(os.path.join(d, "repoF"), projF, os.path.join(d, "effF4"))["stale_project_specs"]] == [])
+    open(os.path.join(projF, "Framework_Demo.md"), "w", encoding="utf-8").write(
+        "# Framework_Demo v5.10\n# END OF Framework_Demo v5.11\n")
+    repF5 = resolve(os.path.join(d, "repoF"), projF, os.path.join(d, "effF5"))
+    ok("floor: a MALFORMED copy at/above the floor is not loaded and never a stop",
+       [x["file"] for x in repF5["stale_project_specs"]] == ["Framework_Demo.md"]
+       and "malformed" in format_report(repF5) and "no project spec loaded" in format_report(repF5))
 
     rep2 = resolve(repo, os.path.join(d, "empty-nope"), os.path.join(d, "eff2"))
     ok("no project specs -> fully repo-verified",

@@ -42,6 +42,20 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v1.31 (2026-11-04) — GAP-2026-11-04-STEP7-CONTRACT-RESTORE: TEMPLATE_CAP_UNMEASURED is
+      None — template_cap(None, ...) returns None ("not measured, not enforced") and
+      template_check skips every fingerprint whose cap is None (the default cap of 2 was
+      arithmetically infeasible: 8 reasoning ask types admit <= 16 items, so every real
+      paper was stamped NOT CERTIFIED); NEW template_feasible_caps (B4 feasibility guard:
+      raise infeasible measured caps from shape_shares, else report INFEASIBLE, never
+      FAIL); NEW QQ_GATE_CONTROL + readiness_dormant (B5: G-TEMPLATE not PASS ->
+      the fingerprint caps are DORMANT; no other gate is mapped); template_cap scales with
+      CEIL (never below a proportional share); NEW STAMPS_RELEASE (qindex_cert.stamps_release);
+      NEW certificate_uncertified_active (B9 / D5:
+      Deliver re-certifies items whose only UNRESOLVED findings come from dormant
+      controls); review_packet never splits a stimulus group across parts (E6); NEW
+      review_merge_parts + review_not_run (A3/A5: the IN-SESSION review of Create S13-2G
+      merges per-part verdicts; an item no reviewer could assess is NOT_RUN, a WARN).
     v1.30 (2026-11-03) — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY: NEW Cluster QQ —
       one item-rule table (ITEM_RULES, item_rule_id, item_rule_suspended; the I-n
       cross-wiring between analyse_engine and this file is retired), LONGEST_KEY /
@@ -87,7 +101,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.30'
+BLUEPRINT_CORE_VERSION = '1.31'
 
 __all__ = [
     "AllocationError",
@@ -345,6 +359,11 @@ __all__ = [
     "template_fingerprint",
     "template_cap",
     "template_check",
+    "template_feasible_caps",
+    "QQ_GATE_CONTROL",
+    "STAMPS_RELEASE",
+    "readiness_dormant",
+    "certificate_uncertified_active",
     "MECHANISM_VOCABULARY",
     "ISOMER_MECHANISMS",
     "CLASS_PREDICATES",
@@ -373,6 +392,8 @@ __all__ = [
     "exemplars_for",
     "review_verdict_file",
     "review_packet",
+    "review_merge_parts",
+    "review_not_run",
     "bind_review_verdicts",
     "certificate_uncertified",
     "deliver_allowed",
@@ -9379,7 +9400,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.30')   # v1.30 — Cluster QQ
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.31')   # v1.31 — GAP-2026-11-04 (v1.30 Cluster QQ)
     _QL = ['Easy', 'Medium', 'Hard']
 
     def _qf_paper(date, blocks):
@@ -10088,7 +10109,9 @@ PYQ_IMAGE_ANALYSIS:
                             {'statement': {'target': 1, 'floor': 1, 'cap': 1}})['_infeasible'] == ['statement'])
     # G08 — template caps: incident "reaction + spectra" x3
     _fp = template_fingerprint('spectrum_to_structure', 'mcq', 'plus_partner', 'spectra')
-    check('qq_template_caps', template_cap(None, 40, 30) == 2 and template_cap(1, 40, 30) == 1 and template_cap(2, 40, 30) == 3
+    check('qq_template_caps', template_cap(None, 40, 30) is None and template_cap(None, 40, 30, scope_share=0.5) is None and template_cap(1, 40, 30) == 2 and template_cap(2, 40, 30) == 3
+          and template_cap(1, 5, 2) == 3 and template_cap(1, 30, 30) == 1
+          and template_cap(1, 40, 30, rounding='round') == 1 and template_cap(2, 40, 30, rounding='round') == 3
           and template_cap(1, 40, 30, scope_share=0.5) == 21
           and template_check({_fp: 3}, {_fp: 2})['state'] == 'FAIL' and template_check({_fp: 2}, {_fp: 2})['state'] == 'PASS'
           and template_check({}, {}, concept_counts={'c1': 3}, concept_caps={'c1': 2})['state'] == 'FAIL')
@@ -10171,6 +10194,18 @@ PYQ_IMAGE_ANALYSIS:
     _rp = review_packet([{'q': i, 'stem': 's', 'difficulty': 'Hard', 'difficulty_obs': {}} for i in range(1, 62)], {}, 'md5x')
     check('qq_review_packet', len(_rp['parts']) == 3 and 'difficulty' not in _rp['parts'][0]['items'][0]
           and _rp['parts'][2]['checklist'] == list(REVIEW_CHECKLIST) and _rp['n_items'] == 61)
+    # GAP-2026-11-04 (T10 / E6): a passage group straddling the 30-item boundary moves whole
+    _gi = [{'q': i, 'stem': 's', 'stimulus_group_id': ('P1' if 28 <= i <= 33 else None)} for i in range(1, 121)]
+    _rpg = review_packet(_gi, {}, 'm')
+    _grp_parts = {p['part'] for p in _rpg['parts'] for it in p['items'] if it.get('stimulus_group_id') == 'P1'}
+    check('qq_review_packet_groups_never_split', len(_grp_parts) == 1 and _rpg['n_items'] == 120
+          and all(len(p['items']) <= REVIEW_PART_MAX for p in _rpg['parts'])
+          and sum(len(p['items']) for p in _rpg['parts']) == 120 and len(review_packet([], {}, 'm')['parts']) == 1)
+    _pv = lambda qs, md5='m': {'paper_md5': md5, 'reviewer': 'MockReview', 'items': {str(q): {c: 'x' for c in REVIEW_CHECKLIST} for q in qs}}
+    _mg, _miss, _pr = review_merge_parts([_pv([1, 2]), _pv([3], md5='other'), 'junk', _pv([4])], 'm', [1, 2, 3, 4])
+    check('qq_review_merge_parts', sorted(_mg['items']) == ['1', '2', '4'] and _miss == ['3'] and len(_pr) == 2
+          and bind_review_verdicts(_mg, 'm', len(_mg['items']))['ok']
+          and review_not_run('timeout', 'm') == {'status': 'NOT_RUN', 'reason': 'timeout', 'paper_md5': 'm'})
     _ok_v = {'paper_md5': 'md5x', 'items': {str(i): dict({c: 'x' for c in REVIEW_CHECKLIST}, key_agrees=True, verdict='PASS') for i in range(1, 4)}}
     _bad_v = {'paper_md5': 'other', 'items': {'1': {'own_key': 1}}}
     _dis_v = {'paper_md5': 'md5x', 'items': {str(i): dict({c: 'x' for c in REVIEW_CHECKLIST}, key_agrees=(i != 2), verdict='PASS',
@@ -10234,6 +10269,37 @@ PYQ_IMAGE_ANALYSIS:
     check('qq_template_exempt_and_items', _tc['state'] == 'PASS' and _tc2['state'] == 'FAIL'
           and _tc2['findings'][0]['items'] == ['3', '4']
           and _tc3['state'] == 'FAIL' and _tc3['findings'][0]['items'] == ['3'] and _tc4['state'] == 'PASS')
+    # GAP-2026-11-04 (U4, U9, U10): unmeasured never capped; infeasible caps raised or
+    # reported; readiness decides dormancy; a dormant-only UNRESOLVED stamp is re-certified
+    check('qq_template_unmeasured_never_checked', template_check({'other|mcq|none|none': 24}, {'other|mcq|none|none': None})['state'] == 'PASS'
+          and template_check({'x': 24}, {})['state'] == 'PASS' and TEMPLATE_CAP_UNMEASURED is None)
+    _fc1 = template_feasible_caps({'a|mcq|none|none': 2, 'b|mcq|none|none': None}, 5, {'a|none': 0.9})
+    _fc2 = template_feasible_caps({'a|mcq|none|none': 1}, 5, {})
+    _fc3 = template_feasible_caps({'a|mcq|none|none': 2, 'c|mcq|none|none': 4}, 5, {})
+    check('qq_template_feasibility_guard', _fc1 == ({'a|mcq|none|none': 6, 'b|mcq|none|none': None}, False)
+          and _fc2[1] is True and _fc3 == ({'a|mcq|none|none': 2, 'c|mcq|none|none': 4}, False)
+          and template_feasible_caps({}, 9, {}) == ({}, False))
+    _rd_st = {'controls': {'G-TEMPLATE': {'status': 'STALE', 'reason': 'lacks fingerprint_max_per_paper'},
+                           'G-STEMLEAK': {'status': 'PASS'}}, 'degraded': ['G-TEMPLATE']}
+    check('qq_readiness_dormant_rule', readiness_dormant(_rd_st, 'A-TEMPLATE').startswith('G-TEMPLATE STALE')
+          and readiness_dormant(_rd_st, 'A-STEMLEAK') is None and readiness_dormant(_rd_st, 'A-OPTDISTINCT') is None
+          and readiness_dormant({'controls': {'G-STEMLEAK': {'status': 'N/A', 'reason': 'sparse'}}}, 'A-STEMLEAK') is None
+          and readiness_dormant(None, 'A-TEMPLATE') is None and readiness_dormant({'degraded': ['G-ITEM']}, 'A-ITEMRULE') is None
+          and readiness_dormant({'degraded': ['G-TEMPLATE']}, 'A-TEMPLATE') == 'G-TEMPLATE DEGRADED'
+          and set(QQ_GATE_CONTROL.values()) <= set(QUALITY_INPUTS))
+    _act, _rc = certificate_uncertified_active({'5': 'UNRESOLVED(A-TEMPLATE)', '6': 'UNRESOLVED(A-STEMLEAK)', '7': 'CERTIFIED',
+                                                '8': 'UNRESOLVED(A-OPTDISTINCT,A-TEMPLATE)'}, _rd_st)
+    check('qq_recertify_dormant_only_stamps', _act == ['5', '6', '8'] and _rc == []
+          and deliver_allowed({'uncertified_items': _act})[0] is False
+          and deliver_allowed({'uncertified_items': certificate_uncertified_active({'5': 'UNRESOLVED(A-TEMPLATE)'}, _rd_st,
+                                                                                   producer_release='2026.11.03')[0]})[0] is True
+          # a THIS-release A-TEMPLATE stamp (e.g. a measured CONCEPT cap) is never re-certified by readiness
+          and certificate_uncertified_active({'3': 'UNRESOLVED(A-TEMPLATE)'}, _rd_st, producer_release='2026.11.04') == (['3'], [])
+          and certificate_uncertified_active({'5': 'UNRESOLVED(A-TEMPLATE)'}, None) == (['5'], [])
+          and certificate_uncertified_active({'5': 'UNRESOLVED(A-TEMPLATE)', '6': 'UNRESOLVED(A-TEMPLATE,A-OPTDISTINCT)'},
+                                             {'controls': {'G-TEMPLATE': {'status': 'PASS'}}}, producer_release='2026.11.03') == (['6'], ['5'])
+          and certificate_uncertified_active({'5': 'UNRESOLVED(A-TEMPLATE)'}, {'controls': {'G-TEMPLATE': {'status': 'PASS'}}},
+                                             producer_release='2026.11.04') == (['5'], []))
     _lg = EntityLedger(common_entities=['benzene', 'c1ccccc1'])
     check('qq_ledger_blank_and_qnum', _lg.register('Q12', 'key', '   ', 'TEXT') is None
           and _lg.register('Q12', 'key', 'Hexanal', 'TEXT') is not None and _lg.rows[-1][0] == 12
@@ -13950,6 +14016,8 @@ import re as _qq_re
 import unicodedata as _qq_ud
 
 QQ_RELEASE = '2026.11.03'                 # producer_release stamped on every new paper
+STAMPS_RELEASE = '2026.11.04'             # GAP-2026-11-04: qindex_cert.stamps_release — the release whose
+                                          # quality gates wrote this paper's quality_status stamps (D5)
 OPT_DHASH_WARN = 20                       # G01 R1.4 — WARN only, never a verdict
 DIFF_BAND_TOL_REL = 0.10                  # G02 (2) — bench-card tolerance (OD-4: INFO only)
 EXEMPLAR_BANK_MAX_KB = 300                # G02 R2.1 — writer-enforced size budget
@@ -13971,7 +14039,9 @@ MCS_RATIO_MIN = 0.50                      # G06 R6.3(c)
 NEAR_ISOMER_SHARE = 0.50                  # G06 R6.3(f)
 LONGEST_KEY_RATIO = 1.5                   # G07 — == analyse_engine measurement (I-1)
 ITEM_RULE_SUSPEND_RATE = 0.10             # G07 R7.2 — suspended only by MEASURED PYQ rate
-TEMPLATE_CAP_UNMEASURED = 2               # G08 R8.2
+TEMPLATE_CAP_UNMEASURED = None            # G08 R8.2 — 2026.11.04 (GAP-2026-11-04 B1, OD-1): an UNMEASURED
+                                          # fingerprint is NOT enforced (was 2 — arithmetically infeasible:
+                                          # a reasoning family has 8 ask types, so cap 2 admits <= 16 items)
 SCAFFOLD_CAP_MIN = 2                      # G03 R3.3
 PYQ_SPARSE_MIN_ITEMS = 30                 # G10 R10.4
 REVIEW_PART_MAX = 30                      # G12 (6)
@@ -15095,19 +15165,28 @@ def template_fingerprint(ask_type, qtype, scheme_grammar, data_in_stem_type='non
     return '|'.join([str(ask_type or 'other'), str(qtype or 'mcq'), str(scheme_grammar or 'none'), d])
 
 
-def template_cap(measured_max, n_items, mean_scope_items_per_paper, scope_share=None):
+def template_cap(measured_max, n_items, mean_scope_items_per_paper, scope_share=None, rounding='ceil'):
     """R8.2: measured per-paper maximum scaled by N / mean scope items per paper (min 1);
-    common fingerprints (share x N >= 1) get cap >= ceil(share x N) + 1; unmeasured -> 2."""
+    common fingerprints (share x N >= 1) get cap >= ceil(share x N) + 1.
+    2026.11.04 (GAP-2026-11-04 B1): UNMEASURED -> None = "not measured, not enforced" —
+    never a default number (concept caps already behaved this way, R8.3). N is the item
+    count of the UNIT being capped — since 2026.11.04 one subtopic of this paper (B3)."""
     import math as _m
     N = int(n_items or 0)
     if measured_max is None:
-        cap = TEMPLATE_CAP_UNMEASURED
+        return TEMPLATE_CAP_UNMEASURED
     else:
         try:
             scale = N / float(mean_scope_items_per_paper) if mean_scope_items_per_paper else 1.0
         except (TypeError, ValueError):
             scale = 1.0
-        cap = max(1, int(round(int(measured_max) * scale)))
+        # 2026.11.04 (release review): CEIL, not round — round(2.5) == 2 made a set of
+        # measured caps that cannot hold their own proportional share; a cap is never
+        # scaled below it (never a false FAIL).
+        _raw = int(measured_max) * scale
+        # rounding='round' keeps the 2026.11.03 behaviour (the measured CONCEPT caps use it —
+        # nothing measured becomes looser or stricter than before)
+        cap = max(1, int(round(_raw)) if rounding == 'round' else int(_m.ceil(_raw - 1e-9)))
     if scope_share is not None:
         try:
             sN = float(scope_share) * N
@@ -15129,7 +15208,10 @@ def template_check(fingerprint_counts, caps, concept_counts=None, concept_caps=N
     ex = {str(q) for q in (exempt_qs or ())}
     ibf = {k: [str(q) for q in v] for k, v in (items_by_fingerprint or {}).items()}
     for fp, n in (fingerprint_counts or {}).items():
-        cap = int((caps or {}).get(fp, TEMPLATE_CAP_UNMEASURED))
+        _cap = (caps or {}).get(fp, TEMPLATE_CAP_UNMEASURED)
+        if _cap is None:
+            continue                       # 2026.11.04 B1: unmeasured fingerprint -> never checked
+        cap = int(_cap)
         cnt = int(n or 0)
         if fp in ibf and ex:
             cnt = len([q for q in ibf[fp] if q not in ex])
@@ -15148,6 +15230,93 @@ def template_check(fingerprint_counts, caps, concept_counts=None, concept_caps=N
             find.append({'kind': 'concept', 'id': cid, 'count': cnt, 'cap': cap,
                          'items': [q for q in ibc.get(cid, []) if q not in ex][cap:]})
     return qq_verdict('FAIL' if find else 'PASS', str(find) if find else '', findings=find)
+
+
+
+def template_feasible_caps(caps, n_items, shape_shares=None):
+    """GAP-2026-11-04 B4 — FEASIBILITY GUARD for ONE capped unit (one subtopic of one
+    paper). caps {fingerprint: int | None} are that unit's MEASURED caps (None =
+    unmeasured, never checked). If the measured caps cannot hold the unit's n_items
+    (sum(caps) < n_items) no authoring can comply, so each cap is raised to
+    max(cap, ceil(n_items x share) + 1) from shape_shares {'ask|grammar': share}. If the
+    raised caps still cannot hold the items the unit is INFEASIBLE.
+    Returns (caps_out, infeasible: bool). An infeasible unit is REPORTED (an OK line that
+    names it), NEVER a FAIL and never a ladder entry (B4/B7)."""
+    import math as _m
+    meas = {fp: int(c) for fp, c in (caps or {}).items() if c is not None}
+    out = dict(caps or {})
+    N = int(n_items or 0)
+    if not meas or sum(meas.values()) >= N:
+        return out, False
+    for fp, c in meas.items():
+        parts = str(fp).split('|')
+        key = '|'.join(parts[0:1] + parts[2:3])
+        try:
+            sh = float((shape_shares or {}).get(key))
+        except (TypeError, ValueError):
+            sh = None
+        if sh is not None and sh > 0:
+            out[fp] = max(c, int(_m.ceil(N * sh)) + 1)
+    raised = sum(int(out[fp]) for fp in meas)
+    return out, raised < N
+
+
+# GAP-2026-11-04 B5 — the readiness rule. A control whose S3-2e status is not PASS (MISSING /
+# STALE / N/A) makes the mapped measured check DORMANT, so the readiness record and the gate
+# can never disagree (G2.4). ONLY A-TEMPLATE's FINGERPRINT caps are mapped: they are the only
+# check that substituted a default when the measurement was absent. Every other quality gate
+# keeps its 2026.11.03 behaviour unchanged (each already handles its own missing input, and
+# several judge the paper itself — A-ITEMRULE OD-7, A-STEMLEAK (b)-(d), A-DISTRACTOR class /
+# data checks, A-ENTITYLEAK ledger — so absence must never switch them off; release review).
+QQ_GATE_CONTROL = {
+    'A-TEMPLATE': 'G-TEMPLATE',
+}
+
+
+def readiness_dormant(readiness, gate):
+    """GAP-2026-11-04 B5: None when the gate's measured input was PASS (or the gate has no
+    readiness control, or no readiness record exists), else the reason string
+    '<control> <STATUS>: <reason>' — the gate is then DORMANT (OD-1: printed, never a
+    finding, never a stop). readiness = the S3-2e record {'controls': {...}, 'degraded': [...]}."""
+    ctl = QQ_GATE_CONTROL.get(str(gate or ''))
+    if not ctl or not isinstance(readiness, dict):
+        return None
+    rec = (readiness.get('controls') or {}).get(ctl)
+    if isinstance(rec, dict) and rec.get('status'):
+        st = str(rec.get('status'))
+        if st == 'PASS':
+            return None
+        return f"{ctl} {st}" + (f": {rec.get('reason')}" if rec.get('reason') else '')
+    if ctl in (readiness.get('degraded') or []):
+        return f"{ctl} DEGRADED"
+    return None
+
+
+def certificate_uncertified_active(item_statuses, readiness=None, producer_release=None):
+    """GAP-2026-11-04 B9 / D5: certificate_uncertified, EXCEPT that an item whose every
+    UNRESOLVED finding comes from a gate the paper's readiness record shows DORMANT
+    (unmeasured input) is NOT uncertified — a dormant control can never certify a paper
+    as defective. Used by MockDeliver/TestDeliver S1-2 3f so a paper committed NOT
+    CERTIFIED under 2026.11.03 only by the unmeasured template cap is re-certified
+    automatically (informational line), never refused. Returns (active, recertified)."""
+    import re as _re
+    st_by_q = {str(k): v for k, v in (item_statuses or {}).items()}
+    active, recert = [], []
+    for q in certificate_uncertified(st_by_q):
+        m = _re.match(r'UNRESOLVED\((.*)\)\s*$', str(st_by_q.get(q) or ''))
+        gates = [g.strip() for g in (m.group(1).split(',') if m else []) if g.strip()]
+        if gates and all(g != 'A-TEMPLATE' and readiness_dormant(readiness, g) for g in gates):
+            # (A-TEMPLATE is excluded: its measured CONCEPT caps stay ACTIVE when G-TEMPLATE
+            # is not PASS, so an A-TEMPLATE stamp from THIS release may be a real defect.)
+            recert.append(q)
+        elif gates and set(gates) == {'A-TEMPLATE'} and str(producer_release or '') == '2026.11.03':
+            # release 2026.11.03's A-TEMPLATE counted paper-wide against a default cap of 2
+            # for every unmeasured fingerprint (order-dependent, infeasible) — none of its
+            # A-TEMPLATE-only verdicts is trustworthy (D5 a; release review)
+            recert.append(q)
+        else:
+            active.append(q)
+    return active, recert
 
 
 # ── G06 — DISTRACTOR MECHANISMS + PLAUSIBILITY (R6.1 .. R6.3) ─────────────────────
@@ -15745,14 +15914,70 @@ REVIEW_CHECKLIST = (
 def review_packet(paper_items, exemplar_slice, paper_md5, part_max=REVIEW_PART_MAX):
     """R12.1 input: the delivered paper, the scope's exemplar-bank slice, the checklist
     and paper_md5 — NO registry, author notes or scheduled bands. Split into parts of
-    <= REVIEW_PART_MAX items, each carrying the full checklist."""
+    <= REVIEW_PART_MAX items, each carrying the full checklist.
+    2026.11.04 (GAP-2026-11-04 E6): items sharing a stimulus_group_id (passage / DI set /
+    linked cloze) are NEVER split across parts — the group moves whole to the next part
+    (a single group larger than part_max forms one part on its own). One part = one fresh
+    reviewer (Create S13-2G phase 2)."""
     items = [{k: v for k, v in (it or {}).items() if k not in _QQ_STRIP_FIELDS} for it in (paper_items or [])]
+    # consecutive runs of the same non-empty stimulus_group_id form one unsplittable unit
+    units = []
+    for it in items:
+        g = it.get('stimulus_group_id')
+        if g and units and units[-1][0] == g:
+            units[-1][1].append(it)
+        else:
+            units.append((g, [it]))
+    chunks, cur = [], []
+    for _g, u in units:
+        if cur and len(cur) + len(u) > part_max:
+            chunks.append(cur)
+            cur = []
+        cur = cur + u
+    if cur or not chunks:
+        chunks.append(cur)
     parts = []
-    for i in range(0, max(1, len(items)), part_max):
-        parts.append({'part': len(parts) + 1, 'items': items[i:i + part_max],
+    for ch in chunks:
+        parts.append({'part': len(parts) + 1, 'items': ch,
                       'checklist': list(REVIEW_CHECKLIST), 'exemplars': exemplar_slice or {},
                       'paper_md5': paper_md5})
     return {'paper_md5': paper_md5, 'parts': parts, 'n_items': len(items)}
+
+
+def review_merge_parts(part_records, paper_md5, expected_qs):
+    """GAP-2026-11-04 A3/A5 — merge the per-part verdict files the in-session reviewers
+    wrote (Create S13-2G phase 2) into ONE verdict record for phase 3. A part bound to a
+    different paper_md5, unreadable, or not a record contributes NOTHING (its items count
+    as missing). Returns (merged_record, missing_qs, problems); merged_record carries only
+    reviewed items, so bind_review_verdicts(merged, md5, len(merged['items'])) binds it.
+    Never raises: a missing item is retried once, then stamped NOT_RUN by the caller."""
+    items, probs = {}, []
+    reviewers = set()
+    for i, rec in enumerate(part_records or []):
+        if not isinstance(rec, dict) or not isinstance(rec.get('items'), dict):
+            probs.append(f'part {i + 1}: not a verdict record')
+            continue
+        if rec.get('paper_md5') != paper_md5:
+            probs.append(f'part {i + 1}: bound to paper_md5 {rec.get("paper_md5")!r}, not {paper_md5!r}')
+            continue
+        reviewers.add(str(rec.get('reviewer') or 'MockReview'))
+        for q, r in rec['items'].items():
+            if isinstance(r, dict) and str(q) not in items:
+                items[str(q)] = r
+    exp = [str(q) for q in (expected_qs or [])]
+    missing = [q for q in exp if q not in items]
+    items = {q: items[q] for q in exp if q in items}
+    merged = {'schema_version': 1, 'reviewer': '+'.join(sorted(reviewers)) or 'none',
+              'paper_md5': paper_md5, 'items': items, 'n_items': len(items)}
+    return merged, missing, probs
+
+
+def review_not_run(reason, paper_md5=None):
+    """GAP-2026-11-04 A5: the review record of an item the in-session review could not
+    assess after one retry (no reviewer could run, a timeout, malformed output). The
+    auditor's A-REVIEW reports it as a WARN naming the reason — never a FAIL, never a
+    stop, never a hand-off to the user."""
+    return {'status': 'NOT_RUN', 'reason': str(reason or 'reviewer produced no verdict'), 'paper_md5': paper_md5}
 
 
 _REVIEW_ROMAN = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8}

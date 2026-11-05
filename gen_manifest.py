@@ -73,8 +73,14 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 # verified can be edited without leaving the trace bootstrap.py refuses to start on.
 # It SUPPRESSES audit_deep findings, which makes it the single most attractive file in
 # the repo to widen quietly.
+# GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decision D6). STEP_CONTRACTS.json declares
+# every mock-track step's USER CONTRACT (deliverables, end states, user actions) and
+# mock_sync_audit MS-27 holds the corpus to it. It is a RATCHET in the same sense as
+# MUTATION_BUDGETS.json: widening it quietly is exactly how release 2026.11.03 changed
+# Step 7's contract unseen — so bootstrap checksum-verifies it.
 TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
-                "MUTATION_BUDGETS.json", "XSPEC_DIVERGENCE_BASELINE.json"]
+                "MUTATION_BUDGETS.json", "XSPEC_DIVERGENCE_BASELINE.json",
+                "STEP_CONTRACTS.json"]
 
 # GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). SPEC_HISTORY.md holds the
 # superseded changelog entries moved out of the 20 routed specs — 196,024 B of defect

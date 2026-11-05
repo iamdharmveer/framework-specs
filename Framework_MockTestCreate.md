@@ -1,4 +1,38 @@
-# Framework_MockTestCreate v5.90
+# Framework_MockTestCreate v5.91
+# v5.91 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (paired with blueprint_core v1.31,
+#   audit_canonical v2.36, final_assembly v1.13, Framework_MockReview v2.0.0 (internal brief),
+#   Framework_MockDeliver v1.25.0, Framework_DeliveryFooter v1.39.0, NEW STEP_CONTRACTS.json +
+#   LAW_REGISTRY STEP-CONTRACT-LAW). Release 2026.11.03 broke the Step 7 user contract for
+#   every exam project (incident 2026-11-04, SSC GD Tier 1, TestCreate P2, 50 reasoning MCQs):
+#   (1) Final Assembly ENDED at AWAITING_REVIEW and handed the owner a review packet to run in
+#   a new chat, a verdict file to carry back and a --resume to type; (2) A-TEMPLATE fell back
+#   to a cap of 2 repeats per template on every project without measured caps — infeasible
+#   for any real paper (a reasoning family has 8 ask types) — so 35 of 50 items were stamped
+#   UNRESOLVED and the paper NOT CERTIFIED. OWNER DECISIONS 2026-11-04, binding:
+#   D0 — OD-5 RESTATED: the independent review is mandatory and runs INSIDE the run; it is
+#     never a user step, never ends Step 7, never creates a user-visible file. OD-9 RESTATED:
+#     NOT CERTIFIED only from an ACTIVE, MEASURED gate. D1 — no sub-agent in the runtime (or a
+#     part fails twice): same-session cold review, disclosed; NOT_RUN only if even that fails
+#     (A-REVIEW WARN). D2 — the MockReview / TestReview triggers are retired; Framework_
+#     MockReview is the internal reviewer brief, routed with this step. D3 — no third file:
+#     the repo auditor and an amended blueprint are never delivered (informational footer
+#     lines). D4 — reviewer isolation by instruction accepted. D5 — Deliver re-certifies a
+#     paper whose only UNRESOLVED findings come from dormant controls. D6 — STEP-CONTRACT-LAW.
+#   CHANGES: S13-2F no longer ends the step; S13-2G is an IN-SESSION review (phase 1 packet
+#   under /home/claude only; phase 2 one fresh sub-agent per <= 30-item part, a passage group
+#   never split; phase 3 automatic bind / repair / round 2) and continues to S13-3 .. S13-8 in
+#   the same response; S4-12 continues REVIEW_RUNNING / REVIEW_REPAIR / legacy AWAITING_REVIEW
+#   internally on "continue" (a legacy verdict file is found by CONTENT); S13-2F stamps
+#   ladder.terminal_sweep (the only R4 exemption A-TEMPLATE honours); S13-6 has NO conditional
+#   additions; S13-7 clears this run's leftovers from outputs (fa.outputs_to_clear) before the
+#   checklist; S13-8 judges fa.delivery_scope. Auditor: A-TEMPLATE counts per (subtopic,
+#   fingerprint) against that subtopic's MEASURED cap, never a default (unmeasured -> not
+#   checked; nothing measured -> DORMANT; infeasible -> reported, never FAIL); a readiness
+#   record showing G-TEMPLATE not PASS makes the FINGERPRINT caps DORMANT (every other gate
+#   is unchanged from 2026.11.03); S13-2F clears 2026.11.03 default-cap stamps; per-batch
+#   audits report the same level as the pre-commit sweep. Contract (STEP_CONTRACTS.json):
+#   the final batch's response ends with EXACTLY [ExamCode]_[slug]_Create.docx +
+#   [ExamCode]_registry.json; the only user action is "continue" between batches.
 # v5.90 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with blueprint_core
 #   v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types v1.2, analyse_engine
 #   v1.2, audit_canonical v2.35, final_assembly v1.12, Framework_MockTestAnalyse v2.59,
@@ -1112,20 +1146,19 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        — Options: configured font, configured size, normal weight.
        — Verify: scan all runs; if run.font.name not in [configured_font, None]: fix.
   R-DELIVER (v5.36, HARD STOP [HS:INFRA]): Step 7 delivers EXACTLY the CLOSED SET at Final
-       Assembly and NOTHING else. The set is the CLOSED set below (v5.73; v5.89):
+       Assembly and NOTHING else. The set is the CLOSED set below (v5.73; v5.91 — exactly
+       two files, STEP_CONTRACTS.json / STEP-CONTRACT-LAW):
          1. [ExamCode]_Mock[N]_Create.docx        — always (scoped slug for a scoped paper)
          2. [ExamCode]_registry.json              — always (Replace in Project Files)
-         3. EXTRA_DELIVERABLES (S13-6, v5.89)     — ONLY when S13-6 decided them: the
-            amended in-run *_blueprint.json and/or the repo [ExamCode]_mock_test_audit.py
-            (Replace in Project Files when an older copy is there, else Upload). Empty on
-            most runs.
+       (v5.89's conditional third/fourth files — an amended blueprint, the repo auditor copy —
+       are retired by owner decision D3 (a), 2026-11-04: informational footer lines only.)
        "EXACTLY" is the operative word in BOTH directions: nothing missing and
        nothing outside this set. The Tier-A audit dossier ([ExamCode]_M[N]_audit_dossier.json)
        is INTERNAL from v5.73 (operator decision 2026-08-26): S13-4b writes it to
        /home/claude and S13-4c reads it there; staged in outputs it is a LEAK
        (final_assembly.predelivery_checklist check 5). The set is DECIDED by code
-       (S13-6 EXTRA_DELIVERABLES -> predelivery_checklist(extra_deliverables=) ->
-       pp.handoff_set(extra_upload=)), never by hand, so the v5.35/v5.36/v5.54.1
+       (fa.outputs_to_clear -> fa.predelivery_checklist -> fa.delivery_scope ->
+       pp.handoff_set), never by hand, so the v5.35/v5.36/v5.54.1
        count-drift class cannot recur. Producing a standalone answer-key file (any format:
        .docx/.pdf/.json/.txt) as a deliverable is forbidden with the same force
        as R5 (no answer key in the paper). Internal sidecars (answer_key.json,
@@ -1607,7 +1640,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                 f"from Project Files is used AS IS and may be stale.")
       elif open(audit_py, 'rb').read() != open(_repo_audit, 'rb').read():
           shutil.copy(_repo_audit, f'/home/claude/{EXAM}_mock_test_audit.py')
-          AUDITOR_FROM_REPO = True          # v5.89 P3: delivered at S13-6 for upload
+          AUDITOR_FROM_REPO = True          # v5.91 (D3 a): informational footer line only — never delivered
           print(f"AUDITOR REFRESHED: {EXAM}_mock_test_audit.py in Project Files "
                 f"differs from the verified repo audit_canonical.py — this run audits "
                 f"with the verified repo copy instead.")
@@ -1615,8 +1648,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # v5.89 (GAP-2026-11-02 P3, owner decision O7): a project with NO auditor copy
       # used to skip the whole machine audit (S4-7 STEP B, S13-2F and S13-4c are all
       # gated on AUDIT_AVAILABLE). No paper ships without an audit: the verified repo
-      # audit_canonical.py is copied in under the per-exam name and used, and the copy
-      # is DELIVERED at S13-6 with "UPLOAD THIS AUDITOR TO THE PROJECT".
+      # audit_canonical.py is copied in under the per-exam name and used. v5.91 (GAP-2026-11-04
+      # D3 a): the copy is NOT delivered — every run audits with the verified repo engine, so
+      # the project copy is never needed for correctness; one informational footer line.
       _repo_audit = next((_c for _c in ('/tmp/fw/audit_canonical.py',
                                         '/tmp/fw_effective/audit_canonical.py',
                                         os.path.join(os.getcwd(), 'audit_canonical.py'))
@@ -1626,8 +1660,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           AUDIT_AVAILABLE = True
           AUDITOR_FROM_REPO = True
           print(f"AUDITOR FROM REPO: {EXAM}_mock_test_audit.py was not in Project Files; "
-                f"this run audits with the verified repo audit_canonical.py and delivers "
-                f"that copy — UPLOAD THIS AUDITOR TO THE PROJECT.")
+                f"this run audits with the verified repo audit_canonical.py (informational — "
+                f"nothing to upload).")
       else:
           print(f"NOTE: {EXAM}_mock_test_audit.py not found in project and no verified "
                 f"repo audit_canonical.py beside this session (Step 0 bootstrap). "
@@ -2059,8 +2093,9 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # its builder; the schedule is recomputed from it and the exam's difficulty profile with
   # bc.recompute_difficulty_schedule. On a mismatch the IN-RUN blueprint (BP_SRC_PATH — the
   # file every auditor run reads with --blueprint) is amended IN PLACE and the amendment is
-  # logged in difficulty_amendments[]; the amended blueprint is DELIVERED at S13-6 with
-  # "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER". A legacy blueprint (no
+  # logged in difficulty_amendments[]; v5.91 (D3 a): the amended blueprint is NOT delivered —
+  # every run recomputes it the same way from the same provenance — and one informational
+  # footer line records the amendment. A legacy blueprint (no
   # provenance) is used as is, with the footer line "difficulty schedule unverified"
   # (+ "outside the expected range" when bc says so). Never a stop.
   import json, os
@@ -4233,7 +4268,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
     "continue", "go", "next", "continue.", "go ahead", "next batch", "proceed"
 
   IF the user message IS a continue trigger:
-    → Run S4-5 pre-batch self-check.
+    → v5.91: FIRST, if batch_state.state == 'DELIVERED' (set at S13-9): the paper is finished
+      — say so and stop; generate and deliver nothing.
+    → v5.91: if every batch is already authored AND (the S3-1-resolved registry has no
+      committed question_index entry for this paper, OR batch_state.state is one of
+      REVIEW_RUNNING / REVIEW_REPAIR / REVIEWED / AWAITING_REVIEW) — an interrupted Final
+      Assembly — run S4-12 instead: it resumes §13 / S13-2G in the same response (S13-4's
+      commit is idempotent). Never print a continue prompt then.
+    → Otherwise: run S4-5 pre-batch self-check.
     → Generate the next batch.
 
   IF the user message is NOT a continue trigger (a question, a correction,
@@ -4847,9 +4889,13 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   [ ] G-SHAPEMIX: (v5.90, OD-6 c) bc.shape_mix_check: every planned shape within
                   round(sN) +/- max(1, 15 %), at or above its FLOOR, at or below its CAP;
                   recorded infeasibility is not a defect. R3. Twin: A-SHAPEMIX. HARD FAIL.
-  [ ] G-TEMPLATE: (v5.90) bc.template_check: no template fingerprint (or concept id)
-                  above its cap (measured per-paper maximum scaled by bc.template_cap;
-                  unmeasured -> 2). R3. Twin: A-TEMPLATE. HARD FAIL.
+  [ ] G-TEMPLATE: (v5.91) bc.template_check PER (subtopic, fingerprint) against THAT
+                  subtopic's MEASURED cap (section_rules fingerprint_max_per_paper scaled
+                  by bc.template_cap); an UNMEASURED fingerprint is NOT checked (never a
+                  default cap); readiness G-TEMPLATE not PASS -> fingerprint caps DORMANT;
+                  infeasible -> reported, never a defect; concept ids only against MEASURED
+                  concept caps. Read the auditor's A-TEMPLATE line — never count by hand.
+                  R3. Twin: A-TEMPLATE. FAIL only on a measured cap; never a stop.
 
   [ ] G-STYLE: (v5.82, ADVISORY) Paper-so-far style distance D against the
                   profile cell (section x answer_type, falling back to the paper
@@ -4891,14 +4937,66 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   TRIGGER: MockCreate M[N] resume   (also `TestCreate ... --resume` / `MockCreate M[N] --resume`)
   OR: batch_state.json indicates an incomplete mock (batches_completed not full).
 
-  v5.90 (GAP-2026-11-03 OD-5) — REVIEW STATES. After step 1 below, read
-  batch_state.get('state'): 'AWAITING_REVIEW' -> every question is authored and swept;
-  go STRAIGHT to S13-2G phase 3 (bind the review verdicts, repair, re-sweep or proceed to
-  S13-3 / S13-4). 'REVIEW_REPAIR' -> the flagged items are being repaired; continue from
-  §Q8b-LADDER on batch_state['review_defects'] (persisted by phase 3), then S13-2F, then
-  S13-2G phase 1 with the WHOLE paper (round 2; the binding is per paper).
-  'REVIEWED' -> S13-3 / S13-4 / S13-4c. Any other value (or none) -> the batch recovery
-  below. batch_state['shape_plan'] (S3-12d) and ['quality_readiness'] (S3-2e) are READ,
+  "continue" (S4-6) ALSO enters this recovery when every batch is authored but the paper is
+  not yet committed — an interrupted Final Assembly response resumes here; the user never
+  types anything else and never attaches a review file.
+  v5.91 — FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW: batches_completed covers every batch
+  of the plan, the registry has no committed question_index entry for this paper, and
+  batch_state.state is absent or not one of the REVIEW states below -> do NOT print a continue
+  prompt and do NOT generate a batch: re-enter §13 at S13-2 / S13-2F (the sweep counter lives
+  in its state file, so the count continues) and run on to S13-2G, S13-3 .. S13-8 in this
+  same response.
+
+  v5.91 (GAP-2026-11-04 A6) — REVIEW STATES, all continued INTERNALLY. After step 1 below,
+  read batch_state.get('state'):
+    'REVIEW_RUNNING' -> the in-session review was interrupted. If
+        batch_state['review_dir']/queue.json exists and its paper_md5 equals the md5 of the
+        current final docx: run S13-2G PHASE 2 only for the parts whose verdicts.json is
+        missing or does not parse (a reviewer interrupted mid-write), then PHASE 3.
+        Otherwise run S13-2G from PHASE 1.
+    'AWAITING_REVIEW' (LEGACY — a paper parked by release 2026.11.03) -> every question is
+        authored and swept under 2026.11.03. FIRST re-run S13-2F (preview + block): it
+        clears the UNRESOLVED stamps only the 2026.11.03 default template cap wrote and
+        issues a fresh certificate. Then run the block below. If it finds an attached
+        verdict file bound to the CURRENT paper (found by CONTENT — exam_code + paper_md5 —
+        never by file name: uploads carry a random prefix and a sanitised slug,
+        GAP-2026-11-04 A7/E10), run S13-2G PHASE 1, then write LEGACY_VERDICTS as
+        verdicts.json into EVERY part folder (one record covers the whole paper) and run
+        PHASE 3 — no reviewer is started. With no matching file: run S13-2G from PHASE 1
+        (the internal review). Never ask for a file.
+    'REVIEW_REPAIR' -> the flagged items are being repaired; continue from §Q8b-LADDER on
+        batch_state['review_defects'] (persisted by phase 3), SKIPPING every item already in
+        batch_state['review_repaired'] (each repair appends its q there as soon as it is
+        written — see S13-2G), then S13-2F, then S13-2G phase 1 with the WHOLE paper (round 2;
+        the binding is per paper).
+    'REVIEWED' -> S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+        S13-8 / S13-9, in this same response.
+    'DELIVERED' -> the paper is finished (S13-9): say so; generate and deliver nothing.
+  Any other value (or none) -> if every batch of the plan is authored and the S3-1-resolved
+  registry has no committed question_index entry for this paper: §13 from S13-2 / S13-2F (the
+  FINAL ASSEMBLY INTERRUPTED rule above); otherwise the batch recovery below (its steps 5-6 — the continue prompt and STOP —
+  apply ONLY to the batch recovery, never to a paper whose batches are all authored).
+  ```python
+  # ── S4-12 legacy verdict lookup (v5.91 — GAP-2026-11-04 A7; used ONLY for 'AWAITING_REVIEW') ──
+  import glob, json, os, hashlib, paper_pipeline as pp
+  _docx12 = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
+  _bs12 = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  _md5_12 = hashlib.md5(open(_docx12, 'rb').read()).hexdigest() if os.path.exists(_docx12) else _bs12.get('paper_md5')
+  LEGACY_VERDICTS = None
+  for _vp in sorted(glob.glob('/mnt/user-data/uploads/*review_verdicts*.json')):
+      try:
+          _v = json.load(open(_vp, encoding='utf-8'))
+      except (OSError, ValueError):
+          continue
+      if isinstance(_v, dict) and _v.get('exam_code') == EXAM and _v.get('paper_md5') == _md5_12:
+          LEGACY_VERDICTS = _v
+          break
+      print(f"S4-12: ignoring {os.path.basename(_vp)} — not bound to this paper (exam "
+            f"{_v.get('exam_code') if isinstance(_v, dict) else '?'}, md5 {_v.get('paper_md5') if isinstance(_v, dict) else '?'}).")
+  print("S4-12: legacy AWAITING_REVIEW paper — " + ("binding the attached verdict file (found by content)."
+        if LEGACY_VERDICTS else "running the in-session review now (S13-2G phase 1)."))
+  ```
+  batch_state['shape_plan'] (S3-12d) and ['quality_readiness'] (S3-2e) are READ,
   never re-derived, on every resume (FROZEN-PLAN LAW).
 
   RECOVERY PROCEDURE:
@@ -7141,8 +7239,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   label count >= 2 (bc.ccp_model v1.30) and the band is bc.final_band_decision(rated,
   ccp_status, ccp_band, labels): the author's counts NEVER raise a band.
 
-  INDEPENDENT REVIEW (OD-5) is NOT here: it runs in a fresh chat (Framework_MockReview)
-  after the S13-2F sweep, and its verdicts are bound to the paper at --resume (S13-2G).
+  INDEPENDENT REVIEW (OD-5) is NOT here: it runs INSIDE this run after the S13-2F sweep — a
+  fresh reviewer per packet part (Framework_MockReview, the internal brief) — and its
+  verdicts are bound to the paper automatically (S13-2G, v5.91). Never a user step.
 
 ## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)
 
@@ -10551,9 +10650,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   NOT CERTIFIED (A-CERT reports it as a WARN; TestDeliver refuses it without
   --accept-uncertified). The sweep counter lives in a state file, so a resumed session
   continues the count. A paper never fails S13-2F for a QUALITY reason.
-  AFTER a clean (or NOT-CERTIFIED) sweep the step does NOT go on to S13-3: it enters S13-2G
-  (independent review, OD-5) and ENDS NORMALLY at state AWAITING_REVIEW; the commit happens
-  on --resume.
+  AFTER a clean (or NOT-CERTIFIED) sweep the step goes on IMMEDIATELY, in the SAME response,
+  to S13-2G (the in-session independent review, OD-5 restated 2026-11-04) and from there to
+  S13-3 / S13-4 and the two-file delivery. It never ends the response, never waits for the
+  user and never asks for a file (v5.91 — GAP-2026-11-04 A1; STEP-CONTRACT-LAW).
+  v5.91 (GAP-2026-11-04 B7): a quality control the auditor reports DORMANT (its measured
+  input is missing or stale — A-TEMPLATE on every project whose Step 5 predates the
+  measurement) or INFEASIBLE emits no item finding, so it never enters the ladder and never
+  costs a sweep.
 
 ```python
 import json, os, subprocess
@@ -10593,6 +10697,45 @@ if AUDIT_AVAILABLE:
     for _old in (_ifj, _cert):                        # never re-read a previous sweep's files
         if os.path.exists(_old):
             os.remove(_old)
+    # v5.91 (GAP-2026-11-04, release review) — before the audit, on EVERY sweep:
+    # (i) an UNRESOLVED(A-TEMPLATE) stamp written by 2026.11.03 (its default cap of 2 /
+    #     paper-wide count — untrustworthy) is REMOVED, here and in the registry preview, so it
+    #     can never keep a paper NOT CERTIFIED (OD-9 restated, D0); the sweep re-stamps every
+    #     item. Stamps written by THIS release (quality_stamps_release) are never removed.
+    # (ii) the engine's terminal-rung record (s13_2f_state 'terminal') is merged onto the
+    #     sidecar's ladder record — the author's repair rewrote the entry since (B8).
+    _kd_pre = json.load(open(_key, encoding='utf-8'))
+    _bs_pre = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+    _act_pre, _rec_pre = bc.certificate_uncertified_active(
+        {q: (e or {}).get('quality_status') for q, e in (_kd_pre.get('concept_map') or {}).items()},
+        _bs_pre.get('quality_readiness'),
+        # stamps written by THIS release carry batch_state['quality_stamps_release'] (set
+        # where S13-2F stamps, below); stamps on a paper parked by 2026.11.03 do not
+        producer_release=_bs_pre.get('quality_stamps_release') or '2026.11.03')
+    for _q in _rec_pre:
+        _kd_pre['concept_map'][str(_q)].pop('quality_status', None)
+    if _rec_pre and os.path.exists(_prev):
+        # the preview (step 1) was computed from the sidecar BEFORE this clean-up and the
+        # auditor overlays it — remove the same stamps from THIS paper's preview entry, or
+        # the auditor would still read them (release review 2026-11-04)
+        _pv = json.load(open(_prev, encoding='utf-8'))
+        _rs = {str(x) for x in _rec_pre}
+        for _qe in (_pv.get('question_index') or []):
+            if isinstance(_qe, dict) and _qe.get('paper_id') == paper_id:
+                for _rr in (_qe.get('questions') or []):
+                    if isinstance(_rr, dict) and str(_rr.get('q')) in _rs:
+                        _rr.pop('quality_status', None)
+        json.dump(_pv, open(_prev, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+    if _rec_pre:
+        print(f"S13-2F: cleared {len(_rec_pre)} UNRESOLVED stamp(s) {_rec_pre} that only an unmeasured / "
+              f"2026.11.03 template control wrote (informational; never a defect).")
+    for _q in (_st.get('terminal') or []):
+        _e_t = (_kd_pre.get('concept_map') or {}).get(str(_q))
+        if isinstance(_e_t, dict):
+            _lad_t = _e_t.get('ladder') if isinstance(_e_t.get('ladder'), dict) else {}
+            _lad_t['terminal_sweep'] = int(_st.get('terminal_sweep') or 3)
+            _e_t['ladder'] = _lad_t
+    json.dump(_kd_pre, open(_key, 'w', encoding='utf-8'), indent=2)
     cmd = ['python3', f'/home/claude/{EXAM}_mock_test_audit.py', _docx,
            '--phase', 'precommit', '--item-findings', _ifj,
            '--write-certificate', _cert,
@@ -10649,6 +10792,11 @@ if AUDIT_AVAILABLE:
             for _qn, _gs in _byq.items():
                 _kd.setdefault('concept_map', {}).setdefault(_qn, {})['quality_status'] = bc.quality_status(_gs)
             json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
+            # v5.91: these stamps come from ACTIVE gates of THIS release — the pre-sweep clean-up
+            # above must never remove them (only 2026.11.03's untrustworthy A-TEMPLATE stamps)
+            _bs_q = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+            _bs_q['quality_stamps_release'] = '2026.11.04'
+            json.dump(_bs_q, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
             print(f"S13-2F sweep {_st['sweep']}: quality findings survived R5 on {sorted(_byq)} — stamped "
                   f"UNRESOLVED (OD-9); the paper will be NOT CERTIFIED. Run the next sweep (preview + this block).")
             raise RuntimeError("LADDER-REPAIR [HS:LADDER] (S13-2F): UNRESOLVED stamps written — run the next "
@@ -10666,6 +10814,16 @@ if AUDIT_AVAILABLE:
         for _q, _reasons in sorted(_by_q.items(), key=lambda kv: str(kv[0])):
             _rung = 'TERMINAL' if _st['sweep'] >= 3 else bc.ladder_entry(_reasons)
             print(f"S13-2F sweep {_st['sweep']}: Q{_q} {sorted(set(_reasons))} -> ladder {_rung}")
+        if _st['sweep'] >= 3:
+            # v5.91 (GAP-2026-11-04 B8): the ENGINE records which items it routed to their
+            # terminal rung — in ITS OWN state file (the author's repair rewrites the sidecar
+            # entry, so a stamp written there now would be lost). It is merged onto the
+            # sidecar's ladder record at the start of every later sweep (above); the auditor's
+            # A-TEMPLATE R4/R4' exemption requires it.
+            _st['terminal'] = sorted(set(_st.get('terminal') or []) | {str(q) for q in _by_q if q is not None},
+                                     key=lambda x: int(x) if x.isdigit() else 0)
+            _st['terminal_sweep'] = _st['sweep']
+            json.dump(_st, open(_stp, 'w', encoding='utf-8'))
         for _fl in _wl.get('fail_lines') or []:
             print(f"S13-2F sweep {_st['sweep']}: FAIL {_fl['check']}: {_fl['message']}")
         raise RuntimeError(f"LADDER-REPAIR [HS:LADDER] (S13-2F sweep {_st['sweep']}): repair "
@@ -10674,23 +10832,50 @@ if AUDIT_AVAILABLE:
                            f"data in the sidecar, then run the next sweep (preview + this block).")
 ```
 
-## S13-2G — INDEPENDENT REVIEW HANDOFF and --resume (v5.90 — GAP-2026-11-03 G12; owner decision OD-5 (a))
+## S13-2G — INDEPENDENT REVIEW, IN-SESSION (v5.91 — GAP-2026-11-04 A1-A7; owner decisions OD-5 restated (D0), D1, D2, D4)
 
-  WHY. Every verification of the incident paper — answer, difficulty rating, "is a second
-  option defensible" — ran in the author's own context and agreed with itself. A fresh
-  context is the only review that cannot be anchored by having written the item. The owner
-  chose it MANDATORY on every paper, with CORRECTION: a review that ends in a list of
-  findings is worthless; the flagged items are REPAIRED through the ladder before the commit.
+  WHY (v5.90, unchanged). Every verification of the incident paper — answer, difficulty
+  rating, "is a second option defensible" — ran in the author's own context and agreed with
+  itself. A fresh context is the only review that cannot be anchored by having written the
+  item. The owner chose it MANDATORY on every paper, with CORRECTION: a review that ends in
+  a list of findings is worthless; the flagged items are REPAIRED through the ladder before
+  the commit.
 
-  TWO-SESSION PROTOCOL (runtime-neutral; a sub-agent runtime collapses it into one run):
+  WHY IT CHANGED (v5.91 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE). v5.90 implemented OD-5 as
+  a two-session protocol (now retired): Step 7 ENDED at the legacy AWAITING_REVIEW state,
+  delivered a review packet, and the OWNER had to run the review step in a second chat
+  (retired), carry a verdict file back with the registry and type a resume command —
+  up to three hand-offs per paper, the registry uncommitted meanwhile, the
+  verdict file not even found by name once uploaded (incident 2026-11-04, SSC GD Tier 1,
+  TestCreate P2). OD-5 RESTATED (owner, 2026-11-04, D0): the independent review is mandatory
+  and runs INSIDE THIS RUN. It is NEVER a user step, NEVER ends Step 7, NEVER creates a
+  user-visible file and NEVER needs a second chat. Step 7 ends — in the SAME response as the
+  last batch — with exactly [ExamCode]_[slug]_Create.docx + [ExamCode]_registry.json
+  (STEP_CONTRACTS.json, STEP-CONTRACT-LAW). The only user action Step 7 may require is
+  typing "continue" between batches (or after an interrupted response — S4-12).
 
-  PHASE 1 — this session, right after S13-2F (clean or NOT CERTIFIED):
+  THE FLOW (all in the final batch's response; every arrow is automatic):
+    S13-2F clean / NOT CERTIFIED
+      -> phase 1 (packet, written ONLY under /home/claude)
+      -> phase 2 (one FRESH reviewer per part — CLASS T, the model's own turn)
+      -> phase 3 (bind + key_agrees + defects)
+         defects in round 1 -> REVIEW_REPAIR: repair each at §Q8b-LADDER R2 in the final docx
+                               -> S13-2F (fresh certificate) -> phase 1..3 again (round 2,
+                               the WHOLE paper — the binding is per paper)
+         round 2 still disputed -> UNRESOLVED(A-REVIEW), NOT CERTIFIED (OD-9) — never a stop
+      -> REVIEWED -> S13-3 -> S13-4 -> S13-REGCHECK -> S13-QINDEX -> S13-4b/4c -> S13-6
+         -> S13-7 -> S13-8 (the two files) -> S13-9 -> footer.
+  STATES (batch_state.state): 'REVIEW_RUNNING' during phases 1-3 and 'REVIEW_REPAIR' during
+  the round-1 repairs — INTERNAL, used only so an interrupted response resumes (S4-12);
+  'REVIEWED' after phase 3. 'AWAITING_REVIEW' is a LEGACY v5.90 state: S4-12 continues it
+  through this same internal flow and never asks for a verdict file.
+
+  PHASE 1 — build the packet, internally:
   ```python
   # ── S13-2G phase 1 (executable) ───────────────────────────────────────────────
-  import json, os, hashlib, zipfile, blueprint_core as bc, paper_pipeline as pp
-  # batch_state is RELOADED from disk: this block also runs after a --resume (S4-12 /
-  # REVIEW_REPAIR), where the S3-16 initialiser did not run in this session, and the
-  # on-disk copy carries the batch ledgers a stale in-memory copy would overwrite.
+  import json, os, hashlib, shutil, blueprint_core as bc, paper_pipeline as pp
+  # batch_state is RELOADED from disk: this block also runs after an interrupted response
+  # (S4-12) and after the REVIEW_REPAIR re-sweep, where the in-memory copy may be stale.
   batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
   _docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
   _key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
@@ -10700,8 +10885,9 @@ if AUDIT_AVAILABLE:
   for _qn in sorted((_kd.get('concept_map') or {}), key=int):
       _e = _kd['concept_map'][_qn]
       # stem_text / option_texts / figure_files are S7-QUALITY record fields (the sidecar
-      # carries them since v5.90); the reviewer ALSO reads the docx in the packet.
+      # carries them since v5.90); the reviewer ALSO reads the docx in its part folder.
       _items.append({'q': int(_qn), 'subtopic_id': _e.get('subtopic_id'),
+                     'stimulus_group_id': _e.get('stimulus_group_id'),    # a passage group is never split (E6)
                      'stem': _e.get('stem_text'), 'options': _e.get('option_texts'),
                      'figures': _e.get('figure_files') or [],
                      'content_record': {k: _e.get(k) for k in ('given_smiles', 'reagents', 'scheme_grammar',
@@ -10716,42 +10902,110 @@ if AUDIT_AVAILABLE:
             if any(c == str(_e.get('subtopic_id') or '') or str(_e.get('subtopic_id') or '').startswith(c + '.')
                    for _e in _kd.get('concept_map', {}).values())}
   PACKET = bc.review_packet(_items, _slice, PAPER_MD5)
-  PACKET['exam'], PACKET['paper_slug'] = EXAM, pp.paper_slug(paper_id)     # MockReview reads these (an exam code may contain '_')
-  PACKET['review_round'] = int(batch_state.get('review_round', 0)) + 1
-  _pkt = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_review_packet.zip'
-  with zipfile.ZipFile(_pkt, 'w', zipfile.ZIP_DEFLATED) as _z:
-      _z.write(_docx, os.path.basename(_docx))
-      _z.writestr('review_packet.json', json.dumps(PACKET, ensure_ascii=False, indent=1))
-      _z.writestr('README.txt', 'Run MockReview in a NEW chat with this zip attached. It writes '
-                                f'{EXAM}_{pp.paper_slug(paper_id)}_review_verdicts.json; attach that file and the '
-                                'registry to this chat and run TestCreate --resume.')
-  batch_state['state'] = 'AWAITING_REVIEW'
+  REVIEW_ROUND = int(batch_state.get('review_round', 0)) + 1
+  # INTERNAL ONLY (GAP-2026-11-04 A2): never /mnt/user-data/outputs, never present_files.
+  REVIEW_DIR = f'/home/claude/{EXAM}_M{N}_review/round{REVIEW_ROUND}'
+  if os.path.isdir(REVIEW_DIR):
+      shutil.rmtree(REVIEW_DIR)                        # a re-run of phase 1 never reads stale verdicts
+  _queue = []
+  for _part in PACKET['parts']:
+      _pdir = os.path.join(REVIEW_DIR, f"part{_part['part']}")
+      os.makedirs(_pdir, exist_ok=True)
+      shutil.copy(_docx, os.path.join(_pdir, os.path.basename(_docx)))   # the reviewer views figures here
+      _pk = {'exam': EXAM, 'paper_slug': pp.paper_slug(paper_id), 'paper_md5': PAPER_MD5,
+             'review_round': REVIEW_ROUND, 'n_items': len(_part['items']), 'parts': [_part],
+             'mode': 'internal'}
+      json.dump(_pk, open(os.path.join(_pdir, 'review_packet.json'), 'w', encoding='utf-8'),
+                ensure_ascii=False, indent=1)
+      _queue.append({'part': _part['part'], 'dir': _pdir, 'qs': [int(it['q']) for it in _part['items']],
+                     'verdicts': os.path.join(_pdir, 'verdicts.json'), 'attempts': 0, 'reviewer': None,
+                     'error': None})
+  json.dump({'paper_md5': PAPER_MD5, 'round': REVIEW_ROUND, 'parts': _queue},
+            open(os.path.join(REVIEW_DIR, 'queue.json'), 'w', encoding='utf-8'), indent=1)
+  batch_state['state'] = 'REVIEW_RUNNING'
   batch_state['paper_md5'] = PAPER_MD5
+  batch_state['review_dir'] = REVIEW_DIR
   json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
-  print(f"STATE: AWAITING_REVIEW — paper {paper_id} swept; run MockReview in a NEW chat with "
-        f"{os.path.basename(_pkt)}, then TestCreate --resume here. (Normal end of this step — not a stop.)")
+  print(f"S13-2G phase 1: independent review round {REVIEW_ROUND} — {PACKET['n_items']} item(s) in "
+        f"{len(_queue)} part(s), packet under {REVIEW_DIR} (internal; nothing for the user to do).")
   ```
-  Then, in the model's own turn (CLASS T — never from python): present_files([_pkt]) — the
-  packet ALONE, in its own call; the S13-8 closed-set delivery happens only after --resume.
-  The step ENDS here, normally (like a batch boundary). Nothing is committed; the registry
-  is unchanged. The review packet contains the paper, the exemplar-bank slice, the checklist
-  and paper_md5 — NO registry, NO author notes, NO scheduled bands (bc.review_packet).
 
-  PHASE 2 — the owner runs `MockReview` in a NEW chat (Framework_MockReview.md). It writes
-  `[ExamCode]_[slug]_review_verdicts.json` bound to paper_md5.
+  PHASE 2 — one fresh reviewer per part (the model's own turn, between the python blocks):
+  ```
+  # CLASS: T — PHASE 2 of S13-2G. Model agency: tool calls happen BETWEEN python blocks
+  # (EXECUTION-BOUNDARY LAW) — this section is prose and is never implemented in python.
+  #
+  # For EACH part in REVIEW_DIR/queue.json (parts MAY run in parallel when the runtime can
+  # launch several sub-agents in one turn; otherwise in sequence):
+  #
+  #  1. SUB-AGENT PATH (default). If this runtime offers a tool that starts a FRESH model
+  #     context (a sub-agent / task tool — e.g. one named Agent or Task), launch ONE fresh
+  #     sub-agent for the part, in the FOREGROUND, and wait for it. Its prompt is EXACTLY the
+  #     REVIEWER BRIEF below with <PART_DIR> replaced by the part's 'dir'. Pass NOTHING else:
+  #     no key, no notes, no bands, no batch_state, no summary of the paper, no opinion.
+  #  2. CHECK. When it returns, <PART_DIR>/verdicts.json must exist and parse. If it does
+  #     not, or the sub-agent errored or timed out: launch ONE fresh sub-agent again for that
+  #     part (exactly one retry; record the error text in queue.json 'error').
+  #  3. SAME-SESSION FALLBACK (owner decision D1, 2026-11-04 — the review is ALWAYS automatic):
+  #     if the runtime has NO sub-agent tool, or the retry also failed, review that part
+  #     YOURSELF as a cold reader, executing Framework_MockReview.md (it is routed with this
+  #     step) end to end with REVIEW_WORK=<PART_DIR> and REVIEWER=same-session in the
+  #     environment of each script (exactly as the brief below says): its S1-1 and S1-2
+  #     blocks (they write <PART_DIR>/queue.json), then §2 item by item — deriving each
+  #     own_key from the stem, the options and the figures in the docx ALONE; do NOT open the
+  #     answer key, the sidecar, batch_state or your own notes while doing it — writing
+  #     <PART_DIR>/answers.json, then its S3-1 and S3-2 blocks (S3-2 writes
+  #     <PART_DIR>/verdicts.json).
+  #     Weaker independence (owner accepted, D1/D4); disclosed by one footer line.
+  #  4. Only if even the fallback could not write a verdict for an item does that item get
+  #     NOT_RUN in phase 3 (bc.review_not_run, with the reason) — a WARN, never a stop.
+  #  5. NEVER ask the user for anything here, never present a file, never end the response.
+  #     Go straight on to phase 3.
+  #
+  # REVIEWER BRIEF (verbatim; fill <PART_DIR>):
+  #   You are the INDEPENDENT REVIEWER of one part of an exam paper. You did not write it and
+  #   you do not know its answer key. Work in bash; first `cd /tmp/fw_effective` (the verified
+  #   framework). Read /tmp/fw_effective/Framework_MockReview.md IN FULL (sed -n in bash) and
+  #   execute it in INTERNAL MODE with WORK=<PART_DIR> and REVIEWER='sub-agent'. Read ONLY the
+  #   files inside <PART_DIR> and the framework spec. Do NOT open any other file under
+  #   /home/claude or /mnt — never *_answer_key.json, *_batch_state.json, *_registry*.json,
+  #   *_fig_manifest.json, *.figspec.json or any notes. Solve every item cold, as a candidate;
+  #   open the docx in <PART_DIR> to view every figure (render the page to an image and look
+  #   at it). Run S1-1 + S1-2 as ONE python script and S3-1 + S3-2 as ONE python script,
+  #   each started as: cd /tmp/fw_effective && REVIEW_WORK=<PART_DIR> REVIEWER=sub-agent
+  #   python3 - <<'EOF' ... EOF  (the blocks read REVIEW_WORK / REVIEWER from the
+  #   environment). Write <PART_DIR>/answers.json between the two (§2), so that S3-2 writes
+  #   <PART_DIR>/verdicts.json.
+  #   Do not deliver, present or upload anything. Reply with ONE line:
+  #   "REVIEW DONE <n> items" or "REVIEW FAILED <reason>".
+  ```
+  Record each part's outcome in REVIEW_DIR/queue.json before phase 3 (CLASS T bookkeeping:
+  'reviewer' = 'sub-agent' | 'same-session', 'attempts', 'error') — phase 3 reads it.
 
-  PHASE 3 — `TestCreate --resume` / `MockCreate --resume` in THIS chat (S4-12 recovery finds
-  batch_state.state == 'AWAITING_REVIEW'):
+  PHASE 3 — bind, repair or proceed (automatic, same response):
   ```python
-  # ── S13-2G phase 3 (executable; S4-12 dispatches here when state == AWAITING_REVIEW) ──
-  import json, os, glob, blueprint_core as bc, paper_pipeline as pp
-  batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))   # --resume: reload
-  _vp = sorted(glob.glob(f'/mnt/user-data/uploads/{EXAM}_{pp.paper_slug(paper_id)}_review_verdicts.json'))
-  if not _vp:
-      raise SystemExit(f"HARD STOP [HS:INPUT] (S13-2G --resume): attach {EXAM}_{pp.paper_slug(paper_id)}"
-                       "_review_verdicts.json (written by MockReview) to this chat, then re-run --resume.")
-  VERDICTS = json.load(open(_vp[0], encoding='utf-8'))
+  # ── S13-2G phase 3 (executable; also the S4-12 entry for an interrupted review) ──
+  import json, os, blueprint_core as bc, paper_pipeline as pp
+  batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  REVIEW_DIR = batch_state.get('review_dir')
+  _qf = json.load(open(os.path.join(REVIEW_DIR, 'queue.json'), encoding='utf-8'))
   _kd = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  _md5 = batch_state.get('paper_md5')
+  _expected = sorted((_kd.get('concept_map') or {}), key=int)
+  _recs, _why_by_q, _kinds = [], {}, set()
+  for _p in _qf.get('parts') or []:
+      _r = None
+      try:
+          _r = json.load(open(_p['verdicts'], encoding='utf-8')) if os.path.exists(_p['verdicts']) else None
+      except (OSError, ValueError):
+          _r = None
+      _recs.append(_r)
+      _kinds.add(str((_r or {}).get('reviewer') or _p.get('reviewer') or 'none'))
+      for _q in _p.get('qs') or []:
+          _why_by_q[str(_q)] = str(_p.get('error') or 'reviewer produced no verdict for this item after one retry')
+  VERDICTS, _missing, _mprobs = bc.review_merge_parts(_recs, _md5, _expected)
+  for _pr in _mprobs:
+      print(f"S13-2G phase 3: {_pr} — its items are NOT_RUN (recorded, never a stop).")
   # The reviewer never saw the key (bc.review_packet strips it; MockReview writes
   # key_agrees = null). THIS session owns the sidecar, so it fills key_agrees here from the
   # reviewer's own_key vs the stored answer (1-based position / sorted list / NAT value,
@@ -10764,21 +11018,27 @@ if AUDIT_AVAILABLE:
                                                        _cm_e.get('ca_range'))
           if _rec['key_agrees'] is None:
               _rec['confidence'] = 'low'
-  _bind = bc.bind_review_verdicts(VERDICTS, batch_state.get('paper_md5'), len(_kd.get('concept_map') or {}))
+  _bind = bc.bind_review_verdicts(VERDICTS, _md5, len(VERDICTS.get('items') or {}))
   if not _bind['ok']:
-      raise SystemExit("HARD STOP [HS:INPUT] (S13-2G --resume): the verdict file does not bind to this "
-                       f"paper: {_bind['problems']} — re-run MockReview on the CURRENT packet.")
+      print(f"S13-2G phase 3: binding notes {_bind['problems']} (recorded; never a stop).")
   for _qn, _rec in (VERDICTS.get('items') or {}).items():          # the verdict lives ON the item (§4.3)
-      _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=batch_state.get('paper_md5'))
+      _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=_md5)
+  for _qn in _missing:                                              # A5: NOT_RUN, a WARN in A-REVIEW
+      _kd['concept_map'].setdefault(str(_qn), {})['review'] = bc.review_not_run(_why_by_q.get(str(_qn)), _md5)
   json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
   REVIEW_DEFECTS = _bind['defects']                                 # key disagreement / low confidence / contested
   batch_state['review_round'] = int(batch_state.get('review_round', 0)) + 1
-  batch_state['review_defects'] = list(REVIEW_DEFECTS)              # persisted: a resumed session continues from it
+  batch_state['review_defects'] = list(REVIEW_DEFECTS)              # persisted: an interrupted response continues from it
+  _summ = batch_state.setdefault('review_summary', {'repaired': [], 'not_run': [], 'reviewer': []})
+  _summ['round'] = batch_state['review_round']
+  _summ['not_run'] = sorted(set(_missing), key=int)            # the LATEST round's gaps only
+  _summ['reviewer'] = sorted(set(_summ.get('reviewer') or []) | (_kinds - {'none'}))
   if REVIEW_DEFECTS and batch_state['review_round'] < 2:            # exactly ONE more review round
-      print(f"S13-2G: reviewer flagged {REVIEW_DEFECTS} — repair each through §Q8b-LADDER (entry "
-            f"bc.ladder_entry('review_disagreement') = R2; the reviewer's reason is the constraint), "
-            "re-run S13-2F (a changed docx needs a fresh certificate), then phase 1 again — the "
-            "packet ALWAYS carries the WHOLE paper (the binding is per paper, never per item).")
+      _summ['repaired'] = sorted(set(_summ.get('repaired') or []) | set(REVIEW_DEFECTS), key=int)
+      print(f"S13-2G: reviewer flagged {REVIEW_DEFECTS} — repairing NOW, in this response: each "
+            f"through §Q8b-LADDER (entry bc.ladder_entry('review_disagreement') = R2; the reviewer's "
+            "reason is the constraint), then S13-2F (a changed docx needs a fresh certificate), then "
+            "S13-2G phase 1 again — round 2 always carries the WHOLE paper.")
       batch_state['state'] = 'REVIEW_REPAIR'
   else:
       if REVIEW_DEFECTS:                                            # round 2 still disputed -> OD-9
@@ -10801,14 +11061,21 @@ if AUDIT_AVAILABLE:
           print(f"S13-2G: items {REVIEW_DEFECTS} still disputed after two review rounds — stamped "
                 "UNRESOLVED(A-REVIEW); the paper proceeds NOT CERTIFIED (OD-9).")
       batch_state['state'] = 'REVIEWED'
+      print(f"S13-2G: REVIEWED — round {batch_state['review_round']}, "
+            f"{len(_summ.get('repaired') or [])} item(s) repaired, {len(_summ['not_run'])} not run; "
+            "continuing to S13-3 / S13-4 in this response.")
   json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
   ```
-  REVIEW_REPAIR -> repair the items in batch_state['review_defects'], S13-2F re-sweep (a
-  changed docx needs a fresh certificate), phase 1 again with the WHOLE paper (round 2);
-  REVIEWED -> S13-3 / S13-4 / S13-4c as before. The S13-4c auditor's A-REVIEW reads the
-  review record final_assembly committed on EVERY item (the auditor's effective concept
-  map overlays the registry record — it needs no sidecar at S13-4c); an item stamped
-  UNRESOLVED(A-REVIEW) is reconciled by the auditor to a WARN (OD-9), never a FAIL.
+  REVIEW_REPAIR -> repair the items in batch_state['review_defects'] NOW (same response); after
+  EACH item's repair is written, append its q to batch_state['review_repaired'] and save
+  batch_state (an interrupted response then never repeats a repair — S4-12); then S13-2F
+  re-sweep, phase 1 again with the WHOLE paper (round 2), phase 2, phase 3.
+  REVIEWED -> S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+  S13-8 in the SAME response. The S13-4c auditor's A-REVIEW reads the review record
+  final_assembly committed on EVERY item (the auditor's effective concept map overlays the
+  registry record — it needs no sidecar at S13-4c); an item stamped UNRESOLVED(A-REVIEW) is
+  reconciled by the auditor to a WARN (OD-9), a NOT_RUN record is a WARN (A5) — never a FAIL.
+  A verdict file the user happens to attach is NEVER required; S4-12 says when one is used.
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -11184,7 +11451,8 @@ if AUDIT_AVAILABLE:
 
   ```python
   _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
-  # v5.90: a RESUMED session (S13-2G --resume) never ran S13-2F in this chat — CERT,
+  # v5.90/v5.91: a RESUMED response (S4-12, after an interruption) may not have run S13-2F in
+  # this turn — CERT,
   # AMBER_NOTES and UNCERTIFIED_ITEMS (DeliveryFooter §LADDER lines) are re-read from the
   # certificate file and batch_state, the artefacts the stamps live in.
   CERT = json.load(open(_cert, encoding='utf-8')) if os.path.exists(_cert) else None
@@ -11343,8 +11611,8 @@ if AUDIT_AVAILABLE:
 ## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)
 
   At Final Assembly, Step 7 delivers the CLOSED SET to the user, and NOTHING
-  ELSE — EXACTLY the two files below (v5.89: plus, ONLY when their condition holds, the
-  two CONDITIONAL ADDITIONS listed after them). This is an exhaustive, closed list — not a
+  ELSE — EXACTLY the two files below (v5.91: the v5.89 conditional additions are retired —
+  see NO CONDITIONAL ADDITIONS below). This is an exhaustive, closed list — not a
   minimum. (v5.73: the dossier left the set by operator decision; the set no
   longer varies, so the v5.54.1 count-drift cannot recur.)
 
@@ -11355,40 +11623,31 @@ if AUDIT_AVAILABLE:
     2. [ExamCode]_registry.json             — updated dedup/tracking registry
                                               → Replace in Project Files (REGISTRY-HANDOFF-LAW)
 
-  CONDITIONAL ADDITIONS (v5.89 — GAP-2026-11-02 P2/P3; same present_files call; named to
-  fa.predelivery_checklist(extra_deliverables=...), which accepts ONLY these two shapes):
-    3. the IN-RUN blueprint (basename of BP_SRC_PATH) — ONLY when its bytes differ from the
-       project copy /mnt/project/<same name> (S3-2D recomputation, R5 schedule/allocation
-       amendments). Print, verbatim:
-         "UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER"
-       and add the footer line (Framework_DeliveryFooter §LADDER). Measured defect: the
-       project still held the pre-fix Organic blueprint after a run had regenerated it.
-    4. [ExamCode]_mock_test_audit.py — ONLY when AUDITOR_FROM_REPO (S3-1: the project had
-       no copy, or a stale one). Print, verbatim:
-         "UPLOAD THIS AUDITOR TO THE PROJECT"
+  NO CONDITIONAL ADDITIONS (v5.91 — GAP-2026-11-04 D3 (a); STEP-CONTRACT-LAW). v5.89 added
+  an amended in-run blueprint and the repo auditor copy as conditional third / fourth files;
+  after every release that touched the auditor, EVERY project received a third file on its
+  next paper. Both are now INTERNAL (owner decision D3 a): the run already audits with the
+  verified repo audit_canonical.py; an S3-2D schedule recompute is reproduced by every run
+  from its provenance, while a ladder R5 amendment (measured band / allocation) applies to
+  THIS paper only and is recorded on its registry entry (difficulty_check / ladder records).
+  Each is disclosed by ONE informational footer line
+  (Framework_DeliveryFooter §LADDER), never delivered:
   ```python
-  import os, shutil
-  _extras, _replace = [], set()
+  import os
   _bp_name = os.path.basename(BP_SRC_PATH)
   _bp_proj = f'/mnt/project/{_bp_name}'
+  INFO_LINES_S136 = []
   if (not os.path.exists(_bp_proj)
           or open(_bp_proj, 'rb').read() != open(BP_SRC_PATH, 'rb').read()):
-      shutil.copy(BP_SRC_PATH, f'/mnt/user-data/outputs/{_bp_name}')
-      _extras.append(_bp_name)
-      if os.path.exists(_bp_proj):
-          _replace.add(_bp_name)            # an older copy is in Project Files: REPLACE it
-      print("UPLOAD THIS BLUEPRINT TO THE PROJECT BEFORE THE NEXT PAPER"
-            + (" (replace the older copy)" if os.path.exists(_bp_proj) else ""))
-  if AUDITOR_FROM_REPO:
-      shutil.copy(f'/home/claude/{EXAM}_mock_test_audit.py',
-                  f'/mnt/user-data/outputs/{EXAM}_mock_test_audit.py')
-      _extras.append(f'{EXAM}_mock_test_audit.py')
-      if os.path.exists(f'/mnt/project/{EXAM}_mock_test_audit.py'):
-          _replace.add(f'{EXAM}_mock_test_audit.py')
-      print("UPLOAD THIS AUDITOR TO THE PROJECT"
-            + (" (replace the stale copy)" if f'{EXAM}_mock_test_audit.py' in _replace else ""))
-  EXTRA_DELIVERABLES = tuple(_extras)
-  EXTRA_REPLACE = tuple(x for x in _extras if x in _replace)   # badge 'Replace in Project Files'
+      INFO_LINES_S136.append("blueprint amended in this run (S3-2D recompute and/or ladder R5 amendments for "
+                             "this paper, recorded on its registry entry) — informational; nothing to upload")
+  if globals().get('AUDITOR_FROM_REPO'):
+      INFO_LINES_S136.append("project auditor copy is missing or older than the verified repo auditor — this "
+                             "run used the verified repo auditor; informational, nothing to upload")
+  EXTRA_DELIVERABLES = ()          # the closed set is ALWAYS exactly the two files
+  EXTRA_REPLACE = ()
+  for _l in INFO_LINES_S136:
+      print("INFO: " + _l)
   ```
 
   DO NOT DELIVER (internal — never passed to present_files):
@@ -11400,12 +11659,14 @@ if AUDIT_AVAILABLE:
     ✗ [ExamCode]_M[N]_progress.json         — internal
     ✗ [ExamCode]_M[N]_item_sweep_certificate.json / _item_findings.json — internal (S13-2F)
     ✗ any per-batch cumulative docx (Q1to[k]) — superseded by _Create.docx
+    ✗ any review packet / verdict file — INTERNAL to S13-2G (/home/claude/[ExamCode]_M[N]_review/)
+    ✗ [ExamCode]_mock_test_audit.py, any *_blueprint.json — internal (v5.91 D3 a)
 
   This is the inline anchor for R-DELIVER. The answers exist ONLY in the
   internal answer_key.json sidecar (S3-14), which is NEVER delivered. If the
   user wants a learner-facing answer key, that is a Step-4 (MockExplain)
-  artefact, not a Step-7 one. Step 7 ships the paper + registry, plus only the
-  EXTRA_DELIVERABLES S13-6 decided (v5.89).
+  artefact, not a Step-7 one. Step 7 ships the paper + registry and nothing else, every
+  time (v5.91 — the set is DERIVED from STEP_CONTRACTS.json, never a third file).
 
 ## S13-7 — Pre-delivery checklist (v3.5 — MANDATORY before present_files; v5.53 — extracted)
 
@@ -11429,10 +11690,19 @@ if AUDIT_AVAILABLE:
   # explicitly as a LEAK if it was ever staged; the closed set is always {docx, registry}.
   dossier_name = f'{EXAM}_M{N}_audit_dossier.json'
 
+  # v5.91 (GAP-2026-11-04 A8): remove, BEFORE the checklist, every file THIS paper's run left
+  # in outputs that is not one of the two deliverables — the per-batch Q1to[K].docx, a legacy
+  # review packet / verdict file, an auditor or blueprint copy, any internal sidecar.
+  # fa.outputs_to_clear is pure and names only this run's artefacts (other papers' / steps'
+  # earlier outputs in the same chat are never touched). Check 6 then passes with no manual step.
+  for _x in fa.outputs_to_clear(os.listdir(out), docx_name=docx_name, reg_name=reg_name):
+      os.remove(os.path.join(out, _x))
+      print(f"S13-7: cleared {_x} from outputs (not a Step 7 deliverable).")
+
   _pdc = fa.predelivery_checklist(
       out, docx_name=docx_name, reg_name=reg_name, dossier_name=dossier_name,
       regcheck_ok=globals().get('REGCHECK_OK'), qindex_ok=globals().get('QINDEX_OK'),
-      extra_deliverables=globals().get('EXTRA_DELIVERABLES', ()))   # v5.89 P2/P3
+      extra_deliverables=())          # v5.91 (D3 a): never widens the two-file set
   if not _pdc['ok']:
       raise SystemExit(
           "HARD STOP [HS:INFRA] (S13-7): pre-delivery checklist failed: "
@@ -11440,32 +11710,30 @@ if AUDIT_AVAILABLE:
           + ". Fix each, then re-run S13-7. Do NOT call present_files yet. "
           + "If item 4 fails, DELETE the off-spec answer-key file from outputs. "
           + "If item 2/3 fails, re-run S13-4 + S13-REGCHECK. "
-          + "If item 5/6 fails, move internal files back to /home/claude.")
+          + "If item 5/6 fails, a file of THIS paper that fa.outputs_to_clear does not recognise "
+          + "is in outputs — move it to /home/claude and re-run S13-7 (an engine gap: report it).")
   print("S13-7: all 7 pre-delivery checks PASS. Cleared to deliver.")
   ```
 
   Stage ONLY the deliverables in /mnt/user-data/outputs; keep every internal file
   in /home/claude. Item 6 enforces the closed set.
-  THE CLOSED SET (v5.73): the rectified docx + registry.json, plus (v5.89 P2/P3) ONLY the
-  EXTRA_DELIVERABLES S13-6 decided (an amended *_blueprint.json, a repo *_mock_test_audit.py).
+  THE CLOSED SET (v5.73; v5.91 D3 a): the rectified docx + registry.json — nothing else, ever.
   A staged [ExamCode]_M[N]_audit_dossier.json fails item 5 (internal sidecar leak).
 
 ## S13-8 — Deliver (v3.5 — the SINGLE present_files call)
 
-  Call present_files ONCE, docx first (most relevant), then the registry, then every
-  EXTRA_DELIVERABLES file (v5.89 — empty on most runs):
+  Call present_files ONCE, docx first (most relevant), then the registry — EXACTLY these
+  two files (v5.91, STEP_CONTRACTS.json; EXTRA_DELIVERABLES is always empty):
     present_files([
         docx_path,        # C2: paper-scoped ({EXAM}_{paper_slug}_Create.docx — zero-padded mock or scoped slug)
         reg_path,
-        *[f'/mnt/user-data/outputs/{x}' for x in EXTRA_DELIVERABLES]
     ])
 
   THE SET IS DECIDED BY THE ENGINE, NOT BY THIS PROSE (v5.76 — REGISTRY-HANDOFF-LAW,
   DeliveryFooter §8, mock_sync_audit MS-14). Before the call, build and verify the
   closed set exactly as Step 9 does at S19-0b — commit_registry ALWAYS changes the
-  registry (it appends the paper), so the set is the paper + registry, every time, plus
-  the EXTRA_DELIVERABLES S13-6 decided (v5.89; badge "Replace in Project Files" when an older
-  copy is there — EXTRA_REPLACE — else "Upload to Project Files"):
+  registry (it appends the paper), so the set is the paper + registry, every time — nothing
+  else (v5.91 D3 a):
 
   ```python
   import os, json
@@ -11481,14 +11749,16 @@ if AUDIT_AVAILABLE:
   _hs = pp.handoff_set(HANDOFF_STEP,
                        primary_docx=f'{EXAM}_{pp.paper_slug(paper_id)}_Create.docx',
                        reg_name=f'{EXAM}_registry.json',
-                       registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True,
-                       extra_upload=tuple(x for x in globals().get('EXTRA_DELIVERABLES', ())
-                                          if x not in globals().get('EXTRA_REPLACE', ())),
-                       extra_replace=tuple(globals().get('EXTRA_REPLACE', ())))   # v5.89 P2/P3
+                       registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True)
   if not _hs['registry_delivered']:
       raise SystemExit('HARD STOP [HS:INFRA] (S13-8): registry unchanged after Final Assembly — '
                        'commit_registry did not run; nothing is delivered.')
-  _v = pp.verify_handoff_outputs(os.listdir('/mnt/user-data/outputs'), _hs)
+  # v5.91: judged on THIS paper's delivery scope (fa.delivery_scope) — another step's or
+  # paper's earlier output in the same chat is history, never part of this delivery.
+  import final_assembly as fa
+  _v = pp.verify_handoff_outputs(fa.delivery_scope(os.listdir('/mnt/user-data/outputs'),
+                                                   docx_name=f'{EXAM}_{pp.paper_slug(paper_id)}_Create.docx',
+                                                   reg_name=f'{EXAM}_registry.json'), _hs)
   if not _v['ok']:
       raise SystemExit(f"HARD STOP [HS:INFRA] (S13-8): outputs != closed set — missing {_v['missing']}, "
                        f"stray {_v['stray']}. Fix, then re-run. Do NOT call present_files.")
@@ -11499,21 +11769,32 @@ if AUDIT_AVAILABLE:
   This is the ONLY present_files call at Final Assembly. Do NOT call it once
   per file. Do NOT call it for any internal file. The per-batch habit of "one
   docx per present_files" does NOT apply here — Final Assembly ships the paper and the
-  registry (plus any EXTRA_DELIVERABLES) in ONE call.
+  registry in ONE call.
 
 ## S13-9 — Handoff message (v3.5 — print after present_files, then END)
+
+  v5.91: run this ONLY after the S13-8 present_files call returned without error (if it
+  errored, re-run S13-7 / S13-8 — the state stays REVIEWED, so an interrupted response
+  resumes there through S4-12). Then mark the paper finished, so a later "continue" in this
+  chat never re-enters §13 or looks for a batch (S4-6 / S4-12):
+  ```python
+  # ── S13-9 terminal state (v5.91 — GAP-2026-11-04; STEP_CONTRACTS allowed end state) ──
+  import json
+  _bs9 = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  _bs9['state'] = 'DELIVERED'
+  json.dump(_bs9, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
+  ```
 
   Print exactly this block (no question content — MANDATE 0), filling brackets:
 
   ```
   === MOCK [N] COMPLETE — Step 7 done ===
-  Delivered ([2 + len(EXTRA_DELIVERABLES)] files):
+  Delivered (2 files — always exactly these two, v5.91):
     • [ExamCode]_Mock[N]_Create.docx   — the mock paper            → Use locally
     • [ExamCode]_registry.json           — updated registry           → Replace in Project Files
-    [one line per EXTRA_DELIVERABLES file, ONLY when S13-6 decided it (v5.89):]
-    • [ExamCode]_..._blueprint.json      — amended in-run blueprint   → Replace / Upload in Project Files
-    • [ExamCode]_mock_test_audit.py      — the repo auditor copy      → Replace / Upload in Project Files
-      (Replace when an older copy is in Project Files — EXTRA_REPLACE — else Upload)
+  Independent review: [round k, n item(s) repaired | not run on Q… (<reason>)]
+    [+ "(same-session review — no sub-agent in this runtime)" when review_summary.reviewer
+     lists 'same-session'] — INFORMATIONAL, never an action for the user.
 
   ⚠ REGISTRY HANDOFF — REQUIRED before generating the next mock:
     Replace registry.json in your [ExamCode] project knowledge with the one
@@ -11533,7 +11814,8 @@ if AUDIT_AVAILABLE:
   =========================================
   ```
 
-  After printing the handoff: END THE RESPONSE. Write nothing more.
+  After printing the handoff: render the S13-9A footer, then END THE RESPONSE. Write
+  nothing more.
 
 ## S13-9A — Post-delivery footer (MANDATORY after every present_files call)
 
@@ -11681,7 +11963,8 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     printed REGISTRY SOURCE lines, and batch_state.registry_pin matched every turn (v5.84)  **
 
   DELIVERY (v3.5 — closed contract):
-  □ The closed set delivered: EXACTLY final .docx + registry.json + the EXTRA_DELIVERABLES S13-6 decided (S13-6, R-DELIVER; v5.73 — the audit dossier is internal; v5.89 extras)  **
+  □ The closed set delivered: EXACTLY final .docx + registry.json — two files (S13-6, R-DELIVER; v5.73 — the audit dossier is internal; v5.91 — no extras, D3 a)  **
+  □ Step 7 ended in the SAME response as the last batch with the two files: the independent review ran IN-SESSION (S13-2G), no review packet / verdict file reached outputs, nothing was asked of the user (v5.91, STEP-CONTRACT-LAW)  **
   □ registry.json staged in /mnt/user-data/outputs and present_files'd (S13-8)  **
   □ NO standalone answer-key file in any format delivered (R-DELIVER)  **
   □ NO internal sidecar (answer_key/fig/batch_state/progress/audit_dossier) delivered  **
@@ -11769,11 +12052,11 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   | Gate Code      | Checks                                          | Fix? | Fix                                  |
   |----------------|-------------------------------------------------|------|--------------------------------------|
-  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry + EXTRA_DELIVERABLES (v5.73 — the audit dossier is internal; v5.89 extras decided by S13-6) | YES  | Remove stray/internal files; add reg |
+  | G-DELIVERY-SET | This paper's delivery scope (fa.delivery_scope) holds EXACTLY the closed set: docx + registry (v5.73 — the audit dossier is internal; v5.91 — two files, no extras) | YES  | fa.outputs_to_clear removes this run's leftovers (S13-7) |
 
   G-DELIVERY-SET (definition): at Final Assembly, /mnt/user-data/outputs must
-  contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json }
-  ∪ EXTRA_DELIVERABLES (v5.89 — S13-6) — no more, no fewer. A standalone answer-key file, a leaked internal sidecar,
+  contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json } within this
+  paper's delivery scope (v5.91 — fa.delivery_scope) — no more, no fewer. A standalone answer-key file, a leaked internal sidecar,
   or a missing registry → Exit 1. This is the machine-checkable form of the
   S13-6 closed contract (identical to S13-7 items 4–6) and runs inside the S13-2
   sweep so the off-spec set is caught even if S13-7 is skipped.
@@ -12262,7 +12545,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.90
+# END OF Framework_MockTestCreate v5.91
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

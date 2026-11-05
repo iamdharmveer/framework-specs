@@ -15,6 +15,23 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.36 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (paired with blueprint_core
+#   v1.31, final_assembly v1.13, Framework_MockTestCreate v5.91). A-TEMPLATE counts PER
+#   (subtopic, fingerprint) against THAT subtopic's measured cap (the unit Step 5 measures;
+#   order-independent), never a default: an unmeasured fingerprint is not checked, nothing
+#   measured -> DORMANT, an infeasible unit -> reported OK INFEASIBLE (bc.template_feasible_caps);
+#   R4/R4' exempt only on the engine's S13-2F terminal stamp (ladder.terminal_sweep).
+#   Readiness rule (_qq_readiness + bc.readiness_dormant, inside gate_template): G-TEMPLATE
+#   MISSING / STALE / N/A makes the FINGERPRINT caps DORMANT; concept caps and every other
+#   gate keep their 2026.11.03 behaviour; the per-batch audit reads readiness from the
+#   sidecar's sibling batch_state. A-REVIEW / A-QUALITYSTATUS are dormant in a per-batch
+#   audit (no registry entry yet). Feasibility is judged on the items whose fingerprint HAS
+#   a measured cap. _paper_is_qq also recognises a v5.90 paper by its `fingerprint` records,
+#   so a per-batch audit reports the SAME level as the pre-commit sweep (no AMBER-then-FAIL).
+#   A-REVIEW: a NOT_RUN review record is a WARN naming the reason; a missing record is an
+#   S13-2G binding defect [HS:INFRA] — the message names no user step (no new chat, no
+#   --resume). Incident: SSC GD Tier 1 TestCreate P2 — 35 of 50 items UNRESOLVED by the
+#   default cap of 2 on a project without measured caps; fixtures replay it.
 # v2.35 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
 #   blueprint_core v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types
 #   v1.2, analyse_engine v1.2, final_assembly v1.12, Framework_MockTestCreate v5.90,
@@ -934,6 +951,20 @@ def load_sources(args):
         _key_data = json.load(open(args.key, encoding='utf-8'))
         src['concept_map'] = _key_data.get('concept_map', {})
         src['answers'] = _key_data.get('answers', {})
+        # GAP-2026-11-04 B5/B6: the paper's S3-2e quality_readiness record reaches the
+        # PER-BATCH audit too (no registry entry exists before S13-4) — from the sidecar if
+        # it carries one, else from the sibling batch_state the Create session keeps beside
+        # it ([ExamCode]_M[N]_answer_key.json -> [ExamCode]_M[N]_batch_state.json).
+        _rd_k = _key_data.get('quality_readiness')
+        if not isinstance(_rd_k, dict):
+            _bs_p = str(args.key).replace('_answer_key.json', '_batch_state.json')
+            if _bs_p != str(args.key) and Path(_bs_p).exists():
+                try:
+                    _rd_k = (json.load(open(_bs_p, encoding='utf-8')) or {}).get('quality_readiness')
+                except (OSError, ValueError):
+                    _rd_k = None
+        if isinstance(_rd_k, dict):
+            src['quality_readiness'] = _rd_k
 
     # v1.2 — MSQ re-derivation (INDEPENDENT of any Step-7 self-report). Dormant when the
     # blueprint declares no multi subtopics (every value below is empty/zero ⇒ the MSQ
@@ -4813,16 +4844,40 @@ def _qq_reconcile_unresolved(phase):
 def _paper_is_qq(src):
     """OD-10 (a): the new gates are HARD on a paper produced under release >= 2026.11.03
     (qindex_cert.producer_release), or whose concept_map already carries quality
-    verdicts (the pre-commit preview). Older papers: AMBER."""
+    verdicts (the pre-commit preview). Older papers: AMBER.
+    GAP-2026-11-04 B6: ALSO a paper whose items carry the v5.90 S7-QUALITY `fingerprint`
+    record — only a >= 2026.11.03 Create writes it — so a PER-BATCH audit (no registry
+    entry, no stamps yet) reports the SAME level the pre-commit sweep will, and the author
+    repairs during the batches instead of meeting a FAIL first at Final Assembly."""
     bc = _qq_bc()
     e = _qq_entry(src)
     if e and bc.producer_release_gate(((e.get('qindex_cert') or {}).get('producer_release'))):
         return True
     cm = _qq_cm(src)
-    return any(isinstance(v, dict) and 'quality_status' in v for v in cm.values())
+    return any(isinstance(v, dict) and ('quality_status' in v or v.get('fingerprint')) for v in cm.values())
+
+
+def _qq_readiness(src):
+    """GAP-2026-11-04 B5: this paper's S3-2e quality_readiness record — from its registry
+    question_index entry (committed or the S13-2F preview), else the registry-level map,
+    else the --key sidecar's top-level copy; None when no record exists (a per-batch run
+    of a paper whose S3 predates 2026.11.03)."""
+    e = _qq_entry(src) or {}
+    rd = e.get('quality_readiness')
+    if isinstance(rd, dict):
+        return rd
+    _reg_rd = (src.get('registry') or {}).get('quality_readiness')
+    if isinstance(_reg_rd, dict):
+        rd = _reg_rd.get(_this_paper_id(src) or '')
+        if isinstance(rd, dict):
+            return rd
+    rd = src.get('quality_readiness')
+    return rd if isinstance(rd, dict) else None
 
 
 def _qq_fail_or_amber(code, msg, src):
+    # (GAP-2026-11-04 B5: the readiness rule is applied INSIDE gate_template, to its
+    # fingerprint caps only — bc.QQ_GATE_CONTROL; every other gate is unchanged.)
     if _paper_is_qq(src):
         _fail(code, msg)
     else:
@@ -5327,33 +5382,50 @@ def gate_itemrule(blocks, src):
 
 def gate_review(src, args=None):
     """A-REVIEW (G12 R12.1; OD-5 a). FINAL phase on a 2026.11.03 paper: every item carries
-    a review record (concept_map[q].review, written by MockReview and bound by
-    paper_md5); a key disagreement, low confidence or contested selectivity is an item
-    defect (ladder R2). Pre-commit phase: dormant (the review runs after the sweep)."""
+    a review record (concept_map[q].review, written by the IN-SESSION independent review of
+    Create S13-2G and bound by paper_md5); a key disagreement, low confidence or contested
+    selectivity is an item defect (ladder R2). Pre-commit phase: dormant (the review runs
+    after the sweep).
+    GAP-2026-11-04 A9: a record {status: 'NOT_RUN', reason} (the review could not run in
+    this runtime — S13-2G fallback) is a WARN that names the reason, never a FAIL. A MISSING
+    record is an S13-2G defect [HS:INFRA], never a user task — the message names no user
+    step (the review is never handed to the user, OD-5 restated 2026.11.04)."""
     phase = getattr(args, 'phase', 'final') if args is not None else src.get('_phase', 'final')
     cm = _qq_cm(src)
     if phase == 'precommit':
-        _ok('A-REVIEW', 'dormant — pre-commit sweep; the independent review runs after it (AWAITING_REVIEW).')
+        _ok('A-REVIEW', 'dormant — pre-commit sweep; the in-session independent review (S13-2G) runs after it.')
         return
     if not _paper_is_qq(src):
         _ok('A-REVIEW', 'dormant — pre-2026.11.03 paper (EC-V18).')
         return
+    if _qq_entry(src) is None:
+        # GAP-2026-11-04 (release review): a PER-BATCH audit has no registry preview /
+        # committed entry yet and the review runs only after S13-2F — never a batch FAIL.
+        _ok('A-REVIEW', 'dormant — per-batch audit (no registry entry yet); the in-session review runs after S13-2F.')
+        return
     bad_missing = sorted((q for q, e in cm.items() if not isinstance(e, dict) or not isinstance(e.get('review'), dict)),
                      key=lambda x: int(x) if str(x).isdigit() else 0)
-    bad_defect = []
+    bad_defect, not_run = [], {}
     for q, e in cm.items():
         rv = e.get('review') if isinstance(e, dict) else None
         if not isinstance(rv, dict):
+            continue
+        if str(rv.get('status') or '').upper() == 'NOT_RUN':
+            not_run.setdefault(str(rv.get('reason') or 'no reason recorded'), []).append(str(q))
             continue
         if rv.get('key_agrees') is False or rv.get('confidence') == 'low' \
                 or str(rv.get('selectivity_basis') or '').lower().startswith('contested') or rv.get('verdict') == 'FAIL':
             bad_defect.append(f'Q{q}')
             _item('A-REVIEW', q, 'A-REVIEW: ' + str(rv.get('reason') or 'reviewer disagrees / low confidence'), 'VOID_ITEM')
     if bad_missing:
-        _fail('A-REVIEW', f'{len(bad_missing)} item(s) carry NO independent-review record (OD-5: review is mandatory on every '
-                          f'paper; run MockReview in a fresh chat, then TestCreate --resume): ' + _flist(bad_missing))
+        _fail('A-REVIEW', f'{len(bad_missing)} item(s) carry NO independent-review record — an S13-2G binding defect '
+                          f'[HS:INFRA] (the in-session review stamps every item, a verdict or NOT_RUN): ' + _flist(bad_missing))
     elif bad_defect:
         _fail('A-REVIEW', f'ITEM DEFECT — reviewer disagrees with the key or rates confidence low on: ' + _flist(bad_defect) + ' — ladder R2.')
+    elif not_run:
+        _warn('A-REVIEW', 'independent review NOT RUN on ' + '; '.join(
+            f"{_flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))} ({why})" for why, qs in sorted(not_run.items()))
+            + ' — recorded and disclosed in the footer (GAP-2026-11-04 A5); never a stop.')
     else:
         _ok('A-REVIEW', f'{len(cm)} item(s) independently reviewed; every key agreed.')
 
@@ -5366,6 +5438,11 @@ def gate_qualitystatus(src, args=None):
     cm = _qq_cm(src)
     if not _paper_is_qq(src):
         _ok('A-QUALITYSTATUS', 'dormant — pre-2026.11.03 paper.')
+        return
+    if _qq_entry(src) is None:
+        # GAP-2026-11-04 (release review): the stamps are written by S13-2F — a PER-BATCH
+        # audit (no registry preview / committed entry) can never carry them.
+        _ok('A-QUALITYSTATUS', 'dormant — per-batch audit (no registry entry yet); S13-2F stamps every item.')
         return
     bc = _qq_bc()
     unres = bc.certificate_uncertified({q: (e.get('quality_status') if isinstance(e, dict) else None) for q, e in cm.items()})
@@ -5510,51 +5587,114 @@ def _qq_concept_caps(src, n_items):
     if not per_paper:
         return {}
     mean_sz = (sum(sizes) / len(sizes)) if sizes else None
-    return {c: bc.template_cap(k, int(n_items or 0), mean_sz) for c, k in per_paper.items()}
+    return {c: bc.template_cap(k, int(n_items or 0), mean_sz, rounding='round') for c, k in per_paper.items()}
 
 
 def gate_template(src):
-    """A-TEMPLATE [D] (G08 R8.3). Counts of concept_map[q].fingerprint (and concept) vs
-    caps from the subtopic QUALITY blocks (fingerprint_max_per_paper scaled by
-    bc.template_cap; unmeasured -> 2)."""
+    """A-TEMPLATE [D] (G08 R8.3; GAP-2026-11-04 B1-B8). Repeats of concept_map[q].fingerprint
+    are counted PER (subtopic_id, fingerprint) — the unit Step 5 measures
+    (analyse_engine.measure_quality_fields, one QUALITY block per subtopic) — and each
+    count is compared with THAT subtopic's measured cap (fingerprint_max_per_paper scaled
+    by bc.template_cap to this paper's item count for the subtopic). A fingerprint with no
+    measured cap is NEVER checked (no default — B1); no measured cap anywhere -> DORMANT
+    (OD-1: printed, never a finding, never a stop); a subtopic whose measured caps cannot
+    hold its items is INFEASIBLE after the bc.template_feasible_caps guard -> reported OK,
+    never FAIL (B4). Concept caps stay as before (measured from the difficulty profile or
+    dormant). The result is independent of question order (U3)."""
     bc = _qq_bc()
     cm = _qq_cm(src)
     N = int(src.get('total_questions') or len(cm) or 0)
-    fcounts, ccounts, caps, ibf, ibc = {}, {}, {}, {}, {}
-    for q, e in cm.items():
+    # B5: a readiness record showing G-TEMPLATE MISSING / STALE / N/A makes the FINGERPRINT
+    # caps dormant; the concept caps (measured from the difficulty profile, not from
+    # section_rules) still run (release review).
+    _fp_why = bc.readiness_dormant(_qq_readiness(src), 'A-TEMPLATE')
+    # per-subtopic units: {sid: {'items': [q], 'fp': {fp: [q]}}}
+    units, nfp, ccounts, ibc = {}, 0, {}, {}
+    for q in sorted(cm, key=lambda x: int(x) if str(x).isdigit() else 0):
+        e = cm[q]
         if not isinstance(e, dict):
             continue
         fp = e.get('fingerprint')
         if fp:
-            fcounts[fp] = fcounts.get(fp, 0) + 1
-            ibf.setdefault(fp, []).append(str(q))
-            qb = _qq_quality_for(src, q) or {}
-            mx = (qb.get('fingerprint_max_per_paper') or {}).get(fp)
-            n_per = (qb.get('n') or 0) / float(qb.get('papers_measured') or 1) if qb.get('papers_measured') else None
-            share = (qb.get('shape_shares') or {}).get('|'.join(fp.split('|')[0:1] + fp.split('|')[2:3]))
-            caps[fp] = bc.template_cap(mx, N, n_per, share)
+            nfp += 1
+            u = units.setdefault(str(e.get('subtopic_id') or ''), {'items': [], 'fp': {}})
+            u['items'].append(str(q))
+            u['fp'].setdefault(fp, []).append(str(q))
         if e.get('concept'):
             ccounts[e['concept']] = ccounts.get(e['concept'], 0) + 1
             ibc.setdefault(e['concept'], []).append(str(q))
-    if not fcounts:
+    if not nfp and not ccounts:
         _ok('A-TEMPLATE', 'DORMANT — no fingerprint recorded on this paper\'s items (OD-1: recorded).')
         return
-    exempt = {q for q, e in cm.items() if isinstance(e, dict) and str((e.get('ladder') or {}).get('rung', '')) in ('R4', "R4'")}
-    # concept caps are MEASURED from the exam's own explained PYQ (difficulty profile,
-    # PYQExplain v2.26 `concept` per item): the max count of each concept id in one PYQ
-    # paper, scaled to this paper's size like the fingerprint caps. No profile / no
-    # concept tags -> concept caps dormant (never a default cap on a concept — R8.3).
+    # B8: an item is exempt only on an ENGINE-written terminal record (S13-2F stamps
+    # ladder.terminal_sweep when it routes the item to its terminal rung) — never on a rung
+    # the author recorded alone.
+    exempt = {q for q, e in cm.items() if isinstance(e, dict) and isinstance(e.get('ladder'), dict)
+              and str(e['ladder'].get('rung', '')) in ('R4', "R4'") and e['ladder'].get('terminal_sweep')}
+    findings, checked, skipped, infeasible = [], 0, 0, []
+    for sid in sorted(units):
+        u = units[sid]
+        if _fp_why:
+            skipped += len(u['fp'])
+            continue
+        qb = (_qq_quality_for(src, u['items'][0]) or {}) if sid else {}
+        fmax = qb.get('fingerprint_max_per_paper') or {}
+        if not fmax:
+            skipped += len(u['fp'])
+            continue
+        n_sub = len(u['items'])
+        n_per = (float(qb.get('n') or 0) / float(qb.get('papers_measured'))) if qb.get('papers_measured') else None
+        shares = qb.get('shape_shares') or {}
+        caps = {}
+        for fp in sorted(set(fmax) | set(u['fp'])):
+            share = shares.get('|'.join(fp.split('|')[0:1] + fp.split('|')[2:3]))
+            caps[fp] = bc.template_cap(fmax.get(fp), n_sub, n_per or None, share)
+        # feasibility is judged on the items whose fingerprint HAS a measured cap — an item on
+        # an unmeasured fingerprint is never capped, so it never needs room (release review)
+        n_meas = sum(len(qs) for fp, qs in u['fp'].items() if caps.get(fp) is not None)
+        caps, infeas = bc.template_feasible_caps(caps, n_meas, shares)
+        if infeas:
+            infeasible.append(f'{sid} ({n_meas} capped item(s))')
+            continue
+        counts = {fp: len(qs) for fp, qs in u['fp'].items()}
+        skipped += sum(1 for fp in counts if caps.get(fp) is None)
+        checked += sum(1 for fp in counts if caps.get(fp) is not None)
+        r = bc.template_check(counts, caps, exempt_qs=exempt, items_by_fingerprint=u['fp'])
+        for f in r.get('findings') or []:
+            f['id'] = f"{f['id']} in {sid}"
+            findings.append(f)
     concept_caps = _qq_concept_caps(src, N)
-    r = bc.template_check(fcounts, caps, concept_counts=ccounts, concept_caps=concept_caps, exempt_qs=exempt,
-                          items_by_fingerprint=ibf, items_by_concept=ibc)
-    if r['state'] == 'FAIL':
-        for f in r['findings']:
+    rc = bc.template_check({}, {}, concept_counts=ccounts, concept_caps=concept_caps, exempt_qs=exempt,
+                           items_by_concept=ibc)
+    findings += list(rc.get('findings') or [])
+    _why_txt = (f'readiness {_fp_why}' if _fp_why else
+                'section_rules.md lacks fingerprint_max_per_paper for these subtopics')
+    if not checked and not concept_caps and not findings and infeasible and not _fp_why:
+        _ok('A-TEMPLATE', 'INFEASIBLE (reported, never a defect) — the measured caps cannot hold this paper\'s '
+                          f'allocation in: {_flist(infeasible)}' + (f'; {skipped} unmeasured fingerprint(s) not checked' if skipped else '') + '.')
+        return
+    if not checked and not concept_caps and not findings:
+        _ok('A-TEMPLATE', f'DORMANT — no measured template caps ({_why_txt}; re-run Step 5 under >= 2026.11.04 '
+                          'to activate)'
+                          + (f'; INFEASIBLE (reported, never a defect): {_flist(infeasible)}' if infeasible else '')
+                          + ' — OD-1: recorded, never a stop.')
+        return
+    if findings:
+        for f in findings:
             for q in f.get('items') or []:
-                _item('A-TEMPLATE', q, f"A-TEMPLATE: {f['kind']} {f['id']} repeats beyond cap {f['cap']} — rebuild on another template", 'VOID_ITEM')
-        _qq_fail_or_amber('A-TEMPLATE', 'the same template repeats inside one paper beyond the exam\'s measured maximum: '
-                                        + _flist([f"{f['kind']} {f['id']} x{f['count']} > cap {f['cap']}" for f in r['findings']]) + ' — ladder R3.', src)
+                _item('A-TEMPLATE', q, f"A-TEMPLATE: {f['kind']} {f['id']} repeats beyond its measured cap {f['cap']} — rebuild on another template", 'VOID_ITEM')
+        _qq_fail_or_amber('A-TEMPLATE', 'the same template repeats inside one subtopic beyond the exam\'s measured maximum: '
+                                        + _flist([f"{f['kind']} {f['id']} x{f['count']} > cap {f['cap']}" for f in findings]) + ' — ladder R3.', src)
+    elif not checked:
+        _ok('A-TEMPLATE', f'DORMANT for template fingerprints — no measured template caps ({_why_txt}; '
+                          'OD-1: recorded, never a stop)'
+                          + (f'; {skipped} unmeasured fingerprint(s) not checked' if skipped else '')
+                          + (f'; INFEASIBLE (reported, never a defect): {_flist(infeasible)}' if infeasible else '')
+                          + (f'; {len(concept_caps)} measured concept cap(s), every count within its cap' if concept_caps else '') + '.')
     else:
-        _ok('A-TEMPLATE', f'{len(fcounts)} template fingerprint(s), every count within its cap.')
+        _ok('A-TEMPLATE', f'{checked} measured template fingerprint(s), every count within its per-subtopic cap'
+                          + (f'; {skipped} unmeasured fingerprint(s) not checked' if skipped else '')
+                          + (f'; INFEASIBLE (reported, never a defect): {_flist(infeasible)}' if infeasible else '') + '.')
 
 
 def gate_pyqbench(src):
@@ -5998,7 +6138,7 @@ def write_item_outputs(args):
                 'findings': len(ITEM_FINDINGS) - len(_open_items), 'amber_notes': amber,
                 'uncertified_items': sorted(_unres, key=lambda x: int(x) if str(x).isdigit() else 0),
                 'certified': not _unres,
-                'auditor': 'audit_canonical v2.35'}
+                'auditor': 'audit_canonical v2.36'}
         with open(wc, 'w', encoding='utf-8') as fh:
             json.dump(cert, fh, indent=1, sort_keys=True)
         print(f'CERTIFICATE: WRITTEN {wc} ({len(amber)} amber note(s)).')
@@ -11943,7 +12083,10 @@ def self_test():
     check('A-SHAPEMIX-dormant-no-target', _lv('A-SHAPEMIX') == ['OK'] and 'DORMANT' in _msg('A-SHAPEMIX'))
     _fp35 = 'product_prediction|mcq|none|none'
     _cmt = {str(i): {'subtopic_id': 'oc.x', 'fingerprint': _fp35} for i in range(1, 6)}
-    _reset(); gate_template(_src35(section_rules_text=_SR35.replace('"product_prediction|none": 1.0', '"product_prediction|none": 0.1'),
+    # 2026.11.04: the subtopic's measured caps must be FEASIBLE for the fixture to be a real
+    # over-cap (a second measured fingerprint gives the unit room for its 5 items)
+    _reset(); gate_template(_src35(section_rules_text=_SR35.replace('"product_prediction|none": 1.0', '"product_prediction|none": 0.1')
+                                   .replace('{"product_prediction|mcq|none|none": 2}', '{"other|mcq|none|none": 4, "product_prediction|mcq|none|none": 2}'),
                                    concept_map=_cmt, total_questions=5))
     check('A-TEMPLATE-over-cap', _lv('A-TEMPLATE') == ['FAIL'] and 'x5' in _msg('A-TEMPLATE'))
     check('A-TEMPLATE-over-cap-names-surplus-items', len(_items('A-TEMPLATE')) >= 1 and '5' in _items('A-TEMPLATE'))
@@ -11954,17 +12097,127 @@ def self_test():
     _reset(); gate_template(_src35(section_rules_text=_SR35, total_questions=3,
                                    concept_map={str(i): {'subtopic_id': 'oc.x', 'fingerprint': f'fp{i}', 'concept': 'eas'} for i in range(1, 4)}))
     check('A-TEMPLATE-concept-cap-dormant-without-profile', _lv('A-TEMPLATE') == ['OK'])
+    _prof_30 = {'papers': {'p1': {'questions': dict({'1': {'concept': 'eas'}}, **{str(i): {} for i in range(2, 31)})}}}
+    check('QQ-concept-caps-keep-2026.11.03-rounding', _qq_concept_caps({'profile': _prof_30}, 40) == {'eas': 1})
     check('QQ-concept-caps-measured', _qq_concept_caps({'profile': _prof_c}, 3) == {'eas': 1, 'x': 1, 'y': 1} and _qq_concept_caps({'profile': {}}, 3) == {}
           and _qq_concept_caps({'profile': {'papers': {'p': 'junk'}}}, 3) == {})
     _reset(); gate_template(_src35(section_rules_text=_SR35, concept_map={'1': {'subtopic_id': 'oc.x', 'fingerprint': _fp35}}, total_questions=1))
     check('A-TEMPLATE-within-cap', _lv('A-TEMPLATE') == ['OK'])
     _reset(); gate_template(_src35(concept_map={'1': {}}))
     check('A-TEMPLATE-dormant', _lv('A-TEMPLATE') == ['OK'] and 'DORMANT' in _msg('A-TEMPLATE'))
+    # ---- GAP-2026-11-04 (U1-U4, U6, B5, B8): the incident of 2026-11-04 — SSC GD Tier 1,
+    # TestCreate P2, 50 reasoning MCQs, section_rules WITHOUT QUALITY blocks: the default cap
+    # of 2 stamped 35 items UNRESOLVED. Every fixture below FAILS on release 2026.11.03.
+    _gd_mix = [('other', 24), ('next_in_series', 12), ('analogy', 4), ('odd_one_out', 3), ('count', 2),
+               ('embedded_figure', 2), ('paper_folding', 2), ('mirror_water_image', 1)]
+    _cm_gd, _qn = {}, 0
+    for _ask, _k in _gd_mix:
+        for _ in range(_k):
+            _qn += 1
+            _cm_gd[str(_qn)] = {'subtopic_id': 'gir.' + _ask, 'fingerprint': f'{_ask}|mcq|none|none'}
+    _SR_LEGACY = '--- Subtopic: A ---\nsubtopic_id: gir.other\nstem_word_count: min=6 max=20 typical=10\n'
+    _reset(); gate_template(_src35(section_rules_text=_SR_LEGACY, concept_map=_cm_gd, total_questions=50))
+    check('A-TEMPLATE-dormant-without-quality-block-ssc-gd-incident', _lv('A-TEMPLATE') == ['OK'] and 'DORMANT' in _msg('A-TEMPLATE')
+          and _items('A-TEMPLATE') == [])
+    _e_st = dict(_QQ_ENTRY, quality_readiness={'controls': {'G-TEMPLATE': {'status': 'STALE', 'reason': 'section_rules.md lacks fingerprint_max_per_paper'}},
+                                              'degraded': ['G-TEMPLATE']})
+    _src_st = _src35(section_rules_text=_SR35.replace('{"product_prediction|mcq|none|none": 2}', '{"other|mcq|none|none": 4, "product_prediction|mcq|none|none": 2}'),
+                     concept_map=_cmt, total_questions=5)
+    _src_st['registry'] = {'question_index': [_e_st]}
+    _reset(); gate_template(_src_st)
+    check('A-TEMPLATE-dormant-by-readiness-stale', _lv('A-TEMPLATE') == ['OK'] and 'DORMANT' in _msg('A-TEMPLATE')
+          and 'G-TEMPLATE STALE' in _msg('A-TEMPLATE') and _items('A-TEMPLATE') == [])
+    _SR_U2 = _SR35.replace('{"product_prediction|mcq|none|none": 2}', '{"product_prediction|mcq|none|none": 1, "other|mcq|none|none": 6}')
+    _cm_u2 = {str(i): {'subtopic_id': 'oc.x', 'fingerprint': 'never_seen|mcq|none|none'} for i in range(1, 6)}
+    _cm_u2['6'] = {'subtopic_id': 'oc.x', 'fingerprint': _fp35}
+    _reset(); gate_template(_src35(section_rules_text=_SR_U2, concept_map=_cm_u2, total_questions=6))
+    check('A-TEMPLATE-unseen-fingerprint-not-capped', _lv('A-TEMPLATE') == ['OK'] and 'unmeasured' in _msg('A-TEMPLATE') and _items('A-TEMPLATE') == [])
+    _SR_U3 = ('--- Subtopic: S1 ---\nsubtopic_id: r.num\nQUALITY (v2.59):\n  n: 6\n  shape_shares: {"next_in_series|none": 0.2}\n'
+                            '  fingerprint_max_per_paper: {"next_in_series|mcq|none|none": 1, "other|mcq|none|none": 2}\n  papers_measured: 3\n\n'
+              '--- Subtopic: S2 ---\nsubtopic_id: r.let\nQUALITY (v2.59):\n  n: 6\n  shape_shares: {"next_in_series|none": 0.2}\n'
+              '  fingerprint_max_per_paper: {"next_in_series|mcq|none|none": 1, "other|mcq|none|none": 2}\n  papers_measured: 3\n')
+    _fpn = 'next_in_series|mcq|none|none'
+    _fpo = 'other|mcq|none|none'
+    # each subtopic within its own cap (1 series item of 2) — paper-wide the series
+    # fingerprint appears twice, which the 2026.11.03 paper-wide count failed
+    _cm_a = {'1': {'subtopic_id': 'r.num', 'fingerprint': _fpn}, '2': {'subtopic_id': 'r.num', 'fingerprint': _fpo},
+             '3': {'subtopic_id': 'r.let', 'fingerprint': _fpn}, '4': {'subtopic_id': 'r.let', 'fingerprint': _fpo}}
+    _reset(); gate_template(_src35(section_rules_text=_SR_U3, concept_map=_cm_a, total_questions=4))
+    check('A-TEMPLATE-counted-per-subtopic', _lv('A-TEMPLATE') == ['OK'] and _items('A-TEMPLATE') == [])
+    # r.num: 3 series items of 4 (cap 1 x 4/2 = 2) -> over; r.let: 1 series item -> within
+    _cm_b = {'1': {'subtopic_id': 'r.num', 'fingerprint': _fpn}, '2': {'subtopic_id': 'r.num', 'fingerprint': _fpn},
+             '3': {'subtopic_id': 'r.num', 'fingerprint': _fpn}, '4': {'subtopic_id': 'r.num', 'fingerprint': _fpo},
+             '5': {'subtopic_id': 'r.let', 'fingerprint': _fpn}}
+    _cm_b2 = {'5': _cm_b['1'], '4': _cm_b['2'], '3': _cm_b['3'], '2': _cm_b['4'], '1': _cm_b['5']}
+    _reset(); gate_template(_src35(section_rules_text=_SR_U3, concept_map=_cm_b, total_questions=5)); _r1 = (_lv('A-TEMPLATE'), _msg('A-TEMPLATE'))
+    _reset(); gate_template(_src35(section_rules_text=_SR_U3, concept_map=_cm_b2, total_questions=5)); _r2 = (_lv('A-TEMPLATE'), _msg('A-TEMPLATE'))
+    check('A-TEMPLATE-per-subtopic-order-independent', _r1 == _r2 and _r1[0] == ['FAIL'] and 'in r.num' in _r1[1])
+    _SR_U4 = ('--- Subtopic: S1 ---\nsubtopic_id: r.num\nQUALITY (v2.59):\n  shape_shares: {}\n'
+              '  fingerprint_max_per_paper: {"next_in_series|mcq|none|none": 1}\n  papers_measured: 3\n')
+    _reset(); gate_template(_src35(section_rules_text=_SR_U4, total_questions=5,
+                                   concept_map={str(i): {'subtopic_id': 'r.num', 'fingerprint': _fpn} for i in range(1, 6)}))
+    check('A-TEMPLATE-infeasible-never-fail', _lv('A-TEMPLATE') == ['OK'] and 'INFEASIBLE' in _msg('A-TEMPLATE') and _items('A-TEMPLATE') == []
+          and 'lacks fingerprint_max_per_paper' not in _msg('A-TEMPLATE'))
+    # release review: an item on an UNMEASURED fingerprint never makes a measured over-cap
+    # "infeasible" (caps a:1, b:1 per 2 items; 4 x a + 1 unmeasured -> a over its cap)
+    _SR_F = ('--- Subtopic: S1 ---\nsubtopic_id: r.num\nQUALITY (v2.59):\n  n: 6\n  shape_shares: {}\n'
+             '  fingerprint_max_per_paper: {"a|mcq|none|none": 1, "b|mcq|none|none": 1}\n  papers_measured: 3\n')
+    _cm_f = {str(i): {'subtopic_id': 'r.num', 'fingerprint': 'a|mcq|none|none'} for i in range(1, 5)}
+    _cm_f['5'] = {'subtopic_id': 'r.num', 'fingerprint': 'zz|mcq|none|none'}
+    _reset(); gate_template(_src35(section_rules_text=_SR_F, concept_map=_cm_f, total_questions=5))
+    check('A-TEMPLATE-unmeasured-item-never-hides-measured-overcap', _lv('A-TEMPLATE') == ['FAIL'] and 'a|mcq|none|none in r.num x4' in _msg('A-TEMPLATE'))
+    # B8 — an author-recorded R4 rung alone never exempts an item; the S13-2F terminal stamp does
+    _cm_b8 = {k: dict(v) for k, v in _cm_b.items()}
+    _cm_b8['3']['ladder'] = {'rung': 'R4'}
+    _reset(); gate_template(_src35(section_rules_text=_SR_U3, concept_map=_cm_b8, total_questions=5))
+    check('A-TEMPLATE-author-rung-not-exempt', _lv('A-TEMPLATE') == ['FAIL'])
+    _cm_b8['3']['ladder'] = {'rung': 'R4', 'terminal_sweep': 3}
+    _reset(); gate_template(_src35(section_rules_text=_SR_U3, concept_map=_cm_b8, total_questions=5))
+    check('A-TEMPLATE-engine-terminal-stamp-exempt', _lv('A-TEMPLATE') == ['OK'])
+    # U6 — a v5.90 paper (items carry fingerprints) audited PER BATCH (no registry entry yet)
+    # reports FAIL, the same level the pre-commit sweep will — never AMBER-then-FAIL
+    _src_u6 = _src35(section_rules_text=_SR_U3, concept_map=_cm_b, total_questions=5)
+    _src_u6['registry'] = {'question_index': []}
+    _reset(); gate_template(_src_u6)
+    check('QQ-level-stable-batch-vs-precommit', _lv('A-TEMPLATE') == ['FAIL'] and 'AMBER' not in _msg('A-TEMPLATE'))
+    _src_u6b = dict(_src_u6, concept_map={k: {kk: vv for kk, vv in v.items() if kk != 'fingerprint'} for k, v in _cm_b.items()})
+    check('QQ-pre-2026.11.03-paper-still-amber', _paper_is_qq(_src_u6b) is False and _paper_is_qq(_src_u6) is True)
+    # B5 — the readiness rule is A-TEMPLATE-only: a STALE input never silences another gate
+    _e_sl = dict(_QQ_ENTRY, quality_readiness={'controls': {'G-STEMLEAK': {'status': 'STALE', 'reason': 'x'}}, 'degraded': ['G-STEMLEAK']})
+    _src_sl = _src35(section_rules_text=_SR35, concept_map=_cm35); _src_sl['registry'] = {'question_index': [_e_sl]}
+    _reset(); gate_stemleak(_bl35, _src_sl)
+    check('QQ-readiness-never-silences-a-working-gate', _lv('A-STEMLEAK') == ['FAIL'] and sorted(_items('A-STEMLEAK')) == ['1', '2'])
+    # release review 2026-11-04: (1) a PER-BATCH audit (no registry entry) never FAILs A-REVIEW /
+    # A-QUALITYSTATUS on a v5.90 paper; (2) G-TEMPLATE STALE leaves the measured CONCEPT caps
+    # running; (3) A-ITEMRULE is never readiness-dormant (OD-7: suspended only by a measured rate)
+    _src_pb = _src35(concept_map={'1': {'fingerprint': 'a|mcq|none|none'}, '2': {'fingerprint': 'b|mcq|none|none'}})
+    _src_pb['registry'] = {'question_index': []}
+    class _A35f:
+        phase = 'final'
+    _reset(); gate_review(_src_pb, _A35f()); gate_qualitystatus(_src_pb, _A35f())
+    check('QQ-per-batch-review-and-status-dormant', _lv('A-REVIEW') == ['OK'] and _lv('A-QUALITYSTATUS') == ['OK']
+          and 'per-batch' in _msg('A-REVIEW') and 'per-batch' in _msg('A-QUALITYSTATUS'))
+    _src_cc = _src35(section_rules_text=_SR35, total_questions=3, profile=_prof_c,
+                     concept_map={str(i): {'subtopic_id': 'oc.x', 'fingerprint': f'fp{i}', 'concept': 'eas'} for i in range(1, 4)})
+    _src_cc['registry'] = {'question_index': [_e_st]}
+    _reset(); gate_template(_src_cc)
+    check('A-TEMPLATE-stale-readiness-keeps-concept-caps', _lv('A-TEMPLATE') == ['FAIL'] and 'concept eas x3' in _msg('A-TEMPLATE'))
+    _e_it = dict(_QQ_ENTRY, quality_readiness={'controls': {'G-ITEM': {'status': 'MISSING', 'reason': 'x'}}, 'degraded': ['G-ITEM']})
+    _src_it = _src35(concept_map={'2': {'correct_option': 1}}); _src_it['registry'] = {'question_index': [_e_it]}
+    _reset(); gate_itemrule(_bl35, _src_it)
+    check('A-ITEMRULE-never-readiness-dormant', _lv('A-ITEMRULE') == ['FAIL'])
+    check('QQ-readiness-reader-lanes', _qq_readiness({'quality_readiness': {'controls': {}}}) == {'controls': {}}
+          and _qq_readiness({'registry': {'question_index': []}}) is None)
     # ---- A-REVIEW / A-QUALITYSTATUS / A-READINESS / A-PYQBENCH -------------------------
     class _A35:
         phase = 'final'
     _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {}}), _A35())
     check('A-REVIEW-missing-record-fail', _lv('A-REVIEW') == ['FAIL'] and 'NO independent-review' in _msg('A-REVIEW'))
+    check('A-REVIEW-message-has-no-user-step', 'fresh chat' not in _msg('A-REVIEW') and 'MockReview' not in _msg('A-REVIEW')
+          and '--resume' not in _msg('A-REVIEW') and 'HS:INFRA' in _msg('A-REVIEW'))
+    _reset(); gate_review(_src35(concept_map={'1': {'review': {'status': 'NOT_RUN', 'reason': 'sub-agent timed out twice'}},
+                                              '2': {'review': {'key_agrees': True}}}), _A35())
+    check('A-REVIEW-not-run-is-warn', _lv('A-REVIEW') == ['WARN'] and 'timed out' in _msg('A-REVIEW') and _items('A-REVIEW') == [])
     _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': False, 'reason': 'key is 3'}}, '2': {'review': {'key_agrees': True}}}), _A35())
     check('A-REVIEW-disagreement-is-item-defect', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1'])
     _reset(); gate_review(_src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {'review': {'key_agrees': True}}}), _A35())
