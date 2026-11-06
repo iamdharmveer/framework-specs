@@ -1,4 +1,23 @@
-# Framework_Blueprint v1.63.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.64.0 — Universal Mock Test Blueprint Generator
+# v1.64.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   ScopedBlueprint v1.14.0, MockTestCreate v5.92, MockTestAnalyse v2.60.0, audit_canonical
+#   v2.37). §7 S7-0: difficulty_source records mix_rule 'm1' (the full-paper bc.dp_recommend
+#   rule, equal weight per sitting — guard G3: a reader replays the recorded rule, never a
+#   newer one) and prints the DL-20 profile coverage line (record_version-2 / level-vector
+#   coverage, informational). §7-9 (new, informational): the HARD-SUPPLY line
+#   (bc.hard_supply_record — how many in-tier, content-full Hard exemplars the window holds;
+#   advisory, never routed into difficulty_feasibility — guard S7), the per-subtopic
+#   complexity / closeness targets copied from section_rules QUALITY (DL-36) and the
+#   measured top-band share per subtopic (bc.hard_share_by_subtopic — Create S3-12e places
+#   the Hard slots preferentially on subtopics with a share > 0 through
+#   bc.band_subtopic_plan; counts unchanged; falls back to the current spread, DL-33); the
+#   ask-FORMAT floors per paper (axis2_format_floor_per_paper, DL-34 — read by the WARN-only
+#   A-AXIS2, never written into shape_target_per_paper); every §7-8 shape target stamped
+#   shape_rule 's1' (guard G4 — A-SHAPEMIX reads s1 targets only); and level_model_inputs
+#   (DL-21 — the scope / window / mix rule Create S3 and A-LEVEL both build the level model
+#   from). --refresh writes the §7-9 fields the same way as the §7-8 ones. The CONFIRM
+#   dialogue for typed overrides is unchanged; no new CONFIRM, deliverable, end state or
+#   user action.
 # v1.63.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
 #   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0, ScopedBlueprint
 #   v1.13.0). (1) §7-8 SHAPE TARGETS: blueprint.shape_target_per_paper[mock] =
@@ -3442,7 +3461,13 @@ difficulty_source = {'mode': None, 'profile_file': (f'{EXAM}_difficulty_profile.
                      # v1.62.0 (GAP-2026-11-02 review #8): names its builder, so MockTestCreate
                      # S3-2D and A-DIFFSRC know the schedule is the full-paper S7-0 dialogue's
                      # (validated by A-DPROFILE) and never report it as 'unverified'.
-                     'builder': bc.FULL_PAPER_BUILDER}
+                     'builder': bc.FULL_PAPER_BUILDER,
+                     # v1.64.0 (GAP-2026-11-05 DL-21, guard G3): the full-paper mix is
+                     # bc.dp_recommend — equal weight per sitting — i.e. MIX RULE m1, recorded
+                     # so every reader replays the rule the schedule was built under.
+                     'mix_rule': bc.MIX_RULE_LEGACY}
+if PROFILE:
+    print('S7-0: ' + bc.dp_profile_coverage(PROFILE)['line'])     # v1.64.0 DL-20 (informational)
 ```
 
   DISPLAY (always, before any mix is accepted). Section names are the exam's own.
@@ -4042,16 +4067,77 @@ else:
     print(f"§7-8: shape targets DORMANT — {_shape_n} PYQ items with a QUALITY block (need "
           f"{_bc_ask.SHAPE_MIN_POOL}); run Step 5 of release 2026.11.03, then MockBlueprint --refresh.")
 blueprint['shape_target_per_paper'] = _shape_tg      # v1.63.0 G05 ({} = dormant) — Create S3-12d / A-SHAPEMIX
+for _mk_s1 in _shape_tg.values():                      # v1.64.0 (G4): every target written here is rule s1
+    for _tg_s1 in _mk_s1.values():
+        if isinstance(_tg_s1, dict):
+            _tg_s1.setdefault('shape_rule', _bc_ask.SHAPE_RULE_LEGACY)
 blueprint['schema_version'] = 2                        # v1.63.0 — Create S3-2e readiness reads it
-blueprint['producer'] = 'Framework_Blueprint v1.63.0'
+blueprint['producer'] = 'Framework_Blueprint v1.64.0'
+
+# §7-9 (v1.64.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-31/33/34/36; guards G4, S7) —
+# LEVEL TARGETS, all INFORMATIONAL or WARN-only consumers; nothing here is routed into
+# difficulty_feasibility, CONFIRM, or a QQ gate.
+#   (a) ask-FORMAT floors per paper (DL-34): per format with (share x Q) >= 1, floor =
+#       int(share x Q) from the subtopics' QUALITY ask_format_shares weighted by r_avg;
+#       'direct' (the default form) is never a floor. Read by Create S3-12d (S1 repair loop)
+#       and the WARN-only A-AXIS2; NEVER written into shape_target_per_paper.
+#   (b) per-subtopic complexity / closeness targets (DL-36): the QUALITY figure_complexity_
+#       pct / closeness_pct copied as informational keys ("+30 % harder" is anchored to
+#       exemplars, never to these numbers).
+#   (c) the measured top-band share per subtopic (bc.hard_share_by_subtopic, DL-33): Create's
+#       bc.band_subtopic_plan places the top-band slots preferentially on subtopics with a
+#       share > 0 — counts unchanged; every share 0 -> the current spread.
+#   (d) the HARD-SUPPLY line (bc.hard_supply_record, DL-31): how many in-window, content-
+#       full top-band exemplars the profile holds — advisory only (guard S7).
+_fmt_w, _lvl_tg = {}, {}
+for _sid, _v in MANIFEST_IDS.items():
+    _qb = _bc_ask.quality_block_for_subtopic(section_rules_text, _sid) or {}
+    _ra = r_avg.get(_v.get('display_name'), r_avg.get(_sid, 0.0))
+    for _f, _sh in (_qb.get('ask_format_shares') or {}).items():
+        _fmt_w[str(_f)] = _fmt_w.get(str(_f), 0.0) + float(_ra or 0.0) * float(_sh or 0.0)
+    if isinstance(_qb.get('figure_complexity_pct'), dict) or isinstance(_qb.get('closeness_pct'), dict):
+        _lvl_tg[_sid] = {'figure_complexity_pct': _qb.get('figure_complexity_pct'),
+                         'closeness_pct': _qb.get('closeness_pct')}
+_fwt = sum(_fmt_w.values())
+_fmt_floor = {}
+if _fwt > 0:
+    for _f, _w in _fmt_w.items():
+        if _f != 'direct' and (_w / _fwt) * total_qs >= 1.0:
+            _fmt_floor[_f] = int((_w / _fwt) * total_qs)
+blueprint['axis2_format_floor_per_paper'] = ({str(k): dict(_fmt_floor) for k in range(1, int(blueprint.get('total_mocks') or 1) + 1)}
+                                             if _fmt_floor else {})
+blueprint['level_targets'] = _lvl_tg                   # informational (DL-36)
+blueprint['hard_share_by_subtopic'] = (bc.hard_share_by_subtopic(PROFILE, _labels, gap_days=PROFILE_CFG.get('cycle_gap_days')
+                                                                 if isinstance(globals().get('PROFILE_CFG'), dict) else None)
+                                       if PROFILE else {})
+if PROFILE:
+    _hs = bc.hard_supply_record(PROFILE, list(MANIFEST_IDS), _labels,
+                                gap_days=(PROFILE_CFG.get('cycle_gap_days') if isinstance(globals().get('PROFILE_CFG'), dict) else None))
+    blueprint['hard_supply'] = {k: v for k, v in _hs.items() if k != 'line'}
+    print('§7-9: ' + _hs['line'])
+else:
+    blueprint['hard_supply'] = {}                      # no profile: nothing measured (dormant)
+# (e) LEVEL-MODEL INPUTS (DL-21 — ONE builder, ONE set of inputs): the scope, window and mix
+#     rule Create S3 and the auditor's A-LEVEL pass to bc.level_model_for_scope, recorded HERE
+#     so their cuts can never differ from each other (a full paper: every subtopic, mix rule
+#     m1, no tier, shares measured at read time).
+blueprint['level_model_inputs'] = {'subtopic_ids': sorted(str(k) for k in MANIFEST_IDS),
+                                   'gap_days': (PROFILE_CFG.get('cycle_gap_days') if isinstance(globals().get('PROFILE_CFG'), dict) else None),
+                                   'mix_rule': bc.MIX_RULE_LEGACY, 'tier': None, 'measured_pct': None,
+                                   'labels': list(_labels)}
+print(f"§7-9: ask-format floors per paper {_fmt_floor or 'none (dormant)'}; level targets for "
+      f"{len(_lvl_tg)} subtopic(s); hard share known for {len(blueprint['hard_share_by_subtopic'])} subtopic(s)")
 
 # §7-8R (v1.63.0, OD-10 a) — bp_refresh. Trigger `MockBlueprint --refresh` with the existing
 # blueprint attached: load it as `blueprint`, read `total_qs`, `r_avg`, `MANIFEST_IDS` and
-# `section_rules_text` exactly as the full build does (§3, §7), run ONLY the §7-8 block above,
+# `section_rules_text` exactly as the full build does (§3, §7), run ONLY the §7-8 and §7-9
+# blocks above (v1.64.0: §7-9 needs PROFILE / _labels / PROFILE_CFG as §7-0 binds them),
 # then DROP from blueprint['shape_target_per_paper'] every mock key <= the highest mock_id
 # present in the attached [ExamCode]_registry.json (registered papers are never re-targeted;
 # their key is simply absent and Create S3-12d treats an absent key as DORMANT for that
-# paper). Every other blueprint field is written back byte-for-byte. Print one line:
+# paper); the §7-9 fields (axis2_format_floor_per_paper — unregistered mocks only, the same
+# key rule — level_targets, hard_share_by_subtopic, hard_supply, level_model_inputs) are
+# written the same way. Every other blueprint field is written back byte-for-byte. Print one line:
 # "bp_refresh: shape targets written for mocks a..b; mocks 1..(a-1) untouched (registered)."
 
 # v1.35 BUG 4 FIX (GAP-2026-07-22-001): persist the section↔subject mapping so B2/B3
@@ -6596,8 +6682,13 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "difficulty_source"   : {...},     // A-DPROFILE schema; v1.62.0 also builder ('Framework_Blueprint.S7-0')
   "fig_ask_target_per_mock": {"1": {"Section A": {"product_prediction": 3}}},  // v1.62.0 F8; {} dormant
   "shape_target_per_paper": {"1": {"identify_product": {"target": 9, "floor": 1, "cap": 11}}},  // v1.63.0 G05 §7-8; {} dormant; paper-level (all sections pooled)
+  "axis2_format_floor_per_paper": {"1": {"statement": 3, "match": 2}},  // v1.64.0 §7-9 DL-34; {} dormant; Create S3-12e / A-AXIS2 (WARN)
+  "level_targets"       : {"<subtopic_id>": {"figure_complexity_pct": {...}, "closeness_pct": {...}}},  // v1.64.0 §7-9 DL-36; informational
+  "hard_share_by_subtopic": {"<subtopic_id>": 42.0},          // v1.64.0 §7-9 DL-33; {} when no profile; Create S3-12e bc.band_subtopic_plan
+  "hard_supply"         : {...},                               // v1.64.0 §7-9 DL-31 (bc.hard_supply_record minus 'line'); advisory
+  "level_model_inputs"  : {"subtopic_ids": [...], "gap_days": 180, "mix_rule": "m1", "tier": null, "measured_pct": null, "labels": [...]},  // v1.64.0 §7-9 (e) DL-21 — Create S3 / A-LEVEL build the level model from THESE
   "schema_version"      : 2,                                   // v1.63.0 — Create S3-2e readiness; absent = pre-release blueprint
-  "producer"            : "Framework_Blueprint v1.63.0",       // v1.63.0 — which spec version wrote this file
+  "producer"            : "Framework_Blueprint v1.64.0",       // v1.63.0 — which spec version wrote this file
   "difficulty_amendments": [{"mock": 1, "section": "Section A", "from": "Hard", "to": "Medium",
                             "reason": "measured_band"}],   // IN-RUN only — written by MockTestCreate
                                                            // v5.89 ladder R5 (band labels) and S3-2D
@@ -8123,4 +8214,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.63.0
+# END OF Framework_Blueprint v1.64.0

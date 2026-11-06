@@ -1,4 +1,19 @@
-# Framework_ScopedBlueprint v1.13.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.14.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.14.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   Blueprint v1.64.0, MockTestCreate v5.92, audit_canonical v2.37). Owner decisions D2 (a
+#   subject test is written to the MEASURED TIER MIX of its scope) and D6/D7, guard G3. S5-P:
+#   a new scoped series is measured under MIX RULE m2 (bc.dp_scope_mix pooled counts over the
+#   window, DL-21) with the optional --tier filter (DL-32; absent → the measured tier blend,
+#   printed), both RECORDED on difficulty_source (mix_rule, params.tier) and replayed by
+#   Create S3-2D / A-DIFFSRC — an older blueprint without mix_rule replays m1 unchanged; the
+#   DL-20 profile coverage line is printed; a RATIO mode is measured against the scope's
+#   guardrail (bc.dp_guardrail_bounds) and reported AMBER — never CONFIRM, never a stop
+#   (DL-35). S8-2d stamps shape_rule s1 on every shape target (G4); S8-2e (mirror of Blueprint
+#   §7-9) writes axis2_format_floor_per_paper (DL-34), level_targets (DL-36),
+#   hard_share_by_subtopic (DL-33) and hard_supply (DL-31) — informational / WARN-only
+#   consumers only. No new deliverable, end state or user action; the only new stop is the
+#   [HS:INPUT] on a --tier name that matches no exam_config section — reachable only by typing
+#   the new flag (an existing trigger never meets it).
 # v1.13.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
 #   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0). (1) S8-2d SHAPE
 #   TARGETS: shape_target_per_paper[paper] = bc.shape_targets(shape shares, Q, paper index)
@@ -127,12 +142,14 @@
 #
 # TRIGGER FORMAT:
 #   Step 6S: ScopedBlueprint --level <subject|topic|subtopic> --scope "<SCOPE>"
-#            --count N --qs_per_paper Q [--batch_size B] [--difficulty progressive|S:M:H]
+#            --count N --qs_per_paper Q [--batch_size B] [--difficulty progressive|S:M:H] [--tier <section>]
 #            [--refresh]
 #   --refresh    : v1.13.0 (OD-10 a) bp_refresh mode — the existing scoped blueprint MUST be
 #                  attached; only the new v1.13.0 fields are written (S8-2d) for papers after
 #                  the last paper registered in the attached registry; every other field is
-#                  copied byte-for-byte. Never changes a registered paper.
+#                  copied byte-for-byte. Never changes a registered paper. v1.14.0: the S8-2e
+#                  fields (axis2_format_floor_per_paper, level_targets, hard_share_by_subtopic,
+#                  hard_supply, level_model_inputs) are written the same way — unregistered papers only.
 #
 #   Trigger matching is case-insensitive. ExamCode read from exam_config.json.
 #   --level      : subject | topic | subtopic (REQUIRED)
@@ -248,6 +265,13 @@ Parse and validate the trigger:
                   ERROR: "--difficulty must be 'harder', 'exam', 'progressive' or three whole
                   numbers S:M:H summing to 100 (e.g. 15:30:55). Received: {raw_value}." Never
                   guess or silently default.
+
+  --tier        : optional (v1.14.0 — GAP-2026-11-05 DL-32; owner D2). The NAME of one
+                  exam_config section (e.g. "Part B", "Part C") whose PYQ records alone
+                  measure the scope's mix at S5-P. Absent → the measured TIER BLEND (every
+                  tier of the window pooled under mix rule m2) and S5-P prints
+                  "tier: measured blend". A name that matches no section is an ERROR naming
+                  the sections; never guessed. Bound as SCOPE_TIER (None when absent).
 
   If --level or --scope or --count or --qs_per_paper is missing → ERROR listing the
   missing flag(s) and the trigger format. Never guess a scope or a count.
@@ -384,6 +408,16 @@ _ec_cfg  = exam_config          # the ONE exam_config loaded above in this block
 PROFILE_CFG = {'exam_code': EXAM, 'total_questions': _ec_cfg.get('total_questions'),
                'sections': _ec_cfg.get('sections'), 'cycle_gap_days': _ec_cfg.get('cycle_gap_days'),
                'difficulty_labels': _ec_cfg.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']}
+# v1.14.0 (DL-32): --tier names ONE exam_config section exactly; a name that matches none is
+# an input error naming the sections (never guessed, never silently pooled as a blend).
+SCOPE_TIER = globals().get('SCOPE_TIER') or None
+if SCOPE_TIER is not None:
+    _sec_names = [str((_s or {}).get('name')) for _s in (PROFILE_CFG.get('sections') or []) if isinstance(_s, dict)]
+    if str(SCOPE_TIER).strip() not in _sec_names:
+        raise SystemExit(f"HARD STOP [HS:INPUT]: --tier {SCOPE_TIER!r} matches no exam_config section; "
+                         f"the sections are {_sec_names}. Re-run with one of them, or without --tier "
+                         f"(the measured tier blend).")
+    SCOPE_TIER = str(SCOPE_TIER).strip()
 DIFFICULTY_PROFILE = None
 PROFILE_NOTE = f'no {EXAM}_difficulty_profile.json in project Files — envelope from cascade only'
 if os.path.exists(_pf_path):
@@ -1113,11 +1147,20 @@ if DIFFICULTY_PROFILE is not None and PROFILE_CFG['difficulty_labels'] \
         and len(PROFILE_CFG['difficulty_labels']) == 3:
     _mode = ('ratio' if isinstance(DIFFICULTY_MODE, tuple)
              else (DIFFICULTY_MODE or 'harder'))          # O3: default 'harder'
+    # v1.14.0 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-21/32; owner D2, guard G3): a NEW scoped
+    # series is measured under MIX RULE m2 — POOLED counts over the window (a 46-shift sitting
+    # and a 1-paper sitting no longer weigh the same) — and, when the scope names a tier
+    # (scope.tier, an exam_config section name such as 'Part B'), only that tier's records;
+    # otherwise the measured TIER BLEND. The rule and tier are RECORDED on difficulty_source
+    # and replayed by Create S3-2D / A-DIFFSRC; an older blueprint has no mix_rule and
+    # replays m1 unchanged.
+    SCOPE_TIER = globals().get('SCOPE_TIER') or None          # S1-1 --tier (None = blend)
     _res = bc.scoped_difficulty_schedule(
         DIFFICULTY_PROFILE, list(in_scope_ids), PROFILE_CFG['difficulty_labels'],
         n_papers=N, q_per_paper=Q, mode=_mode,
         ratio=(DIFFICULTY_MODE if isinstance(DIFFICULTY_MODE, tuple) else None),
         section_name=scope_label,
+        mix_rule=bc.MIX_RULE_CURRENT, tier=SCOPE_TIER,
         gap_days=PROFILE_CFG.get('cycle_gap_days'))   # the exam's own cycle definition
     if not _res.get('dormant'):
         difficulty_schedule = {e['mock']: (e['simple'], e['medium'], e['hard'])
@@ -1129,6 +1172,21 @@ if DIFFICULTY_PROFILE is not None and PROFILE_CFG['difficulty_labels'] \
               f"measured={DIFFICULTY_SOURCE.get('measured_pct')} "
               f"applied={DIFFICULTY_SOURCE.get('applied_pct')} -> paper 1 "
               f"{difficulty_schedule.get(1)}")
+        print(f"S5-P: mix_rule={DIFFICULTY_SOURCE.get('mix_rule')} "
+              + (f"tier={SCOPE_TIER}" if SCOPE_TIER else
+                 "tier: measured blend (every tier of the window pooled; owner D2)"))
+        print('S5-P: ' + bc.dp_profile_coverage(DIFFICULTY_PROFILE)['line'])       # DL-20
+        # DL-35: ratio mode had no guardrail — it is now MEASURED against the scope's mix and
+        # reported AMBER (never CONFIRM, never a stop; the ratio was the operator's choice).
+        if _mode == 'ratio' and DIFFICULTY_SOURCE.get('measured_pct'):
+            _gb = bc.dp_guardrail_bounds(DIFFICULTY_SOURCE['measured_pct'], PROFILE_CFG['difficulty_labels'])
+            _ap = DIFFICULTY_SOURCE.get('applied_pct') or {}
+            _out = [l for l in PROFILE_CFG['difficulty_labels']
+                    if not (_gb[l][0] <= int(_ap.get(l, 0)) <= _gb[l][1])]
+            if _out:
+                flag(f"S5-P AMBER: ratio {DIFFICULTY_MODE} is outside the measured guardrail on "
+                     f"{', '.join(_out)} (measured {DIFFICULTY_SOURCE['measured_pct']}, allowed "
+                     f"{ {l: list(_gb[l]) for l in _out} }) — recorded; the series is built as asked.")
     else:
         print(f"S5-P: profile carries no usable in-scope data ({_res.get('reason')}) — "
               f"the §5 Branch A/B build below is used; the schedule is recorded UNVERIFIED.")
@@ -1437,6 +1495,67 @@ if _swt > 0 and _shape_n >= bc.SHAPE_MIN_POOL:
 else:
     print(f"S8-2d: shape targets DORMANT — {_shape_n} PYQ items with a QUALITY block (need "
           f"{bc.SHAPE_MIN_POOL}); run Step 5 of release 2026.11.03, then ScopedBlueprint --refresh.")
+for _mk_s1 in SHAPE_TARGET.values():                   # v1.14.0 (G4): every target written here is rule s1
+    for _tg_s1 in _mk_s1.values():
+        if isinstance(_tg_s1, dict):
+            _tg_s1.setdefault('shape_rule', bc.SHAPE_RULE_LEGACY)
+
+# S8-2e (v1.14.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-31/33/34/36; guards G4, S7) — LEVEL
+# TARGETS for the scope, mirror of Blueprint §7-9; all INFORMATIONAL or WARN-only consumers,
+# nothing here is routed into difficulty_feasibility, CONFIRM, or a QQ gate.
+#   (a) ask-FORMAT floors per paper (DL-34): per format with (share x Q) >= 1, floor =
+#       int(share x Q) from the in-scope subtopics' QUALITY ask_format_shares weighted by
+#       r_avg; 'direct' is never a floor. Read by Create S3-12d and the WARN-only A-AXIS2;
+#       NEVER written into shape_target_per_paper.
+#   (b) per-subtopic complexity / closeness targets (DL-36): QUALITY figure_complexity_pct /
+#       closeness_pct copied as informational keys.
+#   (c) measured top-band share per in-scope subtopic (bc.hard_share_by_subtopic, DL-33):
+#       Create's bc.band_subtopic_plan places top-band slots preferentially on subtopics with
+#       a share > 0 — counts unchanged.
+#   (d) HARD-SUPPLY line (bc.hard_supply_record, DL-31) over the in-scope subtopics — advisory.
+_fmt_w, LEVEL_TARGETS = {}, {}
+for _sid in in_scope_ids:
+    _qb = bc.quality_block_for_subtopic(_sr_text, _sid) or {}
+    _ra = r_avg.get(_sid, 0.0) or 0.0
+    for _f, _sh in (_qb.get('ask_format_shares') or {}).items():
+        _fmt_w[str(_f)] = _fmt_w.get(str(_f), 0.0) + float(_ra) * float(_sh or 0.0)
+    if isinstance(_qb.get('figure_complexity_pct'), dict) or isinstance(_qb.get('closeness_pct'), dict):
+        LEVEL_TARGETS[_sid] = {'figure_complexity_pct': _qb.get('figure_complexity_pct'),
+                               'closeness_pct': _qb.get('closeness_pct')}
+_fwt = sum(_fmt_w.values())
+_fmt_floor = {}
+if _fwt > 0:
+    for _f, _w in _fmt_w.items():
+        if _f != 'direct' and (_w / _fwt) * Q >= 1.0:
+            _fmt_floor[_f] = int((_w / _fwt) * Q)
+AXIS2_FORMAT_FLOOR = {str(k): dict(_fmt_floor) for k in range(1, N + 1)} if _fmt_floor else {}
+_lab_lv = PROFILE_CFG['difficulty_labels']
+HARD_SHARE_BY_SUBTOPIC = (bc.hard_share_by_subtopic(DIFFICULTY_PROFILE, _lab_lv,
+                                                    gap_days=PROFILE_CFG.get('cycle_gap_days'))
+                          if DIFFICULTY_PROFILE else {})
+HARD_SHARE_BY_SUBTOPIC = {k: v for k, v in HARD_SHARE_BY_SUBTOPIC.items() if k in set(in_scope_ids)}
+# (e) LEVEL-MODEL INPUTS (DL-21): the scope, window, mix rule, tier and the RECORDED measured
+#     shares Create S3 and A-LEVEL pass to bc.level_model_for_scope — one set of inputs, so
+#     the cuts can never differ between the generator and the auditor.
+_ds_lv = DIFFICULTY_SOURCE if isinstance(globals().get('DIFFICULTY_SOURCE'), dict) else {}
+LEVEL_MODEL_INPUTS = {'subtopic_ids': sorted(str(x) for x in in_scope_ids),
+                      'gap_days': PROFILE_CFG.get('cycle_gap_days'),
+                      'mix_rule': bc.mix_rule_of(_ds_lv.get('mix_rule') or bc.MIX_RULE_CURRENT),
+                      'tier': (_ds_lv.get('params') or {}).get('tier') if _ds_lv else (globals().get('SCOPE_TIER') or None),
+                      'measured_pct': _ds_lv.get('measured_pct') if _ds_lv else None,
+                      'labels': list(_lab_lv)}
+# (d) HARD SUPPLY — counted with the SAME inputs as (e), so the advisory count and the
+#     paper's level model can never use different cuts (mix rule, tier, measured shares).
+HARD_SUPPLY = {}
+if DIFFICULTY_PROFILE:
+    _hs = bc.hard_supply_record(DIFFICULTY_PROFILE, LEVEL_MODEL_INPUTS['subtopic_ids'], _lab_lv,
+                                tier=LEVEL_MODEL_INPUTS['tier'], gap_days=LEVEL_MODEL_INPUTS['gap_days'],
+                                mix_rule=LEVEL_MODEL_INPUTS['mix_rule'],
+                                measured_pct=LEVEL_MODEL_INPUTS['measured_pct'])
+    HARD_SUPPLY = {k: v for k, v in _hs.items() if k != 'line'}
+    print('S8-2e: ' + _hs['line'])
+print(f"S8-2e: ask-format floors per paper {_fmt_floor or 'none (dormant)'}; level targets for "
+      f"{len(LEVEL_TARGETS)} subtopic(s); hard share known for {len(HARD_SHARE_BY_SUBTOPIC)} subtopic(s)")
 
 # S8-3 — mocks[] (one per paper; §4 paper_alloc → subtopic_allocations, only q_count>0 stored).
 # paper_alloc is keyed by subtopic_id (§4). paper_id numbering RESUMES from paper_start
@@ -1539,8 +1658,13 @@ blueprint = {
     **({'difficulty_source': DIFFICULTY_SOURCE} if DIFFICULTY_SOURCE else {}),
     'fig_ask_target_per_mock': FIG_ASK_TARGET,      # v1.12.0 F8 ({} = dormant)
     'shape_target_per_paper': SHAPE_TARGET,         # v1.13.0 G05 ({} = dormant) — Create S3-12d / A-SHAPEMIX
+    'axis2_format_floor_per_paper': AXIS2_FORMAT_FLOOR,   # v1.14.0 DL-34 ({} = dormant) — Create S3-12d / A-AXIS2 (WARN)
+    'level_targets': LEVEL_TARGETS,                 # v1.14.0 DL-36 informational
+    'hard_share_by_subtopic': HARD_SHARE_BY_SUBTOPIC,     # v1.14.0 DL-33 — Create bc.band_subtopic_plan
+    'hard_supply': HARD_SUPPLY,                     # v1.14.0 DL-31 advisory (guard S7)
+    'level_model_inputs': LEVEL_MODEL_INPUTS,       # v1.14.0 DL-21 — Create S3 / A-LEVEL build the level model from THESE
     'schema_version': 2,                             # v1.13.0 — G10 readiness reads it
-    'producer': 'Framework_ScopedBlueprint v1.13.0',
+    'producer': 'Framework_ScopedBlueprint v1.14.0',
     'axis_schedule': {scope_label: axis_schedule},  # §6, keyed by the single section name
     # Zero-PYQ subtopics are covered by the §4 coverage floor (allocated every batch), NOT by
     # the mock's capped rotation — so the rotation list is empty. The KEY is still emitted for
@@ -1723,4 +1847,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.13.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.14.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

@@ -382,6 +382,150 @@ def transcript_for(manifest, q, role=None):
     return None
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# v2 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-07 / DL-19) — ZOOM TILES and ENGINE-SET
+# TRANSCRIPTION CONFIDENCE. Both are OPTIONAL helpers for PYQExplain §13A P2a and Step 5:
+# the frozen corpus_io.build_vision_queue / _compose_cell (PYQPrepare, owner P1) are not
+# touched. PIL and RDKit are reached through importlib and their absence is a result,
+# never an exception (thin-core purity; NEVER HALTS).
+# ═══════════════════════════════════════════════════════════════════════════
+
+ZOOM_DPI_DEFAULT = 300          # DL-07: wedges / OTBS / small groups are illegible at ~512 px
+ZOOM_TILE_PX = 1200             # long edge of one tile at the zoom scale
+ZOOM_SOURCE_DPI = 150           # the contact-sheet scale the tiles zoom from
+
+
+def zoom_tiles(image_path, out_dir, dpi=ZOOM_DPI_DEFAULT, tile_px=ZOOM_TILE_PX, overlap=0.1):
+    """DL-07 — cut one figure into ZOOMED TILES so a Phase B view can read wedges, hashed
+    bonds and small protecting groups: the image is scaled by dpi / ZOOM_SOURCE_DPI (never
+    down), then tiled on a grid of `tile_px` squares with `overlap`. Writes PNG tiles under
+    `out_dir` and returns [{'path', 'row', 'col', 'box': [x0, y0, x1, y1] in SOURCE pixels}]
+    in reading order; [] when PIL is unavailable or the image cannot be opened (a result,
+    never an exception). A figure that fits one tile yields exactly one tile."""
+    import importlib as _il
+    try:
+        Image = _il.import_module('PIL.Image')
+    except Exception:                                        # noqa: BLE001
+        return []
+    try:
+        im = Image.open(image_path)
+        im.load()
+        if im.mode not in ('RGB', 'L'):
+            im = im.convert('RGB')
+    except Exception:                                        # noqa: BLE001
+        return []
+    try:
+        scale = max(1.0, float(dpi) / float(ZOOM_SOURCE_DPI))
+        tile_px = max(64, int(tile_px))
+        overlap = min(0.5, max(0.0, float(overlap)))
+        W, H = im.size
+        ZW, ZH = max(1, int(round(W * scale))), max(1, int(round(H * scale)))
+        zoomed = im.resize((ZW, ZH), getattr(Image, 'LANCZOS', 1)) if scale != 1.0 else im
+        step = max(1, int(tile_px * (1.0 - overlap)))
+        os.makedirs(out_dir, exist_ok=True)
+        base = os.path.splitext(os.path.basename(str(image_path)))[0]
+        tiles = []
+        ys = list(range(0, max(1, ZH - tile_px + 1), step)) or [0]
+        xs = list(range(0, max(1, ZW - tile_px + 1), step)) or [0]
+        if ys[-1] + tile_px < ZH:
+            ys.append(ZH - tile_px)
+        if xs[-1] + tile_px < ZW:
+            xs.append(ZW - tile_px)
+        ys = sorted({max(0, y) for y in ys})
+        xs = sorted({max(0, x) for x in xs})
+        for r, y in enumerate(ys):
+            for c, x in enumerate(xs):
+                box = (x, y, min(ZW, x + tile_px), min(ZH, y + tile_px))
+                path = os.path.join(out_dir, f'{base}_z{int(dpi)}_r{r}c{c}.png')
+                zoomed.crop(box).save(path, format='PNG')
+                tiles.append({'path': path, 'row': r, 'col': c,
+                              'box': [int(round(b / scale)) for b in box]})
+        return tiles
+    except Exception:                                        # noqa: BLE001
+        return []
+
+
+def rendered_counts(smiles):
+    """{'heavy_atoms', 'rings', 'stereocentres'} of a SMILES re-rendered by RDKit, or None
+    when RDKit is unavailable or the SMILES does not parse. Never raises."""
+    import importlib as _il
+    try:
+        Chem = _il.import_module('rdkit.Chem')
+        _il.import_module('rdkit.RDLogger').DisableLog('rdApp.*')
+    except Exception:                                        # noqa: BLE001
+        return None
+    try:
+        tot = {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0}
+        for part in str(smiles or '').split('.'):
+            if not part.strip():
+                continue
+            m = Chem.MolFromSmiles(part.strip())
+            if m is None:
+                return None
+            tot['heavy_atoms'] += m.GetNumHeavyAtoms()
+            sssr = Chem.GetSSSR(m)
+            tot['rings'] += len(sssr) if hasattr(sssr, '__len__') else int(sssr)
+            try:
+                cc = Chem.FindMolChiralCenters(m, includeUnassigned=False, useLegacyImplementation=False)
+            except TypeError:
+                cc = Chem.FindMolChiralCenters(m, includeUnassigned=False)
+            tot['stereocentres'] += len(cc)
+            SN = Chem.BondStereo
+            tot['stereocentres'] += sum(1 for b in m.GetBonds()
+                                        if b.GetStereo() in (SN.STEREOE, SN.STEREOZ, SN.STEREOCIS, SN.STEREOTRANS))
+        return tot
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+CONF_FULL, CONF_PARTIAL = 'full', 'partial'
+
+
+def transcription_confidence(objects, image_counts, reviewed=False):
+    """DL-19 — the ENGINE sets a transcription's confidence; it is never declared. For every
+    STRUCTURE / REACTION object the SMILES is re-rendered (rendered_counts) and its atom /
+    ring / stereocentre counts are compared with the counts READ OFF THE IMAGE by Phase B
+    (`image_counts`: {object index or 'all': {'heavy_atoms', 'rings', 'stereocentres'}}).
+    Any mismatch -> 'partial' (the record is kept and stays out of the level pool; never
+    VOID_ITEM, guard S10). `reviewed` = Phase B already re-viewed once (the spec's one
+    re-view rule): the verdict is final either way; the flag is only recorded. Returns
+    {'confidence', 'mismatches': [{'index','field','rendered','image'}], 'reviewed',
+    'compared': n}. RDKit unavailable or no counts -> 'full' with compared 0 (the
+    transcription is not contradicted by anything). Never raises."""
+    out = {'confidence': CONF_FULL, 'mismatches': [], 'reviewed': bool(reviewed), 'compared': 0}
+    if not isinstance(objects, (list, tuple)) or not isinstance(image_counts, dict):
+        return out
+    for i, ob in enumerate(objects):
+        if not isinstance(ob, dict):
+            continue
+        kind = str(ob.get('kind') or '').upper()
+        can = ob.get('canonical')
+        if kind not in ('STRUCTURE', 'REACTION') or not isinstance(can, str):
+            continue
+        smi = can
+        if kind == 'REACTION':
+            parts = can.split('>')
+            smi = '.'.join(x for x in (parts[0], parts[2]) if x) if len(parts) == 3 else can
+        want = image_counts.get(i, image_counts.get(str(i), image_counts.get('all')))
+        if not isinstance(want, dict):
+            continue
+        got = rendered_counts(smi)
+        if got is None:
+            continue
+        out['compared'] += 1
+        for f in ('heavy_atoms', 'rings', 'stereocentres'):
+            if f in want and want[f] is not None:
+                try:
+                    w = int(want[f])
+                except (TypeError, ValueError):
+                    continue
+                if w != got[f]:
+                    out['mismatches'].append({'index': i, 'field': f, 'rendered': got[f], 'image': w})
+    if out['mismatches']:
+        out['confidence'] = CONF_PARTIAL
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SELF-TEST
 # ─────────────────────────────────────────────────────────────────────────────
@@ -585,6 +729,41 @@ def self_test():
        'Q.1' in vision_report_line(rep_bad))
     ck('no CLASS T name is modelled in python',
        not any(n.startswith('view_') for n in globals()))
+
+    # v2 — DL-07 zoom tiles / DL-19 engine-set confidence
+    ck('zoom_tiles: unreadable image -> [] (never raises)', zoom_tiles('/nonexistent/x.png', '/tmp') == [])
+    import importlib as _il2, tempfile as _tf2
+    try:
+        _PIL = _il2.import_module('PIL.Image')
+    except Exception:                                        # noqa: BLE001
+        _PIL = None
+    if _PIL is not None:
+        _td = _tf2.mkdtemp()
+        _src = os.path.join(_td, 'fig.png')
+        _PIL.new('RGB', (900, 300), (255, 255, 255)).save(_src)
+        _t = zoom_tiles(_src, _td, dpi=300, tile_px=1200)
+        ck('zoom_tiles: a 900x300 figure at 300 dpi (2x) tiles into reading-order PNGs covering the source',
+           len(_t) >= 2 and _t[0]['row'] == 0 and _t[0]['col'] == 0 and all(os.path.exists(x['path']) for x in _t)
+           and _t[-1]['box'][2] == 900 and _t[-1]['box'][3] == 300
+           and all(_PIL.open(x['path']).size[0] <= 1200 for x in _t))
+        ck('zoom_tiles: a figure that fits one tile yields exactly one tile and never downscales',
+           len(zoom_tiles(_src, _td, dpi=150, tile_px=2000)) == 1 and len(zoom_tiles(_src, _td, dpi=10, tile_px=2000)) == 1)
+    _obj = [{'kind': 'STRUCTURE', 'canonical': 'C[C@H](O)CC'}, {'kind': 'REACTION', 'canonical': 'CCO>O=S(=O)(O)O>C=C'}]
+    _rc = rendered_counts('C[C@H](O)CC')
+    if _rc is not None:
+        ck('rendered_counts: atoms / rings / stereocentres from the re-rendered SMILES',
+           _rc == {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 1} and rendered_counts('c1ccccc1') == {'heavy_atoms': 6, 'rings': 1, 'stereocentres': 0}
+           and rendered_counts('not smiles') is None and rendered_counts('') == {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0})
+        ck('transcription_confidence: matching counts -> full; a stereocentre the image shows but the SMILES lacks -> partial, never VOID',
+           transcription_confidence(_obj, {0: {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 1}})['confidence'] == 'full'
+           and transcription_confidence(_obj, {0: {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 2}})['confidence'] == 'partial'
+           and transcription_confidence(_obj, {0: {'stereocentres': 2}}, reviewed=True)['mismatches'][0]['field'] == 'stereocentres'
+           and transcription_confidence(_obj, {1: {'heavy_atoms': 5}})['confidence'] == 'full'     # reactants + products = 3 + 2
+           and transcription_confidence(_obj, {1: {'heavy_atoms': 4}})['compared'] == 1)
+    ck('transcription_confidence: no counts / junk -> full with compared 0 (never raises)',
+       transcription_confidence(_obj, {})['compared'] == 0 and transcription_confidence(None, None)['confidence'] == 'full'
+       and transcription_confidence([{'kind': 'STRUCTURE', 'canonical': 7}], {0: {'heavy_atoms': 'x'}})['confidence'] == 'full'
+       and transcription_confidence(_obj, {0: {'heavy_atoms': 'x'}})['confidence'] == 'full')
 
     for m in msgs:
         print(m)

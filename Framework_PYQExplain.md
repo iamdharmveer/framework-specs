@@ -1,4 +1,31 @@
-# Framework_PYQExplain v2.26 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.27 — Universal PYQ Explanation Generator
+# v2.27 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
+#   v1.32, audit_canonical v2.37, figure_types v1.3, figural_vision zoom_tiles,
+#   MockTestAnalyse v2.60.0, Blueprint v1.64.0, ScopedBlueprint v1.14.0, MockTestCreate
+#   v5.92, MockTestExplain v1.53.0). What a band MEANS is measured from this exam's own
+#   past papers and bound to the question's content. §7A: every difficulty_obs carries
+#   `rubric_rule` 'r2' and `inferential_steps` counted by the ONE rule
+#   (bc.INFERENTIAL_STEP_RULE, quoted verbatim in S7A-2 and in Create CHECK 3c);
+#   `deduction_steps` stays the paragraph count for explanation validation; the score is
+#   bc.difficulty_score_from_obs(obs) — never a positional difficulty_score call; a
+#   flagged derivation no longer changes the band (DL-16) and is resolved in-run
+#   (§7-1 / RE-16 / §18-2: derived answer, web-verified tie-break; owner D4 — no human
+#   hand-off; owner F2 — no official answer key is ever an input). S7A-6 passes
+#   exam_config.marking_scheme so each profile record carries `marks` (DL-10).
+#   §13A-3 P2a (drawn chemistry only): the graphics-team Row images are the figure
+#   source (owner F1); every structure and scheme is transcribed VISIBLE-ONLY into
+#   content_objects, every option image per role option:<k> into option_smiles, text-
+#   named species into SMILES (content_source 'text'), an arrow+conditions math region
+#   with a reagent-lexicon hit into a text-form REACTION (DL-04), the stem's ask_format
+#   (statement / match / sequence / assertion_reason / combination / direct, DL-22) and
+#   reagents_seen (the read-time method lexicon, §4.6) are recorded, zoom tiles
+#   (figural_vision.zoom_tiles, 300 dpi) are used for wedges and small groups, and the
+#   engine sets transcription_confidence 'partial' on an atom / ring / stereocentre count
+#   mismatch after one re-view (never VOID, S10). §13A-3 P7 (after the derived answer):
+#   answer_smiles and option_closeness. Every new field is hand-off only (never in
+#   ExplanationBlock.validate(), never MANDATE D); the S19-1 output set is unchanged;
+#   nothing here stops. Profile records are written record_version 2 under DP_SCHEMA 1
+#   (guard S4); older records keep their r1 verdicts (guard G1).
 # v2.26 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
 #   figure_types v1.2, analyse_engine v1.2, blueprint_core v1.30, MockTestAnalyse v2.59.0).
 #   §13A-3 Phase B records, per EVERY PYQ item (text and figural, every subject), the
@@ -347,8 +374,9 @@
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS.
           Engine-enforced at write time.
   RE-16 : PYQ DEFECT HANDLING. A genuine, reproduced defect in a PYQ paper is a KNOWN
-          EXAM BODY ERROR — note it as anomaly, explain the OFFICIAL answer (if known)
-          or the most defensible answer, and move on. PYQ-1 does NOT escalate to Step 8
+          EXAM BODY ERROR — note it as anomaly, explain the DERIVED answer (the most
+          defensible one under §7; v2.27 / owner F2: no official answer key is ever an
+          input to this step), and move on. PYQ-1 does NOT escalate to Step 8
           (there is no Step 8 for PYQ papers) — see §17.
   RE-17 : FIDELITY EVERY BATCH. The whole question region must be byte-identical to
           the Row file source, verified after every batch (§12, §18).
@@ -1115,7 +1143,12 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   meaningfully different — not the same calculation twice with different variable
   names. If they agree → high confidence. If they disagree → derive a third
   method → 2-of-3 consensus + DERIVATION-CONFIDENCE flag. If no consensus →
-  HALT and report (§17).
+  web-verify the candidate answers (RE-18, §7-2) and take the sourced one as the
+  derived answer, still flagged (v2.27 — GAP-2026-11-05 DL-03, owner decision D4:
+  the flag is resolved AUTOMATICALLY, in-run, and recorded; it is never handed to a
+  human). Only when no method AND no source yields an answer does §17 apply
+  (unchanged). A `flagged` record enters the profile like any other — under rubric
+  rule r2 the flag no longer changes the band (DL-16).
 
 ## S7-2 — Web-verify facts (RE-18)
 
@@ -1334,13 +1367,38 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   `difficulty_labels` (from exam_config.json; default `['Easy','Medium','Hard']`).
 
   COUNTING RULES — fixed, so two instances counting the same block agree:
-  * `deduction_steps` = the number of discrete inferential moves in the DEDUCTION,
-    which is the number of DEDUCTION paragraphs the block carries. Do not count
-    the answer-binding sentence separately when it shares a paragraph with the
-    final move.
+  * `deduction_steps` = the number of DEDUCTION paragraphs the block carries (the
+    engine minimum is 2). It is still recorded — explanation validation
+    (`ExplanationBlock.validate()`) is unchanged — but since v2.27 it is NOT the
+    difficulty steps term.
+  * `inferential_steps` (v2.27 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-14/15; rubric
+    rule r2) = the number of INFERENTIAL MOVES the derivation needed, counted by
+    the ONE rule the mock generator (MockTestCreate CHECK 3c) also quotes, so a
+    PYQ band and a mock band use the same unit. `blueprint_core.INFERENTIAL_STEP_RULE`,
+    verbatim:
+
+    > An INFERENTIAL STEP is one reasoning move that produces a new fact the next
+    > move uses: applying a principle, predicting one transformation's product,
+    > eliminating an option class, or one manipulation of a relation. NOT a step:
+    > restating the stem, reading a value or a structure off the figure, naming the
+    > answer option (the answer-binding sentence), or splitting one move across
+    > paragraphs. A pre-requisite fact at the level of a standard textbook (pH of
+    > water, valency, a reagent's identity) is part of the step that uses it. Count
+    > moves, never paragraphs; a pure recall item has 0.
+
+    A pure recall / identification item records 0. The count is an observation of
+    the derivation just walked, never a target.
   * `axiom_concepts` = the number of DISTINCT named principles, laws, formulae, or
     definitions the AXIOM states. Two applications of one principle count once;
     a principle plus an independent definition it does not follow from count twice.
+  * `rubric_rule` = `blueprint_core.RUBRIC_RULE_CURRENT` (`'r2'`). Every record this
+    version writes carries it; every reader (the profile writer, Step 5, Create's
+    judge packet, A-DPROFILE) scores the record under the rule it carries, and a
+    record without one is the legacy rule r1 (guard G1). Under r2 the class
+    baselines gain C-STRUCTURAL / C-DERIVATIONAL (= 2), the steps term is
+    `inferential_steps`, and `derivation_confidence == 'flagged'` adds nothing to
+    the score (DL-16 — it is a producer-doubt flag, not a property of the question;
+    it is still recorded and still resolved under §7-1 / D4 below).
 
 ## S7A-3 — The assessment call
 
@@ -1349,7 +1407,9 @@ from blueprint_core import difficulty_score, band_for_score   # Cluster E2 — P
 
 obs = {                                   # v2.18 — the observation record is KEPT (S7A-4)
     'question_class'        : <§6 class facet(s)>,
-    'deduction_steps'       : <§8-3 step count>,
+    'deduction_steps'       : <§8-3 paragraph count>,
+    'inferential_steps'     : <§7A-2 inferential moves — INFERENTIAL_STEP_RULE>,   # v2.27
+    'rubric_rule'           : bc.RUBRIC_RULE_CURRENT,                               # v2.27 ('r2')
     'axiom_concepts'        : <§8-2 principle count>,
     'speed_hack_exists'     : <§14 gate verdict>,
     'derivation_confidence' : 'flagged' if methods initially disagreed else 'full',
@@ -1357,12 +1417,18 @@ obs = {                                   # v2.18 — the observation record is 
     'qtype'                 : <'mcq' | 'msq' | 'nat'>,
     'subtopic_id'           : <§6 subtopic_id — the same value q_to_classification carries>,
     'stem_snippet'          : <first 120 characters of the stem, plain text>,
+    'ask_format'            : <§13A-3 / figure_types.normalise_ask_format: statement | match |
+                               sequence | assertion_reason | combination | direct>,    # v2.27 DL-22
 }
-score = difficulty_score(obs['question_class'], obs['deduction_steps'], obs['axiom_concepts'],
-                         obs['speed_hack_exists'], obs['derivation_confidence'],
-                         obs['is_negative'], obs['qtype'])          # int 0..12
+score = bc.difficulty_score_from_obs(obs)       # int 0..12 — scored UNDER obs['rubric_rule'] (G1)
 label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Medium/Hard>)
 ```
+
+  v2.27: `bc.difficulty_score_from_obs` is the ONE obs reader (the same one Create's
+  G-DIFF, A-QINDEX check 8 and Step 9 use); calling `difficulty_score` positionally
+  would silently score an r2 record under r1. The two step counts are BOTH written:
+  `deduction_steps` for the explanation's own validation, `inferential_steps` for
+  the band.
 
   `difficulty_score` / `band_for_score` are pure functions (`assess_difficulty` is
   exactly their composition): identical observations always return the identical
@@ -1398,12 +1464,22 @@ label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Mediu
   "q_to_difficulty_score": { "1": 1, "42": 4, "54": 7 },
   "difficulty_unscored": { "22": "Row-file defect: options 1 and 2 bind the same image",
                            "35": "VOID_ITEM: figure not transcribable to publication confidence" },
-  "difficulty_obs": { "1": { "question_class": ["C-FACTUAL"], "deduction_steps": 0,
+  "difficulty_obs": { "1": { "question_class": ["C-FACTUAL"], "deduction_steps": 2,
+                             "inferential_steps": 0, "rubric_rule": "r2",
                              "axiom_concepts": 1, "speed_hack_exists": false,
                              "derivation_confidence": "full", "is_negative": false,
-                             "qtype": "mcq", "subtopic_id": "…", "stem_snippet": "…" } }
+                             "qtype": "mcq", "subtopic_id": "…", "stem_snippet": "…",
+                             "ask_format": "direct" } }
 }
 ```
+
+  * `inferential_steps` and `rubric_rule` (v2.27) travel with every record. A run
+    resumed across the 2026.11.05 release may hold batches of both rules; the
+    profile writer stores each record under its own rule and Blueprint / Create print
+    the coverage line (`bc.dp_profile_coverage`, DL-20). Recommended, never required:
+    re-run PYQExplain on all window papers together so the exam's measured mix rests
+    on one rule (owner decision D1-PRE (B) — this is advice, not a precondition, and
+    no step stops or asks for it).
 
   * `q_to_difficulty_score` and `difficulty_obs` (v2.18) are written by the SAME
     batch write as `q_to_difficulty`, so the three maps can never disagree on
@@ -1491,7 +1567,8 @@ if os.path.exists(_pf_in):
 _ec  = json.load(open(f'/mnt/project/{EXAM}_exam_config.json', encoding='utf-8'))
 _ec  = {'exam_code': EXAM, 'total_questions': _ec.get('total_questions'),
         'sections': _ec.get('sections'), 'cycle_gap_days': _ec.get('cycle_gap_days'),
-        'difficulty_labels': _ec.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']}
+        'difficulty_labels': _ec.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'],
+        'marking_scheme': _ec.get('marking_scheme')}     # v2.27 DL-10: per-record `marks`
 _h   = json.load(open('/home/claude/pyq_explain_progress.json', encoding='utf-8'))
 _obs = _h.get('difficulty_obs') or {}
 if not _obs:
@@ -2144,6 +2221,73 @@ for it in items:
                           calibration; null when no structure is printed.
   Transcribe what is PRINTED; never improve the molecule. The engine computes the
   content vector from these objects (bc.dp_add_paper) — never write a vector here.
+
+  v2.27 — P2a, VISIBLE ONLY (GAP-2026-11-05-DIFFICULTY-FIDELITY Part C; owner F1: the
+  graphics-team Row docx attached to this step IS the figure source of truth — its
+  images are read, nothing is compared with a redraw and no original paper is an
+  input). For EVERY question whose figures are chemistry STRUCTURES / REACTIONS, in the
+  SAME content record, before any solving (Phase B does not solve; the key-dependent
+  fields come at P7 below):
+    ZOOM (DL-07): before transcribing a structure, cut the figure into zoomed tiles —
+                          figural_vision.zoom_tiles(item.path, '/home/claude/pyq_zoom',
+                          dpi=300) — and view the tiles that hold the drawn species
+                          (wedges, hashed bonds, OTBS / Boc / TMS and other small
+                          groups are illegible on the ~512 px contact-sheet cell). Record
+                          the tile paths viewed under "zoom_tiles_viewed".
+    "content_objects":   EVERY structure and EVERY scheme in the images — the problem
+                          species, every intermediate / product the scheme draws, and
+                          every OPTION image (role "option:<k>") — with stereo (wedge /
+                          hash / E,Z) as drawn, rings as drawn, protecting groups as
+                          printed. A scheme's arrows: reagents / conditions as printed
+                          (above / below), numbered steps as printed.
+    "option_smiles":     {"<k>": <SMILES of option k>} for EVERY option that is a
+                          drawn structure (DL-01/02; the graphics team redraws an
+                          overwritten text option as an image — it is transcribed like
+                          any other); a TEXT option that names a species is given its
+                          SMILES too, with "option_source": {"<k>": "text"}.
+    "content_source":    "image" | "text" | "text_scheme" — DL-18: a species the STEM
+                          names in words (no drawing) is written as SMILES with
+                          content_source "text" (OPSIN when installed; else a model-
+                          written SMILES that RDKit re-parses); DL-04: a math region
+                          that holds an arrow token AND a bc.REAGENT_LEXICON hit (Δ,
+                          H2SO4, …) is a TEXT-FORM REACTION object — content_source
+                          "text_scheme", its reagents / conditions parsed into the
+                          object — listed in the existing delivery-note line.
+    "reagents_seen":     the reagent / condition strings EXACTLY as printed on every
+                          arrow and in the agents of every scheme
+                          (bc.reagent_names_of(content_objects) is the default) — the
+                          read-time method lexicon (§4.6) is built from these; tiers
+                          are never written here.
+    "ask_format":        figure_types.normalise_ask_format(stem, options) — statement |
+                          match | sequence | assertion_reason | combination | direct —
+                          checked BEFORE the ask type and stored beside it (DL-22); for
+                          text items too. A suspected option mis-parse (lettered
+                          statements / List-I lines parsed as options, DL-05) is one
+                          WARN line in the delivery note; the Row file is never edited
+                          (RE-3).
+    "image_counts":      what the IMAGE shows, read off the tiles, per content object
+                          index: {"<i>": {"heavy_atoms": n, "rings": n, "stereocentres":
+                          n}} — the ENGINE sets "transcription_confidence" from these
+                          (figural_vision.transcription_confidence: a count mismatch
+                          between the re-rendered SMILES and the image reading, after ONE
+                          re-view, is "partial"; DL-19). "partial" is RECORDED and kept
+                          out of the level pool; it is never VOID_ITEM (guard S10) and
+                          never changes content_confidence's existing meaning.
+    "re_viewed":         true when a count mismatch was seen and the figure was viewed
+                          ONCE more (the one re-view rule) before the counts above were
+                          final; false / absent otherwise. §13A-4 passes it to the engine
+                          as `reviewed` (recorded beside the confidence, never a second
+                          re-view).
+    "content_subtopic_hint": the subtopic the DRAWN content belongs to when it differs
+                          from the text classification (DL-09) — informational; no
+                          refiling (subtopic ids are append-only, guard G7).
+  P7 — AFTER THE DERIVED ANSWER (DL-17; owner F2: no official key is ever an input):
+    "answer_smiles":     the DERIVED answer's SMILES (the §7 derivation; a flagged
+                          derivation is resolved in-run by §7-1 / D4);
+    the engine then computes option_closeness, closeness and the level vector in
+    bc.dp_add_paper (S7A-6) — never written here.
+  Every one of these fields is hand-off only (never in ExplanationBlock.validate(),
+  never MANDATE D; guard S10); the S19-1 output set is unchanged (S11).
 ```
 
   MANDATE 0 STILL BINDS. The transcriptions go to a FILE. No stem, option,
@@ -2152,10 +2296,36 @@ for it in items:
 
 ## S13A-4 — PHASE C (python — deterministic; NEVER raises)
 ```python
-import figural_vision as fv, json
+import figural_vision as fv, json, os
 items = fv.load_queue('/home/claude/pyq_figural_queue.json')
 transcripts = json.load(open('/home/claude/pyq_figural_transcripts.json'))
 report = fv.verify_transcripts(items, transcripts)
+# v2.27 (GAP-2026-11-05 DL-19): the ENGINE sets each content record's transcription
+# confidence from the image counts Phase B read off the zoom tiles; a mismatch after the
+# one re-view is 'partial' (recorded; never VOID; guard S10). Nothing here raises.
+_cop = '/home/claude/pyq_content_objects.json'
+if os.path.exists(_cop):
+    try:
+        _content = json.load(open(_cop, encoding='utf-8'))
+        _n_partial = 0
+        for _q, _rec in list(_content.items()):
+            if _q == '_meta' or not isinstance(_rec, dict):
+                continue
+            _tc = fv.transcription_confidence(_rec.get('content_objects'), _rec.get('image_counts') or {},
+                                              reviewed=bool(_rec.get('re_viewed')))
+            _rec['transcription_confidence'] = _tc['confidence']
+            if _tc['confidence'] == 'partial':
+                _rec['content_confidence'] = 'partial'          # kept out of the level pool
+                _rec['transcription_mismatches'] = _tc['mismatches']
+                _n_partial += 1
+            if not _rec.get('reagents_seen'):
+                import blueprint_core as _bc_rs
+                _rec['reagents_seen'] = _bc_rs.reagent_names_of(_rec.get('content_objects'))
+        json.dump(_content, open(_cop, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        print(f"§13A-4: transcription confidence set on {sum(1 for k in _content if k != '_meta')} content record(s); "
+              f"{_n_partial} partial (kept; not in the level pool)")
+    except (OSError, ValueError) as _e:
+        print(f"§13A-4: content records not re-checked ({type(_e).__name__}: {_e}) — recorded, never a stop")
 fv.write_manifest(items, transcripts, report,
                   '/home/claude/pyq_figural_vision.json')
 print(fv.vision_report_line(report))
@@ -2509,8 +2679,10 @@ if (not _ok) or _problems or _degraded:
   (§7 derive-twice, RE-18 web-verify, §13/§13A view-every-image) plus the engine's
   write-time shape guarantees. The per-question handoff data (derived answers,
   web-verified facts, viewed-image confirmations, DERIVATION-CONFIDENCE flags) is
-  still recorded IN FULL and handed off (RE-20) — its consumer is now a HUMAN
-  reviewer, not a gate. The risk that replaces producer<->auditor drift is PRODUCER
+  still recorded IN FULL and handed off (RE-20) — its consumers are the profile
+  writer (S7A-6), Step 5's exemplar bank and Create's independent judge (v2.27,
+  owner D4: no human review step exists; a flagged derivation is resolved in-run
+  by §7-1 and recorded). The risk that replaces producer<->auditor drift is PRODUCER
   SELF-DECEPTION, which §18-1's read-back-the-written-document checks (never
   self-report) are the only defence against. Run them literally.
 
@@ -3005,5 +3177,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.26
+# END OF Framework_PYQExplain v2.27
 # ════════════════════════════════════════════════════════════════════════

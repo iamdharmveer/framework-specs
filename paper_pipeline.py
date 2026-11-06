@@ -43,6 +43,15 @@ Concerns:
                                             dg_add_rework_snapshot / dg_stem_hash /
                                             dg_verify_repair are DELETED. PENDING is the only
                                             blocking gate state; its remedy is TestExplain.
+                                            v5.40 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-53, G8):
+                                            dg_write_verdict stamps window_rule ('w1'|'w2') and
+                                            the Step-9 coverage (assessed_frac / assessed_count /
+                                            gated_count) when the caller passes them; gate_rule
+                                            stays 'windows' (w2 selects the authoring-band windows,
+                                            bc.DIFFICULTY_GATE_BAND_WINDOWS_W2, it is not a new
+                                            rule); §FOOTER-DG adds ONE amber line
+                                            "Step 9: k/n assessed" for a w2 record under 80 %
+                                            coverage — the verdict is never rewritten.
  14. resolve_registry / registry_source_pin / registry_source_check / registry_name
      (CLUSTER RS)                          — v5.84 REGISTRY-SOURCE-LAW (GAP-2026-09-14-REGISTRY-
                                             SOURCE, owner decision): [ExamCode]_registry.json
@@ -943,6 +952,28 @@ def _self_test():
     ck('DG-FOOTER-MIGRATION', any('healed' in ln for ln in dg_footer_lines(_rec))
        and any(DG_REPAIR_RETIRED_ID in ln for ln in dg_footer_lines(_rec)))
     ck('DG-FOOTER-PENDING-no-bands-KeyError', dg_footer_lines({'status': 'PENDING'}) == [])
+    # v5.40 (GAP-2026-11-05 DL-53 / G8): window_rule + coverage stamped by the writer; gate_rule
+    # stays DG_RULE_WINDOWS; the PENDING dict dg_stamp_pending mints is untouched; a w2 record
+    # below 80 % coverage adds ONE footer line and never changes the verdict.
+    _Rw = {}
+    dg_stamp_pending(_Rw, 'MOCK:M09')
+    _w2 = dg_write_verdict(_Rw, 'MOCK:M09', status='PASSED', rounds=0, windows=[None, [3, 5], [6, None]],
+                           window_rule='w2', assessed_frac=0.5, assessed_count=5, gated_count=10)
+    ck('DG-W2-STAMPED-GATE-RULE-UNCHANGED',
+       _w2['window_rule'] == 'w2' and _w2['gate_rule'] == DG_RULE_WINDOWS and dg_is_windowed(_w2)
+       and _w2['assessed_frac'] == 0.5 and _w2['assessed_count'] == 5 and _w2['gated_count'] == 10
+       and dg_read(_Rw, 'MOCK:M09') is _w2)
+    ck('DG-W2-OMITTED-IS-BYTE-IDENTICAL',
+       'window_rule' not in dg_write_verdict({}, 'MOCK:M10', status='PASSED', rounds=0, windows=[None, [2, 6], [5, None]])
+       and 'assessed_frac' not in dg_write_verdict({}, 'MOCK:M11', status='PASSED', rounds=0))
+    ck('DG-W2-ILLEGAL-VALUES-REFUSED',
+       _raises(lambda: dg_write_verdict({}, 'MOCK:M12', status='PASSED', rounds=0, window_rule='w9'), DGIllegalState)
+       and _raises(lambda: dg_write_verdict({}, 'MOCK:M12', status='PASSED', rounds=0, assessed_frac=1.5), DGIllegalState)
+       and _raises(lambda: dg_write_verdict({}, 'MOCK:M12', status='PASSED', rounds=0, assessed_frac='x'), DGIllegalState))
+    ck('DG-FOOTER-W2-LOW-COVERAGE-LINE',
+       dg_footer_lines(_w2) == ['Step 9: 5/10 assessed — labels below that coverage are as planned at Step 7.']
+       and dg_footer_lines(dict(_w2, assessed_frac=0.9)) == []
+       and dg_footer_lines(dict(_w2, window_rule='w1')) == [])
     # fleet heal: report vs apply, retired FAILED cohort, scoped PENDING cohort, escalation never touched
     _fleet = {'difficulty_gate': {
         'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 1, 'rework_qs': [1]},
@@ -2009,7 +2040,9 @@ def dg_is_windowed(rec):
 
 def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=None,
                      measured_by_q=None, rework_qs=None, dormant_reason=None,
-                     scores_by_q=None, rework_directions=None, windows=None):
+                     scores_by_q=None, rework_directions=None, windows=None,
+                     window_rule=None, assessed_frac=None, assessed_count=None,
+                     gated_count=None):
     """Step 9 ONLY (§7A-M gate: rounds=0). The ONLY writer of `status` and
     `repair_rounds_used` after birth, and it writes them TOGETHER.
 
@@ -2030,6 +2063,14 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
     rec['gate_rule'] = DG_RULE_WINDOWS; a DISCLOSED verdict WITHOUT windows is refused
     (the band-equality rule is retired — no new record may be written under it).
     rework_directions must cover every rework q (a partial map is a caller bug).
+
+    v5.40 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-53, G8): `window_rule` ('w1' | 'w2',
+    the gate result's 'window_rule') and the coverage fields `assessed_frac` /
+    `assessed_count` / `gated_count` are STAMPED on the record this writer builds (it
+    builds the record fresh, so a birth-time stamp would be lost). `gate_rule` stays
+    DG_RULE_WINDOWS — w2 is a window SELECTION, not a new rule. dg_stamp_pending is
+    unchanged (DG-ISOLATION pins its dict). Omitted → nothing stamped (older callers
+    byte-identical).
 
     Inert fields a retired repair step left on the record (rework_stem_hashes,
     baseline_stem_hashes, superseded_snapshots) and the migrations trail are carried
@@ -2121,6 +2162,22 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
     elif status == 'DISCLOSED' and rec.get('rework_qs'):
         raise DGIllegalState(f"DISCLOSED verdict for {paper_id} needs rework_directions for "
                              f"{rec['rework_qs']} (windowed rule — the verdict box prints them)")
+    if window_rule is not None:
+        _wr = str(window_rule).strip().lower()
+        if _wr not in ('w1', 'w2'):
+            raise DGIllegalState(f"window_rule must be 'w1' or 'w2', got {window_rule!r}")
+        rec['window_rule'] = _wr
+    if assessed_frac is not None:
+        try:
+            _af = float(assessed_frac)
+        except (TypeError, ValueError):
+            raise DGIllegalState(f"assessed_frac is not a number: {assessed_frac!r}")
+        if not 0.0 <= _af <= 1.0:
+            raise DGIllegalState(f"assessed_frac out of 0..1: {assessed_frac!r}")
+        rec['assessed_frac'] = _af
+    for _k, _v in (('assessed_count', assessed_count), ('gated_count', gated_count)):
+        if _v is not None:
+            rec[_k] = int(_v)
     rec['timestamp'] = _dg_now()
     if carried is not None:
         rec['rounds_carried_from'] = carried
@@ -2213,6 +2270,13 @@ def dg_footer_lines(rec):
     elif st == 'DORMANT':
         lines.append(f"Difficulty gate: not applicable to this paper "
                      f"({rec.get('dormant_reason', 'unspecified')}) — labels are as planned at Step 7.")
+    # v5.40 (DL-53): a w2 record below 80 % Step-9 coverage says so (AMBER; verdict unchanged)
+    if rec.get('window_rule') == 'w2':
+        _af = rec.get('assessed_frac')
+        if isinstance(_af, (int, float)) and not isinstance(_af, bool) and _af < 0.80:
+            _k, _n = rec.get('assessed_count'), rec.get('gated_count')
+            lines.append(f"Step 9: {_k if _k is not None else '?'}/{_n if _n is not None else '?'} assessed"
+                         f" — labels below that coverage are as planned at Step 7.")
     for m in rec.get('migrations') or []:
         lines.append(f"Difficulty-gate record healed ({m.get('gap', DG_GAP_ID)}): "
                      f"{m.get('field')} {m.get('from')} → {m.get('to')} on {m.get('at', '?')[:10]}.")

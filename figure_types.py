@@ -1,9 +1,18 @@
 """
-figure_types.py v1.2 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
+figure_types.py v1.3 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
 object_type (profile vocabulary) to a Step-7 render class, a semantic kind and a
 renderer. GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY, LAW F1.
 
 CHANGELOG
+    v1.3 (2026-11-05) — GAP-2026-11-05-DIFFICULTY-FIDELITY (DL-22, guard G4): ASK
+         FORMAT is an axis of its own — ASK_FORMATS + normalise_ask_format(stem,
+         options), checked BEFORE the ask type and stored beside it (`ask_format`), so
+         "Match the reagents in List-I ..." is reagent_identification AND match. SHAPE
+         RULES: shapes_for(family, 's1') is ASK_TYPES unchanged (every reader byte-
+         identical; A-SHAPEMIX reads s1 targets only); shapes_for(family, 's2') =
+         ASK_TYPES_S2 adds statement / match / sequence / assertion_reason to EVERY
+         family — targets written from it carry shape_rule 's2' and are gated by the
+         WARN-only A-AXIS2.
     v1.2 (2026-11-03) — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (§4.7 no exam-
          specific code): per-FAMILY quality rows QUALITY_ROWS[family] = {identity_fn,
          complexity_vector, mechanism_vocabulary} naming blueprint_core functions /
@@ -69,7 +78,7 @@ PURITY
 import importlib
 import re
 
-__version__ = '1.2'
+__version__ = '1.3'
 
 # ── S10-6A render classes (MockTestCreate) — parity with figural_core.FIGURE_CLASSES is
 #    verified by mock_sync_audit MS-23; this tuple is mirrored, never imported, so the
@@ -343,6 +352,73 @@ ASK_TYPES = {
                   'embedded_figure', 'paper_folding', 'other'),
 }
 FIGURAL_ASK_TYPES = ASK_TYPES['chemistry']            # v1.1 alias — every reader unchanged
+
+# v1.3 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-22, guard G4) — ASK FORMAT is an axis of its
+# own, checked BEFORE the ask type and stored beside it (`ask_format`): the FORM of the
+# question (how the stem asks) as opposed to WHAT it asks. "Match the reagents in List-I
+# with the products in List-II" is ask_type reagent_identification AND ask_format match;
+# through v1.2 the format was lost in the ask type. SHAPE_RULES: the s1 table is ASK_TYPES
+# exactly (every existing reader byte-identical; A-SHAPEMIX reads s1 targets only); the s2
+# table adds the four format shapes to EVERY family (statement / match / sequence /
+# assertion_reason) — targets written from it carry shape_rule 's2' and are gated by the
+# WARN-only A-AXIS2, never by a QQ gate.
+ASK_FORMATS = ('direct', 'statement', 'match', 'sequence', 'assertion_reason', 'combination')
+_S2_SHAPES = ('statement', 'match', 'sequence', 'assertion_reason')
+ASK_TYPES_S2 = {fam: tuple(list(types[:-1]) + [sh for sh in _S2_SHAPES if sh not in types] + [types[-1]])
+                if types and types[-1] == 'other' else tuple(list(types) + [sh for sh in _S2_SHAPES if sh not in types])
+                for fam, types in ASK_TYPES.items()}
+
+
+def shapes_for(family, shape_rule='s1'):
+    """The shape vocabulary of a family under a SHAPE RULE: 's1' = ASK_TYPES (unchanged),
+    's2' = ASK_TYPES_S2. An unknown family -> the 'text' family; an unknown rule -> s1."""
+    tab = ASK_TYPES_S2 if str(shape_rule or '').strip().lower() == 's2' else ASK_TYPES
+    return tab.get(family, tab['text'])
+
+
+_AF_LIST = re.compile(r'\b(?:list|column)\s*[-\u2013]?\s*(?:i{1,2}|[12ab])\b', re.I)
+_AF_ITEM = re.compile(r'(?:^|[\s(])(?:[A-Da-d]|i{1,3}|iv|[1-4])[.):]\s', re.M)
+_AF_COMBO = re.compile(r'\b(?:(?:[A-Da-d]|i{1,3}|iv|[1-4])\s*(?:,|and|&)\s*)+(?:[A-Da-d]|i{1,3}|iv|[1-4])\s*(?:only)?\b', re.I)
+_AF_PERM = re.compile(r'^\s*(?:[A-Da-d]|[1-4]|i{1,3}|iv)(?:\s*(?:,|>|<|→|->|,\s*)\s*(?:[A-Da-d]|[1-4]|i{1,3}|iv)){2,}\s*$', re.I)
+_AF_MATCH_OPT = re.compile(r'^\s*(?:[A-Da-d]\s*[-\u2013:]\s*(?:i{1,4}|iv|v|[1-5])\s*[,;]?\s*){2,}$', re.I)
+
+
+def normalise_ask_format(stem, options=None):
+    """The ASK FORMAT of a question from its stem and option texts: one of ASK_FORMATS.
+    assertion_reason  Assertion (A) / Reason (R) pattern
+    match             List-I / List-II (or Column) pairing, or options of the A-i, B-ii form
+    sequence          'correct sequence / order / arrange' with permutation options
+    statement         lettered / numbered statements plus 'and-only' option combinations
+    combination       lettered items plus combination options, without 'statement' wording
+    direct            everything else. NEVER raises; None inputs -> 'direct'."""
+    try:
+        st = str(stem or '')
+    except Exception:                                   # noqa: BLE001
+        return 'direct'
+    opts = []
+    for o in (options or []):
+        try:
+            opts.append(str(o or ''))
+        except Exception:                               # noqa: BLE001
+            continue
+    low = st.lower()
+    if re.search(r'\bassertion\b', low) and re.search(r'\breason\b', low):
+        return 'assertion_reason'
+    if _AF_LIST.search(st) or (opts and sum(1 for o in opts if _AF_MATCH_OPT.match(o)) >= max(2, len(opts) // 2)):
+        return 'match'
+    perm = sum(1 for o in opts if _AF_PERM.match(o))
+    if re.search(r'\bcorrect (?:sequence|order)\b|\barrange\b|\bsequence of\b|\border of (?:steps|reactions|events)\b', low) \
+            and (perm >= 2 or not opts):
+        return 'sequence'
+    if perm >= max(2, len(opts) // 2) and opts:
+        return 'sequence'
+    items = len(_AF_ITEM.findall(st))
+    combo = sum(1 for o in opts if _AF_COMBO.search(o) or re.search(r'\bonly\b|\ball of (?:the above|these)\b|\bnone of (?:the above|these)\b', o, re.I))
+    if items >= 2 and combo >= max(2, len(opts) // 2):
+        return 'statement' if re.search(r'\bstatements?\b', low) else 'combination'
+    if re.search(r'\bstatements?\b', low) and (items >= 2 or combo >= 2):
+        return 'statement'
+    return 'direct'
 REPRESENTATION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'newman_projection',
                        'fischer_projection', 'haworth_projection', 'sawhorse_projection')
 SCHEME_GRAMMAR_TAGS = ('plus_partner', 'two_way', 'multi_step_lettered',
@@ -878,6 +954,21 @@ def self_test():
           and normalise_ask_type('Identify the major product formed in the following reaction and its order of reactivity in the presence of different R groups.') == 'two_part'
           and normalise_ask_type('The Hammett plot for a reaction series gives a straight line') == 'quantitative_calculation'
           and normalise_ask_type('Identify the major product, P formed in the given reaction.') == 'product_prediction')
+    # v1.3 (GAP-2026-11-05 DL-22 / G4): ask FORMAT is its own axis, checked first; s1 shapes unchanged, s2 adds the four
+    check('v13_ask_format_match_before_type',
+          normalise_ask_format('Match the reagents in List-I with the products in List-II', ['A-ii, B-i, C-iv, D-iii', 'A-i, B-ii, C-iii, D-iv', 'A-iv, B-iii, C-i, D-ii', 'A-iii, B-iv, C-ii, D-i']) == 'match'
+          and normalise_ask_type('Match the reagents in List-I with the products in List-II') == 'reagent_identification'
+          and normalise_ask_format('Assertion (A): x. Reason (R): y.', ['a', 'b']) == 'assertion_reason'
+          and normalise_ask_format('Which of the following statements is/are correct?\n(i) a\n(ii) b\n(iii) c', ['(i) and (ii) only', '(ii) and (iii) only', '(i) only', '(i), (ii) and (iii)']) == 'statement'
+          and normalise_ask_format('The correct sequence of reagents is', ['A, B, C, D', 'B, A, D, C', 'C, D, A, B', 'D, C, B, A']) == 'sequence'
+          and normalise_ask_format('Consider: A. HCl B. NaOH C. H2O. Which are acids?', ['A only', 'A and C only', 'B and C', 'All of the above']) == 'combination'
+          and normalise_ask_format('The major product formed is', ['P', 'Q', 'R', 'S']) == 'direct'
+          and normalise_ask_format(None, None) == 'direct' and normalise_ask_format(object(), [object()]) == 'direct')
+    check('v13_shape_rules_s1_unchanged_s2_adds_four',
+          shapes_for('chemistry') == ASK_TYPES['chemistry'] and shapes_for('chemistry', 's1') == ASK_TYPES['chemistry']
+          and all(sh in shapes_for(f, 's2') for f in ASK_TYPES for sh in ('statement', 'match', 'sequence', 'assertion_reason'))
+          and shapes_for('chemistry', 's2')[-1] == 'other' and len(shapes_for('text', 's2')) == len(ASK_TYPES['text'])
+          and shapes_for('nope', 'bogus') == ASK_TYPES['text'] and all(ASK_TYPES[f] == tuple(x for x in shapes_for(f, 's2') if x in ASK_TYPES[f]) for f in ASK_TYPES))
     try:
         import importlib as _il_q
         _bcq = _il_q.import_module('blueprint_core')
@@ -1028,7 +1119,7 @@ def self_test():
           or not pf['available']['rdkit'])
 
     # 7. v1.1 — GAP-2026-11-02 F8 / §0.2
-    check('v1_1_version', __version__ == '1.2')
+    check('v1_1_version', __version__ == '1.3')
     check('ask_types_closed_vocab', len(FIGURAL_ASK_TYPES) == 19 and len(set(FIGURAL_ASK_TYPES)) == 19
           and FIGURAL_ASK_TYPES[0] == 'product_prediction' and FIGURAL_ASK_TYPES[-1] == 'other')
     check('representation_tags', REPRESENTATION_TAGS == ('skeletal', 'perspective', 'chair_conformation',

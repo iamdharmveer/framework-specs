@@ -15,6 +15,21 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.37 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   Framework_MockTestCreate v5.92). Stage 1 (every exam): A-QINDEX check 8 names the rule
+#   (r1 / r2 / L1) a disagreeing item was judged under (G1; the verdict itself still comes
+#   from bc.verify_difficulty_obs, which takes the level path first); A-DGATE reads the
+#   record's window_rule / assessed_frac and WARNS 'Step 9: k/n assessed' below 80 %
+#   coverage (DL-53; the verdict is never rewritten); A-DIFFSRC WARNS 'ratio outside
+#   measured guardrail' when a replayed ratio mode sits outside bc.dp_guardrail_bounds
+#   (DL-35); A-DPROFILE prints the DL-20 coverage line and accepts record_version-2 records.
+#   Stage 2 (drawn chemistry): WARN-only A-LEVEL (independent re-measure of every level
+#   item from its stored vector against bc.level_model_for_scope rebuilt from the profile),
+#   A-FIGCOMPLEX (paper vector median vs PYQ p50), A-CLOSENESS (Hard-band mean closeness vs
+#   PYQ Hard median; unmeasured -> DORMANT, never 0.0), A-AXIS2 (per-paper ask-format floors,
+#   never written into shape_target_per_paper); A-SHAPEMIX reads s1 targets only (G4);
+#   G5: a QQ FAIL resting on a QUALITY key stamped `rule.<key>: q2` / `shape_rule: s2` is a
+#   WARN for this release cycle. QQ_GATE_IDS / QQ_GATE_CONTROL UNCHANGED (S2; fixture).
 # v2.36 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (paired with blueprint_core
 #   v1.31, final_assembly v1.13, Framework_MockTestCreate v5.91). A-TEMPLATE counts PER
 #   (subtopic, fingerprint) against THAT subtopic's measured cap (the unit Step 5 measures;
@@ -4789,7 +4804,7 @@ def _qq_entry(src):
     return _pick_paper_entry(reg.get('question_index', []), pid, N)
 
 
-_QQ_V590_FIELDS = ('option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint', 'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family', 'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres', 'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities', 'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed', 'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist', 'stereo_decl', 'review', 'quality_status', 'judge_input_sha256',
+_QQ_V590_FIELDS = ('ask_format', 'difficulty_obs', 'option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint', 'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family', 'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres', 'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities', 'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed', 'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist', 'stereo_decl', 'review', 'quality_status', 'judge_input_sha256',
                    'subtopic_id', 'difficulty', 'difficulty_check', 'ca_range', 'stimulus_group_id', 'correct_option', 'key', 'answer',
                    'figural_ask_type')
 
@@ -4875,9 +4890,27 @@ def _qq_readiness(src):
     return rd if isinstance(rd, dict) else None
 
 
-def _qq_fail_or_amber(code, msg, src):
+def _qq_fail_or_amber(code, msg, src, key=None, q=None):
     # (GAP-2026-11-04 B5: the readiness rule is applied INSIDE gate_template, to its
     # fingerprint caps only — bc.QQ_GATE_CONTROL; every other gate is unchanged.)
+    # v2.37 (GAP-2026-11-05 G5): a FAIL resting on a QUALITY key that Step 5 stamped as NEW
+    # in this release (`rule.<key>: q2`) is a WARN for this release cycle — on every series;
+    # an unstamped (pre-existing) key is unchanged. Callers that pass no key are byte-
+    # identical.
+    if key is not None:
+        try:
+            qb = _qq_quality_for(src, q) if q is not None else None
+            if qb is None:
+                for _q in _qq_cm(src):
+                    qb = _qq_quality_for(src, _q)
+                    if qb:
+                        break
+            stamp = _qq_bc().quality_rule_of(qb or {}, key)
+        except Exception:                                        # noqa: BLE001 — never a stop
+            stamp = None
+        if stamp:
+            _warn(code, f'WARN (G5: measurement {key} is new in this release — stamped {stamp}; promoting it to FAIL is a later owner decision) — ' + msg)
+            return
     if _paper_is_qq(src):
         _fail(code, msg)
     else:
@@ -5478,8 +5511,16 @@ def gate_readiness(src):
         _ok('A-READINESS', 'dormant — no quality_readiness record on this paper (pre-2026.11.03 run).')
         return
     deg = rd.get('degraded') or []
+    # v2.37 (DL-46): a control reported N/A / DORMANT (e.g. G-DIFF-FLOOR without enough
+    # content-full records) is not degraded but is NOT active either — it is named, never
+    # folded into "every control ACTIVE"
+    _nm = sorted(f"{c} ({(r or {}).get('status')})" for c, r in (rd.get('controls') or {}).items()
+                 if isinstance(r, dict) and str(r.get('status')) not in ('PASS',) and c not in deg)
     if deg:
-        _warn('A-READINESS', 'DEGRADED QUALITY — these controls were DORMANT when the paper was written (OD-1: run continued): ' + _flist(deg))
+        _warn('A-READINESS', 'DEGRADED QUALITY — these controls were DORMANT when the paper was written (OD-1: run continued): ' + _flist(deg)
+              + (f'; also not measuring: {", ".join(_nm)}' if _nm else ''))
+    elif _nm:
+        _ok('A-READINESS', 'every quality input was present when the paper was written; controls NOT measuring: ' + ', '.join(_nm) + '.')
     else:
         _ok('A-READINESS', 'every quality control was ACTIVE when the paper was written.')
 
@@ -5524,6 +5565,13 @@ def gate_shapemix(src):
         if sh in per and sh not in infeasible:
             infeasible.append(sh)
     per = {k: v for k, v in per.items() if k != 'other'}      # 'other' is not a shape to plan or count
+    # v2.37 (GAP-2026-11-05 G4): s2 shape targets (statement / match / sequence / assertion_
+    # reason, stamped shape_rule 's2') are the WARN-only A-AXIS2's — this QQ gate reads the
+    # s1 set only, so a new measurement can never open a path to NOT CERTIFIED.
+    per = {k: v for k, v in per.items() if not (isinstance(v, dict) and str(v.get('shape_rule') or '').lower() == 's2')}
+    if not per:
+        _ok('A-SHAPEMIX', 'DORMANT — every shape target of this paper is s2 (A-AXIS2 reads them).')
+        return
     r = bc.shape_mix_check(counts, per, infeasible=infeasible)
     if r['state'] == 'FAIL':
         # ITEM findings so the ladder has a question to move: an over-cap / excess shape
@@ -5561,6 +5609,254 @@ def gate_shapemix(src):
         _ok('A-SHAPEMIX', f'{sum(counts.values())} item(s) across {len(per)} planned shape(s): floors met, caps kept'
                           + (f'; infeasible for this paper\'s subtopics (recorded): {infeasible}' if infeasible else '') + '.')
 
+
+# ── v2.37 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part C: WARN-ONLY level gates (guard S3) ──
+# None of these is in QQ_GATE_IDS; none has an ARMED tripwire; each is DORMANT without
+# measured input and never produces an item finding or a FAIL.
+
+def _l1_scope_model(src):
+    """bc.level_model_for_scope rebuilt from the SAME inputs Create used (the profile, the
+    blueprint's difficulty_source measured_pct / mix_rule / tier, section_rules text) — so
+    this auditor can never WARN merely because its cuts differ from Create's (DL-21)."""
+    bc = _qq_bc()
+    prof = src.get('profile')
+    if not isinstance(prof, dict):
+        return None
+    bp = src.get('bp') or src.get('blueprint') or {}
+    bp = bp if isinstance(bp, dict) else {}
+    ds = bp.get('difficulty_source') if isinstance(bp.get('difficulty_source'), dict) else {}
+    # the blueprint's level_model_inputs (Blueprint v1.64.0 §7-9 (e) / ScopedBlueprint v1.14.0
+    # S8-2e (e)) are the SAME record Create S3 built from; an older blueprint falls back to its
+    # difficulty_source / subtopic_list, exactly as Create does.
+    lmi = bp.get('level_model_inputs') if isinstance(bp.get('level_model_inputs'), dict) else {}
+    # FIRST the inputs Create recorded on THIS paper (difficulty_state.level_model.inputs, S3 /
+    # S13-4) — exactly what the generator built from, whatever blueprint version it read
+    _ent = _qq_entry(src) or {}
+    _rec_in = (((_ent.get('difficulty_state') or {}).get('level_model') or {}).get('inputs')
+               if isinstance(_ent.get('difficulty_state'), dict) else None)
+    if isinstance(_rec_in, dict) and _rec_in.get('subtopic_ids'):
+        lmi = _rec_in
+    labels = list(lmi.get('labels') or ds.get('labels') or bp.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    sids = [str(x) for x in (lmi.get('subtopic_ids') or [])]
+    if not sids:
+        sids = [str(e.get('subtopic_id')) for e in (bp.get('subtopic_list') or []) if isinstance(e, dict) and e.get('subtopic_id')]
+    if not sids:
+        sids = list(ds.get('subtopic_ids') or [])
+    if not sids:
+        cm = _qq_cm(src)
+        sids = sorted({str(e.get('subtopic_id')) for e in cm.values() if isinstance(e, dict) and e.get('subtopic_id')})
+    try:
+        return bc.level_model_for_scope(prof, sorted(set(sids)), labels,
+                                        mix_rule=bc.mix_rule_of(lmi.get('mix_rule') if lmi else ds.get('mix_rule')),
+                                        tier=(lmi.get('tier') if lmi else (ds.get('params') or {}).get('tier')),
+                                        gap_days=(lmi.get('gap_days') if lmi else (ds.get('params') or {}).get('gap_days')),
+                                        measured_pct=(lmi.get('measured_pct') if lmi else ds.get('measured_pct')),
+                                        extra_text=src.get('section_rules_text') or src.get('rules_txt') or '')
+    except Exception as _e:                                       # noqa: BLE001 — advisory only
+        return {'active': False, 'reason': f'{type(_e).__name__}: {_e}'}
+
+
+def _l1_items(src):
+    """[(q, entry, obs, level record, level vector)] for every item that carries one."""
+    out = []
+    for q, e in sorted(_qq_cm(src).items(), key=lambda kv: (0, int(kv[0])) if str(kv[0]).isdecimal() else (1, 0)):
+        if not isinstance(e, dict):
+            continue
+        obs = e.get('difficulty_obs') if isinstance(e.get('difficulty_obs'), dict) else {}
+        lv = obs.get('level') if isinstance(obs.get('level'), dict) else None
+        vec = obs.get('level_vector') if isinstance(obs.get('level_vector'), dict) else e.get('level_vector')
+        if lv or isinstance(vec, dict):
+            out.append((str(q), e, obs, lv, vec if isinstance(vec, dict) else None))
+    return out
+
+
+def gate_level(src):
+    """A-LEVEL (WARN only) — an INDEPENDENT RE-MEASURE: the Level Model is rebuilt from the
+    profile and each level item's composite / band is recomputed from its STORED vector; a
+    recorded level record that does not reproduce is a WARN (A-QINDEX check 8 only re-bands
+    the recorded composite — this is the check that is not circular). 'small pool' suffix
+    when the model is active below QF_CCP_MIN_POOL (owner D10 B)."""
+    bc = _qq_bc()
+    items = _l1_items(src)
+    if not items:
+        _ok('A-LEVEL', 'dormant — no item carries a level record or vector (text paper, or pre-2026.11.05 run).')
+        return
+    m = _l1_scope_model(src)
+    if not m or not m.get('active'):
+        _warn('A-LEVEL', f"{len(items)} level item(s) but the model cannot be rebuilt here "
+                         f"({(m or {}).get('reason') or 'no --profile'}) — recorded bands not independently re-measured (recorded).")
+        return
+    labels = list(m.get('labels') or [])
+    sfx = f" [small pool n={m.get('n')}]" if m.get('small_pool') else ''
+    bad, checked = [], 0
+    for q, e, obs, lv, vec in items:
+        if vec is None or not lv:
+            continue
+        checked += 1
+        rec = bc.level_record(m, vec, obs.get('qtype') or e.get('qtype') or 'mcq', labels)
+        if rec is None:
+            bad.append(f'Q{q}: vector unusable against the rebuilt model')
+            continue
+        c_rec = lv.get('composite')
+        if not isinstance(c_rec, (int, float)) or abs(float(c_rec) - float(rec['composite'])) > 1e-6:
+            bad.append(f"Q{q}: recorded composite {c_rec} != re-measured {rec['composite']:.4f}")
+        elif rec['band'] != lv.get('band'):
+            bad.append(f"Q{q}: recorded level band {lv.get('band')!r} != re-measured {rec['band']!r}")
+        elif e.get('difficulty') not in (None, rec['band']):
+            bad.append(f"Q{q}: label {e.get('difficulty')!r} != re-measured level band {rec['band']!r}")
+    if bad:
+        _warn('A-LEVEL', f'{len(bad)}/{checked} level item(s) do not reproduce against the rebuilt model{sfx}: ' + _flist(bad))
+    else:
+        _ok('A-LEVEL', f"{checked} level item(s) re-measured against the rebuilt model (level {m.get('level_used')}, "
+                       f"n={m.get('n')}, cuts {[round(c, 2) for c in (m.get('cuts') or {}).get('cuts_list', [])]}){sfx}.")
+
+
+def gate_figcomplex(src):
+    """A-FIGCOMPLEX (WARN only) — per subtopic, the paper's level-vector MEDIAN against the
+    PYQ p50 recorded in the subtopic's QUALITY figure_complexity_pct (DL-28). A field whose
+    paper median sits below the PYQ p10 is reported. Dormant without vectors or targets."""
+    items = [(q, e, vec) for q, e, _o, _lv, vec in _l1_items(src) if vec]
+    if not items:
+        _ok('A-FIGCOMPLEX', 'dormant — no item carries a level vector.')
+        return
+    by_sid = {}
+    for q, e, vec in items:
+        by_sid.setdefault(str(e.get('subtopic_id') or '?'), []).append((q, vec))
+    warns, measured = [], 0
+    for sid, rows in by_sid.items():
+        qb = _qq_quality_for(src, rows[0][0]) or {}
+        tgt = qb.get('figure_complexity_pct')
+        if not isinstance(tgt, dict):
+            continue
+        measured += 1
+        for f, pct in tgt.items():
+            vals = sorted(v[f] for _q, v in rows if isinstance(v.get(f), (int, float)) and not isinstance(v.get(f), bool))
+            if not vals or not isinstance(pct, dict):
+                continue
+            med = vals[len(vals) // 2]
+            p10, p50 = pct.get('p10'), pct.get('p50')
+            if isinstance(p10, (int, float)) and med < p10:
+                warns.append(f'{sid} {f}: paper median {med} < PYQ p10 {p10} (p50 {p50})')
+    if not measured:
+        _ok('A-FIGCOMPLEX', 'dormant — no figure_complexity_pct target for these subtopics (run MockTestAnalyse 2.60.0).')
+    elif warns:
+        _warn('A-FIGCOMPLEX', f'{len(warns)} field(s) below the PYQ p10: ' + _flist(warns))
+    else:
+        _ok('A-FIGCOMPLEX', f'{measured} subtopic(s): paper figure complexity within the PYQ distribution.')
+
+
+def gate_closeness(src):
+    """A-CLOSENESS (WARN only) — the TOP band's mean option closeness on this paper against
+    the PYQ top-band median closeness of the same scope: the LEVEL-band top items of the
+    rebuilt level model (the A-LEVEL model) when it is active, else the stored-band top
+    items of the paper's subtopics. An unmeasured PYQ closeness is DORMANT, never 0.0 (DL-44)."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    bp = src.get('bp') or src.get('blueprint') or {}
+    labels = list(((bp.get('difficulty_source') or {}).get('labels') if isinstance(bp.get('difficulty_source'), dict) else None)
+                  or bp.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    top = labels[-1]
+    paper = []
+    for q, e in cm.items():
+        if not isinstance(e, dict) or e.get('difficulty') != top:
+            continue
+        obs = e.get('difficulty_obs') if isinstance(e.get('difficulty_obs'), dict) else {}
+        cl = obs.get('closeness') if isinstance(obs.get('closeness'), dict) else e.get('closeness')
+        mean = (cl or {}).get('mean') if isinstance(cl, dict) else None
+        if isinstance(mean, (int, float)) and not isinstance(mean, bool):
+            paper.append(float(mean))
+    if not paper:
+        _ok('A-CLOSENESS', 'dormant — no top-band item carries an option-closeness record.')
+        return
+    prof = src.get('profile')
+    pyq = []
+    # v2.37 (DL-21 / D1): the PYQ "top band" is the band Create authored against — the LEVEL
+    # band of the SAME rebuilt model A-LEVEL uses (same scope / window / mix from the
+    # blueprint's level_model_inputs), so the comparison can never use a different Hard set.
+    # Without an active model the stored band of the paper's own subtopics is used (legacy).
+    m = _l1_scope_model(src) if isinstance(prof, dict) else None
+    if m and m.get('active'):
+        papers = prof.get('papers') or {}
+        for key, q in (m.get('pool_keys') or []):
+            rec = ((papers.get(key) or {}).get('questions') or {}).get(str(q))
+            if not isinstance(rec, dict):
+                continue
+            cmn = (rec.get('closeness') or {}).get('mean') if isinstance(rec.get('closeness'), dict) else None
+            if not isinstance(cmn, (int, float)) or isinstance(cmn, bool):
+                continue
+            vec = bc.level_vector(rec.get('content_vector'), rec.get('closeness'), bc._rec_reasoning_score(rec),
+                                  method_tier=bc.method_tier_of(bc._qf_lines(rec.get('reagents_seen')) + bc._qf_lines(rec.get('drawn_names')),
+                                                                m.get('lexicon')))
+            lr = bc.level_record(m, vec, rec.get('qtype') or 'mcq', list(m.get('labels') or labels))
+            if lr and lr.get('band') == top:
+                pyq.append(float(cmn))
+    else:
+        sids = {str(e.get('subtopic_id')) for e in cm.values() if isinstance(e, dict) and e.get('subtopic_id')}
+        for _k, _q, rec in (bc._l1_window_records(prof) if isinstance(prof, dict) else []):
+            if str(rec.get('subtopic_id') or '') not in sids and sids:
+                continue
+            if bc._qf_rec_band(rec, labels) != top or str(rec.get('content_confidence', 'full')).lower() != 'full':
+                continue
+            cmn = (rec.get('closeness') or {}).get('mean') if isinstance(rec.get('closeness'), dict) else None
+            if isinstance(cmn, (int, float)) and not isinstance(cmn, bool):
+                pyq.append(float(cmn))
+    if not pyq:
+        _ok('A-CLOSENESS', f'DORMANT — PYQ top-band closeness unmeasured for this scope ({len(paper)} paper item(s) carry one; never read as zero).')
+        return
+    pyq.sort()
+    med = pyq[len(pyq) // 2]
+    mean = sum(paper) / len(paper)
+    if mean + 1e-9 < med:
+        _warn('A-CLOSENESS', f'top-band option closeness {mean:.2f} (n={len(paper)}) below the PYQ top-band median {med:.2f} (n={len(pyq)}) — wrong options sit further from the key than the real paper\'s.')
+    else:
+        _ok('A-CLOSENESS', f'top-band option closeness {mean:.2f} (n={len(paper)}) >= PYQ median {med:.2f} (n={len(pyq)}).')
+
+
+def gate_axis2(src):
+    """A-AXIS2 (WARN only; guard G4) — per-paper ASK-FORMAT floors (blueprint
+    axis2_format_floor_per_paper[<mock>] = {format: floor}, written from the measured
+    per-paper mean of each format >= 1, limited to the pool caps and the axis-3 lock —
+    DL-34) and the s2 SHAPE targets (shape_target_per_paper entries stamped shape_rule
+    's2'), counted over concept_map[q].ask_format / shape. Never written into
+    shape_target_per_paper's s1 set; never an item finding; dormant without targets."""
+    bp = src.get('bp') or src.get('blueprint') or {}
+    mk = str(src.get('_mockN') or src.get('mock_n') or '')
+    cm = _qq_cm(src)
+    floors = ((bp.get('axis2_format_floor_per_paper') or {}).get(mk) or {}) if isinstance(bp.get('axis2_format_floor_per_paper'), dict) else {}
+    s2 = {}
+    per = ((bp.get('shape_target_per_paper') or {}).get(mk) or {}) if isinstance(bp.get('shape_target_per_paper'), dict) else {}
+    for sh, t in (per.items() if isinstance(per, dict) else []):
+        if isinstance(t, dict) and str(t.get('shape_rule') or '').lower() == 's2':
+            s2[sh] = t
+    if (not floors and not s2) or not cm or src.get('through_q'):
+        _ok('A-AXIS2', 'dormant — no ask-format floors / s2 shape targets for this paper, no concept_map, or partial-paper mode.')
+        return
+    fmt, shapes = {}, {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        f = e.get('ask_format')
+        if f:
+            fmt[str(f)] = fmt.get(str(f), 0) + 1
+        sh = str(e.get('shape') or '').split('|')[0].strip()
+        if sh:
+            shapes[sh] = shapes.get(sh, 0) + 1
+    warns = []
+    for f, fl in floors.items():
+        try:
+            fl = int(fl)
+        except (TypeError, ValueError):
+            continue
+        if fl > 0 and fmt.get(str(f), 0) < fl:
+            warns.append(f'format {f}: {fmt.get(str(f), 0)} < floor {fl}')
+    for sh, t in s2.items():
+        fl = int(t.get('floor') or 0) if str(t.get('floor', '')).lstrip('-').isdigit() else 0
+        if fl > 0 and shapes.get(sh, 0) < fl:
+            warns.append(f's2 shape {sh}: {shapes.get(sh, 0)} < floor {fl}')
+    if warns:
+        _warn('A-AXIS2', 'ask-format / s2 shape floors not met on this paper (WARN only; the S1 repair loop reads this): ' + _flist(warns))
+    else:
+        _ok('A-AXIS2', f'ask-format floors met ({len(floors)} format(s), {len(s2)} s2 shape(s)).')
 
 def _qq_concept_caps(src, n_items):
     """{concept_id: cap} measured from the difficulty profile's per-item `concept` tags:
@@ -5718,6 +6014,26 @@ def gate_pyqbench(src):
     for row in bc.diffdist_info(sched, final):
         rows.append({'row': f"difficulty {row['band']}", 'paper': row['final'], 'pyq': row['scheduled'],
                      'fail_constant': None, 'state': 'INFO' + ('' if row['within'] else ' (outside ±%d)' % row['tolerance'])})
+    # v2.37 (GAP-2026-11-05 DL-51/52): the plan as the blueprint wrote it (before in-run R5
+    # amendments) and the items whose judges disagreed — INFO rows, never a verdict
+    _dst = e.get('difficulty_state') if isinstance(e.get('difficulty_state'), dict) else {}
+    _so = _dst.get('schedule_original') if isinstance(_dst.get('schedule_original'), dict) else {}
+    for _b, _n in _so.items():
+        rows.append({'row': f'difficulty {_b} (original plan)', 'paper': final.get(_b, 0), 'pyq': _n,
+                     'fail_constant': None, 'state': 'INFO' + ('' if final.get(_b, 0) == _n else ' (amended in run)')})
+    _notes, _rev = {}, 0
+    for q in (e.get('questions') or []):
+        _dc = q.get('difficulty_check') if isinstance(q, dict) and isinstance(q.get('difficulty_check'), dict) else {}
+        if _dc.get('level_note') and _dc.get('level_note') != 'advisory':
+            _notes[str(_dc['level_note'])] = _notes.get(str(_dc['level_note']), 0) + 1
+        if _dc.get('reviewer_band'):
+            _rev += 1
+    for _ln, _n in sorted(_notes.items()):
+        rows.append({'row': f'difficulty note: {_ln}', 'paper': _n, 'pyq': '', 'fail_constant': None, 'state': 'INFO'})
+    if _rev:
+        rows.append({'row': 'reviewer placed below slot band', 'paper': _rev, 'pyq': '', 'fail_constant': None, 'state': 'INFO'})
+    if _dst.get('hard_missed'):
+        rows.append({'row': 'Hard target missed (R5)', 'paper': _dst.get('hard_missed'), 'pyq': 0, 'fail_constant': None, 'state': 'INFO'})
     shapes = {}
     for x in cm.values():
         if isinstance(x, dict) and x.get('shape'):
@@ -5801,6 +6117,10 @@ def run_audit(args):
     _safe_gate('A-CONTENTLEVEL', gate_contentlevel, src)     # item gate — level decision resolved
     _safe_gate('A-FIGFORMAT', gate_figformat, src)           # advisory — ask-type mix
     _safe_gate('A-DIFFSRC', gate_diffsrc, src)               # advisory — schedule provenance
+    _safe_gate('A-LEVEL', gate_level, src)                   # v2.37 WARN-only — independent level re-measure (S3)
+    _safe_gate('A-FIGCOMPLEX', gate_figcomplex, src)         # v2.37 WARN-only — figure complexity vs PYQ p50
+    _safe_gate('A-CLOSENESS', gate_closeness, src)           # v2.37 WARN-only — top-band option closeness
+    _safe_gate('A-AXIS2', gate_axis2, src)                   # v2.37 WARN-only — ask-format / s2 shape floors (G4)
     _safe_gate('A-CERT', gate_cert, src, args)               # S13-4c — certified docx unchanged
     # ── v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decisions OD-1..OD-14) ──
     _safe_gate('A-READINESS', gate_readiness, src)            # advisory (OD-1) — DEGRADED list
@@ -6041,8 +6361,28 @@ def gate_diffsrc(src):
         _warn('A-DIFFSRC', f'NOT CHECKED ({type(_e).__name__}: {_e}).')
         return
     if r.get('ok'):
-        _ok('A-DIFFSRC', f"difficulty schedule reproduces from its provenance "
-                         f"({ds.get('mode')}, {ds.get('level_used')}).")
+        # v2.37 (DL-35): a replayed RATIO reproduces by construction; say so when it sits
+        # outside the measured guardrail (advisory — the mode was an operator choice).
+        _gr = ''
+        try:
+            _pr = (ds.get('params') or {}).get('ratio')
+            _mp = ds.get('measured_pct')
+            _labs = list(ds.get('labels') or [])
+            if _pr and isinstance(_mp, dict) and len(_labs) == 3 and hasattr(_bcx, 'dp_guardrail_bounds'):
+                _chosen = dict(zip(_labs, [int(x) for x in _pr]))
+                _b = _bcx.dp_guardrail_bounds(_mp, _labs)
+                _out = [l for l in _labs if isinstance(_b.get(l), (list, tuple))
+                        and not (_b[l][0] <= _chosen[l] <= _b[l][1])]
+                if _out:
+                    _gr = f" ratio outside measured guardrail on {', '.join(_out)} (measured {_mp}, chosen {_chosen})"
+        except Exception:                                       # noqa: BLE001 — advisory only
+            _gr = ''
+        if _gr:
+            _warn('A-DIFFSRC', f"difficulty schedule reproduces from its provenance "
+                               f"({ds.get('mode')}, {ds.get('level_used')});" + _gr)
+        else:
+            _ok('A-DIFFSRC', f"difficulty schedule reproduces from its provenance "
+                             f"({ds.get('mode')}, {ds.get('level_used')}).")
     elif r.get('ok') is None:
         _warn('A-DIFFSRC', f"difficulty schedule unverified: {r.get('reason')}")
     else:
@@ -6298,8 +6638,12 @@ def gate_qindex(src):
                     _okc, _meas = _bc.verify_difficulty_obs(
                         x.get('difficulty'), x.get('difficulty_obs'), canon)
                     if not _okc:
+                        _o8 = x.get('difficulty_obs') or {}
+                        _rule8 = ('L1' if isinstance(_o8.get('level'), dict)
+                                  and str(_o8['level'].get('rule') or '').upper() == 'L1'
+                                  else _bc.rubric_rule_of(_o8)) if hasattr(_bc, 'rubric_rule_of') else 'r1'
                         _obs_bad.append(f"Q{x.get('q')}(label={x.get('difficulty')}"
-                                        f"!=measured={_meas})")
+                                        f"!=measured={_meas})[rule {_rule8}]")
                 if _obs_bad:
                     fails.append(
                         f"check 8 (obs consistency): label contradicts its own "
@@ -6847,9 +7191,16 @@ def gate_dprofile(src):
     if bad:
         _fail('A-DPROFILE', '; '.join(bad[:8]) + (f' (+{len(bad) - 8} more)' if len(bad) > 8 else ''))
     else:
+        _cov = ''
+        if prof and hasattr(_bc, 'dp_profile_coverage'):
+            try:
+                _cov = '; ' + _bc.dp_profile_coverage(prof)['line']
+            except Exception:                                   # noqa: BLE001 — advisory line only
+                _cov = ''
         _ok('A-DPROFILE', 'difficulty profile / difficulty_source consistent'
                           + (' (scoped paper: exam-level profile certified on its own terms; '
-                             'paper-shape checks apply to mock papers)' if _scoped and prof else ''))
+                             'paper-shape checks apply to mock papers)' if _scoped and prof else '')
+                          + _cov)
 
 
 def gate_dgate(src):
@@ -6953,8 +7304,21 @@ def gate_dgate(src):
         if st == 'PENDING' and not str(pid).startswith('MOCK:'):
             bad.append(f"{pid}: a SCOPED paper is PENDING — it is born DORMANT/scoped_paper "
                          f"and can never be resolved by the MOCK-ONLY gate")
+    # v2.37 (DL-53): a w2 record with fewer than 80 % of its gated items assessed is
+    # reported — the verdict stands (a 'not assessed' DISCLOSED is never written).
+    _low = []
+    for pid, rec in records.items():
+        if not isinstance(rec, dict) or rec.get('window_rule') != 'w2':
+            continue
+        af = rec.get('assessed_frac')
+        if isinstance(af, (int, float)) and not isinstance(af, bool) and af < 0.80:
+            _k, _n = rec.get('assessed_count'), rec.get('gated_count')
+            _low.append(f"{pid}: Step 9: {_k if _k is not None else '?'}/{_n if _n is not None else '?'} assessed")
     if bad:
         _fail('A-DGATE', '; '.join(bad))
+    elif _low:
+        _warn('A-DGATE', f'{len(records)} difficulty_gate record(s) in a legal state; low Step-9 coverage on '
+                         + '; '.join(_low))
     else:
         _ok('A-DGATE', f'{len(records)} difficulty_gate record(s) in a legal state'
                        + (f' (paper size unknown, size checks skipped: {", ".join(_unsized)})'
@@ -12292,6 +12656,237 @@ def self_test():
         certificate = _A35c.write_certificate
     gate_cert({}, _A35g())
     check('A-CERT-accepts-NOT-CERTIFIED-paper-as-warn', _lv('A-CERT') == ['WARN'] and 'NOT CERTIFIED' in _msg('A-CERT'))
+    _reset()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # v2.37 — GAP-2026-11-05-DIFFICULTY-FIDELITY, Stage 1 (every exam)
+    import blueprint_core as _bc37
+    # S2: no QQ gate added or tightened — the set and its control map are pinned.
+    # reviewer #8: A-READINESS names a DORMANT / N/A control — never "every control ACTIVE"
+    _rdD = {'controls': {'G-DIFF-FLOOR': {'status': 'DORMANT'}, 'G-STYLE': {'status': 'PASS'}}, 'degraded': []}
+    _reset(); gate_readiness({'registry': {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1, 'quality_readiness': _rdD}]}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v237-A-READINESS-names-not-measuring-controls',
+          'G-DIFF-FLOOR (DORMANT)' in _msg('A-READINESS') and 'every quality control was ACTIVE' not in _msg('A-READINESS'))
+    _rdP = {'controls': {'G-DIFF-FLOOR': {'status': 'PASS'}}, 'degraded': []}
+    _reset(); gate_readiness({'registry': {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1, 'quality_readiness': _rdP}]}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v237-A-READINESS-all-pass-still-says-active', 'every quality control was ACTIVE' in _msg('A-READINESS'))
+    _rdO = {'controls': {'G-STYLE': {'status': 'N/A'}, 'G-DIFF-FLOOR': {'status': 'DORMANT'}}, 'degraded': []}
+    _reset(); gate_readiness({'registry': {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1, 'quality_readiness': _rdO}]}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    _rmo = _msg('A-READINESS')
+    check('v237-A-READINESS-not-measuring-in-fixed-order',
+          'G-DIFF-FLOOR (DORMANT)' in _rmo and 'G-STYLE (N/A)' in _rmo and _rmo.index('G-DIFF-FLOOR') < _rmo.index('G-STYLE'))
+    check('v237-qq-gate-set-unchanged',
+          QQ_GATE_IDS == ('A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
+                          'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
+                          'A-SHAPEMIX', 'A-TEMPLATE')
+          and _bc37.QQ_GATE_CONTROL == {'A-TEMPLATE': 'G-TEMPLATE'})
+    # A-DGATE: a w2 record with low coverage WARNS (verdict unchanged); a w1 record is silent
+    _reset(); gate_dgate({'registry': {'difficulty_gate': {
+        'MOCK:M01': {'status': 'PASSED', 'repair_rounds_used': 0, 'window_rule': 'w2',
+                     'assessed_frac': 0.3, 'assessed_count': 3, 'gated_count': 10}}},
+                          'blueprint': {'total_questions': 10}})
+    check('v237-A-DGATE-low-coverage-warns-not-fails',
+          [l for l, c, m in RESULTS if c == 'A-DGATE'] == ['WARN'] and 'Step 9: 3/10 assessed' in _msg('A-DGATE'))
+    _reset(); gate_dgate({'registry': {'difficulty_gate': {
+        'MOCK:M01': {'status': 'PASSED', 'repair_rounds_used': 0, 'assessed_frac': 0.3}}},
+                          'blueprint': {'total_questions': 10}})
+    check('v237-A-DGATE-w1-record-unchanged', [l for l, c, m in RESULTS if c == 'A-DGATE'] == ['OK'])
+    # A-DIFFSRC: a replayed ratio outside the guardrail WARNS; inside it stays OK
+    _QL37 = ['Easy', 'Medium', 'Hard']
+    _P37 = None
+    for _d37 in ('01-Jan-2025', '01-Feb-2025', '01-Mar-2025'):
+        _P37, _, _ = _bc37.dp_add_paper(_P37, source_file=f'X_{_d37}.docx',
+                                        exam_config={'exam_code': 'X', 'total_questions': 10, 'difficulty_labels': _QL37,
+                                                     'sections': [{'name': 'S', 'q_range': [1, 10]}]},
+                                        questions={q: {'question_class': 'C-COMPUTATIONAL', 'deduction_steps': 3 if q <= 6 else 5,
+                                                       'axiom_concepts': 1 if q <= 6 else 3, 'qtype': 'mcq', 'subtopic_id': 'S.a'}
+                                                   for q in range(1, 11)})
+    _sdr = _bc37.scoped_difficulty_schedule(_P37, ['S.a'], _QL37, 1, 10, mode='ratio', ratio=[90, 5, 5])
+    _bpr = {'difficulty_schedule': _sdr['schedule'], 'difficulty_source': _sdr['difficulty_source'], 'total_questions': 10}
+    _reset(); gate_diffsrc({'blueprint': _bpr, 'profile': _P37})
+    check('v237-A-DIFFSRC-ratio-outside-guardrail-warns',
+          [l for l, c, m in RESULTS if c == 'A-DIFFSRC'] == ['WARN'] and 'ratio outside measured guardrail' in _msg('A-DIFFSRC'))
+    _sdm = _bc37.scoped_difficulty_schedule(_P37, ['S.a'], _QL37, 1, 10, mode='exam')
+    _bpm = {'difficulty_schedule': _sdm['schedule'], 'difficulty_source': _sdm['difficulty_source'], 'total_questions': 10}
+    _reset(); gate_diffsrc({'blueprint': _bpm, 'profile': _P37})
+    check('v237-A-DIFFSRC-measured-mode-stays-ok', [l for l, c, m in RESULTS if c == 'A-DIFFSRC'] == ['OK'])
+    # A-DPROFILE: v2 records accepted, coverage line printed
+    _reset(); gate_dprofile({'profile': _P37, 'blueprint': {}, '_mockN': None})
+    check('v237-A-DPROFILE-v2-records-and-coverage-line',
+          [l for l, c, m in RESULTS if c == 'A-DPROFILE'] == ['OK'] and 'profile coverage: 30/30 records v2' in _msg('A-DPROFILE'))
+    # check 8 message names the rule; an r2 obs is judged under r2 (G1)
+    _o8r2 = {'question_class': 'C-STRUCTURAL', 'deduction_steps': 2, 'axiom_concepts': 1, 'qtype': 'mcq', 'rubric_rule': 'r2'}
+    _o8r1 = {'question_class': 'C-STRUCTURAL', 'deduction_steps': 2, 'axiom_concepts': 1, 'qtype': 'mcq'}
+    # ── v2.37 Stage 2 — the four WARN-only level gates, s1-only A-SHAPEMIX, G5 ──────────
+    _QL37 = ['Easy', 'Medium', 'Hard']
+    _CFGC = {'exam_code': 'CH', 'total_questions': 30, 'difficulty_labels': _QL37,
+             'sections': [{'name': 'Part B', 'q_range': [1, 15]}, {'name': 'Part C', 'q_range': [16, 30]}]}
+    def _cq37(i, sid='oc.a.1'):
+        return {'question_class': 'C-FIGURAL', 'deduction_steps': 2 + i % 4, 'axiom_concepts': 1 + i % 3, 'qtype': 'mcq',
+                'subtopic_id': sid, 'rubric_rule': 'r2', 'inferential_steps': i % 5,
+                'content_objects': [{'kind': 'REACTION', 'canonical': 'CCC(=O)C>[Na+].[BH4-]>C[C@H](O)CC', 'reagent_text': ['NaBH4, MeOH']}],
+                'answer_smiles': 'C[C@H](O)CC', 'option_smiles': {'1': 'C[C@H](O)CC', '2': 'C[C@@H](O)CC', '3': 'CCCCO', '4': 'CCO'}}
+    _PC = None
+    for _d in ('01-Jan-2026', '01-Jul-2026'):
+        _PC, _, _ = _bc37.dp_add_paper(_PC, source_file=f'CH_{_d}.docx', exam_config=_CFGC,
+                                       questions={q: _cq37(q) for q in range(1, 31)})
+    _rdk37 = _bc37._qf_rdkit()
+    if _rdk37 is not None:
+        _LM = _bc37.level_model_for_scope(_PC, ['oc.a.1'], _QL37)
+        _vec = _PC['papers']['01-Jul-2026']['questions']['5']['level_vector']
+        _vec = dict(_vec, method_tier=_bc37.method_tier_of(['NaBH4, MeOH'], _LM['lexicon']))
+        _lrec = _bc37.level_record(_LM, _vec, 'mcq', _QL37)
+        _cm37 = {'1': {'subtopic_id': 'oc.a.1', 'difficulty': _lrec['band'], 'qtype': 'mcq', 'shape': 'product_prediction',
+                       'ask_format': 'direct',
+                       'difficulty_obs': {'qtype': 'mcq', 'rubric_rule': 'r2', 'level': _lrec, 'level_vector': _vec,
+                                          'closeness': {'mean': 0.3, 'n': 3}},
+                       'difficulty_check': {'decision': 'agree', 'final_band': _lrec['band'], 'level_note': 'advisory'}}}
+        _bp37 = {'difficulty_source': {'labels': _QL37, 'measured_pct': _LM['shares'], 'mix_rule': 'm1', 'subtopic_ids': ['oc.a.1']},
+                 'difficulty_labels': _QL37}
+        _src37 = {'concept_map': _cm37, 'profile': _PC, 'blueprint': _bp37, '_mockN': 1}
+        _reset(); gate_level(_src37)
+        check('v237-A-LEVEL-reproduces-ok', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['OK'])
+        _bad37 = {'concept_map': {'1': dict(_cm37['1'], difficulty_obs=dict(_cm37['1']['difficulty_obs'], level=dict(_lrec, composite=_lrec['composite'] + 7.0)))},
+                  'profile': _PC, 'blueprint': _bp37, '_mockN': 1}
+        _reset(); gate_level(_bad37)
+        check('v237-A-LEVEL-mismatch-is-WARN-never-FAIL-no-item',
+              [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'] and 'do not reproduce' in _msg('A-LEVEL'))
+        _reset(); gate_level({'concept_map': _cm37, 'blueprint': _bp37, '_mockN': 1})
+        check('v237-A-LEVEL-no-profile-WARN-recorded', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'])
+        # reviewer #5: the inputs Create RECORDED on the paper (difficulty_state.level_model.inputs)
+        # win over a blueprint that would give a different window / scope
+        _inp37 = {'subtopic_ids': ['oc.a.1'], 'mix_rule': 'm1', 'tier': None, 'gap_days': None,
+                  'measured_pct': _LM['shares'], 'labels': _QL37}
+        _reg37i = {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1,
+                                       'difficulty_state': {'level_model': {'active': True, 'inputs': _inp37}}, 'questions': []}]}
+        _bp37k = dict(_bp37, level_model_inputs={'subtopic_ids': ['zz.none'], 'gap_days': None, 'mix_rule': 'm1', 'tier': 'Part Q',
+                                                 'measured_pct': None, 'labels': _QL37})
+        _reset(); gate_level({'concept_map': _cm37, 'profile': _PC, 'blueprint': _bp37k, 'registry': _reg37i, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+        check('v237-A-LEVEL-recorded-inputs-win-over-blueprint', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['OK'])
+        # reviewer #9: a REGISTRY-ONLY audit (no sidecar) still sees the level records
+        _reg37r = {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1,
+                                       'questions': [dict(_cm37['1'], q=1)]}]}
+        _reset(); gate_level({'concept_map': {}, 'profile': _PC, 'blueprint': _bp37, 'registry': _reg37r, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+        check('v237-A-LEVEL-registry-only-audit-not-dormant', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['OK'] and 'dormant' not in _msg('A-LEVEL'))
+        # A-PYQBENCH reads difficulty_state.schedule_original / level notes / reviewer bands / hard_missed (INFO only)
+        _reg37b = {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1,
+                    'difficulty_state': {'schedule_original': {'Easy': 1, 'Medium': 1, 'Hard': 2}, 'hard_missed': 1},
+                    'questions': [{'q': 1, 'difficulty': 'Hard', 'difficulty_check': {'final_band': 'Hard'}},
+                                  {'q': 2, 'difficulty': 'Medium', 'difficulty_check': {'final_band': 'Medium', 'level_note': 'judge below level'}},
+                                  {'q': 3, 'difficulty': 'Medium', 'difficulty_check': {'final_band': 'Medium', 'reviewer_band': 'Easy'}},
+                                  {'q': 4, 'difficulty': 'Easy', 'difficulty_check': {'final_band': 'Easy', 'level_note': 'advisory'}}]}]}
+        _reset(); gate_pyqbench({'registry': _reg37b, 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01', 'blueprint': {}})
+        _pb = _msg('A-PYQBENCH')
+        check('v237-A-PYQBENCH-original-plan-notes-reviewer-rows',
+              [l for l, c, m in RESULTS if c == 'A-PYQBENCH'] == ['OK'] and 'Hard (original plan)' in _pb and 'amended in run' in _pb
+              and 'judge below level' in _pb and 'advisory' not in _pb and 'reviewer placed below slot band' in _pb
+              and 'Hard target missed (R5)' in _pb)
+        # the note rows are printed in a FIXED (sorted) order, whatever order the items came in
+        _reg37o = {'question_index': [{'paper_id': 'MOCK:M01', 'mock_id': 1, 'difficulty_state': {},
+                    'questions': [{'q': 1, 'difficulty': 'Medium', 'difficulty_check': {'final_band': 'Medium', 'level_note': 'zz later note'}},
+                                  {'q': 2, 'difficulty': 'Medium', 'difficulty_check': {'final_band': 'Medium', 'level_note': 'aa earlier note'}}]}]}
+        _reset(); gate_pyqbench({'registry': _reg37o, 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01', 'blueprint': {}})
+        _pbo = _msg('A-PYQBENCH')
+        check('v237-A-PYQBENCH-note-rows-in-fixed-order',
+              'aa earlier note' in _pbo and 'zz later note' in _pbo and _pbo.index('aa earlier note') < _pbo.index('zz later note'))
+        _reset(); gate_pyqbench({'registry': _reg37o, '_mockN': 1, 'paper_id': 'MOCK:M01', 'blueprint': {},
+                                 'concept_map': {'1': {'shape': 'zz_shape'}, '2': {'shape': 'aa_shape'}}})
+        _pbs = _msg('A-PYQBENCH')
+        check('v237-A-PYQBENCH-shape-rows-in-fixed-order',
+              'shape aa_shape' in _pbs and 'shape zz_shape' in _pbs and _pbs.index('shape aa_shape') < _pbs.index('shape zz_shape'))
+        # the blueprint's level_model_inputs (DL-21) are honoured over everything else: a
+        # record built with the SAME inputs reproduces; inputs naming a scope with no records
+        # cannot rebuild the model (WARN 'cannot be rebuilt'), never a silent fallback
+        _bp37i = dict(_bp37, level_model_inputs={'subtopic_ids': ['oc.a.1'], 'gap_days': None, 'mix_rule': 'm1', 'tier': None,
+                                                 'measured_pct': _LM['shares'], 'labels': _QL37})
+        _reset(); gate_level({'concept_map': _cm37, 'profile': _PC, 'blueprint': _bp37i, '_mockN': 1})
+        check('v237-A-LEVEL-level-model-inputs-honoured-ok', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['OK'])
+        _bp37j = dict(_bp37, level_model_inputs={'subtopic_ids': ['zz.none'], 'gap_days': None, 'mix_rule': 'm1', 'tier': 'Part Q',
+                                                 'measured_pct': None, 'labels': _QL37})
+        _reset(); gate_level({'concept_map': _cm37, 'profile': _PC, 'blueprint': _bp37j, '_mockN': 1})
+        check('v237-A-LEVEL-level-model-inputs-win-over-concept-map',
+              [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'] and 'cannot be rebuilt' in _msg('A-LEVEL'))
+        # each of the three per-item findings is reached by its own fixture (mutation audit, budget 0)
+        _other_band = next(b for b in _QL37 if b != _lrec['band'])
+        _bad37b = {'concept_map': {'1': dict(_cm37['1'], difficulty=_lrec['band'],
+                                             difficulty_obs=dict(_cm37['1']['difficulty_obs'], level=dict(_lrec, band=_other_band)))},
+                   'profile': _PC, 'blueprint': _bp37, '_mockN': 1}
+        _reset(); gate_level(_bad37b)
+        check('v237-A-LEVEL-recorded-band-drift-named',
+              [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'] and 'recorded level band' in _msg('A-LEVEL'))
+        _bad37c = {'concept_map': {'1': dict(_cm37['1'], difficulty=_other_band)},
+                   'profile': _PC, 'blueprint': _bp37, '_mockN': 1}
+        _reset(); gate_level(_bad37c)
+        check('v237-A-LEVEL-label-vs-level-band-named',
+              [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'] and 'label' in _msg('A-LEVEL') and 're-measured level band' in _msg('A-LEVEL'))
+        _bad37d = {'concept_map': {'1': dict(_cm37['1'], difficulty_obs=dict(_cm37['1']['difficulty_obs'], level_vector={'no_such_field': 1}))},
+                   'profile': _PC, 'blueprint': _bp37, '_mockN': 1}
+        _reset(); gate_level(_bad37d)
+        check('v237-A-LEVEL-unusable-vector-named',
+              [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['WARN'] and 'vector unusable' in _msg('A-LEVEL'))
+        _reset(); gate_level({'concept_map': {'1': {'difficulty': 'Hard'}}, 'profile': _PC})
+        check('v237-A-LEVEL-dormant-without-level-items', [l for l, c, m in RESULTS if c == 'A-LEVEL'] == ['OK'] and 'dormant' in _msg('A-LEVEL'))
+        # A-CONTENTLEVEL tolerates level_note; its decision set is unchanged
+        _reset(); gate_contentlevel({'concept_map': _cm37})
+        check('v237-A-CONTENTLEVEL-level-note-ignored', [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['OK'])
+        # A-CLOSENESS: PYQ measured -> WARN when the paper sits below; unmeasured -> DORMANT not 0.0
+        _srcC = dict(_src37, concept_map={'1': {'subtopic_id': 'oc.a.1', 'difficulty': 'Hard', 'qtype': 'mcq',
+                                                 'difficulty_obs': {'qtype': 'mcq', 'closeness': {'mean': 0.3, 'n': 3}}}})
+        _reset(); gate_closeness(_srcC)
+        check('v237-A-CLOSENESS-warns-below-pyq-median',
+              [l for l, c, m in RESULTS if c == 'A-CLOSENESS'] == ['WARN'] and 'below the PYQ' in _msg('A-CLOSENESS'))
+        # the PYQ top band is the LEVEL band of the A-LEVEL model, not the stored rubric band:
+        # with every stored band rewritten to Easy the gate still measures (and the legacy
+        # stored-band path, reached without a model, finds nothing)
+        _PCe = {'_meta': _PC['_meta'], 'papers': {k: {**v, 'questions': {q: dict(r, band='Easy') for q, r in v['questions'].items()}} for k, v in _PC['papers'].items()}, 'excluded_papers': {}}
+        _reset(); gate_closeness(dict(_srcC, profile=_PCe))
+        _cl_lv = [l for l, c, m in RESULTS if c == 'A-CLOSENESS']; _cl_lv_m = _msg('A-CLOSENESS')
+        _reset(); gate_closeness(dict(_srcC, profile=_PCe, blueprint={'difficulty_labels': _QL37}))
+        check('v237-A-CLOSENESS-top-band-is-the-level-band',
+              _cl_lv == ['WARN'] and 'below the PYQ' in _cl_lv_m and 'DORMANT' in _msg('A-CLOSENESS'))
+        _PC0 = {'_meta': _PC['_meta'], 'papers': {k: {**v, 'questions': {q: {kk: vv for kk, vv in r.items() if kk != 'closeness'} for q, r in v['questions'].items()}} for k, v in _PC['papers'].items()}, 'excluded_papers': {}}
+        _reset(); gate_closeness(dict(_srcC, profile=_PC0))
+        check('v237-A-CLOSENESS-unmeasured-is-DORMANT-not-zero',
+              [l for l, c, m in RESULTS if c == 'A-CLOSENESS'] == ['OK'] and 'DORMANT' in _msg('A-CLOSENESS') and '0.0' not in _msg('A-CLOSENESS'))
+    # A-FIGCOMPLEX: WARN below p10, OK within, dormant without targets
+    _sr37 = ('--- Subtopic: X\nsubtopic_id: oc.a.1\nQUALITY (v2.59):\n  n: 2\n  figure_complexity_pct: {"heavy_atoms": {"p10": 9, "p50": 14, "p90": 20}}\n  closeness_pct: unmeasured\n')
+    _cmF = {'1': {'subtopic_id': 'oc.a.1', 'difficulty_obs': {'level_vector': {'heavy_atoms': 4}}},
+            '2': {'subtopic_id': 'oc.a.1', 'difficulty_obs': {'level_vector': {'heavy_atoms': 5}}}}
+    _reset(); gate_figcomplex({'concept_map': _cmF, 'section_rules_text': _sr37})
+    check('v237-A-FIGCOMPLEX-warns-below-p10', [l for l, c, m in RESULTS if c == 'A-FIGCOMPLEX'] == ['WARN'] and '< PYQ p10' in _msg('A-FIGCOMPLEX'))
+    _reset(); gate_figcomplex({'concept_map': {'1': {'subtopic_id': 'oc.a.1', 'difficulty_obs': {'level_vector': {'heavy_atoms': 15}}}}, 'section_rules_text': _sr37})
+    check('v237-A-FIGCOMPLEX-ok-within', [l for l, c, m in RESULTS if c == 'A-FIGCOMPLEX'] == ['OK'])
+    _reset(); gate_figcomplex({'concept_map': _cmF, 'section_rules_text': ''})
+    check('v237-A-FIGCOMPLEX-dormant-without-targets', [l for l, c, m in RESULTS if c == 'A-FIGCOMPLEX'] == ['OK'] and 'dormant' in _msg('A-FIGCOMPLEX'))
+    # A-AXIS2: WARN only; s2 shape targets are its, never A-SHAPEMIX's
+    _bpA = {'axis2_format_floor_per_paper': {'1': {'match': 1, 'direct': 1}},
+            'shape_target_per_paper': {'1': {'product_prediction': {'floor': 1, 'cap': 5, 'target': 2},
+                                             'statement': {'floor': 1, 'cap': 3, 'target': 1, 'shape_rule': 's2'}}}}
+    _cmA = {'1': {'shape': 'product_prediction', 'ask_format': 'direct'}, '2': {'shape': 'product_prediction', 'ask_format': 'direct'}}
+    _reset(); gate_axis2({'blueprint': _bpA, 'concept_map': _cmA, '_mockN': 1})
+    check('v237-A-AXIS2-warn-only-on-missing-floors',
+          [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['WARN'] and 'format match' in _msg('A-AXIS2') and 's2 shape statement' in _msg('A-AXIS2'))
+    _reset(); gate_axis2({'blueprint': {}, 'concept_map': _cmA, '_mockN': 1})
+    check('v237-A-AXIS2-dormant-without-targets', [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['OK'])
+    _reset(); gate_shapemix({'blueprint': _bpA, 'concept_map': _cmA, '_mockN': 1, 'registry': {}})
+    check('v237-A-SHAPEMIX-ignores-s2',
+          [l for l, c, m in RESULTS if c == 'A-SHAPEMIX'] == ['OK'] and 'statement' not in _msg('A-SHAPEMIX'))
+    _reset(); gate_shapemix({'blueprint': {'shape_target_per_paper': {'1': {'statement': {'floor': 1, 'cap': 3, 'target': 1, 'shape_rule': 's2'}}}}, 'concept_map': _cmA, '_mockN': 1})
+    check('v237-A-SHAPEMIX-all-s2-is-DORMANT', [l for l, c, m in RESULTS if c == 'A-SHAPEMIX'] == ['OK'] and 'DORMANT' in _msg('A-SHAPEMIX'))
+    # G5: a FAIL on a q2-stamped key emits WARN; an unstamped key is unchanged
+    _srG = '--- Subtopic: X\nsubtopic_id: oc.a.1\nQUALITY (v2.59):\n  n: 2\n  shape_shares: {"product_prediction|none": 1.0}\n  rule.closeness_pct: q2\n'
+    _srcG = {'concept_map': {'1': {'subtopic_id': 'oc.a.1'}}, 'section_rules_text': _srG, 'registry': {'question_index': []},
+             'certificate': {'producer_release': '2026.11.03'}}
+    _reset(); _qq_fail_or_amber('A-TEST', 'msg', _srcG, key='closeness_pct', q='1')
+    _g5a = [l for l, c, m in RESULTS if c == 'A-TEST']
+    _reset(); _qq_fail_or_amber('A-TEST', 'msg', _srcG, key='shape_shares', q='1')
+    _g5b = [l for l, c, m in RESULTS if c == 'A-TEST']
+    _reset(); _qq_fail_or_amber('A-TEST', 'msg', _srcG)
+    _g5c = [l for l, c, m in RESULTS if c == 'A-TEST']
+    check('v237-G5-stamped-key-warns-unstamped-unchanged', _g5a == ['WARN'] and _g5b == _g5c)
+    check('v237-check8-mixed-rules',
+          _bc37.verify_difficulty_obs('Medium', _o8r2, _QL37)[0] and _bc37.verify_difficulty_obs('Easy', _o8r1, _QL37)[0]
+          and not _bc37.verify_difficulty_obs('Easy', _o8r2, _QL37)[0])
     _reset()
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total

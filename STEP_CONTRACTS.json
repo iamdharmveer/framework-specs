@@ -110,10 +110,17 @@
     }
   },
   "override_floor": {
-    "_note": "Project-first spec resolution (spec_source.py) will NOT load a project Files copy of these specs whose version header is BELOW the floor: such a copy predates the Step 7 contract restore and would silently re-break it (a v5.90 Create ends at AWAITING_REVIEW; a v1.0.0 MockReview cannot read the internal packet). The verified repo copy is used and Step 0 prints [STALE — NOT LOADED]. Never a stop. Raise a floor only with an owner decision id (same rule as the contracts).",
-    "Framework_MockTestCreate.md": "5.91",
-    "Framework_MockReview.md": "2.0.0",
-    "Framework_MockDeliver.md": "1.25.0",
-    "Framework_DeliveryFooter.md": "1.39.0"
+    "_note": "Project-first spec resolution (spec_source.py) will NOT load a project Files copy of these specs whose version header is BELOW the floor: such a copy predates the Step 7 contract restore and would silently re-break it (a v5.90 Create ends at AWAITING_REVIEW; a v1.0.0 MockReview cannot read the internal packet). The verified repo copy is used and Step 0 prints [STALE — NOT LOADED]. Never a stop. Raise a floor only with an owner decision id (same rule as the contracts). Raised 2026-11-05 under owner decision D8 (GAP-2026-11-05-DIFFICULTY-FIDELITY): every spec that release edits gets a floor at its new version, so a project copy written before the difficulty fix is never loaded over it.",
+    "Framework_MockTestCreate.md": "5.92",
+    "Framework_MockReview.md": "2.0.1",
+    "Framework_MockDeliver.md": "1.26.0",
+    "Framework_DeliveryFooter.md": "1.40.0",
+    "Framework_PYQExplain.md": "2.27",
+    "Framework_MockTestAnalyse.md": "2.60.0",
+    "Framework_Blueprint.md": "1.64.0",
+    "Framework_ScopedBlueprint.md": "1.14.0",
+    "Framework_MockTestExplain.md": "1.53.0",
+    "Framework_NotesCreate.md": "2.11.0",
+    "Framework_NotesAudit.md": "3.9.0"
   }
 }

@@ -1,6 +1,40 @@
 #!/usr/bin/env python3
-"""analyse_engine.py v1.2 — Step 5 (PYQExtract) shared extraction engine.
+"""analyse_engine.py v1.3 — Step 5 (PYQExtract) shared extraction engine.
 
+v1.3 (2026-11-05, GAP-2026-11-05-DIFFICULTY-FIDELITY Part C — Step 5 measurements the
+Level Model, Create and the auditor read; every one additive, every one with a fixture):
+  (1) profile_record_for(quality_inputs, q): the Step-5 <-> profile JOIN is paper + Row
+      q-number FIRST (paper_key_of(paper_id) — the DD-Mon-YYYY[_session] identity both
+      files carry; DL-08/DL-25), then the stem key, then a figure hash; join_rate()
+      reports how many joined by which key (printed by the spec). The 60-character stem
+      key alone collapsed every "Identify the major product, P ..." item to AMBIGUOUS.
+  (2) exemplar_rows(): newest first by the profile paper's ISO DATE (bc.dp_iso_date —
+      '%b %Y' strings sorted alphabetically put "Aug" before "Jul", DL-26); the band is
+      the LEVEL band when a level map is given (bc.level_bands, §4.5) else the stored
+      band; rows carry option_smiles / closeness / the level composite (DL-23/24/27).
+  (3) write_exemplar_bank(): stems kept to EXEMPLAR_STEM_BUDGET characters and never
+      cut inside a list block (stem_budget; the 80-word cut dropped every (i)/(ii)
+      statement item's statements), image options as their SMILES (DL-27),
+      Hard-band leaves ranked by TYPICALITY (distance to the band's median level
+      composite, DL-26), and bc.exemplar_bank_write(per_section=True): the size cap is
+      a PER-SECTION byte budget, so a long RC / DI section never empties another's leaf.
+  (4) detect_option_shape(): the structure-option prior keys on the FIGURE FAMILY
+      (figure_types.lookup(kind)['family'] in chem_structure / chem_scheme) instead of
+      the regex 'structur|molecul|skelet', which also caught biology / CS "structure"
+      items (DL-04 leak, §4.1).
+  (5) distractor_mix_measured(): the S9 distractor mix of a subtopic from the profile's
+      closeness records (grade 3 -> stereochemistry_error, grade 2 -> regiochemistry_error
+      — the existing EXPLAIN_S9_TYPES, no new token; DL-23); distractor_mix_source() says
+      'measured' or 'default prior (unmeasured)' for the AMBER line.
+  (6) stamp_question_subtopic_ids(): questions carry the MINTED subtopic_id after minting,
+      so figural_count_by_subtopic is no longer {} (DL-29); the quota guard is
+      bc.figural_quota_guard (G6).
+  (7) measure_quality_fields(..., level_records=) adds figure_complexity_pct {field:
+      {p10,p50,p90}} and closeness_pct, and provenance stamps rule.<key>: q2 for the keys
+      NEW in this release (G5); format_quality_block writes them INDENTED — never a line
+      starting subtopic_id: (§8 rule 9). Parsers never raise.
+  (8) find_project_artefact(): /mnt/project, then /mnt/user-data/uploads, found by
+      exam_code + name (DL-30).
 v1.2 (2026-11-03, GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY — Step 5 measurements the
 new Create / audit gates read; every one additive, every one with a fixture):
   (1) measure_item_rules() keys every rule ALSO by its stable blueprint_core.ITEM_RULES
@@ -1441,6 +1475,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             # positional typing without re-reading any docx. None means "unknown" — a
             # pre-v1.18 sorted file, or a position no band covers — never "position 0".
             'original_q_num': _orig_q,
+            'date_label'  : cur_date_label,      # v1.3 (DL-25): the paper identity of the join
             'question_type' : _pos_ty,
             'stem'        : clean_stem,
             'stem_raw'    : full_stem,
@@ -2176,6 +2211,7 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
 
     # BUG-A07 fix: progress now properly in scope via parameter
     q_nums  = {q['num'] for q in questions}
+    _dmm = distractor_mix_measured(questions, quality_inputs)      # v1.3 (DL-23): computed once
     lk_grps = [g for g in progress.get('_linked_groups',{}).values()
                if any(qn in q_nums for qn in g.get('q_numbers',[]))]
     lk_size = round(sum(len(g['q_numbers']) for g in lk_grps)/len(lk_grps)) \
@@ -2283,7 +2319,12 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
                                        concept_terms=_qi_terms(quality_inputs, questions, 'concept_terms'),
                                        axiom_terms=_qi_terms(quality_inputs, questions, 'axiom_terms'),
                                        topic_titles=[topic, subtopic],
-                                       content_records=(quality_inputs or {}).get('by_stem') or None),
+                                       content_records=(quality_inputs or {}).get('by_stem') or None,
+                                       quality_inputs=quality_inputs),      # v1.3: paper+q join; new keys
+        # v1.3 (DL-23): the distractor mix is MEASURED from the profile's closeness records when
+        # the subtopic has them; otherwise the existing prior, with its source named for the
+        # AMBER line ('distractor mix: default prior (unmeasured)').
+        'distractor_mix_source' : distractor_mix_source(questions, quality_inputs),
         'sub_type_label'         : subtopic,
         'PYQ_STEM_PATTERNS'      : patterns,
         'wrong_option_structure' : wrong_opt,
@@ -2315,7 +2356,8 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'mechanic_mix'           : _mech_mix,
         'mechanic_unknown_count' : _mech_unknown,
         'pattern_keys'           : build_pattern_keys(questions),
-        'distractor_mix'         : mine_distractor_mechanisms(questions, figural_data),
+        'distractor_mix'         : (dict(_dmm[0]) if _dmm[1]                     # v1.3 DL-23: measured when the
+                                    else mine_distractor_mechanisms(questions, figural_data)),   # profile holds closeness
         'low_entropy'            : detect_low_entropy(questions),
         'stimulus_stats'         : _stim_stats,
         'PYQ_EXCLUDE_VALUES'     : _excl_vals,
@@ -3053,9 +3095,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.59'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.59'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.59'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.60'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.60'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.60'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):
@@ -4542,6 +4584,7 @@ def format_entry(e):
                   f'  mechanic_unknown_count: {int(e.get("mechanic_unknown_count", 0))}',
                   f'  low_entropy: {str(bool(e.get("low_entropy", False))).lower()}',
                   f'  distractor_mix: {json.dumps(e.get("distractor_mix"), sort_keys=True) if isinstance(e.get("distractor_mix"), dict) else e.get("distractor_mix")}',
+                  f'  distractor_mix_source: {e.get("distractor_mix_source", "default prior (unmeasured)")}',   # v1.3 DL-23
                   f'  stimulus_stats: {json.dumps(e.get("stimulus_stats"), sort_keys=True)}',
                   f'  PYQ_EXCLUDE_VALUES: {e.get("PYQ_EXCLUDE_VALUES", [])}',
                   'PATTERN_KEYS (v2.56):']
@@ -6408,7 +6451,7 @@ def self_test():
     _qi = profile_quality_inputs(_prof)
     check('profile_quality_inputs_join_by_stem',
           len(_qi['by_stem']) == 3 and _qi['by_stem'][quality_stem_key(_qq_qs[0]['stem'])]['band'] == 'Hard'
-          and profile_quality_inputs(None) == {'by_stem': {}, 'cycles': {}, 'ambiguous': 0}
+          and profile_quality_inputs(None) == {'by_stem': {}, 'cycles': {}, 'ambiguous': 0, 'by_paper_q': {}, 'by_fig_hash': {}, 'dates': {}}
           and profile_quality_inputs({'papers': {'x': 'junk', 'y': {'questions': 'junk'}}})['by_stem'] == {}
           and _qi_terms(_qi, _qq_qs, 'axiom_terms') == ['Friedel-Crafts acylation']
           and _qi_terms(_qi, _qq_qs, 'concept_terms') == ['electrophilic_aromatic_substitution']
@@ -6467,6 +6510,120 @@ def self_test():
         check('exemplar_bank_written_k3_delivered_file',
               _pth.endswith('EX_exemplar_bank.json') and len(_rd['cells']['oc.a']['Hard']['mcq']) == 3
               and _rd['_meta']['exam_code'] == 'EX' and _rd['_meta']['schema_version'] == 1)
+        # ── v1.3 — GAP-2026-11-05-DIFFICULTY-FIDELITY (Step 5 measurements) ──────────────────
+        check('v13_paper_key_of_three_spellings_agree',
+              paper_key_of('18-Dec-2025_2') == paper_key_of('[18-Dec-2025 Shift 2 Q95]') == paper_key_of('CSIR_X_18-Dec-2025_Shift-2_Sorted_Q1-Q120') == '18-Dec-2025|2'
+              and paper_key_of('09-Sep-2025_Shift_1') == '09-Sep-2025|1' and paper_key_of('[18-Jul-2026 Q88]') == '18-Jul-2026|'
+              and paper_key_of('X_01-Jan-2025_to_02-Feb-2025_Sorted_Q1-Q9') is None and paper_key_of(None) is None)
+        _prof13 = {'_meta': {'schema': 1}, 'papers': {
+            '18-Dec-2025_2': {'date': '2025-12-18', 'questions': {
+                '95': {'band': 'Hard', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 'Identify the major product, P formed in the given reaction.',
+                       'option_smiles': {'1': 'C[C@H](O)CC', '2': 'C[C@@H](O)CC', '3': 'CCCCO', '4': 'CCO'}, 'answer_smiles': 'C[C@H](O)CC',
+                       'closeness': {'per_option': {'2': {'grade': 3, 'name': 'stereo_variant', 'stereo_kind': 'enantiomer'}, '3': {'grade': 1, 'name': 'constitutional', 'stereo_kind': None}, '4': {'grade': 0, 'name': 'non_isomer', 'stereo_kind': None}}, 'mean': 1.3333, 'n_close': 1, 'n': 3},
+                       'level_vector': {'heavy_atoms': 5, 'rings': 0, 'closeness': 1.3333, 'reasoning': 5}, 'ask_format': 'direct'},
+                '96': {'band': 'Easy', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 'Identify the major product, P formed in the given reaction.'}}},
+            '18-Jul-2026': {'date': '2026-07-18', 'questions': {
+                '88': {'band': 'Medium', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 'Identify the major product, P formed in the given reaction.'}}}}}
+        _qi13 = profile_quality_inputs(_prof13)
+        _q95 = dict(_mq('Identify the major product, P formed in the given reaction.', ['', '', '', ''], key='1'), paper_id='CSIR_X_18-Dec-2025_Shift-2_Sorted_Q1-Q120', q_num=7, original_q_num=95, date_label='[18-Dec-2025 Shift 2 Q95]')
+        _q88 = dict(_mq('Identify the major product, P formed in the given reaction.', ['a', 'b'], key='1'), paper_id='CSIR_X_18-Jul-2026_Sorted_Q1-Q120', q_num=3, original_q_num=88, date_label='[18-Jul-2026 Q88]')
+        _qst = dict(_mq('Which of the following compounds are optically active? Choose the most appropriate answer', ['a', 'b'], key='1'), paper_id='other', q_num=1)
+        _prof13s = {'_meta': {'schema': 1}, 'papers': {
+            '18-Dec-2025_1': {'date': '2025-12-18', 'questions': {'7': {'band': 'Easy', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 's1'}}},
+            '18-Dec-2025_2': {'date': '2025-12-18', 'questions': {'7': {'band': 'Hard', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 's2'}}},
+            '18-Jul-2026': {'date': '2026-07-18', 'questions': {'3': {'band': 'Medium', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 's3'}}}}}
+        _qi13s = profile_quality_inputs(_prof13s)
+        check('v13_profile_join_session_ambiguity',
+              profile_record_for(_qi13s, {'stem': 'zz', 'original_q_num': 7, 'date_label': '[18-Dec-2025 Q7]'}) == (None, None)       # two sessions share the date: no join
+              and profile_record_for(_qi13s, {'stem': 'zz', 'original_q_num': 7, 'date_label': '[18-Dec-2025 Shift 2 Q7]'})[0]['band'] == 'Hard'
+              and profile_record_for(_qi13s, {'stem': 'zz', 'original_q_num': 3, 'date_label': '[18-Jul-2026 Shift 1 Q3]'})[0]['band'] == 'Medium'   # profile key has no session
+              and profile_record_for(_qi13s, {'stem': 'zz', 'original_q_num': 3, 'date_label': '[18-Jul-2026 Q3]'})[0]['band'] == 'Medium')
+        check('v13_profile_join_paper_q_first_then_stem',
+              _qi13['ambiguous'] >= 1 and _qi13['by_stem'][quality_stem_key(_q95['stem'])] is None    # the stem alone is AMBIGUOUS
+              and profile_record_for(_qi13, _q95)[1] == 'paper_q' and profile_record_for(_qi13, _q95)[0]['band'] == 'Hard'
+              and profile_record_for(_qi13, _q88)[1] == 'paper_q' and profile_record_for(_qi13, _q88)[0]['band'] == 'Medium'
+              and profile_record_for(_qi13, dict(_q95, date_label=None, original_q_num=None))[0] is None
+              and profile_record_for(_qi, _qst)[1] == 'stem' and profile_record_for(None, _q95) == (None, None)
+              and join_rate(_qi13, [_q95, _q88, _qst])['paper_q'] == 2 and join_rate(_qi13, [_q95, _q88, _qst])['unjoined'] == 1
+              and join_rate(_qi13, [_q95]).get('line', '').startswith('profile join: 1/1 joined'))
+        _er13 = exemplar_rows([_q88, _q95], _qi13, {('S', 'T', 'U'): 'oc.x'}, level_bands_map={('18-Dec-2025_2', '95'): 'Medium'})
+        check('v13_exemplar_rows_iso_order_level_band_option_smiles',
+              [r['paper_key'] for r in _er13] == ['18-Jul-2026', '18-Dec-2025_2']                       # ISO date desc, not alphabetical
+              and _er13[1]['band'] == 'Medium' and _er13[1]['stored_band'] == 'Hard'
+              and _er13[1]['options'] == ['C[C@H](O)CC', 'C[C@@H](O)CC', 'CCCCO', 'CCO']
+              and 'closeness' in _er13[1]['content_record'] and _er13[1]['content_record']['option_smiles']['2'] == 'C[C@@H](O)CC'
+              and exemplar_rows([_q88, _q95], _qi13)[1]['band'] == 'Hard')
+        _long = 'Which statements are correct?\n' + '\n'.join(f'({r}) statement number {i} ' + 'word ' * 40 for i, r in enumerate(['i', 'ii', 'iii', 'iv', 'v', 'vi'], 1))
+        _sb = stem_budget(_long, 600)
+        check('v13_stem_budget_never_cuts_inside_a_list_block',
+              stem_budget('short') == 'short' and len(stem_budget('x' * 3000)) <= EXEMPLAR_STEM_BUDGET + 2
+              and _sb.startswith('Which statements are correct?') and _sb.endswith('…') and '(ii)' not in _sb
+              and stem_budget('A. ' + 'w' * 700 + '. B. ' + 'v' * 700, 1000).endswith('…')
+              and stem_budget(None) == '')
+        _mixm, _nm = distractor_mix_measured([_q95, _q88], _qi13)
+        check('v13_distractor_mix_measured_from_closeness',
+              _nm == 3 and _mixm['stereochemistry_error'] == 1 and sum(_mixm.values()) == 3
+              and distractor_mix_source([_q95], _qi13) == 'measured' and distractor_mix_source([_q88], _qi13) == 'default prior (unmeasured)'
+              and set(_mixm) <= {'stereochemistry_error', 'regiochemistry_error', 'structural_variant', 'formula_error'})
+        _ents = [{'section': 'S', 'topic': 'T', 'subtopic': 'U', 'subtopic_id': 'oc.x'}]
+        _qbs = {('S', 'T', 'U'): [dict(_q95), dict(_q88)]}
+        check('v13_stamp_question_subtopic_ids',
+              stamp_question_subtopic_ids(_ents, _qbs) == 2 and all(q['subtopic_id'] == 'oc.x' for q in _qbs[('S', 'T', 'U')])
+              and stamp_question_subtopic_ids(_ents, _qbs) == 0 and stamp_question_subtopic_ids(None, None) == 0)
+        _qf13 = measure_quality_fields([_q95, _q88], quality_inputs=_qi13)
+        _fb13 = '\n'.join(format_quality_block(_qf13))
+        _rb13 = bc.read_quality_block(_fb13)
+        check('v13_quality_new_keys_indented_stamped_parse_never_raise',
+              isinstance(_qf13['figure_complexity_pct'], dict) and 'heavy_atoms' in _qf13['figure_complexity_pct']
+              and isinstance(_qf13['closeness_pct'], dict) and _qf13['ask_format_shares'].get('direct') == 1.0
+              and not any(ln.startswith('subtopic_id:') for ln in _fb13.splitlines())
+              and all(ln.startswith('  ') for ln in _fb13.splitlines()[1:])
+              and _rb13['rule.figure_complexity_pct'] == 'q2' and bc.quality_rule_of(_rb13, 'figure_complexity_pct') == 'q2'
+              and bc.quality_rule_of(_rb13, 'named_concept_rate') is None and _rb13['figure_complexity_pct']['heavy_atoms']['p50'] == 5
+              and measure_quality_fields([_q88], quality_inputs=_qi13)['figure_complexity_pct'] == 'unmeasured')
+        check('v13_structure_prior_keyed_on_family',
+              detect_option_shape({'options': ['', '', '', '']}, {'object_types': {'dominant': ['chemical_structure']}}) == 'structure_image'
+              and detect_option_shape({'options': ['', '', '', '']}, {'object_types': {'dominant': ['cell_structure']}}) == 'figure'
+              and detect_option_shape({'options': ['', '', '', '']}, {'object_types': {'dominant': ['pedigree_chart', 'labelled_diagram']}}) == 'figure'
+              and detect_option_shape({'options': ['', '', '', '']}, {'object_types': {'dominant': ['reaction_scheme']}}) == 'structure_image'
+              and detect_option_shape({'options': ['', '', '', '']}, {'object_types': {'dominant': ['line_graph']}}) == 'plot_image')
+        open(os.path.join(_tdq, '0bad-EX_exemplar_bank.json'), 'w').write('{}')
+        check('v13_find_project_artefact_uploads_by_content_name',
+              find_project_artefact('EX', 'exemplar_bank.json', (os.path.join(_tdq, 'nope'), _tdq)).endswith('EX_exemplar_bank.json')
+              and find_project_artefact('ZZ', 'exemplar_bank.json', (_tdq,)) is None)
+        # ORDER fixtures (mutation audit, pipeline model): every sorted() a reader depends on is
+        # pinned by inputs whose insertion order is NOT their sorted order.
+        _prof13o = {'_meta': {'schema': 1}, 'papers': {'18-Dec-2025_2': {'date': '2025-12-18', 'questions': {
+            '95': {'band': 'Hard', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 'zeta item', 'ask_format': 'statement',
+                   'level_vector': {'rings': 2, 'heavy_atoms': 9, 'closeness': 1.0}, 'closeness': {'mean': 1.0, 'n': 3}},
+            '96': {'band': 'Hard', 'subtopic_id': 'oc.a', 'qtype': 'mcq', 'stem_snippet': 'alpha item', 'ask_format': 'direct',
+                   'level_vector': {'rings': 1, 'heavy_atoms': 7, 'closeness': 0.0}, 'closeness': {'mean': 0.0, 'n': 3}}}}}}
+        _qi13o = profile_quality_inputs(_prof13o)
+        _qz = dict(_mq('zeta item', ['a', 'b'], key='1'), paper_id='X_18-Dec-2025_Shift-2', q_num=1, original_q_num=95, date_label='[18-Dec-2025 Shift 2 Q95]')
+        _qa = dict(_mq('alpha item', ['a', 'b'], key='1'), paper_id='X_18-Dec-2025_Shift-2', q_num=2, original_q_num=96, date_label='[18-Dec-2025 Shift 2 Q96]')
+        _qf13o = measure_quality_fields([_qz, _qa], quality_inputs=_qi13o)
+        check('v13_quality_fields_keys_sorted_not_insertion_order',
+              list(_qf13o['figure_complexity_pct']) == ['closeness', 'heavy_atoms', 'rings']
+              and list(_qf13o['ask_format_shares']) == ['direct', 'statement'])
+        with _tf.TemporaryDirectory() as _tdo:
+            for _fn in ('zz-EX_exemplar_bank.json', 'aa-EX_exemplar_bank.json', 'mm-EX_exemplar_bank.json'):
+                open(os.path.join(_tdo, _fn), 'w').write('{}')
+            check('v13_find_project_artefact_first_in_sorted_order',
+                  os.path.basename(find_project_artefact('EX', 'exemplar_bank.json', (_tdo,))) == 'aa-EX_exemplar_bank.json')
+            _rows_t = [{'cell': 'oc.t', 'band': 'Hard', 'qtype': 'mcq', 'stem': f'typicality {c}', 'options': ['a', 'b'], 'key': 1,
+                        'content_record': {'smiles': 'CCO'}, 'cycle': 'Jul 2026', 'paper_date': '2026-07-18', 'level_composite': c}
+                       for c in (10.0, 90.0, 20.0, 25.0)]           # median of the SORTED list is 25 (index 2); unsorted index 2 is 20
+            _pt, _bt, _dt = write_exemplar_bank('EX', _rows_t, out_dir=_tdo)
+            _leaf_t = [r['level_composite'] for r in _bt['cells']['oc.t']['Hard']['mcq']]
+            check('v13_exemplar_typicality_uses_sorted_median',
+                  _leaf_t[0] == 25.0 and _leaf_t[1] == 20.0 and 90.0 not in _leaf_t[:2])
+        check('v13_figural_quota_guard',
+              bc.figural_quota_guard({'a': 3, 'b': 2}, 10, 1.0) == {} and bc.figural_quota_guard({'a': 6, 'b': 6}, 10, 1.0) == {'a': 6, 'b': 6}
+              and bc.figural_quota_guard({}, 10, 1.0) == {} and bc.figural_quota_guard({'a': 1}, 'x', 1.0) == {'a': 1})
+        _bank_ps, _dr_ps = bc.exemplar_bank_write({'rc.a': {'Hard': {'mcq': [{'stem': 'x' * 40000}, {'stem': 'y' * 40000}]}}, 'qa.b': {'Hard': {'mcq': [{'stem': 'z' * 2000}]}}}, max_kb=100, per_section=True)
+        check('v13_per_section_budget_keeps_other_sections_leaves',
+              len(_bank_ps['cells']['qa.b']['Hard']['mcq']) == 1 and len(_bank_ps['cells']['rc.a']['Hard']['mcq']) == 1 and _dr_ps == 1
+              and _bank_ps['_meta']['per_section_budget_kb'] == {'rc': 50.0, 'qa': 50.0})
 
     # §6.2 / §6.3 — writers: activation gating + shared corpus_hash round-trip
     import tempfile as _tf
@@ -7307,7 +7464,7 @@ def self_test():
         _d21 = False
     check('fs_tags_list_paper_value_skipped', _d21)
 
-    EXPECTED_CHECKS = 288  # v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
+    EXPECTED_CHECKS = 303  # v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(
@@ -7710,9 +7867,17 @@ def detect_option_shape(q, figural_descriptor=None):
     if all(o == '' for o in opts):
         # image options; refine from the figural descriptor when present (EC-6)
         d = (figural_descriptor or {})
-        kinds = ' '.join(str(v) for v in d.get('object_types', {}).get('dominant', []))
-        if re.search(r'structur|molecul|skelet', kinds, re.I):
-            return 'structure_image'
+        dom = [str(v) for v in d.get('object_types', {}).get('dominant', [])]
+        # v1.3 (GAP-2026-11-05 DL-04 leak, §4.1): the STRUCTURE prior keys on the figure
+        # FAMILY of the dominant kinds — a biology / CS "structure" kind resolves to the
+        # generic family and is a plain figure, never a chemistry structure option.
+        try:
+            import figure_types as _ft_shape
+            if any(_ft_shape.lookup(k).get('family') in ('chem_structure', 'chem_scheme') for k in dom):
+                return 'structure_image'
+        except Exception:                                    # noqa: BLE001 — registry unavailable: no chem prior
+            pass
+        kinds = ' '.join(dom)
         if re.search(r'graph|plot|curve|spectr|axis', kinds, re.I):
             return 'plot_image'
         return 'figure'
@@ -8700,14 +8865,40 @@ def quality_stem_key(text, n=60):
     return ('stem', t[:n])
 
 
+_PAPER_DATE_RE = re.compile(r'(\d{1,2}-[A-Za-z]{3}-\d{4})')
+_PAPER_SESS_RE = re.compile(r'(?:shift|session|slot|paper|set|sitting)?[\s_-]*(\d{1,2})\b', re.I)
+
+
+def paper_key_of(ident):
+    """DL-08 / DL-25 — the NORMALISED paper identity 'DD-Mon-YYYY|<session digits>' of a
+    profile paper key ('18-Dec-2025_2', '09-Sep-2025_Shift_1'), a Step-5 date label
+    ('[18-Dec-2025 Shift 2 Q95]') or a Sorted / Row filename stem ('..._18-Dec-2025_Shift-2_
+    Sorted_Q1-Q120'). The session is reduced to its number so the three spellings agree; a
+    multi-date Sorted stem ('..._to_...') and an id without a date give None."""
+    t = str(ident or '')
+    if '_to_' in t.lower():
+        return None
+    m = _PAPER_DATE_RE.search(t)
+    if not m:
+        return None
+    tail = t[m.end():]
+    tail = re.split(r'(?i)_sorted|\sQ\d+\]|_row\b|_pyq_final|_final|_clean', tail)[0]
+    tail = tail.strip(' []_-')
+    sm = _PAPER_SESS_RE.search(tail) if tail else None
+    digits = sm.group(1) if sm else ''
+    return f'{m.group(1)}|{digits}'
+
+
 def profile_quality_inputs(profile):
     """What Step 5's QUALITY measurement and the exemplar bank read from the exam's own
     explained PYQ ([ExamCode]_difficulty_profile.json, PYQExplain >= v2.26):
-      by_stem   {quality_stem_key: profile question record + 'paper_key' + 'cycle'}
-      cycles    {paper_key: cycle label}
+      by_stem      {quality_stem_key: profile question record + 'paper_key' + 'cycle'}
+      by_paper_q   {(paper_key, q_num str): the same record}       (v1.3 — DL-25 join)
+      by_fig_hash  {figure sha256: the same record}                  (v1.3 — third key)
+      cycles       {paper_key: cycle label}; dates {paper_key: ISO date}
     A legacy / absent / foreign profile gives empty maps — every reader then measures
     'unmeasured' / an empty lexicon (dormant, never a halt)."""
-    out = {'by_stem': {}, 'cycles': {}, 'ambiguous': 0}
+    out = {'by_stem': {}, 'cycles': {}, 'ambiguous': 0, 'by_paper_q': {}, 'by_fig_hash': {}, 'dates': {}}
     if not isinstance(profile, dict) or not isinstance(profile.get('papers'), dict):
         return out
     try:
@@ -8720,8 +8911,28 @@ def profile_quality_inputs(profile):
         qs = (paper or {}).get('questions') if isinstance(paper, dict) else None
         if not isinstance(qs, dict):
             continue
+        out['dates'][str(pk)] = bc.dp_iso_date((paper or {}).get('date')) if isinstance(paper, dict) else None
         for qn, rec in qs.items():
-            if not isinstance(rec, dict) or not rec.get('stem_snippet'):
+            if not isinstance(rec, dict):
+                continue
+            full = dict(rec, paper_key=str(pk), q_num=qn,
+                        paper_date=out['dates'].get(str(pk)),
+                        cycle=out['cycles'].get(str(pk)) or (paper.get('date') if isinstance(paper, dict) else None))
+            nk = paper_key_of(str(pk))
+            if nk:
+                out['by_paper_q'][(nk, str(qn))] = full
+                # date-only fallback: honoured only while ONE session of that date is in the
+                # profile — a second session on the same date makes the date alone ambiguous
+                dk = (nk.split('|')[0] + '|*', str(qn))
+                prev = out['by_paper_q'].get(dk)
+                if prev is None and dk not in out['by_paper_q']:
+                    out['by_paper_q'][dk] = full
+                elif prev is not None and str(prev.get('paper_key')) != str(pk):
+                    out['by_paper_q'][dk] = None                         # ambiguous: two sessions share the date
+            for h in (rec.get('figure_hashes') or []) if isinstance(rec.get('figure_hashes'), (list, tuple)) else []:
+                if h and h not in out['by_fig_hash']:
+                    out['by_fig_hash'][str(h)] = full
+            if not rec.get('stem_snippet'):
                 continue
             k = quality_stem_key(rec['stem_snippet'])
             if k in out['by_stem']:
@@ -8738,18 +8949,65 @@ def profile_quality_inputs(profile):
                     out['ambiguous'] += 1
                 out['by_stem'][k] = None
                 continue
-            out['by_stem'][k] = dict(rec, paper_key=str(pk), q_num=qn,
-                                     cycle=out['cycles'].get(str(pk)) or (paper.get('date') if isinstance(paper, dict) else None))
+            out['by_stem'][k] = full
     return out
+
+
+def profile_record_for(quality_inputs, q):
+    """v1.3 (DL-25) — the profile record joined to ONE Step-5 question: (1) paper + Row
+    q-number (paper_key_of(q['paper_id']), q['q_num'] / q['num']); (2) the stem key; (3) a
+    figure hash (q['image_hashes'] / 'figure_hashes'). Returns (record | None, how) with
+    how in 'paper_q' | 'stem' | 'figure_hash' | None. Never raises."""
+    qi = quality_inputs or {}
+    try:
+        qn = q.get('original_q_num')
+        if qn is None:
+            qn = q.get('q_num', q.get('num'))
+        for ident in (q.get('date_label'), q.get('paper_id')):
+            pk = paper_key_of(ident)
+            if pk is None or qn is None:
+                continue
+            bpq = qi.get('by_paper_q') or {}
+            rec = bpq.get((pk, str(qn)))
+            if rec is None:
+                # one side lacks a session (a label '[18-Jul-2026 Q88]', or a profile key
+                # '18-Jul-2026'): the date-only key joins them while it is unambiguous
+                rec = bpq.get((pk.split('|')[0] + '|*', str(qn)))
+            if rec:
+                return rec, 'paper_q'
+        rec = (qi.get('by_stem') or {}).get(quality_stem_key(q.get('stem')))
+        if rec:
+            return rec, 'stem'
+        for h in (q.get('image_hashes') or q.get('figure_hashes') or []):
+            rec = (qi.get('by_fig_hash') or {}).get(str(h))
+            if rec:
+                return rec, 'figure_hash'
+    except Exception:                                            # noqa: BLE001
+        return None, None
+    return None, None
+
+
+def join_rate(quality_inputs, questions):
+    """v1.3 (DL-25) — how the Step-5 questions joined the profile: counts by key plus a
+    printable line. Never raises."""
+    c = {'paper_q': 0, 'stem': 0, 'figure_hash': 0, 'unjoined': 0, 'n': 0}
+    for q in questions or []:
+        if not isinstance(q, dict) or not q.get('stem'):
+            continue
+        c['n'] += 1
+        _rec, how = profile_record_for(quality_inputs, q)
+        c[how if how else 'unjoined'] += 1
+    c['line'] = (f"profile join: {c['n'] - c['unjoined']}/{c['n']} joined "
+                 f"(paper+q {c['paper_q']}, stem {c['stem']}, figure {c['figure_hash']}; unjoined {c['unjoined']})")
+    return c
 
 
 def _qi_terms(quality_inputs, questions, which):
     """Union of the profile's named_concepts (axiom_terms) / concept (concept_terms) over
     the records joined to these questions by stem key."""
-    by_stem = (quality_inputs or {}).get('by_stem') or {}
     out = []
     for q in questions or []:
-        rec = by_stem.get(quality_stem_key(q.get('stem'))) or {}          # None (ambiguous) -> {}
+        rec = profile_record_for(quality_inputs, q)[0] or {}            # v1.3: paper+q first; None (ambiguous) -> {}
         vals = rec.get('named_concepts') if which == 'axiom_terms' else rec.get('concept')
         for v in (vals if isinstance(vals, (list, tuple)) else ([vals] if vals else [])):
             t = str(v).strip()
@@ -8760,35 +9018,94 @@ def _qi_terms(quality_inputs, questions, which):
 
 EXEMPLAR_CONTENT_KEYS = ('drawn_names', 'near_isomer_set', 'scheme_grammar', 'distractor_mechanisms',
                          'concept', 'content_objects', 'ask_type', 'figural_ask_type', 'stereo_decl',
-                         'answer_smiles')
+                         'answer_smiles',
+                         # v1.3 (GAP-2026-11-05 DL-23/24/27): content-carrying exemplars
+                         'option_smiles', 'closeness', 'content_vector', 'level_vector', 'ask_format',
+                         'reagents_seen', 'marks', 'rubric_rule', 'inferential_steps')
 
 
-def exemplar_rows(questions, quality_inputs, subtopic_id_of=None):
-    """Rows for write_exemplar_bank from Step-5 question records joined to the profile by
-    stem key: band / subtopic_id / content record from the profile, stem / options from
-    Step 5. subtopic_id_of: {(section, topic, subtopic): subtopic_id} (the minted ids)
-    used when the profile record carries none. Unjoined questions (no profile, legacy
+def exemplar_rows(questions, quality_inputs, subtopic_id_of=None, level_bands_map=None, level_model=None):
+    """Rows for write_exemplar_bank from Step-5 question records joined to the profile
+    (v1.3: paper + Row q-number first, then stem key, then figure hash — profile_record_for):
+    band / subtopic_id / content record from the profile, stem / options from Step 5.
+    subtopic_id_of: {(section, topic, subtopic): subtopic_id} (the minted ids) used when the
+    profile record carries none. level_bands_map {(paper_key, q): level band} (bc.level_bands)
+    — when present the exemplar's band is its LEVEL band (§4.5); level_model gives each
+    row its level composite for typicality ranking. Unjoined questions (no profile, legacy
     profile, text changed) are skipped — an exemplar without a measured band is not a
-    benchmark. Newest cycle first."""
-    by_stem = (quality_inputs or {}).get('by_stem') or {}
+    benchmark. Newest first by the profile paper's ISO date (DL-26)."""
     rows = []
     for q in questions or []:
         if not q.get('stem'):
             continue
-        rec = by_stem.get(quality_stem_key(q.get('stem')))                 # None (ambiguous) -> skipped
+        rec, _how = profile_record_for(quality_inputs, q)                   # None (ambiguous / unjoined) -> skipped
         if not rec or not rec.get('band'):
             continue
         # the MINTED id of this Step-5 run is what the blueprint / Create / packet slice use;
         # the profile's id (from the previous manifest) is the fallback
         sid = (subtopic_id_of or {}).get((q.get('section'), q.get('topic'), q.get('subtopic'))) or rec.get('subtopic_id')
-        rows.append({'cell': sid or q.get('subtopic') or '?', 'band': rec['band'],
+        band = rec['band']
+        key_pq = (str(rec.get('paper_key')), str(rec.get('q_num')))
+        if level_bands_map and key_pq in level_bands_map:
+            band = level_bands_map[key_pq]
+        comp = None
+        if isinstance(level_model, dict) and level_model.get('active') and isinstance(rec.get('level_vector'), dict):
+            try:
+                comp = bc._qf_composite(level_model.get('fields') or {}, rec['level_vector'], level_model.get('field_names'))
+            except Exception:                                            # noqa: BLE001
+                comp = None
+        opts = list(q.get('options') or [])
+        osm = rec.get('option_smiles') if isinstance(rec.get('option_smiles'), dict) else {}
+        if osm and all(not str(o).strip() for o in opts):
+            opts = [str(osm.get(str(i + 1)) or osm.get(f'option:{i + 1}') or '') for i in range(max(len(opts), len(osm)))]
+        rows.append({'cell': sid or q.get('subtopic') or '?', 'band': band, 'stored_band': rec['band'],
                      'qtype': rec.get('qtype') or ('msq' if q.get('is_msq') else 'mcq'),
-                     'stem': q['stem'], 'options': list(q.get('options') or []),
-                     'key': q.get('key') or q.get('correct_option') or q.get('answer'),
+                     'stem': q['stem'], 'options': opts,
+                     'key': q.get('key') or q.get('correct_option') or q.get('answer') or rec.get('answer_smiles'),
                      'content_record': {k: rec[k] for k in EXEMPLAR_CONTENT_KEYS if k in rec},
-                     'cycle': rec.get('cycle') or q.get('year')})
-    rows.sort(key=lambda r: str(r.get('cycle') or ''), reverse=True)
+                     'cycle': rec.get('cycle') or q.get('year'),
+                     'paper_date': rec.get('paper_date'), 'paper_key': rec.get('paper_key'), 'q_num': rec.get('q_num'),
+                     'level_composite': comp})
+    rows.sort(key=lambda r: (str(r.get('paper_date') or ''), str(r.get('paper_key') or ''),
+                             -int(str(r.get('q_num')).strip() or 0) if str(r.get('q_num') or '').strip().isdigit() else 0), reverse=True)
     return rows
+
+
+EXEMPLAR_STEM_BUDGET = 1200          # characters (DL-27); never cut inside a list block
+_LIST_ITEM_RE = re.compile(r'^\s*(?:\(?(?:[ivx]{1,4}|[a-dA-D]|\d{1,2})[.)\]:]|[-\u2022*])\s+')
+
+
+def stem_budget(stem, budget=EXEMPLAR_STEM_BUDGET):
+    """DL-27 — a stem cut to `budget` characters at a LINE boundary, never inside a list
+    block (consecutive lines that are list items: (i) / (A) / 1. / bullets). A stem that
+    fits is returned unchanged; a single over-long line is cut at the last sentence end
+    before the budget; the first line is always kept. Never raises."""
+    t = str(stem or '')
+    if len(t) <= budget:
+        return t
+    lines = t.splitlines()
+    if len(lines) <= 1:
+        head = t[:budget]
+        cut = max(head.rfind('. '), head.rfind('? '), head.rfind('! '))
+        return (head[:cut + 1] if cut > budget // 2 else head).rstrip() + ' …'
+    out, total = [], 0
+    i = 0
+    while i < len(lines):
+        if _LIST_ITEM_RE.match(lines[i]):
+            j = i
+            while j < len(lines) and (_LIST_ITEM_RE.match(lines[j]) or not lines[j].strip()):
+                j += 1
+            block = lines[i:j]
+        else:
+            block = [lines[i]]
+            j = i + 1
+        size = sum(len(x) + 1 for x in block)
+        if out and total + size > budget:
+            break
+        out.extend(block)
+        total += size
+        i = j
+    return '\n'.join(out).rstrip() + ('' if i >= len(lines) else '\n…')
 
 
 def entity_paper_sets(quality_inputs):
@@ -8816,8 +9133,11 @@ def entity_paper_sets(quality_inputs):
     return out
 
 
+QUALITY_NEW_KEYS_V13 = ('figure_complexity_pct', 'closeness_pct', 'ask_format_shares')   # G5 provenance stamps
+
+
 def measure_quality_fields(questions, concept_terms=(), axiom_terms=(), ask_nouns=(),
-                           topic_titles=(), content_records=None):
+                           topic_titles=(), content_records=None, quality_inputs=None):
     """Per-subtopic QUALITY block (GAP-2026-11-03 R4.1 / R5.2 / R6.2 / R8.1). MEASURED,
     never looked up. content_records: {(paper_id, q_num): {'drawn_names': [...],
     'near_isomer_set': bool, 'scheme_grammar': str}} from PYQExplain §13A when present;
@@ -8864,8 +9184,29 @@ def measure_quality_fields(questions, concept_terms=(), axiom_terms=(), ask_noun
     for pid, c in fps_by_paper.items():
         for fp, k in c.items():
             fp_max[fp] = max(fp_max.get(fp, 0), k)
+    # v1.3 (DL-28 / DL-22) — figure complexity and closeness percentiles over the joined
+    # profile records, plus the ask-FORMAT shares; stamped rule.<key>: q2 (G5) because they
+    # are NEW in this release and gate as WARN for one cycle.
+    comp_vals, close_vals, fmt = {}, [], Counter()
+    for q in qs:
+        rec = profile_record_for(quality_inputs, q)[0] if quality_inputs else None
+        rec = rec or ((content_records or {}).get((str(q.get('paper_id')), q.get('q_num')))
+                      or (content_records or {}).get(quality_stem_key(q.get('stem'))) or {})
+        lv = rec.get('level_vector') if isinstance(rec.get('level_vector'), dict) else rec.get('content_vector')
+        if isinstance(lv, dict):
+            for f, v in lv.items():
+                if not str(f).startswith('_') and isinstance(v, (int, float)) and not isinstance(v, bool):
+                    comp_vals.setdefault(f, []).append(v)
+        cm = (rec.get('closeness') or {}).get('mean') if isinstance(rec.get('closeness'), dict) else None
+        if isinstance(cm, (int, float)) and not isinstance(cm, bool):
+            close_vals.append(cm)
+        fmt[rec.get('ask_format') or _ft.normalise_ask_format(q.get('stem'), q.get('options'))] += 1
     return {
         'n': n,
+        'figure_complexity_pct': {f: _pctiles(v) for f, v in sorted(comp_vals.items())} if comp_vals else 'unmeasured',
+        'closeness_pct': _pctiles(close_vals) if close_vals else 'unmeasured',
+        'ask_format_shares': {k: round(v / n, 4) for k, v in sorted(fmt.items())} if n else {},
+        'rules': {k: 'q2' for k in QUALITY_NEW_KEYS_V13},
         'named_concept_rate': round(named / n, 4) if n else 0.0,
         'shown_entity_named_rate': (round(shown_num / shown_den, 4) if shown_den else 'unmeasured'),
         'stem_word_count_pct': _pctiles(sw),
@@ -8891,7 +9232,14 @@ def format_quality_block(qf):
             f'  fingerprint_max_per_paper: {json.dumps(q.get("fingerprint_max_per_paper", {}), sort_keys=True)}',
             f'  near_isomer_share: {q.get("near_isomer_share", "unmeasured")}',
             f'  data_block_layout: {q.get("data_block_layout", "inline")}',
-            f'  papers_measured: {int(q.get("papers_measured", 0))}']
+            f'  papers_measured: {int(q.get("papers_measured", 0))}',
+            # v1.3 — NEW keys, indented (never a line starting `subtopic_id:`), with their G5 stamps
+            f'  figure_complexity_pct: {json.dumps(q.get("figure_complexity_pct", "unmeasured"), sort_keys=True) if isinstance(q.get("figure_complexity_pct"), dict) else q.get("figure_complexity_pct", "unmeasured")}',
+            f'  closeness_pct: {json.dumps(q.get("closeness_pct", "unmeasured"), sort_keys=True) if isinstance(q.get("closeness_pct"), dict) else q.get("closeness_pct", "unmeasured")}',
+            f'  ask_format_shares: {json.dumps(q.get("ask_format_shares", {}), sort_keys=True)}',
+            f'  rule.figure_complexity_pct: q2',
+            f'  rule.closeness_pct: q2',
+            f'  rule.ask_format_shares: q2']
 
 
 def measure_common_entities(entity_paper_sets, n_papers):
@@ -8954,14 +9302,95 @@ def write_exemplar_bank(exam_code, questions_with_content, out_dir=None, window_
         if window_cycles and r.get('cycle') not in window_cycles:
             continue
         leaf = cells.setdefault(str(r.get('cell')), {}).setdefault(str(r.get('band')), {}).setdefault(str(r.get('qtype') or 'mcq'), [])
-        leaf.append({'stem': ' '.join(str(r.get('stem', '')).split()[:80]), 'options': list(r.get('options') or []),
-                     'key': r.get('key'), 'content_record': r.get('content_record') or {}, 'cycle': r.get('cycle')})
-    bank, dropped = bc.exemplar_bank_write(cells)
+        leaf.append({'stem': stem_budget(r.get('stem', '')), 'options': list(r.get('options') or []),
+                     'key': r.get('key'), 'content_record': r.get('content_record') or {}, 'cycle': r.get('cycle'),
+                     'paper_date': r.get('paper_date'), 'level_composite': r.get('level_composite')})
+    # v1.3 (DL-26): the TOP band's leaves are ranked by TYPICALITY — distance to the band's
+    # median level composite — so the judge sees representative Hard items, not outliers.
+    for _cell, _bands in cells.items():
+        for _band, _qts in _bands.items():
+            for _qt, _rows in _qts.items():
+                comps = sorted(x['level_composite'] for x in _rows if isinstance(x.get('level_composite'), (int, float)))
+                if comps and len(comps) == len(_rows) and len(_rows) >= 3:
+                    med = comps[len(comps) // 2]
+                    _rows.sort(key=lambda x: (abs((x.get('level_composite') if isinstance(x.get('level_composite'), (int, float)) else med) - med),
+                                              str(x.get('paper_date') or '')))
+    bank, dropped = bc.exemplar_bank_write(cells, per_section=True)
     bank['_meta']['exam_code'] = exam_code
     path = _artefact_path(out_dir, f'{exam_code}_exemplar_bank.json')
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(bank, f, ensure_ascii=False, indent=1, sort_keys=True)
     return path, bank, dropped
+
+
+def distractor_mix_measured(questions, quality_inputs):
+    """v1.3 (DL-23) — the subtopic's distractor mix MEASURED from the profile's closeness
+    records (bc.option_closeness, computed against the DERIVED key — owner F2): per wrong
+    option grade 3 -> 'stereochemistry_error', grade 2 -> 'regiochemistry_error', grade 1 ->
+    'structural_variant' (same formula, another skeleton), grade 0 -> 'formula_error' (a
+    different formula) — the tokens mine_distractor_mechanisms already emits; no new
+    token. Returns (Counter, n_options_measured)."""
+    mix, n = Counter(), 0
+    for q in questions or []:
+        rec, _how = profile_record_for(quality_inputs, q)
+        per = ((rec or {}).get('closeness') or {}).get('per_option') if isinstance(rec, dict) else None
+        if not isinstance(per, dict):
+            continue
+        for _lab, g in per.items():
+            grade = (g or {}).get('grade') if isinstance(g, dict) else None
+            if not isinstance(grade, int) or isinstance(grade, bool):
+                continue
+            n += 1
+            if grade == 3:
+                mix['stereochemistry_error'] += 1
+            elif grade == 2:
+                mix['regiochemistry_error'] += 1
+            elif grade == 1:
+                mix['structural_variant'] += 1
+            else:
+                mix['formula_error'] += 1
+    return mix, n
+
+
+def distractor_mix_source(questions, quality_inputs):
+    """'measured' when distractor_mix_measured found closeness records for the subtopic,
+    else 'default prior (unmeasured)' — the AMBER line Step 5 prints (DL-23)."""
+    _mix, n = distractor_mix_measured(questions, quality_inputs)
+    return 'measured' if n else 'default prior (unmeasured)'
+
+
+def stamp_question_subtopic_ids(entries, questions_by_subtopic):
+    """v1.3 (DL-29) — after mint_subtopic_ids, stamp q['subtopic_id'] on every question of
+    every (section, topic, subtopic) entry so figural_count_by_subtopic / count_by_subtopic_
+    by_class are populated (they read q['subtopic_id'] and were {} forever). Returns the
+    number of questions stamped. Never raises."""
+    n = 0
+    for e in entries or []:
+        sid = (e or {}).get('subtopic_id') if isinstance(e, dict) else None
+        if not sid:
+            continue
+        for q in (questions_by_subtopic or {}).get((e.get('section'), e.get('topic'), e.get('subtopic')), []) or []:
+            if isinstance(q, dict) and not q.get('subtopic_id'):
+                q['subtopic_id'] = sid
+                n += 1
+    return n
+
+
+def find_project_artefact(exam_code, name_suffix, search_dirs=('/mnt/project/', '/mnt/user-data/uploads/')):
+    """v1.3 (DL-30) — the first existing '<exam_code>_<name_suffix>' under /mnt/project,
+    then /mnt/user-data/uploads (an attachment may carry an upload prefix: matched by the
+    basename's tail), else None. Never raises."""
+    want = f'{exam_code}_{name_suffix}'.lower()
+    for d in search_dirs:
+        try:
+            if not os.path.isdir(d):
+                continue
+            for fn in sorted(os.listdir(d)):
+                if fn.lower() == want or fn.lower().endswith('-' + want) or fn.lower().endswith('_' + want):
+                    return os.path.join(d, fn)
+        except Exception:                                            # noqa: BLE001
+            continue
+    return None
 
 
 def _utc_stamp():

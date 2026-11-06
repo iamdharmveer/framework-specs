@@ -42,6 +42,29 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v1.32 (2026-11-05) — GAP-2026-11-05-DIFFICULTY-FIDELITY: what Easy / Medium / Hard means
+      is bound to the question's content and checked in both directions. Part A VERSIONED
+      RULES (rubric r1/r2, level L1, mix m1/m2, shape s1/s2, window w1/w2; *_rule_of readers
+      never raise; a missing stamp is the legacy rule, so nothing written before this
+      release changes verdict — G1/G3/G4/G8). Part B RUBRIC r2 (difficulty_score(rule=,
+      inferential_steps=): CLASS_BASELINE_R2 adds C-STRUCTURAL / C-DERIVATIONAL = 2;
+      INFERENTIAL moves replace paragraph counts (INFERENTIAL_STEP_RULE, DL-14/15);
+      solver doubt +0 (DL-16); edges and qtype floors unchanged; the r1 default keeps every
+      unedited caller byte-identical). verify_difficulty_obs takes the LEVEL PATH first
+      (level_band_from + qtype clamp), then the rubric path under the obs's own rule;
+      difficulty_obs_signature is rule-aware (check 9 on level items). dp_add_paper stamps
+      record_version 2 / rubric_rule / inferential_steps / marks (dp_marks_of, DL-10) and
+      carries option_smiles / ask_format / content_source / reagents_seen /
+      transcription_confidence; dp_profile_coverage prints the DL-20 line. dp_scope_mix /
+      scoped_difficulty_schedule / _qf_recompute carry mix_rule (m2 = pooled counts) and
+      tier, recorded and replayed (DL-21/32). evaluate_difficulty_gate(window_rule='w2'):
+      DIFFICULTY_GATE_BAND_WINDOWS_W2, allowance over assessed items, 'harder' only,
+      assessed_frac; difficulty_gate_window_rule selects w2 only for a paper born under
+      this release (DL-53). Part C — Chemistry Level Model L1 (option_closeness,
+      level_vector / level_model / level_record / level_check / level_model_for_scope /
+      level_bands, build_method_lexicon, LEVEL_MIN_POOL 12 (owner D10 B), hard_supply_record,
+      band_subtopic_plan, mechanism_smiles_check, stereo_declaration_locant_check,
+      reconcile_level (owner D11 A)). No QQ gate added or tightened (S2); DP_SCHEMA 1.
     v1.31 (2026-11-04) — GAP-2026-11-04-STEP7-CONTRACT-RESTORE: TEMPLATE_CAP_UNMEASURED is
       None — template_cap(None, ...) returns None ("not measured, not enforced") and
       template_check skips every fingerprint whose cap is None (the default cap of 2 was
@@ -101,7 +124,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.31'
+BLUEPRINT_CORE_VERSION = '1.32'
 
 __all__ = [
     "AllocationError",
@@ -383,6 +406,20 @@ __all__ = [
     "reagent_smiles",
     "build_judge_input",
     "final_band_decision",
+    # v1.32 — GAP-2026-11-05-DIFFICULTY-FIDELITY (Parts A/B/D + Cluster L1)
+    "RUBRIC_RULE_LEGACY", "RUBRIC_RULE_CURRENT", "RUBRIC_RULES", "LEVEL_RULE_CURRENT",
+    "MIX_RULE_LEGACY", "MIX_RULE_CURRENT", "MIX_RULES", "SHAPE_RULE_LEGACY", "SHAPE_RULE_CURRENT",
+    "SHAPE_RULES", "WINDOW_RULE_LEGACY", "WINDOW_RULE_CURRENT", "WINDOW_RULES", "DP_RECORD_VERSION",
+    "CLASS_BASELINE_R2", "INFERENTIAL_STEP_RULE", "rubric_rule_of", "mix_rule_of", "shape_rule_of",
+    "inferential_steps_of", "level_band_from", "difficulty_obs_signature_text", "dp_marks_of",
+    "dp_profile_coverage", "DIFFICULTY_GATE_BAND_WINDOWS_W2", "DIFFICULTY_GATE_MIN_ASSESSED_FRAC",
+    "difficulty_gate_window_rule", "LEVEL_MIN_POOL", "MAX_DIFF_TRIES_DEFAULT",
+    "difficulty_unverified_lines", "LEVEL_FIELDS", "CLOSENESS_GRADES", "option_closeness",
+    "closeness_mechanism_tokens", "reagent_names_of", "build_method_lexicon", "method_tier_of",
+    "level_vector", "level_model", "level_record", "level_check", "level_model_for_scope",
+    "level_bands", "hard_supply_record", "band_subtopic_plan", "mechanism_smiles_check",
+    "stereo_declaration_locant_check", "reconcile_level", "figural_quota_guard", "quality_rule_of",
+    "hard_share_by_subtopic",
     "diff_band_tolerance",
     "diffdist_info",
     "exemplar_bank_write",
@@ -3457,6 +3494,82 @@ _QTYPE_FLOOR_CLASS = {'msq': 'C-MULTI-SELECT', 'nat': 'C-NUMERICAL-INPUT'}
 DIFFICULTY_EASY_MAX = 2
 DIFFICULTY_MEDIUM_MAX = 5
 
+# ── v1.32 (GAP-2026-11-05-DIFFICULTY-FIDELITY, Part A) — VERSIONED RULES ───────────
+# Every difficulty record carries the rule it was written under and every reader
+# judges it under that rule (owner guard G1). A missing or unrecognised stamp means the
+# legacy rule, so nothing written before 2026.11.05 changes verdict. The readers below
+# never raise.
+RUBRIC_RULE_LEGACY  = 'r1'
+RUBRIC_RULE_CURRENT = 'r2'
+RUBRIC_RULES        = (RUBRIC_RULE_LEGACY, RUBRIC_RULE_CURRENT)
+LEVEL_RULE_CURRENT  = 'L1'          # Chemistry Level Model (Part C); obs['level']['rule']
+MIX_RULE_LEGACY     = 'm1'
+MIX_RULE_CURRENT    = 'm2'
+MIX_RULES           = (MIX_RULE_LEGACY, MIX_RULE_CURRENT)
+SHAPE_RULE_LEGACY   = 's1'
+SHAPE_RULE_CURRENT  = 's2'
+SHAPE_RULES         = (SHAPE_RULE_LEGACY, SHAPE_RULE_CURRENT)
+WINDOW_RULE_LEGACY  = 'w1'
+WINDOW_RULE_CURRENT = 'w2'
+WINDOW_RULES        = (WINDOW_RULE_LEGACY, WINDOW_RULE_CURRENT)
+DP_RECORD_VERSION   = 2             # per-record stamp; DP_SCHEMA stays 1 (guard S4)
+
+# r2 class baselines (DL-13): C-STRUCTURAL / C-DERIVATIONAL are defined by PYQExplain §6
+# S6-1 but were absent here, so they fell to the unknown default of 1.
+CLASS_BASELINE_R2 = dict(CLASS_BASELINE, **{'C-STRUCTURAL': 2, 'C-DERIVATIONAL': 2})
+
+# DL-15 — the ONE counting rule, quoted VERBATIM by PYQExplain §7A and MockTestCreate
+# CHECK 3c so a PYQ band and a mock band use the same unit.
+INFERENTIAL_STEP_RULE = (
+    "An INFERENTIAL STEP is one reasoning move that produces a new fact the next move "
+    "uses: applying a principle, predicting one transformation's product, eliminating an "
+    "option class, or one manipulation of a relation. NOT a step: restating the stem, "
+    "reading a value or a structure off the figure, naming the answer option (the "
+    "answer-binding sentence), or splitting one move across paragraphs. A pre-requisite "
+    "fact at the level of a standard textbook (pH of water, valency, a reagent's identity) "
+    "is part of the step that uses it. Count moves, never paragraphs; a pure recall item "
+    "has 0.")
+
+
+def _rule_of(value, allowed, legacy, key):
+    if isinstance(value, dict):
+        value = value.get(key)
+    r = str(value or '').strip().lower()
+    return r if r in allowed else legacy
+
+
+def rubric_rule_of(x):
+    """Rubric rule of an obs / record / blueprint dict or a bare string. Missing or
+    unrecognised → RUBRIC_RULE_LEGACY. Never raises."""
+    return _rule_of(x, RUBRIC_RULES, RUBRIC_RULE_LEGACY, 'rubric_rule')
+
+
+def mix_rule_of(x):
+    return _rule_of(x, MIX_RULES, MIX_RULE_LEGACY, 'mix_rule')
+
+
+def shape_rule_of(x):
+    return _rule_of(x, SHAPE_RULES, SHAPE_RULE_LEGACY, 'shape_rule')
+
+
+def _window_rule_of(x):
+    """Engine-internal (evaluate_difficulty_gate): Step 9 selects the rule through
+    difficulty_gate_window_rule and never types one."""
+    return _rule_of(x, WINDOW_RULES, WINDOW_RULE_LEGACY, 'window_rule')
+
+
+def inferential_steps_of(deduction_steps, inferential_steps=None):
+    """The r2 steps term. An explicit `inferential_steps` (int, or a digit string) wins;
+    otherwise the LEGACY MAPPING `max(0, deduction_steps - 1)` — the DEDUCTION block ended
+    with the answer-binding sentence, which is not a move (DL-14). Never raises."""
+    if isinstance(inferential_steps, bool):
+        inferential_steps = None
+    if isinstance(inferential_steps, int):
+        return max(0, inferential_steps)
+    if isinstance(inferential_steps, str) and inferential_steps.strip().isdigit():
+        return int(inferential_steps.strip())
+    return max(0, _as_int(deduction_steps) - 1)
+
 
 
 def _as_int(value, default=0):
@@ -3525,7 +3638,7 @@ def assess_difficulty(question_class, deduction_steps, axiom_concepts,
 
 def difficulty_score(question_class, deduction_steps, axiom_concepts,
                      speed_hack_exists, derivation_confidence, is_negative,
-                     qtype):
+                     qtype, rule=RUBRIC_RULE_LEGACY, inferential_steps=None):
     """TIER 1 RAW SCORE on the 0..12 rubric scale — the integer assess_difficulty
     converts to a band. Same observations, same arithmetic, no labels involved.
 
@@ -3534,9 +3647,20 @@ def difficulty_score(question_class, deduction_steps, axiom_concepts,
     (DIFFICULTY_GATE_BAND_WINDOWS), not against band equality — a band label
     alone cannot say whether a middle-band measurement sat at 3 or at 5.
 
+    v1.32 (GAP-2026-11-05-DIFFICULTY-FIDELITY, Part B): `rule` selects the arithmetic.
+    The DEFAULT is the legacy rule r1, so every caller not edited by that release is
+    byte-identical. Under r2: class baselines from CLASS_BASELINE_R2 (DL-13); the steps
+    term counts INFERENTIAL MOVES (`inferential_steps`, else the legacy mapping
+    deduction_steps-1 — identity on a legacy obs, DL-14) at thresholds >=4 +3 / >=2 +2
+    / >=1 +1; solver doubt ('flagged') adds nothing (DL-16: a generated item is always
+    'full', so the term made PYQ bands unreachable); the speed-hack term needs s >= 3
+    (the same derivation as r1's steps >= 4). Edges are unchanged.
+
     Deterministic and pure: plain data in, int out. Never raises on None/str/
     float observations (coerced through _as_int exactly as before).
     """
+    r2 = rubric_rule_of(rule) == RUBRIC_RULE_CURRENT
+    baseline = CLASS_BASELINE_R2 if r2 else CLASS_BASELINE
     # 1. Class baseline — the MAX over facets, never the sum. A question that is
     #    both C-FIGURAL and C-COMPUTATIONAL is not twice as hard as either.
     if question_class is None:
@@ -3552,18 +3676,27 @@ def difficulty_score(question_class, deduction_steps, axiom_concepts,
         facets.append(floor_class)
 
     if facets:
-        score = max(CLASS_BASELINE.get(f, _UNKNOWN_CLASS_BASELINE) for f in facets)
+        score = max(baseline.get(f, _UNKNOWN_CLASS_BASELINE) for f in facets)
     else:
         score = _UNKNOWN_CLASS_BASELINE
 
     # 2. Derivation length — the model built these steps; the count is evidence.
-    steps = _as_int(deduction_steps)
-    if steps >= 5:
-        score += 3
-    elif steps >= 3:
-        score += 2
-    elif steps >= 2:
-        score += 1
+    if r2:
+        s = inferential_steps_of(deduction_steps, inferential_steps)
+        if s >= 4:
+            score += 3
+        elif s >= 2:
+            score += 2
+        elif s >= 1:
+            score += 1
+    else:
+        steps = _as_int(deduction_steps)
+        if steps >= 5:
+            score += 3
+        elif steps >= 3:
+            score += 2
+        elif steps >= 2:
+            score += 1
 
     # 3. Concept integration — distinct principles the AXIOM had to invoke.
     concepts = _as_int(axiom_concepts)
@@ -3573,7 +3706,8 @@ def difficulty_score(question_class, deduction_steps, axiom_concepts,
         score += 1
 
     # 4. Two independent methods did not agree first time → the question is tricky.
-    if str(derivation_confidence or '').strip().lower() == 'flagged':
+    #    (r1 only — DL-16.)
+    if not r2 and str(derivation_confidence or '').strip().lower() == 'flagged':
         score += 2
 
     # 5. Polarity inversion carries real cognitive load (mirrors the E-9 term).
@@ -3582,7 +3716,7 @@ def difficulty_score(question_class, deduction_steps, axiom_concepts,
 
     # 6. A genuine shortcut existing on a LONG derivation is evidence that the
     #    main path is heavy. On a short derivation it means nothing.
-    if speed_hack_exists and steps >= 4:
+    if speed_hack_exists and ((r2 and s >= 3) or (not r2 and steps >= 4)):
         score += 1
 
     return score
@@ -3614,12 +3748,14 @@ def difficulty_score_from_obs(obs):
     gate and the audit read one shape."""
     if not isinstance(obs, dict) or not obs:
         return None
+    # v1.32 (G1): scored under the rule the obs was written with; missing → r1.
     return difficulty_score(
         obs.get('question_class', obs.get('facets')),
         obs.get('deduction_steps'), obs.get('axiom_concepts'),
         bool(obs.get('speed_hack_exists')),
         obs.get('derivation_confidence', 'full'),
-        bool(obs.get('is_negative')), obs.get('qtype'))
+        bool(obs.get('is_negative')), obs.get('qtype'),
+        rule=rubric_rule_of(obs), inferential_steps=obs.get('inferential_steps'))
 
 
 # ── Cluster E2c — DIFFICULTY CONFORMANCE (v1.13, GAP-2026-08-21-DIFFICULTY-
@@ -3730,7 +3866,7 @@ def assign_difficulty_bands(counts, qtype_by_q, difficulty_labels, seed=0):
     return plan
 
 
-def difficulty_authoring_profile(band, qtype, difficulty_labels):
+def difficulty_authoring_profile(band, qtype, difficulty_labels, rule=RUBRIC_RULE_LEGACY):
     """The observation targets that make assess_difficulty land IN `band` for a
     question of `qtype`. An AUTHORING INSTRUCTION, derived from (and proven
     against, in self_test) the rubric's arithmetic — never a parallel scale.
@@ -3741,11 +3877,47 @@ def difficulty_authoring_profile(band, qtype, difficulty_labels):
     definition — the author wrote the answer — and speed_hack adds only on
     steps>=4 derivations, so profiles keep clear of that edge except for the
     top band, where it helps.
+
+    v1.32: `rule` selects the profile table. Under r2 'steps' are INFERENTIAL MOVES
+    (INFERENTIAL_STEP_RULE) and the record carries 'rule': 'r2'. The per-qtype minimum
+    band is identical under both rules (fixture v132_r2_qtype_floor_unchanged), so
+    difficulty_feasibility / assign_difficulty_bands are untouched.
     """
     if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
         return None
     EASY, MEDIUM, HARD = difficulty_labels
     qt = str(qtype or '').strip().lower()
+    if rubric_rule_of(rule) == RUBRIC_RULE_CURRENT:
+        _r2 = {'rule': RUBRIC_RULE_CURRENT, 'step_unit': 'inferential moves (INFERENTIAL_STEP_RULE)'}
+        if band == EASY:
+            if qt in _QTYPE_FLOOR_CLASS:
+                return None                    # structurally impossible — floor (unchanged)
+            return dict(_r2, classes=['C-FACTUAL', 'C-VOCAB-ITEM', 'C-FORMAL-LOGIC'],
+                        steps=(0, 1), concepts=(1, 1), avoid_negative=True,
+                        note='recall / one principle, at most one inferential move; NEVER '
+                             'computational, figural, structural or derivational (their '
+                             'baseline alone exceeds the bottom band); no speed hack')
+        if band == MEDIUM:
+            if qt in _QTYPE_FLOOR_CLASS:
+                return dict(_r2, classes=[], steps=(0, 1), concepts=(1, 2), avoid_negative=True,
+                            note='direct application: the qtype floor already pays the '
+                                 'baseline; at most one inferential move')
+            return dict(_r2, classes=['C-COMPUTATIONAL', 'C-FIGURAL', 'C-STRUCTURAL',
+                                      'C-DERIVATIONAL'],
+                        steps=(1, 3), concepts=(1, 2), avoid_negative=True,
+                        note='standard single-thread application; 1-3 inferential moves, at '
+                             'most 2 concepts; no speed hack at 3 moves (it would add +1)')
+        if band == HARD:
+            if qt in _QTYPE_FLOOR_CLASS:
+                return dict(_r2, classes=[], steps=(2, 6), concepts=(2, 4), avoid_negative=False,
+                            note='floor 3 + moves>=2 (+2) + concepts>=2 (+1) = 6; longer '
+                                 'derivations and shortcuts only raise it')
+            return dict(_r2, classes=['C-COMPUTATIONAL', 'C-LINKED', 'C-FIGURAL',
+                                      'C-STRUCTURAL', 'C-DERIVATIONAL'],
+                        steps=(4, 7), concepts=(2, 4), avoid_negative=False,
+                        note='multi-concept, genuinely long: moves>=4 (+3) with concepts>=2 '
+                             '(+1) on a class-2 baseline = 6')
+        return None
     if band == EASY:
         if qt in _QTYPE_FLOOR_CLASS:
             return None                        # structurally impossible — floor
@@ -3789,6 +3961,19 @@ def verify_difficulty_obs(label, obs, difficulty_labels):
     """
     # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: one obs reader for the audit
     # (this) and the gate (difficulty_score_from_obs) — same shape, same coercion.
+    # v1.32 (GAP-2026-11-05, Part C): the LEVEL PATH comes first. An obs that carries a
+    # level record (rule L1) is re-banded from its recorded composite and cuts, then
+    # clamped by the qtype floor — the same clamp level_record applied at write time,
+    # so a clamped MSQ/NAT never re-derives as the bottom band (G-DIFF / check 8 loop).
+    # No level record → the rubric path under the obs's own rule (G1).
+    lv = obs.get('level') if isinstance(obs, dict) else None
+    if isinstance(lv, dict) and str(lv.get('rule') or '').upper() == LEVEL_RULE_CURRENT:
+        lb = level_band_from(lv.get('composite'), lv.get('cuts_list'), difficulty_labels)
+        if lb is not None:
+            lb = _band_max(lb, difficulty_min_band(obs.get('qtype'), difficulty_labels),
+                           difficulty_labels)
+            return (lb == label, lb)
+        # an unusable level record falls through to the rubric path (never a false FAIL)
     score = difficulty_score_from_obs(obs)
     if score is None:
         return (True, None)
@@ -3796,6 +3981,36 @@ def verify_difficulty_obs(label, obs, difficulty_labels):
     if measured is None:
         return (True, None)
     return (measured == label, measured)
+
+
+def _band_max(a, b, difficulty_labels):
+    """The higher of two band labels in `difficulty_labels` order; an unknown or None
+    side yields the other."""
+    labs = list(difficulty_labels or [])
+    if a not in labs:
+        return b
+    if b not in labs:
+        return a
+    return a if labs.index(a) >= labs.index(b) else b
+
+
+def level_band_from(composite, cuts_list, difficulty_labels):
+    """Pure re-check of a Level-Model band: the label of the first cut the composite
+    does not exceed, else the top label. None on an unusable composite / cuts / labels
+    (the documented fall-through). The composite is compared at FULL precision — a
+    rounded value tied at a cut lands on the wrong side (GAP-2026-11-05 §4.4)."""
+    labs = list(difficulty_labels) if isinstance(difficulty_labels, (list, tuple)) else []
+    if (len(labs) < 2 or isinstance(composite, bool)
+            or not isinstance(composite, (int, float))
+            or not isinstance(cuts_list, (list, tuple)) or len(cuts_list) != len(labs) - 1):
+        return None
+    try:
+        for i, cut in enumerate(cuts_list):
+            if composite <= float(cut):
+                return labs[i]
+    except (TypeError, ValueError):
+        return None
+    return labs[-1]
 
 
 def structural_difficulty(q, marking_scheme, difficulty_labels):
@@ -9400,8 +9615,394 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.31')   # v1.31 — GAP-2026-11-04 (v1.30 Cluster QQ)
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.32')
+    # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
+    _cvf = {'heavy_atoms': 20, 'rings': 2}
+    check('v132_level_vector_closeness_record_or_mean_identical',
+          level_vector(_cvf, {'mean': 3.0, 'n': 3}, 7)['closeness'] == 3.0
+          and level_vector(_cvf, 3.0, 7) == level_vector(_cvf, {'mean': 3.0, 'n': 3}, 7)
+          and level_vector(_cvf, True, 7)['closeness'] is None and level_vector(_cvf, None, 7)['closeness'] is None)
+    # reviewer #2: band_subtopic_plan keeps every section's counts (a section never borrows a slot)
+    _bpA = {1: 'Easy', 2: 'Easy', 3: 'Medium', 4: 'Medium', 5: 'Hard', 6: 'Medium', 7: 'Medium', 8: 'Medium', 9: 'Medium', 10: 'Hard'}
+    _bsA = {q: 'a.1' for q in range(1, 6)}; _bsA.update({q: 'b.1' for q in range(6, 11)})
+    _bsecA = {q: ('A' if q <= 5 else 'B') for q in range(1, 11)}
+    _bxA = band_subtopic_plan(_bpA, _bsA, {'a.1': 0.0, 'b.1': 60.0}, {}, ['Easy', 'Medium', 'Hard'], section_of_q=_bsecA)
+    _per = lambda pl, sec: sorted(pl[q] for q in pl if _bsecA[q] == sec)
+    check('v132_band_subtopic_plan_never_crosses_sections',
+          _per(_bxA, 'A') == _per(_bpA, 'A') and _per(_bxA, 'B') == _per(_bpA, 'B')
+          and _per(band_subtopic_plan(_bpA, _bsA, {'a.1': 0.0, 'b.1': 60.0}, {}, ['Easy', 'Medium', 'Hard']), 'A') != _per(_bpA, 'A'))
+    _bpB = {1: 'Hard', 2: 'Medium', 3: 'Medium', 4: 'Medium'}
+    _bxB = band_subtopic_plan(_bpB, {1: 'x', 2: 'x', 3: 'y', 4: 'y'}, {'y': 50.0}, {}, ['Easy', 'Medium', 'Hard'],
+                              section_of_q={1: 'S', 2: 'S', 3: 'S', 4: 'S'})
+    check('v132_band_subtopic_plan_moves_within_a_section', _bxB[3] == 'Hard' and _bxB[1] == 'Medium' and sorted(_bxB.values()) == sorted(_bpB.values()))
+    _cov132 = dp_profile_coverage({'papers': {'p': {'questions': {
+        '1': {'record_version': 2, 'rubric_rule': 'r2', 'level_vector': {}, 'content_source': 'image', 'transcription_confidence': 'full'},
+        '2': {'record_version': 2, 'rubric_rule': 'r2', 'content_source': 'text', 'transcription_confidence': 'partial'},
+        '3': {'rubric_rule': 'r1'}}}}})
+    check('v132_coverage_reads_content_source_and_partial',
+          _cov132['partial'] == 1 and _cov132['sources'] == {'image': 1, 'text': 1}
+          and '1 partial transcription(s)' in _cov132['line'] and 'content source image=1, text=1' in _cov132['line']
+          and dp_profile_coverage({'papers': {'p': {'questions': {'1': {'record_version': 2}}}}})['line'] == 'profile coverage: 1/1 records v2, 0 with level vectors')   # v1.32 — GAP-2026-11-05 (v1.31 GAP-2026-11-04)
     _QL = ['Easy', 'Medium', 'Hard']
+
+    # ── v1.32 — GAP-2026-11-05-DIFFICULTY-FIDELITY, Parts A / B / D ──────────────────
+    # Each fixture FAILS on 8ff6aa5 (the defect it guards is named) and PASSES after.
+    _R1, _R2 = RUBRIC_RULE_LEGACY, RUBRIC_RULE_CURRENT
+
+    def _v132_obs(score_hint, qtype='mcq', sub='R.A'):
+        table = {0: ('C-FACTUAL', 0, 1), 1: ('C-FORMAL-LOGIC', 0, 1), 2: ('C-FORMAL-LOGIC', 2, 1),
+                 3: ('C-COMPUTATIONAL', 2, 1), 4: ('C-COMPUTATIONAL', 3, 1), 5: ('C-COMPUTATIONAL', 3, 2),
+                 6: ('C-COMPUTATIONAL', 5, 2), 7: ('C-COMPUTATIONAL', 5, 3)}
+        cls, st, co = table[score_hint]
+        return {'question_class': cls, 'deduction_steps': st, 'axiom_concepts': co,
+                'speed_hack_exists': False, 'derivation_confidence': 'full', 'is_negative': False,
+                'qtype': qtype, 'subtopic_id': sub, 'stem_snippet': 'x' * 200}
+    _V132_SSC = {'exam_code': 'SSC_CGL_T1', 'total_questions': 100, 'difficulty_labels': _QL,
+                 'sections': [{'name': 'Reasoning', 'q_range': [1, 50]}, {'name': 'Quant', 'q_range': [51, 100]}]}
+    check('v132_rule_of_default_legacy',
+          rubric_rule_of(None) == _R1 and rubric_rule_of('R2') == _R2 and rubric_rule_of('bogus') == _R1
+          and rubric_rule_of({'rubric_rule': 'r2'}) == _R2 and rubric_rule_of({}) == _R1
+          and mix_rule_of({'mix_rule': 'm2'}) == 'm2' and mix_rule_of({}) == 'm1'
+          and shape_rule_of('s2') == 's2' and shape_rule_of(None) == 's1'
+          and _window_rule_of({'window_rule': 'w2'}) == 'w2' and _window_rule_of(7) == 'w1')
+    # DL-13: C-STRUCTURAL, 2 paragraphs, 1 concept → r1 Easy (unknown baseline 1 + 1), r2 Medium (2 + 1)
+    check('v132_dl13_structural_baseline',
+          band_for_score(difficulty_score('C-STRUCTURAL', 2, 1, False, 'full', False, 'mcq'), _QL) == 'Easy'
+          and band_for_score(difficulty_score('C-STRUCTURAL', 2, 1, False, 'full', False, 'mcq', rule=_R2), _QL) == 'Medium'
+          and difficulty_score('C-DERIVATIONAL', 2, 1, False, 'full', False, 'mcq', rule=_R2)
+          == difficulty_score('C-DERIVATIONAL', 2, 1, False, 'full', False, 'mcq') + 1)
+    # r2 is IDENTITY on a legacy obs (no inferential_steps, not flagged) over the full grid —
+    # except the two classes r2 defines (+1 exactly).
+    _ok_id, _ok_plus1 = True, True
+    _grid_cls = [None, 'C-FACTUAL', 'C-VOCAB-ITEM', 'C-FORMAL-LOGIC', 'C-COMPUTATIONAL', 'C-LINKED',
+                 'C-FIGURAL', 'C-MULTI-SELECT', 'C-NUMERICAL-INPUT', ['C-FIGURAL', 'C-COMPUTATIONAL'],
+                 ['C-FACTUAL', 'C-LINKED']]
+    for _c in _grid_cls:
+        for _st in range(0, 9):
+            for _co in range(0, 4):
+                for _ng in (False, True):
+                    for _hk in (False, True):
+                        for _qt in ('mcq', 'msq', 'nat'):
+                            _a = difficulty_score(_c, _st, _co, _hk, 'full', _ng, _qt)
+                            _b = difficulty_score(_c, _st, _co, _hk, 'full', _ng, _qt, rule=_R2)
+                            _ok_id &= (_a == _b)
+    for _c in ('C-STRUCTURAL', 'C-DERIVATIONAL', ['C-STRUCTURAL', 'C-FACTUAL']):
+        for _st in range(0, 9):
+            for _co in range(0, 4):
+                _a = difficulty_score(_c, _st, _co, False, 'full', False, 'mcq')
+                _b = difficulty_score(_c, _st, _co, False, 'full', False, 'mcq', rule=_R2)
+                _ok_plus1 &= (_b == _a + 1)
+    check('v132_r2_identity_on_legacy_obs', _ok_id)
+    check('v132_r2_structural_exactly_plus_one', _ok_plus1)
+    # DL-14: a figural recognition item with 0 inferential moves: r1 3 (figural 2 + 2 paragraphs), r2 2 (Easy)
+    check('v132_dl14_inferential_steps',
+          difficulty_score('C-FIGURAL', 2, 1, False, 'full', False, 'mcq') == 3
+          and difficulty_score('C-FIGURAL', 2, 1, False, 'full', False, 'mcq', rule=_R2, inferential_steps=0) == 2
+          and inferential_steps_of(2) == 1 and inferential_steps_of(0) == 0 and inferential_steps_of(5, 3) == 3
+          and inferential_steps_of(5, '4') == 4 and inferential_steps_of(5, True) == 4 and inferential_steps_of(5, -2) == 0)
+    # DL-16: solver doubt — r1 +2, r2 +0
+    check('v132_dl16_doubt_removed',
+          difficulty_score('C-COMPUTATIONAL', 3, 1, False, 'flagged', False, 'mcq')
+          == difficulty_score('C-COMPUTATIONAL', 3, 1, False, 'full', False, 'mcq') + 2
+          and difficulty_score('C-COMPUTATIONAL', 3, 1, False, 'flagged', False, 'mcq', rule=_R2)
+          == difficulty_score('C-COMPUTATIONAL', 3, 1, False, 'full', False, 'mcq', rule=_R2))
+    # G1: an r1 obs keeps its r1 verdict; an r2 obs is scored under r2
+    _o_r1 = {'question_class': 'C-STRUCTURAL', 'deduction_steps': 2, 'axiom_concepts': 1, 'qtype': 'mcq'}
+    _o_r2 = dict(_o_r1, rubric_rule='r2')
+    check('v132_verify_uses_recorded_rule',
+          verify_difficulty_obs('Easy', _o_r1, _QL) == (True, 'Easy')
+          and verify_difficulty_obs('Medium', _o_r2, _QL) == (True, 'Medium')
+          and difficulty_score_from_obs(_o_r2) == difficulty_score_from_obs(_o_r1) + 1)
+    # r2 authoring profiles: every corner lands in its band; qtype floors identical under both rules
+    _pr_ok = True
+    for _band in _QL:
+        for _qtp in ('mcq', 'msq', 'nat'):
+            _pr = difficulty_authoring_profile(_band, _qtp, _QL, rule=_R2)
+            if _pr is None:
+                _pr_ok &= (_band == _QL[0] and _qtp in ('msq', 'nat')); continue
+            _pr_ok &= (_pr.get('rule') == _R2)
+            for _cls in (_pr['classes'] or [None]):
+                for _st in range(_pr['steps'][0], _pr['steps'][1] + 1):
+                    for _co in range(_pr['concepts'][0], _pr['concepts'][1] + 1):
+                        for _ng in ((False,) if _pr['avoid_negative'] else (False, True)):
+                            _got = band_for_score(difficulty_score(_cls, 99, _co, False, 'full', _ng, _qtp,
+                                                                   rule=_R2, inferential_steps=_st), _QL)
+                            _pr_ok &= (_got == _band)
+    check('v132_r2_authoring_profiles_land_in_band', _pr_ok)
+    check('v132_r2_qtype_floor_unchanged',
+          all(difficulty_min_band(t, _QL) == difficulty_min_band(t, _QL) and
+              (difficulty_authoring_profile(_QL[0], t, _QL) is None) == (difficulty_authoring_profile(_QL[0], t, _QL, rule=_R2) is None)
+              for t in ('mcq', 'msq', 'nat'))
+          and difficulty_feasibility({'simple': 3}, {1: 'mcq', 2: 'msq', 3: 'nat', 4: 'mcq'}, _QL)
+          == {'Easy': {'requested': 3, 'max_achievable': 2}})
+    check('v132_inferential_rule_text',
+          'INFERENTIAL STEP' in INFERENTIAL_STEP_RULE and 'never paragraphs' in INFERENTIAL_STEP_RULE
+          and 'pure recall item has 0' in INFERENTIAL_STEP_RULE)
+    # level path of verify_difficulty_obs: re-derived from composite + cuts, qtype-clamped, exact at a cut
+    _lv = {'rule': 'L1', 'composite': 61.0, 'cuts_list': [20.0, 61.0], 'band': 'Medium', 'model_n': 30}
+    check('v132_verify_level_path',
+          verify_difficulty_obs('Medium', {'qtype': 'mcq', 'level': _lv, 'deduction_steps': 8, 'axiom_concepts': 3}, _QL) == (True, 'Medium')
+          and verify_difficulty_obs('Hard', {'qtype': 'mcq', 'level': dict(_lv, composite=61.0000001)}, _QL) == (True, 'Hard')
+          and verify_difficulty_obs('Hard', {'qtype': 'mcq', 'level': _lv}, _QL) == (False, 'Medium'))
+    check('v132_level_easy_msq_clamped',
+          verify_difficulty_obs('Medium', {'qtype': 'msq', 'level': dict(_lv, composite=5.0)}, _QL) == (True, 'Medium')
+          and verify_difficulty_obs('Easy', {'qtype': 'mcq', 'level': dict(_lv, composite=5.0)}, _QL) == (True, 'Easy')
+          and level_band_from(5.0, [20.0, 61.0], _QL) == 'Easy' and level_band_from('x', [1, 2], _QL) is None
+          and level_band_from(5.0, [20.0], _QL) is None)
+    check('v132_composite_at_cut_roundtrip',
+          all(level_band_from(c, [20.0, 61.0], _QL) == level_band_from(float(repr(float(c))), [20.0, 61.0], _QL)
+              for c in (19.999999999, 20.0, 20.000000001, 61.0, 61.0000000001)))
+    # check 9 (DL): level items carry distinct signatures; the message names the fields
+    _sig_l = difficulty_obs_signature({'level': _lv, 'deduction_steps': 5, 'axiom_concepts': 2})
+    _sig_2 = difficulty_obs_signature({'rubric_rule': 'r2', 'deduction_steps': 5, 'inferential_steps': 4, 'axiom_concepts': 2})
+    check('v132_check9_level_items',
+          _sig_l[0] == 'L1' and _sig_l[1] == 61.0 and _sig_2 == ('r2', 4, 2, False)
+          and difficulty_obs_signature({'deduction_steps': 5, 'axiom_concepts': 2}) == (5, 2, False)
+          and 'composite' in difficulty_obs_signature_text(_sig_l) and 'moves=' in difficulty_obs_signature_text(_sig_2)
+          and difficulty_obs_signature_text((5, 2, False)).startswith('steps='))
+    _lvq = [{'q': i, 'difficulty': 'Hard', 'difficulty_obs': {'level': dict(_lv, composite=70.0 + i * 0.5),
+             'deduction_steps': 5, 'axiom_concepts': 2}} for i in range(1, 11)]
+    _lvq_same_rubric = [dict(x, difficulty_obs=dict(x['difficulty_obs'], level=None)) for x in _lvq]
+    check('v132_check9_level_distinct_but_rubric_echo_still_caught',
+          difficulty_obs_diversity(_lvq, _QL) == [] and difficulty_obs_diversity(_lvq_same_rubric, _QL) != [])
+    # dp_add_paper: legacy obs → identical score/band, stamped r1 / record_version 2; r2 obs stamped r2; marks
+    _CFG_M = dict(_V132_SSC, marking_scheme=[{'q_range': [1, 50], 'correct_marks': 2}, {'q_range': [51, 100], 'correct_marks': 2.5}])
+    _Pm, _, _ = dp_add_paper(None, source_file='SSC_CGL_T1_09-Sep-2025_Shift_1.docx', exam_config=_CFG_M,
+                            questions={**{q: _v132_obs(1) for q in range(1, 60)},
+                                       **{q: dict(_v132_obs(4), rubric_rule='r2', inferential_steps=2) for q in range(60, 101)}})
+    _rq = _Pm['papers']['09-Sep-2025_Shift_1']['questions']
+    check('v132_dp_add_paper_legacy_obs_identical',
+          _rq['1']['score'] == difficulty_score_from_obs(_v132_obs(1)) and _rq['1']['band'] == 'Easy'
+          and _rq['1']['rubric_rule'] == 'r1' and _rq['1']['record_version'] == 2
+          and _rq['1']['inferential_steps'] == inferential_steps_of(_v132_obs(1)['deduction_steps']))
+    check('v132_dp_add_paper_r2_and_level',
+          _rq['60']['rubric_rule'] == 'r2' and _rq['60']['inferential_steps'] == 2
+          and _rq['60']['score'] == difficulty_score_from_obs(dict(_v132_obs(4), rubric_rule='r2', inferential_steps=2)))
+    check('v132_dl10_marks_of',
+          _rq['1']['marks'] == 2 and _rq['60']['marks'] == 2.5 and dp_marks_of(7, None) is None
+          and dp_marks_of('x', [{'q_range': [1, 9], 'correct_marks': 1}]) is None
+          and dp_marks_of(5, [{'q_range': 'bad'}, {'q_range': [1, 9], 'correct_marks': float('nan')}, {'q_range': [1, 9], 'correct_marks': 3}]) == 3)
+    check('v132_profile_pair_intact',
+          all(band_for_score(r['score'], _QL) == r['band'] for r in _rq.values()))
+    check('v132_profile_check_accepts_v2_records', dp_check_profile(_Pm, 'SSC_CGL_T1', _QL) is _Pm)
+    _cov = dp_profile_coverage(_Pm)
+    check('v132_profile_coverage_line',
+          _cov['n'] == 100 and _cov['v2'] == 100 and _cov['level'] == 0 and _cov['mixed_rules']
+          and _cov['line'].startswith('profile coverage: 100/100 records v2, 0 with level vectors')
+          and dp_profile_coverage({})['n'] == 0 and dp_profile_coverage(None)['line'].startswith('profile coverage: 0/0'))
+    # m2 pooled vs m1 equal-weight: a 4-paper cycle vs a 1-paper cycle give different mixes
+    _Pw, _, _ = dp_add_paper(None, source_file='SSC_CGL_T1_01-Jan-2025_Shift_1.docx', exam_config=_V132_SSC, questions={q: _v132_obs(7) for q in range(1, 101)})
+    for _k in (2, 3, 4):
+        _Pw, _, _ = dp_add_paper(_Pw, source_file=f'SSC_CGL_T1_01-Jan-2025_Shift_{_k}.docx', exam_config=_V132_SSC, questions={q: _v132_obs(7) for q in range(1, 101)})
+    _Pw, _, _ = dp_add_paper(_Pw, source_file='SSC_CGL_T1_01-Jun-2025_Shift_1.docx', exam_config=_V132_SSC, questions={q: _v132_obs(1) for q in range(1, 101)})
+    _m1 = dp_scope_mix(_Pw, ['R.A'], _QL)
+    _m2 = dp_scope_mix(_Pw, ['R.A'], _QL, mix_rule='m2')
+    check('v132_m2_pooled_vs_m1',
+          _m1['pct'] == {'Easy': 50, 'Medium': 0, 'Hard': 50} and _m2['pct'] == {'Easy': 20, 'Medium': 0, 'Hard': 80}
+          and _m1['mix_rule'] == 'm1' and _m2['mix_rule'] == 'm2' and _m2['tier'] is None
+          and dp_scope_mix(_Pw, ['R.A'], _QL, mix_rule='m2', tier='Nowhere')['pct'] is None
+          and dp_scope_mix(_Pw, ['R.A'], _QL, mix_rule='m2', tier=_rq['1']['section'])['pct'] == {'Easy': 20, 'Medium': 0, 'Hard': 80})
+    _sd1 = scoped_difficulty_schedule(_Pw, ['R.A'], _QL, 2, 20, mode='exam')
+    _sd2 = scoped_difficulty_schedule(_Pw, ['R.A'], _QL, 2, 20, mode='exam', mix_rule='m2', tier=_rq['1']['section'])
+    _bp1 = {'difficulty_schedule': _sd1['schedule'], 'difficulty_source': _sd1['difficulty_source'], 'total_questions': 20}
+    _bp2 = {'difficulty_schedule': _sd2['schedule'], 'difficulty_source': _sd2['difficulty_source'], 'total_questions': 20}
+    _bp1_legacy = {'difficulty_schedule': _sd1['schedule'],
+                   'difficulty_source': {k: v for k, v in _sd1['difficulty_source'].items() if k != 'mix_rule'}, 'total_questions': 20}
+    check('v132_recompute_m1_replay_identical',
+          _sd1['difficulty_source']['mix_rule'] == 'm1' and _sd2['difficulty_source']['mix_rule'] == 'm2'
+          and _sd2['difficulty_source']['params']['tier'] == _rq['1']['section']
+          and _qf_recompute(_bp1, _Pw)['ok'] and _qf_recompute(_bp2, _Pw)['ok'] and _qf_recompute(_bp1_legacy, _Pw)['ok']
+          and _sd1['schedule'] != _sd2['schedule'])
+    # Step 9 windows: w1 byte-identical; w2 harder-only allowance over assessed; 0 assessed → PASS + frac
+    _lb = {q: 'Hard' for q in range(1, 11)}
+    _sc_w = {q: 5 for q in range(1, 11)}          # score 5: inside w1 top window (5,None), BELOW w2 (6,None)
+    _g1 = evaluate_difficulty_gate(_lb, {}, _QL, scores_by_q=_sc_w)
+    _g2 = evaluate_difficulty_gate(_lb, {}, _QL, scores_by_q=_sc_w, window_rule='w2')
+    check('v132_gate_w1_unchanged',
+          _g1['verdict'] == 'PASS' and _g1['window_rule'] == 'w1' and _g1['windows'][2] == [5, None]
+          and _g1['assessed_frac'] == 1.0 and 'counted_disagree' not in _g1['bands']['Hard'])
+    _lb_m = {q: 'Medium' for q in range(1, 11)}
+    _sc_easier = {q: 9 for q in range(1, 11)}      # all above the middle window: 'easier' → reported, never counted
+    _gE = evaluate_difficulty_gate(_lb_m, {}, _QL, scores_by_q=_sc_easier, window_rule='w2')
+    check('v132_gate_w2_harder_only',
+          _g2['verdict'] == 'FAIL' and _g2['windows'][2] == [6, None] and _g2['rework_directions'][1] == 'harder'
+          and _gE['verdict'] == 'PASS' and _gE['bands']['Medium']['disagree'] == 10
+          and _gE['bands']['Medium']['counted_disagree'] == 0 and len(_gE['bands']['Medium']['easier_qs']) == 10)
+    _g0 = evaluate_difficulty_gate(_lb, {}, _QL, scores_by_q={}, window_rule='w2')
+    check('v132_gate_w2_zero_assessed_passed_plus_line',
+          _g0['verdict'] == 'PASS' and _g0['assessed_frac'] == 0.0 and _g0['rework_qs'] == []
+          and evaluate_difficulty_gate(_lb, {}, ['Lo', 'Hi'], window_rule='w2')['dormant'])
+    # DL-46: readiness measures the content floor instead of trusting field presence
+    def _v132_prof(n_full, n_partial=0):
+        qs = {str(i): {'content_vector': {'heavy_atoms': 9}, 'content_confidence': 'full'} for i in range(1, n_full + 1)}
+        qs.update({str(100 + i): {'content_vector': {'heavy_atoms': 9}, 'content_confidence': 'partial'} for i in range(1, n_partial + 1)})
+        return {'_meta': {'schema': 1}, 'papers': {'p': {'questions': qs}}}
+    _rd_inputs = {'style_profile.json': {'schema': 2, 'paper': {'x': 1}, 'item_rules': {'K': {}}},
+                  'pyq_index.json': {'_meta': {'schema': 1}, 'questions': [1]},
+                  'exemplar_bank.json': {'_meta': {'schema_version': 1}, 'cells': {'c': {}}},
+                  'section_rules.md': 'named_concept_rate stem_word_count_pct near_isomer_share fingerprint_max_per_paper PYQ_COMMON_ENTITIES',
+                  'blueprint.json': {'shape_target_per_paper': {'1': {'x': {}}}}}
+    _rd0 = quality_readiness(dict(_rd_inputs, **{'difficulty_profile.json': {'_meta': {'schema': 1}, 'papers': {'p': {}}}}))
+    _rd5 = quality_readiness(dict(_rd_inputs, **{'difficulty_profile.json': _v132_prof(5, 30)}))
+    _rd12 = quality_readiness(dict(_rd_inputs, **{'difficulty_profile.json': _v132_prof(12)}))
+    check('v132_dl46_readiness_measures_floor',
+          _rd0['controls']['G-DIFF-FLOOR']['status'] == 'N/A' and _rd0['degraded'] == []
+          and _rd5['controls']['G-DIFF-FLOOR']['status'] == 'DORMANT' and _rd5['degraded'] == []
+          and _rd12['controls']['G-DIFF-FLOOR']['status'] == 'PASS'
+          and 'NOT measuring' in str(quality_readiness_block(_rd0))
+          and 'every control ACTIVE' in str(quality_readiness_block(_rd12))
+          and 'every control ACTIVE' not in str(quality_readiness_block(quality_readiness(_rd_inputs, pyq_items=1))))
+    _ul = difficulty_unverified_lines(_rd5, {'active': False, 'reason': 'pool 5 < 12'}, n_level_items=3,
+                                      judge_dormant_qs=[4, 9], hard_missed=2, step9_assessed=(3, 10),
+                                      coverage={'n': 10, 'mixed_rules': True, 'line': 'profile coverage: 5/10 records v2, 0 with level vectors'})
+    check('v132_unverified_lines',
+          len(_ul) == 5 and _ul[0].startswith('DIFFICULTY UNVERIFIED — 3 chemistry item(s)') and 'pool 5 < 12' in _ul[0]
+          and _ul[1].startswith('DIFFICULTY UNVERIFIED — independent rating dormant on Q4, Q9')
+          and _ul[2].startswith('Hard target missed: 2 item(s)') and _ul[3] == 'Step 9: 3/10 assessed'
+          and 'mixed rubric rules' in _ul[4]
+          and difficulty_unverified_lines() == [] and difficulty_unverified_lines(None, {'active': True}, 5) == []
+          and difficulty_unverified_lines(None, {'active': True, 'small_pool': True, 'n': 14}, 5)[0].startswith('level model: small pool n=14')
+          and difficulty_unverified_lines(step9_assessed=(9, 10)) == [])
+    # ── v1.32 — Cluster L1 (Part C) ────────────────────────────────────────────────────
+    _rdk = _qf_rdkit()
+    if _rdk is not None:
+        _cS = option_closeness({'a': 'C[C@@H](O)CC', 'b': 'C[C@H](O)CC'}, 'C[C@H](O)CC')
+        _cR = option_closeness({'a': 'CCCCO', 'b': 'OCC(C)C'}, 'CC(O)CC')
+        _cN = option_closeness(['CCO'], 'CC(O)CC')
+        _cC = option_closeness({'x': 'OC1CCCC1C'}, 'OC1CCCCC1')
+        check('v132_closeness_grades',
+              _cS['per_option']['a']['grade'] == 3 and _cS['per_option']['a']['stereo_kind'] == 'enantiomer'
+              and 'b' not in _cS['per_option'] and _cS['n'] == 1
+              and _cR['per_option']['a']['name'] == 'constitutional' and _cR['per_option']['b']['grade'] == 1
+              and _cN['per_option']['1']['grade'] == 0 and _cC['per_option']['x']['grade'] == 1
+              and option_closeness({'a': 'C/C=C/C'}, 'C/C=C\\C')['per_option']['a']['stereo_kind'] == 'EZ')
+        # regio_variant: same formula, different connectivity, same generic scaffold (a bicyclic)
+        _cG = option_closeness({'a': 'OC1CCC2CCCCC2C1'}, 'OC1CCCC2CCCCC12')
+        check('v132_closeness_regio_variant', _cG['per_option']['a']['grade'] == 2 and _cG['n_close'] == 1)
+        # DL-44: a decalol key with ketone / amine / chloride distractors is NOT close (0 close),
+        # though near_isomer_check passes it on the generic scaffold
+        _cD = option_closeness({'a': 'O=C1CCCC2CCCCC12', 'b': 'NC1CCCC2CCCCC12', 'c': 'ClC1CCCC2CCCCC12'}, 'OC1CCCC2CCCCC12')
+        check('v132_dl44_scaffold_swap_not_close', _cD['n_close'] == 0 and _cD['mean'] == 0.0 and _cD['n'] == 3
+              and near_isomer_check(['O=C1CCCC2CCCCC12', 'NC1CCCC2CCCCC12', 'ClC1CCCC2CCCCC12'], 'OC1CCCC2CCCCC12', 0.9)['state'] == 'PASS')
+        check('v132_closeness_degrades',
+              option_closeness({'a': 'CCO'}, '') is None and option_closeness({'a': 'CCO'}, 'not-smiles') is None
+              and option_closeness({'a': 'bad', 'b': 7}, 'CCO') == {'per_option': {}, 'mean': None, 'n_close': 0, 'n': 0}
+              and option_closeness(None, 'CCO')['n'] == 0)
+        check('v132_closeness_mechanism_tokens',
+              closeness_mechanism_tokens(_cS) == {'a': 'stereoisomer_enantiomer'} and closeness_mechanism_tokens(_cG) == {'a': 'regioisomer'}
+              and closeness_mechanism_tokens(_cD) == {} and closeness_mechanism_tokens(None) == {})
+        check('v132_mechanism_smiles_check',
+              mechanism_smiles_check({'a': 'stereoisomer_enantiomer'}, {'a': 'C[C@@H](O)CC'}, 'C[C@H](O)CC') == []
+              and len(mechanism_smiles_check({'a': 'regioisomer'}, {'a': 'C[C@@H](O)CC'}, 'C[C@H](O)CC')) == 1
+              and mechanism_smiles_check({'a': 'regioisomer'}, {'a': 'CCO'}, '') == [])
+        _sl = stereo_declaration_locant_check('C[C@H](O)[C@@H](C)O', '(2R,3S)-butane-2,3-diol')
+        check('v132_stereo_locant_warn',
+              _sl['status'] in ('ok', 'mismatch') and sum(_sl['computed'].values()) == 2 and _sl['declared'] == {'R': 1, 'S': 1, 'E': 0, 'Z': 0}
+              and stereo_declaration_locant_check('C[C@H](O)[C@@H](C)O', '(2R,3R)')['status'] == 'mismatch'
+              and stereo_declaration_locant_check('CCO', 'ethanol')['status'] == 'n/a'
+              and stereo_declaration_locant_check('xx', '(2R)')['status'] == 'n/a')
+    # the model (RDKit-free: vectors are plain dicts)
+    def _lv(h, r=1, st=0, cl=1.0, rs=4):
+        return {'heavy_atoms': h, 'rings': r, 'ring_system_ord': 0, 'stereo_specified': st, 'steps': 1,
+                'bonds_changed': 2, 'method_tier': None, 'closeness': cl, 'reasoning': rs}
+    _pool = [(_lv(6 + i, 1 + i // 10, i // 8, 0.5 + i / 20, 2 + i // 6), 'Easy' if i < 6 else ('Medium' if i < 18 else 'Hard')) for i in range(30)]
+    _lm = level_model(_pool, {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)
+    check('v132_level_model_active_and_ranked',
+          _lm['active'] and _lm['rule'] == 'L1' and not _lm['small_pool'] and _lm['field_names'] == list(LEVEL_FIELDS)
+          and len(_lm['cuts']['cuts_list']) == 2 and _lm['cuts']['cuts_list'][0] < _lm['cuts']['cuts_list'][1]
+          and level_record(_lm, _lv(6, 1, 0, 0.5, 2), 'mcq')['band'] == 'Easy' and level_record(_lm, _lv(35, 3, 3, 1.5, 7), 'mcq')['band'] == 'Hard'
+          and level_record(_lm, _lv(6, 1, 0, 0.5, 2), 'msq')['band'] == 'Medium')                       # qtype clamp at write time
+    check('v132_level_model_small_pool_active',
+          level_model(_pool[:12], {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['active']
+          and level_model(_pool[:12], {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['small_pool']
+          and not level_model(_pool[:11], {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['active']
+          and 'LEVEL_MIN_POOL 12' in level_model(_pool[:11], {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['reason']
+          and ccp_model(_pool[:12], {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['active'] is False)   # CCP keeps 20
+    _rec = level_record(_lm, _lv(20, 2, 1, 1.2, 5), 'mcq')
+    check('v132_level_record_recheck',
+          isinstance(_rec['composite'], float) and _rec['composite'] == _qf_composite(_lm['fields'], _lv(20, 2, 1, 1.2, 5), LEVEL_FIELDS)
+          and verify_difficulty_obs(_rec['band'], {'qtype': 'mcq', 'level': _rec}, _QL) == (True, _rec['band'])
+          and verify_difficulty_obs('Easy', {'qtype': 'msq', 'level': dict(_rec, composite=-5.0)}, _QL) == (False, 'Medium')
+          and level_record({'active': False}, _lv(6), 'mcq') is None and level_record(_lm, {'closeness': 'x'}, 'mcq') is None)
+    check('v132_level_check_both_directions',
+          level_check(_lm, _lv(35, 3, 3, 1.5, 7), 'Easy', _QL)['status'] == 'above'
+          and level_check(_lm, _lv(6, 1, 0, 0.5, 2), 'Hard', _QL)['status'] == 'below'
+          and level_check(_lm, _lv(6, 1, 0, 0.5, 2), 'Easy', _QL)['status'] == 'ok'
+          and level_check({'active': False, 'reason': 'r'}, _lv(6), 'Easy', _QL)['status'] == 'dormant'
+          and level_check(_lm, _lv(6), 'Bogus', _QL)['status'] == 'dormant')
+    check('v132_level_vector_shape',
+          set(level_vector({'heavy_atoms': 9}, {'mean': 1.5}, 4)) == set(LEVEL_FIELDS)
+          and level_vector({'heavy_atoms': 9}, {'mean': 1.5}, 4)['closeness'] == 1.5
+          and level_vector({'heavy_atoms': 9}, None, None)['reasoning'] is None
+          and level_vector({'heavy_atoms': 9}, {'mean': True}, 4)['closeness'] is None
+          and level_vector({'heavy_atoms': 9}, None, 4, method_tier=3)['method_tier'] == 3 and level_vector(None) is None)
+    # ONE builder: Step 5 / Create / A-LEVEL get the same cuts from the same profile inputs
+    _CFG_L = {'exam_code': 'CH', 'total_questions': 30, 'difficulty_labels': _QL,
+              'sections': [{'name': 'Part B', 'q_range': [1, 15]}, {'name': 'Part C', 'q_range': [16, 30]}]}
+    def _cq(i, sid='oc.a.1'):
+        return {'question_class': 'C-FIGURAL', 'deduction_steps': 2 + i % 4, 'axiom_concepts': 1 + i % 3, 'qtype': 'mcq',
+                'subtopic_id': sid, 'rubric_rule': 'r2', 'inferential_steps': i % 5,
+                'content_objects': [{'kind': 'REACTION', 'canonical': 'CCO>O=S(=O)(O)O>C=C', 'reagent_text': ['H2SO4, heat']}],
+                'answer_smiles': 'C=C', 'option_smiles': {'1': 'C=C', '2': 'CCO', '3': 'CC', '4': 'C'},
+                'content_vector': None}
+    _PL = None
+    for _d in ('01-Jan-2026', '01-Jul-2026'):
+        _PL, _st, _why = dp_add_paper(_PL, source_file=f'CH_{_d}.docx', exam_config=_CFG_L,
+                                      questions={q: _cq(q, 'oc.a.1' if q <= 20 else 'oc.b.1') for q in range(1, 31)})
+    _n_cv = sum(1 for p in _PL['papers'].values() for r in p['questions'].values() if r.get('content_vector'))
+    if _rdk is not None:
+        check('v132_dp_add_paper_r2_and_level_content',
+              _n_cv == 60 and all(isinstance(r.get('level_vector'), dict) and r['level_vector']['method_tier'] is None
+                                  and r.get('reagents_seen') == ['O=S(=O)(O)O', 'H2SO4, heat'] and 'closeness' in r
+                                  for p in _PL['papers'].values() for r in p['questions'].values()))
+        _m1 = level_model_for_scope(_PL, ['oc.a.1'], _QL)
+        _m2 = level_model_for_scope(_PL, ['oc.a.1'], _QL, measured_pct=_m1['shares'])
+        check('v132_level_model_for_scope_one_definition',
+              _m1['active'] and _m1['level_used'] == 'scope' and _m1['cuts'] == _m2['cuts'] and _m1['n'] == 40
+              and _m1['lexicon'].get('H2SO4') in (1, 2, 3) and _m1['coverage']['level'] == 60
+              and level_model_for_scope(_PL, ['oc.a.1'], _QL, tier='Part B')['n'] == 30
+              and level_model_for_scope(_PL, ['oc.a.1'], _QL, tier='Nowhere')['active'] is False
+              and level_model_for_scope(None, ['oc.a.1'], _QL)['active'] is False)
+        _lb = level_bands(_PL, _QL, ['oc.a.1'])
+        check('v132_level_bands_recomputed', len(_lb) == 40 and all(b in _QL for b in _lb.values())
+              and level_bands({'papers': {}}, _QL) == {})
+        _hs = hard_supply_record(_PL, ['oc.a.1'], _QL)
+        check('v132_hard_supply_record', _hs['n_pool'] == 40 and _hs['source'] == 'level' and _hs['line'].startswith('hard supply:')
+              and hard_supply_record({'papers': {}}, ['x'], _QL)['n_pool'] == 0)
+        _hsb = hard_share_by_subtopic(_PL, _QL)
+        check('v132_hard_share_by_subtopic',
+              set(_hsb) == {'oc.a.1', 'oc.b.1'} and all(0 <= v <= 100 for v in _hsb.values())
+              and hard_share_by_subtopic({'papers': {}}, _QL) == {} and hard_share_by_subtopic(_PL, ['Lo', 'Hi']) == {})
+        check('v132_build_method_lexicon',
+              build_method_lexicon(_PL)['H2SO4'] >= 1 and build_method_lexicon({'papers': {}}) == {}
+              and 'xyz' in build_method_lexicon(_PL, extra_text='REAGENT_LEXICON_EXTRA:\n  xyz: CC\n') or build_method_lexicon(_PL, extra_text='REAGENT_LEXICON_EXTRA:\n  xyz: CC\n') == build_method_lexicon(_PL)
+              and method_tier_of(['H2SO4'], {'H2SO4': 2}) == 2 and method_tier_of(['nothing'], {'H2SO4': 2}) is None
+              and method_tier_of(['H2SO4'], None) is None)
+    check('v132_reagent_names_of',
+          reagent_names_of([{'kind': 'REACTION', 'canonical': 'CCO>O=S(=O)(O)O.O>C=C', 'scheme': {'items': [{'arrow': {'above': ['NaBH4', 'MeOH'], 'below': '0 °C'}}]}}])
+          == ['O=S(=O)(O)O', 'O', 'NaBH4', 'MeOH', '0 °C'] and reagent_names_of(None) == [] and reagent_names_of([{'kind': 'STRUCTURE', 'canonical': 'CCO'}]) == [])
+    _plan = {1: 'Hard', 2: 'Easy', 3: 'Medium', 4: 'Hard', 5: 'Easy', 6: 'Medium'}
+    _sub = {1: 'a', 2: 'b', 3: 'b', 4: 'a', 5: 'c', 6: 'c'}
+    _bp = band_subtopic_plan(_plan, _sub, {'c': 40.0, 'a': 0.0, 'b': 0.0}, {q: 'mcq' for q in _plan}, _QL)
+    check('v132_band_subtopic_plan_counts_unchanged',
+          _bp[5] == 'Hard' and _bp[6] == 'Hard' and sorted(_bp.values()) == sorted(_plan.values())
+          and band_subtopic_plan(_plan, _sub, {'a': 0, 'b': 0}, {}, _QL) == _plan
+          and band_subtopic_plan(_plan, _sub, {'c': 40.0}, {5: 'msq', 6: 'mcq', 1: 'mcq', 4: 'mcq', 2: 'mcq', 3: 'mcq'}, _QL)[5] == 'Hard'
+          and band_subtopic_plan({}, {}, {'c': 1}, {}, _QL) == {})
+    check('v132_reconcile_level_extra_retry_bounded',
+          reconcile_level('Hard', 'ok', 'Medium', _QL, 2)['retry'] is True
+          and reconcile_level('Hard', 'ok', 'Medium', _QL, 6)['retry'] is False
+          and reconcile_level('Hard', 'below', 'Medium', _QL, 0)['retry'] is False
+          and reconcile_level('Medium', 'ok', 'Easy', _QL, 0)['retry'] is False
+          and reconcile_level('Hard', 'ok', 'Hard', _QL, 0)['retry'] is False)
+    check('v132_ccp_field_names_default',
+          ccp_model(_pool, {'Easy': 20, 'Medium': 40, 'Hard': 40}, _QL)['field_names'] == list(QF_CCP_FIELDS)
+          and _qf_composite({'heavy_atoms': [1, 2, 3]}, {'heavy_atoms': 2}) == _qf_composite({'heavy_atoms': [1, 2, 3]}, {'heavy_atoms': 2}, QF_CCP_FIELDS))
+    check('v132_window_rule_selection',
+          difficulty_gate_window_rule({'1': {'deduction_steps': 3}}) == 'w1'
+          and difficulty_gate_window_rule({'1': {'deduction_steps': 3}, '2': {'rubric_rule': 'r2'}}) == 'w2'
+          and difficulty_gate_window_rule({'1': {'level': {'rule': 'L1'}}}) == 'w2'
+          and difficulty_gate_window_rule(None) == 'w1' and difficulty_gate_window_rule({'1': 'junk'}) == 'w1')
 
     def _qf_paper(date, blocks):
         qs, q = {}, 1
@@ -10367,6 +10968,13 @@ DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 0      # 1 → 0: repair retired, operator d
 # authoring_bands): every gated window CONTAINS its own authoring band, so a
 # correctly authored question can never fail its own gate.
 DIFFICULTY_GATE_BAND_WINDOWS = (None, (2, 6), (5, None))
+# v1.32 (GAP-2026-11-05 DL-53, window rule 'w2'): the authoring bands themselves (middle
+# 3-5, top 6+). Selected by Step 9 ONLY for a paper whose obs carry an r2 or level
+# record (G8); every older paper keeps w1 byte-for-byte. Under w2 the allowance is
+# computed over ASSESSED items and only 'harder' disagreements count toward it
+# ("slack on the easy side only"); 'easier' ones are reported, never counted.
+DIFFICULTY_GATE_BAND_WINDOWS_W2 = (None, (3, 5), (6, None))
+DIFFICULTY_GATE_MIN_ASSESSED_FRAC = 0.80   # below this, the footer says 'Step 9: k/n assessed'
 DIFFICULTY_OBS_MODAL_FRAC_MAX     = 0.60   # Fix 2 modal-signature ceiling
 DIFFICULTY_OBS_DIVERSITY_MIN_N    = 8      # Fix 2: smaller bands exempt
 
@@ -10465,7 +11073,8 @@ def _label_interval(label, difficulty_labels):
 def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
                              max_disagree_frac=DIFFICULTY_GATE_MAX_DISAGREE_FRAC,
                              scores_by_q=None,
-                             band_windows=DIFFICULTY_GATE_BAND_WINDOWS):
+                             band_windows=DIFFICULTY_GATE_BAND_WINDOWS,
+                             window_rule=WINDOW_RULE_LEGACY):
     """Band-level reconciliation of Step-7 labels against Step-9's independent
     re-derivation (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS revision).
 
@@ -10498,16 +11107,28 @@ def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
     (registry JSON vs spec ints); windows are validated and a malformed one
     raises — configuration, never data, must not pass silently.
 
+    v1.32 — `window_rule` (GAP-2026-11-05 DL-53, G8): 'w1' (DEFAULT) is byte-identical
+    to the above. 'w2' uses DIFFICULTY_GATE_BAND_WINDOWS_W2 unless explicit windows are
+    given, computes the allowance over ASSESSED items, counts only 'harder'
+    disagreements toward it, and reports 'assessed_frac' (assessed / gated total) so
+    the caller can print the coverage line. The result carries 'window_rule'.
+
     Returns {'verdict','threshold','windows','bands','rework_qs',
-             'rework_directions','dormant'}. Deterministic, pure.
+             'rework_directions','dormant','window_rule','assessed_frac'}. Deterministic, pure.
     """
+    window_rule = _window_rule_of(window_rule)
+    w2 = window_rule == WINDOW_RULE_CURRENT
     if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
         return {'verdict': 'PASS', 'threshold': max_disagree_frac, 'windows': None,
                 'bands': {}, 'rework_qs': [], 'rework_directions': {},
-                'dormant': True, 'reason': 'difficulty vocabulary is not 3-band'}
+                'dormant': True, 'reason': 'difficulty vocabulary is not 3-band',
+                'window_rule': window_rule, 'assessed_frac': None}
+    if w2 and band_windows is DIFFICULTY_GATE_BAND_WINDOWS:
+        band_windows = DIFFICULTY_GATE_BAND_WINDOWS_W2
     windows = _gate_windows(band_windows)
     labels_by_q = labels_by_q or {}
     bands, directions = {}, {}
+    gated_total, gated_assessed = 0, 0
     for pos, lab in enumerate(difficulty_labels):
         win = windows[pos]
         qs = sorted((q for q, l in labels_by_q.items() if l == lab), key=_qkey)
@@ -10540,20 +11161,49 @@ def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
                 # side its centre of mass suggests: below wins (too easy is the
                 # measured failure class); a raw score is never on both sides.
                 directions[q] = 'harder' if below else 'easier'
+        gated_total += total
+        gated_assessed += assessed
+        if w2:
+            allowed = _gate_allowed(max_disagree_frac, assessed)
+            counted = [q for q in disagree if directions.get(q) == 'harder']
+            over = len(counted) > allowed
+        else:
+            counted, over = disagree, len(disagree) > allowed
         bands[lab] = {'total': total, 'gated': True, 'window': [lo, hi],
                       'assessed': assessed, 'agree': assessed - len(disagree),
                       'disagree': len(disagree), 'allowed': allowed,
-                      'over_limit': len(disagree) > allowed,
+                      'over_limit': over,
                       'disagreeing_qs': disagree}
+        if w2:
+            bands[lab]['counted_disagree'] = len(counted)
+            bands[lab]['easier_qs'] = [q for q in disagree if directions.get(q) == 'easier']
     rework = [q for lab in difficulty_labels
-              for q in bands[lab]['disagreeing_qs'] if bands[lab]['over_limit']]
+              for q in bands[lab]['disagreeing_qs'] if bands[lab]['over_limit']
+              and (not w2 or directions.get(q) == 'harder')]
     rework = sorted(rework, key=_qkey)
     return {'verdict': 'FAIL' if rework else 'PASS',
             'threshold': max_disagree_frac,
             'windows': [list(w) if w else None for w in windows],
             'bands': bands, 'rework_qs': rework,
             'rework_directions': {q: directions[q] for q in rework},
-            'dormant': False}
+            'dormant': False, 'window_rule': window_rule,
+            'assessed_frac': (round(gated_assessed / gated_total, 4) if gated_total else None)}
+
+
+def difficulty_gate_window_rule(difficulty_obs_by_q):
+    """Which window rule a paper is gated under (G8, DL-53): 'w2' iff ANY of its
+    question_index difficulty_obs carries rubric_rule 'r2' or a level record — that is
+    what "born under release 2026.11.05" means and nothing else marks it. 'w1' for
+    every older paper. Never raises."""
+    for obs in (difficulty_obs_by_q or {}).values() if isinstance(difficulty_obs_by_q, dict) else []:
+        if not isinstance(obs, dict):
+            continue
+        if rubric_rule_of(obs) == RUBRIC_RULE_CURRENT:
+            return WINDOW_RULE_CURRENT
+        lv = obs.get('level')
+        if isinstance(lv, dict) and str(lv.get('rule') or '').upper() == LEVEL_RULE_CURRENT:
+            return WINDOW_RULE_CURRENT
+    return WINDOW_RULE_LEGACY
 
 
 
@@ -10753,6 +11403,42 @@ def dp_check_profile(profile, exam_code, difficulty_labels):
     return profile
 
 
+def dp_profile_coverage(profile):
+    """Record-version coverage of a profile (DL-20): how many question records carry
+    v2 stamps and how many carry a level vector, plus the rules present. Readers print
+    it as one line; DP_SCHEMA never changes for this. Never raises."""
+    n = v2 = lvl = partial = 0
+    rules, sources = {}, {}
+    papers = profile.get('papers') if isinstance(profile, dict) else None
+    for p in (papers if isinstance(papers, dict) else {}).values():
+        qs = p.get('questions') if isinstance(p, dict) else None
+        for rec in (qs if isinstance(qs, dict) else {}).values():
+            if not isinstance(rec, dict):
+                continue
+            n += 1
+            if _as_int(rec.get('record_version')) >= DP_RECORD_VERSION:
+                v2 += 1
+            if isinstance(rec.get('level_vector'), dict):
+                lvl += 1
+            r = rubric_rule_of(rec)
+            rules[r] = rules.get(r, 0) + 1
+            # v1.32 (DL-04/18/19): where each transcription came from and how many the engine
+            # marked 'partial' (kept out of the level pool) — reported, never a verdict
+            if str(rec.get('transcription_confidence') or '').lower() == 'partial':
+                partial += 1
+            cs = rec.get('content_source')
+            if isinstance(cs, str) and cs.strip():
+                sources[cs.strip()] = sources.get(cs.strip(), 0) + 1
+    return {'n': n, 'v2': v2, 'level': lvl, 'rules': rules, 'partial': partial, 'sources': sources,
+            'mixed_rules': len([k for k, v in rules.items() if v]) > 1,
+            'line': (f"profile coverage: {v2}/{n} records v2, {lvl} with level vectors"
+                     + (f"; rules {', '.join(f'{k}={rules[k]}' for k in sorted(rules))}"
+                        if len(rules) > 1 else '')
+                     + (f"; {partial} partial transcription(s) kept out of the level pool" if partial else '')
+                     + (f"; content source {', '.join(f'{k}={sources[k]}' for k in sorted(sources))}"
+                        if sources else ''))}
+
+
 # v1.29 (GAP-2026-11-02): optional per-question content keys dp_add_paper carries through.
 DP_CONTENT_KEYS = ('content_objects', 'answer_smiles', 'abbreviations_seen',
                    'site_mark_device', 'figural_ask_type', 'representations',
@@ -10760,7 +11446,39 @@ DP_CONTENT_KEYS = ('content_objects', 'answer_smiles', 'abbreviations_seen',
                    # v1.30 (GAP-2026-11-03) — PYQExplain v2.26 §13A-3 per-item tags that Step 5's
                    # QUALITY measurement and the exemplar bank read (additive; schema stays 1)
                    'ask_type', 'drawn_names', 'near_isomer_set', 'distractor_mechanisms',
-                   'concept', 'named_concepts', 'stereo_decl')
+                   'concept', 'named_concepts', 'stereo_decl',
+                   # v1.32 (GAP-2026-11-05-DIFFICULTY-FIDELITY) — PYQExplain v2.27 §13A P2a / P7
+                   # per-item records (additive; schema stays 1): option structures per role,
+                   # the stem's ask FORMAT (statement / match / sequence / assertion_reason /
+                   # combination / direct), where a transcription came from, the reagent names
+                   # seen on scheme arrows (the read-time method lexicon, §4.6), and the
+                   # engine-set transcription confidence.
+                   'option_smiles', 'ask_format', 'content_source', 'reagents_seen',
+                   'transcription_confidence')
+
+
+def dp_marks_of(q, marking_scheme, default=None):
+    """Marks a correct answer at position `q` earns under `exam_config.marking_scheme`
+    (DL-10). The first entry whose q_range covers q wins; a malformed entry is skipped;
+    none → `default`. Pure; never raises."""
+    try:
+        qi = int(q)
+    except (TypeError, ValueError):
+        return default
+    for entry in (marking_scheme if isinstance(marking_scheme, (list, tuple)) else []):
+        if not isinstance(entry, dict):
+            continue
+        rng = entry.get('q_range')
+        try:
+            lo, hi = int(rng[0]), int(rng[1])
+            m = float(entry.get('correct_marks', 1))
+        except (TypeError, ValueError, IndexError, KeyError):
+            continue
+        if m != m or m in (float('inf'), float('-inf')):
+            continue
+        if lo <= qi <= hi:
+            return int(m) if m == int(m) else m
+    return default
 
 
 def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
@@ -10860,7 +11578,18 @@ def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
             'confidence': 'flagged' if str(obs.get('derivation_confidence', 'full')).lower() == 'flagged' else 'full',
             'speed_hack': bool(obs.get('speed_hack_exists')),
             'score': score, 'band': band,
-            'stem_snippet': str(obs.get('stem_snippet') or '')[:120]}
+            'stem_snippet': str(obs.get('stem_snippet') or '')[:120],
+            # v1.32 (GAP-2026-11-05, Part A / G1): the rule the score was computed under
+            # travels with the score+band pair; readers re-score under it. `steps` above
+            # stays the paragraph count (explanation validation is unchanged, S10);
+            # `inferential_steps` is the r2 unit (legacy mapping when the obs lacks it).
+            'record_version': DP_RECORD_VERSION,
+            'rubric_rule': rubric_rule_of(obs),
+            'inferential_steps': inferential_steps_of(obs.get('deduction_steps'),
+                                                      obs.get('inferential_steps'))}
+        _mk = dp_marks_of(qi, exam_config.get('marking_scheme'))
+        if _mk is not None:
+            rec[str(qi)]['marks'] = _mk
         # v1.29 (GAP-2026-11-02 L1/F7/F8) — OPTIONAL content fields written by PYQExplain
         # §13A for figural questions. Additive: a reader of the v1.28 record ignores them
         # (the profile schema stays 1). content_vector is COMPUTED here from the
@@ -10876,6 +11605,21 @@ def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
                 rec[str(qi)]['content_vector'] = _cv
                 rec[str(qi)]['content_confidence'] = str(
                     obs.get('content_confidence') or 'full').lower()
+                # v1.32 (GAP-2026-11-05 Part C) — the LEVEL inputs, COMPUTED here, never declared:
+                # closeness of the wrong options to the derived key (DL-44; option_smiles per
+                # role from PYQExplain §13A P2a, the key from P7), the raw reagent names for the
+                # read-time method lexicon (DL-38), and the level vector with method_tier left
+                # None (filled at read time by level_model_for_scope).
+                if not rec[str(qi)].get('reagents_seen'):
+                    _rs = reagent_names_of(obs.get('content_objects'))
+                    if _rs:
+                        rec[str(qi)]['reagents_seen'] = _rs
+                _cl = option_closeness(obs.get('option_smiles'), obs.get('answer_smiles')) \
+                    if obs.get('option_smiles') and obs.get('answer_smiles') else None
+                if _cl is not None:
+                    rec[str(qi)]['closeness'] = _cl
+                rec[str(qi)]['level_vector'] = level_vector(
+                    _cv, _cl, _rec_reasoning_score(rec[str(qi)]))
     _ur = {}
     for q, why in (unscored_reasons or {}).items():
         try:
@@ -11264,8 +12008,36 @@ def difficulty_obs_signature(obs):
     facets legitimately repeat within a band; the numbers should not."""
     if not isinstance(obs, dict) or not obs:
         return None
+    # v1.32 (GAP-2026-11-05 §2, G1): RULE-AWARE. r1 obs keep the legacy tuple byte-for-
+    # byte; an r2 obs is keyed on its inferential moves; a LEVEL obs on its composite
+    # (rounded to 0.1 — a diversity bucket only, never a band). Without this, Hard-by-
+    # level items repeat one rubric tuple and check 9 fails a correct paper.
+    lv = obs.get('level')
+    if isinstance(lv, dict) and str(lv.get('rule') or '').upper() == LEVEL_RULE_CURRENT:
+        c = lv.get('composite')
+        c = round(float(c), 1) if isinstance(c, (int, float)) and not isinstance(c, bool) else None
+        return (LEVEL_RULE_CURRENT, c,
+                inferential_steps_of(obs.get('deduction_steps'), obs.get('inferential_steps')),
+                obs.get('axiom_concepts'))
+    if rubric_rule_of(obs) == RUBRIC_RULE_CURRENT:
+        return (RUBRIC_RULE_CURRENT,
+                inferential_steps_of(obs.get('deduction_steps'), obs.get('inferential_steps')),
+                obs.get('axiom_concepts'), bool(obs.get('speed_hack_exists')))
     return (obs.get('deduction_steps'), obs.get('axiom_concepts'),
             bool(obs.get('speed_hack_exists')))
+
+
+def difficulty_obs_signature_text(sig):
+    """Named fields of a signature tuple, per its rule (used by the diversity message)."""
+    if not isinstance(sig, tuple):
+        return str(sig)
+    if len(sig) == 4 and sig[0] == LEVEL_RULE_CURRENT:
+        return f"level composite={sig[1]}, moves={sig[2]}, concepts={sig[3]}"
+    if len(sig) == 4 and sig[0] == RUBRIC_RULE_CURRENT:
+        return f"moves={sig[1]}, concepts={sig[2]}, shortcut={sig[3]}"
+    if len(sig) == 3:
+        return f"steps={sig[0]}, concepts={sig[1]}, shortcut={sig[2]}"
+    return str(sig)
 
 
 def difficulty_obs_diversity(questions, difficulty_labels,
@@ -11303,8 +12075,7 @@ def difficulty_obs_diversity(questions, difficulty_labels,
         if modal_n / n > max_modal_frac:
             fails.append(
                 f"'{lab}' band: {modal_n}/{n} evidence tuples are the identical "
-                f"(steps={modal_sig[0]}, concepts={modal_sig[1]}, "
-                f"shortcut={modal_sig[2]}) — above the {max_modal_frac:.0%} "
+                f"({difficulty_obs_signature_text(modal_sig)}) — above the {max_modal_frac:.0%} "
                 f"diversity ceiling. Independently measured derivations do not "
                 f"repeat like this; the values appear COPIED from the authoring "
                 f"profile rather than counted from each question "
@@ -12909,6 +13680,11 @@ QF_MODE_FROM_SOURCE = {v: k for k, v in QF_DIFFICULTY_MODES.items()}
 QF_PROGRESSIVE_DELTA = 10      # δ in percentage points (GAP L2 (e) 3)
 QF_SCOPE_MIN_N = 20            # cascade threshold (GAP L2 (e) 1)
 QF_CCP_MIN_POOL = 20           # CCP activation (GAP L1 (e) 5)
+# v1.32 (GAP-2026-11-05, owner D10 B): the LEVEL MODEL's own activation floor, separate
+# from CCP's so CCP stays byte-identical. 12 <= n < QF_CCP_MIN_POOL is ACTIVE with
+# 'small_pool' set (footer line; A-LEVEL findings carry the suffix).
+LEVEL_MIN_POOL = 12
+MAX_DIFF_TRIES_DEFAULT = 6     # the ONE G-DIFF budget (MockTestCreate CHECK 3c); never a second counter
 QF_CCP_FIELDS = ('heavy_atoms', 'rings', 'ring_system_ord', 'stereo_specified',
                  'steps', 'bonds_changed', 'method_tier')
 QF_MCS_TIMEOUT_S = 2
@@ -12969,10 +13745,20 @@ def _qf_section_of(sid):
     return str(sid or '').split('.')[0]
 
 
-def _qf_rec_band(rec, labels):
-    """The band of one profile question under `labels`; None when unusable."""
+def _qf_rec_band(rec, labels, level_map=None, key=None):
+    """The band of one profile question under `labels`; None when unusable.
+    v1.32 (GAP-2026-11-05 §4.5): an optional `level_map` {(paper, q): band} (from
+    level_bands) wins for the record keyed `key` — Step 5's EXEMPLAR banding. Callers
+    that measure the MIX pass no map, so the scoped mix keeps the stored band."""
     if not isinstance(rec, dict):
         return None
+    if isinstance(level_map, dict) and level_map and key is not None:
+        try:
+            lb = level_map.get(key)
+        except TypeError:                                   # unhashable key
+            lb = None
+        if lb in labels:
+            return lb
     b = rec.get('band')
     if b in labels:
         return b
@@ -13058,8 +13844,16 @@ def _qf_qkey(q):
 
 
 def dp_scope_mix(profile, subtopic_ids, labels, window_cycles=None, min_n=QF_SCOPE_MIN_N,
-                 topic_of=None, section_of=None, gap_days=None):
+                 topic_of=None, section_of=None, gap_days=None,
+                 mix_rule=MIX_RULE_LEGACY, tier=None):
     """The SCOPE's measured Easy:Medium:Hard mix (GAP L2 (e) 1).
+
+    v1.32 (GAP-2026-11-05 DL-21/32, guard G3): `mix_rule` 'm1' (DEFAULT, byte-identical)
+    = equal-weight mean over window cycles; 'm2' = POOLED counts over the window (a
+    46-paper cycle and a 1-paper cycle no longer weigh the same). `tier` (an
+    exam_config section name, e.g. 'Part B') keeps only records of that tier; None pools
+    every tier (owner decision D2: a subject test is written to the measured blend).
+    The result records 'mix_rule' and 'tier' so a recompute replays them.
 
     Equal-weight mean over the window cycles of the in-scope band shares; a cycle with
     0 in-scope questions is skipped (it neither votes nor dilutes). When the window holds
@@ -13076,6 +13870,8 @@ def dp_scope_mix(profile, subtopic_ids, labels, window_cycles=None, min_n=QF_SCO
     date) when two window cycles share a label — two same-month sittings with a small
     cycle_gap_days are two votes, never one overwritten by the other."""
     labels = _qf_labels(labels)
+    mix_rule = mix_rule_of(mix_rule)
+    tier = str(tier).strip() if tier not in (None, '') else None
     topic_of = topic_of or _qf_topic_of
     section_of = section_of or _qf_section_of
     scope = {str(s) for s in (subtopic_ids or [])}
@@ -13097,6 +13893,9 @@ def dp_scope_mix(profile, subtopic_ids, labels, window_cycles=None, min_n=QF_SCO
             for key in keys:
                 for q, rec in sorted((papers[key].get('questions') or {}).items(), key=lambda kv: _qf_qkey(kv[0])):
                     sid = str((rec or {}).get('subtopic_id') or '') if isinstance(rec, dict) else ''
+                    if tier is not None and (not isinstance(rec, dict)
+                                             or str(rec.get('section') or '').strip() != tier):
+                        continue
                     try:
                         ok = inside(sid)
                     except Exception:                       # noqa: BLE001 — a bad mapper skips the row
@@ -13117,12 +13916,16 @@ def dp_scope_mix(profile, subtopic_ids, labels, window_cycles=None, min_n=QF_SCO
     level, per_cycle, n_tot = chosen if chosen else ('paper', {}, 0)
     out = {'pct': None, 'level_used': level, 'n': n_tot, 'per_cycle': per_cycle,
            'window_cycles': _labs, 'window_cycle_ids': [cid for cid, _l, _k in win],
-           'cycle_min': {}, 'cycle_max': {}}
+           'cycle_min': {}, 'cycle_max': {}, 'mix_rule': mix_rule, 'tier': tier}
     if not per_cycle or not labels:
         return out
     shares = [_dp_pct_from_counts(c, labels) for c in per_cycle.values()]
-    mean = {l: sum(s[l] for s in shares) / len(shares) for l in labels}
-    out['pct'] = dp_round_pct(mean, labels)
+    if mix_rule == MIX_RULE_CURRENT:
+        pooled = {l: sum(c.get(l, 0) for c in per_cycle.values()) for l in labels}
+        out['pct'] = dp_round_pct(_dp_pct_from_counts(pooled, labels), labels)
+    else:
+        mean = {l: sum(s[l] for s in shares) / len(shares) for l in labels}
+        out['pct'] = dp_round_pct(mean, labels)
     rounded = [dp_round_pct(s, labels) for s in shares]
     out['cycle_min'] = {l: min(r[l] for r in rounded) for l in labels}
     out['cycle_max'] = {l: max(r[l] for r in rounded) for l in labels}
@@ -13177,7 +13980,8 @@ def _qf_progressive(base, scope_mix, labels, k, n, delta):
 
 def scoped_difficulty_schedule(profile, subtopic_ids, labels, n_papers, q_per_paper,
                                mode='harder', ratio=None, delta=QF_PROGRESSIVE_DELTA,
-                               section_name=None, **cascade_kw):
+                               section_name=None, mix_rule=MIX_RULE_LEGACY, tier=None,
+                               **cascade_kw):
     """The scoped blueprint's per-paper difficulty schedule from the SCOPE's own PYQs
     (GAP L2 (e) 3-4). mode: 'harder' (DEFAULT, owner decision O3) = dp_harder(scope mix);
     'exam' = scope mix; 'ratio' = the given (s, m, h) ints summing to 100; 'progressive'
@@ -13214,7 +14018,10 @@ def scoped_difficulty_schedule(profile, subtopic_ids, labels, n_papers, q_per_pa
         # per-paper loop never ends (fuzz 2026-11-02) — refuse, never hang
         raise DPError(f'n_papers {n_papers} / q_per_paper {q_per_paper} out of range '
                       f'(<= {QF_MAX_PAPERS} / <= {QF_MAX_Q_PER_PAPER})')
-    sm = dp_scope_mix(profile, subtopic_ids, labels, **cascade_kw)
+    # v1.32 (G3): the mix rule and tier are recorded on difficulty_source and replayed by
+    # _qf_recompute, so a later release can never rewrite an older series' schedule.
+    mix_rule = mix_rule_of(mix_rule)
+    sm = dp_scope_mix(profile, subtopic_ids, labels, mix_rule=mix_rule, tier=tier, **cascade_kw)
     measured = sm['pct']
     harder = dp_harder(measured, labels) if measured else None
     per_paper = []
@@ -13262,13 +14069,15 @@ def scoped_difficulty_schedule(profile, subtopic_ids, labels, n_papers, q_per_pa
           'measured_pct': dict(measured) if measured else None,
           'applied_pct': dict(applied), 'builder': QF_BUILDER,
           'subtopic_ids': sorted(str(s) for s in (subtopic_ids or [])),
+          'mix_rule': mix_rule,
           'params': {'n_papers': n_papers, 'q_per_paper': q_per_paper,
                      'delta': _qf_int(delta, QF_PROGRESSIVE_DELTA),
                      'min_n': _qf_int(cascade_kw.get('min_n', QF_SCOPE_MIN_N)),
                      'window_cycles': cascade_kw.get('window_cycles'),
                      'gap_days': cascade_kw.get('gap_days'),
                      'ratio': list(mix_to_smh(applied, labels)) if mode == 'ratio' else None,
-                     'section_name': sec}}
+                     'section_name': sec,
+                     'tier': (str(tier).strip() if tier not in (None, '') else None)}}
     if mode == 'progressive':
         ds['per_paper_pct'] = [dict(p) for p in per_paper]
     if cascade_kw.get('topic_of') is not None or cascade_kw.get('section_of') is not None:
@@ -13398,10 +14207,12 @@ def _qf_recompute(bp, profile):
     if prm.get('gap_days') is not None:
         kw['gap_days'] = prm.get('gap_days')
     try:
+        # v1.32 (G3): replay the RECORDED mix rule / tier; an older blueprint has none → m1.
         r = scoped_difficulty_schedule(profile, sids, labels, n_papers, q, mode=mode,
                                        ratio=prm.get('ratio'),
                                        delta=_qf_int(prm.get('delta'), QF_PROGRESSIVE_DELTA),
-                                       section_name=prm.get('section_name'), **kw)
+                                       section_name=prm.get('section_name'),
+                                       mix_rule=mix_rule_of(ds), tier=prm.get('tier'), **kw)
     except DPError as e:
         out['reason'] = f'not recomputable: {e}'
         return out
@@ -13690,9 +14501,9 @@ def _qf_midrank(sorted_vals, x):
     return 100.0 * (lo + 0.5 * (hi - lo)) / n
 
 
-def _qf_composite(fields, vector):
+def _qf_composite(fields, vector, field_names=None):
     ps = []
-    for f in QF_CCP_FIELDS:
+    for f in (field_names or QF_CCP_FIELDS):
         vals = fields.get(f) or []
         x = (vector or {}).get(f)
         if not vals or x is None or isinstance(x, bool) or not isinstance(x, (int, float)):
@@ -13701,7 +14512,7 @@ def _qf_composite(fields, vector):
     return (sum(ps) / len(ps)) if ps else None
 
 
-def ccp_model(pool_vectors, band_shares, labels=None):
+def ccp_model(pool_vectors, band_shares, labels=None, field_names=None, min_pool=QF_CCP_MIN_POOL):
     """The exam's Content-Complexity model from its own PYQs (GAP L1 (e) 4-5).
     pool_vectors: [(vector, band)] of confidence-full PYQ items; band_shares
     {label: pct} — read in `labels` order (default: the dict's insertion order; never
@@ -13711,17 +14522,22 @@ def ccp_model(pool_vectors, band_shares, labels=None):
     Returns {'active': n >= 20, 'n', 'labels', 'fields', 'cuts', 'achieved_shares',
              'calibration': {'agree','n'}}."""
     import math as _m
-    pool = [(v, b) for v, b in (pool_vectors or []) if isinstance(v, dict)]
+    # v1.32: `field_names` (default QF_CCP_FIELDS — CCP byte-identical) and `min_pool`
+    # (default QF_CCP_MIN_POOL) let the Level Model reuse this machinery over LEVEL_FIELDS.
+    field_names = tuple(field_names or QF_CCP_FIELDS)
+    band_shares = band_shares if isinstance(band_shares, dict) else {}
+    pool = [(x[0], x[1]) for x in (pool_vectors if isinstance(pool_vectors, (list, tuple)) else [])
+            if isinstance(x, (list, tuple)) and len(x) == 2 and isinstance(x[0], dict)]
     labels = _qf_labels(labels) or list((band_shares or {}).keys())
     fields = {f: sorted(v[f] for v, _ in pool
                         if isinstance(v.get(f), (int, float)) and not isinstance(v.get(f), bool))
-              for f in QF_CCP_FIELDS}
-    model = {'active': len(pool) >= QF_CCP_MIN_POOL and len(labels) >= 2, 'n': len(pool),
+              for f in field_names}
+    model = {'active': len(pool) >= _qf_int(min_pool, QF_CCP_MIN_POOL) and len(labels) >= 2, 'n': len(pool),
              'labels': labels, 'fields': fields, 'cuts': {}, 'achieved_shares': {},
-             'calibration': {'agree': 0, 'n': 0}}
+             'calibration': {'agree': 0, 'n': 0}, 'field_names': list(field_names)}
     if len(labels) < 2:
         return model
-    comps = sorted(c for c in (_qf_composite(fields, v) for v, _ in pool) if c is not None)
+    comps = sorted(c for c in (_qf_composite(fields, v, field_names) for v, _ in pool) if c is not None)
     sh = {l: _qf_int((band_shares or {}).get(l, 0)) for l in labels}
 
     def _q(share):
@@ -13770,7 +14586,7 @@ def ccp_band(model, vector):
         cl = [cuts['easy_max'], cuts['medium_max']]
     if len(labels) < 2 or not isinstance(cl, list) or len(cl) != len(labels) - 1:
         return None
-    c = _qf_composite(model.get('fields') or {}, vector)
+    c = _qf_composite(model.get('fields') or {}, vector, model.get('field_names'))
     if c is None:
         return None
     for i, cut in enumerate(cl):
@@ -13785,12 +14601,634 @@ def ccp_floor_check(model, vector, scheduled_band, labels):
     recorded; 'ok' equal; 'dormant' when no CCP band can be computed."""
     labels = _qf_labels(labels) or list((model or {}).get('labels') or [])
     b = ccp_band(model, vector)
-    comp = _qf_composite((model or {}).get('fields') or {}, vector) if b is not None else None
+    comp = _qf_composite((model or {}).get('fields') or {}, vector, (model or {}).get('field_names')) if b is not None else None
     if b is None or scheduled_band not in labels or b not in labels:
         return {'status': 'dormant', 'ccp_band': b, 'composite': comp}
     d = labels.index(b) - labels.index(scheduled_band)
     st = 'ok' if d == 0 else ('below' if d < 0 else 'above')
     return {'status': st, 'ccp_band': b, 'composite': comp}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER L1 — CHEMISTRY LEVEL MODEL (v1.32, GAP-2026-11-05-DIFFICULTY-FIDELITY Part C;
+# owner decisions D1, D1-CUTS (A), D3-R5 (a), D10 (B), D11 (A); guards S1–S13).
+# ════════════════════════════════════════════════════════════════════════════
+#   For a question that carries DRAWN CHEMISTRY (content_objects of kind STRUCTURE /
+#   REACTION, content_confidence 'full'), its band is its POSITION in the complexity
+#   ranking of that exam's own past questions. The ranking reuses the CCP machinery over
+#   LEVEL_FIELDS = the content vector + how close the wrong options sit to the key +
+#   the r2 reasoning score. Activation is decided PER QUESTION by that predicate — no exam
+#   flag; a text question keeps the rubric band (§4.1). The ONE builder,
+#   level_model_for_scope, serves Step 5, Create and the auditor, so their cuts can never
+#   differ (DL-21). Cut points sit at the measured share of the same scope the schedule is
+#   computed over (D1-CUTS (A)). LEVEL_MIN_POOL (12, D10 (B)) is the Level Model's own
+#   activation floor; 12 <= n < QF_CCP_MIN_POOL is ACTIVE with 'small_pool' (footer line).
+#   The composite is stored at FULL precision (a rounded value tied at a cut lands on the
+#   wrong side); the qtype floor clamps the band both at write time (level_record) and at
+#   re-check (verify_difficulty_obs). Every function is pure and never raises; RDKit is
+#   reached through importlib (thin-core purity, Check AB).
+
+LEVEL_FIELDS = QF_CCP_FIELDS + ('closeness', 'reasoning')
+CLOSENESS_GRADES = {3: 'stereo_variant', 2: 'regio_variant', 1: 'constitutional', 0: 'non_isomer'}
+CLOSENESS_CLOSE_MIN = 2                 # n_close counts grades >= 2
+
+
+def _l1_inchi_layers(Chem, mol):
+    """{'formula', 'c', 'h', 'b', 't', 'm', 's', 'inchi'} of a mol's standard InChI, or None."""
+    try:
+        inchi = Chem.MolToInchi(mol)
+    except Exception:                                       # noqa: BLE001
+        return None
+    if not inchi or not inchi.startswith('InChI='):
+        return None
+    parts = inchi.split('/')
+    out = {'inchi': inchi, 'formula': parts[1] if len(parts) > 1 else '', 'c': '', 'h': '',
+           'b': '', 't': '', 'm': '', 's': ''}
+    for seg in parts[2:]:
+        if seg and seg[0] in out and seg[0] != 'inchi':
+            out[seg[0]] = seg[1:]
+    return out
+
+
+def option_closeness(option_smiles, key_smiles):
+    """DL-44 — how close each WRONG option sits to the derived key, graded by InChI layers:
+         3 stereo_variant  same formula + connectivity, different stereo (enantiomer /
+                           diastereomer / E,Z — 'stereo_kind' says which)
+         2 regio_variant   same formula, different connectivity, same generic Murcko scaffold
+         1 constitutional  same formula otherwise
+         0 non_isomer      different formula
+    option_smiles: {label: smiles} or a list; the key option (same InChI) is skipped.
+    Returns {'per_option': {label: {'grade', 'name', 'stereo_kind'|None}}, 'mean', 'n_close',
+    'n'} or None when RDKit or the key is unusable. Never raises."""
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(key_smiles, str) or not key_smiles.strip():
+        return None
+    Chem = rd[0]
+    try:
+        rd[3].DisableLog('rdApp.*')
+    except Exception:                                       # noqa: BLE001
+        pass
+    try:
+        km = Chem.MolFromSmiles(key_smiles.strip())
+    except Exception:                                       # noqa: BLE001
+        km = None
+    if km is None:
+        return None
+    kl = _l1_inchi_layers(Chem, km)
+    if kl is None:
+        return None
+    ksc = generic_scaffold(key_smiles.strip())
+    items = (list(option_smiles.items()) if isinstance(option_smiles, dict)
+             else [(str(i + 1), v) for i, v in enumerate(option_smiles or [])])
+    per = {}
+    for label, smi in items:
+        if not isinstance(smi, str) or not smi.strip():
+            continue
+        try:
+            om = Chem.MolFromSmiles(smi.strip())
+        except Exception:                                   # noqa: BLE001
+            om = None
+        if om is None:
+            continue
+        ol = _l1_inchi_layers(Chem, om)
+        if ol is None:
+            continue
+        if ol['inchi'] == kl['inchi']:
+            continue                                        # the key itself
+        if ol['formula'] != kl['formula']:
+            g, kind = 0, None
+        elif ol['c'] == kl['c'] and ol['h'] == kl['h']:
+            g = 3
+            if ol['b'] != kl['b']:
+                kind = 'EZ'
+            elif ol['t'] == kl['t'] and ol['m'] != kl['m']:
+                kind = 'enantiomer'
+            else:
+                kind = 'diastereomer'
+        else:
+            osc = generic_scaffold(smi.strip())
+            g, kind = (2 if (ksc is not None and osc == ksc) else 1), None
+        per[str(label)] = {'grade': g, 'name': CLOSENESS_GRADES[g], 'stereo_kind': kind}
+    n = len(per)
+    if not n:
+        return {'per_option': {}, 'mean': None, 'n_close': 0, 'n': 0}
+    return {'per_option': per, 'mean': sum(v['grade'] for v in per.values()) / n,
+            'n_close': sum(1 for v in per.values() if v['grade'] >= CLOSENESS_CLOSE_MIN), 'n': n}
+
+
+def closeness_mechanism_tokens(closeness):
+    """DL-23 — the DISTRACTOR_MECHANISMS tokens (existing vocabulary, never a new one) that
+    describe a closeness record's wrong options: grade 3 -> stereoisomer_enantiomer /
+    stereoisomer_diastereomer / stereoisomer_EZ by stereo_kind, grade 2 -> regioisomer.
+    Grades 0/1 name no mechanism. Returns {label: token}."""
+    out = {}
+    if not isinstance(closeness, dict) or not isinstance(closeness.get('per_option'), dict):
+        return out
+    for label, rec in closeness['per_option'].items():
+        if not isinstance(rec, dict):
+            continue
+        g = _qf_int(rec.get('grade'), -1)
+        if g == 3:
+            k = (rec or {}).get('stereo_kind')
+            out[label] = {'enantiomer': 'stereoisomer_enantiomer', 'EZ': 'stereoisomer_EZ'}.get(k, 'stereoisomer_diastereomer')
+        elif g == 2:
+            out[label] = 'regioisomer'
+    return out
+
+
+def reagent_names_of(objects):
+    """The raw reagent / condition strings a question's REACTION objects carry (the 'agents'
+    part of a reaction SMILES and every arrow's above / below lines). Stored RAW on the
+    profile record as `reagents_seen` (DL-38); tiers are assigned at READ time by
+    build_method_lexicon. Never raises."""
+    out = []
+    for ob in (objects if isinstance(objects, (list, tuple)) else []):
+        if not isinstance(ob, dict) or str(ob.get('kind') or '').upper() != 'REACTION':
+            continue
+        can = ob.get('canonical')
+        parts = str(can or '').split('>')
+        if can and len(parts) == 3:
+            out += [x for x in parts[1].split('.') if x]
+        scheme = ob.get('scheme') if isinstance(ob.get('scheme'), dict) else None
+        if scheme:
+            rows = scheme.get('rows') if isinstance(scheme.get('rows'), (list, tuple)) else [scheme.get('items') or []]
+            for row in rows:
+                for it in (row if isinstance(row, (list, tuple)) else []):
+                    if isinstance(it, dict) and 'arrow' in it and isinstance(it.get('arrow'), dict):
+                        a = it['arrow']
+                        out += [str(t) for t in _qf_lines(a.get('above')) + _qf_lines(a.get('below')) if t is not None]
+        for t in _qf_lines(ob.get('reagent_text')):
+            out.append(str(t))
+    return [str(t).strip() for t in out if str(t).strip()]
+
+
+def _l1_lexicon_extra(extra_text):
+    """REAGENT_LEXICON_EXTRA names from a section_rules text: lines `name: smiles`,
+    `name = smiles` or `- name` under a REAGENT_LEXICON_EXTRA heading. Tolerates any
+    format; never raises; returns a list of names."""
+    names = []
+    if not isinstance(extra_text, str) or 'REAGENT_LEXICON_EXTRA' not in extra_text:
+        return names
+    on = False
+    for line in extra_text.splitlines():
+        if 'REAGENT_LEXICON_EXTRA' in line:
+            on = True
+            tail = line.split('REAGENT_LEXICON_EXTRA', 1)[1].strip(' :=')
+            if tail.startswith('{'):
+                for m in re.finditer(r"['\"]([^'\"]+)['\"]\s*:", tail):
+                    names.append(m.group(1))
+            continue
+        if not on:
+            continue
+        st = line.strip()
+        if not st or st.startswith('#'):
+            continue
+        if st.startswith(('===', '## ', '---')) and names:
+            break
+        m = re.match(r"^[-*]?\s*['\"]?([^:=\"']+?)['\"]?\s*[:=]", st)
+        if m:
+            names.append(m.group(1).strip())
+    return [n for n in names if n]
+
+
+def _l1_window_records(profile, window_cycles=None, gap_days=None):
+    """[(paper_key, q, rec)] over the window, newest first; never raises."""
+    rows = []
+    papers = profile.get('papers') if isinstance(profile, dict) else None
+    papers = papers if isinstance(papers, dict) else {}
+    if not papers:
+        return rows
+    try:
+        win = _qf_window(profile, window_cycles, gap_days)
+    except Exception:                                       # noqa: BLE001
+        return rows
+    for _cid, _lab, keys in win:
+        for key in keys:
+            pp = papers.get(key)
+            qs = pp.get('questions') if isinstance(pp, dict) else None
+            for q, rec in sorted((qs if isinstance(qs, dict) else {}).items(), key=lambda kv: _qf_qkey(kv[0])):
+                if isinstance(rec, dict):
+                    rows.append((key, str(q), rec))
+    return rows
+
+
+def build_method_lexicon(profile, reagent_lexicon=None, extra_text=None, window_cycles=None, gap_days=None):
+    """DL-38 — the exam's METHOD LEXICON at READ time: {reagent name: tier}. Keys are the
+    REAGENT_LEXICON names (plus REAGENT_LEXICON_EXTRA names from `extra_text`, the
+    section_rules text the CALLER passes — this function opens no file) that occur in the
+    window's PYQ reagent text (`reagents_seen` + `drawn_names`); the tier is INVERSE PYQ
+    frequency within the exam: rarest third 3, middle 2, commonest 1. Built once per call
+    and never stored on a record, so a paper added later shifts every tier consistently.
+    Returns {} when nothing matches. Never raises."""
+    lex = reagent_lexicon if isinstance(reagent_lexicon, dict) else REAGENT_LEXICON
+    names = sorted({str(k).strip() for k in lex} | {str(n).strip() for n in _l1_lexicon_extra(extra_text)})
+    names = [n for n in names if n]
+    if not names:
+        return {}
+    pats = [(n, re.compile(r'(?<![a-z0-9])' + re.escape(n.lower()) + r'(?![a-z0-9])')) for n in names]
+    freq = {}
+    for _k, _q, rec in _l1_window_records(profile, window_cycles, gap_days):
+        text = ' '.join(str(t) for t in (_qf_lines(rec.get('reagents_seen')) + _qf_lines(rec.get('drawn_names')))).lower()
+        if not text.strip():
+            continue
+        for n, pat in pats:
+            if pat.search(text):
+                freq[n] = freq.get(n, 0) + 1
+    if not freq:
+        return {}
+    order = sorted(freq.items(), key=lambda kv: (kv[1], kv[0]))      # rarest first
+    k = len(order)
+    out = {}
+    for i, (n, _f) in enumerate(order):
+        third = (3 * i) // k                               # 0 rarest .. 2 commonest
+        out[n] = {0: 3, 1: 2, 2: 1}[third]
+    return out
+
+
+def method_tier_of(names, method_lexicon):
+    """Max lexicon tier of any name in `names` (reagents_seen / drawn_names), else None."""
+    if not isinstance(method_lexicon, dict) or not method_lexicon:
+        return None
+    text = ' '.join(str(t) for t in _qf_lines(names)).lower()
+    tiers = []
+    for key, tier in method_lexicon.items():
+        k = str(key).strip().lower()
+        if k and re.search(r'(?<![a-z0-9])' + re.escape(k) + r'(?![a-z0-9])', text):
+            t = _qf_int(tier, 0)
+            if t > 0:
+                tiers.append(t)
+    return max(tiers) if tiers else None
+
+
+def _rec_reasoning_score(rec):
+    """The r2 rubric score of a profile record (the 'reasoning' field) recomputed from its
+    stored observations — never read from a stale field."""
+    if not isinstance(rec, dict):
+        return None
+    obs = {'question_class': rec.get('class'), 'deduction_steps': rec.get('steps'),
+           'inferential_steps': rec.get('inferential_steps'), 'axiom_concepts': rec.get('concepts'),
+           'speed_hack_exists': rec.get('speed_hack'), 'derivation_confidence': rec.get('confidence', 'full'),
+           'is_negative': rec.get('negative'), 'qtype': rec.get('qtype'), 'rubric_rule': RUBRIC_RULE_CURRENT}
+    return difficulty_score_from_obs(obs)
+
+
+def level_vector(content_vec, closeness=None, reasoning_score=None, method_tier=None):
+    """The LEVEL vector of one item: the content vector's QF_CCP_FIELDS plus closeness (the
+    mean grade of the wrong options) and reasoning (the r2 rubric score). `closeness` is
+    the option_closeness RECORD or its mean (a number) — both give the same vector, so a
+    caller can never silently drop the field. `method_tier`, when given, overrides the
+    vector's (filled at read time, §4.6). None when there is no content vector."""
+    if not isinstance(content_vec, dict):
+        return None
+    v = {f: content_vec.get(f) for f in QF_CCP_FIELDS}
+    if method_tier is not None:
+        v['method_tier'] = method_tier
+    cm = closeness.get('mean') if isinstance(closeness, dict) else closeness
+    v['closeness'] = cm if isinstance(cm, (int, float)) and not isinstance(cm, bool) else None
+    v['reasoning'] = reasoning_score if isinstance(reasoning_score, int) and not isinstance(reasoning_score, bool) else None
+    return v
+
+
+def level_model(pool, band_shares, labels=None, min_pool=LEVEL_MIN_POOL):
+    """ccp_model over LEVEL_FIELDS with the Level Model's own activation floor (D10 (B)):
+    active at n >= min_pool; 'small_pool' when active below QF_CCP_MIN_POOL; 'rule' L1;
+    'reason' when dormant."""
+    m = ccp_model(pool, band_shares, labels, field_names=LEVEL_FIELDS, min_pool=min_pool)
+    m['rule'] = LEVEL_RULE_CURRENT
+    m['min_pool'] = _qf_int(min_pool, LEVEL_MIN_POOL)
+    m['small_pool'] = bool(m.get('active')) and m.get('n', 0) < QF_CCP_MIN_POOL
+    if not m.get('active'):
+        m['reason'] = (f"pool {m.get('n', 0)} < LEVEL_MIN_POOL {m['min_pool']}" if len(m.get('labels') or []) >= 2
+                       else 'fewer than 2 difficulty labels')
+    else:
+        m['reason'] = None
+    return m
+
+
+def level_record(model, vector, qtype, labels=None):
+    """{'rule': 'L1', 'composite' (FULL precision, never rounded), 'cuts_list', 'band'
+    (qtype-clamped), 'model_n'} for one item, or None when the model is dormant or the
+    vector has no field the pool also has. The clamp here and the one in
+    verify_difficulty_obs are the same arithmetic, so a record always re-derives."""
+    if not isinstance(model, dict) or not model.get('active') or not isinstance(vector, dict):
+        return None
+    labs = _qf_labels(labels) or list(model.get('labels') or [])
+    cl = (model.get('cuts') or {}).get('cuts_list')
+    comp = _qf_composite(model.get('fields') or {}, vector, model.get('field_names'))
+    if comp is None or not isinstance(cl, list) or len(cl) != len(labs) - 1:
+        return None
+    band = level_band_from(comp, cl, labs)
+    if band is None:
+        return None
+    band = _band_max(band, difficulty_min_band(qtype, labs), labs)
+    return {'rule': LEVEL_RULE_CURRENT, 'composite': comp, 'cuts_list': list(cl), 'band': band,
+            'model_n': model.get('n'), 'qtype': str(qtype or 'mcq').strip().lower()}
+
+
+def level_check(model, vector, scheduled_band, labels, qtype='mcq'):
+    """DL-41 — BOTH directions (replaces the floor-only use of ccp_floor_check for level
+    items): 'ok' | 'below' | 'above' | 'dormant', with the level record."""
+    model = model if isinstance(model, dict) else None
+    labs = _qf_labels(labels) or list((model or {}).get('labels') or [])
+    rec = level_record(model, vector, qtype, labs)
+    if rec is None or scheduled_band not in labs:
+        return {'status': 'dormant', 'level_band': None, 'composite': None, 'record': None,
+                'reason': model.get('reason') if model else 'no model'}
+    d = labs.index(rec['band']) - labs.index(scheduled_band)
+    return {'status': 'ok' if d == 0 else ('below' if d < 0 else 'above'),
+            'level_band': rec['band'], 'composite': rec['composite'], 'record': rec, 'reason': None}
+
+
+def _l1_pool_rows(profile, subtopic_ids, window_cycles=None, gap_days=None, tier=None,
+                  method_lexicon=None, topic_of=None, section_of=None):
+    """Cascade scope -> topic -> section -> paper over CONTENT-FULL window records; each
+    level's rows are [(key, q, rec, level_vector)]. Returns (level_used, rows, by_level)."""
+    topic_of = topic_of or _qf_topic_of
+    section_of = section_of or _qf_section_of
+    scope = {str(x) for x in (subtopic_ids if isinstance(subtopic_ids, (list, tuple, set, frozenset)) else [])}
+    topics = {topic_of(x) for x in scope}
+    sections = {section_of(x) for x in scope}
+    tier = str(tier).strip() if tier not in (None, '') else None
+    full = []
+    for key, q, rec in _l1_window_records(profile, window_cycles, gap_days):
+        cv = rec.get('content_vector')
+        if not isinstance(cv, dict) or str(rec.get('content_confidence', 'full')).lower() != 'full':
+            continue
+        if tier is not None and str(rec.get('section') or '').strip() != tier:
+            continue
+        mt = method_tier_of(_qf_lines(rec.get('reagents_seen')) + _qf_lines(rec.get('drawn_names')), method_lexicon)
+        lv = level_vector(cv, rec.get('closeness'), _rec_reasoning_score(rec), method_tier=mt)
+        if lv is not None:
+            full.append((key, q, rec, lv))
+    tests = (('scope', lambda sid: sid in scope), ('topic', lambda sid: topic_of(sid) in topics),
+             ('section', lambda sid: section_of(sid) in sections), ('paper', lambda sid: True))
+    by_level = {}
+    for level, inside in tests:
+        rows = []
+        for key, q, rec, lv in full:
+            sid = str(rec.get('subtopic_id') or '')
+            try:
+                ok = inside(sid)
+            except Exception:                               # noqa: BLE001
+                ok = False
+            if ok:
+                rows.append((key, q, rec, lv))
+        by_level[level] = rows
+    return by_level
+
+
+def level_model_for_scope(profile, subtopic_ids, labels, mix_rule=MIX_RULE_LEGACY, tier=None,
+                          window_cycles=None, gap_days=None, measured_pct=None,
+                          reagent_lexicon=None, extra_text=None, min_pool=LEVEL_MIN_POOL,
+                          topic_of=None, section_of=None):
+    """THE ONE BUILDER (Step 5, Create S3 and A-LEVEL all call this, so their cuts can never
+    differ — DL-21). shares = the blueprint's recorded `measured_pct` when given, else
+    dp_scope_mix(...)['pct'] under the recorded mix_rule / tier / window (D1-CUTS (A)). pool
+    = the content-full level vectors at the first cascade level (scope -> topic -> section
+    -> paper) that holds >= min_pool records (else the paper level, dormant). The method
+    lexicon is built from the current window and fills method_tier into every pool vector;
+    the caller applies the same lexicon ('lexicon' in the result) to its candidate. Returns
+    the level_model dict plus 'level_used', 'shares', 'lexicon', 'pool_keys' and
+    'coverage'. Never raises."""
+    labs = _qf_labels(labels)
+    mix_rule = mix_rule_of(mix_rule)
+    subtopic_ids = list(subtopic_ids) if isinstance(subtopic_ids, (list, tuple, set, frozenset)) else []
+    out_dormant = {'active': False, 'n': 0, 'labels': labs, 'rule': LEVEL_RULE_CURRENT, 'reason': '',
+                   'level_used': None, 'shares': None, 'lexicon': {}, 'pool_keys': [], 'small_pool': False,
+                   'coverage': dp_profile_coverage(profile), 'cuts': {}, 'fields': {}, 'field_names': list(LEVEL_FIELDS),
+                   'achieved_shares': {}, 'min_pool': _qf_int(min_pool, LEVEL_MIN_POOL)}
+    if not isinstance(profile, dict) or len(labs) < 2:
+        out_dormant['reason'] = 'no profile or fewer than 2 difficulty labels'
+        return out_dormant
+    shares = dict(measured_pct) if isinstance(measured_pct, dict) and measured_pct else None
+    if shares is None:
+        try:
+            sm = dp_scope_mix(profile, subtopic_ids, labs, window_cycles=window_cycles, gap_days=gap_days,
+                              mix_rule=mix_rule, tier=tier, topic_of=topic_of, section_of=section_of)
+            shares = sm.get('pct')
+        except DPError as e:
+            out_dormant['reason'] = f'scope mix: {e}'
+            return out_dormant
+    if not shares:
+        out_dormant['reason'] = 'no measured share for this scope'
+        return out_dormant
+    lexicon = build_method_lexicon(profile, reagent_lexicon, extra_text, window_cycles, gap_days)
+    by_level = _l1_pool_rows(profile, subtopic_ids, window_cycles, gap_days, tier, lexicon, topic_of, section_of)
+    mp = _qf_int(min_pool, LEVEL_MIN_POOL)
+    level_used, rows = 'paper', by_level.get('paper', [])
+    for lev in ('scope', 'topic', 'section', 'paper'):
+        if len(by_level.get(lev, [])) >= mp:
+            level_used, rows = lev, by_level[lev]
+            break
+    pool = [(lv, _qf_rec_band(rec, labs)) for _k, _q, rec, lv in rows]
+    m = level_model(pool, shares, labs, min_pool=mp)
+    m.update({'level_used': level_used, 'shares': dict(shares), 'lexicon': lexicon,
+              'pool_keys': [(k, q) for k, q, _r, _v in rows], 'mix_rule': mix_rule,
+              'tier': (str(tier).strip() if tier not in (None, '') else None),
+              'coverage': dp_profile_coverage(profile)})
+    return m
+
+
+def level_bands(profile, labels, subtopic_ids=None, **kw):
+    """{(paper_key, q): level band} for every content-full record the model pools, RECOMPUTED
+    at read time (the profile principle). Step 5 bands its EXEMPLARS from this map; the
+    scoped MIX keeps the stored rubric band. {} when the model is dormant."""
+    labs = _qf_labels(labels)
+    sids = list(subtopic_ids) if isinstance(subtopic_ids, (list, tuple, set, frozenset)) else []
+    if not sids:
+        sids = sorted({str(r.get('subtopic_id') or '') for _k, _q, r in _l1_window_records(profile, kw.get('window_cycles'), kw.get('gap_days'))})
+    m = level_model_for_scope(profile, sids, labs, **kw)
+    if not m.get('active'):
+        return {}
+    by_level = _l1_pool_rows(profile, sids, kw.get('window_cycles'), kw.get('gap_days'), m.get('tier'),
+                             m.get('lexicon'), kw.get('topic_of'), kw.get('section_of'))
+    out = {}
+    for key, q, rec, lv in by_level.get(m.get('level_used') or 'paper', []):
+        r = level_record(m, lv, rec.get('qtype'), labs)
+        if r:
+            out[(key, q)] = r['band']
+    return out
+
+
+def hard_supply_record(profile, subtopic_ids, labels, tier=None, **kw):
+    """DL-31 — ADVISORY ONLY (guard S7: never routed into difficulty_feasibility): how many
+    in-tier, content-full past questions of this scope the Level Model (or, when dormant,
+    the stored rubric band) ranks in the TOP band. Returns {'n_hard_content_full', 'n_pool',
+    'source': 'level'|'rubric', 'line'}."""
+    labs = _qf_labels(labels)
+    top = labs[-1] if labs else None
+    bands = level_bands(profile, labs, subtopic_ids, tier=tier, **kw) if labs else {}
+    if bands:
+        n_pool = len(bands)
+        n_hard = sum(1 for b in bands.values() if b == top)
+        src = 'level'
+    else:
+        by_level = _l1_pool_rows(profile, subtopic_ids, kw.get('window_cycles'), kw.get('gap_days'), tier, None)
+        rows = by_level.get('scope') or by_level.get('topic') or by_level.get('section') or by_level.get('paper') or []
+        n_pool = len(rows)
+        n_hard = sum(1 for _k, _q, rec, _v in rows if _qf_rec_band(rec, labs) == top)
+        src = 'rubric'
+    line = (f"hard supply: {n_hard} content-full {top} exemplar(s) of {n_pool} in scope"
+            f"{(' (tier ' + str(tier) + ')') if tier else ''} — {src} bands; advisory")
+    return {'n_hard_content_full': n_hard, 'n_pool': n_pool, 'source': src, 'line': line}
+
+
+def hard_share_by_subtopic(profile, labels, window_cycles=None, gap_days=None, level_map=None):
+    """DL-33 — {subtopic_id: % of the subtopic's window records in the TOP band} (the stored
+    rubric band, or the level band for records in `level_map`). Blueprint records it;
+    Create's band_subtopic_plan places the top-band slots preferentially on subtopics whose
+    share is > 0. {} on an unusable profile. Never raises."""
+    labs = _qf_labels(labels)
+    if not labs:
+        return {}
+    top = labs[-1]
+    n, h = {}, {}
+    for key, q, rec in _l1_window_records(profile, window_cycles, gap_days):
+        sid = str(rec.get('subtopic_id') or '')
+        if not sid:
+            continue
+        b = (level_map or {}).get((key, q)) or _qf_rec_band(rec, labs)
+        if b not in labs:
+            continue
+        n[sid] = n.get(sid, 0) + 1
+        if b == top:
+            h[sid] = h.get(sid, 0) + 1
+    return {sid: round(100.0 * h.get(sid, 0) / n[sid], 1) for sid in sorted(n)}
+
+
+def band_subtopic_plan(plan, subtopic_by_q, hard_share_by_subtopic, qtype_by_q, labels,
+                       section_of_q=None):
+    """DL-33 — tie the TOP band to subtopics: keep every band count and every qtype floor,
+    but place the top-band slots preferentially on subtopics whose measured top-band share
+    is > 0 (ties by current position). When every share is 0 / unknown the plan is returned
+    unchanged (the current spread). `section_of_q` {q: section}: when given, every swap
+    stays INSIDE one section, so each section keeps the exact per-section counts
+    assign_difficulty_bands_by_section built (a section never borrows another's slot); the
+    counts are asserted PER SECTION. Deterministic; never raises."""
+    labs = _qf_labels(labels)
+    if not isinstance(plan, dict):
+        return {}
+    if len(labs) != 3 or not plan:
+        return dict(plan)
+    top, bottom = labs[-1], labs[0]
+    shares = {str(k): float(v) for k, v in (hard_share_by_subtopic or {}).items()
+              if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    if not any(v > 0 for v in shares.values()):
+        return dict(plan)
+    def share_of(q):
+        return shares.get(str((subtopic_by_q or {}).get(q, (subtopic_by_q or {}).get(str(q), ''))), 0.0)
+    sec_map = section_of_q if isinstance(section_of_q, dict) else {}
+    def sec_of(q):
+        return str(sec_map.get(q, sec_map.get(str(q), '')))
+    out = dict(plan)
+    groups = {}
+    for q in sorted(plan, key=_qkey):
+        groups.setdefault(sec_of(q), []).append(q)
+    for _sec, qs in groups.items():
+        n_top = sum(1 for q in qs if plan[q] == top)
+        ranked = sorted(qs, key=lambda q: (-share_of(q), _qkey(q)))
+        # only a slot on a subtopic with a measured share > 0 is a target; the remaining
+        # top-band slots stay where the current spread put them (no churn among zero-share slots)
+        targets = [q for q in ranked[:n_top] if share_of(q) > 0]
+        current_top = [q for q in qs if out[q] == top]
+        for q in targets:
+            if out[q] == top:
+                continue
+            donors = [d for d in current_top if d not in targets]
+            if not donors:
+                break
+            # the donor takes q's old band; a bottom-band take must respect the qtype floor
+            old = out[q]
+            ok = [d for d in donors if old != bottom or
+                  difficulty_min_band((qtype_by_q or {}).get(d, (qtype_by_q or {}).get(str(d), 'mcq')), labs) == bottom]
+            if not ok:
+                continue
+            d = ok[0]
+            out[d], out[q] = old, top
+            current_top.remove(d)
+            current_top.append(q)
+    for _sec, qs in groups.items():
+        for lab in labs:
+            if sum(1 for q in qs if out[q] == lab) != sum(1 for q in qs if plan[q] == lab):
+                return dict(plan)                           # never change a (per-section) count
+    return out
+
+
+def mechanism_smiles_check(mechanisms_by_option, option_smiles, key_smiles):
+    """DL-45 — WARN helper: a declared distractor mechanism must agree with what the
+    option's SMILES IS next to the key (stereoisomer_* => closeness grade 3 with the matching
+    stereo kind; regioisomer => grade 2). Returns a list of WARN strings; [] when
+    consistent or unmeasurable (no RDKit / key)."""
+    cl = option_closeness(option_smiles, key_smiles)
+    if not cl or not isinstance(mechanisms_by_option, dict):
+        return []
+    want = {'stereoisomer_enantiomer': (3, 'enantiomer'), 'stereoisomer_diastereomer': (3, 'diastereomer'),
+            'stereoisomer_EZ': (3, 'EZ'), 'regioisomer': (2, None)}
+    out = []
+    for label, mech in mechanisms_by_option.items():
+        w = want.get(str(mech))
+        rec = (cl.get('per_option') or {}).get(str(label))
+        if w is None or rec is None:
+            continue
+        g, kind = w
+        if rec['grade'] != g or (kind and rec.get('stereo_kind') != kind):
+            out.append(f"option {label}: declared {mech} but its structure is {rec['name']}"
+                       f"{(' (' + str(rec.get('stereo_kind')) + ')') if rec.get('stereo_kind') else ''} next to the key")
+    return out
+
+
+def stereo_declaration_locant_check(smiles, declared):
+    """DL-49 — WARN helper (A-STEREODECL itself is unchanged): compare the declared stereo
+    descriptors (e.g. '(2R,3S)-...', 'E', 'Z') with the CIP descriptors RDKit assigns —
+    as a DESCRIPTOR MULTISET (R/S/E/Z counts), which is stricter than the count-only check
+    and needs no IUPAC numbering. Returns {'status': 'ok'|'mismatch'|'n/a', 'declared',
+    'computed'}. Never raises."""
+    Chem = _qq_rdkit()
+    if Chem is None or not isinstance(smiles, str) or not smiles.strip():
+        return {'status': 'n/a', 'declared': {}, 'computed': {}}
+    dec = {k: 0 for k in ('R', 'S', 'E', 'Z')}
+    for m in re.finditer(r'(?<![A-Za-z])(\d+[a-z]?)?\s*([RSEZ])(?![A-Za-z])', str(declared or '')):
+        dec[m.group(2)] += 1
+    if sum(dec.values()) == 0:
+        return {'status': 'n/a', 'declared': dec, 'computed': {}}
+    try:
+        mol = Chem.MolFromSmiles(smiles.strip())
+        if mol is None:
+            return {'status': 'n/a', 'declared': dec, 'computed': {}}
+        Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
+        comp = {k: 0 for k in ('R', 'S', 'E', 'Z')}
+        try:
+            cc = Chem.FindMolChiralCenters(mol, includeUnassigned=False, useLegacyImplementation=False)
+        except TypeError:
+            cc = Chem.FindMolChiralCenters(mol, includeUnassigned=False)
+        for _i, lab in cc:
+            if lab in comp:
+                comp[lab] += 1
+        SN = Chem.BondStereo
+        for b in mol.GetBonds():
+            st = b.GetStereo()
+            if st in (SN.STEREOE, SN.STEREOTRANS):
+                comp['E'] += 1
+            elif st in (SN.STEREOZ, SN.STEREOCIS):
+                comp['Z'] += 1
+    except Exception:                                       # noqa: BLE001
+        return {'status': 'n/a', 'declared': dec, 'computed': {}}
+    return {'status': 'ok' if comp == dec else 'mismatch', 'declared': dec, 'computed': comp}
+
+
+def reconcile_level(scheduled, level_status, judge_band, labels, tries_used, max_tries=MAX_DIFF_TRIES_DEFAULT):
+    """Owner D11 (A): when the Level Model is ACTIVE and agrees ('ok') with a TOP-band slot
+    but the independent judge rates the item BELOW it, spend ONE extra RETRY inside the same
+    G-DIFF budget before accepting — never a second budget, never a stop. Returns
+    {'retry': bool, 'reason'}; 'retry' is False once the budget is spent."""
+    labs = _qf_labels(labels)
+    if (not labs or scheduled != labs[-1] or level_status != 'ok' or judge_band not in labs
+            or labs.index(judge_band) >= labs.index(scheduled)):
+        return {'retry': False, 'reason': 'no disagreement to resolve'}
+    if _qf_int(tries_used) >= _qf_int(max_tries, MAX_DIFF_TRIES_DEFAULT):
+        return {'retry': False, 'reason': 'G-DIFF budget spent; judge disagreement recorded as level_note'}
+    return {'retry': True, 'reason': f'judge rated {judge_band} on a {scheduled} slot the level model accepts (D11 A: one extra retry in-budget)'}
+
 
 
 # ── Independent difficulty rating, anchored to the exam's own PYQs (exam-agnostic) ──
@@ -14626,8 +16064,70 @@ def quality_readiness(inputs, pyq_items=None):
                 out[ctl] = {'status': 'STALE', 'reason': f'{art} carries no schema version', 'remedy': remedy}
                 degraded.append(ctl)
                 continue
+        if ctl == 'G-DIFF-FLOOR' and isinstance(obj, dict):
+            # v1.32 (GAP-2026-11-05 DL-46): field presence is not readiness. The content
+            # floor / level model is ACTIVE only when the profile holds enough content-full
+            # records; otherwise it is reported DORMANT (printed, never degraded: a text-only
+            # exam has nothing to transcribe and must not be asked for a remedy).
+            n_full = sum(1 for _p in (obj.get('papers') or {}).values() if isinstance(_p, dict)
+                         for _r in (_p.get('questions') or {}).values()
+                         if isinstance(_r, dict) and _r.get('content_vector')
+                         and str(_r.get('content_confidence', 'full')).lower() == 'full')
+            if n_full == 0:
+                out[ctl] = {'status': 'N/A', 'reason': 'profile carries no transcribed content records '
+                                                      '(no drawn chemistry, or PYQExplain §13A not run with figures)',
+                            'remedy': ''}
+                continue
+            if n_full < LEVEL_MIN_POOL:
+                out[ctl] = {'status': 'DORMANT', 'reason': f'{n_full} content-full record(s) < LEVEL_MIN_POOL '
+                                                          f'{LEVEL_MIN_POOL}; level model dormant', 'remedy': ''}
+                continue
         out[ctl] = {'status': 'PASS', 'reason': '', 'remedy': ''}
     return {'controls': out, 'degraded': degraded, 'sparse': sparse}
+
+
+def difficulty_unverified_lines(readiness=None, level_model=None, n_level_items=0,
+                                judge_dormant_qs=(), hard_missed=0, step9_assessed=None,
+                                coverage=None):
+    """v1.32 (GAP-2026-11-05 Part D) — the AMBER footer lines ONE formatter writes for
+    every step (Create S13 footer, MockDeliver, DeliveryFooter §FOOTER-FT): a control that
+    could not measure SAYS SO; it never certifies silently and never blocks. Returns a list
+    of strings (possibly empty). Pure; never raises.
+      readiness        the S3-2e quality_readiness record
+      level_model      the level_model_for_scope result (or None)
+      n_level_items    items of this paper that carry drawn chemistry
+      judge_dormant_qs question numbers whose independent rating was dormant (DL-37)
+      hard_missed      items accepted below their Hard slot at R5 (D3-R5 (a))
+      step9_assessed   (k, n) assessed / gated at Step 9 (DL-53), or None
+      coverage         dp_profile_coverage(...) result, or None"""
+    lines = []
+    ctl = ((readiness or {}).get('controls') or {}) if isinstance(readiness, dict) else {}
+    fl = ctl.get('G-DIFF-FLOOR') or {}
+    n_items = _as_int(n_level_items)
+    lm = level_model if isinstance(level_model, dict) else None
+    if n_items and not (lm and lm.get('active')):
+        why = (lm or {}).get('reason') or fl.get('reason') or 'level model dormant'
+        lines.append(f"DIFFICULTY UNVERIFIED — {n_items} chemistry item(s) written without an active "
+                     f"level model ({why})")
+    elif lm and lm.get('active') and lm.get('small_pool'):
+        lines.append(f"level model: small pool n={lm.get('n')} (< {QF_CCP_MIN_POOL}); bands are "
+                     f"indicative (owner D10 B)")
+    jd = [str(q) for q in (judge_dormant_qs if isinstance(judge_dormant_qs, (list, tuple, set)) else [])]
+    if jd:
+        lines.append(f"DIFFICULTY UNVERIFIED — independent rating dormant on Q{', Q'.join(jd[:12])}"
+                     + ('…' if len(jd) > 12 else '') + ' (no exemplar with content)')
+    if _as_int(hard_missed):
+        lines.append(f"Hard target missed: {_as_int(hard_missed)} item(s) accepted at their measured band "
+                     f"after {MAX_DIFF_TRIES_DEFAULT} regeneration tries (schedule amended, D3-R5)")
+    if isinstance(step9_assessed, (list, tuple)) and len(step9_assessed) == 2:
+        k, n = _as_int(step9_assessed[0]), _as_int(step9_assessed[1])
+        if n and k / n < DIFFICULTY_GATE_MIN_ASSESSED_FRAC:
+            lines.append(f"Step 9: {k}/{n} assessed")
+    if isinstance(coverage, dict) and coverage.get('n') and coverage.get('mixed_rules'):
+        lines.append(coverage.get('line', '') + ' — mixed rubric rules; re-run PYQExplain on all '
+                     'window papers together (recommended, never required)')
+    return lines
+
 
 
 def _qq_has_key(obj, key, depth=0):
@@ -14674,7 +16174,13 @@ def quality_readiness_block(readiness):
                 seen.append(rem)
                 lines.append(f'    {len(seen)}. {rem}')
     else:
-        lines.append('  all quality inputs present — every control ACTIVE')
+        # v1.32 (DL-46): "every control ACTIVE" only when every control measured PASS;
+        # N/A / DORMANT controls are NOT active and are named, never folded into ACTIVE.
+        _na = sorted(n for n, r in ctl.items() if str(r.get('status')) != 'PASS')
+        if _na:
+            lines.append('  all quality inputs present; controls NOT measuring (N/A / DORMANT): ' + ', '.join(_na))
+        else:
+            lines.append('  all quality inputs present — every control ACTIVE')
     return '\n'.join(lines)
 
 
@@ -15874,10 +17380,15 @@ def diffdist_info(scheduled_counts, final_counts):
     return rows
 
 
-def exemplar_bank_write(cells, max_kb=EXEMPLAR_BANK_MAX_KB):
+def exemplar_bank_write(cells, max_kb=EXEMPLAR_BANK_MAX_KB, per_section=False):
     """R2.1 writer: cells = {cell_key: {band: {qtype: [exemplar, ...]}}} newest-first.
     Enforces k <= EXEMPLAR_K per leaf and the size budget by dropping OLDEST first, then
-    section-level duplicates. Returns (bank_dict, dropped_count)."""
+    section-level duplicates. Returns (bank_dict, dropped_count).
+    v1.32 (GAP-2026-11-05 DL-27): `per_section=True` makes the cap a PER-SECTION byte
+    budget — max_kb shared across the sections (a cell key's first dotted component) in
+    proportion to their leaf counts — so one section's long stems can never empty another
+    section's leaves; within a section the oldest exemplar of the largest leaf still goes
+    first. False (the default) is byte-identical to the previous behaviour."""
     bank = {'_meta': {'schema_version': 1, 'written_by': f'MockTestAnalyse {QQ_RELEASE}', 'max_kb': max_kb},
             'cells': {}}
     for cell, bands in (cells or {}).items():
@@ -15887,21 +17398,69 @@ def exemplar_bank_write(cells, max_kb=EXEMPLAR_BANK_MAX_KB):
             for qt, rows in (qtypes or {}).items():
                 bank['cells'][cell][band][qt] = list(rows or [])[:EXEMPLAR_K]
     dropped = 0
-    def _size():
-        return len(_qq_json.dumps(bank, ensure_ascii=False, default=str).encode('utf-8')) / 1024.0
-    while _size() > max_kb:
-        # drop the oldest exemplar of the largest leaf
+    def _size(cells_subset=None):
+        obj = bank if cells_subset is None else {'cells': {c: bank['cells'][c] for c in cells_subset}}
+        return len(_qq_json.dumps(obj, ensure_ascii=False, default=str).encode('utf-8')) / 1024.0
+    def _drop_largest(cell_names):
         leaf = None
-        for cell, bands in bank['cells'].items():
-            for band, qtypes in bands.items():
+        for cell in cell_names:
+            for band, qtypes in bank['cells'][cell].items():
                 for qt, rows in qtypes.items():
                     if rows and (leaf is None or len(rows) > len(leaf[3])):
                         leaf = (cell, band, qt, rows)
         if leaf is None:
-            break
+            return False
         leaf[3].pop()
+        return True
+    if per_section and bank['cells']:
+        sections = {}
+        for cell in bank['cells']:
+            sections.setdefault(str(cell).split('.')[0], []).append(cell)
+        leaves = {sec: sum(1 for c in cs for b in bank['cells'][c].values() for r in b.values() if r) for sec, cs in sections.items()}
+        tot = sum(leaves.values()) or 1
+        for sec, cs in sections.items():
+            budget = max_kb * max(leaves[sec], 1) / max(tot, 1)
+            while _size(cs) > budget:
+                if not _drop_largest(cs):
+                    break
+                dropped += 1
+        bank['_meta']['per_section_budget_kb'] = {sec: round(max_kb * max(leaves[sec], 1) / max(tot, 1), 1) for sec in sections}
+    while _size() > max_kb:
+        # drop the oldest exemplar of the largest leaf
+        if not _drop_largest(list(bank['cells'])):
+            break
         dropped += 1
     return bank, dropped
+
+
+def figural_quota_guard(quota, n_mocks, band_low):
+    """G6 (GAP-2026-11-05 DL-29): a per-mock figural quota that would place FEWER figures
+    per paper than the A-AXIS1 band low (band_low, the measured per-paper minimum the
+    auditor enforces) is withdrawn — {} — so the generator falls back to the current
+    ranking allocation instead of under-shooting a hard gate. A quota at or above the
+    band low is returned unchanged. Never raises."""
+    if not isinstance(quota, dict) or not quota:
+        return {}
+    try:
+        n = max(1, int(n_mocks or 1))
+        low = float(band_low) if band_low is not None else None
+    except (TypeError, ValueError):
+        return dict(quota)
+    tot = sum(_qf_int(v, 0) for v in quota.values())
+    if low is not None and tot / n < low:
+        return {}
+    return dict(quota)
+
+
+def quality_rule_of(quality_block, key):
+    """G5 — the provenance stamp of ONE QUALITY key ('q2' for a key new in release
+    2026.11.05, written by Step 5 as `rule.<key>: q2`), or None for an unstamped (pre-
+    existing) key. A QQ gate whose FAIL rests on a stamped key emits WARN instead."""
+    qb = quality_block if isinstance(quality_block, dict) else {}
+    v = qb.get(f'rule.{key}')
+    if v is None and isinstance(qb.get('rules'), dict):
+        v = qb['rules'].get(key)
+    return str(v).strip().lower() if v else None
 
 
 # ── G12 — REVIEW PACKET / VERDICT BINDING / CERTIFICATE (OD-5 (a), OD-9 (a)) ─────

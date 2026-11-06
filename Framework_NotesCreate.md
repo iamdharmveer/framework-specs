@@ -1,4 +1,13 @@
-# Framework_NotesCreate v2.10.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.11.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.11.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
+#   v1.32, notes_core v2.14, notes_audit v2.11, Framework_NotesAudit v3.9.0; guards G1, G10,
+#   S13). §4 B7a R-10 (2): practice items are authored under rubric rule r2
+#   (notes_core.recall_authoring_profile(..., rule=blueprint_core.RUBRIC_RULE_CURRENT); difficulty_obs
+#   carries inferential_steps + rubric_rule); the Level Model never applies to Notes. R-10
+#   (3): after six re-authorings the item is accepted at its MEASURED band and recorded
+#   `accepted_at_measured: true` (the hard stop is retired — an additive softening of an
+#   existing stop, guard S13); the §9 line names each such item. Older units are judged
+#   under r1 exactly as before.
 # v2.10.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
 #   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
 #   Framework_NotesAudit v3.8.0 §5 G-2b/G-2c/G-3). THE DEFECT: §6 F-3(b) defined "flat
@@ -507,21 +516,34 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
                 basis of EVERY item is reported in the §9 chat line, so a
                 fallback is disclosed, never silent (owner O-5).
             (2) DEFINITION. The Recall is authored to
-                  notes_core.recall_authoring_profile(band, qtype, labels)
-                — the observation targets that make the SHARED rubric
+                  notes_core.recall_authoring_profile(band, qtype, labels,
+                                                      rule=blueprint_core.RUBRIC_RULE_CURRENT)
+                (v2.11.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part B: rubric
+                rule r2 — inferential MOVES by blueprint_core.INFERENTIAL_STEP_RULE, the
+                same unit PYQExplain §7A and Create CHECK 3c count) — the
+                observation targets that make the SHARED rubric
                 (blueprint_core.assess_difficulty, the definition of a label
                 on every pipeline) land in the band — and its derivation is
                 recorded as difficulty_obs (question_class, deduction_steps,
+                inferential_steps, rubric_rule = blueprint_core.RUBRIC_RULE_CURRENT,
                 axiom_concepts, speed_hack_exists, is_negative, qtype), the
-                Step-7 CHECK 3c shape.
+                Step-7 CHECK 3c shape. Notes items carry no transcribed option
+                structures, so the Level Model (Part C) never applies to them —
+                the rubric is the whole definition here (DL-59).
             (3) ACCEPT/REJECT. notes_core.recall_verify_difficulty(band, obs,
-                labels) must agree — up to six re-authorings, then that ONE
-                item HARD STOPS the run with the measured band named; a label
-                the evidence contradicts never ships and is never silently
-                relabelled. NA G-14 re-runs the identical check on the shipped
-                set. DRIFT-TO-EASY is the failure this closes: a stem that
-                announces the method the real question made the student
-                recognise scores below its band and is rewritten.
+                labels) must agree (it judges under the obs's own rule — an
+                older unit's items stay r1, guard G1) — up to six re-authorings;
+                v2.11.0 (DL-59, guard G10): after the sixth try the item is
+                ACCEPTED AT ITS MEASURED BAND, its difficulty_band is set to that
+                band, it is recorded `accepted_at_measured: true`, and the §9
+                chat line names it ("accepted at measured band: Recall k
+                (<band>, scheduled <band>)"). The former HARD STOP is retired —
+                a label the evidence contradicts STILL never ships (the label
+                now follows the evidence) and nothing is silently relabelled.
+                NA G-14 R-10 recognises the stamp on all three of its legs. DRIFT-
+                TO-EASY is the failure this closes: a stem that announces the
+                method the real question made the student recognise scores below
+                its band and is rewritten.
             EXAM-WIDE MIX — when the profile is present, the whole set's band
             counts are checked against the exam's measured paper-level mix by
             notes_core.recall_exam_mix_check(bands, rtarget) (largest
@@ -558,7 +580,10 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       partner subtopic's manifest scope), concept_tags, is_near_miss,
       reads_figure ("n.k" or null), trap_refs, difficulty_band,
       difficulty_basis, difficulty_obs, anchor_bank_id (the PYQ whose
-      structure it mirrors; §3 bank-and-registry-only like every anchor).
+      structure it mirrors; §3 bank-and-registry-only like every anchor),
+      and accepted_at_measured (v2.11.0: true ONLY on an item accepted at its
+      measured band after its six tries; absent otherwise — NA G-14 R-10
+      reads it from the registry; notes_docx never renders or rejects it).
       notes_docx.validate_model enforces R-1, R-6, R-7, R-8, R-12 (its
       section-count trigger; the bank trigger is G-14's) and the field
       shape at construction whenever ANY Recall block carries the fields; a
@@ -881,7 +906,8 @@ v2.9.0: NC ALSO records
 where items is the §4 B7a field set of every Recall block in DOCUMENT ORDER
 (j = 1-based position; concept_ref, scope, partner, concept_tags,
 is_near_miss, reads_figure, trap_refs, difficulty_band, difficulty_basis,
-difficulty_obs, anchor_bank_id). The DOCUMENT never carries these (§7 / F-6),
+difficulty_obs, anchor_bank_id, and — v2.11.0 — accepted_at_measured when the
+item carries it). The DOCUMENT never carries these (§7 / F-6),
 so the registry is the ONLY place NA G-14 can read the author's declarations
 — exactly as draft_ref is the only chain to the attachment. A unit whose
 record is absent (a draft built before v2.9.0) leaves G-14 DORMANT (reported)
@@ -891,4 +917,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.10.0
+# END OF Framework_NotesCreate v2.11.0

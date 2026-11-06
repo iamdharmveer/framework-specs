@@ -1,5 +1,162 @@
 # Changelog
 
+## 2026.11.05 — GAP-2026-11-05-DIFFICULTY-FIDELITY: a band is bound to the CONTENT of the exam's own questions, every control that cannot measure says so, and nothing new stops a run
+(blueprint_core v1.32 — Cluster L1 CHEMISTRY LEVEL MODEL + versioned rules r2 / L1 / m2 / s2 / w2;
+audit_canonical v2.37 (A-LEVEL, A-FIGCOMPLEX, A-CLOSENESS, A-AXIS2 — WARN only; A-QINDEX check 8
+rule-aware; A-DGATE / A-DIFFSRC / A-DPROFILE coverage); analyse_engine v1.3; figure_types v1.3;
+figural_vision (zoom tiles, engine-set transcription confidence); paper_pipeline v5.40 (window
+rule w2 + Step 9 coverage); final_assembly v1.14; notes_core v2.14; notes_audit v2.11;
+handshake_audit 79 checks (H3 §7-9 / S8-2e, H4 S3-12e); PYQExplain v2.27, MockTestAnalyse v2.60.0,
+Blueprint v1.64.0, ScopedBlueprint v1.14.0, MockTestCreate v5.92, MockReview v2.0.1,
+MockTestExplain v1.53.0, MockDeliver v1.26.0, DeliveryFooter v1.40.0, NotesCreate v2.11.0,
+NotesAudit v3.9.0; STEP_CONTRACTS.json override floors raised (owner D8 A). PYQPrepare,
+corpus_io, explain_engine and every symbol PYQPrepare names are byte-identical (owner P1).)
+Raised by CSIR_NET_CHEMICALSCIENCES `TestCreate SUBJ Organic Chemistry Test 01` (2026-11-03):
+40/40 correct against a real paper that is nowhere near that easy. Its "Hard" items were one-step
+textbook reactions (Beckmann, Rosenmund, NaBH4) while the real Hard items (Dec-2025 Q95/Q114,
+Jul-2026 Q88/Q116) carry polycyclic stereodefined substrates and wrong options differing only in
+stereo- or regiochemistry. Every control that should have caught it failed OPEN: the blind judge
+was dormant and echoed the plan, the content floor was dormant and lower-only, the footer was green.
+
+**Owner decisions (2026-11-04/05, binding).** D1 — the ground truth for a past question's band is
+its COMPLEXITY RANKING within its own exam (D1-CUTS A: cut points at the measured share;
+D1-PRE B: re-running PYQExplain is recommended, never required). D2 — a subject test is written
+to the measured tier mix of its scope. D3 — produce Hard exactly as the blueprint writes it;
+D3-R5 (A): after the 6 tries an item ships at its measured band, the schedule is amended and the
+footer counts the miss. D4 — no certification gating, no manual review. D6/D7 — one release,
+every exam. D8 (A) — override floors raised for all edited contract specs. D9 (A) — this release
+= drawn chemistry + estate-wide guards; the non-chemistry figure families are a FOLLOW-UP GAP.
+D10 (B) — LEVEL_MIN_POOL 12 with a small-pool footer line (CCP keeps 20). D11 (A) — judge-vs-level
+disagreement on a Hard slot spends ONE extra retry inside the same budget. D12 (A) — staged
+build, one bundle. F1 — the graphics-team Row docx is the figure source. F2 — no official key.
+P1 — PYQPrepare untouched.
+
+**What changed.**
+- *Rubric r2 (every exam, guard G1).* `difficulty_score(..., rule)`: class baselines
+  CLASS_BASELINE_R2, the steps term counts INFERENTIAL MOVES under ONE counting rule
+  (`bc.INFERENTIAL_STEP_RULE`, quoted verbatim in PYQExplain §7A-2 and Create CHECK 3c),
+  'flagged' adds 0. The DEFAULT stays r1: a legacy obs (no rule) scores byte-identically
+  forever (`rubric_rule_of`, `inferential_steps_of` legacy mapping = deduction_steps−1). Every
+  reader (verify_difficulty_obs, A-QINDEX check 8, R-10, Step 9 §7A-M, notes_core) re-scores
+  UNDER THE RULE THE OBS CARRIES.
+- *Chemistry Level Model L1 (Part C).* For an item carrying drawn chemistry (STRUCTURE /
+  REACTION objects, content_confidence full) the band is its position in the complexity ranking
+  of the exam's own window records: LEVEL_FIELDS = content vector + option CLOSENESS (InChI
+  layers: stereo 3 / regio 2 / constitutional 1 / non-isomer 0, DL-44) + the r2 reasoning score
+  + the READ-TIME method tier (`build_method_lexicon`, inverse PYQ frequency, DL-38). ONE
+  builder — `level_model_for_scope` — serves Step 5, Create S3, A-LEVEL and Step 9 (cuts can never
+  differ, DL-21); cascade scope → topic → section → paper at the first level holding ≥
+  LEVEL_MIN_POOL (12) records. `level_check` reads BOTH directions (DL-41); `level_record`
+  keeps the composite at full precision; `reconcile_level` is D11 (A); `band_subtopic_plan`
+  ties the top band to subtopics with a measured share (DL-33); `hard_supply_record` is advisory
+  (DL-31). dp_add_paper now stores reagents_seen, closeness and the level vector (record v2).
+- *PYQExplain v2.27.* §7A r2 authoring; §13A P2a VISIBLE-ONLY transcription with zoom tiles
+  (DL-07) and the engine-set transcription confidence (DL-19); option SMILES per role, ask
+  format, content_source; RE-16 derived answer; D4 web-verify tie-break; no human consumer.
+- *MockTestAnalyse v2.60.0 / analyse_engine v1.3.* Paper+question join (DL-25), ISO sort, list-
+  safe stems, level-banded content-carrying exemplar rows with per-section bank budget, QUALITY
+  keys figure_complexity_pct / closeness_pct / ask_format_shares stamped `rule.<key>: q2` (G5),
+  distractor_mix measured from closeness (DL-23), subtopic_id stamp after minting (DL-29).
+- *Blueprint v1.64.0 / ScopedBlueprint v1.14.0.* difficulty_source records mix_rule (m1 for a
+  full paper; m2 pooled counts + optional --tier for a scoped series, DL-21/32) and prints the
+  profile coverage line; shape targets stamp shape_rule s1 (G4); NEW §7-9 / S8-2e write
+  axis2_format_floor_per_paper (DL-34), level_targets (DL-36), hard_share_by_subtopic (DL-33)
+  and hard_supply (DL-31) — informational / WARN-only consumers only; a RATIO mode outside the
+  guardrail is AMBER, never CONFIRM (DL-35).
+- *MockTestCreate v5.92.* S3 builds LEVEL_MODEL + METHOD_LEXICON beside CCP_MODEL and persists
+  DIFFICULTY_STATE with batch_state; S3-2e readiness MEASURES the content floor (DL-46); S3-12d
+  plans s1 targets only; S3-12e places top-band slots by measured subtopic share and binds the
+  ask-format floors; CHECK 3c authors under r2 and takes the LEVEL PATH (b1) for drawn
+  chemistry — level_check both ways, no final_band_decision — with ONE budget
+  (bc.MAX_DIFF_TRIES_DEFAULT = 6) for rubric, level and D11 retries and an escalating brief;
+  judge DORMANT on a figural-chemistry snippet fallback (DL-37); g_diff_gate only with a plan
+  (DL-39); R2 gains complexity / closeness reject reasons (DL-47), R4' re-measures the vector
+  after a layout-only repair (DL-43/58), two-row option layout before R4' (DL-48), R5 counts a
+  Hard miss (D3-R5 a); S7-NEW-B defaults figural_reducible False for chemistry families (DL-50)
+  and withdraws a figural quota below the A-AXIS1 band low (G6); S13-2G phase 3 compares the
+  reviewer's band with the slot band (DL-52); S13-6 AMBER lines from
+  bc.difficulty_unverified_lines.
+- *MockTestExplain v1.53.0 / paper_pipeline v5.40.* §7A-M runs on EVERY paper (scoped included)
+  under window rule w2 (allowance over assessed items; 'harder' only), stamps window_rule +
+  assessed_frac, and the footer says `Step 9: k/n assessed` below 80 % coverage (DL-53).
+- *MockDeliver v1.26.0 / DeliveryFooter v1.40.0.* §FOOTER-FT difficulty disclosure lines
+  (`DIFFICULTY UNVERIFIED — <reason>`, `Hard target missed: k item(s)`, coverage, small pool) —
+  informational; the two-file contract and every end state are unchanged (MS-27).
+- *Notes (NotesCreate v2.11.0, NotesAudit v3.9.0, notes_core v2.14, notes_audit v2.11).* Recall
+  items author under r2; R-10 honours accepted_at_measured in three legs (DL-59).
+- *Auditor v2.37.* Four WARN-only gates (A-LEVEL re-measures every level record against the
+  rebuilt model; A-FIGCOMPLEX; A-CLOSENESS top-band closeness vs the PYQ median; A-AXIS2 format
+  floors); a FAIL resting on a q2-stamped QUALITY key degrades to WARN (G5); A-SHAPEMIX ignores
+  s2 targets; A-DGATE low-coverage WARN; A-DIFFSRC ratio guardrail WARN. QQ_GATE_IDS unchanged.
+- *Governance.* STEP_CONTRACTS.json override floors (D8 A). No new law, trigger, deliverable,
+  end state or user action; no new run-stop of any class (guards S1-S13, G1-G10).
+
+**Chemistry acceptance test (edit plan §4), run on the two attached Row papers.** P2a
+transcriptions of every figure-bearing organic item with structure options (Dec-2025: 11,
+Jul-2026: 19; 30/30 content-full, 28 with closeness). level_model_for_scope over Organic
+Chemistry: active, n=30 at scope level, measured mix m2 Easy 0 / Medium 37 / Hard 63, cut 43.8.
+Dec Q95 / Q114 and Jul Q88 / Q116 → Hard (composites 53.5 / 68.9 / 59.7 / 62.0). The Test 01
+Beckmann / Rosenmund / NaBH4 items re-authored as fixtures → Medium (31.5 / 23.1 / 26.6; against a
+Hard slot level_check = 'below'). Test-02 Hard fixtures with one-decision distractors: closeness
+3.0 ≥ PYQ Hard median 1.0. A-LEVEL re-measures 30/30 against the rebuilt model with no WARN;
+A-CLOSENESS 1.16 ≥ 0.67. Footer lines render for a dormant judge, a Hard miss and 30/40 Step-9
+coverage. Rubric-band vs level-band agreement 25/30 (the pool is two papers; the cuts move
+with the exam's own measured share, by design — D1-CUTS A).
+
+**Final pre-deploy review (line-by-line, 2026-11-05).** Blueprint §7-9 (e) / ScopedBlueprint
+S8-2e (e) record `level_model_inputs` (scope ids, window gap, mix rule, tier, measured shares,
+labels) and Create S3 + A-LEVEL build the level model from THAT record (an older blueprint falls
+back to difficulty_source / subtopic_list in both) — the auditor had derived the scope from the
+paper's concept_map and would have WARNed on cuts that legitimately differed. Create:
+DIFFICULTY_STATE / PROFILE_COVERAGE are defined for every paper (a dormant difficulty plan
+would have hit NameError at S3-16 — a new stop); the level model's state travels in
+DIFFICULTY_STATE and S13-6 / MockDeliver 3f' read the persisted record (a resumed Final
+Assembly or Deliver would otherwise have printed "level model dormant" for an active model);
+the D11 extra retry is exactly one (`diff_tries['<q>:d11']`). ScopedBlueprint: `--tier` is
+validated against exam_config sections ([HS:INPUT], reachable only by typing the new flag).
+MockTestAnalyse: the level model is built from the loaded profile object (a `globals()` lookup
+inside run_synthesise never resolved — exemplars would silently have kept their stored band);
+the date-only paper join is refused when two sessions share a date. Engines:
+`band_subtopic_plan` targets only positive-share slots (no churn among zero-share slots);
+`ccp_model` / `level_model` / `level_check` / `dp_marks_of` / `reagent_names_of` /
+`closeness_mechanism_tokens` / `level_band_from` / `_l1_window_records` / `dp_profile_coverage`
+/ `difficulty_unverified_lines` / `difficulty_obs_signature_text` guard malformed inputs
+(fuzzed with junk); dead code removed.
+
+**Input/output handshake review (2026-11-05, every producer/consumer pair; two passes).** Three
+independent checks: a key matrix (every new key has a writer and a reader in the right step),
+an end-to-end chain (Analyse -> Blueprint -> Create -> auditor -> Deliver, 47 checks on
+synthetic data) and a cold reviewer. Fixed: (1) Create records the EXACT level-model inputs in
+`difficulty_state.level_model.inputs` and A-LEVEL / A-CLOSENESS rebuild from that record first,
+so generator and auditor can never use different windows or scopes; (2) A-CLOSENESS takes its
+PYQ top band from the same rebuilt model; (3) `band_subtopic_plan` swaps only inside a section
+(a cross-section swap would have broken the per-section counts R5 reads), and S3-12e builds the
+section map from `bp['sections']` itself, never from a global of an earlier block (found by the
+handshake self-test); (4) every chemistry item counts toward `n_level_items` even while the
+model is dormant, so the `DIFFICULTY UNVERIFIED` line is printed when it should be; (5) CHECK 3c
+(b1) names where each input comes from and passes the closeness record (or its mean); (6) the
+S13-2G phase 3 labels persist in batch_state (a resumed review has no blueprint) and the
+reviewer's canonical easy/medium/hard words map positionally onto custom labels; (7)
+A-READINESS names every control that is not measuring and never says "every control ACTIVE"
+when one is DORMANT / N/A; (8) a registry-only audit sees `difficulty_obs` (A-LEVEL was dormant
+without a sidecar); (9) Step 5 reads the level-model window from the exam_config.json that
+run_synthesise itself loaded (the earlier read raised UnboundLocalError when no exam_config was
+present and silently kept every stored band); (10) Blueprint / ScopedBlueprint pass the window
+and tier to `hard_supply_record`; (11) NotesCreate lists `accepted_at_measured` in the model
+and registry field sets; (12) second cold review: S3-12e keeps swaps inside the sections the
+plan was BUILT on (PLAN_SECTIONS — the blueprint's, or exam_config's for a pre-v1.57 blueprint;
+[] for a paper-wide plan), a q_range that is not two integers maps no slot instead of raising,
+a pre-v5.92 batch_state resumes with the blueprint's labels, and ScopedBlueprint counts the
+hard supply with the SAME inputs it records in LEVEL_MODEL_INPUTS (mix rule, tier, measured
+shares — on the acceptance profile m1 vs m2 gives 16 vs 9 Hard). Every fix has a fixture that
+fails on the defect, or was run on the spec's own code with edge inputs (each mutated by
+hand); mutation: gate_level / gate_readiness / gate_pyqbench 100 %, analyse_engine within
+budget. Fixtures: blueprint_core 991, audit_canonical 577, analyse_engine 304, handshake 79.
+PYQPrepare freeze re-verified: spec + all 52 engine symbols byte-identical to 8ff6aa5.
+
+**Follow-up (owner D9).** Non-chemistry figure families (biology, data, physics_graph, geometry,
+reasoning) keep rubric r2 + the independent judge; a Level Model for them is a separate GAP.
+
 ## 2026.11.04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE: Step 7 ends with exactly the paper and the registry again, the independent review runs inside the run, and an unmeasured control can never make a paper NOT CERTIFIED
 (blueprint_core v1.31, audit_canonical v2.36, final_assembly v1.13, mock_sync_audit MS-27,
 audit_sync step_contract_spec, handshake_audit H5-LEGACY / H6 rewritten / H7 D5,

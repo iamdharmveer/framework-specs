@@ -1,5 +1,16 @@
 """
-notes_audit.py v2.10 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.11 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.11 — 2026-11-05 — R-10 THREE LEGS (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-59, guard G10;
+    pairs with blueprint_core v1.32, notes_core v2.14, Framework_NotesCreate v2.11.0,
+    Framework_NotesAudit v3.9.0). An item NotesCreate accepted at its MEASURED band after
+    its six tries carries `accepted_at_measured: true`: leg (1) the evidence-ladder finding
+    is suppressed when leg (2) agrees and the basis is counted as 'accepted_at_measured';
+    leg (2) declared == measured under the obs's own rubric rule is UNCHANGED (never
+    excused); leg (3) the exam-mix check is re-run with each accepted item's band replaced
+    by its ladder band — a shortfall that only the acceptances caused becomes the advisory
+    meta line `exam_mix_shortfall`, any other stays a finding. Old units (no stamp) are
+    judged exactly as before; r1 obs stay r1 (G1).
 
 v2.10 — 2026-09-23 — G-2c/G-3 PLUMBING (GAP-2026-09-23-FLAT-MATH-NOTATION; pairs
     with notes_core v2.13, notes_docx v1.8, Framework_NotesAudit v3.8.0 §5
@@ -1334,21 +1345,36 @@ def gate_recall_contract(model, target, meta):
                             f"interleave (NC §4 B7a R-8)")
     # R-10 difficulty — the ONE resolver, then the shared rubric
     bases, rubric_dormant, bands = {}, [], []
+    # v2.11 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-59, guard G10): R-10 has THREE legs and
+    # an item NotesCreate accepted at its MEASURED band after its 6 tries
+    # (`accepted_at_measured: true`) is recognised by all three — (1) the evidence-ladder
+    # finding is suppressed when leg (2) agrees, and the basis is counted as
+    # 'accepted_at_measured'; (2) declared == measured under the obs's own rule is UNCHANGED;
+    # (3) the exam-mix check is re-run with each accepted item's band replaced by its ladder
+    # band — when that clean run has no finding, the real run's findings become the advisory
+    # meta line 'exam_mix_shortfall', otherwise they stay findings.
+    exp_bands, accepted_idx = [], []
     for j, d in enumerate(merged, 1):
         exp_band, basis = notes_core.recall_expected_band(
             target, d.get("concept_tags") or (), bool(d.get("is_near_miss")), d["qtype"],
             scope=d.get("scope"), partner=d.get("partner"))
-        bases[basis] = bases.get(basis, 0) + 1
+        exp_bands.append(exp_band)
         declared = d.get("difficulty_band")
         if not isinstance(declared, str):
             declared = str(declared)             # junk is compared as text and fails honestly
         bands.append(declared)
-        if declared != exp_band:
+        ok_r, measured, dormant = notes_core.recall_verify_difficulty(
+            declared, d.get("difficulty_obs"), labels)
+        accepted = bool(d.get("accepted_at_measured")) and not dormant and bool(ok_r)
+        if accepted:
+            accepted_idx.append(j - 1)
+            bases["accepted_at_measured"] = bases.get("accepted_at_measured", 0) + 1
+        else:
+            bases[basis] = bases.get(basis, 0) + 1
+        if declared != exp_band and not accepted:
             findings.append(f"Recall {j} declares band {declared!r} but the evidence "
                             f"ladder resolves {exp_band!r} on the {basis} rung "
                             f"(notes_core.recall_expected_band; NC §4 B7a R-10)")
-        ok_r, measured, dormant = notes_core.recall_verify_difficulty(
-            declared, d.get("difficulty_obs"), labels)
         if dormant:
             rubric_dormant.append(j)
         elif not ok_r:
@@ -1357,6 +1383,15 @@ def gate_recall_contract(model, target, meta):
                             f"(notes_core.recall_verify_difficulty; NC §4 B7a R-10) — "
                             f"a label the evidence contradicts never ships")
     mix_findings, mix_expected = notes_core.recall_exam_mix_check(bands, target)
+    exam_mix_shortfall = []
+    if mix_findings and accepted_idx:
+        _clean_bands = list(bands)
+        for i in accepted_idx:
+            _clean_bands[i] = exp_bands[i]
+        _clean_findings, _ = notes_core.recall_exam_mix_check(_clean_bands, target)
+        if not _clean_findings:
+            exam_mix_shortfall = list(mix_findings)      # advisory: caused only by R5 acceptances
+            mix_findings = []
     findings.extend(mix_findings)
     # R-9 provenance is advisory
     no_trap = [j for j, d in enumerate(merged, 1)
@@ -1372,6 +1407,8 @@ def gate_recall_contract(model, target, meta):
                 "no_trap_provenance": no_trap,
                 "ceiling_unattainable": over_unattainable,
                 "exam_mix_expected": mix_expected,
+                "exam_mix_shortfall": exam_mix_shortfall,
+                "accepted_at_measured_items": [i + 1 for i in accepted_idx],
                 "profile_present": bool(target.get("profile_present"))}
     return (not findings, findings, out_meta)
 
@@ -2176,6 +2213,46 @@ def self_test():
     check("G-14 R-10 catches a label the shared rubric contradicts",
           has(bad14(items_mut=lambda it: it[2].update(difficulty_obs=obs_med)),
               "measures 'Medium' on the shared rubric"))
+    # v2.11 (GAP-2026-11-05 DL-59 / G10): accepted_at_measured recognised by all three R-10 legs
+    def _r10(items_mut=None, target_mut=None):
+        it = copy.deepcopy(rc_items); tg = copy.deepcopy(rc_target)
+        if items_mut: items_mut(it)
+        if target_mut: target_mut(tg)
+        return gate_recall_contract(copy.deepcopy(mrc), tg, {"items": it})
+    _acc = _r10(items_mut=lambda it: it[0].update(difficulty_band="Hard", difficulty_obs=obs_hard,
+                                                   accepted_at_measured=True))
+    check("G-14 R-10 leg 1: an item accepted at its measured band (leg 2 ok) raises no ladder finding "
+          "and is counted on the accepted_at_measured basis",
+          not any("resolves 'Medium' on the concept rung" in x for x in _acc[1])
+          and _acc[2]["basis_distribution"].get("accepted_at_measured") == 1
+          and _acc[2]["accepted_at_measured_items"] == [1])
+    check("G-14 R-10 leg 2 unchanged: accepted_at_measured never excuses a label the rubric contradicts",
+          has(bad14(items_mut=lambda it: it[2].update(difficulty_obs=obs_med, accepted_at_measured=True)),
+              "measures 'Medium' on the shared rubric"))
+    check("G-14 R-10 leg 2: a label the rubric contradicts also keeps its ladder finding (no suppression)",
+          has(bad14(items_mut=lambda it: it[0].update(difficulty_band="Hard", difficulty_obs=obs_med,
+                                                      accepted_at_measured=True)),
+              "resolves 'Medium' on the concept rung"))
+    _mix_tg = lambda tg: tg.update(difficulty_exam={"band": "Easy", "count": 9,
+                                                   "pct": {"Easy": 100.0, "Medium": 0.0, "Hard": 0.0}})
+    _mix_real = _r10(target_mut=_mix_tg)
+    # ladder bands M, M, H, M; items 1 and 2 accepted at measured Hard -> H, H, H, M; the exam
+    # mix 75/25 expects 3 M + 1 H, so the real run finds a shortfall and the clean run is silent
+    _mix_acc = _r10(items_mut=lambda it: (it[0].update(difficulty_band="Hard", difficulty_obs=obs_hard, accepted_at_measured=True),
+                                          it[1].update(difficulty_band="Hard", difficulty_obs=obs_hard, accepted_at_measured=True)),
+                    target_mut=lambda tg: tg.update(difficulty_exam={"band": "Medium", "count": 9,
+                                                                     "pct": {"Easy": 0.0, "Medium": 75.0, "Hard": 25.0}}))
+    check("G-14 R-10 leg 3: an exam-mix finding caused ONLY by accepted items becomes advisory meta "
+          "exam_mix_shortfall; without accepted items it stays a finding",
+          any("measured mix expects" in x for x in _mix_real[1]) and _mix_real[2]["exam_mix_shortfall"] == []
+          and not any("measured mix expects" in x for x in _mix_acc[1])
+          and any("measured mix expects" in x for x in _mix_acc[2]["exam_mix_shortfall"])
+          and _mix_acc[2]["accepted_at_measured_items"] == [1, 2])
+    check("G-14 R-10 leg 3: an exam-mix shortfall that the clean run still shows stays a finding",
+          has(bad14(items_mut=lambda it: it[0].update(accepted_at_measured=True),
+                    target_mut=lambda tg: tg.update(difficulty_exam={"band": "Hard", "count": 9,
+                                                                     "pct": {"Easy": 0.0, "Medium": 0.0, "Hard": 100.0}})),
+              "measured mix expects"))
     check("G-14 reports a rubric fall-through as ADVISORY meta, not a finding",
           (lambda res: res[0] is True and res[2]["rubric_dormant_items"] == [1])(
               gate_recall_contract(mrc, rc_target,

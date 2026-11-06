@@ -1,4 +1,9 @@
-# Framework_MockReview v2.0.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# Framework_MockReview v2.0.1 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# v2.0.1 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-52 (paired with MockTestCreate
+#   v5.92). Brief-only: difficulty_band_with_exemplar is now consumed by Create S13-2G phase 3
+#   (compared with the slot band; "below" on a Hard slot → bounded R2 repair, residue a
+#   level_note). Reviewer isolation is unchanged — the packet carries no band, no
+#   difficulty_obs and no level record (handshake H6).
 # v2.0.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0 — OD-5
 #   restated, D1, D2 (a), D4; paired with MockTestCreate v5.91 S13-2G, blueprint_core v1.31,
 #   audit_canonical v2.36 A-REVIEW, DeliveryFooter v1.39.0). This file is NO LONGER a user
@@ -163,7 +168,16 @@
   #                                  the band the item SITS in next to the real PYQ of its
   #                                  cell; "no exemplar for this cell" when the slice is
   #                                  empty (then confidence "low" for this field only is
-  #                                  acceptable; do not invent a benchmark).
+  #                                  acceptable; do not invent a benchmark). v2.0.1
+  #                                  (GAP-2026-11-05 DL-52): this field HAS a consumer —
+  #                                  Create S13-2G phase 3 compares it with the slot's
+  #                                  scheduled band (the packet still carries NO band,
+  #                                  NO difficulty_obs, NO level record — the reviewer
+  #                                  never sees the schedule); "below" on a Hard slot is
+  #                                  a round-1 R2 repair inside the item's existing
+  #                                  G-DIFF budget, the residue a level_note. Judge from
+  #                                  the exemplar's CONTENT (structures, options, key),
+  #                                  never from its length.
   #   distractor_existence_and_class: for EACH wrong option, one clause: "<label>: <real
   #                                  species/value of the same class, wrong because ...>" or
   #                                  "<label>: NOT a credible distractor (<impossible
@@ -268,4 +282,4 @@
   [ ] 5. bc.bind_review_verdicts on the file reports ok (S3-1).
   [ ] 6. verdicts.json written INSIDE WORK; nothing presented, nothing asked of the user (S3-2).
 
-# END OF Framework_MockReview v2.0.0
+# END OF Framework_MockReview v2.0.1

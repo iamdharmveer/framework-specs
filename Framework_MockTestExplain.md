@@ -1,4 +1,22 @@
-# Framework_MockTestExplain v1.52.0
+# Framework_MockTestExplain v1.53.0
+# v1.53.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
+#   v1.32, paper_pipeline v5.40, audit_canonical v2.37, MockTestCreate v5.92, DeliveryFooter
+#   v1.40.0). §7A-M: (1) the gate runs for EVERY paper — the MOCK-ONLY dormancy
+#   ('scoped_paper') is lifted; a scoped paper (born DORMANT/scoped_paper) is evaluated and
+#   written ONLY PASSED or DISCLOSED (guard S9); (2) WINDOW RULE w2
+#   (bc.DIFFICULTY_GATE_BAND_WINDOWS_W2 = authoring bands; allowance over ASSESSED items,
+#   'harder' disagreements only) is SELECTED by bc.difficulty_gate_window_rule from the
+#   paper's own obs (r2 / level record = born under this release) — never typed; every
+#   older paper stays on w1 byte-for-byte (guard G8); the writer stamps window_rule and the
+#   coverage (assessed_frac / assessed_count / gated_count; gate_rule stays 'windows');
+#   (3) the re-derivation obs copies rubric_rule from question_index, records
+#   inferential_steps and derivation_confidence, and is scored by
+#   bc.difficulty_score_from_obs under its own rule (a positional difficulty_score call
+#   would re-score an r2 item under r1); a level item's measure is its clamped level band
+#   with scores_by_q[q] = None for that item only; (4) `_score9 or None` is corrected to
+#   `None if _score9 is None else _score9` (a valid 0 was "not measurable"); (5) coverage
+#   under 80 % assessed (including 0) writes the verdict as computed and the footer prints
+#   `Step 9: k/n assessed` — a "not assessed" DISCLOSED is never written. No new stop.
 # v1.52.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
 #   explain_engine v2.12, figural_core v5.89, corpus_io v1.17, MockTestCreate v5.89).
 #   Explanation structures are drawn print-true at the paper's problem tokens with the
@@ -1792,7 +1810,7 @@ execution path — it does not shrink, soften or delete them.
   (§17-3b, v1.40.0). key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
-## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE; v1.44.0 — SINGLE-WRITER RECORD; v1.45.0 — ACCEPTANCE WINDOWS)
+## §7A-M — DIFFICULTY GATE (EVERY PAPER — v1.53.0 lifts MOCK-ONLY; v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE; v1.44.0 — SINGLE-WRITER RECORD; v1.45.0 — ACCEPTANCE WINDOWS; v1.53.0 — WINDOW RULE w2)
 
   WAS advisory ("REPORT, NEVER BLOCK — THE STICKER WINS") until v1.42.0
   (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING). The v5.60 defect residue: Step 7
@@ -1823,6 +1841,20 @@ execution path — it does not shrink, soften or delete them.
                     no float drift: 18 middle → allows 6, not met at 7 ·
                     36 top → allows 12, not met at 13)
     windows        bc.DIFFICULTY_GATE_BAND_WINDOWS = (None, (2, 6), (5, None))
+                   — WINDOW RULE w1, every paper written before 2026.11.05.
+                   v1.53.0 (GAP-2026-11-05-DIFFICULTY-FIDELITY DL-53, guard G8):
+                   a paper BORN UNDER that release — any question_index entry whose
+                   difficulty_obs carries rubric_rule 'r2' or a level record, and
+                   nothing else marks it — is gated under WINDOW RULE w2:
+                   bc.DIFFICULTY_GATE_BAND_WINDOWS_W2 = (None, (3, 5), (6, None)),
+                   i.e. the authoring bands themselves; the allowance is computed
+                   over the ASSESSED items of the band and ONLY 'harder'
+                   disagreements (measured BELOW the window) count toward it —
+                   slack on the easy side only; an 'easier' disagreement is
+                   printed in the verdict box and never counted. The rule is
+                   SELECTED by bc.difficulty_gate_window_rule(difficulty_obs_by_q)
+                   — never typed, never passed inline — and the writer stamps it
+                   on the record (rec['window_rule']); gate_rule stays 'windows'.
                    indexed by band POSITION in blueprint difficulty_labels
                    (0 bottom · 1 middle · 2 top) — the same rule for every
                    label vocabulary across ~200 exams:
@@ -1880,12 +1912,25 @@ execution path — it does not shrink, soften or delete them.
 
   MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
   derive-twice pass revealed, in the SAME observation shape Step 7 stores as
-  difficulty_obs (CHECK 3c is the single source for the shape); compute
-    _score9 = bc.difficulty_score(question_class, deduction_steps,
-                                  axiom_concepts, speed_hack_exists,
-                                  derivation_confidence per §7-1 agreement,
-                                  is_negative, qtype)          # int 0..12
+  difficulty_obs (CHECK 3c is the single source for the shape). v1.53.0: the
+  re-derivation obs COPIES rubric_rule from question_index[q].difficulty_obs
+  (an entry without one is r1 — guard G1), records inferential_steps (counted by
+  bc.INFERENTIAL_STEP_RULE, the rule Step 7 quotes) beside deduction_steps, and
+  records derivation_confidence explicitly; then
+    _obs9   = {'question_class': …, 'deduction_steps': …, 'inferential_steps': …,
+               'rubric_rule': <copied>, 'axiom_concepts': …, 'speed_hack_exists': …,
+               'derivation_confidence': <per §7-1 agreement>, 'is_negative': …,
+               'qtype': …}
+    _score9 = bc.difficulty_score_from_obs(_obs9)             # int 0..12, UNDER its rule
     _lab9   = bc.band_for_score(_score9, difficulty_labels)    # label or None
+  (a positional bc.difficulty_score call would re-score an r2 item under r1 and
+  a C-STRUCTURAL item would come out one point low — never call it here.)
+  LEVEL ITEMS (v1.53.0, Part C): when question_index[q].difficulty_obs carries a
+  level record (rule L1), the item's measure is its LEVEL band —
+  bc.verify_difficulty_obs(label, that obs, difficulty_labels)[1] (the clamped
+  band re-derived from the recorded composite and cuts); set _score9 = None
+  for THAT question only (never the whole map) and _lab9 = that band, so the
+  gate takes its band-equality interval path for the item.
   BOTH are kept (v1.45.0): the SCORE is what the gate judges against the
   windows; the LABEL is what footers and pre-window readers print. Bottom-
   band questions are still EXPLAINED in full and their obs still recorded
@@ -1917,8 +1962,15 @@ execution path — it does not shrink, soften or delete them.
     • the question_index entry carries no difficulty labels → 'no_difficulty_labels'
     • the difficulty vocabulary is not 3-band                → 'vocabulary_not_3_band'
     • blueprint_core is unavailable in this session          → 'blueprint_core_unavailable'
-    • THE PAPER IS SCOPED (paper_id prefix ≠ 'MOCK') — this
-      section is MOCK-ONLY by title                          → 'scoped_paper'
+  v1.53.0 (GAP-2026-11-05 DL-53, guard S9): a SCOPED paper (paper_id prefix ≠
+  'MOCK') is NO LONGER dormant by title — the incident paper was a SUBJ test and
+  was never gated. It is born DORMANT/scoped_paper (final_assembly) and this
+  section EVALUATES it exactly like a mock; the write for a scoped paper is
+  ONLY PASSED or DISCLOSED (never PENDING, never FAILED — MockDeliver's [HS:INPUT]
+  on PENDING and A-DGATE's scoped-PENDING rule are untouched). A scoped paper
+  that stays dormant for one of the three reasons above keeps its
+  DORMANT/scoped_paper birth record untouched (an idempotent re-write with
+  reason 'scoped_paper' is still legal).
   In EVERY dormant case with a record present, Step 9 STILL WRITES:
       pp.dg_write_verdict(reg, paper_id, status='DORMANT', rounds=0,
                           dormant_reason=<reason>)
@@ -1939,14 +1991,26 @@ execution path — it does not shrink, soften or delete them.
   str keys, so a map rebuilt from a reloaded record cannot miss a question
   over a key type:
     labels_by_q   = {q: question_index[q].difficulty}
-    scores_by_q   = {q: _score9 or None}            # None = not measurable
+    scores_by_q   = {q: (None if _score9 is None else _score9)}   # v1.53.0: a valid 0 is a score;
+                                                                   # None = not measurable
     measured_by_q = {q: _lab9 or None}
+    window_rule   = bc.difficulty_gate_window_rule(
+                        {q: question_index[q].difficulty_obs for q in question_index})
     gate = bc.evaluate_difficulty_gate(labels_by_q, measured_by_q,
                                        difficulty_labels,
-                                       scores_by_q=scores_by_q)
-    (threshold and windows are the engine defaults — NEVER passed inline;
+                                       scores_by_q=scores_by_q,
+                                       window_rule=window_rule)
+    (threshold and windows are the engine defaults — NEVER passed inline; the
+     WINDOW RULE is selected by the paper's own obs rules, never typed (v1.53.0);
      gate['dormant'] is True only on a non-3-band vocabulary, which the
      DORMANT rule above already routed elsewhere, so assert it is False.)
+    COVERAGE (v1.53.0, DL-53): gate['assessed_frac'] is the assessed share of the
+    gated items. Below bc.DIFFICULTY_GATE_MIN_ASSESSED_FRAC (0.80) — including
+    0 assessed — the verdict is computed exactly as above and written as it
+    came out (PASSED or DISCLOSED); a "not assessed" DISCLOSED is NEVER written
+    (A-DGATE rejects a DISCLOSED with an empty rework_qs and the writer refuses
+    one without windows). The record carries the coverage and the delivery
+    footer prints `Step 9: k/n assessed` (pp.dg_footer_lines, AMBER).
     WRITE (registry — the working copy, persisted by the S19-0 write in the same
     turn as the progress write) — via the single writer, NEVER a hand-built dict:
       pp.dg_write_verdict(reg, paper_id,
@@ -1958,7 +2022,11 @@ execution path — it does not shrink, soften or delete them.
           measured_by_q=measured_by_q, rework_qs=gate['rework_qs'],
           scores_by_q=scores_by_q,
           rework_directions=gate['rework_directions'],
-          windows=gate['windows'])
+          windows=gate['windows'],
+          window_rule=gate['window_rule'],                       # v1.53.0 (G8)
+          assessed_frac=gate['assessed_frac'],
+          assessed_count=sum(b.get('assessed', 0) for b in gate['bands'].values() if b.get('gated')),
+          gated_count=sum(b.get('total', 0) for b in gate['bands'].values() if b.get('gated')))
     (v1.47.0) A gate that is NOT met is 'DISCLOSED' — never 'FAILED' (retired;
     the writer refuses it). rework_qs / rework_directions document which
     questions measured outside their window and in which direction; they are
@@ -1995,7 +2063,9 @@ execution path — it does not shrink, soften or delete them.
       ════════════════════════════════════════════════════════════
         [bottom]: [n] questions (not gated) · [middle] [b]/[m] in
         window 2–6 · [top] [c]/[h] in window 5+ (all within the
-        35% limit).
+        35% limit).            ← w2 paper: windows 3–5 / 6+, "harder
+                                  only" counted; add "Step 9: k/n assessed"
+                                  when the coverage is under 80%
         Next step:  TestDeliver P[N]   (or MockDeliver M[N])
       ════════════════════════════════════════════════════════════
 
@@ -3585,5 +3655,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.52.0
+# END OF Framework_MockTestExplain v1.53.0
 # ════════════════════════════════════════════════════════════════════════

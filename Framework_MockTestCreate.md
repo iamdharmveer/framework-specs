@@ -1,4 +1,52 @@
-# Framework_MockTestCreate v5.91
+# Framework_MockTestCreate v5.92
+# v5.92 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   audit_canonical v2.37, paper_pipeline v5.40, figure_types v1.3, Framework_PYQExplain
+#   v2.27, MockTestAnalyse v2.60.0, Blueprint v1.64.0, ScopedBlueprint v1.14.0, MockReview
+#   v2.0.1, MockTestExplain v1.53.0, MockDeliver v1.26.0, DeliveryFooter v1.40.0; STEP_
+#   CONTRACTS override floors raised under owner decision D8). Raised by CSIR_NET_
+#   CHEMICALSCIENCES TestCreate SUBJ Organic Chemistry Test 01 (2026-11-03): 40/40 correct,
+#   far below the real paper — its "Hard" items were one-step textbook reactions while the
+#   real Hard items (Dec-2025 Q95/Q114, Jul-2026 Q88/Q116) carry polycyclic stereodefined
+#   substrates and options differing only in stereo / regiochemistry. Root cause: no step
+#   defined what a band MEANS for the subject; the labels never bound to the content, and
+#   every control failed open (dormant judge echoed the plan; CCP floor dormant and
+#   lower-only; footer green). OWNER DECISIONS (2026-11-04/05), binding: D1 the ground
+#   truth for a past question's band is its COMPLEXITY RANKING within its own exam; D2 a
+#   subject test is written to the measured tier mix; D3 produce Hard exactly as the
+#   blueprint writes it, with D3-R5 (a): after the 6 tries an item ships at its measured
+#   band, the schedule is amended and the footer counts the miss; D4 no certification
+#   gating and no manual review; F1 the graphics-team Row docx is the figure source; F2 no
+#   official answer key, ever; P1 PYQPrepare untouched; D6/D7 one release, every exam;
+#   D8 override floors raised; D9 this release = drawn chemistry + estate-wide guards (the
+#   non-chemistry figure families are a follow-up GAP); D10 (B) LEVEL_MIN_POOL 12 with a
+#   small-pool footer line; D11 (A) judge-vs-level disagreement on a Hard slot spends one
+#   extra RETRY inside the same budget; D12 (A) staged build, one bundle.
+#   WHAT CHANGES HERE. S3: the LEVEL MODEL (bc.level_model_for_scope — ONE builder shared
+#   with Step 5 and the auditor) and the read-time method lexicon are built beside
+#   CCP_MODEL; the profile coverage line prints; DIFFICULTY_STATE (judge-dormant items,
+#   Hard misses, level items) is persisted with batch_state and 'difficulty_schedule_
+#   original' is kept beside the amended plan (DL-42/51). S3-2e: readiness measures the
+#   content floor instead of trusting field presence (DL-46). CHECK 3c: authoring under
+#   rubric r2 (inferential MOVES by bc.INFERENTIAL_STEP_RULE, quoted verbatim; obs stamped
+#   rubric_rule 'r2' — guard G1); for an item carrying drawn chemistry the band is the
+#   LEVEL band (bc.level_record: composite at full precision, qtype-clamped) and a
+#   below / above measurement is exactly a G-DIFF RETRY toward the slot band with an
+#   escalating brief (DL-41, D3-R5) — ONE budget, bc.MAX_DIFF_TRIES_DEFAULT; the blind
+#   judge is advisory for a level item (level_note; D11 (A) one extra retry on a Hard
+#   slot) and DORMANT on a figural-chemistry snippet fallback (DL-37: decision stays
+#   agree, level_note 'unverified', footer AMBER); g_diff_gate runs only when a plan
+#   exists (DL-39); R2 gains complexity-below-p10 / closeness-below-target reject reasons
+#   (DL-47); R4' simplifies layout only and re-measures the vector (DL-43/58); a two-row
+#   option layout is tried before R4' on width overflow (DL-48); R5 counts a Hard miss
+#   (D3-R5 (a)). S13-2G phase 3 compares the reviewer's band with the slot band (DL-52;
+#   the packet still carries no band). S13-6: AMBER lines from bc.difficulty_unverified_
+#   lines (`DIFFICULTY UNVERIFIED — <reason>`, `Hard target missed: k item(s)`, coverage,
+#   small pool) — informational; the two-file contract is unchanged (STEP_CONTRACTS).
+#   figural_reducible defaults False for chem_structure / chem_scheme families (DL-50);
+#   S3-12e places top-band slots by the blueprint's measured subtopic share (bc.band_
+#   subtopic_plan, DL-33) and prints the ask-format floors (DL-34); S7-NEW-B withdraws a
+#   figural quota below the A-AXIS1 band low (bc.figural_quota_guard, DL-29 / G6).
+#   No new run-stop of any class, no CONFIRM, no deliverable, end state or user action (guards S1-S13).
 # v5.91 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (paired with blueprint_core v1.31,
 #   audit_canonical v2.36, final_assembly v1.13, Framework_MockReview v2.0.0 (internal brief),
 #   Framework_MockDeliver v1.25.0, Framework_DeliveryFooter v1.39.0, NEW STEP_CONTRACTS.json +
@@ -2198,6 +2246,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                            'missing': ['not needed: no chemistry structure/scheme in scope']}, False
   print(f"S3-2S: style={STYLE_PROFILE['evidence']['status']} TOK={TOK} "
         f"abbreviations={ABBREV} native_raster={NATIVE_OK}")
+  # v5.92 (GAP-2026-11-05 DL-50): the subtopics whose DOMINANT PYQ figure type is a chemistry
+  # structure / scheme family. Read by S7-NEW-B: for these, an ABSENT figural_reducible line
+  # in section_rules defaults to False (the options ARE the structures), never True.
+  CHEM_FIGURE_SUBTOPICS = set()
+  for _sid_c, _rec_c in _img_style.items():
+      _dom_c = list(((_rec_c.get('object_types') or {}).get('dominant')) or [])
+      if any(_ft_style.lookup(_ot).get('family') in ('chem_structure', 'chem_scheme') for _ot in _dom_c):
+          CHEM_FIGURE_SUBTOPICS.add(_sid_c)
 
   diff_entry = next((d for d in difficulty_schedule if d['mock'] == N), {})
   n_simple = diff_entry.get('simple', total_questions // 4)
@@ -2244,6 +2300,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                     .get(str(_type_for_q(q)).strip().upper(), 'mcq')
                  for q in range(1, total_questions + 1)}
   difficulty_plan = None                       # {q: canonical label} | None = dormant
+  # v5.92 (GAP-2026-11-05 Part D): the per-paper DIFFICULTY STATE the footer discloses —
+  # defined for EVERY paper (a dormant plan included: S3-16 persists it), updated inside
+  # CHECK 3c (judge dormant, level item, R5 Hard miss) with batch_state['difficulty_state']
+  # = DIFFICULTY_STATE in the SAME write that persists difficulty_plan. Counts only; never a stop.
+  DIFFICULTY_STATE = {'judge_dormant_qs': [], 'hard_missed': 0, 'n_level_items': 0}
+  PROFILE_COVERAGE = None                      # v5.92: set below when a profile is loaded
   if diff_entry and len(difficulty_labels) == 3:
       _dcounts = {'simple': n_simple, 'medium': n_medium, 'hard': n_hard}
       _dshort = bc.difficulty_feasibility(_dcounts, _qtype_by_q, difficulty_labels)
@@ -2277,6 +2339,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                       if isinstance(_s, dict) and _s.get('name') and _s.get('q_range')]
           _plan_secs = (_bp_secs if _bp_secs and set(_by_sec) <= {_s['name'] for _s in _bp_secs}
                         else _ecfg_dp.get('sections'))
+          PLAN_SECTIONS = list(_plan_secs or [])     # read by S3-12e: swaps stay inside THESE sections
           try:
               difficulty_plan = bc.assign_difficulty_bands_by_section(
                   _by_sec, _qtype_by_q, _plan_secs, difficulty_labels, seed=N)
@@ -2285,6 +2348,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       else:
           difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
                                                        difficulty_labels, seed=N)
+          PLAN_SECTIONS = []                         # a paper-wide plan: its counts are paper-wide (S3-12e)
       difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
       # v5.89: on a RESUMED paper the persisted plan is authoritative — band swaps and R5
       # accept-at-measured updates changed it after S3; a recomputed plan would disagree
@@ -2300,6 +2364,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       if _os_dp.path.exists(_bs_dp):
           _bsd = _json_dp.load(open(_bs_dp, encoding='utf-8')) or {}
           _saved_dp = _bsd.get('difficulty_plan')
+          if isinstance(_bsd.get('difficulty_state'), dict) and _bsd.get('paper_id') == _pid_dp:
+              DIFFICULTY_STATE = dict(DIFFICULTY_STATE, **_bsd['difficulty_state'])   # v5.92: resumed counts
           if _saved_dp and _bsd.get('paper_id') == _pid_dp:
               _cand = {int(k): v for k, v in _saved_dp.items()}
               _want = {difficulty_labels[0]: n_simple, difficulty_labels[1]: n_medium,
@@ -2326,7 +2392,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # v5.89 (GAP-2026-11-02 L1) — CONTENT-COMPLEXITY MODEL for CHECK 3c (b). Built
       # ONCE from the profile's per-question content vectors (PYQExplain v2.25 §13A) of the
       # questions in THIS paper's scope; dormant (None / active False) otherwise.
-      CCP_MODEL, METHOD_LEXICON = None, None
+      CCP_MODEL, METHOD_LEXICON, LEVEL_MODEL = None, None, None
       if DIFFICULTY_PROFILE:
           _scope_ids = {x.get('subtopic_id') for x in subtopic_list}
           _pool = []
@@ -2345,6 +2411,50 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           if not (CCP_MODEL or {}).get('active'):
               STYLE_NOTES.append('level control: rubric + independent rating only '
                                  '(content-complexity model dormant)')
+          # v5.92 (GAP-2026-11-05 Part A, DL-21/38/41) — the CHEMISTRY LEVEL MODEL (rule L1), built
+          # by THE ONE builder every reader uses (Step 5, A-LEVEL, Step 9): the cuts come from the
+          # blueprint's RECORDED mix (difficulty_source.measured_pct / mix_rule / params.tier —
+          # owner D1-CUTS (A)); the pool is the content-full level vectors of the scope (cascade
+          # scope -> topic -> section -> paper, first level with >= bc.LEVEL_MIN_POOL records,
+          # owner D10 (B)). METHOD_LEXICON is the read-time reagent tier map the model used, so
+          # a candidate's vector is measured with the SAME lexicon as the pool (DL-38).
+          # The inputs come from the blueprint's `level_model_inputs` (Blueprint §7-9 (e) /
+          # ScopedBlueprint S8-2e (e)) when present — the SAME record A-LEVEL reads — else from
+          # the blueprint's difficulty_source / subtopic_list (a pre-1.64.0 blueprint).
+          _ds_lv = bp.get('difficulty_source') if isinstance(bp.get('difficulty_source'), dict) else {}
+          _lmi = bp.get('level_model_inputs') if isinstance(bp.get('level_model_inputs'), dict) else {}
+          LEVEL_MODEL = bc.level_model_for_scope(
+              DIFFICULTY_PROFILE,
+              sorted(str(x) for x in (_lmi.get('subtopic_ids') or _scope_ids)), difficulty_labels,
+              mix_rule=bc.mix_rule_of(_lmi.get('mix_rule') if _lmi else _ds_lv.get('mix_rule')),
+              tier=(_lmi.get('tier') if _lmi else (_ds_lv.get('params') or {}).get('tier')),
+              gap_days=(_lmi.get('gap_days') if _lmi else PROFILE_CFG.get('cycle_gap_days')),
+              measured_pct=(_lmi.get('measured_pct') if _lmi else _ds_lv.get('measured_pct')),
+              extra_text=globals().get('sr_text'))
+          METHOD_LEXICON = dict(LEVEL_MODEL.get('lexicon') or {})
+          # the model's STATE travels with DIFFICULTY_STATE (batch_state), so a later session
+          # that re-enters §13 without this block (S4-12) prints the same footer lines
+          DIFFICULTY_STATE['level_model'] = {k: LEVEL_MODEL.get(k) for k in
+                                             ('active', 'n', 'small_pool', 'reason', 'level_used', 'shares')}
+          # ... and the EXACT inputs it was built from (committed with difficulty_state, S13-4):
+          # A-LEVEL / A-CLOSENESS rebuild from these first, so generator and auditor can never
+          # use different windows or scopes — even on a pre-1.64.0 blueprint.
+          DIFFICULTY_STATE['level_model']['inputs'] = {
+              'subtopic_ids': sorted(str(x) for x in (_lmi.get('subtopic_ids') or _scope_ids)),
+              'mix_rule': bc.mix_rule_of(_lmi.get('mix_rule') if _lmi else _ds_lv.get('mix_rule')),
+              'tier': (_lmi.get('tier') if _lmi else (_ds_lv.get('params') or {}).get('tier')),
+              'gap_days': (_lmi.get('gap_days') if _lmi else PROFILE_CFG.get('cycle_gap_days')),
+              'measured_pct': (_lmi.get('measured_pct') if _lmi else _ds_lv.get('measured_pct')),
+              'labels': list(difficulty_labels)}
+          if LEVEL_MODEL.get('active'):
+              print(f"S3: level model L1 ACTIVE — pool n={LEVEL_MODEL.get('n')} at level "
+                    f"{LEVEL_MODEL.get('level_used')}, shares {LEVEL_MODEL.get('shares')}"
+                    + (' (small pool)' if LEVEL_MODEL.get('small_pool') else ''))
+          else:
+              print(f"S3: level model L1 DORMANT — {LEVEL_MODEL.get('reason') or 'no content-full pool'}")
+          # v5.92 (GAP-2026-11-05 DL-20): profile coverage, printed once; informational.
+          PROFILE_COVERAGE = bc.dp_profile_coverage(DIFFICULTY_PROFILE)
+          print('S3: ' + PROFILE_COVERAGE['line'])
       # Persisted as batch_state.json['difficulty_plan'] = {str(q): label} alongside
       # the rest of the S3 state (same write, same file) so `continue` resumes the
       # identical plan and the CHECK 3c band-swap escape can update it in place.
@@ -2567,7 +2677,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   (DORMANT(reason), §4.3) — never silence. (3) A control that is N/A(sparse) is not degraded
   (R10.4). (4) No `[HS:INPUT]` for a quality input exists in this spec (owner decision OD-1);
   the only input stops remain the pre-existing structural ones (blueprint / registry /
-  engine absent, L6).
+  engine absent, L6). (5) v5.92 (GAP-2026-11-05 DL-46): field presence is NOT readiness.
+  `bc.quality_readiness` reports G-DIFF-FLOOR as PASS only when the profile holds at least
+  `bc.LEVEL_MIN_POOL` content-full records, DORMANT below that, and N/A when the profile
+  carries no transcribed content at all (a text-only exam; no remedy is asked). An N/A or
+  DORMANT control is NEVER printed as ACTIVE: the block names the controls that are not
+  measuring. A paper that carries drawn chemistry while the level model is dormant gets the
+  AMBER footer line `DIFFICULTY UNVERIFIED — <reason>` (bc.difficulty_unverified_lines,
+  S13-6) — printed, recorded, never a stop, never a certification effect.
 
 ## S3-3 — Load section_rules.md — read ALL fields
 
@@ -3357,6 +3474,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   import blueprint_core as bc
   _shape_tg = ((bp.get('shape_target_per_paper') or {}).get(str(N))
                or (bp.get('shape_target_per_paper') or {}).get(N) or {})
+  # v5.92 (GAP-2026-11-05 guard G4): a target is PLANNED here only under the LEGACY shape rule
+  # s1 (the bare ask types this spec renders); a future s2 target (statement / match /
+  # sequence formats, figure_types.ASK_TYPES_S2) is a FORMAT, read by A-AXIS2 as a WARN —
+  # never a shape slot. An absent shape_rule reads as s1 (bc.shape_rule_of).
+  _shape_tg = {k: v for k, v in _shape_tg.items()
+               if bc.shape_rule_of((v or {}).get('shape_rule') if isinstance(v, dict) else None) == bc.SHAPE_RULE_LEGACY}
   if 'shape_plan' in bs_prev and bs_prev.get('batches_completed'):
       # ── FROZEN (EC-19): the plan was persisted at S3-16 and items were authored to it.
       # A resumed run NEVER re-assigns shapes — not even after Step 5 / bp_refresh changed
@@ -3393,6 +3516,62 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             ((s, sum(1 for q, v in SHAPE_PLAN.items() if q != '_infeasible' and v == s)) for s in _shape_tg)))
             + (f"; infeasible (recorded, not a defect): {SHAPE_PLAN['_infeasible']}" if SHAPE_PLAN.get('_infeasible') else ''))
   SHAPE_PLAN = {str(k): v for k, v in SHAPE_PLAN.items()}   # FROZEN by the S3-16 batch_state initialiser ('shape_plan', EC-19)
+
+  # ── S3-12e (v5.92 — GAP-2026-11-05 DL-33 / DL-34; guards G4, S7) ─────────────────────────
+  # (a) TOP-BAND SLOTS FOLLOW THE MEASURED SUBTOPIC SHARE (DL-33). On a FRESH paper only (a
+  #     resumed paper's plan is authoritative, S4-12), bc.band_subtopic_plan re-places the
+  #     top-band slots of difficulty_plan onto subtopics whose measured top-band share
+  #     (blueprint.hard_share_by_subtopic, Blueprint §7-9 / ScopedBlueprint S8-2e) is > 0.
+  #     Every band count PER SECTION and every qtype floor is unchanged (asserted by the
+  #     engine; a swap never crosses a section — section_of_q); when
+  #     every share is 0 / unknown the plan is returned unchanged. Persisted by S3-16 in the
+  #     same write as the rest of the plan.
+  # (b) ASK-FORMAT FLOORS (DL-34): the blueprint's axis2_format_floor_per_paper[N] is read
+  #     and printed; S7 authors each non-'direct' format at least that often across the paper
+  #     (a soft target checked by the WARN-only A-AXIS2) — NEVER written into SHAPE_PLAN and
+  #     never a stop. {} = dormant (printed).
+  if difficulty_plan and not (bs_prev.get('subtopic_by_qnum') and bs_prev.get('batches_completed')):
+      _hs_bp = bp.get('hard_share_by_subtopic') if isinstance(bp.get('hard_share_by_subtopic'), dict) else {}
+      if _hs_bp:
+          _plan_before = dict(difficulty_plan)
+          # every swap stays INSIDE its section: the plan was built per section to the exact
+          # by_section counts (v5.75), and R5's amend_schedule_in_place reads those counts.
+          # The sections are the ones the plan was BUILT on (PLAN_SECTIONS, set above with the
+          # plan: the blueprint's, or exam_config's for a pre-v1.57 blueprint; [] = paper-wide
+          # plan, one group). If that block did not run, bp['sections'] (stricter, never wrong).
+          # A section whose q_range is not two integers maps no slot — never a stop; an
+          # unmapped slot only swaps with other unmapped slots.
+          _secs_12e = globals().get('PLAN_SECTIONS')
+          if not isinstance(_secs_12e, list):
+              _secs_12e = bp.get('sections') if isinstance(bp.get('sections'), list) else []
+          def _q_span(_s):
+              try:
+                  _lo, _hi = (int(_s['q_range'][0]), int(_s['q_range'][1]))
+              except (KeyError, IndexError, TypeError, ValueError):
+                  return range(0)
+              return range(_lo, _hi + 1)
+          _sec_of_q = {q: str(_s.get('name', '')) for _s in _secs_12e if isinstance(_s, dict)
+                       for q in _q_span(_s)}
+          difficulty_plan = bc.band_subtopic_plan(difficulty_plan, subtopic_by_qnum, _hs_bp,
+                                                  _qtype_by_q, difficulty_labels, section_of_q=_sec_of_q)
+          _moved = sum(1 for q in _plan_before if _plan_before[q] != difficulty_plan.get(q))
+          print(f"S3-12e: top-band slots placed by measured subtopic share — {_moved} slot(s) moved; "
+                f"band counts unchanged in every section")
+      else:
+          print("S3-12e: hard_share_by_subtopic absent from the blueprint — current band spread kept")
+  AXIS2_FORMAT_FLOOR = dict((bp.get('axis2_format_floor_per_paper') or {}).get(str(N)) or {})
+  print(f"S3-12e: ask-format floors for paper {N}: {AXIS2_FORMAT_FLOOR or 'none (dormant)'}")
+  # (c) LEVEL TARGETS (DL-36/47): the per-subtopic figure_complexity_pct / closeness_pct the
+  #     blueprint copied from section_rules QUALITY. CHECK 3c (b1) / ladder R2 read
+  #     LEVEL_TARGETS[subtopic_id] for the two level REJECT reasons (complexity below p10,
+  #     closeness below p50); a subtopic absent here has no such reason (dormant, never a stop).
+  LEVEL_TARGETS = dict(bp.get('level_targets') or {}) if isinstance(bp.get('level_targets'), dict) else {}
+  # (d) HARD SUPPLY (DL-31, advisory, guard S7): printed so the operator sees how many real
+  #     content-full Hard exemplars the scope holds before Q.1; never routed into feasibility.
+  _hsup = bp.get('hard_supply') if isinstance(bp.get('hard_supply'), dict) else {}
+  print(f"S3-12e: level targets for {len(LEVEL_TARGETS)} subtopic(s); hard supply "
+        + (f"{_hsup.get('n_hard_content_full')} content-full top-band exemplar(s) of {_hsup.get('n_pool')} "
+           f"({_hsup.get('source')} bands; advisory)" if _hsup else 'not recorded (pre-1.64.0 blueprint or no profile)'))
   ```
   RULES. (1) A resumed run NEVER re-assigns shapes (S4-12 reads batch_state['shape_plan']).
   (2) The item MUST render its assigned shape (S7-QUALITY `shape`); a mismatch is an item
@@ -3666,6 +3845,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       # paper_id + counts); band swaps and R5 rewrite it in place. None = dormant.
       'difficulty_plan': ({str(q): lab for q, lab in difficulty_plan.items()}
                           if difficulty_plan else None),
+      # v5.92 (GAP-2026-11-05): the schedule as the blueprint wrote it BEFORE any in-run R5
+      # amendment (informational — the bench card prints original vs amended, DL-42/51)
+      # and the per-paper difficulty state the footer discloses (Part D).
+      'difficulty_schedule_original': ({str(q): lab for q, lab in difficulty_plan.items()}
+                                       if difficulty_plan else None),
+      # schedule_original: the plan's band counts as the blueprint wrote them, before any
+      # in-run amendment — committed with difficulty_state (S13-4) so A-PYQBENCH prints
+      # original vs final (DL-51). Every paper with a plan; {} when the plan is dormant.
+      'difficulty_labels': list(difficulty_labels),   # v5.92: read by S13-2G phase 3 (resume-safe)
+      'difficulty_state': dict(DIFFICULTY_STATE, schedule_original=(
+          {l: sum(1 for v in difficulty_plan.values() if v == l) for l in difficulty_labels}
+          if difficulty_plan else {})),
       'bp_project_sha': dict(BP_PROJECT_SHA),   # v5.89: which project blueprint this paper
                                                 # started from (S3-1 keep-amended rule)
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
@@ -5703,24 +5894,40 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       CHECK 3c — DIFFICULTY CONFORMANCE (G-DIFF, v5.60 — skipped only when
         difficulty_plan is None, the documented dormant state):
         The slot's band is difficulty_plan[q]. AUTHOR TO THE BAND from the start:
-        bc.difficulty_authoring_profile(band, qtype, difficulty_labels) names the
-        class facets, deduction-step range and concept count that provably land
+        bc.difficulty_authoring_profile(band, qtype, difficulty_labels,
+        rule=bc.RUBRIC_RULE_CURRENT) (v5.92 — rubric r2, GAP-2026-11-05 Part B) names
+        the class facets, INFERENTIAL-MOVE range and concept count that provably land
         in the band — write the question AND its solution inside that profile
-        (a bottom-band slot is recall/one-principle and NEVER computational or
-        figural; a top-band slot is a genuinely long or multi-concept
-        derivation — more Hard in the trigger means AUTHORING harder questions,
-        never renaming easier ones).
+        (a bottom-band slot is recall/one-principle and NEVER computational,
+        figural, structural or derivational; a top-band slot is a genuinely long or
+        multi-concept derivation — more Hard in the trigger means AUTHORING harder
+        questions, never renaming easier ones).
         While deriving the answer for the sidecar (the derivation already
         happens — §S7-NEW-A), RECORD the observations the derivation revealed:
-          difficulty_obs = {'question_class': [facet, ...],   # incl. C-FIGURAL
-                            'deduction_steps': <int>,          # steps actually needed
+          difficulty_obs = {'question_class': [facet, ...],   # incl. C-FIGURAL / C-STRUCTURAL
+                            'deduction_steps': <int>,          # DEDUCTION paragraphs (unchanged)
+                            'inferential_steps': <int>,        # v5.92: moves, by the ONE rule below
+                            'rubric_rule': bc.RUBRIC_RULE_CURRENT,   # v5.92: 'r2' (guard G1)
                             'axiom_concepts': <int>,           # distinct principles
                             'speed_hack_exists': <bool>,
                             'is_negative': <bool>,             # NOT/EXCEPT polarity
                             'qtype': 'mcq'|'msq'|'nat'}
-        Count honestly — steps a competent candidate needs, not padding; the
+        Count honestly — moves a competent candidate needs, not padding; the
         count is evidence, and A-QINDEX check 8 re-runs the same arithmetic on
-        it forever.
+        it forever, UNDER THE RULE THE OBS CARRIES (an obs without one is r1).
+        THE ONE COUNTING RULE (v5.92 — DL-15; `bc.INFERENTIAL_STEP_RULE`, quoted
+        verbatim here and in PYQExplain §7A-2, so a PYQ band and a mock band use
+        the same unit):
+
+          > An INFERENTIAL STEP is one reasoning move that produces a new fact the
+          > next move uses: applying a principle, predicting one transformation's
+          > product, eliminating an option class, or one manipulation of a relation.
+          > NOT a step: restating the stem, reading a value or a structure off the
+          > figure, naming the answer option (the answer-binding sentence), or
+          > splitting one move across paragraphs. A pre-requisite fact at the level
+          > of a standard textbook (pH of water, valency, a reagent's identity) is
+          > part of the step that uses it. Count moves, never paragraphs; a pure
+          > recall item has 0.
         LEVEL ANCHOR (v5.60) — the UNIT of the count is level-relative even
         though the rubric's arithmetic is universal: a "step" is one reasoning
         move for a competent candidate OF THIS EXAM (bp_level, S3-2 — grade-10
@@ -5770,36 +5977,95 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               bc.difficulty_exemplars(DIFFICULTY_PROFILE, subtopic_id, section,
               difficulty_labels, k=3, gap_days=PROFILE_CFG.get('cycle_gap_days'))
               snippets, rated with rationale prefixed "snippets only — no exemplar
-              bank"; S3-2e has already printed G-DIFF-JUDGE MISSING. DORMANT when
-              neither source holds an exemplar for at least two bands: rated_band
-              = difficulty_plan[q] (no anchor, so no override), rationale "no
-              exemplars". Never a stop (OD-1).
-          (b) CONTENT FLOOR — every content kind whose figure_types.QUALITY_ROWS
+              bank"; S3-2e has already printed G-DIFF-JUDGE MISSING. v5.92 (GAP-2026-
+              11-05 DL-37): for a FIGURAL CHEMISTRY item (one carrying content
+              objects of kind STRUCTURE / REACTION) the snippet fallback is DORMANT —
+              a snippet carries no chemistry, and rating from it echoes the author's
+              own counts. DORMANT when neither source holds a content-carrying
+              exemplar for at least two bands: rated_band = difficulty_plan[q] (no
+              anchor, so no override), rationale "no exemplars", the decision stays
+              `agree`, the item's difficulty_check gains level_note 'unverified' and
+              q is appended to DIFFICULTY_STATE['judge_dormant_qs'] (the footer's
+              AMBER line, S13-6). Never a stop (OD-1).
+          (b) CONTENT LEVEL — every content kind whose figure_types.QUALITY_ROWS
               row names a complexity_vector (chemistry: bc.content_vector; a kind
-              with None -> N/A(listed), the judge alone decides). When
-              DIFFICULTY_PROFILE carries per-question content vectors (PYQExplain
-              v2.25 §13A) and CCP_MODEL (built once for this paper's scope, S3;
-              v5.90: any label count >= 2, bc.ccp_model v1.30) is active:
-              ccp = bc.ccp_floor_check(CCP_MODEL, bc.content_vector(objects,
-              answer_smiles, METHOD_LEXICON), difficulty_plan[q],
-              difficulty_labels). 'below' means the drawn chemistry is simpler
-              than the exam's own items of that band — a finding; 'above' is
-              allowed and recorded. Dormant (footer "level control: rubric + independent rating only (content-complexity model dormant)")
-              when the pool has < 20 transcribed items.
-          DECISION (v5.90: the band is bc.final_band_decision(rated_band,
-          ccp['status'] if ccp else None, ccp['ccp_band'] if ccp else None,
-          difficulty_labels) — rated unless the floor says 'below', then the
-          lower of the two; the author's counts never raise it):
-          r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
-          ccp['status'] if ccp else None, labels=difficulty_labels). 'agree' ->
-          ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER with reason
-          r['reason'] ('harder' / 'easier'; A-DIFFRATING / A-CONTENTLEVEL), R2
-          first. At R5, bc.ladder_terminal_accept(scheduled, measured) accepts
-          at the measured band with the in-run schedule amended (above) — ONLY
-          when difficulty_min_band allows the measured band at this slot's
-          qtype; otherwise R5 takes its REASSIGN path (§Q8b-LADDER) at the
-          scheduled band. Either way set difficulty_plan[q] = final_band and
-          persist batch_state['difficulty_plan'] in the same write.
+              with None -> N/A(listed), the judge alone decides). FIRST (v5.92, both
+              paths): an item whose content objects include kind STRUCTURE / REACTION
+              is a CHEMISTRY item — DIFFICULTY_STATE['n_level_items'] += 1 the first
+              time its slot is measured (persisted with batch_state), WHETHER OR NOT the
+              level model is active; that count is what makes S13-6 / MockDeliver print
+              `DIFFICULTY UNVERIFIED — N chemistry item(s) written without an active level
+              model` when it is dormant. THE INPUTS of (b1), all from the item being
+              written (never declared): objects = the item's content objects (each draw's
+              `.canonical` SMILES / reaction SMILES — the S7-NEW-B2 registration);
+              option_smiles = {option label: that option draw's canonical SMILES} for every
+              structure option; key_smiles = option_smiles[the correct option's label];
+              reagents_seen = bc.reagent_names_of(objects). TWO paths, decided ONCE per
+              item by what it carries:
+              (b1) LEVEL ITEM (v5.92 — GAP-2026-11-05 Part A, rule L1; DL-38/41/44):
+                  the item carries content objects of kind STRUCTURE / REACTION and
+                  LEVEL_MODEL (S3, the ONE builder bc.level_model_for_scope) is
+                  active. Measure the item the way the exam's own items were measured:
+                    _cv   = bc.content_vector(objects, answer_smiles, METHOD_LEXICON)
+                    _cl   = bc.option_closeness(option_smiles, key_smiles)   # DL-44; None w/o RDKit
+                    _lv   = bc.level_vector(_cv, closeness=_cl,      # the record (or its mean)
+                                            reasoning_score=bc.difficulty_score_from_obs(difficulty_obs),
+                                            method_tier=bc.method_tier_of(reagents_seen, METHOD_LEXICON))
+                    lc    = bc.level_check(LEVEL_MODEL, _lv, difficulty_plan[q],
+                                           difficulty_labels, qtype)
+                  lc['status'] is 'ok' | 'below' | 'above' | 'dormant' (BOTH directions,
+                  DL-41 — a Medium slot drawn at Hard chemistry is 'above', a finding
+                  too); lc['record'] is the L1 level record (full-precision composite,
+                  cuts, qtype-clamped band). RECORD on the item, INSIDE difficulty_obs
+                  (which travels verbatim into registry.question_index):
+                  difficulty_obs['level'] = lc['record'], difficulty_obs['level_vector']
+                  = _lv, difficulty_obs['closeness'] = _cl, difficulty_obs['reagents_seen']
+                  = reagents_seen, difficulty_obs['rubric_rule'] = 'r2'; the quality record
+                  carries ask_format (S7-QUALITY). (n_level_items was counted above.)
+                  No ccp_floor_check and no final_band_decision for a level item — the
+                  level record IS the content evidence; the two were measured on
+                  different scales and must never be combined.
+              (b2) EVERY OTHER ITEM — the v5.90 CONTENT FLOOR, unchanged: when CCP_MODEL
+                  is active, ccp = bc.ccp_floor_check(CCP_MODEL, bc.content_vector(
+                  objects, answer_smiles, METHOD_LEXICON), difficulty_plan[q],
+                  difficulty_labels). 'below' is the finding; 'above' is allowed and
+                  recorded. Dormant when the pool has < 20 transcribed items (footer
+                  "level control: rubric + independent rating only (content-complexity
+                  model dormant)"). A chemistry item while LEVEL_MODEL is dormant takes
+                  this path and the paper gets the AMBER `DIFFICULTY UNVERIFIED` line
+                  (S13-6) — measured honestly as far as the inputs allow, never silent.
+          DECISION:
+            LEVEL ITEM (b1) — the level record and the independent rating decide:
+              lc 'ok' and rated_band == scheduled -> 'agree', ACCEPT at the scheduled
+              band; r = bc.reconcile_difficulty(difficulty_plan[q], None, None,
+              labels=difficulty_labels) is the recorded decision record.
+              lc 'below' -> ladder reason 'easier' (A-CONTENTLEVEL); lc 'above' ->
+              reason 'harder'. Owner D11 (A): lc 'ok' on a TOP-band slot but rated_band
+              BELOW it -> rl = bc.reconcile_level(difficulty_plan[q], lc['status'],
+              rated_band, difficulty_labels, diff_tries.get(str(q), 0)); rl['retry']
+              True spends exactly ONE extra RETRY from the SAME MAX_DIFF_TRIES budget
+              (g_diff_gate marks diff_tries['<q>:d11']; reason rl['reason'] in the
+              escalating brief); on the next pass, or when the budget is already spent,
+              -> ACCEPT at the scheduled band with difficulty_check.level_note 'judge
+              below level' — never a second budget, never a stop. At R5,
+              bc.ladder_terminal_accept(scheduled, lc['record']['band']) accepts at
+              the LEVEL band (D3-R5 (A)).
+            OTHER ITEM (b2) — v5.90 unchanged: the band is bc.final_band_decision(
+              rated_band, ccp['status'] if ccp else None, ccp['ccp_band'] if ccp
+              else None, difficulty_labels) — rated unless the floor says 'below',
+              then the lower of the two; the author's counts never raise it;
+              r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
+              ccp['status'] if ccp else None, labels=difficulty_labels). At R5,
+              bc.ladder_terminal_accept(scheduled, measured) accepts at the measured
+              band.
+          In BOTH paths: 'agree' -> ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER
+          with reason r['reason'] ('harder' / 'easier'; A-DIFFRATING /
+          A-CONTENTLEVEL), R2 first. R5's accept-at-measured runs ONLY when
+          difficulty_min_band allows the measured band at this slot's qtype;
+          otherwise R5 takes its REASSIGN path (§Q8b-LADDER) at the scheduled band.
+          Either way set difficulty_plan[q] = final_band and persist
+          batch_state['difficulty_plan'] (and batch_state['difficulty_state']) in the
+          same write.
           PRECEDENCE (one rule): the independent rating and the content floor
           DECIDE the band (final_band). difficulty_obs is the author's count of
           the item's derivation load; where it disagrees with final_band the
@@ -5809,14 +6075,25 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           when the written item itself does not support final_band.
           RECORD on the item (write_q_to_sidecar -> concept_map -> registry
           question_index): difficulty_check = {'scheduled', 'rated', 'rationale',
-          'ccp_status', 'ccp_composite', 'decision', 'final_band'}; the item's
-          difficulty label IS final_band. Auditor gate A-CONTENTLEVEL verifies
-          the record is resolved.
+          'ccp_status', 'ccp_composite', 'decision', 'final_band', 'judge_input_sha256',
+          'level_status' (b1: lc['status']; b2: None), 'level_note' (optional)}; the
+          item's difficulty label IS final_band. A level item's difficulty_obs additionally
+          carries level, level_vector, closeness and reagents_seen, and its quality record
+          ask_format (v5.92; read by A-LEVEL / A-CLOSENESS / A-AXIS2 — WARN-only — and
+          Step 9 §7A-M). Auditor gate
+          A-CONTENTLEVEL verifies the record is resolved.
         THE GATE: ok, measured = bc.verify_difficulty_obs(difficulty_plan[q],
         difficulty_obs, difficulty_labels). If not ok:
           → REJECT. Regenerate TOWARD the band using the profile (add or remove
             derivation load; change class facets). Bound: MAX_DIFF_TRIES = 6
-            per slot, counted separately from MAX_SCENARIO_TRIES.
+            per slot, counted separately from MAX_SCENARIO_TRIES. v5.92 (owner
+            D3-R5): the brief ESCALATES with each try toward a Hard slot — try 2
+            a larger / more constrained substrate or stimulus, try 3 closer
+            distractors (the wrong options differ from the key by one decision),
+            try 4+ the next harder exemplar of the same cell as the model; a
+            Medium / Easy slot that measured above is simplified the same way in
+            reverse. There is ONE budget: every reason to retry (rubric, level
+            model, judge disagreement — D11) spends from the same 6.
           → BAND-SWAP ESCAPE (after MAX_DIFF_TRIES): if another not-yet-accepted
             slot q' exists in the SAME section with difficulty_plan[q'] ==
             measured and difficulty_min_band allows this slot's band at q',
@@ -5835,7 +6112,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             bp['difficulty_amendments'] and written to BP_SRC_PATH [HS:LADDER R5].
             The label then MATCHES its evidence, so the rule "never accept a
             question whose label its own evidence contradicts" still holds, and
-            the run never stops for it.
+            the run never stops for it. v5.92 (owner D3-R5 (a)): when the slot
+            was the TOP band and the measured band is lower, also
+            DIFFICULTY_STATE['hard_missed'] += 1 (persisted with batch_state) — the
+            footer prints `Hard target missed: k item(s)` (S13-6); the count is
+            disclosed, never hidden, and never a stop. batch_state's
+            'difficulty_schedule_original' is left untouched (S13-6 prints the
+            slots whose band moved; A-PYQBENCH prints original vs final counts
+            from difficulty_state.schedule_original, DL-51).
         On ACCEPT: pass difficulty=final_band (== difficulty_plan[q], kept in
         step by the band swap and R5 above), difficulty_obs AND
         difficulty_check to write_q_to_sidecar — the label and its evidence travel together into
@@ -5847,12 +6131,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         the rest of the S3 state):
         ```python
         def g_diff_gate(q, band, qtype, difficulty_obs, difficulty_labels,
-                        diff_tries):
-            """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_LADDER' for this candidate."""
+                        diff_tries, level_status=None, rated_band=None):
+            """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_LADDER' for this candidate.
+            v5.92 (DL-39): called ONLY when difficulty_plan is set — a dormant plan
+            never reaches this gate (its tamper stop would otherwise fire).
+            level_status / rated_band (v5.92, owner D11 (A)): for a LEVEL item whose
+            level record agrees with a TOP-band slot while the independent judge rates
+            it below, ONE extra RETRY is spent from this same budget."""
             import blueprint_core as bc          # S1-2b engine (already on sys.path)
-            MAX_DIFF_TRIES = 6
+            MAX_DIFF_TRIES = bc.MAX_DIFF_TRIES_DEFAULT      # 6 — the ONE budget (v5.92)
             profile = bc.difficulty_authoring_profile(band, qtype,
-                                                      difficulty_labels)
+                                                      difficulty_labels,
+                                                      rule=bc.RUBRIC_RULE_CURRENT)
             # profile is None ONLY for a bottom-band MSQ/NAT slot, which the S3
             # plan can never produce (floors) — None here means the plan was
             # modified outside bc.assign_difficulty_bands: a tamper HARD STOP [HS:INFRA],
@@ -5866,6 +6156,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
             ok_d, measured = bc.verify_difficulty_obs(band, difficulty_obs,
                                                       difficulty_labels)
             if ok_d:
+                rl = bc.reconcile_level(band, level_status, rated_band, difficulty_labels,
+                                        diff_tries.get(str(q), 0), max_tries=MAX_DIFF_TRIES)
+                if rl.get('retry') and not diff_tries.get(f'{q}:d11'):
+                    # D11 (A): judge below an agreed Hard — exactly ONE extra try, from the same
+                    # budget; the marker makes the second pass ACCEPT (level_note 'judge below level')
+                    diff_tries[f'{q}:d11'] = 1
+                    diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
+                    return 'RETRY'
                 return 'ACCEPT'
             diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
             if diff_tries[str(q)] < MAX_DIFF_TRIES:
@@ -7059,12 +7357,20 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   _cap = {}
   for a in section['subtopic_allocations']:
       _cap[a['subtopic_id']] = _cap.get(a['subtopic_id'], 0) + int(a.get('q_count', 1) or 1)
+  # v5.92 (GAP-2026-11-05 DL-29, guard G6): a per-mock quota that would place FEWER figures
+  # than the A-AXIS1 band low is withdrawn ({}) by bc.figural_quota_guard, so the ranking
+  # allocation below runs instead of under-shooting a hard gate (the Step 5 quota built from
+  # an empty figural_count_by_subtopic was {} for every chemistry subtopic).
+  _ax1_sched = axis_schedule.get(sec_name) or {}
+  _ax1_target = (_ax1_sched.get('axis1_target_per_mock') or {}).get('FIGURAL', 0)
+  _ax1_band = bc.figural_band(_ax1_target, _ax1_sched.get('axis1_observed_figural'))   # the ALLOWANCE
+  _ax1_low = max(0, int(round(float(_ax1_target or 0))) - int(_ax1_band))              # A-AXIS1 band low
+  _ax1_quota = bc.figural_quota_guard(_ax1_sched.get('axis1_figural_quota') or {},
+                                      int(bp.get('total_mocks') or 1), _ax1_low)
   figural_slots = bc.schedule_figural_slots(
-      (axis_schedule.get(sec_name) or {}).get('axis1_figural_quota') or {},
-      (axis_schedule.get(sec_name) or {}).get('axis1_target_series') or [],
-      bc.figural_band(
-          (axis_schedule.get(sec_name) or {}).get('axis1_target_per_mock', {}).get('FIGURAL', 0),
-          (axis_schedule.get(sec_name) or {}).get('axis1_observed_figural')),
+      _ax1_quota,
+      _ax1_sched.get('axis1_target_series') or [],
+      _ax1_band,
       capacity=_cap)
   # Empty schedule (pre-v1.45 blueprint) ⇒ fall through to the v5.41 ranking below, so
   # every un-remeasured exam keeps its current behaviour exactly.
@@ -7090,15 +7396,22 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               _keep.append((q, sid))
       figural_capable_slots = _keep
 
+  # v5.92 (GAP-2026-11-05 DL-50): an ABSENT figural_reducible line defaults to False for a
+  # subtopic whose dominant PYQ figure family is a chemistry structure / scheme (S3-2S
+  # CHEM_FIGURE_SUBTOPICS) — its options ARE the structures. A line present in section_rules
+  # (Step 5 v2.60.0 writes it for every subtopic) is always read as written.
+  def _fig_reducible(sid):
+      return bool(SR[sid].get('figural_reducible',
+                              sid not in (globals().get('CHEM_FIGURE_SUBTOPICS') or set())))
   ordered = bc.rank_figural_candidates(
       figural_capable_slots,                      # [(qnum, subtopic_id), ...]
       rates={sid: SR[sid].get('figural_rate', 0.0)      for sid in capable_ids},
-      reducible={sid: SR[sid].get('figural_reducible', True) for sid in capable_ids})
+      reducible={sid: _fig_reducible(sid) for sid in capable_ids})
 
   for qnum, sid in ordered:
       granted, why = bc.axis_grant_figural(
           axis1_trackers[sec_name], sid,
-          reducible=SR[sid].get('figural_reducible', True))
+          reducible=_fig_reducible(sid))
       if granted:
           ...   # OPTION A below — render the real image
       else:
@@ -7172,6 +7485,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   (None only where the key does not apply — e.g. no `class_word` when the stem names no
   class; NEVER omit a key that applies):
 
+    ask_format            (v5.92 — GAP-2026-11-05 DL-22/34) the ask FORMAT the item renders,
+                          figure_types.normalise_ask_format(stem_text, option_texts) over
+                          figure_types.ASK_FORMATS ('direct' | 'statement' | 'match' |
+                          'sequence' | 'assertion_reason' | 'combination'); counted against
+                          the blueprint's axis2_format_floor_per_paper by the WARN-only
+                          A-AXIS2 and the Step 9 bench card. Never a [D] verdict.
     shape                 the BARE ask type the item RENDERS (figure_types.ASK_TYPES[family]
                           vocabulary; the key of shape_target_per_paper and the value of
                           batch_state['shape_plan'][q] — never 'ask|grammar'). A mismatch
@@ -7237,7 +7556,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   are the fallback ONLY when the bank is absent, and then the rating is recorded with
   rationale "snippets only — no exemplar bank (OD-11)". The content floor (b) runs for any
   label count >= 2 (bc.ccp_model v1.30) and the band is bc.final_band_decision(rated,
-  ccp_status, ccp_band, labels): the author's counts NEVER raise a band.
+  ccp_status, ccp_band, labels): the author's counts NEVER raise a band. v5.92: a LEVEL
+  item (CHECK 3c (b1)) takes the L1 level path instead — bc.level_check both ways, no
+  final_band_decision — and its difficulty_obs carries 'level', 'level_vector' and
+  'closeness' so A-LEVEL / A-CLOSENESS re-measure it from the record.
 
   INDEPENDENT REVIEW (OD-5) is NOT here: it runs INSIDE this run after the S13-2F sweep — a
   fresh reviewer per packet part (Framework_MockReview, the internal brief) — and its
@@ -9146,7 +9468,15 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | unchanged. Entry for G-OPTDISTINCT / G-DISTRACTOR / G-STEREODECL /
         |    | G-ITEMRULE (LONGEST_KEY / MIDDLE_VALUE_KEY: rebalance wording). | <= 3 |
         | R2 | Regenerate the SAME item: same subtopic, band and ask type; every
-        |    | failure reason passed in as a constraint. | <= 3 |
+        |    | failure reason passed in as a constraint. v5.92 (DL-47): for a LEVEL
+        |    | item two further REJECT reasons enter here — figure complexity below
+        |    | the subtopic's measured p10 (bc.content_vector size fields against
+        |    | LEVEL_TARGETS[sid]['figure_complexity_pct'], S3-12e) and option
+        |    | closeness below its p50 (bc.option_closeness mean against
+        |    | LEVEL_TARGETS[sid]['closeness_pct']['p50']; a target that is
+        |    | 'unmeasured' or absent gives no reason);
+        |    | both named in the brief as constraints ("a larger / more constrained
+        |    | substrate", "wrong options one decision from the key"). | <= 3 |
         | R3 | Regenerate: same subtopic and band; the next ask type that is
         |    | under target and valid for the subtopic (bc.assign_ask_type).
         |    | Skipped when none exists. | <= 3 |
@@ -9161,13 +9491,23 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | at the role tokens is <= FIG_COLUMN_IN, checked from the 2-D
         |    | coordinate span BEFORE drawing (overflow impossible). Other figure
         |    | types: the subtopic's most frequent object_type by its existing
-        |    | renderer at minimal complexity. The CCP size target is waived here;
-        |    | level is settled by R5. | <= 3 |
+        |    | renderer at minimal complexity. v5.92 (DL-43/58): R4' simplifies the
+        |    | LAYOUT only — never the chemistry; after the repair the level vector
+        |    | is RE-MEASURED (bc.level_vector / bc.level_check as in CHECK 3c (b1))
+        |    | and the item keeps its slot only if lc['status'] is still 'ok'; a drop
+        |    | to 'below' is a level finding settled by R5, never a silent pass. DL-48:
+        |    | on a WIDTH overflow of structure options, the TWO-ROW option layout
+        |    | (2 x 2 panels, S10-8 multi-panel path) is tried BEFORE R4' — it keeps
+        |    | the chemistry intact. The CCP size target is waived here. | <= 3 |
         | R5 | LAST RESORT, only for a reason still failing after R4/R4':
-        |    | content level -> ACCEPT AT THE MEASURED BAND and amend the IN-RUN
+        |    | content level -> ACCEPT AT THE MEASURED BAND (a level item: its L1
+        |    | level band, bc.ladder_terminal_accept(scheduled, lc['record']['band']);
+        |    | owner D3-R5 (A)) and amend the IN-RUN
         |    | blueprint in place: bc.amend_schedule_in_place(bp, N, section,
         |    | scheduled, measured, 'measured_band') (difficulty_schedule[k] and
         |    | its by_section move one count; logged in difficulty_amendments[]).
+        |    | A TOP-band slot accepted lower -> DIFFICULTY_STATE['hard_missed'] += 1
+        |    | (footer `Hard target missed: k item(s)`, S13-6; D3-R5 (a)).
         |    | Render defect on ANY R4' figure (chemistry included), or a key never verified ->
         |    | REASSIGN the slot to another in-scope subtopic (same topic first,
         |    | largest allocation first, then same section) that keeps every
@@ -11021,6 +11361,44 @@ if AUDIT_AVAILABLE:
   _bind = bc.bind_review_verdicts(VERDICTS, _md5, len(VERDICTS.get('items') or {}))
   if not _bind['ok']:
       print(f"S13-2G phase 3: binding notes {_bind['problems']} (recorded; never a stop).")
+  # v5.92 (GAP-2026-11-05 DL-52): the reviewer's difficulty_band_with_exemplar HAS a consumer.
+  # It is compared with the slot's scheduled band (difficulty_plan — the reviewer never saw
+  # it, handshake H6). "below" on a TOP-band slot in round 1 is a REVIEW DEFECT (an R2 repair
+  # inside the item's existing G-DIFF budget — one budget, D11); in round 2, or when the
+  # budget is spent, the residue is recorded as difficulty_check.level_note 'reviewer below
+  # slot' — never a stop, no certification effect (OD-9 applies only to the A-REVIEW stamps).
+  _plan_p3 = {str(k): v for k, v in (batch_state.get('difficulty_plan') or {}).items()}
+  # the exam's labels persist in batch_state (S3-16) — this block also runs as the S4-12 resume
+  # entry, where no blueprint is loaded; the brief's canonical words map POSITIONALLY
+  _labs_p3 = list(batch_state.get('difficulty_labels')
+                  or ((globals().get('bp') or {}).get('difficulty_labels') if isinstance(globals().get('bp'), dict) else None)
+                  or ['Easy', 'Medium', 'Hard'])      # a pre-v5.92 batch_state has no labels key
+  _canon_p3 = dict(zip(['easy', 'medium', 'hard'], _labs_p3)) if len(_labs_p3) == 3 else {}
+  _below_p3 = []
+  for _qn, _rec in (VERDICTS.get('items') or {}).items():
+      if not isinstance(_rec, dict) or str(_qn) not in _plan_p3:
+          continue
+      _txt = str(_rec.get('difficulty_band_with_exemplar') or '').strip()
+      _rb = (next((l for l in _labs_p3 if _txt.lower().startswith(l.lower())), None)
+             or next((_canon_p3[w] for w in _canon_p3 if _txt.lower().startswith(w)), None))
+      _sb = _plan_p3[str(_qn)]
+      if _rb and _sb in _labs_p3 and _labs_p3.index(_rb) < _labs_p3.index(_sb):
+          _below_p3.append(str(_qn))
+          _cm_e = (_kd.get('concept_map') or {}).get(str(_qn)) or {}
+          _dc = _cm_e.get('difficulty_check') if isinstance(_cm_e.get('difficulty_check'), dict) else {}
+          _dc['reviewer_band'] = _rb
+          _tries_p3 = int((batch_state.get('_diff_tries') or {}).get(str(_qn), 0))
+          if (int(batch_state.get('review_round', 0)) < 1 and _sb == _labs_p3[-1]
+                  and _tries_p3 < bc.MAX_DIFF_TRIES_DEFAULT):
+              _bind['defects'] = sorted(set([str(x) for x in _bind['defects']] + [str(_qn)]), key=int)
+              batch_state.setdefault('_diff_tries', {})[str(_qn)] = _tries_p3 + 1
+          else:
+              _dc['level_note'] = 'reviewer below slot'
+          _kd['concept_map'].setdefault(str(_qn), {})['difficulty_check'] = _dc
+  if _below_p3:
+      print(f"S13-2G phase 3 (DL-52): reviewer placed {_below_p3} below their slot band — "
+            f"{sorted(set(_below_p3) & set(str(x) for x in _bind['defects']), key=int)} repaired at R2 "
+            "(same G-DIFF budget); the rest recorded as level_note 'reviewer below slot'.")
   for _qn, _rec in (VERDICTS.get('items') or {}).items():          # the verdict lives ON the item (§4.3)
       _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=_md5)
   for _qn in _missing:                                              # A5: NOT_RUN, a WARN in A-REVIEW
@@ -11191,6 +11569,7 @@ if AUDIT_AVAILABLE:
       axis1_snapshots=_ax1, axis3_snapshots=_ax3,
       answer_key=_akd,                      # v5.59 — key commitments (S13-4 / Explain §7-8)
       quality_readiness=_bs.get('quality_readiness'),   # v5.90 — S3-2e record -> A-READINESS / footer
+      difficulty_state=_bs.get('difficulty_state'),     # v5.92 — Part D record -> MockDeliver 3f' lines
       shape_infeasible=list((_bs.get('shape_plan') or {}).get('_infeasible') or []))   # v5.90 — S3-12d planner record -> A-SHAPEMIX
   except ValueError as _e_commit:
       # LAW F2.3: a figure record without object_type (or another per-question record
@@ -11634,6 +12013,7 @@ if AUDIT_AVAILABLE:
   (Framework_DeliveryFooter §LADDER), never delivered:
   ```python
   import os
+  import blueprint_core as bc
   _bp_name = os.path.basename(BP_SRC_PATH)
   _bp_proj = f'/mnt/project/{_bp_name}'
   INFO_LINES_S136 = []
@@ -11644,6 +12024,43 @@ if AUDIT_AVAILABLE:
   if globals().get('AUDITOR_FROM_REPO'):
       INFO_LINES_S136.append("project auditor copy is missing or older than the verified repo auditor — this "
                              "run used the verified repo auditor; informational, nothing to upload")
+  # v5.92 (GAP-2026-11-05 Part D / DeliveryFooter §FOOTER-FT): a difficulty control that could
+  # not measure SAYS SO — AMBER lines from the ONE formatter; never a stop, no certification
+  # effect (OD-9: NOT CERTIFIED only from an ACTIVE, measured gate).
+  # The persisted record is the source (every CHECK 3c mutation was written there in the same
+  # write as difficulty_plan); the in-memory globals are the fallback for a fresh session.
+  try:
+      import json as _json6
+      _bs6 = _json6.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8')) or {}
+  except Exception:                                   # noqa: BLE001 — never a stop
+      _bs6 = {}
+  _ds = dict(globals().get('DIFFICULTY_STATE') or {}, **(_bs6.get('difficulty_state') or {}))
+  _lm6 = globals().get('LEVEL_MODEL') or _ds.get('level_model')
+  DIFFICULTY_LINES_S136 = bc.difficulty_unverified_lines(
+      globals().get('QUALITY_READINESS') or _bs6.get('quality_readiness'), _lm6,
+      n_level_items=_ds.get('n_level_items', 0), judge_dormant_qs=_ds.get('judge_dormant_qs') or [],
+      hard_missed=_ds.get('hard_missed', 0), coverage=globals().get('PROFILE_COVERAGE'))
+  INFO_LINES_S136.extend(DIFFICULTY_LINES_S136)
+  # v5.92 (DL-51/52): what moved and what the judges disagreed on — read from the persisted
+  # plan pair and the items' difficulty_check records; informational lines, never a verdict.
+  _orig6 = _bs6.get('difficulty_schedule_original') or {}
+  _fin6 = _bs6.get('difficulty_plan') or {}
+  _moved6 = sorted((q for q in _orig6 if _fin6.get(q) not in (None, _orig6[q])), key=lambda x: int(x))
+  if _moved6:
+      INFO_LINES_S136.append(f"difficulty plan amended in this run: {len(_moved6)} slot(s) moved band "
+                             f"(Q{', Q'.join(_moved6[:12])}{'…' if len(_moved6) > 12 else ''}) — the label follows the evidence")
+  try:
+      _kd6 = _json6.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')) or {}
+  except Exception:                                   # noqa: BLE001 — never a stop
+      _kd6 = {}
+  _notes6 = {}
+  for _q6, _e6 in ((_kd6.get('concept_map') or {}).items()):
+      _ln6 = ((_e6 or {}).get('difficulty_check') or {}).get('level_note') if isinstance(_e6, dict) else None
+      if _ln6 and _ln6 != 'advisory':
+          _notes6.setdefault(str(_ln6), []).append(str(_q6))
+  for _ln6, _qs6 in sorted(_notes6.items()):
+      INFO_LINES_S136.append(f"difficulty note '{_ln6}': Q{', Q'.join(sorted(_qs6, key=int)[:12])}"
+                             f"{'…' if len(_qs6) > 12 else ''} — recorded on the item (difficulty_check.level_note)")
   EXTRA_DELIVERABLES = ()          # the closed set is ALWAYS exactly the two files
   EXTRA_REPLACE = ()
   for _l in INFO_LINES_S136:
@@ -12545,7 +12962,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.91
+# END OF Framework_MockTestCreate v5.92
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

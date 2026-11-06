@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.39.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.40.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.40.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (owner decisions D3-R5 (a),
+#   D10 (B); paired with blueprint_core v1.32, paper_pipeline v5.40, MockTestCreate v5.92,
+#   MockTestExplain v1.53.0, MockDeliver v1.26.0). §FOOTER-FT ONLY gains the DIFFICULTY
+#   DISCLOSURE LINES — every string bc.difficulty_unverified_lines returns ("DIFFICULTY
+#   UNVERIFIED — <reason>", "Hard target missed: k item(s)", "Step 9: k/n assessed", the
+#   small-pool and coverage lines), engine-sourced, prefixed "⚠️ ", disclosure only (no
+#   verdict change, no certification effect, no stop); pp.dg_footer_lines adds the Step-9
+#   coverage line for a w2 record. §1, §2, §4-§7 and the §3 STEP 1 block are byte-identical
+#   (PYQPrepare freeze, owner P1).
 # v1.39.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D2 (a),
 #   D3 (a), D5 (a), D6; paired with MockTestCreate v5.91, MockReview v2.0.0, MockDeliver
 #   v1.25.0, audit_canonical v2.36, final_assembly v1.13, STEP_CONTRACTS.json). STEP 7 FINAL
@@ -718,6 +727,39 @@ never compose them by hand. The set it returns:
 A clean, current paper prints NOTHING (the legacy estate's footers stay byte-identical,
 §7 P1). No per-question detail, no gate verdict, no SMILES ever reaches the delivered
 document; the annotations themselves live in the registry (internal).
+
+DIFFICULTY DISCLOSURE LINES (v1.40.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D; owner
+decisions D3-R5 (a), D10 (B)). In the SAME place, immediately after the figure-record
+lines, print EVERY string returned by
+    bc.difficulty_unverified_lines(readiness, level_model, n_level_items,
+                                   judge_dormant_qs, hard_missed, step9_assessed, coverage)
+one per line, each prefixed "⚠️ " — the arguments are the paper's recorded
+registry.question_index[].quality_readiness / difficulty_state (Step 7 S13-6 writes the
+same lines from the same engine function into its own footer; Step 11 reprints them from
+the record). The engine is the ONLY source of these lines — never compose them by hand.
+The set it returns:
+    level model dormant while the paper carries drawn chemistry
+                            → "DIFFICULTY UNVERIFIED — N chemistry item(s) written
+                               without an active level model (<reason>)"
+    level model active on a small pool (owner D10 B)
+                            → "level model: small pool n=<k> (< 20); bands are
+                               indicative (owner D10 B)"
+    independent rating dormant on items
+                            → "DIFFICULTY UNVERIFIED — independent rating dormant on
+                               Q…, Q… (no exemplar with content)"
+    Hard slots accepted below Hard at ladder R5 (D3-R5 (a))
+                            → "Hard target missed: k item(s) accepted at their measured
+                               band after 6 regeneration tries (schedule amended, D3-R5)"
+    Step 9 coverage under 80 % (DL-53; also pp.dg_footer_lines for the record)
+                            → "Step 9: k/n assessed"
+    profile written under mixed rubric rules (DL-20)
+                            → "profile coverage: … — mixed rubric rules; re-run PYQExplain
+                               on all window papers together (recommended, never required)"
+A paper whose every difficulty control measured prints NOTHING. The Complexity tag on
+the paper stays the canonical label (MockDeliver [HS:INPUT] on a non-canonical label is
+untouched, guard G9); "unverified" appears ONLY in these footer lines. These lines are
+DISCLOSURE: they never change a verdict, never make a paper NOT CERTIFIED (OD-9) and
+never stop a step.
 
 §FOOTER-STYLE — STYLE-PROFILE STATUS LINE (v1.30 — GAP-2026-08-29-STYLE-FIDELITY
 §6.7). Immediately after the §FOOTER-DG lines of the Step 11 F2 footer, print

@@ -163,14 +163,28 @@ def self_test():
         # ═══ H3  Blueprint §7-8 / ScopedBlueprint S8-2d <- section_rules QUALITY ═══
         print('H3 blueprints <- section_rules')
         t = open(f'{W}/Framework_Blueprint.md', encoding='utf-8').read(); i = t.find('# §7-8 (v1.63.0'); j = t.find('# §7-8R', i)
-        g = {'_bc_ask': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
-             'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': 30, 'blueprint': {'total_mocks': 2}}
+        _labs_hs = list(exam_config['difficulty_labels'])
+        g = {'_bc_ask': bc, 'bc': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
+             'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': 30, 'blueprint': {'total_mocks': 2},
+             # v1.64.0 §7-9 (GAP-2026-11-05) reads the profile, the labels and PROFILE_CFG
+             'PROFILE': profile, '_labels': _labs_hs, 'PROFILE_CFG': {'cycle_gap_days': exam_config.get('cycle_gap_days')}}
         run_fence(t[i:j], g)
         check('H3 Blueprint §7-8 writes shape_target_per_paper for every mock', set(g['blueprint']['shape_target_per_paper']) == {'1', '2'} and g['blueprint']['schema_version'] == 2, str(g['blueprint'].get('shape_target_per_paper'))[:120])
+        check('H3 Blueprint §7-8 stamps shape_rule s1 on every target (G4)', all(tg.get('shape_rule') == bc.SHAPE_RULE_LEGACY for mk in g['blueprint']['shape_target_per_paper'].values() for tg in mk.values() if isinstance(tg, dict)))
+        check('H3 Blueprint §7-9 writes the level-target fields (DL-31/33/34/36)', all(k in g['blueprint'] for k in ('axis2_format_floor_per_paper', 'level_targets', 'hard_share_by_subtopic', 'hard_supply')) and isinstance(g['blueprint']['hard_share_by_subtopic'], dict), str({k: g['blueprint'].get(k) for k in ('axis2_format_floor_per_paper', 'hard_share_by_subtopic')})[:160])
+        check('H3 Blueprint §7-9 hard_share_by_subtopic == bc.hard_share_by_subtopic (same profile, same labels)', g['blueprint']['hard_share_by_subtopic'] == bc.hard_share_by_subtopic(profile, _labs_hs, gap_days=exam_config.get('cycle_gap_days')))
+        check('H3 Blueprint §7-9 (e) records level_model_inputs the auditor and Create build from (DL-21)',
+              isinstance(g['blueprint'].get('level_model_inputs'), dict) and g['blueprint']['level_model_inputs']['subtopic_ids'] == sorted([sid0, sid1])
+              and g['blueprint']['level_model_inputs']['mix_rule'] == 'm1' and g['blueprint']['level_model_inputs']['labels'] == _labs_hs)
         t2 = open(f'{W}/Framework_ScopedBlueprint.md', encoding='utf-8').read(); i = t2.find('# S8-2d (v1.13.0'); j = t2.find('# S8-3', i)
-        g2 = {'bc': bc, '_sr_text': SR, 'in_scope_ids': [sid0, sid1], 'r_avg': {sid0: 2.0, sid1: 1.0}, 'Q': 20, 'N': 2}
+        g2 = {'bc': bc, '_sr_text': SR, 'in_scope_ids': [sid0, sid1], 'r_avg': {sid0: 2.0, sid1: 1.0}, 'Q': 20, 'N': 2,
+              'DIFFICULTY_PROFILE': profile, 'PROFILE_CFG': {'difficulty_labels': _labs_hs, 'cycle_gap_days': exam_config.get('cycle_gap_days')}}
         run_fence(t2[i:j], g2)
         check('H3 ScopedBlueprint S8-2d writes SHAPE_TARGET', set(g2['SHAPE_TARGET']) == {'1', '2'})
+        check('H3 ScopedBlueprint S8-2e mirrors Blueprint §7-9 (hard share restricted to the scope; floors per paper)', isinstance(g2.get('HARD_SHARE_BY_SUBTOPIC'), dict) and set(g2['HARD_SHARE_BY_SUBTOPIC']) <= {sid0, sid1} and isinstance(g2.get('AXIS2_FORMAT_FLOOR'), dict) and isinstance(g2.get('LEVEL_TARGETS'), dict), str(g2.get('HARD_SHARE_BY_SUBTOPIC'))[:120])
+        check('H3 ScopedBlueprint S8-2e (e) records level_model_inputs (scope ids, m2 default, tier None)',
+              isinstance(g2.get('LEVEL_MODEL_INPUTS'), dict) and g2['LEVEL_MODEL_INPUTS']['subtopic_ids'] == sorted([sid0, sid1])
+              and g2['LEVEL_MODEL_INPUTS']['mix_rule'] == 'm2' and g2['LEVEL_MODEL_INPUTS']['tier'] is None)
         BP = {'blueprint_version': 'hs-1', 'total_questions': 4, 'batch_size_qs': 10, 'exam_code': EXAM,
               'subtopic_list': [{'subtopic_id': sid0, 'section': 'Section A', 'subtopic': 'EAS'}, {'subtopic_id': sid1, 'section': 'Section A', 'subtopic': 'Isomerism'}],
               'difficulty_labels': ['Easy', 'Medium', 'Hard'], 'difficulty_schedule': [{'mock': 1, 'simple': 1, 'medium': 2, 'hard': 1}],
@@ -190,14 +204,36 @@ def self_test():
         g4 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'bp': BP, 'bs_prev': {}}
         run_fence(f32e[0], g4)
         RD = g4['QUALITY_READINESS']
-        check('H4 readiness reads exemplar bank / section_rules / profile / blueprint as PASS', all(RD['controls'][c]['status'] == 'PASS' for c in ('G-DIFF-JUDGE', 'G-STEMLEAK', 'G-STEMFORM', 'G-SHAPEMIX', 'G-DIFF-FLOOR', 'G-TEMPLATE', 'G-DISTRACTOR', 'G-ENTITYLEAK')), str({c: v['status'] for c, v in RD['controls'].items()}))
+        check('H4 readiness reads exemplar bank / section_rules / profile / blueprint as PASS', all(RD['controls'][c]['status'] == 'PASS' for c in ('G-DIFF-JUDGE', 'G-STEMLEAK', 'G-STEMFORM', 'G-SHAPEMIX', 'G-TEMPLATE', 'G-DISTRACTOR', 'G-ENTITYLEAK')), str({c: v['status'] for c, v in RD['controls'].items()}))
+        # GAP-2026-11-05 DL-46: the content floor is MEASURED — the synthetic profile holds fewer than
+        # bc.LEVEL_MIN_POOL content-full records, so the control is DORMANT (not PASS on field presence,
+        # not degraded, named in the printed block) and the footer formatter carries the reason.
+        _n_full4 = sum(1 for _p4 in (g4.get('_rd_in', {}).get('difficulty_profile.json') or {}).get('papers', {}).values()
+                       for _r4 in (_p4.get('questions') or {}).values()
+                       if isinstance(_r4, dict) and _r4.get('content_vector') and str(_r4.get('content_confidence', 'full')) == 'full')
+        _fl4 = RD['controls']['G-DIFF-FLOOR']
+        check('H4 readiness measures the content floor (DL-46): DORMANT below LEVEL_MIN_POOL, never degraded, named in the block',
+              (_fl4['status'] == 'DORMANT' if 0 < _n_full4 < bc.LEVEL_MIN_POOL else _fl4['status'] in ('PASS', 'N/A'))
+              and 'G-DIFF-FLOOR' not in RD['degraded']
+              and (_fl4['status'] == 'PASS' or 'G-DIFF-FLOOR' in str(bc.quality_readiness_block(RD)))
+              and (_fl4['status'] == 'PASS' or bc.difficulty_unverified_lines(RD, None, n_level_items=1)[0].startswith('DIFFICULTY UNVERIFIED')),
+              f"{_fl4} n_full={_n_full4}")
         check('H4 readiness: only the artefacts this test did not produce are MISSING (style_profile, pyq_index)', set(RD['degraded']) <= {'G-STYLE', 'G-PYQ-DIST', 'G-ITEM'}, str(RD['degraded']))
         check('H4 EXEMPLAR_BANK_PATH bound to the delivered run file', g4.get('EXEMPLAR_BANK_PATH') and os.path.exists(g4['EXEMPLAR_BANK_PATH']))
         f312d = [b for _, b in fences(cre) if 'S3-12d (executable' in b[:200]]
-        g4.update({'subtopic_by_qnum': {1: sid0, 2: sid0, 3: sid1, 4: sid1}, '_qtype_by_q': {}, 'SECTION_RULES_TEXT': SR})
+        # v5.92 S3-12e (GAP-2026-11-05 DL-33/34) reads the Blueprint §7-9 fields written in H3 and
+        # re-places the top-band slots of difficulty_plan; counts must be conserved.
+        BP['hard_share_by_subtopic'] = g['blueprint']['hard_share_by_subtopic']
+        BP['axis2_format_floor_per_paper'] = g['blueprint']['axis2_format_floor_per_paper']
+        _plan4 = {1: BP['difficulty_labels'][2], 2: BP['difficulty_labels'][0], 3: BP['difficulty_labels'][1], 4: BP['difficulty_labels'][1]}
+        g4.update({'subtopic_by_qnum': {1: sid0, 2: sid0, 3: sid1, 4: sid1}, '_qtype_by_q': {q: 'mcq' for q in (1, 2, 3, 4)},
+                   'SECTION_RULES_TEXT': SR, 'difficulty_plan': dict(_plan4), 'difficulty_labels': BP['difficulty_labels']})
         run_fence(f312d[0], g4)
         PLAN = g4['SHAPE_PLAN']
         check('H4 S3-12d assigns a shape to every slot from the blueprint targets', all(str(q) in PLAN for q in (1, 2, 3, 4)) and all(PLAN[str(q)] in BP['shape_target_per_paper']['1'] or PLAN[str(q)] is None for q in (1, 2, 3, 4)), str(PLAN))
+        _after4 = g4['difficulty_plan']
+        check('H4 S3-12e keeps every band count while placing top-band slots by subtopic share (DL-33)', sorted(_after4.values()) == sorted(_plan4.values()) and set(_after4) == set(_plan4), str(_after4))
+        check('H4 S3-12e binds the paper\'s ask-format floors from the blueprint (DL-34)', isinstance(g4.get('AXIS2_FORMAT_FLOOR'), dict) and g4['AXIS2_FORMAT_FLOOR'] == dict((BP['axis2_format_floor_per_paper'] or {}).get(str(N)) or {}), str(g4.get('AXIS2_FORMAT_FLOOR')))
         # S7-QUALITY judge packet <- exemplar bank slice
         item = {'stem': BASE[0] + ' variant', 'options': ['a', 'b', 'c', 'd'], 'difficulty_plan': 'Hard', 'solution': 'x', 'subtopic_id': sid0}
         EX = bc.exemplars_for(g4['EXEMPLAR_BANK'], sid0, 'mcq', BP['difficulty_labels'])
@@ -223,9 +259,11 @@ def self_test():
         BP['total_questions'] = MQ; BP['sections'][0]['q_range'] = [1, MQ]; BP['sections'][0]['total_qs'] = MQ
         BP['difficulty_schedule'] = [{'mock': 1, 'simple': 3, 'medium': 4, 'hard': 3}]
         t = open(f'{W}/Framework_Blueprint.md', encoding='utf-8').read(); i = t.find('# §7-8 (v1.63.0'); j = t.find('# §7-8R', i)
-        g78 = {'_bc_ask': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
-               'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': MQ, 'blueprint': {'total_mocks': 1}}
+        g78 = {'_bc_ask': bc, 'bc': bc, 'MANIFEST_IDS': {sid0: {'display_name': 'EAS'}, sid1: {'display_name': 'Isomerism'}},
+               'section_rules_text': SR, 'r_avg': {'EAS': 2.0, 'Isomerism': 1.0}, 'total_qs': MQ, 'blueprint': {'total_mocks': 1},
+               'PROFILE': profile, '_labels': _labs_hs, 'PROFILE_CFG': {'cycle_gap_days': exam_config.get('cycle_gap_days')}}
         run_fence(t[i:j], g78); BP['shape_target_per_paper'] = g78['blueprint']['shape_target_per_paper']
+        BP['hard_share_by_subtopic'] = g78['blueprint']['hard_share_by_subtopic']; BP['axis2_format_floor_per_paper'] = g78['blueprint']['axis2_format_floor_per_paper']
         check('H5 blueprint §7-8 targets for the mock paper (both subtopics pooled)', set(BP['shape_target_per_paper']) == {'1'} and len(BP['shape_target_per_paper']['1']) >= 3, str(BP['shape_target_per_paper'])[:160])
         json.dump(BP, open(bp_path, 'w'))
         g4b = dict(g4); g4b.update({'subtopic_by_qnum': {n: order[n-1] for n in range(1, MQ + 1)}, 'bp': BP}); run_fence(f312d[0], g4b); PLAN = g4b['SHAPE_PLAN']
@@ -494,7 +532,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 70
+EXPECTED_CHECKS = 79
 
 
 if __name__ == '__main__':

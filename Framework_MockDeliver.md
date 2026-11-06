@@ -1,4 +1,11 @@
-# Framework_MockDeliver v1.25.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.26.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.26.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (paired with blueprint_core
+#   v1.32, paper_pipeline v5.40, MockTestCreate v5.92, DeliveryFooter v1.40.0). S1-2 gains
+#   item 3f' — the DIFFICULTY DISCLOSURE LINES reprinted from the paper's recorded
+#   difficulty_state / quality_readiness / difficulty_gate coverage through
+#   bc.difficulty_unverified_lines (engine-sourced, "⚠️ "-prefixed, disclosure only). The
+#   Complexity tag stays the canonical label (guard G9); nothing here stops, withholds or
+#   re-certifies. Legacy series (no difficulty_state) print nothing — byte-identical.
 # v1.25.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D5 (a);
 #   paired with MockTestCreate v5.91, audit_canonical v2.36, blueprint_core v1.31,
 #   DeliveryFooter v1.39.0). S1-2 item 3f reads the certificate through
@@ -478,6 +485,28 @@ Parse:
        paper whose figures were never recorded (NOT AUDITED); legacy records the
        S13-REGCHECK migration annotated; unregistered dominant figure types. Never a
        halt, never a verdict, never a SMILES in the delivered document.
+
+    3f'. DIFFICULTY DISCLOSURE LINES (v1.26.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D;
+       DeliveryFooter §FOOTER-FT). Immediately after the figure-record lines print EVERY
+       string returned by
+         bc.difficulty_unverified_lines(entry.quality_readiness, state.get('level_model'),
+                                        n_level_items=state.get('n_level_items', 0),
+                                        judge_dormant_qs=state.get('judge_dormant_qs') or [],
+                                        hard_missed=state.get('hard_missed', 0),
+                                        step9_assessed=<(assessed_count, gated_count) of the
+                                                        paper's difficulty_gate record when
+                                                        it carries window_rule 'w2', else None>,
+                                        coverage=None)
+       where `entry` is the paper's registry question_index entry and `state` is its
+       recorded `difficulty_state` (Step 7 S3 / S13-6; `state['level_model']` is the
+       level model's recorded state — active / n / small_pool / reason — so an active
+       model at Create time never reprints as "dormant" here; an entry without a
+       difficulty_state prints nothing — legacy series byte-identical), one per line,
+       prefixed "⚠️ ". The engine
+       is the ONLY source of these lines. They are DISCLOSURE: the Complexity tag on the
+       paper stays the canonical label (the [HS:INPUT] on a non-canonical label below is
+       untouched — guard G9); "unverified" never reaches the tag; no verdict changes, no
+       certification effect (OD-9), no stop.
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -2138,4 +2167,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.25.0
+# END OF Framework_MockDeliver v1.26.0

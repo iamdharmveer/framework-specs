@@ -13,6 +13,11 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.14 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D. commit_registry accepts
+    difficulty_state=None and, when a dict, commits it on the question_index entry beside
+    quality_readiness (Create S3 / S13-6 record it; MockDeliver 3f' reprints the AMBER
+    difficulty disclosure lines from it). Additive; an older caller is byte-identical.
+
     v1.13 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D3 (a), D6).
     THE STEP 7 USER CONTRACT IS EXACTLY TWO FILES (STEP_CONTRACTS.json). (a)
     predelivery_checklist check 6: the closed set is ALWAYS {Create.docx, registry.json};
@@ -385,6 +390,7 @@ QINDEX_V590_FIELDS = (
     # _QQ_V590_FIELDS, which adds identity / key fields the registry never carries;
     # handshake_audit.py asserts the subset — final_assembly never imports the auditor): the final S13-4c sweep audits the registry
     # record, not the sidecar, so a field absent here is invisible to its gate at S13-4c.
+    'ask_format',                                             # v1.14 (GAP-2026-11-05 DL-22)
     'option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint',
     'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family',
     'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres',
@@ -401,7 +407,8 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      di_manifest=None, fig_manifest=None, figure_specs=None,
                      axis1_snapshots=None, axis3_snapshots=None,
                      framework_repo_commit=None, spec_source_report=None,
-                     timestamp=None, answer_key=None, quality_readiness=None, shape_infeasible=None):
+                     timestamp=None, answer_key=None, quality_readiness=None, shape_infeasible=None,
+                     difficulty_state=None):
     """Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.48.0 QINDEX-FK
     enforcement; v5.52 idempotency — see module docstring deviation 4;
     v5.54 same-series dedupe + axis snapshot persistence — see the module
@@ -738,7 +745,12 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                                   # v1.12 — S3-12d planner record: shapes whose floor no capable
                                   # slot could take (A-SHAPEMIX reads it; recorded, never a defect)
                                   **({"shape_infeasible": [str(x) for x in shape_infeasible]}
-                                     if isinstance(shape_infeasible, (list, tuple)) else {})})
+                                     if isinstance(shape_infeasible, (list, tuple)) else {}),
+                                  # v1.14 (GAP-2026-11-05 Part D) — the paper's recorded difficulty
+                                  # state (level items, judge-dormant items, Hard misses): Step 11
+                                  # reprints the AMBER disclosure lines from it. Absent -> nothing.
+                                  **({"difficulty_state": copy.deepcopy(difficulty_state)}
+                                     if isinstance(difficulty_state, dict) else {})})
 
     # ── Ledgers — idempotent (deviation 4) ───────────────────────────────────
     # v5.55 (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED): mocks_completed is the
@@ -2290,6 +2302,12 @@ def self_test():
     _e12rv = _e12r['registry']['question_index'][0]
     check('v112_quality_readiness_committed', _e12rv.get('quality_readiness', {}).get('degraded') == ['G-X']
           and 'quality_readiness' not in _e12v)
+    _e12ds = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=1,
+                             axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                             concept_map=mini_cm(), difficulty_state={'hard_missed': 2, 'judge_dormant_qs': [3]})
+    check('v114_difficulty_state_committed',
+          _e12ds['registry']['question_index'][0].get('difficulty_state') == {'hard_missed': 2, 'judge_dormant_qs': [3]}
+          and 'difficulty_state' not in _e12v)
     _e12s = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=1,
                             axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
                             concept_map=mini_cm(), shape_infeasible=['two_part'])

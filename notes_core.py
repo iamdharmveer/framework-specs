@@ -1,5 +1,13 @@
 """
-notes_core.py v2.13 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.14 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.14 — 2026-11-05 — RUBRIC RULE PASS-THROUGH (GAP-2026-11-05-DIFFICULTY-FIDELITY, guards
+    G1/G10; pairs with blueprint_core v1.32, notes_audit v2.11, Framework_NotesCreate
+    v2.11.0, Framework_NotesAudit v3.9.0). recall_authoring_profile(..., rule=None) forwards
+    the rubric rule to blueprint_core.difficulty_authoring_profile (NotesCreate authors under
+    bc.RUBRIC_RULE_CURRENT and stamps it on difficulty_obs); recall_verify_difficulty is
+    unchanged in text and judges each item under its recorded rule through
+    bc.verify_difficulty_obs (an unstamped item is r1).
 
 v2.13 — 2026-09-23 — F-3(b) SINGLE AUTHORITY (GAP-2026-09-23-FLAT-MATH-NOTATION;
     pairs with Framework_NotesCreate v2.10.0 §6 F-3(b)–(e), Framework_NotesAudit
@@ -2297,16 +2305,24 @@ def recall_verify_difficulty(label, obs, labels=DIFFICULTY_LABELS_DEFAULT):
     return (bool(ok), measured, None)
 
 
-def recall_authoring_profile(band, qtype, labels=DIFFICULTY_LABELS_DEFAULT):
+def recall_authoring_profile(band, qtype, labels=DIFFICULTY_LABELS_DEFAULT, rule=None):
     """The observation targets that land a Recall of `qtype` IN `band` —
     blueprint_core.difficulty_authoring_profile, or None when the rubric is
     unavailable (NC then authors to the band by judgement and G-14 reports
-    the rubric dormant)."""
+    the rubric dormant). v2.14 (GAP-2026-11-05, G1/G10): `rule` selects the
+    rubric table — NotesCreate passes bc.RUBRIC_RULE_CURRENT and stamps the same
+    rule on the item's difficulty_obs; None keeps the legacy table (an engine
+    without the kwarg is also tolerated)."""
     try:
         import blueprint_core as _bc
     except ImportError:
         return None
-    return _bc.difficulty_authoring_profile(band, str(qtype or "mcq").lower(), list(labels))
+    if rule is None:
+        return _bc.difficulty_authoring_profile(band, str(qtype or "mcq").lower(), list(labels))
+    try:
+        return _bc.difficulty_authoring_profile(band, str(qtype or "mcq").lower(), list(labels), rule=rule)
+    except TypeError:
+        return _bc.difficulty_authoring_profile(band, str(qtype or "mcq").lower(), list(labels))
 
 
 def scenario_key(text):

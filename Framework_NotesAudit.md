@@ -1,4 +1,10 @@
-# Framework_NotesAudit v3.8.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.9.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.9.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   notes_core v2.14, notes_audit v2.11, Framework_NotesCreate v2.11.0; guards G1, G10). §5
+#   G-14 R-10 has three legs and recognises `accepted_at_measured` on all of them (leg 1
+#   suppressed when leg 2 agrees; leg 2 unchanged; leg 3 re-run with ladder bands → advisory
+#   exam_mix_shortfall when the acceptances alone caused it); the rubric check judges each
+#   item under its recorded rule. Meta gains exam_mix_shortfall / accepted_at_measured_items.
 # v3.8.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
 #   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
 #   Framework_NotesCreate v2.10.0 §6 F-3(b)–(e)). THE DEFECT: §5 G-2c gated a literal
@@ -782,17 +788,31 @@ pass.
           partner -> topic -> exam -> neutral) and naming the rung — AND the declared
           band == the shared rubric's band for the recorded difficulty_obs
           (notes_core.recall_verify_difficulty, the SAME check Step 7's G-DIFF
-          and A-QINDEX check 8 run). A label the evidence contradicts never
-          ships. When the profile is present, the whole set's band counts sit
-          within the exam's measured paper-level mix
-          (notes_core.recall_exam_mix_check); without it the check is dormant
-          and disclosed.
+          and A-QINDEX check 8 run; v3.9.0 — it judges under the rubric rule
+          the obs carries, so an older unit's items stay r1, guard G1). A label
+          the evidence contradicts never ships. When the profile is present,
+          the whole set's band counts sit within the exam's measured
+          paper-level mix (notes_core.recall_exam_mix_check); without it the
+          check is dormant and disclosed.
+          THREE LEGS, ONE STAMP (v3.9.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY
+          DL-59, guard G10): an item NotesCreate v2.11.0 accepted at its
+          MEASURED band after its six tries carries `accepted_at_measured:
+          true`, and notes_audit v2.11 recognises it on every leg — (1) the
+          evidence-ladder finding is suppressed when leg (2) agrees and the
+          basis is counted as 'accepted_at_measured'; (2) declared == measured
+          is UNCHANGED (the stamp never excuses a label the rubric
+          contradicts); (3) the exam-mix check is re-run with each accepted
+          item's band replaced by its ladder band — a shortfall only the
+          acceptances caused becomes the advisory meta line
+          exam_mix_shortfall, any other stays a finding. An old unit (no
+          stamp) is judged exactly as before.
       ADVISORY, in meta, never blocking: no_trap_provenance (core Recalls
       whose wrong options declare no Trap-Box index — R-9 is free-text
       provenance and cannot block); rubric_dormant_items (an obs the rubric
       cannot score — fall-through, never a false FAIL); basis_distribution
       (how many items stood on each ladder rung — the §9 disclosure);
-      ceiling_unattainable; exam_mix_expected; profile_present.
+      ceiling_unattainable; exam_mix_expected; exam_mix_shortfall and
+      accepted_at_measured_items (v3.9.0); profile_present.
       DORMANT, never blocking, always reported: a target-less call (bank-less
       engine callers only — a live NA always has the bank), and a registry
       unit with NO recall_contract record: the draft predates NotesCreate
@@ -934,4 +954,4 @@ or licensed net ADD named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.8.0
+# END OF Framework_NotesAudit v3.9.0
