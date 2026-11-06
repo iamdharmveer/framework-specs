@@ -36,20 +36,26 @@
   "SESSION-BUDGET-LAW": {
    "gap": "GAP-2026-08-16-STEP5-SESSION-EXHAUSTION",
    "stated_in": "CLAUDE.md",
-   "requires": "A session has THREE finite resources, not one. The framework has always budgeted PAYLOAD CHARACTERS (bc.INLINE_BUDGET_CHARS) and PAPER PACING (BATCH_SIZE). It must also budget SPECIFICATION-READ COST and TOOL-CALL COUNT. Concretely: (1) any CLASS T acquisition performed before a context partition MUST be subtracted from that partition's budget via consumed=, and is charged even when it FAILS; (2) a probe must be productive — probe the item the plan will fetch anyway, not the cheapest; (3) a spec above the SPEC-BUDGET threshold must declare a FINAL/NON-FINAL read set, with escalation to a full read MANDATORY and ONE-WAY before any writer runs; (4) a listing transcribed by the model must be asserted against an independently declared count and HARD STOP on mismatch; (5) a partition that admits nothing must SAY SO, never print a sessions estimate computed from an empty set.",
+   "requires": "A session has THREE finite resources, not one. The framework has always budgeted PAYLOAD CHARACTERS (bc.INLINE_BUDGET_CHARS) and PAPER PACING (BATCH_SIZE). It must also budget SPECIFICATION-READ COST and TOOL-CALL COUNT. Concretely: (1) any CLASS T acquisition performed before a context partition MUST be subtracted from that partition's budget via consumed=, and is charged even when it FAILS; (2) a probe must be productive — probe the item the plan will fetch anyway, not the cheapest; (3) a spec above the SPEC-BUDGET threshold must declare a FINAL/NON-FINAL read set, with escalation to a full read MANDATORY and ONE-WAY before any writer runs; (4) a listing transcribed by the model must be asserted against an independently declared count and HARD STOP on mismatch; (5) a partition that admits nothing must SAY SO, never print a sessions estimate computed from an empty set. (6) READ-RETENTION and SESSION-CAPACITY (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, owner decision OD-2026-11-06): a spec is read only in bootstrap-served chunks (at most SESSION_BUDGET.json read_chunk_max_lines lines / read_chunk_max_bytes bytes; never a tool result the harness diverts), and the session PROVES the read is still in its context — every READ-ANCHOR code reproduced from memory (bootstrap.py --retention) after the read, before and after every unit of work and before any final writer — re-reading on a FAIL and redoing work done without retention; and every route's read must fit SESSION_BUDGET.json read_cap_tokens (measured, never raised to make a route fit) for both session classes. A Step 7 run is orchestrated (Framework_MockTestOrchestrate.md) so that the context that writes the paper is replaced before the measured compaction point.",
    "detect": "budget_spender_upstream_of_partition",
    "detect_note": "A spec PERFORMS this operation when it calls bc.partition_by_transport in a file that also carries a CLASS T acquisition (CHANNEL PROBE / probe_drive_channel / probe_direct_egress), or when it writes DRIVE_LISTING_CACHE, or when its route's summed .md bytes exceed audit_specs_ext.SPEC_BUDGET_BYTES. Prose does not count: the call must be in executable source, per the corollary law that any instruction a CI check must inspect has to live where the CI check can read it.",
    "governs": [
     "Framework_MockTestAnalyse.md",
     "Framework_PYQCount.md",
-    "Framework_PYQCore.md"
+    "Framework_PYQCore.md",
+    "Framework_MockTestOrchestrate.md"
    ],
    "verified_by": [
     "audit_callgraph:C10",
     "audit_callgraph:C11",
     "mock_sync_audit:MS-12",
     "mock_sync_audit:MS-13",
-    "audit_specs_ext:SPEC-BUDGET"
+    "audit_specs_ext:SPEC-BUDGET",
+    "audit_specs_ext:SPEC-CAPACITY",
+    "spec_sections:t_read_coverage_every_line_exactly_once",
+    "spec_sections:t_step7_mandates_are_in_the_nonfinal_read",
+    "spec_sections:t_step7_s13_2f_and_2g_are_final_only",
+    "bootstrap.py --self-test"
    ],
    "preconditions": [
     "DERIVED RANGES. The FINAL/NON-FINAL read set is computed by spec_sections.py from each spec's own headers into SPEC_SECTIONS.json, which gen_manifest.py regenerates and MANIFEST.json tracks by sha256. A hand-copied line number is a second definition of the file's own structure and drifts on the first edit that adds a paragraph; a STALE map is worse than no map, because it sends a reduced read at ranges that no longer bound the sections they name. bootstrap.py therefore fails the build the moment a spec is edited without regenerating the map.",

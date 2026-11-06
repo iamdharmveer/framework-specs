@@ -82,6 +82,16 @@ report prints [STALE — NOT LOADED]. A MALFORMED copy of a floored spec (P1-P5)
 the same way. Never a stop. A well-formed copy AT or ABOVE the floor follows the
 project-first rule unchanged.
 
+SPEC MAP REGENERATION (2026.11.06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, D-5)
+--------------------------------------------------------------------------------
+SPEC_SECTIONS.json is copied from the repo and describes the REPO specs. With a project
+spec laid over one of them its line ranges, sizes and chunks point into a different file,
+and bootstrap.py --read would serve the wrong lines. So when at least one project spec
+is loaded the map is rebuilt INSIDE the overlay from the effective files and recorded in
+the provenance file under "regenerated"; bootstrap.py accepts it only if re-deriving it
+from the files on disk gives the same bytes. With no project spec the copy stays a byte
+copy of the verified repo map.
+
 USAGE
     python3 spec_source.py --resolve            # build overlay, print provenance
     python3 spec_source.py --resolve --trigger PYQScan
@@ -269,6 +279,19 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
                                  if os.path.exists(rp) else None)
         overridden.append(entry)
 
+    regenerated = []
+    if overridden and os.path.exists(os.path.join(overlay_dir, "SPEC_SECTIONS.json")):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "spec_sections_overlay", os.path.join(overlay_dir, "spec_sections.py"))
+        ss = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ss)
+        map_path = os.path.join(overlay_dir, "SPEC_SECTIONS.json")
+        with open(map_path, "w", encoding="utf-8") as fh:
+            fh.write(ss.render(ss.build(overlay_dir)))
+        regenerated.append({"file": "SPEC_SECTIONS.json",
+                            "sha256": hashlib.sha256(open(map_path, "rb").read()).hexdigest()})
+
     ov = {e["file"] for e in overridden}
     repo_only = sorted(f for f in os.listdir(repo_dir)
                        if SPEC_RE.match(f) and f not in ov)
@@ -276,7 +299,8 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
            "project_unverified": overridden,
            "repo_verified": repo_only,
            "orphan_project_specs": orphan,
-           "stale_project_specs": stale}
+           "stale_project_specs": stale,
+           "spec_map_regenerated": len(overridden) if regenerated else 0}
 
     # Write the provenance record INTO the overlay.
     #
@@ -301,7 +325,8 @@ def resolve(repo_dir, project_dir=PROJECT_DIR, overlay_dir=OVERLAY_DIR, routes=N
             "project_unverified": [{"file": e["file"], "sha256": e["sha256"],
                                     "version": e["version"]} for e in overridden],
             "orphan_project_specs": [o["file"] for o in orphan],
-            "stale_project_specs": [x["file"] for x in stale]}
+            "stale_project_specs": [x["file"] for x in stale],
+            "regenerated": regenerated}
     assert all(f["file"].endswith(".md") for f in prov["project_unverified"]), \
         "provenance may only excuse .md specs — never an engine"
     with open(os.path.join(overlay_dir, PROVENANCE_FILE), "w", encoding="utf-8") as fh:
@@ -337,6 +362,8 @@ def format_report(rep, trigger=None):
         out.append("  [STALE — NOT LOADED] %s %s is %s: the verified repo copy is used instead. "
                    "Delete it from project Files (or replace it with a current copy)."
                    % (x["file"], ("v" + x["version"]) if x["version"] else "(no version header)", _why))
+    if rep.get("spec_map_regenerated"):
+        out.append("SPEC MAP: regenerated for %d project spec(s)" % rep["spec_map_regenerated"])
     out.append("  REPO-VERIFIED specs: %d" % len(rep["repo_verified"]))
     out.append("  Engines: ALWAYS from the verified clone. /mnt/project is never on sys.path.")
     if trigger:
@@ -513,6 +540,31 @@ def _self_test():
     ok("floor: a MALFORMED copy at/above the floor is not loaded and never a stop",
        [x["file"] for x in repF5["stale_project_specs"]] == ["Framework_Demo.md"]
        and "malformed" in format_report(repF5) and "no project spec loaded" in format_report(repF5))
+
+    # spec map (2026.11.06, D-5): a project spec gets a map rebuilt from the overlay; none
+    # leaves the repo map a byte copy
+    here = os.path.dirname(os.path.abspath(__file__))
+    repoM = os.path.join(d, "repoM")
+    shutil.copytree(repo, repoM)
+    shutil.copy(os.path.join(here, "spec_sections.py"), repoM)
+    sys.path.insert(0, here)
+    import spec_sections as _ss
+    open(os.path.join(repoM, "SPEC_SECTIONS.json"), "w", encoding="utf-8").write(
+        _ss.render(_ss.build(repoM)))
+    repM = resolve(repoM, proj, os.path.join(d, "effM"))
+    effM_map = open(os.path.join(d, "effM", "SPEC_SECTIONS.json"), encoding="utf-8").read()
+    pvM = json.load(open(os.path.join(d, "effM", PROVENANCE_FILE), encoding="utf-8"))
+    ok("spec map regenerated from the overlay when a project spec is loaded",
+       effM_map == _ss.render(_ss.build(os.path.join(d, "effM")))
+       and effM_map != open(os.path.join(repoM, "SPEC_SECTIONS.json"), encoding="utf-8").read()
+       and [e["file"] for e in pvM["regenerated"]] == ["SPEC_SECTIONS.json"]
+       and "SPEC MAP: regenerated for 1 project spec(s)" in format_report(repM))
+    repN = resolve(repoM, os.path.join(d, "empty-nope"), os.path.join(d, "effN"))
+    ok("spec map stays a byte copy with no project spec",
+       open(os.path.join(d, "effN", "SPEC_SECTIONS.json"), "rb").read()
+       == open(os.path.join(repoM, "SPEC_SECTIONS.json"), "rb").read()
+       and json.load(open(os.path.join(d, "effN", PROVENANCE_FILE)))["regenerated"] == []
+       and "SPEC MAP" not in format_report(repN))
 
     rep2 = resolve(repo, os.path.join(d, "empty-nope"), os.path.join(d, "eff2"))
     ok("no project specs -> fully repo-verified",

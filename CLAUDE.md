@@ -12,8 +12,8 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 57
-  SPEC_MANIFEST.json entries : 60
+  MANIFEST.json files        : 59
+  SPEC_MANIFEST.json entries : 61
   routes.json triggers       : 23
 ```
 
@@ -259,8 +259,19 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   ranges are GENERATED into `SPEC_SECTIONS.json`, never hand-copied. (4) A listing
   transcribed by the model is asserted against an independently declared count and HARD
   STOPS on mismatch. (5) A partition that admits nothing SAYS SO — it never prints a
-  sessions estimate computed from an empty set. Verified by C10, C11, MS-12, MS-13 and
-  SPEC-BUDGET. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION.
+  sessions estimate computed from an empty set. (6) READ-RETENTION and SESSION-CAPACITY
+  (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, owner decision OD-2026-11-06): a spec is read only in
+  chunks served by `bootstrap.py --read K` (never a tool result the harness diverts); the session
+  PROVES the read is still in its context with `bootstrap.py --retention` (READ-ANCHOR codes from
+  memory) after the read, around every unit of work and before any final writer, re-reading on a
+  FAIL and redoing work done without retention; every route fits `SESSION_BUDGET.json`
+  `read_cap_tokens` for both session classes (measured; never raised to make a route fit); Step 7
+  runs orchestrated (`Framework_MockTestOrchestrate.md`) so the context that writes the paper is
+  replaced before the measured compaction point. Verified by C10, C11, MS-12, MS-13, SPEC-BUDGET,
+  `audit_specs_ext` SPEC-CAPACITY, the `spec_sections.py --self-test` READ-COVERAGE checks
+  (`t_read_coverage_every_line_exactly_once`, `t_step7_mandates_are_in_the_nonfinal_read`,
+  `t_step7_s13_2f_and_2g_are_final_only`) and `bootstrap.py --self-test` (read / retention / worker).
+  GAP-2026-08-16-STEP5-SESSION-EXHAUSTION.
 - **EXECUTION-BOUNDARY LAW — a tool call cannot happen inside a running Python process.**
   Every operation in a spec is exactly one of:
 

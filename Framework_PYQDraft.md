@@ -1,69 +1,6 @@
 # Framework_PYQDraft v1.3.2 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
 # v1.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: §3.4
-#   NAMING date stamp accepts YYYY-MM and YYYYMM (R-a — claude.ai project
-#   Files strips '-' from uploaded filenames; verified 2026-09-05 with
-#   byte-identical CSIR NET Life Science files under both names);
-#   bc.parse_syllabus_filename now RETURNS the normalized YYYY-MM always.
-#   NEW HS-ST12 (R-b, P-1): any two files sharing one normalized date stop
-#   as a date collision — T2 row 7 (>=2 match EF => HS-ST5) retires into
-#   it. HS-ST3/4/5 templates reworded to state both forms (R-d). Register
-#   is now HS_ST1..HS_ST12. R-e: §3.7 drift identity for syllabus files is
-#   the sha256 — current_file and superseded NAMES are display-only and
-#   never drift-compared (superseded compare as a sorted sha256 set); a
-#   platform rename of an unchanged file is never drift, changed bytes
-#   still stop as HS-ST10. Legacy INACTIVE/single-file paths untouched.
-# v1.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: S2-0b crosswalk DRAFT
-# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
-#   (Declaration & Detection; rebased to corpus 2026.09.01.1 per rev 4.6). NEW
-#   S2-0a SYLLABUS-TRANSITION RESOLUTION: two OPTIONAL Overview keys (Syllabus
-#   Changed / New Syllabus Effective From) drive the R1 activation predicate
-#   (engine: blueprint_core Cluster SYLLABUS ERA — resolve_transition,
-#   coerce_effective_from with Excel date coercion per R4); file census +
-#   CURRENT/SUPERSEDED resolution (corpus_io syllabus_file_census /
-#   sample_paper_census + bc.resolve_syllabus_sources, Truth Table T2);
-#   HS-ST1..HS-ST6 wired at 2a from the engine's §3.11 register; §3.6 traces
-#   (one console line, the §3.5 exam_config block, one DeliveryFooter line —
-#   T1 rows 4/5/7 only); §3.9 dial registry (bc.resolve_dials — factory values
-#   engine-pinned, invalid override => factory + trace, never a stop); §3.5 A1
-#   'Zero History Approved' key (bc.parse_zero_history_approved — R29 keeps
-#   PYQDraft the sole exam_config writer); duplicate-key WARN + near-miss key
-#   listing (bc.overview_duplicate_keys / bc.near_miss_keys). S2-4 taxonomy
-#   draft gains syllabus_sha256 (§3.10 staleness lock — hash of the taxonomy's
-#   source file: CURRENT in active mode; the single file otherwise; absent for
-#   legacy chat-pasted input). S2-5 schema gains the OPTIONAL
-#   syllabus_transition block (ABSENT for keys-absent exams — §7 P1
-#   byte-identity; SOLE WRITER PYQDraft, immutable until re-run, R29). An exam
-#   with both keys absent and <= 1 syllabus-named file is byte-identical to
-#   2026.09.01.1 (P1); the crosswalk DRAFT (§4.2) ships with Release B.
-# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (D1) NEW S2-0
-#   INTAKE RULE: a HELD approval record's re_derive_directive is consumed as
-#   HARD constraints (the memoryless-re-run loop hazard closed); a CLEAN /
-#   CLEAN_ADJUDICATED record demands explicit operator confirmation before
-#   re-deriving a LOCKED taxonomy (contract-protection, Type-2 class); a prior
-#   AMBER draft's unresolved list constrains the re-run. (C9) DUPLICATE-SUBJECT
-#   SEATBELT at S2-1 and save_taxonomy_draft — Type-2, one-touch message, never
-#   merges (the dict-key overwrite silent-data-loss class). (D2) S2-1/S2-3e wire
-#   dedup, exclusions and subject flags to syllabus_provenance E5; build_items
-#   now returns (items, errors, dedup_report). (C8) S2-3f: budget raised to the
-#   law's SELF_CORRECTION_MAX_ROUNDS, retries are constraint-carrying, and
-#   exhaustion exits AMBER with a finding-keyed amber_status + auto-declared
-#   OTHER deviations + data-preserving structural residue (validate_provenance
-#   MUST still pass) — never the pre-v1.1.0 "re-run and report" dead end (moved
-#   verbatim to SPEC_HISTORY.md). (D2/D3) S2-4 schema gains excluded items,
-#   qcount_anchored_topics, subject_flags (skeletal/open_ended), dedup_report,
-#   telemetry, amber_status and spec_generation; S2-6 prints the AMBER residue
-#   when one exists.
-# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: 2 prose mentions to no-paren form (syllabus_provenance).
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
-#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
-#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
-#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -80,6 +17,15 @@
 #### §11 — EXAM-AGNOSTIC GUARANTEE → Framework_PYQCore.md
 #### §12 — DEFINITION OF DONE → Framework_PYQCore.md
 #### Every trigger loads its step file + Framework_PYQCore.md (routes.json). History: CHANGELOG.md
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQDraft.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ---
 

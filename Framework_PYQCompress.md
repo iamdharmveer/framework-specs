@@ -1,62 +1,6 @@
 # Framework_PYQCompress v2.1.1 — Universal Document Size Remediation
 # v2.1.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. Empty-set case: print_delivery_set([]) prints 'DELIVERY SET (0 files)', no present_files call, F2 header '0 of 0 delivered'.
-# v2.1 — 2026-09-14 — GAP-2026-09-14-COMPRESS-NAME-IDENTITY (owner ruling 2026-09-14).
-#   THE OUTPUT FILENAME IS THE INPUT FILENAME, BYTE-FOR-BYTE. The v2.0.0 canonical-name
-#   rule (blueprint_core.canonical_output_name: ExamCode_DD-Mon-YYYY[_ShiftN].docx, Shift 1
-#   suffix dropped, _IMAG junk stripped, hyphen removed from Shift-N) is RETIRED for this
-#   step. Measured against the Step 1 contract (PYQPrepare §6, [ExamCode]_DD-Mon-YYYY
-#   [_<session_keyword>-<N>].docx): the deriver RENAMED every Shift-1 Row file
-#   (…_Shift-1.docx -> ….docx) and every Shift-N one (…_Shift-2 -> …_Shift2), so a
-#   compressed paper re-entered Drive under a second identity — the exact double-count
-#   §2 was written to prevent. Under the identity rule the output overwrites its input in
-#   place, always. §2 rewritten; §4 compress_one writes to OUT_DIR/<input name>; CHECK 4
-#   asserts basename(output) == input name; the batch collision gate keys on the input
-#   name (EC-C14: two spellings of one paper now yield two outputs — de-duplication is
-#   the enumeration gate's job, never this step's); §6/§11/§12 operator guidance is
-#   replace-in-place. Engine: blueprint_core.canonical_output_name / NAME_JUNK_TOKENS
-#   DELETED in the same release — this spec was their only caller, audit_callgraph C4
-#   forbids a dead export, and they had no self-test fixture (661/661 unchanged). Paper
-#   identity (blueprint_core.canonical_paper_key) is untouched. All compression,
-#   parity, survival and no-growth logic unchanged.
-# v2.0.1 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER (corpus_io v1.15; no rule of
-#   this spec changes). EC-C6's line-art test was "<= 256 distinct colours" — measured
-#   2026-08-30, EVERY anti-aliased rendered figure (structures 553-1,705 colours, charts
-#   268-1,504) failed it and routed to JPEG unless it carried alpha, while a smooth
-#   gradient (exactly 256 colours) passed as line art. corpus_io._is_line_art() is now
-#   STRUCTURAL (corpus_io._is_line_art): line art when flat_fraction (pixels whose four
-#   neighbours are exactly equal; renders 0.78-0.98, photographs and scans 0.00) >=
-#   LINE_ART_FLAT_FRAC 0.60 OR mode_fraction (share of the single most common exact colour
-#   — a render's background; renders 0.39-0.99, photographs / scans / gradients <= 0.005)
-#   >= LINE_ART_MODE_FRAC 0.25. Either alone decides; the second catches a smoothly
-#   interpolated heat map whose axis text would ring under JPEG. Deterministic, bounded,
-#   NEAREST-resampled (explicit — Pillow's default filter changed across versions and a
-#   smoothing filter blurs the flatness being measured), numpy-less fallback to the old
-#   rule. EC-C5 (alpha wins) and EC-C7 (JPEG source wins) are unchanged.
-# v2.0.0 — 2026-08-25 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION. Two load-bearing
-#   changes, measured on a 22-paper live corpus before adoption:
-#   (1) MAX COMPRESSION. The governor no longer walks TIER_LADDER stopping at the
-#       first tier that fits the budget — that design meant an under-budget file was
-#       NEVER downscaled even with images embedded at 600–900 effective DPI in a 1–2
-#       inch display box (every pre-2015 scanned paper). PYQCompress now calls
-#       corpus_io.optimize_docx(mode='max'): ONE pass at blueprint_core.MAX_TIER
-#       (q82 / 300 DPI at display size — above the q80/200 T4 floor) with PNG output
-#       palette-quantized (pngquant → optipng when installed, PIL FASTOCTREE
-#       fallback; alpha-capable on every path). Measured: 90%+ reduction on pre-2015
-#       scans (19.8 MB → 1.1 MB), 40–60% on 2021+ papers already at display
-#       resolution. Ladder callers (PYQSort S7-6) unchanged. corpus_io v1.13,
-#       blueprint_core MAX_TIER / PNG_QUANT_*.
-#   (2) CANONICAL OUTPUT NAME. §2's byte-identical-filename rule is REPLACED by
-#       blueprint_core.canonical_output_name: ExamCode_DD-Mon-YYYY[_ShiftN].docx.
-#       Shift 1 emits NO suffix; junk tokens (NAME_JUNK_TOKENS, e.g. _IMAG) are
-#       stripped; document-class decorations after the date (…_Sorted_Q1-Q100)
-#       survive verbatim. Unparseable name = HARD STOP, never a guess. The operator
-#       instruction changes from replace-in-place to upload-canonical-AND-trash-the-
-#       misnamed-original (§2, §6) — the two names are DIFFERENT identities.
-# v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   9 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQCompress'. The current companion block, the
-#   v1.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Layer 2 remediation | Exam-agnostic | Document-class-agnostic
 #
 # PURPOSE:

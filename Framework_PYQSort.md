@@ -1,25 +1,6 @@
 # Framework_PYQSort v1.21.1 — Universal PYQ Sorter
 # v1.21.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.21.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: syllabus era + OOS labeling
-# v1.20.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (inferred_headings, question_views); 5 prose mentions to no-paren form.
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.20.0 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-1 Q_PATTERNS mirrors the engine's
-#   widened four-entry table (entries 3/4 = BARE-LABEL forms). A stem whose whole payload
-#   is <m:oMath> reads through p.text as "Q.N", entries 1/2 require whitespace AFTER the
-#   digits, and extract_questions() therefore filed the stem, its four options and its
-#   date label as BODY of the preceding question: 4 of 60 lost on IIT_JAM_MATHEMATICS
-#   12-Feb-2017 with all ten checks GREEN (CHECK 2 counts input and output with the same
-#   blind detector; CHECK 5 passes because this step RENUMBERS; CHECK 3 passes because
-#   the emitter rebuilds one date label per DETECTED question). NEW S1-3b: reconcile the
-#   parsed count against scan_progress.json drive_file_inventory[].q_count — HARD STOP on
-#   disagreement, WARN when the field is absent so pre-remedy projects are not stranded.
-#   NEW CHECK 12 (HARD FAIL): the question-side twin of CHECK 11 — the <w:t> view and the
-#   <w:t>+<m:t> view of the delivered file must agree on every question start. §8 heading
-#   corrected from a stale "10 checks" (CHECK 11 was already live) to 12.
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v1.14):

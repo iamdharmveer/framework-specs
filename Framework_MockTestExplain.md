@@ -1,257 +1,22 @@
-# Framework_MockTestExplain v1.53.0
-# v1.53.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
-#   v1.32, paper_pipeline v5.40, audit_canonical v2.37, MockTestCreate v5.92, DeliveryFooter
-#   v1.40.0). §7A-M: (1) the gate runs for EVERY paper — the MOCK-ONLY dormancy
-#   ('scoped_paper') is lifted; a scoped paper (born DORMANT/scoped_paper) is evaluated and
-#   written ONLY PASSED or DISCLOSED (guard S9); (2) WINDOW RULE w2
-#   (bc.DIFFICULTY_GATE_BAND_WINDOWS_W2 = authoring bands; allowance over ASSESSED items,
-#   'harder' disagreements only) is SELECTED by bc.difficulty_gate_window_rule from the
-#   paper's own obs (r2 / level record = born under this release) — never typed; every
-#   older paper stays on w1 byte-for-byte (guard G8); the writer stamps window_rule and the
-#   coverage (assessed_frac / assessed_count / gated_count; gate_rule stays 'windows');
-#   (3) the re-derivation obs copies rubric_rule from question_index, records
-#   inferential_steps and derivation_confidence, and is scored by
-#   bc.difficulty_score_from_obs under its own rule (a positional difficulty_score call
-#   would re-score an r2 item under r1); a level item's measure is its clamped level band
-#   with scores_by_q[q] = None for that item only; (4) `_score9 or None` is corrected to
-#   `None if _score9 is None else _score9` (a valid 0 was "not measurable"); (5) coverage
-#   under 80 % assessed (including 0) writes the verdict as computed and the footer prints
-#   `Step 9: k/n assessed` — a "not assessed" DISCLOSED is never written. No new stop.
-# v1.52.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
-#   explain_engine v2.12, figural_core v5.89, corpus_io v1.17, MockTestCreate v5.89).
-#   Explanation structures are drawn print-true at the paper's problem tokens with the
-#   decisive site as a mark (no highlight band). MANDATE D: only a fidelity breach stops
-#   (INFRA); every other self-audit finding is repaired in place ([HS:LADDER]).
-# v1.51.2 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired
-#   with corpus_io v1.16 / explain_engine canonical_structure twin, final_assembly v1.9,
-#   MockTestCreate v5.88). PATCH, S13-2b only: (1) a REACTION object now canonicalises —
-#   explain_engine.canonical_structure accepts reaction SMILES (reactants>agents>products),
-#   so the registered scheme is reconciled per role like a STRUCTURE; (2) a question whose
-#   registry record carries record_integrity (the S13-REGCHECK legacy annotation —
-#   label/kind mismatch or a REACTION without '>>') is reconciled against the TRANSCRIPTION
-#   ALONE with the annotation printed once (edge case E16): the registered object is known
-#   to be a false or degenerate record and must not be used as a cross-check. No gate,
-#   set or engine change here.
-# v1.51.1 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
-#   MockTestCreate v5.86, final_assembly v1.8, audit_canonical v2.31). registry
-#   rc_manifests[] / di_manifests[] / figural_manifests[] are shared by EVERY series
-#   (MOCK, SUBJ, TOPIC, SUBTOPIC) and, before final_assembly v1.8, were keyed only by the
-#   bare ordinal "mock": N — so MOCK:M01 and SUBJ:X:01 (both N=1) overwrote each other.
-#   Every entry Step 7 now commits carries "paper_id". P2 / P3 select THIS paper's entry
-#   by paper_id == PAPER_ID; an entry with no paper_id is a LEGACY entry and belongs to
-#   MOCK:M<mock> only; an entry is NEVER matched by the bare ordinal. No entry for this
-#   paper = no manifest (the PAPER is the authority either way — unchanged).
-# v1.51.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
-#   2026-09-14; paired with MockTestCreate v5.84, MockDeliver v1.22.0, DeliveryFooter,
-#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
-#   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
-#   trigger in chat beside the _Create.docx, (2) Project Files. S19-0a resolves it through
-#   pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment WINS when
-#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE] only when
-#   BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated. The run
-#   PINS the fingerprint it started from ({EXAMCODE}_registry_pin.json beside REG_WORK) and
-#   every later turn's S19-0a refuses a DIFFERENT registry (pp.registry_source_check).
-#   P10's FK tripwire reads the resolved source (REG_SRC['registry']) instead of a
-#   hardcoded Files path; S19-0b's handoff fingerprint is REG_SRC['fingerprint']. S0-1
-#   item 2 and the §19-4 badge prose name both lanes. Writers (Cluster DG), the closed
-#   delivery set, the Replace badge, MS-14 and every artefact are unchanged — only WHERE
-#   the file is read. Enforced by LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20.
-# v1.50.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §7A-S STYLE RE-MEASURE (advisory). Step 9 recomputes
-#   style_obs from the DELIVERED bytes and records mismatches against Step 7's record;
-#   three dormancy reasons (profile_dormant, hash_mismatch, pre_v582_paper). Single-writer:
-#   Step 9 writes style_gate.remeasure[paper_id] and nothing else in that container. The
-#   P-series takes the authored distractor type as its default diagnosis, re-derives
-#   independently (RE-6), and RECORDS BOTH on disagreement — never edits the question.
-# v1.49.0 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with explain_engine
-#   v2.11, Framework_PYQExplain v2.21, routes.json: figural_core.py + corpus_io.py routed to
-#   MockExplain / TestExplain / PYQExplain; SHARED_RULES_VERSION 1.5 → 1.6). Explanation
-#   figures had NO colour contract — rdkit's default atom palette and matplotlib's
-#   Category-10 defaults — so a question (Step 7 v5.80, pinned palette) and its explanation
-#   disagreed on what an oxygen atom looks like, and a PYQ solution drew a third way.
-#   S6A-6 COLOUR binds every renderer to figural_core (the palette owner) through the same
-#   calls Step 7 uses (explain_engine.structure_draw -> corpus_io.structure_draw_fn, fc.text_ink,
-#   fc.fill_style); P1 renderer
-#   preflight import-tests those two engines and records it. Step-7 answer-leak rules
-#   (monochrome colour-content, option-set uniformity, no-chrome) are explicitly NOT
-#   transferred — an explanation shows what it explains. Additive: §6A-1..§6A-5, every
-#   §6A-5 mechanic and every non-visual question are byte-unchanged; existing explanation
-#   figures are never re-rendered.
-# v1.48.0 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
-#   explain_engine v2.10, Framework_PYQExplain v2.19, audit_seam v1.3,
-#   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
-#   produced by NOTHING anywhere in the framework, so their absent-paths ran on every
-#   exam forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM /
-#   DATA_PLOT / CONFORMER verdict degraded per §6A-4 — the §6A-1b structure-answer
-#   presumption was defeated on every exam, every time), subject_code (the
-#   [Subject]_EXPLAIN_LEARNINGS_v*.md library was unlocatable — its documented fallback
-#   blueprint.subject is a key blueprint.json has never carried — so §24's subject
-#   library and §7-7's curated neighbours had never loaded on any exam), and
-#   exam_conventions (§S8-2's EXAM_CONVENTION machinery had no configured input).
-#   FIX, exam-independent by construction, zero regeneration: (A) the requirement →
-#   library → §6A-5 identifier binding is FRAMEWORK-OWNED and now lives in
-#   explain_engine.REPRESENTATION_RENDERERS (§6A-6) — it states what the framework can
-#   draw, not a property of any exam; WHETHER a question uses a renderer stays a
-#   per-question §6A-1 decision, so non-scientific exams are byte-unchanged. (B)
-#   subject_code is RETIRED; the subject library is found by DISCOVERY
-#   (explain_engine.resolve_learnings_files — §24 places exactly ONE non-exam-prefixed
-#   *_EXPLAIN_LEARNINGS_v*.md per project, so its presence IS the evidence; >= 2 →
-#   abstain + WARN naming all candidates). (C) exam_conventions is RETIRED; §S8-2
-#   reads conventions from the subject library only, "never assumed" preserved. No
-#   section_rules.md schema change, no analyse_engine change, no exam regenerated.
-#   Gate for the class: validate_framework_md Check V (SECTION_RULES CONFIG-KEY
-#   CONTRACT) + audit_seam v1.3 prose-read widening.
-# v1.47.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
-#   paper_pipeline v5.76, MockTestCreate v5.76, MockDeliver v1.18.0, DeliveryFooter v1.29,
-#   audit_canonical v2.22). MINOR: a trigger and a section are removed. The four *Repair
-#   triggers are RETIRED and §7A-R (TestExplainRepair / MockExplainRepair) is DELETED —
-#   replaced by a retirement notice. THE DIFFICULTY GATE NOW DISCLOSES, IT NEVER BLOCKS:
-#   §7A-M writes status='DISCLOSED' (rounds=0) where it wrote 'FAILED', prints a
-#   ⚠️ PROCEED WITH DISCLOSURE box whose next step is the Deliver trigger
-#   (pp.dg_next_step), and Step 11 delivers the paper with the §FOOTER-DG measured-
-#   difficulty line. 'FAILED' is a retired status: pp.dg_write_verdict refuses it and
-#   pp.dg_preflight heals a pre-v1.47.0 FAILED record to DISCLOSED/0 with a disclosed
-#   migration line. PASSED/1 and DISCLOSED/1 (written by the retired repair step) stay
-#   legal and deliverable as LEGACY repaired papers; a re-run of this step on one carries
-#   the spent count (ROUND-MONOTONIC unchanged). S2-1: a _Create_Repaired*.docx upload is
-#   a HARD STOP [HS:PROSE] on every trigger (rename a legacy repaired paper to _Create.docx; P3's
-#   stem hash-match against registry.stem_texts proves identity). S19-0b: the repair-run
-#   stop and HANDOFF_STEP's repair values are removed. PENDING is the ONLY blocking gate
-#   state and its remedy is this step. No explanation rule changed.
-# v1.46.3 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (prose only): §7A-M's level-anchor
-#   text names the difficulty profile's calibration examples (bc.dp_calibration) in place of
-#   section_rules' retired PYQ_DIFFICULTY_CALIBRATION. No rule, gate or engine change.
-# v1.46.2 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74; prose only).
-#   S2-1 / §7A-R R2: a [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R's
-#   mid-batch cumulative paper) is REFUSED with "finish every repair batch — attach
-#   _Create_Repaired.docx"; only the final _Create_Repaired.docx is a valid R2 input.
-# v1.46.1 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up (prose only; paired
-#   with paper_pipeline v5.74). REPAIRED-PAPER FILENAME. §7A-R attaches the TestCreateRepair
-#   output, [ExamCode]_[paper_slug]_Create_Repaired.docx, and R2 says "parse (P3
-#   machinery)" — but S2-1 and P1 named ONLY the _Create.docx form when parsing the paper
-#   slug from the upload, so a literal repair run would refuse its own input (the v1.24
-#   "_Complete" class, one filename later). S2-1 / P1 / §7A-R R2 now accept BOTH forms
-#   and derive the slug by stripping whichever suffix is present; the repaired form is
-#   accepted ONLY on a *Repair trigger, and a fresh TestExplain on a _Repaired.docx is a
-#   HARD STOP [HS:PROSE] (a re-judge after a repair runs on the same repaired paper via
-#   TestExplainRepair, never as a fresh explain). Found by the release's own
-#   filename-chain re-verification. ALSO: S19-0 is split — S19-0a (session start at P1:
-#   binds `reg`, the project fingerprint and persist_registry BEFORE §7A-M's preflight can
-#   write) and S19-0b (delivery decision) — v1.46.0 defined all of it in the delivery
-#   fence, so `reg`/persist_registry were unbound when §7A-M first needed them. No gate,
-#   band or block rule changes.
-# v1.46.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate
-#   v5.73, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
-#   explain_engine v2.9, final_assembly v5.60; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
-#   mock_sync_audit MS-14). P0, every exam. §7A-M (v1.42.0+) writes the difficulty-gate
-#   verdict into registry.json and calls the registry "the ONLY channel to Step 11" —
-#   while S0-2, MANDATE D, S19-1 check 5 (`outputs == {Explanation.docx}`, a HARD STOP [HS:PROSE]),
-#   §21 item 12 and DeliveryFooter §3 all still carried the pre-v1.42 "registry is frozen,
-#   never delivered" rule, and the "S19 write" §7A-M relied on was defined nowhere. Under
-#   a literal run the verdict lived only in /home/claude, the project copy stayed
-#   (PENDING, 0) and Step 11 refused the paper on EVERY exam; §7A-R had no delivery
-#   contract at all. Measured on the reference project: the registry reached the project
-#   only because a session broke its own S19-1 gate. FIX: (1) NEW S19-0 — the registry
-#   working copy, the ONE persist point every §7A-M / §7A-R write names, and the handoff
-#   decision pp.handoff_set('TestExplain', …) driven by pp.registry_changed (a fingerprint
-#   of the project copy vs the working copy) — never by prose. (2) S19-1 check 5 asserts
-#   outputs == that closed set (pp.verify_handoff_outputs); S19-2 presents exactly it; the
-#   final batch delivers Explanation.docx + registry.json (Replace in Project Files) +
-#   the NEW report docx. (3) OPERATOR DECISION 2026-08-26: the §20 END-OF-MOCK REPORT is
-#   ALSO written as [ExamCode]_[paper_slug]_Explain_Report.docx (explain_engine.
-#   build_report_docx, MANDATE 0 enforced at the writer) and delivered at the final batch;
-#   it is INERT downstream — Step 11 reads only registry.json + the Explanation docx —
-#   so no next step requires it. (4) §7A-R gains its delivery contract: same Explanation
-#   filename (spliced), registry.json (Replace), report docx (repair edition), F2 footer.
-#   (5) S0-1/S0-2, MANDATE D, S2-2, §21-12 rewritten to the law; every "frozen / NOT
-#   delivered" sentence is gone (MS-14 bans the wording corpus-wide). Every DG gate,
-#   window, band and block rule is unchanged.
-# v1.45.1 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
-#   paper_pipeline v5.73, audit_canonical v2.20). §7A-M: a fresh round-0 verdict retires a
-#   pre-repair stem snapshot taken for a different rework set (pp.dg_write_verdict), so the
-#   mandated re-judge of a retired-rule paper cannot leave a stale snapshot that would fail
-#   A-DGATE at delivery or make §7A-R R3 accuse a correct repair file. Prose + engine only.
-# v1.45.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (operator decision 2026-08-25;
-#   paired with blueprint_core Cluster E2 split + E2d, paper_pipeline v5.72, MockTestCreate
-#   v5.72, MockDeliver v1.15.0, DeliveryFooter v1.26). §7A-M's disagreement test moves from
-#   band-label EQUALITY to per-band ACCEPTANCE WINDOWS on the raw rubric score, read from
-#   bc.DIFFICULTY_GATE_BAND_WINDOWS by band POSITION (exam-agnostic): bottom band NOT gated;
-#   middle agrees at 2–6 inclusive; top agrees at ≥5. bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC
-#   0.30 → 0.35 (floor computed exactly). Step 9 records measured_score_by_q (bc.difficulty_
-#   score) beside measured_by_q and passes windows + rework_directions ('harder'/'easier')
-#   to pp.dg_write_verdict, which stamps gate_rule='windows'. A FAILED record WITHOUT that
-#   stamp (v1.42.0–v1.44.0 rule) is re-judged by re-running this step — §7A-R R1, Step 7
-#   §S16 P1 and pp.dg_next_step all route it there; it is never repaired. Verdict boxes and
-#   footer show the bottom band as "(not gated)". Single-writer/state-machine contract of
-#   v1.44.0 unchanged. Engine self-tests: blueprint_core 559 → 585, paper_pipeline 144 → 159.
-# v1.44.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
-#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestCreate v5.71,
-#   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19 A-DGATE).
-#   P0 DEADLOCK. registry.difficulty_gate[paper_id] was read by four steps and written
-#   by three (final_assembly, §7A-M, §7A-R) as hand-built dicts across two specs and
-#   one engine, with no owner, no legal-state table, no write guard, no auditor and
-#   no recovery path. A TestCreateRepair session set repair_rounds_used=1 on a
-#   still-FAILED record; §7A-R R1 read the counter alone ("round used → TestDeliver"),
-#   Step 11 read the status alone (FAILED → CreateRepair), TestCreateRepair refused
-#   ("consumed") — no exit; a finished 60-question paper + explanation run lost. Two
-#   more defects of the same class fired with NO repair: every SCOPED paper was born
-#   PENDING while §7A-M is MOCK-ONLY, and a DORMANT gate wrote nothing — both left
-#   PENDING forever, which Step 11 refuses. FIX: (1) the record is behind ONE writer,
-#   pp Cluster DG — dg_stamp_pending / dg_write_verdict / dg_add_rework_snapshot —
-#   each validating the (status, rounds) pair against the six generated legal states;
-#   (FAILED,1) is now UNWRITABLE. (2) The legal state machine and DG-INVARIANT
-#   (FAILED ⇒ 0) are declared in §7A-M. (3) Every preflight opens with
-#   pp.dg_preflight, which heals a corrupt record deterministically WITH a mandatory
-#   chat + footer disclosure and refuses an unknown status. (4) §7A-R branches on the
-#   state PAIR and every next-step string is pp.dg_next_step — the function Step 11
-#   prints from — so advice can never name a step that refuses. (5) DORMANT is a
-#   WRITTEN verdict with a reason (incl. scoped_paper); a scoped paper is born DORMANT.
-#   (6) The re-gate write is atomic/terminal/idempotent, logs a session_log entry, and
-#   is round-monotonic (a full re-explain cannot grant a second round). (7) R3 uses
-#   pp.dg_verify_repair against the pre-repair snapshot via the one shared digest
-#   pp.dg_stem_hash; the contradictory stem_texts clause is gone. (8) audit_canonical
-#   A-DGATE certifies every record; §S16-3 also snapshots every question so R3 proves
-#   nothing unflagged changed; `python3 final_assembly.py --dg-fleet-scan ROOT
-#   [--apply]` heals the ~200 existing registries with a .bak and a migrations trail.
-#   Superseded v1.40.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
-# v1.43.0 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
-#   PYQExplain v2.17, SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The S12-4
-#   document-level coverage banner ("COVERAGE: Batch k of K …" / "COVERAGE: Complete -
-#   all [Q_TOTAL] questions explained.") is RETIRED from every delivered Explanation
-#   docx — interim AND final. Step 9 no longer calls explain_engine.set_coverage_banner();
-#   the delivered file's first non-blank body paragraph is Q.1. Two facts decided it:
-#   (1) the operator does not want a coverage line in the delivered document, and
-#   (2) Framework_MockDeliver S4-2 treats ANY non-blank paragraph before Q.1 as an
-#   upstream regression — detect_header_paras() strips it and raises a REGRESSION ALARM
-#   — so the final banner S12-4 mandated was exactly what Step 11 flagged. The §18-1
-#   checklist item is inverted (zero banner paragraphs; first non-blank paragraph is
-#   Q.1) so a stale-session banner can never ship. Coverage is still stated in chat
-#   (S19-3 progress line, F1/F2 footer) and asserted per batch (S4-5 guard 3) — nothing
-#   about coverage CHECKING changes, only the in-file announcement. Engine untouched:
-#   set_coverage_banner()/strip_solutions() and the BANNER-* fixtures stay (the
-#   function is simply never called; BANNER-REMOVABLE already licensed dropping it).
-# v1.42.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestCreate v5.69,
-#   MockDeliver v1.13.0, blueprint_core Cluster E2d, audit_canonical check 9,
-#   final_assembly PENDING stamp). §7A-M promoted from advisory to BLOCKING:
-#   band disagreement >30% (floor) blocks delivery and writes a rework order;
-#   new §7A-R repair mode (TestExplainRepair / MockExplainRepair) patches only
-#   the reworked questions, re-gates, and after the single permitted round
-#   resolves to PASSED or DISCLOSED — never a stop, never silent.
-# v1.41.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R3 (executable dry run; paired
-#   with final_assembly v5.56, audit_canonical v2.16, MockTestCreate v5.67). A harness
-#   drove ten synthetic exams through the REAL Step-7 writers and then Step 9's P1→P3→
-#   P10→S4-2→S4-4→§7-8→§18→S19-1 in spec order, then Step 11's preflight. Two defects
-#   no reading could see: (1) OPTIONS-BY-Q SERIES COLLISION — P3 read
-#   registry.options_by_q[str(N)], a paper-ORDINAL key that a scoped paper of the same
-#   ordinal overwrites on the shared registry (measured: Mock 1 hard-stopped at
-#   parse_paper after SUBJ:PHYS:01 was committed). P3 now reads the paper_id key first
-#   (final_assembly v5.56 authority), str(N) second with a WARN. (2) SIBLING-EXAM GLOB —
-#   P1 and P10 loaded every [ExamCode]*_blueprint.json and only checked exam_code AFTER
-#   pp.pick_blueprint; with EXAM_A and EXAM_AB in one project pick_blueprint raised first
-#   with a misleading "remove duplicate blueprints", and P10's own next(...) would have
-#   silently taken EXAM_AB's file (sorts first). Both now filter exam_code == [ExamCode]
-#   BEFORE selecting. Also §15-2 now names the engine's record fields for both provenance
-#   modes (the harness's first MODE B block was refused for a field the spec never named).
-#   Superseded v1.39.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+# Framework_MockTestExplain v1.53.1
+# v1.53.1 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (handshake review of the
+#   Step 7 -> Step 9 hand-over, run on a real paper). (1) P1: the engine self-test is run IN
+#   the verified clone (`cd /tmp/fw && python3 explain_engine.py --self-test`). The old
+#   wording copied explain_engine.py ALONE to /home/claude and ran it there; the engine
+#   imports t3_mathcomp.py from its own folder, so that copy could not start
+#   (ModuleNotFoundError) and P1 turns any self-test failure into a HALT. (2) S0-1 and S1-1
+#   name the Step 7 deliverable by its real file name, [ExamCode]_[paper_slug]_Create.docx
+#   (STEP_CONTRACTS.json; the P1 discovery already used it). No rule, gate, artefact or
+#   deliverable of Step 9 changes.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)
 # ════════════════════════════════════════════════════════════════════════
@@ -259,7 +24,7 @@
 ## S0-1 — INPUTS (what Step 9 is given)
 
   DELIVERED BY STEP 7 (the closed set):
-    1. [ExamCode]_Mock[N]_Create.docx     — ATTACHED to the trigger (P1 discovers it from
+    1. [ExamCode]_[paper_slug]_Create.docx — ATTACHED to the trigger (P1 discovers it from
                                             the upload filename); the paper to explain,
                                             exactly as Step 7 assembled and self-audited it
     2. [ExamCode]_registry.json           — from EITHER lane (v1.51.0 REGISTRY-SOURCE-LAW):
@@ -619,7 +384,7 @@ execution path — it does not shrink, soften or delete them.
 
 ## S1-1 — Sources of truth (strict priority order)
 
-  1. THE PAPER ITSELF — [ExamCode]_Mock[N]_Create.docx. The rendered stem +
+  1. THE PAPER ITSELF — [ExamCode]_[paper_slug]_Create.docx. The rendered stem +
      options + attached artefacts are the ground truth for what must be explained.
   2. section_rules.md — CATEGORY C (option count, language, labels, escape tokens,
      figural types) + per-subtopic patterns (what the AXIOM must state per class).
@@ -721,8 +486,9 @@ execution path — it does not shrink, soften or delete them.
       is a HARD STOP [HS:INPUT] → subtopic_manifest.json → registry.json (already resolved at
       S19-0a: chat attachment OR Project Files — never a Files-only read) →
       explain_engine.py (from the Step-0 verified clone /tmp/fw ONLY — v1.40.0; a
-      project-Files copy is never imported, MANDATE A). Copy the engine to /home/claude and run
-      `python3 explain_engine.py --self-test` → MUST print
+      project-Files copy is never imported, MANDATE A). Run its self-test IN that clone, never on
+      a copy (v1.53.1: the engine imports t3_mathcomp.py from its own folder) —
+      `(cd /tmp/fw && python3 explain_engine.py --self-test)` → MUST print
       "SELF-TEST: N/N PASS" with N == total (all pass) AND N >= 62 before any
       solving (v1.25, GAP-2026-08-13-STALE-SELFTEST-PIN: the FLOOR form, the
       same AUTH_GATE_FLOOR pattern Steps 6/7 use for the audit copy — the
@@ -3655,5 +3421,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.53.0
+# END OF Framework_MockTestExplain v1.53.1
 # ════════════════════════════════════════════════════════════════════════

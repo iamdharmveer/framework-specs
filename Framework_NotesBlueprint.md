@@ -3,69 +3,6 @@
 #   step that DECLARES a unit's "G-2c:<rule_id>" notation exemptions in prose_ban_exemptions
 #   (Framework_NotesCreate v2.10.0 §6 F-3(d)). One sentence in §O-2; no set, gate or
 #   engine change; never a halt.
-# v3.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
-#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v3.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: S-1
-#   note — the shared resolver accepts filename dates as YYYY-MM or YYYYMM
-#   (project Files strips the hyphen) and normalizes to YYYY-MM; NB
-#   inherits this and the new HS-ST12 date-collision stop automatically
-#   (single implementation, no NB-side change).
-# v3.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
-#   (Declaration & Detection). Version renumbered from the GAP's planned
-#   v3.2.0 to v3.3.0 per the rev 4.6 rebase: the GAP was written against
-#   corpus 2026.08.31.2, and GAP-2026-09-01-RECALL-CONTRACT already shipped
-#   v3.2.0 in 2026.09.01.1. §2 S-1 gains CURRENT-FILE RESOLUTION: when the
-#   exam's exam_config.syllabus_transition block reports an ACTIVE transition,
-#   the syllabus NB parses is ALWAYS the resolved CURRENT file
-#   ([ExamCode]_Syllabus_<EF>.<ext> — census corpus_io.syllabus_file_census +
-#   decision blueprint_core.resolve_syllabus_sources); SUPERSEDED files are
-#   never parsed by NB. INACTIVE + >= 2 syllabus-named files => HS-ST2 (R3,
-#   the R26 reactive discovery). NB joins the §3.7 drift guard (declaration
-#   fields only, blueprint_core.transition_drift => HS-ST10) and the §3.10
-#   staleness contract (blueprint_core.check_syllabus_staleness => HS-ST7;
-#   legacy artefacts exempt). §1 scope note: DELETED topics of a superseded
-#   syllabus version never enter notes — structurally, because the CURRENT
-#   syllabus is the master filter (§1.1) and NB now provably parses CURRENT.
-#   A keys-absent exam with <= 1 syllabus-named file is byte-identical to
-#   v3.2.0 (§7 P1).
-# v3.2.0 — 2026-09-01 — REGISTRY CARRY-OVER HAS AN ENGINE (GAP-2026-09-01-RECALL-CONTRACT;
-#   notes_core v2.12). §7 promised "existing unit states preserved" on a re-run, but
-#   O-3 writes the registry through notes_core.registry_init, which sets every unit
-#   BLUEPRINTED with draft_ref / final_ref / audit_summary None — the promise had no
-#   engine behind it, and the new per-unit recall_contract (Framework_NotesCreate
-#   v2.9.0 §9A, the ONLY place NotesAudit G-14 can read NC's declarations) would have
-#   been silently reset too. §7 now names notes_core.registry_carry_over(reg, prior_reg)
-#   — the ONE carry-over list (notes_core.REGISTRY_CARRY_FIELDS: state, notes_version,
-#   audit, artifacts, history, draft_ref, final_ref, audit_summary, recall_contract),
-#   deep-copied onto matching sid keys; new sids stay BLUEPRINTED; orphans are
-#   reported (§7), never re-created. Additive: a first-ever NB run has no prior
-#   registry and behaves byte-identically.
-# v3.1.1 — 2026-08-14 — TAG SWEEP + PARTNER RESOLUTION + ORPHANED-FILING
-#   (independent fresh-eyes review + 400-trial property fuzz; pairs with
-#   notes_core v2.9, Framework_NotesCreate v2.6.2, Framework_NotesAudit
-#   v3.4.2). Three fixes: (1) v3.1.0 claimed tags "enter naturally at the
-#   next §7 refresh" — false for UNCHANGED papers, which §7's no-op merge
-#   never re-reads: one tagged new paper made the contract live bank-wide
-#   while legacy fused questions could never gain tags. §7 gains the TAG
-#   SWEEP: once the bank is live (or on operator request), an NB re-run
-#   MAY review untagged questions of papers already in the bank and add
-#   integration_partners in place — an additive edit to NB's OWN artifact,
-#   every added tag listed in the chat summary, bank_ref re-emitted after
-#   the write so every downstream staleness link stays correct. Until a
-#   question is tagged it simply stays in its header unit's certification
-#   set (the pre-feature boundary) — safe, but taught without its bridge;
-#   the sweep is how the feature reaches old evidence. The ingest report
-#   now counts tags ("integration tags: N questions / M papers") so a
-#   half-tagged bank is visible, never silent. (2) §3B B-1: partners
-#   SHOULD resolve to manifest subtopics; notes_core v2.9 files a fused
-#   question AWAY from its header ONLY when every fusion-set member
-#   resolves to a registry unit — a typo'd or excluded partner keeps the
-#   question at its header and surfaces as a downstream unresolved
-#   advisory whose FIX IS HERE (correct the tag on the next NB run).
-#   (3) §7 ORPHANED report extended: fused questions whose FILING home is
-#   an orphaned sid are listed by bank_id — a deferred question must never
-#   silently lose its certification home (NA §2 discloses the same from
-#   its side). Companions: notes_core >= v2.9.
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:

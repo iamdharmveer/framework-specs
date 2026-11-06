@@ -4,55 +4,6 @@
 #   bc.parse_syllabus_filename); §3.11 register range now HS_ST1..HS_ST12.
 #   R-e: §3.7 drift compares syllabus identity by sha256 — file NAMES are
 #   display-only (a project-Files rename of an unchanged file never stops).
-# v1.8 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
-#   (Declaration & Detection; rebased to 2026.09.01.1 per rev 4.6). S1-2
-#   --taxonomy mode gains the SYLLABUS FILE CENSUS contract and NEW S1-2a
-#   defines it for every PYQ step: candidate syllabus / sample-paper files
-#   (corpus_io.syllabus_file_census / sample_paper_census), the T2 outcomes at
-#   the shared-core level (INACTIVE + >= 2 syllabus-named files => HS-ST2, the
-#   R26 reactive discovery; ACTIVE requires BOTH syllabus documents as project
-#   FILES — a chat-only or pasted-image syllabus is HS-ST3, because a re-run
-#   must be reproducible), the §3.7 per-step drift guard (census +
-#   bc.resolve_transition re-run, DECLARATION fields compared only via
-#   bc.transition_drift => HS-ST10) and the §3.10 staleness contract
-#   (taxonomy_draft syllabus_sha256; consumers bc.check_syllabus_staleness =>
-#   HS-ST7; legacy artefacts without the field exempt). Engine: blueprint_core
-#   Cluster SYLLABUS ERA + corpus_io Cluster SYL are the ONLY implementations
-#   — this core cites, never restates. A keys-absent exam holding <= 1
-#   syllabus-named file is byte-identical to 2026.09.01.1 (§7 P1).
-# v1.7 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. The GATE-AT-SOURCE
-#   LAW is added (registered in LAW_REGISTRY.json) and S2-3 is brought under it:
-#   (C1) the S2-3 "PROOF OF CORRECT TOPIC COUNT" self-check — stranded on the
-#   pre-v1.1 absolute rule while the engine moved to density, the RULEBOOK DRIFT
-#   that HELD RPSC_ZOOLOGY — now CITES reconcile_taxonomy.check_topic_density
-#   (both forms; constants live ONLY in the engine); (C2) the GROUPING rule
-#   gains the per-topic cap with the EC-P20 tie-break, and the Arithmetic worked
-#   example is REVISED per DECISION D8 (an example contradicting a blocking rule
-#   is the two-rulebook disease inside one file); (C3) Q-count-anchored topics
-#   are recorded and OUT of the over-aggregation domain (archetype A2 conflict
-#   dissolved); (C4) exclusions are RECORDED, never silently omitted (D3:
-#   automatic, recorded); (C5-C7) the draft-time ratio / name-shape / catch-all
-#   HARD STOPs on Claude's OWN output become bounded self-correction, the name
-#   gate enforces min(80, bc.MAX_HEADING_LEN) at write time, and STEP 3 gains
-#   the normative PRE-DELIVERY GATE (D3 order) with the FLAGGED-DELIVERY (AMBER)
-#   exit; §12 Phase 0a DoD gains the matching checklist lines. Superseded texts
-#   moved VERBATIM to SPEC_HISTORY.md (2026.08.15.14 discipline).
-# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT, companion
-#   wording per the LAW-PROPAGATION LAW (rule lives in Framework_PYQCount v1.6).
-#   S5-1's same-paper duplicate gate is re-keyed from (date, session) — whose
-#   regex required a session token PYQSort's session-less and _to_ filename forms
-#   never carry, leaving their re-sort duplicates silently double-counted — to
-#   the filename STEM before `_Sorted_` (dated stems only). EC-P30 and the §12
-#   Phase-B checklist now describe the stem key. No other rule changed.
-# v1.5.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
-#   changed). Superseded v1.5 entry moved VERBATIM to SPEC_HISTORY.md (the
-#   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
-#   +809 B by the 2026.08.21.4 deploy review. Directory and standing notes stay.
-# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: admission call -> tagged fence; 8 prose mentions to no-paren form.
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md

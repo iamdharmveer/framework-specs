@@ -4,25 +4,15 @@
 #   (compared with the slot band; "below" on a Hard slot → bounded R2 repair, residue a
 #   level_note). Reviewer isolation is unchanged — the packet carries no band, no
 #   difficulty_obs and no level record (handshake H6).
-# v2.0.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0 — OD-5
-#   restated, D1, D2 (a), D4; paired with MockTestCreate v5.91 S13-2G, blueprint_core v1.31,
-#   audit_canonical v2.36 A-REVIEW, DeliveryFooter v1.39.0). This file is NO LONGER a user
-#   step. v1.0.0 made it "Step 7R": the owner ran it in a NEW chat with a review packet,
-#   downloaded a verdict file and carried it back to the author's chat for --resume — the
-#   two-session protocol that made Step 7 end at AWAITING_REVIEW instead of delivering its
-#   two files (incident 2026-11-04, SSC GD Tier 1 TestCreate P2). The MockReview /
-#   TestReview TRIGGERS ARE RETIRED (D2 a; routes.json, SKILL.md, PIPELINE). This file is
-#   now the brief a FRESH REVIEWER executes INSIDE the Create run: Create S13-2G phase 2
-#   starts one fresh sub-agent per packet part (<= bc.REVIEW_PART_MAX items, a passage group
-#   never split) and hands it ONLY the part folder; when the runtime has no sub-agent tool
-#   the author session applies §2 itself as a same-session cold review (D1; disclosed).
-#   Nothing here ever asks the user for anything, writes to the user's output folder or
-#   calls present_files. The checklist (§2) and the verdict record (§3, bc.review_verdict_file)
-#   are UNCHANGED from v1.0.0, so verdicts bind exactly as before.
 #
-# v1.0.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G12 (owner decision OD-5 (a):
-#   MANDATORY independent review on every paper, WITH correction). (History: v1.0.0 was a
-#   user-run step in a new chat; superseded by v2.0.0 above.)
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockReview.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 #
 # WHY THIS REVIEW EXISTS (measured, not assumed). Every verification of the incident paper —
 #   answer, difficulty rating, "is a second option defensible" — ran in the context that WROTE

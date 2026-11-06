@@ -1,44 +1,6 @@
 # Framework_PYQDeliver v1.13.2 — Universal PYQ Portal Tagger & Delivery Engine
 # v1.13.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.13.1 — 2026-08-27 — doc sync: S2-3b and EC-18 no longer name the retired
-#   map_difficulty_level. Prose only.
-# v1.13 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. Complexity Tier 2 (E-9 keyword
-#   scoring) RETIRED with the scorer itself (MockTestAnalyse v2.55, blueprint_core): Tier 1
-#   (assessed) → Tier 1.5 (structural) → Tier 3 (default). The §2-3e mixed-provenance WARN now
-#   names Tier 3; R3 / EC-17 / EC-19 updated; the engine mandate requires only
-#   structural_difficulty. Operator decision 2026-08-27. No tagging or delivery change.
-# v1.12 — 2026-08-13 — TIER 0 ERA GUARD closes an era-blind Tier-1 defect surface
-#   (PROJECT OVERRIDE for IIT_JAM_BIOTECHNOLOGY; proposed upstream for the repo).
-#   ROOT CAUSE: S2-2a's Tier 1 is a literal, era-blind position lookup against
-#   exam_config.marking_scheme whenever marking_scheme carries >1 distinct
-#   question_type — with NO check that marking_scheme (which describes the
-#   CURRENT pattern) actually describes the PAPER being delivered. Measured on
-#   IIT JAM Biotechnology 07-May-2005: a 100-question, structurally all-MCQ
-#   legacy paper (options_by_q == 4 for every Q, zero NAT-shaped questions;
-#   PYQExplain's own qtype map already resolved all 100 as 'mcq') delivered
-#   against the CURRENT 60-question MCQ/MSQ/NAT config. Literal Tier 1 would
-#   have tagged Q31-40 MSQ and Q41-60 NAT on the delivered portal file — a
-#   portal answer-format and scoring defect (the exact class of error Tier 1
-#   was introduced in v1.8 to FIX, now reproduced by the same mechanism against
-#   an off-era paper). This is the identical class of defect Framework_PYQCore
-#   EC-P9/EC-P9b and Framework_MockTestAnalyse/PYQAnalyse Cluster F already
-#   name and solve at the CORPUS level via blueprint_core.classify_paper_era —
-#   PYQDeliver simply never called it. FIX: new S2-2 TIER 0 — before Tier 1 may
-#   fire for ANY question, classify the WHOLE PAPER once via the EXISTING
-#   canonical `classify_paper_era` (blueprint_core.py Cluster F — imported, per
-#   the S13-1 anti-drift principle, never reproduced). era != 'current' (paper
-#   is 'larger' / 'smaller' / 'renumbered' / 'retyped' relative to exam_config)
-#   -> Tier 1 is skipped for the WHOLE paper and resolution proceeds straight
-#   to Tier 2 (authoritative qtype). era == 'current' -> Tier 1 proceeds exactly
-#   as v1.11 specified. Deterministic, exam-agnostic, no model judgment, no
-#   operator prompt required for this class of paper ever again. PROVENANCE:
-#   this exact paper was already used as EC-P9's own worked example ("a
-#   100-question 2005 paper against a 60-question current pattern") before this
-#   fix existed — this release wires that already-documented case into
-#   PYQDeliver's own resolver instead of leaving it undetected there.
-#   Touched: §0 item 6 (dual-path import list), new §S2-2 TIER 0 section
-#   (before S2-2a), S2-2 diagram, S2-2e provenance, §10 §R1, END sentinel.
 # [ExamCode] project | PYQ-4 (PYQDeliver) | Exam-agnostic
 #
 # ════════════════════════════════════════════════════════════════════════

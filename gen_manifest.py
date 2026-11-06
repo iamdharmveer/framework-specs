@@ -78,9 +78,14 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 # mock_sync_audit MS-27 holds the corpus to it. It is a RATCHET in the same sense as
 # MUTATION_BUDGETS.json: widening it quietly is exactly how release 2026.11.03 changed
 # Step 7's contract unseen — so bootstrap checksum-verifies it.
+# GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY. SESSION_BUDGET.json holds the session-capacity
+# numbers measured 2026-11-06 (a sub-agent compacted silently at ~790,000 tok; 2.3 B/tok)
+# that audit_specs_ext SPEC-CAPACITY gates every route on and bootstrap.py prices reads
+# with. A raised cap would let a route outgrow what a session holds with nothing red, so
+# it gets the same checksum guarantee as MUTATION_BUDGETS.json.
 TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
                 "MUTATION_BUDGETS.json", "XSPEC_DIVERGENCE_BASELINE.json",
-                "STEP_CONTRACTS.json"]
+                "STEP_CONTRACTS.json", "SESSION_BUDGET.json"]
 
 # GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). SPEC_HISTORY.md holds the
 # superseded changelog entries moved out of the 20 routed specs — 196,024 B of defect

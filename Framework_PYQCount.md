@@ -1,44 +1,6 @@
 # Framework_PYQCount v1.7.1 — PYQ Step 4 — Phase B Count Filling (§5)
 # v1.7.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.7 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: per-era counts, n_new, HS-ST9
-# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT. S5-1's same-paper
-#   duplicate gate keyed on (date, session) and its regex REQUIRED the session token,
-#   while PYQSort's own filename contract legitimately emits SESSION-LESS names
-#   ([ExamCode]_DD-Mon-YYYY_Sorted_Q1-QN.docx) whenever a paper carries no session
-#   number, plus a _to_ multi-date form this gate explicitly skipped. For both, a
-#   re-sorted duplicate pair (..._Sorted_Q1-Q100.docx beside ..._Sorted_Q1-Q99.docx —
-#   this gate's own motivating example, written WITHOUT a session token) matched
-#   NOTHING: canonical identity cannot collapse differing Q-ranges, Task 1 and S5-4
-#   count both copies consistently so Task 2 balances, and the counts inflate
-#   SILENTLY — the class EC-P30 names the most dangerous. Verified by execution on a
-#   two-copy fixture: session-ful pair caught, session-less pair invisible. The key
-#   is now the filename STEM before `_Sorted_` (dated stems only), covering
-#   session-ful, session-less and _to_ forms with zero false positives; the undated
-#   Multi_ last-resort form stays out of scope (two genuinely different undated
-#   papers could share it) and is already visible as a year=None inventory row
-#   (EC-P8). Companion wording updated in Framework_PYQCore.md EC-P30 + §12 per the
-#   LAW-PROPAGATION LAW. No engine change; no other rule touched.
-# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: 9 prose mentions to no-paren form.
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, propagated per the
-#   LAW-PROPAGATION LAW. Step 4 did not suffer the reference incident — it is
-#   single-session, so its probe cost amortises to zero and its spec is far under the
-#   SPEC-BUDGET threshold — but three of the four laws that incident produced govern any
-#   step performing a CLASS T acquisition before a partition, and a law that is applied
-#   in one file and not its sibling is how the PYQAnalyse->PYQCount split shipped an
-#   unfixed defect "content byte-identical" in the first place.
-#   (a) EC-P43 DIRECT EGRESS LANE added as A0, tried before the connector probe.
-#   (b) EC-P40 the probe is a SPENDER: plan_transport passes consumed= explicitly.
-#       Step 4 fetches the probe paper again in the same run, so the value is 0 and the
-#       reason is stated at the call site rather than left as an absent argument that
-#       audit_callgraph C10 cannot distinguish from an oversight.
-#   (c) EC-P41 the listing is written and ASSERTED by corpus_io.write_drive_listing.
-#   (d) P4f divergence DECLARED: 'SMALLEST by fileSize' is correct HERE and wrong in
-#       Step 5. mock_sync_audit MS-13 requires both files to name the divergence.
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md

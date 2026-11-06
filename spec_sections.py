@@ -25,12 +25,20 @@ only line numbers into the verified file. Every read still comes out of the spec
 This is deliberate: a digest that carried copies of the fences would be a duplicate of
 the source of truth inside a corpus whose entire integrity model is byte-verification.
 
+READ CHUNKS (2026-11-06, GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY). chunk_plan() turns a
+read plan into read calls of <= READ_CHUNK_MAX_LINES lines and <= READ_CHUNK_MAX_BYTES
+bytes — the shape measured to come back inline on the cloud-session surface — and
+bootstrap.py --read serves them. NON-FINAL plans are the complement of the recorded
+final_only_ranges, so a spec's preamble and any '# §N' banner after a FINAL-only section
+are read by construction.
+
     python3 spec_sections.py            # write SPEC_SECTIONS.json
     python3 spec_sections.py --check    # exit 1 if the committed map is stale
     python3 spec_sections.py --self-test
 """
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -68,15 +76,21 @@ FINAL_ONLY_PREFIXES = {
         '## DEFINITION OF DONE', '## HUMAN REVIEW', '## SUGGESTED', '## STATISTICS',
     ),
     # v3 (2026-08-22, GAP-1B-STEP7-READ-SET): Step 7's Final-Assembly family and
-    # close-out pair. TRAILING SPACES ARE LOAD-BEARING: '## S13-9 ' must NOT match
-    # '## S13-9A' — the post-delivery footer is PER-DELIVERY law (F1 after every
-    # non-final batch) and stays in every read. '## S13-4' deliberately unguarded:
-    # it matches S13-4, S13-4b and S13-4c, all three Final-Assembly-only. All S4
-    # batch law, S13-9A and every gate section stay in the NON-FINAL read.
+    # close-out pair. All S4 batch law, S13-9A and every gate section stay in the
+    # NON-FINAL read.
+    # v6 (2026-11-06, GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY): S13-2F (v5.89 item
+    # sweep + certificate) and S13-2G (v5.91 in-session review) run only at Final
+    # Assembly and were never listed. Every entry is now matched COLLISION-SAFE by
+    # _title_matches (a bare entry needs a non-alphanumeric character after it), so a
+    # future '## S13-40' or '## S17-10' can no longer turn FINAL-only by accident. The
+    # S13-4 family that the old unguarded '## S13-4' matched on purpose is spelled out
+    # member by member: S13-4, S13-4b, S13-4c — all three Final-Assembly-only.
+    # '## S13-9' does not match '## S13-9A' (the per-delivery footer stays read).
     'Framework_MockTestCreate.md': (
-        '## S13-1 ', '## S13-2 ', '## S13-3 ', '## S13-4',
+        '## S13-1', '## S13-2', '## S13-2F', '## S13-2G', '## S13-3',
+        '## S13-4', '## S13-4b', '## S13-4c',
         '## S13-REGCHECK', '## S13-QINDEX',
-        '## S13-5 ', '## S13-6 ', '## S13-7 ', '## S13-8 ', '## S13-9 ',
+        '## S13-5', '## S13-6', '## S13-7', '## S13-8', '## S13-9',
         '## S17-1', '## S17-2',
     ),
     # v4 (2026-08-22, STEP6-READ-SET): Step 6's input phase (B1-only) + closing
@@ -109,12 +123,50 @@ FINAL_ONLY_PREFIXES = {
     ),
 }
 
-# Measured in the container, 2026-08-16. The view tool truncates output above ~16,000
-# characters INCLUDING explicitly ranged reads; a bash heredoc returned 188,024
-# characters intact in one call. Both numbers are reported so the operator can see why
-# the spec says to read with `sed -n` and not with view.
+# The view tool truncates output above ~16,000 characters INCLUDING explicitly ranged
+# reads (measured in the container, 2026-08-16).
 VIEW_TRUNCATE_CHARS = 16000
-BASH_SAFE_CHARS = 150000
+# GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY. Measured 2026-11-06 on the Claude cloud-
+# session surface: a bash result of >= ~40,000 characters is diverted to a file the
+# session cannot read back whole (the Read tool caps 25,000 tok per call), while
+# 300 lines / ~20 KB came back inline in 43 consecutive calls. The 2026-08-16 figure
+# (188,024 chars in one call) does not hold on this surface and sent a session into
+# exactly that diverted, unreadable file. 28,000 keeps a margin under the cliff.
+BASH_SAFE_CHARS = 28000
+# Measured 2026-11-06: 215,068 B of Framework_MockTestCreate.md = 89,041 tokens
+# (2.41 B/tok); the whole 869,426 B file ~366,000 tokens. The old `bytes // 4`
+# under-stated every read by ~40%. 2.3 is the conservative divisor.
+BYTES_PER_TOKEN = 2.3
+TOKEN_BASIS = 'bytes/2.3 — measured 2026-11-06'
+# One read call = at most this many lines AND at most this many bytes: the measured
+# inline-safe shape above (300 lines returned inline 43 times in a row).
+READ_CHUNK_MAX_LINES = 300
+READ_CHUNK_MAX_BYTES = 28000
+# A level-1 banner ('# §18 — ...', '# APPENDIX A — ...') opens a new top-level part of
+# a spec, but only '##'/'###' lines are section boundaries — so a banner that follows
+# a FINAL-only '## ' section inside its span was skipped with it. Measured 2026-11-06:
+# '# §18' glossary, '# §19' edge cases, the appendices and '# §S16' sat inside the
+# FINAL-only '## S17-2' span of Framework_MockTestCreate.md and no batch session read
+# them. A FINAL-only span therefore ends at its first banner (BANNER CUT).
+BANNER_RE = re.compile(r'^# (§|APPENDIX|Appendix)')
+BANNER_RULE_PREFIX = '# ═'
+
+
+def est_tokens(nbytes):
+    """Token estimate on the measured basis (TOKEN_BASIS)."""
+    return math.ceil(nbytes / BYTES_PER_TOKEN)
+
+
+def _title_matches(title, entry):
+    """COLLISION-SAFE prefix match. An entry that already ends in a non-alphanumeric
+    character ('## §5 —', '## S2-2 ') delimits itself; a bare entry ('## S13-4')
+    matches only when the title continues with a non-alphanumeric character or ends,
+    so it can never swallow '## S13-40' or '## S13-4b'."""
+    if not title.startswith(entry):
+        return False
+    if not entry[-1].isalnum() or len(title) == len(entry):
+        return True
+    return not title[len(entry)].isalnum()
 
 
 def sha256_file(path):
@@ -122,20 +174,34 @@ def sha256_file(path):
         return hashlib.sha256(fh.read()).hexdigest()
 
 
-def section_spans(path):
-    """Line spans of every '## '/'### ' header in one spec. 1-indexed, inclusive."""
-    with open(path, encoding='utf-8') as fh:
-        lines = fh.read().split('\n')
+def _spec_lines(path):
+    """(lines, line_bytes, in_fence) of one spec. lines = text.split('\\n'), so a file
+    ending in a newline has a final empty pseudo-line; its byte cost is 0, every other
+    line costs its UTF-8 length + 1, so sum(line_bytes) == the file size exactly."""
+    with open(path, encoding='utf-8', newline='') as fh:
+        text = fh.read()
+    lines = text.split('\n')
+    line_bytes = [len(ln.encode('utf-8')) + 1 for ln in lines]
+    line_bytes[-1] -= 1
     # A '#' inside a fence is a python comment, not a header. Tracking fence state is
     # not optional: Framework_MockTestAnalyse carries 42 python fences whose comment
     # lines would otherwise be read as section boundaries and shred the map.
-    in_fence = False
+    in_fence, cur = [], False
+    for ln in lines:
+        if ln.lstrip().startswith('```'):
+            cur = not cur
+            in_fence.append(True)
+        else:
+            in_fence.append(cur)
+    return lines, line_bytes, in_fence
+
+
+def section_spans(path):
+    """Line spans of every '## '/'### ' header in one spec. 1-indexed, inclusive."""
+    lines, _, in_fence = _spec_lines(path)
     heads = []
     for i, ln in enumerate(lines, 1):
-        if ln.lstrip().startswith('```'):
-            in_fence = not in_fence
-            continue
-        if in_fence:
+        if in_fence[i - 1]:
             continue
         m = HEADER_RE.match(ln)
         if m:
@@ -151,18 +217,32 @@ def section_spans(path):
     return out, n
 
 
+def _banner_cut(lines, in_fence, start, end):
+    """First line of a FINAL-only span [start, end] that a NON-FINAL session must
+    still read: the first level-1 banner outside a fence (or the '# ═' rule line
+    directly above it). end + 1 when the span holds no banner."""
+    for i in range(start + 1, end + 1):
+        if not in_fence[i - 1] and BANNER_RE.match(lines[i - 1]):
+            return i - 1 if lines[i - 2].startswith(BANNER_RULE_PREFIX) else i
+    return end + 1
+
+
 def build(repo_dir='.'):
     specs = sorted(f for f in os.listdir(repo_dir)
                    if f.startswith('Framework_') and f.endswith('.md'))
     doc = {'_generated_by': 'spec_sections.py',
            '_note': ('Line numbers only — never spec content. Regenerate with '
                      'gen_manifest.py; bootstrap.py verifies the sha256.'),
+           'token_basis': TOKEN_BASIS,
            'view_truncate_chars': VIEW_TRUNCATE_CHARS,
            'bash_safe_chars': BASH_SAFE_CHARS,
+           'read_chunk_max_lines': READ_CHUNK_MAX_LINES,
+           'read_chunk_max_bytes': READ_CHUNK_MAX_BYTES,
            'files': {}}
     for name in specs:
         path = os.path.join(repo_dir, name)
         spans, total_lines = section_spans(path)
+        lines, line_bytes, in_fence = _spec_lines(path)
         total_bytes = os.path.getsize(path)
         final_only = FINAL_ONLY_PREFIXES.get(name, ())
         # The skip must CASCADE. A '### S5-3' is a child of '## §5' and inherits its
@@ -180,51 +260,110 @@ def build(repo_dir='.'):
         for i, sp in enumerate(top):
             end = top[i + 1]['start'] - 1 if i + 1 < len(top) else total_lines
             top_extent.append((sp['title'], sp['start'], end))
-        skip_ranges = [(a, b) for title, a, b in top_extent
-                       if final_only and title.startswith(tuple(final_only))]
+        skip_ranges = []
+        for title, a, b in top_extent:
+            if any(_title_matches(title, e) for e in final_only):
+                cut = _banner_cut(lines, in_fence, a, b)
+                skip_ranges.append([a, cut - 1])
 
         def _is_final_only(sp):
             return any(a <= sp['start'] <= b for a, b in skip_ranges)
 
-        reduced, skipped = [], []
-        for sp in spans:
-            (skipped if _is_final_only(sp) else reduced).append(sp)
-        red_bytes = sum(sp['bytes'] for sp in reduced) if final_only else total_bytes
+        skipped = [sp['title'] for sp in spans if _is_final_only(sp)]
+        red_bytes = total_bytes - sum(line_bytes[j - 1] for a, b in skip_ranges
+                                      for j in range(a, b + 1))
+        # PREAMBLE (GAP-2026-11-06 D-1): the lines before the first header belong to no
+        # section. read_plan used to merge section spans only, so they fell out of every
+        # NON-FINAL read — in Framework_MockTestCreate.md that is lines 1-928, MANDATE 0
+        # (no question content in chat), MANDATE 1 (batch stop law) and MANDATE 2. They
+        # are now read by construction (read_plan is the complement of final_only_ranges)
+        # and recorded here so the cost is visible.
+        pre = (spans[0]['start'] - 1) if spans else total_lines
         doc['files'][name] = {
             'sha256': sha256_file(path),
             'lines': total_lines,
             'bytes': total_bytes,
-            'est_tokens': total_bytes // 4,
+            'est_tokens': est_tokens(total_bytes),
             'view_calls': -(-total_bytes // VIEW_TRUNCATE_CHARS),
             'bash_calls': max(1, -(-total_bytes // BASH_SAFE_CHARS)),
             'has_read_set': bool(final_only),
+            'preamble_lines': pre,
+            'preamble_bytes': sum(line_bytes[:pre]),
             'reduced_bytes': red_bytes,
-            'reduced_est_tokens': red_bytes // 4,
+            'reduced_est_tokens': est_tokens(red_bytes),
             'reduced_bash_calls': max(1, -(-red_bytes // BASH_SAFE_CHARS)),
-            'final_only_titles': [sp['title'] for sp in skipped],
+            'final_only_ranges': skip_ranges,
+            'final_only_titles': skipped,
             'sections': spans,
         }
     return doc
 
 
+def render(doc):
+    """The exact text of SPEC_SECTIONS.json for a built map (one writer, one format)."""
+    return json.dumps(doc, indent=2, ensure_ascii=False) + '\n'
+
+
 def read_plan(doc, name, session_class):
-    """The exact ranges to read. 'FINAL' is always the whole file, no exception."""
+    """The exact ranges to read. 'FINAL' is always the whole file, no exception.
+    NON-FINAL = the complement of final_only_ranges over 1..lines, so the preamble and
+    everything after a banner cut are read without being named."""
     info = doc['files'][name]
     if session_class.upper() == 'FINAL' or not info['has_read_set']:
         return [(1, info['lines'])]
-    final_only = tuple(info['final_only_titles'])
-    keep = [sp for sp in info['sections'] if sp['title'] not in final_only]
-    ranges, cur = [], None
-    for sp in keep:                       # merge adjacent spans into one sed call
-        if cur and sp['start'] == cur[1] + 1:
-            cur = (cur[0], sp['end'])
-        else:
-            if cur:
-                ranges.append(cur)
-            cur = (sp['start'], sp['end'])
-    if cur:
-        ranges.append(cur)
+    ranges, nxt = [], 1
+    for a, b in sorted(info['final_only_ranges']):
+        if a > nxt:
+            ranges.append((nxt, a - 1))
+        nxt = max(nxt, b + 1)
+    if nxt <= info['lines']:
+        ranges.append((nxt, info['lines']))
     return ranges
+
+
+def chunk_ranges(path, ranges):
+    """Split line ranges of the spec at `path` into consecutive read chunks of at most
+    READ_CHUNK_MAX_LINES lines AND READ_CHUNK_MAX_BYTES bytes, in order, covering the
+    ranges exactly. A single line longer than the byte cap is its own chunk. The empty
+    pseudo-line after a trailing newline costs nothing and never opens a chunk."""
+    _, line_bytes, _ = _spec_lines(path)
+    chunks = []
+    for a, b in ranges:
+        cur, n_lines, n_bytes = None, 0, 0
+        for j in range(a, b + 1):
+            lb = line_bytes[j - 1]
+            if cur and lb and (n_lines + 1 > READ_CHUNK_MAX_LINES
+                               or n_bytes + lb > READ_CHUNK_MAX_BYTES):
+                chunks.append(cur)
+                cur = None
+            if cur is None:
+                cur, n_lines, n_bytes = [j, j], 0, 0
+            cur[1] = j
+            n_lines += 1 if lb else 0
+            n_bytes += lb
+        if cur:
+            chunks.append(cur)
+    return [tuple(c) for c in chunks]
+
+
+def chunk_plan(doc, name, session_class, spec_dir='.'):
+    """read_plan(doc, name, session_class) as read-call chunks (see chunk_ranges).
+    Measures bytes on the spec file beside SPEC_SECTIONS.json and refuses a file whose
+    sha256 is not the one the map was built from — a stale map would chunk the wrong
+    lines."""
+    path = os.path.join(spec_dir, name)
+    if sha256_file(path) != doc['files'][name]['sha256']:
+        raise ValueError(f'{name}: sha256 differs from SPEC_SECTIONS.json — the map is '
+                         f'stale. Run gen_manifest.py (repo) or spec_source.py --resolve.')
+    return chunk_ranges(path, read_plan(doc, name, session_class))
+
+
+def chunk_text(path, start, end):
+    """The verbatim text of lines start..end, newline-terminated exactly as on disk, so
+    the chunks of the FINAL plan concatenate to the file byte for byte."""
+    with open(path, encoding='utf-8', newline='') as fh:
+        lines = fh.read().split('\n')
+    return '\n'.join(lines[start - 1:end]) + ('\n' if end < len(lines) else '')
 
 
 def self_test():
@@ -257,8 +396,22 @@ def self_test():
     check('t_step5_has_a_read_set', doc['files'][ma]['has_read_set'])
     check('t_reduced_is_smaller_than_full',
           doc['files'][ma]['reduced_bytes'] < doc['files'][ma]['bytes'])
-    check('t_reduced_saves_at_least_a_third',
-          doc['files'][ma]['reduced_bytes'] < doc['files'][ma]['bytes'] * 0.7)
+    # Release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY) restated this check.
+    # It used to assert "the NON-FINAL read saves at least a third of the file". That figure
+    # held only because the preamble (lines before the first '##') was silently skipped —
+    # defect D-1 — and because '# §N' banners inside FINAL-only spans were skipped by accident.
+    # The law is now: the preamble is ALWAYS read and the skip stops at the first banner
+    # (DESIGN.md measured facts: a session holds the whole 870 KB Step 7 route, so reading
+    # MORE is the safe default; capacity is enforced by audit_specs_ext SPEC-CAPACITY against
+    # SESSION_BUDGET.json, not by a ratio here). What must still be caught is a LOST read set:
+    # the FINAL-only ranges of the Step 5 spec are non-empty and carry at least 40,000 B, and
+    # reduced_bytes is EXACTLY the file minus those ranges (true by construction; a drifted
+    # map, an emptied FINAL_ONLY_PREFIXES or a range miscount breaks it).
+    _ma_fo = doc['files'][ma].get('final_only_ranges') or []
+    _ma_fo_bytes = sum(len(chunk_text(ma, a, b).encode('utf-8')) for a, b in _ma_fo)
+    check('t_final_only_ranges_hold_the_read_set',
+          bool(_ma_fo) and _ma_fo_bytes >= 40_000
+          and doc['files'][ma]['reduced_bytes'] == doc['files'][ma]['bytes'] - _ma_fo_bytes)
     check('t_final_reads_everything',
           read_plan(doc, ma, 'FINAL') == [(1, doc['files'][ma]['lines'])])
     check('t_nonfinal_reads_less_than_final',
@@ -304,6 +457,118 @@ def self_test():
           and not _covered9('## §22') and not _covered9('## APPENDIX A'))
     check('t_sha_matches_disk',
           doc['files'][ma]['sha256'] == sha256_file(ma))
+
+    # ── GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY ──────────────────────────────
+    # READ-COVERAGE: every line of every spec is either read by a NON-FINAL session
+    # or inside a declared FINAL-only range — never both, never neither. Line 1..k
+    # preambles that belonged to no section were the "neither" case (D-1).
+    def _lineset(ranges):
+        return {j for a, b in ranges for j in range(a, b + 1)}
+
+    def _covered_once(info, name):
+        read = _lineset(read_plan(doc, name, 'NON-FINAL'))
+        skip = _lineset(info['final_only_ranges'])
+        return not (read & skip) and (read | skip) == set(range(1, info['lines'] + 1))
+    check('t_read_coverage_every_line_exactly_once',
+          all(_covered_once(info, n) for n, info in doc['files'].items()))
+    check('t_final_plan_is_the_whole_file_for_every_spec',
+          all(read_plan(doc, n, 'FINAL') == [(1, info['lines'])]
+              for n, info in doc['files'].items()))
+    def _plan_bytes(name):
+        lb = _spec_lines(name)[1]
+        return sum(sum(lb[a - 1:b]) for a, b in read_plan(doc, name, 'NON-FINAL'))
+    check('t_reduced_bytes_is_the_plan_measured',
+          all(info['reduced_bytes'] == _plan_bytes(n) for n, info in doc['files'].items()))
+    mtc = 'Framework_MockTestCreate.md'
+    _mtc_lines = _spec_lines(mtc)[0]
+    _mtc_read = _lineset(read_plan(doc, mtc, 'NON-FINAL'))
+    _mandates = [i for i, ln in enumerate(_mtc_lines, 1) if ln.startswith('# MANDATE')]
+    check('t_step7_mandates_are_in_the_nonfinal_read',
+          len(_mandates) >= 3 and all(i in _mtc_read for i in _mandates))
+    _starts = {sp['title'].split(' — ')[0]: sp['start']
+               for sp in doc['files'][mtc]['sections']}
+    check('t_step7_s13_2f_and_2g_are_final_only',
+          _starts['## S13-2F'] not in _mtc_read and _starts['## S13-2G'] not in _mtc_read)
+    check('t_step7_glossary_banner_is_read',
+          any(ln.startswith('# §18') and i in _mtc_read
+              for i, ln in enumerate(_mtc_lines, 1)))
+    check('t_step7_skip_set_is_exactly_the_declared_family',
+          sorted(t.split(' — ')[0] for t in doc['files'][mtc]['final_only_titles'])
+          == sorted(['## S13-1', '## S13-2', '## S13-2F', '## S13-2G', '## S13-3',
+                     '## S13-4', '## S13-REGCHECK', '## S13-QINDEX', '## S13-4b',
+                     '## S13-4c', '## S13-5', '## S13-6', '## S13-7', '## S13-8',
+                     '## S13-9', '## S17-1', '## S17-2']))
+
+    def _chunks_ok(name, klass, spec_dir='.'):
+        chunks = chunk_plan(doc_of[spec_dir], name, klass, spec_dir)
+        lb = _spec_lines(os.path.join(spec_dir, name))[1]
+        plan = read_plan(doc_of[spec_dir], name, klass)
+        caps = all(sum(1 for j in range(a, b + 1) if lb[j - 1]) <= READ_CHUNK_MAX_LINES
+                   and (sum(lb[a - 1:b]) <= READ_CHUNK_MAX_BYTES or a == b)
+                   for a, b in chunks)
+        ordered = all(chunks[i][1] < chunks[i + 1][0] for i in range(len(chunks) - 1))
+        return caps and ordered and _lineset(chunks) == _lineset(plan)
+    doc_of = {'.': doc}
+    check('t_chunk_plan_covers_the_plan_within_both_caps',
+          all(_chunks_ok(n, k) for n in doc['files'] for k in ('FINAL', 'NON-FINAL')))
+
+    # FIXTURE (independent of the live corpus): text before the first header, a
+    # FINAL-only section holding a '# §9' banner (and a fenced '# §8' comment that is
+    # NOT a banner), a '## F-10' that a bare '## F-1' must not swallow, a 60 KB
+    # section, a 650-line section and one line longer than the byte cap.
+    import tempfile
+    fx = tempfile.mkdtemp(prefix='spec_sections_fx_')
+    fname = 'Framework_Fixture.md'
+    body = ['# Framework_Fixture v1.0.0', '# MANDATE 0 — preamble law', 'preamble',
+            '## A-1 — kept', 'a',
+            '## F-1 — final only', 'f1', '```python', '# §8 not a banner', '```', 'f2',
+            '# ═══════', '# §9 — BANNER', 'banner law',
+            '## F-10 — kept (collision guard)', 'g',
+            '## B-1 — 60 KB'] + ['b' * 199] * 300 + [
+            '## C-1 — 650 short lines'] + ['c'] * 650 + [
+            '## D-1 — one long line', 'd' * 30000, '# END OF Framework_Fixture v1.0.0', '']
+    with open(os.path.join(fx, fname), 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(body))
+    FINAL_ONLY_PREFIXES[fname] = ('## F-1',)
+    try:
+        fdoc = build(fx)
+    finally:
+        del FINAL_ONLY_PREFIXES[fname]
+    doc_of[fx] = fdoc
+    finfo = fdoc['files'][fname]
+    fplan = read_plan(fdoc, fname, 'NON-FINAL')
+    check('fx_preamble_is_read_and_recorded',
+          finfo['preamble_lines'] == 3 and fplan[0][0] == 1
+          and finfo['preamble_bytes'] == sum(len(x.encode()) + 1 for x in body[:3]))
+    check('fx_banner_cut_reads_from_the_rule_line',
+          finfo['final_only_ranges'] == [[6, 11]]
+          and finfo['final_only_titles'] == ['## F-1 — final only'])
+    check('fx_collision_safe_prefix_keeps_f10', 15 in _lineset(fplan))
+    check('fx_chunk_plan_covers_within_caps',
+          _chunks_ok(fname, 'NON-FINAL', fx) and _chunks_ok(fname, 'FINAL', fx))
+    _fchunks = chunk_plan(fdoc, fname, 'FINAL', fx)
+    _long = len(body) - 2
+    check('fx_byte_cap_and_line_cap_both_split',
+          (_long, _long) in _fchunks
+          and any(b - a + 1 < READ_CHUNK_MAX_LINES and a > 17 and b < 318
+                  for a, b in _fchunks)
+          and any(b - a + 1 == READ_CHUNK_MAX_LINES for a, b in _fchunks))
+    _fpath = os.path.join(fx, fname)
+    check('fx_final_chunks_concatenate_to_the_file',
+          ''.join(chunk_text(_fpath, a, b) for a, b in _fchunks)
+          == open(_fpath, encoding='utf-8', newline='').read())
+    check('fx_reduced_bytes_equal_the_nonfinal_chunks',
+          finfo['reduced_bytes'] == sum(
+              len(chunk_text(_fpath, a, b).encode('utf-8'))
+              for a, b in chunk_plan(fdoc, fname, 'NON-FINAL', fx)))
+    with open(_fpath, 'a', encoding='utf-8') as fh:
+        fh.write('edited after the map was built\n')
+    try:
+        chunk_plan(fdoc, fname, 'FINAL', fx)
+        _stale_refused = False
+    except ValueError:
+        _stale_refused = True
+    check('fx_stale_map_is_refused', _stale_refused)
     print(f'SELF-TEST: {passed}/{total} PASS')
     if fails:
         print('FAILED: ' + ', '.join(fails))
@@ -314,7 +579,7 @@ def main():
     if '--self-test' in sys.argv:
         sys.exit(0 if self_test() else 1)
     doc = build('.')
-    text = json.dumps(doc, indent=2, ensure_ascii=False) + '\n'
+    text = render(doc)
     if '--check' in sys.argv:
         if not os.path.exists(OUT):
             print(f'STALE: {OUT} is missing. Run gen_manifest.py.')

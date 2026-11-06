@@ -1,26 +1,6 @@
 # Framework_NotesDeliver v1.2.1 — Notes Pipeline Step ND (Portal Formatting + Delivery)
 # v1.2.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.2.0 — 2026-08-12 — CONSUMES NA's _Final (GAP-2026-08-12-NADOCX patch P2 of
-#   2; pairs with Framework_NotesAudit v3.0.0).
-#     (1) ND's input is now the unit's _Final.docx from NA
-#         (notes_core.notes_final_filename), attached or filed per section 1.0,
-#         and its output is notes_core.notes_deliver_filename —
-#         {unit_code}_{Slug}_Deliver.docx. Three filename authorities now
-#         exist (draft / _Final / _Deliver) and each is an ENGINE CALL; no step
-#         spells a pattern.
-#     (2) THE AUDIT REPORT IS GONE. NA no longer writes [ExamCode]_<unit>_
-#         Audit.md; the evidence lives in notes_registry.json as the unit's
-#         audit_summary (schema notes-registry/2.1). ND's delivery line reads
-#         its verdict counts from there.
-#     (3) PORTAL FORMATTING IS DEFERRED (owner decision, 2026-08-12). ND
-#         currently ships the audited bytes UNCHANGED. When portal formatting
-#         is specified it will make ND a SECOND WRITER downstream of the
-#         certified bytes, so it will need its own terminal re-gate — and any
-#         LibreOffice-based conversion will silently destroy every equation
-#         (section 3). Recorded here so the requirement is not rediscovered
-#         late.
-#   Companions: notes_core >= v2.3.
 # [ExamCode] project | Notes Step ND | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:

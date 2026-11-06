@@ -1,40 +1,6 @@
 # Framework_PYQApprove v1.3.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
 # v1.3.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.3.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE (companion; the fix lives
-#   in PYQScan v1.6.0). S4-0 passes manual_corrections= to build_approval_record
-#   (reconcile_taxonomy v1.5): when the operator edited classifications.json or
-#   scan_progress.json OUTSIDE the pipeline before this run (the SSC_CGL_TIER1 INV-5
-#   orphan was hand-repaired and the resulting CLEAN record carried no trace), the
-#   edits are declared and recorded verbatim in approval_record.json. INV-5
-#   conservation_check is unchanged — it is now the BACKSTOP of the zero-orphan gate
-#   PYQScan runs at source (verify_no_orphans, GATE 5), the same relationship C6 has
-#   to PYQDraft's pre-delivery gate. A conservation HOLD on a v1.6.0 scan therefore
-#   names a scan that bypassed its own gate, not a scan-time classification defect.
-# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk approval + R30 + G-1
-# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (A1) C6's spec
-#   text cites reconcile_taxonomy.check_topic_density — BOTH forms (subject
-#   density + the NEW per-topic cap, finding class TOPIC_OVER_AGGREGATION_TOPIC),
-#   the syllabus-anchored denominator, the excluded/anchored scoping, the
-#   per-topic finding detail — and gains the THREE-CASE reclassification rule
-#   (pre-release generation / DECLARED_AMBER / stale current-generation input).
-#   (A3) the S4-0 INPUTS list extends to qcount_anchored_topics, item excluded
-#   states, amber_status (draft + scan _meta), telemetry and spec_generation,
-#   all passed through; the invocation gains grandfather() (E4/S3) and
-#   resolve_declared_amber() (E7) between reconcile and adjudicate. (A2) Branch
-#   B prints the per-topic crowded list with counts and the re-derive-directive
-#   sentence — the operator action stays exactly one step. Branch A gains the
-#   DECLARED_AMBER lines. C6 is now the BACKSTOP of a check that PYQDraft's
-#   pre-delivery gate already ran at source.
-# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: 1 prose mention to no-paren form (write_analysis_doc).
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
-#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
-#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
-#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -51,6 +17,15 @@
 #### §11 — EXAM-AGNOSTIC GUARANTEE → Framework_PYQCore.md
 #### §12 — DEFINITION OF DONE → Framework_PYQCore.md
 #### Every trigger loads its step file + Framework_PYQCore.md (routes.json). History: CHANGELOG.md
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQApprove.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ---
 

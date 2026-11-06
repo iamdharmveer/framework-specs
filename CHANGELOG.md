@@ -1,5 +1,159 @@
 # Changelog
 
+## 2026.11.06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY: the Step 7 specification stays in the context that writes the paper, and every read is proved
+(NEW Framework_MockTestOrchestrate v1.0.0; NEW SESSION_BUDGET.json; Framework_MockTestCreate v5.93;
+Framework_DeliveryFooter v1.40.0 header trimmed (no version change); bootstrap.py read / retention /
+staging / worker-report / worker-prompt commands; spec_sections.py read plan (preamble always read,
+banner cut, S13-2F/2G FINAL-only, chunk plan, measured constants); audit_specs_ext.py SPEC-CAPACITY;
+spec_source.py regenerates SPEC_SECTIONS.json for a project overlay; gen_manifest.py tracks
+SESSION_BUDGET.json; routes.json, STEP_CONTRACTS.json override floor, LAW_REGISTRY.json, both SKILL
+files, CLAUDE.md.)
+
+**Cause.** A Step 7 session must hold its whole route (Framework_MockTestCreate.md + MockReview +
+DeliveryFooter) while it writes a paper. Two failures were measured on 2026-11-06 (SESSION_BUDGET.json
+`_measured`): (1) a bash read of 1,500 spec lines returned more than ~40,000 characters, the harness
+diverted it to a file the session could not read back, and the session went on without that text;
+(2) a context that keeps growing is summarised by the platform WITHOUT NOTICE (compaction) — a
+sonnet-class sub-agent compacted at ~390,000 tokens and lost 24 of 28 read-back canaries; an
+opus-class sub-agent held the whole 870 KB spec (437,683 tokens, 28/28) and compacted at ~790,000.
+After compaction a session works from a summary of the spec, not its text, and nothing said so.
+Measured basis: 215,068 B of spec = 89,041 tokens (2.41 B/token; 2.3 is the conservative divisor).
+
+**Owner decision OD-2026-11-06 (binding).** (a) A Step 7 run finishes in the chat where it started
+(R-ONE); (b) worker sub-agents are authorised for Step 7 — starting them is part of the standing
+instruction behind every MockCreate / TestCreate trigger; (c) one release for every exam.
+
+**What changed.**
+- *Read method.* Specs are read only with `bootstrap.py --trigger <Step> --read K` (chunks of at most
+  300 lines / 28,000 bytes); never a sed range above 300 lines, never a diverted tool-output file.
+- *READ-RETENTION (SESSION-BUDGET-LAW clause 6).* Every read carries READ-ANCHOR codes; the session
+  reproduces them from memory (`bootstrap.py --retention`) after the read, before and after every
+  batch and before Final Assembly. A FAIL means the text is gone: read again, continue from disk; a
+  batch authored without retention is not delivered and is redone (Orchestrate O3-3 checkpoint).
+- *Step 7 orchestrated.* NEW Framework_MockTestOrchestrate.md: in WORKER MODE the user's chat reads
+  only that spec and runs worker sub-agents that each read the full route and write one batch per
+  turn; the chat delivers the files and prints the worker's chat block; workers are replaced by
+  measured token numbers before the compaction point; reviewers (S13-2G phase 2) are started by the
+  chat. DIRECT MODE (no sub-agent tool) runs MTC as before plus read method and retention.
+- *MTC v5.93.* NEW S1-0R (read method, retention, run mode, input staging); S1-0 read advice points to
+  it; one WORKER MODE paragraph in S13-2G phase 2; one pointer line each in S4-7 STEP E, S13-8, S13-9A.
+  Superseded header entries v5.54.1–v5.92 (MTC) and v1.27–v1.39.0 (DeliveryFooter) moved verbatim to
+  SPEC_HISTORY.md (EC-P42).
+- *History move, every spec (precedent 2026.08.15.14; no version bump).* The superseded header
+  changelog entries of the other 21 specs that still carried more than their current-version entry
+  moved verbatim, newest first, to their SPEC_HISTORY.md sections (174,003 B; MockTestAnalyse
+  46,023 B, Blueprint 24,076 B, MockTestExplain 20,254 B, ...). Each move was verified mechanically:
+  block byte-identical in the right section, spec == original minus exactly those lines, line 1 /
+  sentinel / structural blocks intact, current-version entry kept on line 2 (Z-VERSION / C-VERSION
+  green). MockReview, MockTestExplain, PYQApprove and PYQDraft gained the standard "FULL VERSION
+  HISTORY" pointer block; MockReview, PYQApprove and PYQDraft gained SPEC_HISTORY sections.
+  Reason: the preamble of every spec is now read by every session (below), so header bytes are paid.
+- *spec_sections.py.* The PREAMBLE (lines before the first `##`; MANDATE 0/1/2 in MTC) is always
+  read — it was silently dropped from every NON-FINAL read (defect D-1). BANNER CUT: inside a
+  FINAL-only span the skip stops at the first `# §N` / `# APPENDIX` banner (MTC `# §18`, `# §19`,
+  appendices and §S16 were skipped by accident). `## S13-2F` / `## S13-2G` are FINAL-only; every
+  FINAL_ONLY_PREFIXES entry is collision-safe (`## S13-40` no longer matches `## S13-4`; the S13-4
+  family is three explicit entries). New per-file `preamble_lines/bytes`, `final_only_ranges`,
+  `chunk_plan()` (<= 300 lines / <= 28,000 B per chunk), measured constants (BASH_SAFE_CHARS 28,000;
+  BYTES_PER_TOKEN 2.3; `token_basis`). Self-tests: READ-COVERAGE (every line read or FINAL-only,
+  exactly once), MANDATEs read NON-FINAL, S13-2F/2G FINAL-only, chunk caps, fixture spec. The old
+  "NON-FINAL saves a third of MockTestAnalyse" check is restated: its FINAL-only ranges hold
+  >= 40,000 B and reduced_bytes == bytes - those ranges (the one-third figure assumed D-1).
+- *audit_specs_ext.py SPEC-CAPACITY.* Every route, both session classes: sum of ceil(bytes / 2.3)
+  over the routed specs <= SESSION_BUDGET.json `read_cap_tokens` (485,000 = rotate 660,000 -
+  baseline 75,000 - work unit 100,000; recomputed by the gate). Framework_MockReview.md, which the
+  Step 7 reviewer reads in one call, must stay within one read chunk (300 lines / 28,000 B). MockCreate / TestCreate now FINAL
+  402,407 tok (925,530 B; 82,593 tok headroom), NON-FINAL 357,431; every other route <= 225,181.
+- *bootstrap.py.* `--trigger` prices reads at bytes/2.3 and counts chunks; per-trigger FINAL message
+  (D-4) and Step 7 NON-FINAL advisory (escalation read before Final Assembly, MTC S1-0); the
+  orchestrated notice is printed first AND as the last lines. New: `--read K` (chunks with
+  READ-ANCHOR codes), `--escalate`, `--retention` (PASS / FAIL exit 3; `--role orchestrator`;
+  `--when after-read|before-batch|after-batch|before-final`), `--read-receipts`, `--stage-inputs`,
+  `--stage-doc`, `--stage-status`, `--worker-report write|show` (closed STATE set; `--files ""`
+  allowed; chat block <= 800 lines / 60,000 B), `--worker-prompt` (names Orchestrate PART B and the
+  O2-2 ORCHESTRATOR MESSAGE convention), `--self-test` (hermetic).
+- *spec_source.py.* With a project spec laid over the repo, SPEC_SECTIONS.json is regenerated in the
+  overlay from the effective files (`SPEC MAP: regenerated`); bootstrap re-derives it and lists it as
+  `[REGENERATED]` (defect D-5).
+- *Measured (2026-11-06, Claude cloud session; DESIGN).* MTC 869,426 B; 215,068 B = 89,041 tok;
+  opus-class sub-agent read all 870 KB in 43 calls of 300 lines, 437,683 tok, 28/28 canaries, silent
+  compaction at ~790,000 tok on a second pass; fable-class 439,419 tok, 28/28; sonnet-class compacted
+  silently at ~390,000 tok and lost canaries 02-25; sub-agent baseline ~72,000 tok; a bash result of
+  >= ~40,000 chars is diverted to a file; 300 lines (~20 KB) return inline.
+- *Input staging.* Surfaces with no /mnt/project: `bootstrap.py --stage-inputs` stages attachments
+  and project documents (SKILL Step 0b).
+- *SPEC-CAPACITY gate.* Every route and session class must fit SESSION_BUDGET.json `read_cap_tokens`.
+- *SKILL.* Rule 2a names each step's progress file; 2b is the measured read rule; NEW 2d
+  (READ-RETENTION) and 2e (Step 7 orchestrated); rule 3 notes staging.
+- routes.json: Framework_MockTestOrchestrate.md added to MockCreate / TestCreate after
+  Framework_MockTestCreate.md (the contract spec stays element [0], MS-27). STEP_CONTRACTS.json:
+  override floor Framework_MockTestCreate.md 5.93 (owner rule D8, OD-2026-11-06).
+
+**What did NOT change.** No question-writing rule, gate, engine behaviour, registry schema,
+artefact, deliverable, end state or user action. STEP_CONTRACTS deliverables / end states / user
+actions are unchanged: Step 7 still ends with exactly [ExamCode]_[slug]_Create.docx +
+[ExamCode]_registry.json, and the only Step 7 user action is still "continue". No new trigger.
+
+**Added after integration (same release).** `bootstrap.py --worker-report show --part P` serves the
+worker's chat block in parts of at most 24,000 bytes (a larger print would be diverted by the
+harness); `--stage-project-docs` stages the project documents the chat read with the Projects tool
+byte-exact from the session record; `--stage-inputs` copies chat attachments into the project
+directory (an attachment wins over a project document of the same name) and names the documents the
+step opens (SESSION_BUDGET.json `project_inputs`).
+
+**Final review (same release, after the proof run).** SESSION_BUDGET.json recalibrated from the proof
+run's measured costs: `work_unit_tokens` 60,000 -> 100,000 and `rotate_tokens` 620,000 -> 660,000
+(`read_cap_tokens` unchanged at 485,000; rotate stays under 0.85 x the compaction floor). bootstrap:
+the newest attachment of a name wins; an attached file that fails its check stops staging;
+`--stage-project-docs` never replaces an attached file and stages a project blob (for example
+.xlsx) byte for byte; `--worker-report write` keeps a file name that holds a comma whole.
+Orchestrate O2-1: Step 0 runs once per run; O2-3: a report whose state or batch differs from the
+worker's final line is treated as missing. SESSION_BUDGET.json `project_inputs` now lists every
+project file the Step 7 route opens (added: registry, audit script, figure manifest, exemplar bank,
+plain exam_config.json), and SPEC-CAPACITY fails the build when a routed spec names a /mnt/project
+file that no pattern matches. A reader that cuts bootstrap output (`| head`) no longer
+causes a traceback.
+
+**Independent review (same release).** Three fresh sessions reviewed the release blind: the new
+code, the orchestrator specification against the Step 7 text, and the Step 6 -> 7 -> 9 -> 11
+hand-over on the real proof paper. Confirmed findings, all fixed:
+- *Orchestrate.* A CHECKPOINT made for a correction is deleted when the correction passes (c) (it
+  could be restored over the correction later); RESTORE is always followed by MTC's session start;
+  RESTORE also removes the failed unit's figure files; `FINAL ASSEMBLY` and `REVIEW RETURNED` always
+  go to a fresh worker; without a platform token count a worker is reused for at most one more
+  batch; a second RETENTION_FAIL pair moves to the next `worker_models` entry before
+  MODEL-CAPACITY; O2-7: when the platform removed the paper's working files the run ends with
+  WORKDIR-LOST (a worker started there would have begun the paper again silently) and a
+  `--continue` worker that finds no BATCH STATE reports the same; a replacement for a first worker
+  that never reported gets the first-worker prompt; a new trigger after PAPER_DELIVERED starts a
+  new run; `continue — delivery confirmed` is the continue trigger in every worker; a reviewer
+  line that is not `REVIEW DONE` gets the retry.
+- *bootstrap.py.* A failed verify removes `.verified`; staging refuses a name that is a path,
+  survives a malformed project-document path, and never reads a corrupt staging record as "nothing
+  attached"; `--worker-report` refuses missing arguments and a REVIEW_REQUEST without parts, stores
+  absolute paths, and `show` refuses a listed file that is gone or changed; `--escalate` without a
+  session read is refused and merges adjacent ranges (6 read calls for Step 7 instead of 17);
+  `--retention` ignores a code glued to other digits and two codes for one anchor; the SURFACE
+  notice and SKILL Step 0b name `--stage-inputs --trigger <Step>`.
+- *audit_specs_ext.py.* The project-inputs check no longer reads markdown punctuation into a file
+  name; `bytes_per_token` 0 is reported.
+- *Framework_MockTestExplain v1.53.1 (Step 7 -> Step 9 hand-over).* P1 runs the engine self-test in
+  the verified clone (a copy of explain_engine.py alone cannot import t3_mathcomp.py and P1 halts
+  on any self-test failure); S0-1 / S1-1 name the Step 7 deliverable by its real file name. The
+  hand-over itself was run on the real paper: Step 9 intake (registry, blueprint pick, 50 questions
+  parsed, registry tripwire) and Step 11 intake (correctly refuses the uncertified item, accepts it
+  with `--accept-uncertified`) both passed.
+bootstrap self-test 68/68.
+
+**Proof run (2026-11-06, this release, real exam SSC_CGL_TIER2, `TestCreate P3 --level subject
+--scope "Reasoning and General Intelligence"`, 50 questions, 5 batches, one chat).** Six workers and
+four reviewers; every worker read the whole route (50 chunks) and passed retention at every point;
+no compaction (largest worker 642,000 tokens against the ~790,000 measured compaction point); every
+batch 60-item checklist 0 FAIL, auditor FAIL=0; Final Assembly, two review rounds (28 items repaired
+in round 1), registry committed; end state PAPER_DELIVERED with exactly the Create docx and the
+registry. Measured costs: fresh worker read 430,000-500,000 tokens; one batch 28,000-118,000;
+Final Assembly sweep ~160,000; reviewer 110,000-140,000.
+
 ## 2026.11.05 — GAP-2026-11-05-DIFFICULTY-FIDELITY: a band is bound to the CONTENT of the exam's own questions, every control that cannot measure says so, and nothing new stops a run
 (blueprint_core v1.32 — Cluster L1 CHEMISTRY LEVEL MODEL + versioned rules r2 / L1 / m2 / s2 / w2;
 audit_canonical v2.37 (A-LEVEL, A-FIGCOMPLEX, A-CLOSENESS, A-AXIS2 — WARN only; A-QINDEX check 8

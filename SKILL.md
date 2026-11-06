@@ -76,6 +76,13 @@ python3 spec_source.py --resolve --repo-dir "$FW" --project-dir /mnt/project \
 cd /tmp/fw_effective
 ```
 
+STEP 0b — INPUT STAGING. If the `python3 bootstrap.py` output above printed `SURFACE:`, run
+`cd /tmp/fw && python3 bootstrap.py --stage-inputs --trigger <Step>` (the step the user asked
+for) and follow what it prints (the project-document
+procedure, then `python3 bootstrap.py --stage-status` until it prints STAGING COMPLETE), then re-run
+the resolve line:
+`python3 spec_source.py --resolve --repo-dir /tmp/fw --project-dir /mnt/project --overlay-dir /tmp/fw_effective && cd /tmp/fw_effective`
+
 ## RULES
 
 1. If Step 0 prints "HARD STOP" or exits non-zero, STOP — generate nothing.
@@ -87,8 +94,10 @@ cd /tmp/fw_effective
    PROHIBITED (GAP-2026-11-02 P1); `python3 bootstrap.py --trigger <Step> --receipt` prints
    the exact bytes the run is held to, and the delivery footer repeats them.
 
-2a. RUN `python3 bootstrap.py --trigger <Step> --progress <the exam's *_analysis_progress.json,
-   if one exists>` FIRST. It prints the entry files split by role AND the PRE-WORK READ
+2a. RUN `python3 bootstrap.py --trigger <Step> --progress <the step's own progress file, if it
+   exists>` FIRST. The progress file: PYQExtract — [ExamCode]_analysis_progress.json; MockBlueprint —
+   [ExamCode]_blueprint.json; MockCreate / TestCreate — /home/claude/[ExamCode]_M[N]_batch_state.json;
+   MockExplain / TestExplain — that step's own state file (Framework_MockTestExplain.md S0-3). It prints the entry files split by role AND the PRE-WORK READ
    BUDGET — lines, bytes, tokens, calls — AND the SESSION CLASS. Do not start reading
    before you have seen that block. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION: this rule
    was a hard, unbounded obligation that nothing anywhere priced, and on PYQExtract it
@@ -96,13 +105,11 @@ cd /tmp/fw_effective
    incident 40 of a session's 50 tool calls went to satisfying this rule and ZERO of 22
    papers were processed. Framework_PYQCore EC-P42.
 
-2b. READ WITH `sed -n 'START,ENDp' <file>` IN BASH, NOT WITH `view`. Measured in the
-   container: `view` truncates output above ~16,000 characters INCLUDING explicitly
-   ranged reads — a view [1,700] on a 57-bytes/line spec returns "< truncated lines
-   120-581 >" and costs three more calls to cover one window — while a bash heredoc
-   returned 188,024 characters intact in a single call. Same context cost, ~10x fewer
-   tool calls, and tool calls are a resource that runs out. Read in sequential,
-   non-overlapping ranges and never re-read a range you already hold.
+2b. READ SPECS ONLY WITH `python3 bootstrap.py --trigger <Step> [--progress <file>] --read K`
+   for K = 1..N, one call each, in order (bootstrap prints N; each call serves at most 300 lines).
+   Measured 2026-11-06 (SESSION_BUDGET.json): a tool result of about 40,000 characters or more is
+   diverted to a file the session cannot read back whole. Never read a spec with a sed range above
+   300 lines or with `view`, and never open a tool-output file the harness diverted.
 
 2c. SESSION CLASS decides the READ SET, and only for a spec that declares one
    (SPEC_SECTIONS.json says which; today that is Framework_MockTestAnalyse.md). Any spec
@@ -117,8 +124,19 @@ cd /tmp/fw_effective
    synthesis. It may never write a final artefact from a reduced read. FINAL never
    downgrades. Line ranges come from SPEC_SECTIONS.json, which is GENERATED from each
    spec's own headers and verified by bootstrap — never hand-copied into a chat.
+2d. READ-RETENTION (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY). Every read ends with READ-ANCHOR
+   codes. Prove the read from memory with `python3 bootstrap.py --retention "<nn>=<code> ..."` after
+   the read and wherever the step's spec requires it (Step 7: Framework_MockTestCreate.md S1-0R);
+   never open `.read_state`. RETENTION: FAIL means the spec is no longer in context: read it again,
+   then continue from the state on disk.
+2e. STEP 7 RUNS ORCHESTRATED (owner decision OD-2026-11-06). For MockCreate / TestCreate this chat
+   reads ONLY Framework_MockTestOrchestrate.md
+   (`python3 bootstrap.py --trigger <Step> --role orchestrator --read K`) and follows it: worker sub-agents read and execute the full Step 7
+   specification, and starting them is authorised by the owner — do not ask the user. Rule 2's
+   read-in-full binds each worker, and this chat only when that spec sends it to DIRECT MODE.
 3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's
-   own files), exactly as the specs describe.
+   own files; staged by bootstrap --stage-inputs on surfaces that do not mount it), exactly as
+   the specs describe.
 4. Before presenting any output, confirm /tmp/fw/.verified exists AND that the
    "SPEC SOURCE:" provenance report from Step 0 was printed. If it listed any
    [PROJECT-UNVERIFIED] spec, the delivery footer MUST disclose that (Framework_DeliveryFooter

@@ -27,6 +27,295 @@ newest first, exactly as they appeared in the file.
 
 ## Framework_Blueprint.md
 
+Entries v1.48.0–v1.63.0 moved at framework release 2026.11.06 (EC-P42; v1.64.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_Blueprint.md.
+
+````
+# v1.63.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
+#   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0, ScopedBlueprint
+#   v1.13.0). (1) §7-8 SHAPE TARGETS: blueprint.shape_target_per_paper[mock] =
+#   bc.shape_targets(exam shape shares, total_questions, mock index) — FLOOR for every shape
+#   with share x Q >= 1, CAP = round(share x Q) + 2 (owner OD-6 c), rare shapes rotated
+#   across the series — shares = sum over PYQ subtopics of (r_avg x the subtopic's QUALITY
+#   shape_shares) read by bc.quality_block_for_subtopic from section_rules (Step 5 v2.59.0);
+#   paper-level (one plan per mock, all sections pooled — Create S3-12d plans per paper). {}
+#   (dormant, printed) when fewer than bc.SHAPE_MIN_POOL PYQ items carry a QUALITY block.
+#   (2) --refresh (bp_refresh, OD-10 a): with the EXISTING mock blueprint attached, writes
+#   ONLY the new fields (shape_target_per_paper, schema_version, producer) for mocks AFTER
+#   the last mock registered in the attached registry; every other field is copied
+#   byte-for-byte — a series in progress keeps its continuity. (3) blueprint.schema_version
+#   = 2. OD-1: nothing in this release stops a run — dormancy is printed and recorded.
+# v1.62.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY F8 (paired with
+#   blueprint_core v1.29, MockTestCreate v5.89, MockTestAnalyse v2.58.0). S7-7 also emits
+#   fig_ask_target_per_mock[mock][section] — the exam's own figural ASK-TYPE mix
+#   (figure_types.FIGURAL_ASK_TYPES) apportioned over the series by bc.fig_ask_series;
+#   {} (dormant) when section_rules carries no figural_ask_type_counts. The difficulty
+#   default is UNCHANGED ('+30% harder', positional — owner decision O3 confirmed).
+# v1.61.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4;
+#   paired with blueprint_core v1.28, figure_types v1.0, Framework_ScopedBlueprint v1.11.0,
+#   Framework_MockTestCreate v5.88). §6 decided FORMAT feasibility (can a section carry
+#   figural questions?) and never TYPE feasibility (can the dominant figure type of a
+#   FIGURAL subtopic be drawn?). A reaction-dominant subtopic therefore reached Step 7 with
+#   a dominant type no renderer existed for; the generator's only lawful moves were to
+#   mislabel or omit, and every paper audited green. NEW S6-1c KIND-COVERAGE PRE-FLIGHT
+#   (bc.kind_coverage_preflight over figure_types.FIGURE_TYPES, run BEFORE the S6-2 flags
+#   so a fallback changes the flags too): a dominant type the registry marks UNSUPPORTED
+#   HARD STOPs naming subtopic + type unless exam_config.figure_fallback_policy ==
+#   'text_disclosed' (the subtopic's format becomes TEXT for the series and
+#   blueprint.figural_fallbacks records it for the footer); an UNREGISTERED type is an
+#   advisory, never a stop (EC-V18 — ~200 legacy exams keep running). The S6-2 flag
+#   derivation is unchanged (it was already correct here; ScopedBlueprint now shares it
+#   through bc.derive_presence_flags). blueprint.json gains figure_type_coverage +
+#   figural_fallbacks (§14, additive). DoD gains one item.
+# v1.60.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. B1, B2 and B3 sites.
+# v1.60.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: transition allocation; requires Framework_PYQSort v1.21.0 and Framework_PYQCount v1.7 (era fields + n_new must exist)
+# v1.59.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: blueprint.json gains the additive
+#   `style_profile_expected` flag (§14) so Step 7 can distinguish EC-22 (a profile that
+#   vanished after planning) from an exam that never had one; the Axis-2 schedule accepts
+#   AXIS2_CLASSES (11). Both additive: zero observations schedule zero, so an exam that
+#   observes none of the new classes produces a byte-identical schedule to v1.58.0.
+# v1.58.0 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-PROFILE-
+#   UNSCORED-QUESTIONS (paired with blueprint_core Cluster DP — DP_HARDER_FRAC, dp_harder,
+#   dp_guardrail_bounds, DP_EXAM_WORD, dp_add_paper paper_positions/unscored, DP_TOLERANCE_FRAC 0.30 → 0.50;
+#   PYQExplain v2.20 S7A-6; MockDeliver v1.19.0 §FOOTER-DS; audit_canonical v2.24).
+#   Exam-agnostic, zero per-exam change. §7 S7-0: (1) the S7-0 table now shows TWO mixes per
+#   section — "Exam (measured)" (the last-3-sittings mix, unchanged arithmetic) and
+#   "Ours (+30% harder)" (bc.dp_harder: each band moves 30% of its measured share up to the
+#   next band the exam actually sets; a 0% band stays 0; Medium absent → Easy shifts straight
+#   to Hard) — every cell carrying BOTH the percentage and the per-mock question count;
+#   (2) the DEFAULT on OK is "Ours (+30% harder)" (operator decision 2026-08-29); EXAM accepts
+#   the measured mix; the ready-to-edit "[section]: E:M:H" lines are PRINTED for the preset
+#   so the operator sees exactly what OK applies; (3) the preset is framework-owned:
+#   difficulty_source.mode 'profile_harder', never a CONFIRM prompt; --difficulty harder is
+#   the no-prompt form; (4) the guard-rail on TYPED lines widens to ±50% relative (engine
+#   constant), still measured against the EXAM mix, 0% still admits only 0; (5) per-sitting
+#   rows show "scored/held" (e.g. 58/60) — a question with no derived answer is UNSCORED in
+#   the profile (never excludes its paper, never enters the arithmetic) and is listed under
+#   the table. Trigger summary line and usage text updated. S7-5 unchanged in shape.
+# v1.57.1 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE doc sync (prose only): the header usage
+#   line and §15-4 Sheet-4 header rule still described the retired silent 25:25:50 default;
+#   exam_config schema now lists the optional cycle_gap_days and states that `level` scales
+#   no number. No rule, fence, engine or file change.
+# v1.57.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster
+#   DP, PYQExplain v2.18 S7A-6, MockTestAnalyse v2.55, MockTestCreate v5.75, MockDeliver
+#   v1.17.0, ScopedBlueprint v1.10.0, audit_canonical v2.21). NEW §7 S7-0:
+#   the DEFAULT Easy:Medium:Hard split is the exam's OWN measured mix per section, computed
+#   from [ExamCode]_difficulty_profile.json (latest 3 sittings by date clustering, equal
+#   weight, exact rounding), SHOWN and accepted with OK or replaced line by line; every
+#   deviation beyond ±30% (a band the exam never has: any value) needs the word CONFIRM;
+#   the silent 25:25:50 default is RETIRED. --difficulty exam / E:M:H / progressive kept,
+#   all guard-railed. S7-5 difficulty_schedule[] gains by_section counts (paper totals
+#   unchanged for legacy readers); blueprint.json gains difficulty_source (mode, sittings,
+#   confirmed overrides) that the delivery footer prints. No profile / dormant → operator
+#   types the mix, recorded as operator_no_pyq. Blueprint never re-tunes the engine constants.
+# v1.56.0 — 2026-08-25 — GAP-2026-08-25-BLUEPRINT-PHASE1 (paired with blueprint_core
+#   CLUSTER P, self-test 527 -> 559; audit_canonical v2.18). One MockBlueprint run halted
+#   three times on IIT_JAM_CHEMISTRY; seven defects, all exam-independent. NOTHING IN
+#   §4 HALTS ANY MORE — every geometry problem is DERIVED and REPORTED, never handed
+#   to the operator. (1) DEF-01 batch_size_qs was a constant (10) standing in for a
+#   computed quantity: any mechanism-partitioned exam (MCQ/MSQ/NAT sections that each
+#   carry the full taxonomy) breaks it whenever taxonomy > 10 x smallest section. New
+#   §4-0 FEASIBILITY PREFLIGHT (B1 Step 5A, after §5 so ZP slots are known) derives the
+#   exact minimum window per section (closed form, proven minimal vs brute force) and a
+#   three-tier verdict: 1 default holds / 2 window widened, one Assumptions row /
+#   3 the section cannot hold every subtopic even once in the whole series -> it keeps
+#   the highest-r_avg subtopics it can (bc.capacity_split) and the rest are DECLARED
+#   in blueprint.json uncovered_subtopics and guaranteed by the OTHER sections that
+#   carry them (coverage promise moves from per-section to per-exam for that section).
+#   Silent exclusion remains a BV-0A hard stop; declared exclusion is verified exam-wide
+#   (BV-0A Check 4, BV-9B). The EC-11 halt and its unparsed --batch_coverage flag are
+#   retired. (2) DEF-02 §4-4 Phase-1 stagger int((k+0.5)N/q)+1 has no subtopic term, so
+#   every q=1 rare subtopic computed the SAME mock and the forward-only conflict scan
+#   packed them into the tail (mocks 1-10 held ZERO rare Qs) — present since the first
+#   commit, masked by a resonance band rare_count ~ [N, 1.3N]; the §4-5 v1.13 offset fix
+#   was never back-ported and, measured, does not work here. Replaced by
+#   bc.phase1_positions (segment-constrained + rank-spread): F4 89.6->98.2%, F2
+#   91.2->99.7%, BV-4 96.3->100%, dead-stretch 53.5->98.9% over 1,792 adversarial
+#   shapes. (3) DEF-05 that formula lived in THREE places (§4-4, §9-2 BV-2, §8-4 prose);
+#   all three now CALL the engine. (4) DEF-03 BV-7 F2 threshold 1.5*avg was
+#   unsatisfiable at integer boundaries -> bc.f2_threshold = max(ceil(avg), 1.5*avg).
+#   (5) DEF-04 F2 inspected only the tail -> new F2b no-dead-stretch (WARN; ratchet
+#   after corpus replay). (6) DEF-07 BV-9B assumed window == 10-mock B2 batch -> scoped
+#   to the coverage window via bc.coverage_window, DEFERRED (never failed) until the
+#   window closes. (7) DEF-06 Step 8A ran the auditor self-test from the outputs
+#   directory where blueprint_core is absent by design (v2.12.1) -> 253/255; the
+#   self-test now runs INSIDE the clone and audit_canonical ABORTS rather than shed
+#   fixtures. max_rare_per_mock is derived in §4-3 from the FINAL rare pool (exact, no
+#   fixed-point chase with batch_size_qs). §14: batch_size_qs / max_rare_per_mock become
+#   REQUIRED+DERIVED (an exam_config value is honoured only if >= the derived minimum);
+#   + feasibility_tier, uncovered_subtopics, uncovered_exam_wide. F4 is unchanged (it
+#   was never the defect). Subject-partitioned exams derive tier 1 / bs 10 / cap 2 —
+#   byte-identical allocation for every exam that never hit the band.
+# v1.55.0 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT (line-by-line audit closure;
+#   no allocation rule, gate, schema, or artefact-shape changes). FIVE fixes:
+#   (1) DELIVERY-COUNT-DRIFT, 5th recurrence: §13-7 "All 6 must be present" and
+#   AUDIT_SCRIPT_TEMPLATE "Includes all 6 files" still counted the two engines
+#   v2.12.1 removed from B3 delivery — both now say 5, and the template's duplicate
+#   step "3." is renumbered "4.". (2) The main DoD's final item is renumbered
+#   ☐26 -> ☐30 (☐26 was used TWICE: main-DoD "no engine provisioning" vs the
+#   DoD-additions "S2-MANIFEST-COMPLETENESS") and its stale "Step 8 copies both"
+#   is corrected to Step 7 (Step 8 retired at v1.43.0; §8-5 Step 8B was already
+#   correct). (3) CFG PASSTHROUGH — the v1.38 dead-tier rule applied to the four
+#   tuning knobs: rare_threshold, max_rare_per_mock, max_per_mechanic_per_mock and
+#   batch_size_qs were read via bp.get() with defaults while §4-3 claimed
+#   "set rare_threshold in exam_config.json" — a path NOTHING implemented (the
+#   exact class v1.38 called "a silently dead fallback tier is worse than no
+#   tier"). S2-1 now copies each key VERBATIM from exam_config.json into
+#   blueprint.json top level WHEN PRESENT — never a fabricated default — and §14
+#   S14-1 declares all four as OPTIONAL. Absent keys leave every bp.get() default
+#   and all behaviour byte-identical on every deployed exam. (4) §8-2 Step 7's
+#   illustrative blueprint.json key list gains the fields §6/§14 already write
+#   (level, medium, marking_scheme, nat_*, difficulty_labels + the optional
+#   passthrough note) so the summary can no longer be misread as the schema.
+#   (5) §7-7 figural_capacity WRITER NOTE: no Step-5 writer emits max_q_per_mock
+#   yet, so capacity is 1 for every subtopic estate-wide (== the safe default)
+#   until GAP-2026-08-23-FIGCAPACITY-WRITER lands in MockTestAnalyse; the v1.46
+#   plumbing is live and absent-safe. Companion: Framework_MockTestCreate v5.65
+#   removes its own dead bp.get('option_label_format') fallback tier (Blueprint
+#   writes option_label, documented visibility-only, so that tier could never
+#   fire — and its value shape is a label list, not a format template).
+# v1.54.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (BV-AXIS gains the
+#   AXIS-TRUTH cross-check; paired with blueprint_core axis_truth_check, self-test
+#   520 -> 527; companion Framework_ScopedBlueprint v1.9.0). The parent defect was
+#   found because a §7-7 advisory contradicted directly observable data — a
+#   121-subtopic taxonomy with 66 TEXT / 55 FIGURAL entries reported as containing
+#   neither — and NOTHING in the pipeline compared an advisory against the manifest
+#   that would falsify it. S9-12 now cross-examines each stored schedule's
+#   axis1_unreachable_formats (both contradiction directions) and
+#   guarantee_feasibility verdicts against a FIRST-PRINCIPLES recomputation
+#   (bc.axis_truth_check — deliberately never via axis1_feasibility /
+#   section_axis2_pool_caps, since a checker sharing the audited code path
+#   reproduces the audited corruption and passes vacuously) and HARD-FAILS on any
+#   contradiction: a corrupted instrument is structural corruption, not a format
+#   shortfall, and guards the class — any future defect that corrupts the
+#   advisories is caught at the first affected exam's B3 instead of by a human
+#   noticing a contradiction. Format shortfalls themselves remain advisory
+#   (Subtopic is hard #1), and no_pyq schedules stay SEC-8's territory.
+# v1.53.0 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE closure (spec
+#   mandate + ratchet; no allocation rule, gate, schema, or output changes). §2-1
+#   FIX D now states the mandate EXTENDS ACROSS FUNCTION BOUNDARIES: passing an
+#   unbridged MANIFEST_IDS to an engine that joins manifest 'section' against a
+#   section label is the same violation as writing the raw compare in-spec, with
+#   the two sanctioned patterns named — a no-join engine taking pre-resolved ids
+#   (bc.axis1_mock_feasibility form; the two v1.49.0-repaired functions now match
+#   it), or a bridged per-section local view. Enforcement moves from prose to a
+#   build gate: audit_sync gains ENGINE-SECTIONJOIN (AST-level Eq/NotEq detector
+#   over every engine .py, section['name'] operand shape included, content-
+#   anchored Subject-to-Subject allow-list, 3 subprocess fixtures). Companion:
+#   Framework_ScopedBlueprint v1.8.1 corrects §6-3's pre-fix rationale.
+# v1.52.0 — 2026-08-22 — STEP6-READ-SET (the S0-3 precedent applied to Step 6;
+#   closes SPEC_BUDGET_BASELINE to empty). NEW S0-READSET: NON-FINAL = a B2 batch
+#   session (blueprint.json valid, len(mocks) < total_mocks) — it works entirely
+#   from blueprint.json state, so it skips the input phase (§2, §3, §6, §7, §10,
+#   S2-MANIFEST, S2-MANIFEST-COMPLETENESS) and the closing phase (§12, §13, §15,
+#   both DoD sections): ~162 KB, a 44% reduction, verified by forward AND reverse
+#   cross-reference sweeps (B2's own steps reference none of them; kept-section
+#   references into them are pointer-style, and BV-0A states it RUNS IN B1). §5
+#   stays — zp_slot/MAX_ZERO are recomputed from §5-1/§5-2, explicitly not stored.
+#   FINAL = B1, B3, malformed, unknown — read everything; escalation mandatory and
+#   one-way. Ranges GENERATED (spec_sections.py v4); bootstrap.py --trigger
+#   MockBlueprint decides the class from blueprint.json (mocks vs total_mocks).
+#   SPEC_BUDGET_BASELINE is now EMPTY and RETIRED with its exemption branch and
+#   fixture (audit_specs_ext.py): every route above threshold must carry a read
+#   set — there is no exemption left to widen.
+# v1.51.2 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B (one-line binding;
+#   no rule changed). EXAM is now bound at the top of the S2-MANIFEST fence with the
+#   MockTestCreate S3-1 house idiom (EXAM = "[ExamCode]"  # from trigger). It was
+#   read at S2-MANIFEST module scope (manifest_path + the not-found hard stop) and
+#   inside resolve_subtopic_id()'s branch-(c) hard-stop message — the latter a
+#   guaranteed NameError in a function the spec calls, carried as
+#   GRANDFATHERED_MUST_FIX since 2026.08.16.3. Baseline entry deleted (dict +
+#   _grandfathered). Companion release: 2026.08.22.4.
+# v1.51.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (load_taxonomy, recency_split); V5 prose to no-paren form; superseded-entry hygiene none.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v1.51.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (paired with
+#   MockTestCreate v5.60 / blueprint_core Cluster E2c). S7-3 gains V5: every band's
+#   resolved Q counts must be honestly authorable on the exam's shape — the bottom
+#   difficulty band is capacity-bound by the shared rubric's MSQ/NAT qtype floors
+#   (bc.difficulty_feasibility), while Medium/Hard stay uncapped and the user's
+#   ratio remains the law for counts. The (then-)default 25:25:50 path ran the same check
+#   [that default is retired since v1.57.0 — S7-0].
+#   Errors name the achievable maximum; nothing is silently clamped. Vacuous pass
+#   for non-position-typed exams and non-3-band vocabularies (Cluster-E2 contract).
+# v1.50.0 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with
+#   MockTestCreate v5.56). ONE file carried THREE names across the estate: this spec's
+#   Step 6 generated [ExamCode]_ExplainLearnings.md; MockTestCreate Step 7 (GAP-07)
+#   loaded {EXAM}_ExplainLearnings.md; MockTestExplain/PYQExplain P1 load
+#   [ExamCode]_EXPLAIN_LEARNINGS_v*.md via parse_learnings (the S24 frozen schema).
+#   CONSEQUENCE, every exam: the Step-6 stub never matched Step 9's glob, so the
+#   learnings mechanism the stub exists to seed was dead on arrival — and an exam that
+#   adopted the CORRECT versioned name silently lost Step 7's GAP-07 load instead. No
+#   auditor covers filename seams (audit_seam tracks JSON fields), so only a human
+#   reading both ends could catch it. FIX — one name, one schema, both ends:
+#   Step 6 now generates [ExamCode]_EXPLAIN_LEARNINGS_v1.md with an S24-compatible
+#   header (S13-5 rewritten); every inventory/delivery/upload list renamed (15 sites).
+#   STALE-PROSE also corrected: RS-8 claimed the file is "appended after every Step 4
+#   session" and S13-5 claimed "Step 9 fills" — no step writes it (Explain v1.21.0
+#   retired the automatic producer, S24-4); it is human-authored, EX-rules accumulate,
+#   the _v suffix advances only on an S24 schema change. MockTestCreate v5.56 loads the
+#   versioned glob (highest version), keeps its BANNED:/VERIFIED DEFECT: extraction,
+#   and prints a one-line migration warning when only a legacy-named file exists.
+# v1.49.0 — 2026-08-19 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE (engine-side fix,
+#   blueprint_core.py; no fence code changes). section_axis2_pool_caps() and
+#   axis1_feasibility() RE-filtered their already section-scoped id lists with
+#   ``manifest_ids[sid]['section'] == section_name`` — a raw string comparison joining
+#   the taxonomy Subject namespace (the manifest 'section' field holds Subject names,
+#   e.g. 'Organic Chemistry') against the OTS section-label namespace ('Section A').
+#   On any exam whose sections[].subjects maps multiple Subjects into one section the
+#   two namespaces never intersect, so the re-filter excluded EVERY id: the Axis-2
+#   capability union came back EMPTY (every guarantee-mode class silently reported
+#   'unsatisfiable' — shortfall accepted, never generated) and axis1_feasibility's
+#   ``avail`` came back EMPTY (every targeted format flagged unreachable, target
+#   steered best-effort against a false advisory). Exams with 1:1 section↔Subject
+#   configs were unaffected — which is exactly why the defect stayed silent.
+#   HISTORY RHYME: spec v1.35 BUG 2 fixed this same namespace join in the fence's own
+#   subtopic_in_section() ('==' → list membership via sections_for_subtopic); the two
+#   engine-side re-filters were missed then. FIX: the re-filter is REMOVED — the
+#   contract (already true at both real call sites: this file's §7-7 fence builds
+#   pyq_ids/zp_ids via subtopic_in_section(), ScopedBlueprint passes its scope's own
+#   ids) is that id lists arrive PRE-SCOPED; ids absent from manifest_ids are still
+#   skipped; signatures unchanged (section_name retained for stability/context).
+#   Locked by a 5-fixture regression pack (AXIS-SECTIONKEY-*) proving cross-namespace
+#   caps/avail, still-flagged genuine absences, missing-id skip, and the DIRECT
+#   default. blueprint_core self-test 490 → 495.
+# v1.48.0 — 2026-08-12 — GAP-2026-08-12-AXIS3-MECHLOCK: PYQ-measured axis3 target
+#   could directly CONTRADICT the exam's own marking_scheme on any exam that locks a
+#   mechanism (question_type) to a fixed Q-range by position (e.g. Q1-30 declared
+#   pure MCQ) rather than letting it float by category — the target then named
+#   MSQ/NAT counts inside a Q-range that can only ever produce MCQ, a permanent,
+#   paper-unfixable A-AXIS3 finding no re-generation could ever clear (root-caused
+#   on IIT_JAM_BIOTECHNOLOGY Mock 10's gap analysis §6; the spec's own §7-7 docstring
+#   already named this exact failure mode as "masked on exams whose sections are
+#   DEFINED per mechanism" without fixing it). bc.derive_axis_schedule now accepts
+#   optional marking_scheme + q_range and detects whether this section's Q-range is
+#   fully or partially PARTITIONED by single-question_type marking_scheme entries
+#   (bc.axis3_mechanism_lock, new); when it is, axis3_target_per_mock is overridden
+#   from that position partition — fully (no PYQ blending) or, for a partially-locked
+#   section, the locked portion's exact counts plus the PYQ-measured distribution
+#   re-apportioned to exactly the remaining gap (never fabricated when there is no
+#   PYQ signal for the gap). Conditional, not universal: an exam whose marking_scheme
+#   defines marks by CATEGORY has no partition to detect and gets byte-identical
+#   pre-v1.48 behaviour — confirmed by a dedicated self-test asserting the omitted-
+#   parameters call path is unchanged, and Framework_ScopedBlueprint's own call site
+#   (§6-2 of Framework_ScopedBlueprint.md) never passes either new parameter, so
+#   scoped tests are completely unaffected. New provenance keys on every section's
+#   axis_schedule entry: axis3_target_source ('pyq_measured' / 'mechanism_lock_full'
+#   / 'mechanism_lock_partial') and axis3_mechanism_lock (the full detection result)
+#   — additive only, BV-AXIS's (S9-12) REQUIRED-key check is a subset check, never a
+#   no-extra-keys check, so this cannot regress it; the §14 AXIS-SUM contract BV-AXIS
+#   enforces downstream is defensively re-asserted at the source in blueprint_core.py
+#   itself. S7-7's call site (below) threads blueprint['marking_scheme'] and this
+#   section's own q_range through. blueprint_core.py self-test: 365/365 -> 377/377
+#   (12 new fixtures, including the exact Mock-10 wrong-distribution scenario from
+#   the gap analysis, mutation-verified: neutering the override makes the new tests
+#   fail/crash, confirming they are load-bearing, not decorative).
+````
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_Blueprint.md.
 
@@ -145,6 +434,112 @@ Current-version entry remains in Framework_Blueprint.md.
 ```
 
 ## Framework_DeliveryFooter.md
+
+Entries v1.27–v1.39.0 moved at framework release 2026.11.06 (EC-P42; v1.40.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
+Current-version entry remains in Framework_DeliveryFooter.md.
+
+```
+# v1.39.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D2 (a),
+#   D3 (a), D5 (a), D6; paired with MockTestCreate v5.91, MockReview v2.0.0, MockDeliver
+#   v1.25.0, audit_canonical v2.36, final_assembly v1.13, STEP_CONTRACTS.json). STEP 7 FINAL
+#   DELIVERABLES are EXACTLY two files again — [ExamCode]_[slug]_Create.docx +
+#   [ExamCode]_registry.json — and NEXT STEP is Step 9. The v1.38.0 AWAITING_REVIEW end, the
+#   review packet deliverable and the whole STEP 7R block are RETIRED (the review runs inside
+#   Step 7; the MockReview / TestReview triggers no longer exist). The v1.37.0 conditional
+#   third / fourth files (in-run blueprint, repo auditor copy) are RETIRED: one
+#   INFORMATIONAL line each. §LADDER gains the INFORMATIONAL independent-review line and the
+#   Step 11 re-certification line.
+# v1.38.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   MockTestCreate v5.90, MockDeliver v1.24.0, MockReview v1.0.0, audit_canonical v2.35).
+#   §LADDER gains the QUALITY disclosure lines: the DEGRADED QUALITY line
+#   (bc.degraded_footer_line — OD-1: dormant controls listed, nothing stopped), the
+#   NOT CERTIFIED line with uncertified_items (OD-9), the AWAITING_REVIEW / review-round
+#   lines (OD-5), the shape-plan infeasibility line (OD-6) and the bench-card pointer.
+# v1.37.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   MockTestCreate v5.89, audit_canonical v2.34, final_assembly v1.11). NEW §LADDER —
+#   the repair-ladder and drawing/level disclosure lines for Step 7 (terminal-rung items,
+#   systemic flags, schedule/allocation amendments, style defaults, renderer degraded,
+#   level control dormant, difficulty schedule unverified, upload blueprint / auditor).
+#   §5 Q0: an AMBER advisory is now a WARN line in the auditor (no exit 1) and forces
+#   F1 through the S13-2F certificate's amber_notes, never through the exit code. §3
+#   STEP 7 final set: two CONDITIONAL additions (in-run blueprint when it differs from
+#   the project copy; the per-exam auditor when the run audited with the repo copy).
+# v1.36.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   paper_pipeline v5.40, final_assembly v1.10, MockTestCreate v5.88, MockDeliver v1.23.0).
+#   NEW §FOOTER-FT — FIGURE-RECORD DISCLOSURE LINES, engine-sourced from
+#   pp.figure_footer_lines(reg, bp, paper_id): a text_disclosed fallback subtopic, a
+#   committed record whose blueprint flag said otherwise (registry.paper_flags), a legacy
+#   paper whose figures were never recorded (absent_legacy — NOT AUDITED), legacy figure
+#   records annotated by the migration (label mismatch / degenerate reaction), and
+#   unregistered dominant figure types. A clean current paper prints nothing — the legacy
+#   estate's footers are byte-identical (§7 P1). A healed or annotated registry must never
+#   look identical to a clean one (§FOOTER-DG precedent). No other set, gate or badge change.
+# v1.35.1 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse
+#   v2.57.2, MockTestCreate v5.85). Step 5 final set gains [ExamCode]_stimulus_profile.json
+#   (MANDATORY, badge "Upload to Project Files" — Step 7 stops at a new paper without it):
+#   8 mandatory + 2 conditional. NEW Step 5 mode `PYQExtract --stimulus-profile` delivers
+#   that one file only. No other set, gate or engine change.
+# v1.35 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2). §9 now carries
+#   the CANONICAL print_delivery_set fence (byte-identical to the PYQScan / PYQExplain /
+#   MockTestAnalyse copies) so the fourteen prose-only delivery sites — Steps 1, 2a, 2c, 3,
+#   4, 6, 6S, PYQ-3, PYQ-4, L2, NB, NC, NA, ND — can name it without each carrying a copy;
+#   STEP COVERAGE updated to "every step". Sets unchanged; no gate, no engine, no halt.
+# v1.34 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (owner decision 2026-09-14; paired
+#   with PYQExplain v2.24, MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident:
+#   PYQExplain final batch shipped ONLY the Explanation docx and left
+#   pyq_explain_progress.json + difficulty_profile.json unattached, while the F2 footer
+#   listed all three. Root cause is structural, not per-step: present_files is a
+#   CLASS T stub (`pass`) — the model performs the real call from what it REMEMBERS,
+#   and nothing ever read the call's RESULT. NEW §4-0 R6 + §9 DELIVERY-ECHO: (1) the
+#   closed set is printed in the tool output immediately before the call, EVERY batch;
+#   (2) after the call the RETURNED paths are compared to that set; any missing file
+#   is re-presented at once; (3) footer rows and the F2 header count come ONLY from
+#   returned paths. NEVER a halt (owner decision): a file absent on disk is delivered as
+#   a named ❌ row, not silently dropped, not a stop. §3 registry drift fixed in the same
+#   release: Step 5 FINAL now lists the v2.56 style_profile.json + pyq_index.json (7
+#   mandatory + 2 conditional, matching MockTestAnalyse S11-3), and the PYQ EXPLANATION
+#   TRACK (PYQ-1 / PYQ-3 / PYQ-4 / L2) gains its registry block — it had none.
+# v1.33 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, MockDeliver
+#   v1.22.0, paper_pipeline CLUSTER RS). The "Replace in Project Files" badge on
+#   [ExamCode]_registry.json is UNCHANGED (MS-14 greps it verbatim), but what the operator
+#   may DO with the delivered file gains a second lawful option: attach it to the next
+#   step's trigger instead of replacing it in Project Files (an attachment wins over the
+#   Files copy). §8 now states both lanes; the §3 STEP 7 / STEP 9 / STEP 11 blocks and
+#   BADGE 2 carry a one-line note. pp.handoff_set's operator line already says it.
+# v1.32 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: §5.9 active transition lines wired
+# v1.31 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A: NEW
+#   §FOOTER-SYL — the syllabus-declaration disclosure line. Every footer (F1 and F2)
+#   of an exam whose exam_config.syllabus_transition block records a TRACED-INACTIVE
+#   declaration (T1 rows 4/5/7) prints EVERY string returned by
+#   bc.syllabus_footer_lines(st), one per line, prefixed "ℹ️ " — Release A set:
+#   "Syllabus declaration present but inactive: <reason>". The engine is the ONLY
+#   source; keys-absent and silently-inactive exams print NOTHING (§7 P1 / R25). The
+#   ACTIVE-mode §5.9 lines (n_new blend label, coverage, style donors) ship with
+#   Release C. R15/R19: this footer is the ONLY disclosure surface — nothing on
+#   questions, options, or student-visible layout, ever.
+# v1.30 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §FOOTER-STYLE defines the single style-profile status line
+#   (ACTIVE with schema + corpus hash8, or DORMANT with a reason). pp.style_footer_line is
+#   its ONLY source; the engine drops unknown keys, so a richer record cannot widen the
+#   footer.
+# v1.29 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, MockDeliver
+#   v1.18.0). The four *Repair triggers are RETIRED: §3 blocks STEP 7-R and STEP 9-R are
+#   DELETED, §5 flow drops the repair lines (after Step 9 → Step 11 ALWAYS; the gate
+#   discloses, it never blocks), §8 writer list is Step 7 / Step 9, the two
+#   _Create_Repaired* patterns leave LOCAL_ONLY (no step produces them; a stray one is
+#   an unexpected file). §FOOTER-DG gains the DISCLOSED/0 line ("the difficulty gate was
+#   not met; labels are as planned at Step 7") and marks DISCLOSED/1 as a legacy repair.
+# v1.28 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74): STEP 7-R
+#   batched — F1 per non-final batch with _Create_Repaired_PARTIAL_[k]of[K].docx
+#   (registry withheld), F2 at the final batch. LOCAL_ONLY gains the PARTIAL pattern.
+# v1.27 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (MockTestCreate v5.73,
+#   MockTestExplain v1.46.0, MockDeliver v1.16.0, paper_pipeline v5.74). NEW §8
+#   REGISTRY-HANDOFF-LAW; §3 Step 7 drops the dossier, Step 9 final delivers registry
+#   (Replace) + Explain_Report.docx, NEW STEP 7-R / 9-R, Step 11 delivers a healed
+#   registry; §6 repair path. Full text: SPEC_HISTORY.md.
+```
 
 Full v1.27 entry (header carries the short form since v1.28 — SPEC-BUDGET on the PYQPrepare route):
 
@@ -391,6 +786,136 @@ Current-version entry remains in Framework_DeliveryFooter.md.
 
 ## Framework_MockDeliver.md
 
+Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_MockDeliver.md.
+
+```
+# v1.25.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D5 (a);
+#   paired with MockTestCreate v5.91, audit_canonical v2.36, blueprint_core v1.31,
+#   DeliveryFooter v1.39.0). S1-2 item 3f reads the certificate through
+#   bc.certificate_uncertified_active(statuses, entry.quality_readiness, stamps release):
+#   an item whose only UNRESOLVED finding is an A-TEMPLATE stamp written by release
+#   2026.11.03 (its default template cap of 2 — untrustworthy) is RE-CERTIFIED
+#   automatically with one INFORMATIONAL line (RECERTIFIED_ITEMS -> footer). OD-9 restated
+#   (D0): NOT CERTIFIED only from an ACTIVE, measured gate; --accept-uncertified is needed
+#   only for such a genuine, measured defect.
+# v1.24.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decision OD-9 (a);
+#   paired with MockTestCreate v5.90, audit_canonical v2.35, blueprint_core v1.30,
+#   DeliveryFooter v1.38.0). S1-1 gains the trigger flag --accept-uncertified; S1-2 gains
+#   item 3f: the paper's S13-2F certificate (registry question_index[].quality_status ->
+#   bc.certificate_uncertified) is read and bc.deliver_allowed(cert, accept) decides — a NOT
+#   CERTIFIED paper (items whose quality findings survived ladder R5) is REFUSED with the
+#   item list unless the trigger carries --accept-uncertified, in which case it is
+#   delivered, the footer says so, and registry.accepted_uncertified records owner +
+#   timestamp (written by the 3f block itself; the registry is then delivered under §8).
+#   A refusal is a printed, recorded verdict that ENDS the step before any rendering
+#   (SystemExit 0 — not a stop class of any kind: nothing is broken, the owner's one-flag re-run
+#   is the remedy); no other step changes (Explain is untouched — it reads the status).
+#   Release review 2026-11-03: the 3f block lives in §5 Phase 1 (after total_questions),
+#   so every name it reads is bound by executable code.
+# v1.23.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   DeliveryFooter v1.36.0, paper_pipeline v5.40). S1-2 gains item 3e: after the
+#   §FOOTER-STYLE line print EVERY string returned by pp.figure_footer_lines(registry,
+#   blueprint, paper_id) (§FOOTER-FT) — fallback subtopics, committed-despite-flag records, absent
+#   legacy records, migration annotations, unregistered dominant types. A clean current
+#   paper prints nothing. Text only; no set, gate or engine change; never a halt.
+# v1.22.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockTestExplain v1.51.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
+#   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
+#   trigger in chat beside the _Explanation.docx, (2) Project Files. Phase 1 resolves it
+#   through pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment
+#   WINS when both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE]
+#   only when BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated.
+#   The v1.16.0 wildcard scan of /mnt/project (`*_registry.json`, HARD STOP [HS:PROSE] on two files)
+#   is RETIRED: the resolver looks for the exact name, so a sibling exam's registry is
+#   simply invisible and "the file is in two places" is never a stop. The registry is
+#   resolved AFTER EXAM is bound from the blueprints (it needs the exact name). The §8
+#   handoff fingerprint is REG_SRC['fingerprint']. S1-2 item 3 and the stop message name
+#   both lanes. The heal-then-deliver rule, the closed set, the Replace badge, all 17
+#   gates and every artefact are unchanged — only WHERE the file is read. Enforced by
+#   LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20.
+# v1.21.0 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: coverage cursor sole writer + BV-DEL
+# v1.20.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: step 3d prints the ONE style-profile status line from
+#   pp.style_footer_line (§FOOTER-STYLE). No per-question detail, no similarity figure and
+#   no G-* verdict ever reaches the delivered document (P-11 / ruling Q15); an absent
+#   record is a legacy paper and prints nothing.
+# v1.19.0 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET (paired with Blueprint
+#   v1.58.0 S7-0, blueprint_core Cluster DP, audit_canonical v2.24). §FOOTER-DS item 3c
+#   gains the mode 'profile_harder' → "Difficulty mix: measured from [k] sittings
+#   ([labels]), raised 30% by framework preset." — the framework's own default is
+#   named as such, so it can never read as a measured mix nor as an operator
+#   deviation. One prose line; no gate change (still 17); no engine change.
+# v1.18.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, DeliveryFooter
+#   v1.29). The four *Repair triggers are RETIRED and the difficulty gate DISCLOSES instead
+#   of blocking. S1-2 3b: the FAILED branch is GONE — 'FAILED' is a retired status that
+#   pp.dg_preflight heals to DISCLOSED/0 (disclosed, footer line from rec['migrations']);
+#   ('DISCLOSED', 0) PROCEEDS with the §FOOTER-DG measured-difficulty line; PENDING is the
+#   ONLY gate state this step refuses, and its remedy (pp.dg_next_step) is the Explain
+#   trigger. ('PASSED', 1) / ('DISCLOSED', 1) stay as LEGACY repaired papers. S1-2 item 3:
+#   the writer list is Step 7 and Step 9. No tagging or delivery rule changed.
+# v1.17.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0). S1-2
+#   item 3c / §FOOTER-DS: one delivery-footer line from blueprint.json['difficulty_source']
+#   (measured from k sittings | measured + operator-confirmed deviations | set by operator, no
+#   PYQ profile | set on the trigger); absent key → nothing (legacy). Defined HERE, not in
+#   DeliveryFooter, to keep the PYQPrepare route under its SPEC-BUDGET. No gate-count change.
+# v1.16.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
+#   v1.46.0, MockTestCreate v5.73, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH).
+#   Two seam fixes, no gate change (still 17): (1) S1-2 3b said a HEALED registry "is
+#   re-presented with the deliverables" while §8 said "No other files are presented" —
+#   §8 now states the closed set as pp.handoff_set('TestDeliver', …): Final.docx always,
+#   plus registry.json (Replace in Project Files) ONLY when pp.registry_changed shows the
+#   preflight healed it — the one case this step changes the registry. (2) S1-2 item 3
+#   states the REGISTRY-HANDOFF-LAW precondition explicitly: the project copy IS the
+#   verdict; a PENDING/FAILED stop here on a paper whose Step 9 verdict box said PASSED
+#   means the operator did not REPLACE the registry Step 9 delivered — the stop message
+#   names that remedy before the re-run command. S1-2 also ignores a
+#   [ExamCode]_[slug]_Explain_Report.docx attached alongside the Solutions docx (Step 9
+#   v1.46.0 delivers one; it is inert here and never mistaken for the input).
+# v1.15.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
+#   v1.45.0, MockTestCreate v5.72, DeliveryFooter v1.26, paper_pipeline v5.72, blueprint_core
+#   Cluster E2d). S1-2 3b: the FAILED branch documents pp.dg_next_step's two outcomes — the
+#   repair pair for a windowed record, the Explain trigger for a FAILED record written under
+#   the retired band-equality rule (re-judged, never repaired); the DISCLOSED footer example
+#   shows the windowed shape ("(not gated)" / "in window"). No gate-count change (still 17);
+#   the single-writer contract of v1.14.0 unchanged.
+# v1.14.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, MockTestExplain v1.44.0, MockTestCreate v5.71,
+#   DeliveryFooter v1.25). P0. S1-2 3b branched on `status` alone and ignored
+#   repair_rounds_used; §7A-R R1 branched on the counter alone and ignored status.
+#   On a corrupt (FAILED, 1) record each sent the operator to the other — no exit.
+#   3b now opens with pp.dg_preflight (heals a corrupt pair per DG-INVARIANT with a
+#   mandatory chat + footer disclosure; hard-stops on an unknown status), then acts
+#   on pp.dg_deliver_decision — the branch table is encoded once in the engine and
+#   every next-step command is pp.dg_next_step, the function Step 9 prints from.
+#   NEW branch ('DORMANT', 0) → deliver with a dormancy footer line: a dormant gate
+#   previously wrote nothing, the record stayed PENDING and every scoped paper /
+#   non-3-band exam was undeliverable. §FOOTER-DG (referenced since v1.13.0, defined
+#   nowhere) is now defined in DeliveryFooter v1.25 as pp.dg_footer_lines. Superseded
+#   v1.12.1 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+# v1.13.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0,
+#   MockTestCreate v5.69). S1-2 gains item 3b: delivery reads
+#   registry.difficulty_gate — PENDING/FAILED hard-stop with the exact next
+#   command; PASSED delivers clean; DISCLOSED delivers with one measured-
+#   difficulty footer line; ABSENT = legacy, delivers as before.
+# v1.12.2 — 2026-08-19 — GAP-2026-08-19-UNCHECKED-END-MARKER-DRIFT. PATCH: prose-only,
+#   no gate, no logic, no artefact change. This file is the ONLY spec in the corpus
+#   carrying TWO end-of-document markers: the canonical `# END OF ...` sentinel that
+#   MANIFEST.json pins and bootstrap.py verifies, AND a prose marker
+#   `*End of Framework_MockDeliver vX (body)*` closing the body section. At the
+#   v1.12.1 bump the SENTINEL was updated and the PROSE marker was not, leaving the file
+#   declaring two different versions of itself.
+#   ROOT CAUSE, worth naming: the marker that is CHECKED cannot drift, so only the
+#   UNCHECKED one did. A corpus sweep confirms this is a single instance and not a
+#   class — 21 end-markers across 21 specs, 20 correct, and every other spec carries
+#   exactly one marker, which is the checked one. The durable fix is therefore not a
+#   new rule but the removal of the redundant second version string: the prose marker
+#   now closes the body WITHOUT restating a version, so there is no second version
+#   string left to drift. The canonical sentinel remains the single source.
+```
+
 Entry v1.12.1 moved at framework release 2026.08.25.3 (EC-P42; v1.14.0 supersedes).
 
 ```
@@ -493,7 +1018,648 @@ Current-version entry remains in Framework_MockDeliver.md.
 #
 ```
 
+## Framework_MockReview.md
+
+Entries v1.0.0–v2.0.0 moved at framework release 2026.11.06 (EC-P42; v2.0.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_MockReview.md.
+
+```
+# v2.0.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0 — OD-5
+#   restated, D1, D2 (a), D4; paired with MockTestCreate v5.91 S13-2G, blueprint_core v1.31,
+#   audit_canonical v2.36 A-REVIEW, DeliveryFooter v1.39.0). This file is NO LONGER a user
+#   step. v1.0.0 made it "Step 7R": the owner ran it in a NEW chat with a review packet,
+#   downloaded a verdict file and carried it back to the author's chat for --resume — the
+#   two-session protocol that made Step 7 end at AWAITING_REVIEW instead of delivering its
+#   two files (incident 2026-11-04, SSC GD Tier 1 TestCreate P2). The MockReview /
+#   TestReview TRIGGERS ARE RETIRED (D2 a; routes.json, SKILL.md, PIPELINE). This file is
+#   now the brief a FRESH REVIEWER executes INSIDE the Create run: Create S13-2G phase 2
+#   starts one fresh sub-agent per packet part (<= bc.REVIEW_PART_MAX items, a passage group
+#   never split) and hands it ONLY the part folder; when the runtime has no sub-agent tool
+#   the author session applies §2 itself as a same-session cold review (D1; disclosed).
+#   Nothing here ever asks the user for anything, writes to the user's output folder or
+#   calls present_files. The checklist (§2) and the verdict record (§3, bc.review_verdict_file)
+#   are UNCHANGED from v1.0.0, so verdicts bind exactly as before.
+#
+# v1.0.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G12 (owner decision OD-5 (a):
+#   MANDATORY independent review on every paper, WITH correction). (History: v1.0.0 was a
+#   user-run step in a new chat; superseded by v2.0.0 above.)
+```
+
 ## Framework_MockTestAnalyse.md
+
+Entries v2.51.0–v2.59.0 moved at framework release 2026.11.06 (EC-P42; v2.60.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_MockTestAnalyse.md.
+
+````
+# v2.59.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   analyse_engine v1.2, blueprint_core v1.30, MockTestCreate v5.90, PYQExplain v2.26).
+#   Step 5 MEASURES what the new Create / audit gates read: (1) every subtopic entry of
+#   section_rules.md gains a QUALITY (v2.59) block — named_concept_rate,
+#   shown_entity_named_rate, stem_word_count p10/p50/p90, tested_concept_lexicon,
+#   shape_shares, fingerprint_max_per_paper, near_isomer_share, data_block_layout —
+#   written by analyse_engine.synthesise_subtopic/format_quality_block and READ by
+#   blueprint_core.read_quality_block / quality_block_for_subtopic (the named consumer);
+#   (2) the file ends with an '=== EXAM_QUALITY ===' block (analyse_engine.
+#   exam_quality_lines): PYQ_COMMON_ENTITIES, PYQ_TEXT_LEAK_CALIBRATED, PYQ_MODE and the
+#   §4.6 GATE_CALIBRATION false-FAIL guard; (3) the style profile's item_rules carry stable
+#   ids (bc.ITEM_RULES) and MIDDLE_VALUE_KEY; (4) NEW S11-1b: [ExamCode]_exemplar_bank.json
+#   — the content-carrying exemplar bank the difficulty judge reads — written by
+#   analyse_engine.write_exemplar_bank and delivered as a RUN FILE (owner decision OD-11:
+#   kept beside the registry, attached to Create, NEVER uploaded to project knowledge;
+#   absent at Create -> the judge is DORMANT, printed, never a halt). Nothing here stops.
+#   RELEASE REVIEW (2026-11-03, cold read): the QUALITY block's lexicon / drawn-name /
+#   near-isomer rates and the EXEMPLAR BANK are built from the exam's own EXPLAINED PYQ —
+#   [ExamCode]_difficulty_profile.json (PYQExplain v2.26 named_concepts / concept /
+#   drawn_names / near_isomer_set per item) JOINED to this step's stems by stem text
+#   (analyse_engine.profile_quality_inputs / exemplar_rows / entity_paper_sets, run_synthesise
+#   + S11-1b). The first draft fed only the subtopic/topic titles (an always-empty
+#   lexicon) and read band fields Step 5 never had (an always-empty bank). QUALITY blocks
+#   now carry `n` (the pool size the blueprints' shape targets need). Absent / legacy /
+#   foreign profile: everything reads 'unmeasured' and the bank is empty — printed, never
+#   a halt.
+# v2.58.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   analyse_engine v1.1, blueprint_core v1.29, figural_core v5.89, MockTestCreate v5.89).
+#   run_synthesise measures FIGURE_STYLE_PROFILE from the exam's own PYQ documents
+#   (generic flags over every picture of every exam; chem-R print metrics over pictures
+#   typed chemistry by this run's own per-question object_type) and aggregates PYQExplain
+#   §13A tags (abbreviations seen, site-mark devices, ask / representation / grammar
+#   counts). section_rules.md gains one '=== FIGURE_STYLE ===' line (read by figural_core
+#   .parse_figure_style_block — byte-identical, drift-locked) and, per figural subtopic,
+#   figural_ask_type_counts / representation_counts / scheme_grammar_counts (read by
+#   blueprint_core.parse_image_analysis_blocks). Absent evidence -> documented defaults,
+#   disclosed downstream; never a halt. No other extraction change.
+# v2.57.3 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.2;
+#   paired with figure_types v1.0, analyse_engine, MockTestCreate v5.88). PATCH: the
+#   PYQ_IMAGE_ANALYSIS contract is unchanged in shape; object_type strings are now
+#   NORMALISED onto the figure-type registry vocabulary at Phase C (analyse_engine.
+#   apply_vision_observations → figure_types.normalise; the raw Phase-B string is kept as
+#   object_type_raw), so Step 7 and the auditor see ONE name for one kind of figure, and
+#   QV-14's line names every object_type the registry does not know (advisory, never a
+#   FAIL — the vocabulary grows by evidence). Phase B step 3 asks for the registry's
+#   canonical names where one fits. Step 5 output on an exam whose strings were already
+#   canonical is byte-identical.
+# v2.57.2 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestCreate v5.85,
+#   blueprint_core Cluster SG, audit_canonical v2.30, mock_sync_audit MS-11 name set).
+#   NEW S1-1b: [ExamCode]_stimulus_profile.json — how this exam builds its question SETS
+#   (sizes, member mix/order, position), built by bc.build_stimulus_profile from the
+#   progress records (current-pattern papers only; a set = consecutive questions sharing
+#   one run of >=30 words; type seen in >=2 papers). Written by every final synthesis
+#   (MANDATORY delivery tier: 8 mandatory files, 10 on a normal run) and by the NEW mode
+#   `PYQExtract --stimulus-profile` — for exams whose Step 5 already finished: reads the
+#   progress file, writes and delivers ONLY the profile, HALTS; no PYQ: link; no other
+#   artefact touched. Step 7 needs it before any new paper (MockTestCreate S3-12b).
+# v2.57.1 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
+#   with PYQExplain v2.24, PYQScan v1.6.1). present_files is CLASS T (`pass`): the model
+#   performs the call from what it can SEE. deliver_final built `delivery` (7 mandatory
+#   + 2 conditional) and never printed it — and its own printed handoff named only
+#   section_rules / progress / summary, three of nine — so the call was made from
+#   memory; the per-batch site had the same shape for one file. Both sites now print
+#   the closed set through print_delivery_set() (PHASE 1) immediately before ONE
+#   present_files call, and deliver_final's handoff lists the full S11-2 PART C set.
+#   PATCH bump: emitted stamps stay v2.57 (no engine change, no artefact change —
+#   deliver_final prints only; run_synthesise never reaches it). MS-11 parses the
+#   deliver_final construction block by its append/+= lines, which are unchanged.
+#   Reports only — no new stop.
+# v2.57 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: era-filtered mining + sample papers; requires PYQSort >= v1.21.0
+# v2.56 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY (Stage 1, reading side). Step 5 now
+#   MEASURES style instead of looking it up: determine_strip_mode is RETIRED as a synthesis
+#   input (Q9) — the content signature is derived from the questions themselves and maps
+#   aptitude-class corpora to the five legacy masking modes (byte-identical output, EC-26)
+#   while content-class corpora (science/engineering/medical/law/commerce, previously
+#   silently mislabelled 'reasoning') get v2 masking that keeps notation and units.
+#   ADDED: 24-mechanic ordered classifier (unknown REPORTED never defaulted), 15-value
+#   option-shape vocabulary, Axis-2 ladder 8→11 (IDENTIFY / SELECT_PLOT / RANK; STATEMENT
+#   widened per E-7), pattern_keys (KEY = mechanic|form|polarity|answer_type|option_shape;
+#   S7-STYLE composes from these, never from template text — RC-3), numeric distractor
+#   mining, per-unit number ranges {min,max,p10,p50,p90,n} + PYQ_EXCLUDE_VALUES (EC-49
+#   universal-constant exemption), EC-9 low-entropy detection, stimulus_stats (Q11), and
+#   medium stamping (§6.1.9: style computed on 'en' renderings; other-medium counted).
+#   THREE-ARTEFACT CONTRACT (§6.1.8): the SAME PYQExtract run now also writes
+#   <EXAM>_style_profile.json (activation-gated, DORMANT is a written status with a
+#   reason, never a missing file — P-3) and <EXAM>_pyq_index.json (shingle/hash index,
+#   no question text), both stamped with the SAME corpus_hash (sha256 over sorted
+#   per-paper file hashes, stamped by process_pyq_paper). E-13: stem/option text now
+#   reads corpus_io.text_of(para) so <w:t>/<m:t> interleave in document order;
+#   enrich_paragraph_with_omml retained for flags only. E-3: content-path approach
+#   derives from the measured mechanic (MECHANIC_TO_APPROACH); the aptitude path keeps
+#   infer_approach VERBATIM. AXIS2_CLASSES defined ONCE in blueprint_core (P-7).
+#   Additive-only: every pre-existing section_rules field is byte-identical on the
+#   aptitude reference corpus except the version stamps. Engine self-test 120 → 183
+#   (+50 style fixtures, +13 mutation-kill pack; B4 pipeline mutation within budget 1).
+# v2.55 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. E-9 keyword difficulty scorer
+#   RETIRED (blueprint_core.score_difficulty, analyse_engine adapter, build_diff_criteria
+#   deleted; Step 5 writes no PYQ_DIFFICULTY_CALIBRATION; QV-3 reports 'retired'). Difficulty
+#   is measured once, by PYQExplain §7A with the derivation rubric, into the exam's
+#   difficulty profile (PYQExplain S7A-6 / blueprint_core Cluster DP), which Blueprint §S7-0
+#   and Step 7 / ScopedBlueprint read. EC-6 marks no longer scale a threshold. §14 schema and
+#   MockCreate handoff text updated. analyse_engine self-test 120 (−3 E-9, +2 guards).
+# v2.54.1 — 2026-08-23 — GAP-2026-08-23-STEP5-YEARLESS-TEMPLATES (P1) + DOC SYNC.
+#   PATCH bump: emitted stamps stay v2.54; the golden (all-dated) corpus is
+#   byte-identical — the fix is a filter that is a no-op when every year is set.
+#   THE DEFECT. generate_templates (analyse_engine) read
+#       years = sorted(set(q.get('year', 2020) for q in questions))
+#   Extraction stamps q['year'] UNCONDITIONALLY (process_pyq_paper), so a paper
+#   whose filename carries no year stores None WITH THE KEY PRESENT — and a .get
+#   default never fires for a present key. sorted() over {int, None} raises
+#   TypeError inside synthesise_subtopic, which runs for every subtopic: a hard
+#   stop of the WHOLE synthesis for any corpus that mixes dated and undated paper
+#   filenames. Found by executing this file's own fences end-to-end against a
+#   production-shaped corpus (the D1/D2 method); every static gate was green.
+#   SAME FAMILY as D7 and ONE FUNCTION from D7's own fix — which survived because
+#   the D7-era fixtures modelled a year-less question as key-ABSENT, the one shape
+#   the dead default could satisfy. A fixture in the wrong shape consumes the
+#   suspicion that would have found the defect (the D7 lesson, replayed).
+#   SECOND SITE swept in the same function: the cluster 'years' set collected
+#   i['year'] unfiltered, so the identical crash waited one line behind the first.
+#   FIX. Year-less questions drop out of the RECENCY basis only — years/last2 and
+#   per-pattern years now filter None — exactly the rule subtopic_option_format
+#   already applies to its recency vote (D7). All-dated corpora are unchanged. An
+#   all-undated corpus previously emitted years=[None] and stamped observed_recent
+#   from a None-in-{None} membership accident; it now emits years=[] with
+#   confidence from raw_count, which is what the D7 principle requires. Engine
+#   fixtures added in the PRODUCTION shape (year key present, value None): mixed,
+#   all-None, and an all-dated equivalence guard.
+#   DOC SYNC in the same release (no behavioural rule changes beyond the above):
+#   * PARAMETER 4 still described the pre-v2.50.0 auto-redirect to --synthesise
+#     ALL on an empty corpus — the exact fall-through EC-P39 forbids and this
+#     file's own DoD [25] names as the dangerous path. Rewritten to state EC-P39.
+#   * §1-6 / compute_coverage_mode carried contradictory inserted lines (a
+#     "guideline, not a blocker" sentence inside a NON-NEGOTIABLE rule, and a
+#     phantom min_pyq_years project/trigger parameter that no parser anywhere
+#     reads). Aligned to the enforcement code: min(5, available), never waivable,
+#     with fewer-than-5-years exams processing ALL available years.
+#   * E-9/E-10 CROSS-FILE SYNC RULE still demanded a byte-identical mirrored COPY
+#     in blueprint_core; v2.30 replaced the copy with a delegating adapter.
+#     Restated as a delegation rule so no editor re-introduces a second copy.
+#   * DoD [4] said "QV-1 through QV-12"; the suite is QV-1..QV-16 (+QV-5b,
+#     +QV-13b). S11-2 PART A's example extended to show all 16.
+#   * DoD numbering collision: the v2.24.6 additions in §15 reused [24]-[26],
+#     numbers already taken by the transport/corpus items in the main DoD list.
+#     Renumbered [27]-[29]; content unchanged.
+#   * S8-7 schema now documents q_num / question_type / terminated_by_heading
+#     (stamped at the one emission point since v2.37/v2.39) and that year is
+#     null when the paper filename carries no detectable year.
+#   * S8-0b's incident byte/line counts annotated as historical measurements —
+#     the live numbers come from bootstrap and SPEC_SECTIONS.json at run time.
+# v2.54.0 — 2026-08-23 — STAMP-DEDUP + TRANSPORT-HELPER EXTRACTION (Items 3a+3b;
+#   MINOR — changes one artefact line per section_rules.md). 3a: the section_rules
+#   header line read "# Generated by Generated by ..." since v2.3 —
+#   GENERATED_BY_STAMP already begins with "Generated by" and write_section_rules
+#   prepended it again (analyse_engine L2900). Fixed at the f-string; stamps
+#   cascade v2.53 -> v2.54 (MS-3). EXPECTED ARTEFACT DIFF, documented before
+#   capture: the dedup line + every v2.53 stamp line; nothing else. Golden set
+#   RE-CAPTURED from this release's output — prior hashes are superseded and
+#   recorded in the harness doc as the pre-fix reference. 3b: the six transport
+#   helpers left this file's fences for transport_core.py — build_session_re,
+#   make_drive_list_fn, make_paper_id, is_already_processed VERBATIM;
+#   sort_papers_recency_first gains a session_re PARAMETER (it closed over the
+#   session global SESSION_RE — an engine cannot); collect_pyq_papers gains a
+#   required listing_cache parameter. Both keep one-line DELEGATING ADAPTERS here
+#   preserving the session defaults (SESSION_RE, DRIVE_LISTING_CACHE), per the
+#   DELEGATION contract. collect_pyq_papers.last_rejects attribute DROPPED —
+#   read nowhere in the corpus (verified by grep); rejects remain ATTACHED via
+#   the returned tuple (the v2.29 rule, unchanged).
+# v2.53.6 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: helpers fence tagged + def-wrapped (signatures unchanged); A0 prose to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v2.53.5 — 2026-08-20 — WAVE 2 PART C, BATCH 9. §S8-0 DRIVE TRANSPORT MOVES TO
+#   transport_core.py. PATCH bump: code moved VERBATIM into a routed engine changes no
+#   emitted value, and holding major.minor holds the emitted stamps at v2.53. NO
+#   ARTEFACT VALUES CHANGE — all six IIT_JAM_MATHEMATICS artefacts verified
+#   byte-identical against the golden set from deployed 2026.08.19.3.
+#
+#   WHAT MOVED. One fence, 346 lines, 8 functions, ZERO top-level session-flow
+#   statements: acquire_listing, probe_transport, probe_drive_channel, plan_transport,
+#   acquire_paper, read_transport_verdict, record_transport, log_session, plus the
+#   derived constant SESSION_INLINE_BUDGET. The same definition/flow split that governed
+#   batches 2, 3 and 5, applied unchanged. Spec python 2,352 -> 2,051 lines.
+#
+#   WHAT DID NOT MOVE, AND WHY THE BLOCK WAS EXTRACTABLE AT ALL. gdrive_search and
+#   gdrive_download_file stay here. They are CLASS T markers — operations the MODEL
+#   performs in its own turn — and an engine cannot perform a tool call. Every function
+#   that moved takes the RESULT of a CLASS T operation as an argument (pages,
+#   probe_payload, drive_payloads, resolver), which is exactly what made the boundary
+#   clean.
+#
+#   WHY NOW. This fence was INVISIBLE until release 2026.08.20.2. It carries a triple
+#   backtick inside a docstring, and four auditors extracted fenced python with a
+#   non-greedy regex that ended at the first such marker — so the fence was cut
+#   mid-string, failed to parse, and was discarded by each caller's parse guard. Nothing
+#   failed; the tools simply never read the Drive transport contract, and code that is
+#   never read produces no findings. The line scanner made it readable. This release
+#   makes it TESTABLE: 49 self-test fixtures and a mutation gate, neither of which can
+#   exist for code that lives in a fence.
+#
+#   VERIFICATION IS NOT THE GOLDEN SET, AND SAYING SO MATTERS. run_synthesise — the
+#   path `--synthesise ALL` exercises — calls NO function in this block, so the golden
+#   set proves the synthesis is unchanged and proves nothing about the transport. What
+#   stands in its place: the extraction is byte-verbatim (the divergence baseline's
+#   fingerprints for plan_transport, acquire_paper and probe_drive_channel are IDENTICAL
+#   before and after the move, which is the refactor proving itself), 49 fixtures that
+#   inject every dependency rather than touching a filesystem, and a pipeline mutation
+#   gate at 3/3.
+#
+#   THE STEP 4 DIVERGENCE SURVIVED THE MOVE — BY ONE LINE OF FORESIGHT AND ONE
+#   CORRECTION. Framework_PYQCount S5-0 defines its own probe_drive_channel,
+#   plan_transport and acquire_paper; the divergence is declared and pinned in
+#   XSPEC_DIVERGENCE_BASELINE.json. When this batch landed, all three entries reported
+#   "no longer diverges" and demanded deletion — the ratchet was right that something had
+#   changed and wrong about what. Deleting them would have let this refactor quietly
+#   retire the only check watching those pairs. audit_deep now reads ENGINE definitions
+#   as well as spec fences, and a new XSPEC-ENGINE-DRIFT check reports a spec that
+#   re-localises an engine-defined function without delegating, so the exemptions
+#   suppress a real finding again instead of being decorative.
+#
+# v2.53.4 — 2026-08-20 — WAVE 2 PART C, BATCH 7. DEFECT D7, AND THE WRITERS ENTER THE
+#   MUTATION GATE. PATCH bump: the emitted stamps stay at v2.53 and NO ARTEFACT VALUES
+#   CHANGE — all six IIT_JAM_MATHEMATICS artefacts verified byte-identical against the
+#   golden set from deployed 2026.08.17.1.
+#
+#   D7 (P1) — ONE QUESTION WITH NO YEAR CRASHED THE WHOLE SYNTHESIS.
+#   subtopic_option_format() bucketed formats with `by_year.setdefault(q.get('year',
+#   '?'), ...)`, then sorted those keys on the very next line. The '?' sentinel puts a
+#   str into a dict whose other keys are ints, so the moment a corpus contained BOTH a
+#   year-bearing question and a year-less one:
+#       TypeError: '<' not supported between instances of 'str' and 'int'
+#   raised inside synthesise_subtopic(), which runs for EVERY subtopic. Same family as
+#   D1/D2/D6: a hard stop of Step 5, invisible on the reference corpus because every
+#   IIT_JAM_MATHEMATICS question happens to carry a year. Across ~200 exams a single
+#   failed year extraction is not an edge case, it is a Tuesday.
+#
+#   The same sentinel had a second effect: it made the function's own `if not years:`
+#   guard UNREACHABLE. by_year gained a key for every question, so `years` was never
+#   empty and the branch written for a year-less corpus could never run. Year-less
+#   questions are now dropped from the RECENCY vote only — they cannot inform which
+#   option format is most recent — which fixes the crash and restores that guard to the
+#   job it was written for. Equivalence is exact where it matters: with every question
+#   carrying a year (the golden set) by_year is unchanged; with NO question carrying one
+#   the old path returned recent_format == primary and changed_recently == False, which
+#   is precisely what the restored guard returns.
+#
+#   HOW D7 WAS FOUND, which matters more than D7. The mutation gate reported the
+#   `sorted(` on that unreachable branch as a SURVIVING MUTANT while a fixture named
+#   `no_year_branch_all_observed_sorted` — added one release earlier — passed. Both
+#   statements were true at once, and only one reading explains both: the fixture never
+#   reached the line it was named after. A fixture that passes without executing the
+#   code it claims to cover is worse than no fixture, because it also consumes the
+#   suspicion that would have found the defect.
+#
+#   THE WRITERS ARE NOW TESTED AT ALL. Nine of the twenty surviving mutants lived in
+#   five functions the engine self-test had NEVER CALLED — synthesise_subtopic,
+#   compute_section_axis_distribution, write_section_rules, write_subtopic_manifest and
+#   rebuild_subtopic_manifest_from_section_rules. The reason was mechanical, not
+#   editorial: each writes to a hardcoded '/mnt/user-data/outputs/', which does not
+#   exist on a CI runner, so no fixture COULD call them. An additive `out_dir=None`
+#   (default unchanged, every production call site untouched) removes that blocker —
+#   the same remedy `search_dirs` applied to load_mechanic_overrides after
+#   GAP-2026-08-17-B4-ENV-SKEW. An `if os.path.isdir(...)` guard around the fixture
+#   would NOT do: a guarded assertion is a dormant one, and a dormant assertion is
+#   exactly where a survivor hides while CI reports green.
+#
+#   The new fixture is a different SHAPE from B5/B6, which asserted on directly-callable
+#   pure functions. The remaining ordering defects live BEHIND the writers, so a small
+#   corpus is driven end to end — questions -> synthesise_subtopic -> write_section_rules
+#   -> write_subtopic_manifest -> rebuild — and the assertions read the artefacts back.
+#   It is adversarial by construction, not merely representative: four sections colliding
+#   on one prefix supplied out of alphabetical order (1 in 24), four papers whose figural
+#   counts are all different so the per-paper series is a permutation detector rather
+#   than a bag of equal numbers (1 in 24), and four years whose set-iteration order is
+#   not their sorted order. A fixture whose values are all equal cannot see an ordering
+#   defect at all; that is how nine of these survived a suite of eighty-six checks.
+#
+#   QV-13 WAS HALF A GATE. It is named MECHANIC IDENTITY INTEGRITY and identity is the
+#   PAIR (collision_domain, form_key) — the uniqueness test buckets by exactly that
+#   pair. It re-derived form_key to detect drift and threw the freshly-derived
+#   collision_domain away, so a drifted domain passed unnoticed while the check that
+#   exists to catch drift reported PASS. Not hypothetical: build_section_prefix_map
+#   assigns colliding prefixes by iteration order, which is the defect v2.53.3's B6
+#   batch fixed in mint_subtopic_ids and stamp_mechanic_axes. Those two were pinned; the
+#   GATE that notices when they drift was not. QV-13 now compares both halves, with the
+#   same curator-override escape hatch form_key already had.
+#
+#   DIAGNOSTIC TEXT IS PART OF THE CONTRACT. Five survivors were a `sorted(...)` inside
+#   a hard-stop message, and the tempting verdict is "equivalent mutant — only word
+#   order in an error changes". It is not. Each enumerates a SET, so the same corrupt
+#   overrides file produces a differently-worded refusal on every run: a curator cannot
+#   diff two runs, cannot grep a log for a known message, and cannot tell a second fault
+#   from the same fault re-ordered. Artefact nondeterminism (D4) applies to what the
+#   operator READS, not only to what the writers EMIT. Each message is now asserted
+#   verbatim, with three or more members, because a two-element set is a coin flip.
+#
+#   MEASURED. Pipeline mutation survivors 20 -> 1; score 60.0% -> 97.9%; engine
+#   self-test 86 -> 116 checks. The single remaining survivor is PROVEN EQUIVALENT and
+#   documented at its own site: `years_seen` in _compute_structural_changes is read on
+#   four lines and every one is order-invariant (truthiness, max, min, len), so no
+#   fixture can kill it and none is faked. MUTATION_BUDGETS.json ratchets 20 -> 1.
+#
+#   AND THE WATCHER GAINED A WATCHER. audit_mutation.py — the gate whose entire job is
+#   proving other tests are connected — had no --self-test, and validate.yml never ran
+#   one. The cost showed up here: a `sorted(` inside a NESTED test helper's DOCSTRING was
+#   listed as a live target and counted as a surviving mutant of the production engine.
+#   The scaffolding exclusion tested only the innermost frame, so a helper defined inside
+#   self_test was fair game. It now tests the whole enclosing chain, ships ten fixtures
+#   plus a meta-assertion, and runs as a blocking CI step before the gate it guards.
+#
+# v2.53.3 — 2026-08-17 — WAVE 2 PART C, BATCH 3. §3 + §5 + §6 MOVED TO analyse_engine.py.
+#   PATCH bump, same reasoning as B2 and the §16 precedent: code moved verbatim into a
+#   routed engine changes no emitted value, and holding major.minor holds the emitted
+#   stamps at v2.53. NO ARTEFACT VALUES CHANGE — all six IIT_JAM_MATHEMATICS artefacts
+#   verified byte-identical against the golden set from deployed 2026.08.17.1, across
+#   PYTHONHASHSEED 1/17/2029/7.
+#
+#   WHAT MOVED. The 8 python fences of §3 (document pipeline), §5 (synthesis engine) and
+#   §6 (QV-1..QV-16) — 3,882 lines, 95 definitions, ZERO top-level session-flow
+#   statements. 7 of 8 fences are byte-identical in the engine; the 8th (§3 L1884-2046)
+#   is modified by design, for the session_re injection below. No copy remains here.
+#
+#   THIS COMPLETES THE EXTRACTION. What is left in this file is §1 (session start,
+#   CLASS: T Drive tool calls, 31 top-level flow statements) and §8 (batch orchestration,
+#   the model-turn loop). Neither can move: they ARE the session, not library code.
+#
+#   SESSION_RE — the ONE session global in the whole 4,582-line scope, and the only
+#   behavioural change in either batch. §1 builds it from exam_config.json's
+#   session_keyword; extract_shift_from_filename() read it as a module global. An engine
+#   has its own globals and inherits nothing, so it is now INJECTED:
+#     extract_shift_from_filename(path, session_re=None)  -> raises if omitted
+#     process_pyq_paper(..., session_re=None)             -> threads it down
+#   and §8's three call sites pass session_re=SESSION_RE.
+#   A PARAMETER, NOT MODULE STATE, DELIBERATELY: a configure()-style global would let a
+#   caller that forgot to set it use a STALE regex from a previous exam — a wrong answer
+#   rather than an error, which is this corpus's most expensive failure shape. Omission
+#   now raises immediately and names what to pass, following the v2.39 vision_pending
+#   precedent. Mutation-tested: replacing the raise with a silent default fails the
+#   engine self-test.
+#
+#   MASKED DEPENDENCIES SURFACED, AGAIN. Analysed inside the spec, §3+§5+§6 looked to
+#   need nothing but §2's names; imported as a module it also needed `json` and `os`,
+#   which §1 had been supplying through the shared namespace. That is the same
+#   inheritance that hid `collections` for ten days in D2. python's symtable now
+#   confirms the engine has ZERO free globals.
+#
+#   A BUG THE GOLDEN SET COULD NOT SEE. Threading session_re into §8's call sites
+#   introduced a double comma, which made that fence fail ast.parse. The golden set
+#   still passed — the broken fence was silently SKIPPED, and --synthesise ALL does not
+#   use run_batch_loop. A parse gate over all 42 fences now runs alongside the artefact
+#   assertion; byte-identical output is necessary and NOT sufficient.
+#
+#   audit_seam.py — CAUGHT AT DEPLOY, NOT BY ME. The first cut of this release was
+#   rejected: audit_seam reported 5 ORPHAN-READ findings because it identifies producers
+#   and consumers from hardcoded five-file maps and analyse_engine.py was in neither, so
+#   every field whose writer moved lost its visible producer. Pure relocation — figural_rate
+#   14 in the old spec, 14 in the engine, 0 left behind. SAME CLASS release 2026.08.17.1
+#   already fixed once for audit_callgraph C4; this batch repeated the extraction at four
+#   times the scale and audit_seam did not receive the same widening.
+#   Registering the engine surfaced two more, figural_no_image and image_not_figural,
+#   whose real writer is corpus_io.figural_consistency() — unregistered, so BOTH sides
+#   had been invisible and that seam had never actually been checked. Its writer is now
+#   registered too: the honest completion, not an ALLOW entry.
+#   ROOT CAUSE OF THE MISS: I verified against ten auditors recalled from memory.
+#   .github/workflows/validate.yml runs fifteen gates plus audit_mutation. The gate list
+#   is now read from validate.yml, not remembered.
+#
+#   MS-3 STAMP-PARITY. The three emitted-stamp literals moved into the engine, so MS-3 —
+#   a PRESENCE check over this file's fences — reported it could match nothing, the
+#   disarmed state its own comment names. Fixed the way MS-3 asks: one literal per
+#   pattern retained in the §5 stub, with the cross-file sync rule stated. Widening MS-3
+#   to the routed engines was NOT done, for the same reason Y-IMGGATE was not widened in
+#   B2. A CALL-SITE check may follow the code into an engine; a PRESENCE check may not.
+#
+# v2.53.2 — 2026-08-17 — WAVE 2 PART C, BATCH 2. §2 + §4 MOVED TO analyse_engine.py.
+#   PATCH bump, following the §16 precedent exactly: when §16 moved to
+#   frequency_xlsx.py the release was v2.39.1 -> v2.39.2, because moving code
+#   verbatim into a routed engine changes NO emitted value. Holding the major.minor
+#   also holds the FRAMEWORK_STAMP at v2.53, so mock_sync_audit MS-3 stays satisfied
+#   and the artefacts are literally unchanged rather than changed-by-one-stamp-line.
+#   NO ARTEFACT VALUES CHANGE — all six IIT_JAM_MATHEMATICS artefacts verified byte-identical against the
+#   golden set captured from deployed 2026.08.16.3, across PYTHONHASHSEED 1/17/2029/7.
+#
+#   WHAT MOVED. The 14 python fences of §2 (universal extraction primitives E-1..E-11)
+#   and §4 (vision aggregation) — 700 lines, 33 definitions, ZERO top-level session-flow
+#   statements — moved VERBATIM into analyse_engine.py. Verified: all 14 fence bodies
+#   are byte-identical in the engine, and NO copy remains in this file. One writer.
+#   Each fence is replaced by a stub that RETAINS THE CONTRACT and imports the names,
+#   exactly as §16 was replaced when its code moved to frequency_xlsx.py at v2.39.2.
+#
+#   WHY §2+§4 AND NOT §2+§3+§4 as first planned. The boundary was chosen by the CALL
+#   GRAPH, not by section number. Measured: §2+§4 needs NOTHING from any other
+#   extractable section; §2+§3+§4 does NOT close, because §3's process_pyq_paper calls
+#   §5's tag_axes and an engine's globals inherit nothing from the spec; and §3+§5+§6
+#   needs 16 names from §2. So §2+§4 ships first and §3+§5+§6 follows as B3.
+#
+#   THE ENGINE IS SELF-CONTAINED, PROVEN BY symtable. A free-name analysis of §2+§4
+#   inside the spec reports nothing missing, because §1 imports re / bc / corpus_io /
+#   Counter / SequenceMatcher at module scope and every later fence inherits them. That
+#   inheritance is exactly what hid GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE D2 for
+#   ten days. An engine inherits nothing, so every dependency is now declared at the top
+#   of analyse_engine.py where a reader and an auditor can both see it. Python's own
+#   symtable confirms ZERO free globals remain.
+#
+#   COST. This file: 533,663 -> ~507,000 B; §2 567 -> 110 py-lines, §4 133 -> 44.
+#   The PYQExtract route still exceeds SPEC_BUDGET_BYTES and still needs its read set;
+#   extraction cures the model RE-EMITTING the code, not the byte gate. §1 (817 lines,
+#   31 flow nodes) and §8 (1,233 lines, CLASS: T tool calls) stay permanently.
+#
+#   TWO AUDITOR CONSEQUENCES, one fixed and one deliberately NOT.
+#   * audit_callgraph C4 reported 5 live blueprint_core/corpus_io functions as dead
+#     (derive_image_roles, gates_passed, merge_vision_observations, verify_images,
+#     vision_profile) because their call sites moved into the engine. analyse_engine.py
+#     is now a C4 call-site source — the same treatment, with the same stated reason,
+#     that audit_canonical.py already had after an earlier extraction.
+#   * validator Y-IMGGATE fired for the same reason. Widening IT was built,
+#     mutation-tested and REJECTED: Y-IMGGATE matches a NAME ANYWHERE IN TEXT, and
+#     corpus_io.py and blueprint_core.py both contain those names, so widening its
+#     corpus would have made the gate vacuous for nearly every spec in the estate. The
+#     accounting contract is retained in the §2 stub instead, keeping the check at
+#     exactly its original strength. A CALL-SITE check may follow the code into an
+#     engine; a PRESENCE check may not.
+#
+#   ALSO CORRECTED: SKILL.md declared "10 routed engine scripts" against 15 actually
+#   routed — stale by five BEFORE this batch. MUTATION_BUDGETS.json named this exact
+#   risk ("SKILL.md's declared counts are exactly the kind of hand-written number this
+#   corpus has watched drift before, and nothing currently proves the check that guards
+#   them still fires"). It had drifted. Now 16 and matching.
+#
+# v2.53.1 — 2026-08-16 — GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS (D5, D6).
+#   PATCH bump: two guaranteed NameErrors are fixed. NO ARTEFACT VALUES CHANGE and the
+#   v2.53 stamps are deliberately untouched — verified byte-identical against the
+#   IIT_JAM_MATHEMATICS golden set captured from deployed 2026.08.16.2.
+#
+#   BOTH WERE SUPPRESSED BY spec_name_audit_baseline.json, and both survived the very
+#   release that fixed D2/D3 — because `--write-baseline` re-freezes whatever is
+#   currently unbound, including defects the previous release introduced. A ratchet
+#   wired to a working detector, with a switch in between that accepts everything the
+#   detector finds, is not a ratchet. That switch is closed in this release.
+#
+#   D5 — process_pyq_paper() raised NameError on `n_vision`, on EVERY paper of EVERY
+#     exam, unguarded, on its second-to-last statement, after all work was done and
+#     before `return questions, linked_groups` could run. `n_vision` is a LOCAL of
+#     run_batch_loop() in §8. So Step 5's EXTRACTION phase was broken too, not only
+#     synthesis. The per-paper figural count is len(vision_candidates); §8's n_vision
+#     is the BATCH queue size and was never the right number here.
+#
+#   D6 — run_qv() read `options_count`, a SESSION parameter bound nowhere at module
+#     scope. QV-15's comprehension only EVALUATES it when _tbh is non-empty — that is,
+#     when at least one question WAS terminated by an inferred heading. So QV-15 raised
+#     EXACTLY when it had something to report and passed silently when it did not: a
+#     check that crashes only on the defect it exists to detect, and reads as a clean
+#     PASS on every corpus that never triggers it. IIT_JAM_MATHEMATICS has 0 such
+#     questions, which is the ONLY reason the v2.53.0 certification run survived it.
+#     Now read from progress._meta.options_count, the parameter's persisted home, with
+#     the documented safe default of 4.
+#
+# v2.53.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE.
+#   MINOR bump: EMITTED ARTEFACT VALUES CHANGE (D4 orders one list), a function's
+#   contract is tightened (print_qv), and a defect CLASS is swept across four specs.
+#
+#   STEP 5 SYNTHESIS HAS NOT BEEN ABLE TO EMIT AN ARTEFACT SINCE 2026-08-05.
+#   Found while building the Wave 2 Part C regression harness: executing this file's
+#   own fenced python against the real 884-question IIT_JAM_MATHEMATICS corpus raised
+#   TypeError before anything was written; neutralising that raised NameError four
+#   frames later. Both unconditional, both corpus-independent, both on the single path
+#   every exam takes. Every auditor was green throughout.
+#
+#   D1 (P1) — print_qv could not read what run_qv returns. run_qv returns ONE dict
+#     holding two kinds of entry; print_qv unpacked EVERY value as (status, detail).
+#     v2.41.0 added results['_counter_questions_terminated_by_heading'] = len(_tbh),
+#     an int, unconditional, "reported even when 0" — written once, read nowhere.
+#     From that release: TypeError: cannot unpack non-iterable int object, raised
+#     BEFORE write_section_rules. 11 days, 11 minor versions, zero artefacts.
+#     FIX: the dict's contract is now explicit and ENFORCED — 'QV-*' keys are checks
+#     and must be 2-tuples; '_'-prefixed keys are counters, reported on their own
+#     line (preserving v2.41.0's intent, which was visibility, not check-hood);
+#     anything else raises AT ITS SOURCE naming the offending key.
+#
+#   D2 (P1) — `collections` used, imported nowhere. compute_section_axis_distribution
+#     is module-qualified (collections.defaultdict / collections.Counter) but
+#     `import collections` appears NOWHERE in this file — every import is the
+#     `from collections import ...` form, which never binds the module name.
+#     NameError on every call since v2.46.0 (2026-08-06). write_section_rules calls
+#     it, so section_rules.md was never written. FIX: function-local import, this
+#     file's dominant idiom.
+#
+#   D3 (P3) — present_files() called from python, defined nowhere. FIVE call sites
+#     across FOUR specs (this file twice, PYQScan, PYQExplain, MockTestExplain).
+#     SAME SHAPE as D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, which fixed
+#     the INSTANCE and left the CLASS standing. Swept now: a CLASS: T stub is
+#     declared in EACH calling spec, matching this corpus's established house
+#     pattern — gdrive_search and gdrive_download_file are each declared in both
+#     this file and Framework_PYQCount.md. Per-file declaration is deliberate: a
+#     pass-bodied marker has no logic to drift, and spec_name_audit is a PER-FILE
+#     auditor, so a declaration held only in a route peer would be invisible to it
+#     — which is how a route-level fix would have re-created the very blind spot
+#     this gap is about. Framework_DeliveryFooter.md keeps the F1/F2 contract and
+#     gains the same stub (it is on all 23 routes).
+#     P3 only because deliver_final runs AFTER all five artefacts are on disk.
+#
+#   D4 (P1 for reproducibility) — NO STEP 5 ARTEFACT WAS EVER REPRODUCIBLE.
+#     E-8 subtopic_option_format returned 'all_observed': list(set(fmts)). Set
+#     iteration order over str depends on PYTHONHASHSEED, randomised PER PROCESS,
+#     and §14 emits the list verbatim as option_format_all_observed. MEASURED: two
+#     runs, identical code and corpus, section_rules.md identical at 433,260 bytes
+#     with a different sha256, differing at 34 lines — one per subtopic. No diff
+#     between two runs could separate a real regression from hash-seed noise.
+#     FIX: sorted(set(...)). VERIFIED: all six artefacts now byte-stable across
+#     PYTHONHASHSEED 1, 7 and 99.
+#     THIS IS THE ONLY INTENDED ARTEFACT CHANGE IN THIS RELEASE — one list, sorted.
+#
+#   WHY FOUR AUDITORS WERE GREEN. bootstrap 48/48, audit_specs_ext 0, callgraph 0,
+#   audit_deep 0, validate_framework_md clean, mutation at budget — all pass with
+#   Step 5 unable to emit anything. They read the spec as TEXT or as an AST; not one
+#   EXECUTES the synthesis path. D1 needs run_qv's value to reach print_qv; D2 needs
+#   write_section_rules to call compute_section_axis_distribution; D4 needs two
+#   processes. All three are runtime facts.
+#   WORSE — AND THE REAL LESSON: spec_name_audit DID detect D2 and D3. `collections`
+#   and `present_files` were both sitting in spec_name_audit_baseline.json under this
+#   file, accepted as known-unbound, so the ratchet reported OK. An untyped baseline
+#   cannot distinguish "legitimately bound elsewhere at runtime" from "guaranteed
+#   NameError". Both entries are REMOVED in this release, and the baseline now
+#   carries a typed reason per entry so neither can be re-frozen silently.
+#   MECHANISM: audit_callgraph C12 (new, route-aware) fails the build on any name
+#   CALLED from compiling python that is neither bound on its route nor declared
+#   CLASS: T/J.
+#
+#   RE-RUN REQUIRED for every exam. Any exam that produced a section_rules.md after
+#   2026-08-05 had its code path repaired IN-SESSION by the executing model, not by
+#   this spec, and that artefact is not reproducible from the spec as written.
+#
+# v2.52.0 — 2026-08-16 — GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION.
+#   MINOR bump: EMITTED ARTEFACT VALUES CHANGE. This is NOT disclosure-only — contrast
+#   v2.51.0, which correctly declared "NO ARTEFACT CHANGES".
+#   S3-2's inner body loop terminated only on a question start or a taxonomy heading. A
+#   PYQSort position label is NEITHER (measured: is_taxonomy_heading fires on 0 of 60
+#   labels), so the label was absorbed as a stem continuation and the OUTER loop's
+#   cur_date_label branch became UNREACHABLE after the first question of each taxonomy
+#   block. Every question inherited that block's FIRST exam position.
+#   MEASURED (IIT_JAM_MATHEMATICS, 3 papers, declared A=90/B=30/C=60): bands read
+#   150/17/13; is_msq 18 against 30; 179 of 180 stems carried embedded label text.
+#   After the fix: 90/30/60 exact, is_msq 30, 0 pollution; held to 884/884 across the
+#   full 22-paper corpus.
+#   CONSEQUENCE: the v2.39 (GAP-2026-08-13-E) positional MSQ branch has NEVER fired as
+#   designed on any exam — it consumes question_type, which consumes original_q_num.
+#   WHY IT SURVIVED REVIEW: E-10 strip_variables already scrubbed date labels from
+#   TEMPLATES, hiding the leak in the one artefact a reviewer inspects by eye, while
+#   stem/stem_raw/original_q_num/question_type stayed corrupt. Same shape as
+#   GAP-2026-08-15-BAREQ: producer and consumer shared one blind spot.
+#   FIX: terminate the body loop at a position label, ABOVE the heading test, breaking
+#   WITHOUT advancing i so the outer loop re-examines and owns the assignment —
+#   cur_date_label keeps exactly ONE writer.
+#   DEFECT-CLASS SWEEP: the raw literal r'\[\d{1,2}-' stood at THREE sites in this file
+#   (E-1 is_shift_tag, the S3-2 outer loop, and the new terminator). bc.DATE_TAG_RE has
+#   been the single definition since GAP-2026-07-26-001 and its own comment claims to
+#   have replaced the S3-2 copy — IT HAD NOT. All three now delegate to the new
+#   bc.is_position_label(); zero raw literals remain in this file.
+#   NEW QV-16 (FAIL, non-halting): one distinct original_q_num per question per paper.
+#   Vacuous PASS on a pre-v1.18 corpus. Verified against the real 884-question
+#   IIT_JAM_MATHEMATICS artefact — PASS clean, FAIL on a defect-injected copy.
+#   ALSO: bootstrap.py's fresh-corpus SESSION CLASS said FINAL, contradicting §S8-0b
+#   L6782; the first live run therefore did a FULL read on session 1. Corrected to
+#   NON-FINAL with re-decision at A1b. FINAL is retained for an UNREADABLE progress
+#   file, which is a corrupt state rather than a fresh one.
+#   RE-RUN REQUIRED for any exam sorted by PYQSort v1.18+ whose marking_scheme declares
+#   more than one question_type; Step 6 must re-run after Step 5.
+# v2.51.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
+#   MINOR bump: a function signature changes, a section is added, a persisted key is
+#   renamed, and the batch contract's READING changes. Reference incident:
+#   IIT_JAM_MATHEMATICS, two consecutive sessions, 54 tool calls, ZERO of 22 papers
+#   processed. Three independent stalls, each sufficient alone:
+#     G-1/G-4 THE DOMINANT DEFECT IS NOT IN THE TRANSPORT CODE v2.50.0 REWROTE. The
+#       framework budgets payload characters (INLINE_BUDGET_CHARS) and paper pacing
+#       (BATCH_SIZE) and has never budgeted SPECIFICATION-READ COST or TOOL-CALL COUNT.
+#       Measured: this file 8,850 lines / 504,240 B / ~126,060 tok, plus
+#       Framework_DeliveryFooter — 556,834 B, ~139,208 tok, >=36 view calls, MANDATORY
+#       before any work under SKILL Rule 2. 40 of session 1's 50 tool calls went to
+#       reading the specification and the step stalled before its first productive
+#       operation. New §S8-0b routes the READ SET by SESSION CLASS (FINAL vs NON-FINAL,
+#       NOT fresh vs resume — routing on fresh/resume would leave session 1 of every
+#       exam exactly as broken), with mandatory one-way escalation before synthesis.
+#     G-2 THE PROBE WAS NEVER CHARGED. plan_transport computed the partition against
+#       the full budget as though the probe were free: probe 107,968 + admitted paper
+#       127,008 = 234,976 real chars against a 200,000 ceiling, printed as feasible.
+#       plan_transport gains probe_consumed and passes it to bc.partition_by_transport,
+#       which gains consumed=. Framework_PYQCore EC-P40.
+#     G-3 THE PROBE PAPER WAS THE SMALLEST, SO ITS PAYLOAD WAS DISCARDED. Step 5's
+#       admitted set is recency-first, so the smallest paper is almost never fetched.
+#       New deviation P4f: probe admitted[0] — the paper the plan will fetch anyway.
+#   Also: EC-P43 DIRECT EGRESS LANE tried FIRST (PHASE A/A0) — when the container can
+#   reach Drive and the folder is link-shared, python fetches the bytes itself, EC-P36's
+#   double charge disappears and the whole corpus fits one session; proven per exam on a
+#   real paper, never assumed, never fatal. A1 now routes the listing through
+#   corpus_io.write_drive_listing with an independently declared observed_count and
+#   HARD STOPS on a short listing (EC-P41) — a partial listing is worse than an empty
+#   one, which EC-P39 already caught. S8-1 restates BATCH_SIZE as a CEILING, not a
+#   floor, reconciling it with EC-P37 which had already settled the question. S8-3's
+#   template becomes variable-length. _meta._transport.papers_admitted is RENAMED
+#   papers_planned (it is written before the acquisition loop, so it is a forecast, not
+#   a fact) and gains session_log[] recording what each session actually consumed;
+#   readers MUST tolerate the old key for one release per EC-P38.
+#   NO ARTEFACT CHANGES. Every fix is additive, disclosure-only, or changes which paper
+#   is fetched first. No exam re-runs any step — except an exam whose listing was
+#   silently short, which now hard stops, which is the desired outcome.
+````
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_MockTestAnalyse.md.
@@ -810,6 +1976,799 @@ Current-version entry remains in Framework_MockTestAnalyse.md.
 ```
 
 ## Framework_MockTestCreate.md
+
+Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
+Current-version entry remains in Framework_MockTestCreate.md.
+
+```
+# v5.92 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   audit_canonical v2.37, paper_pipeline v5.40, figure_types v1.3, Framework_PYQExplain
+#   v2.27, MockTestAnalyse v2.60.0, Blueprint v1.64.0, ScopedBlueprint v1.14.0, MockReview
+#   v2.0.1, MockTestExplain v1.53.0, MockDeliver v1.26.0, DeliveryFooter v1.40.0; STEP_
+#   CONTRACTS override floors raised under owner decision D8). Raised by CSIR_NET_
+#   CHEMICALSCIENCES TestCreate SUBJ Organic Chemistry Test 01 (2026-11-03): 40/40 correct,
+#   far below the real paper — its "Hard" items were one-step textbook reactions while the
+#   real Hard items (Dec-2025 Q95/Q114, Jul-2026 Q88/Q116) carry polycyclic stereodefined
+#   substrates and options differing only in stereo / regiochemistry. Root cause: no step
+#   defined what a band MEANS for the subject; the labels never bound to the content, and
+#   every control failed open (dormant judge echoed the plan; CCP floor dormant and
+#   lower-only; footer green). OWNER DECISIONS (2026-11-04/05), binding: D1 the ground
+#   truth for a past question's band is its COMPLEXITY RANKING within its own exam; D2 a
+#   subject test is written to the measured tier mix; D3 produce Hard exactly as the
+#   blueprint writes it, with D3-R5 (a): after the 6 tries an item ships at its measured
+#   band, the schedule is amended and the footer counts the miss; D4 no certification
+#   gating and no manual review; F1 the graphics-team Row docx is the figure source; F2 no
+#   official answer key, ever; P1 PYQPrepare untouched; D6/D7 one release, every exam;
+#   D8 override floors raised; D9 this release = drawn chemistry + estate-wide guards (the
+#   non-chemistry figure families are a follow-up GAP); D10 (B) LEVEL_MIN_POOL 12 with a
+#   small-pool footer line; D11 (A) judge-vs-level disagreement on a Hard slot spends one
+#   extra RETRY inside the same budget; D12 (A) staged build, one bundle.
+#   WHAT CHANGES HERE. S3: the LEVEL MODEL (bc.level_model_for_scope — ONE builder shared
+#   with Step 5 and the auditor) and the read-time method lexicon are built beside
+#   CCP_MODEL; the profile coverage line prints; DIFFICULTY_STATE (judge-dormant items,
+#   Hard misses, level items) is persisted with batch_state and 'difficulty_schedule_
+#   original' is kept beside the amended plan (DL-42/51). S3-2e: readiness measures the
+#   content floor instead of trusting field presence (DL-46). CHECK 3c: authoring under
+#   rubric r2 (inferential MOVES by bc.INFERENTIAL_STEP_RULE, quoted verbatim; obs stamped
+#   rubric_rule 'r2' — guard G1); for an item carrying drawn chemistry the band is the
+#   LEVEL band (bc.level_record: composite at full precision, qtype-clamped) and a
+#   below / above measurement is exactly a G-DIFF RETRY toward the slot band with an
+#   escalating brief (DL-41, D3-R5) — ONE budget, bc.MAX_DIFF_TRIES_DEFAULT; the blind
+#   judge is advisory for a level item (level_note; D11 (A) one extra retry on a Hard
+#   slot) and DORMANT on a figural-chemistry snippet fallback (DL-37: decision stays
+#   agree, level_note 'unverified', footer AMBER); g_diff_gate runs only when a plan
+#   exists (DL-39); R2 gains complexity-below-p10 / closeness-below-target reject reasons
+#   (DL-47); R4' simplifies layout only and re-measures the vector (DL-43/58); a two-row
+#   option layout is tried before R4' on width overflow (DL-48); R5 counts a Hard miss
+#   (D3-R5 (a)). S13-2G phase 3 compares the reviewer's band with the slot band (DL-52;
+#   the packet still carries no band). S13-6: AMBER lines from bc.difficulty_unverified_
+#   lines (`DIFFICULTY UNVERIFIED — <reason>`, `Hard target missed: k item(s)`, coverage,
+#   small pool) — informational; the two-file contract is unchanged (STEP_CONTRACTS).
+#   figural_reducible defaults False for chem_structure / chem_scheme families (DL-50);
+#   S3-12e places top-band slots by the blueprint's measured subtopic share (bc.band_
+#   subtopic_plan, DL-33) and prints the ask-format floors (DL-34); S7-NEW-B withdraws a
+#   figural quota below the A-AXIS1 band low (bc.figural_quota_guard, DL-29 / G6).
+#   No new run-stop of any class, no CONFIRM, no deliverable, end state or user action (guards S1-S13).
+# v5.91 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (paired with blueprint_core v1.31,
+#   audit_canonical v2.36, final_assembly v1.13, Framework_MockReview v2.0.0 (internal brief),
+#   Framework_MockDeliver v1.25.0, Framework_DeliveryFooter v1.39.0, NEW STEP_CONTRACTS.json +
+#   LAW_REGISTRY STEP-CONTRACT-LAW). Release 2026.11.03 broke the Step 7 user contract for
+#   every exam project (incident 2026-11-04, SSC GD Tier 1, TestCreate P2, 50 reasoning MCQs):
+#   (1) Final Assembly ENDED at AWAITING_REVIEW and handed the owner a review packet to run in
+#   a new chat, a verdict file to carry back and a --resume to type; (2) A-TEMPLATE fell back
+#   to a cap of 2 repeats per template on every project without measured caps — infeasible
+#   for any real paper (a reasoning family has 8 ask types) — so 35 of 50 items were stamped
+#   UNRESOLVED and the paper NOT CERTIFIED. OWNER DECISIONS 2026-11-04, binding:
+#   D0 — OD-5 RESTATED: the independent review is mandatory and runs INSIDE the run; it is
+#     never a user step, never ends Step 7, never creates a user-visible file. OD-9 RESTATED:
+#     NOT CERTIFIED only from an ACTIVE, MEASURED gate. D1 — no sub-agent in the runtime (or a
+#     part fails twice): same-session cold review, disclosed; NOT_RUN only if even that fails
+#     (A-REVIEW WARN). D2 — the MockReview / TestReview triggers are retired; Framework_
+#     MockReview is the internal reviewer brief, routed with this step. D3 — no third file:
+#     the repo auditor and an amended blueprint are never delivered (informational footer
+#     lines). D4 — reviewer isolation by instruction accepted. D5 — Deliver re-certifies a
+#     paper whose only UNRESOLVED findings come from dormant controls. D6 — STEP-CONTRACT-LAW.
+#   CHANGES: S13-2F no longer ends the step; S13-2G is an IN-SESSION review (phase 1 packet
+#   under /home/claude only; phase 2 one fresh sub-agent per <= 30-item part, a passage group
+#   never split; phase 3 automatic bind / repair / round 2) and continues to S13-3 .. S13-8 in
+#   the same response; S4-12 continues REVIEW_RUNNING / REVIEW_REPAIR / legacy AWAITING_REVIEW
+#   internally on "continue" (a legacy verdict file is found by CONTENT); S13-2F stamps
+#   ladder.terminal_sweep (the only R4 exemption A-TEMPLATE honours); S13-6 has NO conditional
+#   additions; S13-7 clears this run's leftovers from outputs (fa.outputs_to_clear) before the
+#   checklist; S13-8 judges fa.delivery_scope. Auditor: A-TEMPLATE counts per (subtopic,
+#   fingerprint) against that subtopic's MEASURED cap, never a default (unmeasured -> not
+#   checked; nothing measured -> DORMANT; infeasible -> reported, never FAIL); a readiness
+#   record showing G-TEMPLATE not PASS makes the FINGERPRINT caps DORMANT (every other gate
+#   is unchanged from 2026.11.03); S13-2F clears 2026.11.03 default-cap stamps; per-batch
+#   audits report the same level as the pre-commit sweep. Contract (STEP_CONTRACTS.json):
+#   the final batch's response ends with EXACTLY [ExamCode]_[slug]_Create.docx +
+#   [ExamCode]_registry.json; the only user action is "continue" between batches.
+# v5.90 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with blueprint_core
+#   v1.30 Cluster QQ, corpus_io v1.18, figural_core v5.90, figure_types v1.2, analyse_engine
+#   v1.2, audit_canonical v2.35, final_assembly v1.12, Framework_MockTestAnalyse v2.59,
+#   Framework_PYQExplain v2.26, Framework_Blueprint v1.63.0, Framework_ScopedBlueprint v1.13.0,
+#   Framework_MockDeliver v1.24.0, Framework_DeliveryFooter v1.38.0, NEW Framework_MockReview
+#   v1.0.0). Estate-wide, exam-agnostic; the CSIR-NET Organic Test 01 paper (40 items, all keys
+#   right, quality far below the real paper) is the incident, not the scope. OWNER DECISIONS
+#   2026-11-03, binding: OD-1 NEVER A STOP — a missing quality input is PRINTED (S3-2e
+#   readiness block) and RECORDED, nothing more; OD-2 entity reuse hard for molecules /
+#   values, text calibrated (R3.8); OD-3 naming the tested reaction / drawn substrate banned
+#   unless the cell's PYQ rate >= 10 %; OD-4 the EXISTING difficulty tolerance and R5
+#   amend-in-place mechanism are kept — only WHO MEASURES changes (judge + content floor,
+#   never the author's counts); OD-5 INDEPENDENT REVIEW mandatory on every paper, two-session
+#   protocol (S13-2G AWAITING_REVIEW -> MockReview in a fresh chat -> --resume repairs);
+#   OD-6 shape FLOORS AND CAPS; OD-7 longest-key 1.5x hard, suspended only by MEASURED PYQ
+#   rate; OD-8 layout / drawing style out of scope; OD-9 a finding that survives R5 ->
+#   quality_status UNRESOLVED, paper NOT CERTIFIED, Deliver refuses without
+#   --accept-uncertified (never a stop); OD-10 new gates HARD only for papers whose
+#   producer_release >= 2026.11.03 (older papers AMBER), bp_refresh is additive; OD-11
+#   exemplar bank is a DELIVERED RUN FILE, absent -> judge DORMANT; OD-12 the 60 % Hard
+#   target stays; OD-13 G-MEDIAREUSE at commit + validator law; OD-14 Step-9 difficulty_gate
+#   stays MOCK-only (the Create-side judge runs on scoped papers); Q-A G-STEREODECL yes.
+#   WHAT CHANGES: S2-2 R3/R4/R5 now NAME their engine functions (they were prose with no code
+#   behind them); S3-2e QUALITY READINESS; S3-12d SHAPE PLAN; S7 authoring records
+#   (stereo_declared per structure, distractor_mechanisms + pathway MANDATORY, entities[],
+#   named_entities, stem_agents, class_word, stated_formula, scheme_annotations, trailing /
+#   asked placeholders, shape, fingerprint, pattern_key) and CHECK 3c's judge now reads the
+#   EXEMPLAR BANK through bc.build_judge_input (author fields stripped); S10-8 render-time
+#   G-OPTDISTINCT / G-STEREODECL; S4-11 gains eleven must-PASS quality items; §Q8b-LADDER
+#   gains sub-rungs R2s / R2o; S13-2F stamps quality_status and writes certificate schema 2;
+#   S13-2G REVIEW HANDOFF + --resume; S13-4 producer_release; footer DEGRADED / uncertified.
+#   RELEASE REVIEW (2026-11-03, cold read — every item verified in code): (1) S13-2G phases
+#   1 and 3 RELOAD batch_state from disk (a --resume session never ran S3-16); phase 3
+#   persists review_defects / uncertified_items; round 2 always carries the WHOLE paper
+#   and is the last round (< 2). (2) S7-QUALITY `shape` is the BARE ask type (the plan /
+#   target key); `scheme_grammar` is its own field; stem_text / option_texts /
+#   figure_files are recorded so the review packet is self-contained. (3) S3-12d reads a
+#   FROZEN plan on resume and records G-SHAPEMIX STALE on the readiness record when this
+#   paper has no targets (bc.readiness_mark); S3-16 persists quality_readiness + shape_plan
+#   (no bare batch_state write before the initialiser). (4) S13-2F's _qq_gates includes the
+#   paper-level item gates (A-SHAPEMIX / A-TEMPLATE / A-QUALITYSTATUS); the auditor itself
+#   is precommit-tolerant of unstamped items and reconciles UNRESOLVED-only FAILs to WARN
+#   (OD-9), so a NOT CERTIFIED paper never dead-ends at sweep 4 or at S13-4c. (5) S13-4c
+#   passes --key and --fig-manifest (the certified sweep's own inputs) and commit_registry
+#   receives quality_readiness. (6) S2-2 R1 / R2 name their engines (MS-26 i).
+# v5.89 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with figural_core
+#   v5.89, corpus_io v1.17, blueprint_core v1.29, figure_types v1.1, analyse_engine v1.1,
+#   audit_canonical v2.34, final_assembly v1.11, Framework_ScopedBlueprint v1.12.0,
+#   Framework_Blueprint v1.62.0, Framework_MockTestAnalyse v2.58.0, Framework_PYQExplain v2.25,
+#   Framework_MockTestExplain v1.52.0, Framework_DeliveryFooter v1.37.0). Estate-wide and
+#   exam-agnostic; the CSIR Organic paper is the incident, not the scope. Owner decisions
+#   2026-11-02: one release; O1 monochrome structures; O2 MARK-IFF-NAMED; O3 '+30% harder'
+#   kept as the default, applied to the SCOPE mix positionally; O4 never drop / ladder; O5
+#   NOT adopted — the label-then-picture SHAPE is kept and bound by keep_with_next instead;
+#   O6 PYQ structure transcription; O7 audit with the repo copy when the project has none;
+#   plus difficulty anchored for EVERY exam (independent blind rating against the exam's
+#   own past questions), style measured for EVERY figure type, content measure as a floor.
+#   (1) S3-2S: drawing style from FIGURE_STYLE_PROFILE (Step 5) -> print-true native
+#   structure tokens TOK per role; S10-7C C1/C8/C9 rewritten (monochrome default, natural
+#   size, one bond length, abbreviations only as the exam abbreviates, highlight bands
+#   retired). (2) Q7b.8 amended (chemistry exempt) + Q7b.8' MARK-IFF-NAMED (G-FIGMARK).
+#   (3) S10-8 KEEP INVARIANT: every option label kept with its picture (gap report: 25 of 108
+#   labels stranded, in 25 of 27 questions; re-measured 19 of 108 before, 0 after, LibreOffice PDF). (4) §Q8b-LADDER: every
+#   item defect is repaired in place (R1-R5); 49 quality run-stops converted ([HS:LADDER]);
+#   every remaining "HARD STOP" carries [HS:INFRA] / [HS:INPUT] / [HS:PROSE]; G-ALTGROUP /
+#   G-GROUPMANDATE / G-MINCOUNT repair instead of exit; the text fallback (R4) is used only
+#   when the paper keeps its Axis-1 budget (else R4'). (5) S13-2F pre-commit item sweep +
+#   certificate; S13-4c confirms (A-CERT); AMBER advisories no longer stop a run. (6) S3-1
+#   P3: no project auditor -> the verified repo copy audits and is delivered. (7) S3-2D:
+#   the difficulty schedule is recomputed from its provenance and the in-run blueprint is
+#   amended + delivered (P2). (8) CHECK 3c: independent blind rating + content floor decide
+#   the band; A-CONTENTLEVEL. (9) ask-type apportionment (F8). Full text: GAP document.
+# v5.88 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired with
+#   figure_types v1.0, corpus_io v1.16, paper_pipeline v5.40, final_assembly v1.10,
+#   audit_canonical v2.33, blueprint_core v1.28, Framework_ScopedBlueprint v1.11.0,
+#   Framework_Blueprint v1.61.0). Estate-wide; the reference exam (CSIR_NET_CHEMICALSCIENCES)
+#   is the incident, not the scope. Measured: a delivered scoped paper with 36 figural
+#   questions shipped exit_0/SHIP with every problem figure a lone molecule where the real
+#   paper draws a reaction SCHEME (20 of 24 figural organic questions on 07-Jun-2023), and
+#   with NO figure record in the registry; across the registry 385 questions were labelled
+#   'reaction_scheme' while 287 of them held a STRUCTURE semantic object and 44 'REACTION'
+#   objects held no reaction SMILES at all. Three root causes, three laws (LAW_REGISTRY.json):
+#   F1 FIGURE-TYPE-COVERAGE — a vocabulary bound to a capability. figure_types.FIGURE_TYPES
+#      binds every object_type to a render class, a semantic kind and a renderer. S7-NEW-B
+#      dispatches a figure BY ITS REGISTRY ROW; "never record a type whose row was not the
+#      one that rendered the figure". REACTION figures render through the NEW compositor
+#      corpus_io.render_scheme (substrate → arrow carrying reagents/conditions → product or
+#      placeholder; G1–G10 grammar) — the kind that S7-NEW-B2 mandated to a single-molecule
+#      renderer that rejected it. NEW S3-17c FIGURE-TYPE SESSION PRE-FLIGHT (HS-17): this
+#      paper's dominant types must be renderable BY THIS SESSION before Q.1 (rdkit absent →
+#      one operator action, the pip line — never a traceback at Q.14). S10-7 Q5 states that
+#      reagent/condition text over an arrow is INTRINSIC figure content.
+#   F2 FIGURE-RECORD-INTEGRITY — the record agrees with itself. object_type is recorded for
+#      EVERY rendered figure (S7-NEW-B; final_assembly refuses a commit without it); a
+#      REACTION canonical must contain '>>' (paper_pipeline v5.40); NEW gate G-FIGTYPE-KIND
+#      (S4-11) / A-FIGTYPE-KIND (auditor): label ↔ semantic kind ↔ FigureSpec class must name
+#      one registry row — a mismatch is a FAIL, a false record; S4-7 STEP B passes
+#      --fig-manifest so the gate is armed per batch, not only at S13-4c.
+#   F3 MANIFEST-COMMIT — the record is committed because it EXISTS. S13-4 no longer gates
+#      the rc/di/figural manifest on passage/di/figural_present (final_assembly v1.10 commits
+#      on existence and records any flag disagreement in registry.paper_flags); S3-2a
+#      HS-15a is SELF-CORRECTING (a false flag beside FIGURAL allocations is set True in
+#      session, printed, and S3-18 / S4-5 CHECK 5 then run); S13-4c REQUIRES armed
+#      A-FIGPROFILE and A-FIGTYPE-KIND lines on a figural paper (dormant = HARD STOP [HS:PROSE], the
+#      A-QINDEX precedent); S13-REGCHECK runs fa.annotate_legacy_figure_records (forward-
+#      only migration — legacy records are annotated, never rewritten, and the footer
+#      discloses them).
+# v5.87 — 2026-10-27 — GAP-2026-10-27-SCOPED-STIMULUS-SECTIONS (spec only; no engine change).
+#   S3-12b's SAFETY-LOCK validation passed section_names = the SELECTED blueprint's
+#   sections. The stimulus profile is exam-wide, so on a SCOPED paper (SUBJ/TOPIC/
+#   SUBTOPIC) of a multi-section exam every set type belonging to another section was
+#   reported "not a section of this exam" and Step 7 HARD STOPPED [HS:PROSE] before Q.1 — with a
+#   remedy (re-run PYQExtract --stimulus-profile) that could never clear it. Measured:
+#   SSC_CGL_TIER1 `TestCreate P1 --level subject --scope "English Comprehension"`
+#   stopped on gir.analogy / gir.classification / qa.statistics_data_interpretation.
+#   FIX: section_names is now the exam's section set, taken from the Step-5 subtopic
+#   manifest (MANIFEST_IDS[*].section, already loaded and required at S3-8) united with
+#   the blueprint's own sections. A renamed section is still caught. Set composition is
+#   unchanged: bc.compose_stimulus_groups already uses only the types of the section
+#   being placed. Mock papers: identical behaviour.
+# v5.86 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with audit_canonical
+#   v2.31, final_assembly v1.8, MockTestExplain v1.51.1). The registry is SHARED by every
+#   series (MOCK / SUBJ / TOPIC / SUBTOPIC) and every paper size; several places assumed every
+#   paper was the size and series of the one being built. Measured: the first 40-Q scoped
+#   paper (CSIR_NET_MATHEMATICAL_SCIENCES SUBJ:UNIT 1:01) built after 20 explained 120-Q mocks
+#   HARD STOPPED [HS:PROSE] at S13-2 on A-DGATE — MOCK:M13's legal DISCLOSED verdict (bands = 120) was
+#   checked against this paper's 40. Fixed in the engines, for every exam and paper type:
+#   (1) A-DGATE checks each difficulty_gate record against ITS OWN paper's size;
+#   (2) A-DPROFILE certifies the exam-level difficulty profile on its own terms beside a
+#   SCOPED blueprint (it failed every scoped paper of an exam holding a profile, batch 1);
+#   (3) A-DUP compares a not-yet-committed paper with ALL registry stems (it hid the
+#   previous paper's last stems on every batch run and at S13-2); (4) rc/di/figural
+#   manifests are written (S13-4) and read (auditor, Step 9) by paper_id, never the bare
+#   ordinal; (5) a RESUMED scoped series (ordinal 1 = paper :11) no longer erases paper :01
+#   from papers_completed / question_index / session_log at S13-4, nor is it flagged as a
+#   duplicate at S13-REGCHECK; (6) a --profile path to an absent (optional) profile no
+#   longer crashes the auditor; (7) the FINAL batch's STEP B (whole paper, no --through-q)
+#   no longer FAILs A-QINDEX before S13-4 has written the index (dormant until the paper is
+#   committed; the S13-4c tripwire now refuses a dormant A-QINDEX). Spec changes here: S3-1 the per-exam auditor is refreshed
+#   from the verified clone whenever it DIFFERS from audit_canonical.py (the v5.85 marker
+#   test is satisfied by every pre-v5.86 copy, so a fix would never reach a project); S3-2
+#   records BP_SRC_PATH, the file the chosen blueprint came from, and S4-7 STEP B / S13-4c
+#   pass it as --blueprint (both hard-coded the MOCK blueprint, so a scoped paper was
+#   audited against the mock's size, sections and subtopics). Mock-only behaviour unchanged.
+# v5.85 — 2026-09-21 — GAP-2026-09-21-LINKED-PLACEMENT (paired with MockTestAnalyse v2.57.2,
+#   blueprint_core Cluster SG, audit_canonical v2.30, final_assembly v1.7). Question SETS
+#   (RC passage, cloze paragraph, DI table, puzzle) are now placed as ONE block of
+#   consecutive questions with ONE shared stimulus. Before this release every exam
+#   scattered them (measured: SSC_CGL_TIER2 Mock 13 printed one RC passage at nine
+#   positions and asked cloze blanks 5,3,...,1) because the only set path read a
+#   manifest field Step 5 never writes. S3-12b: a NEW paper reads
+#   [ExamCode]_stimulus_profile.json (written by PYQExtract --stimulus-profile or by final synthesis);
+#   SAFETY LOCK — no profile, HARD STOP [HS:PROSE] before Q.1; bc.compose_stimulus_groups splits the
+#   blueprint's EXISTING allocation into sets (never a re-allocation) and
+#   bc.place_with_stimulus_groups places each set where the past papers place it (D-B);
+#   the plan is frozen in batch_state['stimulus_groups'] with the profile SNAPSHOT it was
+#   built from (audits read the snapshot, which also carries the paper's own blueprint
+#   entry — right for scoped papers). A paper already in progress — plan persisted
+#   without that key, OR questions authored in its first unfinished batch — finishes on
+#   the legacy path, byte-for-byte. A set-placed paper whose batch_state lost its plan
+#   is rebuilt deterministically and PROVEN against every authored question (HARD STOP [HS:PROSE]
+#   on any disagreement).
+#   NEW S7-STIMGROUP (R-STIMGROUP + stim_register): one stimulus per set, reused
+#   verbatim across batch boundaries; cloze blanks asked in order. S7-NEW-A writes
+#   concept_map[q].stimulus_group_id on set-placed papers only. Audit invocations pass
+#   --stimulus-profile (the snapshot); a stale project auditor is replaced for the run by the verified
+#   audit_canonical.py; S13-4c refuses a set-placed paper whose A-BLOCK line is absent
+#   or dormant. New checklist item G-BLOCK.
+# v5.84 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestExplain v1.51.0, MockDeliver v1.22.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but it
+#   no longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to
+#   the trigger in chat, (2) Project Files — and S3-1 resolves it through
+#   pp.resolve_registry (the ONE implementation Steps 7/9/11 share). Attachment WINS when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE] only when
+#   BOTH lanes are empty; exact filename + registry.exam_code == [ExamCode] are validated
+#   on the way in; the run PINS the fingerprint it started from (batch_state.registry_pin,
+#   S3-16) and S3-1 refuses a DIFFERENT registry on any later turn (pp.registry_source_check
+#   — dedup state would be corrupted mid-run). S13-8 takes the handoff fingerprint from the
+#   resolved source, not from a hardcoded Files path. Nothing about the writers, dedup,
+#   gates, the closed delivery set or any artefact changes — only WHERE the file is read.
+#   Enforced by LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20 (no spec may open
+#   /mnt/project/[ExamCode]_registry.json directly).
+# v5.83 — 2026-09-03 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE C: NEW-content generation (S7-NEWGEN, donor hierarchy, L4 firewall, difficulty layers)
+# v5.82 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: the writing side of the style layer.
+#   S3-2b loads {EXAM}_style_profile.json + {EXAM}_pyq_index.json (every failure mode
+#   DORMANT with a recorded reason — never a stop, P-4); S3-12c draws a deterministic
+#   authoring BRIEF per slot (seed = sha256(exam·paper·corpus_hash·qnum), frozen in
+#   batch_state.style_briefs, EC-19); S7-STYLE authors to the brief and measures what was
+#   written, with the Q19 RETRY BUDGET (MAX_ATTEMPTS_PER_Q=2, MAX_RETRIES_PER_PAPER=
+#   ceil(0.20×total) — 72 generations worst case on a 60-Q paper, measured); S4-11 gains
+#   items 45-47 (G-STYLE, G-PYQ-DIST, G-ITEM), all three ADVISORY BY CONSTRUCTION — they
+#   record their verdict and can never fail a batch or withhold a paper. Every decision
+#   constant lives in blueprint_core; nothing here is a hand table.
+# v5.81 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT (figural_core; audit_canonical v2.25;
+#   this spec Q10.6-Q10.8). THREE DEFECTS, found by rendering every figure family through
+#   the deployed v5.80 engine: (1) figural_core.apply_data_window() (v5.55) forced the data
+#   window's y/x ratio IN DATA UNITS to equal the axes box aspect on EVERY axes — right for
+#   an aspect-locked axes (set_aspect('equal'), imshow structures), wrong for an ordinary
+#   'auto' chart: y spanning 70 units against x spanning 4 widened x ~17x and collapsed
+#   the bars into a sliver (content fill 4 %, coloured ink 0.06 %). Every unequal-range
+#   data chart since 2026-08-19 rendered that way; it went unnoticed because delivered
+#   figures were structures and dimensionless plots. FIX: an 'auto' axes takes the window
+#   AS GIVEN and scales x and y by their OWN factors; an aspect-locked axes is byte-identical
+#   to v5.55. (2) G-FIGFIT compared a clearance the fitter converged to within half a pixel
+#   against the floor with 1e-6 tolerance, so 0.04993 in (printed "0.050") failed a 0.050
+#   floor on 16 of the 38 delivered Mock02 figures. FIX: FIG_FIT_TOL_IN = half a rendered
+#   pixel, the fitter's own criterion. (3) audit_canonical printed verdict lines for 13
+#   figure gates and DROPPED the rest: G-FIGFIT / G-FIGCOLLIDE / G-FIGINK (BLOCKING-class)
+#   and the five v5.80 colour gates were evaluated and never reported, and the three
+#   SET-level gates (G-FIGOPTUNIF / OPTWINDOW / OPTELEM) had never been called at all —
+#   their "N conform" lines were vacuous. FIX (v2.25): eleven explicit verdict lines
+#   (roster 13 -> 24) and per-question set evaluation. Delivered Mock02 now shows its one
+#   real G-FIGINK regression (Q7) that Step 8 had never printed. Zero exam values; no PYQ,
+#   Explain, Notes, Deliver, registry, route or trigger touched. figural_core self-test
+#   163 -> 171; audit_canonical 312 -> 317; six fitter and five auditor mutants killed.
+#   FINAL REVIEW (line-by-line): an 'auto' axis keeps its inversion (depth profiles) and a
+#   degenerate window is padded (FA6); a set gate that raises reports under ITS OWN id
+#   (G-FIGOPTUNIF, not a mis-sliced name) and option specs without a question number are
+#   never pooled into one set (fixtures 56d/56e).
+# v5.80 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (estate-wide; exam-agnostic;
+#   RENDER-TIME ONLY — Step 7 figures; no PYQ flow, no Explain flow, no Notes flow, no
+#   registry schema, no route and no trigger is touched; standing issues are NOT mixed in).
+#   PROBLEM (measured 2026-08-29 against a 51-figure externally-produced paper and the
+#   delivered IIT JAM CHEMISTRY Mock02): (1) corpus_io.structure_draw_fn drew atoms in
+#   rdkit's DEFAULT palette — unpinned across rdkit versions and failing WCAG 3.0:1 on
+#   Cl (2.2), S (1.7), F (2.0), P (2.5) — and ignored the `palette` argument Q7b.8/C6
+#   mandate, so every hydrocarbon structure (9 of 38 figures) rendered 0.0000% coloured
+#   and tripped G-FIGACCENT estate-wide while heteroatom structures passed by accident;
+#   (2) the three low-contrast Okabe-Ito hues (orange 2.25, sky 2.31, yellow 1.32) had no
+#   rule keeping them out of TEXT and thin strokes, and the four line hues (3.06-3.87)
+#   are below the 4.5:1 WCAG 1.4.3 floor that applies to any coloured LABEL;
+#   (3) heteroatom colour in an option set can single out the one option that carries
+#   the heteroatom — a Q7b.6 colour/correctness correlation nothing gated;
+#   (4) a question that interrogates a colour (complex, indicator, flame, precipitate)
+#   could be handed a figure showing that colour; (5) nothing capped chromatic series,
+#   although every published categorical palette (Okabe-Ito, Petroff 6/8/10, Tol)
+#   falls to or below the CVD-separability floor from its 5th hue (Petroff 2021,
+#   arXiv:2107.02270, reproduced in CAM02-UCS + Machado simulation 2026-08-29).
+#   FIX (figural_core, corpus_io v1.14, this spec Q7b.9-Q7b.14 / S10-7C C7-C9 / S10-6A):
+#   the eight Okabe-Ito hues stay the ONLY hues; each now has a ROLE and the role is
+#   gated — TEXT tier (same hues darkened to >= 4.5:1, via fc.text_ink), LINE/MARK
+#   (>= 3.0:1), FILL-only (dark edge always; touching fills differ by hatch or luma,
+#   via fc.fill_style), chromatic SERIES CAP 4, a pinned CVD-safe ATOM_PALETTE, an
+#   opaque accent HIGHLIGHT for the interrogated site of a structure, set-wide
+#   ELEMENT-COLOUR UNIFORMITY decided automatically by render_option_set(), and a
+#   COLOUR-AS-CONTENT guard (fc.colour_is_content -> monochrome render). Five new
+#   gates, AMBER/VOID_ITEM, all in NEVER_BLOCKING_ON_COLOUR, all SILENT on a sidecar
+#   without colour_profile (EC-V18 posture). The `exam_config.figure_palette`
+#   reservation of Q7b.1 is CLOSED: one palette, estate-wide, zero per-exam migration.
+#   ZERO-BREAK PROOF: OKABE_ITO, series_defaults(), every threshold and every pre-v5.80
+#   gate are byte-identical (figural_core fixture C0); every figure that exists today
+#   audits exactly as before; figural_core self-test 124 -> 163, corpus_io 357 -> 362,
+#   thirteen figural_core and five corpus_io mutants each killed by a fixture.
+#   FORWARD-ONLY: papers rendered from v5.80 onward. Delivered papers are never
+#   re-rendered; Mock 1..N of one exam may therefore differ in atom colour until a
+#   figure-only re-render is requested (S10-7 Q13).
+# v5.79 — 2026-08-28 — GAP-2026-08-28-MULTIPART-STEM-LAYOUT (estate-wide; exam-agnostic;
+#   a formatting-only change by operator ruling — no other standing issue is touched).
+#   PROBLEM: a stem carrying an enumerated sub-part series (reagent/procedure steps,
+#   test lists, statement sets, sentences-to-arrange, assertion–reason pairs) had no
+#   layout contract — the series shipped inline in one run-on paragraph, unreadable on
+#   one-question-per-screen portals — and sub-part LABELS were unconstrained: a
+#   digit-dot sub-part in one spacing EVADES the exam's strict OPTION_LABEL_RE while
+#   the exact-spacing form COLLIDES with it (G-NAT-NOOPT / G-OPTLABEL / R4 territory),
+#   and S12-NEW-2 flags the near-miss as a malformed option. The safe label set is
+#   EXAM-RELATIVE (option schemes span numeric/alpha/roman/custom across the estate)
+#   and SPACING-EXACT — exactly what session judgment gets wrong and a spec cannot.
+#   FIX, four parts: (1) NEW §10 S10-2b — MULTI-PART STEM LAYOUT CONTRACT: one BOLD
+#   continuation paragraph per sub-part; LABEL LAW (a) never a Q-number shape,
+#   (b) never THIS exam's own option-label scheme tested SPACING-INSENSITIVELY,
+#   (c) bare digit-dot/digit-paren banned under EVERY exam, (d) safe-ladder choice;
+#   MSQ/NAT instruction stays INSIDE the Q.N line (R14 anchors unchanged); canonical
+#   NAT order Q.N(context+instruction) → sub-parts → closing ask; MATCH excluded
+#   (lists stay REAL tables); linked-block sub-parts follow the non-numbered ask.
+#   (2) NEW S10-3 helpers add_stem_multipart + _subpart_label_violation — the LABEL
+#   LAW raises AT AUTHORING TIME, so a colliding paper cannot be BUILT, independent
+#   of every downstream gate. (3) S10-1 gains the MULTI-PART STEMS format rule.
+#   (4) S2-2 gains R-SUBPART; S4-11 gains its 44th item G-STEM-SUBPART (Layer-1-only,
+#   joining the no-auditor-twin items); normative checklist counts move 43→44.
+#   Existing gates G-QNUM-FIRST, G-OPTLABEL, G-NAT-NOOPT, R4, K-INT are UNCHANGED and
+#   act as independent backstops. Downstream Steps 9/11 need NO change: RE-3 /
+#   verify_fidelity (Step 9) and the byte-identical tagger (Step 11) are pass-through
+#   by design; MockDeliver §2 already documents "Q.N [bold stem text] — may span
+#   multiple paragraphs". FORWARD-ONLY: papers authored from v5.79 onward; the PYQ
+#   flow / Row files are UNTOUCHED by operator scope ruling (PYQPrepare owns that
+#   contract, not this spec).
+# v5.78 — 2026-08-28 — GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM (paired with
+#   explain_engine v2.10's resolve_learnings_files, already on this trigger's route).
+#   v5.77's widened glob made a non-{EXAM}-prefixed learnings file VISIBLE (a real
+#   improvement over silent skipping) but its printed remedy — "rename it
+#   {EXAM}_EXPLAIN_LEARNINGS_v<N>.md" — contradicted the same-day Explain-side design
+#   (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ §6.2, operator decision D1): per the Explain specs' S24 contract
+#   the non-exam-prefixed *_EXPLAIN_LEARNINGS_v*.md IS the subject library, "one file
+#   copied unchanged into every exam project of that subject", and obeying the rename
+#   instruction re-plants the per-exam-copy workaround estate-wide (highest-version
+#   collision hazard included). Two same-day releases, two philosophies, one file
+#   family. FIX: Step 7 resolves by the SAME discovery contract Steps 9 / PYQ-1 use —
+#   the SUBJECT file is found by explain_engine.resolve_learnings_files (partition by
+#   the {EXAM}_ prefix), while the EXAM side keeps the exact v5.56 family glob
+#   {EXAM}_EXPLAIN_LEARNINGS_v*.md untouched — the helper's broader exam partition
+#   admits the {EXAM}_PYQ_EXPLAIN_LEARNINGS_v*.md family, whose basenames sort after
+#   the shared family, so consuming it here would silently swap families on any
+#   project that has run both pipelines (caught in pre-deploy review; never shipped).
+#   S3-1 stages the highest exam-family file AND the discovered subject file; S3-3
+#   extracts BANNED:/VERIFIED DEFECT: markers from BOTH (subject-library markers were
+#   previously unreachable by this step under ANY naming). >= 2 non-exam files →
+#   abstain + WARN naming the candidates (never a rename instruction). Legacy
+#   {EXAM}_ExplainLearnings.md fallback and its migration warning unchanged. Behaviour
+#   note: pre-v5.78 loaded exactly one file (highest exam version); v5.78 loads up to
+#   two (highest exam + subject) — marker extraction is additive, so an exam whose
+#   subject library carries no markers is byte-identical to pre-v5.78.
+# v5.77 — 2026-08-28 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED (paired with
+#   blueprint_core Cluster Q — place_subtopics / min_possible_adjacent /
+#   audit_placement — and audit_canonical v2.23 A-CLUSTER + --through-q).
+#   THE GAP: this spec told every session what the finished paper must look
+#   like (R19) and what data it starts from (blueprint allocations) but never
+#   specified, implemented, persisted or verified the transformation between
+#   them. S3-18's one prose sentence — "subtopics assigned to Q positions in
+#   blueprint order" — is guaranteed non-conforming with R19 whenever any
+#   subtopic has q_count >= 2 (the normal case); MOCK:M01 noticed and
+#   hand-repaired, MOCK:M02 did not and shipped Q.1–Q.3 same-concept_group
+#   with a clean "all PASS" gate report, because G-CLUSTER was one of five
+#   S4-11 items with no auditor equivalent and STEP B presented the auditor
+#   as a substitute for the checklist. FIX, five parts: (1) NEW S3-12b builds
+#   the placement plan via bc.place_subtopics (deterministic, seeded by
+#   paper_index, concept-group-first, provably floor-optimal; linked-stimulus
+#   blocks atomic and R19-exempt inside) and arms a G-CLUSTER PRE-FLIGHT
+#   before Q.1 exists; (2) the plan is PERSISTED — batch_state gains
+#   subtopic_by_qnum + placement_report, S4-12 resume treats a populated plan
+#   as FROZEN (never re-placed; pre-fix papers are audited via
+#   bc.audit_placement and reported, never rewritten); (3) S3-13's two
+#   `except NameError` silent fallbacks are DELETED — a missing plan is a
+#   producer fault and HARD STOP [HS:PROSE]s (an empty set silently put every MSQ/NAT
+#   question into the free answer pool and corrupted K-BAL paper-wide);
+#   (4) S3-18's blueprint-order sentence is DELETED and replaced by a pointer
+#   to the persisted plan; (5) S4-7 STEP B and B-7 change from either/or to
+#   BOTH auditor AND checklist (five items have no auditor equivalent), the
+#   S4-11 heading drops "used when audit.py absent", the checklist must be
+#   PRINTED from the item list (a report with fewer than 43 lines is itself a
+#   gate failure), and the auditor invocation is spelled out verbatim with
+#   --through-q so intermediate batches print RESULT: PASS instead of six
+#   structural FAILs (GAP-2026-08-28-AUDIT-PARTIAL-PAPER). ALSO:
+#   S3-3's EXPLAIN_LEARNINGS glob widened to *_EXPLAIN_LEARNINGS_v*.md with a
+#   loud WARN on a non-{EXAM} prefix (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB);
+#   S3-19 gains a structure-renderer pre-flight HARD STOP [HS:PROSE] and figural_core
+#   declares rdkit (GAP-2026-08-28-RDKIT-UNDECLARED); S13-4c passes
+#   --rules/--manifest so ship-time A-CLUSTER runs at full concept-group
+#   strength. S3-12b's middle branch is the pre-v5.77 UPGRADE PATH: authored
+#   questions frozen from the answer_key concept_map, the un-authored
+#   remainder placed fresh into each section's remaining contiguous range —
+#   adjacency on a resume is ALWAYS a §R13 disclosure and the only resume
+#   HARD STOP [HS:PROSE]s are artefact-consistency faults. Allocation is summed from the
+#   RAW blueprint entries (S3-2's alloc_ids collapses duplicates by
+#   overwrite). Difficulty-plan
+#   figural-blindness (GAP-2026-08-28-DIFFICULTY-FIGURAL-BLIND) is NOT in
+#   this release — it moves the Axis-1 grant pass and gets its own change.
+# v5.76 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestExplain v1.47.0, MockDeliver v1.18.0, DeliveryFooter v1.29,
+#   audit_canonical v2.22, blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 → 0). The four
+#   *Repair triggers are RETIRED: §S16 (repair mode, batches, pre-repair snapshot,
+#   _Create_Repaired.docx, repair_state.json) is DELETED and replaced by a retirement
+#   notice; routes.json, SKILL and validate_framework_md.PIPELINE drop the triggers;
+#   pp.dg_add_rework_snapshot / dg_stem_hash / dg_verify_repair are deleted from the
+#   engine; mock_sync_audit MS-2/MS-15 forbid the names from ever returning. The
+#   difficulty gate now DISCLOSES (DISCLOSED/0) instead of blocking (FAILED/0) and no
+#   step rewrites a question on its say-so. This step's registry contract is unchanged:
+#   it CREATES the gate record at birth and never writes status/counter. No question
+#   generation rule changed; artefacts of a fresh MockCreate are byte-identical.
+# v5.75 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0,
+#   blueprint_core Cluster DP, MockTestAnalyse v2.55). S3: the difficulty plan is built PER
+#   SECTION when difficulty_schedule[N].by_section is present (bc.assign_difficulty_bands_by_
+#   section; paper-wide plan kept for progressive/legacy schedules); the optional difficulty
+#   profile is loaded and validated (bc.dp_check_profile). S7 CHECK 3c reads calibration
+#   examples from bc.dp_calibration instead of section_rules' retired PYQ_DIFFICULTY_
+#   CALIBRATION. Quotas, gates and repair unchanged.
+# v5.74 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (paired with DeliveryFooter v1.28;
+#   spec only, no engine change). §S16 repair mode regenerated EVERY rework_q in ONE
+#   response ("PARTS: 1") while the Batch Stop Law (S4-4, B-1..B-8) forbids exactly that
+#   for a fresh paper — and for the same reason: generation quality decays with the
+#   number of questions authored in one context. The reference paper's gate flagged 32
+#   questions, i.e. more than a whole fresh batch three times over. FIX: NEW S16-1b — the
+#   REPAIR BATCH PLAN: rework_qs (ascending) are split into batches of at most
+#   MAX_BATCH_SIZE (S4-2's ceiling, 10), written to [ExamCode]_M[N]_repair_state.json;
+#   one batch per response, the S4-6 continue contract between batches, B-1..B-7 by
+#   reference, B-8's analogue = the final repair batch auto-advances to S16-3. The
+#   pre-repair snapshot is taken ONCE, at S16-1b, BEFORE the first regeneration, on the
+#   registry working copy. MID-BATCH DELIVERABLE: the cumulative paper as
+#   [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (F1 footer) — a name Step 9-R
+#   REFUSES, so a half-repaired paper can never be explained; the registry is WITHHELD
+#   mid-batch by design (a partial registry beside a partial paper would let 9-R run on
+#   it). FINAL batch: S16-3 exactly as v5.73 — _Create_Repaired.docx + registry.json
+#   (Replace), F2. A rework list of ≤ 10 is a single batch and behaves exactly as before.
+#   S16-1 P0 now loads the WORKING copy on a continue/resume turn while the fingerprint
+#   is always the PROJECT copy's. `TestCreateRepair P[N] resume` rebuilds from
+#   repair_state.json (S4-12 analogue).
+# v5.73 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
+#   v1.46.0, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
+#   final_assembly v5.60, explain_engine v2.9; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
+#   mock_sync_audit MS-14). P0, every exam. registry.json is written by FOUR mock-track
+#   steps and only THIS step's Final Assembly told the operator to put it back; the
+#   §S16 repair mode rewrote stems, re-sealed keys and added the pre-repair snapshot,
+#   then listed ONLY the `_Repaired` docx as its deliverable — so the snapshot §7A-R R3
+#   depends on never reached the project and the repair pair dead-looped. FIX: (1) §S16-3
+#   gains a delivery contract — the closed set is pp.handoff_set('TestCreateRepair', …)
+#   = repaired docx + registry.json (Replace in Project Files), verified by
+#   pp.verify_handoff_outputs, one present_files call, F2 footer, handoff lines from
+#   pp.handoff_footer_lines. (2) OPERATOR DECISION 2026-08-26: the Tier-A audit dossier is
+#   NOT a deliverable. S13-4b writes it to /home/claude; S13-4c reads it there; it joins
+#   the DO-NOT-DELIVER list; S13-6 / S13-7 / S13-8 / S13-9 / R-DELIVER / G-DELIVERY-SET /
+#   §17 DoD all state the closed set as EXACTLY {Create.docx, registry.json} — the
+#   count-drift the v5.54.1 entry patched is gone because the set no longer varies.
+#   final_assembly.predelivery_checklist treats `_audit_dossier.json` as an internal
+#   sidecar (check 5) so a staged dossier is a LEAK, never a deliverable. No
+#   allocation, quota, axis, gate-count or generation change.
+# v5.72 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
+#   v1.45.0, MockDeliver v1.15.0, DeliveryFooter v1.26, blueprint_core Cluster E2d,
+#   paper_pipeline v5.72). §S16 repair mode becomes DIRECTION-AWARE: the windowed gate
+#   record carries rework_directions ('harder' | 'easier') because the acceptance-window
+#   rule can flag a middle-band question as too HARD; S16-2 reads the direction per q and
+#   asserts the rewrite's own CHECK 3c obs lands inside the label's window before
+#   committing. S16-1 P1: a FAILED record without pp.dg_is_windowed (retired band-equality
+#   rule) is never repaired — the operator is sent to re-run TestExplain. Completion line
+#   reports harder/easier counts. No allocation, quota, axis, or gate-count change.
+# v5.71 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestExplain v1.44.0,
+#   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19). P0. A
+#   TestCreateRepair session, while adding rework_stem_hashes at §S16-3, ALSO set
+#   repair_rounds_used=1 on the still-FAILED difficulty_gate record — a pair no step
+#   can produce on purpose — and deadlocked TestExplainRepair, TestDeliver and this
+#   step's own §S16-1 P1 ("consumed") with no exit. The only guard was the clause
+#   "UNTOUCHED except adding rework_stem_hashes", one line of prose next to this
+#   step's own `'round': 1` session_log entry and "REPAIR COMPLETE" print. FIX: §S16-3
+#   writes the snapshot ONLY through pp.dg_add_rework_snapshot (write-once; cannot
+#   touch status or the counter; refuses off a FAILED record) using the ONE shared
+#   digest pp.dg_stem_hash (raw first paragraph, label included — the algorithm §7A-R
+#   R3 also calls, previously unspecified and described two contradictory ways); a
+#   named ⛔ prohibition on both fields replaces the exception clause; §S16-1 gains P0
+#   = pp.dg_preflight (heals a corrupt record with mandatory disclosure, refuses an
+#   unknown status) and P1 branches on the state PAIR with every next step from
+#   pp.dg_next_step. Engine twin: final_assembly v5.58 stamps the birth record via
+#   pp.dg_stamp_pending (mock → PENDING, scoped → DORMANT/scoped_paper — every scoped
+#   paper was previously born PENDING and undeliverable). Superseded v5.59 entry moved
+#   verbatim to SPEC_HISTORY.md (EC-P42).
+# v5.70 — 2026-08-24 — CHG-2026-08-24-FIG-NOLABEL + GAP-2026-08-24-MATH-RESIDUE-SHIPPED
+#   (paired with audit_canonical v2.17). Two operator-driven fixes, both measured on
+#   the delivered IIT_JAM_CHEMISTRY Mock 01 and both exam-agnostic (~200 exams).
+#   (1) NO "Problem Figure:" LABEL LINE. S10-8/S10-8A hardcoded the label as the
+#   problem_label DEFAULT and emitted it before every problem image — 18 label
+#   paragraphs in the reference paper. Default is now None and the emission is
+#   guarded, so a figural block reads Q.N stem -> problem image(s) directly. Safe by
+#   construction: no gate reads the label (audit_canonical carries the string only
+#   as inert self-test fixture filler; G-FIGURAL-COMPOSITE counts IMAGES, never
+#   label paragraphs), and the S12-NEW-13 cue regex keeps its 'problem figure'
+#   alternative so pre-v5.70 papers still identify. An explicit caller-passed
+#   label still renders (call-compatible, the render_figural_image `transparent`
+#   precedent).
+#   (2) FLAT SUB/SUPERSCRIPT NOTATION SHIPPED. Q.12/Q.46 stems+options carried
+#   0 OMML islands with literal-underscore orbital labels (plus one half-Unicode
+#   t2g-style form) while the SAME questions' Step-9 explanations carried 12
+#   proper OMML islands — the S10-4 funnel existed and NOTHING enforced it: MC3
+#   was WARN-and-deliver, the S4-11 checklist had no residue item, audit.py had
+#   no flat-subscript arm, and MATH_TRIGGER_RE missed the half-Unicode spelling.
+#   FIXES: MC3 SPLIT SEVERITY — detected ASCII-dialect residue in a stem/option is
+#   NEW GATE G-MATH-RESIDUE (S12-NEW-30), a per-batch FIXABLE FAIL that FORBIDS
+#   present_files (S12-0 Zero-Warning Policy); the t3 compile-failure fallback
+#   KEEPS the v5.47 forgiving-boundary AMBER. S4-11 gains its 43rd item; STEP D
+#   report, §13 sweep, §17 DoD and §18 glossary register the gate (80 -> 81).
+#   MATH_TRIGGER_RE and the residue detector gain the half-Unicode subscript
+#   alternative (a Unicode subscript digit followed by a LOWERCASE letter —
+#   t2g/C2v-style labels; H2O-style single trailing subscripts stay plain per
+#   rule 2, the case split that makes the pattern false-positive-free). Rule 3a
+#   gains explicit chemistry examples. Engine twin: audit_canonical v2.17 gate
+#   A-SUBFLAT (FAIL) + catch/clean self-test fixtures — the enforcement of record.
+# v5.69 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0, MockDeliver
+#   v1.13.0). New §S16 repair mode: TestCreateRepair/MockCreateRepair P[N] Q…
+#   rewrites ONLY the gate's rework_qs, harder, at the same slots — label,
+#   quota, axes untouched; stem-supplied-relation rule enforced in repair
+#   CHECK 3c; surgical S13-4 update; '_Repaired' deliverable; keys re-sealed.
+# v5.68 — 2026-08-24 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION (paired with
+#   final_assembly v5.57, audit_seam v1.2). The SECOND instance of the v5.67 class,
+#   found by the cross-step field-contract sweep: the S13-4 axis snapshots were
+#   persisted as reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] — the paper
+#   ORDINAL — on a registry shared across series, so a scoped paper of the same
+#   ordinal silently destroyed the mock's snapshot (and two scoped series destroyed
+#   each other). The field exists to be a HISTORICAL LEDGER (v5.49); on any exam
+#   mixing mocks and scoped papers it had silently reverted to the rolling snapshot
+#   v5.49 fixed. Now paper_id-keyed, ordinal key MOCK-only — the options_by_q shape.
+#   Machine-checked from now on by audit_seam v1.2's KEY-SHAPE gate.
+# v5.67 — 2026-08-24 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with
+#   final_assembly v5.56, audit_canonical v2.16, MockTestExplain v1.41.0). The ND6
+#   contract keyed options_by_q by the paper ORDINAL ("N"); on the SHARED registry a
+#   scoped paper with the same ordinal overwrote the mock's map (measured: Step 9 on
+#   Mock 1 hard-stopped after SUBJ:PHYS:01 was committed). options_by_q is now keyed
+#   by paper_id (authority) with the ordinal key retained for the MOCK series only.
+#   Spec text only — the writer is final_assembly.regcheck (S13-REGCHECK).
+
+# v5.65 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT companion (one dead fallback
+#   tier removed; NO behaviour change on any conforming exam). §2 R24's option-label
+#   chain read bp.get('option_label_format') — a blueprint key NO writer produces:
+#   Framework_Blueprint §14 writes option_label and documents it visibility-only
+#   (this step's authority is section_rules R10, with exam_config as override).
+#   The dead tier is the exact v1.38 class ("a silently dead fallback tier is worse
+#   than no tier — it looks like a supported override") and could never have been
+#   correct even if wired: option_label's value shape ("1/2/3/4") is a label LIST,
+#   not a '{i}.  {text}' TEMPLATE. Tier removed; the chain is now exam_config ->
+#   section_rules -> hardcoded default. section_rules always carries
+#   option_label_format (Step 5 CATEGORY C mandatory), so the removed tier was
+#   unreachable on every conforming exam — output byte-identical.
+# v5.64 — 2026-08-22 — GAP-1C-OMATH-SQRT-DELEGATION (Item 1c). The S10-4 OMML
+#   helpers sqrt and omath were re-localised copies of explain_engine's — output
+#   byte-identical, bodies cosmetically drifted (*p vs *parts; f-string wrapping) —
+#   entered as inherited_pre_existing debt in XSPEC_DIVERGENCE_BASELINE.json at
+#   2026.08.20.3. Paid down per the DELEGATION contract: both are now assignment
+#   aliases (sqrt = explain_engine.sqrt; omath = explain_engine.omath), so no spec
+#   FunctionDef exists to drift and the engine is the single authority.
+#   explain_engine.py added to the MockCreate/TestCreate routes (routes.json),
+#   matching the MockExplain/TestExplain/PYQExplain precedent. Both baseline
+#   entries DELETED in the same release — the baseline's stale rule requires it.
+#   Byte-identity proven over 9 cases incl. None, empty, pre-wrapped OMML and
+#   escaping. frac/sup/_r/_r_wrap/_esc/add_math are already fingerprint-identical
+#   to the engine and stay local. No artefact moves.
+# v5.63 — 2026-08-22 — GAP-1B-STEP7-READ-SET (Item 1b; the MockTestExplain S0-3
+#   precedent applied to Step 7). NEW S1-0 — SESSION CLASS AND READ SET: the axis is
+#   FINAL vs NON-FINAL (never fresh/resume). A NON-FINAL batch session skips exactly
+#   the Final-Assembly family (S13-1..S13-9, S13-4b/4c, S13-REGCHECK, S13-QINDEX) and
+#   the close-out pair (S17-1 DoD, S17-2 downstream handoff) — every reference to
+#   those sections from the per-batch path is a "commits at Final Assembly" pointer,
+#   verified, not per-batch execution. S13-9A (F1 footer after EVERY batch) and all
+#   S4/gate law stay in every read. FINAL = last planned batch OR plan unknown
+#   (fresh mock before S3-16) OR Final-Assembly re-run; unknown -> FINAL, escalation
+#   mandatory and one-way BEFORE S4-9 hands to Final Assembly. Ranges GENERATED into
+#   SPEC_SECTIONS.json (spec_sections.py v3); bootstrap.py --trigger MockCreate
+#   decides the class from batch_state.json (is_final / remaining<=1). MockCreate
+#   and TestCreate DELETED from SPEC_BUDGET_BASELINE (audit_specs_ext.py) — the
+#   route is now covered by design (has_read_set), not by exemption; the ratchet
+#   keeps MockBlueprint only. No artefact moves.
+# v5.62 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES (Wave: grandfathered-NameError
+#   payoff, Release A). The ten GRANDFATHERED_MUST_FIX names in generate_subtopic /
+#   controlled_reuse / pick_presentation / scenario_iterator — every one a guaranteed
+#   NameError under execution — are now bound, split by the EXECUTION-BOUNDARY LAW:
+#   REAL python where drift between sessions would corrupt persisted state
+#   (canonical: deterministic per-'|'-segment key normaliser feeding the RULE B/C
+#   ledgers in batch_state.json; flag: byte-identical to ScopedBlueprint's, XSPEC
+#   silent by identity; weighted_patterns: sorts on the fields Step 5 ACTUALLY emits
+#   — frequency/raw_count — and drops deprecated + 'absent'-placeholder entries), and
+#   pass-bodied CLASS: J stubs for the six judgment operations (build_question,
+#   cross_mock_duplicate, passes_quality_gates, invent_distinct_scenario,
+#   widen_scenario_space, derive_scenario_from_pattern) in a NEW column-0 fence —
+#   C6-PRE requires any fence carrying a model-agency marker to parse RAW, which an
+#   indented body never does. The two ledgers are bound at SESSION START in S3-1
+#   with an IDEMPOTENT init (globals().get) so a re-read after S4-12 rehydration
+#   cannot wipe a resumed session's state. CROSS-STEP SYNC FIX folded in:
+#   scenario_iterator read pk['operation']/pk['structural_shape'], two fields NO
+#   Step-5 producer has ever written (analyse_engine emits template/approach/
+#   frequency/raw_count/confidence/deprecated) — a guaranteed KeyError against every
+#   section_rules.md in the estate; the (operation, shape) pair is now DERIVED from
+#   the pattern text by derive_scenario_from_pattern (CLASS: J). Baseline: the ten
+#   entries deleted from spec_name_audit_baseline.json (dict + _grandfathered);
+#   147 baselined, 2 grandfathered remain (Blueprint EXAM, PYQScan
+#   MIN_PATTERN_SIZE — Release B). No engine changes. No artefact moves.
+# v5.61 — 2026-08-22 — GAP-2026-08-22-FIGASPECT-SELF-FULFILLING (figural_core, 124
+#   fixtures). The option-set canvas-aspect derivation was circular: it measured the
+#   union of pass-1 data_windows, which apply_data_window() had already inflated to the
+#   canvas aspect pass 1 rendered on — so square molecule sets stayed on the 0.72
+#   landscape default forever (measured live: hexagon set, true aspect 2/sqrt(3), derived
+#   0.69, set fill 41% < the 45% floor, G-FIGFIT BLOCKING a correct drawing), and an
+#   author-declared canvas_aspect was silently clobbered. Fix (Q12.1): the fitter records
+#   fit.content_window and fit.stroke_window (raw data-coordinate extents); the set
+#   aspect derives from zoom-invariant STROKE geometry (content, then window, fallback);
+#   a unanimous declared aspect is honoured exactly; pass 2 seeds from the content
+#   union. Same fixture now: aspect 1.1547 exact, fill 70%, gate clean. Single problem
+#   figures unchanged (declared or 0.72 default, as documented since v5.55).
+# v5.60 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (blueprint_core
+#   Cluster E2c, final_assembly v1.6, audit_canonical v2.15, Blueprint v1.51.0,
+#   TestExplain §7A-M, PYQExplain divergence note resolved). THE DEFECT, measured on
+#   IIT_JAM_CHEMISTRY M01: the difficulty quota said HOW MANY of each band but nothing
+#   defined WHAT a band meant, so labels were slot names — 14/60 agreed with the shared
+#   Tier-1 rubric (bc.assess_difficulty), at least 32 'Hard' labels sat on questions
+#   that measure Medium, and 4 'Easy' labels sat on MSQ/NAT positions where the
+#   rubric's qtype floor makes that band unreachable. Every count-based gate (G-QINDEX,
+#   A-QINDEX 1-6, K-BAL) passed, because every gate measured the DISTRIBUTION, not the
+#   QUESTIONS — the same defect class as G-FIGINK and the axis sentinel: the declared
+#   property, not the artefact. THE FIX — one scale, four layers, user ratio untouched:
+#   the trigger/band ratio remains the LAW for counts (deliberately hard series stay
+#   fully supported); bc.assess_difficulty becomes the DEFINITION of the label on both
+#   pipelines (the §7A divergence note's adopted contract: same RUBRIC, different
+#   mechanisms). (1) S3 builds difficulty_plan via bc.assign_difficulty_bands —
+#   deterministic, seed-rotated per mock, bottom band only on positions whose floor
+#   allows it — after bc.difficulty_feasibility HARD STOPS [HS:PROSE] any count the exam shape
+#   cannot honestly hold (with the achievable maximum named). (2) CHECK 3c / G-DIFF:
+#   author TO the band via bc.difficulty_authoring_profile, record difficulty_obs from
+#   the derivation already performed for the sidecar, and accept only when
+#   bc.verify_difficulty_obs(label, obs) agrees — MAX_DIFF_TRIES=6, then a quota-
+#   preserving band-swap escape, then HARD STOP [HS:PROSE]; a label an evidence contradicts never
+#   ships. (3) write_q_to_sidecar carries difficulty_obs (keyword-only, NO default —
+#   the v5.52 argument) into concept_map; final_assembly v1.6 carries it into
+#   registry.question_index. (4) A-QINDEX check 7 FAILs bottom-band labels on MSQ/NAT
+#   positions on EVERY registry (zero-judgment, catches legacy data), check 8
+#   recomputes label == rubric(obs) on evidence-bearing entries via the same engine
+#   call as G-DIFF so gate and audit cannot drift. DORMANCY: no difficulty_schedule
+#   entry or a non-3-band vocabulary ⇒ plan None, G-DIFF off, pre-v5.60 behaviour
+#   byte-for-byte; legacy registries without obs skip check 8 and keep check 7.
+#   LEVEL ANCHOR: step/concept units are level-relative (bp_level + the subtopic's
+#   calibration examples from the difficulty profile, v5.75); assumed prerequisite knowledge = recall (0 steps),
+#   so one rubric serves grade-10 through post-graduation with honest labels.
+# v5.58 — 2026-08-20 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL (blueprint_core
+#   +1 fixture). A paper whose blueprint predates Blueprint v1.45 renders ZERO figures
+#   against a real Axis-1 budget, on every mock, silently. S7-NEW-B0 reads the per-mock
+#   figural schedule and guards it `if figural_slots else None`, with the promise "empty
+#   schedule (pre-v1.45 blueprint) => fall through ... every un-remeasured exam keeps its
+#   current behaviour exactly". ROOT CAUSE, reproduced: for an empty quota
+#   bc.schedule_figural_slots returns `[{}, {}, ... x n]` — a TRUTHY list of EMPTY dicts,
+#   never []. The sentinel therefore never fires, the per-mock filter runs with an empty
+#   allowance, `_left.get(sid, 0) > 0` is false for every candidate, and the whole
+#   figural-capable set is discarded BEFORE rank_figural_candidates and BEFORE
+#   axis_grant_figural — so neither the ranking nor the budget nor the irreducible
+#   exemption is ever consulted, and no gate fires because the generator "chose" text.
+#   MEASURED (IIT_JAM_CHEMISTRY Mock 01, blueprint v1.35, axis1_figural_quota={}):
+#   capable 21/5/14 by section -> 0/0/0 granted, against an Axis-1 FIGURAL budget of
+#   9/3/6. A-AXIS1 would report an 18-figure shortfall on every mock of the series with
+#   the generator structurally unable to comply — the permanent-failure shape v5.43
+#   exists to remove, reintroduced by its own guard.
+#   THIS IS THE v5.57 DEFECT ONE LAYER UP. G-FIGINK found a census that measured a
+#   DECLARED extent instead of where ink landed; this is a sentinel that measured a
+#   DECLARED property (the list is non-empty) instead of the actual CONTENT (the
+#   schedule carries slots). Same class, same remedy: ask the artefact, not the wrapper.
+#   FIX, two independent layers: (1) PRODUCER — blueprint_core.schedule_figural_slots
+#   returns [] when `not any(out)`, so "no schedule" is FALSY and every caller's plain
+#   truthiness test is correct by construction (a populated quota is byte-identical);
+#   (2) CONSUMER — both call sites in this spec test `any(...)`, not truthiness. The DI
+#   fork at S4-7 carried the identical bug by copy and is fixed in the same release; it
+#   was latent only because every exam to hand has a DI budget of 0, and PASSAGE
+#   inherits that fork's shape via axis1_*_by_class, so it had to be fixed before that
+#   class ships. NO exam with a measured quota changes by one figure.
+# v5.57 — 2026-08-20 — GAP-2026-08-20-FIGURAL-INK-CENSUS (figural_core v5.57, self-test
+#   103 -> 117). A delivered paper carried a problem figure whose substituent bond ran
+#   off the canvas with no label, and — found by the new gate on the same paper — FIVE
+#   option canvases whose horizontal substituent bond was clipped at the frame. Every
+#   Step-7 gate had passed. ROOT CAUSE, reproduced: the v5.55 fitter measures a CENSUS
+#   of artists and G-FIGFIT is arithmetic over that record; the census (a) rejected
+#   any artist whose extent had zero height or width — an axis-parallel bond drawn as
+#   a Patch (the `ax.annotate('', xy, xytext, arrowprops)` idiom) is exactly that — and
+#   (b) never looked inside an Annotation for its arrow_patch, nor at ax.artists /
+#   tables / legend. Ink the census could not see was windowed out and CLIPPED, the
+#   record said clearance OK, and the arithmetic gate was correct about an incomplete
+#   input. The v5.55 run-report finding "gates measured declared metadata rather than
+#   where ink landed" recurred one level up — at stroke PRESENCE. FIX: (1) the census
+#   keeps degenerate extents (padded by stroke width) and walks Annotation arrows,
+#   ax.artists, tables and legend; (2) the fit record now carries content_bbox_px /
+#   axes_bbox_px / axis_on; (3) NEW Q13 gate G-FIGINK (BLOCKING on v5.57+ axis-off
+#   renders; W-FIGINK AMBER on axis-on renders and, in its frame-edge form, on LEGACY
+#   framed canvases — the form that found the five shipped options without a
+#   re-render). Q10's "arithmetic, not pixels" stands: G-FIGINK asks only whether ink
+#   lies OUTSIDE the measured box, a question the extent bias cannot false-positive.
+# v5.56 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with Blueprint
+#   v1.50.0). The GAP-07 learnings load read {EXAM}_ExplainLearnings.md — the legacy
+#   name Blueprint Step 6 generated — while Step 9's loader globs
+#   [ExamCode]_EXPLAIN_LEARNINGS_v*.md (S24 schema). One file, three names estate-wide:
+#   the Step-6 stub never reached Step 9, and an exam adopting the correct versioned
+#   name silently lost THIS step's load. FIX: S1's copy and S3's load now glob
+#   {EXAM}_EXPLAIN_LEARNINGS_v*.md and read the HIGHEST version (same rule as
+#   parse_learnings); the BANNED:/VERIFIED DEFECT: extraction is unchanged (an EX-rule
+#   author may include those markers for Step-7 enforcement; S24 prose fields are
+#   Step-9 authoring guidance, not generation bans). A project carrying ONLY the
+#   legacy-named file still loads it, with a printed one-line migration warning to
+#   rename — loud, never silent (§16 exam-agnostic mandate: the convention is single;
+#   the legacy path exists only to not strand pre-v5.56 projects mid-series).
+# v5.55 — 2026-08-19 — GAP-2026-08-19-FIGFIT: FIGURE LAYOUT IS NOW MEASURED, NOT ASSUMED
+#   Every figure gate from v5.33 to v5.54 measured METADATA — canvas pixels, DPI,
+#   placement scale, REQUESTED font points, DECLARED hues, alt text. Nothing measured
+#   WHERE THE INK LANDED. Measured on the reference delivery (IIT_JAM_CHEMISTRY Mock01,
+#   42 drawings): 3 of 24 option canvases carried ink OUTSIDE the drawn frame (worst
+#   4.06% of the image's ink); 10 of 24 had content within 12 px (0.04 in) of it, some
+#   with a white label bbox punching a visible hole THROUGH the border stroke; two
+#   option canvases printed CH3 on top of CH3; the frame occupied 252 of 390 canvas px
+#   (64.6% of width) and the median problem figure's ink covered 29.6% of its canvas,
+#   so ~70% of every figure's page allocation was white space; and one portrait
+#   structure used 33% of its canvas width against 97% of its height inside the
+#   hardcoded 0.72 landscape aspect. EVERY ONE OF THOSE FIGURES PASSED EVERY GATE.
+#   ROOT CAUSE IS ARCHITECTURAL. draw_fn is authored per question at generation time,
+#   so layout correctness was delegated to hand-written drawing code, once per
+#   question, across ~200 exams, with no safety net and no measurement. Authoring
+#   discipline does not scale to that; a renderer-side invariant does.
+#   THE FIX, in four parts: (1) S10-7 Q10 FIT CONTRACT — the renderer measures every
+#   artist's rendered extent and fits the data window so all ink clears the frame by
+#   FIG_MIN_CLEARANCE_IN; (2) S10-7 Q11 LABEL DECONFLICT — measured label repulsion,
+#   capped so a label is never silently dragged off the atom it names, with a bounded
+#   ring-expansion escalation; (3) S10-7 Q12 + S10-8 — an option SET renders in ONE
+#   shared window on ONE canvas via render_option_set(), and the FRAME belongs to the
+#   renderer, drawn last above every artist, at the canvas edge; (4) S10-7C — a domain
+#   drawing contract, because a layout engine cannot separate labels that are
+#   superimposed by definition (eclipsed Newman) and must not pretend otherwise.
+#   New gates: G-FIGFIT (BLOCKING on v5.55+ output, AMBER for legacy under EC-V18),
+#   G-FIGCOLLIDE (VOID_ITEM), G-FIGOPTWINDOW (VOID_ITEM), W-FIGFITPX (AMBER, and the
+#   only one auditable from a delivered .docx with no sidecar — which is what makes
+#   ~200 existing exams auditable without re-rendering them).
+# v5.54.1 — 2026-08-13 — SYNC AUDIT ROUND 2: three prose desyncs fixed (no logic change)
+#   (1) S13-6 + DoD said "EXACTLY TWO files", contradicting the dossier-conditional 3-file
+#   closed set R-DELIVER/S13-7/G-DELIVERY-SET already agree on; both sites now state the
+#   derived set. (2) S13-6's file list showed the literal Mock[N] name; now slug-form,
+#   matching S13-7/S13-4b. (3) The trigger-contract [N] rule said "must ≤ total_mocks/
+#   n_papers" — wrong for offset-resumed blueprints (apply_mock_offset relabels mocks[].mock
+#   beyond total_mocks); the binding check is mocks[] MEMBERSHIP, now stated correctly.
+```
 
 Section §S16 (REPAIR MODE, v5.69–v5.75) RETIRED and moved here VERBATIM at framework
 release 2026.08.27.3 (REPAIR-RETIRED-2026-08-27, operator decision). Not executable;
@@ -1843,6 +3802,266 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
+Entries v1.41.0–v1.53.0 moved at framework release 2026.11.06 (EC-P42; v1.53.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_MockTestExplain.md.
+
+```
+# v1.53.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
+#   v1.32, paper_pipeline v5.40, audit_canonical v2.37, MockTestCreate v5.92, DeliveryFooter
+#   v1.40.0). §7A-M: (1) the gate runs for EVERY paper — the MOCK-ONLY dormancy
+#   ('scoped_paper') is lifted; a scoped paper (born DORMANT/scoped_paper) is evaluated and
+#   written ONLY PASSED or DISCLOSED (guard S9); (2) WINDOW RULE w2
+#   (bc.DIFFICULTY_GATE_BAND_WINDOWS_W2 = authoring bands; allowance over ASSESSED items,
+#   'harder' disagreements only) is SELECTED by bc.difficulty_gate_window_rule from the
+#   paper's own obs (r2 / level record = born under this release) — never typed; every
+#   older paper stays on w1 byte-for-byte (guard G8); the writer stamps window_rule and the
+#   coverage (assessed_frac / assessed_count / gated_count; gate_rule stays 'windows');
+#   (3) the re-derivation obs copies rubric_rule from question_index, records
+#   inferential_steps and derivation_confidence, and is scored by
+#   bc.difficulty_score_from_obs under its own rule (a positional difficulty_score call
+#   would re-score an r2 item under r1); a level item's measure is its clamped level band
+#   with scores_by_q[q] = None for that item only; (4) `_score9 or None` is corrected to
+#   `None if _score9 is None else _score9` (a valid 0 was "not measurable"); (5) coverage
+#   under 80 % assessed (including 0) writes the verdict as computed and the footer prints
+#   `Step 9: k/n assessed` — a "not assessed" DISCLOSED is never written. No new stop.
+# v1.52.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   explain_engine v2.12, figural_core v5.89, corpus_io v1.17, MockTestCreate v5.89).
+#   Explanation structures are drawn print-true at the paper's problem tokens with the
+#   decisive site as a mark (no highlight band). MANDATE D: only a fidelity breach stops
+#   (INFRA); every other self-audit finding is repaired in place ([HS:LADDER]).
+# v1.51.2 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (paired
+#   with corpus_io v1.16 / explain_engine canonical_structure twin, final_assembly v1.9,
+#   MockTestCreate v5.88). PATCH, S13-2b only: (1) a REACTION object now canonicalises —
+#   explain_engine.canonical_structure accepts reaction SMILES (reactants>agents>products),
+#   so the registered scheme is reconciled per role like a STRUCTURE; (2) a question whose
+#   registry record carries record_integrity (the S13-REGCHECK legacy annotation —
+#   label/kind mismatch or a REACTION without '>>') is reconciled against the TRANSCRIPTION
+#   ALONE with the annotation printed once (edge case E16): the registered object is known
+#   to be a false or degenerate record and must not be used as a cross-check. No gate,
+#   set or engine change here.
+# v1.51.1 — 2026-10-09 — GAP-2026-10-09-PAPER-SIZE-SERIES-AGNOSTIC (paired with
+#   MockTestCreate v5.86, final_assembly v1.8, audit_canonical v2.31). registry
+#   rc_manifests[] / di_manifests[] / figural_manifests[] are shared by EVERY series
+#   (MOCK, SUBJ, TOPIC, SUBTOPIC) and, before final_assembly v1.8, were keyed only by the
+#   bare ordinal "mock": N — so MOCK:M01 and SUBJ:X:01 (both N=1) overwrote each other.
+#   Every entry Step 7 now commits carries "paper_id". P2 / P3 select THIS paper's entry
+#   by paper_id == PAPER_ID; an entry with no paper_id is a LEGACY entry and belongs to
+#   MOCK:M<mock> only; an entry is NEVER matched by the bare ordinal. No entry for this
+#   paper = no manifest (the PAPER is the authority either way — unchanged).
+# v1.51.0 — 2026-09-14 — GAP-2026-09-14-REGISTRY-SOURCE (REGISTRY-SOURCE-LAW; owner decision
+#   2026-09-14; paired with MockTestCreate v5.84, MockDeliver v1.22.0, DeliveryFooter,
+#   paper_pipeline CLUSTER RS). [ExamCode]_registry.json is REQUIRED by this step but no
+#   longer has to sit in Project Files: it is lawful in EITHER lane — (1) attached to the
+#   trigger in chat beside the _Create.docx, (2) Project Files. S19-0a resolves it through
+#   pp.resolve_registry (the ONE implementation Steps 7/9/11 share): attachment WINS when
+#   both lanes hold a file (a difference is PRINTED, never a stop); HARD STOP [HS:PROSE] only when
+#   BOTH are empty; exact filename + registry.exam_code == [ExamCode] validated. The run
+#   PINS the fingerprint it started from ({EXAMCODE}_registry_pin.json beside REG_WORK) and
+#   every later turn's S19-0a refuses a DIFFERENT registry (pp.registry_source_check).
+#   P10's FK tripwire reads the resolved source (REG_SRC['registry']) instead of a
+#   hardcoded Files path; S19-0b's handoff fingerprint is REG_SRC['fingerprint']. S0-1
+#   item 2 and the §19-4 badge prose name both lanes. Writers (Cluster DG), the closed
+#   delivery set, the Replace badge, MS-14 and every artefact are unchanged — only WHERE
+#   the file is read. Enforced by LAW_REGISTRY REGISTRY-SOURCE-LAW + mock_sync_audit MS-20.
+# v1.50.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §7A-S STYLE RE-MEASURE (advisory). Step 9 recomputes
+#   style_obs from the DELIVERED bytes and records mismatches against Step 7's record;
+#   three dormancy reasons (profile_dormant, hash_mismatch, pre_v582_paper). Single-writer:
+#   Step 9 writes style_gate.remeasure[paper_id] and nothing else in that container. The
+#   P-series takes the authored distractor type as its default diagnosis, re-derives
+#   independently (RE-6), and RECORDS BOTH on disagreement — never edits the question.
+# v1.49.0 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with explain_engine
+#   v2.11, Framework_PYQExplain v2.21, routes.json: figural_core.py + corpus_io.py routed to
+#   MockExplain / TestExplain / PYQExplain; SHARED_RULES_VERSION 1.5 → 1.6). Explanation
+#   figures had NO colour contract — rdkit's default atom palette and matplotlib's
+#   Category-10 defaults — so a question (Step 7 v5.80, pinned palette) and its explanation
+#   disagreed on what an oxygen atom looks like, and a PYQ solution drew a third way.
+#   S6A-6 COLOUR binds every renderer to figural_core (the palette owner) through the same
+#   calls Step 7 uses (explain_engine.structure_draw -> corpus_io.structure_draw_fn, fc.text_ink,
+#   fc.fill_style); P1 renderer
+#   preflight import-tests those two engines and records it. Step-7 answer-leak rules
+#   (monochrome colour-content, option-set uniformity, no-chrome) are explicitly NOT
+#   transferred — an explanation shows what it explains. Additive: §6A-1..§6A-5, every
+#   §6A-5 mechanic and every non-visual question are byte-unchanged; existing explanation
+#   figures are never re-rendered.
+# v1.48.0 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
+#   explain_engine v2.10, Framework_PYQExplain v2.19, audit_seam v1.3,
+#   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
+#   produced by NOTHING anywhere in the framework, so their absent-paths ran on every
+#   exam forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM /
+#   DATA_PLOT / CONFORMER verdict degraded per §6A-4 — the §6A-1b structure-answer
+#   presumption was defeated on every exam, every time), subject_code (the
+#   [Subject]_EXPLAIN_LEARNINGS_v*.md library was unlocatable — its documented fallback
+#   blueprint.subject is a key blueprint.json has never carried — so §24's subject
+#   library and §7-7's curated neighbours had never loaded on any exam), and
+#   exam_conventions (§S8-2's EXAM_CONVENTION machinery had no configured input).
+#   FIX, exam-independent by construction, zero regeneration: (A) the requirement →
+#   library → §6A-5 identifier binding is FRAMEWORK-OWNED and now lives in
+#   explain_engine.REPRESENTATION_RENDERERS (§6A-6) — it states what the framework can
+#   draw, not a property of any exam; WHETHER a question uses a renderer stays a
+#   per-question §6A-1 decision, so non-scientific exams are byte-unchanged. (B)
+#   subject_code is RETIRED; the subject library is found by DISCOVERY
+#   (explain_engine.resolve_learnings_files — §24 places exactly ONE non-exam-prefixed
+#   *_EXPLAIN_LEARNINGS_v*.md per project, so its presence IS the evidence; >= 2 →
+#   abstain + WARN naming all candidates). (C) exam_conventions is RETIRED; §S8-2
+#   reads conventions from the subject library only, "never assumed" preserved. No
+#   section_rules.md schema change, no analyse_engine change, no exam regenerated.
+#   Gate for the class: validate_framework_md Check V (SECTION_RULES CONFIG-KEY
+#   CONTRACT) + audit_seam v1.3 prose-read widening.
+# v1.47.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockDeliver v1.18.0, DeliveryFooter v1.29,
+#   audit_canonical v2.22). MINOR: a trigger and a section are removed. The four *Repair
+#   triggers are RETIRED and §7A-R (TestExplainRepair / MockExplainRepair) is DELETED —
+#   replaced by a retirement notice. THE DIFFICULTY GATE NOW DISCLOSES, IT NEVER BLOCKS:
+#   §7A-M writes status='DISCLOSED' (rounds=0) where it wrote 'FAILED', prints a
+#   ⚠️ PROCEED WITH DISCLOSURE box whose next step is the Deliver trigger
+#   (pp.dg_next_step), and Step 11 delivers the paper with the §FOOTER-DG measured-
+#   difficulty line. 'FAILED' is a retired status: pp.dg_write_verdict refuses it and
+#   pp.dg_preflight heals a pre-v1.47.0 FAILED record to DISCLOSED/0 with a disclosed
+#   migration line. PASSED/1 and DISCLOSED/1 (written by the retired repair step) stay
+#   legal and deliverable as LEGACY repaired papers; a re-run of this step on one carries
+#   the spent count (ROUND-MONOTONIC unchanged). S2-1: a _Create_Repaired*.docx upload is
+#   a HARD STOP [HS:PROSE] on every trigger (rename a legacy repaired paper to _Create.docx; P3's
+#   stem hash-match against registry.stem_texts proves identity). S19-0b: the repair-run
+#   stop and HANDOFF_STEP's repair values are removed. PENDING is the ONLY blocking gate
+#   state and its remedy is this step. No explanation rule changed.
+# v1.46.3 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (prose only): §7A-M's level-anchor
+#   text names the difficulty profile's calibration examples (bc.dp_calibration) in place of
+#   section_rules' retired PYQ_DIFFICULTY_CALIBRATION. No rule, gate or engine change.
+# v1.46.2 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74; prose only).
+#   S2-1 / §7A-R R2: a [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R's
+#   mid-batch cumulative paper) is REFUSED with "finish every repair batch — attach
+#   _Create_Repaired.docx"; only the final _Create_Repaired.docx is a valid R2 input.
+# v1.46.1 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up (prose only; paired
+#   with paper_pipeline v5.74). REPAIRED-PAPER FILENAME. §7A-R attaches the TestCreateRepair
+#   output, [ExamCode]_[paper_slug]_Create_Repaired.docx, and R2 says "parse (P3
+#   machinery)" — but S2-1 and P1 named ONLY the _Create.docx form when parsing the paper
+#   slug from the upload, so a literal repair run would refuse its own input (the v1.24
+#   "_Complete" class, one filename later). S2-1 / P1 / §7A-R R2 now accept BOTH forms
+#   and derive the slug by stripping whichever suffix is present; the repaired form is
+#   accepted ONLY on a *Repair trigger, and a fresh TestExplain on a _Repaired.docx is a
+#   HARD STOP [HS:PROSE] (a re-judge after a repair runs on the same repaired paper via
+#   TestExplainRepair, never as a fresh explain). Found by the release's own
+#   filename-chain re-verification. ALSO: S19-0 is split — S19-0a (session start at P1:
+#   binds `reg`, the project fingerprint and persist_registry BEFORE §7A-M's preflight can
+#   write) and S19-0b (delivery decision) — v1.46.0 defined all of it in the delivery
+#   fence, so `reg`/persist_registry were unbound when §7A-M first needed them. No gate,
+#   band or block rule changes.
+# v1.46.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate
+#   v5.73, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
+#   explain_engine v2.9, final_assembly v5.60; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
+#   mock_sync_audit MS-14). P0, every exam. §7A-M (v1.42.0+) writes the difficulty-gate
+#   verdict into registry.json and calls the registry "the ONLY channel to Step 11" —
+#   while S0-2, MANDATE D, S19-1 check 5 (`outputs == {Explanation.docx}`, a HARD STOP [HS:PROSE]),
+#   §21 item 12 and DeliveryFooter §3 all still carried the pre-v1.42 "registry is frozen,
+#   never delivered" rule, and the "S19 write" §7A-M relied on was defined nowhere. Under
+#   a literal run the verdict lived only in /home/claude, the project copy stayed
+#   (PENDING, 0) and Step 11 refused the paper on EVERY exam; §7A-R had no delivery
+#   contract at all. Measured on the reference project: the registry reached the project
+#   only because a session broke its own S19-1 gate. FIX: (1) NEW S19-0 — the registry
+#   working copy, the ONE persist point every §7A-M / §7A-R write names, and the handoff
+#   decision pp.handoff_set('TestExplain', …) driven by pp.registry_changed (a fingerprint
+#   of the project copy vs the working copy) — never by prose. (2) S19-1 check 5 asserts
+#   outputs == that closed set (pp.verify_handoff_outputs); S19-2 presents exactly it; the
+#   final batch delivers Explanation.docx + registry.json (Replace in Project Files) +
+#   the NEW report docx. (3) OPERATOR DECISION 2026-08-26: the §20 END-OF-MOCK REPORT is
+#   ALSO written as [ExamCode]_[paper_slug]_Explain_Report.docx (explain_engine.
+#   build_report_docx, MANDATE 0 enforced at the writer) and delivered at the final batch;
+#   it is INERT downstream — Step 11 reads only registry.json + the Explanation docx —
+#   so no next step requires it. (4) §7A-R gains its delivery contract: same Explanation
+#   filename (spliced), registry.json (Replace), report docx (repair edition), F2 footer.
+#   (5) S0-1/S0-2, MANDATE D, S2-2, §21-12 rewritten to the law; every "frozen / NOT
+#   delivered" sentence is gone (MS-14 bans the wording corpus-wide). Every DG gate,
+#   window, band and block rule is unchanged.
+# v1.45.1 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
+#   paper_pipeline v5.73, audit_canonical v2.20). §7A-M: a fresh round-0 verdict retires a
+#   pre-repair stem snapshot taken for a different rework set (pp.dg_write_verdict), so the
+#   mandated re-judge of a retired-rule paper cannot leave a stale snapshot that would fail
+#   A-DGATE at delivery or make §7A-R R3 accuse a correct repair file. Prose + engine only.
+# v1.45.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (operator decision 2026-08-25;
+#   paired with blueprint_core Cluster E2 split + E2d, paper_pipeline v5.72, MockTestCreate
+#   v5.72, MockDeliver v1.15.0, DeliveryFooter v1.26). §7A-M's disagreement test moves from
+#   band-label EQUALITY to per-band ACCEPTANCE WINDOWS on the raw rubric score, read from
+#   bc.DIFFICULTY_GATE_BAND_WINDOWS by band POSITION (exam-agnostic): bottom band NOT gated;
+#   middle agrees at 2–6 inclusive; top agrees at ≥5. bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC
+#   0.30 → 0.35 (floor computed exactly). Step 9 records measured_score_by_q (bc.difficulty_
+#   score) beside measured_by_q and passes windows + rework_directions ('harder'/'easier')
+#   to pp.dg_write_verdict, which stamps gate_rule='windows'. A FAILED record WITHOUT that
+#   stamp (v1.42.0–v1.44.0 rule) is re-judged by re-running this step — §7A-R R1, Step 7
+#   §S16 P1 and pp.dg_next_step all route it there; it is never repaired. Verdict boxes and
+#   footer show the bottom band as "(not gated)". Single-writer/state-machine contract of
+#   v1.44.0 unchanged. Engine self-tests: blueprint_core 559 → 585, paper_pipeline 144 → 159.
+# v1.44.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestCreate v5.71,
+#   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19 A-DGATE).
+#   P0 DEADLOCK. registry.difficulty_gate[paper_id] was read by four steps and written
+#   by three (final_assembly, §7A-M, §7A-R) as hand-built dicts across two specs and
+#   one engine, with no owner, no legal-state table, no write guard, no auditor and
+#   no recovery path. A TestCreateRepair session set repair_rounds_used=1 on a
+#   still-FAILED record; §7A-R R1 read the counter alone ("round used → TestDeliver"),
+#   Step 11 read the status alone (FAILED → CreateRepair), TestCreateRepair refused
+#   ("consumed") — no exit; a finished 60-question paper + explanation run lost. Two
+#   more defects of the same class fired with NO repair: every SCOPED paper was born
+#   PENDING while §7A-M is MOCK-ONLY, and a DORMANT gate wrote nothing — both left
+#   PENDING forever, which Step 11 refuses. FIX: (1) the record is behind ONE writer,
+#   pp Cluster DG — dg_stamp_pending / dg_write_verdict / dg_add_rework_snapshot —
+#   each validating the (status, rounds) pair against the six generated legal states;
+#   (FAILED,1) is now UNWRITABLE. (2) The legal state machine and DG-INVARIANT
+#   (FAILED ⇒ 0) are declared in §7A-M. (3) Every preflight opens with
+#   pp.dg_preflight, which heals a corrupt record deterministically WITH a mandatory
+#   chat + footer disclosure and refuses an unknown status. (4) §7A-R branches on the
+#   state PAIR and every next-step string is pp.dg_next_step — the function Step 11
+#   prints from — so advice can never name a step that refuses. (5) DORMANT is a
+#   WRITTEN verdict with a reason (incl. scoped_paper); a scoped paper is born DORMANT.
+#   (6) The re-gate write is atomic/terminal/idempotent, logs a session_log entry, and
+#   is round-monotonic (a full re-explain cannot grant a second round). (7) R3 uses
+#   pp.dg_verify_repair against the pre-repair snapshot via the one shared digest
+#   pp.dg_stem_hash; the contradictory stem_texts clause is gone. (8) audit_canonical
+#   A-DGATE certifies every record; §S16-3 also snapshots every question so R3 proves
+#   nothing unflagged changed; `python3 final_assembly.py --dg-fleet-scan ROOT
+#   [--apply]` heals the ~200 existing registries with a .bak and a migrations trail.
+#   Superseded v1.40.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+# v1.43.0 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
+#   PYQExplain v2.17, SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The S12-4
+#   document-level coverage banner ("COVERAGE: Batch k of K …" / "COVERAGE: Complete -
+#   all [Q_TOTAL] questions explained.") is RETIRED from every delivered Explanation
+#   docx — interim AND final. Step 9 no longer calls explain_engine.set_coverage_banner();
+#   the delivered file's first non-blank body paragraph is Q.1. Two facts decided it:
+#   (1) the operator does not want a coverage line in the delivered document, and
+#   (2) Framework_MockDeliver S4-2 treats ANY non-blank paragraph before Q.1 as an
+#   upstream regression — detect_header_paras() strips it and raises a REGRESSION ALARM
+#   — so the final banner S12-4 mandated was exactly what Step 11 flagged. The §18-1
+#   checklist item is inverted (zero banner paragraphs; first non-blank paragraph is
+#   Q.1) so a stale-session banner can never ship. Coverage is still stated in chat
+#   (S19-3 progress line, F1/F2 footer) and asserted per batch (S4-5 guard 3) — nothing
+#   about coverage CHECKING changes, only the in-file announcement. Engine untouched:
+#   set_coverage_banner()/strip_solutions() and the BANNER-* fixtures stay (the
+#   function is simply never called; BANNER-REMOVABLE already licensed dropping it).
+# v1.42.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestCreate v5.69,
+#   MockDeliver v1.13.0, blueprint_core Cluster E2d, audit_canonical check 9,
+#   final_assembly PENDING stamp). §7A-M promoted from advisory to BLOCKING:
+#   band disagreement >30% (floor) blocks delivery and writes a rework order;
+#   new §7A-R repair mode (TestExplainRepair / MockExplainRepair) patches only
+#   the reworked questions, re-gates, and after the single permitted round
+#   resolves to PASSED or DISCLOSED — never a stop, never silent.
+# v1.41.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R3 (executable dry run; paired
+#   with final_assembly v5.56, audit_canonical v2.16, MockTestCreate v5.67). A harness
+#   drove ten synthetic exams through the REAL Step-7 writers and then Step 9's P1→P3→
+#   P10→S4-2→S4-4→§7-8→§18→S19-1 in spec order, then Step 11's preflight. Two defects
+#   no reading could see: (1) OPTIONS-BY-Q SERIES COLLISION — P3 read
+#   registry.options_by_q[str(N)], a paper-ORDINAL key that a scoped paper of the same
+#   ordinal overwrites on the shared registry (measured: Mock 1 hard-stopped at
+#   parse_paper after SUBJ:PHYS:01 was committed). P3 now reads the paper_id key first
+#   (final_assembly v5.56 authority), str(N) second with a WARN. (2) SIBLING-EXAM GLOB —
+#   P1 and P10 loaded every [ExamCode]*_blueprint.json and only checked exam_code AFTER
+#   pp.pick_blueprint; with EXAM_A and EXAM_AB in one project pick_blueprint raised first
+#   with a misleading "remove duplicate blueprints", and P10's own next(...) would have
+#   silently taken EXAM_AB's file (sorts first). Both now filter exam_code == [ExamCode]
+#   BEFORE selecting. Also §15-2 now names the engine's record fields for both provenance
+#   modes (the harness's first MODE B block was refused for a field the spec never named).
+#   Superseded v1.39.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+```
+
 Section §7A-R (REPAIR MODE, v1.42.0–v1.46.3) RETIRED and moved here VERBATIM at framework
 release 2026.08.27.3 (REPAIR-RETIRED-2026-08-27, operator decision). Not executable.
 
@@ -2561,6 +4780,87 @@ Current-version entry remains in Framework_MockTestExplain.md.
 
 ## Framework_NotesAudit.md
 
+Entries v3.5.0–v3.8.0 moved at framework release 2026.11.06 (EC-P42; v3.9.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_NotesAudit.md.
+
+```
+# v3.8.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
+#   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
+#   Framework_NotesCreate v2.10.0 §6 F-3(b)–(e)). THE DEFECT: §5 G-2c gated a literal
+#   token list from one domain (8 enzyme-kinetics words, pKa, 16 Unicode characters) so
+#   2^9, a^m, x**2, H_2O, \frac, 1e-3, ⁿ, ₄, ¾ ALL passed — AND, since notes_core v2.5
+#   (2026-08-13) joined runs without a separator, a CORRECTLY styled V+sub max, K+sub m,
+#   pK+sub a FAILED. G-2b saw only the substring "^(" in raw oMath XML. Nothing enforced
+#   F-3(b) at construction, so NA was the first and only line, and it was blind in both
+#   directions. THE FIX: G-2c is notes_core.scan_flat_math_tokens(docx, exemptions) —
+#   RUN-AWARE (w:vertAlign on the run's own w:rPr decides script vs plain), evaluating
+#   notes_core.FLAT_MATH_RULES through the SAME notes_core.flat_math_findings that
+#   notes_docx.validate_model runs at construction: one authority, two layers. G-2b
+#   reads oMath m:t TEXT and flags every "^", "**", "_" and the complete Unicode
+#   inventory. G-3 never counts an F-3 finding (they carry the "block i.j" prefix G-3
+#   used to classify as anatomy). terminal_regate forwards exemptions to G-2c and G-3
+#   and reports G-2c meta.advisories (uppercase juxtaposed forms, CO2 + H2O — advisory,
+#   never a failure). A G-2c remediation recipe per rule id is added. Every finding
+#   names its rule id ("[caret]", "[script_hyphen]" …) and its remedy; script-run
+#   findings are reported ONE PER OFFENDING RUN with context, so N defects are N
+#   locatable findings. Text + gate + engine change.
+# v3.7.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
+# v3.7.0 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; owner
+#   decisions of the 2026-09-01 design session; notes_audit v2.9, notes_core v2.12,
+#   notes_docx v1.7, Framework_NotesCreate v2.9.0 §4 B7a). THE DEFECT: the Recall Check
+#   was the only section in the document with no content contract — G-5 gated its
+#   FORMAT and G-10 its counter, and this spec then FROZE whatever count NC chose (§2A
+#   "FORBIDDEN — changing the NUMBER"). THE FIX: §5 G-14 (notes_audit.gate_recall_contract)
+#   gates the shipped Recall set against the SAME bank-derived target NC authored to
+#   (notes_core.recall_target_for — the G-12/G-13 idiom, one authority, no drift) plus
+#   the author's per-item declarations read from the registry unit record
+#   (recall_contract, NC §9A) — the document cannot carry them (§7 / W-4), so the
+#   registry is their only home, exactly as it is draft_ref's. HARD: coverage (one core
+#   Recall per concept), attested types, the figure-reading item, EARLIER-only
+#   cumulative items at the engine's count, the near-miss item, the concept-combining
+#   item where the exam or the unit's breadth demands it (R-12), interleaved order,
+#   no clone of a worked Example, and DIFFICULTY ON THE EXAM'S OWN SCALE (owner O-4): each
+#   band == notes_core.recall_expected_band (the ONE resolver over the disclosed evidence
+#   ladder) AND == the shared rubric's band for the recorded derivation
+#   (notes_core.recall_verify_difficulty — the same check Step 7's G-DIFF and A-QINDEX 8
+#   run), and the set's mix within the exam's measured paper-level mix when the
+#   difficulty profile is present. ADVISORY: Trap-Box provenance, rubric fall-throughs,
+#   basis distribution. DORMANT (reported): a registry unit with no recall_contract
+#   record — a draft built before NC v2.9.0 — the G-13 grandfathering idiom; a
+#   pre-upgrade unit re-run here yields identical gates otherwise. §2A: a G-14 hard
+#   finding joins G-12/G-13 as a licence for a net ADD of Recall items; one-for-one
+#   replacement remains the default. The rendered Recall box is unchanged (owner O-2/O-3).
+# v3.6.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3; notes_audit v2.8,
+#   notes_core v2.11, Framework_NotesCreate v2.8.0 §6 F-4a). §1's v3.0.0 re-render clause
+#   named figural_core, which is NOT routed to NA — the clause was non-executable. It now
+#   names the F-4a recipe (notes_core), and states the one rule that protects §8's
+#   idempotence: COLOUR NON-CONFORMANCE IS NEVER A RE-RENDER TRIGGER. G-7a carries a
+#   figure-palette ADVISORY in meta (notes_audit.figure_palette_meta) — information for the
+#   next draft, never a finding, never ok=False. Additive; an AUDITED_PASS unit re-run after
+#   v3.6.0 still yields zero corrections and identical bytes.
+# v3.5.0 — 2026-08-15 — G-12 FORMAT CONTRACT (figure vs text balance; owner
+#   decisions of the 2026-08-15 design session, approved proposal; pairs
+#   with Framework_NotesCreate v2.7.0 §4 B3a; notes_core >= v2.10,
+#   notes_audit >= v2.7). §5 G-12 extended — deliberately NO new gate id
+#   (format coverage IS coverage; the same reasoning that folded the
+#   distractor-autopsy rules into G-5, keeping notes_audit.GATES and this
+#   spec in one-to-one agreement). HARD: figure evidence in the unit's
+#   slice (format_mix, notes_core v2.10) -> at least one concept section
+#   pairs a rendered figure with a worked Example, detected purely from
+#   block order — no new model field, no builder change, W-3 and §0B P-4
+#   untouched; the B8 mind map never satisfies it. ADVISORY:
+#   figure_concept_tags (where the evidence sits, for §2A placement
+#   judgement) and figure_example_pairs. Lead-format emphasis (FMT-2) is
+#   §2A authoring judgement, never a block. Quarantined and
+#   UNRESOLVED-image figure questions still count (v3.3.1 discipline).
+#   Remediation: the standing §2A net-ADD licence on a G-12 hard finding —
+#   NA adds the figure and the Example that reads it. Rollout follows the
+#   G-12 precedent: applies at each unit's next audit; a target without
+#   format_mix skips the check (additive, never retroactive).
+```
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_NotesAudit.md.
 
@@ -2764,6 +5064,76 @@ Current-version entry remains in Framework_NotesAudit.md.
 
 ## Framework_NotesBlueprint.md
 
+Entries v3.1.1–v3.3.2 moved at framework release 2026.11.06 (EC-P42; v3.3.3 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_NotesBlueprint.md.
+
+```
+# v3.3.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
+# v3.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: S-1
+#   note — the shared resolver accepts filename dates as YYYY-MM or YYYYMM
+#   (project Files strips the hyphen) and normalizes to YYYY-MM; NB
+#   inherits this and the new HS-ST12 date-collision stop automatically
+#   (single implementation, no NB-side change).
+# v3.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection). Version renumbered from the GAP's planned
+#   v3.2.0 to v3.3.0 per the rev 4.6 rebase: the GAP was written against
+#   corpus 2026.08.31.2, and GAP-2026-09-01-RECALL-CONTRACT already shipped
+#   v3.2.0 in 2026.09.01.1. §2 S-1 gains CURRENT-FILE RESOLUTION: when the
+#   exam's exam_config.syllabus_transition block reports an ACTIVE transition,
+#   the syllabus NB parses is ALWAYS the resolved CURRENT file
+#   ([ExamCode]_Syllabus_<EF>.<ext> — census corpus_io.syllabus_file_census +
+#   decision blueprint_core.resolve_syllabus_sources); SUPERSEDED files are
+#   never parsed by NB. INACTIVE + >= 2 syllabus-named files => HS-ST2 (R3,
+#   the R26 reactive discovery). NB joins the §3.7 drift guard (declaration
+#   fields only, blueprint_core.transition_drift => HS-ST10) and the §3.10
+#   staleness contract (blueprint_core.check_syllabus_staleness => HS-ST7;
+#   legacy artefacts exempt). §1 scope note: DELETED topics of a superseded
+#   syllabus version never enter notes — structurally, because the CURRENT
+#   syllabus is the master filter (§1.1) and NB now provably parses CURRENT.
+#   A keys-absent exam with <= 1 syllabus-named file is byte-identical to
+#   v3.2.0 (§7 P1).
+# v3.2.0 — 2026-09-01 — REGISTRY CARRY-OVER HAS AN ENGINE (GAP-2026-09-01-RECALL-CONTRACT;
+#   notes_core v2.12). §7 promised "existing unit states preserved" on a re-run, but
+#   O-3 writes the registry through notes_core.registry_init, which sets every unit
+#   BLUEPRINTED with draft_ref / final_ref / audit_summary None — the promise had no
+#   engine behind it, and the new per-unit recall_contract (Framework_NotesCreate
+#   v2.9.0 §9A, the ONLY place NotesAudit G-14 can read NC's declarations) would have
+#   been silently reset too. §7 now names notes_core.registry_carry_over(reg, prior_reg)
+#   — the ONE carry-over list (notes_core.REGISTRY_CARRY_FIELDS: state, notes_version,
+#   audit, artifacts, history, draft_ref, final_ref, audit_summary, recall_contract),
+#   deep-copied onto matching sid keys; new sids stay BLUEPRINTED; orphans are
+#   reported (§7), never re-created. Additive: a first-ever NB run has no prior
+#   registry and behaves byte-identically.
+# v3.1.1 — 2026-08-14 — TAG SWEEP + PARTNER RESOLUTION + ORPHANED-FILING
+#   (independent fresh-eyes review + 400-trial property fuzz; pairs with
+#   notes_core v2.9, Framework_NotesCreate v2.6.2, Framework_NotesAudit
+#   v3.4.2). Three fixes: (1) v3.1.0 claimed tags "enter naturally at the
+#   next §7 refresh" — false for UNCHANGED papers, which §7's no-op merge
+#   never re-reads: one tagged new paper made the contract live bank-wide
+#   while legacy fused questions could never gain tags. §7 gains the TAG
+#   SWEEP: once the bank is live (or on operator request), an NB re-run
+#   MAY review untagged questions of papers already in the bank and add
+#   integration_partners in place — an additive edit to NB's OWN artifact,
+#   every added tag listed in the chat summary, bank_ref re-emitted after
+#   the write so every downstream staleness link stays correct. Until a
+#   question is tagged it simply stays in its header unit's certification
+#   set (the pre-feature boundary) — safe, but taught without its bridge;
+#   the sweep is how the feature reaches old evidence. The ingest report
+#   now counts tags ("integration tags: N questions / M papers") so a
+#   half-tagged bank is visible, never silent. (2) §3B B-1: partners
+#   SHOULD resolve to manifest subtopics; notes_core v2.9 files a fused
+#   question AWAY from its header ONLY when every fusion-set member
+#   resolves to a registry unit — a typo'd or excluded partner keeps the
+#   question at its header and surfaces as a downstream unresolved
+#   advisory whose FIX IS HERE (correct the tag on the next NB run).
+#   (3) §7 ORPHANED report extended: fused questions whose FILING home is
+#   an orphaned sid are listed by bank_id — a deferred question must never
+#   silently lose its certification home (NA §2 discloses the same from
+#   its side). Companions: notes_core >= v2.9.
+```
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_NotesBlueprint.md.
 
@@ -2937,6 +5307,89 @@ Current-version entry remains in Framework_NotesBlueprint.md.
 ```
 
 ## Framework_NotesCreate.md
+
+Entries v2.7.2–v2.10.0 moved at framework release 2026.11.06 (EC-P42; v2.11.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_NotesCreate.md.
+
+```
+# v2.10.0 — 2026-09-23 — GAP-2026-09-23-FLAT-MATH-NOTATION (owner decisions O-1..O-12 of
+#   the 2026-09-23 review; notes_core v2.13, notes_docx v1.8, notes_audit v2.10,
+#   Framework_NotesAudit v3.8.0 §5 G-2b/G-2c/G-3). THE DEFECT: §6 F-3(b) defined "flat
+#   math token" only by a biochemistry EXAMPLE LIST, the engine implemented that list
+#   literally, and the gate meant to stop flat notation (G-2c) could neither see a
+#   caret (2^9, a^m, a^(m−n) shipped with every gate green in the SSC_CGL_TIER2 Number
+#   Systems draft) nor tolerate a correctly styled symbol (V+sub max FAILED since
+#   notes_core v2.5, 2026-08-13). Nothing enforced F-3(b) at construction, the golden
+#   fixtures themselves violated it, and an ASCII hyphen inside a superscript run
+#   rendered as an invisible dash ("a-2" for a⁻²). THE FIX: F-3(b) is now a NORMATIVE
+#   definition backed by ONE machine authority, notes_core.FLAT_MATH_RULES, evaluated
+#   RUN-AWARE by notes_core.flat_math_findings at CONSTRUCTION (notes_docx.validate_model,
+#   §4A) and at AUDIT (NA G-2c) — a styled token is never a finding, a flat token always
+#   is. New F-3(c) names the only accepted authoring forms, F-3(d) the per-unit
+#   exemption path (G-2c:<rule_id> labels in prose_ban_exemptions, declared by NB),
+#   F-3(e) that headings and figure/mind-map labels are notation-free (they are plain
+#   strings and can never carry a script run, so notation there is unfixable at audit).
+#   Rules: caret, double_star, underscore_script, latex_residue, e_notation,
+#   unicode_script (complete inventory), script_hyphen, domain_token, unit_power
+#   (cm2, m3, m/s2 — named by F-3(b) since v2.x, never implemented), juxtaposed_power
+#   (x2 + y2 — lowercase, operator within 3 chars). notes_docx v1.8 also refuses every
+#   unbraced sign/bracket script in a math run (a^-2, a^(m-n) mis-rendered silently).
+#   Km/h is no longer mistaken for the Michaelis constant. Text + gate + engine change.
+# v2.9.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
+# v2.9.0 — 2026-09-01 — GAP-2026-09-01-RECALL-CONTRACT (owner decisions of the
+#   2026-09-01 design session; notes_core v2.12, notes_docx v1.7, notes_audit v2.9,
+#   Framework_NotesAudit v3.7.0 §5 G-14). THE DEFECT: §4 B7 fixed the Recall Check's
+#   FORMAT and nothing anywhere defined its CONTENT — how many questions, which
+#   concepts, what order, how hard, where the distractors come from. The count was
+#   SME judgement here and then FROZEN by NA (§4 there, "FORBIDDEN — changing the
+#   NUMBER"). The one section built for the student to self-test was the only
+#   section with no contract — the declared-property-without-a-definition class of
+#   GAP-2026-08-21-DIFFICULTY-STICKER-LABELS. THE FIX: §4 B7a, a bank-derived
+#   contract in the coverage_target_for idiom (third instance after B3a and B4a):
+#   notes_core.recall_target_for is the single authority NC authors to and G-14
+#   gates, so author and gate cannot drift. SPREAD NOT COUNT (owner, 2026-08-13,
+#   applied to Recall): one core Recall per concept section; every attested type;
+#   a figure-reading item iff the slice attests figures; cumulative items ONLY
+#   from EARLIER subtopics (unit_order — I-4 backward-only by construction); >= 1
+#   near-miss discrimination item; >= 1 concept-COMBINING item where the exam or
+#   the unit's breadth demands it (R-12); interleaved order; NO clone of a worked
+#   Example; distractors from the Trap Box. DIFFICULTY ON THE EXAM'S OWN SCALE
+#   (owner O-4): the SAME rubric Step 7 labels mock questions with and PYQExplain
+#   profiles real PYQs with (blueprint_core, now routed here through notes_core
+#   wrappers), the SAME [ExamCode]_difficulty_profile.json, the SAME
+#   author-to-band / verify / re-verify discipline. A missing or partial profile
+#   NEVER blocks a unit (owner O-5): the band stands on the nearest rung of a
+#   disclosed evidence ladder. WHAT DID NOT CHANGE (owner O-2/O-3): the rendered
+#   Recall box is byte-identical — Answer immediately after the options (the IFAS
+#   portal hides it), no explanation, no key table, no attempt log, no confidence
+#   tick (portal features). The contract lives in UNPRINTED model fields and in
+#   the registry unit record (§9A recall_contract). ADDITIVE: every existing unit
+#   keeps its Recall Check; G-14 is DORMANT on a registry unit with no record.
+# v2.8.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3 of the figure-colour
+#   programme; notes_core v2.11, notes_audit v2.8, Framework_NotesAudit v3.6.0). F-4
+#   figures and the B8 mind map had NO render recipe — no palette, no dpi, no size — so
+#   every notes figure was drawn from the model's judgement of the moment. §6 F-4a is the
+#   recipe: the SAME constants Step 7 / Step 9 draw with, PINNED in notes_core.FIGURE_PALETTE
+#   (a copy locked equal to figural_core by the SPEC-LOCK tripwire and a CI cross-check;
+#   figural_core is NOT routed here and its mock gates never run on notes). What does NOT
+#   transfer from the mock flow is stated in F-4a: notes TEACH, so colour-as-content is
+#   ALLOWED, in-image labels stay REQUIRED (F-4), and no answer-leak rule applies. Additive:
+#   every existing notes unit keeps its figures; only units drafted from v2.8.0 use F-4a.
+# v2.7.2 — 2026-08-15 — THE SPACING RHYTHM (owner refinement of v2.7.1 in
+#   the same release wave; notes_docx v1.5). v2.7.1 stopped tables from
+#   touching; the owner's review of the rebuilt document showed the rhythm
+#   still cramped — tables hugging the bullet text above them and section
+#   bars starting with no visible break. The §4 tail rule is now the full
+#   SPACING RHYTHM: one deterministic post-assembly pass sizes every
+#   vertical gap by context (larger before L1/L2 bars, medium between
+#   tables, small between text and a table, either direction); the engine
+#   constants are the single authority. All per-case spacing emission is
+#   gone from the builder's block loop, so the rhythm holds for every
+#   block combination by construction. Model, parse(), W-3 byte-identity:
+#   unchanged. Companion: notes_docx >= v1.5.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_NotesCreate.md.
@@ -3177,6 +5630,33 @@ Current-version entry remains in Framework_NotesCreate.md.
 
 ## Framework_NotesDeliver.md
 
+Entry v1.2.0 moved at framework release 2026.11.06 (EC-P42; v1.2.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_NotesDeliver.md.
+
+```
+# v1.2.0 — 2026-08-12 — CONSUMES NA's _Final (GAP-2026-08-12-NADOCX patch P2 of
+#   2; pairs with Framework_NotesAudit v3.0.0).
+#     (1) ND's input is now the unit's _Final.docx from NA
+#         (notes_core.notes_final_filename), attached or filed per section 1.0,
+#         and its output is notes_core.notes_deliver_filename —
+#         {unit_code}_{Slug}_Deliver.docx. Three filename authorities now
+#         exist (draft / _Final / _Deliver) and each is an ENGINE CALL; no step
+#         spells a pattern.
+#     (2) THE AUDIT REPORT IS GONE. NA no longer writes [ExamCode]_<unit>_
+#         Audit.md; the evidence lives in notes_registry.json as the unit's
+#         audit_summary (schema notes-registry/2.1). ND's delivery line reads
+#         its verdict counts from there.
+#     (3) PORTAL FORMATTING IS DEFERRED (owner decision, 2026-08-12). ND
+#         currently ships the audited bytes UNCHANGED. When portal formatting
+#         is specified it will make ND a SECOND WRITER downstream of the
+#         certified bytes, so it will need its own terminal re-gate — and any
+#         LibreOffice-based conversion will silently destroy every equation
+#         (section 3). Recorded here so the requirement is not rediscovered
+#         late.
+#   Companions: notes_core >= v2.3.
+```
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_NotesDeliver.md.
 
@@ -3208,7 +5688,113 @@ Current-version entry remains in Framework_NotesDeliver.md.
 # v1.0.0 — 2026-08-08 — INITIAL RELEASE.
 ```
 
+## Framework_PYQApprove.md
+
+Entries v1.0–v1.3.0 moved at framework release 2026.11.06 (EC-P42; v1.3.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQApprove.md.
+
+````
+# v1.3.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE (companion; the fix lives
+#   in PYQScan v1.6.0). S4-0 passes manual_corrections= to build_approval_record
+#   (reconcile_taxonomy v1.5): when the operator edited classifications.json or
+#   scan_progress.json OUTSIDE the pipeline before this run (the SSC_CGL_TIER1 INV-5
+#   orphan was hand-repaired and the resulting CLEAN record carried no trace), the
+#   edits are declared and recorded verbatim in approval_record.json. INV-5
+#   conservation_check is unchanged — it is now the BACKSTOP of the zero-orphan gate
+#   PYQScan runs at source (verify_no_orphans, GATE 5), the same relationship C6 has
+#   to PYQDraft's pre-delivery gate. A conservation HOLD on a v1.6.0 scan therefore
+#   names a scan that bypassed its own gate, not a scan-time classification defect.
+# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk approval + R30 + G-1
+# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (A1) C6's spec
+#   text cites reconcile_taxonomy.check_topic_density — BOTH forms (subject
+#   density + the NEW per-topic cap, finding class TOPIC_OVER_AGGREGATION_TOPIC),
+#   the syllabus-anchored denominator, the excluded/anchored scoping, the
+#   per-topic finding detail — and gains the THREE-CASE reclassification rule
+#   (pre-release generation / DECLARED_AMBER / stale current-generation input).
+#   (A3) the S4-0 INPUTS list extends to qcount_anchored_topics, item excluded
+#   states, amber_status (draft + scan _meta), telemetry and spec_generation,
+#   all passed through; the invocation gains grandfather() (E4/S3) and
+#   resolve_declared_amber() (E7) between reconcile and adjudicate. (A2) Branch
+#   B prints the per-topic crowded list with counts and the re-derive-directive
+#   sentence — the operator action stays exactly one step. Branch A gains the
+#   DECLARED_AMBER lines. C6 is now the BACKSTOP of a check that PYQDraft's
+#   pre-delivery gate already ran at source.
+# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 1 prose mention to no-paren form (write_analysis_doc).
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
+#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
+#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
+#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
+````
+
 ## Framework_PYQCompress.md
+
+Entries v1.1.1–v2.1 moved at framework release 2026.11.06 (EC-P42; v2.1.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQCompress.md.
+
+```
+# v2.1 — 2026-09-14 — GAP-2026-09-14-COMPRESS-NAME-IDENTITY (owner ruling 2026-09-14).
+#   THE OUTPUT FILENAME IS THE INPUT FILENAME, BYTE-FOR-BYTE. The v2.0.0 canonical-name
+#   rule (blueprint_core.canonical_output_name: ExamCode_DD-Mon-YYYY[_ShiftN].docx, Shift 1
+#   suffix dropped, _IMAG junk stripped, hyphen removed from Shift-N) is RETIRED for this
+#   step. Measured against the Step 1 contract (PYQPrepare §6, [ExamCode]_DD-Mon-YYYY
+#   [_<session_keyword>-<N>].docx): the deriver RENAMED every Shift-1 Row file
+#   (…_Shift-1.docx -> ….docx) and every Shift-N one (…_Shift-2 -> …_Shift2), so a
+#   compressed paper re-entered Drive under a second identity — the exact double-count
+#   §2 was written to prevent. Under the identity rule the output overwrites its input in
+#   place, always. §2 rewritten; §4 compress_one writes to OUT_DIR/<input name>; CHECK 4
+#   asserts basename(output) == input name; the batch collision gate keys on the input
+#   name (EC-C14: two spellings of one paper now yield two outputs — de-duplication is
+#   the enumeration gate's job, never this step's); §6/§11/§12 operator guidance is
+#   replace-in-place. Engine: blueprint_core.canonical_output_name / NAME_JUNK_TOKENS
+#   DELETED in the same release — this spec was their only caller, audit_callgraph C4
+#   forbids a dead export, and they had no self-test fixture (661/661 unchanged). Paper
+#   identity (blueprint_core.canonical_paper_key) is untouched. All compression,
+#   parity, survival and no-growth logic unchanged.
+# v2.0.1 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER (corpus_io v1.15; no rule of
+#   this spec changes). EC-C6's line-art test was "<= 256 distinct colours" — measured
+#   2026-08-30, EVERY anti-aliased rendered figure (structures 553-1,705 colours, charts
+#   268-1,504) failed it and routed to JPEG unless it carried alpha, while a smooth
+#   gradient (exactly 256 colours) passed as line art. corpus_io._is_line_art() is now
+#   STRUCTURAL (corpus_io._is_line_art): line art when flat_fraction (pixels whose four
+#   neighbours are exactly equal; renders 0.78-0.98, photographs and scans 0.00) >=
+#   LINE_ART_FLAT_FRAC 0.60 OR mode_fraction (share of the single most common exact colour
+#   — a render's background; renders 0.39-0.99, photographs / scans / gradients <= 0.005)
+#   >= LINE_ART_MODE_FRAC 0.25. Either alone decides; the second catches a smoothly
+#   interpolated heat map whose axis text would ring under JPEG. Deterministic, bounded,
+#   NEAREST-resampled (explicit — Pillow's default filter changed across versions and a
+#   smoothing filter blurs the flatness being measured), numpy-less fallback to the old
+#   rule. EC-C5 (alpha wins) and EC-C7 (JPEG source wins) are unchanged.
+# v2.0.0 — 2026-08-25 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION. Two load-bearing
+#   changes, measured on a 22-paper live corpus before adoption:
+#   (1) MAX COMPRESSION. The governor no longer walks TIER_LADDER stopping at the
+#       first tier that fits the budget — that design meant an under-budget file was
+#       NEVER downscaled even with images embedded at 600–900 effective DPI in a 1–2
+#       inch display box (every pre-2015 scanned paper). PYQCompress now calls
+#       corpus_io.optimize_docx(mode='max'): ONE pass at blueprint_core.MAX_TIER
+#       (q82 / 300 DPI at display size — above the q80/200 T4 floor) with PNG output
+#       palette-quantized (pngquant → optipng when installed, PIL FASTOCTREE
+#       fallback; alpha-capable on every path). Measured: 90%+ reduction on pre-2015
+#       scans (19.8 MB → 1.1 MB), 40–60% on 2021+ papers already at display
+#       resolution. Ladder callers (PYQSort S7-6) unchanged. corpus_io v1.13,
+#       blueprint_core MAX_TIER / PNG_QUANT_*.
+#   (2) CANONICAL OUTPUT NAME. §2's byte-identical-filename rule is REPLACED by
+#       blueprint_core.canonical_output_name: ExamCode_DD-Mon-YYYY[_ShiftN].docx.
+#       Shift 1 emits NO suffix; junk tokens (NAME_JUNK_TOKENS, e.g. _IMAG) are
+#       stripped; document-class decorations after the date (…_Sorted_Q1-Q100)
+#       survive verbatim. Unparseable name = HARD STOP, never a guess. The operator
+#       instruction changes from replace-in-place to upload-canonical-AND-trash-the-
+#       misnamed-original (§2, §6) — the two names are DIFFERENT identities.
+# v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   9 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQCompress'. The current companion block, the
+#   v1.1 entry, and all structural notes remain in-file. Body byte-untouched.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQCompress.md.
@@ -3225,6 +5811,62 @@ Current-version entry remains in Framework_PYQCompress.md.
 ```
 
 ## Framework_PYQCore.md
+
+Entries v1.5.1–v1.8 moved at framework release 2026.11.06 (EC-P42; v1.9 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQCore.md.
+
+````
+# v1.8 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection; rebased to 2026.09.01.1 per rev 4.6). S1-2
+#   --taxonomy mode gains the SYLLABUS FILE CENSUS contract and NEW S1-2a
+#   defines it for every PYQ step: candidate syllabus / sample-paper files
+#   (corpus_io.syllabus_file_census / sample_paper_census), the T2 outcomes at
+#   the shared-core level (INACTIVE + >= 2 syllabus-named files => HS-ST2, the
+#   R26 reactive discovery; ACTIVE requires BOTH syllabus documents as project
+#   FILES — a chat-only or pasted-image syllabus is HS-ST3, because a re-run
+#   must be reproducible), the §3.7 per-step drift guard (census +
+#   bc.resolve_transition re-run, DECLARATION fields compared only via
+#   bc.transition_drift => HS-ST10) and the §3.10 staleness contract
+#   (taxonomy_draft syllabus_sha256; consumers bc.check_syllabus_staleness =>
+#   HS-ST7; legacy artefacts without the field exempt). Engine: blueprint_core
+#   Cluster SYLLABUS ERA + corpus_io Cluster SYL are the ONLY implementations
+#   — this core cites, never restates. A keys-absent exam holding <= 1
+#   syllabus-named file is byte-identical to 2026.09.01.1 (§7 P1).
+# v1.7 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. The GATE-AT-SOURCE
+#   LAW is added (registered in LAW_REGISTRY.json) and S2-3 is brought under it:
+#   (C1) the S2-3 "PROOF OF CORRECT TOPIC COUNT" self-check — stranded on the
+#   pre-v1.1 absolute rule while the engine moved to density, the RULEBOOK DRIFT
+#   that HELD RPSC_ZOOLOGY — now CITES reconcile_taxonomy.check_topic_density
+#   (both forms; constants live ONLY in the engine); (C2) the GROUPING rule
+#   gains the per-topic cap with the EC-P20 tie-break, and the Arithmetic worked
+#   example is REVISED per DECISION D8 (an example contradicting a blocking rule
+#   is the two-rulebook disease inside one file); (C3) Q-count-anchored topics
+#   are recorded and OUT of the over-aggregation domain (archetype A2 conflict
+#   dissolved); (C4) exclusions are RECORDED, never silently omitted (D3:
+#   automatic, recorded); (C5-C7) the draft-time ratio / name-shape / catch-all
+#   HARD STOPs on Claude's OWN output become bounded self-correction, the name
+#   gate enforces min(80, bc.MAX_HEADING_LEN) at write time, and STEP 3 gains
+#   the normative PRE-DELIVERY GATE (D3 order) with the FLAGGED-DELIVERY (AMBER)
+#   exit; §12 Phase 0a DoD gains the matching checklist lines. Superseded texts
+#   moved VERBATIM to SPEC_HISTORY.md (2026.08.15.14 discipline).
+# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT, companion
+#   wording per the LAW-PROPAGATION LAW (rule lives in Framework_PYQCount v1.6).
+#   S5-1's same-paper duplicate gate is re-keyed from (date, session) — whose
+#   regex required a session token PYQSort's session-less and _to_ filename forms
+#   never carry, leaving their re-sort duplicates silently double-counted — to
+#   the filename STEM before `_Sorted_` (dated stems only). EC-P30 and the §12
+#   Phase-B checklist now describe the stem key. No other rule changed.
+# v1.5.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
+#   changed). Superseded v1.5 entry moved VERBATIM to SPEC_HISTORY.md (the
+#   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
+#   +809 B by the 2026.08.21.4 deploy review. Directory and standing notes stay.
+# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: admission call -> tagged fence; 8 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+````
 
 Entry v1.5 moved at framework release 2026.08.22.2 (EC-P42 — PYQScan-route
 headroom, flagged +809 B by the 2026.08.21.4 deploy review). Current-version
@@ -3304,6 +5946,51 @@ Current-version entry remains in Framework_PYQCore.md.
 
 ## Framework_PYQCount.md
 
+Entries v1.5–v1.7 moved at framework release 2026.11.06 (EC-P42; v1.7.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQCount.md.
+
+````
+# v1.7 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: per-era counts, n_new, HS-ST9
+# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT. S5-1's same-paper
+#   duplicate gate keyed on (date, session) and its regex REQUIRED the session token,
+#   while PYQSort's own filename contract legitimately emits SESSION-LESS names
+#   ([ExamCode]_DD-Mon-YYYY_Sorted_Q1-QN.docx) whenever a paper carries no session
+#   number, plus a _to_ multi-date form this gate explicitly skipped. For both, a
+#   re-sorted duplicate pair (..._Sorted_Q1-Q100.docx beside ..._Sorted_Q1-Q99.docx —
+#   this gate's own motivating example, written WITHOUT a session token) matched
+#   NOTHING: canonical identity cannot collapse differing Q-ranges, Task 1 and S5-4
+#   count both copies consistently so Task 2 balances, and the counts inflate
+#   SILENTLY — the class EC-P30 names the most dangerous. Verified by execution on a
+#   two-copy fixture: session-ful pair caught, session-less pair invisible. The key
+#   is now the filename STEM before `_Sorted_` (dated stems only), covering
+#   session-ful, session-less and _to_ forms with zero false positives; the undated
+#   Multi_ last-resort form stays out of scope (two genuinely different undated
+#   papers could share it) and is already visible as a year=None inventory row
+#   (EC-P8). Companion wording updated in Framework_PYQCore.md EC-P30 + §12 per the
+#   LAW-PROPAGATION LAW. No engine change; no other rule touched.
+# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 9 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, propagated per the
+#   LAW-PROPAGATION LAW. Step 4 did not suffer the reference incident — it is
+#   single-session, so its probe cost amortises to zero and its spec is far under the
+#   SPEC-BUDGET threshold — but three of the four laws that incident produced govern any
+#   step performing a CLASS T acquisition before a partition, and a law that is applied
+#   in one file and not its sibling is how the PYQAnalyse->PYQCount split shipped an
+#   unfixed defect "content byte-identical" in the first place.
+#   (a) EC-P43 DIRECT EGRESS LANE added as A0, tried before the connector probe.
+#   (b) EC-P40 the probe is a SPENDER: plan_transport passes consumed= explicitly.
+#       Step 4 fetches the probe paper again in the same run, so the value is 0 and the
+#       reason is stated at the call site rather than left as an absent argument that
+#       audit_callgraph C10 cannot distinguish from an oversight.
+#   (c) EC-P41 the listing is written and ASSERTED by corpus_io.write_drive_listing.
+#   (d) P4f divergence DECLARED: 'SMALLEST by fileSize' is correct HERE and wrong in
+#       Step 5. mock_sync_audit MS-13 requires both files to name the divergence.
+````
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQCount.md.
 
@@ -3357,6 +6044,51 @@ Current-version entry remains in Framework_PYQCount.md.
 ```
 
 ## Framework_PYQDeliver.md
+
+Entries v1.12–v1.13.1 moved at framework release 2026.11.06 (EC-P42; v1.13.2 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQDeliver.md.
+
+```
+# v1.13.1 — 2026-08-27 — doc sync: S2-3b and EC-18 no longer name the retired
+#   map_difficulty_level. Prose only.
+# v1.13 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. Complexity Tier 2 (E-9 keyword
+#   scoring) RETIRED with the scorer itself (MockTestAnalyse v2.55, blueprint_core): Tier 1
+#   (assessed) → Tier 1.5 (structural) → Tier 3 (default). The §2-3e mixed-provenance WARN now
+#   names Tier 3; R3 / EC-17 / EC-19 updated; the engine mandate requires only
+#   structural_difficulty. Operator decision 2026-08-27. No tagging or delivery change.
+# v1.12 — 2026-08-13 — TIER 0 ERA GUARD closes an era-blind Tier-1 defect surface
+#   (PROJECT OVERRIDE for IIT_JAM_BIOTECHNOLOGY; proposed upstream for the repo).
+#   ROOT CAUSE: S2-2a's Tier 1 is a literal, era-blind position lookup against
+#   exam_config.marking_scheme whenever marking_scheme carries >1 distinct
+#   question_type — with NO check that marking_scheme (which describes the
+#   CURRENT pattern) actually describes the PAPER being delivered. Measured on
+#   IIT JAM Biotechnology 07-May-2005: a 100-question, structurally all-MCQ
+#   legacy paper (options_by_q == 4 for every Q, zero NAT-shaped questions;
+#   PYQExplain's own qtype map already resolved all 100 as 'mcq') delivered
+#   against the CURRENT 60-question MCQ/MSQ/NAT config. Literal Tier 1 would
+#   have tagged Q31-40 MSQ and Q41-60 NAT on the delivered portal file — a
+#   portal answer-format and scoring defect (the exact class of error Tier 1
+#   was introduced in v1.8 to FIX, now reproduced by the same mechanism against
+#   an off-era paper). This is the identical class of defect Framework_PYQCore
+#   EC-P9/EC-P9b and Framework_MockTestAnalyse/PYQAnalyse Cluster F already
+#   name and solve at the CORPUS level via blueprint_core.classify_paper_era —
+#   PYQDeliver simply never called it. FIX: new S2-2 TIER 0 — before Tier 1 may
+#   fire for ANY question, classify the WHOLE PAPER once via the EXISTING
+#   canonical `classify_paper_era` (blueprint_core.py Cluster F — imported, per
+#   the S13-1 anti-drift principle, never reproduced). era != 'current' (paper
+#   is 'larger' / 'smaller' / 'renumbered' / 'retyped' relative to exam_config)
+#   -> Tier 1 is skipped for the WHOLE paper and resolution proceeds straight
+#   to Tier 2 (authoritative qtype). era == 'current' -> Tier 1 proceeds exactly
+#   as v1.11 specified. Deterministic, exam-agnostic, no model judgment, no
+#   operator prompt required for this class of paper ever again. PROVENANCE:
+#   this exact paper was already used as EC-P9's own worked example ("a
+#   100-question 2005 paper against a 60-question current pattern") before this
+#   fix existed — this release wires that already-documented case into
+#   PYQDeliver's own resolver instead of leaving it undetected there.
+#   Touched: §0 item 6 (dual-path import list), new §S2-2 TIER 0 section
+#   (before S2-2a), S2-2 diagram, S2-2e provenance, §10 §R1, END sentinel.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQDeliver.md.
@@ -3478,7 +6210,208 @@ Current-version entry remains in Framework_PYQDeliver.md.
 #   again.
 ```
 
+## Framework_PYQDraft.md
+
+Entries v1.0–v1.3.1 moved at framework release 2026.11.06 (EC-P42; v1.3.2 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQDraft.md.
+
+````
+# v1.3.1 — 2026-09-05 — GAP-2026-09-05-SYLLABUS-FILENAME-TOLERANCE: §3.4
+#   NAMING date stamp accepts YYYY-MM and YYYYMM (R-a — claude.ai project
+#   Files strips '-' from uploaded filenames; verified 2026-09-05 with
+#   byte-identical CSIR NET Life Science files under both names);
+#   bc.parse_syllabus_filename now RETURNS the normalized YYYY-MM always.
+#   NEW HS-ST12 (R-b, P-1): any two files sharing one normalized date stop
+#   as a date collision — T2 row 7 (>=2 match EF => HS-ST5) retires into
+#   it. HS-ST3/4/5 templates reworded to state both forms (R-d). Register
+#   is now HS_ST1..HS_ST12. R-e: §3.7 drift identity for syllabus files is
+#   the sha256 — current_file and superseded NAMES are display-only and
+#   never drift-compared (superseded compare as a sorted sha256 set); a
+#   platform rename of an unchanged file is never drift, changed bytes
+#   still stop as HS-ST10. Legacy INACTIVE/single-file paths untouched.
+# v1.3.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: S2-0b crosswalk DRAFT
+# v1.2.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE A
+#   (Declaration & Detection; rebased to corpus 2026.09.01.1 per rev 4.6). NEW
+#   S2-0a SYLLABUS-TRANSITION RESOLUTION: two OPTIONAL Overview keys (Syllabus
+#   Changed / New Syllabus Effective From) drive the R1 activation predicate
+#   (engine: blueprint_core Cluster SYLLABUS ERA — resolve_transition,
+#   coerce_effective_from with Excel date coercion per R4); file census +
+#   CURRENT/SUPERSEDED resolution (corpus_io syllabus_file_census /
+#   sample_paper_census + bc.resolve_syllabus_sources, Truth Table T2);
+#   HS-ST1..HS-ST6 wired at 2a from the engine's §3.11 register; §3.6 traces
+#   (one console line, the §3.5 exam_config block, one DeliveryFooter line —
+#   T1 rows 4/5/7 only); §3.9 dial registry (bc.resolve_dials — factory values
+#   engine-pinned, invalid override => factory + trace, never a stop); §3.5 A1
+#   'Zero History Approved' key (bc.parse_zero_history_approved — R29 keeps
+#   PYQDraft the sole exam_config writer); duplicate-key WARN + near-miss key
+#   listing (bc.overview_duplicate_keys / bc.near_miss_keys). S2-4 taxonomy
+#   draft gains syllabus_sha256 (§3.10 staleness lock — hash of the taxonomy's
+#   source file: CURRENT in active mode; the single file otherwise; absent for
+#   legacy chat-pasted input). S2-5 schema gains the OPTIONAL
+#   syllabus_transition block (ABSENT for keys-absent exams — §7 P1
+#   byte-identity; SOLE WRITER PYQDraft, immutable until re-run, R29). An exam
+#   with both keys absent and <= 1 syllabus-named file is byte-identical to
+#   2026.09.01.1 (P1); the crosswalk DRAFT (§4.2) ships with Release B.
+# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (D1) NEW S2-0
+#   INTAKE RULE: a HELD approval record's re_derive_directive is consumed as
+#   HARD constraints (the memoryless-re-run loop hazard closed); a CLEAN /
+#   CLEAN_ADJUDICATED record demands explicit operator confirmation before
+#   re-deriving a LOCKED taxonomy (contract-protection, Type-2 class); a prior
+#   AMBER draft's unresolved list constrains the re-run. (C9) DUPLICATE-SUBJECT
+#   SEATBELT at S2-1 and save_taxonomy_draft — Type-2, one-touch message, never
+#   merges (the dict-key overwrite silent-data-loss class). (D2) S2-1/S2-3e wire
+#   dedup, exclusions and subject flags to syllabus_provenance E5; build_items
+#   now returns (items, errors, dedup_report). (C8) S2-3f: budget raised to the
+#   law's SELF_CORRECTION_MAX_ROUNDS, retries are constraint-carrying, and
+#   exhaustion exits AMBER with a finding-keyed amber_status + auto-declared
+#   OTHER deviations + data-preserving structural residue (validate_provenance
+#   MUST still pass) — never the pre-v1.1.0 "re-run and report" dead end (moved
+#   verbatim to SPEC_HISTORY.md). (D2/D3) S2-4 schema gains excluded items,
+#   qcount_anchored_topics, subject_flags (skeletal/open_ended), dedup_report,
+#   telemetry, amber_status and spec_generation; S2-6 prints the AMBER residue
+#   when one exists.
+# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 prose mentions to no-paren form (syllabus_provenance).
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
+#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
+#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
+#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
+````
+
 ## Framework_PYQExplain.md
+
+Entries v2.15–v2.26 moved at framework release 2026.11.06 (EC-P42; v2.27 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQExplain.md.
+
+```
+# v2.26 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
+#   figure_types v1.2, analyse_engine v1.2, blueprint_core v1.30, MockTestAnalyse v2.59.0).
+#   §13A-3 Phase B records, per EVERY PYQ item (text and figural, every subject), the
+#   tags the new Create / audit gates and Step 5's measurements read: figural_ask_type now
+#   from the PER-FAMILY vocabulary figure_types.ASK_TYPES[family] (the chemistry family
+#   gained multiple_products / outcome_ratio / two_part / quantitative_calculation — the
+#   four shapes the real CSIR-NET paper uses and Test 01 lacked), drawn_names (the names
+#   the stem uses for drawn species — Step 5's shown_entity_named_rate),
+#   near_isomer_set (are the wrong options near-isomers of the key — R6.2 distractor mix),
+#   distractor_mechanisms per wrong option (bc.MECHANISM_VOCABULARY[family]), and
+#   concept (the taxonomy concept id), named_concepts (the AXIOM's named reactions /
+#   rules — Step 5's tested-concept lexicon, R4.2) and stereo_decl. The profile keeps
+#   per-item vectors, bands and tags (bc.DP_CONTENT_KEYS carries every one of them);
+#   Step 5 joins its own stems to these records by stem text and writes the QUALITY
+#   block and the EXEMPLAR BANK from them (OD-11). Schema additive; nothing here stops.
+# v2.25 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (paired with
+#   blueprint_core v1.29, figure_types v1.1, MockTestAnalyse v2.58.0, MockTestCreate
+#   v5.89). §13A-3 Phase B also records, per figural question, a CONTENT RECORD
+#   (/home/claude/pyq_content_objects.json): chemistry species as SMILES / scheme specs,
+#   the answer SMILES, content_confidence, abbreviations exactly as printed and the
+#   site-mark device; and for every figural question of any subject the ask type /
+#   representation / scheme-grammar tags (closed vocabularies, figure_types). S7A-6
+#   joins it to the scored observations; bc.dp_add_paper carries the optional keys and
+#   COMPUTES content_vector. Profile schema unchanged (additive keys). Step 5 aggregates
+#   the tags; Create builds the content-complexity floor from the vectors.
+# v2.24 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6; paired
+#   with MockTestAnalyse v2.57.1, PYQScan v1.6.1). Reference incident: the FINAL batch
+#   shipped only the Explanation docx and left pyq_explain_progress.json +
+#   difficulty_profile.json unattached while the F2 footer listed all three. S19-1
+#   already proved all three were ON DISK (check 5: outputs == expected); the loss was
+#   at the CALL — present_files is CLASS T (`pass`), S19-2 built `deliverables` in
+#   python and never printed it, so the model performed the call from memory and the
+#   "one docx per present_files" habit of batches 1..K-1 won on batch K. S19-2 now
+#   prints the closed set through print_delivery_set() (PHASE 1) in the tool output
+#   immediately before ONE present_files call, and names a dormant profile as
+#   NOT DELIVERED THIS RUN so an absent file is never read as a forgotten one; S19-4
+#   binds the footer to the present_files RESULT (R6). Reports only — no new stop,
+#   no engine change, S19-1 unchanged.
+# v2.23 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (paired with PYQPrepare v2.2).
+#   §22: a vision-transcribed Row file is identified by core_properties.category
+#   ("PYQPrepare-Source-Trust:"), not by a "__vision-unverified" filename suffix — the
+#   suffix no longer exists. Prose only; no rule, gate or code path changed.
+# v2.22 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: OOS questions explained normally (R20)
+# v2.21 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (explain_engine v2.11,
+#   MockTestExplain v1.49.0, routes.json +figural_core/+corpus_io; SHARED_RULES 1.5 → 1.6).
+#   S6A-6 COLOUR: explanation figures draw with figural_core's constants via
+#   explain_engine.structure_draw / fc.text_ink / fc.fill_style. Additive; no re-render.
+# v2.20 — 2026-08-29 — GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS (paired with blueprint_core
+#   Cluster DP dp_add_paper paper_positions/unscored_reasons, Blueprint v1.58.0 S7-0,
+#   audit_canonical v2.24). Two explained 60-question papers were EXCLUDED from an exam's
+#   difficulty profile because 1–2 questions carried no derived answer (a VOID_ITEM figure,
+#   a defective Row-file option set): the writer counted OBSERVATIONS against
+#   total_questions and read the shortfall as a pattern change. It was not — the paper had
+#   every position. S7A-6 now passes the handoff's `qtype` map keys as the paper's
+#   POSITIONS (the pattern test runs on those) and the new S7A-4 `difficulty_unscored`
+#   map {q: reason} for every position without an observation; such a question is
+#   recorded UNSCORED in the profile with its reason and left out of the arithmetic — it
+#   never excludes its paper and can never bias a mix (a gap shrinks the sample). Only a
+#   paper whose positions differ from the current pattern is excluded. §R13 states
+#   "added (scored/held; unscored Q list)". Exam-agnostic; no per-exam change.
+# v2.19 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
+#   explain_engine v2.10, Framework_MockTestExplain v1.48.0, audit_seam v1.3,
+#   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
+#   produced by NOTHING anywhere in the framework, so their absent-paths ran on every
+#   exam forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM /
+#   DATA_PLOT / CONFORMER verdict degraded per §6A-4), subject_code (the
+#   [Subject]_EXPLAIN_LEARNINGS_v*.md subject library was unlocatable and had never
+#   loaded on any exam — worsened here by P1's load list never naming the subject
+#   file at all), and exam_conventions (§S8-2's EXAM_CONVENTION machinery had no
+#   configured input). FIX, exam-independent, zero regeneration: (A) the requirement →
+#   library → §6A-5 identifier binding is FRAMEWORK-OWNED in
+#   explain_engine.REPRESENTATION_RENDERERS (§6A-6); WHETHER a question uses a
+#   renderer stays a per-question §6A-1 decision, so non-scientific exams are
+#   byte-unchanged. (B) subject_code RETIRED; the subject library is found by
+#   DISCOVERY (explain_engine.resolve_learnings_files; >= 2 non-exam files → abstain +
+#   WARN) and P1 now loads it. (C) exam_conventions RETIRED; §S8-2 reads conventions
+#   from the subject library only, "never assumed" preserved. Also corrects §S6A-2's
+#   stale "last three" (CONFORMER made it four, v2.14). P7 dashboard gains a
+#   "Renderer preflight" line and names the loaded subject file. No section_rules.md
+#   schema change, no analyse_engine change, no exam regenerated. Gate for the class:
+#   validate_framework_md Check V + audit_seam v1.3.
+# v2.18 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
+#   Blueprint §S7-0, MockTestAnalyse E-9 retirement, PYQDeliver Tier-2 retirement, ScopedBlueprint
+#   §1-3/§5). §7A-3 records the raw rubric SCORE (bc.difficulty_score) and the observation
+#   record; S7A-4 writes q_to_difficulty_score + difficulty_obs beside q_to_difficulty; NEW
+#   S7A-6 writes [ExamCode]_difficulty_profile.json on the final batch through the single
+#   writer bc.dp_add_paper (pattern-changed papers recorded as excluded, never a stop);
+#   S19-1 check 8, S19-2 deliverable, §R13 report line. PYQ-side rule unchanged (measurement,
+#   no target); SHARED_RULES_VERSION unchanged (no RE-*/MANDATE/§4-§18 rule changed).
+# v2.17 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
+#   MockTestExplain v1.43.0; SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The
+#   S12-4 document-level coverage banner ("COVERAGE: …") is RETIRED from every delivered
+#   _PYQ_Explanation.docx — interim AND final. PYQ-1 no longer calls
+#   explain_engine.set_coverage_banner(); the delivered file's first non-blank body
+#   paragraph is Q.1. Same reasons as the mock side: the operator does not want a
+#   coverage line in the delivered document, and the downstream deliver step
+#   (Framework_PYQDeliver, detect_header_paras — same as MockDeliver S4-2) strips any
+#   non-blank pre-Q.1 paragraph and raises a regression alarm on it. A new §18-1 item
+#   asserts zero banner paragraphs before present_files. Coverage is still stated in
+#   chat (S19-3, F1/F2 footer) and asserted per batch (S4-5 guard 3) — only the in-file
+#   announcement is gone. Engine untouched (BANNER-* fixtures retained, function unused).
+# v2.16 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (note-only; §7A
+#   itself unchanged). The v1.1 DELIBERATE DIVERGENCE note's deferred mock-side
+#   difficulty treatment is RESOLVED under the adopted contract: both pipelines
+#   share the rubric (bc.assess_difficulty); mock side enforces it at authoring
+#   (MockTestCreate v5.60 G-DIFF), audits it mechanically (audit_canonical v2.15),
+#   and re-measures advisorily at Step 9 (TestExplain §7A-M). No shared §4-§18
+#   rule changed; SHARED_RULES_VERSION stays 1.4.
+# v2.15 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
+#   MockTestExplain v1.37.0, engine v2.8). Same defect class, same fixes, so both
+#   explanation paths hold one standard; see MockTestExplain v1.37.0 for the
+#   incident record (a delivered paper with a wrong published key on a misread
+#   structure, 24 hedged / nine arithmetically false WHY WRONG lines, a curated
+#   library loaded and never consulted, ASCII formulae throughout). PYQ-side: §13-2b
+#   SEMANTIC-OBJECT transcription folds into the §13A pre-transcription pass (a
+#   STRUCTURE is transcribed to SMILES and rdkit-sanitised; no registered object
+#   exists for a PYQ, so the transcription stands alone); §15-2 REWRITTEN (two
+#   provenance modes, engine RECOMPUTES, hedges banned, old wording WITHDRAWN, no
+#   pitfall quota); §7-7 step 3 MECHANICAL (Triggers + tripwire); §8-0c FORMULA
+#   TYPOGRAPHY; §6A-1b-ii; RE-13 amended, RE-24 new; §18/§21/§24 hooks. §7-8 KEY
+#   RECONCILIATION is MOCK-ONLY (a PYQ has no Step-7 commitment; D4 unchanged).
+#   SHARED_RULES_VERSION 1.3 → 1.4.
+```
 
 # v2.14 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
 #   MockTestExplain v1.36.0, engine v2.7). Same defect class, same fixes, so both
@@ -3857,6 +6790,25 @@ Current-version entry remains in Framework_PYQExplain.md.
 
 ## Framework_PYQFormat.md
 
+Entry v1.6.0 moved at framework release 2026.11.06 (EC-P42; v1.6.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQFormat.md.
+
+```
+# v1.6.0 — 2026-09-03 — GAP-2026-09-03-PAGE-BORDER: a full-page border frames EVERY page of
+#   the formatted document. NEW §6A defines the border (pgBorders: single 0.75pt line,
+#   #1F3864, 24pt from the PAGE edge, all four sides, display attribute ABSENT = all pages
+#   by the OOXML standard itself); S13-2 step 7 wires it into EVERY sectPr; S13-8 carries
+#   PGBORDERS_ORDER, apply_page_border(), the edge-case-23 margin WARN and
+#   selftest_page_border(); S8-3 rule 5 verifies presence + exact attributes (HARD STOP);
+#   §12 edge cases 22–24 (pre-existing border REPLACED per O-3; narrow margins WARN per
+#   O-4; multi-section = every sectPr); Appendix A PAGE_BORDER_* tokens. Owner rulings
+#   O-1..O-4 (2026-09-03): scope PYQFormat ONLY; constants locked; replace; WARN-not-HALT.
+#   Chrome-only change: pgBorders is a section property, never a body element — S8-4..S8-8
+#   are unaffected by construction; proven on a real 76-page artefact (official validator:
+#   0 new errors vs baseline; a naive-position mutant is REJECTED by the S8-9 gate).
+```
+
 Moved from the file header at framework release 2026.08.15.14; v1.5.2 entry moved at 2026.09.03.3.
 Current-version entry remains in Framework_PYQFormat.md.
 
@@ -3892,6 +6844,52 @@ Current-version entry remains in Framework_PYQFormat.md.
 ```
 
 ## Framework_PYQPrepare.md
+
+Entries v2.1–v2.2 moved at framework release 2026.11.06 (EC-P42; v2.2.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQPrepare.md.
+
+````
+# v2.2 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (owner ruling 2026-09-14).
+#   §6 now defines EXACTLY two legal output filenames — [ExamCode]_DD-Mon-YYYY_<session
+#   _keyword>-<N>.docx and [ExamCode]_DD-Mon-YYYY.docx — with no variant for any
+#   condition. The v1.7 "__vision-unverified" suffix for FORMAT C1 / C-HYBRID Row files
+#   is REMOVED (§6, §7, S1-13 build note, §9 CALL B4 variant). All logic is retained:
+#   mark_vision_transcribed() still sets core_properties.category unconditionally in the
+#   S1-13 path, the §7 "human verification required" delivery note is unchanged, and
+#   §10's provenance ripple is unchanged. CHECK 14 re-anchored: it compared the
+#   core-property against the filename suffix; with the suffix gone it now compares the
+#   core-property against the caller's claim — validate_row_file(source_trust=), the
+#   value mark_vision_transcribed() returned (None on the text path). That parameter
+#   existed since v1.7 and was never read; it is now the second signal, which is stronger
+#   than the filename was (two signals written by one code path at one moment could
+#   only ever agree); CHECK 14 also compares the trust VALUE (VISION-TRANSCRIBED vs
+#   MIXED), which the suffix never could. Consumer side: PYQExplain v2.23 (Limitations
+#   section) identifies vision-transcribed Row files by the core-property. Row files
+#   already delivered with the suffix remain valid. No engine change; no downstream glob
+#   or reader ever matched the suffix.
+# v2.1.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: two-view invariant -> tagged fence; 10 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v2.1 — 2026-08-15 — GAP-2026-08-15-BAREQ (producer side). S1-4 contract rewritten: a
+#   bare "Q.N" stem — OMML-only, figure-only, or empty/corrupt — is a LAWFUL normalised
+#   form with a named reason, and "repairing" it by injecting filler ("Solve:") is now
+#   PROHIBITED: filler is not in the source, survives into Step 5's extraction and into
+#   every mock derived from the item, and corrupts the corpus it appears to fix.
+#   CHECK 1/2/12/15/21 delegate to bc.detect_question_start() — they carried a PRIVATE
+#   regex r'^Q\.\d+' that needed no trailing content, so Step 1 certified "Q-count = 60,
+#   sequential OK" on a file Step 3 read as 56 and delivered it green. CHECK 13 calls
+#   bc.is_bare_q_label(): it already had the right regex gated on the wrong payload test
+#   (NEXT paragraph for a drawing, never the SAME paragraph for an equation) and now
+#   reports OMML-only, figure-only and truly-empty stems separately. S2-4 sanitise() and
+#   CHECK 7 widen to the zero-width class (U+200B/200C/200D/2060/FEFF), which str.strip()
+#   does not remove and \s does not match, so "Q.4<ZWSP>" defeats every table entry while
+#   looking correct on screen. NEW CHECK 22 (WARN, 21 -> 22): producer/consumer
+#   Q-detection agreement — the <w:t>-only view vs the <w:t>+<m:t> view of the SAME
+#   document, the one construction a shared blind spot cannot satisfy.
+````
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQPrepare.md.
@@ -3980,6 +6978,97 @@ Current-version entry remains in Framework_PYQPrepare.md.
 
 ## Framework_PYQScan.md
 
+Entries v1.3.1–v1.6.0 moved at framework release 2026.11.06 (EC-P42; v1.6.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQScan.md.
+
+````
+# v1.6.0 — 2026-09-14 — GAP-2026-09-14-SCAN-ORPHAN-AT-SOURCE. A classified row
+#   could be ORPHANED — its (section, topic, subtopic) absent from
+#   scan_progress['taxonomy'] — with no log, no stop, until PYQApprove INV-5 held
+#   the run (SSC_CGL_TIER1 Q.13 "Ranking and Position": a rejected new-TOPIC
+#   candidate whose already-persisted row was never reconciled; S3-6 Step 5b's
+#   fallback no-op'd because the Topic key did not exist, so `available` was []).
+#   Six independent orphan sources closed under ONE rulebook:
+#   (1) S3-3 step 3b — a rejected discovery candidate is reconciled INTO its
+#       persisted row in the same step, ledgered in _meta.rejected_discoveries and
+#       REPLAYED on a normalized/near match (same candidate, same answer, every
+#       batch and session — INV-6's replay principle applied at scan time).
+#   (2) rows carry discovery_status (accepted | resolved_existing; absent = first-
+#       pass match; pre-v1.6.0 rows read as legacy). The phantom is_new_discovery
+#       field — named in 2f, present in no schema, example, docstring or real row —
+#       is retired.
+#   (3) SENTINEL RULE — bc.OUT_OF_PATTERN and a retired marker-mode module are
+#       ROUTING values, never a persisted `section`; the row carries the resolved
+#       path's real section plus pattern_era (the field PYQSort v1.9 carries).
+#       PYQApprove has no sentinel handling and HOLDS on such a row.
+#   (4) verify_no_orphans() — ONE function, THREE call sites (per paper after 3b;
+#       S3-6 before split detection and after reclassify; before every
+#       check_convergence call, whose new GATE 5 reads its stamp — S3-6 runs ONCE,
+#       so batches scanned after it had no net at all). It compares through
+#       reconcile_taxonomy.normalize_label exactly as INV-5 does: a STRING VARIANT
+#       is CANONICALISED, never re-filed (Step 5b's and reclassify's raw == sent
+#       "letter series" to available[0] — a mis-file INV-5 would have accepted as
+#       live); a true orphan is resolved by the S3-3 ladder (Rule 1/Rule 5 inside
+#       the topic; the step-3 Q1-Q3 test across the section, ledger-first;
+#       promotion through gate_scan_name + add_to_taxonomy). Every repair is in
+#       _meta.orphan_repairs; the scan never dead-stops on its own output
+#       (GATE-AT-SOURCE rule 2).
+#   (5) S3-6 — assign_to_refined_subtopic output is validated ∈ new_subtopics
+#       (round-bounded re-derivation, then the ladder — never new_subs[0]); a MERGE
+#       is a split record with new_subtopics=[kept]; repair runs before aggregation
+#       so Step 4 can never KeyError on a phantom bucket.
+#   (6) COMPLETENESS invariant set(classifications) == set(papers_scanned_list) —
+#       nothing bound the two files until now, so S3-6 and every gate could judge a
+#       PARTIAL row set and PYQApprove could receive two generations. Type-2 input
+#       stop naming the file to re-upload; runs on load, before S3-6 and before
+#       convergence.
+#   (7) the CONVERGED branches and S3-6 now persist classifications.json as well as
+#       scan_progress.json — v1.5.0 saved only the latter after refinement, so a split
+#       at convergence delivered rows still naming the removed old_subtopic (a
+#       fresh-exam INV-5 HOLD with no scan-time cause at all).
+#   schema_version stays "2.0" (load_scan_progress and PYQApprove §4 both reject
+#   any other value); every new field is additive and read with .get; for a scan
+#   with no orphan and no variant, classifications.json and the taxonomy are
+#   byte-identical and scan_progress._meta gains only the orphan_gate stamp and
+#   two empty ledgers. INV-5 at PYQApprove is unchanged and remains the backstop.
+# v1.5.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: crosswalk suppression at scan
+# v1.4.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (F1) S3-1 gains
+#   the GENERATION-AWARE TRIPWIRE: a draft carrying spec_generation is re-checked
+#   with reconcile_taxonomy.check_topic_density on load — an unmatched finding
+#   means the file in project Files is not the file PYQDraft's gate passed
+#   (Type-2 stale-input stop naming the file to replace); a draft WITHOUT
+#   spec_generation predates the release and gets the one-touch "re-run
+#   PYQDraft before scanning" Type-2 stop. S3-6 completion additionally writes
+#   post-refinement subtopic totals + ratio into scan_progress._meta
+#   (informational telemetry — PYQApprove C4 stays the enforcement point).
+#   (F2) scan-created names are GATED AT SOURCE: S3-3 discovery and S3-6 splits
+#   run the S2-3 name gates (question shape, catch-all patterns, the
+#   min(80, bc.MAX_HEADING_LEN) length bound), plus the C5 near-duplicate check
+#   against the receiving Topic's existing subtopics and, for discovered
+#   TOPICS, a collision check against syllabus-anchored topic names —
+#   self-correcting within the law's rounds; exhaustion writes a finding-keyed
+#   amber_status into scan_progress._meta (merged with the draft's at
+#   PYQApprove via engine E7).
+# v1.3.3 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B. MIN_PATTERN_SIZE
+#   (and its documented pair MIN_QUESTIONS_FOR_SPLIT) hoisted from
+#   run_refinement_pass()'s locals to module scope in the same fence:
+#   check_dimensional_splits() reads MIN_PATTERN_SIZE and is a module-level
+#   function, so EVERY call raised NameError — the refinement pass has never
+#   completed on any corpus that reached it with >=15 questions in a subtopic
+#   (the GAP-2026-08-16 D5 shape). Values unchanged (15 / 3); behaviour of a
+#   successful pass identical. Baseline entry deleted. Release: 2026.08.22.4.
+# v1.3.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
+#   changed). Superseded v1.3 entry moved VERBATIM to SPEC_HISTORY.md (the
+#   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
+#   +809 B by the 2026.08.21.4 deploy review. Directory and standing notes stay.
+# v1.3.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: era-classification block -> tagged def resolve_era; 1 prose mention to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+````
+
 Entry v1.3 moved at framework release 2026.08.22.2 (EC-P42 — PYQScan-route
 headroom, flagged +809 B by the 2026.08.21.4 deploy review). Current-version
 entry remains in Framework_PYQScan.md.
@@ -4022,6 +7111,32 @@ Current-version entry remains in Framework_PYQScan.md.
 ```
 
 ## Framework_PYQSort.md
+
+Entries v1.20.0–v1.21.0 moved at framework release 2026.11.06 (EC-P42; v1.21.1 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_PYQSort.md.
+
+````
+# v1.21.0 — 2026-09-02 — GAP-2026-09-01-SYLLABUS-TRANSITION rev 4.5, RELEASE B: syllabus era + OOS labeling
+# v1.20.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (inferred_headings, question_views); 5 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
+# v1.20.0 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-1 Q_PATTERNS mirrors the engine's
+#   widened four-entry table (entries 3/4 = BARE-LABEL forms). A stem whose whole payload
+#   is <m:oMath> reads through p.text as "Q.N", entries 1/2 require whitespace AFTER the
+#   digits, and extract_questions() therefore filed the stem, its four options and its
+#   date label as BODY of the preceding question: 4 of 60 lost on IIT_JAM_MATHEMATICS
+#   12-Feb-2017 with all ten checks GREEN (CHECK 2 counts input and output with the same
+#   blind detector; CHECK 5 passes because this step RENUMBERS; CHECK 3 passes because
+#   the emitter rebuilds one date label per DETECTED question). NEW S1-3b: reconcile the
+#   parsed count against scan_progress.json drive_file_inventory[].q_count — HARD STOP on
+#   disagreement, WARN when the field is absent so pre-remedy projects are not stranded.
+#   NEW CHECK 12 (HARD FAIL): the question-side twin of CHECK 11 — the <w:t> view and the
+#   <w:t>+<m:t> view of the delivered file must agree on every question start. §8 heading
+#   corrected from a stale "10 checks" (CHECK 11 was already live) to 12.
+````
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQSort.md.
@@ -4073,6 +7188,95 @@ Current-version entry remains in Framework_PYQSort.md.
 ```
 
 ## Framework_ScopedBlueprint.md
+
+Entries v1.8.0–v1.13.0 moved at framework release 2026.11.06 (EC-P42; v1.14.0 supersedes;
+GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
+Current-version entry remains in Framework_ScopedBlueprint.md.
+
+```
+# v1.13.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
+#   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0). (1) S8-2d SHAPE
+#   TARGETS: shape_target_per_paper[paper] = bc.shape_targets(shape shares, Q, paper index)
+#   — FLOOR for every shape with share x Q >= 1, CAP = round(share x Q) + 2 (owner OD-6 c),
+#   series rotation below that — from the in-scope subtopics' QUALITY blocks
+#   (bc.quality_block_for_subtopic; first cascade level holding >= bc.SHAPE_MIN_POOL items);
+#   {} (dormant, printed) when section_rules carries no QUALITY block. (2) --refresh
+#   (bp_refresh, OD-10 a): with an EXISTING blueprint attached, writes ONLY the new fields
+#   (shape_target_per_paper, schema_version, producer) for papers AFTER the last registered
+#   one and never touches allocations or schedules of registered papers — a series in
+#   progress keeps its continuity. (3) blueprint.schema_version = 2.
+# v1.12.0 — 2026-11-02 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY L2 + F8 (paired with
+#   blueprint_core v1.29, MockTestCreate v5.89). Measured defect: every paper of a delivered
+#   Organic scoped series was scheduled 2/14/24 — the exam's PAPER-level mix (not the
+#   scope's) run through '+30% harder' and then read in ALPHABETICAL key order (Easy, Hard,
+#   Medium); this spec had no 'harder' form and no dict->tuple rule, so a session improvised.
+#   §5 S5-P (new, runs whenever a difficulty profile exists): EVERY form is computed by ONE
+#   engine call, bc.scoped_difficulty_schedule, on the SCOPE's measured mix
+#   (bc.dp_scope_mix: equal-weight over window cycles, empty cycles skipped, cascade
+#   scope -> topic -> section -> paper below 20 questions), converted ONLY by bc.mix_to_smh
+#   (positional, exam_config.difficulty_labels order). Forms: 'harder' (DEFAULT — owner
+#   decision O3, same default as the mock Blueprint since v1.58), 'exam' (now the SCOPE's
+#   mix, no longer the paper's), 'S:M:H', 'progressive'. The blueprint records
+#   difficulty_source (A-DPROFILE schema + builder + profile hash) so Create S3-2D and the
+#   auditor's A-DIFFSRC recompute it. CSIR Organic: 1 Easy / 23 Medium / 16 Hard per 40.
+#   No profile -> the v1.5 envelope ramp (§5 Branch A) unchanged. S8-2c (new):
+#   fig_ask_target_per_mock from section_rules figural_ask_type_counts (bc.fig_ask_series).
+# v1.11.0 — 2026-11-01 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.4 +
+#   LAW F3.2; paired with blueprint_core v1.28, figure_types v1.0, final_assembly v1.10,
+#   Framework_MockTestCreate v5.88, Framework_Blueprint v1.61.0). TWO DEFECTS, both estate-wide.
+#   (1) S8-4 INHERITED the five producer flags (passage/figural/di/multi/nat_present) from
+#   exam_config with default False. No step writes those keys, so every scoped blueprint in
+#   the estate was born `figural_present: false` — on the reference exam beside 17–18 FIGURAL
+#   allocations per paper. Step 7 S13-4 and final_assembly.commit_registry gated the figure
+#   record on that flag, so 6 of 21 scoped papers committed NO figure record (no object_types,
+#   no figure_specs, no semantic_objects): every figure gate went dormant and every paper
+#   audited exit_0/SHIP. FIX: the flags are DERIVED from the scoped allocation through ONE
+#   engine rule shared with the mock Blueprint, bc.derive_presence_flags (formats of the
+#   allocated subtopics; answer_cardinality / answer_type of the allocated subtopics; the
+#   scoped marking_scheme per the S6-MS precedent). exam_config is never consulted for these
+#   five keys again; mock_sync_audit MS-22 forbids the idiom from returning.
+#   (2) No step asked whether a DOMINANT figure type could be rendered: §6 checked format
+#   feasibility (is the section figural-capable?) never TYPE feasibility. NEW S4-5 KIND-
+#   COVERAGE PRE-FLIGHT (bc.kind_coverage_preflight over figure_types.FIGURE_TYPES): a
+#   dominant type the registry marks UNSUPPORTED (a photograph, a micrograph) HARD STOPs
+#   naming subtopic + type, unless exam_config.figure_fallback_policy == 'text_disclosed', in
+#   which case the subtopic is allocated TEXT for the series and blueprint.figural_fallbacks
+#   records it for the footer; an UNREGISTERED type is an advisory (it renders as a GENERIC
+#   schematic; the auditor reports it AMBER) — ~200 legacy exams are never halted by a
+#   vocabulary gap. blueprint.figure_type_coverage records the verdict. S8-6 asserts the
+#   derived flags; DoD gains item 13.
+# v1.10.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
+#   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt. New DoD item 12 (this spec never named its present_files call).
+# v1.10.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
+#   PYQExplain v2.18, MockTestAnalyse v2.55). §1-3 loads the optional difficulty profile
+#   (bc.dp_check_profile) instead of section_rules' retired PYQ_DIFFICULTY_CALIBRATION; S5-1
+#   observed_levels() reads bc.dp_calibration (rubric-measured bands per subtopic; positional
+#   alias to Simple/Medium/Hard); new '--difficulty exam' fixed-uniform form uses the profile's
+#   paper-level mix. Default ramp and the S5-2 cascade unchanged. FIX: §1-3 resolves
+#   [ExamCode]_exam_config.json (the corpus convention) before the bare name — the bare-only
+#   read hard-stopped on every prefixed project.
+# v1.9.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (mock S9-12 parity;
+#   paired with blueprint_core axis_truth_check + Framework_Blueprint v1.54.0).
+#   §6-3 now cross-examines the derived axis_schedule's advisories
+#   (axis1_unreachable_formats, guarantee_feasibility) against the in-scope
+#   manifest via a first-principles recomputation BEFORE the schedule is stored,
+#   and HARD STOPS on any contradiction — a corrupted instrument must not be
+#   persisted into blueprint.json, where every downstream reader inherits it
+#   silently. Genuine format shortfalls remain flag-and-continue advisories.
+# v1.8.1 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE follow-through
+#   (comment-only; no rule, gate, or output changes). The §6-3 rationale for
+#   scoped_manifest_ids still described the PRE-FIX engine ("the engine ... filters ids
+#   by manifest[sid]['section'] == section_name") — false since the engine fix shipped
+#   with Framework_Blueprint v1.49.0, and exactly the mental model that produces the
+#   next instance of the defect class. Rewritten: the view is a retained defensive
+#   no-op under the engine's pre-scoped contract, and the raw-join "simplification" is
+#   named as the thing the new ENGINE-SECTIONJOIN audit fails the build on.
+# v1.8.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   Pipeline listing updated to 6S -> 7 -> 9 -> 11; the one "audited downstream at Step 8"
+#   claim is restated against Step 7's audit.py. No allocation rule, gate, or output of
+#   this spec changes. ACCEPTED LOSS: a scoped paper now receives no independent audit at
+#   any point — Step 7's own gates are terminal for it.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_ScopedBlueprint.md.

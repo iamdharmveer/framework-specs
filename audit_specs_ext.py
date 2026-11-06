@@ -35,9 +35,17 @@ derived from a real defect that reached a delivered spec:
              a header/changelog disagreement in the third component (v2.24.9 vs
              v2.24.10) is invisible to Check C. This closes that blind spot.
 
+  SPEC-BUDGET   A route above SPEC_BUDGET_BYTES must declare a read set.
+
+  SPEC-CAPACITY Per route and session class, the estimated read (bytes/2.3, measured
+             2026-11-06) must fit SESSION_BUDGET.json read_cap_tokens — the context a
+             session holds before it silently compacts away the spec it read.
+             (Motivating defect: GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY.)
+
 Exit code 0 iff zero issues. Pure stdlib.
 """
 
+import math
 import re
 import sys
 import json
@@ -140,9 +148,23 @@ def _is_delegation_adapter(body, art):
 
 
 # Policy threshold (owner decision D1). Set where the corpus actually splits: every
-# PYQ-phase trigger is far below it; PYQExtract (556,834 B), MockCreate (~563,000) and
-# MockBlueprint (~420,000) are above it, and all three are batched multi-session steps.
+# PYQ-phase trigger is far below it; the batched multi-session steps sit above it
+# (measured 2026-11-06: MockCreate/TestCreate 973,535 B, MockBlueprint 550,478 B,
+# PYQExtract 425,167 B). It decides only WHETHER a route must declare a read set; how
+# much a session can actually hold is SPEC-CAPACITY's question (SESSION_BUDGET.json).
 SPEC_BUDGET_BYTES = 250_000
+
+# SPEC-CAPACITY (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY). The measured numbers live in
+# SESSION_BUDGET.json beside routes.json. rotate_tokens must keep a margin below the
+# measured silent-compaction point: opus-5-5 compacted at ~790,000 tok with no notice,
+# so a worker rotated at 85% of the floor never reaches it.
+SESSION_BUDGET_FILE = 'SESSION_BUDGET.json'
+ROTATE_MARGIN = 0.85
+# The independent reviewer (Framework_MockTestCreate.md S13-2G REVIEWER BRIEF) reads this spec
+# "IN FULL (sed -n in bash)" — one tool result. Above one read chunk that result is diverted
+# to a file the reviewer cannot read back whole (measured 2026-11-06), and the review would
+# run without its specification. So it must stay within ONE read chunk.
+SINGLE_READ_SPECS = ('Framework_MockReview.md',)
 
 # RATCHET BASELINE — the same idiom as spec_name_audit_baseline.json. These routes are
 # already over the threshold at 2026.08.15.9 and are KNOWN, SCOPED and DEFERRED: the
@@ -402,8 +424,10 @@ def check_spec_budget(paths):
     This is the check that did not exist. bootstrap.py printed filenames; MANIFEST.json
     carried the line count for INTEGRITY and never surfaced it as a COST; no EC, no DoD
     item and no gate mentioned read cost at all. Measured on PYQExtract: 556,834 B,
-    ~139,208 tokens, >=36 view calls, MANDATORY, every session, on the one step that is
-    inherently multi-session — 40 of 50 tool calls in the reference incident.
+    >=36 view calls, MANDATORY, every session, on the one step that is inherently
+    multi-session — 40 of 50 tool calls in the reference incident. (That incident
+    priced it at ~139,208 tok on a 4 B/tok guess; the 2026-11-06 measurement is
+    2.3 B/tok, ~242,000 tok.)
 
     The threshold is a POLICY number, not a law of nature. It is set where the corpus
     actually splits: every PYQ-phase trigger sits far below it; PYQExtract, MockCreate
@@ -431,12 +455,114 @@ def check_spec_budget(paths):
         covered = any(sections.get(f, {}).get('has_read_set') for f in mds)
         if not covered:
             add('SPEC-BUDGET', f'routes.json[{trig}]',
-                f'pre-work read is {total:,} B (~{total // 4:,} tok) across {len(mds)} '
+                f'pre-work read is {total:,} B (~{math.ceil(total / 2.3):,} tok) across {len(mds)} '
                 f'spec(s), above the {SPEC_BUDGET_BYTES:,} B threshold, and NO read set '
                 f'is declared in SPEC_SECTIONS.json. A session must pay this before it '
                 f'may do any work (EC-P42). Declare a FINAL/NON-FINAL read set for the '
                 f'largest spec on this route, or move its executable fences into a '
                 f'routed engine.')
+
+
+def check_spec_capacity(paths):
+    """SPEC-CAPACITY — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY.
+
+    SPEC-BUDGET proves a large route DECLARES a read set; nothing proved the read fits
+    the session that must hold it. Measured 2026-11-06: Framework_MockTestCreate.md is
+    869,426 B ~ 366,000 tok (2.41 B/tok on a 215,068 B slice, not the 4 B/tok every
+    estimate used); an opus-5-5 sub-agent compacted SILENTLY at ~790,000 tok and a
+    sonnet-5-5 one at ~390,000, losing the spec mid-batch with no notice. For every
+    trigger and BOTH session classes the estimated read must fit read_cap_tokens. The
+    cap is derived (rotate - baseline - work unit) and recomputed here, so it cannot be
+    raised without changing what it is derived from — which _change_rule ties to a
+    re-measurement.
+    """
+    root = os.path.dirname(os.path.abspath(paths[0])) if paths else '.'
+    rp = os.path.join(root, 'routes.json')
+    if not os.path.exists(rp):
+        return
+    try:
+        budget = json.load(open(os.path.join(root, SESSION_BUDGET_FILE), encoding='utf-8'))
+        bpt = float(budget['bytes_per_token'])
+        cap = int(budget['read_cap_tokens'])
+        rotate = int(budget['rotate_tokens'])
+        base = int(budget['context_baseline_tokens'])
+        unit = int(budget['work_unit_tokens'])
+        floor = int(budget['compaction_floor_tokens'])
+        if bpt <= 0:
+            raise ValueError('bytes_per_token must be above 0')
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        add('SPEC-CAPACITY', SESSION_BUDGET_FILE,
+            f'missing or unparseable ({type(e).__name__}: {e}). Every route\'s read is '
+            f'gated against it; restore it from the release that measured it.')
+        return
+    if cap != rotate - base - unit:
+        add('SPEC-CAPACITY', SESSION_BUDGET_FILE,
+            f'read_cap_tokens {cap:,} != rotate_tokens {rotate:,} - '
+            f'context_baseline_tokens {base:,} - work_unit_tokens {unit:,} '
+            f'(= {rotate - base - unit:,}). The cap is derived, never set by hand.')
+    if rotate > floor * ROTATE_MARGIN:
+        add('SPEC-CAPACITY', SESSION_BUDGET_FILE,
+            f'rotate_tokens {rotate:,} > {ROTATE_MARGIN} x compaction_floor_tokens '
+            f'{floor:,} (= {int(floor * ROTATE_MARGIN):,}): a worker would run into the '
+            f'measured silent-compaction point before it is rotated.')
+    max_lines = int(budget.get('read_chunk_max_lines', 300))
+    max_bytes = int(budget.get('read_chunk_max_bytes', 28000))
+    for f in SINGLE_READ_SPECS:
+        fp = os.path.join(root, f)
+        if not os.path.exists(fp):
+            continue
+        data = open(fp, 'rb').read()
+        n_lines = data.count(b'\n') + (0 if data.endswith(b'\n') or not data else 1)
+        if n_lines > max_lines or len(data) > max_bytes:
+            add('SPEC-CAPACITY', f,
+                f'{n_lines:,} lines / {len(data):,} B is more than ONE read chunk '
+                f'({max_lines} lines / {max_bytes:,} B). The Step 7 reviewer reads this spec '
+                f'in a single call; a larger result is diverted and the review would run '
+                f'without it. Shorten the spec (move history to SPEC_HISTORY.md).')
+    routes = {k: v for k, v in json.load(open(rp, encoding='utf-8')).items()
+              if not k.startswith('_')}
+    # PROJECT INPUTS. On a surface with no /mnt/project the chat stages, for a trigger listed
+    # in project_inputs, only the project documents matching its patterns. A routed spec that
+    # names a /mnt/project file no pattern matches would run without that input, silently.
+    import fnmatch
+    for trig, pats in sorted((budget.get('project_inputs') or {}).items()):
+        for f in routes.get(trig) or []:
+            fp = os.path.join(root, f)
+            if not f.endswith('.md') or not os.path.exists(fp):
+                continue
+            text = open(fp, encoding='utf-8').read()
+            for raw in sorted(set(re.findall(
+                    r'/mnt/project/((?:\[ExamCode\])?[A-Za-z0-9_.*{}-]*)', text))):
+                raw = re.sub(r'\*\*+$', '', raw).rstrip('.')     # markdown bold, sentence end
+                name = raw.replace('{EXAM}', 'EX').replace('[ExamCode]', 'EX')
+                if not name or '{' in name or '[' in name or '/' in name:
+                    continue        # a computed name; nothing to compare
+                if not any(fnmatch.fnmatchcase(name.replace('*', 'x'), p) for p in pats):
+                    add('SPEC-CAPACITY', f'{SESSION_BUDGET_FILE}[project_inputs.{trig}]',
+                        f'{f} reads /mnt/project/{raw}, which no pattern matches. On a '
+                        f'surface without /mnt/project that file would not be staged. Add '
+                        f'a pattern for it.')
+    sp = os.path.join(root, 'SPEC_SECTIONS.json')
+    sections = (json.load(open(sp, encoding='utf-8')).get('files', {})
+                if os.path.exists(sp) else {})
+    for trig, entry in sorted(routes.items()):
+        mds = [f for f in entry if f.endswith('.md') and os.path.exists(os.path.join(root, f))]
+        for klass in ('FINAL', 'NON-FINAL'):
+            tok = 0
+            for f in mds:
+                info = sections.get(f, {})
+                used = info.get('bytes', os.path.getsize(os.path.join(root, f)))
+                if klass == 'NON-FINAL' and info.get('has_read_set'):
+                    used = info['reduced_bytes']
+                tok += math.ceil(used / bpt)
+            if tok > cap:
+                add('SPEC-CAPACITY', f'routes.json[{trig}]',
+                    f'{klass} read is ~{tok:,} tok across {len(mds)} spec(s) '
+                    f'(bytes/{bpt}), above read_cap_tokens {cap:,} by {tok - cap:,} tok. '
+                    f'A session this size compacts the spec away mid-run with no notice. '
+                    f'Lawful exits: move superseded changelog entries to SPEC_HISTORY.md; '
+                    f'move executable fences into a routed engine; declare or extend a '
+                    f'read set (NON-FINAL). The cap is measured, not negotiable.')
 
 
 def main(paths):
@@ -457,10 +583,12 @@ def main(paths):
     check_v_sync(texts)
     check_v_scope(texts, known)
     check_spec_budget(paths)
+    check_spec_capacity(paths)
 
     if not ISSUES:
         print(f"✅ audit_specs_ext: 0 issues across {len(texts)} file(s) "
-              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET H-SELFSTOP]")
+              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET SPEC-CAPACITY "
+              f"H-SELFSTOP]")
         return 0
     by_file = defaultdict(list)
     for chk, f, msg in ISSUES:
@@ -567,6 +695,82 @@ def self_test():
     rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='BrandNewStep')
     check("SPEC-BUDGET fires for any uncovered over-threshold trigger (no exemption path exists)",
           rc == 1 and '[SPEC-BUDGET]' in out)
+
+    # ── SPEC-CAPACITY — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY ──────────────
+    # A miniature repo with its own SESSION_BUDGET.json, keyed to SHAPE: small numbers
+    # (cap 800 tok) so a 2,000 B spec is over and a 1,000 B one is under at 2.3 B/tok.
+    def probe_capacity(spec_bytes, budget='default', reduced=None, review=None, inputs=None):
+        d = tempfile.mkdtemp()
+        name = "Framework_Cap.md"
+        if inputs is not None:
+            budget = {'bytes_per_token': 2.3, 'rotate_tokens': 1000,
+                      'context_baseline_tokens': 100, 'work_unit_tokens': 100,
+                      'read_cap_tokens': 800, 'compaction_floor_tokens': 2000,
+                      'project_inputs': {'CapStep': inputs}}
+        if review is not None:
+            open(os.path.join(d, 'Framework_MockReview.md'), 'w', encoding='utf-8').write(review)
+        open(os.path.join(d, name), 'w', encoding='utf-8').write(
+            ("open(f'/mnt/project/{EXAM}_rules.md'); glob('/mnt/project/{EXAM}_LEARN_v*.md'); "
+             "f'/mnt/project/{f}'\n" if inputs is not None else '') + 'x' * spec_bytes)
+        json.dump({'CapStep': [name]},
+                  open(os.path.join(d, 'routes.json'), 'w', encoding='utf-8'))
+        if budget == 'default':
+            budget = {'bytes_per_token': 2.3, 'rotate_tokens': 1000,
+                      'context_baseline_tokens': 100, 'work_unit_tokens': 100,
+                      'read_cap_tokens': 800, 'compaction_floor_tokens': 2000}
+        if budget is not None:
+            json.dump(budget, open(os.path.join(d, 'SESSION_BUDGET.json'), 'w',
+                                   encoding='utf-8'))
+        if reduced is not None:
+            json.dump({'files': {name: {'bytes': spec_bytes, 'has_read_set': True,
+                                        'reduced_bytes': reduced}}},
+                      open(os.path.join(d, 'SPEC_SECTIONS.json'), 'w', encoding='utf-8'))
+        r = subprocess.run([sys.executable, here, os.path.join(d, name)],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    rc, out = probe_capacity(1000)
+    check("SPEC-CAPACITY silent on a route under the cap (clean fixture)",
+          rc == 0 and '[SPEC-CAPACITY]' not in out)
+    rc, out = probe_capacity(2000)
+    check("SPEC-CAPACITY fires on a route over the cap, naming route, class and overshoot",
+          rc == 1 and '[SPEC-CAPACITY] FINAL read is ~870 tok' in out
+          and 'routes.json[CapStep]' in out and 'by 70 tok' in out
+          and 'SPEC_HISTORY.md' in out and 'NON-FINAL read is' in out)
+    rc, out = probe_capacity(2000, reduced=1000)
+    check("SPEC-CAPACITY judges each class: a read set clears NON-FINAL only",
+          rc == 1 and 'FINAL read is ~870 tok' in out and 'NON-FINAL read is' not in out)
+    rc, out = probe_capacity(1000, budget=None)
+    check("SPEC-CAPACITY fires when SESSION_BUDGET.json is missing",
+          rc == 1 and '[SPEC-CAPACITY] missing or unparseable' in out)
+    rc, out = probe_capacity(1000, budget={'bytes_per_token': 2.3, 'rotate_tokens': 1000,
+                                           'context_baseline_tokens': 100,
+                                           'work_unit_tokens': 100,
+                                           'read_cap_tokens': 900,
+                                           'compaction_floor_tokens': 2000})
+    check("SPEC-CAPACITY fires when read_cap_tokens is not rotate - baseline - unit",
+          rc == 1 and 'read_cap_tokens 900 != rotate_tokens' in out)
+    rc, out = probe_capacity(1000, budget={'bytes_per_token': 2.3, 'rotate_tokens': 1800,
+                                           'context_baseline_tokens': 100,
+                                           'work_unit_tokens': 100,
+                                           'read_cap_tokens': 1600,
+                                           'compaction_floor_tokens': 2000})
+    check("SPEC-CAPACITY fires when rotate_tokens exceeds 0.85 x the compaction floor",
+          rc == 1 and 'rotate_tokens 1,800 > 0.85' in out)
+
+    rc, out = probe_capacity(1000, review='rule\n' * 300)
+    rc2, out2 = probe_capacity(1000, review='rule\n' * 301)
+    rc3, out3 = probe_capacity(1000, review='y' * 28001)
+    check("SPEC-CAPACITY holds the reviewer spec to one read chunk (lines and bytes)",
+          rc == 0 and rc2 == 1 and '301 lines' in out2 and 'more than ONE read chunk' in out2
+          and rc3 == 1 and '28,001 B' in out3)
+
+    rc, out = probe_capacity(500, inputs=['*_rules.md', '*LEARN*.md'])
+    rc2, out2 = probe_capacity(500, inputs=['*LEARN*.md'])
+    check("SPEC-CAPACITY fires when a routed spec reads a project file no staging pattern matches",
+          rc == 0 and rc2 == 1 and 'project_inputs.CapStep' in out2
+          and '/mnt/project/{EXAM}_rules.md, which no pattern matches' in out2
+          and 'LEARN_v' not in out2)
 
     # H-SELFSTOP (GAP-2026-08-30-TYPE1-HALT-ELIMINATION): fires on each retired
     # phrasing, silent on clean text and on non-Framework files.

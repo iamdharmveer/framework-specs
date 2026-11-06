@@ -1,45 +1,6 @@
 # Framework_PYQPrepare v2.2.1 — Universal PYQ Row File Generator
 # v2.2.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v2.2 — 2026-09-14 — GAP-2026-09-14-ROWFILE-NAME-TWO-FORMS (owner ruling 2026-09-14).
-#   §6 now defines EXACTLY two legal output filenames — [ExamCode]_DD-Mon-YYYY_<session
-#   _keyword>-<N>.docx and [ExamCode]_DD-Mon-YYYY.docx — with no variant for any
-#   condition. The v1.7 "__vision-unverified" suffix for FORMAT C1 / C-HYBRID Row files
-#   is REMOVED (§6, §7, S1-13 build note, §9 CALL B4 variant). All logic is retained:
-#   mark_vision_transcribed() still sets core_properties.category unconditionally in the
-#   S1-13 path, the §7 "human verification required" delivery note is unchanged, and
-#   §10's provenance ripple is unchanged. CHECK 14 re-anchored: it compared the
-#   core-property against the filename suffix; with the suffix gone it now compares the
-#   core-property against the caller's claim — validate_row_file(source_trust=), the
-#   value mark_vision_transcribed() returned (None on the text path). That parameter
-#   existed since v1.7 and was never read; it is now the second signal, which is stronger
-#   than the filename was (two signals written by one code path at one moment could
-#   only ever agree); CHECK 14 also compares the trust VALUE (VISION-TRANSCRIBED vs
-#   MIXED), which the suffix never could. Consumer side: PYQExplain v2.23 (Limitations
-#   section) identifies vision-transcribed Row files by the core-property. Row files
-#   already delivered with the suffix remain valid. No engine change; no downstream glob
-#   or reader ever matched the suffix.
-# v2.1.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
-#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
-#   across the corpus, invisible behind an 8-line display cap. This file: two-view invariant -> tagged fence; 10 prose mentions to no-paren form.
-#   Call mentions in prose now use the documented no-paren form; genuine code is in
-#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v2.1 — 2026-08-15 — GAP-2026-08-15-BAREQ (producer side). S1-4 contract rewritten: a
-#   bare "Q.N" stem — OMML-only, figure-only, or empty/corrupt — is a LAWFUL normalised
-#   form with a named reason, and "repairing" it by injecting filler ("Solve:") is now
-#   PROHIBITED: filler is not in the source, survives into Step 5's extraction and into
-#   every mock derived from the item, and corrupts the corpus it appears to fix.
-#   CHECK 1/2/12/15/21 delegate to bc.detect_question_start() — they carried a PRIVATE
-#   regex r'^Q\.\d+' that needed no trailing content, so Step 1 certified "Q-count = 60,
-#   sequential OK" on a file Step 3 read as 56 and delivered it green. CHECK 13 calls
-#   bc.is_bare_q_label(): it already had the right regex gated on the wrong payload test
-#   (NEXT paragraph for a drawing, never the SAME paragraph for an equation) and now
-#   reports OMML-only, figure-only and truly-empty stems separately. S2-4 sanitise() and
-#   CHECK 7 widen to the zero-width class (U+200B/200C/200D/2060/FEFF), which str.strip()
-#   does not remove and \s does not match, so "Q.4<ZWSP>" defeats every table entry while
-#   looking correct on screen. NEW CHECK 22 (WARN, 21 -> 22): producer/consumer
-#   Q-detection agreement — the <w:t>-only view vs the <w:t>+<m:t> view of the SAME
-#   document, the one construction a shared blind spot cannot satisfy.
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:

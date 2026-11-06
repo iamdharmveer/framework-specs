@@ -1,18 +1,6 @@
 # Framework_PYQFormat v1.6.1 — Universal PYQ Student Document Formatter
 # v1.6.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
-# v1.6.0 — 2026-09-03 — GAP-2026-09-03-PAGE-BORDER: a full-page border frames EVERY page of
-#   the formatted document. NEW §6A defines the border (pgBorders: single 0.75pt line,
-#   #1F3864, 24pt from the PAGE edge, all four sides, display attribute ABSENT = all pages
-#   by the OOXML standard itself); S13-2 step 7 wires it into EVERY sectPr; S13-8 carries
-#   PGBORDERS_ORDER, apply_page_border(), the edge-case-23 margin WARN and
-#   selftest_page_border(); S8-3 rule 5 verifies presence + exact attributes (HARD STOP);
-#   §12 edge cases 22–24 (pre-existing border REPLACED per O-3; narrow margins WARN per
-#   O-4; multi-section = every sectPr); Appendix A PAGE_BORDER_* tokens. Owner rulings
-#   O-1..O-4 (2026-09-03): scope PYQFormat ONLY; constants locked; replace; WARN-not-HALT.
-#   Chrome-only change: pgBorders is a section property, never a body element — S8-4..S8-8
-#   are unaffected by construction; proven on a real 76-page artefact (official validator:
-#   0 new errors vs baseline; a naive-position mutant is REJECTED by the S8-9 gate).
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
 #
 # ════════════════════════════════════════════════════════════════════════

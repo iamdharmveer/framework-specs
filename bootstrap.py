@@ -52,12 +52,30 @@ run log. Reading a spec in full is the framework's own rule; a session once work
 "trimmed working copies" and nothing recorded it. The receipt makes the spec a run was
 held to VISIBLE (the delivery footer repeats it); it cannot make skipped reading impossible.
 
+READ CAPACITY (2026.11.06, GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY). Measured 2026-11-06 on
+the Claude cloud-session surface: a bash result of >= ~40,000 chars is diverted to a file the
+session cannot read back whole; 300 lines / ~20 KB came back inline 43 times in a row; specs
+cost 2.3 B/tok, not 4; a sub-agent holding the 870 KB Step 7 spec compacted SILENTLY at
+~790,000 tok. So reading is served here, not improvised: `--read K` prints one chunk of
+<= 300 lines / <= 28,000 B (spec_sections.chunk_plan) with READ-ANCHOR codes on chunk 1, every
+8th and the last, and `--retention` checks that the session can still reproduce them — the
+only observable sign that the spec is still in its context. The surface also has no
+/mnt/project and stores attachments under /mnt/user-data/attachments: `--stage-inputs`,
+`--stage-project-docs`, `--stage-doc` and `--stage-status` put the inputs where the specs read them. `--worker-report`
+and `--worker-prompt` are the orchestrator/worker hand-off for Step 7 (OD-2026-11-06).
+State lives in <cwd>/.read_state/. Paths are overridable for hermetic tests: FW_PROJECT_DIR,
+FW_UPLOADS_DIR, FW_ATTACH_DIR, FW_HOME.
+
 Usage:
     python3 bootstrap.py                     # verify whole framework
     python3 bootstrap.py --trigger MockDeliver
     python3 bootstrap.py --trigger MockCreate --receipt
+    python3 bootstrap.py --trigger TestCreate --progress P --read K     # K = 1..N
+    python3 bootstrap.py --retention "01=ABCDEFG 02=..." [--when after-read]
+    python3 bootstrap.py --stage-inputs | --stage-project-docs | --stage-status | --stage-doc NAME --from PATH|--typed
+    python3 bootstrap.py --self-test
 """
-import argparse, hashlib, json, os, sys
+import argparse, hashlib, json, math, os, re, secrets, shutil, sys, time
 
 def sha256(path):
     with open(path, "rb") as f:
@@ -219,17 +237,991 @@ def _session_class(progress_path, files_meta, trigger=None):
     return "NON-FINAL" if remaining > 3 else "FINAL"
 
 
+# ── GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY ────────────────────────────────────────
+# Production paths; each is overridable by environment so --self-test never touches them.
+def _dir(var, default):
+    return os.environ.get(var, default)
+
+def project_dir():
+    return _dir("FW_PROJECT_DIR", "/mnt/project")
+
+def uploads_dir():
+    return _dir("FW_UPLOADS_DIR", "/mnt/user-data/uploads")
+
+def attach_dir():
+    return _dir("FW_ATTACH_DIR", "/mnt/user-data/attachments")
+
+def home_dir():
+    return _dir("FW_HOME", "/home/claude")
+
+READ_STATE_DIR = ".read_state"
+STAGED_RECORD = ".staged.json"
+# Fallback when SESSION_BUDGET.json is absent: the 2026-11-06 measurement (215,068 B of
+# spec = 89,041 tok, 2.41 B/tok; 2.3 is the conservative divisor).
+DEFAULT_BYTES_PER_TOKEN = 2.3
+# Anchors: consonants only, so a code is never a word the model could "recall" by
+# guessing; on chunk 1, every 8th chunk and the last, so a lost stretch of the read is
+# caught wherever it falls.
+ANCHOR_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"
+ANCHOR_LEN = 7
+ANCHOR_EVERY = 8
+RETENTION_WHEN = ("after-read", "before-batch", "after-batch", "before-final")
+WORKER_STATES = ("BATCH_DELIVERED", "FINAL_BATCH_BUILT", "REVIEW_REQUEST",
+                 "PAPER_DELIVERED", "RETENTION_FAIL", "HARD_STOP")
+WORKER_STATES_NEED_BLOCK = ("BATCH_DELIVERED", "PAPER_DELIVERED", "HARD_STOP")
+# The orchestrator prints the chat block with --worker-report show. Raised at integration
+# (2026-11-06) from 400 / 30,000: the Final-Assembly response (S4-7 STEP D checklist + audit
+# STDOUT + S13-9 handoff + footer) can exceed 400 lines. A tool result above ~40,000 chars is
+# diverted by the harness to a file the session cannot read back whole (measured 2026-11-06),
+# so `show` serves the block in PARTS of at most CHAT_BLOCK_PART_BYTES (whole lines):
+# `--part P`, default 1. Every part is a normal inline result.
+CHAT_BLOCK_MAX_LINES = 800
+CHAT_BLOCK_MAX_BYTES = 60000
+CHAT_BLOCK_PART_BYTES = 24000
+
+
+def _block_parts(block):
+    """Split a chat block into consecutive parts of whole lines, each <= CHAT_BLOCK_PART_BYTES
+    (a single longer line is its own part). Joining the parts gives the block back exactly."""
+    lines = block.splitlines(keepends=True)
+    parts, cur, size = [], [], 0
+    for ln in lines:
+        b = len(ln.encode("utf-8"))
+        if cur and size + b > CHAT_BLOCK_PART_BYTES:
+            parts.append("".join(cur)); cur, size = [], 0
+        cur.append(ln); size += b
+    if cur or not parts:
+        parts.append("".join(cur))
+    return parts
+
+# D-4: the FINAL line named Step 5's writer (section_rules.md) for EVERY trigger, so a
+# Step 7 session was told it "may write section_rules.md" and nothing about Final Assembly.
+FINAL_READ_MESSAGES = {
+    "MockCreate": "This session may run Final Assembly and commit the registry.",
+    "TestCreate": "This session may run Final Assembly and commit the registry.",
+    "MockBlueprint": "This session may write the closing outputs.",
+    "MockExplain": "This session may write the end-of-mock report.",
+    "TestExplain": "This session may write the end-of-mock report.",
+    "PYQExtract": "This session may write section_rules.md.",
+}
+FINAL_READ_DEFAULT = "This session may write final artefacts."
+
+D2_TEXT = """PROJECT FILES ARE NOT MOUNTED ON THIS SURFACE. Stage them into {proj} now:
+1. List the project's documents with the Projects tool (project_info).
+2. Call project_read once for each document the step needs. Copy nothing by hand and do not
+   re-type anything. (A .docx or .pdf held in the project is returned as extracted text only
+   and cannot be staged: when the step needs that file itself, ask the user to attach it.)
+3. Run  python3 bootstrap.py --stage-project-docs
+   It takes every document you just read from this chat's own tool-result record and writes
+   it byte for byte into {proj} (a document the tool saved as `local_file` is copied).
+4. Only for a document step 3 lists under NOT STAGED:
+   - the result gave `local_file`:  python3 bootstrap.py --stage-doc "<name>" --from "<local_file>"
+   - the result was inline text: write that text, character for character, to
+     {proj}/<name> with your file-writing tool, then
+       python3 bootstrap.py --stage-doc "<name>" --typed
+5. A document the user ATTACHED to this chat is already staged (listed above as STAGED
+   ATTACHMENT) and wins over the project copy: do nothing for it.
+6. Run  python3 bootstrap.py --stage-status  and continue only when it prints STAGING COMPLETE.
+Sub-agents cannot read the project: staging is done in THIS chat, once per chat."""
+
+# The worker prompt. Its commands, states and messages are Framework_MockTestOrchestrate.md's
+# (O2-2, O3-1 to O3-8) word for word; keep the two in step. Under 60 lines.
+WORKER_PROMPT = """You are a Step 7 WORKER (owner decision OD-2026-11-06): the Step 7 session of
+Framework_MockTestCreate.md (MTC). You are governed by MTC AND by Framework_MockTestOrchestrate.md
+PART B (O3-1 to O3-8); both are in your read. The user's trigger, verbatim:
+  {trigger_text}
+<T> = the trigger's step word (MockCreate or TestCreate); <E> = the exam code; <N> = the paper
+number. BATCH STATE = {home}/<E>_M<N>_batch_state.json.
+CHAT BLOCK FILE = {home}/<E>_M<N>_chat_block.md.
+
+GROUND RULES (O3-1). Step 0 is ALREADY DONE: the verified, resolved framework is in
+/tmp/fw_effective; work there (cd /tmp/fw_effective). Do NOT clone, do NOT re-run Step 0, do NOT
+delete /tmp/fw or /tmp/fw_effective. Inputs are staged: project files in {proj}, chat
+attachments in {up}. Never start a sub-agent, never call a file-delivery tool, never wait for
+the user: your only reader is the orchestrator.
+
+ORCHESTRATOR MESSAGE (O2-2). A worker that replaces another one receives, after a blank line at
+the end of this prompt, the ORCHESTRATOR MESSAGE the replaced worker was handling; later messages
+arrive as new messages to you. The first worker of a run receives no message: its prompt carries
+the trigger. The messages (closed set, sent exactly as written):
+  continue — delivery confirmed
+  FINAL ASSEMBLY
+  REVIEW RETURNED   (followed by one line per part: <part_dir> <the reviewer's line>)
+  USER MESSAGE: <the user's message, verbatim>
+In every worker `continue — delivery confirmed` IS the user's continue trigger (MTC S4-6, S4-5
+CHECK 4) and `USER MESSAGE: <m>` is the user's message <m> for S4-6 (O3-1).
+
+READ (O3-2). For K = 1..N, one call each, in order:
+  python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K
+(omit --progress while the BATCH STATE does not exist). Never read a spec any other way, never
+with a sed range above 300 lines, never open a tool-output file the harness diverted.
+RETENTION (O3-3). Prove the read from memory (never open .read_state):
+  python3 bootstrap.py --retention "<nn>=<code> ..." --when <W>
+W = after-read (a), before-batch (b), after-batch (c), before-final (d; add --escalate for the
+escalation read of O3-5). Right after (b) passes make the O3-3 CHECKPOINT; delete it when the batch
+is recorded (S4-7 STEP E) or the correction has passed (c). A FAIL at any point: report
+RETENTION_FAIL and stop (the next worker restores the CHECKPOINT).
+{body}
+END EVERY TURN (O3-4): write MTC's chat prints of this turn to the CHAT BLOCK FILE, then run
+  python3 bootstrap.py --worker-report write --exam <E> --paper <N> --state <STATE> --batch <K> --of <M> --files "<paths>" --chat-file {home}/<E>_M<N>_chat_block.md
+adding --review-parts "<dir1>,<dir2>" for REVIEW_REQUEST; --files "" when the turn has no
+present_files call. STATE is one of BATCH_DELIVERED, FINAL_BATCH_BUILT, REVIEW_REQUEST,
+PAPER_DELIVERED, RETENTION_FAIL, HARD_STOP. Your final message is the one line:
+  WORKER DONE <STATE> batch K of M"""
+
+WORKER_FIRST = """THIS TURN (first worker of the run): read (O3-2), prove (a), then execute MTC for ONE
+response (O3-5): the session start, or one batch; a turn is cut only at FINAL_BATCH_BUILT and
+REVIEW_REQUEST. Prove (b) before authoring and (c) before S4-7 STEP E records the batch."""
+
+WORKER_CONTINUE = """THIS TURN (--continue: the paper is in progress on disk): read (O3-2) and prove (a) first.
+If {home}/<E>_M<N>_batch_state.json does not exist, write nothing and report HARD_STOP with the
+WORKDIR-LOST chat block of O3-1. Otherwise O3-7: RESTORE first when the CHECKPOINT exists (O3-3);
+then, in every case, MTC's session start and S4-12, handling the ORCHESTRATOR MESSAGE at the end of
+this prompt exactly as O3-7 says: for `continue — delivery confirmed` and `USER MESSAGE: ...`
+S4-12's batch recovery ends after step 4c (no resume summary, no STOP) and MTC S4-6 is applied to
+the message; `FINAL ASSEMBLY` enters S13 by S4-12's FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW
+rule; `REVIEW RETURNED` is O3-6 step 2 inside S4-12's REVIEW_RUNNING branch. Prove (b) and (c) as
+in O3-3."""
+
+
+def _load_json(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _session_budget():
+    return _load_json("SESSION_BUDGET.json") or {}
+
+
+def _sha12(path):
+    return sha256(path)[:12]
+
+
+def _spec_sections():
+    import spec_sections
+    return spec_sections
+
+
+def _routed_specs(trigger):
+    M = _load_json("MANIFEST.json") or {}
+    return [f for f in (M.get("routes") or {}).get(trigger) or [] if f.endswith(".md")]
+
+
+def _plans(sec, specs, klass):
+    """{spec: [(start, end), ...]} read chunks for `klass`, or None for a spec the map
+    does not describe (absent, or its sha differs: a stale map is never chunked)."""
+    ss, out = _spec_sections(), {}
+    for f in specs:
+        try:
+            out[f] = ss.chunk_plan(sec, f, klass)
+        except (KeyError, ValueError, OSError):
+            out[f] = None
+    return out
+
+
+def _attachments():
+    """Regular, non-dot files under FW_ATTACH_DIR, recursively — ONE path per attachment
+    name: when the user attached the same name more than once, the newest copy wins (an
+    older copy is never staged over it and never re-raises the SURFACE notice)."""
+    newest = {}
+    for root, dirs, files in os.walk(attach_dir()):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for f in sorted(files):
+            if f.startswith("."):
+                continue
+            p = os.path.join(root, f)
+            if not os.path.isfile(p):
+                continue
+            name = _attachment_name(p)
+            if name not in newest or os.path.getmtime(p) >= os.path.getmtime(newest[name]):
+                newest[name] = p
+    return sorted(newest.values())
+
+
+def _attachment_name(path):
+    # Measured 2026-11-06: chat attachments land as <session>/<8 hex>-<name>.
+    return re.sub(r"^[0-9a-f]{8}-", "", os.path.basename(path))
+
+
+def _unstaged_attachments():
+    up = uploads_dir()
+    return [p for p in _attachments()
+            if not os.path.isfile(os.path.join(up, _attachment_name(p)))
+            or sha256(os.path.join(up, _attachment_name(p))) != sha256(p)]
+
+
+def surface_notice(trigger=None):
+    """D1. Printed after a successful verify; never a stop."""
+    if not os.path.isdir(project_dir()) or _unstaged_attachments():
+        print("SURFACE: project files are not mounted on this surface (no /mnt/project) and/or "
+              "attachments are\nstored under /mnt/user-data/attachments. RUN NOW, before "
+              "reading any spec:\n  python3 bootstrap.py --stage-inputs --trigger "
+              + (trigger or "<Step>   (the step the user asked for, e.g. TestCreate)"))
+
+
+def _staged_record(proj):
+    """The staging record of `proj`: a dict ({} when there is none yet), or None when the
+    file exists but does not parse — a corrupt record must never be read as "nothing was
+    attached" (the attachment-wins rule depends on it)."""
+    path = os.path.join(proj, STAGED_RECORD)
+    if not os.path.exists(path):
+        return {}
+    rec = _load_json(path)
+    return rec if isinstance(rec, dict) else None
+
+
+def _held(proj):
+    """The staged files of `proj`: regular entries whose name does not start with a dot."""
+    return sorted(f for f in (os.listdir(proj) if os.path.isdir(proj) else [])
+                  if not f.startswith("."))
+
+
+def _plain_name(name):
+    """True for a bare file name — never a path, never '.', '..' or empty."""
+    return bool(name) and name not in (".", "..") and os.path.basename(name) == name \
+        and "/" not in name and "\\" not in name
+
+
+def _copy_replacing(src, dst):
+    """Byte copy; a read-only target is unlinked first (re-staging must never wedge)."""
+    if os.path.exists(dst) and not os.access(dst, os.W_OK):
+        os.unlink(dst)
+    shutil.copyfile(src, dst)
+
+
+def stage_inputs(trigger=None):
+    proj, up = project_dir(), uploads_dir()
+    os.makedirs(proj, exist_ok=True)
+    os.makedirs(up, exist_ok=True)
+    if _staged_record(proj) is None:
+        # Corrupt record: drop it. Every attachment is recorded again just below.
+        os.unlink(os.path.join(proj, STAGED_RECORD))
+        print("NOTICE: the staging record was unreadable and has been rebuilt.")
+    bad = []
+    for src in _attachments():
+        name = _attachment_name(src)
+        dst = os.path.join(up, name)
+        try:
+            if not os.path.isfile(dst) or sha256(dst) != sha256(src):
+                _copy_replacing(src, dst)
+            print(f"STAGED ATTACHMENT {name} {os.path.getsize(dst)} B sha256 {_sha12(dst)}")
+            # An attached file WINS over the project copy (the registry lane rule, applied to
+            # every input): it is also placed in the project dir, byte for byte, so no step
+            # needs the Projects tool for a file the user attached.
+            if stage_doc(name, dst, False, mode="attachment", quiet=True) != 0:
+                bad.append(name)
+        except OSError as e:
+            print(f"NOTICE: could not stage attachment {name} ({type(e).__name__}: {e}); "
+                  f"continuing.")
+    if bad:
+        print(f"STAGING STOPPED: the attached file(s) {', '.join(bad)} failed the check printed "
+              f"above. Ask the user to attach a correct copy; do not continue.")
+        return 2
+    held = _held(proj)
+    rec = _staged_record(proj) or {}
+    if all(rec.get(f, {}).get("mode") == "attachment" for f in held):
+        print(D2_TEXT.format(proj=proj, up=up))
+        pats = (_session_budget().get("project_inputs") or {}).get(trigger or "")
+        if pats:
+            print(f"THIS STEP ({trigger}) reads only these project documents — call "
+                  f"project_read only for names matching:\n  " + "  ".join(pats)
+                  + "\n  and skip any of them already listed above as STAGED ATTACHMENT.")
+        else:
+            print("Skip any document already listed above as STAGED ATTACHMENT. (Run "
+                  "--stage-inputs with --trigger <Step> to see which documents the step reads.)")
+    if any(f.startswith("Framework_") and f.endswith(".md") for f in held):
+        print(f"NEXT: python3 spec_source.py --resolve --repo-dir /tmp/fw --project-dir {proj} "
+              f"--overlay-dir /tmp/fw_effective && cd /tmp/fw_effective")
+    else:
+        print("NEXT: continue with rule 2a (bootstrap.py --trigger <Step>)")
+    return 0
+
+
+def _stage_invalid(name, reason):
+    print(f"HARD STOP [HS:INPUT] STAGE-INVALID {name}: {reason} — re-read the document and "
+          f"write it again.")
+    return 2
+
+
+def transcript_glob():
+    return os.environ.get("FW_TRANSCRIPT_GLOB") or os.path.join(
+        os.path.expanduser("~"), ".claude", "projects", "*", "*.jsonl")
+
+
+def _project_read_results(obj):
+    """Yield every Projects-tool `project_read` result found anywhere inside one transcript
+    record: a JSON string {"method":"project_read","path":...,"content"|"local_file":...}."""
+    if isinstance(obj, str):
+        s = obj.lstrip()
+        if s.startswith("{") and '"project_read"' in s[:80]:
+            try:
+                d = json.loads(s)
+            except ValueError:
+                return
+            if isinstance(d, dict) and d.get("method") == "project_read" and d.get("path"):
+                yield d
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _project_read_results(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _project_read_results(v)
+
+
+def stage_project_docs():
+    """GAP-2026-11-06 (measured): on a surface with no /mnt/project the Projects tool returns a
+    document either as `local_file` (large) or INLINE in the tool result (seen up to 111,528
+    chars). Re-typing an inline document is slow and can alter it. The session's own
+    tool-result record on disk holds each result exactly, so the documents are staged from
+    it byte for byte. The newest result per document wins. No record -> NOT STAGED (the
+    session falls back to --stage-doc)."""
+    import glob as _glob
+    found = {}
+    files = sorted(_glob.glob(transcript_glob()), key=os.path.getmtime)
+    for f in files:
+        try:
+            fh = open(f, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                if "project_read" not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                for d in _project_read_results(rec):
+                    found[d["path"]] = d
+    if not found:
+        print(f"NOT STAGED: no project_read result was found in this chat's tool-result "
+              f"record ({transcript_glob()}). Use --stage-doc for each document (see "
+              f"--stage-inputs).")
+        return 2
+    proj = project_dir()
+    os.makedirs(proj, exist_ok=True)
+    bad = []
+    staged_rec = _staged_record(proj)
+    if staged_rec is None:
+        print("HARD STOP [HS:INPUT] STAGE-RECORD — the staging record is unreadable. Run "
+              "python3 bootstrap.py --stage-inputs (it rebuilds the record), then this "
+              "command again.")
+        return 2
+    for name in sorted(found):
+        d = found[name]
+        base = os.path.basename(name)
+        if not _plain_name(base):
+            print(f"NOT STAGED {name!r}: not a file name.")
+            bad.append(repr(name))
+            continue
+        if staged_rec.get(base, {}).get("mode") == "attachment":
+            print(f"KEPT ATTACHMENT {base} (the file attached to this chat wins over the "
+                  f"project copy)")
+            continue
+        is_blob = d.get("file_kind") == "blob" and d.get("local_file")
+        if not is_blob and base.lower().endswith((".docx", ".pdf", ".xlsx", ".pptx")):
+            print(f"SKIPPED {base} (only its extracted text is available; when the step needs "
+                  f"the file itself, ask the user to attach it)")
+            continue
+        if isinstance(d.get("content"), str) and not is_blob:
+            tmp = os.path.join(proj, f".incoming_{secrets.token_hex(4)}")
+            try:
+                with open(tmp, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(d["content"])
+                rc = stage_doc(base, tmp, False, mode="project-record")
+            finally:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+        elif d.get("local_file") and os.path.isfile(d["local_file"]):
+            rc = stage_doc(base, d["local_file"], False, mode="file")
+        else:
+            print(f"NOT STAGED {base}: its local_file is gone — call project_read for it again.")
+            rc = 2
+        if rc != 0:
+            bad.append(base)
+    if bad:
+        print(f"NOT STAGED: {', '.join(bad)}")
+        return 2
+    return 0
+
+
+def stage_doc(name, src, typed, mode=None, quiet=False):
+    proj = project_dir()
+    if not _plain_name(name):
+        return _stage_invalid(name, "the name must be a plain file name, not a path")
+    dst = os.path.join(proj, name)
+    if os.path.isdir(dst):
+        return _stage_invalid(name, f"{dst} is a directory")
+    forced = mode
+    if typed:
+        mode = "typed"
+        if not os.path.isfile(dst):
+            return _stage_invalid(name, f"not found in {proj} — write it there first")
+    else:
+        if not src or not os.path.isfile(src):
+            return _stage_invalid(name, f"source {src!r} not found")
+        up = os.path.realpath(uploads_dir())
+        mode = forced or ("attachment" if os.path.realpath(src).startswith(up + os.sep)
+                          else "file")
+    check = dst if typed else src
+    data = open(check, "rb").read()
+    if not data.strip():
+        return _stage_invalid(name, "file is empty")
+    if name.endswith(".json"):
+        try:
+            json.loads(data.decode("utf-8"))
+        except ValueError as e:
+            return _stage_invalid(name, f"not valid JSON ({e})")
+    if name.endswith(".py"):
+        try:
+            compile(data, name, "exec")
+        except (SyntaxError, ValueError) as e:
+            return _stage_invalid(name, f"does not compile ({e})")
+    os.makedirs(proj, exist_ok=True)
+    if not typed:
+        _copy_replacing(src, dst)
+    rec_path = os.path.join(proj, STAGED_RECORD)
+    rec = _staged_record(proj) or {}
+    rec[name] = {"name": name, "mode": mode, "bytes": os.path.getsize(dst),
+                 "sha256": sha256(dst)}
+    with open(rec_path, "w", encoding="utf-8") as fh:
+        json.dump(rec, fh, indent=2)
+    if not quiet:
+        print(f"STAGED {mode} {name} {os.path.getsize(dst)} B sha256 {_sha12(dst)}")
+    return 0
+
+
+def stage_status():
+    proj = project_dir()
+    held = _held(proj)
+    if not held:
+        print(f"HARD STOP [HS:INPUT] STAGING-EMPTY — {proj} holds no file. Run "
+              f"python3 bootstrap.py --stage-inputs and follow it.")
+        return 2
+    rec = _staged_record(proj) or {}
+    for f in held:
+        print(f"  {f}  ({rec.get(f, {}).get('mode', 'present')})")
+    typed = sum(1 for f in held if rec.get(f, {}).get("mode") == "typed")
+    print(f"STAGING COMPLETE — {len(held)} file(s) in {proj} ({typed} typed from inline "
+          f"project text)")
+    return 0
+
+
+# ── READ / RETENTION ──────────────────────────────────────────────────────────────
+def _state_path(read_id):
+    return os.path.join(READ_STATE_DIR, f"{read_id}.json")
+
+
+def _pointer(role, escalate):
+    return os.path.join(READ_STATE_DIR, f"current_{role}" + ("_escalate" if escalate else ""))
+
+
+def _load_read(role, escalate, read_id):
+    rid = read_id
+    if not rid and os.path.exists(_pointer(role, escalate)):
+        rid = open(_pointer(role, escalate), encoding="utf-8").read().strip()
+    return _load_json(_state_path(rid)) if rid else None
+
+
+def _save_read(st):
+    with open(_state_path(st["read_id"]), "w", encoding="utf-8") as fh:
+        json.dump(st, fh, indent=2)
+
+
+def _anchor_ks(n):
+    return sorted({1, n} | {k for k in range(ANCHOR_EVERY, n, ANCHOR_EVERY)})
+
+
+def _now():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _reread_cmd(st):
+    cmd = f"python3 bootstrap.py --trigger {st['trigger']}"
+    if st.get("progress"):
+        cmd += f" --progress {st['progress']}"
+    if st["role"] != "session":
+        cmd += f" --role {st['role']}"
+    return cmd + " --read 1" + (" --escalate" if st.get("escalate") else "")
+
+
+def _new_read(args, role):
+    """K=1: decide the class exactly as the budget block does, plan the chunks, mint the
+    anchors and persist the read. Returns (state, None) or (None, exit_code)."""
+    budget = _session_budget()
+    sec = _load_json("SPEC_SECTIONS.json") or {}
+    ss = _spec_sections()
+    if role == "orchestrator":
+        orch = ((budget.get("orchestrated") or {}).get(args.trigger) or {}).get("orchestrator_spec")
+        if not orch:
+            print(f"READ: trigger '{args.trigger}' is not orchestrated (SESSION_BUDGET.json); "
+                  f"use the session read.")
+            return None, 2
+        specs, klass = [orch], "FINAL"
+    else:
+        specs = _routed_specs(args.trigger)
+        klass = _session_class(args.progress, {}, trigger=args.trigger)
+    if args.escalate:
+        # One-way escalation: the class that matters is the one the session READ with,
+        # not today's — by Final Assembly the plan says FINAL and would hide the omission.
+        prior = _load_read("session", False, None)
+        if not prior or prior.get("trigger") != args.trigger:
+            print(f"ESCALATION: there is no session read for '{args.trigger}' to escalate — "
+                  f"run the session read first (--read 1 without --escalate).")
+            return None, 2
+        klass = prior["class"]
+        sfiles = sec.get("files") or {}
+
+        def _merged(rs):
+            out = []
+            for a, b in sorted(tuple(r) for r in rs):
+                if out and a <= out[-1][1] + 1:
+                    out[-1][1] = max(out[-1][1], b)
+                else:
+                    out.append([a, b])
+            return [tuple(r) for r in out]
+        plans = {}
+        for f in specs:
+            info = sfiles.get(f)
+            if not info or not os.path.exists(f) or sha256(f) != info.get("sha256"):
+                plans[f] = None
+                continue
+            rs = (_merged(info.get("final_only_ranges") or [])
+                  if klass == "NON-FINAL" and info.get("has_read_set") else [])
+            plans[f] = ss.chunk_ranges(f, rs)
+    else:
+        plans = _plans(sec, specs, klass)
+    stale = [f for f in specs if plans[f] is None]
+    if stale:
+        fail(f"SPEC_SECTIONS.json does not describe {stale} as they are on disk. Re-run "
+             f"python3 bootstrap.py (and spec_source.py --resolve in an overlay).")
+    chunks = [{"file": f, "start": a, "end": b,
+               "sha256": hashlib.sha256(ss.chunk_text(f, a, b).encode("utf-8")).hexdigest()}
+              for f in specs for a, b in plans[f]]
+    if not chunks:
+        if args.escalate:
+            print("ESCALATION: nothing to read — this session read everything.")
+            return None, 0
+        print(f"READ: trigger '{args.trigger}' routes no spec.")
+        return None, 2
+    for k, c in enumerate(chunks, 1):
+        c["k"] = k
+    n = len(chunks)
+    anchors = {f"{i:02d}": "".join(secrets.choice(ANCHOR_ALPHABET) for _ in range(ANCHOR_LEN))
+               for i, _ in enumerate(_anchor_ks(n), 1)}
+    st = {"read_id": args.read_id or secrets.token_hex(4), "trigger": args.trigger,
+          "role": role, "class": klass, "escalate": bool(args.escalate),
+          "progress": args.progress, "files": {f: sha256(f) for f in specs},
+          "chunks": chunks, "anchor_chunks": _anchor_ks(n), "anchors": anchors,
+          "served": [], "started": _now(), "finished": None, "checks": []}
+    os.makedirs(READ_STATE_DIR, exist_ok=True)
+    _save_read(st)
+    with open(_pointer(role, args.escalate), "w", encoding="utf-8") as fh:
+        fh.write(st["read_id"])
+    return st, None
+
+
+def cmd_read(args):
+    if not args.trigger:
+        print("READ: --read needs --trigger.")
+        return 2
+    if not os.path.exists(".verified"):
+        fail("no .verified in this directory — run  python3 bootstrap.py --trigger "
+             f"{args.trigger}  first; reads are served from the verified corpus only.")
+    role = args.role
+    if args.read == 1:
+        st, rc = _new_read(args, role)
+        if st is None:
+            return rc
+    else:
+        st = _load_read(role, args.escalate, args.read_id)
+        if st is None or st["trigger"] != args.trigger:
+            print(f"READ: no current {role} read for '{args.trigger}' — start with --read 1.")
+            return 2
+    n, k = len(st["chunks"]), args.read
+    if not 1 <= k <= n:
+        print(f"READ: unknown chunk {k} — this read has chunks 1..{n}.")
+        return 2
+    expected = (st["served"][-1] + 1) if st["served"] else 1
+    if k != expected and k not in st["served"]:
+        print(f"WARNING READ ORDER: expected chunk {expected}")
+    c = st["chunks"][k - 1]
+    body = _spec_sections().chunk_text(c["file"], c["start"], c["end"])
+    if hashlib.sha256(body.encode("utf-8")).hexdigest() != c["sha256"]:
+        fail(f"{c['file']} lines {c['start']}-{c['end']} changed since this read began. "
+             f"Re-read from chunk 1: {_reread_cmd(st)}")
+    sys.stdout.write(f"=== READ {st['read_id']} · chunk {k} of {n} · {c['file']} lines "
+                     f"{c['start']}-{c['end']} ===\n")
+    sys.stdout.write(body if body.endswith("\n") else body + "\n")
+    print(f"=== END chunk {k} of {n} ===")
+    if k in st["anchor_chunks"]:
+        nn = f"{st['anchor_chunks'].index(k) + 1:02d}"
+        print(f"<<READ-ANCHOR {nn} {st['anchors'][nn]} — remember this code; you will be "
+              f"asked for it>>")
+    if k not in st["served"]:
+        st["served"].append(k)
+    if k == n:
+        st["finished"] = _now()
+        tot = sum(len(_spec_sections().chunk_text(x["file"], x["start"], x["end"])
+                      .encode("utf-8")) for x in st["chunks"])
+        role_flag = "" if role == "session" else f" --role {role}"
+        esc_flag = " --escalate" if st["escalate"] else ""
+        print(f"READ COMPLETE {st['read_id']}: {n} chunks, {tot} B. Now run:\n"
+              f"  python3 bootstrap.py --retention \"<nn>=<code> ...\"{role_flag}{esc_flag}   "
+              f"(all {len(st['anchors'])} anchors, from memory)")
+    _save_read(st)
+    return 0
+
+
+def cmd_retention(args):
+    st = _load_read(args.role, args.escalate, args.read_id)
+    if st is None:
+        print(f"RETENTION: no current {args.role} read — start one with --read 1.")
+        return 2
+    pairs = re.findall(r"(?<![0-9A-Z])(\d{2})=([A-Z]+)", args.retention.upper())
+    given = {}
+    for nn, code in pairs:
+        # The same anchor given twice with different codes is a guess, not a recall.
+        given[nn] = code if given.get(nn, code) == code else None
+    wrong = sum(1 for nn, code in st["anchors"].items() if given.get(nn) != code)
+    unread = len([c for c in st["chunks"] if c["k"] not in st["served"]])
+    ok = wrong == 0 and unread == 0
+    st["checks"].append({"when": args.when, "ts": _now(), "result": "PASS" if ok else "FAIL"})
+    _save_read(st)
+    m, n = len(st["anchors"]), len(st["chunks"])
+    if ok:
+        print(f"RETENTION: PASS {st['read_id']} ({m}/{m} anchors, {n}/{n} chunks) [{args.when}]")
+        return 0
+    never = f", {unread} chunk(s) never read" if unread else ""
+    print(f"RETENTION: FAIL {st['read_id']} — {wrong} anchor(s) wrong or missing{never}. The "
+          f"spec text is no longer (or was never fully) in this context. Re-read: "
+          f"{_reread_cmd(st)} ... then continue from disk state (S4-12).")
+    return 3
+
+
+def cmd_read_receipts(args):
+    st = _load_read(args.role, args.escalate, args.read_id)
+    if st is None:
+        print(f"READ RECEIPT: no current {args.role} read.")
+        return 2
+    res = [c["result"] for c in st["checks"]]
+    ret = ("none" if not res else "FAIL" if res[-1] == "FAIL"
+           else f"PASS {res.count('PASS')}×")
+    for f in st["files"]:
+        mine = [c for c in st["chunks"] if c["file"] == f]
+        if not mine:
+            continue
+        spans = []
+        for c in mine:
+            if spans and c["start"] == spans[-1][1] + 1:
+                spans[-1][1] = c["end"]
+            else:
+                spans.append([c["start"], c["end"]])
+        print(f"READ RECEIPT {f} lines {','.join(f'{a}-{b}' for a, b in spans)} chunks "
+              f"{mine[0]['k']}-{mine[-1]['k']} sha256 {st['files'][f][:12]} read_id "
+              f"{st['read_id']} retention {ret}")
+    return 0
+
+
+# ── WORKER HAND-OFF (OD-2026-11-06) ───────────────────────────────────────────────
+def _report_path(exam, paper):
+    return os.path.join(home_dir(), f"{exam}_M{paper}_worker_report.json")
+
+
+def _refuse(msg):
+    print(f"WORKER REPORT REFUSED: {msg}")
+    return 2
+
+
+def _split_paths(text):
+    """Comma-separated file paths. A file NAME may itself hold a comma (a paper slug built
+    from a section name such as "Reasoning, General Intelligence"): pieces are joined back
+    with their comma for as long as the joined text is not yet an existing file, so such a
+    path is never cut in two. Paths that do not exist come back as their plain pieces."""
+    pieces = [p for p in text.split(",")]
+    out, i = [], 0
+    while i < len(pieces):
+        joined, j = pieces[i], i
+        while not os.path.isfile(joined.strip()) and j + 1 < len(pieces):
+            j += 1
+            joined += "," + pieces[j]
+        if os.path.isfile(joined.strip()):
+            out.append(joined.strip()); i = j + 1
+        else:
+            if pieces[i].strip():
+                out.append(pieces[i].strip())
+            i += 1
+    return out
+
+
+def worker_report_write(a):
+    if a.state not in WORKER_STATES:
+        return _refuse(f"state {a.state!r} is not one of {', '.join(WORKER_STATES)}")
+    absent = [n for n in ("exam", "paper", "batch", "of") if getattr(a, n) in (None, "")]
+    if absent:
+        return _refuse("missing " + ", ".join("--" + n for n in absent))
+    paths = [os.path.abspath(p) for p in _split_paths(a.files or "")]
+    missing = [p for p in paths if not os.path.isfile(p)]
+    if missing:
+        return _refuse(f"listed file(s) do not exist: {missing}")
+    if a.chat_file and not os.path.isfile(a.chat_file):
+        return _refuse(f"chat file {a.chat_file!r} does not exist")
+    block = open(a.chat_file, encoding="utf-8", newline="").read() if a.chat_file else ""
+    parts_given = [d.strip() for d in (a.review_parts or "").split(",") if d.strip()]
+    if a.state == "REVIEW_REQUEST" and not parts_given:
+        return _refuse("state REVIEW_REQUEST needs --review-parts")
+    no_dir = [d for d in parts_given if not os.path.isdir(d)]
+    if no_dir:
+        return _refuse(f"review part folder(s) do not exist: {no_dir}")
+    if len(block.splitlines()) > CHAT_BLOCK_MAX_LINES or len(block.encode("utf-8")) > CHAT_BLOCK_MAX_BYTES:
+        return _refuse(f"chat block exceeds {CHAT_BLOCK_MAX_LINES} lines or "
+                       f"{CHAT_BLOCK_MAX_BYTES:,} B")
+    if not block.strip() and a.state in WORKER_STATES_NEED_BLOCK:
+        return _refuse(f"chat block is empty; state {a.state} must carry one")
+    rep = {"exam": a.exam, "paper": a.paper, "state": a.state, "batch": a.batch, "of": a.of,
+           "files": [{"path": p, "exists": True, "bytes": os.path.getsize(p),
+                      "sha256": sha256(p)} for p in paths],
+           "chat_block": block,
+           "review_parts": parts_given,
+           "tokens_note": a.tokens_note, "written": _now()}
+    os.makedirs(home_dir(), exist_ok=True)
+    with open(_report_path(a.exam, a.paper), "w", encoding="utf-8", newline="") as fh:
+        json.dump(rep, fh, indent=2, ensure_ascii=False)
+    print(f"WORKER REPORT written: {_report_path(a.exam, a.paper)} — {a.state} batch "
+          f"{a.batch} of {a.of}")
+    return 0
+
+
+def worker_report_show(a):
+    path = _report_path(a.exam, a.paper)
+    if a.exam in (None, "") or a.paper in (None, ""):
+        print("HARD STOP [HS:INFRA] WORKER-REPORT-MISSING — --exam and --paper are required.")
+        return 2
+    rep = _load_json(path)
+    newest = max((os.path.getmtime(f["path"]) for f in (rep or {}).get("files", [])
+                  if os.path.exists(f["path"])), default=0)
+    if rep is None or os.path.getmtime(path) < newest:
+        print(f"HARD STOP [HS:INFRA] WORKER-REPORT-MISSING — {path} is absent or older than "
+              f"a file it lists. The worker did not finish its turn; do not deliver.")
+        return 2
+    changed = [f["path"] for f in rep["files"]
+               if not os.path.isfile(f["path"]) or sha256(f["path"]) != f["sha256"]]
+    if changed:
+        print(f"HARD STOP [HS:INFRA] WORKER-REPORT-STALE — file(s) the report lists are "
+              f"missing or no longer the ones it recorded: {changed}. Do not deliver.")
+        return 2
+    print(f"WORKER REPORT {rep['exam']} M{rep['paper']} — STATE {rep['state']} — batch "
+          f"{rep['batch']} of {rep['of']}")
+    print("FILES TO DELIVER (in this order):")
+    for f in rep["files"]:
+        print(f"  {f['path']}  ({f['bytes']} B)")
+    if rep["state"] == "REVIEW_REQUEST":
+        print(f"REVIEW PARTS: {', '.join(rep['review_parts'])}")
+    block = rep["chat_block"]
+    if not block.endswith("\n"):
+        block += "\n"
+    parts = _block_parts(block)
+    want = getattr(a, "part", None) or 1
+    if want < 1 or want > len(parts):
+        print(f"HARD STOP [HS:INFRA] WORKER-REPORT-PART — part {want} does not exist "
+              f"(this chat block has {len(parts)} part(s)).")
+        return 2
+    print(f"----- CHAT BLOCK part {want} of {len(parts)} (print verbatim, nothing added, "
+          f"nothing removed) -----")
+    sys.stdout.write(parts[want - 1])
+    print(f"----- END CHAT BLOCK part {want} of {len(parts)} -----")
+    if want < len(parts):
+        print(f"MORE: run the same command with --part {want + 1} and print that part "
+              f"directly after this one, as one continuous block.")
+    return 0
+
+
+def worker_prompt(trigger_text, cont):
+    print(WORKER_PROMPT.format(trigger_text=trigger_text, proj=project_dir(), up=uploads_dir(),
+                               home=home_dir(),
+                               body=(WORKER_CONTINUE.format(home=home_dir()) if cont
+                                     else WORKER_FIRST)))
+    return 0
+
+
+PROGRESS_HELP = ("the step's progress file — decides SESSION CLASS and the read plan. "
+                 "PYQExtract: [ExamCode]_analysis_progress.json; MockBlueprint: "
+                 "[ExamCode]_blueprint.json; MockCreate/TestCreate: "
+                 "/home/claude/[ExamCode]_M[N]_batch_state.json; MockExplain/TestExplain: "
+                 "that step's state file")
+
+
+def orchestrated_notice(trigger):
+    """D5: the orchestrated notice for a trigger listed in SESSION_BUDGET.orchestrated, else
+    None. Printed FIRST in the --trigger block and again as the LAST lines of the output
+    (an older installed SKILL reads the end of the block)."""
+    orch = ((_session_budget().get("orchestrated") or {}).get(trigger) or {}).get(
+        "orchestrator_spec")
+    if not orch:
+        return None
+    sec = _load_json("SPEC_SECTIONS.json") or {}
+    n_orch = len((_plans(sec, [orch], "FINAL")[orch]) or [])
+    return (f"STEP 7 RUNS ORCHESTRATED (owner decision OD-2026-11-06). In THIS chat read ONLY\n"
+            f"{orch}:  python3 bootstrap.py --trigger {trigger} --role orchestrator "
+            f"--read 1 ...  (K = 1..{n_orch})\n"
+            f"and follow it. Do NOT read the other Step 7 specs in this chat unless that spec "
+            f"sends you to DIRECT MODE.")
+
+
+def budget_block(args, specs, files_meta):
+    """--trigger advisory: what the session must read, priced on the measured basis."""
+    # ── GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / Fix A1 ─────────────────
+    # DISCLOSE THE COST BEFORE IT IS PAID. SKILL Rule 2 is a hard, unbounded
+    # obligation and nothing anywhere priced it. This is a DISCLOSURE BLOCK, NOT A
+    # GATE — same precedent as Framework_DeliveryFooter §2A. It never blocks a run.
+    # 2026-11-06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY): tokens are bytes/2.3 (was
+    # bytes/4, ~40% low) and "read calls" are the chunks --read serves (the old
+    # 150,000-char bash call is diverted to an unreadable file on the cloud surface).
+    sec = _load_json("SPEC_SECTIONS.json") or {}
+    sfiles = sec.get("files", {})
+    budget = _session_budget()
+    bpt = float(budget.get("bytes_per_token") or DEFAULT_BYTES_PER_TOKEN)
+    klass = _session_class(args.progress, files_meta, trigger=args.trigger)
+    notice = orchestrated_notice(args.trigger)
+    if notice:
+        print("\n" + notice)
+    plans = _plans(sec, specs, klass)
+    print(f"\nEntry-point spec(s) for '{args.trigger}' — READ IN FULL "
+          f"(subject to SESSION CLASS below):")
+    tot_l = tot_b = tot_t = tot_calls = 0
+    for f in specs:
+        meta, info = files_meta.get(f, {}), sfiles.get(f, {})
+        ln = info.get("lines") or meta.get("lines") or 0
+        by = info.get("bytes") or meta.get("bytes") or 0
+        use_b = (info.get("reduced_bytes", by)
+                 if klass == "NON-FINAL" and info.get("has_read_set") else by)
+        calls = len(plans[f]) if plans[f] is not None else -(-use_b // 28000)
+        tok = math.ceil(use_b / bpt)
+        tot_l += ln; tot_b += use_b; tot_t += tok; tot_calls += calls
+        tag = ""
+        if klass == "NON-FINAL" and info.get("has_read_set"):
+            tag = f"  [reduced from {by:,} B — {len(info.get('final_only_titles', []))} section(s) skipped]"
+        if plans[f] is None:
+            tag += "  [SPEC_SECTIONS.json does not describe this file]"
+        print(f"  {f:<34} {ln:>6} lines  {use_b:>9,} B  ~{tok:>8,} tok"
+              f"  ~{calls} read call(s){tag}")
+    print(f"  {'-' * 96}")
+    print(f"  {'PRE-WORK READ BUDGET':<34} {tot_l:>6} lines  {tot_b:>9,} B  "
+          f"~{tot_t:>8,} tok  ~{tot_calls} read call(s)")
+    print(f"  SESSION CLASS: {klass}")
+    if (klass == "NON-FINAL" and not args.progress
+            and args.trigger not in ("MockExplain", "TestExplain",
+                                     "MockCreate", "TestCreate",
+                                     "MockBlueprint")):
+        print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
+        print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
+        print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")
+        print("    BEFORE run_synthesise(). Escalation is MANDATORY and ONE-WAY.")
+    elif klass == "NON-FINAL" and args.trigger in ("MockCreate", "TestCreate"):
+        print("    Reduced read is permitted: the batch this session delivers is not the last of")
+        print("    the frozen batch plan, so it never reaches Final Assembly (MTC S1-0).")
+        print("    ESCALATION IS MANDATORY AND ONE-WAY (MTC S1-0) — before Final Assembly read the")
+        print("    omitted Final-Assembly sections with  --read K --escalate  (below), then prove them")
+        print("    with  --retention ... --escalate --when before-final.")
+    elif klass == "NON-FINAL":
+        print("    Reduced read is permitted: this session cannot clear the corpus, so it")
+        print("    never reaches synthesis, QV, the summary or the schema/xlsx writers.")
+        print("    ESCALATION IS MANDATORY AND ONE-WAY — if this session turns out to be")
+        print("    final, read the omitted sections BEFORE run_synthesise(). §S8-0b.")
+    else:
+        print("    FULL READ REQUIRED — no exception. "
+              + FINAL_READ_MESSAGES.get(args.trigger, FINAL_READ_DEFAULT))
+    if klass == "NON-FINAL":
+        print(f"    Escalation read (the omitted sections only):  python3 bootstrap.py "
+              f"--trigger {args.trigger} --read K --escalate")
+    prog = f" --progress {args.progress}" if args.progress else ""
+    print(f"READ METHOD (measured 2026-11-06): read with  python3 bootstrap.py --trigger "
+          f"{args.trigger}{prog} --read K\n"
+          f"for K = 1..{tot_calls}, one call each, in order. Do NOT read specs with sed ranges "
+          f"above 300 lines, and never\n"
+          f"open a tool-output file the harness diverted. Then prove retention:  --retention "
+          f"(the last chunk prints the exact command).")
+
+
+def _regenerated_map_ok(fname):
+    """A SPEC_SECTIONS.json that spec_source.py rebuilt for a project override is
+    accepted only if it is EXACTLY what spec_sections derives from the files on disk
+    now — re-derived here, never trusted from the record alone."""
+    ss = _spec_sections()
+    return open(fname, encoding="utf-8").read() == ss.render(ss.build("."))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--trigger", default=None, help="optional step trigger, e.g. MockDeliver")
-    ap.add_argument("--progress", default=None,
-                    help="path to [ExamCode]_analysis_progress.json — decides SESSION "
-                         "CLASS and prints the exact read plan (GAP-2026-08-16)")
+    ap.add_argument("--progress", default=None, help=PROGRESS_HELP)
     ap.add_argument("--manifest", default="MANIFEST.json")
     ap.add_argument("--receipt", action="store_true",
                     help="with --trigger: print a READ RECEIPT per routed spec (P1)")
+    ap.add_argument("--read", type=int, default=None, metavar="K",
+                    help="with --trigger: serve read chunk K (K=1 starts a new read)")
+    ap.add_argument("--role", choices=("session", "orchestrator"), default="session")
+    ap.add_argument("--read-id", default=None)
+    ap.add_argument("--escalate", action="store_true",
+                    help="read / check the sections the NON-FINAL read skipped")
+    ap.add_argument("--retention", default=None, metavar='"01=CODE 02=CODE ..."')
+    ap.add_argument("--when", choices=RETENTION_WHEN, default="after-read")
+    ap.add_argument("--read-receipts", action="store_true")
+    ap.add_argument("--stage-inputs", action="store_true")
+    ap.add_argument("--stage-doc", default=None, metavar="NAME")
+    ap.add_argument("--from", dest="from_path", default=None, metavar="PATH")
+    ap.add_argument("--typed", action="store_true")
+    ap.add_argument("--stage-status", action="store_true")
+    ap.add_argument("--stage-project-docs", action="store_true")
+    ap.add_argument("--worker-report", choices=("write", "show"), default=None)
+    ap.add_argument("--part", type=int, default=1,
+                    help="--worker-report show: which part of the chat block (default 1)")
+    ap.add_argument("--exam", default=None)
+    ap.add_argument("--paper", default=None)
+    ap.add_argument("--state", default=None)
+    ap.add_argument("--batch", default=None)
+    ap.add_argument("--of", default=None)
+    ap.add_argument("--files", default=None)
+    ap.add_argument("--chat-file", default=None)
+    ap.add_argument("--review-parts", default=None)
+    ap.add_argument("--tokens-note", default=None)
+    ap.add_argument("--worker-prompt", action="store_true")
+    ap.add_argument("--trigger-text", default="")
+    ap.add_argument("--continue", dest="cont", action="store_true")
+    ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
+    # Sub-commands that are not the verification gate; each returns its exit code.
+    if args.self_test:
+        sys.exit(0 if self_test() else 1)
+    if args.stage_inputs:
+        sys.exit(stage_inputs(args.trigger))
+    if args.stage_doc:
+        sys.exit(stage_doc(args.stage_doc, args.from_path, args.typed))
+    if args.stage_project_docs:
+        sys.exit(stage_project_docs())
+    if args.stage_status:
+        sys.exit(stage_status())
+    if args.worker_report == "write":
+        sys.exit(worker_report_write(args))
+    if args.worker_report == "show":
+        sys.exit(worker_report_show(args))
+    if args.worker_prompt:
+        sys.exit(worker_prompt(args.trigger_text, args.cont))
+    if args.retention is not None:
+        sys.exit(cmd_retention(args))
+    if args.read_receipts:
+        sys.exit(cmd_read_receipts(args))
+    if args.read is not None:
+        sys.exit(cmd_read(args))
+
+    # A verify that fails must not leave an earlier pass behind: --read is served only
+    # where .verified exists.
+    if os.path.exists(".verified"):
+        os.remove(".verified")
     if not os.path.exists(args.manifest):
         fail("MANIFEST.json missing from clone (partial/failed clone?)")
     try:
@@ -239,7 +1231,7 @@ def main():
 
     prov_path = os.path.join(os.path.dirname(os.path.abspath(args.manifest)),
                              ".spec_provenance.json")
-    prov, overrides = None, {}
+    prov, overrides, regen = None, {}, {}
     if os.path.exists(prov_path):
         try:
             prov = json.load(open(prov_path, encoding="utf-8"))
@@ -255,6 +1247,14 @@ def main():
                 fail(f".spec_provenance.json entry for '{fname}' has no sha256 — the "
                      f"record is unusable and cannot excuse the file.")
             overrides[fname] = entry["sha256"]
+        # GAP-2026-11-06 D-5: with a project spec laid over the repo, spec_source.py
+        # rebuilds SPEC_SECTIONS.json so the read ranges describe the file actually read.
+        # Only that one generated map may be listed, and it is re-derived below.
+        for entry in prov.get("regenerated", []):
+            if entry.get("file") != "SPEC_SECTIONS.json" or not entry.get("sha256"):
+                fail(f".spec_provenance.json lists '{entry.get('file')}' as regenerated. Only "
+                     f"SPEC_SECTIONS.json (with its sha256) may be; nothing else is excused.")
+            regen[entry["file"]] = entry["sha256"]
 
     files_meta = M.get("files", {})
     routes = M.get("routes", {})
@@ -262,7 +1262,7 @@ def main():
     if not files_meta:
         fail("MANIFEST.json has no files listed")
 
-    verified, unverified = [], []
+    verified, unverified, regenerated = [], [], []
     for fname, meta in sorted(files_meta.items()):
         if not os.path.exists(fname):
             fail(f"{fname}: file absent in clone (partial clone / deleted file)")
@@ -278,6 +1278,12 @@ def main():
                      f"The overlay was modified after resolution. Re-run "
                      f"spec_source.py --resolve.")
             unverified.append(fname)
+            continue
+        if fname in regen:
+            if actual != regen[fname] or not _regenerated_map_ok(fname):
+                fail(f"{fname}: listed as regenerated by spec_source.py, but it is not the "
+                     f"map the effective specs on disk derive. Re-run spec_source.py --resolve.")
+            regenerated.append(fname)
             continue
         if actual != meta["sha256"]:
             fail(f"{fname}: sha256 MISMATCH\n  expected {meta['sha256']}\n  actual   {actual}")
@@ -296,6 +1302,8 @@ def main():
     token = {"framework_version": fw_version, "files": verified,
              "project_unverified": unverified,
              "read_rule": "Read each .md IN FULL to its END-sentinel line; line counts are exact."}
+    if regenerated:
+        token["regenerated"] = regenerated
     with open(".verified", "w", encoding="utf-8") as f:
         json.dump(token, f, indent=2)
 
@@ -308,76 +1316,22 @@ def main():
             print(f"  [PROJECT-UNVERIFIED] {fname} — sourced from the project Files "
                   f"section. Integrity unknown; it may be stale or out of step with the "
                   f"repo engines. Disclose in the delivery footer (§2A).")
+        for fname in regenerated:
+            print(f"  [REGENERATED] {fname} — rebuilt by spec_source.py from the effective "
+                  f"specs and re-derived here: it describes the files actually read.")
         print("This is NOT a failure and does NOT halt the run (SKILL rule 4, "
               "Framework_DeliveryFooter §2A).")
     else:
         print(f"[OK] FRAMEWORK {fw_version} VERIFIED — {len(verified)}/{len(files_meta)} files, "
               f"all checksums/versions/whole-file checks PASS")
+    surface_notice(args.trigger)
 
     if args.trigger:
         entry = routes.get(args.trigger)
         if entry:
             specs = [f for f in entry if f.endswith(".md")]
             engines = [f for f in entry if f.endswith(".py")]
-            # ── GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / Fix A1 ─────────────────
-            # DISCLOSE THE COST BEFORE IT IS PAID. SKILL Rule 2 is a hard, unbounded
-            # obligation and nothing anywhere priced it: this line printed filenames
-            # only, MANIFEST.json carried the line count for integrity and never
-            # surfaced it as a cost, and no EC, DoD item or gate mentioned read cost
-            # at all. Measured on the reference incident: 40 of session 1's 50 tool
-            # calls and ~139,208 tokens went to satisfying Rule 2, and the step
-            # stalled before its first productive operation.
-            # This is a DISCLOSURE LINE, NOT A GATE — same precedent as
-            # Framework_DeliveryFooter §2A. It never blocks a run.
-            sec = {}
-            if os.path.exists("SPEC_SECTIONS.json"):
-                try:
-                    sec = json.load(open("SPEC_SECTIONS.json", encoding="utf-8"))
-                except Exception:
-                    sec = {}
-            sfiles = sec.get("files", {})
-            klass = _session_class(args.progress, files_meta, trigger=args.trigger)
-            print(f"\nEntry-point spec(s) for '{args.trigger}' — READ IN FULL "
-                  f"(subject to SESSION CLASS below):")
-            tot_l = tot_b = tot_v = tot_bash = 0
-            for f in specs:
-                meta, info = files_meta.get(f, {}), sfiles.get(f, {})
-                ln = info.get("lines") or meta.get("lines") or 0
-                by = info.get("bytes") or meta.get("bytes") or 0
-                use_b = (info.get("reduced_bytes", by)
-                         if klass == "NON-FINAL" and info.get("has_read_set") else by)
-                vc = -(-by // 16000) if by else 0
-                bc_ = max(1, -(-use_b // 150000)) if use_b else 0
-                tot_l += ln; tot_b += use_b; tot_v += vc; tot_bash += bc_
-                tag = ""
-                if klass == "NON-FINAL" and info.get("has_read_set"):
-                    tag = f"  [reduced from {by:,} B — {len(info.get('final_only_titles', []))} section(s) skipped]"
-                print(f"  {f:<34} {ln:>6} lines  {use_b:>9,} B  ~{use_b // 4:>8,} tok"
-                      f"  ~{bc_} bash call(s){tag}")
-            print(f"  {'-' * 96}")
-            print(f"  {'PRE-WORK READ BUDGET':<34} {tot_l:>6} lines  {tot_b:>9,} B  "
-                  f"~{tot_b // 4:>8,} tok  ~{tot_bash} bash call(s)")
-            print(f"  SESSION CLASS: {klass}")
-            if (klass == "NON-FINAL" and not args.progress
-                    and args.trigger not in ("MockExplain", "TestExplain",
-                                             "MockCreate", "TestCreate",
-                                             "MockBlueprint")):
-                print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
-                print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
-                print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")
-                print("    BEFORE run_synthesise(). Escalation is MANDATORY and ONE-WAY.")
-            elif klass == "NON-FINAL":
-                print("    Reduced read is permitted: this session cannot clear the corpus, so it")
-                print("    never reaches synthesis, QV, the summary or the schema/xlsx writers.")
-                print("    ESCALATION IS MANDATORY AND ONE-WAY — if this session turns out to be")
-                print("    final, read the omitted sections BEFORE run_synthesise(). §S8-0b.")
-            else:
-                print("    FULL READ REQUIRED — no exception. This session may write section_rules.md.")
-            print(f"    Read with `sed -n 'A,Bp' <file>` in bash, NOT with view: measured in this")
-            print(f"    container, view truncates above ~16,000 chars INCLUDING ranged reads "
-                  f"(~{tot_v} calls);")
-            print(f"    bash returned 188,024 chars intact in one call (~{tot_bash} calls). "
-                  f"Ranges: SPEC_SECTIONS.json.")
+            budget_block(args, specs, files_meta)
             if engines:
                 print(f"Routed engine(s) for '{args.trigger}' — EXECUTE via `import` inside the "
                       f"spec's code blocks; do NOT read these into context: {engines}")
@@ -405,6 +1359,636 @@ def main():
     ensure_compression_tools(args.trigger)
     print(".verified written. Read the needed spec(s) (.md) in full; engines (.py) are "
           "executed, not read.")
+    notice = orchestrated_notice(args.trigger) if args.trigger else None
+    if notice:
+        print("\n" + notice)
+
+
+def self_test():
+    """Hermetic (D11): a tiny fixture corpus in a temp dir — its own routes.json,
+    SPEC_SECTIONS.json built by spec_sections, SESSION_BUDGET.json and a MANIFEST.json
+    from gen_manifest.py — and FW_* overrides pointing at temp dirs, so nothing under
+    /mnt or /home/claude and no network is touched. Every sub-command runs as a
+    subprocess exactly as a session runs it."""
+    import subprocess, tempfile
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, here)
+    import spec_sections as ss
+    passed, fails = 0, []
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    tmp = tempfile.mkdtemp(prefix="bootstrap_st_")
+    env = dict(os.environ, FW_PROJECT_DIR=os.path.join(tmp, "project"),
+               FW_UPLOADS_DIR=os.path.join(tmp, "uploads"),
+               FW_ATTACH_DIR=os.path.join(tmp, "attach"), FW_HOME=os.path.join(tmp, "home"))
+
+    def run(cwd, *argv):
+        r = subprocess.run([sys.executable, os.path.join(here, "bootstrap.py")] + list(argv),
+                           cwd=cwd, env=env, capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    # ── fixture corpus: a Step 7 spec named as the real one so its read set applies ──
+    fx = os.path.join(tmp, "repo")
+    os.makedirs(fx)
+    mtc = ["# Framework_MockTestCreate v9.0", "# v9.0 — 2026-11-06 — fixture",
+           "# MANDATE 0 — NO QUESTION CONTENT IN CHAT", "# MANDATE 1 — BATCH STOP LAW",
+           "## S1-0 — SESSION CLASS", "class law",
+           "## S4-1 — BATCH LAW"] + [f"batch rule line {i:05d}" for i in range(4300)] + [
+           "## S13-1 — Final Assembly trigger", "fa",
+           "## S13-2F — PRE-COMMIT ITEM SWEEP", "sweep",
+           "## S13-2G — INDEPENDENT REVIEW", "review",
+           "## S13-9A — Post-delivery footer", "footer law",
+           "## S17-2 — Downstream handoff", "handoff", "# ═══════",
+           "# §18 — AUDIT GATE GLOSSARY", "glossary law",
+           "# END OF Framework_MockTestCreate v9.0", ""]
+    files = {"Framework_MockTestCreate.md": "\n".join(mtc),
+             "Framework_MockTestOrchestrate.md":
+                 "# Framework_MockTestOrchestrate v1.0.0\n# v1.0.0 — 2026-11-06 — fixture\n"
+                 "## O0-1 — orchestrator law\nPART A\n# END OF Framework_MockTestOrchestrate v1.0.0\n",
+             "Framework_Footer.md": "# Framework_Footer v1.0\n## F-1 — footer\nfooter\n"
+                                    "# END OF Framework_Footer v1.0\n"}
+    for name, text in files.items():
+        with open(os.path.join(fx, name), "w", encoding="utf-8") as fh:
+            fh.write(text)
+    route = ["Framework_MockTestCreate.md", "Framework_MockTestOrchestrate.md",
+             "Framework_Footer.md"]
+    with open(os.path.join(fx, "routes.json"), "w", encoding="utf-8") as fh:
+        json.dump({"TestCreate": route, "PYQScan": ["Framework_Footer.md"],
+                   "PYQDraft": ["Framework_Footer.md"]}, fh)
+    with open(os.path.join(fx, "SESSION_BUDGET.json"), "w", encoding="utf-8") as fh:
+        json.dump({"bytes_per_token": 2.3, "orchestrated": {"TestCreate": {
+            "orchestrator_spec": "Framework_MockTestOrchestrate.md"}}}, fh)
+    with open(os.path.join(fx, "SPEC_SECTIONS.json"), "w", encoding="utf-8") as fh:
+        fh.write(ss.render(ss.build(fx)))
+    subprocess.run([sys.executable, os.path.join(here, "gen_manifest.py")], cwd=fx, env=env,
+                   capture_output=True, check=True)
+    sec = json.load(open(os.path.join(fx, "SPEC_SECTIONS.json"), encoding="utf-8"))
+    bs_path = os.path.join(fx, "batch_state.json")
+    with open(bs_path, "w", encoding="utf-8") as fh:
+        json.dump({"batch_plan": [{"batch_id": "B1"}, {"batch_id": "B2"}, {"batch_id": "B3"}],
+                   "batches_completed": [], "current_batch": "B1"}, fh)
+
+    # D1 + D5: verify passes; surface notice when the project dir is absent; budget block
+    rc, out = run(fx, "--trigger", "TestCreate")
+    final_n = sum(len(ss.chunk_plan(sec, f, "FINAL", fx)) for f in route)
+    check("verify passes on the fixture corpus", rc == 0 and "VERIFIED" in out)
+    check("D1 surface notice when the project dir is absent",
+          "SURFACE: project files are not mounted" in out and "--stage-inputs" in out)
+    check("D5 orchestrated notice precedes the budget block",
+          "STEP 7 RUNS ORCHESTRATED (owner decision OD-2026-11-06)" in out
+          and out.index("STEP 7 RUNS ORCHESTRATED") < out.index("PRE-WORK READ BUDGET"))
+    check("D5 Step 7 FINAL wording and measured read method",
+          "FULL READ REQUIRED — no exception. This session may run Final Assembly and commit "
+          "the registry." in out and "READ METHOD (measured 2026-11-06)" in out
+          and f"for K = 1..{final_n}," in out and "188,024" not in out
+          and "section_rules.md" not in out)
+    check("D5 orchestrated notice is also the LAST lines of the output",
+          out.rstrip().endswith("sends you to DIRECT MODE.")
+          and out.count("STEP 7 RUNS ORCHESTRATED") == 2)
+    with open(os.path.join(fx, "bs_adv.json"), "w", encoding="utf-8") as fh:
+        json.dump({"batch_plan": [{"batch_id": "B1"}, {"batch_id": "B2"}],
+                   "batches_completed": [], "current_batch": "B1"}, fh)
+    rc, out = run(fx, "--trigger", "TestCreate", "--progress", "bs_adv.json")
+    check("D5 Step 7 NON-FINAL advisory names the escalation read, not Step 5's writer",
+          rc == 0 and "SESSION CLASS: NON-FINAL" in out and "run_synthesise" not in out
+          and "--read K --escalate" in out and "Final Assembly (MTC S1-0)" in out)
+    os.remove(os.path.join(fx, "bs_adv.json"))
+    rc, out = run(fx, "--trigger", "PYQDraft")
+    check("D5 generic FINAL wording never names a Step 5 writer",
+          "FULL READ REQUIRED — no exception. This session may write final artefacts." in out
+          and "section_rules" not in out and "STEP 7 RUNS ORCHESTRATED" not in out)
+
+    # D6/D7: FINAL session read, chunk by chunk
+    def read_all(*extra, n=None):
+        outs, k = [], 1
+        while True:
+            rc, out = run(fx, "--trigger", "TestCreate", "--read", str(k), *extra)
+            if rc != 0:
+                return outs, rc, out
+            outs.append(out)
+            m = re.search(r"chunk \d+ of (\d+)", out)
+            if k == int(m.group(1)) or k == n:
+                return outs, 0, out
+            k += 1
+
+    def bodies(outs):
+        return "".join(re.search(r"===\n(.*)=== END chunk", o, re.S).group(1) for o in outs)
+
+    def state(role="session", esc=False):
+        p = os.path.join(fx, READ_STATE_DIR, f"current_{role}" + ("_escalate" if esc else ""))
+        rid = open(p, encoding="utf-8").read().strip()
+        return json.load(open(os.path.join(fx, READ_STATE_DIR, rid + ".json"), encoding="utf-8"))
+
+    def codes(st):
+        return " ".join(f"{nn}={c}" for nn, c in st["anchors"].items())
+
+    outs, rc, last = read_all()
+    st = state()
+    whole = "".join(open(os.path.join(fx, f), encoding="utf-8").read() for f in route)
+    check("FINAL read serves every routed spec whole, byte for byte",
+          rc == 0 and len(outs) == final_n and bodies(outs) == whole)
+    check("every chunk within 300 lines and 28,000 B",
+          all(c["end"] - c["start"] + 1 <= 300 for c in st["chunks"])
+          and all(len(re.search(r"===\n(.*)=== END", o, re.S).group(1).encode()) <= 28000
+                  for o in outs))
+    akt = [k for k, o in enumerate(outs, 1) if "<<READ-ANCHOR" in o]
+    check("anchors on chunk 1, every 8th and the last",
+          final_n > 16 and akt == sorted({1, final_n} | set(range(8, final_n, 8)))
+          and outs[0].rstrip().endswith("you will be asked for it>>"))
+    check("READ COMPLETE after the last chunk names the retention command",
+          "READ COMPLETE" in last and "--retention" in last)
+    rc, out = run(fx, "--retention", codes(st))
+    check("retention PASS with every anchor", rc == 0 and "RETENTION: PASS" in out)
+    bad = codes(st).replace(st["anchors"]["01"], "BBBBBBB")
+    rc, out = run(fx, "--retention", bad, "--when", "before-batch")
+    check("retention FAIL (exit 3) on one wrong code, never printing the codes",
+          rc == 3 and "1 anchor(s) wrong or missing" in out
+          and all(c not in out for c in st["anchors"].values()))
+    rc, out = run(fx, "--read-receipts")
+    check("read receipts name lines, chunks, sha and retention",
+          "READ RECEIPT Framework_MockTestCreate.md lines 1-" in out
+          and f"retention FAIL" in out and st["read_id"] in out)
+    rc, out = run(fx, "--trigger", "TestCreate", "--read", "1")
+    rc2, out2 = run(fx, "--trigger", "TestCreate", "--read", "3")
+    check("an out-of-order chunk is served with a READ ORDER warning",
+          rc2 == 0 and "READ ORDER: expected chunk 2" in out2)
+    rc, out = run(fx, "--retention", codes(state()))
+    check("retention FAIL when a chunk was never read",
+          rc == 3 and "chunk(s) never read" in out)
+    rc, out = run(fx, "--trigger", "TestCreate", "--read", "999")
+    check("unknown chunk exits 2", rc == 2)
+
+    # NON-FINAL read: exactly the plan; preamble + banner read; S13-2F/2G not; escalation
+    outs, rc, _ = read_all("--progress", bs_path)
+    nf = state()
+    lines = open(os.path.join(fx, "Framework_MockTestCreate.md"), encoding="utf-8").read().split("\n")
+    served = {(c["file"], j) for c in nf["chunks"] for j in range(c["start"], c["end"] + 1)}
+    plan = {(f, j) for f in route for a, b in ss.read_plan(sec, f, "NON-FINAL")
+            for j in range(a, b + 1)}
+    text = bodies(outs)
+    check("NON-FINAL read covers exactly read_plan(NON-FINAL)",
+          rc == 0 and nf["class"] == "NON-FINAL" and served == plan)
+    check("NON-FINAL read serves the MANDATES and the §18 banner, not S13-2F/2G",
+          "# MANDATE 0" in text and "# MANDATE 1" in text and "# §18 — AUDIT" in text
+          and "## S13-2F" not in text and "## S13-2G" not in text and "footer law" in text)
+    outs_e, rc, _ = read_all("--progress", bs_path, "--escalate")
+    esc = state(esc=True)
+    eserved = {(c["file"], j) for c in esc["chunks"] for j in range(c["start"], c["end"] + 1)}
+    check("escalation serves exactly the complement, as its own read",
+          rc == 0 and esc["read_id"] != nf["read_id"] and not (eserved & served)
+          and eserved | served == {(f, j) for f in route for j in range(1, sec["files"][f]["lines"] + 1)}
+          and "## S13-2F" in bodies(outs_e) and "# MANDATE 0" not in bodies(outs_e))
+    rc, out = run(fx, "--retention", codes(esc), "--escalate", "--when", "before-final")
+    check("escalation retention checks the escalation read",
+          rc == 0 and esc["read_id"] in out and "[before-final]" in out)
+    os.remove(bs_path)
+    for f in os.listdir(os.path.join(fx, READ_STATE_DIR)):
+        if f.startswith("current_session"):
+            os.remove(os.path.join(fx, READ_STATE_DIR, f))
+    rc, out = run(fx, "--trigger", "TestCreate", "--read", "1", "--escalate")
+    check("escalation without a session read is refused (exit 2), never 'nothing to read'",
+          rc == 2 and "no session read" in out and "nothing to read" not in out)
+    run(fx, "--trigger", "TestCreate", "--read", "1")
+    rc, out = run(fx, "--trigger", "TestCreate", "--read", "1", "--escalate")
+    check("escalation from a FINAL session reads nothing",
+          rc == 0 and "ESCALATION: nothing to read" in out)
+
+    # orchestrator role: only the orchestrator spec, whole
+    outs, rc, _ = read_all("--role", "orchestrator")
+    check("orchestrator role reads only the orchestrator spec",
+          rc == 0 and bodies(outs) == files["Framework_MockTestOrchestrate.md"]
+          and {c["file"] for c in state("orchestrator")["chunks"]}
+          == {"Framework_MockTestOrchestrate.md"})
+    o_st = state("orchestrator")
+    rc, out = run(fx, "--retention", codes(o_st), "--role", "orchestrator")
+    check("orchestrator retention without --trigger checks the orchestrator read",
+          rc == 0 and f"RETENTION: PASS {o_st['read_id']}" in out)
+    rc, out = run(fx, "--retention", "01=BBBBBBB", "--role", "orchestrator")
+    check("orchestrator retention FAIL names the orchestrator re-read",
+          rc == 3 and "--role orchestrator --read 1" in out)
+    rc, out = run(fx, "--trigger", "PYQScan", "--role", "orchestrator", "--read", "1")
+    check("orchestrator role refuses a trigger that is not orchestrated", rc == 2)
+
+    # D2-D4 staging
+    att = os.path.join(tmp, "attach", "sess1")
+    os.makedirs(att)
+    with open(os.path.join(att, "0a1b2c3d-My_Notes.json"), "w", encoding="utf-8") as fh:
+        fh.write('{"a": 1}')
+    up = env["FW_UPLOADS_DIR"]
+    os.makedirs(up)
+    with open(os.path.join(up, "My_Notes.json"), "w", encoding="utf-8") as fh:
+        fh.write("stale")
+    os.chmod(os.path.join(up, "My_Notes.json"), 0o444)
+    rc, out = run(fx, "--stage-inputs")
+    check("stage-inputs strips the 8-hex prefix and replaces a read-only target",
+          rc == 0 and "STAGED ATTACHMENT My_Notes.json 8 B" in out
+          and open(os.path.join(up, "My_Notes.json"), encoding="utf-8").read() == '{"a": 1}')
+    check("stage-inputs prints the project-doc procedure while the project dir is empty",
+          "PROJECT FILES ARE NOT MOUNTED ON THIS SURFACE" in out
+          and "NEXT: continue with rule 2a" in out)
+    rc, out = run(fx, "--trigger", "TestCreate")
+    check("D1 notice is silent once the project dir exists and attachments are staged",
+          rc == 0 and "SURFACE:" not in out)
+    proj = env["FW_PROJECT_DIR"]
+    src = os.path.join(tmp, "Framework_X.md")
+    with open(src, "w", encoding="utf-8") as fh:
+        fh.write("# Framework_X v1\n")
+    rc, out = run(fx, "--stage-doc", "Framework_X.md", "--from", src)
+    check("stage-doc --from copies and records mode file",
+          rc == 0 and out.startswith("STAGED file Framework_X.md 17 B sha256 "))
+    rc, out = run(fx, "--stage-doc", "My_Notes.json", "--from", os.path.join(up, "My_Notes.json"))
+    check("stage-doc from the uploads dir records mode attachment",
+          rc == 0 and out.startswith("STAGED attachment My_Notes.json"))
+    with open(os.path.join(proj, "cfg.json"), "w", encoding="utf-8") as fh:
+        fh.write('{"ok": true}')
+    rc, out = run(fx, "--stage-doc", "cfg.json", "--typed")
+    check("stage-doc --typed validates in place", rc == 0 and out.startswith("STAGED typed cfg.json"))
+    txd = os.path.join(fx, "tx"); os.makedirs(txd, exist_ok=True)
+    big_doc = '{\n  "exam_code": "EX",\n  "v": "' + "é—x" * 9000 + '"\n}'
+    lf = os.path.join(fx, "lf.txt")
+    with open(lf, "w", encoding="utf-8") as fh:
+        fh.write("# rules\nline two\n")
+    recs = [
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": [
+            {"type": "text", "text": json.dumps({"method": "project_read", "path": "EX_old.json",
+                                                 "content": '{"v": 1}'})}]}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": json.dumps(
+            {"method": "project_read", "path": "EX_big.json", "content": big_doc})}]}},
+        {"toolUseResult": json.dumps({"method": "project_read", "path": "EX_old.json",
+                                      "content": '{"v": 2}'})},
+        {"x": json.dumps({"method": "project_read", "path": "EX_rules.md", "local_file": lf,
+                          "size_bytes": 18})},
+        {"x": json.dumps({"method": "project_read", "path": "EX Syllabus.docx",
+                          "content": "text"})},
+        {"x": json.dumps({"method": "project_read", "path": "EX_bad.json", "content": "{nope"})},
+    ]
+    with open(os.path.join(txd, "s.jsonl"), "w", encoding="utf-8") as fh:
+        for r in recs:
+            fh.write(json.dumps(r) + "\n")
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "*.jsonl")
+    rc, out = run(fx, "--stage-project-docs")
+    pj = env["FW_PROJECT_DIR"]
+    check("stage-project-docs stages inline results byte-exact, newest wins, copies local_file, "
+          "skips document uploads and reports an invalid one (exit 2)",
+          rc == 2 and open(os.path.join(pj, "EX_big.json"), encoding="utf-8").read() == big_doc
+          and open(os.path.join(pj, "EX_old.json")).read() == '{"v": 2}'
+          and open(os.path.join(pj, "EX_rules.md")).read() == "# rules\nline two\n"
+          and "SKIPPED EX Syllabus.docx" in out and "NOT STAGED: EX_bad.json" in out
+          and "STAGED project-record EX_big.json" in out
+          and not os.path.exists(os.path.join(pj, "EX Syllabus.docx")))
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "none", "*.jsonl")
+    rc, out = run(fx, "--stage-project-docs")
+    check("stage-project-docs without any record says NOT STAGED (exit 2)",
+          rc == 2 and out.startswith("NOT STAGED: no project_read result"))
+    for _n in ("EX_big.json", "EX_old.json", "EX_rules.md"):
+        os.unlink(os.path.join(pj, _n))
+    _rp = os.path.join(pj, STAGED_RECORD)
+    _r = _load_json(_rp) or {}
+    for _n in ("EX_big.json", "EX_old.json", "EX_rules.md"):
+        _r.pop(_n, None)
+    with open(_rp, "w", encoding="utf-8") as fh:
+        json.dump(_r, fh, indent=2)
+    with open(os.path.join(proj, "bad.json"), "w", encoding="utf-8") as fh:
+        fh.write('{"ok": tru')
+    rc, out = run(fx, "--stage-doc", "bad.json", "--typed")
+    check("stage-doc refuses invalid JSON (exit 2, HS:INPUT)",
+          rc == 2 and "HARD STOP [HS:INPUT] STAGE-INVALID bad.json: not valid JSON" in out)
+    with open(os.path.join(proj, "eng.py"), "w", encoding="utf-8") as fh:
+        fh.write("def f(:\n")
+    rc, out = run(fx, "--stage-doc", "eng.py", "--typed")
+    check("stage-doc refuses python that does not compile", rc == 2 and "does not compile" in out)
+    rc, out = run(fx, "--stage-inputs")
+    check("stage-inputs points at spec_source once a project spec is staged",
+          "NEXT: python3 spec_source.py --resolve" in out and "PROJECT FILES ARE NOT" not in out)
+    rc, out = run(fx, "--stage-status")
+    check("stage-status reports STAGING COMPLETE with the typed count",
+          rc == 0 and "STAGING COMPLETE — 5 file(s)" in out and "(1 typed" in out)
+    env["FW_PROJECT_DIR"] = os.path.join(tmp, "empty_project")
+    rc, out = run(fx, "--stage-status")
+    check("stage-status on an empty project dir is STAGING-EMPTY (exit 2)",
+          rc == 2 and "HARD STOP [HS:INPUT] STAGING-EMPTY" in out)
+    env["FW_PROJECT_DIR"] = proj
+
+    # Edge cases (final review 2026-11-06), in their own directories.
+    keep = {k: env[k] for k in ("FW_PROJECT_DIR", "FW_UPLOADS_DIR", "FW_ATTACH_DIR")}
+    e_att = os.path.join(tmp, "e_attach")
+    env.update(FW_PROJECT_DIR=os.path.join(tmp, "e_project"),
+               FW_UPLOADS_DIR=os.path.join(tmp, "e_uploads"), FW_ATTACH_DIR=e_att)
+    os.makedirs(os.path.join(e_att, "s1")); os.makedirs(os.path.join(e_att, "s2"))
+    _old = os.path.join(e_att, "s2", "ffffffff-EX_registry.json")
+    _new = os.path.join(e_att, "s1", "00000000-EX_registry.json")
+    with open(_old, "w", encoding="utf-8") as fh:
+        fh.write('{"v": "old"}')
+    with open(_new, "w", encoding="utf-8") as fh:
+        fh.write('{"v": "new"}')
+    os.utime(_old, (time.time() - 500, time.time() - 500))
+    rc, out = run(fx, "--stage-inputs", "--trigger", "TestCreate")
+    rcv, outv = run(fx, "--trigger", "PYQDraft")
+    check("the newest attachment of a name wins, lands in uploads and project, and the "
+          "SURFACE notice goes silent",
+          rc == 0 and out.count("STAGED ATTACHMENT EX_registry.json") == 1
+          and open(os.path.join(env["FW_UPLOADS_DIR"], "EX_registry.json")).read() == '{"v": "new"}'
+          and open(os.path.join(env["FW_PROJECT_DIR"], "EX_registry.json")).read() == '{"v": "new"}'
+          and "SURFACE:" not in outv)
+    _blob = os.path.join(tmp, "blob.bin")
+    with open(_blob, "wb") as fh:
+        fh.write(b"PK\x03\x04\x00\xff binary")
+    with open(os.path.join(txd, "e.jsonl"), "w", encoding="utf-8") as fh:
+        for r in ({"x": json.dumps({"method": "project_read", "path": "EX_registry.json",
+                                    "content": '{"v": "project"}'})},
+                  {"x": json.dumps({"method": "project_read", "path": "EX Pattern.xlsx",
+                                    "file_kind": "blob", "local_file": _blob})}):
+            fh.write(json.dumps(r) + "\n")
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "e.jsonl")
+    rc, out = run(fx, "--stage-project-docs")
+    check("stage-project-docs never replaces an attached file and stages a blob byte for byte",
+          rc == 0 and "KEPT ATTACHMENT EX_registry.json" in out
+          and open(os.path.join(env["FW_PROJECT_DIR"], "EX_registry.json")).read() == '{"v": "new"}'
+          and open(os.path.join(env["FW_PROJECT_DIR"], "EX Pattern.xlsx"), "rb").read()
+          == open(_blob, "rb").read())
+    with open(os.path.join(e_att, "s1", "11111111-EX_cfg.json"), "w", encoding="utf-8") as fh:
+        fh.write('{"cut": ')
+    rc, out = run(fx, "--stage-inputs")
+    check("an attached JSON that does not parse stops staging (exit 2)",
+          rc == 2 and "STAGE-INVALID EX_cfg.json" in out and "STAGING STOPPED" in out
+          and "NEXT:" not in out)
+    env.update(keep)
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "none", "*.jsonl")
+
+    # Blind-review fixes (2026-11-06).
+    rc, out = run(fx, "--stage-doc", "../escape.md", "--from", src)
+    check("stage-doc refuses a name that is a path",
+          rc == 2 and "plain file name" in out
+          and not os.path.exists(os.path.join(os.path.dirname(proj), "escape.md")))
+    with open(os.path.join(txd, "p.jsonl"), "w", encoding="utf-8") as fh:
+        fh.write(json.dumps({"x": json.dumps({"method": "project_read", "path": "dir/",
+                                              "content": "T"})}) + "\n")
+        fh.write(json.dumps({"x": json.dumps({"method": "project_read", "path": "EX_ok.md",
+                                              "content": "ok\n"})}) + "\n")
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "p.jsonl")
+    rc, out = run(fx, "--stage-project-docs")
+    check("stage-project-docs survives a path that is not a file name and leaves no temp file",
+          rc == 2 and "not a file name" in out and "STAGED project-record EX_ok.md" in out
+          and not [f for f in os.listdir(proj) if f.startswith(".incoming_")])
+    with open(os.path.join(proj, STAGED_RECORD), "w", encoding="utf-8") as fh:
+        fh.write("{oops")
+    rc, out = run(fx, "--stage-project-docs")
+    rc2, out2 = run(fx, "--stage-inputs")
+    check("a corrupt staging record stops project staging and is rebuilt by stage-inputs",
+          rc == 2 and "STAGE-RECORD" in out and rc2 == 0 and "has been rebuilt" in out2
+          and (_load_json(os.path.join(proj, STAGED_RECORD)) or {}).get(
+              "My_Notes.json", {}).get("mode") == "attachment")
+    os.remove(os.path.join(proj, "EX_ok.md"))
+    env["FW_TRANSCRIPT_GLOB"] = os.path.join(txd, "none", "*.jsonl")
+    run(fx, "--trigger", "TestCreate")
+    with open(os.path.join(fx, "Framework_Footer.md"), "a", encoding="utf-8") as fh:
+        fh.write("x\n")
+    rc, out = run(fx, "--trigger", "TestCreate")
+    rc2, out2 = run(fx, "--trigger", "TestCreate", "--read", "1")
+    check("a failed verify removes .verified, so no read is served afterwards",
+          rc == 1 and rc2 == 1 and "no .verified" in out2
+          and not os.path.exists(os.path.join(fx, ".verified")))
+    with open(os.path.join(fx, "Framework_Footer.md"), "w", encoding="utf-8") as fh:
+        fh.write(files["Framework_Footer.md"])
+    run(fx, "--trigger", "TestCreate")
+    orch_st = None
+    run(fx, "--trigger", "TestCreate", "--role", "orchestrator", "--read", "1")
+    orch_st = json.load(open(os.path.join(fx, READ_STATE_DIR, open(os.path.join(
+        fx, READ_STATE_DIR, "current_orchestrator")).read().strip() + ".json")))
+    _a1 = orch_st["anchors"]["01"]
+    rc, out = run(fx, "--role", "orchestrator", "--retention", "1" + "01=" + _a1)
+    rc2, out2 = run(fx, "--role", "orchestrator", "--retention", "01=BBBBBBB 01=" + _a1)
+    rc3, out3 = run(fx, "--role", "orchestrator", "--retention", "01=" + _a1)
+    check("retention ignores a code glued to other digits and refuses two different codes "
+          "for one anchor", rc == 3 and rc2 == 3 and rc3 == 0)
+
+    # A reader that closes the pipe early never produces a traceback, and the command
+    # still does its work (here: .verified is written).
+    if os.path.exists(os.path.join(fx, ".verified")):
+        os.remove(os.path.join(fx, ".verified"))
+    rp = subprocess.run(f'"{sys.executable}" "{os.path.join(here, "bootstrap.py")}" '
+                        f'--trigger TestCreate | head -1', shell=True, cwd=fx, env=env,
+                        capture_output=True, text=True)
+    check("output cut by `| head` gives no traceback and the verify still completes",
+          "Traceback" not in rp.stderr and "BrokenPipe" not in rp.stderr
+          and rp.stdout.startswith("[OK] FRAMEWORK")
+          and os.path.exists(os.path.join(fx, ".verified")))
+
+    # D9/D10 worker hand-off
+    chat = os.path.join(tmp, "chat.txt")
+    with open(chat, "w", encoding="utf-8") as fh:
+        fh.write("Batch 1 delivered.\n")
+    common = ["--worker-report", "write", "--exam", "EX", "--paper", "2", "--batch", "1",
+              "--of", "4", "--chat-file", chat]
+    rc, out = run(fx, *common, "--state", "BATCH_DELIVERED", "--files", src + ",/nope/x.docx")
+    check("worker-report refuses a listed file that does not exist", rc == 2)
+    rc, out = run(fx, *common, "--state", "DONE", "--files", src)
+    check("worker-report refuses a state outside the closed set", rc == 2)
+    comma = os.path.join(tmp, "EX_SUBJ_Reasoning, General Intelligence_01_Q1to10.docx")
+    with open(comma, "w", encoding="utf-8") as fh:
+        fh.write("docx")
+    rc, out = run(fx, "--worker-report", "write", "--exam", "EXC", "--paper", "1", "--batch",
+                  "1", "--of", "2", "--chat-file", chat, "--state", "BATCH_DELIVERED",
+                  "--files", comma + ", " + src)
+    rcs, outs = run(fx, "--worker-report", "show", "--exam", "EXC", "--paper", "1")
+    check("worker-report keeps a file name that holds a comma whole",
+          rc == 0 and rcs == 0 and f"  {comma}  (4 B)" in outs and f"  {src}  (17 B)" in outs)
+    big = os.path.join(tmp, "big.txt")
+    with open(big, "w", encoding="utf-8") as fh:
+        fh.write("x\n" * 801)
+    rc, out = run(fx, *(common[:-1] + [big]), "--state", "BATCH_DELIVERED", "--files", src)
+    with open(big, "w", encoding="utf-8") as fh:
+        fh.write("x\n" * 800)
+    rc2, out2 = run(fx, "--worker-report", "write", "--exam", "EX800", "--paper", "1",
+                    "--batch", "1", "--of", "1", "--chat-file", big,
+                    "--state", "BATCH_DELIVERED", "--files", src)
+    with open(big, "w", encoding="utf-8") as fh:
+        fh.write(("y" * 99 + "\n") * 600 + "z\n")
+    rc3, out3 = run(fx, *(common[:-1] + [big]), "--state", "BATCH_DELIVERED", "--files", src)
+    check("worker-report refuses a chat block over 800 lines or 60,000 B and accepts exactly 800",
+          rc == 2 and rc2 == 0 and rc3 == 2)
+    rc_all = [run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch",
+                  "0", "--of", "0", "--chat-file", chat, "--state", s_, "--files", "",
+                  *(["--review-parts", tmp] if s_ == "REVIEW_REQUEST" else []))[0]
+              for s_ in WORKER_STATES]
+    rc_m = run(fx, "--worker-report", "write", "--state", "BATCH_DELIVERED", "--files", "",
+               "--chat-file", chat)[0]
+    rc_r = run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch", "5",
+               "--of", "5", "--chat-file", chat, "--state", "REVIEW_REQUEST", "--files", "")[0]
+    check("worker-report refuses missing --exam/--paper/--batch/--of and a REVIEW_REQUEST "
+          "without review parts", rc_m == 2 and rc_r == 2)
+    check("worker-report accepts --files \"\" (no files) for every state",
+          rc_all == [0] * len(WORKER_STATES))
+    empty = os.path.join(tmp, "empty.txt")
+    open(empty, "w").close()
+    rc, out = run(fx, *(common[:-1] + [empty]), "--state", "PAPER_DELIVERED", "--files", src)
+    check("worker-report refuses an empty chat block for PAPER_DELIVERED", rc == 2)
+    rc, out = run(fx, "--worker-report", "show", "--exam", "EX", "--paper", "2")
+    check("worker-report show without a report is WORKER-REPORT-MISSING (exit 2)",
+          rc == 2 and "HARD STOP [HS:INFRA] WORKER-REPORT-MISSING" in out)
+    rc, out = run(fx, *common, "--state", "BATCH_DELIVERED", "--files", src)
+    rc2, out2 = run(fx, "--worker-report", "show", "--exam", "EX", "--paper", "2")
+    check("worker-report show prints the files and the chat block verbatim",
+          rc == 0 and rc2 == 0
+          and out2.startswith("WORKER REPORT EX M2 — STATE BATCH_DELIVERED — batch 1 of 4")
+          and f"  {src}  (17 B)" in out2
+          and "-----\nBatch 1 delivered.\n----- END CHAT BLOCK part 1 of 1 -----" in out2)
+    os.utime(src, (time.time() + 60, time.time() + 60))
+    rc, out = run(fx, "--worker-report", "show", "--exam", "EX", "--paper", "2")
+    check("worker-report show refuses a report older than a file it lists", rc == 2)
+    gone = os.path.join(tmp, "gone.docx")
+    with open(gone, "w", encoding="utf-8") as fh:
+        fh.write("v1")
+    run(fx, "--worker-report", "write", "--exam", "EXG", "--paper", "1", "--batch", "1", "--of",
+        "2", "--chat-file", chat, "--state", "BATCH_DELIVERED", "--files", gone)
+    os.utime(gone, (time.time() - 100, time.time() - 100))
+    with open(gone, "w", encoding="utf-8") as fh:
+        fh.write("v2")
+    os.utime(gone, (time.time() - 100, time.time() - 100))
+    rc, out = run(fx, "--worker-report", "show", "--exam", "EXG", "--paper", "1")
+    os.remove(gone)
+    rc2, out2 = run(fx, "--worker-report", "show", "--exam", "EXG", "--paper", "1")
+    check("worker-report show refuses a listed file that changed or is gone (WORKER-REPORT-STALE)",
+          rc == 2 and "WORKER-REPORT-STALE" in out and rc2 == 2 and "WORKER-REPORT-STALE" in out2)
+    big = os.path.join(fx, "big_block.md")
+    with open(big, "w", encoding="utf-8") as fh:
+        fh.write("".join(f"line {i:04d} " + "x" * 90 + "\n" for i in range(500)))
+    run(fx, "--worker-report", "write", "--exam", "EXP", "--paper", "1", "--batch", "1",
+        "--of", "2", "--state", "BATCH_DELIVERED", "--files", "", "--chat-file", big)
+    got, k, n_parts, ok_sz = "", 1, None, True
+    while True:
+        rc, out = run(fx, "--worker-report", "show", "--exam", "EXP", "--paper", "1",
+                      "--part", str(k))
+        m = re.search(r"----- CHAT BLOCK part (\d+) of (\d+)", out)
+        if rc != 0 or not m:
+            break
+        n_parts = int(m.group(2))
+        body = out.split(" -----\n", 1)[1].split("----- END CHAT BLOCK part", 1)[0]
+        got += body
+        ok_sz = ok_sz and len(out) < 40000
+        if k >= n_parts:
+            break
+        k += 1
+    check("worker-report show serves a large chat block in inline-sized parts that join exactly",
+          n_parts is not None and n_parts > 1 and ok_sz and got == open(big, encoding="utf-8").read())
+    rc, out = run(fx, "--worker-report", "show", "--exam", "EXP", "--paper", "1", "--part", "99")
+    check("worker-report show refuses a part that does not exist", rc == 2)
+    rc, out = run(fx, "--worker-prompt", "--trigger-text", "TestCreate EX M2")
+    check("worker prompt carries the trigger and the fixed worker rules",
+          rc == 0 and "TestCreate EX M2" in out and "do NOT re-run Step 0" in out
+          and "do NOT\ndelete /tmp/fw" in out and "--worker-report write" in out
+          and out.rstrip().endswith("WORKER DONE <STATE> batch K of M")
+          and len(out.splitlines()) < 60)
+    check("worker prompt names Orchestrate PART B, the read, retention and O2-2 messages",
+          "Framework_MockTestOrchestrate.md\nPART B (O3-1 to O3-8)" in out
+          and "python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K" in out
+          and 'python3 bootstrap.py --retention "<nn>=<code> ..." --when <W>' in out
+          and "after a blank line at\nthe end of this prompt" in out
+          and all(m in out for m in ("continue — delivery confirmed", "FINAL ASSEMBLY",
+                                     "REVIEW RETURNED", "USER MESSAGE: <the user's message, verbatim>")))
+    rc, out = run(fx, "--worker-prompt", "--trigger-text", "TestCreate EX M2", "--continue")
+    check("--continue prompt makes a fresh worker read, restore and apply S4-6",
+          rc == 0 and "read (O3-2) and prove (a) first" in out and "RESTORE" in out
+          and "S4-6" in out and len(out.splitlines()) < 60)
+
+    # E: an overlay with a project spec carries a regenerated map that verifies
+    import spec_source
+    shutil.copy(os.path.join(here, "spec_sections.py"), fx)
+    pj = os.path.join(tmp, "pj")
+    os.makedirs(pj)
+    with open(os.path.join(pj, "Framework_Footer.md"), "w", encoding="utf-8") as fh:
+        fh.write("# Framework_Footer v1.1\n## F-1 — footer\nnew footer\nmore\n"
+                 "# END OF Framework_Footer v1.1\n")
+    ov = os.path.join(tmp, "overlay")
+    spec_source.resolve(fx, pj, ov)
+    rc, out = run(ov, "--trigger", "TestCreate")
+    check("overlay with a regenerated map verifies (PARTIALLY, REGENERATED listed)",
+          rc == 0 and "[REGENERATED] SPEC_SECTIONS.json" in out)
+    with open(os.path.join(ov, "SPEC_SECTIONS.json"), "a", encoding="utf-8") as fh:
+        fh.write(" ")
+    rc, out = run(ov, "--trigger", "TestCreate")
+    check("a tampered regenerated map is a HARD STOP", rc == 1 and "HARD STOP" in out)
+
+    # session class unchanged for the existing cases
+    def sc(trigger, obj):
+        p = None
+        if obj is not None:
+            p = os.path.join(tmp, "prog.json")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(obj if isinstance(obj, str) else json.dumps(obj))
+        return _session_class(p, {}, trigger=trigger)
+    plan3 = [{"batch_id": b} for b in ("B1", "B2", "B3")]
+    table = [
+        ("MockExplain", None, "FINAL"), ("TestExplain", None, "FINAL"),
+        ("PYQDraft", None, "FINAL"), ("PYQApprove", None, "FINAL"),
+        ("MockBlueprint", None, "FINAL"),
+        ("MockBlueprint", {"mocks": [1], "total_mocks": 3}, "NON-FINAL"),
+        ("MockBlueprint", {"mocks": [1, 2, 3], "total_mocks": 3}, "FINAL"),
+        ("MockBlueprint", "{bad", "FINAL"),
+        ("TestCreate", None, "FINAL"),
+        ("MockCreate", {"batch_plan": plan3, "batches_completed": [], "current_batch": "B1"},
+         "NON-FINAL"),
+        ("MockCreate", {"batch_plan": plan3, "batches_completed": ["B1", "B2"],
+                        "current_batch": "B3"}, "FINAL"),
+        ("MockCreate", {"batch_plan": [{"batch_id": "B1"}, {"batch_id": "B2", "is_final": True},
+                                       {"batch_id": "B3"}],
+                        "batches_completed": ["B1"], "current_batch": "B2"}, "FINAL"),
+        ("MockCreate", {"no_plan": 1}, "FINAL"),
+        ("PYQExtract", None, "NON-FINAL"),
+        ("PYQExtract", {"_meta": {"papers_processed": [1], "total_papers": 10}}, "NON-FINAL"),
+        ("PYQExtract", {"_meta": {"papers_processed": [1, 2], "total_papers": 5}}, "FINAL"),
+        ("PYQExtract", "{bad", "FINAL"),
+    ]
+    got = [(t, sc(t, o)) for t, o, _ in table]
+    check("session class unchanged for every existing case",
+          got == [(t, want) for t, _, want in table])
+
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"SELF-TEST: {passed}/{passed + len(fails)} PASS")
+    if fails:
+        print("FAILED: " + "; ".join(fails))
+    return not fails
+
+
+class _PipeSafe:
+    """A reader that closes the pipe early (`bootstrap.py ... | head -5`) must not turn a
+    finished or half-finished command into a Python traceback: the work goes on, the rest of
+    the output is dropped."""
+    def __init__(self, stream):
+        self._s = stream
+
+    def _drop(self):
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), self._s.fileno())
+        except (OSError, ValueError):
+            pass
+
+    def write(self, text):
+        try:
+            return self._s.write(text)
+        except BrokenPipeError:
+            self._drop()
+            return len(text)
+
+    def flush(self):
+        try:
+            self._s.flush()
+        except BrokenPipeError:
+            self._drop()
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
+
 
 if __name__ == "__main__":
-    main()
+    sys.stdout = _PipeSafe(sys.stdout)
+    try:
+        main()
+    finally:
+        sys.stdout.flush()
