@@ -227,9 +227,35 @@ def _banner_cut(lines, in_fence, start, end):
     return end + 1
 
 
+def routed_md(repo_dir='.'):
+    """Every .md routes.json routes, whatever it is named.
+
+    GAP-2026-11-07-SPEC-SECTIONS-ROUTED-MD. bootstrap.py --read demands a read plan
+    for every .md in the trigger's route (bootstrap `_routed_specs`), and HARD STOPS
+    with "SPEC_SECTIONS.json does not describe [...]" when one is missing. This
+    generator globbed 'Framework_*.md' only, so a routed .md under any other name was
+    never described and every session on that trigger stopped before reading anything.
+    Measured 2026-11-07 on TestExplain: CHEMISTRY_EXPLAIN_LEARNINGS_v1.md shipped in
+    2026.11.07 routed to PYQExplain / MockExplain / TestExplain and deliberately NOT
+    named Framework_* (it is a §24 LEARNINGS file, not a step spec), so all three
+    triggers hard stopped on every exam. The name was never the authority — the ROUTE
+    is; deriving the set from routes.json makes the map self-correcting for the next
+    routed document under any name.
+    """
+    import json as _json
+    p = os.path.join(repo_dir, 'routes.json')
+    if not os.path.exists(p):
+        return set()
+    r = _json.load(open(p, encoding='utf-8'))
+    return {f for t, fs in r.items() if not t.startswith('_')
+            for f in fs if f.endswith('.md')}
+
+
 def build(repo_dir='.'):
-    specs = sorted(f for f in os.listdir(repo_dir)
-                   if f.startswith('Framework_') and f.endswith('.md'))
+    specs = sorted({f for f in os.listdir(repo_dir)
+                    if f.startswith('Framework_') and f.endswith('.md')}
+                   | {f for f in routed_md(repo_dir)
+                      if os.path.exists(os.path.join(repo_dir, f))})
     doc = {'_generated_by': 'spec_sections.py',
            '_note': ('Line numbers only — never spec content. Regenerate with '
                      'gen_manifest.py; bootstrap.py verifies the sha256.'),
@@ -381,6 +407,18 @@ def self_test():
     doc = build('.')
     ma = 'Framework_MockTestAnalyse.md'
     check('t_every_spec_mapped', len(doc['files']) >= 20)
+    # GAP-2026-11-07-SPEC-SECTIONS-ROUTED-MD. The check above counts; it cannot see a
+    # MISSING file, so a routed .md absent from the map shipped green and hard stopped
+    # every session on its triggers. The authority is the ROUTE, never the filename:
+    # every .md routes.json routes must be described, under any name.
+    _routed = {f for f in routed_md('.') if os.path.exists(f)}
+    check('t_every_routed_md_is_mapped', not (_routed - set(doc['files'])))
+    # The entry is exactly what the reader needs: bootstrap sets plans[f] = None only
+    # when the map has no entry for f or its sha differs from disk, and HARD STOPS on
+    # that. (A companion "every routed .md chunks" check was written here and REMOVED
+    # before release: chunk_ranges(path, ranges) takes the ranges TO READ, so passing
+    # [] asks for nothing and returns no chunks for EVERY file, failing on a correct
+    # map. It tested the author's wrong premise, not the corpus.)
     check('t_spans_are_contiguous_and_cover_the_file',
           all(s['sections'][i]['end'] + 1 == s['sections'][i + 1]['start']
               for s in doc['files'].values()

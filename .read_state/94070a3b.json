@@ -1,0 +1,173 @@
+{
+  "read_id": "94070a3b",
+  "trigger": "TestExplain",
+  "role": "session",
+  "class": "FINAL",
+  "escalate": false,
+  "progress": null,
+  "files": {
+    "Framework_MockTestExplain.md": "f9a85e0183ca3bcd2606b32f6e14997f463c2666227a015f2a8063980858532e",
+    "Framework_DeliveryFooter.md": "c0461be915e6693b3b1f1527b14b0a2dd0724c2887e6ab89989c1d868a97db7d",
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": "8fdb9cb0ec7b2924f93bb9284f61a79e7d085be9db52b678e4346da72e9bda3f"
+  },
+  "chunks": [
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 1,
+      "end": 300,
+      "sha256": "cff1c0ffefd0ded89bb71aa93077ae9fe2ec1f85587736624bc26ea8315d7a8d",
+      "k": 1
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 301,
+      "end": 600,
+      "sha256": "1d23449b0cf94aac5a4061cd25a2002177f2ed7afac08e1b27ad3482ba0174b6",
+      "k": 2
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 601,
+      "end": 900,
+      "sha256": "33611407a7a967405a72e4fd18ccf219fa5ce09082821efb182b011c6b539b83",
+      "k": 3
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 901,
+      "end": 1200,
+      "sha256": "9eba040e4f62ea11734bc7aed6a1f37f9296f4944dcbf6572c6238bb3ad3ea0d",
+      "k": 4
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 1201,
+      "end": 1500,
+      "sha256": "ea7cef5deee19acc507eb0a42697fbf1193297fc4f05becca306d5acbe10209a",
+      "k": 5
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 1501,
+      "end": 1800,
+      "sha256": "be99c4ff14e68fcbe8289f8da425e5afbd4901d9e693872c860a9966ebc22d3c",
+      "k": 6
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 1801,
+      "end": 2100,
+      "sha256": "1d96da82fde24fc545fcc85f153d030d0ca6601e883a5e4e725fbbcbb3f60b1d",
+      "k": 7
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 2101,
+      "end": 2400,
+      "sha256": "14acfe7513a4c00b2cada7f5bb212a4587acb70f83f7fc710d98966422defa9d",
+      "k": 8
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 2401,
+      "end": 2700,
+      "sha256": "3a974fe999f0d326dfdf467ceac11d542b156c5f0e9abdd48d24660b9613950a",
+      "k": 9
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 2701,
+      "end": 3000,
+      "sha256": "5ebb3c3fdc1a8c9a7b78435f3f2ecfa6a592977d1446abff8b731e9dd612f3cf",
+      "k": 10
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 3001,
+      "end": 3300,
+      "sha256": "53dda5c28cbd50154c55f6f559323a96b0795de204da511365be3392fb1b7b6f",
+      "k": 11
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 3301,
+      "end": 3600,
+      "sha256": "c050704c00d649ffbc378275689e815aa698783d5ae45ceadd86e989ccb39d6c",
+      "k": 12
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 3601,
+      "end": 3900,
+      "sha256": "1b37bc6a8c7d6fe59658839fd598ae1442c9e6441fbbeceef8e94bf784605436",
+      "k": 13
+    },
+    {
+      "file": "Framework_MockTestExplain.md",
+      "start": 3901,
+      "end": 3911,
+      "sha256": "7a0407ff49addaee8a0567c3fc83d86ad9608d9140b5979f28882a9b5268cc15",
+      "k": 14
+    },
+    {
+      "file": "Framework_DeliveryFooter.md",
+      "start": 1,
+      "end": 300,
+      "sha256": "cb7eff35cb0330efb0b7fbab66c006c4aecbfbc7bd7abe0a61f2f146164904e3",
+      "k": 15
+    },
+    {
+      "file": "Framework_DeliveryFooter.md",
+      "start": 301,
+      "end": 600,
+      "sha256": "c9ca23ea40540c5f035db0429440ca16191014bba6a58e64d84108edbda2456d",
+      "k": 16
+    },
+    {
+      "file": "Framework_DeliveryFooter.md",
+      "start": 601,
+      "end": 900,
+      "sha256": "a47493b2e441b01385186c5d11334137f3967dec886bcef9184f3f5df36c4d91",
+      "k": 17
+    },
+    {
+      "file": "Framework_DeliveryFooter.md",
+      "start": 901,
+      "end": 1200,
+      "sha256": "31cb3fc4853aa354b508064252142c2a5f10e2fbbbdfce046b0bf0880619e13e",
+      "k": 18
+    },
+    {
+      "file": "Framework_DeliveryFooter.md",
+      "start": 1201,
+      "end": 1295,
+      "sha256": "ee7f8de12826936abdc0ee96afb908cf538337bdf3b1d7ee9214e888bbc11f5f",
+      "k": 19
+    },
+    {
+      "file": "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md",
+      "start": 1,
+      "end": 166,
+      "sha256": "8fdb9cb0ec7b2924f93bb9284f61a79e7d085be9db52b678e4346da72e9bda3f",
+      "k": 20
+    }
+  ],
+  "anchor_chunks": [
+    1,
+    8,
+    16,
+    20
+  ],
+  "anchors": {
+    "01": "VLDZTFL",
+    "02": "KFGRSNB",
+    "03": "XFJCZZD",
+    "04": "DVLFSGV"
+  },
+  "served": [
+    1
+  ],
+  "started": "2026-11-07T14:28:01",
+  "finished": null,
+  "checks": []
+}

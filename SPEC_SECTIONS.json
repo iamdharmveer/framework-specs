@@ -7,6 +7,143 @@
   "read_chunk_max_lines": 300,
   "read_chunk_max_bytes": 28000,
   "files": {
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": {
+      "sha256": "8fdb9cb0ec7b2924f93bb9284f61a79e7d085be9db52b678e4346da72e9bda3f",
+      "lines": 166,
+      "bytes": 19077,
+      "est_tokens": 8295,
+      "view_calls": 2,
+      "bash_calls": 1,
+      "has_read_set": false,
+      "preamble_lines": 15,
+      "preamble_bytes": 1191,
+      "reduced_bytes": 19077,
+      "reduced_est_tokens": 8295,
+      "reduced_bash_calls": 1,
+      "final_only_ranges": [],
+      "final_only_titles": [],
+      "sections": [
+        {
+          "title": "## EX-CHEM-01 — Danheiser annulation gives a TMS-cyclopentene",
+          "start": 16,
+          "end": 24,
+          "lines": 9,
+          "bytes": 778
+        },
+        {
+          "title": "## EX-CHEM-02 — Catalytic hydrogenation of an alkyne goes to the alkane",
+          "start": 25,
+          "end": 33,
+          "lines": 9,
+          "bytes": 880
+        },
+        {
+          "title": "## EX-CHEM-03 — What each alcohol oxidant gives",
+          "start": 34,
+          "end": 42,
+          "lines": 9,
+          "bytes": 1086
+        },
+        {
+          "title": "## EX-CHEM-04 — E2 on a cyclohexane: list every anti-periplanar β-H",
+          "start": 43,
+          "end": 51,
+          "lines": 9,
+          "bytes": 1058
+        },
+        {
+          "title": "## EX-CHEM-05 — Sharpless epoxidation of a racemic secondary allylic alcohol is a kinetic resolution",
+          "start": 52,
+          "end": 60,
+          "lines": 9,
+          "bytes": 1444
+        },
+        {
+          "title": "## EX-CHEM-06 — Lewis-acid intramolecular Diels–Alder: endo gives trans-fused",
+          "start": 61,
+          "end": 69,
+          "lines": 9,
+          "bytes": 1127
+        },
+        {
+          "title": "## EX-CHEM-07 — State the enolate naming convention before E/Z",
+          "start": 70,
+          "end": 78,
+          "lines": 9,
+          "bytes": 1121
+        },
+        {
+          "title": "## EX-CHEM-08 — Rank C–H acidity with measured pKa and a stated solvent",
+          "start": 79,
+          "end": 87,
+          "lines": 9,
+          "bytes": 1087
+        },
+        {
+          "title": "## EX-CHEM-09 — Phenonium participation: erythro retains, threo racemises",
+          "start": 88,
+          "end": 96,
+          "lines": 9,
+          "bytes": 929
+        },
+        {
+          "title": "## EX-CHEM-10 — Carbocation ring expansion: the better charge carrier migrates",
+          "start": 97,
+          "end": 105,
+          "lines": 9,
+          "bytes": 1012
+        },
+        {
+          "title": "## EX-CHEM-11 — Woodward (wet) versus Prévost (dry) dihydroxylation",
+          "start": 106,
+          "end": 114,
+          "lines": 9,
+          "bytes": 909
+        },
+        {
+          "title": "## EX-CHEM-12 — The option set never justifies a chemical step",
+          "start": 115,
+          "end": 122,
+          "lines": 8,
+          "bytes": 558
+        },
+        {
+          "title": "## EX-CHEM-13 — Disclose a printed option that does not match the derived product",
+          "start": 123,
+          "end": 130,
+          "lines": 8,
+          "bytes": 693
+        },
+        {
+          "title": "## EX-CHEM-14 — Reduction reagents: what each one touches",
+          "start": 131,
+          "end": 139,
+          "lines": 9,
+          "bytes": 1256
+        },
+        {
+          "title": "## EX-CHEM-15 — Named carbonyl and pericyclic reactions: the product that is actually formed",
+          "start": 140,
+          "end": 148,
+          "lines": 9,
+          "bytes": 2076
+        },
+        {
+          "title": "## EX-CHEM-16 — Stereodescriptor sentences carry their model",
+          "start": 149,
+          "end": 156,
+          "lines": 8,
+          "bytes": 985
+        },
+        {
+          "title": "## EX-CHEM-17 — Selectivity questions enumerate every competitor",
+          "start": 157,
+          "end": 166,
+          "lines": 10,
+          "bytes": 888
+        }
+      ]
+    },
     "Framework_Blueprint.md": {
       "sha256": "50687ff56f597910be05276466562e3dc2f579195f56cf9217ba26f042f194c3",
       "lines": 7936,

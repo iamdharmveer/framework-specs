@@ -583,11 +583,11 @@
       "bytes": 28392
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "e2a1d6421aff9c0996a3b0895bc51c69a17b4029e538d9ac4e2b08fd9b2aed44",
+      "sha256": "11899d1e75286f80739342acff4fe73793bcef35ff5973ac356a80b3a5d683a3",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 8051,
-      "bytes": 225435
+      "lines": 8188,
+      "bytes": 229470
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
