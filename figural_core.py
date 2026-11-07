@@ -4,6 +4,14 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.91 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE).
+Three named inks for the explanation mechanism renderer (corpus_io v1.19
+render_mechanism, bound by explain_engine v2.13): ARROW_INK (curly arrows),
+FORM_INK (forming bonds) and WRONG_INK (wrong bonds / wrong arrows in a WHY WRONG
+figure) — OKABE_ITO[0], [2] and [1], already ROLE_LINE hues with ROLE_TEXT text
+tiers, so every gate that exists today accepts them unchanged. No renderer, gate
+or constant used by a question figure changes; a question figure's bytes are
+identical to v5.90. Constants only.
 v5.90 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (G01 R1.2).
 render_option_set() now refuses an option set in which two draws carrying
 .canonical are ONE entity (re-perceived identity, blueprint_core.structure_identity /
@@ -273,6 +281,17 @@ ATOM_COLOURED_SYMBOLS = frozenset({"N", "O", "F", "Cl", "Br", "I"})
 # Opaque accent for the interrogated site of a structure (OKABE_ITO[0], 5.19:1).
 HIGHLIGHT_COLOUR = OKABE_ITO[0]
 HIGHLIGHT_BOND_WIDTH_MULT = 6
+# ── v5.91 RE-25 CHEM-STRUCTURE inks (GAP-2026-11-06) ─────────────────────────
+# The explanation mechanism renderer (corpus_io.render_mechanism) draws every curly
+# arrow in ARROW_INK, every forming bond in FORM_INK and every wrong bond or wrong
+# arrow (a WHY WRONG figure) in WRONG_INK. All three are ROLE_LINE hues (>= 3.0:1)
+# with a ROLE_TEXT tier, so a coloured caption through text_ink() passes L6.
+# corpus_io never imports this module: it reads these from sys.modules when the
+# Explain flow (explain_engine.structure_draw / render_mechanism) has loaded it,
+# and otherwise uses the SAME pinned values — the bytes never differ.
+ARROW_INK = OKABE_ITO[0]      # "#0072B2" blue
+FORM_INK = OKABE_ITO[2]       # "#009E73" bluish green
+WRONG_INK = OKABE_ITO[1]      # "#D55E00" vermillion
 
 # --- scale contract ----------------------------------------------------------
 FIGURAL_DPI = 300

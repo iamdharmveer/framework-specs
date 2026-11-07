@@ -95,7 +95,11 @@ TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
 # routed. It is tracked HERE instead, so it gets the identical sha256 + header +
 # sentinel + line-count guarantee a spec gets, while being reachable from no trigger.
 # The narrative is load-bearing (v2.39) and must be verified, not merely kept.
-TRACKED_DOC = ["SPEC_HISTORY.md"]
+# CHEMISTRY_EXPLAIN_LEARNINGS_v1.md (2026.11.07, GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS,
+# RE-25 S-11): the chemistry subject library is SHIPPED here and routed to the three
+# explain triggers, so it is checksum-verified like a spec; it is deliberately not named
+# Framework_* (it is a LEARNINGS file in the frozen §24 schema, not a step spec).
+TRACKED_DOC = ["SPEC_HISTORY.md", "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"]
 
 def sha256(p):
     with open(p, "rb") as f:

@@ -112,7 +112,8 @@
     "t3_mathcomp.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
-    "figure_types.py"
+    "figure_types.py",
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
   ],
   "TestExplain": [
     "Framework_MockTestExplain.md",
@@ -123,7 +124,8 @@
     "t3_mathcomp.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
-    "figure_types.py"
+    "figure_types.py",
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
   ],
   "MockDeliver": [
     "Framework_MockDeliver.md",
@@ -147,7 +149,8 @@
     "blueprint_core.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
-    "figure_types.py"
+    "figure_types.py",
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
   ],
   "PYQFormat": [
     "Framework_PYQFormat.md",

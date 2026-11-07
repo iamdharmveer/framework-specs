@@ -1,13 +1,11 @@
-# Framework_DeliveryFooter v1.40.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.40.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (owner decisions D3-R5 (a),
-#   D10 (B); paired with blueprint_core v1.32, paper_pipeline v5.40, MockTestCreate v5.92,
-#   MockTestExplain v1.53.0, MockDeliver v1.26.0). §FOOTER-FT ONLY gains the DIFFICULTY
-#   DISCLOSURE LINES — every string bc.difficulty_unverified_lines returns ("DIFFICULTY
-#   UNVERIFIED — <reason>", "Hard target missed: k item(s)", "Step 9: k/n assessed", the
-#   small-pool and coverage lines), engine-sourced, prefixed "⚠️ ", disclosure only (no
-#   verdict change, no certification effect, no stop); pp.dg_footer_lines adds the Step-9
-#   coverage line for a w2 record. §1, §2, §4-§7 and the §3 STEP 1 block are byte-identical
-#   (PYQPrepare freeze, owner P1).
+# Framework_DeliveryFooter v1.41.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.41.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25; paired with
+#   PYQExplain v2.28, MockTestExplain v1.54.0). §LADDER gains the three RE-25 lines (two
+#   AMBER-CLASS through the existing classes "renderer degraded (…)" / "Q<n> explanation
+#   degraded (…)", one INFORMATIONAL "document size … (RE-25 figures)"), and Q0c names
+#   PYQExplain as a producer of those lines. Disclosure only — no stop, no verdict change.
+#   Every other line of the file is byte-identical (PYQPrepare freeze, owner P1: the
+#   PYQPrepare footer path is untouched).
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
@@ -1000,7 +998,8 @@ After every present_files call, Claude evaluates:
 
             NO  → continue to Q1.
 
-      Q0c (v1.37.0, Steps 7 and 9): does the run carry any AMBER-CLASS §LADDER line —
+      Q0c (v1.37.0, Steps 7 and 9; v1.41.0 — also PYQExplain, RE-25 lines only): does
+            the run carry any AMBER-CLASS §LADDER line —
             a certificate amber_note, a terminal-rung repair ("Q<n> repaired at …"),
             "systemic: …", a difficulty or allocation amendment, "difficulty schedule
             unverified…" (EXCEPT its "(no difficulty profile in the project)" variant,
@@ -1088,6 +1087,14 @@ force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the fo
     AMBER-CLASS.
   • Step 9 (Framework_MockTestExplain self-audit terminal rung): "Q<n> explanation degraded (<item>)" —
     AMBER-CLASS, one per disclosed block.
+  • v1.41.0 — RE-25 CHEM-STRUCTURE (GAP-2026-11-06; MockTestExplain v1.54.0 AND PYQExplain
+    v2.28 — PYQExplain prints these lines too, through the same Q0c):
+      - "renderer degraded (RE-25: rdkit unavailable, <N> questions)" — AMBER-CLASS (the
+        existing STYLE_NOTES "renderer degraded (…)" class).
+      - "Q<n> explanation degraded (RE-25: <reason>)" — AMBER-CLASS; a question that hit
+        the three-attempt bound (EC-41) or a figure the layout fallback could not pass.
+      - "document size <X> MB (RE-25 figures)" — INFORMATIONAL; printed when a delivered
+        docx exceeds 25 MB (EC-37). Never a stop, never an upload instruction.
   • v1.38.0 (GAP-2026-11-03) QUALITY LINES, Step 7 / Step 11:
       - QUALITY_FOOTER_LINE (S3-2e; bc.degraded_footer_line): "DEGRADED QUALITY — dormant
         controls: <ids> (inputs missing or stale; OD-1: run continued)" — AMBER-CLASS; or

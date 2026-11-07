@@ -218,6 +218,27 @@
     "HISTORY. Release 2026.11.03 changed all three parts of Step 7's contract (a review packet instead of the two files; an AWAITING_REVIEW end state; a new-chat review, a verdict file to carry back and a --resume to type) with no test and no explicit sign-off; every one of ~200 exam projects inherited it on its next paper (incident 2026-11-04, SSC GD Tier 1 TestCreate P2).",
     "THE CONTRACT IS THE USER'S VIEW. A gate that is green while the operator receives a different set of files, or is asked to do something new, is not green."
    ]
+  },
+  "CHEM-STRUCTURE-LAW": {
+   "gap": "GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS",
+   "stated_in": "Framework_PYQExplain.md RE-25 / Framework_MockTestExplain.md RE-25 (SHARED_RULES_VERSION 1.7)",
+   "requires": "Every explanation spec that decides RE-25 (chem_structure_module) must carry the full RE-25 CHEM-STRUCTURE STANDARD: the rule line, S6A-7 applicability (content-decided, never a subject or exam name), S6A-8 drawing obligations, S6A-9 placement inside the existing sections, S6A-10 figure content standard + E-04 layout gate, S6A-11 curly-arrow semantics + E-03 proof, S6A-12 the two recorded checks, S7-0d / S7-0e, the S24-7 shipped chemistry library — and its engine must be explain_engine >= v2.13 with corpus_io >= v1.19 (the E-03 / E-04 / E-06 / E-07 / E-08 / E-09 gates). A NOT_APPLICABLE question takes no new obligation (byte-identical).",
+   "detect": "chem_structure_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text names chem_structure_module or carries the literal line 'RE-25 : CHEM-STRUCTURE STANDARD'. A spec that copies the surface of RE-25 without being governed inherits the law's SURFACE without its CHECKS — exactly the GAP-2026-08-15 shape.",
+   "governs": [
+    "Framework_PYQExplain.md",
+    "Framework_MockTestExplain.md"
+   ],
+   "verified_by": [
+    "audit_sync:LAW-COVERAGE",
+    "validate_framework_md.py (HS-CLASS — no unclassed stop)",
+    "audit_specs_ext.py (Z-VERSION, SPEC-CAPACITY)",
+    "explain_engine.py --self-test (CHS-* fixtures)",
+    "corpus_io.py --self-test (chs_* fixtures)"
+   ],
+   "preconditions": [
+    "ENGINE PAIRING. The gates live in explain_engine / corpus_io, not in the spec text: a governed spec on an older engine would describe checks that never run. bootstrap.py's sha256 verification of the routed engines is the proof the pairing holds."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

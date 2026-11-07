@@ -1,5 +1,108 @@
 # Changelog
 
+## 2026.11.07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS: RE-25 CHEM-STRUCTURE STANDARD — every chemistry-structure question is explained with drawn, proved, step-by-step figures, in every exam
+(Framework_PYQExplain v2.28; Framework_MockTestExplain v1.54.0; Framework_DeliveryFooter v1.41.0
+(§LADDER / Q0c: the three RE-25 footer lines); SHARED_RULES_VERSION 1.7;
+explain_engine v2.13; corpus_io v1.19; figural_core v5.91; NEW CHEMISTRY_EXPLAIN_LEARNINGS_v1.md
+(tracked, routed); routes.json; LAW_REGISTRY.json CHEM-STRUCTURE-LAW; audit_sync.py detect rule
+chem_structure_rule; gen_manifest.py TRACKED_DOC; CLAUDE.md counts; MANIFEST / SHA256SUMS /
+SPEC_SECTIONS / SPEC_MANIFEST regenerated; SPEC_HISTORY.md.)
+
+**Cause (evidence paper: CSIR NET Chemical Sciences 18-Jul-2026, PYQExplain v2.24, 120 questions).**
+34 organic / physical-organic questions, all 34 keys right, ZERO explanation figures in the whole
+file (measured: 122 drawings, every one inside a question stem), 11 explanations with a chemistry
+error or a hidden option defect, 16 correct-but-shallow. Nine root causes, all systemic: §6A-1 made
+PROSE the default and told PYQ runs a drawing is "redundant by construction" / "never draw a
+mechanism"; the PROSE-with-justification escape had no gate; the renderer could draw ONE molecule
+(STRUCTURE_GRAPH) — no scheme, no mechanism, no curly arrow anywhere in the framework; figures could
+land only inside DEDUCTION; figures were proved for identity, never for legibility; option_smiles /
+answer_smiles were "hand-off only" so the derived product was never compared with the keyed option
+(Q73 bound an option missing a C=C silently); selectivity questions never had to list competitors
+and "because every option requires it" was legal; the chemistry subject library had NEVER loaded on
+any exam (nothing produced it; the only project copy was a header with zero rules); the prose
+filter let "The transcription shows" reach a student.
+
+**Owner decisions (2026-11-06 / 07, binding).** D-ORG-01..10: drawn steps, no new sections,
+mechanism figures inside DEDUCTION, option figures under each Option heading, curly arrows +
+charges + persistent labels, zero manual work, every exam, byte-identical elsewhere, defects
+disclosed in the last DEDUCTION line, two recorded checks. 2026-11-07: figure target 120 KB at
+200 dpi; the engine changes ship with the specs.
+
+**What changed.**
+- *RE-25 (both specs, shared).* Decided PER QUESTION from CONTENT (§6A-7 T1-T3: a chemistry content
+  object + an ask shape A1-A12; never a subject, topic, section or exam name). APPLIES → every step
+  drawn inside DEDUCTION (§6A-8), every wrong option / pitfall value drawn under its own heading
+  (§6A-9), every figure from atom-mapped SMILES with persistent labels, reagent tints, FORM / WRONG /
+  ARROW inks, captions inside the image (§6A-10), curly-arrow semantics and the E-03 proof (§6A-11),
+  two recorded checks (§6A-12). NOT_APPLICABLE → nothing runs, byte-identical output.
+  §7-0d competing-pathway enumeration, §7-0e options never justify a step, §7-2 reagent claims
+  library- or web-verified, §8-3 RE-25 layout, §8-5 / §15-2 structure distractors proved by
+  canonical match, §18-1 / §R3 / §21 items, §24 S24-7 shipped library. PYQ-only: §13A-3 guard S10
+  amended (option_smiles / answer_smiles become validate() inputs), §17-3 NEAREST-OPTION outcome
+  (full chemistry, nearest option bound, difference disclosed). Mock-only: a key that is not the
+  derived product is a Step 7 defect under §17-3 (EC-39), never a disclosure.
+- *explain_engine v2.13.* REPRESENTATION_RENDERERS + verdicts gain REACTION_SCHEME / MECHANISM /
+  ANNOTATED_STRUCTURE (E-01); RepresentationFigure(after_line, fig_id, requirement) and block fields
+  why_wrong_figures / pitfall_figures / speed_hack_figures rendered under their section, counted at
+  verify, stripped with the block (E-05); ExplanationBlock gates on APPLIES blocks — CHS_MISSING_
+  FIGURE, CHS_OPTION_FIGURE_MISSING, CHS_FINAL_MISMATCH, CHS_KEY_OPTION_MISMATCH, CHS_DISTRACTOR_
+  PATH_MISMATCH, CHS_STEREO_CLAIM_FALSE / CHS_STEREO_UNDECLARED (rdkit CIP re-derivation),
+  CHS_UNBALANCED_STEP, CHS_DISCLOSURE_MISSING (E-06 / E-07); META_INTERNAL_TERM (E-08) — universal
+  for pipeline-only phrasings, chemistry-block-only for "transcription" / "pipeline" / "registry" /
+  "SMILES" (a universal ban would halt biology and engineering papers; recorded deviation from the
+  gap's list); figure_review required 'ok' per RE-25 figure before delivery (E-09);
+  chem_structure_decision, resolve_chem_library, figure_record, check_stereo_claims; wrappers over
+  corpus_io. Fixtures (E-10): every CHS gate has a must-fail case; AT-4 (b) proves a block with no
+  RE-25 field renders byte-identically through the new code paths.
+- *corpus_io v1.19.* mechanism_apply_arrows / verify_mechanism_step (E-03, hydrogen counts frozen,
+  dative bonds, fishhooks), step_atom_balance (E-06 g), option_match (E-07, rdFMCS nearest + formula
+  delta), render_mechanism (E-01/E-02: template alignment on shared maps, never a mirror; reagent
+  fragment placed beside the attacked atom, clash-aware; reactive-conformation rotation; CoordGen
+  fallback for crowded depictions; captions inside; 200 dpi palette-quantised PNG), figure_layout_
+  audit (E-04 L1-L6 with the deterministic retry schedule, cap 64, fallback MECHANISM →
+  REACTION_SCHEME → STRUCTURE_GRAPH, every step-down recorded), render_structure_panel,
+  figure_review_sheet (E-09). Fixtures: SN2, E2, carbonyl / conjugate addition, 1,2-shift, fishhook,
+  all three Q.73 Danheiser steps rendered as MECHANISM with the gate clean and identical bytes on
+  re-render, a crossing arrow fails L1, a clipped caption fails L4, Q.73 printed Option 3 → nearest 3
+  / +H2.
+- *figural_core v5.91.* ARROW_INK / FORM_INK / WRONG_INK (constants only).
+- *CHEMISTRY_EXPLAIN_LEARNINGS_v1.md (NEW, repo-shipped, routed).* EX-CHEM-01..17: the 13 rules the
+  evidence paper taught plus the oxidant, hydrogenation, reduction and named-reaction tables and two
+  minimum-concept component sets; defect codes CHEM-OPTION-JUSTIFIED / CHEM-OPTION-MISMATCH.
+- *Release files.* routes.json routes the library to PYQExplain / TestExplain / MockExplain;
+  LAW_REGISTRY.json CHEM-STRUCTURE-LAW (detect chem_structure_rule — audit_sync derives the
+  performing set from the corpus; both explain specs governed); gen_manifest.py tracks the library.
+
+**Two independent adversarial reviews (2026-11-07), every finding fixed with a must-fail fixture.**
+Terminal degrade: an APPLIES-UNRENDERABLE block always validates (E-06 a-g waived, E-08 kept), so a
+degrade can never stop a build. Chemistry-library triggers are case-sensitive / context-bound
+chemistry phrases, tested against biology, physics and plain-English sentences, and are checked
+only on RE-25 blocks (EngineConfig chem_learnings_triggers). Resume of pre-v2.13 pickles is safe.
+Stationary explicit [H] atoms no longer invert stereocentres in drawings, and figure_record compares
+isomeric SMILES. option_match is stereo-aware (enantiomer = nearest, exact when "rac"; ties never
+broken by option number, EC-29). A reagent placed on a centre atom (t-Bu+, CH3·) is drawn beside it.
+Text-reagent scheme links are not atom-balanced (proved by canonical before / after; the reagent
+outcome by §7-2). Malformed RE-25 input raises ValueError only. MSQ checked by E-06 d. Figure
+placement under each Option is read back from the rendered docx. L7: no figure taller than 8 in.
+Review sheets take figures and split at 12. Library chemistry corrected (IMDA tether, thioester /
+amide enolate CIP, Cope elimination). PYQPrepare freeze (owner P1) verified: spec and all corpus_io
+symbols it names are byte-identical.
+
+**Non-regression.** A question without a chemistry content object never reaches any new code: the
+engine fields default to None / {} / [], the renderers are additive, the only universal change is the
+META_INTERNAL_TERM ban on pipeline-only phrasings. Proof: explain_engine fixture
+CHS-NOT-APPLICABLE-RENDER-BYTE-IDENTICAL; corpus_io / figural_core / explain_engine self-tests green;
+validate_framework_md 0 issues across 25 specs; audit_sync 0 findings; audit_specs_ext 0 issues.
+
+**What the operator sees.** Nothing new to do. On a chemistry paper the chat prints the RE-25 ledger
+in §R3 and views one contact sheet per batch; figures appear inside DEDUCTION, under each Option and
+(at most one) under SPEED HACK. Papers with no chemistry are unchanged. RE-25 adds NO hard stop: rdkit
+absent degrades to APPLIES-UNRENDERABLE after one install retry (amber "renderer degraded (RE-25: …)"
+§LADDER line — DeliveryFooter v1.41.0 lists the three RE-25 lines), every re-solve loop is bounded
+at three attempts (EC-41, then "Q<n> explanation degraded (RE-25: …)"), and a layout the fallback chain
+cannot pass marks that one figure unrenderable — every failure degrades, is recorded in §R3, and the
+paper delivers.
+
 ## 2026.11.06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY: the Step 7 specification stays in the context that writes the paper, and every read is proved
 (NEW Framework_MockTestOrchestrate v1.0.0; NEW SESSION_BUDGET.json; Framework_MockTestCreate v5.93;
 Framework_DeliveryFooter v1.40.0 header trimmed (no version change); bootstrap.py read / retention /

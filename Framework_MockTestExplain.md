@@ -1,14 +1,22 @@
-# Framework_MockTestExplain v1.53.1
-# v1.53.1 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (handshake review of the
-#   Step 7 -> Step 9 hand-over, run on a real paper). (1) P1: the engine self-test is run IN
-#   the verified clone (`cd /tmp/fw && python3 explain_engine.py --self-test`). The old
-#   wording copied explain_engine.py ALONE to /home/claude and ran it there; the engine
-#   imports t3_mathcomp.py from its own folder, so that copy could not start
-#   (ModuleNotFoundError) and P1 turns any self-test failure into a HALT. (2) S0-1 and S1-1
-#   name the Step 7 deliverable by its real file name, [ExamCode]_[paper_slug]_Create.docx
-#   (STEP_CONTRACTS.json; the P1 discovery already used it). No rule, gate, artefact or
-#   deliverable of Step 9 changes.
-#
+# Framework_MockTestExplain v1.54.0
+# v1.54.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE
+#   STANDARD; paired with PYQExplain v2.28, explain_engine v2.13, corpus_io v1.19, figural_core
+#   v5.91, SHARED_RULES_VERSION 1.7, the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS_v1.md).
+#   Incident: CSIR NET Chemical Sciences 18-Jul-2026 — 120 questions, 34 structure questions,
+#   ZERO explanation figures, 11 chemistry defects, every key right: the router said PROSE,
+#   the renderer drew one molecule, figures could land only in DEDUCTION, nothing compared
+#   the derived product with the keyed option, the chemistry library had never loaded.
+#   NEW RE-25 (decided per question from CONTENT — never a subject, topic or exam name, §6A-7
+#   T1-T3, ask shapes A1-A12): every step drawn inside DEDUCTION with curly arrows (E-03
+#   proved), every wrong option drawn under its own heading (E-05), every figure layout-gated
+#   and auto-retried (E-04), reviewed once in-turn (E-09), reconciled with the options (E-06
+#   c-e, E-07), stereo descriptors re-derived (E-06 f), per-step balance (E-06 g), pipeline
+#   vocabulary banned (E-08). NEW §6A-7..§6A-12, §7-0d / §7-0e, §24 S24-7; amended §5-1 /
+#   §5-3, §6-1, §6A-1 / 1b / 2 / 3b / 5 / 6, §7-2, §8-3 / §8-5, §15-2, §18-1, §R3, §21.
+#   option_smiles come from the registry; a key that is not the derived product is a Step 7
+#   defect under §17-3 (EC-39), never a NEAREST-OPTION disclosure.
+#   No new section heading; a NOT_APPLICABLE question takes no new obligation and renders
+#   byte-identically (GAP Section 10.1; engine fixture AT-4 b).
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.11.06 (GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY, EC-P42):
@@ -327,6 +335,24 @@
           outcome is recorded per question (§R10).
   RE-24 : FORMULA TYPOGRAPHY IS ENGINE-APPLIED (v1.37.0, §8-0c): notation in student prose
           is normalised to Unicode sub/superscripts at construction; residue raises.
+  RE-25 : CHEM-STRUCTURE STANDARD (v2.28 / v1.54.0 — GAP-2026-11-06-ORGANIC-STRUCTURE-
+          EXPLANATIONS; owner decisions D-ORG-01..10). Decided PER QUESTION from CONTENT,
+          never from a subject, topic, subtopic, section or exam name (§6A-7 T1-T3). When
+          it APPLIES: every step from starting material to answer is DRAWN inside
+          DEDUCTION (one figure per step, curly arrows for mechanism steps, every
+          intermediate); every wrong option (NAT: every pitfall value) carries its own
+          figure under its own heading; every figure is generated from atom-mapped SMILES,
+          proved chemically (E-03: the arrows must turn the drawn reactant into the drawn
+          product), proved visually (E-04: the automatic layout gate, retried, never hand-
+          adjusted), reviewed once in-turn (E-09), and reconciled with the options (E-06,
+          E-07). PROSE is not an available verdict, except for a species rdkit cannot
+          represent (status APPLIES-UNRENDERABLE, §6A-7 / EC-05). No new section is
+          created — the figures live inside Correct Answer / AXIOM / DEDUCTION / SPEED
+          HACK / WHY WRONG (COMMON PITFALLS) exactly as §6A-9 places them. When it does
+          not apply, nothing in this rule runs and the output is byte-identical to the
+          previous version (GAP-2026-11-06 Section 10.1 defines byte-identical: a
+          NOT_APPLICABLE question takes no new obligation and no new field, and the same
+          blocks build the same docx bytes through the old and the new engine).
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load the accumulated learnings —
           [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (v1.21.0: legacy/manually-authored — its
           Step-10 producer no longer exists; still READ when present),
@@ -511,6 +537,17 @@ execution path — it does not shrink, soften or delete them.
       and index every AL/EX rule by defect_code (precedence exam > subject > spec).
       The dashboard "Learnings loaded" line NAMES the subject file and its rule
       count (or states none/ambiguous): §7-7 neighbours come from it.
+      v1.54.0 — RE-25 CHEMISTRY LIBRARY (§24 S24-7): unless the subject file found by
+      resolve_learnings_files already IS a CHEMISTRY_EXPLAIN_LEARNINGS_v*.md (then it is
+      loaded and nothing more is done), the library is loaded LAZILY — at the FIRST §6A-7
+      APPLIES decision of the paper (any batch): explain_engine.resolve_chem_library(
+      '/mnt/project', '/tmp/fw_effective') (a project copy wins; else the repo copy) →
+      parse_learnings → triggers_from_learnings → re-create the EngineConfig with
+      chem_learnings_triggers=<those triggers> (learnings_triggers unchanged) before that
+      block is constructed. The engine checks chem_learnings_triggers ONLY on blocks whose
+      chem_structure_module.status is APPLIES or APPLIES-UNRENDERABLE, so no other question
+      gains any obligation. Add "Chemistry library loaded: <source>, <rule count>" to the
+      dashboard. A paper with no APPLIES question never loads it.
       v1.37.0 — triggers = explain_engine.triggers_from_learnings([all parsed files]) →
       EngineConfig(learnings_triggers=triggers) at P3 (§7-7 step 3, §24-1b). These OVERRIDE this spec on conflict (§24). When a
       learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
@@ -858,6 +895,17 @@ execution path — it does not shrink, soften or delete them.
 
   | absolutes_justified | dict{str:str}  | v2.7. {sentence: reason} for each absolute KEPT in AXIOM / SPEED HACK / WHY WRONG / COMMON PITFALLS; an undeclared universal there raises at validate() (§8-0b). Reason = why it is absolute in the subject's own terms |
   | transfer_record | list[dict]/None  | v2.7, REQUIRED by this spec on every block (§7-7). One entry per claim {section, claim, epistemic_type, scope, neighbour_tested, outcome}; shape-validated: AXIOM needs an AXIOM entry, SPEED HACK a SPEED_HACK entry, no QUESTION_SPECIFIC in AXIOM, no OPTION_SET_SHORTCUT outside SPEED_HACK |
+  | chem_structure_module | dict/None       | v2.28 / v1.54.0 (RE-25 §6A-7). {status, reason, ask_shape}: APPLIES / NOT_APPLICABLE (NA-NO-CHEM-CONTENT, NA-STRUCTURE-IRRELEVANT) / APPLIES-UNRENDERABLE. None on a block that was never decided (legacy). APPLIES switches on the E-06 / E-07 gates; NOT_APPLICABLE and None add NO obligation |
+  | transformation_chain | list[SMILES]    | RE-25. The mapped species of the DEDUCTION chain, reactant first, derived product last; A1 / A2 need one DEDUCTION figure per link (E-06 a); the last entry must equal answer_smiles (E-06 c) |
+  | mechanism_spec  | dict/None            | RE-25. {"steps": [E-02 step dicts]} (§6A-11); every step re-proved at validate() — E-03 arrows and, on arrow steps, E-06 g balance |
+  | wrong_paths     | dict{int:list[SMILES]} | RE-25. MODE A structure distractors: the wrong path per option; its end must equal option_smiles[k] (E-06 e) |
+  | why_wrong_figures | dict{int:list[RepresentationFigure]} | RE-25 (E-05). The figure(s) under each WHY WRONG option; keys ⊆ why_wrong keys; every wrong option needs ≥ 1 on an APPLIES block (E-06 b) |
+  | pitfall_figures | dict{val:list[RepresentationFigure]} | RE-25 (E-05). NAT analogue under each COMMON PITFALLS value |
+  | speed_hack_figures | list[RepresentationFigure] | RE-25 (E-05). At most ONE, only with a SPEED HACK |
+  | stereo_claims   | list[dict]           | RE-25 (E-06 f). {species, atom|bond|atoms, descriptor} per descriptor written in prose; rdkit re-derives R/S/E/Z; a prose token with no claim raises CHS_STEREO_UNDECLARED |
+  | option_mismatch | dict/None            | RE-25 (E-07). PYQ-ONLY — never set on a mock block (§17-3 EC-39): a mock key that is not the derived product is a Step 7 defect resolved by §17-3, and the engine's CHS_KEY_OPTION_MISMATCH is routed there |
+  | figure_review   | dict{fig_id:str}     | RE-25 (E-09). 'ok' or 'mismatch:<reason>' per figure from the in-turn view; verify_explanations refuses delivery while any APPLIES figure is not 'ok' |
+  | option_smiles · answer_smiles | dict · SMILES | RE-25 (E-06 c-e, E-07). from the registry (Step 7 SMILES — never from a transcription); validate() inputs on an APPLIES block |
 
   Option index → displayed label is via cfg.option_label() (numeric / alpha / roman /
   custom — read from CATEGORY C), so a paper labelled A·B·C·D shows "Correct Answer: A"
@@ -946,6 +994,17 @@ execution path — it does not shrink, soften or delete them.
   [ ] applicable learnings routed (§24): AL/EX rules whose defect_code this question's
       class can exhibit are loaded and obeyed; any >=2-occurrence AL-rule for a present
       class is honored
+  [ ] RE-25 (§6A-7) DECIDED from content and RECORDED: chem_structure_module on the
+      block and in progress state (APPLIES / NOT_APPLICABLE + reason / UNRENDERABLE)
+  [ ] RE-25 APPLIES → EVERY STEP DRAWN inside DEDUCTION (one figure per link, curly
+      arrows on mechanism steps, E-03 proved, E-04 layout-gated)             (§6A-8/10/11)
+  [ ] RE-25 APPLIES → EVERY WRONG OPTION / PITFALL VALUE DRAWN under its own heading
+      (why_wrong_figures / pitfall_figures); MODE A structure paths proved (E-06 e)  (§6A-9)
+  [ ] RE-25 APPLIES → final species == keyed option (E-06 c/d) — on a mock paper a
+      mismatch is a §17-3 Step 7 defect (EC-39), never disclosed; stereo_claims declared
+      for every descriptor written; competing pathways listed (§7-0d); no step
+      justified from the options (§7-0e); reagent outcomes library- or web-verified (§7-2)
+  [ ] RE-25 APPLIES → every figure REVIEWED in-turn and figure_review 'ok' (E-09)  (§6A-12)
   [ ] block.validate() called immediately after construction
 ```
 
@@ -968,7 +1027,7 @@ execution path — it does not shrink, soften or delete them.
   | C-GRAMMAR        | error-spotting/improvement/voice/narration/jumble | DEDUCTION = re-derive the correct form; each WHY WRONG = the one rule violated |
   | C-LINKED         | member of a shared-stimulus group (RC/cloze/DI/puzzle) | POINT to the licensing line in the stimulus ("the passage states … → answer"); do NOT re-argue it |
   | C-FIGURAL        | answer is/depends on a figure (§13)          | Family-dependent (§13-1). TRANSFORMATION-PUZZLE: AXIOM = the visual rule, DEDUCTION traces the VISIBLE transformation, WHY WRONG = the visual difference (§13-4a). SCIENTIFIC-DIAGRAM: AXIOM = the domain principle, DEDUCTION reads the figure as notation then solves, WHY WRONG = the domain error (§13-4b) |
-  | C-STRUCTURAL     | v1.29.0 — the answer turns on CONNECTIVITY, a site of reaction, spatial/stereochemical arrangement, symmetry or an enumeration over structures (products, isomers, environments), whether or not a figure is present | DEDUCTION leads and is a TRANSFORMATION CHAIN: starting arrangement → the change and WHERE it happens → resulting arrangement → why that one. AXIOM = the selectivity or structural principle governing the change. Enumerations state the generating rule, then the de-duplication (symmetry, equivalence), then the count — never a bare number. Pairs naturally with a §6A STRUCTURE_GRAPH verdict, but the class holds even when the router says PROSE |
+  | C-STRUCTURAL     | v1.29.0 — the answer turns on CONNECTIVITY, a site of reaction, spatial/stereochemical arrangement, symmetry or an enumeration over structures (products, isomers, environments), whether or not a figure is present | DEDUCTION leads and is a TRANSFORMATION CHAIN: starting arrangement → the change and WHERE it happens → resulting arrangement → why that one — and, when RE-25 APPLIES (§6A-7), the TRANSFORMATION CHAIN IS DRAWN, one figure per link (v2.28 / v1.54.0). AXIOM = the selectivity or structural principle governing the change. Enumerations state the generating rule, then the de-duplication (symmetry, equivalence), then the count — never a bare number. Pairs naturally with a §6A STRUCTURE_GRAPH verdict, but the class holds even when the router says PROSE |
   | C-DERIVATIONAL   | v1.29.0 — a MULTI-STEP chain where each step feeds the next (a relation is manipulated before use, several relations compose, or a limit/boundary case is taken) — distinct from C-COMPUTATIONAL, which substitutes into ONE known relation | DEDUCTION leads and shows the CHAIN: governing relation → what is eliminated or substituted at each step → the result, every step rendered as ⟦MATH:⟧ math (§11 S11-1c). AXIOM = the relation the chain starts from, plus the condition that licenses it. Each WHY WRONG names the ONE step at which that option's route diverges |
   | C-MATRIX/MATCH   | match-the-column / matrix                    | DEDUCTION = re-derive every pair; isolate the one fully-correct option |
   | C-MULTI-SELECT   | MSQ — more than one correct option (section_rules answer_cardinality == 'multi') | DEDUCTION = a truth-verdict line per option, then state the full correct SET; WHY WRONG = why each NON-selected option fails; CA line lists the set |
@@ -1020,6 +1079,13 @@ execution path — it does not shrink, soften or delete them.
   MINIMUM SUFFICIENT REPRESENTATION: where two representations both pass, take
   the simpler. Never draw a mechanism where a transformation arrow suffices;
   never draw every intermediate when one selectivity-determining step decides it.
+  RE-25 EXCEPTION (v2.28 / v1.54.0). For a question whose §6A-7 status is APPLIES,
+  the PROSE default, the MINIMUM SUFFICIENT REPRESENTATION sentences above do NOT apply. The explanation figures show the
+  transformations, the intermediates and the option-specific errors that the exam's
+  own figure does not show, so they are never redundant; "never draw a mechanism
+  where a transformation arrow suffices" is withdrawn for that question — the
+  mechanism IS the explanation (D-ORG-01, D-ORG-05). Every other question keeps
+  this section unchanged.
 
 ## S6A-1b — STRUCTURE-ANSWER PRESUMPTION (v1.35.0)
   §6A-1's default is inverted for ONE narrow shape: the question whose verified
@@ -1047,6 +1113,10 @@ execution path — it does not shrink, soften or delete them.
   bridging bonds, orbital occupancies, competing products, distinct sites) §6A-1b
   applies AND the figure must SHOW THE ENUMERATED OBJECTS, not the starting structure
   alone. PROSE stays legal with a recorded justification.
+  RE-25 (v2.28 / v1.54.0): for a §6A-7 APPLIES question, routing to PROSE with a
+  recorded justification is NOT permitted — §6A-1b and §6A-1b-ii presume a figure; RE-25
+  REQUIRES it, and ExplanationBlock.validate() refuses a PROSE / EQUATION / TABLE
+  verdict on such a block (CHS_MISSING_FIGURE, E-06 a).
 
 ## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v1.36.0)
   §6A-1 tests DECISIVE and NOT REDUNDANT. Both can pass while the learner never
@@ -1082,13 +1152,19 @@ execution path — it does not shrink, soften or delete them.
   | LEVEL_DIAGRAM        | occupancy, energy ordering, or state splitting          |
   | DATA_PLOT            | the shape of a graph, spectrum, or titration curve      |
   | CONFORMER            | (v1.36.0) HOW atoms are arranged at a given rotation — a projection (Newman / sawhorse / chair), which a constitution renderer cannot express; visual, requires its figure (run-report F3) |
+  | REACTION_SCHEME      | (RE-25, v2.28 / v1.54.0) a MULTI-STEP TRANSFORMATION drawn link by link — reactant → every intermediate → product, reagents above and conditions below each arrow, forming bonds marked; proved per link by canonical before / after (a text-reagent link is not atom-balanced; E-06 g applies to arrow steps) |
+  | MECHANISM            | (RE-25) ELECTRON FLOW: one figure per elementary step with curly arrows, formal charges, the lone pairs the arrows use, by-products; proved by E-03 (the arrows applied to the drawn reactant give the drawn product) — a step that fails is never degraded, it returns to solving |
+  | ANNOTATED_STRUCTURE  | (RE-25) LABELS ON ATOMS: CIP priorities 1-4 with the viewing direction, NMR environments, locants and fusion bonds, the decisive ligand or bond; proved by canonical SMILES plus the annotation map {atom map number: label} |
   EQUATION is satisfied by §11's ⟦MATH:⟧ regions and is ALWAYS available — it
-  needs no renderer and no configuration. TABLE is native docx. The last four
+  needs no renderer and no configuration. TABLE is native docx. The last seven
+  (v1.54.0 — the three RE-25 requirements joined the four)
   require a renderer bound in explain_engine.REPRESENTATION_RENDERERS (v1.48.0 —
   framework-owned, §6A-6; CONFORMER is drawn with the LEVEL_DIAGRAM library — a
   projection is a 2-D template with labelled bonds — and its §6A-5 identifier is
   the dihedral/occupant string restated from the drawn data); a library its
-  preflight found unavailable degrades the requirement (§6A-4).
+  preflight found unavailable degrades the requirement (§6A-4) — for an RE-25 APPLIES
+  question rdkit absent degrades to APPLIES-UNRENDERABLE after one install retry
+  (§6A-12, EC-35) — never a stop.
 
 ## S6A-3 — Record the verdict on every question
   The router's verdict is recorded per question in progress.json as
@@ -1115,6 +1191,11 @@ execution path — it does not shrink, soften or delete them.
   decided question routed PROSE, re-run §6A-1 / §6A-1c on each. Survivors ship
   as they stood; failures are re-routed. No target rate; a paper with no such
   questions trips nothing.
+  RE-25 (v2.28 / v1.54.0): for a §6A-7 APPLIES question the distribution check is a
+  GATE, not a tripwire — ExplanationBlock.validate() refuses the block without its
+  DEDUCTION figures (E-06 a) and without a figure under every wrong option (E-06 b),
+  and verify_explanations refuses delivery while any RE-25 figure lacks its E-09
+  review (§6A-12). A chemistry paper can no longer ship 100 % PROSE.
 
 ## S6A-4 — Degrade LOUDLY, never silently, and never HALT
   If a required renderer is unavailable, or a rendered artefact fails its
@@ -1143,6 +1224,20 @@ execution path — it does not shrink, soften or delete them.
   WHAT THE GATE DOES NOT PROVE — state this plainly rather than over-claim. The
   gate proves the drawn artefact matches what was requested. It cannot prove the
   request was right; that judgement stays with the derive-twice protocol (§7).
+  RE-25 IDENTIFIERS AND THE LAYOUT GATE (v2.28 / v1.54.0). The identifier of a
+  MECHANISM figure is, per step, canonical(before), canonical(after), the normalised
+  arrow list and an E-03 verdict of PASS (corpus_io.verify_mechanism_step re-applies
+  the arrows to the drawn reactant and compares the result canonically with the
+  drawn product — connectivity and charges; stereochemistry is proved separately by
+  stereo_claims, E-06 f); of a REACTION_SCHEME figure the per-link canonical
+  before / after (reagents written as text above the arrow are not drawn species, so
+  such a link is not atom-balanced); of an ANNOTATED_STRUCTURE
+  figure the canonical SMILES plus the annotation map. "Proved, not trusted" now has
+  a second half for RE-25 figures: PROVED LEGIBLE. corpus_io.figure_layout_audit
+  (E-04, §6A-10 L1-L6) runs on every RE-25 figure at render time with the
+  deterministic retry schedule and the recorded fallback chain; a figure that fails
+  every attempt is never shipped (§6A-11). Determinism is unchanged — the same step
+  dict renders the same bytes (fixed seeds, PNG without timestamp metadata).
 
 ## S6A-6 — Renderer execution contract (v1.28.0 — emission is LIVE)
   WHO RENDERS: the executing session, at solve time, inside this step — the same
@@ -1259,10 +1354,295 @@ execution path — it does not shrink, soften or delete them.
   the colour it is explaining, and labels inside the figure remain REQUIRED by the
   MECHANICS above. Determinism (§6A-5) is unchanged: the palette is a constant, so
   the bytes are the same on every machine. figural_core.audit_figure() is NOT run on
-  explanation figures (they carry no FigureSpec); the §6A-5 record is their proof.
+  explanation figures (they carry no FigureSpec); the §6A-5 record is their proof —
+  and for RE-25 figures the E-04 layout audit IS run on every one (v2.28 / v1.54.0,
+  §6A-5 / §6A-10).
   DEGRADE: if `import figural_core` or `import corpus_io` fails at P1 (impossible
   on a verified clone; recorded anyway), figures render black-and-white with the
   reason on the dashboard — never a library default, never a halt.
+
+  RE-25 MECHANICS (v2.28 / v1.54.0 — E-01 / E-05). THE BINDINGS: REACTION_SCHEME,
+  MECHANISM and ANNOTATED_STRUCTURE are bound in explain_engine.REPRESENTATION_RENDERERS
+  (rdkit + PIL through corpus_io v1.19): explain_engine.render_mechanism(step) draws a
+  MECHANISM or REACTION_SCHEME link from the E-02 step dict (§6A-11), explain_engine.
+  render_structure_panel(smiles, caption, …) draws an ANNOTATED_STRUCTURE / option
+  panel, and explain_engine.figure_record(draw, path, fig_id, …) turns a draw into the
+  RepresentationFigure whose §6A-5 record is the renderer's own re-derived identifier.
+  Both wrappers load figural_core FIRST, exactly as structure_draw does.
+  THE INKS: curly arrows draw in figural_core.ARROW_INK, forming bonds in
+  figural_core.FORM_INK, wrong bonds and wrong arrows (a WHY WRONG figure) in
+  figural_core.WRONG_INK — three new constants of the palette owner (v5.91), all
+  Okabe-Ito ROLE_LINE hues with text tiers, colour-blind safe; one fixed tint per
+  reagent atom across every figure of the question (§6A-10 item 3).
+  THE PLACES (D-ORG-02 / D-ORG-04): RepresentationFigure(after_line=…, fig_id=…,
+  requirement=…) and ExplanationBlock(why_wrong_figures={option: [figure]},
+  pitfall_figures={value: [figure]}, speed_hack_figures=[figure]) — a figure now lands
+  after the sentences of its WHY WRONG option, its COMMON PITFALLS value or the SPEED
+  HACK (at most one there), as DEDUCTION figures land at after_step. Figure paragraphs
+  still carry NO text; every caption is drawn inside the image (§6A-10 item 7).
+  verify_explanations counts these figures in the landing check; strip_solutions
+  removes them with the block; parse_solution_blocks records the per-section drawing
+  counts it read back (block._figure_counts). Widths: 6.0 in for a DEDUCTION step,
+  5.6 in for an option / pitfall figure, 4.6 in for the SPEED HACK figure.
+  THE SECOND PROOF: for RE-25 figures the sentence "figural_core.audit_figure() is
+  NOT run on explanation figures" is replaced by "the E-04 layout audit IS run on
+  every RE-25 figure" (§6A-5); the §6A-5 record and the E-04 record together are the
+  figure's proof. audit_figure() itself is still not run (there is no FigureSpec).
+
+## S6A-7 — RE-25 APPLICABILITY (v2.28 / v1.54.0 — content-based, exam-agnostic)
+  The decision is made PER QUESTION, after reading the registry (the question's
+  figural_manifests and Step 7 SMILES are the content record), and BEFORE solving.
+  Three tests in a fixed order:
+    T1 — CHEMISTRY CONTENT PRESENT? YES if the question's content record holds at
+         least one of: (a) a content_objects entry of kind STRUCTURE or REACTION whose
+         figure type is in figure_types.CHEM_R_OBJECT_TYPES; (b) a species named in the
+         stem or options, converted to SMILES with content_source "text" or
+         "text_scheme"; (c) any option_smiles entry. Mock side: the same objects from the registry figural_manifests and the Step 7 SMILES (option_smiles come from the registry, never from a transcription).
+         NO → status NOT_APPLICABLE, reason NA-NO-CHEM-CONTENT. The question is then
+         processed EXACTLY as before this version.
+    T2 — DOES THE ANSWER TURN ON MOLECULAR STRUCTURE? YES if the question has one of
+         the ask shapes A1-A12 below. NO (for example a stoichiometry or gas-law
+         calculation that only names a species) → NOT_APPLICABLE, reason
+         NA-STRUCTURE-IRRELEVANT, with ONE sentence stating why, recorded.
+    T3 — UNCERTAIN? When T1 is YES and T2 cannot be decided cleanly, the status is
+         APPLIES. This follows the §13-1 precedent: the stricter reading never harms a
+         question, the looser one loses the chemistry.
+  The decision NEVER reads a subject, topic, subtopic, section name or exam code. It
+  is computed by explain_engine.chem_structure_decision(record, ask_shape=…,
+  structure_irrelevant_reason=…, unrenderable=…) and recorded per question as
+  chem_structure_module = {status, reason, ask_shape} in progress state AND on the
+  block. status is exactly one of APPLIES, NOT_APPLICABLE (reason NA-NO-CHEM-CONTENT or
+  NA-STRUCTURE-IRRELEVANT) or APPLIES-UNRENDERABLE (EC-05: a species rdkit cannot
+  represent even with dative-bond SMILES, rdkit unavailable, or the EC-41 bound reached
+  — the TERMINAL DEGRADE: the existing §6A router is used, the structure proofs E-06
+  a-g are waived so the block always builds, E-08 still applies, every figure the block
+  keeps still needs its E-09 'ok', the case is listed in the §R3 ledger; never a stop).
+  ASK SHAPES (A1-A12). A1 product, intermediate or reagent identity, single- or multi-
+  step, including reagent-sequence questions · A2 mechanism asked or mechanism-decided
+  outcome · A3 stereochemical outcome (face, anti/syn, endo/exo, transition-state
+  model, conformation) · A4 regio- or chemo-selectivity · A5 stereodescriptor or
+  optical-activity assignment (R/S, E/Z, axial, meso) · A6 counting over structures
+  (stereoisomers, NMR environments, products) · A7 structure-to-property ranking
+  (acidity, basicity, stability, aromaticity, reactivity order) · A8 spectroscopy to
+  structure · A9 nomenclature of a drawn or named structure · A10 match-the-column,
+  statement, assertion-reason or MSQ items where at least one item is structure-
+  decided · A11 biomolecule, polymer or heterocycle structure · A12 organometallic or
+  coordination structure whose connectivity or electron count is read from a structure
+  rdkit can draw.
+  WHAT STAYS OUTSIDE RE-25. Orbital, energy-level and splitting diagrams stay on the
+  existing LEVEL_DIAGRAM route. Spectra and curves stay on DATA_PLOT. RE-25 adds to
+  them; it replaces nothing. (VOID_ITEM is a PYQ-side status; a generated paper has none.)
+  CONTENT DECIDES, NOT SECTION NAMES (EC-03): a drawn molecule whose structure decides
+  the answer applies RE-25 inside a biology, Life Science or physics section too.
+  Mixed exams (NEET, JEE, CUET) are decided per question; an exam with no chemistry
+  content has T1 = NO on every question, loads no chemistry library and is untouched.
+
+## S6A-8 — RE-25 DRAWING OBLIGATIONS PER ASK SHAPE (v2.28 / v1.54.0)
+  | Ask shape         | DEDUCTION must draw                                   | WHY WRONG / COMMON PITFALLS must draw            |
+  |-------------------|-------------------------------------------------------|--------------------------------------------------|
+  | A1 product / sequence | One figure per step: reactant → every intermediate → product, reagents as printed | Per wrong option: the wrong step (WRONG_INK) leading to that option's structure |
+  | A2 mechanism      | One MECHANISM figure per elementary step, curly arrows, charges, lone pairs used | Per wrong option: the wrong arrow or skipped step that produces it |
+  | A3 stereo outcome | CONFORMER figure of the deciding geometry (chair, Newman, transition state, face) + product with wedges | Per wrong option: the disfavoured geometry or face that gives it |
+  | A4 selectivity    | All competing sites, faces or pathways side by side, the winner marked | The competitor that gives each wrong option |
+  | A5 descriptors    | ANNOTATED_STRUCTURE: CIP priorities 1-4, viewing direction, end-on projection for axial chirality | The same annotation showing where the option's assignment breaks |
+  | A6 counting       | Every enumerated object drawn, or one structure with each environment labelled | The miscount behind each wrong option or value |
+  | A7 ranking        | The decisive intermediate or conjugate base with its key resonance form | Why each wrong order fails, on the drawn species |
+  | A8 spectroscopy   | Structure with each signal assigned on its atoms | The option structure with the signal it cannot explain marked |
+  | A9 nomenclature   | Structure with locants and fusion bonds numbered | Where each wrong name's numbering breaks |
+  | A10 composite     | One figure per structure-decided item | Per wrong option: the failing item drawn |
+  | A11 biomolecule / polymer | Haworth or chair form, or the repeating unit | The wrong anomer, form or linkage drawn |
+  | A12 organometallic | Structure with the decisive ligand or bond highlighted | The wrong connectivity drawn |
+  NAT: the DEDUCTION column applies unchanged, and each COMMON PITFALLS value gets the
+  figure of the slip that yields it. MSQ: every WHY WRONG option carries a figure (the
+  engine applies E-06 b to every WHY WRONG key, MCQ and MSQ alike). Engine: E-06 (a) requires ≥ 1 DEDUCTION figure and, for A1 / A2,
+  one per link of transformation_chain; E-06 (b) requires a figure under every wrong
+  option / pitfall value (CHS_MISSING_FIGURE / CHS_OPTION_FIGURE_MISSING).
+  EDGE CASES (GAP-2026-11-06 EC-01..EC-42, binding): options as compound names → SMILES
+  from the names, drawn like image options (EC-07) · options as statements → E-06 d / e
+  do not apply, figures go with each structure-decided statement (EC-08) · match-the-
+  column → one figure per pair, each wrong combination's figure shows only its
+  mismatched pair(s) (EC-09) · negative stem → the true statements are drawn too and
+  captioned as true (EC-12) · reagent-sequence options → the correct sequence step by
+  step, each wrong option its failing step or the substrate unchanged with "no
+  reaction" in the caption (EC-15) · options as reagents → a wrong reagent with a
+  defined, source-verified product draws that product, otherwise MODE B with the
+  unreactive site highlighted (EC-16) · pericyclic → one MECHANISM figure with the
+  cyclic arrow set (EC-22) · radical → fishhook arrows (EC-23) · transition states →
+  drawn as a CONFORMER / annotated geometry panel between before and after, E-03 on the
+  before → after pair only (EC-24) · > 60 heavy atoms → the unchanged part abbreviated
+  as R through a declared map, identifier on the expanded SMILES (EC-25) · printed
+  abbreviations (OTBS, Boc, SiMe3) drawn as printed (EC-26) · racemic product → "rac" in
+  the caption, never a single descriptor (EC-33) · an option that leaves a stereocentre
+  undrawn → compare only what is drawn (EC-32) · out-of-syllabus → explained like any
+  other question (EC-40) · a question the registry marks defective → §17-3, no figure (EC-42).
+
+## S6A-9 — RE-25 PLACEMENT: NO NEW SECTIONS (v2.28 / v1.54.0 — D-ORG-02)
+  • Correct Answer — unchanged.
+  • ⬛ AXIOM — text only, no figure. The transferable principle stays in words.
+  • ⬛ DEDUCTION — a LABELS sentence first (what the atom numbers and colours mean),
+    then per step: one bold-led sentence block, then its figure (after_step). Then a
+    stereochemistry sentence, then an atom-balance sentence, then the LAST paragraph.
+    The last paragraph binds "Option N" — this keeps the engine rule that the last
+    step binds the answer. (The NEAREST-OPTION disclosure exists on the PYQ side only;
+    on a mock paper the key always equals the derived product, §17-3 EC-39.)
+  • ⚡ SPEED HACK — its sentences, then at most one mapping figure (speed_hack_figures).
+  • ❌ WHY WRONG? — under each existing "Option k" heading: 1-2 sentences, then that
+    option's figure (why_wrong_figures[k]; D-ORG-04). ❌ COMMON PITFALLS — the same
+    under each wrong value (pitfall_figures[value]).
+  Engine-enforced: why_wrong_figures keys ⊆ the WHY WRONG keys, pitfall_figures keys ⊆
+  the pitfall values, speed_hack_figures ≤ 1 and only with a SPEED HACK; every figure
+  lands exactly where declared (verify_explanations) or delivery is refused.
+
+## S6A-10 — RE-25 FIGURE CONTENT STANDARD (v2.28 / v1.54.0 — every RE-25 figure)
+  1. SOURCE. Generated only from atom-mapped SMILES by the engine (corpus_io v1.19
+     render_mechanism / render_structure_panel). Deterministic: the same input gives
+     the same bytes. Never a hand-drawn or copied image.
+  2. ATOM LABELS. Atom-map numbers persist across every figure of the question (the
+     atomNote of each mapped carbon; a heteroatom draws its symbol). The starting
+     material keeps its own locant numbers; atoms arriving from a reagent get letters
+     (a, b, c) — given once per question in atom_labels and reused on every step.
+  3. COLOURS. One fixed highlight tint per reagent atom, constant across all figures of
+     the question. Forming bonds use FORM_INK, wrong bonds and wrong arrows WRONG_INK,
+     curly arrows ARROW_INK (figural_core v5.91, Okabe-Ito, colour-blind safe).
+  4. ORIENTATION. Every species is aligned to the previous one by template matching on
+     the shared atom maps (the DEDUCTION chain passes template=draw.after_mol from
+     step to step). Layout retries may rotate in-plane only. MIRRORING IS FORBIDDEN,
+     because a reflection inverts stereochemistry.
+  5. REACTIVE CONFORMATION. For an intramolecular bond formation the chain is rotated so
+     the two reacting atoms face each other (E-04 conformation retries ±20/30/40°).
+  6. CHEMISTRY SHOWN. Formal charges, the lone pairs that arrows use, radicals, leaving
+     groups and by-products ("− Br⁻", "− H₂O"). Reagents above the arrow and conditions
+     below, EXACTLY as printed in the question. Wedges and hashes kept; a ring-fusion H
+     is drawn when it carries stereochemistry.
+  7. CAPTIONS INSIDE THE IMAGE. The engine forbids text in figure paragraphs, so every
+     panel carries its caption in the image: line 1 bold (I, II, P, or Option k), line
+     2 what changed. Caption language follows EngineConfig; chemical symbols never
+     change.
+  8. SIZE. 6.0 in wide for DEDUCTION steps, 5.6 in for option figures, 4.6 in for SPEED
+     HACK, at 200 dpi, palette-quantised PNG; target 120 KB or less per figure (owner
+     decision 2026-11-07; a figure over target is RECORDED in the §R3 ledger, never
+     blocked). A delivered docx above 25 MB is reported as one INFORMATIONAL §LADDER line,
+     "document size <X> MB (RE-25 figures)" (Framework_DeliveryFooter v1.41.0 §LADDER,
+     EC-37).
+  THE LAYOUT GATE (E-04, corpus_io.figure_layout_audit, from the drawing's own geometry):
+     L1 no arrow path crosses a bond or another atom's label, except at its own start
+     and end, and never runs along a bond · L2 every arrowhead tip lands within 14 px
+     (at 300 dpi) of its target · L3 no two labels, notes or caption lines overlap, no
+     two non-bonded atoms clash, no bond is distorted by more than 30 % · L4 no ink
+     within 8 px of the canvas edge, captions fully inside · L5 at printed width bond
+     length ≥ 0.18 in and text ≥ 7 pt · L6 every coloured label is a figural_core
+     text-tier ink · L7 printed height ≤ 8.0 in (a figure never overflows a page). A
+     single-species panel (option / annotated structure) retries in-plane rotations at
+     its section width, then at 6.0 in.
+  RETRY POLICY (deterministic, cap 64 attempts): arrow curvature +0.35, −0.35, +0.6,
+     −0.6, +0.9, −0.9 · start bias 0.3, 0.2, 0.4 · reagent placement angle 0, ±40,
+     ±80 · in-plane rotation 0°, 90°, 180°, 270° · reactive-conformation rotation
+     ±20°, ±30°, ±40°. The search stops at the first passing layout.
+  FALLBACK (recorded in the §6A-4 degrade ledger, never silent): MECHANISM steps down
+     to REACTION_SCHEME (no arrows, forming bonds in FORM_INK, breaking bonds dashed);
+     then to one STRUCTURE_GRAPH panel per species. If even that fails the gate
+     (CHS_LAYOUT_UNRENDERABLE), the QUESTION is recorded APPLIES-UNRENDERABLE (EC-05;
+     the status is per question — its other passing figures are kept) and the run
+     continues. A figure that fails L1-L6 is NEVER
+     shipped; a run is NEVER halted by one.
+
+## S6A-11 — RE-25 CURLY-ARROW SEMANTICS AND THE STEP DICT (v2.28 / v1.54.0 — E-02 / E-03)
+  THE DATA THE PRODUCER WRITES (one dict per elementary step; persisted in progress
+  state so a resumed run re-renders byte-identically, EC-34):
+    {"id": "S1",
+     "before": "atom-mapped SMILES, species separated by '.'",
+     "after": "atom-mapped SMILES",
+     "reagents_above": "TiCl4, CH2Cl2", "conditions_below": "-78 C",
+     "byproducts": [SMILES, ...], "byproduct_labels": ["Br⁻", ...],
+     "arrows": [{"from": {"bond": [7, 8], "bias": 7}, "to": {"atom": 3}, "electrons": 2},
+                {"from": {"bond": [3, 2]}, "to": {"bond": [2, 1]}, "electrons": 2},
+                {"from": {"bond": [1, 20]}, "to": {"lone_pair_on": 20}, "electrons": 2}],
+     "highlight": {"form": [[3, 7]], "break": [], "wrong": []},
+     "caption_before": ["Enone + allenylsilane", "a attacks C3"],
+     "caption": ["Intermediate I", "C+ on b, beta-silicon stabilised"],
+     "atom_labels": {1: "1", ..., 7: "a", 8: "b", 9: "c"}}
+  Atoms that take part in an arrow MUST carry atom-map numbers. Hydrogens that move are
+  explicit mapped atoms ([H:30]); every other hydrogen count is frozen by the engine
+  (an arrow never silently adds or removes an H). `from` accepts {"bond": [x, y],
+  "bias": x}, {"lone_pair": x} or {"atom": x}; `to` accepts {"atom": z}, {"bond":
+  [y, z]} or {"lone_pair_on": y}. A dative bond to a METAL is written with rdkit's
+  '<-' / '->' and kept the same way in before and after; rdkit accepts a dative bond
+  only when the acceptor is a metal, so a non-metal Lewis pair (H₃N→BF₃) is written in
+  its charge-separated form ([NH3+]-[B-](F)(F)F). An arrow drawn FROM an aromatic bond
+  means its π bond: the engine picks the Kekulé structure in which every such source
+  bond is double before applying the deltas.
+  ARROW START. A lone pair: a point offset from the atom, away from its bonds. A bond:
+  a point on the bond 30 % of the way from the atom that forms the new bond (the
+  bias atom), so the drawing shows which end bonds.
+  ARROW END. An atom: a new bond forms from the bias atom to it. A bond midpoint: a
+  π bond forms there. A point just beyond an atom: the electrons become a lone pair
+  on that atom (heterolysis).
+  HEAD TYPE. A full head moves two electrons; a fishhook head moves one (radicals —
+  fishhooks come in matched pairs per bond formed or broken).
+  THE PROOF (E-03, corpus_io.mechanism_apply_arrows / verify_mechanism_step). Every
+  arrow of a step is applied AT ONCE as bond-order and formal-charge deltas:
+    bond x–y (bias x) → atom z : x–y order −1 (removed at 0), x–z order +1; y +1, z −1
+    bond x–y → bond y–z        : x–y −1, y–z +1; x +1, z −1 (y is the shared atom)
+    bond x–y → lone pair on y  : x–y −1; x +1, y −1
+    lone pair on x → atom z    : x–z +1; x +1, z −1
+    lone pair on x → bond x–z  : x–z order +1; x +1, z −1
+  The result is rdkit-sanitised and compared canonically with `after` (constitution
+  and charges; stereochemistry is proved by stereo_claims, E-06 f). A step that fails
+  raises CHS_ARROW_INVALID and the question RETURNS TO SOLVING (bounded, §6A-12 EC-41);
+  the figure itself is never degraded, because a wrong arrow means wrong chemistry. E-06 (g) additionally proves, per ARROW
+  step, that heavy atoms, hydrogens and net charge of before equal after + byproducts
+  (a scheme link with text reagents — "PCC", "1. MeMgBr 2. H₃O⁺" — has no arrows and is
+  proved by its canonical before / after alone — the engine proves the drawing matches
+  the request; WHAT the reagent gives is proved by §7-2 library / source verification).
+
+## S6A-12 — RE-25: THE TWO RECORDED CHECKS (v2.28 / v1.54.0 — D-ORG-10)
+  CHECK 1 — MECHANICAL (engine, raises at construction or verify time): the E-03 arrow
+  interpreter, the E-04 layout gate and the E-06 / E-07 coherence gates
+  (ExplanationBlock.validate(): CHS_MISSING_FIGURE, CHS_OPTION_FIGURE_MISSING,
+  CHS_FINAL_MISMATCH, CHS_KEY_OPTION_MISMATCH, CHS_DISTRACTOR_PATH_MISMATCH,
+  CHS_STEREO_CLAIM_FALSE, CHS_STEREO_UNDECLARED, CHS_UNBALANCED_STEP,
+  CHS_DISCLOSURE_MISSING, META_INTERNAL_TERM). E-07 compares stereo only where an
+  option draws it; the enantiomer of the derived product is the NEAREST option (same
+  relative configuration) and becomes an exact match when stereo_claims declares the
+  product "rac" (EC-33); two equally near options are never resolved by option number —
+  CHS_KEY_OPTION_MISMATCH, EC-29 RARE.
+  CHECK 2 — MODEL REVIEW (CLASS T, in-turn, EXECUTION-BOUNDARY-LAW): after the batch
+  renders, explain_engine.figure_review_sheet([(fig_id, figure), …], out_png) composes
+  ONE contact sheet per batch (12 figures per sheet; zoom tiles for any figure judged
+  illegible — about 5 views per batch of 10 questions, priced in the session budget).
+  The model VIEWS it and records, per figure, figure_review[fig_id] = 'ok' or
+  'mismatch:<reason>' (legible / wrong / mismatch against its sentence). Any
+  mismatch returns the question to solving; the block is rebuilt, re-rendered and
+  re-reviewed until every figure is 'ok' — at most three attempts (EC-41 below). verify_explanations REFUSES
+  delivery while any RE-25 figure of an APPLIES block lacks 'ok' (E-09). The record
+  is a §18 item; no person is involved (D-ORG-06).
+  THE VIEW IS PROSE BY LAW (the same pattern as every figural vision view): it is an in-turn tool
+  call on the contact sheet, never a code block and never a function — the
+  figure_review dict it produces is the ONLY thing code sees, as an ExplanationBlock
+  input.
+  RESUME (EC-34): mechanism_spec, every figure's step dict and figure_review are
+  persisted in progress state; figures regenerate deterministically.
+  RE-25 NEVER HALTS AN EXPLANATION RUN (owner instruction 2026-11-07): no new stop of any class.
+  RDKIT ABSENT (EC-35): at P-preflight, if `import rdkit` fails, run `pip install rdkit
+  --break-system-packages` ONCE and re-import; if it is still absent, every question that
+  would be APPLIES is recorded APPLIES-UNRENDERABLE with reason "rdkit unavailable",
+  explained on the existing §6A router, listed in the §R3 ledger, and reported through
+  the EXISTING footer path as the AMBER-class §LADDER line "renderer degraded (RE-25:
+  rdkit unavailable, <N> questions)" (Framework_DeliveryFooter v1.41.0 §LADDER / Q0c)
+  — the paper still delivers, F1 amber. Figures
+  return the moment rdkit is present (re-run Step 0 and re-explain those questions).
+  BOUNDED LOOPS (EC-41): a question returns to solving on CHS_ARROW_INVALID, any E-06
+  raise, or an E-09 'mismatch' — at most THREE solving attempts per question. (On this
+  mock pipeline CHS_KEY_OPTION_MISMATCH is NOT a solving loop: it enters §17-3 as a
+  Step 7 defect, EC-39, and is resolved there.) After
+  the third failure the question is recorded APPLIES-UNRENDERABLE with the last reason,
+  the block is built from the best attempt (its passing figures kept, the failing one
+  omitted), the §R3 ledger lists it, the footer carries the existing AMBER-class line
+  "Q<n> explanation degraded (RE-25: <reason>)", and the batch continues. CHS_LAYOUT_UNRENDERABLE
+  (§6A-10 fallback exhausted) records the question APPLIES-UNRENDERABLE at once. An
+  APPLIES-UNRENDERABLE block ALWAYS validates (the engine waives E-06 a-g on it; fixture
+  CHS-R21-UNRENDERABLE-ALWAYS-VALIDATES) — the degrade can never itself stop a build.
+  Nothing in RE-25 halts a run: every failure degrades, is recorded, and is visible.
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1331,6 +1711,26 @@ execution path — it does not shrink, soften or delete them.
   arrangement counting under symmetry and in state counting over
   indistinguishable members. The rule is the ORDER, not the domain.
 
+## S7-0d — COMPETING-PATHWAY ENUMERATION (v2.28 / v1.54.0 — RE-25)
+  For ask shapes A3 and A4 (and A1 / A2 when a selectivity decides the product), the
+  DEDUCTION lists EVERY competing site, face, transition state, enantiomer (matched /
+  mismatched) and kinetic-versus-thermodynamic route BEFORE naming the winner, gives
+  the reason the winner wins, and DRAWS the competitors (§6A-8). If the keyed option
+  corresponds to a MINOR pathway, the last DEDUCTION paragraph says so and why it is
+  still the answer (EC-31). Reference incidents (GAP-2026-11-06): an E2 on a
+  cyclohexane where a second anti-periplanar β-H was never listed; an intramolecular
+  Diels-Alder whose endo / exo transition states were never compared; a Sharpless
+  epoxidation of a racemic allylic alcohol treated as a plain epoxidation instead of a
+  kinetic resolution. Each was a correct key with incomplete chemistry.
+
+## S7-0e — OPTIONS NEVER JUSTIFY A STEP (v2.28 / v1.54.0 — RE-25)
+  No DEDUCTION sentence may cite the option set as the reason for a chemical step —
+  "because every option requires it", "since all the options show" are BANNED
+  (subject library EX-CHEM-12, defect code CHEM-OPTION-JUSTIFIED). Options appear only
+  in the binding sentence (the last DEDUCTION paragraph) and in a SPEED HACK phrased as
+  ELIMINATION (§8-4). §13-4b already bans inferring an unreadable figure feature from
+  the options; this rule bans justifying any chemical step from them.
+
 ## S7-1 — Derive-twice, never guess (every question, no exception — RE-6)
 
   1. FIRST PRINCIPLES: derive the answer using the correct method for the class.
@@ -1352,6 +1752,16 @@ execution path — it does not shrink, soften or delete them.
   fact (the one MANDATE-0 exception, §0); the source goes in the §20 report, never in
   chat. An item that cannot be verified is flagged DERIVATION-CONFIDENCE, never
   certified from memory.
+  RE-25 (v2.28 / v1.54.0): every claim about what a REAGENT does, or what a NAMED
+  REACTION gives, is checked against the chemistry subject library (§24 S-11,
+  CHEMISTRY_EXPLAIN_LEARNINGS_v*.md: the oxidant table, the hydrogenation table, the
+  named-reaction products); a claim the library does not cover is web-verified
+  against a primary or authoritative source (Organic Syntheses, a primary journal
+  article, a standard reference text) and the URL recorded in §R6. Reference
+  incidents (GAP-2026-11-06): "excess PCC oxidises CH₂OH to the acid" and "H₂/Pt
+  stops at the cis alkene" — both wrong, both unverified. RE-18's scope (current
+  affairs, general knowledge, factual options) is thereby extended to reagent
+  outcomes for RE-25 questions.
 
 ## S7-3 — Uniqueness expectation (RE-12)
 
@@ -2081,6 +2491,15 @@ execution path — it does not shrink, soften or delete them.
   conclusion — a minimum, not a template. §5-3 ticks every component for every
   archetype present. WHICH archetypes exist is SUBJECT DATA; this spec only
   requires that a loaded list is satisfied.
+  RE-25 LAYOUT (v2.28 / v1.54.0 — §6A-9, for a §6A-7 APPLIES question): (1) a
+  LABELS sentence — what the atom numbers (1-6), letters (a, b, c) and colours mean;
+  (2) per step, one bold-led sentence block followed by its figure (after_step);
+  (3) a STEREOCHEMISTRY sentence (the descriptors it writes are declared in
+  stereo_claims and re-derived by rdkit, E-06 f); (4) an ATOM-BALANCE sentence
+  (formula of the product, e.g. "C₁₇H₃₀OSi = enone + allene"); (5) the BINDING
+  paragraph — "Option N" (a mock key always equals the derived product; a mismatch is
+  a §17-3 Step 7 defect, EC-39, never a disclosure). The §7-0d
+  competing pathways sit in (2). AXIOM (§8-2) stays text-only.
 
 ## S8-4 — SPEED HACK
   Role: exam-craft — a genuinely shorter route to the SAME answer, for time pressure;
@@ -2120,6 +2539,16 @@ execution path — it does not shrink, soften or delete them.
   rendered text (engine v2.6) + banned templates/glyphs (engine); diagnosis recorded
   internally + reproduces-the-wrong-answer + factual truth by discipline
   alone (v1.21.0).
+  RE-25 (v2.28 / v1.54.0 — S-07): for a §6A-7 APPLIES question each wrong option's
+  sentences are FOLLOWED BY ITS FIGURE under its own "Option k" heading
+  (why_wrong_figures[k]; NAT: pitfall_figures[value]) — the wrong step in WRONG_INK
+  leading to that option's structure, or the option's structure with the failing site
+  marked (§6A-8 column 3). A MODE A structure distractor (§15-2) is PROVED by canonical
+  match of its wrong path's end with option_smiles[k] (ExplanationBlock
+  wrong_paths={k: [SMILES, …]}, E-06 e, CHS_DISTRACTOR_PATH_MISMATCH) — never by a
+  self-declared matches_target. Reference incident: a rebuttal that said "LiBH₄ has no
+  carbonyl to act on" after a Swern oxidation (which gives an aldehyde) passed because
+  matches_target was self-declared.
 
 # NOTE (v1.13): the former S8-6 (figure_note, rendered under ⬛ FIGURE) is REMOVED.
 #   Figural questions no longer emit any FIGURE section; the rendered order for EVERY
@@ -2630,6 +3059,12 @@ execution path — it does not shrink, soften or delete them.
      for NAT, "…, not 90"). The explicit contrast to the correct answer is mandatory, not
      optional.
   4. NO two wrong options/values share wording; NO banned template sentences (engine-scanned).
+  RE-25 (v2.28 / v1.54.0): for a §6A-7 APPLIES question a MODE A record with a
+  STRUCTURE target carries `wrong_path` (the mapped SMILES chain of the wrong
+  operation) on the block as wrong_paths[k], and the engine proves canonical(
+  wrong_paths[k][-1]) == canonical(option_smiles[k]) (E-06 e). `matches_target: true`
+  alone is NOT accepted on such a block. Each option's sentences are followed by its
+  figure (§8-5).
 
 ## S15-3 — Class- and type-specific shape (never generic across types)
   Computational → the arithmetic slip + the wrong number. Factual → what the option
@@ -2738,6 +3173,13 @@ execution path — it does not shrink, soften or delete them.
         the §R10 line is the operator's cue to add an EX-rule (§24) so Step 7 does not
         repeat the error.
     (c) DEFECT — §17-4.
+  RE-25 KEY ≠ DERIVED PRODUCT (v1.54.0 — EC-39): on a §6A-7 APPLIES question the
+  engine compares the derived product with the keyed option's registry SMILES (E-06 d,
+  explain_engine.option_match). A generated paper whose key option is NOT the derived
+  product is a Step 7 defect: it enters THIS protocol (steps 1-4; outcome (b) or (c)),
+  and is NEVER disclosed to the student as a NEAREST-OPTION exam defect — that outcome
+  exists only on the PYQ side (PYQExplain §17-3), because a past paper cannot be
+  regenerated and a mock can. option_mismatch is therefore never set on a mock block.
   Step 9 never edits content (RE-3) and never publishes a key that did not survive
   steps 1–4.
 
@@ -2766,6 +3208,13 @@ execution path — it does not shrink, soften or delete them.
 ## S18-1 — The checklist (all must hold before present_files — MANDATE D)
 ```text
   [ ] every block this run: ExplanationBlock.validate() clean (engine)
+  [ ] RE-25 (v2.28 / v1.54.0): §6A-7 decision recorded for EVERY question of this
+      batch; on every APPLIES block E-03 / E-04 / E-06 / E-07 clean (validate() raised
+      nothing — CHS_* codes), E-09 figure_review 'ok' for EVERY RE-25 figure (the
+      contact sheet was VIEWED in-turn this batch), zero META_INTERNAL_TERM; every
+      figure landed where declared (DEDUCTION / SPEED HACK / under its option or
+      value); every E-04 step-down and every over-target figure in the §R3 ledger;
+      the chemistry library loaded when any question APPLIES (§24)            (§6A-7..12)
   [ ] verify_fidelity(out, Step7_source): whole question region byte-identical, every
       image rId resolves to a relationship (no dangling embed) (§12)
   [ ] verify_structure(out, blocks, expected = Q1..last(batch k)): coverage exact,
@@ -3104,6 +3553,14 @@ Step 9 uses BOTH footer types:
         curated library vs session-generated (counts; a library-absent run says so).
       ALIGNMENT (§6A-1c): questions re-routed by the §6A-3b tripwire (Q-numbers;
         an empty list stated as empty).
+      CHEM-STRUCTURE (v2.28 / v1.54.0 — the RE-25 ledger, §6A-7..12): APPLIES count with
+        Q-numbers and ask shapes · NOT_APPLICABLE counts per reason · APPLIES-UNRENDERABLE
+        Q-numbers with the species · figures per question (DEDUCTION / SPEED HACK /
+        WHY WRONG / PITFALLS) · E-04 step-downs with the reason (an empty list stated as
+        empty) · figures over the 120 KB target · CHS_KEY_OPTION_MISMATCH items sent to §17-3 (Q-numbers)
+        · minor-pathway disclosures (§7-0d) · E-09 review mismatches found and fixed ·
+        reagent claims web-verified (count, URLs in §R6) · chemistry library loaded
+        (yes / no, source project or repo).
   §R4 SELF-AUDIT (§18): verify_fidelity / verify_structure / math-render / count
       invariants / strip-re-audit / coverage assertion — all clean (real engine STDOUT,
       content-free).
@@ -3197,6 +3654,10 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
       a claim that fails its neighbour test never ships unrepaired; every kept
       absolute declared (§8-0b); every representation aligned to the deciding
       relation (§6A-1c); zero learner-psychology narration (§15-3).
+  3e. (v2.28 / v1.54.0) RE-25 satisfied on every APPLIES question: §6A-7 decided from
+      content and recorded; every step and every wrong option drawn; E-03 / E-04 / E-06
+      / E-07 clean; every figure reviewed 'ok' (E-09); nothing changed for any
+      NOT_APPLICABLE question.
   4.  Every figural question's images extracted, role-bound, VIEWED; answer from the
       images, not the manifest (no FIGURE section is rendered — v1.13).
   5.  Every CA/factual option web-verified with a recorded source.
@@ -3390,6 +3851,28 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 #   generalisation, Prevention rule = the safe scope, Verification = the canonical
 #   counterexamples — the §7-7 library in the frozen schema, no new parser).
 #
+# ── S24-7 — THE CHEMISTRY SUBJECT LIBRARY IS SHIPPED (v2.28 / v1.54.0 — RE-25 S-11) ──────
+#   CHEMISTRY_EXPLAIN_LEARNINGS_v1.md is SHIPPED IN THE REPO, tracked in MANIFEST.json
+#   and routed to PYQExplain, TestExplain and MockExplain (routes.json). It is resolved
+#   by explain_engine.resolve_chem_library(project_dir, repo_dir) and LOADED WHENEVER
+#   AT LEAST ONE QUESTION OF THE PAPER IS RE-25 APPLIES (§6A-7), into
+#   EngineConfig(chem_learnings_triggers=…) — checked ONLY on RE-25 blocks — so a
+#   non-chemistry question, and a paper with no APPLIES question, is untouched. Precedence
+#   follows the project-first rule: a project copy, if present in the Files section,
+#   wins; else the repo copy. Discovery for every other subject is unchanged
+#   (resolve_learnings_files). Until this version the subject library had NEVER loaded
+#   on any chemistry exam: nothing produced it and the only copy in the reference
+#   project held a header and zero rules (GAP-2026-11-06 RC-8). Its NEIGHBOUR-LIBRARY
+#   rules carry **Triggers:** (S24-1b) written as chemistry-only phrases (a reagent, a
+#   named reaction, a mechanism term — never a common English word), so §7-7 step 3
+#   and the GEN_CANONICAL_EXCEPTION_MISSED gate fire only on chemistry text; the
+#   CHEM-OPTION-* and CONCEPT-MINIMUM-MISSING rules carry none (they are enforced by
+#   §7-0e, E-07 and §8-3).
+#   NEW DEFECT CODES (routing keys, both pipelines): CHEM-OPTION-JUSTIFIED (§7-0e — a
+#   chemical step justified from the option set) · CHEM-OPTION-MISMATCH (E-07 — a
+#   printed option bound silently although it differs from the derived product). Both
+#   route to the C-STRUCTURAL and C-FIGURAL classes.
+#
 # ════════════════════════════════════════════════════════════════════════
 ## APPENDIX A — UNIVERSAL EXAM-AGNOSTIC explain_engine.py (MANDATE A) — SINGLE SOURCE
 # ════════════════════════════════════════════════════════════════════════
@@ -3421,5 +3904,7 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.53.1
+# SHARED_RULES_VERSION: 1.7 (2026-11-07) — parity sentinel (Framework_PYQExplain carries the
+#   bump record and the exact list of the documented pipeline-specific RE-25 sentences)
+# END OF Framework_MockTestExplain v1.54.0
 # ════════════════════════════════════════════════════════════════════════

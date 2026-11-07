@@ -435,11 +435,20 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
-Entries v1.27–v1.39.0 moved at framework release 2026.11.06 (EC-P42; v1.40.0 supersedes;
+Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (EC-P42; v1.41.0 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
 ```
+# v1.40.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (owner decisions D3-R5 (a),
+#   D10 (B); paired with blueprint_core v1.32, paper_pipeline v5.40, MockTestCreate v5.92,
+#   MockTestExplain v1.53.0, MockDeliver v1.26.0). §FOOTER-FT ONLY gains the DIFFICULTY
+#   DISCLOSURE LINES — every string bc.difficulty_unverified_lines returns ("DIFFICULTY
+#   UNVERIFIED — <reason>", "Hard target missed: k item(s)", "Step 9: k/n assessed", the
+#   small-pool and coverage lines), engine-sourced, prefixed "⚠️ ", disclosure only (no
+#   verdict change, no certification effect, no stop); pp.dg_footer_lines adds the Step-9
+#   coverage line for a w2 record. §1, §2, §4-§7 and the §3 STEP 1 block are byte-identical
+#   (PYQPrepare freeze, owner P1).
 # v1.39.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0, D2 (a),
 #   D3 (a), D5 (a), D6; paired with MockTestCreate v5.91, MockReview v2.0.0, MockDeliver
 #   v1.25.0, audit_canonical v2.36, final_assembly v1.13, STEP_CONTRACTS.json). STEP 7 FINAL
@@ -3802,11 +3811,21 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
-Entries v1.41.0–v1.53.0 moved at framework release 2026.11.06 (EC-P42; v1.53.1 supersedes;
+Entries v1.41.0–v1.53.1 moved at framework releases 2026.11.06 and 2026.11.07 (EC-P42; v1.54.0 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_MockTestExplain.md.
 
 ```
+# v1.53.1 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (handshake review of the
+#   Step 7 -> Step 9 hand-over, run on a real paper). (1) P1: the engine self-test is run IN
+#   the verified clone (`cd /tmp/fw && python3 explain_engine.py --self-test`). The old
+#   wording copied explain_engine.py ALONE to /home/claude and ran it there; the engine
+#   imports t3_mathcomp.py from its own folder, so that copy could not start
+#   (ModuleNotFoundError) and P1 turns any self-test failure into a HALT. (2) S0-1 and S1-1
+#   name the Step 7 deliverable by its real file name, [ExamCode]_[paper_slug]_Create.docx
+#   (STEP_CONTRACTS.json; the P1 discovery already used it). No rule, gate, artefact or
+#   deliverable of Step 9 changes.
+#
 # v1.53.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
 #   v1.32, paper_pipeline v5.40, audit_canonical v2.37, MockTestCreate v5.92, DeliveryFooter
 #   v1.40.0). §7A-M: (1) the gate runs for EVERY paper — the MOCK-ONLY dormancy
@@ -6284,11 +6303,38 @@ Current-version entry remains in Framework_PYQDraft.md.
 
 ## Framework_PYQExplain.md
 
-Entries v2.15–v2.26 moved at framework release 2026.11.06 (EC-P42; v2.27 supersedes;
+Entries v2.15–v2.27 moved at framework releases 2026.11.06 and 2026.11.07 (EC-P42; v2.28 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_PYQExplain.md.
 
 ```
+# v2.27 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
+#   v1.32, audit_canonical v2.37, figure_types v1.3, figural_vision zoom_tiles,
+#   MockTestAnalyse v2.60.0, Blueprint v1.64.0, ScopedBlueprint v1.14.0, MockTestCreate
+#   v5.92, MockTestExplain v1.53.0). What a band MEANS is measured from this exam's own
+#   past papers and bound to the question's content. §7A: every difficulty_obs carries
+#   `rubric_rule` 'r2' and `inferential_steps` counted by the ONE rule
+#   (bc.INFERENTIAL_STEP_RULE, quoted verbatim in S7A-2 and in Create CHECK 3c);
+#   `deduction_steps` stays the paragraph count for explanation validation; the score is
+#   bc.difficulty_score_from_obs(obs) — never a positional difficulty_score call; a
+#   flagged derivation no longer changes the band (DL-16) and is resolved in-run
+#   (§7-1 / RE-16 / §18-2: derived answer, web-verified tie-break; owner D4 — no human
+#   hand-off; owner F2 — no official answer key is ever an input). S7A-6 passes
+#   exam_config.marking_scheme so each profile record carries `marks` (DL-10).
+#   §13A-3 P2a (drawn chemistry only): the graphics-team Row images are the figure
+#   source (owner F1); every structure and scheme is transcribed VISIBLE-ONLY into
+#   content_objects, every option image per role option:<k> into option_smiles, text-
+#   named species into SMILES (content_source 'text'), an arrow+conditions math region
+#   with a reagent-lexicon hit into a text-form REACTION (DL-04), the stem's ask_format
+#   (statement / match / sequence / assertion_reason / combination / direct, DL-22) and
+#   reagents_seen (the read-time method lexicon, §4.6) are recorded, zoom tiles
+#   (figural_vision.zoom_tiles, 300 dpi) are used for wedges and small groups, and the
+#   engine sets transcription_confidence 'partial' on an atom / ring / stereocentre count
+#   mismatch after one re-view (never VOID, S10). §13A-3 P7 (after the derived answer):
+#   answer_smiles and option_closeness. Every new field is hand-off only (never in
+#   ExplanationBlock.validate(), never MANDATE D); the S19-1 output set is unchanged;
+#   nothing here stops. Profile records are written record_version 2 under DP_SCHEMA 1
+#   (guard S4); older records keep their r1 verdicts (guard G1).
 # v2.26 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
 #   figure_types v1.2, analyse_engine v1.2, blueprint_core v1.30, MockTestAnalyse v2.59.0).
 #   §13A-3 Phase B records, per EVERY PYQ item (text and figural, every subject), the
