@@ -159,13 +159,51 @@ PIPELINE_DEEP = [
 ]
 
 
+def docstring_lines(tree):
+    """Every line occupied by a DOCSTRING. Prose is never a decision.
+
+    B7 (2026-08-20) recorded this defect in self_test()'s own docstring — a bare
+    `sorted` call named in a nested test helper's DOCSTRING was listed as a real
+    mutation target — and fixed the INSTANCE: that helper is excluded for being test
+    scaffolding. The CLASS stayed open. The same token in a PRODUCTION function's
+    docstring was still a live target, and an UNKILLABLE one: prose has no behaviour
+    to change, so the mutant always survives and silently eats the engine's budget.
+
+    GAP-2026-11-07-MUTATION-DOCSTRING-TARGET found it the expensive way. The docstring
+    written to explain the filesystem-order fix in analyse_engine.find_project_artefact
+    manufactured a second survivor on its own, taking that engine over budget on what
+    was, in substance, a documentation edit. A comment line is already skipped two lines
+    below; a docstring is the same prose with different quoting.
+
+    Measured when this was written: ZERO targets across every budgeted engine fall in a
+    docstring, so this skip moves no engine's score. It closes a trap, it does not move
+    a number — and a budget is a debt, so moving one was never the option."""
+    out = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.FunctionDef,
+                                 ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        body = getattr(node, 'body', None) or []
+        if (body and isinstance(body[0], ast.Expr)
+                and isinstance(getattr(body[0], 'value', None), ast.Constant)
+                and isinstance(body[0].value.value, str)):
+            first = body[0].lineno
+            out.update(range(first, (body[0].end_lineno or first) + 1))
+    return out
+
+
 def find_pipeline_targets(lines, tree, only_gate=None, deep=False):
     """Decision points whose silent change is a real defect class."""
     rules = PIPELINE_RULES + (PIPELINE_DEEP if deep else [])
+    docs = docstring_lines(tree)
     out = []
     for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or stripped.startswith('#'):
+            continue
+        # A DOCSTRING IS PROSE, NOT A DECISION — see docstring_lines() for the
+        # measurement and for why fixing only the test-helper case left the hole.
+        if (i + 1) in docs:
             continue
         fn = enclosing_function(tree, i + 1)
         if only_gate and fn != only_gate:
@@ -639,6 +677,10 @@ def self_test():
 def production(xs):
     return sorted(set(xs))
 
+def documented(xs):
+    """Prose naming sorted( inside a PRODUCTION docstring — never a target."""
+    return len(xs)
+
 def self_test():
     def _helper(a):
         """A docstring mentioning sorted( in prose."""
@@ -677,6 +719,16 @@ def test_thing():
     #    flattering score.
     check('exactly_one_live_target', len(targets) == 1)
 
+    # 5b. A PRODUCTION function's docstring is not a target either. B7 fixed only the
+    #     nested-test-helper case; this is the same prose in a function no exclusion
+    #     reaches, and the mutant is unkillable, so it would sit in the budget forever.
+    #     Without the skip, `documented` is listed and check 5 reads 2 — this fixture
+    #     fails in two places, which is the point of writing it as a count as well.
+    #     GAP-2026-11-07-MUTATION-DOCSTRING-TARGET.
+    _dline = next(i + 1 for i, l in enumerate(lines) if 'PRODUCTION docstring' in l)
+    check('production_docstring_is_not_a_target',
+          'documented' not in names and _dline in docstring_lines(tree))
+
     # 6. A rule that matches a line but cannot change it must NOT be listed. This is
     #    the find-time validation added in B4; without it a no-op target is banked as
     #    KILLED, which is a survivor counted as a kill.
@@ -699,7 +751,7 @@ def test_thing():
 
     # META-ASSERTION, same contract as analyse_engine's: a skipped check is not a
     # passing one.
-    EXPECTED = 11
+    EXPECTED = 12  # +1 GAP-2026-11-07-MUTATION-DOCSTRING-TARGET (production docstring)
     total = passed + len(fails)
     if total != EXPECTED:
         fails.append(f'suite_ran_every_check (ran {total}, expected {EXPECTED})')

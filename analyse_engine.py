@@ -6608,8 +6608,28 @@ def self_test():
         with _tf.TemporaryDirectory() as _tdo:
             for _fn in ('zz-EX_exemplar_bank.json', 'aa-EX_exemplar_bank.json', 'mm-EX_exemplar_bank.json'):
                 open(os.path.join(_tdo, _fn), 'w').write('{}')
+            # Creating zz/aa/mm on disk and HOPING the listing disagrees with sorted order
+            # is not a fixture, it is a coin toss: os.listdir() returns the filesystem's
+            # order, not creation order. On this container the three names come back
+            # mm,zz,aa and the `sorted -> list` mutant dies; on the GitHub runner that
+            # built 2026.11.07 they came back aa-first, so the mutant returned the SAME
+            # answer as the original and survived — 1 survivor here, 2 and a red gate
+            # there, from identical bytes. The order is now PINNED through the injection
+            # point, so the kill is the same on every host.
+            # GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER.
+            _rev13 = ['zz-EX_exemplar_bank.json', 'mm-EX_exemplar_bank.json', 'aa-EX_exemplar_bank.json']
             check('v13_find_project_artefact_first_in_sorted_order',
-                  os.path.basename(find_project_artefact('EX', 'exemplar_bank.json', (_tdo,))) == 'aa-EX_exemplar_bank.json')
+                  os.path.basename(find_project_artefact(
+                      'EX', 'exemplar_bank.json', (_tdo,),
+                      listdir=lambda _d, _r=_rev13: list(_r))) == 'aa-EX_exemplar_bank.json')
+            # ...and the injection point is FILLED, never decorative: the real-disk path
+            # still finds the file with no lister passed, and a lister that hides it
+            # returns None. A parameter nothing exercises is a container, not a seam.
+            check('v13_find_project_artefact_injection_point_is_live',
+                  os.path.basename(find_project_artefact('EX', 'exemplar_bank.json', (_tdo,)))
+                  == 'aa-EX_exemplar_bank.json'
+                  and find_project_artefact('EX', 'exemplar_bank.json', (_tdo,),
+                                            listdir=lambda _d: []) is None)
             _rows_t = [{'cell': 'oc.t', 'band': 'Hard', 'qtype': 'mcq', 'stem': f'typicality {c}', 'options': ['a', 'b'], 'key': 1,
                         'content_record': {'smiles': 'CCO'}, 'cycle': 'Jul 2026', 'paper_date': '2026-07-18', 'level_composite': c}
                        for c in (10.0, 90.0, 20.0, 25.0)]           # median of the SORTED list is 25 (index 2); unsorted index 2 is 20
@@ -7464,7 +7484,7 @@ def self_test():
         _d21 = False
     check('fs_tags_list_paper_value_skipped', _d21)
 
-    EXPECTED_CHECKS = 303  # v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
+    EXPECTED_CHECKS = 304  # GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: +1 (artefact lister injection point is live); v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(
@@ -9376,16 +9396,31 @@ def stamp_question_subtopic_ids(entries, questions_by_subtopic):
     return n
 
 
-def find_project_artefact(exam_code, name_suffix, search_dirs=('/mnt/project/', '/mnt/user-data/uploads/')):
-    """v1.3 (DL-30) — the first existing '<exam_code>_<name_suffix>' under /mnt/project,
+def find_project_artefact(exam_code, name_suffix, search_dirs=('/mnt/project/', '/mnt/user-data/uploads/'),
+                          *, listdir=None):
+    """v1.4 (DL-30) — the first existing '<exam_code>_<name_suffix>' under /mnt/project,
     then /mnt/user-data/uploads (an attachment may carry an upload prefix: matched by the
-    basename's tail), else None. Never raises."""
+    basename's tail), else None. Never raises.
+
+    When MORE THAN ONE name matches, the alphabetically first one wins, and the sort
+    below is the whole of that promise: os.listdir() returns the FILESYSTEM's order, not
+    creation order. `listdir` is injectable so a fixture can PIN that order rather than
+    inherit the host's directory hash — the same reason, and the same shape, as
+    final_assembly.predelivery_checklist's `listdir`/`exists`. It defaults to the real
+    os.listdir, and the self-test fills it in both directions.
+
+    GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: before injection, the `sorted -> list`
+    mutant on this line was KILLED on one filesystem and SURVIVED on another from
+    byte-identical sources — analyse_engine scored 1 survivor in the container and 2 (over
+    budget, CI red) on the GitHub runner. A gate with two scores proves nothing, and the
+    budget was not the thing at fault."""
+    _listdir = listdir if listdir is not None else os.listdir
     want = f'{exam_code}_{name_suffix}'.lower()
     for d in search_dirs:
         try:
             if not os.path.isdir(d):
                 continue
-            for fn in sorted(os.listdir(d)):
+            for fn in sorted(_listdir(d)):
                 if fn.lower() == want or fn.lower().endswith('-' + want) or fn.lower().endswith('_' + want):
                     return os.path.join(d, fn)
         except Exception:                                            # noqa: BLE001

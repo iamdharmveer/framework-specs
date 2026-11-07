@@ -247,6 +247,30 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   ABSENT key means report-only, never a guessed number. Serial and parallel runs must
   agree; if they do not, the workdir lease is broken and every score is fiction.
   GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, deployment review.
+- **HOST-INDEPENDENT-KILL LAW — a fixture whose kill depends on the HOST is a score,
+  not a gate.** Serial-vs-parallel agreement was required; agreement across MACHINES was
+  not, and that is where the next one came from. A mutation fixture must fail on the
+  mutant for a reason it CONTROLS. If what distinguishes mutant from original is the
+  order a directory happens to list in, the hash order of a set, or a clock, the fixture
+  does not test the code — it samples the host, and the same bytes score differently on
+  two machines. PIN the input through an INJECTION POINT (`listdir=`/`exists=`, the shape
+  `final_assembly.predelivery_checklist` already uses), never by creating files in a
+  hopeful order; `audit_mutation` pins `PYTHONHASHSEED` for the same reason, and nothing
+  pins a filesystem. A kill that cannot be reproduced on demand is indistinguishable
+  from a survivor nobody has met yet.
+  (GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: `analyse_engine.find_project_artefact`
+  created zz/aa/mm and asserted the sorted pick. `os.listdir` returns the FILESYSTEM's
+  order, not creation order — mm,zz,aa in the container, so `sorted -> list` died there;
+  aa-first on the GitHub runner, where the mutant returned the SAME answer and SURVIVED.
+  One engine, identical bytes, 1 survivor locally and 2 with CI red on `production`. The
+  budget was never the thing at fault, and raising it would have bought silence.)
+  **Corollary — prose is not a decision.** The same release proved the matching defect in
+  the verifier: `find_pipeline_targets` skipped comment lines but not DOCSTRING lines, so
+  documenting the fix above manufactured an unkillable survivor and took the engine over
+  budget on a documentation edit. B7 had already met this in a test helper's docstring and
+  fixed the INSTANCE (test scaffolding) while leaving the CLASS open — which is the
+  LAW-PROPAGATION failure further down, inside the tool that exists to catch it.
+  (GAP-2026-11-07-MUTATION-DOCSTRING-TARGET; `docstring_lines()`, measured inert.)
 - **SESSION-BUDGET LAW — a session has three finite resources, not one.**
   Payload characters and paper pacing were budgeted; SPECIFICATION-READ COST and
   TOOL-CALL COUNT were not, and on Step 5 the unbudgeted one was the larger.

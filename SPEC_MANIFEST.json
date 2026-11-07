@@ -205,9 +205,9 @@
     },
     "audit_mutation.py": {
       "end_sentinel": "    main()",
-      "lines": 717,
-      "sha256": "80b70c69408171943b8191a0f9ec97796af4db8fa57c75fbc739e3a6c3ebd5f5",
-      "size_bytes": 35280,
+      "lines": 769,
+      "sha256": "98496d03811072716352afdd9277cdca2ea62561e76b009d348ccfd6bbe9e05e",
+      "size_bytes": 38244,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_seam.py": {

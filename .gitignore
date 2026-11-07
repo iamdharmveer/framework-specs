@@ -220,6 +220,20 @@ __marimo__/
 # Framework integrity gate runtime token (written by bootstrap.py; never committed)
 .verified
 
+# Chunked-read / retention state (written by bootstrap.py --read; never committed).
+# Same lifecycle as .verified and for the same reason: it is per-SESSION proof that a
+# spec is still in THIS context, and a copy in the repo is cloned to $FW and adopted by
+# whatever session lands there. The state file stores the READ-ANCHOR codes in
+# plaintext alongside `served`, so a committed state whose chunks were all served would
+# let `--retention` answer PASS from the file instead of from the model's memory —
+# exactly the proof SESSION-BUDGET LAW item (6) exists to demand.
+# Measured on the copy that reached production in 2026.11.07's hotfix: all four states
+# had 1 of N chunks served, so every one FAILED retention rather than forging a PASS —
+# but the inherited `current_session` still pointed a fresh session at a MockCreate read
+# it never performed, and the law's answer to a retention FAIL is to re-read and redo
+# the work. Wrong either way. (GAP-2026-11-07-READ-STATE-COMMITTED.)
+.read_state/
+
 # Project-first spec provenance record (written by spec_source.py --resolve into the
 # overlay; never committed). If this file ever reached the repo it would be cloned to
 # $FW and Step 0's own bootstrap would honour it, silently excusing the specs it names
