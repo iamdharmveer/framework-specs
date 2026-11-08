@@ -1,11 +1,12 @@
-# Framework_MockDeliver v1.26.0 — Universal Mock Test Tagger & Delivery Engine
-# v1.26.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (paired with blueprint_core
-#   v1.32, paper_pipeline v5.40, MockTestCreate v5.92, DeliveryFooter v1.40.0). S1-2 gains
-#   item 3f' — the DIFFICULTY DISCLOSURE LINES reprinted from the paper's recorded
-#   difficulty_state / quality_readiness / difficulty_gate coverage through
-#   bc.difficulty_unverified_lines (engine-sourced, "⚠️ "-prefixed, disclosure only). The
-#   Complexity tag stays the canonical label (guard G9); nothing here stops, withholds or
-#   re-certifies. Legacy series (no difficulty_state) print nothing — byte-identical.
+# Framework_MockDeliver v1.27.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.27.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94, DeliveryFooter v1.42.0). S1-2 gains item 3f'' — the DIFFICULTY LAYER LINES
+#   reprinted from the paper's recorded difficulty_state (paper_gate: delivered vs target counts, DR3
+#   items accepted below their slot after full repair, unmeasured slots; l2_model: the organic
+#   ruler's state and where its shares came from) through bc.difficulty_layer_lines (engine-sourced,
+#   "ℹ️ "-prefixed, disclosure only). The Complexity tag stays the canonical label (guard G9);
+#   nothing here stops, withholds or re-certifies. A paper without these records prints nothing —
+#   legacy footers byte-identical.
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 #
@@ -384,6 +385,20 @@ Parse:
        paper stays the canonical label (the [HS:INPUT] on a non-canonical label below is
        untouched — guard G9); "unverified" never reaches the tag; no verdict changes, no
        certification effect (OD-9), no stop.
+
+    3f''. DIFFICULTY LAYER LINES (v1.27.0 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER;
+       DeliveryFooter §FOOTER-FT). Immediately after the 3f' lines print EVERY string
+       returned by
+         bc.difficulty_layer_lines(state.get('paper_gate'), state.get('l2_model'),
+                                   n_l2_items=<number of entry.questions whose subtopic_id is
+                                               in (state.get('l2_model') or {}).get('scope_ids')>,
+                                   shares_source=(state.get('l2_model') or {}).get('grades_source'))
+       with `entry` / `state` as in 3f', one per line, prefixed "ℹ️ ". They disclose the
+       delivered band counts against the target plan, the items accepted below their slot
+       after full repair (DR3), unmeasured slots and the organic ruler's state. The engine
+       is the ONLY source of these lines. An entry without paper_gate / l2_model prints
+       nothing (legacy series byte-identical). Disclosure only: the Complexity tag stays the
+       canonical label (guard G9); no verdict changes, no certification effect, no stop.
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -2044,4 +2059,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.26.0
+# END OF Framework_MockDeliver v1.27.0

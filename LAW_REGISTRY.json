@@ -239,6 +239,26 @@
    "preconditions": [
     "ENGINE PAIRING. The gates live in explain_engine / corpus_io, not in the spec text: a governed spec on an older engine would describe checks that never run. bootstrap.py's sha256 verification of the routed engines is the proof the pairing holds."
    ]
+  },
+  "DIFFICULTY-LAYER-LAW": {
+   "gap": "GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER",
+   "stated_in": "blueprint_core v1.33 Cluster DL / Cluster L2; Framework_MockTestCreate.md v5.94 S3-8L, CHECK 3c (b0), S13-2G phase 3 (DL1), S13-2L; Framework_MockTestAnalyse.md v2.61.0 S11-1c",
+   "requires": "Every spec that decides a question's difficulty band from independent controls, counts a paper against its schedule, builds the organic decision-load ruler or blind-grades the exam's past papers must do it through the ONE engine: bc.difficulty_band_min (the lowest independent band; the author's counts are never a control), bc.dl_phase3_decision (round 1 below -> repair, round 2 below -> DR3, the only relabel, disclosed), bc.difficulty_paper_gate against the TARGET plan (count-neutral swaps only), bc.l2_model_for_scope with the exam's own past papers and blind grades bound to the profile sha256 (owner D5: never the exam's type or degree), and bc.pyq_grade_packet (blind: no band, counts, concepts or key). Nothing stops (C1); no certificate effect (C2); no new user action (C4).",
+   "detect": "difficulty_layer_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls bc.difficulty_band_min(, bc.dl_phase3_decision(, bc.difficulty_paper_gate(, bc.l2_model_for_scope( or bc.pyq_grade_packet(. A spec that measures difficulty by hand inherits the layer's SURFACE without its CHECKS.",
+   "governs": [
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "audit_sync:LAW-COVERAGE",
+    "handshake_audit.py --self-test (H-DL: three synthetic exams, Step 5 -> Create -> commit -> audit -> footer)",
+    "blueprint_core.py --self-test (_dl_l2_self_test)",
+    "audit_canonical.py --self-test (v238 A-CONTENTLEVEL / A-DIFFGATE)"
+   ],
+   "preconditions": [
+    "ENGINE PAIRING. The decisions live in blueprint_core >= v1.33 (Cluster DL / L2); a governed spec on an older engine would name functions that do not exist. bootstrap.py's sha256 verification of the routed engines is the proof the pairing holds."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

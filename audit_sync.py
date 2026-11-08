@@ -883,7 +883,8 @@ if _REG is not None:
                          'figure_record_writer',
                          'quality_gate_producer',
                          'step_contract_spec',
-                         'chem_structure_rule'):
+                         'chem_structure_rule',
+                         'difficulty_layer_rule'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -970,6 +971,12 @@ if _REG is not None:
             _performing = {f for f, t in TXT.items()
                            if 'chem_structure_module' in _live_text(t)
                            or 'RE-25 : CHEM-STRUCTURE STANDARD' in t}
+        elif _rule == 'difficulty_layer_rule':
+            # GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER DIFFICULTY-LAYER-LAW. A spec performs a
+            # difficulty-layer operation when its live text calls one of the five entry points.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\bbc\.(?:difficulty_band_min|dl_phase3_decision|difficulty_paper_gate|'
+                                        r'l2_model_for_scope|pyq_grade_packet)\(', _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

@@ -1,11 +1,10 @@
-# Framework_DeliveryFooter v1.41.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.41.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25; paired with
-#   PYQExplain v2.28, MockTestExplain v1.54.0). §LADDER gains the three RE-25 lines (two
-#   AMBER-CLASS through the existing classes "renderer degraded (…)" / "Q<n> explanation
-#   degraded (…)", one INFORMATIONAL "document size … (RE-25 figures)"), and Q0c names
-#   PYQExplain as a producer of those lines. Disclosure only — no stop, no verdict change.
-#   Every other line of the file is byte-identical (PYQPrepare freeze, owner P1: the
-#   PYQPrepare footer path is untouched).
+# Framework_DeliveryFooter v1.42.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.42.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94, MockDeliver v1.27.0). §FOOTER-FT gains the DIFFICULTY LAYER LINES —
+#   bc.difficulty_layer_lines over the paper's recorded difficulty_state.paper_gate / l2_model:
+#   delivered vs target counts, DR3 items (accepted below their slot after full repair, disclosed),
+#   unmeasured slots, the organic ruler's state and the source of its shares. "ℹ️ "-prefixed,
+#   disclosure only; a paper without the records prints nothing (byte-identical).
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
@@ -659,6 +658,31 @@ the paper stays the canonical label (MockDeliver [HS:INPUT] on a non-canonical l
 untouched, guard G9); "unverified" appears ONLY in these footer lines. These lines are
 DISCLOSURE: they never change a verdict, never make a paper NOT CERTIFIED (OD-9) and
 never stop a step.
+
+DIFFICULTY LAYER LINES (v1.42.0 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; owner decisions
+D1 (b), Q1 (c)). Immediately after the DIFFICULTY DISCLOSURE LINES print EVERY string
+returned by
+    bc.difficulty_layer_lines(paper_gate, l2_model, n_l2_items, shares_source)
+one per line, each prefixed "ℹ️ " — the arguments are the paper's recorded
+registry.question_index[].difficulty_state.paper_gate / .l2_model (Step 7 S13-2L / S3-8L),
+the number of its items on the ruler's organic subtopics, and l2_model.grades_source (Step 7
+S13-6 prints the same lines from the same engine function; Step 11 reprints them from the
+record). The engine is the ONLY source of these lines — never compose them by hand:
+    always, when a paper gate was recorded
+                            → "Difficulty vs schedule: Easy a / Medium b / Hard c
+                               (schedule Easy x / Medium y / Hard z)"
+    items accepted below their slot after DR1 / DR2 and two review rounds
+                            → "Difficulty fallback (DR3): k item(s) accepted below their
+                               slot after full repair — Q…"
+    slots no independent control could measure
+                            → "Difficulty unmeasured: k slot(s) had no independent band — Q…"
+    the organic ruler (an organic paper only)
+                            → "Organic difficulty ruler (L2, relative): pool n=…, shares
+                               from …, concept coverage …" (+ " — ADVISORY …" below the
+                               coverage floor) or "… dormant — <reason>; bands from the
+                               independent controls"
+A paper without these records prints NOTHING. They are DISCLOSURE: no verdict changes, no
+NOT CERTIFIED (OD-9), never a stop.
 
 §FOOTER-STYLE — STYLE-PROFILE STATUS LINE (v1.30 — GAP-2026-08-29-STYLE-FIDELITY
 §6.7). Immediately after the §FOOTER-DG lines of the Step 11 F2 footer, print

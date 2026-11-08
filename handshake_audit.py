@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 HANDSHAKE AUDIT — release 2026.11.03 (GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY).
+Release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER) adds H-DL: the difficulty layer as
+one chain on three synthetic exams (_dl_handshake, below).
 
 WHY THIS FILE EXISTS. Three cold reviews of that release found 48 defects, and 15 of them
 were HANDSHAKE breaks: a producer wrote one shape and its consumer read another — an
@@ -54,6 +56,225 @@ def fences(path, marker=None):
             cur = None; continue
         cur[1].append(l)
     return out
+
+
+def _dl_handshake(check, ROOT, run_fence, W):
+    """H-DL (release 2026.11.08, GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER) — the difficulty layer as
+    ONE chain on THREE synthetic exams (a post-graduate organic exam, a shallower organic exam and a
+    non-chemistry exam), so no rule is tuned to one paper (owner Q5):
+      Step 5 bank (analyse_engine.write_exemplar_bank: profile sha256 + blind grades)
+        -> Create S3-8L (ruler, shares source, freeze, target plan) -> S3-12c (pattern sources)
+        -> CHECK 3c measured band (the spec's rule) -> S13-2G phase 1 packet (concept vocabulary,
+           author concepts stripped) -> MockReview verdict file (concepts_used kept)
+        -> phase 3 round 1 / round 2 (DL1) -> S13-2L paper gate -> final_assembly commit
+           (difficulty_state + registry grade cache, kept by regcheck) -> audit_canonical
+           A-CONTENTLEVEL / A-DIFFGATE -> S13-6 lines == MockDeliver 3f'' lines.
+    Every assertion names the producer and the consumer it binds."""
+    import blueprint_core as bc, analyse_engine as ae, final_assembly as fa, audit_canonical as ac
+    import hashlib as _hl, random as _rnd
+    labs = ['Easy', 'Medium', 'Hard']
+    V = bc.l2_vocabulary()
+    by_load = {l: [x['label'] for x in V if x['load'] == l] for l in range(1, 7)}
+    CREATE = os.path.join(W, 'Framework_MockTestCreate.md')
+    S = open(CREATE, encoding='utf-8').read()
+
+    def blk(tag):
+        i = S.index(tag); a = S.rfind('```python', 0, i); b = S.index('```', i)
+        return textwrap.dedent(S[a + 9:b])
+
+    def snip(start, end):
+        i = S.index(start); j = S.index(end, i)
+        return textwrap.dedent(S[i:j])
+
+    # exam recipes: (concept loads per band, concepts per band, organic?)
+    RECIPES = {
+        'PGX': ({'Easy': (2, 3), 'Medium': (3, 4), 'Hard': (5, 6)}, {'Easy': 1, 'Medium': 2, 'Hard': 3}, True),
+        'UGX': ({'Easy': (1, 1), 'Medium': (2, 2), 'Hard': (3, 3)}, {'Easy': 1, 'Medium': 1, 'Hard': 2}, True),
+        'PHX': ({'Easy': (1, 1), 'Medium': (2, 2), 'Hard': (3, 3)}, {'Easy': 1, 'Medium': 1, 'Hard': 2}, False),
+    }
+    PAPERS = {'10-Jun-2024': '2024-06-10', '15-Dec-2024': '2024-12-15', '20-Jun-2025': '2025-06-20'}
+    results = {}
+    for EXAM, (loads, ncon, organic) in RECIPES.items():
+        rng = _rnd.Random(EXAM)
+        sec = 'Organic Chemistry' if organic else 'Mechanics'
+        pfx = 'oc' if organic else 'ph'
+        sids = [f'{pfx}.t{i}.s{i}' for i in range(1, 5)]
+        man = {'subtopics': {s: {'display_name': s, 'section': sec, 'topic': f'{sec} topic'} for s in sids}}
+        prof = {'_meta': {'difficulty_labels': labs, 'exam_code': EXAM}, 'papers': {}}
+        for pk in PAPERS:
+            qs = {}
+            for i in range(1, 31):
+                band = labs[0] if i <= 6 else labs[1] if i <= 21 else labs[2]
+                lo, hi = loads[band]
+                nc = [rng.choice(by_load[rng.randint(lo, hi)]) for _ in range(ncon[band])]
+                qs[str(i)] = {'band': band, 'qtype': 'mcq', 'section': sec, 'subtopic_id': sids[i % 4],
+                              'named_concepts': nc if organic else [], 'ask_type': 'direct', 'stereo_decl': 'none',
+                              'distractor_mechanisms': (['regioisomer', 'stereoisomer_diastereomer', 'formula_error']
+                                                        if band == 'Hard' else ['formula_error'] * 3)}
+            prof['papers'][pk] = {'date': PAPERS[pk], 'questions': qs}
+        PF = ROOT + f'/mnt/project/{EXAM}_difficulty_profile.json'
+        json.dump(prof, open(PF, 'w'))
+        sha = _hl.sha256(open(PF, 'rb').read()).hexdigest()
+        grades = {f'{pk}:Q{q}': r['band'] for pk, pp in prof['papers'].items() for q, r in pp['questions'].items()}
+        # Step 5 -> the bank Create attaches
+        bpath, bank, _dr = ae.write_exemplar_bank(EXAM, [], out_dir=ROOT + '/tmp', profile_sha256=sha,
+                                                  pyq_grades=bc.pyq_grades_record(sha, labs, grades, source='step5-blind'))
+        bank = json.load(open(bpath, encoding='utf-8'))
+        g_b, st_b = bc.bank_pyq_grades(bank, sha, labs)
+        check(f'H-DL {EXAM} Step 5 bank -> Create: same profile sha256, grades fresh',
+              st_b == 'fresh' and len(g_b) == 90, st_b)
+        plan = {q: (labs[0] if q <= 4 else labs[1] if q <= 12 else labs[2]) for q in range(1, 21)}
+        sub_by_q = {q: sids[q % 4] for q in plan}
+        reg = {'question_index': []}
+        bp = {'subtopic_list': [{'subtopic_id': s} for s in sids], 'difficulty_source': {'measured_pct': {'Easy': 20, 'Medium': 50, 'Hard': 30}},
+              'difficulty_labels': labs, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}]}
+        G = {'bc': bc, 'EXAM': EXAM, 'N': 1, 'reg': reg, 'bp': bp, 'paper_id': 'MOCK:M01', '_pid_dp': 'MOCK:M01',
+             'difficulty_labels': labs, 'MANIFEST_IDS': man['subtopics'], 'subtopic_list': bp['subtopic_list'],
+             'DIFFICULTY_PROFILE': prof, 'EXEMPLAR_BANK': bank, 'PROFILE_CFG': {'cycle_gap_days': None},
+             'SECTION_RULES_TEXT': '', 'DIFFICULTY_STATE': {'judge_dormant_qs': [], 'hard_missed': 0, 'n_level_items': 0},
+             'difficulty_plan': dict(plan), 'subtopic_by_qnum': sub_by_q}
+        run_fence(blk('# ── S3-8L (v5.94) ──'), G)
+        # S3-12e (between S3-8L and S3-15L) may move top-band slots between subtopics, counts unchanged:
+        # the target plan and the pattern sources must describe the plan AFTER that move
+        G['difficulty_plan'][12], G['difficulty_plan'][13] = G['difficulty_plan'][13], G['difficulty_plan'][12]
+        G['difficulty_plan'][4], G['difficulty_plan'][5] = G['difficulty_plan'][5], G['difficulty_plan'][4]
+        plan = dict(G['difficulty_plan'])
+        run_fence(blk('# ── S3-15L (v5.94) ──'), G)
+        M = G['L2_MODEL']; DS = G['DIFFICULTY_STATE']
+        check(f'H-DL {EXAM} S3-15L: target plan == the FINAL plan (after the S3-12e move), sources at the final band',
+              G['DIFFICULTY_PLAN_TARGET'] == {str(q): b for q, b in plan.items()}
+              and all(src.get('band') == plan[int(q)] for q, src in G['L2_SOURCES'].items()))
+        if organic:   # paper 2 of the series reuses the frozen ruler AND still gets its pattern cards
+            G2 = dict(G, reg={'question_index': [{'mock': 1, 'paper_id': 'MOCK:M01', 'difficulty_state': copy.deepcopy(DS)}]},
+                      DIFFICULTY_STATE={'judge_dormant_qs': [], 'hard_missed': 0, 'n_level_items': 0},
+                      paper_id='MOCK:M02', _pid_dp='MOCK:M02')
+            run_fence(blk('# ── S3-8L (v5.94) ──'), G2)
+            check(f'H-DL {EXAM} series: paper 2 reuses the frozen cut-offs and keeps every pattern card',
+                  G2['L2_MODEL'].get('cuts_list') == M.get('cuts_list') and len(G2['L2_CARDS']) == len(G['L2_CARDS']) > 0
+                  and bc.l2_band_load_floor(G2['L2_CARDS'], 'Hard') == bc.l2_band_load_floor(G['L2_CARDS'], 'Hard'))
+        if organic:
+            check(f'H-DL {EXAM} S3-8L: ruler active + binding, shares from the Step-5 blind grades',
+                  bool(M and M.get('active') and M.get('binding')) and M.get('shares_source') == 'pyq_grades',
+                  str({k: (M or {}).get(k) for k in ('active', 'binding', 'shares_source', 'vocab_coverage', 'n', 'reason', 'cuts_list')}))
+            check(f'H-DL {EXAM} S3-8L: frozen model + scope ids + profile sha persisted for phase 3 / the series',
+                  DS['l2_model']['frozen'] and DS['l2_model']['scope_ids'] == sids and DS['l2_model']['profile_sha256'] == sha)
+            check(f'H-DL {EXAM} S3-15L: every organic slot has a pattern source; no card carries a stem / key / SMILES',
+                  len(G['L2_SOURCES']) == 20 and all(not ({'stem', 'key', 'smiles', 'options'} & set(c)) for c in G['L2_CARDS']))
+        else:
+            check(f'H-DL {EXAM} S3-8L: no organic subtopic -> no ruler, no sources (generic layer only, owner Q4)',
+                  M is None and G['L2_SOURCES'] == {} and 'l2_model' not in DS)
+        # CHECK 3c (the spec's rule): an author who writes every slot one band too easy
+        cm = {}
+        for q, b in plan.items():
+            wb = labs[max(0, labs.index(b) - 1)]
+            lo, hi = loads[wb]
+            nc = [rng.choice(by_load[rng.randint(lo, hi)]) for _ in range(ncon[wb])] if organic else []
+            obs = {'qtype': 'mcq', 'named_concepts': nc, 'stereo_decl': 'none', 'ask_type': 'direct',
+                   'distractor_mechanisms': ['formula_error'] * 3}
+            l2 = bc.l2_record(obs, M, labs, 'mcq') if M else {'band': None}
+            obs['l2'] = l2
+            judge = None if organic else wb                         # the non-chemistry exam: the judge measures
+            m = bc.difficulty_band_min({'judge': judge, 'ruler': l2['band'] if (M and M.get('binding')) else None}, labs)
+            dc = {'scheduled': b, 'rated': judge or b, 'decision': 'agree', 'final_band': b, 'measured': m['band'],
+                  'measured_source': m['source']}
+            if m['band'] and labs.index(m['band']) < labs.index(b):
+                dc['decision'] = 'carried_below'
+            cm[str(q)] = {'subtopic_id': sub_by_q[q], 'difficulty': b, 'difficulty_obs': obs, 'difficulty_check': dc,
+                          'distractor_mechanisms': ['formula_error'] * 3, 'stem_text': f'stem {q}', 'option_texts': ['a', 'b', 'c', 'd']}
+        n_below = sum(1 for e in cm.values() if e['difficulty_check']['decision'] == 'carried_below')
+        check(f'H-DL {EXAM} CHECK 3c: one-band-easier writing is measured below its slot ({n_below}/16 non-bottom slots)',
+              n_below >= 12, str(n_below))
+        # S13-2G phase 1: the packet the reviewer gets
+        items = [{'q': int(q), 'subtopic_id': e['subtopic_id'], 'stem': e['stem_text'], 'options': e['option_texts'],
+                  'named_concepts': e['difficulty_obs']['named_concepts'], 'figures': []} for q, e in cm.items()]
+        P1 = {'bc': bc, 'batch_state': {'difficulty_state': copy.deepcopy(DS)}, '_items': items, '_slice': {},
+              'PAPER_MD5': 'f' * 32}
+        run_fence(snip("  # v5.94: an organic paper's reviewer also names", "  REVIEW_ROUND = int("), P1)
+        PK = P1['PACKET']
+        _flat = json.dumps(PK)
+        check(f'H-DL {EXAM} S13-2G phase 1 -> MockReview: vocabulary present iff organic; author concepts never in the packet',
+              (('concept_vocabulary' in _flat) == organic) and '"named_concepts"' not in _flat)
+        # MockReview S3-2 verdict file -> phase 3: concepts_used survives normalisation
+        recs = {}
+        for q, e in cm.items():
+            recs[q] = {'own_key': 1, 'single_answer': 'yes', 'leak_or_paraphrase': 'none',
+                       'difficulty_band_with_exemplar': f"{e['difficulty_check']['measured'] or e['difficulty']}, like exemplar {e['subtopic_id']}/1",
+                       'distractor_existence_and_class': '1: x', 'key_derivation': 'd', 'confidence': 'high',
+                       'concepts_used': list(e['difficulty_obs']['named_concepts'])}
+        VF, _vprobs = bc.review_verdict_file(EXAM, 'm01', 'f' * 32, recs, reviewer='sub-agent')
+        _vf_items = VF.get('items') if isinstance(VF, dict) else {}
+        check(f'H-DL {EXAM} MockReview verdict file keeps concepts_used as a list (phase 3 reads it)',
+              all(isinstance((_vf_items.get(q) or {}).get('concepts_used'), list) for q in cm))
+        # phase 3 round 1 / round 2 + S13-2L, run from the spec's own fences on files
+        HOME = ROOT + '/home/claude'
+        RD = HOME + f'/{EXAM}_M1_review/round1'
+        shutil.rmtree(HOME + f'/{EXAM}_M1_review', ignore_errors=True)
+        bs = {'paper_id': 'MOCK:M01', 'difficulty_plan': {str(q): b for q, b in plan.items()},
+              'difficulty_schedule_original': {str(q): b for q, b in plan.items()},
+              'difficulty_plan_target': dict(G['DIFFICULTY_PLAN_TARGET']), 'l2_sources': dict(G['L2_SOURCES']),
+              'difficulty_labels': labs, 'difficulty_state': copy.deepcopy(DS), 'paper_md5': 'f' * 32, 'review_round': 0}
+        kd = {'concept_map': cm, 'answers': {q: 1 for q in cm}}
+        for rnd in (1, 2):
+            rd = RD.replace('round1', f'round{rnd}'); os.makedirs(rd + '/part1')
+            bs['review_dir'] = rd
+            json.dump(bs, open(HOME + f'/{EXAM}_M1_batch_state.json', 'w'))
+            json.dump(kd, open(HOME + f'/{EXAM}_M1_answer_key.json', 'w'))
+            json.dump({'paper_md5': 'f' * 32, 'reviewer': 'sub-agent', 'items': _vf_items}, open(rd + '/part1/verdicts.json', 'w'))
+            json.dump({'parts': [{'part': 1, 'dir': rd + '/part1', 'qs': [int(q) for q in cm],
+                                  'verdicts': rd + '/part1/verdicts.json', 'reviewer': 'sub-agent'}]}, open(rd + '/queue.json', 'w'))
+            run_fence(blk('# ── S13-2G phase 3 (executable'), {'EXAM': EXAM, 'N': 1, 'UNCERTIFIED_ITEMS': []})
+            bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json')); kd = json.load(open(HOME + f'/{EXAM}_M1_answer_key.json'))
+            if rnd == 1:
+                rep = bs.get('review_dl_repair') or []
+                check(f'H-DL {EXAM} phase 3 round 1: every below item is a REVIEW_REPAIR defect at DR1, none relabelled',
+                      len(rep) == n_below and set(rep) <= set(bs['review_defects']) and bs['state'] == 'REVIEW_REPAIR'
+                      and all(kd['concept_map'][q]['difficulty'] == plan[int(q)] for q in rep), str(len(rep)))
+        dr3 = bs['difficulty_state'].get('dr3_qs') or []
+        check(f'H-DL {EXAM} phase 3 round 2: unrepaired items accepted at the measured band (DR3), label == final band',
+              len(dr3) == n_below and all(kd['concept_map'][q]['difficulty'] == kd['concept_map'][q]['difficulty_check']['final_band']
+                                          == kd['concept_map'][q]['difficulty_check']['measured'] for q in dr3))
+        run_fence(blk('# ── S13-2L (v5.94) ──'), {'EXAM': EXAM, 'N': 1})
+        bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json')); kd = json.load(open(HOME + f'/{EXAM}_M1_answer_key.json'))
+        PG = bs['difficulty_state']['paper_gate']
+        check(f'H-DL {EXAM} S13-2L: gate PASS with every DR3 disclosed, target plan + labels recorded for the auditor',
+              PG['status'] == 'PASS' and sorted(PG['accepted_dr3'], key=int) == sorted(dr3, key=int)
+              and PG.get('target_plan') == G['DIFFICULTY_PLAN_TARGET'] and PG.get('labels') == labs)
+        # final_assembly: difficulty_state committed on the entry; the grade cache kept by regcheck
+        R = {'question_index': [], 'papers_completed': []}
+        qrecs = [dict(e, q=int(q)) for q, e in kd['concept_map'].items()]
+        _ent = {'paper_id': 'MOCK:M01', 'mock': 1, 'questions': qrecs, 'difficulty_state': copy.deepcopy(bs['difficulty_state'])}
+        R['question_index'].append(_ent)
+        RG = {'registry': R, 'L2_PYQ_GRADES_RECORD': G['L2_PYQ_GRADES_RECORD']}
+        run_fence(snip("  _pgr = globals().get('L2_PYQ_GRADES_RECORD')", "  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — ATOMICITY"), RG)
+        check(f'H-DL {EXAM} S13-4: the registry caches the blind grades for THIS profile only (organic exams)',
+              (sorted((RG['registry'].get('pyq_grades') or {})) == [sha]) == organic
+              and bc.pyq_grades_from_registry(RG['registry'], sha, labs) == (grades if organic else {}))
+        # auditor twins read the committed record
+        src = {'registry': RG['registry'], 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01', 'blueprint': bp}
+        ac.RESULTS.clear(); ac.gate_contentlevel({'concept_map': kd['concept_map']}); ac.gate_diffgate(src)
+        _r = {c: l for l, c, m in ac.RESULTS}
+        check(f'H-DL {EXAM} audit_canonical: A-CONTENTLEVEL OK on DL decisions; A-DIFFGATE re-count == S13-2L gate',
+              _r.get('A-CONTENTLEVEL') == 'OK' and _r.get('A-DIFFGATE') == 'OK', str(ac.RESULTS)[:200])
+        # S13-6 lines (spec) == MockDeliver 3f'' lines (spec formula over the committed entry)
+        S6 = {'bc': bc, '_ds': bs['difficulty_state'], '_kd6': kd, 'INFO_LINES_S136': []}
+        run_fence(snip("  # v5.94 (GAP-2026-11-07): delivered vs target counts", "  _notes6 = {}"), S6)
+        st = _ent['difficulty_state']
+        _ids11 = set((st.get('l2_model') or {}).get('scope_ids') or [])
+        L11 = bc.difficulty_layer_lines(st.get('paper_gate'), st.get('l2_model'),
+                                        n_l2_items=sum(1 for qq in _ent['questions'] if str(qq.get('subtopic_id')) in _ids11),
+                                        shares_source=(st.get('l2_model') or {}).get('grades_source'))
+        check(f'H-DL {EXAM} S13-6 footer lines == MockDeliver 3f\'\' lines (one formatter, one record)',
+              S6['INFO_LINES_S136'] == L11 and any('Difficulty vs schedule' in x for x in L11)
+              and (any('Organic difficulty ruler' in x for x in L11) == organic), str(L11)[:200])
+        results[EXAM] = (M or {}).get('cuts_list')
+    # the relative ruler is the exam's own: the two organic exams get different cut-offs
+    check('H-DL relative cuts: a shallower exam\'s Hard is ITS top band, not the post-graduate exam\'s (owner D5)',
+          results.get('PGX') and results.get('UGX') and results['PGX'] != results['UGX'], str(results))
+    # Step 5 and Create hash the SAME profile file (the sha handshake is a path handshake)
+    A = open(os.path.join(W, 'Framework_MockTestAnalyse.md'), encoding='utf-8').read()
+    check('H-DL Analyse S11-1c and Create S3-8L hash the same file (/mnt/project/<EXAM>_difficulty_profile.json)',
+          "_qi_path = f'/mnt/project/{exam_code}_difficulty_profile.json'" in A
+          and "open(f'/mnt/project/{EXAM}_difficulty_profile.json', 'rb')" in S)
 
 
 def self_test():
@@ -519,6 +740,9 @@ def self_test():
         check('H7 certificate_uncertified(registry stamps) == batch_state uncertified_items == Deliver list',
               bc.certificate_uncertified({str(qq['q']): qq.get('quality_status') for qq in R['question_index'][0]['questions']}) == bs['uncertified_items'] == ['3'])
 
+        # ═══ H-DL  difficulty layer, three synthetic exams (release 2026.11.08) ═══
+        print('H-DL difficulty layer: Step 5 bank -> Create S3-8L/S3-12c/CHECK 3c/S13-2G/S13-2L -> commit -> audit -> footer')
+        _dl_handshake(check, ROOT, run_fence, W)
 
     finally:
         shutil.rmtree(ROOT, ignore_errors=True)
@@ -532,7 +756,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 79
+EXPECTED_CHECKS = 123             # 79 + 44 H-DL (release 2026.11.08)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026.11.08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: a "Hard" question is as hard as the real exam's Hard — measured from the exam's own past papers, repaired before it is relabelled, counted against the schedule at the end, for every exam
+(blueprint_core v1.33 — NEW Cluster DL (every exam) + Cluster L2 (organic ruler); analyse_engine v1.4;
+Framework_MockTestAnalyse v2.61.0; Framework_MockTestCreate v5.94; Framework_MockReview v2.1.0;
+Framework_MockDeliver v1.27.0; Framework_DeliveryFooter v1.42.0; Framework_PYQExplain v2.29;
+audit_canonical v2.38 (A-CONTENTLEVEL accepts the DL decisions; NEW A-DIFFGATE, WARN-only);
+handshake_audit H-DL (+44 checks, three synthetic exams); regression_pyq_fixtures FX-L2-01..17;
+LAW_REGISTRY.json DIFFICULTY-LAYER-LAW + audit_sync.py detect rule difficulty_layer_rule;
+STEP_CONTRACTS.json override floors raised (Create 5.94, MockReview 2.1.0, MockTestAnalyse 2.61.0,
+MockDeliver 1.27.0, DeliveryFooter 1.42.0); MANIFEST / SPEC_MANIFEST / SPEC_SECTIONS / SHA256SUMS
+regenerated; SPEC_HISTORY.md.)
+
+**Cause (evidence: a post-graduate chemistry exam's SUBJ Organic Chemistry Test 01, registry
+2026-11-07).** Schedule Easy 2 / Medium 10 / Hard 28. The independent reviewer graded the delivered
+paper Easy 14 / Medium 17 / Hard 9 (an expert grade: 15 / 18 / 7) — and every one of those verdicts
+was written as `level_note 'reviewer below slot'` and SHIPPED. Two subject-independent causes: (1) an
+independent control that said BELOW was recorded, never acted on; (2) nothing counted the delivered
+paper against the ORIGINAL schedule. Two organic-specific causes: the Level Model measured molecule
+SIZE (it said 'ok' on 39/40), and the judge was dormant on 39/40 (empty exemplar bank).
+
+**Owner decisions (binding).** D1 (b): one generic difficulty layer for every exam plus the organic
+ruler, in one release. D2: relative cuts (each exam's own band shares), frozen per series. D3:
+a measurement field is used only when the exam's own past papers carry it (coverage-gated,
+symmetric). D4: a controlled concept vocabulary; below 90 % coverage the ruler is advisory. D5: the
+level comes ONLY from the exam's own past papers — never from its type or degree. D6: past questions
+are pattern references only — pattern cards carry no stem, substrate, key or SMILES; a key equal to a
+past answer is rejected (G-L2CARDCOPY). Q1 (c): band shares come from a BLIND grading of the past
+papers. Q4: non-organic subjects get the generic layer only. Q5: built for 200 exams, not one paper.
+2026-11-08 (a): the blind grading runs in Step 5 for every exam.
+
+**What changes.**
+- Step 5 (MockTestAnalyse S11-1c): every past question of the window is graded BLIND by fresh
+  graders (stem, options, drawn structures — never band, counts, concepts or key), in parts of ≤ 30
+  kept by section; the exemplar bank records the profile's sha256 and carries the grades; an
+  exemplar's band is its blind grade (organic without grades: its L2 band). Grades are reused for the
+  same profile, never re-graded.
+- Create S3-8L: the organic ruler is built from the exam's own window with the blind grades of the
+  SAME profile (else the registry cache, else the blueprint's measured shares — printed), frozen for
+  the series; S3-12c gives each organic slot a pattern source.
+- Create CHECK 3c (every exam): measured = the LOWEST independent band (judge, content evidence; the
+  L2 band for an organic item). Below its slot → re-authored (DR1 next pattern source, DR2 band-target
+  brief) inside the one G-DIFF budget, then CARRIED TO REVIEW at its slot band — the R5 easier
+  relabel is gone; the band-swap escape also swaps the target plan (count-neutral).
+- Create S13-2G: the reviewer selects the concepts it used from the same vocabulary; phase 3
+  (bc.dl_phase3_decision) repairs a below item in round 1 and only in round 2 accepts it at the
+  measured band (DR3 — the one relabel, disclosed). S13-2L counts the paper against the target plan.
+- Footer (S13-6, MockDeliver 3f''): delivered vs target counts, DR3 items, unmeasured slots, the
+  ruler's state and its share source — one engine formatter, disclosure only.
+
+**Found by the release's own handshake run (fixed before delivery).** 49 of the 114 vocabulary labels
+did not match their own patterns and 4 matched a lower-load entry — a label the author or reviewer
+SELECTED would have been scored as unmatched or too low. bc.l2_concept_match now maps a canonical
+label to its own row first; a self-test pins every label.
+
+**Found by the independent release review (fixed before delivery).** The target plan and the pattern
+sources are now drawn from the FINAL plan (new S3-15L, after S3-12e moves top-band slots); a ruler
+reused from the series or a resume keeps its pattern cards (pool_keys travel with the frozen model);
+Step 5's closing delivery waits for the blind grading (phase C makes it); the paper gate counts each
+label lowered to its latest independent measurement (bc.dl_gate_items — the same builder for Create
+S13-2L and the auditor), so a held label can never pass silently and an unmeasured slot is named; an
+item with no named concept has no ruler band (never "Easy"); a session resumed after the review runs
+S13-2L; the old relabel sentences carry the v5.94 override inline. A second independent review then
+found and this release fixes: Step 5 phase C reads its exam code and the deferred delivery from
+disk and always delivers (a fresh python process or a failed merge can no longer drop the Step 5
+outputs); a grades file of another profile is never reused, earlier part grades of the same profile
+are salvaged, missing window questions are graded; phase 3 reads qtype from the sidecar entry (the
+MSQ/NAT floor holds); review round 2 relabels only items round 1 repaired — anything else goes to
+S13-2L's rework first; the rework counter lives at the top of batch_state and phase 3 / S13-2L keep
+the in-memory difficulty state in step; every REVIEWED route names S13-2L; an organic topic named
+without the word "organic" (e.g. "Pericyclic reactions" under "Part B") is recognised.
+
+**Disclosed, unchanged on purpose.** The blueprint's band mix (shares) is still written as before —
+whether Blueprint should also take its shares from the blind grades is a follow-up decision. Create
+cannot blind-grade by itself (a worker cannot start graders): without a fresh Step-5 bank it uses
+the registry cache, else the blueprint's measured shares, and prints which. Nothing here stops (C1);
+no certificate effect (C2); no new user action (C4). Step 1 (PYQPrepare) is unchanged.
+
+**Replay of Test 01 on this release (real registry).** The ruler measures Hard 5 (expert 7, reviewer
+9); 23 slots below their band are repaired in round 1, and in the worst case (no repair lifts them)
+accepted after round 2 as DR3 and disclosed — the footer prints delivered vs schedule. No slot
+leaves silently below its band.
+
 ## 2026.11.07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS: RE-25 CHEM-STRUCTURE STANDARD — every chemistry-structure question is explained with drawn, proved, step-by-step figures, in every exam
 (Framework_PYQExplain v2.28; Framework_MockTestExplain v1.54.0; Framework_DeliveryFooter v1.41.0
 (§LADDER / Q0c: the three RE-25 footer lines); SHARED_RULES_VERSION 1.7;

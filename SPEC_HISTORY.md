@@ -793,6 +793,18 @@ Current-version entry remains in Framework_DeliveryFooter.md.
 #          operator may proceed. Amber REPORTS; it does not block.
 ```
 
+Entry v1.41.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v1.42.0 supersedes).
+
+```
+# v1.41.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25; paired with
+#   PYQExplain v2.28, MockTestExplain v1.54.0). §LADDER gains the three RE-25 lines (two
+#   AMBER-CLASS through the existing classes "renderer degraded (…)" / "Q<n> explanation
+#   degraded (…)", one INFORMATIONAL "document size … (RE-25 figures)"), and Q0c names
+#   PYQExplain as a producer of those lines. Disclosure only — no stop, no verdict change.
+#   Every other line of the file is byte-identical (PYQPrepare freeze, owner P1: the
+#   PYQPrepare footer path is untouched).
+```
+
 ## Framework_MockDeliver.md
 
 Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
@@ -1027,6 +1039,18 @@ Current-version entry remains in Framework_MockDeliver.md.
 #
 ```
 
+Entry v1.26.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v1.27.0 supersedes).
+
+```
+# v1.26.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (paired with blueprint_core
+#   v1.32, paper_pipeline v5.40, MockTestCreate v5.92, DeliveryFooter v1.40.0). S1-2 gains
+#   item 3f' — the DIFFICULTY DISCLOSURE LINES reprinted from the paper's recorded
+#   difficulty_state / quality_readiness / difficulty_gate coverage through
+#   bc.difficulty_unverified_lines (engine-sourced, "⚠️ "-prefixed, disclosure only). The
+#   Complexity tag stays the canonical label (guard G9); nothing here stops, withholds or
+#   re-certifies. Legacy series (no difficulty_state) print nothing — byte-identical.
+```
+
 ## Framework_MockReview.md
 
 Entries v1.0.0–v2.0.0 moved at framework release 2026.11.06 (EC-P42; v2.0.1 supersedes;
@@ -1053,6 +1077,16 @@ Current-version entry remains in Framework_MockReview.md.
 # v1.0.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G12 (owner decision OD-5 (a):
 #   MANDATORY independent review on every paper, WITH correction). (History: v1.0.0 was a
 #   user-run step in a new chat; superseded by v2.0.0 above.)
+```
+
+Entry v2.0.1 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v2.1.0 supersedes).
+
+```
+# v2.0.1 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-52 (paired with MockTestCreate
+#   v5.92). Brief-only: difficulty_band_with_exemplar is now consumed by Create S13-2G phase 3
+#   (compared with the slot band; "below" on a Hard slot → bounded R2 repair, residue a
+#   level_note). Reviewer isolation is unchanged — the packet carries no band, no
+#   difficulty_obs and no level record (handshake H6).
 ```
 
 ## Framework_MockTestAnalyse.md
@@ -1984,6 +2018,33 @@ Current-version entry remains in Framework_MockTestAnalyse.md.
 #
 ```
 
+Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v2.61.0 supersedes).
+
+```
+# v2.60.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part C (paired with analyse_engine
+#   v1.3, blueprint_core v1.32, figure_types v1.3, PYQExplain v2.27, Blueprint v1.64.0,
+#   MockTestCreate v5.92, audit_canonical v2.37). The Step-5 <-> profile JOIN is paper + Row
+#   q-number first (analyse_engine.profile_record_for; the 60-character stem key collapsed
+#   every "Identify the major product, P ..." item to AMBIGUOUS — DL-25), then the stem key,
+#   then a figure hash; the join rate and the DL-20 profile coverage line are printed.
+#   Questions carry their MINTED subtopic_id (stamp_question_subtopic_ids, DL-29) so the
+#   figural quota is measured per subtopic (Create guards it with bc.figural_quota_guard, G6).
+#   The exemplar bank: an exemplar's band is its LEVEL band when the Level Model is active
+#   (bc.level_bands over the window — the ONE builder bc.level_model_for_scope; the measured
+#   mix keeps the stored band), rows carry structures / option SMILES / the derived key / the
+#   vector, stems are kept to 1,200 characters and never cut inside a list block, image
+#   options are their SMILES, Hard leaves are ranked by typicality, newest first by ISO
+#   date, and the size cap is a per-section budget (DL-23/24/26/27). Every QUALITY block
+#   gains figure_complexity_pct {field: {p10,p50,p90}}, closeness_pct and ask_format_shares
+#   (indented, never a line starting subtopic_id:), each stamped `rule.<key>: q2` (G5 — a
+#   QQ FAIL resting on a new key is WARN for this release cycle). The distractor mix is
+#   MEASURED from the profile's closeness records when they exist (existing S9 tokens),
+#   else the prior with `distractor_mix_source: default prior (unmeasured)` and an AMBER
+#   line (DL-23). The structure-option prior keys on the figure family (DL-04 leak). Run
+#   files are found under /mnt/project then /mnt/user-data/uploads (DL-30). Nothing here
+#   stops; a project without content records is byte-identical except the new QUALITY keys.
+```
+
 ## Framework_MockTestCreate.md
 
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
@@ -2790,6 +2851,26 @@ GAP-2026-08-26-REGISTRY-HANDOFF-SEAM, GAP-2026-08-26-REPAIR-BATCH-LAW) stays in 
 # §S16 — REPAIR MODE (TestCreateRepair / MockCreateRepair, v5.69 —
 #         GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING)
 # ════════════════════════════════════════════════════════════════════════
+
+Entry v5.93 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v5.94 supersedes).
+
+```
+# v5.93 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (owner decision OD-2026-11-06;
+#   paired with NEW Framework_MockTestOrchestrate v1.0.0, NEW SESSION_BUDGET.json, the bootstrap.py
+#   read / retention / staging / worker commands and the spec_sections.py read plan). Measured
+#   2026-11-06 (SESSION_BUDGET.json _measured): a context that keeps growing is summarised by the
+#   platform without notice, after which a session works from a summary of this spec; a tool result
+#   of about 40,000 characters or more is diverted to a file the session cannot read back whole.
+#   WHAT CHANGES HERE. NEW S1-0R: the read method (bootstrap --read K, at most 300 lines per call),
+#   READ-RETENTION at four points, RUN MODE (Step 7 runs ORCHESTRATED: the WORKER MODE delivery
+#   proxy and review hand-over are defined in Framework_MockTestOrchestrate.md and bind this spec's
+#   present_files sites and S13-2G phase 2) and INPUT STAGING (bootstrap.py --stage-inputs satisfies
+#   this spec's /mnt/project and /mnt/user-data/uploads paths on every surface); S1-0's read advice
+#   now points to S1-0R. S13-2G phase 2 gains one WORKER MODE paragraph; S4-7 STEP E, S13-8 and
+#   S13-9A gain one pointer line each. Superseded entries v5.54.1-v5.92 moved verbatim to
+#   SPEC_HISTORY.md (EC-P42). STEP_CONTRACTS override floor raised to 5.93 (owner rule D8).
+#   No question-writing rule, gate, artefact, deliverable, end state or user action changed.
+```
 
 ## S16-1 — Trigger and preflight
 
@@ -6832,6 +6913,31 @@ Current-version entry remains in Framework_PYQExplain.md.
 #   the delivered document, or any existing gate. The assessment is metadata only
 #   and is NEVER rendered into the paper.
 #
+```
+
+Entry v2.28 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; v2.29 supersedes).
+
+```
+# v2.28 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE
+#   STANDARD; paired with MockTestExplain v1.54.0, explain_engine v2.13, corpus_io v1.19, figural_core
+#   v5.91, SHARED_RULES_VERSION 1.7, the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS_v1.md).
+#   Incident: CSIR NET Chemical Sciences 18-Jul-2026 — 120 questions, 34 structure questions,
+#   ZERO explanation figures, 11 chemistry defects, every key right: the router said PROSE,
+#   the renderer drew one molecule, figures could land only in DEDUCTION, nothing compared
+#   the derived product with the keyed option, the chemistry library had never loaded.
+#   NEW RE-25 (decided per question from CONTENT — never a subject, topic or exam name, §6A-7
+#   T1-T3, ask shapes A1-A12): every step drawn inside DEDUCTION with curly arrows (E-03
+#   proved), every wrong option drawn under its own heading (E-05), every figure layout-gated
+#   and auto-retried (E-04), reviewed once in-turn (E-09), reconciled with the options (E-06
+#   c-e, E-07), stereo descriptors re-derived (E-06 f), per-step balance (E-06 g), pipeline
+#   vocabulary banned (E-08). NEW §6A-7..§6A-12, §7-0d / §7-0e, §24 S24-7; amended §5-1 /
+#   §5-3, §6-1, §6A-1 / 1b / 2 / 3b / 5 / 6, §7-2, §8-3 / §8-5, §15-2, §18-1, §R3, §21.
+#   §13A-3 guard S10 is amended (option_smiles / answer_smiles become validate() inputs on an
+#   APPLIES question, DL-18 mandatory there) and §17-3 gains the NEAREST-OPTION outcome
+#   (the derived product matches no printed option: full chemistry, nearest option bound,
+#   difference disclosed in the last DEDUCTION paragraph, OPTION-DRAWING-DEFECT recorded).
+#   No new section heading; a NOT_APPLICABLE question takes no new obligation and renders
+#   byte-identically (GAP Section 10.1; engine fixture AT-4 b).
 ```
 
 ## Framework_PYQFormat.md

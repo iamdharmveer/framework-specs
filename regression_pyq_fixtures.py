@@ -1110,6 +1110,220 @@ ck("FX-ST-LS2 §2.1e: no exam identifier in the cluster logic",
    not _re.search(r'CSIR|GATE_|GATE B|LIFE_SCIENCE|BIOTECH',
                   _ls_src + _ls_src2))
 
+
+# ── FX-L2 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: organic decision-load ruler (Cluster L2)
+#    + the every-exam difficulty layer (Cluster DL). FIXTURE: the 95 organic past questions of a
+#    real post-graduate chemistry exam (3 cycles, decision fields only — named_concepts, ask_type,
+#    stereo_decl, distractor_mechanisms, closeness grades, section, stored band; NO stems, structures
+#    or keys), zlib+base64, sha256 pinned. Plus that exam's 40-item organic subject test as authored
+#    by release 2026.11.06 (concepts / isomeric-distractor count / stereo declaration per item).
+import base64 as _b64, zlib as _zl, hashlib as _hl, json as _js
+_L2_FX_SHA = 'a193a247bad2a455b6b053ed96bf31f5f52d0526aa8b410264225b9ea3210d89'
+_L2_FX_B64 = (
+    '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'
+    'CWA='
+)
+_l2_raw = _zl.decompress(_b64.b64decode(''.join(_L2_FX_B64)))
+_L2P = _js.loads(_l2_raw.decode('utf-8'))
+_L2T01 = {
+    1: (["Hajos\u2013Parrish (L-proline organocatalysis)", "Wieland\u2013Miescher ketone", "selective ketalization"], 1, "none"),
+    2: (["quasi-Favorskii (semibenzilic) rearrangement"], 0, "none"),
+    3: (["Johnson\u2013Claisen", "1,3-chirality transfer"], 2, "relative"),
+    4: (["chemical shift", "n + 1 rule"], 0, "none"),
+    5: (["epoxidation", "Wharton"], 0, "none"),
+    6: (["conformational analysis", "A-value"], 0, "relative"),
+    7: (["E2 anti-periplanar", "conformationally locked"], 1, "relative"),
+    8: (["Shapiro"], 0, "none"),
+    9: (["Birch", "enol ether hydrolysis"], 1, "none"),
+    10: (["chemical shift", "n + 1 rule"], 0, "none"),
+    11: (["Sharpless\u2013Caron regioselective epoxide opening"], 0, "relative"),
+    12: (["azulene", "nucleophilic addition"], 1, "none"),
+    13: (["SN1", "ether cleavage"], 0, "none"),
+    14: (["terpinyl cation", "biogenesis"], 0, "none"),
+    15: (["Woodward cis-hydroxylation", "acetoxonium"], 0, "none"),
+    16: (["H\u00fcckel 4n+2"], 0, "none"),
+    17: (["Hofmann elimination", "anti-periplanar"], 0, "relative"),
+    18: (["osazone"], 0, "none"),
+    19: (["iodolactonization", "E2 anti-periplanar"], 1, "none"),
+    20: (["Luche", "chemoselective reduction"], 0, "none"),
+    21: (["SN1", "Bredt"], 0, "none"),
+    22: (["Cannizzaro"], 0, "none"),
+    23: (["Bucherer", "Sandmeyer"], 0, "none"),
+    24: (["anti addition", "anti-periplanar"], 0, "relative"),
+    25: (["E2 anti-periplanar", "conformationally locked"], 1, "relative"),
+    26: (["Beckmann fragmentation"], 0, "none"),
+    27: (["hydroboration"], 0, "none"),
+    28: (["aromatic Claisen rearrangement"], 0, "none"),
+    29: (["Wagner\u2013Meerwein", "ring expansion"], 1, "none"),
+    30: (["von Baeyer nomenclature", "CIP rules"], 0, "absolute"),
+    31: (["bromohydrin"], 0, "relative"),
+    32: (["catalytic hydrogenation", "syn addition"], 0, "relative"),
+    33: (["SN2", "Mitsunobu-type inversion"], 0, "absolute"),
+    34: (["chemical shift"], 0, "none"),
+    35: (["anti addition", "bromination"], 0, "relative"),
+    36: (["Sharpless epoxidation"], 0, "absolute"),
+    37: (["Mannich", "pyrrole"], 0, "none"),
+    38: (["Oppenauer"], 1, "none"),
+    39: (["dithiane formation"], 0, "none"),
+    40: (["Grignard"], 0, "none"),
+}
+_L2T01_BANDS = {1: 'Hard', 2: 'Medium', 3: 'Hard', 4: 'Medium', 5: 'Medium', 6: 'Medium', 7: 'Hard', 8: 'Medium', 9: 'Medium', 10: 'Medium', 11: 'Hard', 12: 'Medium', 13: 'Medium', 14: 'Medium', 15: 'Medium', 16: 'Medium', 17: 'Medium', 18: 'Medium', 19: 'Medium', 20: 'Medium', 21: 'Medium', 22: 'Medium', 23: 'Medium', 24: 'Medium', 25: 'Hard', 26: 'Medium', 27: 'Medium', 28: 'Medium', 29: 'Medium', 30: 'Medium', 31: 'Medium', 32: 'Medium', 33: 'Medium', 34: 'Medium', 35: 'Medium', 36: 'Medium', 37: 'Medium', 38: 'Medium', 39: 'Medium', 40: 'Medium'}
+_L2LABS = ['Easy', 'Medium', 'Hard']
+_l2sids = sorted({r['subtopic_id'] for p in _L2P['papers'].values() for r in p['questions'].values()})
+_L2M = bc.l2_model_for_scope(_L2P, _l2sids, _L2LABS, measured_pct={'Easy': 3, 'Medium': 70, 'Hard': 27})
+
+
+def _l2t01(q):
+    nc, cc, sd = _L2T01[q]
+    return bc.l2_record({'named_concepts': nc, 'stereo_decl': sd,
+                         'distractor_mechanisms': ['regioisomer'] * cc + ['alternative_pathway'] * (3 - cc)}, _L2M)
+
+
+ck("FX-L2-01 fixture integrity: sha256 pinned, 95 organic records, 3 papers",
+   _hl.sha256(_l2_raw).hexdigest() == _L2_FX_SHA and _L2M['n'] == 95 and len(_L2P['papers']) == 3)
+ck("FX-L2-02 T11 vocabulary coverage 100 % on the fixture exam; ruler BINDING; nothing unmatched",
+   _L2M['vocab_coverage'] == 1.0 and _L2M['binding'] is True and _L2M['unmatched'] == [])
+ck("FX-L2-03 D3 symmetry law on real data: reagents (62 %) and scheme steps (73 %) OFF, distractor "
+   "relations and stereo ON — fields switch by measured pool coverage, never by assumption",
+   _L2M['fields_on'] == {'reagents': False, 'close': True, 'stereo': True, 'steps': False}
+   and _L2M['field_coverage']['reagents'] < bc.L2_FIELD_MIN_COVERAGE <= _L2M['field_coverage']['close'])
+_l2pyq = {(k, q): bc.l2_record(_L2P['papers'][k]['questions'][q], _L2M) for k, q in _L2M['pool_keys']}
+_l2hard = [kq for kq, r in _l2pyq.items() if r['band'] == 'Hard']
+ck("FX-L2-04 T2 relative calibration: cuts from the exam's own PYQs at the recorded shares; "
+   "Hard share within the tie tolerance (+-5 points) of 27 %",
+   _L2M['mode'] == 'relative' and _L2M['cuts_list'][1] == 35.0 and _L2M['cuts_list'][0] < 5.0
+   and abs((100 - _L2M['achieved'][1]) - 27) <= 5)
+ck("FX-L2-05 T2 invariant: no past question whose highest concept is a standard reaction (load <= 3) is Hard",
+   all(r['load'] is not None and r['load'] >= 4 for kq, r in _l2pyq.items() if r['band'] == 'Hard'))
+ck("FX-L2-06 T2: the advanced-method PYQs are Hard (Zimmerman-Traxler, Myers, Danheiser, Tsuji-Trost, "
+   "Evans, phenonium, aza-Cope-Mannich, carbonyl-ene, Vedejs)",
+   all(_l2pyq[kq]['band'] == 'Hard' for kq in [('18-Jul-2026', '71'), ('18-Dec-2025', '114'), ('18-Jul-2026', '73'),
+                                                ('28-Jul-2025', '86'), ('18-Jul-2026', '96'), ('18-Jul-2026', '84'),
+                                                ('18-Dec-2025', '105'), ('18-Dec-2025', '95'), ('18-Dec-2025', '115')]))
+ck("FX-L2-07 T3 the 40 authored items reproduce their pinned bands (regression lock)",
+   all(_l2t01(q)['band'] == b for q, b in _L2T01_BANDS.items()) and len(_L2T01_BANDS) == 40)
+ck("FX-L2-08 T4 size traps are NOT Hard: Oppenauer of a steroid (Q38), Birch of a steroid (Q9), "
+   "PhMgBr on a lactone (Q40), Cannizzaro (Q22), osazone (Q18)",
+   all(_l2t01(q)['band'] != 'Hard' for q in (38, 9, 40, 22, 18)))
+ck("FX-L2-09 T3 every authored item whose concepts are standard B.Sc. reactions (load <= 3) is not Hard",
+   all(_l2t01(q)['band'] != 'Hard' for q in _L2T01 if (_l2t01(q)['load'] or 0) <= 3))
+ck("FX-L2-10 T3 organocatalysis / Johnson-Claisen + chirality transfer items are Hard",
+   _l2t01(1)['band'] == 'Hard' and _l2t01(3)['band'] == 'Hard')
+# D5 — no exam-type shift: a second exam at the same degree level whose papers are shallower gets its
+# OWN, lower cuts from the SAME vocabulary; the same item is Hard there and Medium here.
+_l2lo_q = {}
+_lo_concepts = [['Cannizzaro reaction'], ['aldol reaction'], ['SN2 reaction'], ['Grignard addition'],
+                ['Friedel–Crafts acylation'], ['PCC'], ['hydroboration'], ['ozonolysis'], ['Wittig reaction'],
+                ['Hückel 4n+2 rule'], ['chemical shift'], ['n + 1 rule'], ['Markovnikov rule'],
+                ['Beckmann rearrangement'], ['Diels–Alder'], ['anti addition', 'bromination'],
+                ['Baeyer–Villiger oxidation'], ['Birch reduction'], ['Hofmann elimination', 'Zaitsev rule'],
+                ['CIP rules', 'meso compound']]
+for _i, _c in enumerate(_lo_concepts, 1):
+    _l2lo_q[str(_i)] = {'subtopic_id': 'oc.t.s', 'qtype': 'mcq', 'ask_type': 'identify_product', 'named_concepts': _c,
+                        'stereo_decl': 'relative' if _i in (16, 20) else 'none',
+                        'distractor_mechanisms': ['alternative_pathway'] * 3, 'section': 'P', 'band': 'Medium'}
+_L2LO = {'papers': {'LO-2025': {'date': '2025-06-01', 'questions': _l2lo_q}}}
+_L2MLO = bc.l2_model_for_scope(_L2LO, ['oc.t.s'], _L2LABS, measured_pct={'Easy': 20, 'Medium': 60, 'Hard': 20})
+_l2item = {'named_concepts': ['Birch reduction', 'enol ether hydrolysis'], 'stereo_decl': 'none',
+           'distractor_mechanisms': ['alternative_pathway'] * 3}
+ck("FX-L2-11 D5: same vocabulary, exam-own cuts — the shallower exam's cuts are lower and the same item "
+   "is Hard there, Medium in the deeper exam (difficulty comes from each exam's past papers only)",
+   _L2MLO['active'] and _L2MLO['cuts_list'][1] < _L2M['cuts_list'][1]
+   and bc.l2_record(_l2item, _L2MLO)['band'] == 'Hard' and bc.l2_record(_l2item, _L2M)['band'] == 'Medium')
+_l2fz = bc.l2_model_from_frozen(bc.l2_frozen(_L2M))
+ck("FX-L2-12 D2 stability: a frozen model scores every fixture item identically to the live one",
+   _l2fz is not None and all(bc.l2_record(_L2P['papers'][k]['questions'][q], _l2fz)['band'] == r['band']
+                             for (k, q), r in _l2pyq.items()))
+_l2_lopo = [bc.l2_model_for_scope({'papers': {k: v for k, v in _L2P['papers'].items() if k != _d}}, _l2sids, _L2LABS,
+                                   measured_pct={'Easy': 3, 'Medium': 70, 'Hard': 27}) for _d in sorted(_L2P['papers'])]
+ck("FX-L2-13 D2 stability (measured): leaving out any one past paper leaves the Hard cut where it is "
+   "(the symmetric fields remove the swing the prototype showed: 26 -> 33)",
+   all(_m['active'] and _m['cuts_list'][1] == _L2M['cuts_list'][1] for _m in _l2_lopo))
+_l2fz_json = bc.l2_model_from_frozen(_js.loads(_js.dumps(bc.l2_frozen(_L2M))))
+ck("FX-L2-13b D2 stability: the frozen model, after a JSON round trip as a blueprint stores it, scores "
+   "every past question exactly as the live model",
+   _l2fz_json is not None and _l2fz_json['cuts_list'] == _L2M['cuts_list']
+   and all(bc.l2_record(_L2P['papers'][k]['questions'][q], _l2fz_json)['band'] == r['band'] for (k, q), r in _l2pyq.items()))
+_l2pk = bc.pyq_grade_packet(dict(_L2P['papers']['18-Jul-2026']['questions']['71'], answer_smiles='CC(O)C(C)C(=O)O',
+                                  closeness={'per_option': {'1': {'grade': 3}}}, steps=4, score=6),
+                             '18-Jul-2026', 71)
+ck("FX-L2-14 Q1 (c) blind PYQ grading packet carries no band, concepts, steps or key",
+   not ({'band', 'named_concepts', 'steps', 'score', 'answer_smiles', 'distractor_mechanisms', 'closeness'} & set(_l2pk))
+   and 'CC(O)C(C)C(=O)O' not in _js.dumps(_l2pk)
+   and _l2pk['key'] == '18-Jul-2026:Q71')
+_l2g = {f'{k}:Q{q}': ('Hard' if r['load'] and r['load'] >= 6 else ('Easy' if (r['load'] or 0) <= 1 else 'Medium'))
+        for (k, q), r in _l2pyq.items()}
+_l2mg = bc.l2_model_for_scope(_L2P, _l2sids, _L2LABS, pyq_grades=_l2g, measured_pct={'Easy': 3, 'Medium': 70, 'Hard': 27})
+ck("FX-L2-15 Q1 (c): when blind grades exist for the pool they set the shares (not the rubric's measured_pct)",
+   _l2mg['shares_source'] == 'pyq_grades' and _l2mg['shares'] != {'Easy': 3, 'Medium': 70, 'Hard': 27})
+_l2_src = _cluster_source('blueprint_core.py', '# CLUSTER DL — DIFFICULTY LAYER', '# END CLUSTER L2')
+_l2_code = '\n'.join(l for l in _l2_src.split('\n') if not l.lstrip().startswith('#'))
+ck("FX-L2-16 generic by construction: no exam identifier anywhere in Clusters DL / L2 (code, docstrings)",
+   not _re.search(r'CSIR|RPSC|GATE_|NEET|JEE|IIT_JAM|_NET_|LIFE_SCIENCE', _l2_src))
+ck("FX-L2-17 no hard stop in Clusters DL / L2 (no SystemExit / raise / HARD STOP)",
+   not _re.search(r'SystemExit|\braise\b|HARD STOP|\[HS:', _l2_code))
+
+
 def _self_test():
     total = PASS + len(FAILS)
     print(f"SELF-TEST: {PASS}/{total} PASS")

@@ -1,9 +1,9 @@
-# Framework_MockReview v2.0.1 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
-# v2.0.1 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-52 (paired with MockTestCreate
-#   v5.92). Brief-only: difficulty_band_with_exemplar is now consumed by Create S13-2G phase 3
-#   (compared with the slot band; "below" on a Hard slot → bounded R2 repair, residue a
-#   level_note). Reviewer isolation is unchanged — the packet carries no band, no
-#   difficulty_obs and no level record (handshake H6).
+# Framework_MockReview v2.1.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# v2.1.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (D1 (b), D4; paired with MockTestCreate
+#   v5.94 S13-2G phase 3 DL1). The reviewer's band is BINDING when it cites an exemplar (Create takes
+#   the LOWEST independent band). NEW optional key `concepts_used`: concepts the reviewer's OWN solution
+#   used, SELECTED from the part's `concept_vocabulary` (organic papers; [] otherwise). Create scores
+#   the ruler on the lower of the author's and reviewer's lists. Isolation and checklist unchanged.
 #
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockReview.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
@@ -107,15 +107,21 @@
                                           'content_record': _it.get('content_record') or {}},
                         'exemplars': _ex})
   QUEUE.sort(key=lambda r: int(r['q'] or 0))
+  # v2.1.0: the controlled concept vocabulary (organic ruler items only; [] otherwise) — the
+  # reviewer SELECTS its concepts_used from it (§2); it is the same list for every part.
+  CONCEPT_VOCABULARY = next((list(_p.get('concept_vocabulary') or []) for _p in PARTS
+                             if _p.get('concept_vocabulary')), []) if PACKET is not None else []
   if PACKET is not None:
       json.dump({'exam': EXAM, 'paper_slug': PAPER_SLUG, 'paper_md5': PAPER_MD5, 'docx': DOCX,
-                 'review_round': REVIEW_ROUND, 'reviewer': REVIEWER, 'items': QUEUE},
+                 'review_round': REVIEW_ROUND, 'reviewer': REVIEWER, 'items': QUEUE,
+                 'concept_vocabulary': CONCEPT_VOCABULARY},
                 open(os.path.join(WORK, 'queue.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
       if len(QUEUE) != N_ITEMS:
           print(f"MockReview S1-2: queue holds {len(QUEUE)} items but the packet declares {N_ITEMS} — "
                 "reviewing what is present; S13-2G phase 3 records the rest as NOT_RUN.")
       print(f"MockReview S1-2: queue written — {len(QUEUE)} items; figural items: "
-            f"{sum(1 for r in QUEUE if r['figures'])}.")
+            f"{sum(1 for r in QUEUE if r['figures'])}; concept vocabulary: "
+            f"{len(CONCEPT_VOCABULARY)} entr{'y' if len(CONCEPT_VOCABULARY) == 1 else 'ies'}.")
   ```
 
 # §2 — THE REVIEW (CLASS J — model judgement over the queue; NO python in this section)
@@ -164,8 +170,11 @@
   #                                  scheduled band (the packet still carries NO band,
   #                                  NO difficulty_obs, NO level record — the reviewer
   #                                  never sees the schedule); "below" on a Hard slot is
-  #                                  a round-1 R2 repair inside the item's existing
-  #                                  G-DIFF budget, the residue a level_note. Judge from
+  #                                  v2.1.0 (GAP-2026-11-07, DL1): BINDING — Create takes
+  #                                  the LOWEST band of the independent controls; "below"
+  #                                  the slot in round 1 is repaired, in round 2 it is
+  #                                  the disclosed last resort. Only a band that names an
+  #                                  exemplar counts (no benchmark, no control). Judge from
   #                                  the exemplar's CONTENT (structures, options, key),
   #                                  never from its length.
   #   distractor_existence_and_class: for EACH wrong option, one clause: "<label>: <real
@@ -187,6 +196,16 @@
   #                                  for a wrong one (ambiguity, trivia, a trick of
   #                                  wording)? "contested" is a defect.
   #
+  #   plus one OPTIONAL key (v2.1.0 — outside the eight-key checklist):
+  #   concepts_used                : the named concepts YOUR OWN solution relied on (the
+  #                                  reactions, rules, mechanisms you had to apply), as a
+  #                                  list of `label` strings SELECTED from queue.json
+  #                                  'concept_vocabulary'; a concept outside it is written
+  #                                  "other:<name>". [] when the queue carries no vocabulary
+  #                                  or no listed concept applies. Write what YOU used —
+  #                                  never guess what the author meant (the author's list is
+  #                                  not in the packet, on purpose).
+  #
   #   plus two closing keys:
   #   verdict                      : "PASS" | "FAIL" — FAIL when single_answer starts with
   #                                  "no", leak_or_paraphrase is not "none", any distractor
@@ -204,7 +223,8 @@
   Working order per item: read the stem and all options (open the docx page for a figure)
   → derive own_key → test single_answer → scan for leak_or_paraphrase against the
   exemplar slice → place the band beside the exemplars → classify every distractor → check
-  names / counts / figures → set confidence and selectivity_basis → verdict + reason. Write
+  names / counts / figures → set confidence and selectivity_basis → concepts_used (when the
+  queue carries a vocabulary) → verdict + reason. Write
   the item's record before moving to the next one; a long paper is written in the packet's
   parts (<= 30 items each) so the file is never lost to a session boundary.
 
@@ -261,7 +281,7 @@
   The reviewer's reply to the author session is that ONE line ("REVIEW DONE <n> items" or
   "REVIEW FAILED <reason>"). No file is presented; nothing is asked of the user.
 
-# §4 — CHECKLIST (all 6 items must PASS)
+# §4 — CHECKLIST (all 7 items must PASS)
 
   [ ] 1. Only the part folder (WORK) and this spec were read — no key sidecar, batch state,
          registry, figure manifest or notes (S1-1; D4).
@@ -271,5 +291,7 @@
   [ ] 4. key_agrees is null on every record — the reviewer never saw the key (S2-2).
   [ ] 5. bc.bind_review_verdicts on the file reports ok (S3-1).
   [ ] 6. verdicts.json written INSIDE WORK; nothing presented, nothing asked of the user (S3-2).
+  [ ] 7. When queue.json carries a concept_vocabulary, every record carries concepts_used
+         selected from it (or "other:<name>"), describing the reviewer's OWN solution (§2).
 
-# END OF Framework_MockReview v2.0.1
+# END OF Framework_MockReview v2.1.0

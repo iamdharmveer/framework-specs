@@ -1,24 +1,11 @@
-# Framework_PYQExplain v2.28 — Universal PYQ Explanation Generator
-# v2.28 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE
-#   STANDARD; paired with MockTestExplain v1.54.0, explain_engine v2.13, corpus_io v1.19, figural_core
-#   v5.91, SHARED_RULES_VERSION 1.7, the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS_v1.md).
-#   Incident: CSIR NET Chemical Sciences 18-Jul-2026 — 120 questions, 34 structure questions,
-#   ZERO explanation figures, 11 chemistry defects, every key right: the router said PROSE,
-#   the renderer drew one molecule, figures could land only in DEDUCTION, nothing compared
-#   the derived product with the keyed option, the chemistry library had never loaded.
-#   NEW RE-25 (decided per question from CONTENT — never a subject, topic or exam name, §6A-7
-#   T1-T3, ask shapes A1-A12): every step drawn inside DEDUCTION with curly arrows (E-03
-#   proved), every wrong option drawn under its own heading (E-05), every figure layout-gated
-#   and auto-retried (E-04), reviewed once in-turn (E-09), reconciled with the options (E-06
-#   c-e, E-07), stereo descriptors re-derived (E-06 f), per-step balance (E-06 g), pipeline
-#   vocabulary banned (E-08). NEW §6A-7..§6A-12, §7-0d / §7-0e, §24 S24-7; amended §5-1 /
-#   §5-3, §6-1, §6A-1 / 1b / 2 / 3b / 5 / 6, §7-2, §8-3 / §8-5, §15-2, §18-1, §R3, §21.
-#   §13A-3 guard S10 is amended (option_smiles / answer_smiles become validate() inputs on an
-#   APPLIES question, DL-18 mandatory there) and §17-3 gains the NEAREST-OPTION outcome
-#   (the derived product matches no printed option: full chemistry, nearest option bound,
-#   difference disclosed in the last DEDUCTION paragraph, OPTION-DRAWING-DEFECT recorded).
-#   No new section heading; a NOT_APPLICABLE question takes no new obligation and renders
-#   byte-identically (GAP Section 10.1; engine fixture AT-4 b).
+# Framework_PYQExplain v2.29 — Universal PYQ Explanation Generator
+# v2.29 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94). FORWARD-ONLY, one field rule: §13A-3 "named_concepts" of an ORGANIC
+#   question is written with the CANONICAL label of bc.l2_vocabulary() wherever the AXIOM's concept
+#   is in that controlled vocabulary (the vocabulary the organic decision-load ruler scores, owner
+#   D4); a concept outside it is written as printed. Profiles written earlier are NOT re-run:
+#   bc.l2_concept_match maps the printed names onto the same labels, and the ruler discloses its
+#   concept coverage. No other field, phase, gate or output changes.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
@@ -2507,6 +2494,13 @@ for it in items:
                           each subtopic's tested-concept lexicon from these (R4.2):
                           a mock stem that NAMES the concept it tests leaks the answer
                           (G-STEMLEAK a) unless the exam's own PYQ do so at >= 20 %.
+                          v2.29 (GAP-2026-11-07, owner D4): for an ORGANIC question write
+                          each concept as its canonical label from bc.l2_vocabulary()
+                          (the controlled vocabulary the organic decision-load ruler
+                          scores — the SAME list the mock author and the blind reviewer
+                          select from) whenever the concept is in it; a concept outside it
+                          is written as printed. Forward-only: earlier profiles are mapped
+                          by bc.l2_concept_match, never re-run.
     "stereo_decl":       the stereo descriptors the PRINTED stem/options state
                           ("2E,4Z", "(2R,3S)", "none") — Step 5's stereo-declaration
                           calibration; null when no structure is printed.
@@ -3556,5 +3550,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.28
+# END OF Framework_PYQExplain v2.29
 # ════════════════════════════════════════════════════════════════════════

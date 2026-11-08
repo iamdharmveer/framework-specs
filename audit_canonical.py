@@ -15,6 +15,18 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.38 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   Framework_MockTestCreate v5.94). A-CONTENTLEVEL accepts the v5.94 difficulty decisions:
+#   'carried_below' (CHECK 3c carried a below-slot item to the independent review at its slot
+#   band), 'dl_agree' (the review measured it at or above its slot) and 'dl_dr3' (accepted at
+#   the measured band after two review rounds — the one disclosed relabel); label == final band
+#   is still required. NEW A-DIFFGATE (WARN-only, no certificate effect): re-counts the paper
+#   from the committed items against the TARGET plan Create recorded
+#   (difficulty_state.paper_gate.target_plan, S13-2L) with bc.dl_gate_items + bc.difficulty_paper_gate
+#   (the same builder Create used: each label lowered to its latest independent measurement) — WARN when
+#   a slot sits below its target band without DR3, when the recorded gate disagrees with the
+#   re-count, or when the target plan's band counts differ from schedule_original; OK with the
+#   delivered-vs-target counts and the DR3 list otherwise; dormant without a record.
 # v2.37 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
 #   Framework_MockTestCreate v5.92). Stage 1 (every exam): A-QINDEX check 8 names the rule
 #   (r1 / r2 / L1) a disagreeing item was judged under (G1; the verdict itself still comes
@@ -6138,6 +6150,7 @@ def run_audit(args):
     _safe_gate('A-REVIEW', gate_review, src, args)             # G12 — OD-5 (final phase)
     _safe_gate('A-QUALITYSTATUS', gate_qualitystatus, src, args)  # OD-9 — NOT CERTIFIED list
     _safe_gate('A-PYQBENCH', gate_pyqbench, src)               # INFO — bench card
+    _safe_gate('A-DIFFGATE', gate_diffgate, src)               # v2.38 WARN-only — paper vs target plan
     _qq_reconcile_unresolved(getattr(args, 'phase', 'final'))  # OD-9: UNRESOLVED-only FAILs -> WARN
     rc = print_results()
     _okw = write_item_outputs(args)
@@ -6234,9 +6247,9 @@ def gate_contentlevel(src):
         lab = e.get('difficulty')
         dec = r.get('decision')
         why = None
-        if dec not in ('agree', 'accept_measured'):
+        if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3'):
             why = f'decision {dec!r} unresolved'
-        elif r.get('ccp_status') == 'below' and dec != 'accept_measured':
+        elif r.get('ccp_status') == 'below' and dec not in ('accept_measured', 'carried_below', 'dl_agree', 'dl_dr3'):
             why = 'content measured below its band and not repaired'
         elif lab is not None and r.get('final_band') not in (None, lab):
             why = f"label {lab!r} != final band {r.get('final_band')!r}"
@@ -6249,6 +6262,54 @@ def gate_contentlevel(src):
     else:
         _ok('A-CONTENTLEVEL', f'{len(recs)} item(s) carry a resolved, evidence-anchored '
                               f'difficulty decision.')
+
+
+def gate_diffgate(src):
+    """A-DIFFGATE (v2.38, WARN-only; GAP-2026-11-07, owner D1 (b)). Re-counts the delivered
+    paper against the TARGET plan Create recorded (difficulty_state.paper_gate.target_plan,
+    S13-2L): every committed item's label — lowered to its latest independent measurement
+    (bc.dl_gate_items, the builder Create used) — against its slot's target band, DR3 items (the
+    disclosed relabel, difficulty_check.dl_rung == 'DR3') excepted — bc.difficulty_paper_gate,
+    the SAME function Create ran. WARN on: a slot below its target band without DR3; a recorded
+    gate status that disagrees with the re-count; target-plan band counts that differ from
+    schedule_original (only count-neutral swaps may change the target). Dormant (OK) when the
+    paper carries no record (a pre-v5.94 paper or a dormant difficulty plan). Never FAIL."""
+    bc = _qq_bc()
+    e = _qq_entry(src) or {}
+    ds = e.get('difficulty_state') if isinstance(e.get('difficulty_state'), dict) else {}
+    pg = ds.get('paper_gate') if isinstance(ds.get('paper_gate'), dict) else {}
+    tgt = pg.get('target_plan') if isinstance(pg.get('target_plan'), dict) else {}
+    if not tgt:
+        _ok('A-DIFFGATE', 'dormant — no paper difficulty gate record (pre-v5.94 paper or no difficulty plan).')
+        return
+    try:
+        cm = _qq_cm(src)
+    except (AttributeError, TypeError, ValueError):       # a malformed concept_map / entry -> labels unread
+        cm = {}
+    if not isinstance(cm, dict):
+        cm = {}
+    _bpl = (src.get('blueprint') or {}) if isinstance(src.get('blueprint'), dict) else {}
+    labs = [str(x) for x in (pg.get('labels') if isinstance(pg.get('labels'), list) and pg.get('labels')
+                             else _bpl.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])]
+    # the SAME item builder Create S13-2L used: label lowered to the latest independent measurement
+    g = bc.difficulty_paper_gate(bc.dl_gate_items(tgt, {str(k): v for k, v in cm.items()}, labs), labs)
+    probs = []
+    if g['rework_qs']:
+        probs.append(f"{len(g['rework_qs'])} slot(s) below their target band without DR3: "
+                     f"Q{', Q'.join(str(q) for q in g['rework_qs'][:12])}")
+    if pg.get('status') and pg.get('status') != g['status']:
+        probs.append(f"recorded gate {pg.get('status')!r} != re-count {g['status']!r}")
+    so = ds.get('schedule_original') if isinstance(ds.get('schedule_original'), dict) else {}
+    tc = bc.dl_band_counts(tgt, labs)
+    if so and any(int(so.get(l) or 0) != tc.get(l, 0) for l in labs):
+        probs.append(f'target plan counts {tc} != schedule_original {so}')
+    line = (f"delivered {g['counts_final']} vs target {g['counts_original']}"
+            + (f"; DR3 (disclosed) Q{', Q'.join(str(q) for q in g['accepted_dr3'][:12])}" if g['accepted_dr3'] else '')
+            + (f"; unmeasured Q{', Q'.join(str(q) for q in g['unmeasured'][:12])}" if g['unmeasured'] else ''))
+    if probs:
+        _warn('A-DIFFGATE', 'ADVISORY — ' + '; '.join(probs) + ' — ' + line)
+    else:
+        _ok('A-DIFFGATE', f'paper difficulty gate PASS — {line}.')
 
 
 def gate_figformat(src):
@@ -12887,6 +12948,40 @@ def self_test():
     check('v237-check8-mixed-rules',
           _bc37.verify_difficulty_obs('Medium', _o8r2, _QL37)[0] and _bc37.verify_difficulty_obs('Easy', _o8r1, _QL37)[0]
           and not _bc37.verify_difficulty_obs('Easy', _o8r2, _QL37)[0])
+    # ---- v2.38 (GAP-2026-11-07): A-CONTENTLEVEL v5.94 decisions + A-DIFFGATE ----
+    _cm38 = {'1': {'difficulty': 'Hard', 'difficulty_check': {'decision': 'carried_below', 'final_band': 'Hard'}},
+             '2': {'difficulty': 'Medium', 'difficulty_check': {'decision': 'dl_dr3', 'final_band': 'Medium', 'dl_rung': 'DR3'}},
+             '3': {'difficulty': 'Hard', 'difficulty_check': {'decision': 'dl_agree', 'final_band': 'Hard'}}}
+    _reset(); gate_contentlevel({'concept_map': _cm38})
+    check('v238-A-CONTENTLEVEL-accepts-dl-decisions', [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['OK'])
+    _reset(); gate_contentlevel({'concept_map': {'1': {'difficulty': 'Hard', 'difficulty_check': {'decision': 'dl_dr3', 'final_band': 'Medium'}}}})
+    check('v238-A-CONTENTLEVEL-dr3-label-must-follow', [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['FAIL'])
+    _qs38 = [dict(_cm38[k], q=int(k)) for k in _cm38]
+    _pg38 = {'status': 'PASS', 'target_plan': {'1': 'Hard', '2': 'Hard', '3': 'Hard'}, 'labels': ['Easy', 'Medium', 'Hard']}
+    _reg38 = {'question_index': [{'paper_id': 'MOCK:M01', 'mock': 1, 'questions': _qs38,
+                                  'difficulty_state': {'paper_gate': _pg38, 'schedule_original': {'Easy': 0, 'Medium': 0, 'Hard': 3}}}]}
+    _reset(); gate_diffgate({'registry': _reg38, 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v238-A-DIFFGATE-pass-with-dr3', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] == ['OK']
+          and 'DR3' in _msg('A-DIFFGATE') and 'Q2' in _msg('A-DIFFGATE'))
+    _qs38b = [dict(q) for q in _qs38]
+    _qs38b[1] = {'q': 2, 'difficulty': 'Medium', 'difficulty_check': {'decision': 'agree', 'final_band': 'Medium'}}
+    _reg38b = {'question_index': [dict(_reg38['question_index'][0], questions=_qs38b)]}
+    _reset(); gate_diffgate({'registry': _reg38b, 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v238-A-DIFFGATE-warns-below-without-dr3', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] == ['WARN']
+          and 'Q2' in _msg('A-DIFFGATE') and 'recorded gate' in _msg('A-DIFFGATE'))
+    _reg38c = {'question_index': [dict(_reg38['question_index'][0],
+                                       difficulty_state={'paper_gate': _pg38, 'schedule_original': {'Easy': 1, 'Medium': 0, 'Hard': 2}})]}
+    _reset(); gate_diffgate({'registry': _reg38c, 'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v238-A-DIFFGATE-warns-target-counts-moved', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] == ['WARN']
+          and 'schedule_original' in _msg('A-DIFFGATE'))
+    _reset(); gate_diffgate({'registry': {'question_index': [{'paper_id': 'MOCK:M01', 'mock': 1, 'questions': []}]},
+                             'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v238-A-DIFFGATE-dormant-without-record', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] == ['OK']
+          and 'dormant' in _msg('A-DIFFGATE'))
+    _reset(); gate_diffgate({'registry': {'question_index': [{'paper_id': 'MOCK:M01', 'mock': 1, 'questions': 'x',
+                                                              'difficulty_state': {'paper_gate': {'target_plan': {'1': 7}}}}]},
+                             'concept_map': 5, '_mockN': 1, 'paper_id': 'MOCK:M01'})
+    check('v238-A-DIFFGATE-hostile-input-never-raises', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] in (['OK'], ['WARN']))
     _reset()
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total

@@ -1,19 +1,26 @@
-# Framework_MockTestCreate v5.93
-# v5.93 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (owner decision OD-2026-11-06;
-#   paired with NEW Framework_MockTestOrchestrate v1.0.0, NEW SESSION_BUDGET.json, the bootstrap.py
-#   read / retention / staging / worker commands and the spec_sections.py read plan). Measured
-#   2026-11-06 (SESSION_BUDGET.json _measured): a context that keeps growing is summarised by the
-#   platform without notice, after which a session works from a summary of this spec; a tool result
-#   of about 40,000 characters or more is diverted to a file the session cannot read back whole.
-#   WHAT CHANGES HERE. NEW S1-0R: the read method (bootstrap --read K, at most 300 lines per call),
-#   READ-RETENTION at four points, RUN MODE (Step 7 runs ORCHESTRATED: the WORKER MODE delivery
-#   proxy and review hand-over are defined in Framework_MockTestOrchestrate.md and bind this spec's
-#   present_files sites and S13-2G phase 2) and INPUT STAGING (bootstrap.py --stage-inputs satisfies
-#   this spec's /mnt/project and /mnt/user-data/uploads paths on every surface); S1-0's read advice
-#   now points to S1-0R. S13-2G phase 2 gains one WORKER MODE paragraph; S4-7 STEP E, S13-8 and
-#   S13-9A gain one pointer line each. Superseded entries v5.54.1-v5.92 moved verbatim to
-#   SPEC_HISTORY.md (EC-P42). STEP_CONTRACTS override floor raised to 5.93 (owner rule D8).
-#   No question-writing rule, gate, artefact, deliverable, end state or user action changed.
+# Framework_MockTestCreate v5.94
+# v5.94 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07 D1 (b),
+#   D2 relative, D3, D4, D5, D6, Q1 (c), Q4, Q5 and 2026-11-08 (a); paired with blueprint_core v1.33,
+#   MockTestAnalyse v2.61.0, MockReview v2.1.0, analyse_engine v1.4). Measured 2026-11-07: a
+#   post-graduate organic paper was scheduled Hard 28 and shipped with the blind reviewer grading it
+#   Hard 9; the reviewer's verdict was recorded as a note and never acted on, and nothing counted the
+#   delivered paper against the ORIGINAL schedule. WHAT CHANGES HERE (every exam unless marked):
+#   NEW S3-8L builds the organic decision-load ruler (L2; organic subtopics only, owner Q4) from the
+#   exam's OWN past papers (shares: the Step-5 blind grades of the SAME profile, else the registry
+#   cache, else the blueprint's measured shares — printed), freezes it for the series, and derives the
+#   pattern cards; S3-15L (from the final plan) fixes the target plan and gives each organic slot a
+#   pattern source (never a past question, D6);
+#   CHECK 3c gains (b0) (the L2 band is the organic item's content evidence; L1 is informational for
+#   it) and ONE generic rule: a slot measured BELOW its band is re-authored (DR1 next pattern source,
+#   DR2 band-target brief, inside the one G-DIFF budget) and then CARRIED TO REVIEW at its band
+#   (decision 'carried_below') instead of the R5 easier relabel; the band-swap escape also updates the
+#   TARGET plan (batch_state 'difficulty_plan_target', count-neutral). S13-2G phase 1 gives the
+#   reviewer the concept vocabulary; phase 3 replaces DL-52 with bc.dl_phase3_decision (reviewer band
+#   when anchored, the in-batch measured band, the L2 ruler on the lower of author / reviewer
+#   concepts): round 1 BELOW -> a repair, round 2 BELOW -> DR3, the only relabel, disclosed. NEW S13-2L
+#   counts the paper against the target plan (bc.difficulty_paper_gate). S13-4 caches the blind
+#   grades in the registry; S13-6 prints bc.difficulty_layer_lines. Nothing here stops (C1); no
+#   certificate effect (C2); no new user action (C4). Entry v5.93 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -2229,6 +2236,98 @@ action: the same paper, the same two files, the same "continue".
   resolves to exactly one section_rules block via sr_block_for_id(). The old
   name-based mismatch list is gone — joins are exact by construction.
 
+## S3-8L — ORGANIC DECISION-LOAD RULER (v5.94 — GAP-2026-11-07; owner D1 (b), D2, D3, D4, D5, D6, Q1 (c), Q4)
+
+  Runs after S3-8 (it needs MANIFEST_IDS and `reg` from S3-4) on EVERY exam (the TARGET plan and
+  the pattern sources are drawn later, at S3-15L, from the FINAL plan — after S3-12e has placed the
+  top-band slots). The organic ruler L2 — built ONLY when the paper has a subtopic the exam's
+  taxonomy files under organic chemistry (bc.l2_scope_ids over the manifest; owner Q4: every other
+  subject keeps the generic layer only, and this block then leaves L2_MODEL None). The level of
+  difficulty comes from the exam's OWN past papers, never from the exam's type or degree (D5): the
+  pool is the profile window, the band SHARES are the Step-5 BLIND GRADES of the SAME profile
+  (exemplar bank, S3-2e; sha256-checked), else the registry's cached grades for that sha256, else
+  the blueprint's measured shares — the source is printed. Within a series the cut-offs are FROZEN
+  (D2): a later paper on the same scope, profile and vocabulary reuses the frozen model, unless
+  blind grades now exist and the frozen model had none. Never a stop.
+
+  ```python
+  # ── S3-8L (v5.94) ──
+  import hashlib as _h_l2, json as _json_l2, os as _os_l2
+  import blueprint_core as bc
+  _bs_l2_path = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _bs_l2 = {}
+  if _os_l2.path.exists(_bs_l2_path):
+      try:
+          _bs_l2 = _json_l2.load(open(_bs_l2_path, encoding='utf-8')) or {}
+      except (OSError, ValueError):
+          _bs_l2 = {}
+  _same_paper_l2 = bool(_bs_l2) and _bs_l2.get('paper_id') == (globals().get('_pid_dp') or paper_id)
+  L2_MODEL, L2_CARDS, L2_ORGANIC_IDS, L2_SCOPE_IDS = None, [], [], []
+  L2_PYQ_GRADES_RECORD = None                     # S13-4 caches it in the registry (fresh bank grades only)
+  _dp_l2 = globals().get('DIFFICULTY_PROFILE')
+  if globals().get('difficulty_plan') and isinstance(_dp_l2, dict):
+      L2_ORGANIC_IDS = bc.l2_scope_ids(MANIFEST_IDS)
+      _org_set = set(L2_ORGANIC_IDS)
+      L2_SCOPE_IDS = sorted({str(x.get('subtopic_id')) for x in subtopic_list
+                             if str(x.get('subtopic_id')) in _org_set})
+  if L2_SCOPE_IDS:
+      try:
+          _sha_l2 = _h_l2.sha256(open(f'/mnt/project/{EXAM}_difficulty_profile.json', 'rb').read()).hexdigest()
+      except OSError:
+          _sha_l2 = None
+      _g_l2, _gst_l2 = bc.bank_pyq_grades(globals().get('EXEMPLAR_BANK') or {}, _sha_l2, difficulty_labels)
+      _gsrc_l2 = 'Step-5 blind grades (exemplar bank)' if _g_l2 else None
+      if _g_l2:
+          L2_PYQ_GRADES_RECORD = bc.pyq_grades_record(_sha_l2, difficulty_labels, _g_l2, source='step5-blind')
+      else:
+          _g_l2 = bc.pyq_grades_from_registry(reg, _sha_l2, difficulty_labels)
+          _gsrc_l2 = 'blind grades cached in the registry' if _g_l2 else None
+      if _gst_l2 == 'stale':
+          print("S3-8L: the attached exemplar bank was built from an OLDER difficulty profile — its grades "
+                "are not used (re-run MockTestAnalyse to grade the current profile; informational).")
+      _ds_l2 = bp.get('difficulty_source') if isinstance(bp.get('difficulty_source'), dict) else {}
+      _lmi_l2 = bp.get('level_model_inputs') if isinstance(bp.get('level_model_inputs'), dict) else {}
+      _mp_l2 = _lmi_l2.get('measured_pct') if _lmi_l2 else _ds_l2.get('measured_pct')
+      _gap_l2 = (globals().get('PROFILE_CFG') or {}).get('cycle_gap_days')
+      # series freeze: this paper's resumed state first, then the latest committed paper of the series
+      _prev_l2 = (_bs_l2.get('difficulty_state') or {}).get('l2_model') if _same_paper_l2 else None
+      if not isinstance(_prev_l2, dict):
+          for _qe_l2 in reversed(reg.get('question_index') or []):
+              _c_l2 = ((_qe_l2 or {}).get('difficulty_state') or {}).get('l2_model') if isinstance(_qe_l2, dict) else None
+              if isinstance(_c_l2, dict) and _c_l2.get('frozen'):
+                  _prev_l2 = _c_l2
+                  break
+      _fz = (_prev_l2 or {}).get('frozen') if isinstance(_prev_l2, dict) else None
+      _reuse = (isinstance(_fz, dict) and _prev_l2.get('profile_sha256') == _sha_l2
+                and sorted((_fz.get('inputs') or {}).get('subtopic_ids') or []) == L2_SCOPE_IDS
+                and (_fz.get('shares_source') == 'pyq_grades' or not _g_l2))
+      L2_MODEL = bc.l2_model_from_frozen(_fz) if _reuse else None
+      if L2_MODEL:
+          print(f"S3-8L: L2 ruler REUSED from the series (frozen cut-offs {L2_MODEL.get('cuts_list')}, "
+                f"shares from {L2_MODEL.get('shares_source')}) — identical scoring across the series.")
+      else:
+          L2_MODEL = bc.l2_model_for_scope(_dp_l2, L2_SCOPE_IDS, difficulty_labels,
+                                           pyq_grades=_g_l2 or None, measured_pct=_mp_l2,
+                                           gap_days=_gap_l2, organic_ids=L2_ORGANIC_IDS)
+      L2_CARDS = bc.l2_cards(_dp_l2, L2_MODEL, difficulty_labels, gap_days=_gap_l2)
+      DIFFICULTY_STATE['l2_model'] = {
+          'active': bool(L2_MODEL.get('active')), 'binding': bool(L2_MODEL.get('binding')), 'mode': L2_MODEL.get('mode'),
+          'n': L2_MODEL.get('n'), 'reason': L2_MODEL.get('reason'), 'shares_source': L2_MODEL.get('shares_source'),
+          'grades_source': _gsrc_l2 or ('blueprint measured shares' if _mp_l2 else None),
+          'vocab_coverage': L2_MODEL.get('vocab_coverage'), 'scope_ids': list(L2_SCOPE_IDS),
+          'profile_sha256': _sha_l2, 'frozen': bc.l2_frozen(L2_MODEL)}
+      _sup_l2 = bc.l2_hard_supply(L2_CARDS, difficulty_labels)
+      if L2_MODEL.get('active'):
+          print(f"S3-8L: L2 ruler {'BINDING' if L2_MODEL.get('binding') else 'ADVISORY (concept coverage below floor)'} — "
+                f"{len(L2_SCOPE_IDS)} organic subtopic(s), pool n={L2_MODEL.get('n')}, shares from "
+                f"{L2_MODEL.get('shares_source')} ({DIFFICULTY_STATE['l2_model']['grades_source'] or 'stored bands'}); "
+                f"pattern cards by band {_sup_l2}")
+      else:
+          print(f"S3-8L: L2 ruler DORMANT — {L2_MODEL.get('reason')}; organic items use the generic layer")
+  elif L2_ORGANIC_IDS or globals().get('difficulty_plan'):
+      print("S3-8L: no organic subtopic in this paper's scope — generic difficulty layer only (owner Q4).")
+  ```
+
 ## S3-9 — Section allocation sum verification
 
   ```python
@@ -3044,6 +3143,54 @@ action: the same paper, the same two files, the same "continue".
 
   Build from subtopic_list[] and dedup_partition. Register all linked groups.
 
+## S3-15L — THE TARGET PLAN + THE PATTERN SOURCE OF EVERY ORGANIC SLOT (v5.94 — GAP-2026-11-07; owner D1 (b), D6)
+
+  Runs on EVERY exam right before S3-16 writes batch_state — AFTER S3-12b/S3-12e have placed every
+  band, so both products describe the FINAL plan (release review 2026-11-08: drawn earlier they
+  described a plan S3-12e then rearranged).
+  (1) DIFFICULTY_PLAN_TARGET — the slot bands the paper is measured against at the end (S13-2L,
+  S13-2G phase 3): the plan as built; only a count-neutral BAND-SWAP (CHECK 3c) ever changes it; a
+  resume of the SAME paper restores it (same slots, same band counts).
+  (2) L2_SOURCES — when L2_MODEL is active, each slot whose subtopic is in L2_SCOPE_IDS gets ONE
+  pattern source, drawn deterministically (bc.l2_slot_source, seed bc.brief_seed): an unused
+  pattern card of the slot's band (cascade subtopic -> topic -> family -> any) or, when none exists,
+  an unused vocabulary concept at the band's load floor. A card is a model of WHAT MUST BE DECIDED
+  (concept chain, ask type, distractor relations, stereo kind) — it carries no stem, substrate,
+  SMILES, key or source number: the author writes a NEW question on a NEW substrate (CHECK 3c (b0)).
+  A saved source is reused on resume only for the same slot band.
+  ```python
+  # ── S3-15L (v5.94) ──
+  import hashlib as _hl_src
+  DIFFICULTY_PLAN_TARGET = None
+  if globals().get('difficulty_plan'):
+      _saved_t = _bs_l2.get('difficulty_plan_target') if _same_paper_l2 else None
+      _fresh_t = {str(q): b for q, b in difficulty_plan.items()}
+      DIFFICULTY_PLAN_TARGET = (dict(_saved_t) if isinstance(_saved_t, dict) and set(_saved_t) == set(_fresh_t)
+                                and bc.dl_band_counts(_saved_t, difficulty_labels)
+                                == bc.dl_band_counts(_fresh_t, difficulty_labels) else _fresh_t)
+  L2_SOURCES = {}
+  if L2_MODEL and L2_MODEL.get('active') and difficulty_plan:
+      _saved_src = (_bs_l2.get('l2_sources') if _same_paper_l2 else None) or {}
+      _corp_src = _hl_src.sha256(SECTION_RULES_TEXT.encode('utf-8')).hexdigest()
+      _used_src = set()
+      for _q_src in sorted(difficulty_plan):
+          _sid_src = str(subtopic_by_qnum.get(_q_src) or '')
+          if _sid_src not in L2_SCOPE_IDS:
+              continue
+          _s = _saved_src.get(str(_q_src)) if isinstance(_saved_src.get(str(_q_src)), dict) else None
+          if _s is None or _s.get('band') != difficulty_plan[_q_src]:
+              _s = dict(bc.l2_slot_source(L2_CARDS, difficulty_plan[_q_src], _sid_src, used=tuple(sorted(_used_src)),
+                                          seed=bc.brief_seed(EXAM, paper_id, _corp_src, _q_src)),
+                        band=difficulty_plan[_q_src])
+          if _s.get('ref'):
+              _used_src.add(str(_s['ref']))
+          L2_SOURCES[str(_q_src)] = _s
+      print(f"S3-15L: pattern sources for {len(L2_SOURCES)} organic slot(s): "
+            f"{sum(1 for s in L2_SOURCES.values() if s.get('kind') == 'card')} card(s), "
+            f"{sum(1 for s in L2_SOURCES.values() if s.get('kind') == 'concept')} concept(s), "
+            f"{sum(1 for s in L2_SOURCES.values() if s.get('kind') == 'none')} without a source")
+  ```
+
 ## S3-16 — Build batch plan → write batch_state.json
 
   ```python
@@ -3120,6 +3267,10 @@ action: the same paper, the same two files, the same "continue".
       # in-run amendment — committed with difficulty_state (S13-4) so A-PYQBENCH prints
       # original vs final (DL-51). Every paper with a plan; {} when the plan is dormant.
       'difficulty_labels': list(difficulty_labels),   # v5.92: read by S13-2G phase 3 (resume-safe)
+      # v5.94 (GAP-2026-11-07): the TARGET plan S13-2L counts the paper against (only a
+      # count-neutral band swap changes it) and each organic slot's pattern source (S3-15L).
+      'difficulty_plan_target': (dict(DIFFICULTY_PLAN_TARGET) if globals().get('DIFFICULTY_PLAN_TARGET') else None),
+      'l2_sources': dict(globals().get('L2_SOURCES') or {}),
       'difficulty_state': dict(DIFFICULTY_STATE, schedule_original=(
           {l: sum(1 for v in difficulty_plan.values() if v == l) for l in difficulty_labels}
           if difficulty_plan else {})),
@@ -4422,12 +4573,16 @@ action: the same paper, the same two files, the same "continue".
         verdicts.json into EVERY part folder (one record covers the whole paper) and run
         PHASE 3 — no reviewer is started. With no matching file: run S13-2G from PHASE 1
         (the internal review). Never ask for a file.
+    v5.94: 'REVIEWED' with a non-empty batch_state['paper_gate_rework'] -> continue S13-2L's rework
+        pass on those items (S13-2L), then S13-2L again; 'REVIEWED' while a difficulty plan exists
+        and batch_state['difficulty_state'] has no 'paper_gate' yet -> run S13-2L before S13-3; batch_state['review_dl_repair'] lists the
+        REVIEW_REPAIR items that are DIFFICULTY repairs (S13-2G REVIEW_REPAIR, DR1 then DR2).
     'REVIEW_REPAIR' -> the flagged items are being repaired; continue from §Q8b-LADDER on
         batch_state['review_defects'] (persisted by phase 3), SKIPPING every item already in
         batch_state['review_repaired'] (each repair appends its q there as soon as it is
         written — see S13-2G), then S13-2F, then S13-2G phase 1 with the WHOLE paper (round 2;
         the binding is per paper).
-    'REVIEWED' -> S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+    'REVIEWED' -> S13-2L (v5.94) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
         S13-8 / S13-9, in this same response.
     'DELIVERED' -> the paper is finished (S13-9): say so; generate and deliver nothing.
   Any other value (or none) -> if every batch of the plan is authored and the S3-1-resolved
@@ -5254,6 +5409,33 @@ action: the same paper, the same two files, the same "continue".
               `agree`, the item's difficulty_check gains level_note 'unverified' and
               q is appended to DIFFICULTY_STATE['judge_dormant_qs'] (the footer's
               AMBER line, S13-6). Never a stop (OD-1).
+          (b0) ORGANIC DECISION-LOAD RULER — L2 ITEM (v5.94, GAP-2026-11-07; owner D1 (b), D3,
+              D4, D6). An L2 ITEM is one whose subtopic_id is in L2_SCOPE_IDS while L2_MODEL
+              (S3-8L) is active. AUTHOR FROM THE PATTERN, NEVER FROM A PAST QUESTION (D6): the
+              slot's source is L2_SOURCES[str(q)] (S3-15L) — a pattern card names WHAT must be
+              decided (concept chain with loads, ask type, distractor relations, stereo kind);
+              a concept source names the one concept the item must turn on. Write a NEW
+              substrate and a NEW question whose solution genuinely needs that decision load;
+              a top-band slot is a chain of high-load decisions with close distractors, never a
+              bigger molecule. While deriving the answer RECORD on difficulty_obs (the same
+              keys the exam's own past questions carry — one ruler for both, D3):
+                'named_concepts': [labels SELECTED from bc.l2_vocabulary() — every concept the
+                                   solution uses, none it does not; 'other:<text>' for one
+                                   outside the vocabulary],
+                'stereo_decl':    'none' | 'relative' | 'absolute' (what the ANSWER must state),
+                'ask_type':       the figural ask type (S7-QUALITY), 'reagents_seen' (b1 input),
+                'closeness':      bc.option_closeness(option_smiles, key_smiles) (None w/o RDKit),
+                'distractor_mechanisms': the item's quality-record list (one token per wrong
+                                   option; an isomer token on a non-isomer option is not counted).
+              G-L2CARDCOPY: bc.l2_copy_check(key_smiles, DIFFICULTY_PROFILE) True -> the key is a
+              past question's answer: REJECT and re-author on a new substrate (R2; None = dormant,
+              printed once). Then l2 = bc.l2_record(difficulty_obs, L2_MODEL, difficulty_labels,
+              qtype); difficulty_obs['l2'] = l2. When L2_MODEL is BINDING, l2['band'] is this
+              item's CONTENT EVIDENCE: the (b1) level record is still computed and recorded
+              (informational — L1 measures size, not decision load) but does not decide; when
+              ADVISORY, l2 is recorded and (b1)/(b2) decide as before. An item whose
+              named_concepts list is empty has NO ruler band (l2['band'] None — never the
+              bottom band); the other controls decide.
           (b) CONTENT LEVEL — every content kind whose figure_types.QUALITY_ROWS
               row names a complexity_vector (chemistry: bc.content_vector; a kind
               with None -> N/A(listed), the judge alone decides). FIRST (v5.92, both
@@ -5302,11 +5484,34 @@ action: the same paper, the same two files, the same "continue".
                   this path and the paper gets the AMBER `DIFFICULTY UNVERIFIED` line
                   (S13-6) — measured honestly as far as the inputs allow, never silent.
           DECISION:
+            v5.94 — THE MEASURED BAND (owner D1 (b), every exam): measured = the LOWEST band of
+              the independent controls (bc.difficulty_band_min): the judge's rated_band (NOT when
+              the judge was dormant) and the content evidence — an L2 item under a binding model:
+              l2['band']; a level item: lc['record']['band']; any other item: the (b2) floor band
+              when it says 'below'. The author's counts are never a control. Record it as
+              difficulty_check['measured'] (S13-2G phase 3 reads it). measured == scheduled ->
+              'agree'; ABOVE -> the 'harder' path below, unchanged; BELOW -> THE DL REPAIR, which
+              REPLACES the R5 easier relabel: r = bc.difficulty_repair_step(target band,
+              measured, difficulty_labels, rung, tries, sources_tried, has_source) inside the ONE
+              G-DIFF budget — 'reauthor' (DR1): write the item again from the NEXT pattern source
+              (L2 item: bc.l2_slot_source(..., skip=k); any other item: the next exemplar of the
+              cell); 'reauthor_target' (DR2): the band-target brief (the band's profile and its
+              exemplars side by side). When the budget is spent and the band-swap escape finds no
+              partner: CARRY TO REVIEW — accept at the SCHEDULED band with decision
+              'carried_below' (final_band = scheduled, the label stays the slot's band); S13-2G
+              phase 3 repairs it once more and only round 2 may accept it lower (DR3, disclosed);
+              an item re-authored after the review (S13-2L rework) that still measures below is
+              counted below by S13-2L and, after its passes, accepted at its measured band (DR3).
+              Rungs and counters persist in batch_state['_diff_tries'] ('<q>:dr1' sources tried,
+              '<q>:dr2' tries). PERSIST difficulty_state by MERGING (stored.update(DIFFICULTY_STATE)),
+              never by replacing it: S13-2G phase 3 and S13-2L add dr3_qs / hard_missed / paper_gate
+              to the stored record.
             LEVEL ITEM (b1) — the level record and the independent rating decide:
               lc 'ok' and rated_band == scheduled -> 'agree', ACCEPT at the scheduled
               band; r = bc.reconcile_difficulty(difficulty_plan[q], None, None,
               labels=difficulty_labels) is the recorded decision record.
-              lc 'below' -> ladder reason 'easier' (A-CONTENTLEVEL); lc 'above' ->
+              lc 'below' -> ladder reason 'easier' (A-CONTENTLEVEL; v5.94: = THE DL REPAIR
+              above, ending in carry-to-review — never a relabel); lc 'above' ->
               reason 'harder'. Owner D11 (A): lc 'ok' on a TOP-band slot but rated_band
               BELOW it -> rl = bc.reconcile_level(difficulty_plan[q], lc['status'],
               rated_band, difficulty_labels, diff_tries.get(str(q), 0)); rl['retry']
@@ -5314,16 +5519,22 @@ action: the same paper, the same two files, the same "continue".
               (g_diff_gate marks diff_tries['<q>:d11']; reason rl['reason'] in the
               escalating brief); on the next pass, or when the budget is already spent,
               -> ACCEPT at the scheduled band with difficulty_check.level_note 'judge
-              below level' — never a second budget, never a stop. At R5,
-              bc.ladder_terminal_accept(scheduled, lc['record']['band']) accepts at
+              below level' — never a second budget, never a stop. v5.94: SUPERSEDED for the
+              decision — the judge's rated_band is a control of THE MEASURED BAND, so a judge
+              below the slot takes THE DL REPAIR and, if it persists, carry-to-review (the
+              G-DIFF ACCEPT above only means the counts support the band). At R5,
+              bc.ladder_terminal_accept(scheduled, lc['record']['band']) (v5.94: for a level band
+              ABOVE the slot only — BELOW never reaches R5) accepts at
               the LEVEL band (D3-R5 (A)).
-            OTHER ITEM (b2) — v5.90 unchanged: the band is bc.final_band_decision(
+            OTHER ITEM (b2) — v5.90 unchanged (v5.94: a band it gives BELOW the slot is THE
+              MEASURED BAND's DL repair / carry-to-review, never the label): the band is bc.final_band_decision(
               rated_band, ccp['status'] if ccp else None, ccp['ccp_band'] if ccp
               else None, difficulty_labels) — rated unless the floor says 'below',
               then the lower of the two; the author's counts never raise it;
               r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
               ccp['status'] if ccp else None, labels=difficulty_labels). At R5,
-              bc.ladder_terminal_accept(scheduled, measured) accepts at the measured
+              bc.ladder_terminal_accept(scheduled, measured) (v5.94: for a measured band ABOVE
+              the slot only — BELOW never reaches R5) accepts at the measured
               band.
           In BOTH paths: 'agree' -> ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER
           with reason r['reason'] ('harder' / 'easier'; A-DIFFRATING /
@@ -5343,7 +5554,8 @@ action: the same paper, the same two files, the same "continue".
           RECORD on the item (write_q_to_sidecar -> concept_map -> registry
           question_index): difficulty_check = {'scheduled', 'rated', 'rationale',
           'ccp_status', 'ccp_composite', 'decision', 'final_band', 'judge_input_sha256',
-          'level_status' (b1: lc['status']; b2: None), 'level_note' (optional)}; the
+          'level_status' (b1: lc['status']; b2: None), 'level_note' (optional),
+          'measured', 'measured_source' (v5.94), 'dl_rung' (v5.94, when a DL rung ran)}; the
           item's difficulty label IS final_band. A level item's difficulty_obs additionally
           carries level, level_vector, closeness and reagents_seen, and its quality record
           ask_format (v5.92; read by A-LEVEL / A-CLOSENESS / A-AXIS2 — WARN-only — and
@@ -5365,10 +5577,16 @@ action: the same paper, the same two files, the same "continue".
             slot q' exists in the SAME section with difficulty_plan[q'] ==
             measured and difficulty_min_band allows this slot's band at q',
             swap the two plan entries (quota unchanged, floors re-checked) and
-            accept; update batch_state['difficulty_plan'] AND set this item's
+            accept; v5.94: swap the SAME two entries of the target plan
+            (DIFFICULTY_PLAN_TARGET = bc.dl_target_plan_swap(DIFFICULTY_PLAN_TARGET, q, q'),
+            persisted as batch_state['difficulty_plan_target'] in the same write — the
+            counts never change); update batch_state['difficulty_plan'] AND set this item's
             difficulty_check.final_band (and decision 'agree') to its swapped band —
             A-CONTENTLEVEL requires label == final_band. Otherwise the slot
-            enters the REPAIR LADDER (§Q8b-LADDER) with reason 'harder'/'easier':
+            enters the REPAIR LADDER (§Q8b-LADDER) with reason 'harder'/'easier' —
+            v5.94: reason 'easier' (measured BELOW) is the DL repair above and ends in
+            CARRY TO REVIEW, never in R5's accept-at-measured; the ladder below runs
+            for 'harder' and for every non-difficulty reason:
             R2 (regenerate, same subtopic/band/ask type) -> R3 (next under-target
             ask type) -> R4/R4' (terminal) -> R5: ACCEPT AT THE MEASURED BAND and
             amend the IN-RUN blueprint in place with
@@ -5380,7 +5598,8 @@ action: the same paper, the same two files, the same "continue".
             The label then MATCHES its evidence, so the rule "never accept a
             question whose label its own evidence contradicts" still holds, and
             the run never stops for it. v5.92 (owner D3-R5 (a)): when the slot
-            was the TOP band and the measured band is lower, also
+            was the TOP band and the measured band is lower (v5.94: no longer reached here — a
+            lower band is carried to review; hard_missed is counted at DR3, S13-2G / S13-2L), also
             DIFFICULTY_STATE['hard_missed'] += 1 (persisted with batch_state) — the
             footer prints `Hard target missed: k item(s)` (S13-6); the count is
             disclosed, never hidden, and never a stop. batch_state's
@@ -5431,11 +5650,12 @@ action: the same paper, the same two files, the same "continue".
                     diff_tries[f'{q}:d11'] = 1
                     diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
                     return 'RETRY'
-                return 'ACCEPT'
+                return 'ACCEPT'     # v5.94: the COUNTS support the band; THE MEASURED BAND decides
+                                    # (a judge / ruler below the slot -> DL repair, then carry-to-review)
             diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
             if diff_tries[str(q)] < MAX_DIFF_TRIES:
                 return 'RETRY'          # regenerate toward `band`, per profile['note']
-            return 'SWAP_OR_LADDER'     # band-swap escape, else LADDER-REPAIR R5 [HS:LADDER] (rules above)
+            return 'SWAP_OR_LADDER'     # band-swap escape; else BELOW -> carry to review (v5.94), ABOVE -> ladder (rules above)
         ```
 
       Only when CHECK 1, 1b, 2, 3 all PASS:
@@ -8775,6 +8995,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | its by_section move one count; logged in difficulty_amendments[]).
         |    | A TOP-band slot accepted lower -> DIFFICULTY_STATE['hard_missed'] += 1
         |    | (footer `Hard target missed: k item(s)`, S13-6; D3-R5 (a)).
+        |    | v5.94: content level measured BELOW its slot never reaches R5 — it is
+        |    | carried to review (CHECK 3c); only S13-2G round 2 (DR3) accepts lower.
         |    | Render defect on ANY R4' figure (chemistry included), or a key never verified ->
         |    | REASSIGN the slot to another in-scope subtopic (same topic first,
         |    | largest allocation first, then same section) that keeps every
@@ -10508,7 +10730,12 @@ if AUDIT_AVAILABLE:
   _slice = {c: v for c, v in (_bank.get('cells') or {}).items()
             if any(c == str(_e.get('subtopic_id') or '') or str(_e.get('subtopic_id') or '').startswith(c + '.')
                    for _e in _kd.get('concept_map', {}).values())}
-  PACKET = bc.review_packet(_items, _slice, PAPER_MD5)
+  # v5.94: an organic paper's reviewer also names the concepts it USED, from the same
+  # vocabulary the author selected from (S13-2G phase 3 scores the lower of the two lists)
+  _l2_p1 = ((batch_state.get('difficulty_state') or {}).get('l2_model') or {})
+  _l2_ids_p1 = set(_l2_p1.get('scope_ids') or []) if _l2_p1.get('active') else set()
+  _vocab_p1 = (bc.l2_vocabulary() if any(str(_it.get('subtopic_id')) in _l2_ids_p1 for _it in _items) else None)
+  PACKET = bc.review_packet(_items, _slice, PAPER_MD5, concept_vocabulary=_vocab_p1)
   REVIEW_ROUND = int(batch_state.get('review_round', 0)) + 1
   # INTERNAL ONLY (GAP-2026-11-04 A2): never /mnt/user-data/outputs, never present_files.
   REVIEW_DIR = f'/home/claude/{EXAM}_M{N}_review/round{REVIEW_ROUND}'
@@ -10632,44 +10859,95 @@ if AUDIT_AVAILABLE:
   _bind = bc.bind_review_verdicts(VERDICTS, _md5, len(VERDICTS.get('items') or {}))
   if not _bind['ok']:
       print(f"S13-2G phase 3: binding notes {_bind['problems']} (recorded; never a stop).")
-  # v5.92 (GAP-2026-11-05 DL-52): the reviewer's difficulty_band_with_exemplar HAS a consumer.
-  # It is compared with the slot's scheduled band (difficulty_plan — the reviewer never saw
-  # it, handshake H6). "below" on a TOP-band slot in round 1 is a REVIEW DEFECT (an R2 repair
-  # inside the item's existing G-DIFF budget — one budget, D11); in round 2, or when the
-  # budget is spent, the residue is recorded as difficulty_check.level_note 'reviewer below
-  # slot' — never a stop, no certification effect (OD-9 applies only to the A-REVIEW stamps).
+  # v5.94 (GAP-2026-11-07 DL1; owner D1 (b), every exam) — THE difficulty decision of the review,
+  # replacing DL-52 (which wrote a BELOW verdict as level_note 'reviewer below slot' and shipped it).
+  # Per item, bc.dl_phase3_decision(target band, ...) with the controls the author does not hold:
+  # the reviewer's band (only when it cites an exemplar), the in-batch measured band (CHECK 3c
+  # difficulty_check['measured']), and for an organic item under a binding L2 model the ruler
+  # re-measured on the LOWER-scoring of the author's and the reviewer's concept lists. Round 1
+  # BELOW -> a review defect repaired at DR1 (REVIEW_REPAIR); round 2 BELOW -> DR3, the only
+  # relabel, disclosed (S13-6 / footer). The slot band compared is the TARGET plan (S3-8L).
   _plan_p3 = {str(k): v for k, v in (batch_state.get('difficulty_plan') or {}).items()}
+  _tgt_p3 = {str(k): v for k, v in (batch_state.get('difficulty_plan_target')
+                                    or batch_state.get('difficulty_plan') or {}).items()}
   # the exam's labels persist in batch_state (S3-16) — this block also runs as the S4-12 resume
-  # entry, where no blueprint is loaded; the brief's canonical words map POSITIONALLY
+  # entry, where no blueprint is loaded
   _labs_p3 = list(batch_state.get('difficulty_labels')
                   or ((globals().get('bp') or {}).get('difficulty_labels') if isinstance(globals().get('bp'), dict) else None)
                   or ['Easy', 'Medium', 'Hard'])      # a pre-v5.92 batch_state has no labels key
-  _canon_p3 = dict(zip(['easy', 'medium', 'hard'], _labs_p3)) if len(_labs_p3) == 3 else {}
-  _below_p3 = []
-  for _qn, _rec in (VERDICTS.get('items') or {}).items():
-      if not isinstance(_rec, dict) or str(_qn) not in _plan_p3:
+  _ds_p3 = batch_state.setdefault('difficulty_state', {})
+  _l2s_p3 = _ds_p3.get('l2_model') if isinstance(_ds_p3.get('l2_model'), dict) else {}
+  _l2m_p3 = bc.l2_model_from_frozen(_l2s_p3.get('frozen')) if _l2s_p3.get('frozen') else None
+  _l2ids_p3 = set(_l2s_p3.get('scope_ids') or [])
+  _rr_p3 = int(batch_state.get('review_round', 0))
+  _vi_p3 = {str(k): v for k, v in (VERDICTS.get('items') or {}).items() if isinstance(v, dict)}
+  _prev_rep_p3 = {str(x) for x in (batch_state.get('review_dl_repair') or [])}   # round 1's repairs
+  _dl_p3 = {'repair': [], 'dr3': [], 'above': [], 'unverified_l2': []}
+  for _qs in [str(x) for x in _expected]:
+      if _qs not in _tgt_p3:
           continue
-      _txt = str(_rec.get('difficulty_band_with_exemplar') or '').strip()
-      _rb = (next((l for l in _labs_p3 if _txt.lower().startswith(l.lower())), None)
-             or next((_canon_p3[w] for w in _canon_p3 if _txt.lower().startswith(w)), None))
-      _sb = _plan_p3[str(_qn)]
-      if _rb and _sb in _labs_p3 and _labs_p3.index(_rb) < _labs_p3.index(_sb):
-          _below_p3.append(str(_qn))
-          _cm_e = (_kd.get('concept_map') or {}).get(str(_qn)) or {}
-          _dc = _cm_e.get('difficulty_check') if isinstance(_cm_e.get('difficulty_check'), dict) else {}
-          _dc['reviewer_band'] = _rb
-          _tries_p3 = int((batch_state.get('_diff_tries') or {}).get(str(_qn), 0))
-          if (int(batch_state.get('review_round', 0)) < 1 and _sb == _labs_p3[-1]
-                  and _tries_p3 < bc.MAX_DIFF_TRIES_DEFAULT):
-              _bind['defects'] = sorted(set([str(x) for x in _bind['defects']] + [str(_qn)]), key=int)
-              batch_state.setdefault('_diff_tries', {})[str(_qn)] = _tries_p3 + 1
-          else:
-              _dc['level_note'] = 'reviewer below slot'
-          _kd['concept_map'].setdefault(str(_qn), {})['difficulty_check'] = _dc
-  if _below_p3:
-      print(f"S13-2G phase 3 (DL-52): reviewer placed {_below_p3} below their slot band — "
-            f"{sorted(set(_below_p3) & set(str(x) for x in _bind['defects']), key=int)} repaired at R2 "
-            "(same G-DIFF budget); the rest recorded as level_note 'reviewer below slot'.")
+      _cm_e = _kd['concept_map'].setdefault(_qs, {})
+      _dc = dict(_cm_e.get('difficulty_check')) if isinstance(_cm_e.get('difficulty_check'), dict) else {}
+      _obs = dict(_cm_e.get('difficulty_obs')) if isinstance(_cm_e.get('difficulty_obs'), dict) else {}
+      _obs.setdefault('distractor_mechanisms', _cm_e.get('distractor_mechanisms'))
+      _is_l2 = bool(_l2m_p3) and str(_cm_e.get('subtopic_id')) in _l2ids_p3
+      _qt = str(_cm_e.get('qtype') or _obs.get('qtype') or 'mcq')   # the sidecar entry carries qtype
+      _d = bc.dl_phase3_decision(_tgt_p3[_qs], _labs_p3, review_rec=_vi_p3.get(_qs), judge_band=_dc.get('measured'),
+                                 l2_model=_l2m_p3 if _is_l2 else None, l2_obs=_obs if _is_l2 else None,
+                                 review_round=_rr_p3, qtype=_qt)
+      if _is_l2 and _d.get('concepts_from') == 'author_unverified':
+          # the reviewer named no concepts: the author's list is not verified, so the ruler is not a
+          # control for this item (recorded); the reviewer / in-batch bands decide
+          _dl_p3['unverified_l2'].append(_qs)
+          _d = bc.dl_phase3_decision(_tgt_p3[_qs], _labs_p3, review_rec=_vi_p3.get(_qs), judge_band=_dc.get('measured'),
+                                     review_round=_rr_p3, qtype=_qt)
+      _dc.update({'review_decision': _d['action'], 'review_measured': _d['measured'],
+                  'review_controls': _d['controls'], 'reviewer_band': _d['reviewer_band'],
+                  'reviewer_anchored': _d['reviewer_anchored'], 'dl_rule': _d['rule']})
+      if isinstance(_d.get('l2'), dict):
+          _dc['l2_review'] = {'band': _d['l2'].get('band'), 'score': _d['l2'].get('score'),
+                              'concepts_from': _d.get('concepts_from')}
+      if _d['action'] == 'repair':
+          _dl_p3['repair'].append(_qs)
+          _dc['dl_rung'] = 'DR1'
+      elif _d['action'] == 'dr3' and _qs not in _prev_rep_p3:
+          # round 2 measured below an item round 1 never repaired: repair before relabel — it stays at its
+          # slot ('carried_below'); S13-2L counts it below and reworks it (DR1, DR2) before any DR3
+          _dl_p3.setdefault('to_rework', []).append(_qs)
+          _dc['decision'] = 'carried_below'
+      elif _d['action'] == 'dr3':
+          _dl_p3['dr3'].append(_qs)
+          _dc.update({'decision': 'dl_dr3', 'final_band': _d['final_band'], 'dl_rung': 'DR3'})
+          _cm_e['difficulty'] = _d['final_band']
+          _plan_p3[_qs] = _d['final_band']
+          _ds_p3['dr3_qs'] = sorted(set(_ds_p3.get('dr3_qs') or []) | {_qs}, key=int)
+          if _tgt_p3[_qs] == _labs_p3[-1]:
+              _ds_p3['hard_missed'] = int(_ds_p3.get('hard_missed', 0)) + 1
+          if isinstance(globals().get('DIFFICULTY_STATE'), dict):     # keep the in-memory copy in step (CHECK 3c merges it)
+              globals()['DIFFICULTY_STATE'].update({k: _ds_p3[k] for k in ('dr3_qs', 'hard_missed')})
+      else:
+          if _d['action'] == 'above':
+              _dl_p3['above'].append(_qs)
+          if _dc.get('decision') == 'carried_below':
+              _dc['decision'] = 'dl_agree'          # the review measured it at (or above) its slot
+          _lab = _cm_e.get('difficulty')
+          _m = _d.get('measured')
+          if (_lab in _labs_p3 and _m in _labs_p3 and _labs_p3.index(_m) < _labs_p3.index(_lab)
+                  and _lab != _tgt_p3[_qs]):
+              # an R5 'harder' label above its slot that the review measures lower: the label follows
+              # the evidence, never below the slot
+              _nb = _labs_p3[max(_labs_p3.index(_m), _labs_p3.index(_tgt_p3[_qs]))]
+              _cm_e['difficulty'], _plan_p3[_qs] = _nb, _nb
+              _dc.update({'final_band': _nb, 'decision': 'dl_agree'})
+      _cm_e['difficulty_check'] = _dc
+  _bind['defects'] = sorted(set(str(x) for x in _bind['defects']) | set(_dl_p3['repair']), key=int)
+  batch_state['difficulty_plan'] = _plan_p3
+  batch_state['review_dl_repair'] = list(_dl_p3['repair'])
+  if any(_dl_p3.values()):
+      print(f"S13-2G phase 3 (DL1): below their slot -> repair now {_dl_p3['repair']}; accepted lower after "
+            f"two rounds (DR3, disclosed) {_dl_p3['dr3']}; above their slot (label kept) {_dl_p3['above']}; "
+            f"organic items whose reviewer named no concepts (ruler not used) {_dl_p3['unverified_l2']}; "
+            f"below in round 2 but never repaired -> S13-2L rework {_dl_p3.get('to_rework', [])}.")
   for _qn, _rec in (VERDICTS.get('items') or {}).items():          # the verdict lives ON the item (§4.3)
       _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=_md5)
   for _qn in _missing:                                              # A5: NOT_RUN, a WARN in A-REVIEW
@@ -10712,19 +10990,101 @@ if AUDIT_AVAILABLE:
       batch_state['state'] = 'REVIEWED'
       print(f"S13-2G: REVIEWED — round {batch_state['review_round']}, "
             f"{len(_summ.get('repaired') or [])} item(s) repaired, {len(_summ['not_run'])} not run; "
-            "continuing to S13-3 / S13-4 in this response.")
+            "continuing to S13-2L / S13-3 / S13-4 in this response.")
   json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
   ```
   REVIEW_REPAIR -> repair the items in batch_state['review_defects'] NOW (same response); after
   EACH item's repair is written, append its q to batch_state['review_repaired'] and save
   batch_state (an interrupted response then never repeats a repair — S4-12); then S13-2F
   re-sweep, phase 1 again with the WHOLE paper (round 2), phase 2, phase 3.
-  REVIEWED -> S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+  v5.94 — A DIFFICULTY REPAIR (q in batch_state['review_dl_repair']): re-author the item at its
+  SLOT band (the target plan) through CHECK 3c — DR1 from the NEXT pattern source (an organic
+  item: bc.l2_slot_source(..., skip = sources already tried); any other item: the next exemplar of
+  its cell), then DR2's band-target brief if CHECK 3c still measures it below; the reviewer's
+  difficulty reason is the constraint. Never relabel here: the item returns as 'agree' or
+  'carried_below'; round 2's phase 3 decides (accept, or DR3 disclosed).
+  REVIEWED -> S13-2L (v5.94) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
   S13-8 in the SAME response. The S13-4c auditor's A-REVIEW reads the review record
   final_assembly committed on EVERY item (the auditor's effective concept map overlays the
   registry record — it needs no sidecar at S13-4c); an item stamped UNRESOLVED(A-REVIEW) is
   reconciled by the auditor to a WARN (OD-9), a NOT_RUN record is a WARN (A5) — never a FAIL.
   A verdict file the user happens to attach is NEVER required; S4-12 says when one is used.
+
+## S13-2L — PAPER DIFFICULTY GATE (v5.94 — GAP-2026-11-07; owner D1 (b), every exam)
+
+  Runs once S13-2G is REVIEWED, before S13-3 / S13-4, in the same response (and as the S4-12 entry
+  when batch_state['paper_gate_rework'] is non-empty). The delivered paper is counted against the
+  TARGET plan (the original schedule with only count-neutral swaps): every slot whose label sits
+  BELOW its target band is reworked — pass 1 at DR1, pass 2 at DR2 (bc.DL_REWORK_PASSES) — and only
+  then accepted at its measured band (DR3, disclosed). DR3 items from S13-2G are already disclosed
+  and pass. The gate record is written to batch_state['difficulty_state']['paper_gate'] (committed
+  with the registry, S13-4; printed by S13-6). Never a stop; no certificate effect.
+  ```python
+  # ── S13-2L (v5.94) ──
+  import json, blueprint_core as bc
+  _bs_l = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  _kd_l = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  _tgt_l = _bs_l.get('difficulty_plan_target') or _bs_l.get('difficulty_schedule_original')
+  if isinstance(_tgt_l, dict) and _tgt_l:
+      _labs_l = list(_bs_l.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+      _cm_l = _kd_l.get('concept_map') or {}
+      _ds_l = _bs_l.setdefault('difficulty_state', {})
+      def _gate_items():
+          # ONE builder with the auditor (A-DIFFGATE): the label lowered to the latest independent
+          # measurement; DR3 at its label; a slot no control measured -> 'unmeasured' (disclosed)
+          return bc.dl_gate_items(_tgt_l, _cm_l, _labs_l)
+      G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
+      _orig_l = _bs_l.get('difficulty_schedule_original') or _tgt_l
+      if bc.dl_band_counts(_tgt_l, _labs_l) != bc.dl_band_counts(_orig_l, _labs_l):
+          print(f"S13-2L: the target plan's band counts {bc.dl_band_counts(_tgt_l, _labs_l)} differ from the "
+                f"original schedule {bc.dl_band_counts(_orig_l, _labs_l)} — only count-neutral swaps may change it; "
+                "the ORIGINAL schedule is used for this gate (recorded).")
+          _tgt_l = _orig_l
+          G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
+      # the pass counter lives at the TOP of batch_state: CHECK 3c (re-run during a rework) rewrites
+      # difficulty_state from its in-memory copy and must never reset it
+      _passes_l = int(_bs_l.get('paper_gate_passes', 0))
+      if G_PAPER['status'] == 'REWORK' and _passes_l < bc.DL_REWORK_PASSES:
+          _bs_l['paper_gate_passes'] = _passes_l + 1
+          _bs_l['paper_gate_rework'] = list(G_PAPER['rework_qs'])
+          print(f"S13-2L: {len(G_PAPER['rework_qs'])} slot(s) below their target band {G_PAPER['rework_qs']} — "
+                f"rework pass {_passes_l + 1}/{bc.DL_REWORK_PASSES} NOW: each item re-authored at its TARGET band "
+                f"through CHECK 3c at rung {'DR1' if _passes_l == 0 else 'DR2'} (bc.difficulty_repair_step), its label "
+                "and plan entry set back to the target band when it measures there, then S13-2F (re-sweep) and "
+                "S13-2L again.")
+      else:
+          if G_PAPER['status'] == 'REWORK':           # both passes spent: DR3, disclosed
+              _fin_l = {i['q']: i['final_band'] for i in _gate_items()}
+              _plan_l = {str(k): v for k, v in (_bs_l.get('difficulty_plan') or {}).items()}
+              for _q in G_PAPER['rework_qs']:
+                  _e = _cm_l.setdefault(str(_q), {})
+                  _dc = dict(_e.get('difficulty_check') or {})
+                  _e['difficulty'] = _fin_l.get(str(_q)) or _e.get('difficulty')   # the label follows the evidence
+                  _plan_l[str(_q)] = _e['difficulty']
+                  _dc.update({'decision': 'dl_dr3', 'final_band': _e['difficulty'], 'dl_rung': 'DR3'})
+                  _e['difficulty_check'] = _dc
+                  _ds_l['dr3_qs'] = sorted(set(_ds_l.get('dr3_qs') or []) | {str(_q)}, key=int)
+                  if _tgt_l.get(str(_q)) == _labs_l[-1]:
+                      _ds_l['hard_missed'] = int(_ds_l.get('hard_missed', 0)) + 1
+              _bs_l['difficulty_plan'] = _plan_l
+              json.dump(_kd_l, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
+              G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
+          _bs_l['paper_gate_rework'] = []
+          print(f"S13-2L: paper difficulty gate {G_PAPER['status']} — delivered {G_PAPER['counts_final']} against "
+                f"target {G_PAPER['counts_original']}; DR3 (disclosed) {G_PAPER['accepted_dr3']}; "
+                f"unmeasured {G_PAPER['unmeasured']}. Continuing to S13-3 / S13-4.")
+      _ds_l['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original',
+                                                              'rework_qs', 'accepted_dr3', 'unmeasured', 'rule')},
+                                 target_plan=dict(_tgt_l), labels=list(_labs_l))   # A-DIFFGATE re-counts from these
+      if isinstance(globals().get('DIFFICULTY_STATE'), dict):     # the in-memory copy CHECK 3c writes from
+          globals()['DIFFICULTY_STATE'].update({k: _ds_l[k] for k in ('paper_gate', 'dr3_qs', 'hard_missed') if k in _ds_l})
+      json.dump(_bs_l, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
+  else:
+      print("S13-2L: dormant — this paper has no difficulty plan.")
+  ```
+  A REWORK pass repairs the listed items NOW (same response): each through §Q8b-LADDER R2 with the
+  DL brief, CHECK 3c re-measures it, S13-2F re-sweeps (a changed docx needs a fresh certificate),
+  then this block runs again. The S13-2G review is not repeated (its two rounds are spent).
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -10869,6 +11229,12 @@ if AUDIT_AVAILABLE:
                        f"certification. Re-run S13-2F.")
   registry = _commit['registry']
   paper_id = _commit['paper_id']
+  # v5.94 (GAP-2026-11-07; owner Q1 (c)): the Step-5 blind grades of THIS profile (S3-8L, fresh bank
+  # only) are cached against the profile's sha256 — a later paper whose bank is not attached reuses
+  # them (bc.pyq_grades_from_registry); a cache for another profile version is never read.
+  _pgr = globals().get('L2_PYQ_GRADES_RECORD')
+  if isinstance(_pgr, dict) and _pgr.get('usable') and _pgr.get('profile_sha256'):
+      registry.setdefault('pyq_grades', {})[_pgr['profile_sha256']] = _pgr
 
   # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — ATOMICITY MANDATE: fa.commit_registry() is
   # PURE (accumulates every field into a NEW in-memory dict, mutates nothing) — this remains
@@ -11324,6 +11690,14 @@ if AUDIT_AVAILABLE:
       _kd6 = _json6.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')) or {}
   except Exception:                                   # noqa: BLE001 — never a stop
       _kd6 = {}
+  # v5.94 (GAP-2026-11-07): delivered vs target counts, DR3 items, unmeasured slots and the organic
+  # ruler's state — one formatter (bc.difficulty_layer_lines), informational, never a verdict.
+  _l2_6 = _ds.get('l2_model') if isinstance(_ds.get('l2_model'), dict) else None
+  _l2ids_6 = set((_l2_6 or {}).get('scope_ids') or [])
+  _n_l2_6 = sum(1 for _e6x in ((_kd6.get('concept_map') or {}).values())
+                if isinstance(_e6x, dict) and str(_e6x.get('subtopic_id')) in _l2ids_6)
+  INFO_LINES_S136.extend(bc.difficulty_layer_lines(_ds.get('paper_gate'), _l2_6, n_l2_items=_n_l2_6,
+                                                   shares_source=(_l2_6 or {}).get('grades_source')))
   _notes6 = {}
   for _q6, _e6 in ((_kd6.get('concept_map') or {}).items()):
       _ln6 = ((_e6 or {}).get('difficulty_check') or {}).get('level_note') if isinstance(_e6, dict) else None
@@ -12235,7 +12609,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.93
+# END OF Framework_MockTestCreate v5.94
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

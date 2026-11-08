@@ -42,6 +42,22 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v1.33 (2026-11-07) — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07
+      D1 (b), D2 relative, D3, D4, D5, D6, Q1 (c)). NEW Cluster DL — the difficulty layer every
+      exam uses: difficulty_band_min (the lowest band of every independent control decides;
+      the author's counts are never a control), difficulty_repair_step (a slot BELOW its
+      ORIGINAL band is re-authored DR1 -> DR2; DR3 is the one disclosed accept-at-measured),
+      difficulty_paper_gate (the delivered paper counted against the ORIGINAL schedule),
+      pyq_grade_* (the exam's band shares from a BLIND grading of its own past papers, cached
+      in the registry by profile sha256). NEW Cluster L2 — the organic decision-load ruler:
+      controlled vocabulary L2_CONCEPTS (shared load ordering 1-6, family), l2_normalise,
+      symmetric fields by measured pool coverage (L2_FIELD_MIN_COVERAGE; distractor relations
+      verified against option structures), relative cuts from the exam's own PYQs with the
+      tie-cluster guard, frozen per blueprint (l2_frozen / l2_model_from_frozen), advisory
+      below L2_VOCAB_MIN_COVERAGE, l2_applies (word-bounded 'organic' on taxonomy names),
+      pattern cards that carry no stem / structure / key (l2_cards), slot sources
+      (l2_slot_source), anti-gaming (l2_concepts_used), copy check (l2_copy_check). Cluster
+      L1 / CCP code unchanged (informational for organic items). Self-test _dl_l2_self_test.
     v1.32 (2026-11-05) — GAP-2026-11-05-DIFFICULTY-FIDELITY: what Easy / Medium / Hard means
       is bound to the question's content and checked in both directions. Part A VERSIONED
       RULES (rubric r1/r2, level L1, mix m1/m2, shape s1/s2, window w1/w2; *_rule_of readers
@@ -124,7 +140,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.32'
+BLUEPRINT_CORE_VERSION = '1.33'
 
 __all__ = [
     "AllocationError",
@@ -449,6 +465,17 @@ __all__ = [
     "fig_ask_series",
     "assign_ask_type",
     "fig_format_check",
+    # v1.33 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (Clusters DL + L2)
+    "DL_RULE_CURRENT", "DL_REPAIR_RUNGS", "DL_DR1_SOURCES", "DL_DR2_TRIES", "DL_REWORK_PASSES", "DL_CONTROLS",
+    "difficulty_band_min", "difficulty_repair_step", "difficulty_paper_gate", "difficulty_layer_lines",
+    "PYQ_GRADES_SCHEMA", "pyq_grade_packet", "pyq_grades_record", "pyq_grades_from_registry", "pyq_grade_shares",
+    "L2_RULE_CURRENT", "L2_VOCAB_VERSION", "L2_MIN_POOL", "L2_FIELD_MIN_COVERAGE", "L2_VOCAB_MIN_COVERAGE",
+    "L2_CONCEPTS", "L2_FAMILIES", "l2_normalise", "l2_concept_match", "l2_vocabulary", "l2_stereo_kind",
+    "l2_distractor_close", "l2_measure", "l2_score", "l2_raw_of", "l2_applies", "l2_prefix_subjects",
+    "l2_scope_ids", "l2_model_for_scope", "l2_frozen", "l2_model_from_frozen", "l2_record", "l2_concepts_used",
+    "l2_card_id", "l2_cards", "l2_band_load_floor", "l2_slot_source", "l2_copy_check", "l2_hard_supply",
+    "dl_reviewer_band", "dl_phase3_decision", "dl_target_plan_swap", "dl_band_counts", "dl_gate_items", "PYQ_GRADE_PART_MAX",
+    "pyq_grade_parts", "pyq_grades_from_parts", "bank_pyq_grades",
 ]
 
 
@@ -5967,6 +5994,371 @@ def parse_image_analysis_blocks(section_rules_text):
     return out
 
 
+# v1.33 — Clusters DL + L2 self-test. Defined BEFORE self_test() so every check sits ahead of the
+# SELF-TEST banner (validator CHECK AQ); it names cluster symbols defined at the end of the file,
+# which resolve at call time.
+def _dl_l2_self_test(check):
+    """Cluster DL + L2 self-tests (v1.33). Each assertion names the defect class / mutant it kills."""
+    labs = ['Easy', 'Medium', 'Hard']
+    # ── normalisation + vocabulary (T1) ──
+    check('l2_norm_steps', l2_normalise('Fétizon  Oxidation') == 'fetizon oxidation'
+          and l2_normalise('MnO₂') == 'mno2' and l2_normalise('neighbouring-group') == 'neighbouring group'
+          and l2_normalise('Diels–Alder') == 'diels alder' and l2_normalise('β-scission') == 'beta scission'
+          and l2_normalise("Bent's rule") == 'bent rule' and l2_normalise('Cram’s rule') == 'cram rule'
+          and l2_normalise('α,β-unsaturated') == 'alpha,beta unsaturated' and l2_normalise(None) == ''
+          and l2_normalise(5) == '5')
+    _cm = l2_concept_match
+    check('l2_vocab_t1', _cm('neighbouring-group participation')[:2] == (5, 'NGP/halolactonisation')
+          and _cm('MnO₂ oxidation')[1] == 'standard oxidation' and _cm('Fétizon oxidation')[0] == 4
+          and _cm('Diels–Alder')[0] == 3 and _cm('Myers transposition')[0] == 6
+          and _cm('β-hydride elimination')[1] == 'Pd cross-coupling'
+          and _cm('Hajos–Parrish (L-proline organocatalysis)')[0] == 6          # highest load wins
+          and _cm('intramolecular Diels–Alder')[0] == 6 and _cm('Cannizzaro reaction')[0] == 2
+          and _cm('zzz') == (None, None, None) and _cm(None) == (None, None, None))
+    check('l2_vocab_false_positives', _cm('pKa value')[0] == 1 and _cm('delta value')[0] is None
+          and _cm('Claisen–Schmidt condensation')[0] == 2 and _cm('pinacolborane')[0] is None
+          and _cm('tandem mass spectrometry')[0] == 1 and _cm('signalling cascade')[0] is None
+          and _cm('the amino acid proline')[0] is None and _cm('tetrahydrofuran')[0] is None
+          and _cm('furanose ring')[0] is None and _cm('peptide bond')[0] == 1 and _cm('glycosidic bond')[0] == 1
+          and _cm('MeBr')[0] is None and _cm('MeMgBr')[0] == 2 and _cm('Wolff–Kishner deoxygenation')[0] == 2
+          and _cm('second-order kinetics')[0] is None and _cm('non-classical hydrogen bond')[0] is None
+          and _cm('torsional strain')[0] == 3 and _cm('anti-periplanar')[0] == 3 and _cm('Corey–Winter olefination')[0] == 4)
+    check('l2_vocab_false_negatives', _cm("Bent's rule")[0] == 4 and _cm("Cram's rule")[0] == 5
+          and _cm('E2 antiperiplanar elimination')[0] == 3 and _cm('1,2-hydride shift')[0] == 4
+          and _cm('2,3-Wittig rearrangement')[0] == 6 and _cm('2+2 cycloaddition')[0] == 4
+          and _cm('bromolactonization')[0] == 5 and _cm('η3-allyl palladium')[0] == 6
+          and _cm('Strecker synthesis')[0] == 2 and _cm('Fries rearrangement')[0] == 3 and _cm('Ugi reaction')[0] == 4
+          and _cm('Baldwin rules')[0] == 4 and _cm('conformationally locked')[0] == 5)
+    _labmap = {}
+    for _p, _ld, _lb, _fm in L2_CONCEPTS:
+        _labmap.setdefault(_lb, set()).add((_ld, _fm))
+    check('l2_vocab_wellformed', all(len(v) == 1 for v in _labmap.values())
+          and all(1 <= int(x[1]) <= 6 and x[3] in L2_FAMILIES for x in L2_CONCEPTS)
+          and all(not re.search(r'[A-Z\-]|[^\x00-\x7f]', x[0]) for x in L2_CONCEPTS)
+          and len(_l2_pats()) == len(L2_CONCEPTS) and len(l2_vocabulary()) == len(_labmap))
+    # ── scope rule (T8; kills the look-behind / bare-prefix / topic-overrides-subject mutants) ──
+    check('l2_applies_table', l2_applies('oc.x', 'Organic Chemistry') and l2_applies('x', 'Physical Organic Chemistry')
+          and l2_applies('x', 'Bio-organic Chemistry') and l2_applies('x', 'Bioorganic Chemistry')
+          and l2_applies('x', 'OrganicChemistry') and l2_applies('x', 'Química Orgánica')
+          and not l2_applies('ic.x', 'Inorganic Chemistry') and not l2_applies('x', 'Bioinorganic Chemistry')
+          and not l2_applies('x', 'Organometallic Chemistry')
+          and l2_applies('x', 'Chemistry', 'Organic Chemistry – Some Basic Principles')
+          and not l2_applies('x', 'Inorganic Chemistry', 'Organic ligands in complexes')
+          and not l2_applies('oc.x') and l2_applies('oc.x', prefix_subject='Organic Chemistry')
+          and not l2_applies('oc.x', prefix_subject='Operations Control') and not l2_applies(5, ['x'], {}))
+    check('l2_prefix_and_scope', l2_prefix_subjects([{'subtopic_id': 'oc.a.b', 'section': 'Organic Chemistry'},
+                                                     {'subtopic_id': 'ic.a.b', 'section': 'Inorganic Chemistry'}])
+          == {'oc': 'Organic Chemistry', 'ic': 'Inorganic Chemistry'}
+          and l2_scope_ids({'oc.a.b': {'section': 'Organic Chemistry'}, 'ic.a.b': {'section': 'Inorganic Chemistry'}}) == ['oc.a.b'])
+    # ── generic layer ──
+    check('dl_band_min', difficulty_band_min({'reviewer': 'Easy', 'ruler': 'Hard', 'judge': None}, labs)
+          == {'band': 'Easy', 'source': 'reviewer', 'controls': {'reviewer': 'Easy', 'ruler': 'Hard'}}
+          and difficulty_band_min({'judge': 'Hard', 'ruler': 'Medium'}, labs)['band'] == 'Medium'
+          and difficulty_band_min({}, labs)['band'] is None and difficulty_band_min({'x': 'Bogus', 'y': ['Hard']}, labs)['band'] is None)
+    _r = difficulty_repair_step
+    check('dl_repair_walk', _r('Hard', 'Hard', labs)['action'] == 'accept'
+          and _r('Medium', 'Hard', labs)['action'] == 'simplify'
+          and _r('Hard', 'Medium', labs) == {'action': 'reauthor', 'rung': 'DR1', 'source_index': 0,
+                                            'reason': 'easier: measured Medium, original Hard'}
+          and _r('Hard', 'Easy', labs, 'DR1', 0, 2)['source_index'] == 2
+          and _r('Hard', 'Easy', labs, 'DR1', 0, DL_DR1_SOURCES)['rung'] == 'DR2'
+          and _r('Hard', 'Easy', labs, None, 0, 0, has_source=False)['rung'] == 'DR2'
+          and _r('Hard', 'Easy', labs, 'DR2', DL_DR2_TRIES - 1)['action'] == 'reauthor_target'
+          and _r('Hard', 'Easy', labs, 'DR2', DL_DR2_TRIES) ==
+          {'action': 'accept_measured', 'rung': 'DR3', 'final_band': 'Easy',
+           'reason': 'DR3: accepted at Easy (original Hard) after DR1/DR2 — disclosed'}
+          and _r('Hard', 'Bogus', labs)['action'] == 'accept')
+    check('dl_repair_hostile_rungs', all(_r('Hard', 'Easy', labs, bad)['rung'] == 'DR1' for bad in ('dr1', 'DR9', 1, ['DR3']))
+          and _r('Hard', 'Easy', labs, None, 0, -1)['source_index'] == 0
+          and _r('Hard', 'Easy', labs, None, 0, 0, has_source='False')['rung'] == 'DR2'
+          and _r('Hard', 'Easy', labs, 'DR2', -5)['try'] == 0)
+    _its = [{'q': i, 'original_band': 'Hard', 'final_band': 'Hard' if i <= 7 else ('Medium' if i <= 20 else 'Easy')}
+            for i in range(1, 29)]
+    _g = difficulty_paper_gate(_its, labs)
+    check('dl_paper_gate_t6', _g['status'] == 'REWORK' and len(_g['rework_qs']) == 21 and _g['rework_qs'][0] == 21
+          and _g['counts_original'] == {'Easy': 0, 'Medium': 0, 'Hard': 28} and _g['counts_final']['Hard'] == 7)
+    _g2 = difficulty_paper_gate([dict(i, final_band='Hard') for i in _its], labs)
+    _g3 = difficulty_paper_gate([dict(i, rung='DR3') if i['q'] > 7 else i for i in _its], labs)
+    _g4 = difficulty_paper_gate([{'q': 1, 'original_band': 'Hard', 'final_band': None},
+                                 {'q': 2, 'original_band': ['Hard'], 'final_band': 'Easy'}], labs)
+    check('dl_paper_gate_pass_dr3_unmeasured', _g2['status'] == 'PASS' and _g2['rework_qs'] == []
+          and _g3['status'] == 'PASS' and len(_g3['accepted_dr3']) == 21
+          and difficulty_paper_gate([{'q': 1, 'original_band': 'Medium', 'final_band': 'Hard'}], labs)['status'] == 'PASS'
+          and difficulty_paper_gate(None, labs)['status'] == 'PASS'
+          and _g4['unmeasured'] == [1] and _g4['counts_original'] == {'Easy': 0, 'Medium': 0, 'Hard': 1})
+    _ln = difficulty_layer_lines(_g3)
+    _ln4 = difficulty_layer_lines(_g4)
+    check('dl_footer_lines', len(_ln) == 2
+          and _ln[0] == 'Difficulty vs schedule: Easy 8 / Medium 13 / Hard 7 (schedule Easy 0 / Medium 0 / Hard 28)'
+          and _ln[1].startswith('Difficulty fallback (DR3): 21 item(s)') and difficulty_layer_lines() == []
+          and len(_ln4) == 2 and _ln4[1].startswith('Difficulty unmeasured: 1 slot(s)')
+          and difficulty_layer_lines({'counts_original': [1]}) == [] and isinstance(
+              difficulty_layer_lines({'counts_original': {'Easy': 1}, 'accepted_dr3': 5}), list))
+    check('dl_shares_normalised', _dl_shares({'Easy': 0.1, 'Medium': 0.6, 'Hard': 0.3}, labs) == {'Easy': 10, 'Medium': 60, 'Hard': 30}
+          and _dl_shares({'Easy': 10, 'Medium': 20, 'Hard': 20}, labs) == {'Easy': 20, 'Medium': 40, 'Hard': 40}
+          and _dl_shares({'Easy': 1, 'Medium': 1, 'Hard': 1}, labs) == {'Easy': 34, 'Medium': 33, 'Hard': 33}
+          and _dl_shares({}, labs) is None and _dl_shares({'Easy': -5, 'Hard': 'x'}, labs) is None)
+    # ── PYQ blind grading (Q1 (c)) ──
+    _pk = pyq_grade_packet({'band': 'Hard', 'named_concepts': ['x'], 'answer_smiles': 'C', 'stem_snippet': 's',
+                            'section': 'P', 'option_smiles': {'1': 'CC'}, 'steps': 4,
+                            'content_objects': [{'role': 'problem', 'canonical': 'CCO'},
+                                                {'role': 'answer', 'canonical': 'CC=O'}]}, 'K', 3)
+    check('pyq_packet_blind', _pk['key'] == 'K:Q3' and _pk['source'] == 'profile_only'
+          and not any(k in _pk for k in ('band', 'named_concepts', 'answer_smiles', 'steps'))
+          and _pk['option_structures'] == {'1': 'CC'} and isinstance(_pk['sha256'], str)
+          and _pk['structures'] == [{'role': 'problem', 'canonical': 'CCO'}]
+          and pyq_grade_packet({}, 'K', 1, 'Stem?', {'B': 'two', 'A': 'one'})['options'] == ['A) one', 'B) two'])
+    _sh, _n = pyq_grade_shares({'a:Q1': 'Easy', 'a:Q2': 'Hard', 'a:Q3': 'Hard', 'a:Q4': ['Easy']},
+                               ['a:Q1', 'a:Q2', ('a', '3'), 'a:Q4', 'a:Q9'], labs)
+    check('pyq_shares_sum', _n == 3 and _sh == {'Easy': 33, 'Medium': 0, 'Hard': 67} and sum(_sh.values()) == 100
+          and pyq_grade_shares({}, ['x'], labs) == ({}, 0))
+    _reg = {'pyq_grades': {'abc': pyq_grades_record('abc', labs, {'a:Q1': 'Easy', 'a:Q2': 'Nope'}),
+                           '': pyq_grades_record(None, labs, {'a:Q1': 'Hard'})}}
+    check('pyq_registry_cache', pyq_grades_from_registry(_reg, 'abc', labs) == {'a:Q1': 'Easy'}
+          and pyq_grades_from_registry(_reg, 'other', labs) == {} and _reg['pyq_grades']['abc']['dropped'] == 1
+          and pyq_grades_from_registry(None, 'abc', labs) == {} and pyq_grades_from_registry(_reg, 'abc', ['A', 'B']) == {}
+          and pyq_grades_from_registry(_reg, None, labs) == {} and pyq_grades_from_registry(_reg, '', labs) == {}
+          and _reg['pyq_grades']['']['usable'] is False
+          and pyq_grades_from_registry({'pyq_grades': {'s': {'labels': labs, 'grades': [1]}}}, 's', labs) == {})
+    # ── cuts: tie rule, nearest gap, exact tie, empty bands ──
+    check('l2_cuts_tie_nearest', _l2_cuts([1, 2, 2, 2, 2, 3, 4, 5, 6, 7], {'Easy': 10, 'Medium': 60, 'Hard': 30}, labs)[0]
+          == [1.0, 4.0]
+          and _l2_cuts([1, 2, 2, 2, 2, 3, 4, 5, 6, 7], {'Easy': 20, 'Medium': 50, 'Hard': 30}, labs)[0][0] == 1.0
+          and _l2_cuts([1, 2, 2, 2, 2, 3, 4, 5, 6, 7], {'Easy': 40, 'Medium': 30, 'Hard': 30}, labs)[0][0] == 2.0)
+    check('l2_cuts_exact_tie_keeps_tied_value', _l2_cuts([1, 2, 2, 3], {'Easy': 50, 'Medium': 25, 'Hard': 25}, labs)[0][0] == 2.0)
+    _c0 = _l2_cuts([3, 4, 5], {'Easy': 0, 'Medium': 100, 'Hard': 0}, labs)[0]
+    check('l2_cuts_zero_bands', _c0[0] < 3.0 and _l2_band_of(2.9, _c0, labs) == 'Easy' and _l2_band_of(3.0, _c0, labs) == 'Medium'
+          and _c0[1] == 5.0 and _l2_band_of(5.0, _c0, labs) == 'Medium' and _l2_band_of(5.5, _c0, labs) == 'Hard')
+    check('l2_band_tie_lower', _l2_band_of(5.0, [1.0, 5.0], labs) == 'Medium' and _l2_band_of(5.5, [1.0, 5.0], labs) == 'Hard'
+          and _l2_band_of(1.0, [1.0, 5.0], labs) == 'Easy')
+    # ── a synthetic exam: symmetry law, relative cuts, records, cards, frozen ──
+    _gi = dl_gate_items({'1': 'Hard', '2': 'Hard', '3': 'Medium', '4': 'Hard', '5': 'Medium'},
+                        {'1': {'difficulty': 'Hard', 'difficulty_check': {'measured': 'Medium'}},
+                         '2': {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'measured': 'Medium'}},
+                         '3': {'difficulty': 'Medium', 'difficulty_check': {'measured': 'Easy', 'review_measured': 'Medium'}},
+                         '4': {'difficulty': 'Hard', 'difficulty_check': {}},
+                         '5': {'difficulty': 'Easy', 'difficulty_check': {}}}, ['Easy', 'Medium', 'Hard'])
+    _gg = difficulty_paper_gate(_gi, ['Easy', 'Medium', 'Hard'])
+    check('dl_gate_items_label_lowered_to_measured_dr3_kept_unmeasured_named',
+          _gg['rework_qs'] == ['5', '1'] and _gg['accepted_dr3'] == ['2'] and _gg['unmeasured'] == ['4']
+          and dl_gate_items(None, 5, None) == [])
+    _labs3 = ['Easy', 'Medium', 'Hard']
+    _mm = {'active': True, 'binding': True, 'labels': _labs3, 'cuts_list': [5.0, 20.0], 'fields_on': {}, 'unmatched_load': 3}
+    check('l2_record_no_concepts_is_unmeasured_never_easy', l2_record({'named_concepts': []}, _mm, _labs3)['band'] is None)
+    _p3 = dl_phase3_decision('Hard', _labs3, review_rec={'difficulty_band_with_exemplar': 'Hard, like exemplar x/1'},
+                             l2_model=_mm, l2_obs={'named_concepts': []})
+    check('dl_phase3_no_concepts_no_ruler_control', _p3['action'] == 'accept' and _p3['controls'].get('ruler') is None)
+    check('l2_applies_organic_topic_without_the_word',
+          l2_applies('oc.x', 'Part B', 'Pericyclic reactions') is True
+          and l2_applies('x.y', 'Part B', 'Stereochemistry of coordination compounds') is False
+          and l2_applies('x.y', 'Inorganic Chemistry', 'Pericyclic reactions') is False
+          and l2_applies('x.y', 'Part B', 'Chemical kinetics') is False)
+    _self_bad = [r['label'] for r in l2_vocabulary()
+                 if l2_concept_match(r['label']) != (r['load'], r['label'], r['family'])]
+    check('l2_every_vocabulary_label_scores_as_itself', not _self_bad)
+    def _mk(i, nc, sd='none', dm=None, rg=None, sid='oc.t.s', band='Medium'):
+        d = {'subtopic_id': sid, 'qtype': 'mcq', 'ask_type': 'identify_product', 'named_concepts': nc,
+             'band': band, 'section': 'P1'}
+        if sd is not None:
+            d['stereo_decl'] = sd
+        if dm is not None:
+            d['distractor_mechanisms'] = dm
+        if rg is not None:
+            d['reagents_seen'] = rg
+        return str(i), d
+    _qs = dict([_mk(1, ['Cannizzaro reaction']), _mk(2, ['aldol reaction']), _mk(3, ['SN2 reaction']),
+                _mk(4, ['Grignard addition'], rg=['PhMgBr']), _mk(5, ['Beckmann rearrangement']),
+                _mk(6, ['anti addition', 'bromination'], 'relative'), _mk(7, ['Birch reduction']),
+                _mk(8, ['Luche reduction'], dm=['regioisomer', 'regioisomer', 'regioisomer']),
+                _mk(9, ['Shapiro reaction', 'enolate alkylation']), _mk(10, ['E2 anti-periplanar', 'conformationally locked'], 'relative'),
+                _mk(11, ['Zimmerman–Traxler model'], 'relative', band='Hard'), _mk(12, ['Myers transposition', 'diazene retro-ene'], band='Hard'),
+                _mk(13, ['chemical shift'], band='Easy'), _mk(14, ['other:something new'])])
+    _prof = {'papers': {'P-2025': {'date': '2025-07-01', 'questions': _qs}}}
+    _m = l2_model_for_scope(_prof, ['oc.t.s'], labs, measured_pct={'Easy': 10, 'Medium': 60, 'Hard': 30}, organic_ids=['oc.t.s'])
+    check('l2_model_active', _m['active'] and _m['n'] == 14 and _m['mode'] == 'relative' and _m['level_used'] == 'scope'
+          and _m['shares_source'] == 'measured_pct' and _m['unmatched'] == ['other:something new']
+          and _m['vocab_coverage'] == round(17 / 18, 4) and _m['binding'] is True and _m['organic_source'] == 'taxonomy')
+    check('l2_symmetry_law', _m['fields_on'] == {'reagents': False, 'close': False, 'stereo': True, 'steps': False}
+          and l2_record({'named_concepts': ['Luche reduction'], 'distractor_mechanisms': ['regioisomer'] * 3,
+                         'stereo_decl': 'none'}, _m)['score']
+          == l2_record({'named_concepts': ['Luche reduction'], 'stereo_decl': 'none'}, _m)['score'])
+    _qs_ns = {k: {kk: vv for kk, vv in v.items() if kk != 'stereo_decl'} for k, v in _qs.items()}
+    _m_ns = l2_model_for_scope({'papers': {'P': {'date': '2025-07-01', 'questions': _qs_ns}}}, ['oc.t.s'], labs,
+                               measured_pct={'Easy': 10, 'Medium': 60, 'Hard': 30}, organic_ids=['oc.t.s'])
+    check('l2_stereo_symmetry', _m_ns['fields_on']['stereo'] is False
+          and l2_record({'named_concepts': ['Beckmann rearrangement'], 'stereo_decl': 'relative'}, _m_ns)['score']
+          == l2_record({'named_concepts': ['Beckmann rearrangement'], 'stereo_decl': 'none'}, _m_ns)['score'])
+    _q12 = {str(i): {'subtopic_id': 'oc.t.s', 'named_concepts': ['Beckmann rearrangement'], 'stereo_decl': 'none',
+                     'distractor_mechanisms': (['regioisomer'] * 3 if i < 8 else None)} for i in range(10)}
+    for _v in _q12.values():
+        if _v['distractor_mechanisms'] is None:
+            del _v['distractor_mechanisms']
+    _m80 = l2_model_for_scope({'papers': {'P': {'date': '2025-07-01', 'questions': _q12}}}, ['oc.t.s'], labs,
+                              measured_pct={'Easy': 10, 'Medium': 60, 'Hard': 30}, min_pool=5, organic_ids=['oc.t.s'])
+    _q12['9']['distractor_mechanisms'] = ['regioisomer'] * 3
+    _q12['7'].pop('distractor_mechanisms')
+    _q12['6'].pop('distractor_mechanisms')
+    _m70 = l2_model_for_scope({'papers': {'P': {'date': '2025-07-01', 'questions': _q12}}}, ['oc.t.s'], labs,
+                              measured_pct={'Easy': 10, 'Medium': 60, 'Hard': 30}, min_pool=5, organic_ids=['oc.t.s'])
+    check('l2_field_threshold_boundary', _m80['field_coverage']['close'] == 0.8 and _m80['fields_on']['close'] is True
+          and _m70['field_coverage']['close'] == 0.7 and _m70['fields_on']['close'] is False)
+    _qlow = {str(i): {'subtopic_id': 'oc.t.s', 'named_concepts': ['Cannizzaro reaction', f'other:x{i}'], 'stereo_decl': 'none'}
+             for i in range(12)}
+    _mlow = l2_model_for_scope({'papers': {'P': {'date': '2025-07-01', 'questions': _qlow}}}, ['oc.t.s'], labs,
+                               measured_pct={'Easy': 10, 'Medium': 60, 'Hard': 30}, organic_ids=['oc.t.s'])
+    check('l2_binding_false_below_coverage', _mlow['active'] and _mlow['vocab_coverage'] == 0.5 and _mlow['binding'] is False
+          and l2_record({'named_concepts': ['Cannizzaro reaction']}, _mlow)['binding'] is False)
+    _mfr = l2_model_for_scope(_prof, ['oc.t.s'], labs, measured_pct={'Easy': 0.1, 'Medium': 0.6, 'Hard': 0.3}, organic_ids=['oc.t.s'])
+    check('l2_measured_pct_fractions', _mfr['shares'] == {'Easy': 10, 'Medium': 60, 'Hard': 30}
+          and _mfr['cuts_list'] == _m['cuts_list'])
+    _bands = {q: l2_record(r, _m)['band'] for q, r in _qs.items()}
+    check('l2_relative_bands', _bands['11'] == 'Hard' and _bands['12'] == 'Hard' and _bands['13'] == 'Easy'
+          and _bands['1'] != 'Hard' and _bands['7'] == 'Medium')
+    check('l2_record_dormant', l2_record({'named_concepts': ['Cannizzaro']}, {'active': False})['band'] is None
+          and l2_model_for_scope({'papers': {}}, ['oc.t.s'], labs)['active'] is False
+          and l2_model_for_scope(None, [], labs)['reason'].startswith('no difficulty profile')
+          and l2_model_for_scope(_prof, ['oc.t.s'], labs, pyq_grades={'P-2025:Q1': ['Hard']})['active'] is True
+          and l2_model_for_scope(_prof, ['oc.t.s'], labs)['organic_source'] == 'scope_prefix')
+    _m2 = l2_model_for_scope(_prof, ['oc.t.s'], labs, pyq_grades={f'P-2025:Q{i}': ('Hard' if i > 9 else 'Medium')
+                                                                   for i in range(1, 15)}, min_pool=12, organic_ids=['oc.t.s'])
+    check('l2_shares_from_grades', _m2['shares_source'] == 'pyq_grades' and _m2['shares']['Hard'] == 36)
+    _fz = l2_frozen(_m)
+    _mf = l2_model_from_frozen(_fz)
+    check('l2_frozen_roundtrip', _mf is not None and _mf['cuts_list'] == _m['cuts_list']
+          and l2_record(_qs['11'], _mf)['band'] == 'Hard'
+          and l2_model_from_frozen(dict(_fz, vocab_version='old')) is None and l2_frozen({'active': False}) is None)
+    check('l2_qtype_floor', l2_record({'named_concepts': ['chemical shift']}, _m, labs, 'msq')['band'] == 'Medium')
+    _cu, _who = l2_concepts_used(['Myers transposition'], ['Oppenauer oxidation'], _m)
+    check('l2_anti_gaming', (_cu, _who) == (['Oppenauer oxidation'], 'solver')
+          and l2_concepts_used(['Cannizzaro'], ['Cannizzaro'], _m)[1] == 'solver'
+          and l2_concepts_used(['Myers transposition'], [], _m)[1] == 'author_unverified'
+          and l2_concepts_used([], ['Cannizzaro'], _m)[1] == 'solver' and l2_concepts_used([], [], _m)[1] == 'none')
+    _cards = l2_cards(_prof, _m)
+    _bad = {'stem', 'stem_snippet', 'content_objects', 'answer_smiles', 'option_smiles', 'options', 'key'}
+    check('l2_cards_no_copy_fields', len(_cards) == 14 and not any(_bad & set(c) for c in _cards)
+          and _cards[0]['score'] >= _cards[-1]['score'] and l2_cards(_prof, {'active': False}) == []
+          and all(re.fullmatch(r'c[0-9a-f]{12}', c['card_id']) for c in _cards)
+          and not any('P-2025' in str(c.values()) for c in _cards))
+    _s0 = l2_slot_source(_cards, 'Hard', 'oc.t.s', seed=7)
+    _s1 = l2_slot_source(_cards, 'Hard', 'oc.t.s', seed=7, skip=1)
+    _sx = l2_slot_source(_cards, 'Hard', 'oc.t.s', seed=7, skip=10 ** 6)
+    _hard_ids = {c['card_id'] for c in _cards if c['band'] == 'Hard'}
+    check('l2_slot_source', _s0['kind'] == 'card' and _s0 == l2_slot_source(_cards, 'Hard', 'oc.t.s', seed=7)
+          and _s1['kind'] == 'card' and _s1['ref'] != _s0['ref'] and _sx['kind'] == 'none'
+          and l2_slot_source(_cards, 'Hard', 'oc.t.s', used=_hard_ids, seed=7)['kind'] == 'concept'
+          and l2_slot_source(_cards, 'Hard', 'oc.t.s', used=_hard_ids, seed=7)['load_floor'] == 5
+          and l2_hard_supply(_cards, labs) == {'Easy': 1, 'Medium': 9, 'Hard': 4}
+          and l2_slot_source([{'band': 'Hard'}], 'Hard', 'x')['kind'] in ('concept', 'none')
+          and l2_slot_source([{'band': 'Hard', 'card_id': 'a', 'families': 'redox', 'subtopic_id': 'x'}], 'Hard', 'x')['family'] != 'r')
+    _rd = _qf_rdkit()
+    check('l2_copy_check', l2_copy_check(None, _prof) is None and (
+        _rd is None or (l2_copy_check('OCC', {'papers': {'p': {'questions': {'1': {'answer_smiles': 'CCO'}}}}}) is True
+                        and l2_copy_check('CCC', {'papers': {'p': {'questions': {'1': {'answer_smiles': 'CCO'}}}}}) is False)))
+    _clv = {'per_option': {'1': {'grade': 0}, '2': {'grade': 3, 'stereo_kind': 'enantiomer'}, '4': {'grade': 2}}}
+    check('l2_close_verified', l2_distractor_close(['chemistry:regioisomer', 'stereoisomer_enantiomer', 'regioisomer'], _clv)
+          == (2, True, True)
+          and l2_distractor_close({'1': 'regioisomer', '2': 'regioisomer'}, _clv) == (1, False, True)
+          and l2_distractor_close(None, _clv) == (2, True, True)
+          and l2_distractor_close(['alternative_pathway'] * 3, None) == (0, False, True)
+          and l2_distractor_close(None, None) == (0, False, False))
+    # ── phase 3 (DL1) decision, target plan, grading parts, bank freshness (Stage 2) ──
+    check('dl_reviewer_band_parse', dl_reviewer_band('Hard, like exemplar oc.x/2', labs) == ('Hard', True)
+          and dl_reviewer_band('medium, like exemplar oc.x/1', labs) == ('Medium', True)
+          and dl_reviewer_band('Easy — no exemplar for this cell', labs) == ('Easy', False)
+          and dl_reviewer_band('not assessed', labs) == (None, False) and dl_reviewer_band(None, labs) == (None, False)
+          and dl_reviewer_band('Tough, like exemplar x', ['Simple', 'Moderate', 'Tough']) == ('Tough', True)
+          and dl_reviewer_band('hard, like exemplar x', ['Simple', 'Moderate', 'Tough']) == ('Tough', True))
+    _rv_e = {'difficulty_band_with_exemplar': 'Easy, like exemplar oc.t.s/1', 'concepts_used': ['Cannizzaro reaction']}
+    _d1 = dl_phase3_decision('Hard', labs, _rv_e, 'Hard', _m, {'named_concepts': ['Myers transposition'], 'stereo_decl': 'none'}, 0)
+    check('dl_phase3_reviewer_binds_round1_repair', _d1['action'] == 'repair' and _d1['measured'] == 'Easy'
+          and _d1['source'] == 'reviewer' and _d1['rung'] == 'DR1' and _d1['final_band'] == 'Hard'
+          and _d1['concepts_from'] == 'solver' and _d1['concepts_used'] == ['Cannizzaro reaction'])
+    _d2 = dl_phase3_decision('Hard', labs, _rv_e, 'Hard', _m, {'named_concepts': ['Myers transposition'], 'stereo_decl': 'none'}, 1)
+    check('dl_phase3_round2_dr3', _d2['action'] == 'dr3' and _d2['final_band'] == 'Easy' and _d2['rung'] == 'DR3')
+    _rv_h = {'difficulty_band_with_exemplar': 'Hard, like exemplar oc.t.s/1', 'concepts_used': ['Oppenauer oxidation']}
+    _d3 = dl_phase3_decision('Hard', labs, _rv_h, 'Hard', _m, {'named_concepts': ['Myers transposition'], 'stereo_decl': 'none'}, 0)
+    check('dl_phase3_ruler_uses_lower_concepts', _d3['controls']['ruler'] != 'Hard' and _d3['action'] == 'repair'
+          and _d3['source'] == 'ruler' and _d3['concepts_used'] == ['Oppenauer oxidation'])
+    _rv_u = {'difficulty_band_with_exemplar': 'Easy — no exemplar for this cell'}
+    _d4 = dl_phase3_decision('Hard', labs, _rv_u, None, None, None, 0)
+    check('dl_phase3_unanchored_reviewer_not_a_control', _d4['action'] == 'accept' and _d4['measured'] is None
+          and _d4['reviewer_band'] == 'Easy' and _d4['reviewer_anchored'] is False and _d4['final_band'] == 'Hard')
+    _d5 = dl_phase3_decision('Medium', labs, _rv_h, 'Hard', None, None, 0)
+    _d6 = dl_phase3_decision('Hard', labs, _rv_h, 'Hard', _mlow, {'named_concepts': ['Cannizzaro reaction']}, 0)
+    check('dl_phase3_above_and_advisory', _d5['action'] == 'above' and _d5['final_band'] == 'Medium'
+          and _d6['controls'].get('ruler') is None and _d6['action'] == 'accept'
+          and dl_phase3_decision('Bogus', labs, _rv_e, None, None, None, 0)['action'] == 'accept')
+    _tp = {'1': 'Hard', '2': 'Medium', '3': 'Easy'}
+    _tp2 = dl_target_plan_swap(_tp, 1, '2')
+    check('dl_target_plan_swap_count_neutral', _tp2 == {'1': 'Medium', '2': 'Hard', '3': 'Easy'} and _tp == {'1': 'Hard', '2': 'Medium', '3': 'Easy'}
+          and dl_band_counts(_tp2, labs) == dl_band_counts(_tp, labs) == {'Easy': 1, 'Medium': 1, 'Hard': 1}
+          and dl_target_plan_swap(_tp, 1, 9) == _tp and dl_target_plan_swap(None, 1, 2) == {})
+    _pks = [{'key': f'P:Q{i}', 'section': 'B' if i % 2 else 'A'} for i in range(1, 8)] + [{'key': 5}, 'x']
+    _parts = pyq_grade_parts(_pks, part_max=2)
+    check('pyq_grade_parts_section_kept', [(p_['section'], len(p_['items'])) for p_ in _parts] == [('A', 2), ('A', 1), ('B', 2), ('B', 2)]
+          and [p_['part'] for p_ in _parts] == [1, 2, 3, 4] and pyq_grade_parts(None) == [])
+    _gm, _gmiss, _gpr = pyq_grades_from_parts([{'P:Q1': {'band': 'Hard', 'reason': 'x'}, 'P:Q2': 'medium'},
+                                               {'grades': {'P:Q1': 'Easy', 'P:Q3': {'band': 'Bogus'}}}, 7], labs,
+                                              ['P:Q1', 'P:Q2', 'P:Q3', 'P:Q4'])
+    check('pyq_grades_merge', _gm == {'P:Q1': 'Hard', 'P:Q2': 'Medium'} and _gmiss == ['P:Q3', 'P:Q4']
+          and len(_gpr) == 2)
+    _bk = {'_meta': {'profile_sha256': 'abc'}, 'pyq_grades': pyq_grades_record('abc', labs, {'P:Q1': 'Hard'}), 'cells': {}}
+    check('bank_grades_freshness', bank_pyq_grades(_bk, 'abc', labs) == ({'P:Q1': 'Hard'}, 'fresh')
+          and bank_pyq_grades(_bk, 'zzz', labs) == ({}, 'stale')
+          and bank_pyq_grades({'_meta': {}, 'cells': {}}, 'abc', labs) == ({}, 'absent')
+          and bank_pyq_grades({'_meta': {'profile_sha256': 'abc'}}, 'abc', labs) == ({}, 'ungraded')
+          and bank_pyq_grades(None, 'abc', labs) == ({}, 'absent'))
+    # ── never raises (C1): top-level hostile values AND malformed values inside valid structures ──
+    _hostile = [None, 0, -1, 1.5, float('nan'), True, '', 'Hard', [], {}, [None], {'a': None}, ('Easy', 'Hard'),
+                {'per_option': {'1': None}}, {'papers': None}, {'papers': {'x': {'date': 'bad', 'questions': [1]}}},
+                {'active': True, 'cuts_list': [1, 'x'], 'labels': ['a', 'b', 'c']},
+                {'active': True, 'cuts_list': [float('nan'), 3], 'labels': labs, 'fields_on': 'x'}, object()]
+    _never = []
+
+    def _try(name, fn):
+        try:
+            fn()
+        except Exception as _e:                             # noqa: BLE001
+            _never.append((name, repr(_e)))
+    for _fn in (difficulty_band_min, difficulty_repair_step, difficulty_paper_gate, difficulty_layer_lines,
+                pyq_grade_packet, pyq_grades_record, pyq_grades_from_registry, pyq_grade_shares, l2_normalise,
+                l2_concept_match, l2_stereo_kind, l2_distractor_close, l2_measure, l2_score, l2_raw_of, l2_applies,
+                l2_prefix_subjects, l2_scope_ids, l2_model_for_scope, l2_frozen, l2_model_from_frozen, l2_record,
+                l2_concepts_used, l2_cards, l2_band_load_floor, l2_slot_source, l2_hard_supply, l2_card_id,
+                dl_reviewer_band, dl_phase3_decision, dl_target_plan_swap, dl_band_counts, pyq_grade_parts,
+                pyq_grades_from_parts, bank_pyq_grades):
+        _n = _fn.__code__.co_argcount
+        for _a in _hostile:
+            for _b in _hostile[:8]:
+                _try(_fn.__name__, (lambda f=_fn, a=_a, b=_b, n=_n: f(a, b, a) if n >= 3 else (f(a, b) if n == 2 else f(a))))
+    _pm = {'papers': {'P': {'date': '2025-07-01', 'questions': {
+        '1': {'subtopic_id': 'oc.t.s', 'named_concepts': ['Beckmann rearrangement'], 'distractor_mechanisms': 5,
+              'representations': 5, 'option_smiles': [1], 'ask_type': ['x'], 'qtype': 3, 'stereo_decl': ['x']}}}}}
+    for _name, _call in (
+            ('gate', lambda: difficulty_paper_gate([{'q': [1], 'original_band': ['Hard'], 'final_band': {'a': 1}}], labs)),
+            ('lines', lambda: difficulty_layer_lines({'counts_original': {'Easy': [1]}, 'counts_final': {'Easy': 'x'},
+                                                      'accepted_dr3': {'a': 1}, 'unmeasured': 7})),
+            ('reg', lambda: pyq_grades_from_registry({'pyq_grades': {'s': {'labels': labs, 'grades': {'a': ['Hard']}}}}, 's', labs)),
+            ('shares', lambda: pyq_grade_shares({'a:Q1': {'x': 1}}, [('a', 1), [1, 2, 3], {'a'}], labs)),
+            ('cards', lambda: l2_cards(_pm, {'active': True, 'pool_keys': [1, ('P', '1'), None], 'inputs': [1],
+                                             'labels': labs, 'cuts_list': [1, 2]})),
+            ('slot', lambda: l2_slot_source([{'band': 'Hard', 'card_id': 5, 'families': 5}, 7], 'Hard', ['x'], used=5, skip='z')),
+            ('model', lambda: l2_model_for_scope(_pm, ['oc.t.s', None, 5], labs, pyq_grades={'P:Q1': ['Hard']},
+                                                 measured_pct={'Easy': 'x', 'Hard': float('inf')}, min_pool=1,
+                                                 organic_ids=['oc.t.s', None])),
+            ('record', lambda: l2_record(_pm['papers']['P']['questions']['1'],
+                                         {'active': True, 'cuts_list': [1.0, 2.0], 'labels': labs,
+                                          'fields_on': {'close': True}, 'unmatched_load': 'y'})),
+            ('supply', lambda: l2_hard_supply([{'band': ['Hard']}, {'band': {'a': 1}}, {'band': 'Hard'}], labs)),
+            ('floor', lambda: l2_band_load_floor([{'band': ['Hard'], 'load': 3}, {'band': 'Hard', 'load': True}], ['Hard'])),
+            ('packet', lambda: pyq_grade_packet({'content_objects': [5, {'role': ['x']}], 'option_smiles': {1: 2}}, None, None,
+                                                'stem', {1: 2}, 5))):
+        _try(_name, _call)
+    check('dl_l2_never_raise_hostile_inputs', _never == [])
+    check('l2_ladder_entries', ladder_entry('A-L2BAND') == 'R2' and ladder_entry('G-L2OPTSMILES') == 'R2o'
+          and ladder_entry('G-NAMESTRUCT') == 'R2s')
+
+
 def self_test():
     passed = 0
     total = 0
@@ -9615,7 +10007,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.32')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.33')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -10931,6 +11323,9 @@ PYQ_IMAGE_ANALYSIS:
     check('qq_ladder_entry_rungs', ladder_entry('A-OPTDISTINCT') == 'R2o' and ladder_entry('A-STEMLEAK') == 'R2s'
           and ladder_entry('A-SHAPEMIX') == 'R3' and ladder_entry(['A-OPTDISTINCT', 'A-ENTITYLEAK']) == 'R2o' and ladder_entry(['A-OPTDISTINCT', 'G-FIGLABEL']) == 'R1'
           and set(LADDER_SUBRUNGS) == {'R2s', 'R2o'})
+
+    # ── v1.33 — Clusters DL + L2 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER) ──────────────
+    _dl_l2_self_test(check)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
@@ -17283,7 +17678,10 @@ def reagent_smiles(name, extra=None):
 # ── G02 — JUDGE PACKET / FINAL BAND (R2.2 / R2.4 / OD-4 existing tolerance) ───────
 _QQ_STRIP_FIELDS = ('difficulty_plan', 'difficulty_obs', 'difficulty', 'solution', 'solution_notes',
                     'rationale', 'author_notes', 'deduction_steps', 'axiom_concepts', 'band', 'scheduled_band',
-                    'difficulty_check', 'why_wrong', 'explanation')
+                    'difficulty_check', 'why_wrong', 'explanation',
+                    # v1.33 (GAP-2026-11-07): the author's concept list and its L2 record never reach a
+                    # reviewer or judge — the reviewer derives its OWN concepts (anti-gaming, l2_concepts_used)
+                    'named_concepts', 'concepts_used', 'l2', 'l2_band')
 
 
 def exemplars_for(bank, subtopic_id, qtype='mcq', labels=('Easy', 'Medium', 'Hard'), k=EXEMPLAR_K):
@@ -17470,14 +17868,16 @@ REVIEW_CHECKLIST = (
 )
 
 
-def review_packet(paper_items, exemplar_slice, paper_md5, part_max=REVIEW_PART_MAX):
+def review_packet(paper_items, exemplar_slice, paper_md5, part_max=REVIEW_PART_MAX, concept_vocabulary=None):
     """R12.1 input: the delivered paper, the scope's exemplar-bank slice, the checklist
     and paper_md5 — NO registry, author notes or scheduled bands. Split into parts of
     <= REVIEW_PART_MAX items, each carrying the full checklist.
     2026.11.04 (GAP-2026-11-04 E6): items sharing a stimulus_group_id (passage / DI set /
     linked cloze) are NEVER split across parts — the group moves whole to the next part
     (a single group larger than part_max forms one part on its own). One part = one fresh
-    reviewer (Create S13-2G phase 2)."""
+    reviewer (Create S13-2G phase 2).
+    v1.33 (GAP-2026-11-07): concept_vocabulary (bc.l2_vocabulary(), given when the paper holds
+    organic ruler items) rides in every part — the reviewer SELECTS its concepts_used from it."""
     items = [{k: v for k, v in (it or {}).items() if k not in _QQ_STRIP_FIELDS} for it in (paper_items or [])]
     # consecutive runs of the same non-empty stimulus_group_id form one unsplittable unit
     units = []
@@ -17497,9 +17897,12 @@ def review_packet(paper_items, exemplar_slice, paper_md5, part_max=REVIEW_PART_M
         chunks.append(cur)
     parts = []
     for ch in chunks:
-        parts.append({'part': len(parts) + 1, 'items': ch,
-                      'checklist': list(REVIEW_CHECKLIST), 'exemplars': exemplar_slice or {},
-                      'paper_md5': paper_md5})
+        _pt = {'part': len(parts) + 1, 'items': ch,
+               'checklist': list(REVIEW_CHECKLIST), 'exemplars': exemplar_slice or {},
+               'paper_md5': paper_md5}
+        if isinstance(concept_vocabulary, (list, tuple)) and concept_vocabulary:
+            _pt['concept_vocabulary'] = [dict(v) for v in concept_vocabulary if isinstance(v, dict)]
+        parts.append(_pt)
     return {'paper_md5': paper_md5, 'parts': parts, 'n_items': len(items)}
 
 
@@ -17609,6 +18012,12 @@ def review_verdict_file(exam_code, paper_slug, paper_md5, answers, reviewer='Moc
             probs.append(f'Q{q}: reviewer left {missing} blank -> confidence low')
         r.setdefault('verdict', 'PASS' if r.get('confidence') != 'low' else 'FAIL')
         r['key_agrees'] = None
+        # v1.33 (GAP-2026-11-07): concepts_used — the reviewer's OWN concepts (outside the eight-key
+        # checklist; optional) — kept as a clean list of strings, [] when absent or malformed
+        _cu = r.get('concepts_used')
+        r['concepts_used'] = ([str(x).strip() for x in _cu if isinstance(x, str) and x.strip()]
+                              if isinstance(_cu, (list, tuple)) else
+                              ([x.strip() for x in _cu.split(';') if x.strip()] if isinstance(_cu, str) else []))
         items[str(q)] = r
     return ({'schema_version': 1, 'reviewer': reviewer, 'exam_code': exam_code, 'paper_slug': paper_slug,
              'paper_md5': paper_md5, 'items': items, 'n_items': len(items)}, probs)
@@ -17768,6 +18177,1375 @@ LADDER_ENTRY_RUNG.update({
 })
 
 # END CLUSTER QQ
+# ════════════════════════════════════════════════════════════════════════════
+
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER DL — DIFFICULTY LAYER, EVERY EXAM  (v1.33, GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER;
+# owner decisions 2026-11-07 D1 (b), D2 relative, D3, D4, D5, D6, Q1 (c))
+# ════════════════════════════════════════════════════════════════════════════
+# WHY (measured on the production engine, a post-graduate chemistry exam's SUBJ Organic
+# Chemistry Test 01, registry 2026-11-07): schedule Easy 2 / Medium 10 / Hard 28; the
+# Level Model said 'ok' on 39/40 (size, not difficulty); the judge was DORMANT on 39/40
+# (empty exemplar bank); the S13-2G blind reviewer graded the paper Easy 14 / Medium 17 /
+# Hard 9 — matching the expert grade 15 / 18 / 7 — and its verdict was written as
+# level_note 'reviewer below slot' and SHIPPED. Two subject-independent causes:
+#   (1) an independent control that says BELOW was recorded, never acted on;
+#   (2) nothing counted the delivered paper against the ORIGINAL schedule.
+# This cluster is the generic layer every exam uses (owner D1 (b)):
+#   * difficulty_band_min      — a slot's band is the LOWEST band any independent control
+#                                (reviewer, judge, solver-derived ruler, subject ruler) gives;
+#                                the author's own counts are never a control.
+#   * difficulty_repair_step   — a slot measured BELOW its original band is REPAIRED
+#                                (re-authored), never relabelled, until rung DR3; DR3 is the
+#                                one disclosed last resort and exists only so nothing stops.
+#   * difficulty_paper_gate    — the delivered paper is counted against the ORIGINAL
+#                                schedule; every slot below its original band is reworked.
+#   * pyq_grade_* helpers      — the exam's band SHARES come from a BLIND grading of its own
+#                                past papers (owner Q1 (c)), cached in the registry against
+#                                the profile's sha256, never from the author-counted rubric.
+# PURE; never raises; no hard stop anywhere (C1); no certificate effect (C2); no new
+# operator action (C4). Every function degrades to a DORMANT result with a reason.
+
+DL_RULE_CURRENT = 'DL1'
+DL_REPAIR_RUNGS = ('DR1', 'DR2', 'DR3')      # DR1 re-author from the next pattern source; DR2 band-target
+                                             # brief; DR3 disclosed accept-at-measured (the ONLY relabel)
+DL_DR1_SOURCES = 3                           # pattern sources tried at DR1 (each with the G-DIFF budget)
+DL_DR2_TRIES = 12                            # band-target authoring tries at DR2
+DL_REWORK_PASSES = 2                           # paper-gate rework passes (pass 2 starts each q at DR2)
+DL_CONTROLS = ('reviewer', 'judge', 'ruler', 'solver_ruler', 'level', 'ccp')
+PYQ_GRADES_SCHEMA = 1
+
+
+def _dl_list(x):
+    """list(x) for a list / tuple / set, else [] — every iterable input is read through this."""
+    return list(x) if isinstance(x, (list, tuple, set, frozenset)) else []
+
+
+def _dl_num(x, default=None):
+    """A finite int / float (bools excluded), else `default`."""
+    if isinstance(x, bool) or not isinstance(x, (int, float)):
+        return default
+    return x if math.isfinite(x) else default
+
+
+def _dl_dict(x):
+    """x when it is a dict, else {}."""
+    return x if isinstance(x, dict) else {}
+
+
+def _dl_band(x, labs):
+    """x when it is one of the label strings, else None (unhashable / foreign values included)."""
+    return x if isinstance(x, str) and x in labs else None
+
+
+def _dl_shares(d, labs):
+    """{label: int pct} summing to 100 from any numeric share dict: fractions (sum <= 1) and any
+    other positive sum are rescaled to 100 (largest remainder); None when no label carries a
+    positive finite share."""
+    vals = {l: max(0.0, float(_dl_num(_dl_dict(d).get(l), 0))) for l in labs}
+    tot = sum(vals.values())
+    if tot <= 0:
+        return None
+    raw = {l: 100.0 * vals[l] / tot for l in labs}
+    base = {l: int(math.floor(raw[l])) for l in labs}
+    for l in sorted(labs, key=lambda l: (-(raw[l] - base[l]), labs.index(l)))[:100 - sum(base.values())]:
+        base[l] += 1
+    return base
+
+
+def _dl_labels(labels):
+    """The label strings of a list / tuple, in order; anything else -> []."""
+    return [x for x in labels if isinstance(x, str) and x] if isinstance(labels, (list, tuple)) else []
+
+
+def _dl_idx(band, labs):
+    return labs.index(band) if isinstance(band, str) and band in labs else None
+
+
+def difficulty_band_min(controls, labels):
+    """The lowest band over every independent control that produced one.
+    controls: {name: band | None}; names outside DL_CONTROLS are accepted (recorded).
+    Returns {'band': band | None, 'source': name | None, 'controls': {name: band}} —
+    band None when no control produced a band in `labels` (the caller keeps today's
+    path). The author's declared counts are NOT a control and must never be passed."""
+    labs = _dl_labels(labels)
+    got = {}
+    for k, v in (controls.items() if isinstance(controls, dict) else []):
+        if _dl_idx(v, labs) is not None:
+            got[str(k)] = v
+    if not got:
+        return {'band': None, 'source': None, 'controls': {}}
+    name = min(sorted(got), key=lambda k: (labs.index(got[k]), k))
+    return {'band': got[name], 'source': name, 'controls': got}
+
+
+def difficulty_repair_step(original_band, measured_band, labels, rung=None, tries_at_rung=0,
+                           sources_tried=0, has_source=True):
+    """Next action for a slot whose measured band differs from its ORIGINAL band (all exams,
+    owner D1 (b); replaces BAND-SWAP ESCAPE and R5 accept-at-measured for BELOW slots).
+      measured == original           -> {'action': 'accept'}
+      measured ABOVE original        -> {'action': 'simplify'} (today's 'harder' path, unchanged)
+      measured BELOW original        -> walk DR1 (next pattern source, up to DL_DR1_SOURCES
+                                        sources, each spending the G-DIFF budget) -> DR2
+                                        (band-target brief, DL_DR2_TRIES) -> DR3 accept at the
+                                        measured band, DISCLOSED (footer), the only relabel.
+    rung: the slot's current rung (None = not yet in repair). tries_at_rung / sources_tried:
+    counters persisted by the caller (batch_state['_diff_tries'] '<q>:dr1:<k>' etc.).
+    has_source: False when no further pattern source exists (DR1 is then skipped); a string is
+    never a source. An unknown rung means 'not yet in repair' (DR1), never DR3; negative
+    counters read as 0.
+    Never raises; an unknown band -> {'action': 'accept', 'reason': 'unmeasurable'}."""
+    labs = _dl_labels(labels)
+    io, im = _dl_idx(original_band, labs), _dl_idx(measured_band, labs)
+    if io is None or im is None:
+        return {'action': 'accept', 'rung': rung, 'reason': 'unmeasurable band — kept at original'}
+    if im == io:
+        return {'action': 'accept', 'rung': rung, 'reason': 'agree'}
+    if im > io:
+        return {'action': 'simplify', 'rung': rung, 'reason': 'harder'}
+    t, s = max(0, _qf_int(tries_at_rung, 0)), max(0, _qf_int(sources_tried, 0))
+    if rung not in DL_REPAIR_RUNGS:
+        rung = None                                         # an unknown rung STARTS the repair, never skips it
+    src_ok = has_source is True or (not isinstance(has_source, str) and has_source not in (False, None, 0))
+    if rung in (None, 'DR1'):
+        if src_ok and s < DL_DR1_SOURCES:
+            return {'action': 'reauthor', 'rung': 'DR1', 'source_index': s if rung == 'DR1' else 0,
+                    'reason': f'easier: measured {measured_band}, original {original_band}'}
+        rung, t = 'DR2', 0
+    if rung == 'DR2':
+        if t < DL_DR2_TRIES:
+            return {'action': 'reauthor_target', 'rung': 'DR2', 'try': t,
+                    'reason': f'easier after DR1: band-target brief try {t + 1}/{DL_DR2_TRIES}'}
+        rung = 'DR3'
+    return {'action': 'accept_measured', 'rung': 'DR3', 'final_band': measured_band,
+            'reason': f'DR3: accepted at {measured_band} (original {original_band}) after DR1/DR2 — disclosed'}
+
+
+def difficulty_paper_gate(items, labels):
+    """Paper-level guarantee, EVERY exam (owner D1 (b)). items: [{'q', 'original_band',
+    'final_band', 'rung'(optional)}] for every slot of the paper; original_band is the
+    ORIGINAL schedule (batch_state['difficulty_schedule_original'], else the project
+    blueprint) — never the amended one. Returns {'status': 'PASS'|'REWORK',
+    'counts_final', 'counts_original', 'below': [q...], 'rework_qs': [q...] (below original,
+    lowest final band first, then q; DR3 items excluded — they are disclosed),
+    'accepted_dr3': [q...], 'unmeasured': [q...] (a slot with no measurable final band —
+    reported, never a silent pass), 'rule'}. PASS iff no slot sits below its original band except
+    disclosed DR3 items. Never raises."""
+    labs = _dl_labels(labels)
+    its = [i for i in _dl_list(items) if isinstance(i, dict)]
+    cf = {l: 0 for l in labs}
+    co = {l: 0 for l in labs}
+    below, dr3, unmeasured = [], [], []
+    for i in its:
+        o, f = _dl_band(i.get('original_band'), labs), _dl_band(i.get('final_band'), labs)
+        if o is not None:
+            co[o] += 1
+        if f is not None:
+            cf[f] += 1
+        if o is not None and f is None:
+            unmeasured.append(i.get('q'))
+        if o is not None and f is not None and labs.index(f) < labs.index(o):
+            (dr3 if i.get('rung') == 'DR3' else below).append(i)
+    below.sort(key=lambda i: (labs.index(i.get('final_band')), _qf_qkey(str(i.get('q')))))
+    return {'status': 'PASS' if not below else 'REWORK', 'counts_final': cf, 'counts_original': co,
+            'below': [i.get('q') for i in below] + [i.get('q') for i in dr3],
+            'rework_qs': [i.get('q') for i in below], 'accepted_dr3': [i.get('q') for i in dr3],
+            'unmeasured': unmeasured, 'rule': DL_RULE_CURRENT}
+
+
+def difficulty_layer_lines(gate=None, l2_model=None, n_l2_items=0, shares_source=None):
+    """Informational footer lines (no colour, no certificate effect — C2). Pure."""
+    out = []
+    g = _dl_dict(gate)
+    co, cf = _dl_dict(g.get('counts_original')), _dl_dict(g.get('counts_final'))
+    if co:
+        labs = [l for l in co if isinstance(l, str)]
+        out.append('Difficulty vs schedule: ' + ' / '.join(f"{l} {_qf_int(cf.get(l), 0)}" for l in labs)
+                   + ' (schedule ' + ' / '.join(f"{l} {_qf_int(co.get(l), 0)}" for l in labs) + ')')
+        dr3 = _dl_list(g.get('accepted_dr3'))
+        if dr3:
+            out.append(f"Difficulty fallback (DR3): {len(dr3)} item(s) accepted below their slot after "
+                       f"full repair — Q{', Q'.join(str(q) for q in dr3[:12])}")
+        um = _dl_list(g.get('unmeasured'))
+        if um:
+            out.append(f"Difficulty unmeasured: {len(um)} slot(s) had no independent band — "
+                       f"Q{', Q'.join(str(q) for q in um[:12])}")
+    m = l2_model if isinstance(l2_model, dict) else None
+    if m and _as_int(n_l2_items):
+        if m.get('active'):
+            out.append(f"Organic difficulty ruler (L2, {m.get('mode')}): pool n={m.get('n')}, shares from "
+                       f"{m.get('shares_source')}, concept coverage {m.get('vocab_coverage')}"
+                       + ('' if m.get('binding') else ' — ADVISORY (below coverage floor; bands recorded, not binding)'))
+        else:
+            out.append(f"Organic difficulty ruler (L2): dormant — {m.get('reason')}; bands from the independent controls")
+    if shares_source and not (m and m.get('shares_source')):
+        out.append(f'Difficulty shares from {shares_source}')
+    return out
+
+
+# ── PYQ blind grading (owner Q1 (c)): the exam's own past papers decide the shares ──
+
+PYQ_GRADE_STRIP = ('band', 'score', 'steps', 'inferential_steps', 'concepts', 'class', 'speed_hack',
+                   'answer_smiles', 'named_concepts', 'level_vector', 'content_vector', 'closeness',
+                   'rubric_rule', 'difficulty', 'distractor_mechanisms', 'near_isomer_set', 'review_band')
+PYQ_GRADE_HIDDEN_ROLES = ('answer', 'key', 'solution', 'derived', 'derived_product')
+
+
+def pyq_grade_packet(rec, paper_key, q, stem=None, options=None, figure_paths=None):
+    """The BLIND packet one past question is graded from: what a candidate sees (stem,
+    options, drawn structures / scheme objects, figure files) and NOTHING the explanation
+    derived (band, counts, concepts, key, closeness — PYQ_GRADE_STRIP; content objects whose role
+    marks a derived answer — PYQ_GRADE_HIDDEN_ROLES — are dropped). When the full stem /
+    options are not supplied (Create S3 fallback) the profile record's stem_snippet,
+    content_objects, option_smiles and reagents_seen stand in and 'source' says
+    'profile_only'. Returns a dict with a sha256 of its own canonical JSON. Never raises."""
+    import hashlib as _h
+    import json as _j
+    r = rec if isinstance(rec, dict) else {}
+    pk = {'key': f'{paper_key}:Q{q}', 'section': r.get('section'), 'qtype': r.get('qtype') or 'mcq',
+          'marks': r.get('marks'), 'ask_type': r.get('ask_type') or r.get('figural_ask_type')}
+    if isinstance(stem, str) and stem.strip():
+        pk['stem'] = stem
+        if isinstance(options, dict):
+            pk['options'] = [f'{k}) {v}' for k, v in sorted(options.items(), key=lambda kv: _qf_qkey(str(kv[0])))]
+        else:
+            pk['options'] = [str(o) for o in _dl_list(options)]
+        pk['source'] = 'full'
+    else:
+        pk['stem'] = str(r.get('stem_snippet') or '')
+        pk['source'] = 'profile_only'
+    objs = []
+    for ob in _dl_list(r.get('content_objects')):
+        if isinstance(ob, dict) and str(ob.get('role') or '').split(':')[0].strip().lower() not in PYQ_GRADE_HIDDEN_ROLES:
+            objs.append({k: ob.get(k) for k in ('kind', 'canonical', 'role', 'scheme') if k in ob})
+    if objs:
+        pk['structures'] = objs
+    if _dl_dict(r.get('option_smiles')):
+        pk['option_structures'] = {str(k): str(v) for k, v in r['option_smiles'].items()}
+    if r.get('reagents_seen'):
+        pk['reagents_printed'] = [str(x) for x in _qf_lines(r.get('reagents_seen'))]
+    if _dl_list(figure_paths):
+        pk['figures'] = [str(p) for p in _dl_list(figure_paths)]
+    for k in PYQ_GRADE_STRIP:
+        pk.pop(k, None)
+    try:
+        pk['sha256'] = _h.sha256(_j.dumps(pk, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
+    except Exception:                                       # noqa: BLE001
+        pk['sha256'] = None
+    return pk
+
+
+def pyq_grades_record(profile_sha256, labels, grades, source='reviewer', scope=None):
+    """The registry record (registry['pyq_grades'][profile_sha256]) of one blind grading
+    run. grades {'<paper_key>:Q<n>': band}; bands outside `labels` are dropped and counted. A
+    record without a profile sha256 is written 'usable': False and is never read back.
+    Never raises."""
+    labs = _dl_labels(labels)
+    g = {}
+    bad = 0
+    for k, v in _dl_dict(grades).items():
+        if _dl_band(v, labs) is not None:
+            g[str(k)] = v
+        else:
+            bad += 1
+    sha = profile_sha256 if isinstance(profile_sha256, str) and profile_sha256.strip() else ''
+    return {'schema': PYQ_GRADES_SCHEMA, 'profile_sha256': sha, 'usable': bool(sha), 'labels': labs,
+            'grades': g, 'n': len(g), 'dropped': bad, 'source': str(source or 'reviewer'),
+            'scope': list(scope) if isinstance(scope, (list, tuple)) else None}
+
+
+def pyq_grades_from_registry(registry, profile_sha256, labels):
+    """{'<paper>:Q<n>': band} cached for THIS profile sha256 and label set, else {}.
+    A cache written for another profile version is never used (it graded other papers)."""
+    if not isinstance(profile_sha256, str) or not profile_sha256.strip():
+        return {}                                           # an unknown profile version never reuses a cache
+    rec = _dl_dict(_dl_dict(_dl_dict(registry).get('pyq_grades')).get(profile_sha256))
+    labs = _dl_labels(labels)
+    if not rec or not labs or _dl_list(rec.get('labels')) != labs:
+        return {}
+    return {str(k): v for k, v in _dl_dict(rec.get('grades')).items() if _dl_band(v, labs) is not None}
+
+
+def pyq_grade_shares(grades, keys, labels):
+    """Integer percentage shares (sum 100, largest remainder) of the graded bands over
+    `keys` ([(paper_key, q)] or ['<paper>:Q<n>']). Returns ({label: pct}, n_graded)."""
+    labs = _dl_labels(labels)
+    g = _dl_dict(grades)
+    cnt = {l: 0 for l in labs}
+    n = 0
+    for k in _dl_list(keys):
+        kk = k if isinstance(k, str) else (f'{k[0]}:Q{k[1]}' if isinstance(k, (list, tuple)) and len(k) == 2 else None)
+        b = _dl_band(g.get(kk), labs) if kk else None
+        if b is not None:
+            cnt[b] += 1
+            n += 1
+    if not n:
+        return {}, 0
+    raw = {l: 100.0 * cnt[l] / n for l in labs}
+    base = {l: int(math.floor(raw[l])) for l in labs}
+    rem = 100 - sum(base.values())
+    for l in sorted(labs, key=lambda l: (-(raw[l] - base[l]), labs.index(l)))[:rem]:
+        base[l] += 1
+    return base, n
+
+
+
+# ── Create S13-2G phase 3 (DL1): the decision for one reviewed item, every exam ──────────────
+
+def dl_reviewer_band(text, labels):
+    """(band, anchored) from a reviewer's difficulty_band_with_exemplar text
+    ('<band>, like exemplar <cell>/<index>' | 'no exemplar for this cell' | ...). band = the
+    label the text starts with (the exam's own labels first, then 'easy'/'medium'/'hard' mapped
+    POSITIONALLY onto a 3-label vocabulary), else None. anchored = the text cites an exemplar
+    (the word 'exemplar' without 'no exemplar'); an unanchored band is RECORDED but is not a
+    control (the reviewer had no benchmark). Never raises."""
+    labs = _dl_labels(labels)
+    t = text.strip() if isinstance(text, str) else ''
+    tl = t.lower()
+    band = next((l for l in labs if tl.startswith(l.lower())), None)
+    if band is None and len(labs) == 3:
+        band = next((labs[i] for i, w in enumerate(('easy', 'medium', 'hard')) if tl.startswith(w)), None)
+    anchored = bool(band) and ('exemplar' in tl) and ('no exemplar' not in tl)
+    return band, anchored
+
+
+def dl_phase3_decision(target_band, labels, review_rec=None, judge_band=None, l2_model=None,
+                       l2_obs=None, review_round=0, qtype='mcq'):
+    """THE decision S13-2G phase 3 takes for one item (owner D1 (b), every exam).
+    target_band: the slot's band in the TARGET plan (the original schedule with only
+    count-neutral swaps applied — never a relabel). Independent controls:
+      'reviewer'  — the blind reviewer's band, ONLY when anchored to an exemplar;
+      'judge'     — the in-batch blind judge's rated band, when the judge was not dormant;
+      'ruler'     — the organic L2 band (only when l2_model is active AND binding and the
+                    item is an L2 item, l2_obs given), measured on the concept list of the
+                    author OR the reviewer, whichever scores LOWER (l2_concepts_used).
+    measured = the LOWEST band among them (difficulty_band_min); None -> unmeasured.
+    action:
+      'accept'  — measured == target, or no control produced a band (kept at target);
+      'above'   — measured above target (recorded; the label stays at target);
+      'repair'  — measured BELOW target in review round 1 (review_round == 0 before the
+                  round's increment): REVIEW_REPAIR at DR1;
+      'dr3'     — measured BELOW target in round 2: accepted at the measured band, the
+                  DISCLOSED last resort (the label becomes the measured band).
+    Returns {'action', 'measured', 'final_band', 'controls', 'source', 'reviewer_band',
+    'reviewer_anchored', 'concepts_used', 'concepts_from', 'l2', 'rung', 'rule'}. Never raises."""
+    labs = _dl_labels(labels)
+    tgt = _dl_band(target_band, labs)
+    rv = _dl_dict(review_rec)
+    rb, anch = dl_reviewer_band(rv.get('difficulty_band_with_exemplar'), labs)
+    controls = {'reviewer': rb if anch else None, 'judge': _dl_band(judge_band, labs), 'ruler': None}
+    l2rec, cu, who = None, [], 'none'
+    m = _dl_dict(l2_model)
+    obs = _dl_dict(l2_obs)
+    if m.get('active') and m.get('binding') and obs:
+        cu, who = l2_concepts_used(obs.get('named_concepts'), rv.get('concepts_used'), m, labs, others=obs)
+        l2rec = l2_record(dict(obs, named_concepts=cu), m, labs, qtype if isinstance(qtype, str) else 'mcq')
+        controls['ruler'] = l2rec.get('band') if cu else None   # no concept named by anyone: no ruler band
+    mn = difficulty_band_min(controls, labs)
+    meas = mn['band']
+    out = {'measured': meas, 'controls': mn['controls'], 'source': mn['source'], 'reviewer_band': rb,
+           'reviewer_anchored': anch, 'concepts_used': cu, 'concepts_from': who, 'l2': l2rec,
+           'rule': DL_RULE_CURRENT}
+    if tgt is None or meas is None:
+        out.update({'action': 'accept', 'final_band': tgt, 'rung': None})
+    elif labs.index(meas) == labs.index(tgt):
+        out.update({'action': 'accept', 'final_band': tgt, 'rung': None})
+    elif labs.index(meas) > labs.index(tgt):
+        out.update({'action': 'above', 'final_band': tgt, 'rung': None})
+    elif _qf_int(review_round, 0) < 1:
+        out.update({'action': 'repair', 'final_band': tgt, 'rung': 'DR1'})
+    else:
+        out.update({'action': 'dr3', 'final_band': meas, 'rung': 'DR3'})
+    return out
+
+
+def dl_target_plan_swap(target_plan, q1, q2):
+    """The TARGET plan after a count-neutral BAND-SWAP of slots q1 and q2 (CHECK 3c escape):
+    their bands are exchanged; counts never change. A missing / non-dict plan is returned
+    unchanged. Pure (returns a new dict)."""
+    t = dict(_dl_dict(target_plan))
+    a, b = str(q1), str(q2)
+    if a in t and b in t:
+        t[a], t[b] = t[b], t[a]
+    return t
+
+
+def dl_band_counts(plan, labels):
+    """{label: n} over a {q: band} plan (foreign values ignored)."""
+    labs = _dl_labels(labels)
+    out = {l: 0 for l in labs}
+    for v in _dl_dict(plan).values():
+        b = _dl_band(v, labs)
+        if b is not None:
+            out[b] += 1
+    return out
+
+
+def dl_gate_items(target_plan, concept_map, labels):
+    """The items difficulty_paper_gate counts — ONE builder for Create S13-2L and audit_canonical
+    A-DIFFGATE (owner D1 (b)). Per target slot: final_band = the item's label, LOWERED to the
+    latest independent measurement (difficulty_check['review_measured'] from S13-2G phase 3, else
+    ['measured'] from CHECK 3c) — so a label held at its slot while every control measured it
+    below is counted below, never a silent pass; a DR3 item (dl_rung 'DR3') counts at its label
+    (= its measured band, disclosed); a slot NO control measured has final_band None ->
+    'unmeasured' (disclosed). Never raises."""
+    labs = _dl_labels(labels)
+    cm = _dl_dict(concept_map)
+    out = []
+    for q, b in _dl_dict(target_plan).items():
+        e = cm.get(str(q)) if isinstance(cm.get(str(q)), dict) else {}
+        dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+        lab = _dl_band(e.get('difficulty'), labs)
+        meas = _dl_band(dc.get('review_measured'), labs) or _dl_band(dc.get('measured'), labs)
+        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS else None
+        if rung == 'DR3':
+            fin = lab
+        elif meas is None:
+            tb = _dl_band(b, labs)
+            # nothing measured: a label already BELOW its slot is counted as it stands; otherwise unmeasured
+            fin = lab if (lab is not None and tb is not None and labs.index(lab) < labs.index(tb)) else None
+        elif lab is None:
+            fin = meas
+        else:
+            fin = labs[min(labs.index(lab), labs.index(meas))]
+        out.append({'q': str(q), 'original_band': b, 'final_band': fin, 'label': lab, 'measured': meas,
+                    'rung': rung})
+    return out
+
+
+# ── Step 5 blind grading of the exam's own past papers (owner Q1 (c) / 2026-11-08 (a)) ──────
+
+PYQ_GRADE_PART_MAX = 30
+
+
+def pyq_grade_parts(packets, part_max=PYQ_GRADE_PART_MAX):
+    """Split blind grading packets into parts for one fresh grader each: packets of the SAME
+    section stay together (the grader calibrates across a section's questions), a section
+    larger than part_max is cut into consecutive parts. Returns [{'part', 'section', 'items'}].
+    Never raises."""
+    pk = [p for p in _dl_list(packets) if isinstance(p, dict) and isinstance(p.get('key'), str)]
+    by_sec = {}
+    for p in pk:
+        by_sec.setdefault(str(p.get('section') or ''), []).append(p)
+    mx = max(1, _qf_int(part_max, PYQ_GRADE_PART_MAX))
+    parts = []
+    for sec in sorted(by_sec):
+        rows = by_sec[sec]
+        for i in range(0, len(rows), mx):
+            parts.append({'part': len(parts) + 1, 'section': sec, 'items': rows[i:i + mx]})
+    return parts
+
+
+def pyq_grades_from_parts(part_results, labels, expected_keys=None):
+    """Merge the graders' part files ({'<paper>:Q<n>': {'band': <label>, 'reason': str}} or
+    {'<key>': <label>}) into one {key: band}. A band outside `labels` is dropped and named; a
+    key graded twice keeps the first. Returns (grades, missing_keys, problems). Never raises."""
+    labs = _dl_labels(labels)
+    g, probs = {}, []
+    for i, pr in enumerate(_dl_list(part_results)):
+        if not isinstance(pr, dict):
+            probs.append(f'part {i + 1}: not a grades record')
+            continue
+        items = pr.get('grades') if isinstance(pr.get('grades'), dict) else pr
+        for k, v in items.items():
+            if not isinstance(k, str) or k in ('_meta', 'part', 'section'):
+                continue
+            b = v.get('band') if isinstance(v, dict) else v
+            b = _dl_band(b, labs) or (dl_reviewer_band(b, labs)[0] if isinstance(b, str) else None)
+            if b is None:
+                probs.append(f'{k}: band {v!r} is not one of {labs}')
+            elif k not in g:
+                g[k] = b
+    exp = [k for k in _dl_list(expected_keys) if isinstance(k, str)]
+    return g, [k for k in exp if k not in g], probs
+
+
+def bank_pyq_grades(bank, profile_sha256, labels):
+    """The per-question blind grades the Step-5 exemplar bank carries, IF the bank was built
+    from THIS difficulty profile. Returns (grades, status): status 'fresh' (sha matches and
+    grades present), 'stale' (the bank names another profile sha256 — built before the
+    current profile; its grades and level bands describe other data), 'ungraded' (fresh bank
+    without grades), 'absent' (no bank / no sha recorded — a pre-2026.11.08 bank). Never raises."""
+    b = _dl_dict(bank)
+    if not b:
+        return {}, 'absent'
+    meta_sha = _dl_dict(b.get('_meta')).get('profile_sha256')
+    if not isinstance(meta_sha, str) or not meta_sha:
+        return {}, 'absent'
+    if not isinstance(profile_sha256, str) or meta_sha != profile_sha256:
+        return {}, 'stale'
+    g = pyq_grades_from_registry({'pyq_grades': {meta_sha: _dl_dict(b.get('pyq_grades'))}}, meta_sha, labels)
+    return (g, 'fresh') if g else ({}, 'ungraded')
+
+
+# END CLUSTER DL
+# ════════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER L2 — ORGANIC DECISION-LOAD RULER (v1.33, GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER)
+# ════════════════════════════════════════════════════════════════════════════
+# The FIRST subject ruler plugged into Cluster DL. It measures what a solver of an ORGANIC
+# chemistry item must DECIDE — the named concepts it rests on, how many, whether the wrong
+# options are isomers of the key, whether a stereo decision is asked — never molecule size.
+# OWNER RULES (2026-11-07), binding:
+#   D2  RELATIVE: cut points are quantiles of the exam's OWN past organic questions.
+#   Q1  (c): the quantile SHARES come from a blind grading of those past questions
+#       (pyq_grade_*, Cluster DL); fallback, printed: the blueprint's measured_pct.
+#   D3  SYMMETRY LAW: a field is scored only when the exam's pool carries it on at least
+#       L2_FIELD_MIN_COVERAGE of records; otherwise it is OFF for the pool AND every
+#       candidate (RC1 stated as a law, never fixed once).
+#   D4  CONTROLLED VOCABULARY: L2_CONCEPTS (canonical label, aliases as one pattern, load,
+#       family). PYQExplain, the author and the blind solver SELECT concepts from
+#       l2_vocabulary(); per-exam coverage below L2_VOCAB_MIN_COVERAGE makes the ruler
+#       ADVISORY for that exam (recorded, not binding), never silent.
+#   D5  NO exam-type shift. `load` is a SHARED ORDERING of concepts (Myers transposition
+#       loads above Cannizzaro in every exam); WHERE each band starts is the exam's own
+#       (its cut points). Two exams at the same degree level whose past papers differ in
+#       depth read the same vocabulary and get different cuts.
+#   D6  NEVER copy a past question. A pattern card (l2_cards) carries the decision chain,
+#       ask type, distractor relations, stereo decision and option layout — never a stem,
+#       substrate, key or option set. l2_copy_check rejects a candidate whose key's InChIKey
+#       connectivity block equals any past answer's.
+# Load scale (shared ordering; never an exam level):
+#   1 recognition / definition (functional group, chemical shift, n+1, VSEPR)
+#   2 one standard reaction or rule, single outcome (Cannizzaro, Grignard, SN1, PCC)
+#   3 standard reaction with a regio / stereo / migration decision (anti addition, Beckmann,
+#     Baeyer-Villiger, chair conformers, CIP)
+#   4 named method or concept of a master's syllabus (Birch, Luche, Shapiro, HWE, Mitsunobu)
+#   5 stereo-electronic / stereo-mechanistic control (anti-periplanar in a locked ring,
+#     neighbouring-group participation, Felkin / chelation, Johnson-Claisen, W-H rules)
+#   6 advanced method or control element beyond a standard master's course, with a
+#     stereo-, regio- or mechanism-level decision (Zimmerman-Traxler, Evans, Myers,
+#     Danheiser, Tsuji-Trost, organocatalysis, chirality transfer)
+# RULE FOR ADDITIONS: choose the LOWER load when in doubt — over-loading is the failure this
+# GAP fixes. Additions ship only with a framework release (CI coverage test T11).
+
+L2_RULE_CURRENT = 'L2'
+L2_VOCAB_VERSION = '2026.11.07-2'
+L2_MIN_POOL = 12
+L2_FIELD_MIN_COVERAGE = 0.8
+L2_W_LOAD, L2_W_CHAIN, L2_W_CLOSE, L2_W_STEREO = 5, 3, 2, 3   # one chain step ~ 0.6 load step (prototype ratio)
+L2_CHAIN_MIN_LOAD = 2                       # recognition-level labels never lengthen a chain
+L2_VOCAB_MIN_COVERAGE = 0.9
+L2_ORGANIC_WORD = r'(?<![a-z])(bio ?|physical ?)?organi(c|que|ca|co|sch\w*)(?![a-z])'
+L2_OTHER_BRANCH = (r'(?<![a-z])(inorganic|physical chem|analytical|biochem|nuclear|environmental|industrial|polymer'
+                   r'|anorganisch|inorganique|inorganica)')
+L2_STEREO_ASKS = frozenset({'stereochemical_outcome', 'stereoisomer_count', 'outcome_ratio'})
+L2_CLOSE_TOKENS = frozenset(ISOMER_MECHANISMS)
+L2_STEREO_TOKENS = frozenset({'stereoisomer_enantiomer', 'stereoisomer_diastereomer', 'stereoisomer_EZ'})
+# families a REAGENT string may never contribute (a reagent such as 'imidazole' is not a decision)
+L2_REAGENT_SKIP_FAMILIES = frozenset({'heterocycles', 'nomenclature', 'spectroscopy', 'stereochemistry', 'conformation',
+                                      'aromaticity', 'biomolecules', 'natural_products', 'physical_organic'})
+L2_FAMILIES = ('aromaticity', 'stereochemistry', 'conformation', 'mechanism', 'intermediates',
+               'rearrangement', 'redox', 'cc_bond', 'olefination', 'pericyclic', 'photochemistry',
+               'heterocycles', 'natural_products', 'biomolecules', 'synthesis', 'asymmetric',
+               'organometallic', 'spectroscopy', 'nomenclature', 'physical_organic', 'radical',
+               'aromatic_substitution', 'addition', 'substitution_elimination')
+# A TOPIC name that is unambiguously organic chemistry although it lacks the word 'organic' (a
+# taxonomy whose sections are part names, e.g. 'Part B' -> 'Pericyclic reactions'); a topic that
+# also names a metal / coordination / another branch is never organic by this rule.
+L2_ORGANIC_TOPIC = (r'\b(?:pericyclic|stereochemi|heterocycl|retrosynth|named reactions?|reactive intermediates?|'
+                    r'carbocations?|carbanions?|carbenes?|nitrenes?|benzynes?|aromaticity|asymmetric synthesis|'
+                    r'reaction mechanisms? of organic|natural products?|terpen|alkaloid|disconnection|umpolung|'
+                    r'aldol|grignard|diels|sigmatropic|electrocycli)')
+L2_NOT_ORGANIC_TOPIC = r'\b(?:metal|coordination|ligand|complex(?:es)?|crystal field|lanthan|actin|transition element)'
+
+
+# (pattern over l2_normalise()d text, load, canonical label, family). A string's match is the
+# HIGHEST-load entry; ties keep the first entry. Patterns are written in normalised form:
+# lower case, no diacritics, ASCII digits, every dash and hyphen a space, Greek letters spelt.
+L2_CONCEPTS = (
+    # ── load 1: recognition / definition ──────────────────────────────────────────────
+    (r'\bvsepr\b', 1, 'VSEPR', 'physical_organic'),
+    (r'combustion analysis|empirical formula|molecular formula|degree of unsaturation|double bond equivalent', 1, 'formula determination', 'spectroscopy'),
+    (r'(?<!13c )chemical shift|\bn ?\+ ?1 rule|\b1h nmr\b|^nmr$|nmr integration|integration ratio|\bir (stretch|absorption|carbonyl|frequency)|carbonyl (stretch|frequency)|^ir$|molecular ion|mass spectrometry|^mass spectrum$|woodward fieser|uv (absorption|maxim)|lambda max', 1, 'spectroscopy (basic)', 'spectroscopy'),
+    (r'intramolecular hydrogen bond|hydrogen bonding', 1, 'hydrogen bonding', 'physical_organic'),
+    (r'optical activity|chirality cent(re|er)|chiral cent(re|er)|stereocent(re|er)|^enantiomers?$|^diastereomers?$|structural isomer|anomeric carbon|^anomers?$', 1, 'isomer recognition', 'stereochemistry'),
+    (r'inductive effect|resonance effect|hyperconjugation|\bacidity\b|\bbasicity\b|\bpka\b', 1, 'electronic effects', 'physical_organic'),
+    (r'functional group|iupac (name|naming)|common name', 1, 'nomenclature (basic)', 'nomenclature'),
+    (r'histone acetylation|amino acid classification|peptide bond|glycosidic (bond|linkage)', 1, 'biomolecule recognition', 'biomolecules'),
+    # ── load 2: one standard reaction or rule ─────────────────────────────────────────
+    (r'cannizzaro|tishchenko(?! evans)', 2, 'Cannizzaro/Tishchenko', 'redox'),
+    (r'osazone|kiliani|ruff degradation|wohl degradation|mutarotation', 2, 'sugar reactions (basic)', 'biomolecules'),
+    (r'grignard|organolithium addition|\b(me|et|ph|vinyl|allyl|benzyl)mg(br|i|cl)\b|\b(me|n ?bu|ph)li\b addition', 2, 'Grignard addition', 'cc_bond'),
+    (r'claisen condensation|dieckmann|claisen schmidt', 2, 'Claisen/Dieckmann condensation', 'cc_bond'),
+    (r'\baldol\b|retro aldol', 2, 'aldol', 'cc_bond'),
+    (r'oppenauer|meerwein ponndorf|\bmpv\b', 2, 'Oppenauer/MPV', 'redox'),
+    (r'\bmannich\b|eschweiler clarke|leuckart', 2, 'Mannich/reductive amination', 'cc_bond'),
+    (r'thioacetal|dithiane formation|dithiolane|ketal (formation|protection)|acetal (formation|protection)|acetonide|ketali[sz]ation', 2, 'acetal/thioacetal protection', 'synthesis'),
+    (r'wolff kishner|clemmensen', 2, 'Wolff-Kishner/Clemmensen', 'redox'),
+    (r'friedel crafts|nitration|sulfonation|electrophilic aromatic substitution|\bsear\b', 2, 'SEAr', 'aromatic_substitution'),
+    (r'sandmeyer|diazoti[sz]ation|bucherer|gattermann|reimer tiemann|kolbe|vilsmeier|rosenmund|stephen reduction|etard', 2, 'aromatic named reactions (basic)', 'aromatic_substitution'),
+    (r'williamson|ether cleavage|\bhi cleavage|enol ether hydrolysis|ether hydrolysis|wurtz', 2, 'ether synthesis/cleavage', 'substitution_elimination'),
+    (r'\bsn1\b|\bsn2\b|\be1\b|\be2\b|zaitsev|saytzeff|markovnikov|nucleophilic substitution|hunsdiecker|finkelstein', 2, 'substitution/elimination (basic)', 'substitution_elimination'),
+    (r'hydroboration|ozonolysis|catalytic hydrogenation|halogen addition|bromination|chlorination|oxymercuration|dihydroxylation|\bhydration\b|upjohn|lemieux johnson|criegee|allylic bromination|wohl ziegler', 2, 'alkene addition (basic)', 'addition'),
+    (r'mcpba|peracid epoxidation|\bepoxidation\b|prilezhaev', 2, 'epoxidation (basic)', 'redox'),
+    (r'nabh4|lialh4|hydride reduction|carbonyl reduction|carboxylic acid reduction|^nucleophilic addition$|nucleophilic addition to (a )?carbonyl', 2, 'carbonyl addition/reduction (basic)', 'redox'),
+    (r'\bwittig (reaction|olefination)|^wittig$|knoevenagel|perkin|reformatsky|benzoin', 2, 'carbonyl olefination/condensation (basic)', 'olefination'),
+    (r'gabriel|hell volhard|haloform|iodoform|esterification|saponification|transesterification|acyl substitution|steglich|fischer ester|strecker', 2, 'acyl/amine basics', 'mechanism'),
+    (r'huckel|4n ?\+ ?2|\baromaticity\b|antiaromatic|tropylium|cyclopentadienyl', 2, 'aromaticity count', 'aromaticity'),
+    (r'mevalonate|isoprene rule|^terpenoids?$|^terpenes?$|^alkaloids?$', 2, 'natural product classes', 'natural_products'),
+    (r'hofmann exhaustive|exhaustive methylation', 2, 'Hofmann exhaustive methylation', 'substitution_elimination'),
+    (r'swern|dess martin|\bpcc\b|\bpdc\b|jones (oxidation|reagent)|mno2|chromic acid|collins|\bkmno4\b|\btpap\b|ley oxidation|corey kim|dakin oxidation|^dakin$', 2, 'standard oxidation', 'redox'),
+    (r'carbanion stability|carbocation stability|radical stability|iminium ion|enol content|keto enol', 2, 'intermediate stability', 'intermediates'),
+    (r'ethynylation|acetylide', 2, 'acetylide addition', 'cc_bond'),
+    (r'chemoselective reduction|chemoselectivity', 2, 'chemoselectivity (basic)', 'redox'),
+    # ── load 3: standard reaction with a regio / stereo / migration decision ──────────
+    (r'diels alder|endo rule|endo selectivity', 3, 'Diels-Alder', 'pericyclic'),
+    (r'michael addition|robinson annulation|^conjugate addition$|1,4 addition|^enamine( formation)?$', 3, 'Michael/Robinson', 'cc_bond'),
+    (r'claisen rearrangement|aromatic claisen|allyl (aryl|phenyl) ether|fries rearrangement', 3, 'Claisen/Fries rearrangement (aromatic)', 'pericyclic'),
+    (r'pinacol (pinacolone )?rearrangement|^pinacol$|benzilic acid|hofmann rearrangement|curtius|lossen|(?<!claisen )schmidt (reaction|rearrangement)|^schmidt$|baeyer villiger|migratory aptitude', 3, 'classic rearrangement', 'rearrangement'),
+    (r'beckmann rearrangement|^beckmann$', 3, 'Beckmann', 'rearrangement'),
+    (r'woodward cis hydroxylation|prevost|woodward reaction', 3, 'Woodward/Prevost', 'addition'),
+    (r'conformational analysis|\ba value\b|chair conformation|1,3 diaxial|ring flip|newman projection|torsional strain', 3, 'conformation (chair/A-value)', 'conformation'),
+    (r'\bcip\b|r/s|cis/trans|e/z|meso compound|fischer projection|absolute configuration|relative configuration|point group|symmetry element|improper rotation', 3, 'configuration/symmetry', 'stereochemistry'),
+    (r'hofmann (rule|elimination)', 3, 'Hofmann elimination', 'substitution_elimination'),
+    (r'anti addition|syn addition|halohydrin|bromohydrin|bromonium', 3, 'stereospecific addition', 'addition'),
+    (r'anti ?periplanar|\be2 anti\b', 3, 'anti-periplanar requirement', 'conformation'),
+    (r'1,2 addition|lewis acid conjugate addition', 3, '1,2- vs 1,4-addition', 'cc_bond'),
+    (r'ring expansion|ring contraction', 3, 'ring expansion/contraction', 'rearrangement'),
+    (r'dissolving metal', 3, 'dissolving-metal reduction', 'redox'),
+    (r'(?<!ti\(oipr\)4 )(regioselective )?epoxide (ring )?opening', 3, 'epoxide opening (acid/base)', 'addition'),
+    (r'heteroaromatic|\b(pyrrole|furan|thiophene|indole|pyridine|imidazole|quinoline|isoquinoline)\b|pyridine n oxide|n sulfonylation', 3, 'heteroaromatic reactivity', 'heterocycles'),
+    (r'darzens|stobbe|henry reaction|nitroaldol|ullmann|glaser|eglinton|cadiot', 3, 'condensation/coupling (B.Sc. advanced)', 'cc_bond'),
+    # ── load 4: named method / concept of a master's syllabus ─────────────────────────
+    (r'\bbirch\b', 4, 'Birch reduction', 'redox'),
+    (r'luche|cecl3', 4, 'Luche reduction', 'redox'),
+    (r'shapiro|bamford stevens', 4, 'Shapiro/Bamford-Stevens', 'olefination'),
+    (r'(?<!quasi )favorskii', 4, 'Favorskii', 'rearrangement'),
+    (r'wharton', 4, 'Wharton', 'rearrangement'),
+    (r'\bcope rearrangement|oxy cope|^cope$', 4, 'Cope/oxy-Cope', 'pericyclic'),
+    (r'cope elimination|selenoxide|chugaev|burgess|martin sulfurane|syn elimination|\bei elimination', 4, 'syn (Ei) elimination', 'substitution_elimination'),
+    (r'sharpless (asymmetric )?epoxidation|sharpless ae|katsuki sharpless', 4, 'Sharpless epoxidation', 'asymmetric'),
+    (r'sharpless (asymmetric )?(dihydroxylation|aminohydroxylation)|\bad mix', 4, 'Sharpless dihydroxylation', 'asymmetric'),
+    (r'horner|\bhwe\b|\bjulia\b|peterson|tebbe|corey fuchs|corey chaykovsky|sulfur ylide|sulfonium ylide|oxaphosphetane|\[?1,2\]? wittig rearrangement', 4, 'olefination/ylides (M.Sc.)', 'olefination'),
+    (r'mitsunobu|staudinger|aza wittig|\bappel\b', 4, 'Mitsunobu/Staudinger', 'substitution_elimination'),
+    (r'\bnef\b|arbuzov|corey seebach|umpolung|dithiane hydrolysis|acyl anion', 4, 'umpolung/Nef/Arbuzov', 'synthesis'),
+    (r'stork enamine|enolate alkylation|kinetic enolate|thermodynamic enolate|\blda\b|enolate geometry', 4, 'enolate control', 'cc_bond'),
+    (r'wieland miescher', 4, 'Wieland-Miescher ketone', 'synthesis'),
+    (r'beckmann fragmentation|abnormal beckmann|\bgrob\b|eschenmoser (tanabe )?fragmentation|fragmentation reaction|neber', 4, 'fragmentation', 'rearrangement'),
+    (r'fischer indole|bischler|pictet spengler|hantzsch|skraup|reissert|chichibabin|paal knorr|\bknorr\b|pomeranz fritsch|doebner', 4, 'heterocycle synthesis (named)', 'heterocycles'),
+    (r'arndt eistert|wolff rearrangement|ketene', 4, 'Wolff/Arndt-Eistert', 'rearrangement'),
+    (r'sommelet|stevens rearrangement|\[?1,2\]? (hydride |methyl |alkyl |aryl )?shift|wagner meerwein|semipinacol|tiffeneau|demjanov|benzidine rearrangement|allylic inversion|meyer schuster|\brupe\b|smiles rearrangement', 4, 'cationic shift/rearrangement', 'rearrangement'),
+    (r'paterno|norrish|photochemical|photocycloaddition|di pi methane|\[?2 ?\+ ?2\]? (photo)?cycloaddition|\[2 ?\+ ?2\]', 4, 'photochemistry/[2+2]', 'photochemistry'),
+    (r'suzuki|stille|sonogashira|negishi|kumada|\bheck\b|buchwald|cross coupling|reductive elimination|beta hydride elimination|oxidative addition', 4, 'Pd cross-coupling', 'organometallic'),
+    (r'metathesis|grubbs|\brcm\b', 4, 'metathesis', 'organometallic'),
+    (r'wacker|krapcho|barton mccombie|radical deoxygenation|rubottom|davis oxaziridine|baylis hillman|morita|ramberg|corey winter|yamaguchi|pummerer|pinacol coupling|mcmurry|dakin west|ugi', 4, 'named methods (M.Sc.)', 'synthesis'),
+    (r'hosomi|sakurai|allylsilane|crotylsilane', 4, 'Hosomi-Sakurai', 'cc_bond'),
+    (r'prins|nazarov|pauson|\bene reaction|cuprate|gilman|corey house', 4, 'C-C formation (M.Sc.)', 'cc_bond'),
+    (r'diethylzinc|organozinc|transalkylation|blocking group|desulfonation|reversible friedel', 4, 'selectivity control (M.Sc.)', 'synthesis'),
+    (r'axial chirality|atropisomer|pseudoasymmetric|prochiral|diastereotopic|enantiotopic|homotopic|topicity', 4, 'advanced stereo descriptors', 'stereochemistry'),
+    (r'homoaromatic|annulene|non benzenoid|dewar benzene|azulene', 4, 'non-benzenoid aromaticity', 'aromaticity'),
+    (r'anomeric effect|glycosylation|glycosidation|koenigs knorr|schmidt (glycosylation|trichloroacetimidate)|benzylidene acetal|amadori|orthogonal protection|protecting group strategy', 4, 'carbohydrate/protection (M.Sc.)', 'biomolecules'),
+    (r'terpene cyclase|terpinyl|linalyl|geranyl|farnesyl|polyketide|alkaloid biosynth|shikimate|biogenesis|biosynthesis', 4, 'biogenesis', 'natural_products'),
+    (r'von baeyer|bicyclo|spiro nomenclature|polycyclic nomenclature', 4, 'IUPAC (polycyclic)', 'nomenclature'),
+    (r'coupling constant|\bj value|\bnoe\b|\bdept\b|13c|mclafferty|fragmentation pattern|mass spectral fragmentation|\bms fragmentation|karplus|second order (spectr|coupling|effect|nmr)', 4, 'spectroscopy (M.Sc.)', 'spectroscopy'),
+    (r'bredt|bridgehead|adamant', 4, 'Bredt/bridgehead', 'physical_organic'),
+    (r'hammett|kinetic isotope|\bkie\b|isotope label|crossover|energy profile|hammond|\bbent rule\b|baldwin', 4, 'physical organic', 'physical_organic'),
+    (r'nitroxide|radical (cyclisation|cyclization|clock)|barton (nitrite|decarboxylation)|tin hydride|bu3snh|aibn|beta scission', 4, 'radical chemistry', 'radical'),
+    (r'snar|nucleophilic aromatic|benzyne|aryne|meisenheimer', 4, 'SNAr/aryne', 'aromatic_substitution'),
+    (r'carbene|nitrene|simmons|cyclopropanation', 4, 'carbene/nitrene', 'intermediates'),
+    (r'peptide (synthesis|coupling)|solid phase (peptide )?synthesis|merrifield|edman|sanger|nucleoside synthesis|oligonucleotide', 4, 'biopolymer chemistry', 'biomolecules'),
+    (r'retrosynth|disconnection|synthon|convergent', 4, 'retrosynthesis', 'synthesis'),
+    (r'kinetic resolution', 4, 'kinetic resolution', 'asymmetric'),
+    (r'1,3 dipolar|nitrile oxide cycloaddition|nitrone cycloaddition|azide alkyne', 4, '1,3-dipolar cycloaddition', 'pericyclic'),
+    (r'cheletropic|retro diels alder|oxazole diels alder|hetero diels alder|sigmatropic|\[1,5\]|\[3,3\]', 4, 'pericyclic (M.Sc.)', 'pericyclic'),
+    (r'\bsalen\b', 4, 'salen complexes', 'organometallic'),
+    (r'exo face|convex face|steric approach control', 4, 'face selectivity (steric)', 'stereochemistry'),
+    (r'furst plattner|trans diaxial opening', 4, 'Furst-Plattner rule', 'conformation'),
+    (r'fetizon', 4, 'Fetizon oxidation', 'redox'),
+    # ── load 5: stereo-electronic / stereo-mechanistic control ────────────────────────
+    (r'neighbo(u)?ring group|anchimeric|acetoxonium|(halo|iodo|bromo)lacton', 5, 'NGP/halolactonisation', 'mechanism'),
+    (r'conformationally locked|locked conformation|curtin hammett|stereoelectronic control', 5, 'stereoelectronic control', 'conformation'),
+    (r'allylic strain|a\(1,3\)|a1,3 strain', 5, 'allylic strain', 'conformation'),
+    (r'johnson claisen|orthoester claisen', 5, 'Johnson-Claisen', 'pericyclic'),
+    (r'\bcbs\b|corey bakshi|felkin|cram (chelation|rule)|chelation control|keck (allylation|asymmetric)', 5, 'carbonyl face selectivity', 'asymmetric'),
+    (r'electrocycl|woodward hoffmann|conrotatory|disrotatory|fmo analysis|frontier orbital|bergman cycli', 5, 'Woodward-Hoffmann rules', 'pericyclic'),
+    (r'diazene retro ene|retro ene', 5, 'retro-ene', 'pericyclic'),
+    (r'tandem (reaction|sequence|cycli)|cascade (reaction|cycli|sequence)|domino', 5, 'cascade/tandem sequence', 'synthesis'),
+    (r'achmatowicz|ferrier|polonovski|truce smiles', 5, 'named methods (advanced M.Sc.)', 'synthesis'),
+    # ── load 6: advanced method / control element ─────────────────────────────────────
+    (r'quasi favorskii|semibenzilic', 6, 'quasi-Favorskii', 'rearrangement'),
+    (r'ireland claisen|eschenmoser claisen|ireland enolate|overman|aza cope|\[?2,3\]? ?(wittig|sigmatropic)|mislow|doyle kirmse|anionic oxy cope', 6, 'advanced sigmatropic', 'pericyclic'),
+    (r'intramolecular diels|\bimda\b|intramolecular heck|intramolecular nitrile oxide|\binoc\b', 6, 'intramolecular cycloaddition/Heck', 'synthesis'),
+    (r'zimmerman traxler|evans (aldol|auxiliary|oxazolidinone)|evans tishchenko|mukaiyama (aldol|michael)|brown (allyl|crotyl)|roush|chiral auxiliar|noyori|jacobsen|\bshi epoxidation|asymmetric diethylzinc|nozaki hiyama|\bnhk\b|kulinkovich', 6, 'reagent/auxiliary stereocontrol', 'asymmetric'),
+    (r'sharpless caron|ti\(oipr\)4 (mediated|directed)|payne rearrangement', 6, 'Ti-directed epoxide opening/Payne', 'asymmetric'),
+    (r'tsuji|\btrost\b|\bpi allyl|eta ?3 allyl', 6, 'Tsuji-Trost', 'organometallic'),
+    (r'myers|danheiser|dotz|vedejs|tavs|grandberg|mukaiyama nitrile|still gennari|suarez|tamao fleming|arene cr\(co\)3|arene chromium', 6, 'advanced named methods', 'synthesis'),
+    (r'phenonium|non classical (carbo)?(cation|ion)|norbornyl cation|carbonyl ene|isopulegol|spiroindolenine|hofmann loffler', 6, 'advanced cation/ene', 'intermediates'),
+    (r'(l |d )?proline (cataly|organocatal)|proline catal|organocatal|enamine catal|iminium catal|hajos|jorgensen|macmillan', 6, 'organocatalysis', 'asymmetric'),
+    (r'chirality transfer|self immolative', 6, 'chirality transfer', 'asymmetric'),
+)
+_L2_COMPILED = None
+
+_L2_SUBSUP = str.maketrans('₀₁₂₃₄₅₆₇₈₉⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻₊₋', '01234567890123456789+-+-')
+_L2_DASHES = str.maketrans({c: '-' for c in '‐‑‒–—―−'})
+_L2_GREEK = {'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'π': 'pi', 'σ': 'sigma',
+             'ω': 'omega', 'Δ': 'delta', 'η': 'eta', 'λ': 'lambda', 'μ': 'mu', 'ε': 'epsilon'}
+
+
+def l2_normalise(text):
+    """§5.2 normalisation, in order: Greek letters spelt (followed by a space); sub/superscript
+    digits to ASCII; every dash to '-'; NFKD + strip combining marks; lower case; possessive 's
+    dropped (Bent's rule -> bent rule); remaining quotes removed; '-' -> ' '; a space before
+    , ; : removed; spaces collapsed. Never raises."""
+    import unicodedata as _ud
+    s = text if isinstance(text, str) else ('' if text is None else str(text))
+    s = ''.join((_L2_GREEK[c] + ' ') if c in _L2_GREEK else c for c in s)
+    s = s.translate(_L2_SUBSUP).translate(_L2_DASHES)
+    try:
+        s = ''.join(c for c in _ud.normalize('NFKD', s) if not _ud.combining(c))
+    except (TypeError, ValueError):
+        pass
+    s = s.lower().replace('\u2019', "'").replace('\u2018', "'")
+    s = re.sub(r"(?<=[a-z])'s\b", '', s).replace("'", '').replace('-', ' ')
+    s = re.sub(r'\s+([,;:])', r'\1', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _l2_pats():
+    global _L2_COMPILED
+    if _L2_COMPILED is None:
+        out = []
+        for p, load, lab, fam in L2_CONCEPTS:
+            try:
+                out.append((re.compile(p), int(load), lab, fam))
+            except re.error:                                # a bad pattern is skipped, never raised
+                continue
+        _L2_COMPILED = out
+    return _L2_COMPILED
+
+
+_L2_LABEL_INDEX = None
+
+
+def _l2_label_index():
+    """{normalised canonical label: (load, label, family)} — the row l2_vocabulary() shows."""
+    global _L2_LABEL_INDEX
+    if _L2_LABEL_INDEX is None:
+        _L2_LABEL_INDEX = {l2_normalise(r['label']): (r['load'], r['label'], r['family']) for r in l2_vocabulary()}
+    return _L2_LABEL_INDEX
+
+
+def l2_concept_match(text):
+    """(load, label, family) of one concept / reagent string, or (None, None, None).
+    A string that IS a canonical label (after normalisation) maps to that label's own row —
+    the author and the blind reviewer SELECT labels from l2_vocabulary(), so a selected label
+    must always score as itself (release-review finding 2026-11-08: 49 of 114 labels did not
+    match their own patterns and 4 matched a lower-load entry). Any other string: the
+    HIGHEST-load entry whose pattern matches (ties: first entry). Never raises."""
+    s = l2_normalise(text)
+    if not s:
+        return (None, None, None)
+    hit = _l2_label_index().get(s)
+    if hit is not None:
+        return hit
+    best = (None, None, None)
+    for pat, load, lab, fam in _l2_pats():
+        if pat.search(s) and (best[0] is None or load > best[0]):
+            best = (load, lab, fam)
+    return best
+
+
+def l2_vocabulary():
+    """The controlled vocabulary handed to PYQExplain, the author and the blind solver
+    (they SELECT from it; 'other:<text>' for anything outside it). [{'label','load',
+    'family'}] in table order, one row per canonical label. Pure."""
+    seen, out = set(), []
+    for _p, load, lab, fam in L2_CONCEPTS:
+        if lab not in seen:
+            seen.add(lab)
+            out.append({'label': lab, 'load': int(load), 'family': fam})
+    return out
+
+
+def l2_stereo_kind(stereo_decl):
+    """'none' | 'declared' — the §AF-12 normal form of a stereo declaration (PYQ printed
+    descriptor text, or a candidate's 'relative' / 'absolute' / 'none')."""
+    s = l2_normalise(stereo_decl)
+    return 'none' if s in ('', 'none', 'n/a', 'na', 'null', 'no', 'not applicable') else 'declared'
+
+
+def l2_distractor_close(distractor_mechanisms=None, closeness=None):
+    """(close, stereo_opt, known). ONE rule for a PYQ record and a candidate (D3 symmetry):
+    the wrong options' relations come from `distractor_mechanisms` (one token per wrong option
+    in option order, or {label: token}; 'family:token' or bare token); where an engine
+    `closeness` record exists (option structures), each token is VERIFIED — an ISOMER token on
+    an option whose formula differs from the key (grade 0, non_isomer) is not counted (an
+    author cannot gain points by tagging non-isomers). Only when no tokens exist is the
+    closeness record itself the source (closeness_mechanism_tokens). close = wrong options
+    whose verified token is in ISOMER_MECHANISMS; stereo_opt = any verified stereoisomer;
+    known False when neither source exists."""
+    dm = distractor_mechanisms
+    per = _dl_dict(_dl_dict(closeness).get('per_option'))
+    toks = []
+    if isinstance(dm, dict) and dm:
+        toks = [(str(k), str(v).split(':', 1)[-1]) for k, v in sorted(dm.items(), key=lambda kv: _qf_qkey(str(kv[0])))]
+    elif isinstance(dm, (list, tuple)) and dm:
+        wrong = sorted((str(k) for k in per.keys()), key=_qf_qkey) if per else []
+        toks = [(wrong[i] if i < len(wrong) else None, str(t).split(':', 1)[-1]) for i, t in enumerate(dm) if t]
+    if toks:
+        kept = []
+        for lab, t in toks:
+            g = _qf_int((per.get(lab) or {}).get('grade'), -1) if (lab is not None and isinstance(per.get(lab), dict)) else -1
+            kept.append('alternative_pathway' if (t in L2_CLOSE_TOKENS and g == 0) else t)
+        return (sum(1 for t in kept if t in L2_CLOSE_TOKENS), any(t in L2_STEREO_TOKENS for t in kept), True)
+    if per:
+        t2 = list(closeness_mechanism_tokens({'per_option': per}).values())
+        return (sum(1 for t in t2 if t in L2_CLOSE_TOKENS), any(t in L2_STEREO_TOKENS for t in t2), True)
+    return (0, False, False)
+
+
+def l2_measure(named_concepts=None, reagents_seen=None, ask_type=None, stereo_decl=None,
+               distractor_mechanisms=None, closeness=None, steps=None):
+    """The RAW decision-load measurement of one item (PYQ record or candidate — same inputs,
+    same arithmetic). Returns {'load', 'labels', 'chain', 'close', 'close_known', 'stereo',
+    'stereo_known', 'steps', 'steps_known', 'matched', 'unmatched', 'n_concepts'}.
+    chain counts DISTINCT matched labels of load >= L2_CHAIN_MIN_LOAD (AF-5: a three-step B.Sc.
+    sequence is a chain; a recognition term is not a step). Reagent strings are kept apart
+    ('load_r' / 'chain_r', concept + reagent matches): the scorer reads them only when the
+    pool carries reagent text on >= L2_FIELD_MIN_COVERAGE of its records (D3). A reagent never
+    adds an unmatched entry."""
+    names = [str(n) for n in _qf_lines(named_concepts) if str(n).strip()]
+    reag = [str(n) for n in _qf_lines(reagents_seen) if str(n).strip()]
+    matched, unmatched, labels, labels_r = [], [], [], []
+    load = load_r = None
+    for i, n in enumerate(names + reag):
+        is_name = i < len(names)
+        if n.lower().startswith('other:'):
+            if is_name:
+                unmatched.append(n)
+            continue
+        ld, lab, fam = l2_concept_match(n)
+        if ld is None:
+            if is_name:
+                unmatched.append(n)
+            continue
+        if not is_name and (ld <= 1 or fam in L2_REAGENT_SKIP_FAMILIES):
+            continue                                        # a reagent never adds a recognition / class label
+        matched.append({'text': n, 'load': ld, 'label': lab, 'family': fam, 'from': 'concept' if is_name else 'reagent'})
+        load_r = ld if load_r is None else max(load_r, ld)
+        if lab not in labels_r and ld >= L2_CHAIN_MIN_LOAD:
+            labels_r.append(lab)
+        if is_name:
+            load = ld if load is None else max(load, ld)
+            if lab not in labels and ld >= L2_CHAIN_MIN_LOAD:
+                labels.append(lab)
+    close, st_opt, ck = l2_distractor_close(distractor_mechanisms, closeness)
+    sd = None if stereo_decl is None else l2_stereo_kind(stereo_decl)
+    stereo_ask = isinstance(ask_type, str) and ask_type.strip().lower() in L2_STEREO_ASKS
+    stereo = stereo_ask or sd == 'declared' or st_opt
+    st = _qf_int(steps, 0) if steps is not None else None
+    return {'load': load, 'labels': labels, 'chain': len(labels), 'load_r': load_r, 'chain_r': len(labels_r),
+            'reagents_known': bool(reag), 'close': close, 'close_known': ck,
+            'stereo': bool(stereo), 'stereo_known': sd is not None,
+            'steps': st, 'steps_known': st is not None, 'matched': matched, 'unmatched': unmatched,
+            'n_concepts': len(names)}
+
+
+def l2_score(raw, fields_on, unmatched_load):
+    """S = 5*load + 3*min(chain_eff,3) + 2*min(close,3)*[close on] + 3*stereo*[stereo on]
+    (weights L2_W_*).
+    chain_eff = max(chain, steps when the steps field is on and steps >= 2). load None ->
+    unmatched_load (the pool's median matched load). Float; never raises."""
+    r = raw if isinstance(raw, dict) else {}
+    on = fields_on if isinstance(fields_on, dict) else {}
+    unmatched_load = _dl_num(unmatched_load, 3)
+    use_r = bool(on.get('reagents'))
+    ld = r.get('load_r') if use_r and r.get('load_r') is not None else r.get('load')
+    ld = _dl_num(ld)
+    if ld is None:
+        ld = unmatched_load
+    ch = _qf_int(r.get('chain_r') if use_r else r.get('chain'), 0)
+    if on.get('steps') and _qf_int(r.get('steps'), 0) >= 2:
+        ch = max(ch, _qf_int(r.get('steps'), 0))
+    s = float(L2_W_LOAD * ld + L2_W_CHAIN * min(ch, 3))
+    if on.get('close'):
+        s += L2_W_CLOSE * min(_qf_int(r.get('close'), 0), 3)
+    if on.get('stereo'):
+        s += L2_W_STEREO * int(bool(r.get('stereo')))
+    return s
+
+
+def l2_raw_of(rec):
+    """l2_measure over a PYQ profile record or a candidate difficulty_obs (same keys)."""
+    r = rec if isinstance(rec, dict) else {}
+    cv = r.get('content_vector') if isinstance(r.get('content_vector'), dict) else {}
+    st = r.get('l2_steps', cv.get('steps') if cv else None)
+    return l2_measure(r.get('named_concepts'), r.get('reagents_seen'),
+                      r.get('ask_type') or r.get('figural_ask_type'), r.get('stereo_decl'),
+                      r.get('distractor_mechanisms'), r.get('closeness'), st)
+
+
+def _l2_cuts(scores, shares, labels):
+    """Cumulative-share cut points over the pool's scores (the ccp_model _q arithmetic), each
+    moved to the nearer side of a tie cluster (owner D2 stability guard): of the two
+    candidate cuts around the target index — the tied value (ties go to the lower band) or
+    the previous distinct value — the one whose achieved cumulative share is closer to the
+    target wins (exact tie: the tied value). A band with 0 % share: bottom -> only scores
+    strictly below the pool minimum are bottom (cut = the float just below min); top -> only
+    scores above the pool maximum are top (cut = max). Returns (cuts_list, achieved_cumulative)."""
+    comps = sorted(scores)
+    n = len(comps)
+    cuts, ach, acc = [], [], 0
+    for i in range(len(labels) - 1):
+        acc += _qf_int(shares.get(labels[i]), 0)
+        if not n:
+            cuts.append(0.0)
+            ach.append(0)
+            continue
+        if acc <= 0:
+            c = math.nextafter(float(comps[0]), -math.inf)
+        elif sum(_qf_int(shares.get(l), 0) for l in labels[i + 1:]) <= 0 or acc >= 100:
+            c = float(comps[-1])
+        else:
+            idx = max(1, int(math.ceil(n * acc / 100.0)))
+            v = comps[min(idx, n) - 1]
+            below_v = [x for x in comps if x < v]
+            alt = below_v[-1] if below_v else math.nextafter(float(comps[0]), -math.inf)
+            share_v = 100.0 * sum(1 for x in comps if x <= v) / n
+            share_alt = 100.0 * sum(1 for x in comps if x <= alt) / n
+            c = float(alt) if abs(share_alt - acc) < abs(share_v - acc) else float(v)
+        if cuts and c < cuts[-1]:
+            c = cuts[-1]
+        cuts.append(c)
+        ach.append(round(100.0 * sum(1 for x in comps if x <= c) / n, 1))
+    return cuts, ach
+
+
+def _l2_band_of(score, cuts, labels):
+    for i, c in enumerate(cuts):
+        if score <= c:
+            return labels[i]
+    return labels[-1]
+
+
+def l2_applies(subtopic_id=None, subject=None, topic=None, prefix_subject=None):
+    """§10.1 — True for an ORGANIC chemistry item. The WORD 'organic' (with 'bio' / 'bio-' /
+    'physical' allowed before it, and the 'organique' / 'organica' / 'organico' / 'organisch'
+    forms) must not be preceded by a letter: 'Inorganic', 'Bioinorganic', 'Organometallic'
+    are False. CamelCase names are split ('OrganicChemistry'). Order: (1) a SUBJECT name that
+    is organic -> True; a subject that names another chemistry branch (inorganic, physical,
+    analytical, biochemistry, nuclear, environmental, industrial, polymer) -> False whatever
+    the topic says; (2) otherwise the TOPIC name decides (a generic subject such as
+    'Chemistry'); (3) only when both names are unavailable: the subject the exam's taxonomy
+    maps this id's prefix to (`prefix_subject`, l2_prefix_subjects) decides by rule (1). A
+    bare 'oc.' prefix alone is never enough. Never raises."""
+    def _norm(x):
+        if not isinstance(x, str) or not x.strip():
+            return None
+        return l2_normalise(re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', x))
+
+    def _organic(n):
+        return bool(n and re.search(L2_ORGANIC_WORD, n))
+
+    def _other_branch(n):
+        return bool(n and re.search(L2_OTHER_BRANCH, n))
+    sub, top = _norm(subject), _norm(topic)
+    if sub is not None:
+        if _organic(sub):
+            return True
+        if _other_branch(sub):
+            return False
+    if top is not None:
+        return _organic(top) or bool(re.search(L2_ORGANIC_TOPIC, top) and not re.search(L2_NOT_ORGANIC_TOPIC, top)
+                                     and not _other_branch(top))
+    if sub is not None:
+        return False
+    ps = _norm(prefix_subject)
+    if ps is not None and isinstance(subtopic_id, str) and subtopic_id.strip():
+        return _organic(ps)
+    return False
+
+
+def l2_prefix_subjects(subtopic_rows):
+    """{id prefix: subject} from the exam taxonomy rows ([{'subtopic_id', 'section'|'subject'}]
+    or a subtopic_manifest 'subtopics' dict). A prefix mapped to two subjects maps to None."""
+    rows = subtopic_rows
+    if isinstance(rows, dict):
+        rows = [dict(v, subtopic_id=k) for k, v in rows.items() if isinstance(v, dict)]
+    out = {}
+    for r in (rows if isinstance(rows, (list, tuple)) else []):
+        if not isinstance(r, dict):
+            continue
+        pfx = str(r.get('subtopic_id') or '').split('.')[0]
+        sub = r.get('subject') or r.get('section')
+        if not pfx or not sub:
+            continue
+        out[pfx] = sub if out.get(pfx, sub) == sub else None
+    return out
+
+
+def l2_scope_ids(subtopic_rows):
+    """The organic subtopic ids of an exam taxonomy (rows as in l2_prefix_subjects): every row
+    whose subject (section) or topic passes l2_applies."""
+    rows = subtopic_rows
+    if isinstance(rows, dict):
+        rows = [dict(v, subtopic_id=k) for k, v in rows.items() if isinstance(v, dict)]
+    return sorted({str(r.get('subtopic_id')) for r in (rows if isinstance(rows, (list, tuple)) else [])
+                   if isinstance(r, dict) and r.get('subtopic_id')
+                   and l2_applies(r.get('subtopic_id'), r.get('subject') or r.get('section'), r.get('topic'))})
+
+
+def l2_model_for_scope(profile, subtopic_ids, labels, pyq_grades=None, measured_pct=None,
+                       window_cycles=None, gap_days=None, min_pool=L2_MIN_POOL, organic_ids=None):
+    """THE ONE BUILDER (Step 5, Blueprint / ScopedBlueprint, Create S3, the auditor, Step 9).
+    pool = window records (the SAME window as the Level Model) whose subtopic is organic, at
+    the first cascade level holding >= min_pool records with >= 1 named concept:
+    scope -> topic -> section -> every organic record. `organic_ids`: the exam's organic
+    subtopic ids (l2_scope_ids over the exam taxonomy — every caller passes them); when None
+    the records sharing a scope id's prefix stand in and 'organic_source' says
+    'scope_prefix' (disclosed in the reason line, never silent).
+    shares: blind PYQ grades over the pool when >= min_pool of its records are graded
+    (owner Q1 (c), 'shares_source' = 'pyq_grades'); else `measured_pct` rescaled to 100
+    ('measured_pct'); else the pool's stored bands ('stored_band'); else every record in the
+    middle band ('uniform_middle'). Fields: reagents / close / stereo / steps are ON only when
+    pool coverage >= L2_FIELD_MIN_COVERAGE (D3). binding = vocabulary coverage >=
+    L2_VOCAB_MIN_COVERAGE (D4). Returns {'active', 'mode' ('relative'|'dormant'), 'binding',
+    'n', 'labels', 'cuts_list', 'achieved', 'shares', 'shares_source', 'fields_on',
+    'field_coverage', 'vocab_coverage', 'unmatched', 'unmatched_load', 'level_used',
+    'organic_source', 'pool_keys', 'pool_scores', 'vocab_version', 'inputs', 'reason',
+    'rule'}. Never raises: any unexpected input returns the dormant model with its cause."""
+    try:
+        return _l2_model_impl(profile, subtopic_ids, labels, pyq_grades, measured_pct, window_cycles,
+                              gap_days, min_pool, organic_ids)
+    except Exception as e:                                  # noqa: BLE001 — never raises; dormant with the cause
+        out = _l2_dormant(labels, {})
+        out['reason'] = f'model not built ({type(e).__name__}: {e})'
+        return out
+
+
+def _l2_dormant(labels, inputs):
+    return {'active': False, 'mode': 'dormant', 'binding': False, 'n': 0, 'labels': _dl_labels(labels),
+            'cuts_list': [], 'achieved': [], 'shares': None, 'shares_source': None, 'fields_on': {},
+            'field_coverage': {}, 'vocab_coverage': None, 'unmatched': [], 'unmatched_load': 3,
+            'level_used': None, 'organic_source': None, 'pool_keys': [], 'pool_scores': [],
+            'vocab_version': L2_VOCAB_VERSION, 'inputs': inputs, 'reason': '', 'rule': L2_RULE_CURRENT}
+
+
+def _l2_model_impl(profile, subtopic_ids, labels, pyq_grades, measured_pct, window_cycles, gap_days,
+                   min_pool, organic_ids):
+    labs = _dl_labels(labels)
+    scope = sorted({str(x) for x in _dl_list(subtopic_ids) if isinstance(x, str) and x.strip()})
+    org_list = sorted({str(x) for x in _dl_list(organic_ids) if isinstance(x, str) and x.strip()})
+    mp = max(1, _qf_int(min_pool, L2_MIN_POOL))
+    inputs = {'subtopic_ids': scope, 'labels': labs, 'window_cycles': window_cycles, 'gap_days': gap_days,
+              'measured_pct': dict(measured_pct) if isinstance(measured_pct, dict) else None,
+              'min_pool': mp, 'organic_ids': org_list or None}
+    out = _l2_dormant(labs, inputs)
+    if not isinstance(profile, dict) or len(labs) < 2:
+        out['reason'] = 'no difficulty profile or fewer than 2 difficulty labels'
+        return out
+    org = set(org_list) if org_list else None
+    org_pfx = {x.split('.')[0] for x in scope}
+    rows = []
+    for key, q, rec in _l1_window_records(profile, window_cycles, gap_days):
+        sid = rec.get('subtopic_id')
+        sid = sid if isinstance(sid, str) else ''
+        if org is not None:
+            if sid not in org:
+                continue
+        elif sid.split('.')[0] not in org_pfx:
+            continue
+        raw = l2_raw_of(rec)
+        if raw['n_concepts'] < 1:
+            continue
+        rows.append((key, q, rec, raw, sid))
+    sset = set(scope)
+    topics = {_qf_topic_of(x) for x in scope}
+    sections = {_qf_section_of(x) for x in scope}
+    tests = (('scope', lambda s: s in sset), ('topic', lambda s: _qf_topic_of(s) in topics),
+             ('section', lambda s: _qf_section_of(s) in sections), ('organic', lambda s: True))
+    level_used, pool = None, []
+    for lev, inside in tests:
+        sel = [r for r in rows if inside(r[4])]
+        if len(sel) >= mp:
+            level_used, pool = lev, sel
+            break
+    out['organic_source'] = 'taxonomy' if org is not None else 'scope_prefix'
+    if not pool:
+        out['reason'] = f'organic pool {len(rows)} < L2_MIN_POOL {mp} (too few past papers to set cuts)'
+        out['n'] = len(rows)
+        return out
+    n = len(pool)
+    cov = {'reagents': sum(1 for r in pool if r[3]['reagents_known']) / n,
+           'close': sum(1 for r in pool if r[3]['close_known']) / n,
+           'stereo': sum(1 for r in pool if r[3]['stereo_known']) / n,
+           'steps': sum(1 for r in pool if r[3]['steps_known']) / n}
+    on = {k: v >= L2_FIELD_MIN_COVERAGE for k, v in cov.items()}
+    tot = sum(r[3]['n_concepts'] for r in pool)
+    unm = sorted({u for r in pool for u in r[3]['unmatched']})
+    n_unm = sum(len(r[3]['unmatched']) for r in pool)
+    vcov_raw = (tot - n_unm) / tot if tot else 0.0
+    loads = sorted(r[3]['load'] for r in pool if r[3]['load'] is not None)
+    ul = loads[(len(loads) - 1) // 2] if loads else 3
+    scores = [l2_score(r[3], on, ul) for r in pool]
+    keys = [(k, q) for k, q, _r, _w, _s in pool]
+    shares, src = None, None
+    if _dl_dict(pyq_grades):
+        sh, ng = pyq_grade_shares(pyq_grades, keys, labs)
+        if ng >= mp:
+            shares, src = sh, 'pyq_grades'
+    if shares is None:
+        sh = _dl_shares(measured_pct, labs)
+        if sh is not None:
+            shares, src = sh, 'measured_pct'
+    if shares is None:
+        sh, ng = pyq_grade_shares({f'{k}:Q{q}': _qf_rec_band(r, labs) for k, q, r, _w, _s in pool}, keys, labs)
+        if ng:
+            shares, src = sh, 'stored_band'
+    if shares is None:
+        mid = labs[len(labs) // 2] if len(labs) >= 3 else labs[0]
+        shares, src = {l: (100 if l == mid else 0) for l in labs}, 'uniform_middle'
+    cuts, ach = _l2_cuts(scores, shares, labs)
+    out.update({'active': True, 'mode': 'relative', 'binding': vcov_raw >= L2_VOCAB_MIN_COVERAGE, 'n': n,
+                'cuts_list': cuts, 'achieved': ach, 'shares': shares, 'shares_source': src, 'fields_on': on,
+                'field_coverage': {k: round(v, 3) for k, v in cov.items()}, 'vocab_coverage': round(vcov_raw, 4),
+                'unmatched': unm, 'unmatched_load': ul, 'level_used': level_used, 'pool_keys': keys,
+                'pool_scores': scores,
+                'reason': None if org is not None else 'organic set from scope prefixes (no taxonomy ids passed)'})
+    return out
+
+
+def l2_frozen(model):
+    """The part of an L2 model a blueprint / batch_state persists so every later reader
+    (Create, auditor, Step 9, later mocks of the series) scores with IDENTICAL cuts (owner D2
+    stability guard). None when the model is not active. pool_keys travel too: a reused model
+    must still yield its pattern cards (l2_cards), else a later paper's Hard slot loses its load
+    floor (release review 2026-11-08)."""
+    m = model if isinstance(model, dict) else {}
+    if not m.get('active'):
+        return None
+    return {k: m.get(k) for k in ('mode', 'binding', 'n', 'labels', 'cuts_list', 'achieved', 'shares', 'pool_keys',
+                                   'shares_source', 'fields_on', 'field_coverage', 'vocab_coverage',
+                                   'unmatched_load', 'level_used', 'vocab_version', 'inputs', 'rule')}
+
+
+def l2_model_from_frozen(frozen):
+    """An active scoring model from l2_frozen(...) output, or None when it is unusable or was
+    frozen under another vocabulary version (the caller then rebuilds with
+    l2_model_for_scope from frozen['inputs'] and prints that it did)."""
+    f = frozen if isinstance(frozen, dict) else None
+    if not f or f.get('vocab_version') != L2_VOCAB_VERSION:
+        return None
+    labs = _dl_labels(f.get('labels'))
+    cl = f.get('cuts_list')
+    if len(labs) < 2 or not isinstance(cl, list) or len(cl) != len(labs) - 1:
+        return None
+    m = dict(f)
+    m['active'] = True
+    return m
+
+
+def l2_record(raw_or_rec, model, labels=None, qtype='mcq'):
+    """The L2 band of one item under `model` (l2_model_for_scope / l2_model_from_frozen).
+    raw_or_rec: an l2_measure result, a PYQ record or a candidate difficulty_obs. Returns
+    {'rule', 'load', 'chain', 'close', 'stereo', 'score', 'band', 'binding', 'mode',
+    'matched', 'unmatched', 'cuts_list'} — band None when the model is dormant. The qtype
+    floor (difficulty_min_band) clamps the band exactly as level_record does. Never raises."""
+    m = model if isinstance(model, dict) else {}
+    raw = raw_or_rec if isinstance(raw_or_rec, dict) and 'n_concepts' in raw_or_rec else l2_raw_of(raw_or_rec)
+    qtype = qtype if isinstance(qtype, str) else 'mcq'
+    labs = _dl_labels(labels) or _dl_labels(m.get('labels'))
+    rec = {'rule': L2_RULE_CURRENT, 'load': raw.get('load'), 'chain': raw.get('chain'), 'close': raw.get('close'),
+           'stereo': raw.get('stereo'), 'score': None, 'band': None, 'binding': False, 'mode': m.get('mode') or 'dormant',
+           'matched': raw.get('matched'), 'unmatched': raw.get('unmatched'), 'cuts_list': m.get('cuts_list')}
+    cl = m.get('cuts_list')
+    if (not m.get('active') or not isinstance(cl, list) or len(cl) != len(labs) - 1
+            or any(_dl_num(c) is None for c in cl)):
+        return rec
+    if not _qf_int(raw.get('n_concepts'), 0):
+        rec['mode'] = 'no_concepts'                     # nothing named: no decision-load band (never 'Easy')
+        return rec
+    on = m.get('fields_on') if isinstance(m.get('fields_on'), dict) else {}
+    s = l2_score(raw, on, _dl_num(m.get('unmatched_load'), 3))
+    if on.get('reagents'):
+        rec['load'], rec['chain'] = (raw.get('load_r') if raw.get('load_r') is not None else raw.get('load')), raw.get('chain_r')
+    b = _l2_band_of(s, cl, labs)
+    b = _band_max(b, difficulty_min_band(qtype, labs), labs) if len(labs) == 3 else b
+    rec.update({'score': s, 'band': b, 'binding': bool(m.get('binding'))})
+    return rec
+
+
+def l2_concepts_used(author_concepts, solver_concepts, model, labels=None, others=None):
+    """§7.2 anti-gaming: of the AUTHOR's and the blind SOLVER's concept lists, the one giving
+    the LOWER L2 score counts (tie: the solver's). `others`: the remaining measurement inputs
+    (reagents_seen, ask_type, stereo_decl, distractor_mechanisms, closeness, steps) applied to
+    both. Returns (concepts, which) with which in ('solver', 'author', 'author_unverified',
+    'none'): 'author_unverified' when the solver returned no concepts — the caller treats it
+    as a K1 disagreement (re-author), never as a verified band."""
+    o = _dl_dict(others)
+    a = [str(x) for x in _qf_lines(author_concepts) if str(x).strip()]
+    s = [str(x) for x in _qf_lines(solver_concepts) if str(x).strip()]
+    if not a and not s:
+        return [], 'none'
+    if not s:
+        return a, 'author_unverified'
+    if not a:
+        return s, 'solver'
+    m = model if isinstance(model, dict) else {}
+    on, ul = m.get('fields_on') or {}, m.get('unmatched_load', 3)
+
+    def _sc(c):
+        return l2_score(l2_measure(c, o.get('reagents_seen'), o.get('ask_type'), o.get('stereo_decl'),
+                                   o.get('distractor_mechanisms'), o.get('closeness'), o.get('steps')), on, ul)
+    return (a, 'author') if _sc(a) < _sc(s) else (s, 'solver')
+
+
+def l2_card_id(paper_key, q):
+    """The opaque, stable id of a pattern card ('c' + 12 hex of sha256(paper:Q)) — the card never
+    exposes which past question it models (owner D6); usage keys use it ('l2:<card_id>')."""
+    import hashlib as _h
+    return 'c' + _h.sha256(f'{paper_key}:Q{q}'.encode('utf-8', 'replace')).hexdigest()[:12]
+
+
+def l2_cards(profile, model, labels=None, window_cycles=None, gap_days=None):
+    """PATTERN CARDS (owner D6: a model of WHAT MUST BE DECIDED, never a question to copy), one
+    per pool record of the active model. Card: {'card_id' (opaque, l2_card_id), 'subtopic_id',
+    'topic', 'section', 'families', 'band', 'score', 'load', 'chain', 'stereo', 'close',
+    'concept_chain' [{'label','load'}], 'ask_type', 'ask_format', 'option_layout',
+    'distractor_relations' [token...], 'stereo_kind'} — NO stem, substrate, SMILES, key, options
+    or source question number. Ordered by score (highest first) then card_id. [] when the model
+    is dormant. Never raises."""
+    m = _dl_dict(model)
+    if not m.get('active') or not isinstance(profile, dict):
+        return []
+    labs = _dl_labels(labels) or _dl_labels(m.get('labels'))
+    want = set()
+    for kq in _dl_list(m.get('pool_keys')):
+        if isinstance(kq, (list, tuple)) and len(kq) == 2:
+            want.add((str(kq[0]), str(kq[1])))
+    inp = _dl_dict(m.get('inputs'))
+    wc = window_cycles if window_cycles is not None else inp.get('window_cycles')
+    gd = gap_days if gap_days is not None else inp.get('gap_days')
+    cards = []
+    for key, q, rec in _l1_window_records(profile, wc, gd):
+        if (str(key), str(q)) not in want:
+            continue
+        raw = l2_raw_of(rec)
+        qt = rec.get('qtype') if isinstance(rec.get('qtype'), str) else 'mcq'
+        r = l2_record(raw, m, labs, qt)
+        if r.get('band') is None:
+            continue
+        sid = rec.get('subtopic_id') if isinstance(rec.get('subtopic_id'), str) else ''
+        reps = _dl_list(rec.get('representations'))
+        layout = 'structures' if (_dl_dict(rec.get('option_smiles')) or 'skeletal' in reps) else 'text'
+        dm = [str(t).split(':', 1)[-1] for t in _dl_list(rec.get('distractor_mechanisms')) if t]
+        at = rec.get('ask_type') or rec.get('figural_ask_type')
+        cards.append({'card_id': l2_card_id(key, q), 'subtopic_id': sid, 'topic': _qf_topic_of(sid),
+                      'section': _qf_section_of(sid),
+                      'families': sorted({x['family'] for x in raw['matched']}),
+                      'band': r['band'], 'score': r['score'], 'load': raw['load'], 'chain': raw['chain'],
+                      'stereo': raw['stereo'], 'close': raw['close'],
+                      'concept_chain': [{'label': x['label'], 'load': x['load']} for x in raw['matched']
+                                        if x.get('from') == 'concept'],
+                      'ask_type': at if isinstance(at, str) else None,
+                      'ask_format': rec.get('ask_format') if isinstance(rec.get('ask_format'), str) else None,
+                      'option_layout': layout, 'distractor_relations': dm,
+                      'stereo_kind': l2_stereo_kind(rec.get('stereo_decl'))})
+    cards.sort(key=lambda c: (-(c['score'] or 0), c['card_id']))
+    return cards
+
+
+def l2_band_load_floor(cards, band):
+    """The median load of the cards in `band` (the exam's own past questions), or None — the
+    minimum load a CONCEPT-sourced slot of that band is drawn at."""
+    ls = sorted(c['load'] for c in _dl_list(cards) if isinstance(c, dict) and c.get('band') == band
+                and isinstance(c.get('load'), int) and not isinstance(c.get('load'), bool))
+    return ls[(len(ls) - 1) // 2] if ls else None
+
+
+def l2_slot_source(cards, band, subtopic_id, used=(), seed=0, family=None, skip=0):
+    """§6.2 pattern source for one slot, deterministic (seed = bc.brief_seed(...)). Order:
+    (1) an unused card of `band` in the cascade subtopic -> topic -> family -> any; (2) an
+    unused vocabulary concept whose load >= the band's load floor (l2_band_load_floor) and
+    whose family is the slot's family (else any family), never a label used in this paper;
+    `skip` advances to the k-th source (repair rung DR1 source k). Returns {'kind': 'card' |
+    'concept' | 'none', 'ref', 'family', 'load_floor'}. Never raises."""
+    import random as _rnd
+    used = {str(u) for u in _dl_list(used)}
+    cards = [c for c in _dl_list(cards) if isinstance(c, dict)]
+    cards = [c for c in cards if isinstance(c.get('card_id'), str) and c.get('card_id')]
+    cs = [c for c in cards if c.get('band') == band and c.get('card_id') not in used]
+    sid = subtopic_id if isinstance(subtopic_id, str) else ''
+    fam = family if isinstance(family, str) and family else next(
+        (_dl_list(c.get('families'))[0] for c in cards if c.get('subtopic_id') == sid and _dl_list(c.get('families'))),
+        None)
+    order = []
+    for test in (lambda c: c.get('subtopic_id') == sid, lambda c: c.get('topic') == _qf_topic_of(sid),
+                 lambda c: fam is not None and fam in _dl_list(c.get('families')), lambda c: True):
+        for c in cs:
+            if test(c) and c not in order:
+                order.append(c)
+    srcs = [{'kind': 'card', 'ref': c['card_id'], 'family': (_dl_list(c.get('families')) or [fam])[0]} for c in order]
+    floor = l2_band_load_floor(cards, band)
+    vocab = [v for v in l2_vocabulary() if floor is None or v['load'] >= floor]
+    vocab = [v for v in vocab if v['label'] not in used]
+    rng = _rnd.Random(_qf_int(seed, 0))
+    same = [v for v in vocab if fam and v['family'] == fam]
+    other = [v for v in vocab if v not in same]
+    rng.shuffle(same)
+    rng.shuffle(other)
+    srcs += [{'kind': 'concept', 'ref': v['label'], 'family': v['family']} for v in same + other]
+    k = max(0, _qf_int(skip, 0))
+    if k >= len(srcs):
+        return {'kind': 'none', 'ref': None, 'family': fam, 'load_floor': floor}
+    s = dict(srcs[k])
+    s['load_floor'] = floor
+    return s
+
+
+def l2_copy_check(key_smiles, profile, card_ids=None):
+    """G-L2CARDCOPY (owner D6): True when the candidate key's InChIKey connectivity block
+    (first 14 characters) equals ANY past answer's in the profile (every paper, not only the
+    window), i.e. the item copies a past question. None when RDKit or the key is absent
+    (the check is DORMANT, printed by the caller). Never raises."""
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(key_smiles, str) or not key_smiles.strip():
+        return None
+    Chem = rd[0]
+    try:
+        rd[3].DisableLog('rdApp.*')                          # junk input must not spam the run log
+    except Exception:                                       # noqa: BLE001
+        pass
+
+    def _ik1(smi):
+        try:
+            m = Chem.MolFromSmiles(str(smi))
+            return Chem.MolToInchiKey(m)[:14] if m is not None else None
+        except Exception:                                   # noqa: BLE001
+            return None
+    k = _ik1(key_smiles)
+    if not k:
+        return None
+    for p in ((profile or {}).get('papers') or {}).values() if isinstance(profile, dict) else []:
+        for rec in ((p or {}).get('questions') or {}).values() if isinstance(p, dict) else []:
+            if isinstance(rec, dict) and rec.get('answer_smiles') and _ik1(rec['answer_smiles']) == k:
+                return True
+    return False
+
+
+def l2_hard_supply(cards, labels):
+    """{band: n cards} — the pattern supply ScopedBlueprint / Blueprint print at blueprint
+    time beside the schedule (AF-9). Advisory; never routed into feasibility."""
+    labs = _dl_labels(labels)
+    out = {l: 0 for l in labs}
+    for c in _dl_list(cards):
+        b = _dl_band(c.get('band'), labs) if isinstance(c, dict) else None
+        if b is not None:
+            out[b] += 1
+    return out
+
+
+LADDER_ENTRY_RUNG.update({
+    'A-L2BAND': 'R2', 'G-L2CONCEPTS': 'R2', 'G-L2CARDCOPY': 'R2', 'G-NAMESTRUCT': 'R2s',
+    'G-L2OPTSMILES': 'R2o', 'G-KEYVERIFY': 'R2', 'A-DIFFGATE': 'R2',
+})
+
+# END CLUSTER L2
 # ════════════════════════════════════════════════════════════════════════════
 
 
