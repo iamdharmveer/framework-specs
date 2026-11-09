@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1318,
-      "sha256": "937518fa7f21b970147e0c14121e922e9fa8e6ec8241551aa7c09b91681d54f6",
-      "size_bytes": 78339,
-      "version_header": "# Framework_DeliveryFooter v1.42.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1327,
+      "sha256": "a8326fbf49993f9f5f922469fb66e571d768b8fb353ae7d0f2ecd500f9bba481",
+      "size_bytes": 79146,
+      "version_header": "# Framework_DeliveryFooter v1.43.0 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.27.0",
@@ -37,17 +37,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 12692,
-      "sha256": "1db17349575c5f97cba6a8d18607a02a993a309bd1bd7abf16ff6d303ab1699d",
-      "size_bytes": 836574,
-      "version_header": "# Framework_MockTestCreate v5.94"
+      "lines": 12700,
+      "sha256": "5608ac696e52ba3d1ee0fba6d6e5658c9868b6bfba225a5d0ee1e0ea6b9959af",
+      "size_bytes": 837064,
+      "version_header": "# Framework_MockTestCreate v5.95"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3910,
-      "sha256": "f9a85e0183ca3bcd2606b32f6e14997f463c2666227a015f2a8063980858532e",
-      "size_bytes": 303518,
-      "version_header": "# Framework_MockTestExplain v1.54.0"
+      "lines": 4179,
+      "sha256": "d823609d7beadea8ed3a263f71d25c5daff8000918b1b61fac6937a2804693cb",
+      "size_bytes": 325739,
+      "version_header": "# Framework_MockTestExplain v1.55.0"
     },
     "Framework_MockTestOrchestrate.md": {
       "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.0.0",
@@ -135,10 +135,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3554,
-      "sha256": "c962809e8bd6e0a6c7f61612bff0dfbbe0c6d5819038d74a475661cd98298bdc",
-      "size_bytes": 259685,
-      "version_header": "# Framework_PYQExplain v2.29 — Universal PYQ Explanation Generator"
+      "lines": 3861,
+      "sha256": "85c3f6d6744aa652ee820fe69ea1d859ac217fb9d1e96176dcc345cd922cae28",
+      "size_bytes": 284314,
+      "version_header": "# Framework_PYQExplain v2.30 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.1)**",
@@ -268,16 +268,16 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 10029,
-      "sha256": "efc2d6c06b17c2824d450ff2e2a0fc59e21643d20003382f5a1ace8f013a3081",
-      "size_bytes": 540934,
+      "lines": 11794,
+      "sha256": "d5c6a1b2bff7ecc330bee21dc6c7b12122c1fa3ac2f514add40c9d2837e1908d",
+      "size_bytes": 637820,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 5732,
-      "sha256": "f23c252acac0952331e28e56ac97525f7387abb4deac16ef00500d99ba5a1793",
-      "size_bytes": 346786,
+      "lines": 8321,
+      "sha256": "7c50cfe304d8aa15dc77574cc32d1ec820abec5e3824fdbb202dd3282047225b",
+      "size_bytes": 507855,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {

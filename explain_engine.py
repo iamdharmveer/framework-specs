@@ -33,6 +33,36 @@
 #   render_mechanism / render_structure_panel / figure_layout_audit / figure_review_sheet — [v2.13] RE-25 renderers + gates (E-01/E-02/E-04/E-09), palette owner loaded first
 #   resolve_chem_library(project_dir, repo_dir) — [v2.13] the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS (S-11), project copy wins
 #
+# v2.14 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with corpus_io v1.20,
+#   MockTestExplain v1.55.0, PYQExplain v2.30, MockTestCreate v5.95, CHEMISTRY_EXPLAIN_LEARNINGS
+#   v1.1). The first RE-25 paper (40 keys right, ~330 figures) shipped 36 defective questions
+#   because every RE-25 gate compared one producer-typed field with another. NEW: signed figure
+#   records (figure_record: species drawn, captions, labels, model, arrows, CIP, png sha256 —
+#   CHS_FIGURE_PROVENANCE); chs_hardening_findings (F-3 ask-shape contracts, F-8 labels, F-10
+#   anchors, F-11 option identity, F-13 arrows, F-14 labels / stereo / balance sentences, F-15
+#   drawn stereo == claimed); stereo_descriptors_in (locant lists, "C2 is S", meso / rac /
+#   mixture; labels never descriptors); text-only organic content (RC-17) and the
+#   engine-derived decision (content_record); verify_explanations(records=) with
+#   CHS_NA_CONTRADICTED / CHS_DEGRADE_UNPROVEN / CHS_RECORDS_MISSING and the engine ledger
+#   (chs_attempts, chs_report_lines); OPSIN once per session (opsin_status, names_to_smiles,
+#   CHEM_TRIVIAL_NAMES), stem / option / prose name checks and name_check_item for Step 7;
+#   library Contradicts over every section (contradicts_from_learnings, chem_library_config;
+#   a stale project library never wins); normalise_formula_text never subscripts mechanism
+#   notation or acronyms, formats organic groups and hydrates. Fixtures V214-* (must-fail with
+#   their own code + must-pass twins); the v2.13 _chsblk fixtures were updated deliberately to
+#   signed records (GAP-2026-11-07 §7).
+#   Pre-deployment review (2026-11-09, same release): verify reads every question's PRINTED stem
+#   and options (chs_printed_records) under the records, so a text-only item with no record
+#   (a PYQ text question) is re-decided, and an all-NA paper verified without records on
+#   chemistry text is CHS_RECORDS_MISSING; T1 text rules R1 (options are organic species), R2
+#   (>= 2 species + a reaction verb, never all-numeric options) and the IUPAC-shape fallback, with
+#   chem_name_plausible gating every OPSIN call (no install on a non-chemistry paper); every
+#   RE-25 verify message carries its code; the OPSIN footer line only on a chemistry paper; the
+#   library check reads Triggers over the whole block and never counts a negated clause; the
+#   prose / stem name checks flag only an asserted wrong-locant isomer (never a comparison,
+#   contrast, hypothetical or option species); full-stop hydrates (CuSO4.5H2O); mechanism
+#   vocabulary (anti addition, anti-periplanar, syn / anti in a Newman sentence) is not a
+#   descriptor; the NA re-check reads figural_ask_type.
 # v2.13 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE
 #   STANDARD; paired with corpus_io v1.19, figural_core v5.91, PYQExplain v2.28,
 #   MockTestExplain v1.54.0, SHARED_RULES_VERSION 1.7). Incident: CSIR NET Chemical
@@ -228,7 +258,9 @@ class EngineConfig:
                  absolute_terms_re=None,
                  provenance_gates=None, learnings_triggers=None,
                  formula_typography=True, internal_terms_re=None,
-                 stereo_token_re=None, chem_learnings_triggers=None):
+                 stereo_token_re=None, chem_learnings_triggers=None,
+                 formula_allow=None, formula_stoplist=None, stereo_token_extra=None,
+                 chem_learnings_contradicts=None):
         # v2.8 — provenance_gates: the authoring-time mandatory gates (error
         # provenance, transfer_record, formula residual). None -> the module
         # default (True). Only legacy self-test fixtures and read-back paths
@@ -305,6 +337,19 @@ class EngineConfig:
         # v2.13 (RE-25 §24 S24-7) — the chemistry library's triggers, checked ONLY on
         # blocks whose chem_structure_module.status is APPLIES*, never on any other block.
         self.chem_learnings_triggers = list(chem_learnings_triggers or [])
+        # v2.14 F-1 — per-exam extensions of the formula allow-list (ambiguous-shape
+        # species such as XeO3 written all-capital) and stop-list (acronyms that
+        # spell element symbols). Extend, never replace, the module defaults.
+        self.formula_allow = frozenset(formula_allow or ())
+        self.formula_stoplist = frozenset(formula_stoplist or ())
+        # v2.14 F-5 — an exam-specific stereo pattern is MERGED with the defaults
+        # (EC-H1), never a replacement: stereo_token_extra is OR-ed in.
+        self.stereo_token_extra = (re.compile(stereo_token_extra) if isinstance(stereo_token_extra, str)
+                                   else stereo_token_extra)
+        # v2.14 F-12 — [(code, trigger_re, [forbidden_re])]; None = the repo library's set,
+        # loaded lazily, so the fact check never depends on the caller remembering it.
+        self.chem_learnings_contradicts = (list(chem_learnings_contradicts)
+                                           if chem_learnings_contradicts is not None else None)
 
     def expected_options(self, q):
         """Option count expected for question q. 0 means NAT (no options).
@@ -319,6 +364,10 @@ class EngineConfig:
         self.__dict__.setdefault('internal_terms_re', _INTERNAL_TERMS_RE)
         self.__dict__.setdefault('stereo_token_re', _STEREO_TOKEN_RE)
         self.__dict__.setdefault('chem_learnings_triggers', [])
+        self.__dict__.setdefault('formula_allow', frozenset())
+        self.__dict__.setdefault('formula_stoplist', frozenset())
+        self.__dict__.setdefault('stereo_token_extra', None)
+        self.__dict__.setdefault('chem_learnings_contradicts', None)
 
     def option_label(self, i):
         """Map a 1-based option index to the paper's displayed label
@@ -483,9 +532,14 @@ REPRESENTATION_RENDERERS = {
         'colour': _COLOUR_CHART,
     },
     'CONFORMER': {
-        'library': 'matplotlib',
-        'identifier': 'the dihedral / occupant string, restated from the drawn data',
-        'colour': _COLOUR_CHART,
+        # v2.14 F-4 — structure-derived (corpus_io.render_chair / render_newman /
+        # render_sawhorse / render_ts_chair): drawn from an rdkit 3-D conformer of the
+        # atom-mapped SMILES; the matplotlib dihedral chart stays available as DATA_PLOT.
+        'library': 'rdkit',
+        'identifier': 'model + isomeric canonical SMILES re-derived from the 3-D conformer the '
+                      'drawing was projected from + the measured axial / equatorial occupants or '
+                      'dihedral (within 10 degrees of the request)',
+        'colour': _COLOUR_STRUCTURE,
     },
     # v2.13 — RE-25 CHEM-STRUCTURE (GAP-2026-11-06, E-01). All three render through
     # corpus_io v1.19 (rdkit + PIL), palette owner loaded first by the wrappers below.
@@ -624,8 +678,17 @@ def chem_content_present(record):
     _osv = list(_os.values()) if isinstance(_os, dict) else (list(_os) if isinstance(_os, (list, tuple)) else [])
     if any(v for v in _osv):
         return True, 'option_smiles present'
+    _ots = rec.get('option_text_smiles')                     # v2.14 — MockTestCreate v5.95 text options
+    if isinstance(_ots, dict) and any(v for v in _ots.values()):
+        return True, 'option_text_smiles present'
     if rec.get('answer_smiles') or rec.get('text_smiles'):
         return True, 'answer_smiles / text_smiles present'
+    # v2.14 RC-17 — given_smiles / named_entities of the Step 7 quality record are
+    # chemistry content too (v2.13 read neither).
+    if any(isinstance(x, str) and x.strip() for x in (rec.get('given_smiles') or [])):
+        return True, 'given_smiles present'
+    if rec.get('named_entities'):
+        return True, 'named_entities present'
     _fms = rec.get('figural_manifests')
     _fms = _fms if isinstance(_fms, (list, tuple)) else ([_fms] if isinstance(_fms, dict) else [])
     for fm in _fms:
@@ -639,6 +702,43 @@ def chem_content_present(record):
             if isinstance(_so, dict) else (list(_so) if isinstance(_so, (list, tuple)) else [])
         if any(isinstance(x, dict) and str(x.get('kind', '')).upper() in ('STRUCTURE', 'REACTION') for x in _sol):
             return True, 'figural_manifest semantic_objects STRUCTURE / REACTION'
+    # v2.14 RC-17 / owner Q10 (a) — an organic species NAMED IN WORDS (no drawing, no
+    # SMILES): OPSIN- or table-resolved organic names (>= 2 C), or a lexical organic name
+    # with an organic-reaction context word. Text-only organic questions (most school-level
+    # exams) silently escaped RE-25 in v2.13.
+    _txt = _chs_text_of(rec)
+    if _txt.strip():
+        try:
+            _ts = chem_text_species(rec, resolve=True, plausible_only=True)
+        except Exception:                           # noqa: BLE001
+            _ts = {'names': [], 'smiles': {}}
+        _org = []
+        for _n, _s in (_ts.get('smiles') or {}).items():
+            _m = _chs_mol(_s)
+            if _m is not None and sum(1 for a in _m.GetAtoms() if a.GetSymbol() == 'C') >= 2:
+                _org.append(_n)
+        if _org and _ORGANIC_CONTEXT_RE.search(_txt):
+            return True, 'text-named organic species: ' + ', '.join(_org[:3])
+        # v2.14 R1 — the OPTIONS are organic species (verified names, >= 2 C): the question
+        # asks which structure, whatever verbs the stem uses ("Treatment of X with Y gives").
+        _opts = [str(o).strip(' .;:') for o in (rec.get('option_texts') or []) if str(o or '').strip()]
+        _optl = {o.lower() for o in _opts}
+        _org_opts = [n for n in _org if n.lower() in _optl]
+        if len(_org_opts) >= 2:
+            return True, 'options are organic species: ' + ', '.join(_org_opts[:3])
+        # v2.14 R2 — two or more verified organic species and a general reaction verb.
+        # A calculation (every option a number / quantity) is never made RE-25 by R2.
+        _numeric = bool(_opts) and all(re.search(r'\d', o) and not _ORGANIC_NAME_RE.search(o.lower()) for o in _opts)
+        if len({n.lower() for n in _org}) >= 2 and _REACTION_VERB_RE.search(_txt) and not _numeric:
+            return True, 'text-named organic species in a reaction: ' + ', '.join(_org[:3])
+        # v2.14 R1 without OPSIN — two or more options that are each WHOLLY an IUPAC-shaped
+        # organic name (a locant or a ring / chain stem and suffix); English words never are.
+        _whole = [o for o in _opts if _IUPAC_SHAPE_RE.fullmatch(o) and (re.search(r'\d', o) or len(o) >= 8)]
+        if len(_whole) >= 2 and not _org_opts:
+            return True, 'options are organic names (unresolved): ' + ', '.join(_whole[:3])
+        if _ts.get('names') and _ORGANIC_CONTEXT_RE.search(_txt) and len(_ts['names']) >= 1 and \
+                any(len(n) >= 6 for n in _ts['names']):
+            return True, 'text-named organic species (unresolved): ' + ', '.join(_ts['names'][:3])
     return False, 'no chemistry content object'
 
 
@@ -749,12 +849,39 @@ def figure_record(draw, path, fig_id, after_step=1, after_line=None, width_in=No
     if derived != ident:
         raise ValueError(f'figure_record {fig_id}: the drawn species differ from the request '
                          f'({derived} != {ident})')
-    return RepresentationFigure(path, width_in=width_in or draw.width_in,
-                                validation={'renderer': draw.requirement, 'intended': ident,
-                                            'derived': derived, 'match': derived == ident,
-                                            'layout': {'attempts': draw.meta.get('attempts'),
-                                                       'degrade_ledger': draw.degrade_ledger,
-                                                       'bytes': draw.meta.get('bytes')}},
+    # v2.14 F-0 / F-15 / F-3 — what the figure ACTUALLY drew, read from the renderer's own
+    # molecules (never from the request): every fragment isomerically, the first and last
+    # panel, the captions inside the image, the printed labels, the model, the arrows and
+    # the CIP layer. The record is signed; the validator refuses an unsigned or edited one.
+    def _frags(m):
+        if m is None:
+            return []
+        try:
+            return [_cio.mechanism_canonical(_Chem.MolToSmiles(f), stereo=True)
+                    for f in _Chem.GetMolFrags(m, asMols=True, sanitizeFrags=False)]
+        except Exception:                           # noqa: BLE001
+            return [_cio.mechanism_canonical(_Chem.MolToSmiles(m), stereo=True)]
+    _ini = [x for x in _frags(_bm) if x]
+    _fin = [x for x in _frags(_am) if x]
+    _meta = dict(getattr(draw, 'meta', None) or {})
+    _caps = _meta.get('captions')
+    if isinstance(_caps, dict):
+        _caps = [str(x) for v in _caps.values() for x in (v or [])]
+    _labels = _meta.get('labels')
+    if _labels is None:
+        _labels = (draw.identifier or {}).get('labels') or {}
+    _val = {'renderer': draw.requirement, 'intended': ident, 'derived': derived, 'match': derived == ident,
+            'layout': {'attempts': draw.meta.get('attempts'), 'degrade_ledger': draw.degrade_ledger,
+                       'bytes': draw.meta.get('bytes')},
+            'species': sorted(set(_ini + _fin)), 'initial': _ini, 'final': _fin,
+            'captions': [str(x) for x in (_caps or [])],
+            'labels': {str(k): str(v) for k, v in dict(_labels).items()},
+            'model': _meta.get('model'), 'arrows': list((draw.identifier or {}).get('arrows') or []),
+            'cip': dict(_meta.get('cip') or {}), 'step_id': _meta.get('step_id'),
+            'engine': CHS_ENGINE_STAMP}
+    _val['png_sha256'] = _png_sha256(path)
+    _val['provenance'] = _chs_sign(_val)
+    return RepresentationFigure(path, width_in=width_in or draw.width_in, validation=_val,
                                 after_step=after_step, after_line=after_line, fig_id=fig_id,
                                 requirement=draw.requirement)
 
@@ -774,7 +901,7 @@ def check_stereo_claims(claims):
         RDLogger.DisableLog('rdApp.*')
     except Exception:
         return False, 'CHS_STEREO_CLAIM_FALSE: rdkit unavailable (EC-35)'
-    rel = {'CIS', 'TRANS', 'ENDO', 'EXO', 'SYN', 'ANTI', 'ERYTHRO', 'THREO', 'MESO', 'RAC'}
+    rel = {'CIS', 'TRANS', 'ENDO', 'EXO', 'SYN', 'ANTI', 'ERYTHRO', 'THREO', 'MESO', 'RAC', 'MIXTURE'}
     try:
         return _check_stereo_claims_inner(claims, Chem, rdCIPLabeler, rel)
     except Exception as exc:                            # noqa: BLE001
@@ -785,7 +912,7 @@ def _check_stereo_claims_inner(claims, Chem, rdCIPLabeler, rel):
     for k, c in enumerate(claims):
         if not isinstance(c, dict):
             return False, f'CHS_STEREO_CLAIM_FALSE: claim {k} is not a dict'
-        d = str(c.get('descriptor', '')).upper().strip('()')
+        d = _norm_stereo_desc(c.get('descriptor', ''))
         smi = c.get('species')
         if not smi:
             return False, f'CHS_STEREO_CLAIM_FALSE: claim {k} has no species'
@@ -826,7 +953,7 @@ def _check_stereo_claims_inner(claims, Chem, rdCIPLabeler, rel):
                 return False, f'CHS_STEREO_CLAIM_FALSE: claim {k} says ({d}) but rdkit gives ({got})'
         elif d in rel:
             named = c.get('atoms') or ([c['atom']] if c.get('atom') is not None else [])
-            if d != 'RAC' and not named:
+            if d not in ('RAC', 'MIXTURE') and not named:
                 return False, f'CHS_STEREO_CLAIM_FALSE: claim {k} ({d}) names no atoms'
             for ref in named:
                 a = m.GetAtomWithIdx(idx(ref))
@@ -837,6 +964,1613 @@ def _check_stereo_claims_inner(claims, Chem, rdCIPLabeler, rel):
         else:
             return False, f'CHS_STEREO_CLAIM_FALSE: claim {k} descriptor {d!r} unknown'
     return True, 'ok'
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2.14 — RE-25 HARDENING (GAP-2026-11-07-RE25-HARDENING; owner decisions 2026-11-08:
+# Q1 (b) coordinate reflection, Q2 (a) OPSIN installed once per session with a recorded
+# degrade, Q3 (a)+ engine-derived decision, Q4 (b) evidence-backed degrade, Q5 (a)
+# renderers, Q6 (a) cage-aware gate, Q7 (a) library Contradicts, Q8 (a) one release,
+# Q10 (a) text-only chemistry, Q11 (b) structural normaliser).
+#
+# THE LAW THIS SECTION ENFORCES (PRODUCER-CLAIM LAW): every field a producer types —
+# status, ask shape, chain, answer, stereo claims, figure requirement — is a CLAIM. A
+# claim is checked against something the producer did not type: the registry, the
+# rendered figure's own record (signed by figure_record), or rdkit / OPSIN. A gate that
+# compares one producer-typed field with another is not a gate.
+# Every finding here RETURNS THE QUESTION TO SOLVING (EC-41, ≤ 3 attempts); nothing
+# halts a run; after the bound the engine — not the producer — writes the §R3 line.
+# ═══════════════════════════════════════════════════════════════════════════════
+CHS_ENGINE_STAMP = '2.14'
+CHS_FIGURE_MODELS = ('CHAIR', 'NEWMAN', 'SAWHORSE', 'TS_CHAIR', 'FISCHER', 'HAWORTH', 'CIP')
+CHS_CONFORMER_MODELS = ('CHAIR', 'NEWMAN', 'SAWHORSE', 'TS_CHAIR')
+CHS_UNRENDERABLE_CODES = ('CHS_LAYOUT_UNRENDERABLE', 'RDKIT_UNAVAILABLE', 'RDKIT_PARSE_FAIL',
+                          'EC41_BOUND', 'OPSIN_UNAVAILABLE')
+# figure_types FIGURAL ask vocabulary -> RE-25 ask shape (F-2). A FIGURAL ask that maps to
+# an A-code contradicts a NOT_APPLICABLE / NA-STRUCTURE-IRRELEVANT record on a question
+# that prints a structure. quantitative_calculation maps to NOTHING: the spec's own
+# gas-law / stoichiometry example stays a legal NA-STRUCTURE-IRRELEVANT.
+FIGURAL_ASK_TO_CHS = {
+    'product_prediction': 'A1', 'reaction_product': 'A1', 'reagent_identification': 'A1',
+    'synthesis_route': 'A1', 'retrosynthesis': 'A1', 'intermediate_identification': 'A2',
+    'mechanism': 'A2', 'mechanism_step': 'A2', 'conformational_analysis': 'A3',
+    'stereo_outcome': 'A3', 'selectivity': 'A4', 'regioselectivity': 'A4',
+    'stereo_assignment': 'A5', 'configuration_assignment': 'A5', 'isomer_count': 'A6',
+    'stability_order': 'A7', 'reactivity_order': 'A7', 'acidity_order': 'A7',
+    'aromaticity': 'A7', 'spectral_assignment': 'A8', 'spectroscopy': 'A8',
+    'nomenclature': 'A9', 'iupac_name': 'A9', 'structure_identification': 'A10',
+    'carbohydrate': 'A11', 'biomolecule_structure': 'A11', 'coordination_geometry': 'A12',
+    'quantitative_calculation': None,
+}
+_CAPTION_MODEL_WORDS = (
+    (re.compile(r'\bchair\s+(?:TS|transition\s+state)\b|\bZimmerman', re.I), ('TS_CHAIR', 'CHAIR')),
+    (re.compile(r'\bchairs?\b', re.I), ('CHAIR', 'TS_CHAIR')),
+    (re.compile(r'\bNewman\b', re.I), ('NEWMAN',)),
+    (re.compile(r'\bsawhorse\b', re.I), ('SAWHORSE', 'NEWMAN')),
+    (re.compile(r'\bFischer\s+projection|\bFischer\b(?!\s+(?:esterif|indole|carbene))', re.I), ('FISCHER',)),
+    (re.compile(r'\bHaworth\b', re.I), ('HAWORTH',)),
+)
+_PERICYCLIC_RE = re.compile(r'\b(?:Claisen\s+rearrangement|aromatic\s+Claisen|Ireland[\u2013\-\s]+Claisen|'
+                            r'Johnson[\u2013\-\s]+Claisen|Cope|oxy-Cope|Diels[\u2013\-\s]+Alder|ene\s+reaction|'
+                            r'electrocycli\w*|sigmatropic|pericyclic|cycloaddition|\[\s*[1-5]\s*,\s*[1-5]\s*\]|'
+                            r'\[\s*[24]\s*\+\s*[24]\s*\]|retro[\u2013\-\s]+Diels)', re.I)
+_RESONANCE_COUNT_RE = re.compile(r'\b(two|three|four|five|six|seven|2|3|4|5|6|7)\s+(?:major\s+|important\s+|'
+                                 r'equivalent\s+|contributing\s+)?(?:resonance|canonical)\s+'
+                                 r'(?:forms?|structures?|contributors?)', re.I)
+_NUMWORD = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7}
+_STEREO_SENTENCE_WORDS = re.compile(
+    r'\b(?:retain\w*|retention|invert\w*|inversion|racemi\w*|rac\b|diastereo\w*|enantio\w*|achiral|'
+    r'stereocent\w*|stereogenic|meso|configuration|cis|trans|syn|anti|endo|exo|erythro|threo|'
+    r'no\s+new\s+stereo\w*|planar|geometr\w*|stereospecific|stereoselective|epimer\w*|anomer\w*)\b|'
+    r'\((?:\d+[a-z]?)?[RSEZ]\b', re.I)
+_LABEL_OK_RE = re.compile('^(?:\\d{1,3}[a-z]?[\u2032\']{0,2}|[a-z][\u2032\']{0,2}|[A-Z]\\d{1,3}[a-z]?[\u2032\']{0,2}|'
+                          '[\u03b1-\u03c9][\u2032\']?|\u03b4\\s?\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?\\s?ppm|'
+                          '\\d+H(?:,\\s?[sdtqm]\\w*)?|[sdtqm]|br\\s?s|ax|eq|\\*|\\d+(?:\\.\\d+)?)$')
+_CAPTION_STOPWORDS = {'product', 'products', 'intermediate', 'figure', 'option', 'structure', 'forms', 'formed',
+                      'gives', 'given', 'giving', 'major', 'minor', 'step', 'steps', 'reaction', 'species', 'final',
+                      'first', 'second', 'third', 'where', 'which', 'these', 'those', 'there', 'their', 'after',
+                      'before', 'stage', 'shown', 'drawn', 'label', 'labels', 'reagent', 'reagents', 'starting',
+                      'material', 'compound', 'compounds', 'isomer', 'isomers', 'pathway', 'route', 'wrong',
+                      'correct', 'answer', 'because', 'cannot', 'would', 'could', 'should', 'under', 'conditions'}
+
+
+def _chs_key():
+    """The session's figure-provenance key (F-0). Created once per container session in
+    the temp directory with mode 0600; figure_record signs with it and the validator
+    checks the signature, so a figure record typed by hand (requirement / validation as
+    strings) is refused. It stops a typed record; it is not a defence against a producer
+    that deliberately reads the key."""
+    import os as _os, tempfile as _tf, secrets as _sc
+    p = _os.path.join(_tf.gettempdir(), '.re25_figure_key')
+    try:
+        with open(p, 'r', encoding='utf-8') as f:
+            k = f.read().strip()
+            if len(k) >= 32:
+                return k
+    except OSError:
+        pass
+    k = _sc.token_hex(32)
+    try:
+        fd = _os.open(p, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+        with _os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(k)
+    except OSError:
+        pass
+    return k
+
+
+def _chs_payload(validation):
+    import json as _json
+    v = {k: val for k, val in dict(validation or {}).items() if k != 'provenance'}
+    return _json.dumps(v, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _chs_sign(validation):
+    import hmac as _hm, hashlib as _hl
+    return _hm.new(_chs_key().encode(), _chs_payload(validation).encode('utf-8'), _hl.sha256).hexdigest()
+
+
+def _png_sha256(path):
+    import hashlib as _hl
+    try:
+        with open(path, 'rb') as f:
+            return _hl.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def chs_figure_provenance_ok(fig):
+    """F-0 — (ok, why). The figure's validation record was written by figure_record()
+    (signature valid) and the PNG on disk is the one it recorded (sha256)."""
+    import hmac as _hm
+    v = dict(getattr(fig, 'validation', None) or {})
+    sig = v.get('provenance')
+    if not sig:
+        return False, 'no provenance signature (the record was not built by figure_record)'
+    if not _hm.compare_digest(str(sig), _chs_sign(v)):
+        return False, 'provenance signature does not match the record (edited or typed in)'
+    sha = _png_sha256(getattr(fig, 'path', ''))
+    if v.get('png_sha256') != sha:
+        return False, 'the PNG on disk is not the PNG the renderer recorded'
+    return True, 'ok'
+
+
+def _chs_mol(smi):
+    import corpus_io as _cio
+    Chem = _cio._chs_rdkit()
+    if Chem is None or not smi:
+        return None
+    try:
+        m = _cio.mapped_mol(str(smi), keep_h=True)
+        m = Chem.RWMol(m)
+        for a in m.GetAtoms():
+            a.SetAtomMapNum(0)
+        return Chem.RemoveHs(m.GetMol(), sanitize=True)
+    except Exception:
+        return None
+
+
+def _chs_can(smi, stereo=False):
+    import corpus_io as _cio
+    return _cio.mechanism_canonical(smi, stereo=stereo) if smi else None
+
+
+def _chs_has_stereo(smi):
+    m = _chs_mol(smi)
+    if m is None:
+        return False
+    from rdkit import Chem
+    return any(a.GetChiralTag() != Chem.ChiralType.CHI_UNSPECIFIED for a in m.GetAtoms()) or \
+        any(b.GetStereo() not in (Chem.BondStereo.STEREONONE, Chem.BondStereo.STEREOANY) for b in m.GetBonds())
+
+
+def _chs_unspecified_stereo(smi, kind=None):
+    """Number of potential stereo elements (rdkit FindPotentialStereo) the species leaves
+    unspecified (F-15 a); kind='bond' / 'atom' counts one class only. None when rdkit
+    cannot read it."""
+    m = _chs_mol(smi)
+    if m is None:
+        return None
+    from rdkit import Chem
+    try:
+        infos = Chem.FindPotentialStereo(m)
+    except Exception:
+        return None
+    want = {'bond': (Chem.StereoType.Bond_Double,), 'atom': (Chem.StereoType.Atom_Tetrahedral,)}.get(kind)
+    n = 0
+    for i in infos:
+        if i.specified != Chem.StereoSpecified.Unspecified or (want is not None and i.type not in want):
+            continue
+        if i.type == Chem.StereoType.Bond_Double and not _chs_real_stereo_bond(m, m.GetBondWithIdx(i.centeredOn)):
+            continue
+        n += 1
+    return n
+
+
+def _chs_real_stereo_bond(m, b):
+    """rdkit's FindPotentialStereo also reports cumulated (allene) C=C, a vinyl cation and a
+    metal-complexed C=O. A double bond is stereogenic here only when it is outside a ring of
+    fewer than eight atoms, neither end is cumulated, an O / S end is excluded, and each
+    carbon end carries two DIFFERENT groups (a neutral N end: one group + its lone pair)."""
+    from rdkit import Chem
+    if b.GetBondType() != Chem.BondType.DOUBLE:
+        return False
+    ri = m.GetRingInfo()
+    if any(len(r) < 8 and b.GetIdx() in r for r in ri.BondRings()):
+        return False
+    ranks = list(Chem.CanonicalRankAtoms(m, breakTies=False))
+    for a in (b.GetBeginAtom(), b.GetEndAtom()):
+        other = b.GetOtherAtom(a)
+        if a.GetSymbol() in ('O', 'S'):
+            return False
+        if sum(1 for x in a.GetBonds() if x.GetBondType() == Chem.BondType.DOUBLE) > 1:
+            return False
+        subs = [x for x in a.GetNeighbors() if x.GetIdx() != other.GetIdx()]
+        nh = a.GetTotalNumHs()
+        if a.GetSymbol() == 'N' and a.GetFormalCharge() == 0:
+            if len(subs) + nh < 1:
+                return False
+            continue
+        if len(subs) + nh != 2:
+            return False
+        if nh == 2:
+            return False
+        if nh == 0 and ranks[subs[0].GetIdx()] == ranks[subs[1].GetIdx()]:
+            return False
+    return True
+
+
+def _chs_mirror(smi):
+    """Isomeric canonical of the enantiomer (every @ <-> @@; E/Z unchanged)."""
+    c = _chs_can(smi, stereo=True)
+    if not c:
+        return None
+    t = c.replace('@@', '\x00').replace('@', '@@').replace('\x00', '@')
+    return _chs_can(t, stereo=True)
+
+
+def _chs_same(a, b, stereo='auto', racemic=False):
+    """Species identity for the hardening gates. stereo='auto': isomeric when BOTH carry
+    stereo, else constitution (EC-32: compare only what is drawn). racemic=True accepts
+    the enantiomer."""
+    if not a or not b:
+        return False
+    if stereo == 'auto':
+        stereo = _chs_has_stereo(a) and _chs_has_stereo(b)
+    if not stereo:
+        ca, cb = _chs_can(a), _chs_can(b)
+        return ca is not None and ca == cb
+    ia, ib = _chs_can(a, True), _chs_can(b, True)
+    if ia is not None and ia == ib:
+        return True
+    return bool(racemic) and ib is not None and _chs_mirror(a) == ib
+
+
+def _chs_split(smi):
+    return [s for s in str(smi or '').split('.') if s.strip()]
+
+
+def chs_figure_info(fig):
+    """The renderer-recorded content of one RE-25 figure (from its signed validation
+    record): species (every drawn fragment, isomeric), final (the fragments of the LAST
+    panel), captions, labels, model, arrows, cip. Empty fields for a legacy figure."""
+    v = dict(getattr(fig, 'validation', None) or {})
+    return {'requirement': getattr(fig, 'requirement', None) or v.get('renderer'),
+            'species': list(v.get('species') or []), 'final': list(v.get('final') or []),
+            'initial': list(v.get('initial') or []),
+            'captions': [str(x) for x in (v.get('captions') or [])], 'labels': dict(v.get('labels') or {}),
+            'model': v.get('model'), 'arrows': list(v.get('arrows') or []), 'cip': dict(v.get('cip') or {}),
+            'step_id': v.get('step_id'), 'png_sha256': v.get('png_sha256'),
+            'degrade_ledger': list((v.get('layout') or {}).get('degrade_ledger') or [])}
+
+
+def _chs_test_figure(png_path, fig_id, requirement='MECHANISM', initial=(), final=(), captions=(),
+                     labels=None, model=None, arrows=None, cip=None, after_step=1, after_line=None,
+                     step_id=None, degrade_ledger=None, width_in=5.6):
+    """SELF-TEST ONLY — a RepresentationFigure whose record is built and signed exactly as
+    figure_record() would build it from a renderer's draw, without rendering. Fixtures use
+    it to state precisely what a figure drew; production code never calls it (a figure in
+    a paper comes from a renderer through figure_record)."""
+    ini = [_chs_can(x, True) for x in initial if x]
+    fin = [_chs_can(x, True) for x in final if x]
+    v = {'renderer': requirement, 'intended': fig_id, 'derived': fig_id, 'match': True,
+         'layout': {'attempts': 1, 'degrade_ledger': list(degrade_ledger or []), 'bytes': 0},
+         'species': sorted(set(ini + fin)), 'initial': ini, 'final': fin,
+         'captions': [str(c) for c in captions], 'labels': {str(k): str(x) for k, x in (labels or {}).items()},
+         'model': model, 'arrows': list(arrows or []), 'cip': dict(cip or {}), 'step_id': step_id,
+         'engine': CHS_ENGINE_STAMP}
+    v['png_sha256'] = _png_sha256(png_path)
+    v['provenance'] = _chs_sign(v)
+    return RepresentationFigure(png_path, width_in, v, after_step=after_step, after_line=after_line,
+                                fig_id=fig_id, requirement=requirement)
+
+
+def _arrows_cyclic(arrows, min_atoms=4):
+    """True when the arrow set moves electrons around a closed ring (EC-22 pericyclic):
+    the graph whose edges join each arrow's source atoms to its target atoms contains a
+    cycle through at least `min_atoms` atoms and the set holds >= 3 arrows."""
+    if len(arrows or []) < 3:
+        return False
+    edges = set()
+    for a in arrows:
+        src = a.get('from') or {}
+        dst = a.get('to') or {}
+        s_atoms = [int(x) for x in (src.get('bond') or [])] + \
+            [int(src[k]) for k in ('atom', 'lone_pair', 'lone_pair_on') if src.get(k) is not None]
+        d_atoms = [int(x) for x in (dst.get('bond') or [])] + \
+            [int(dst[k]) for k in ('atom', 'lone_pair', 'lone_pair_on') if dst.get(k) is not None]
+        nodes = sorted(set(s_atoms + d_atoms))
+        for i in range(len(nodes)):
+            for j in range(i + 1, len(nodes)):
+                edges.add((nodes[i], nodes[j]))
+    adj = {}
+    for x, y in edges:
+        adj.setdefault(x, set()).add(y); adj.setdefault(y, set()).add(x)
+    # any simple cycle of length >= min_atoms (DFS bounded by the tiny graph size)
+    best = 0
+    def dfs(start, node, seen):
+        nonlocal best
+        for nb in adj.get(node, ()):
+            if nb == start and len(seen) >= 3:
+                best = max(best, len(seen))
+            elif nb not in seen and nb > start:
+                dfs(start, nb, seen | {nb})
+    for s in adj:
+        dfs(s, s, {s})
+    return best >= min_atoms
+
+
+def _proton_transfer_only(before, after):
+    """REACTION_SCHEME is allowed on an A2 step (F-13) only for a proton transfer or
+    tautomerisation: the heavy-atom skeleton (connectivity, ignoring bond order, H and
+    charge) is unchanged."""
+    import corpus_io as _cio
+    Chem = _cio._chs_rdkit()
+    if Chem is None:
+        return False
+    def skel(s):
+        m = _chs_mol(s)
+        if m is None:
+            return None
+        rw = Chem.RWMol(m)
+        for b in rw.GetBonds():
+            b.SetBondType(Chem.BondType.SINGLE); b.SetIsAromatic(False)
+        for a in rw.GetAtoms():
+            a.SetFormalCharge(0); a.SetIsAromatic(False); a.SetNoImplicit(True); a.SetNumExplicitHs(0)
+        try:
+            return Chem.MolToSmiles(rw.GetMol(), isomericSmiles=False)
+        except Exception:
+            return None
+    sb, sa = [skel(x) for x in before], [skel(x) for x in after]
+    return bool(sb) and sorted(filter(None, sb)) == sorted(filter(None, sa))
+
+
+_FORMULA_TOKEN_RE = re.compile(
+    '(?<![\\w\u2080-\u2089])(\\d+\\s?)?((?:\\(?[A-Z][a-z]?[\u2080-\u20890-9]*\\)?[\u2080-\u20890-9]*)+)'
+    '([\u2070\u00b9\u00b2\u00b3\u2074-\u2079]*[\u207a\u207b+\u2212-]?)(?![\\w\u2080-\u2089])')
+_SUBSCRIPT_DIGITS = str.maketrans('\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089', '0123456789')
+_SUPERSCRIPT_DIGITS = str.maketrans('\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207a\u207b',
+                                    '0123456789+-')
+
+
+def _parse_formula(tok, charge_txt=''):
+    """{element: n} and net charge for a (sub/superscripted) formula token; None when a
+    symbol is not an element (the sentence is then not a balance sentence)."""
+    from collections import Counter
+    t = tok.translate(_SUBSCRIPT_DIGITS)
+    def parse(s, i=0):
+        c = Counter()
+        while i < len(s):
+            ch = s[i]
+            if ch == '(':
+                sub, i = parse(s, i + 1)
+                m = re.match(r'\d+', s[i:]); n = int(m.group(0)) if m else 1
+                i += len(m.group(0)) if m else 0
+                for k, v in sub.items():
+                    c[k] += v * n
+            elif ch == ')':
+                return c, i + 1
+            else:
+                m = re.match(r'([A-Z][a-z]?)(\d*)', s[i:])
+                if not m or m.group(1) not in _ELEMENTS:
+                    raise ValueError(s)
+                c[m.group(1)] += int(m.group(2) or 1)
+                i += len(m.group(0))
+        return c, i
+    try:
+        c, _ = parse(t)
+    except (ValueError, IndexError):
+        return None
+    q = 0
+    ct = str(charge_txt or '').translate(_SUPERSCRIPT_DIGITS).replace('\u2212', '-')
+    if ct:
+        m = re.fullmatch(r'(\d*)([+-])', ct)
+        if m:
+            q = int(m.group(1) or 1) * (1 if m.group(2) == '+' else -1)
+    return c, q
+
+
+def balance_sentence_findings(sentence):
+    """'X gives Y + Z' / 'X → Y + Z' with every term a formula: the element counts and
+    the net charge must agree on both sides (F-12 / §5 item 7, CHS_BALANCE_SENTENCE).
+    Returns None (not a balance sentence), True (balanced) or a reason string."""
+    s = T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(sentence)))
+    m = re.search(r'\s(?:gives|give|yields?|forms?|\u2192|->|=)\s', s)
+    if not m:
+        return None
+    lhs, rhs = s[:m.start()], s[m.end():]
+    lhs = lhs.split(':')[-1]
+    rhs = re.split(r'[.;,](?:\s|$)', rhs)[0]
+    def side(txt):
+        parts = [p.strip() for p in re.split(r'\s\+\s', txt.strip()) if p.strip()]
+        if len(parts) < 1:
+            return None
+        from collections import Counter
+        tot, q = Counter(), 0
+        for p in parts:
+            mm = _FORMULA_TOKEN_RE.fullmatch(p)
+            if not mm:
+                return None
+            coef = int((mm.group(1) or '1').strip())
+            pf = _parse_formula(mm.group(2), mm.group(3))
+            if pf is None:
+                return None
+            for k, v in pf[0].items():
+                tot[k] += v * coef
+            q += pf[1] * coef
+        return tot, q, len(parts)
+    L, R = side(lhs), side(rhs)
+    if L is None or R is None or (L[2] + R[2]) < 3:
+        return None
+    if L[0] != R[0] or L[1] != R[1]:
+        def fmt(c, q):
+            return ''.join(f'{k}{v}' for k, v in sorted(c.items())) + (f' ({q:+d})' if q else '')
+        return f'left {fmt(L[0], L[1])} != right {fmt(R[0], R[1])}'
+    return True
+
+
+def _label_value_ok(val, model, n_heavy):
+    v = str(val).strip()
+    if not v:
+        return False
+    if v in ('ax', 'eq') and model not in CHS_CONFORMER_MODELS:
+        return False
+    if not _LABEL_OK_RE.match(v):
+        return False
+    if re.fullmatch(r'\d{1,3}', v) and n_heavy and int(v) > max(n_heavy, 4) and model != 'CIP':
+        return False                              # an internal map number above the atom count
+    return True
+
+
+def _labels_in_sentence(sentence, labels):
+    s = str(sentence)
+    missing = []
+    rng = [(int(a), int(b)) for a, b in re.findall(r'\b(\d{1,3})\s*(?:to|\u2013|-|through|\u2014)\s*(\d{1,3})\b', s)]
+    for v in sorted({str(x).strip() for x in labels.values() if str(x).strip()}):
+        if v in ('ax', 'eq', '*') or v.startswith('\u03b4') or 'ppm' in v:
+            continue
+        if re.fullmatch(r'\d{1,3}', v) and any(a <= int(v) <= b for a, b in rng):
+            continue
+        if re.search(r'(?<![\w])' + re.escape(v) + r'(?![\w])', s):
+            continue
+        missing.append(v)
+    return missing
+
+
+def _caption_content_words(captions):
+    words = set()
+    for c in captions:
+        for w in re.findall(r'[A-Za-z][A-Za-z\-]{4,}', str(c)):
+            wl = w.lower().strip('-')
+            if wl not in _CAPTION_STOPWORDS:
+                words.add(wl[:6])
+    return words
+
+
+def _caption_descriptor_findings(fig_info, block_q):
+    """F-15 d — a descriptor written INSIDE an image caption is re-derived on the species
+    the figure actually drew. (E) under a drawn (Z) is CHS_STEREO_CLAIM_FALSE."""
+    out = []
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+    finals = fig_info['final'] or fig_info['species']
+    for cap in fig_info['captions']:
+        for txt, ds in stereo_descriptors_in(cap):
+            want_ez = [d for d in ds if d in ('E', 'Z')]
+            want_rs = [d for d in ds if d in ('R', 'S')]
+            if not (want_ez or want_rs):
+                continue
+            got_ez, got_rs = [], []
+            for sp in finals:
+                m = _chs_mol(sp)
+                if m is None:
+                    continue
+                Chem.AssignStereochemistry(m, cleanIt=True, force=True)
+                try:
+                    rdCIPLabeler.AssignCIPLabels(m)
+                except Exception:
+                    pass
+                got_rs += [a.GetProp('_CIPCode').upper() for a in m.GetAtoms() if a.HasProp('_CIPCode')]
+                got_ez += [b.GetProp('_CIPCode').upper() for b in m.GetBonds() if b.HasProp('_CIPCode')]
+            for d in want_ez:
+                if d not in got_ez:
+                    out.append(('CHS_STEREO_CLAIM_FALSE',
+                                f'Q{block_q}: caption {cap!r} says ({d}) but the drawn species is '
+                                f'{"/".join(got_ez) or "without E/Z stereo"} (F-15 d)'))
+            from collections import Counter
+            if want_rs and (Counter(want_rs) - Counter(got_rs)):
+                out.append(('CHS_STEREO_CLAIM_FALSE',
+                            f'Q{block_q}: caption {cap!r} says {txt} but the drawn species carries '
+                            f'{",".join(got_rs) or "no R/S centre"} (F-15 d)'))
+    return out
+
+
+def chs_hardening_findings(blk, record=None):
+    """v2.14 — every content gate of an RE-25 APPLIES block, as [(code, message)].
+    Called by ExplanationBlock._validate_chem_structure (raises on the first batch) and
+    by verify_explanations (problems list). Reads the signed figure records (F-0), the
+    block's chain / answer / options (registry-sourced on the mock side) and the prose."""
+    out = []
+    q = blk.q
+    figs = blk.all_figures()
+    ask = str((blk.chem_structure_module or {}).get('ask_shape') or 'A0').upper()
+    # ── F-0 provenance ──────────────────────────────────────────────────────────
+    for sec, k, fg in figs:
+        ok, why = chs_figure_provenance_ok(fg)
+        if not ok:
+            out.append(('CHS_FIGURE_PROVENANCE', f'Q{q}: figure {fg.fig_id!r} ({sec}{" " + str(k) if k is not None else ""}): '
+                                                 f'{why} — build every RE-25 figure with figure_record() (F-0)'))
+    if not out:
+        out = _chs_content_findings(blk, record, figs, ask)  # nothing below can trust an unsigned record
+    return out
+
+
+def _chs_content_findings(blk, record, figs, ask):
+    """The content gates of chs_hardening_findings, run only on signed figure records."""
+    out = []
+    q = blk.q
+    info = {id(fg): chs_figure_info(fg) for _s, _k, fg in figs}
+    ded = [info[id(f)] for f in blk.figures]
+    racemic = any(_norm_stereo_desc(c.get('descriptor')) == 'RAC' for c in blk.stereo_claims if isinstance(c, dict))
+    printed = [s for s in list(blk.option_smiles.values()) + [blk.answer_smiles] if s]
+    if isinstance(record, dict):
+        printed += [s for s in (record.get('given_smiles') or []) if isinstance(s, str)]
+    # ── F-15 a  every drawn species states its stereo (or the printing leaves it open) ─
+    _printed_u = {}
+    for p in printed:
+        for f in _chs_split(p):
+            _printed_u[_chs_can(f)] = max(_printed_u.get(_chs_can(f), 0), _chs_unspecified_stereo(f) or 0)
+    _allow_any = max(list(_printed_u.values()) + [0])
+    _rac_cons = {_chs_can(c.get('species')) for c in blk.stereo_claims
+                 if isinstance(c, dict) and _norm_stereo_desc(c.get('descriptor')) in ('RAC', 'MIXTURE')}
+    _printed_ub = {}
+    for p in printed:
+        for f in _chs_split(p):
+            _printed_ub[_chs_can(f)] = max(_printed_ub.get(_chs_can(f), 0), _chs_unspecified_stereo(f, 'bond') or 0)
+    for sec, k, fg in figs:
+        for sp in info[id(fg)]['species']:
+            u = _chs_unspecified_stereo(sp)
+            ub = _chs_unspecified_stereo(sp, 'bond') or 0
+            # a species the paper PRINTS may leave open what the printing leaves open
+            # (EC-32); an unprinted intermediate no more stereocentres than the most open
+            # printed species and NO open stereogenic double bond (the Q24 class: an
+            # unspecified C=C is drawn in an arbitrary geometry)
+            _allow = _printed_u.get(_chs_can(sp), _allow_any)
+            _allow_b = _printed_ub.get(_chs_can(sp), 0)
+            if ub > _allow_b and _chs_can(sp) not in _rac_cons:
+                out.append(('CHS_FIGURE_STEREO_UNSPECIFIED',
+                            f'Q{q}: figure {fg.fig_id!r} draws {_chs_can(sp)} with {ub} stereogenic double bond(s) '
+                            f'of unspecified geometry — the drawing then shows an arbitrary E or Z; specify it (F-15 a)'))
+                continue
+            if u and u > _allow and _chs_can(sp) not in _rac_cons:
+                out.append(('CHS_FIGURE_STEREO_UNSPECIFIED',
+                            f'Q{q}: figure {fg.fig_id!r} draws {_chs_can(sp)} with {u} unspecified stereo '
+                            f'element(s); draw the configuration, or declare the species rac / mixture in '
+                            f'stereo_claims (F-15 a)'))
+    # ── F-15 b  the chain ends at the answer WITH its stereo ───────────────────────
+    if blk.transformation_chain and blk.answer_smiles and _chs_has_stereo(blk.answer_smiles):
+        if not _chs_same(blk.transformation_chain[-1], blk.answer_smiles, stereo=True, racemic=racemic):
+            out.append(('CHS_FINAL_STEREO_MISMATCH', f'Q{q}: the DEDUCTION chain ends at '
+                        f'{_chs_can(blk.transformation_chain[-1], True)} but the derived answer is '
+                        f'{_chs_can(blk.answer_smiles, True)} (stereo compared, F-15 b)'))
+    for kk, path in blk.wrong_paths.items():
+        osm = blk.option_smiles.get(kk)
+        if path and osm and _chs_has_stereo(osm) and not _chs_same(path[-1], osm, stereo=True, racemic=racemic):
+            out.append(('CHS_FINAL_STEREO_MISMATCH', f'Q{q}: wrong_paths[{kk}] ends at a different '
+                        f'stereoisomer from printed Option {kk} (F-15 b)'))
+    # ── F-15 c  a stereo claim is about a species the student SEES ────────────────
+    drawn = [sp for i in info.values() for sp in i['species']] + printed
+    for n, c in enumerate(blk.stereo_claims):
+        if not isinstance(c, dict) or _norm_stereo_desc(c.get('descriptor')) in ('RAC', 'MIXTURE'):
+            continue
+        if not any(_chs_same(c.get('species'), d, stereo=True) for d in drawn):
+            out.append(('CHS_CLAIM_NOT_DRAWN', f'Q{q}: stereo_claims[{n}] ({c.get("descriptor")}) is about '
+                        f'{_chs_can(c.get("species"), True)}, which no figure or printed option draws (F-15 c)'))
+    # ── F-15 d  captions ──────────────────────────────────────────────────────────
+    for sec, k, fg in figs:
+        out += _caption_descriptor_findings(info[id(fg)], q)
+    # ── F-3  ask-shape figure contract + caption claims ──────────────────────────
+    for sec, k, fg in figs:
+        fi = info[id(fg)]
+        for rx, models in _CAPTION_MODEL_WORDS:
+            if any(rx.search(c) for c in fi['captions']) and fi['model'] not in models:
+                out.append(('CHS_CAPTION_CLAIM', f'Q{q}: figure {fg.fig_id!r} caption names a '
+                            f'{models[0].lower()} model but the figure is a {fi["model"] or fi["requirement"]} '
+                            f'drawing — draw it with the {models[0]} renderer (F-3)'))
+                break
+    reqs = [d['requirement'] for d in ded]
+    models = [d['model'] for d in ded]
+    deduction_text = ' '.join(str(s) for s in blk.deduction)
+    if ask == 'A1':
+        if not any(r in ('REACTION_SCHEME', 'MECHANISM') for r in reqs):
+            out.append(('CHS_SHAPE_FIGURE_MISSING', f'Q{q}: A1 needs a REACTION_SCHEME or MECHANISM figure '
+                        f'per link in DEDUCTION (F-3)'))
+        if blk.answer_smiles and ded and not any(
+                _chs_same(sp, blk.answer_smiles, racemic=racemic) for d in ded for sp in (d['final'] or d['species'])):
+            out.append(('CHS_SHAPE_FIGURE_MISSING', f'Q{q}: no DEDUCTION figure draws the derived answer '
+                        f'{_chs_can(blk.answer_smiles)} (A1, F-3)'))
+    if ask == 'A2':
+        for d, fg in zip(ded, blk.figures):
+            if d['requirement'] == 'MECHANISM' or d['model'] in CHS_FIGURE_MODELS:
+                continue
+            if d['degrade_ledger']:
+                continue                          # an engine-recorded E-04 step-down
+            if d['requirement'] == 'REACTION_SCHEME' and d['initial'] and d['final'] and \
+                    _proton_transfer_only(d['initial'], d['final']):
+                continue
+            out.append(('CHS_ARROWS_MISSING', f'Q{q}: A2 figure {fg.fig_id!r} is {d["requirement"]} — every '
+                        f'bond-making or bond-breaking step is a MECHANISM figure with curly arrows (F-13)'))
+    if _PERICYCLIC_RE.search(deduction_text) and ask in ('A1', 'A2', 'A3', 'A4', 'A0'):
+        if not any(_arrows_cyclic(d['arrows']) for d in ded):
+            out.append(('CHS_ARROWS_MISSING', f'Q{q}: a pericyclic step is described but no DEDUCTION figure '
+                        f'carries the cyclic arrow set (EC-22, F-13)'))
+    if ask == 'A3' and not any(m in CHS_CONFORMER_MODELS for m in models):
+        out.append(('CHS_SHAPE_FIGURE_MISSING', f'Q{q}: A3 needs a structure-derived CHAIR / NEWMAN / '
+                    f'SAWHORSE / TS_CHAIR figure of the deciding geometry (F-3, F-4)'))
+    if ask == 'A4':
+        cons = {_chs_can(sp) for d in ded for sp in (d['final'] or d['species'])}
+        if len(cons) < 2:
+            out.append(('CHS_COMPETITOR_MISSING', f'Q{q}: A4 draws only one outcome — draw every competing '
+                        f'site / face / path (F-3)'))
+    if ask == 'A5':
+        cip_figs = [d for d in [info[id(f)] for _s, _k, f in figs] if d['model'] == 'CIP']
+        claims = [c for c in blk.stereo_claims if isinstance(c, dict)
+                  and _norm_stereo_desc(c.get('descriptor')) in ('R', 'S', 'E', 'Z')]
+        if not cip_figs:
+            out.append(('CHS_CIP_ANNOTATION_MISSING', f'Q{q}: A5 needs a CIP-annotated figure (priorities 1-4 '
+                        f'at every centre, F-3 / F-4)'))
+        for c in claims:
+            if not any(_chs_same(c.get('species'), sp, stereo=True) for d in cip_figs for sp in d['species']):
+                out.append(('CHS_CIP_ANNOTATION_MISSING', f'Q{q}: the {c.get("descriptor")} claim on '
+                            f'{_chs_can(c.get("species"), True)} has no CIP-annotated figure of that species'))
+    mres = _RESONANCE_COUNT_RE.search(' '.join(str(s) for s in blk.deduction + [x for v in blk.why_wrong.values() for x in v]))
+    if mres:
+        n = _NUMWORD.get(mres.group(1).lower(), None) or int(mres.group(1))
+        drawn_forms = {_chs_can(sp, True) for d in ded for sp in d['species']}
+        if len(drawn_forms) < n:
+            out.append(('CHS_RESONANCE_COUNT', f'Q{q}: the prose counts {n} resonance forms but DEDUCTION '
+                        f'draws {len(drawn_forms)} distinct structures (F-3 A7)'))
+    if ask == 'A9' and not any(d['labels'] for d in ded):
+        out.append(('CHS_SHAPE_FIGURE_MISSING', f'Q{q}: A9 prints locants on every numbered atom (F-3)'))
+    if ask == 'A11' and not any(m in ('FISCHER', 'HAWORTH', 'CHAIR') for m in models):
+        out.append(('CHS_SHAPE_FIGURE_MISSING', f'Q{q}: A11 draws the sugar / amino acid in Fischer, Haworth '
+                    f'or chair form (F-3, F-4)'))
+    # ── F-11  every WHY WRONG figure proves the option's own species ─────────────
+    _substrate = _chs_can(max(_chs_split(blk.transformation_chain[0]), key=len)) if blk.transformation_chain else None
+    _opt_sets = {}
+    for kk, flist in blk.why_wrong_figures.items():
+        sp_all = [sp for f in flist for sp in info[id(f)]['species']]
+        _opt_sets[kk] = (frozenset(_chs_can(s, True) for s in sp_all),
+                         tuple(sorted(info[id(f)]['png_sha256'] or '' for f in flist)))
+        osm = blk.option_smiles.get(kk)
+        caps = ' '.join(c for f in flist for c in info[id(f)]['captions'])
+        if osm and not any(_chs_same(sp, o, racemic=racemic) for sp in sp_all for o in _chs_split(osm)):
+            if not re.search(r'\bno\s+reaction\b|\bdoes\s+not\s+react\b', caps, re.I):
+                out.append(('CHS_OPTION_FIGURE_IDENTITY', f'Q{q}: no figure under Option {kk} draws that option\'s '
+                            f'structure {_chs_can(osm)} (F-11)'))
+        if _substrate and sp_all and {_chs_can(s) for s in sp_all} == {_substrate} and \
+                not (osm and _chs_same(osm, _substrate)) and not re.search(r'\bno\s+reaction\b', caps, re.I):
+            out.append(('CHS_OPTION_FIGURE_SUBSTRATE', f'Q{q}: the figure under Option {kk} only redraws the '
+                        f'starting material — draw the species or step the option names (F-11)'))
+    _seen = {}
+    for kk, sig in _opt_sets.items():
+        if not sig[0]:
+            continue
+        for k2, s2 in _seen.items():
+            same_claim = blk.option_smiles.get(kk) and _chs_same(blk.option_smiles.get(kk), blk.option_smiles.get(k2) or '')
+            if s2[0] == sig[0] and not same_claim:
+                out.append(('CHS_OPTION_FIGURE_DUPLICATE', f'Q{q}: Options {k2} and {kk} carry the same figure '
+                            f'content — each wrong option is drawn as its own species (F-11)'))
+        _seen[kk] = sig
+    # ── F-8 / F-14  labels: grammar, uniqueness, legend; stereo sentence ─────────
+    any_labels = False
+    for sec, k, fg in figs:
+        fi = info[id(fg)]
+        labs = fi['labels']
+        if not labs:
+            continue
+        any_labels = True
+        n_heavy = max([(_chs_mol(sp).GetNumAtoms() if _chs_mol(sp) is not None else 0) for sp in fi['species']] + [0])
+        bad = [v for v in labs.values() if not _label_value_ok(v, fi['model'], n_heavy)]
+        if bad:
+            out.append(('CHS_LABEL_INVALID', f'Q{q}: figure {fg.fig_id!r} prints label(s) {bad[:4]} that are not '
+                        f'locants, reagent letters, NMR values or model marks (map numbers never print, F-8)'))
+        vals = [str(v).strip() for v in labs.values()
+                if str(v).strip() and str(v).strip() not in ('ax', 'eq', '*') and fi['model'] != 'CIP'
+                and not str(v).startswith('\u03b4') and 'ppm' not in str(v)]
+        dups = sorted({v for v in vals if vals.count(v) > 1})
+        if dups:
+            out.append(('CHS_LABEL_DUPLICATE', f'Q{q}: figure {fg.fig_id!r} prints {dups} on more than one atom (F-8)'))
+    lsi = getattr(blk, 'labels_sentence_index', None)
+    if any_labels:
+        if lsi != 0 or not blk.deduction:
+            out.append(('CHS_LABELS_SENTENCE', f'Q{q}: figures print labels, so the FIRST DEDUCTION sentence '
+                        f'defines them (labels_sentence_index = 0; §6A-9, F-14)'))
+        else:
+            all_labs = {}
+            for _s, _k, fg in figs:
+                all_labs.update({f'{fg.fig_id}:{a}': v for a, v in info[id(fg)]['labels'].items()
+                                 if info[id(fg)]['model'] not in ('CIP',)})
+            miss = _labels_in_sentence(blk.deduction[0], all_labs)
+            if miss:
+                out.append(('CHS_LABEL_LEGEND', f'Q{q}: the labels sentence does not define printed label(s) '
+                            f'{miss[:6]} (F-8)'))
+    ssi = getattr(blk, 'stereo_sentence_index', None)
+    if ssi is None or not (0 <= int(ssi) < len(blk.deduction)):
+        out.append(('CHS_STEREO_SENTENCE', f'Q{q}: an APPLIES DEDUCTION carries a stereochemistry sentence '
+                    f'(stereo_sentence_index; §6A-9, F-14)'))
+    else:
+        if not _STEREO_SENTENCE_WORDS.search(str(blk.deduction[int(ssi)])):
+            out.append(('CHS_STEREO_SENTENCE', f'Q{q}: DEDUCTION sentence {int(ssi) + 1} is declared the '
+                        f'stereochemistry sentence but states no outcome (retained / inverted / rac / '
+                        f'diastereomer mixture / achiral, F-14)'))
+        chain_sp = list(blk.transformation_chain) + ([blk.answer_smiles] if blk.answer_smiles else [])
+        new_centres = any((_chs_unspecified_stereo(s) or 0) + (1 if _chs_has_stereo(s) else 0) for s in chain_sp)
+        if new_centres and not blk.stereo_claims:
+            out.append(('CHS_STEREO_SENTENCE', f'Q{q}: the chain carries stereo elements, so the stereo sentence '
+                        f'is bound to stereo_claims (retained / inverted / RAC / MIXTURE, F-14 / EX-CHEM-24)'))
+    # ── balance sentences (§5 item 7) ───────────────────────────────────────────
+    for n, s in enumerate(blk.deduction):
+        r = balance_sentence_findings(s)
+        if isinstance(r, str):
+            out.append(('CHS_BALANCE_SENTENCE', f'Q{q}: DEDUCTION sentence {n + 1} states an unbalanced equation '
+                        f'({r})'))
+    # ── F-10  a figure sits under the sentence it illustrates ────────────────────
+    for idx, fg in enumerate(blk.figures):
+        fi = ded[idx]
+        k = int(getattr(fg, 'after_step', 0) or 0)
+        if not (1 <= k <= len(blk.deduction)):
+            continue
+        anchor = str(blk.deduction[k - 1]).lower()
+        words = _caption_content_words(fi['captions'])
+        labs = {str(v).lower() for v in fi['labels'].values() if not re.fullmatch(r'\d+', str(v))}
+        step_ok = fi['step_id'] is not None and re.search(r'\bstep\s*' + re.escape(str(fi['step_id'])) + r'\b', anchor)
+        if words and not step_ok and not any(w in anchor for w in words) and \
+                not any(re.search(r'(?<!\w)' + re.escape(l) + r'(?!\w)', anchor) for l in labs):
+            out.append(('CHS_FIGURE_ANCHOR', f'Q{q}: figure {fg.fig_id!r} ({", ".join(fi["captions"])[:60]!r}) sits '
+                        f'under a sentence that names none of what it draws — move it under its step (F-10)'))
+    return out
+
+
+def _chs_text_of(record):
+    """The question's own words (stem + options) from any record shape: a §13A-3 PYQ
+    record, a mock sidecar quality record (stem_text / option_texts) or a plain dict."""
+    rec = record if isinstance(record, dict) else {}
+    parts = []
+    for k in ('stem_text', 'stem', 'question_text', 'question'):
+        if isinstance(rec.get(k), str):
+            parts.append(rec[k])
+    for k in ('option_texts', 'options'):
+        v = rec.get(k)
+        if isinstance(v, dict):
+            parts += [str(x) for x in v.values() if isinstance(x, str)]
+        elif isinstance(v, (list, tuple)):
+            parts += [str(x) for x in v if isinstance(x, str)]
+    return ' \n '.join(parts)
+
+
+# RC-17 — an organic species named in WORDS (no drawing, no SMILES). Offline lexical
+# detector (OPSIN, when available, upgrades the evidence to resolved SMILES).
+_ORGANIC_NAME_RE = re.compile(
+    r'\b(?:\d+(?:,\d+)*-)?(?:\(?[EZRS](?:,[EZRS])*\)?-)?(?:cis-|trans-|tert-|sec-|iso|neo|n-|p-|m-|o-)?'
+    r'[a-z\-\d,()\[\]]*(?:meth|eth|prop|but|pent|hex|hept|oct|non|dec|undec|dodec|cyclo|benz|phen|naphth|'
+    r'anthr|tolu|xyl|anil|pyrid|pyrrol|furan|thiophen|indol|quinolin|imidazol|acet|form|propan|styr|stilb|'
+    r'glyc|gluc|fruct|galact|ribo|sucr|lact|malt|chol|camph|menth|limon|pinen|bornyl|adamant|norborn|'
+    r'cubane|azulen|tropon|phthal|succin|malon|oxal|benzoyl|tosyl|mesyl|vinyl|allyl|phenyl|benzyl)'
+    r'[a-z\-\d,()\[\]]*?(?:ane|ene|yne|anol|enol|ol|one|al|oic\s+acid|oate|amine|amide|imine|nitrile|'
+    r'ether|ide|ate|yl\s+\w+ide|ose|ine|azole|ketone|aldehyde|ester|anhydride|chloride|bromide|iodide)\b',
+    re.I)
+_ORGANIC_CONTEXT_RE = re.compile(
+    r'\b(?:major\s+product|minor\s+product|intermediate|mechanism|reagent|nucleophil\w*|electrophil\w*|'
+    r'carbocation|carbanion|carbene|enolate|elimination|substitution|addition|rearrangement|oxidation|'
+    r'reduction|hydrolysis|esterification|aldol|Grignard|Wittig|Diels|Friedel|Claisen|Cannizzaro|'
+    r'ozonolysis|hydroboration|stereoisomer|enantiomer|diastereomer|IUPAC\s+name|resonance|aromatic\w*|'
+    r'tautomer\w*|conformer|chair|Newman|Fischer|Haworth)\b', re.I)
+# v2.14 R2 — general reaction verbs; used ONLY with >= 2 VERIFIED organic species (never
+# with a lexical-only name, so ordinary English cannot trigger it).
+_REACTION_VERB_RE = re.compile(
+    r'\b(?:treat(?:s|ed|ing|ment)?|react(?:s|ed|ing|ion|ions)?|gives?|giving|yields?|forms?|formed|'
+    r'products?|converts?|converted|conversion|heated|heating|refluxed|work-?up|obtained|affords?|'
+    r'synthesi[sz]\w*|prepar\w*|catalys\w*|followed\s+by)\b', re.I)
+# an option that is WHOLLY an IUPAC-shaped name: a real substituent / ring stem and a strict
+# suffix ("-al" excluded, so "phenomenological" / "methodological" never qualify)
+_IUPAC_SHAPE_RE = re.compile(
+    r'(?i)(?:[\d,]+-|\(?[EZRS](?:,[EZRS])*\)?-|cis-|trans-|tert-|sec-|n-|iso)*[a-z\-\d,()\[\]\s]*?'
+    r'(?:methyl|ethyl|propyl|butyl|pentyl|hexyl|cyclo|benz|phen|naphth|pyrid|tolu|xyl|anil|acet|vinyl|'
+    r'allyl|oxiran|furan|pyrrol|indol|quinolin)[a-z\-\d,()\[\]\s]*?'
+    r'(?:ane|ene|yne|ol|one|oic\s+acid|oate|amine|amide|nitrile|aldehyde|ether|ester)')
+_CONDENSED_ORGANIC_RE = re.compile('\\b(?:CH[\u2083\u20823]?|C[\u2082-\u2089\\d]+H[\u2080-\u2089\\d]+)'
+                                   '(?:[A-Z(][\\w\u2080-\u2089()]*)?')
+
+
+# v2.14 — only a CHEMISTRY-SHAPED lexical name is worth an OPSIN call during the decision /
+# prefetch: a strict chemical suffix, a digit locant, or a curated-table entry. "ethical",
+# "methodical", "formal", "hexagonal", "propose" never trigger an OPSIN install on a
+# non-chemistry paper; the decision itself still needs >= 2 C species resolved by OPSIN.
+_CHEM_SUFFIX_RE = re.compile(r'(?:ane|ene|yne|anol|enol|anal|enal|anone|enone|ol|one|oic\s+acid|oate|amine|'
+                             r'amide|nitrile|aldehyde|ether|ester|idine|iline|azine|ose|oside)$', re.I)
+_CHEM_NAME_STOP = frozenset({'propose', 'proposes', 'methose'})
+
+
+def chem_name_plausible(name):
+    n = _name_key(name)
+    if n in CHEM_TRIVIAL_NAMES or _NATURAL_NAME_RE.fullmatch(n):
+        return True
+    if n in _CHEM_NAME_STOP:
+        return False
+    return bool(re.search(r'\d,?\d*-[a-z]', n) or _CHEM_SUFFIX_RE.search(n))
+
+
+def chem_text_species(record, resolve=True, plausible_only=False):
+    """RC-17 — organic species the stem / options NAME. Returns
+    {'names': [...], 'smiles': {name: smiles}, 'unresolved': [...], 'source': 'opsin'|'table'|'lexical'}."""
+    txt = _chs_text_of(record)
+    rec = record if isinstance(record, dict) else {}
+    names = []
+    for ne in rec.get('named_entities') or []:
+        nm = ne[0] if isinstance(ne, (list, tuple)) and ne else (ne.get('name') if isinstance(ne, dict) else ne)
+        if isinstance(nm, str):
+            names.append(nm)
+    for m in _ORGANIC_NAME_RE.finditer(txt):
+        nm = m.group(0).strip(' ,;:.()')
+        if len(nm) >= 4:
+            names.append(nm)
+    # v2.14 — curated-table names (alpha-terpineol, carvone, tropinone …) and common natural-
+    # product names (camphor, borneol, pinene …) are names too; the lexical pattern alone
+    # never sees them (alpha / beta / Greek letters normalised as in the table)
+    _tn = _name_key(txt)
+    for m in _TRIVIAL_SCAN_RE.finditer(_tn):
+        names.append(m.group(0))
+    seen, uniq = set(), []
+    for n in names:
+        if n.lower() not in seen:
+            seen.add(n.lower()); uniq.append(n)
+    res = {'names': uniq, 'smiles': {}, 'unresolved': [], 'source': 'lexical'}
+    _rv = [n for n in uniq if chem_name_plausible(n)] if plausible_only else uniq
+    if resolve and _rv:
+        sm = names_to_smiles(_rv)
+        res['smiles'] = {n: s for n, s in sm.items() if s}
+        res['unresolved'] = [n for n in uniq if not sm.get(n)]
+        res['source'] = 'opsin' if opsin_status()['available'] else 'table'
+    return res
+
+# v2.14 F-6 — trivial names OPSIN 2.9 cannot parse (measured on 280 exam names, 87
+# failures) that exam chemistry uses. Constitution only (stereo is compared only when the
+# name and the structure both carry it); every entry's molecular formula is asserted in
+# the self-test (CHS-TRIVIAL-FORMULAE). Module constant, never a routed file (§9 GAP).
+CHEM_TRIVIAL_NAMES = {
+    '1,8-cineole': 'CC12CCC(CC1)C(C)(C)O2',   # C10H18O
+    '18-crown-6': 'C1COCCOCCOCCOCCOCCO1',   # C12H24O6
+    '9-bbn': 'B1C2CCCC1CCC2',   # C8H15B
+    'adrenaline': 'CNCC(O)c1ccc(O)c(O)c1',   # C9H13NO3
+    'alizarin': 'O=C1c2ccccc2C(=O)c2c1ccc(O)c2O',   # C14H8O4
+    'alpha-terpineol': 'CC1=CCC(CC1)C(C)(C)O',   # C10H18O
+    'aspirin': 'CC(=O)Oc1ccccc1C(=O)O',   # C9H8O4
+    'atropine': 'CN1C2CCC1CC(C2)OC(=O)C(CO)c1ccccc1',   # C17H23NO3
+    'benzocaine': 'CCOC(=O)c1ccc(N)cc1',   # C9H11NO2
+    'binol': 'Oc1ccc2ccccc2c1-c1c(O)ccc2ccccc12',   # C20H14O2
+    'boc anhydride': 'CC(C)(C)OC(=O)OC(=O)OC(C)(C)C',   # C10H18O5
+    'bornyl chloride': 'CC1(C)C2CCC1(C)C(Cl)C2',   # C10H17Cl
+    'capsaicin': 'COc1cc(CNC(=O)CCCCC=CC(C)C)ccc1O',   # C18H27NO3
+    'carvone': 'CC1=CCC(CC1=O)C(=C)C',   # C10H14O
+    'cellobiose': 'OCC1OC(OC2C(CO)OC(O)C(O)C2O)C(O)C(O)C1O',   # C12H22O11
+    'chloroprene': 'C=CC(Cl)=C',   # C4H5Cl
+    'cholic acid': 'CC(CCC(=O)O)C1CCC2C3C(O)CC4CC(O)CCC4(C)C3CC(O)C12C',   # C24H40O5
+    'cineole': 'CC12CCC(CC1)C(C)(C)O2',   # C10H18O
+    'civetone': 'O=C1CCCCCCCC=CCCCCCCC1',   # C17H30O
+    'cocaine': 'CN1C2CCC1C(C(=O)OC)C(C2)OC(=O)c1ccccc1',   # C17H21NO4
+    'coniine': 'CCCC1CCCCN1',   # C8H17N
+    'cortisol': 'CC12CC(O)C3C(CCC4=CC(=O)CCC34C)C1CCC2(O)C(=O)CO',   # C21H30O5
+    'cortisone': 'CC12CC(=O)C3C(CCC4=CC(=O)CCC34C)C1CCC2(O)C(=O)CO',   # C21H28O5
+    'dabco': 'C1CN2CCN1CC2',   # C6H12N2
+    'dbu': 'C1CCC2=NCCCN2CC1',   # C9H16N2
+    'ddq': 'N#CC1=C(C#N)C(=O)C(Cl)=C(Cl)C1=O',   # C8Cl2N2O2
+    'dibal-h': 'CC(C)C[AlH]CC(C)C',   # C8H19Al
+    'dimedone': 'CC1(C)CC(=O)CC(=O)C1',   # C8H12O2
+    'dmap': 'CN(C)c1ccncc1',   # C7H10N2
+    'dme': 'COCCOC',   # C4H10O2
+    'dmf': 'CN(C)C=O',   # C3H7NO
+    'dmso': 'CS(C)=O',   # C2H6OS
+    'ephedrine': 'CNC(C)C(O)c1ccccc1',   # C10H15NO
+    'epinephrine': 'CNCC(O)c1ccc(O)c(O)c1',   # C9H13NO3
+    'estradiol': 'CC12CCC3c4ccc(O)cc4CCC3C1CCC2O',   # C18H24O2
+    'estrone': 'CC12CCC3c4ccc(O)cc4CCC3C1CCC2=O',   # C18H22O2
+    'eucalyptol': 'CC12CCC(CC1)C(C)(C)O2',   # C10H18O
+    'fenchone': 'CC1(C)C2CCC(C)(C2)C1=O',   # C10H16O
+    'hajos-parrish ketone': 'CC12CCC(=O)C=C1CCC2=O',   # C10H12O2
+    'hmpa': 'CN(C)P(=O)(N(C)C)N(C)C',   # C6H18N3OP
+    'hydrocortisone': 'CC12CC(O)C3C(CCC4=CC(=O)CCC34C)C1CCC2(O)C(=O)CO',   # C21H30O5
+    'indigo': 'O=C1C(=C2Nc3ccccc3C2=O)Nc2ccccc12',   # C16H10N2O2
+    'isoborneol': 'CC1(C)C2CCC1(C)C(O)C2',   # C10H18O
+    'isobornyl chloride': 'CC1(C)C2CCC1(C)C(Cl)C2',   # C10H17Cl
+    'jasmone': 'CCC=CCC1=C(C)CCC1=O',   # C11H16O
+    'l-selectride': '[Li+].CCC(C)[BH-](C(C)CC)C(C)CC',   # C12H28BLi
+    'lactose': 'OCC1OC(OC2C(CO)OC(O)C(O)C2O)C(O)C(O)C1O',   # C12H22O11
+    'limonene': 'CC1=CCC(CC1)C(=C)C',   # C10H16
+    'maltose': 'OCC1OC(OC2C(CO)OC(O)C(O)C2O)C(O)C(O)C1O',   # C12H22O11
+    'mcpba': 'OOC(=O)c1cccc(Cl)c1',   # C7H5ClO3
+    "meldrum's acid": 'CC1(C)OC(=O)CC(=O)O1',   # C6H8O4
+    'menthone': 'CC1CCC(C(C)C)C(=O)C1',   # C10H18O
+    'menthyl chloride': 'CC1CCC(C(C)C)C(Cl)C1',   # C10H19Cl
+    'mesityl oxide': 'CC(C)=CC(C)=O',   # C6H10O
+    'meso-tartaric acid': 'O=C(O)[C@H](O)[C@H](O)C(=O)O',   # C4H6O6
+    'methyl orange': 'CN(C)c1ccc(N=Nc2ccc(S(=O)(=O)[O-])cc2)cc1.[Na+]',   # C14H14N3NaO3S
+    'muscone': 'CC1CCCCCCCCCCCCC(=O)C1',   # C16H30O
+    'myrcene': 'CC(C)=CCCC(=C)C=C',   # C10H16
+    'nbs': 'O=C1CCC(=O)N1Br',   # C4H4BrNO2
+    'neomenthyl chloride': 'CC1CCC(C(C)C)C(Cl)C1',   # C10H19Cl
+    'noradrenaline': 'NCC(O)c1ccc(O)c(O)c1',   # C8H11NO3
+    'norcamphor': 'O=C1CC2CCC1C2',   # C7H10O
+    'ocimene': 'C=CC(C)=CCC=C(C)C',   # C10H16
+    'papaverine': 'COc1ccc(Cc2nccc3cc(OC)c(OC)cc23)cc1OC',   # C20H21NO4
+    'pcc': '[O-][Cr](=O)(=O)Cl.c1cc[nH+]cc1',   # C5H6ClCrNO3
+    'phenolphthalein': 'O=C1OC(c2ccc(O)cc2)(c2ccc(O)cc2)c2ccccc12',   # C20H14O4
+    'pinacol': 'CC(C)(O)C(C)(C)O',   # C6H14O2
+    'pinacolone': 'CC(=O)C(C)(C)C',   # C6H12O
+    'piperine': 'O=C(C=CC=Cc1ccc2OCOc2c1)N1CCCCC1',   # C17H19NO3
+    'procaine': 'CCN(CC)CCOC(=O)c1ccc(N)cc1',   # C13H20N2O2
+    'progesterone': 'CC(=O)C1CCC2C3CCC4=CC(=O)CCC4(C)C3CCC12C',   # C21H30O2
+    'pseudoephedrine': 'CNC(C)C(O)c1ccccc1',   # C10H15NO
+    'quinine': 'COc1ccc2nccc(C(O)C3CC4CCN3CC4C=C)c2c1',   # C20H24N2O2
+    'retinal': 'CC1=C(C=CC(C)=CC=CC(C)=CC=O)C(C)(C)CCC1',   # C20H28O
+    'serotonin': 'NCCc1c[nH]c2ccc(O)cc12',   # C10H12N2O
+    'sucrose': 'OCC1OC(OC2(CO)OC(CO)C(O)C2O)C(O)C(O)C1O',   # C12H22O11
+    'tempo': 'CC1(C)CCCC(C)(C)N1[O]',   # C9H18NO
+    'terpineol': 'CC1=CCC(CC1)C(C)(C)O',   # C10H18O
+    'testosterone': 'CC12CCC3C(CCC4=CC(=O)CCC34C)C1CCC2O',   # C19H28O2
+    'thf': 'C1CCOC1',   # C4H8O
+    'thujone': 'CC(C)C12CC(=O)C(C)C1C2',   # C10H16O
+    'tnt': 'Cc1c([N+](=O)[O-])cc([N+](=O)[O-])cc1[N+](=O)[O-]',   # C7H5N3O6
+    'tropine': 'CN1C2CCC1CC(O)C2',   # C8H15NO
+    'tropinone': 'CN1C2CCC1CC(=O)C2',   # C8H13NO
+    'tropolone': 'O=c1cccccc1O',   # C7H6O2
+    'wieland-miescher ketone': 'CC12CCC(=O)C=C1CCCC2=O',   # C11H14O2
+}
+
+# v2.14 — text scan for named species the lexical pattern cannot see: every curated-table name of
+# >= 5 characters (short reagent acronyms — thf, dmf, pcc — are excluded) and a lexicon of
+# natural-product / trivial names exam stems print (OPSIN resolves them; the table resolves the rest)
+_NATURAL_NAME_RE = re.compile(
+    r'(?:camphor|borneol|isoborneol|(?:alpha|beta)-pinene|pinene|carene|thujone|fenchone|cineole|'
+    r'terpineol|geraniol|nerol|linalool|citral|citronellal|menthol|menthone|pulegone|carvone|limonene|'
+    r'myrcene|ocimene|squalene|cholesterol|morphine|codeine|heroin|quinine|strychnine|cocaine|atropine|'
+    r'nicotine|caffeine|vanillin|eugenol|anethole|safrole|coumarin|indigo|glucose|fructose|galactose|'
+    r'mannose|ribose|sucrose|maltose|lactose|cellobiose|glycine|alanine|valine|leucine|serine|cysteine|'
+    r'tyrosine|phenylalanine|tryptophan|proline|histidine|lysine|aspartic\s+acid|glutamic\s+acid|'
+    r'citric\s+acid|tartaric\s+acid|lactic\s+acid|oxalic\s+acid|malonic\s+acid|succinic\s+acid|'
+    r'maleic\s+acid|fumaric\s+acid|benzoic\s+acid|salicylic\s+acid|phthalic\s+acid|aniline|phenol|'
+    r'toluene|benzene|naphthalene|anthracene|phenanthrene|pyridine|pyrrole|furan|thiophene|indole|'
+    r'quinoline|isoquinoline|imidazole|adamantane|cubane|norbornene|norbornane|azulene|tropone|styrene|'
+    r'stilbene|acetone|acetophenone|benzophenone|benzaldehyde|cinnamaldehyde|acrolein|crotonaldehyde)')
+_TRIVIAL_SCAN_RE = re.compile(
+    r'(?<![\w-])(?:' + '|'.join(re.escape(k) for k in sorted((k for k in CHEM_TRIVIAL_NAMES if len(k) >= 5),
+                                                             key=len, reverse=True))
+    + r'|' + _NATURAL_NAME_RE.pattern + r')(?![\w-])')
+
+
+# ── v2.14 F-6 — NAME <-> STRUCTURE (owner Q2 (a): OPSIN installed ONCE per session,
+# reused for the whole session; any failure is a recorded OPSIN_UNAVAILABLE degrade,
+# never a stop). Resolution order: the curated table below (formula-verified at
+# release; constitution only unless the entry carries stereo), the session cache, then
+# OPSIN in ONE batch call. A name nothing resolves is NAME_UNRESOLVED (recorded in §R3,
+# never blocks).
+_OPSIN_STATE = {'checked': False, 'available': False, 'why': 'not checked'}
+_OPSIN_MARKER = '.re25_opsin_install_attempted'
+_OPSIN_CACHE = '.re25_opsin_cache.json'
+
+
+def opsin_status(install=True):
+    """{'available': bool, 'why': str}. First call in a session: import py2opsin and
+    check Java; when absent and `install`, ONE `pip install py2opsin` attempt for the
+    whole container session (a marker file records the attempt so no later step
+    retries). Never raises."""
+    import os as _os, shutil as _sh, tempfile as _tf, subprocess as _sp, sys as _sys
+    if _OPSIN_STATE['checked']:
+        return dict(_OPSIN_STATE)
+    if _os.environ.get('RE25_OPSIN_NO_INSTALL'):
+        install = False                              # self-tests and CI never pip-install
+    def _probe():
+        try:
+            import py2opsin  # noqa: F401
+        except Exception as exc:                    # noqa: BLE001
+            return False, f'py2opsin not importable ({type(exc).__name__})'
+        if not _sh.which('java'):
+            return False, 'Java runtime not found'
+        return True, 'ok'
+    ok, why = _probe()
+    marker = _os.path.join(_tf.gettempdir(), _OPSIN_MARKER)
+    if not ok and install and 'py2opsin' in why and not _os.path.exists(marker):
+        try:
+            open(marker, 'w').close()
+            _sp.run([_sys.executable, '-m', 'pip', 'install', 'py2opsin', '--break-system-packages', '-q'],
+                    stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=240, check=False)
+            import importlib as _il
+            _il.invalidate_caches()
+        except Exception:                           # noqa: BLE001
+            pass
+        ok, why = _probe()
+    _OPSIN_STATE.update({'checked': True, 'available': ok, 'why': why})
+    return dict(_OPSIN_STATE)
+
+
+def _name_key(n):
+    s = str(n or '').strip().lower()
+    for a, b in (('α', 'alpha'), ('β', 'beta'), ('γ', 'gamma'), ('–', '-'), ('−', '-'),
+                 ('‐', '-'), ('‑', '-'), ('′', "'"), ('’', "'")):
+        s = s.replace(a, b)
+    return re.sub(r'\s+', ' ', s)
+
+
+def names_to_smiles(names):
+    """{name: smiles | None} for every name. Never raises."""
+    import os as _os, json as _json, tempfile as _tf, warnings as _w, io as _io, contextlib as _cl
+    names = [str(n) for n in (names or []) if str(n or '').strip()]
+    out = {}
+    cache_p = _os.path.join(_tf.gettempdir(), _OPSIN_CACHE)
+    try:
+        cache = _json.load(open(cache_p, encoding='utf-8'))
+    except Exception:                               # noqa: BLE001
+        cache = {}
+    todo = []
+    for n in names:
+        k = _name_key(n)
+        if k in CHEM_TRIVIAL_NAMES:
+            out[n] = CHEM_TRIVIAL_NAMES[k]
+        elif k in cache:
+            out[n] = cache[k] or None
+        else:
+            todo.append(n)
+    if todo and opsin_status()['available']:
+        try:
+            from py2opsin import py2opsin as _p2o
+            # never redirect stderr: py2opsin decodes the JVM's stderr with sys.stderr.encoding
+            # (a StringIO has none) and the JVM always prints a JAVA_TOOL_OPTIONS line
+            with _w.catch_warnings():
+                _w.simplefilter('ignore')
+                # py2opsin writes its input file to tmp_fpath (default: the CWD — the framework
+                # folder in an exam session); keep it in the temp directory
+                res = _p2o([_name_key(n) for n in todo],
+                           tmp_fpath=_os.path.join(_tf.gettempdir(), 're25_py2opsin_input.txt'))
+            res = res if isinstance(res, list) else [res]
+            for n, s in zip(todo, res):
+                out[n] = s or None
+                cache[_name_key(n)] = s or ''
+            try:
+                _json.dump(cache, open(cache_p, 'w', encoding='utf-8'))
+            except Exception:                       # noqa: BLE001
+                pass
+        except Exception:                           # noqa: BLE001
+            pass
+    for n in names:
+        out.setdefault(n, None)
+    return out
+
+
+def name_matches_species(name_smiles, species_smiles, name=''):
+    """F-6 identity. Constitution must agree (first InChIKey block). When the NAME
+    carries absolute descriptors ((R)/(S)/(E)/(Z) with or without locants) and the
+    resolved structure carries stereo, the full isomeric identity must agree; a
+    RELATIVE descriptor (cis / trans / rel / rac / erythro / threo / meso) accepts the
+    enantiomer — OPSIN returns ONE enantiomer for a relative name."""
+    if not name_smiles or not species_smiles:
+        return None
+    if not _chs_same(name_smiles, species_smiles, stereo=False):
+        return False
+    abs_desc = re.search(r'\((?:\d+[a-z]?)?[RSEZ](?:,\s*\d+[a-z]?[RSEZ])*\)|\b[RSEZ]\)-', str(name))
+    if abs_desc and _chs_has_stereo(name_smiles) and _chs_has_stereo(species_smiles):
+        return _chs_same(name_smiles, species_smiles, stereo=True)
+    if re.search(r'\b(?:cis|trans|rel|rac|erythro|threo|meso|syn|anti)\b', str(name), re.I) and \
+            _chs_has_stereo(name_smiles) and _chs_has_stereo(species_smiles):
+        return _chs_same(name_smiles, species_smiles, stereo=True, racemic=True)
+    return True
+
+
+_EQUIV_PHRASE_RE = re.compile(r'\b(?:denotes?|is\s+(?:also\s+)?(?:named|called|known\s+as)|i\.e\.|'
+                              r'the\s+same\s+compound|identical\s+to|systematically|which\s+is\s+the\s+compound|'
+                              r'the\s+compound\s+the\s+(?:stem|question)\s+name)', re.I)
+_STEM_REF_RE = re.compile(r'\b(?:the\s+)?(?:stem|question)(?:\'s)?\s+(?:name|names|calls)\b', re.I)
+_SYSTEMATIC_NAME_RE = re.compile(
+    r'(?:\((?:\d+[a-z]?[RSEZ](?:,\s*\d+[a-z]?[RSEZ])*|[RSEZ])\)-)?(?:(?:cis|trans|rel|rac)-)?'
+    r'\d+(?:,\d+)*-[A-Za-z][A-Za-z0-9,\-()\[\]′\']*(?:\s+(?:acid|acetate|ester|ether|ketone|alcohol|'
+    r'chloride|bromide|iodide|anhydride))?')
+
+
+def prose_name_findings(blk, record=None, species_universe=()):
+    """F-6 on one block: [(code, message)] plus the NAME_UNRESOLVED list.
+      * a sentence that asserts two names denote one compound (equivalence phrase) — every
+        name in it must resolve to ONE structure (CHS_PROSE_NAME_FALSE); a sentence that
+        claims a name equals what the STEM's name denotes, when the stem name was found
+        wrong, is false by construction;
+      * a locant-bearing name in the prose that resolves must match some species of the
+        block (chain, figures, options, stem) unless it is a known reagent / solvent —
+        CHS_PROSE_NAME_FALSE (a wrong locant on a named product)."""
+    out, unresolved = [], []
+    sents = [s for s in (blk.axiom + blk.deduction + (blk.speed_hack or []) +
+                         [x for v in blk.why_wrong.values() for x in v] +
+                         [x for v in blk.common_pitfalls.values() for x in v])]
+    found = []
+    for s in sents:
+        plain = T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(s))).translate(_SUBSCRIPT_DIGITS)
+        found.append((s, [m.group(0).rstrip(',.;:') for m in _SYSTEMATIC_NAME_RE.finditer(plain)
+                          if re.search(r'[a-z]{4,}', m.group(0))]))
+    allnames = sorted({n for _s, ns in found for n in ns})
+    if not allnames:
+        return out, unresolved
+    smi = names_to_smiles(allnames)
+    universe = [x for x in species_universe if x]
+    stem_bad = bool(getattr(blk, 'stem_defect', None))
+    for s, ns in found:
+        res = [(n, smi.get(n)) for n in ns]
+        unresolved += [n for n, v in res if not v]
+        ok_res = [(n, v) for n, v in res if v]
+        if _EQUIV_PHRASE_RE.search(str(s)):
+            if len(ok_res) >= 2 and len({_chs_can(v) for _n, v in ok_res}) > 1:
+                out.append(('CHS_PROSE_NAME_FALSE', f'Q{blk.q}: the sentence claims {ok_res[0][0]!r} and '
+                            f'{ok_res[1][0]!r} are one compound, but they are different structures (F-6 / EX-CHEM-25): '
+                            f'{str(s)[:80]!r}'))
+            if _STEM_REF_RE.search(str(s)) and (stem_bad or _stem_names_differ(record, [v for _n, v in ok_res])):
+                out.append(('CHS_PROSE_NAME_FALSE', f'Q{blk.q}: the sentence says a name denotes the compound the '
+                            f'stem names, but the stem\'s name is a different structure — state the stem defect with '
+                            f'the fixed disclosure sentence instead (F-6): {str(s)[:80]!r}'))
+        _plain_s = str(s)
+        for n, v in ok_res:
+            # the CLAUSE holding the name ("gives X, not Y": X's clause asserts, Y's denies)
+            _pos = _plain_s.lower().find(n.lower())
+            _cs = max(_plain_s.rfind(ch, 0, max(_pos, 0)) for ch in ',;:') + 1 if _pos >= 0 else 0
+            _ce = min([i for i in (_plain_s.find(ch, _pos + len(n)) for ch in ',;:') if i >= 0] + [len(_plain_s)]) \
+                if _pos >= 0 else len(_plain_s)
+            _contrast = bool(_PROSE_CONTRAST_RE.search(_plain_s[_cs:_ce]))
+            # v2.14 — only a WRONG-LOCANT claim is flagged: the name is an ISOMER of a species
+            # of the question (same molecular formula, different structure) in a sentence that
+            # is not a contrast / hypothetical. A neighbour compound named for comparison (the
+            # §7-7 transfer test) has another formula or sits in such a sentence and passes.
+            if _contrast or not universe or _is_reagent_like(v):
+                continue
+            _fv = _chs_formula(v)
+            if _fv and any(_chs_formula(u) == _fv for u in universe) and \
+                    not any(name_matches_species(v, u, n) for u in universe):
+                out.append(('CHS_PROSE_NAME_FALSE', f'Q{blk.q}: the prose names {n!r}, which is none of the '
+                            f'species this question draws or prints (wrong locant or wrong compound, F-6)'))
+    return out, sorted(set(unresolved))
+
+
+_PROSE_CONTRAST_RE = re.compile(
+    r"\b(?:unlike|whereas|while|compared?\s+(?:with|to)|by\s+contrast|in\s+contrast|instead|rather\s+than|"
+    r"if|would|could|were|not|never|neither|nor|neighbour|neighbor|analogue|analog|similarly|same\s+rule)\b", re.I)
+
+
+def _chs_formula(smi):
+    m = _chs_mol(smi)
+    if m is None:
+        return None
+    try:
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+        return CalcMolFormula(m)
+    except Exception:                               # noqa: BLE001
+        return None
+
+
+def _is_reagent_like(smi):
+    """Small reagents / solvents (<= 8 heavy atoms, or any metal / boron reagent) named in
+    prose are never product claims."""
+    m = _chs_mol(smi)
+    if m is None:
+        return True
+    heavy = m.GetNumHeavyAtoms()
+    metals = any(a.GetSymbol() in ('Li', 'Na', 'K', 'Mg', 'Al', 'B', 'Cr', 'Mn', 'Os', 'Pd', 'Ti', 'Zn', 'Cu',
+                                   'Sn', 'Si', 'Hg', 'Se', 'Ag', 'Ru', 'Rh', 'Ni', 'Fe', 'Ce', 'Sm')
+                 for a in m.GetAtoms())
+    return heavy <= 8 or metals
+
+
+def _stem_names_differ(record, name_smiles):
+    if not isinstance(record, dict):
+        return False
+    ts = chem_text_species(record)
+    stem_sm = [v for v in ts['smiles'].values() if v]
+    return bool(stem_sm) and bool(name_smiles) and not any(
+        _chs_same(a, b) for a in stem_sm for b in name_smiles)
+
+
+STEM_DEFECT_TEMPLATE = 'The name printed in the question has a numbering error; the product formed is {correct}.'
+
+
+def name_check_item(stem_text, option_texts=(), answer_smiles=None, option_smiles=None, chain=()):
+    """Step 7 (MockTestCreate v5.95) authoring-time F-6 check of one item -> [(code, message)]:
+    CHS_STEM_NAME_MISMATCH / CHS_OPTION_NAME_MISMATCH. Never raises; OPSIN absent -> the
+    names resolve through the table only (NAME_UNRESOLVED is the caller's record)."""
+    import types as _ty
+    try:
+        stub = _ty.SimpleNamespace(q=0, answer_smiles=answer_smiles, transformation_chain=list(chain or ()),
+                                   option_smiles={int(k): v for k, v in dict(option_smiles or {}).items()},
+                                   cfg=None, paper_kind='mock', stem_defect=None, deduction=[])
+        return stem_name_findings(stub, {'stem_text': str(stem_text or ''), 'option_texts': list(option_texts or [])})
+    except Exception as exc:                        # noqa: BLE001 — loud, never a stop
+        return [('CHS_CHECK_FAULT', f'name_check_item raised {type(exc).__name__}: {exc}')]
+
+
+def stem_name_findings(blk, record):
+    """F-6 stem / option names (needs the content record).
+      CHS_STEM_NAME_MISMATCH — a species the stem NAMES has the formula of the derived
+        product but a different structure, and is no species of the chain (a locant or
+        isomer error in the printed name: the Q25 class). Mock: a §17-3 STEM_TEXT_DEFECT
+        (Step 7 defect, regeneration). PYQ: the fixed disclosure sentence must close the
+        DEDUCTION (blk.stem_defect records it).
+      CHS_OPTION_NAME_MISMATCH — a TEXT option's name resolves to a structure other than
+        that option's registry SMILES."""
+    out = []
+    if not isinstance(record, dict):
+        return out
+    ts = chem_text_species(record)
+    from collections import Counter
+    def formula(s):
+        m = _chs_mol(s)
+        if m is None:
+            return None
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+        return CalcMolFormula(m)
+    ans = blk.answer_smiles
+    chain = [x for st in blk.transformation_chain for x in _chs_split(st)]
+    stem_txt = ' '.join(str(record.get(k) or '') for k in ('stem_text', 'stem', 'question_text', 'question')
+                        if isinstance(record.get(k), str))
+    _opt_sp = [v for v in (blk.option_smiles or {}).values() if v]
+    for name, smi in ts['smiles'].items():
+        if name.lower() not in stem_txt.lower() or not ans:
+            continue
+        # v2.14 — only a stem CLAUSE that asserts this species as a product counts ("… gives
+        # X"); a comparison stem naming the isomers it asks about ("cis- or trans-…"), a
+        # species that is one of the options, or a contrast clause is never a stem defect.
+        _p = stem_txt.lower().find(name.lower())
+        _cs = max(stem_txt.rfind(ch, 0, _p) for ch in ',;:.?') + 1
+        _ce = min([i for i in (stem_txt.find(ch, _p + len(name)) for ch in ',;:.?') if i >= 0] + [len(stem_txt)])
+        _clause = stem_txt[_cs:_ce]
+        if not _REACTION_VERB_RE.search(_clause) or _PROSE_CONTRAST_RE.search(_clause) or \
+                any(_chs_same(smi, o, stereo=False) for o in _opt_sp):
+            continue
+        if formula(smi) and formula(smi) == formula(ans) and not _chs_same(smi, ans, stereo=False) and \
+                not any(_chs_same(smi, c, stereo=False) for c in chain):
+            sd = getattr(blk, 'stem_defect', None) or {}
+            # the pipeline decides the route: paper_kind, else a recorded stem_defect means PYQ;
+            # an unknown pipeline gets BOTH routes in the message (never the wrong one alone)
+            _kind = getattr(blk, 'paper_kind', None) or ('pyq' if sd else None)
+            if blk.cfg is not None and _kind is None:
+                last = str(blk.deduction[-1]) if blk.deduction else ''
+                out.append(('CHS_STEM_NAME_MISMATCH', f'Q{blk.q}: the stem names {name!r}, a different structure '
+                            f'from the derived product — mock: a §17-3 STEM_TEXT_DEFECT (regenerate the item); '
+                            f'PYQ: set paper_kind=\'pyq\', record stem_defect and close DEDUCTION with the fixed '
+                            f'sentence ({STEM_DEFECT_TEMPLATE!r}) (F-6)'))
+            elif blk.cfg is not None and _kind == 'pyq':
+                last = str(blk.deduction[-1]) if blk.deduction else ''
+                if not sd or 'numbering error' not in last:
+                    out.append(('CHS_STEM_NAME_MISMATCH', f'Q{blk.q}: the stem names {name!r}, a different structure '
+                                f'from the derived product; close DEDUCTION with the fixed disclosure '
+                                f'sentence ({STEM_DEFECT_TEMPLATE!r}) and record stem_defect (F-6)'))
+            else:
+                out.append(('CHS_STEM_NAME_MISMATCH', f'Q{blk.q}: the stem names {name!r}, a different structure from '
+                            f'the derived product — a §17-3 STEM_TEXT_DEFECT (Step 7 defect; regenerate the item, '
+                            f'F-6)'))
+    opts = record.get('option_texts') or record.get('options') or []
+    if isinstance(opts, dict):
+        opts = [opts[k] for k in sorted(opts, key=lambda x: int(x) if str(x).isdigit() else str(x))]
+    for i, txt in enumerate(opts, start=1):
+        osm = blk.option_smiles.get(i)
+        if not isinstance(txt, str) or not osm:
+            continue
+        nm = names_to_smiles([txt.strip()]).get(txt.strip())
+        if nm and name_matches_species(nm, osm, txt) is False:
+            out.append(('CHS_OPTION_NAME_MISMATCH', f'Q{blk.q}: Option {i} is printed as {txt.strip()!r} but its '
+                        f'structure record is {_chs_can(osm)} (§17-3, F-6)'))
+    return out
+
+
+# ── v2.14 F-12 — the chemistry library CHECKS PROSE (owner Q7 (a)). A rule may carry
+# **Contradicts:** — forbidden assertions (phrase or re:regex, ';'-separated). When the
+# rule's trigger fires in ANY sentence of AXIOM / DEDUCTION / SPEED HACK / WHY WRONG /
+# COMMON PITFALLS of an RE-25 block and that sentence matches a forbidden pattern, the
+# question returns to solving (CHEM_LIBRARY_CONTRADICTION). v2.13 scanned AXIOM and SPEED
+# HACK only, and only for a curated-neighbour citation; a false statement in WHY WRONG was
+# never examined.
+def contradicts_from_learnings(parsed):
+    """[(rule_code, trigger_re, [forbidden_re, ...])] from parse_learnings() result(s)."""
+    out = []
+    srcs = parsed if isinstance(parsed, (list, tuple)) else [parsed]
+    trig = dict((c, rx) for c, rx in triggers_from_learnings(parsed))
+    for p in srcs:
+        for r in (p or {}).get('rules', []):
+            c = r.get('contradicts')
+            if not c or r['code'] not in trig:
+                continue
+            pats = []
+            for term in re.split(r'\s*;\s*', str(c).strip()):
+                if not term:
+                    continue
+                try:
+                    pats.append(re.compile(term[3:] if term.startswith('re:') else
+                                           r'(?<!\w)' + re.escape(term).replace(r'\ ', r'\s+') + r'(?!\w)', re.I))
+                except re.error:
+                    continue
+            if pats:
+                out.append((r['code'], trig[r['code']], pats))
+    return out
+
+
+def chem_library_config(project_dir=None, repo_dir=None):
+    """{chem_learnings_triggers, chem_learnings_contradicts, path, source} for an
+    EngineConfig. The spec passes **chem_library_config(...) into EngineConfig."""
+    path, source = resolve_chem_library(project_dir, repo_dir)
+    if not path:
+        return {'chem_learnings_triggers': [], 'chem_learnings_contradicts': [], 'path': None, 'source': None}
+    parsed = parse_learnings(path)
+    return {'chem_learnings_triggers': triggers_from_learnings(parsed),
+            'chem_learnings_contradicts': contradicts_from_learnings(parsed), 'path': path, 'source': source}
+
+
+_LIB_DEFAULT_CACHE = {}
+
+
+def _default_contradicts():
+    """The repo library's Contradicts set, loaded once per process — used when a config
+    was built without one, so the fact check can never be skipped by omission."""
+    if 'c' not in _LIB_DEFAULT_CACHE:
+        try:
+            _LIB_DEFAULT_CACHE['c'] = chem_library_config(None)['chem_learnings_contradicts']
+        except Exception:                           # noqa: BLE001
+            _LIB_DEFAULT_CACHE['c'] = []
+    return _LIB_DEFAULT_CACHE['c']
+
+
+def library_contradiction_findings(blk, cfg=None):
+    rules = getattr(cfg, 'chem_learnings_contradicts', None)
+    if rules is None:
+        rules = _default_contradicts()
+    out = []
+    _secs = [('AXIOM', blk.axiom), ('DEDUCTION', blk.deduction), ('SPEED HACK', blk.speed_hack or []),
+             *[(f'WHY WRONG {k}', v) for k, v in blk.why_wrong.items()],
+             *[(f'COMMON PITFALLS {k}', v) for k, v in blk.common_pitfalls.items()]]
+    _clean = lambda t: T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(t)))
+    # v2.14 — a rule is TRIGGERED by the whole block (the Bamford–Stevens explanation's
+    # "the carbene forms under protic conditions" need not repeat the name); its forbidden
+    # assertion is still matched sentence by sentence.
+    _block = ' '.join(_clean(t) for _, v in _secs for t in (v or []))
+    _live = [(c, t, f) for c, t, f in rules if t.search(_block)]
+    for sec, sents in _secs:
+        for s in sents:
+            s2 = _clean(s)
+            for code, trx, forb in _live:
+                _hit = None
+                for f in forb:
+                    for m in f.finditer(s2):
+                        if _chem_claim_negated(s2, m):
+                            continue
+                        _hit = m
+                        break
+                    if _hit:
+                        break
+                if _hit:
+                    out.append(('CHEM_LIBRARY_CONTRADICTION', f'Q{blk.q}: {sec} contradicts {code} '
+                                f'({_hit.group(0)[:60]!r}) — re-solve the claim against the library rule (F-12): '
+                                f'{str(s)[:90]!r}'))
+    return out
+
+
+# v2.14 — a forbidden assertion inside a NEGATED clause ("NaBH4 does not reduce the ester",
+# "Lindlar never gives a trans alkene", "is not unselective") states the TRUE chemistry and is
+# never a contradiction. The clause runs from the last . , ; : before the match to its end. A
+# bare notation token (<= 4 characters, e.g. "SN₂") is wrong whatever the clause asserts.
+_CHEM_NEG_RE = re.compile(r"\b(?:not|never|cannot|no|neither|nor|unable|without|instead\s+of|rather\s+than|"
+                          r"fails?\s+to|failed\s+to|incorrect(?:ly)?|wrong(?:ly)?|false(?:ly)?)\b|n['’]t\b", re.I)
+
+
+def _chem_claim_negated(text, m):
+    if len(m.group(0).strip()) <= 4:
+        return False
+    start = max(text.rfind(ch, 0, m.start()) for ch in '.,;:') + 1
+    return bool(_CHEM_NEG_RE.search(text[start:m.end()]))
+
+
+# ── v2.14 F-2 — verify-time decision, degrade evidence, engine ledger, §R3 lines ──────
+def _chs_ledger_path(out_path):
+    import os as _os, tempfile as _tf, hashlib as _hl
+    tag = _hl.md5(_os.path.basename(str(out_path)).encode('utf-8')).hexdigest()[:12]
+    return _os.path.join(_tf.gettempdir(), f're25_ledger_{tag}.json')
+
+
+def chs_ledger_load(out_path):
+    import json as _json
+    try:
+        return _json.load(open(_chs_ledger_path(out_path), encoding='utf-8'))
+    except Exception:                               # noqa: BLE001
+        return {'runs': 0, 'attempts': {}, 'last': {}, 'degrades': {}, 'resolved': {}, 'unresolved_names': {},
+                'opsin': None}
+
+
+def chs_ledger_save(out_path, led):
+    import json as _json
+    try:
+        _json.dump(led, open(_chs_ledger_path(out_path), 'w', encoding='utf-8'), indent=1, sort_keys=True)
+    except Exception:                               # noqa: BLE001
+        pass
+
+
+def chs_attempts(out_path, q):
+    """The ENGINE's own count of verify runs on which question q carried an RE-25 finding
+    (EC-41 bound evidence; the producer's count is never read)."""
+    return int(chs_ledger_load(out_path).get('attempts', {}).get(str(q), 0))
+
+
+def _degrade_reproduces(blk, out_path):
+    """F-2 / owner Q4 (b): (ok, why). APPLIES-UNRENDERABLE stands only on evidence the
+    engine can reproduce now."""
+    ev = getattr(blk, 'unrenderable_evidence', None) or {}
+    code, species = ev.get('code'), ev.get('species')
+    if code not in CHS_UNRENDERABLE_CODES:
+        return False, f'unrenderable_evidence.code {code!r} not in {CHS_UNRENDERABLE_CODES}'
+    import corpus_io as _cio
+    if code == 'RDKIT_UNAVAILABLE':
+        return (_cio._chs_rdkit() is None), 'rdkit is available — the block can be drawn'
+    if code == 'OPSIN_UNAVAILABLE':
+        return (not opsin_status(install=False)['available']), 'OPSIN is available now'
+    if code == 'EC41_BOUND':
+        n = chs_attempts(out_path, blk.q)
+        return (n >= 3), f'the engine recorded {n} failed verify run(s) for Q{blk.q}, not 3'
+    if not species:
+        return False, 'unrenderable_evidence.species is empty'
+    if code == 'RDKIT_PARSE_FAIL':
+        try:
+            _cio.mapped_mol(str(species), keep_h=True)
+            return False, 'the species parses'
+        except Exception:                           # noqa: BLE001
+            return True, 'ok'
+    if code == 'CHS_LAYOUT_UNRENDERABLE':
+        try:
+            _cio.render_structure_panel(str(species), ['re-check'])
+            return False, 'the species renders under the v1.20 cage-aware gate (F-16)'
+        except ValueError as exc:
+            return ('CHS_LAYOUT_UNRENDERABLE' in str(exc)), str(exc)[:120]
+    return False, 'unknown'
+
+
+def chs_printed_records(doc, cfg):
+    """v2.14 H-0 / H-2 — {q: {'stem_text', 'option_texts', 'record_source': 'printed'}} read from
+    the QUESTION region of the built document (the q line up to the correct-answer line): the
+    text the paper printed, which the producer did not type. verify_explanations merges it
+    under every record, so a text-only question with no §13A-3 / registry record is still
+    re-decided (a PYQ text item, owner Q10 (a)). Never raises; {} on any failure."""
+    out = {}
+    try:
+        _ca = cfg.labels['correct_answer'].lower()
+        cur, inq = None, False
+        for p in doc.paragraphs:
+            t = (p.text or '').strip()
+            if not t:
+                continue
+            m = cfg.q_re.match(t)
+            if m:
+                try:
+                    cur = int(m.group(1))
+                except (TypeError, ValueError):
+                    cur = None
+                inq = cur is not None
+                if inq:
+                    out.setdefault(cur, {'stem_text': '', 'option_texts': [], 'record_source': 'printed'})
+                    rest = t[m.end():].strip(' .):')
+                    if rest:
+                        out[cur]['stem_text'] = rest
+                continue
+            if cur is None or not inq:
+                continue
+            if t.lower().startswith(_ca + ':') or t.lower().startswith(_ca):
+                inq = False
+                continue
+            mo = cfg.opt_re.match(t)
+            if mo:
+                out[cur]['option_texts'].append(t[mo.end():].strip())
+            else:
+                out[cur]['stem_text'] = (out[cur]['stem_text'] + ' ' + t).strip()
+    except Exception:                               # noqa: BLE001 — a fallback, never a fault
+        return {}
+    return {q: r for q, r in out.items() if r['stem_text'] or r['option_texts']}
+
+
+def chs_verify_block(blk, record, out_path, cfg=None):
+    """Every v2.14 verify-time RE-25 check for one block -> [(code, message)]."""
+    out = []
+    csm = getattr(blk, 'chem_structure_module', None)
+    derived = None
+    if isinstance(record, dict):
+        try:
+            derived = chem_structure_decision(record)
+        except Exception:                           # noqa: BLE001
+            derived = None
+    stamp = getattr(blk, 'engine_stamp', None)
+    chem = bool(derived) and derived['status'] != 'NOT_APPLICABLE'
+    status = str((csm or {}).get('status', ''))
+    if csm is None and stamp is None:
+        if chem:
+            out.append(('LEGACY_BLOCK', f'Q{blk.q}: block built before engine v2.14 — RE-25 v2.14 checks not '
+                                        f'applied (EC-H15)'))
+    elif csm is None:
+        if chem:
+            # owner Q3: the ENGINE derives the decision — a missing record never skips the checks
+            blk.chem_structure_module = dict(derived, ask_shape=derived.get('ask_shape') or 'A0', auto=True)
+            try:
+                blk._validate_chem_structure()
+            except ValueError as exc:
+                _m = re.search(r'\b((?:CHS|CHEM)_[A-Z_]+|META_INTERNAL_TERM)\b', str(exc))
+                out.append((_m.group(1) if _m else 'CHS_AUTO', str(exc)))
+    elif status == 'NOT_APPLICABLE':
+        if chem and csm.get('reason') == 'NA-NO-CHEM-CONTENT':
+            out.append(('CHS_NA_CONTRADICTED', f'Q{blk.q}: recorded NA-NO-CHEM-CONTENT but the question carries '
+                        f'chemistry content ({derived.get("evidence")}) — explain it under RE-25, or, when the '
+                        f'answer does not turn on structure (a property or a calculation), record '
+                        f'NA-STRUCTURE-IRRELEVANT with its reason sentence (§6A-7 T2) (F-2)'))
+        if csm.get('reason') == 'NA-STRUCTURE-IRRELEVANT' and isinstance(record, dict):
+            fa = str(record.get('figural_ask_type') or record.get('ask_type') or record.get('shape') or '')
+            if FIGURAL_ASK_TO_CHS.get(fa):
+                out.append(('CHS_NA_CONTRADICTED', f'Q{blk.q}: NA-STRUCTURE-IRRELEVANT on a {fa!r} question — that '
+                            f'ask is decided by structure ({FIGURAL_ASK_TO_CHS[fa]}) (F-2)'))
+    elif status == 'APPLIES-UNRENDERABLE':
+        ok, why = _degrade_reproduces(blk, out_path)
+        if not ok:
+            out.append(('CHS_DEGRADE_UNPROVEN', f'Q{blk.q}: APPLIES-UNRENDERABLE does not reproduce ({why}) — '
+                        f'return the question to solving (owner Q4, F-2)'))
+    elif status == 'APPLIES':
+        try:
+            out += chs_hardening_findings(blk, record)
+        except Exception as exc:                    # noqa: BLE001 — a checker fault is LOUD, never silent
+            out.append(('CHS_CHECK_FAULT', f'Q{blk.q}: hardening check raised {type(exc).__name__}: {exc}'))
+        out += stem_name_findings(blk, record)
+        out += library_contradiction_findings(blk, cfg or blk.cfg)
+        try:
+            _pn, _unres = prose_name_findings(blk, record, _chs_block_universe(blk, record))
+        except Exception as exc:                    # noqa: BLE001
+            _pn, _unres = [('CHS_CHECK_FAULT', f'Q{blk.q}: name check raised {type(exc).__name__}: {exc}')], []
+        out += _pn
+        blk._chs_unresolved = list(_unres)
+    return out
+
+
+def _chs_block_universe(blk, record=None):
+    sp = [x for st in blk.transformation_chain for x in _chs_split(st)]
+    sp += [x for v in blk.option_smiles.values() for x in _chs_split(v)]
+    sp += _chs_split(blk.answer_smiles)
+    for _s, _k, fg in blk.all_figures():
+        sp += list((getattr(fg, 'validation', None) or {}).get('species') or [])
+    if isinstance(record, dict):
+        sp += [x for x in (record.get('given_smiles') or []) if isinstance(x, str)]
+        try:
+            sp += list(chem_text_species(record)['smiles'].values())
+        except Exception:                           # noqa: BLE001
+            pass
+    return [x for x in sp if x]
+
+
+def chs_names_prefetch(records):
+    """One OPSIN batch call for every name a paper's stems and options carry (the
+    JVM starts once per paper, not once per question). Never raises."""
+    names = []
+    for r in (records or {}).values():
+        try:
+            names += [n for n in chem_text_species(r, resolve=False)['names'] if chem_name_plausible(n)]
+        except Exception:                           # noqa: BLE001
+            pass
+    if names:
+        names_to_smiles(sorted(set(names)))
+    return len(set(names))
+
+
+def chs_report_lines(blocks, out_path):
+    """§R3 / footer lines written BY THE ENGINE from its own ledger (F-2 / F-16 item 5):
+    {'r3': [...], 'footer_amber': [...], 'scorecard': {...}}. A producer never writes
+    these lines itself; it pastes them verbatim."""
+    led = chs_ledger_load(out_path)
+    r3, amber, score = [], [], {}
+    for code, n in sorted((led.get('resolved') or {}).items()):
+        score[code] = {'fired_and_resolved': n, 'open': 0}
+    for q, items in sorted((led.get('last') or {}).items(), key=lambda kv: int(kv[0])):
+        for code, msg in items:
+            score.setdefault(code, {'fired_and_resolved': 0, 'open': 0})['open'] += 1
+            r3.append(f'Q{q}: {code} — {msg}')
+    for b in blocks:
+        csm = getattr(b, 'chem_structure_module', None) or {}
+        if str(csm.get('status')) == 'APPLIES-UNRENDERABLE':
+            ev = getattr(b, 'unrenderable_evidence', None) or {}
+            r3.append(f'Q{b.q}: APPLIES-UNRENDERABLE — {ev.get("code")} on {ev.get("species")!s:.60} '
+                      f'(engine-reproduced; figure-level degrade, F-16)')
+            # the DeliveryFooter v1.41.0 AMBER line for a degraded RE-25 question, written by the
+            # engine so a degraded question can never ship under a GREEN footer
+            amber.append(f'Q{b.q} explanation degraded (RE-25: {ev.get("code") or "APPLIES-UNRENDERABLE"})')
+    names = led.get('unresolved_names') or {}
+    if names:
+        r3.append('NAME_UNRESOLVED (recorded, not blocking): ' + '; '.join(
+            f'Q{q}: {", ".join(v[:4])}' for q, v in sorted(names.items(), key=lambda kv: int(kv[0]))))
+    if led.get('opsin') is False:
+        amber.append('OPSIN_UNAVAILABLE — chemical names in stems, options and prose were not checked against the '
+                     'structures in this paper; recorded per question in §R3.')
+    if any(it for it in (led.get('last') or {}).values()):
+        amber.append(f'RE-25 open findings on {sum(1 for v in (led.get("last") or {}).values() if v)} question(s) — '
+                     f'listed by question in §R3.')
+    return {'r3': r3, 'footer_amber': amber, 'scorecard': score}
 
 
 def resolve_chem_library(project_dir, repo_dir=None):
@@ -850,12 +2584,22 @@ def resolve_chem_library(project_dir, repo_dir=None):
     def _vkey(f):
         m_ = re.search(r'_v(\d+)\.md$', f)
         return (int(m_.group(1)) if m_ else -1, f)
-    if project_dir:
-        proj = sorted(_glob.glob(_os.path.join(project_dir, CHEM_LIBRARY_GLOB)), key=_vkey)
-        if proj:
-            return proj[-1], 'project'
+    def _hver(f):
+        # v2.14 — the header version "vX.Y" (the _vN suffix moves only on a schema change)
+        try:
+            m_ = re.search(r'\bv(\d+)\.(\d+)', open(f, encoding='utf-8').readline())
+            return (int(m_.group(1)), int(m_.group(2))) if m_ else (0, 0)
+        except OSError:
+            return (0, 0)
     repo = repo_dir or _os.path.dirname(_os.path.abspath(__file__))
     rep_ = sorted(_glob.glob(_os.path.join(repo, CHEM_LIBRARY_GLOB)), key=_vkey)
+    if project_dir:
+        proj = sorted(_glob.glob(_os.path.join(project_dir, CHEM_LIBRARY_GLOB)), key=_vkey)
+        # v2.14 (GAP-2026-11-07 §0 item A) — a project copy OLDER than the repo library is
+        # stale: it would silently withhold every rule the repo has added since. It wins
+        # only at an equal or higher header version.
+        if proj and (not rep_ or _hver(proj[-1]) >= _hver(rep_[-1])):
+            return proj[-1], 'project'
     if rep_:
         return rep_[-1], 'repo'
     return None, None
@@ -1049,7 +2793,7 @@ Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr 
 Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og""".split())
 # a chemical token: brackets/parens/elements/digits/charge, >=2 element symbols
 _CHEM_TOKEN_RE = re.compile(r'(?<![\w\u2080-\u2089\u2070-\u2079\-])'
-                            r'([\[(]?[A-Z][A-Za-z0-9()\[\]]*(?:[+\-\u2212])?)'
+                            r'((?:[inst](?=Pr|Bu))?[\[(]?[A-Z][A-Za-z0-9()\[\]]*(?:[+\-\u2212])?)'
                             r'(?![\w\u2080-\u2089])')
 _DIATOMIC = {'H2', 'O2', 'N2', 'F2', 'Cl2', 'Br2', 'I2', 'O3', 'P4', 'S8'}
 _ELEM_DIGIT_RE = re.compile(r'([A-Z][a-z]?|\))(\d+)')
@@ -1062,12 +2806,78 @@ _EG_RE = re.compile(r'(?<![A-Za-z])eg(\d{1,2})\b')
 _DCOUNT_RE = re.compile(r'\b([df])(\d{1,2})\b(?=\s+(?:ion|metal|configuration|system|complex|centre|center|case|species|electron|count|cation|state))')
 _GREEK = (('pi*', '\u03c0*'), ('sigma*', '\u03c3*'), ('pi-', '\u03c0-'), ('sigma-', '\u03c3-'))
 
-def _fmt_chem_token(tok):
+# v2.14 (GAP-2026-11-07-RE25-HARDENING RC-1 / F-1, owner Q11 (b)) — the normaliser
+# subscripted ANY token spelled from element-shaped letters: SN2 -> SN₂, PS2, HSP70,
+# H1N1, PI3K (biology, physics and every mechanism sentence), while organic group
+# formulae (Et2O, PPh3, Bu3SnH, CO2Et) and hydrate coefficients (CuSO4·5H2O) were
+# never formatted. A stop-LIST cannot close that class (every new acronym is the next
+# miss), so the rule is STRUCTURAL:
+#   1. MECHANISM NOTATION is a closed IUPAC set and is masked whole (SN1/SN2/SN1'/SN2',
+#      SNi, SNAr, SE1/SE2, SEAr, SH2 (homolytic), E1/E2/E1cB, AdE2/AdE3, AdN, SRN1).
+#   2. COUNT-ONE RULE: a real formula never writes the count 1, so a token with an
+#      element followed by a bare '1' (SN1, PS1, HSV1, H1N1, PIN1, NSP1, HIV1) is not
+#      a formula.
+#   3. AMBIGUOUS SHAPE: a token spelled ONLY from one-letter element symbols with ONE
+#      trailing number (CO2 / PS2 / HSP70 / HPV16) is formatted only when it is a known
+#      species (_AMBIGUOUS_FORMULA_ALLOW; EngineConfig formula_allow extends it).
+#      Internal-digit tokens (H2O, C6H6, N2O4) are unambiguous and format as before.
+#   4. ORGANIC GROUP SYMBOLS (Me Et Pr Bu Ph Bn Bz Ac Ts Ms Tf Cy Boc TMS ...; the
+#      i/n/s/t prefixes of Pr/Bu) count as formula symbols: Et2O, PPh3, iPr2NEt.
+#   5. HYDRATE / ADDUCT coefficient after a middle dot: CuSO4·5H2O, BF3·OEt2.
+#   6. A residual explicit stop-list (EngineConfig formula_stoplist extends it) for the
+#      internal-digit biology names rules 2/3 cannot see (PI3K, IP3R, NS5B ...), and a
+#      context rule for H1/H2 receptor names.
+_MECH_NOTATION_RE = re.compile(
+    r'(?<![\w₀-₉])(?:S_?N[12][′\']?|S_?Ni|S_?NAr|S_?E[12]|S_?EAr|S_?H2|'
+    r'E1c[Bb]|E[12]|AdE[23]|AdN|S_?RN1)(?=$|[^\w₀-₉])')
+_RECEPTOR_RE = re.compile(r'\bH[1-4](?=\s*-?\s*(?:receptors?|blockers?|antagonists?|agonists?'
+                          r'|antihistamines?)\b)', re.I)
+_AMBIGUOUS_FORMULA_ALLOW = frozenset("""
+CO2 CO3 NO2 NO3 SO2 SO3 SO4 PO3 PO4 CS2 NH2 NH3 NH4 PH3 PH4 CH2 CH3 CH4 CF2 CF3 CF4 BF3 BF4
+BH3 BH4 SF4 SF6 NF3 PF3 PF5 PF6 IF3 IF5 IF7 UF6 WF6 OF2 KO2 CI4 NI3 PI3 KI3 HSO3 HSO4 HPO4
+HCO2 HCO3 HNO2 HNO3 OCH2 OCH3 SCH3 HOCH2 BO3 CN2 NCS2 CH3CO2 CO2CH3 OCF3
+""".split())
+_FORMULA_STOPLIST = frozenset('PI3K PI4K PI3P IP3R NS5A NS5B CYP3A4 CYP2D6 HbA1c'.split())
+_ORG_GROUPS = ('TBDMS', 'TBDPS', 'TIPS', 'TMS', 'TBS', 'TES', 'Fmoc', 'Boc', 'Cbz', 'Mes',
+               'Tol', 'Ph', 'Me', 'Et', 'Pr', 'Bu', 'Bn', 'Bz', 'Ac', 'Ts', 'Ms', 'Tf', 'Cy', 'Py')
+_ORG_ALT = '|'.join(_ORG_GROUPS)
+_ORG_SYM_RE = re.compile(_ORG_ALT + r'|[A-Z][a-z]?')
+_ORG_FULL_RE = re.compile(r'(?:(?:' + _ORG_ALT + r'|[A-Z][a-z]?)\d*|\(|\)\d*)+')
+_HYDRATE_RE = re.compile('([·•∙⋅]\\s*)(\\d+)\\s*([A-Z][A-Za-z0-9()]*)(?![\\w₀-₉])')
+# v2.14 — a hydrate written with a FULL STOP (CuSO4.5H2O, Na2CO3.10H2O, common in Indian
+# papers) is the same hydrate as CuSO4·5H2O. Only an uppercase-led formula, no space, a count
+# and H2O / D2O / NH3 qualify — a decimal ("pH 4.5", "2.5 H2O") can never match.
+_HYDRATE_DOT_RE = re.compile(r'(?<![\w.])([A-Z][A-Za-z0-9()\[\]]*[A-Za-z0-9)\]])\.(\d+)(H2O|D2O|NH3)(?![\w₀-₉])')
+_ORG_PREFIX_RE = re.compile(r'^[inst](?=Pr|Bu)')
+
+
+def _fmt_chem_token(tok, allow=None, stop=None):
+    if tok in _FORMULA_STOPLIST or (stop and tok in stop):
+        return tok                      # v2.14 F-1 rule 6 — a named non-formula
+    _pre = ''
+    _mp = _ORG_PREFIX_RE.match(tok)
+    if _mp:
+        _pre, tok = _mp.group(0), tok[_mp.end():]
+    _syms_org = _ORG_SYM_RE.findall(tok)
+    if any(g in _ORG_GROUPS and g not in _ELEMENTS for g in _syms_org):
+        # v2.14 F-1 rule 4 — an organic group formula (Et2O, PPh3, CO2Et, Bu3SnH, OEt2)
+        if (not _ORG_FULL_RE.fullmatch(tok)
+                or not all(g in _ELEMENTS or g in _ORG_GROUPS for g in _syms_org)
+                or not re.search(r'\d', tok) or re.search(r'(?<=[A-Za-z])1(?!\d)', tok)):
+            return _pre + tok
+        return _pre + re.sub(r'(' + _ORG_ALT + r'|[A-Z][a-z]?|\))(\d+)',
+                             lambda mm: mm.group(1) + mm.group(2).translate(_SUB), tok)
+    tok = _pre + tok
     syms = re.findall(r'[A-Z][a-z]?', tok)
     if not syms or not all(s in _ELEMENTS for s in syms):
         return tok
-    if not re.search(r'\d|[+\-\u2212]', tok):
+    if not re.search(r'\d|[+\-−]', tok):
         return tok                      # no digit and no charge — nothing to format
+    if re.search(r'(?<=[A-Za-z])1(?!\d)', re.sub(r'\d*[+\-−]$', '', tok)):
+        return tok                      # v2.14 F-1 rule 2 — real formulae never write 1
+    if (len(syms) >= 2 and all(len(x) == 1 for x in syms) and re.fullmatch(r'[A-Z]+\d+', tok)
+            and tok not in _AMBIGUOUS_FORMULA_ALLOW and not (allow and tok in allow)):
+        return tok                      # v2.14 F-1 rule 3 — SN2 / PS2 / HSP70 shape
     multi = tok[0] in '[(' or len(syms) >= 2
     if not multi and tok not in _DIATOMIC and not re.search(r'[+\-\u2212]$', tok):
         return tok                      # single element + digit = a locant (C2) — leave
@@ -1088,19 +2898,29 @@ def _fmt_chem_token(tok):
     body = _ELEM_DIGIT_RE.sub(lambda mm: mm.group(1) + mm.group(2).translate(_SUB), body)
     return body + charge
 
-def normalise_formula_text(text):
+def normalise_formula_text(text, cfg=None):
     """Rewrite ASCII chemical / orbital notation to Unicode sub/superscripts.
     Idempotent; ⟦MATH:⟧ regions and preserved tokens are masked; single-letter
-    locants (C2, C3) are left alone."""
+    locants (C2, C3) are left alone. v2.14 (F-1): mechanism notation (SN2, E1cB ...),
+    receptor names (H2 receptor) and non-formula acronyms are never touched; organic
+    group formulae and hydrate coefficients are formatted. `cfg` (an EngineConfig)
+    extends the allow / stop lists per exam (formula_allow / formula_stoplist)."""
     s = str(text)
+    _allow = frozenset(getattr(cfg, 'formula_allow', None) or ()) if cfg is not None else None
+    _stop = frozenset(getattr(cfg, 'formula_stoplist', None) or ()) if cfg is not None else None
     masks = []
     def _mask(m):
-        masks.append(m.group(0)); return f'\u2202{len(masks)-1}\u2202'
+        masks.append(m.group(0)); return f'∂{len(masks)-1}∂'
     s = T3_REGION_RE.sub(_mask, s)
     s = _OPAQUE_MATH_RE.sub(_mask, s)
+    s = _MECH_NOTATION_RE.sub(_mask, s)          # v2.14 F-1 rule 1
+    s = _RECEPTOR_RE.sub(_mask, s)               # v2.14 F-1 rule 6 (context)
     for a, b in _GREEK:
         s = s.replace(a, b)
-    s = _CHEM_TOKEN_RE.sub(lambda m: _fmt_chem_token(m.group(1)), s)
+    s = _HYDRATE_DOT_RE.sub(lambda m: m.group(1) + '\u00b7' + m.group(2) + m.group(3), s)
+    s = _HYDRATE_RE.sub(lambda m: m.group(1) + m.group(2)                 # v2.14 F-1 rule 5
+                        + _fmt_chem_token(m.group(3), _allow, _stop), s)
+    s = _CHEM_TOKEN_RE.sub(lambda m: _fmt_chem_token(m.group(1), _allow, _stop), s)
     s = _ION_RE.sub(lambda m: (m.group(1) + (m.group(2) + m.group(3)).replace('\u2212', '-')
                                .translate(_SUP)) if m.group(1) in _ELEMENTS else m.group(0), s)
     s = _HYBRID_RE.sub(lambda m: 'sp' + m.group(1).translate(_SUP)
@@ -1393,13 +3213,106 @@ _INTERNAL_TERMS_CHEM_RE = re.compile(
     r'\bSMILES\b|\bcanonical(?:is|iz)ed\b|\bthe\s+registry\b|\bthe\s+engine\b|\bpipeline\b|'
     r'\brenderer\b|\bvalidate\(\)|\batom-mapped\b|\bcontent\s+records?\b|\bfigural\s+manifests?\b',
     re.I)
+# v2.14 (GAP-2026-11-07-RE25-HARDENING RC-5 / F-5) — the v2.13 pattern caught 4 of 13
+# descriptor phrasings measured in a delivered paper: locant lists "(2R,3S)-",
+# "C2 is S", "the S configuration", "trans-2-iodo...", "erythro dibromide", "meso
+# compound", "racemic" all escaped, so CHS_STEREO_UNDECLARED never forced a claim and
+# rdkit never re-derived them. Named groups; the consumer (stereo_descriptors_in)
+# splits a multi-centre token into one descriptor per centre. Guards: a bare "(E)" /
+# "(P)" / "(S)" is a compound or statement LABEL in match-the-column and assertion
+# items, so a single parenthesised letter counts only before a chemical noun or a name
+# hyphen, and (P)/(M) only before axis / helix / biaryl / allene words; "C2 is
+# S-shaped" never matches.
+_STEREO_NOUNS = (r'isomers?|enantiomers?|diastereomers?|epimers?|anomers?|adducts?|configuration|'
+                 r'products?|diols?|dibromides?|dihalides?|dichlorides?|halohydrins?|bromohydrins?|'
+                 r'alkenes?|olefins?|epoxides?|alcohols?|esters?|lactones?|acids?|amines?|compounds?|'
+                 r'rings?|fusion|fused|relationship|centres?|centers?|'
+                 r'mixture|forms?|carbon|stereocent(?:re|er)s?|atoms?|substituents?|hydrogens?|'
+                 r'groups?|arrangement|geometry|isomer|dimethyl\w*|diol\w*')
+# v2.14 — PROCESS words (anti addition, syn elimination, anti-periplanar, endo approach,
+# exo face, chair TS, selectivity) describe a mechanism, not a species, so they are NOT
+# descriptor nouns: a block may write them freely without a stereo_claims entry. The
+# species-level claim ("the anti diol", "the cis isomer") still needs one.
+_STEREO_PROCESS_NOUNS = (r'addition|elimination|attack|faces?|sides?|approach|transition\s+states?|'
+                         r'orientation|selectivity|periplanar|coplanar|clinal|opening|closure|migration')
 _STEREO_TOKEN_RE = re.compile(
-    r'\((R|S|E|Z|Ra|Sa|P|M)\)(?=-[A-Za-z0-9]|\s+(?:isomer|enantiomer|diastereomer|configuration|'
-    r'alcohol|product|centre|center|form|acid|ester|alkene|olefin|epoxide|amine|carbon|stereocent(?:re|er)|atom|'
-    r'axis|helix|[a-z]+ane|[a-z]+ene|[a-z]+ol)\b)|'
-    r'(?i:\b(cis|trans|endo|exo|syn|anti|erythro|threo|meso)[-\s]+(?:isomer|adduct|configuration|'
-    r'product|diol|fused|fusion)\b)|'
-    r'(?i:\b(?:isomer|adduct|configuration|product|diol)\s+(?:is|was)\s+(cis|trans|endo|exo|syn|anti|erythro|threo|meso)\b)')
+    r'\((?P<loc>\d+[a-z]?[\u2032\']*(?:R|S|E|Z)(?:\s*,\s*\d+[a-z]?[\u2032\']*(?:R|S|E|Z))*)\)'
+    r'|\((?P<single>R|S|E|Z|Ra|Sa)\)(?=-[A-Za-z0-9\[\u0900-\u0DFF]|-\(\d|\s+(?:' + _STEREO_NOUNS +
+    r'|(?!none\b)[a-z]{2,}(?:ane|ene|yne|ol|one|ide))\b)'
+    r'|\((?P<pm>P|M)\)(?=-?[\d,\u2032\'\s-]*(?:[a-z]*helic|[a-z]*binaphth|[a-z]*biphenyl|biaryl|allene|axis|axial|'
+    r'atropisomer|helix|BINOL|BINAP))'
+    r'|\b[CN]\d+[a-z]?[\u2032\']*\s+(?:is|has|becomes|remains|was|stays|retains)\s+(?:the\s+)?'
+    r'(?:configuration\s+)?(?P<cipstmt>R|S)(?![\w\-\u2010\u2011])'
+    r'|(?<![\w(])(?P<conf>R|S|E|Z)[\s\-\u2011]+(?:configuration(?!\s+space)|configured|enantiomers?|isomers?|descriptor|geometry)\b'
+    r'|(?i:\b(?P<rel1>cis|trans|syn|anti|endo|exo|erythro|threo|meso)[\-\s\u2011]+(?:' + _STEREO_NOUNS + r')\b)'
+    r'|(?i:\b(?:' + _STEREO_NOUNS + r')\s+(?:is|was|are|were)\s+(?:the\s+)?'
+    r'(?P<rel2>cis|trans|syn|anti|endo|exo|erythro|threo|meso|racemic)\b)'
+    r'|(?i:\b(?:is|are|was|were|lie|lies|sit|sits)\s+(?P<rel3>cis|trans|syn|anti)\s+(?:across|to|relative|on|about|with)\b)'
+    r'|(?i:\b(?P<rel4>cis|trans|syn|anti|endo|exo|erythro|threo)-(?!di(?:axial|equatorial))(?:\d+(?:,\d+)*-|cyclo|bicyclo|di|tri|tetra)[a-z(\[0-9])'
+    r'|(?i:\b(?P<rel5>meso)\s+(?:compound|form|isomer|diol|dibromide|acid|tartaric|product)\b)'
+    r'|(?i:(?<![\w-])(?P<rac>(?:racemic|racemate|racemi[sz](?:es|ed|ation))(?![\w])|rac-(?=[\w(\[])))'
+    r'|(?i:\b(?P<rel6>cis|trans)-(?:decalin\w*|hydrindan\w*|stilbene|cinnam\w*|crotyl\w*|retinal|azobenzene|'
+    r'[a-z]+(?:ene|ylene|alin)\b))'
+    r'|(?i:\b(?P<mix>mixture\s+of\s+diastereomers|diastereomeric\s+mixture|mixture\s+of\s+(?:the\s+)?'
+    r'(?:two\s+)?epimers)\b)')
+_STEREO_REL_WORDS = ('CIS', 'TRANS', 'ENDO', 'EXO', 'SYN', 'ANTI', 'ERYTHRO', 'THREO', 'MESO',
+                     'RAC', 'MIXTURE')
+
+
+def _norm_stereo_desc(d):
+    """v2.14 — one spelling per descriptor: '(R)' -> 'R', 'racemic' / 'rac' -> 'RAC',
+    'mixture' / 'diastereomer mixture' -> 'MIXTURE'."""
+    d = str(d or '').strip().strip('()').upper()
+    if d in ('RACEMIC', 'RACEMATE', 'RAC-', '(±)', '±'):
+        return 'RAC'
+    if d.startswith('MIXTURE') or d in ('DIASTEREOMER MIXTURE', 'DIASTEREOMERIC MIXTURE'):
+        return 'MIXTURE'
+    return d
+
+
+_CONFORMATION_CONTEXT_RE = re.compile(
+    r'(?i)\b(?:newman|sawhorse|staggered|eclipsed|gauche|periplanar|conformers?|conformations?|'
+    r'rotamers?|dihedral)\b')
+
+
+def stereo_descriptors_in(text, cfg=None):
+    """v2.14 F-5 — [(matched_text, [descriptor, ...])] for every stereo descriptor the
+    sentence asserts. Multi-centre tokens "(2R,3S)" give one descriptor per centre;
+    'racemic' / 'rac-' give RAC; a diastereomer-mixture phrase gives MIXTURE. An
+    exam-specific EngineConfig.stereo_token_re / stereo_token_extra is used IN ADDITION
+    to the default pattern (EC-H1: merged, never a replacement)."""
+    s = T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(text)))
+    out = []
+    for m in _STEREO_TOKEN_RE.finditer(s):
+        g = m.groupdict()
+        if g.get('loc'):
+            ds = [re.sub(r'[^RSEZ]', '', p.strip())[-1:] for p in g['loc'].split(',')]
+        elif g.get('rac'):
+            ds = ['RAC']
+        elif g.get('mix'):
+            ds = ['MIXTURE']
+        else:
+            v = next((g[k] for k in ('single', 'pm', 'cipstmt', 'conf', 'rel1', 'rel2', 'rel3',
+                                     'rel4', 'rel5', 'rel6') if g.get(k)), m.group(0))
+            v = str(v).upper()
+            ds = ['RAC' if v == 'RACEMIC' else v]
+            # v2.14 — syn/anti inside an explicitly conformational sentence (Newman,
+            # sawhorse, staggered, eclipsed, periplanar, conformer) name a CONFORMATION,
+            # whose proof is the drawn conformer figure, not a configuration claim.
+            if v in ('SYN', 'ANTI') and _CONFORMATION_CONTEXT_RE.search(s):
+                continue
+        out.append((m.group(0), [d for d in ds if d]))
+    extra = []
+    for _pat in (getattr(cfg, 'stereo_token_re', None), getattr(cfg, 'stereo_token_extra', None)):
+        if _pat is not None and _pat is not _STEREO_TOKEN_RE and _pat not in extra:
+            extra.append(_pat)
+    for _pat in extra:
+        for m in _pat.finditer(s):
+            if any(m.group(0) in t or t in m.group(0) for t, _ in out):
+                continue
+            _g = [x for x in m.groups() if x] if m.groups() else []
+            out.append((m.group(0), [str(_g[0] if _g else m.group(0)).strip('()').upper()]))
+    return out
 _SIMPLE_FRAC = re.compile(r'(?<![\w/.])(\d+)\s*/\s*(\d+)(?![\d.\w/])')
 # letter/letter units that are legitimately NOT fractions (km/h, m/s, w/o).
 _UNIT_SLASH = re.compile(r'\b[a-zA-Z]{1,3}\s*/\s*[a-zA-Z]{1,3}\b')
@@ -1929,7 +3842,9 @@ class ExplanationBlock:
                  mechanism_spec=None, wrong_paths=None, why_wrong_figures=None,
                  pitfall_figures=None, speed_hack_figures=None, stereo_claims=None,
                  option_mismatch=None, figure_review=None, option_smiles=None,
-                 answer_smiles=None):
+                 answer_smiles=None, content_record=None, labels_sentence_index=None,
+                 stereo_sentence_index=None, unrenderable_evidence=None, stem_defect=None,
+                 paper_kind=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
         self.ca = ca
@@ -1938,7 +3853,8 @@ class ExplanationBlock:
         # student-facing sentence (idempotent; math regions masked), so an
         # ASCII formula can never reach the renderer. absolutes_justified keys
         # are normalised the same way so declarations still match.
-        _nf = (normalise_formula_text if (self.cfg.formula_typography) else (lambda s: s))
+        _nf = ((lambda s: normalise_formula_text(s, self.cfg)) if (self.cfg.formula_typography)
+               else (lambda s: s))
         self.axiom = [_nf(s) for s in (axiom or [])]
         self.deduction = [_nf(s) for s in (deduction or [])]
         self.speed_hack = [_nf(s) for s in speed_hack] if speed_hack else None
@@ -1981,6 +3897,17 @@ class ExplanationBlock:
         self.figure_review = {str(k): v for k, v in _dct(figure_review, 'figure_review').items()}
         self.option_smiles = {_ik(k): v for k, v in _dct(option_smiles, 'option_smiles').items()}
         self.answer_smiles = answer_smiles
+        # v2.14 (GAP-2026-11-07-RE25-HARDENING) — the question's content record (registry /
+        # §13A-3), when the caller has it: the engine derives the RE-25 decision from it
+        # when chem_structure_module is absent (owner Q3) and checks names against it (F-6).
+        self.content_record = dict(content_record) if isinstance(content_record, dict) else None
+        self.labels_sentence_index = None if labels_sentence_index is None else int(labels_sentence_index)
+        self.stereo_sentence_index = None if stereo_sentence_index is None else int(stereo_sentence_index)
+        self.unrenderable_evidence = _chs_as_dict(unrenderable_evidence, 'unrenderable_evidence', q) \
+            if unrenderable_evidence else None
+        self.stem_defect = _chs_as_dict(stem_defect, 'stem_defect', q) if stem_defect else None
+        self.paper_kind = str(paper_kind) if paper_kind else None      # 'mock' | 'pyq'
+        self.engine_stamp = CHS_ENGINE_STAMP      # EC-H15: a resumed pre-v2.14 block has None
         if self.option_mismatch is not None and self.option_mismatch.get('nearest') is not None:
             self.option_mismatch['nearest'] = _ik(self.option_mismatch['nearest'])
         # infer question type if not given
@@ -2000,7 +3927,9 @@ class ExplanationBlock:
                        ('mechanism_spec', None), ('wrong_paths', dict), ('why_wrong_figures', dict),
                        ('pitfall_figures', dict), ('speed_hack_figures', list), ('stereo_claims', list),
                        ('option_mismatch', None), ('figure_review', dict), ('option_smiles', dict),
-                       ('answer_smiles', None)):
+                       ('answer_smiles', None), ('content_record', None), ('labels_sentence_index', None),
+                       ('stereo_sentence_index', None), ('unrenderable_evidence', None), ('stem_defect', None),
+                       ('paper_kind', None), ('engine_stamp', None)):
             if not hasattr(self, _a):
                 setattr(self, _a, _d() if callable(_d) else _d)
         for _fg in list(getattr(self, 'figures', []) or []):
@@ -2029,7 +3958,14 @@ class ExplanationBlock:
         Runs ONLY when chem_structure_module.status == 'APPLIES' (or APPLIES-UNRENDERABLE,
         which waives (a) and (b)). A block without the record, or NOT_APPLICABLE, returns
         at once — no new obligation (Section 10.1)."""
+        self._chs_upgrade()
         csm = self.chem_structure_module
+        if csm is None and self.content_record is not None and self.engine_stamp:
+            # v2.14 owner Q3 — the engine DERIVES the decision from the content record; a
+            # missing record never removes an obligation the content carries.
+            _d = chem_structure_decision(self.content_record)
+            if _d['status'] != 'NOT_APPLICABLE':
+                self.chem_structure_module = csm = dict(_d, ask_shape=_d.get('ask_shape') or 'A0', auto=True)
         if csm is None:
             return True
         status = str(csm.get('status', ''))
@@ -2041,8 +3977,8 @@ class ExplanationBlock:
             return True
         applies = (status == 'APPLIES')
         ask = str(csm.get('ask_shape') or '')
-        if ask and ask not in CHEM_ASK_SHAPES:
-            raise ValueError(f'Q{self.q}: ask_shape {ask!r} not in A1..A12')
+        if ask and ask not in CHEM_ASK_SHAPES + ('A0',):
+            raise ValueError(f'Q{self.q}: ask_shape {ask!r} not in A0..A12')
         # pipeline vocabulary that is legitimate elsewhere is banned on a chemistry block
         for _sec, _sents in (('AXIOM', self.axiom), ('DEDUCTION', self.deduction),
                              ('SPEED HACK', self.speed_hack or []),
@@ -2179,19 +4115,20 @@ class ExplanationBlock:
         _ok, _why = check_stereo_claims(self.stereo_claims)
         if not _ok:
             raise ValueError(f'Q{self.q}: {_why}')
-        _declared = {str(c.get('descriptor', '')).upper().strip('()') for c in self.stereo_claims}
-        _tok_re = getattr(self.cfg, 'stereo_token_re', None) or _STEREO_TOKEN_RE
+        _declared = {_norm_stereo_desc(c.get('descriptor', '')) for c in self.stereo_claims}
+        # v2.14 F-5 — the consumer splits multi-centre tokens ("(2R,3S)" = two claims) and
+        # reads named groups; an exam pattern is MERGED with the default (EC-H1).
         for _sec, _sents in (('AXIOM', self.axiom), ('DEDUCTION', self.deduction),
                              ('SPEED HACK', self.speed_hack or []),
                              *[(f'WHY WRONG {k}', v) for k, v in self.why_wrong.items()],
                              *[(f'COMMON PITFALLS {k}', v) for k, v in self.common_pitfalls.items()]):
             for _s in _sents:
-                for _m in _tok_re.finditer(T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(_s)))):
-                    _tok = (_m.group(1) or _m.group(2) or _m.group(3) or _m.group(0)).strip('()').upper()
-                    if _tok not in _declared:
-                        raise ValueError(f'Q{self.q}: CHS_STEREO_UNDECLARED — {_sec} writes the descriptor '
-                                         f'{_m.group(0)!r} with no matching stereo_claims entry; declare '
-                                         f'{{species, atom|bond, descriptor}} so rdkit can check it (E-06 f)')
+                for _txt, _ds in stereo_descriptors_in(_s, self.cfg):
+                    for _tok in _ds:
+                        if _norm_stereo_desc(_tok) not in _declared:
+                            raise ValueError(f'Q{self.q}: CHS_STEREO_UNDECLARED — {_sec} writes the descriptor '
+                                             f'{_txt!r} ({_tok}) with no matching stereo_claims entry; declare '
+                                             f'{{species, atom|bond, descriptor}} so rdkit can check it (E-06 f)')
         # (g) per-step balance (the renderer proves E-03; balance is re-proved here)
         if self.mechanism_spec:
             for _st in self.mechanism_spec.get('steps') or []:
@@ -2203,6 +4140,17 @@ class ExplanationBlock:
                 _oka, _ra = _cio.verify_mechanism_step(_st)
                 if not _oka:
                     raise ValueError(f'Q{self.q}: step {_st.get("id", "?")}: {_ra}')
+        # v2.14 — RE-25 HARDENING content gates (F-0 / F-3 / F-8 / F-10 / F-11 / F-13 /
+        # F-14 / F-15, the library fact check F-12 and, with a content record, F-6).
+        if self.engine_stamp:
+            _f = chs_hardening_findings(self, self.content_record)
+            _f += library_contradiction_findings(self, self.cfg)
+            if self.content_record is not None:
+                _f += stem_name_findings(self, self.content_record)
+            if _f:
+                _codes = list(dict.fromkeys(c for c, _m in _f))
+                raise ValueError(f'Q{self.q}: {" / ".join(_codes)} — ' + ' || '.join(m for _c, m in _f[:8])
+                                 + (f' (+{len(_f) - 8} more)' if len(_f) > 8 else ''))
         return True
 
     def ca_set(self):
@@ -2959,7 +4907,7 @@ def _para_prose(p_el):
             out.append(''.join(t.text or '' for t in c.iter(qn('w:t'))))
     return ''.join(out)
 
-def verify_explanations(out_path, blocks, cfg, expected_qs=None):
+def verify_explanations(out_path, blocks, cfg, expected_qs=None, records=None):
     """Independent POST-RENDER audit (A2, parity with T2 verify_master 10-17): it
     re-parses the RENDERED docx — NOT the in-memory blocks — and re-checks the
     explanation region from the bytes that were actually written. Catches anything
@@ -2984,6 +4932,90 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         expected_qs = sorted(by_q)
     expected = sorted(set(expected_qs))
     doc = Document(out_path)
+    # v2.14 F-2 — RE-25 is re-decided and re-checked HERE from the registry / §13A-3
+    # content records (`records`: {q: record}), never from the producer's own fields alone.
+    # A chemistry paper verified without records is a finding; a paper with no RE-25
+    # block and no records is untouched (every non-chemistry exam).
+    _recs = {}
+    for _k, _v in dict(records or {}).items():
+        try:
+            _recs[int(_k)] = _v
+        except (TypeError, ValueError):
+            pass
+    _chem_paper = any(str((getattr(b, 'chem_structure_module', None) or {}).get('status', '')).startswith('APPLIES')
+                      for b in blocks)
+    if records is None and _chem_paper:
+        problems.append('CHS_RECORDS_MISSING: verify_explanations(..., records={q: content record}) — an RE-25 '
+                        'paper is verified against the registry / §13A-3 records (F-2)')
+    _led = chs_ledger_load(out_path)
+    _led['runs'] = int(_led.get('runs', 0)) + 1
+    _prev_last = dict(_led.get('last') or {})
+    _led['last'] = {}
+    # v2.14 H-0 — the PRINTED question text underlies every record: a text-only question
+    # with no registry / §13A-3 record (a PYQ text item) is still re-decided from what the
+    # paper printed. A non-chemistry paper decides NOT_APPLICABLE on every question and
+    # makes no name lookup (chem_name_plausible), so it is untouched.
+    _printed = chs_printed_records(doc, cfg)
+    _na_contra = False
+    if records is None and not _chem_paper:
+        # every block NOT_APPLICABLE and no records: still a finding when the PRINTED paper
+        # carries chemistry (an all-NA producer must not escape the re-decision, F-2)
+        for _pq in sorted(_printed):
+            try:
+                _pc = chem_content_present(_printed[_pq])[0]
+            except Exception:                       # noqa: BLE001
+                _pc = False
+            if _pc:
+                problems.append(f'CHS_RECORDS_MISSING: verify_explanations(..., records=...) not passed and '
+                                f'Q{_pq} prints chemistry content — pass the content records '
+                                f'({{}} is valid) (F-2)')
+                break
+    if records is not None:
+        try:
+            chs_names_prefetch({_q: {**(_printed.get(_q) or {}), **(_recs.get(_q) or {})}
+                                for _q in set(_printed) | set(_recs)})
+        except Exception:                           # noqa: BLE001
+            pass
+    for _b in blocks:
+        _own = getattr(_b, 'content_record', None)
+        if records is None and _own is None and _b.q not in _printed:
+            continue
+        _rec = {}
+        for _src in (_printed.get(_b.q), _own, _recs.get(_b.q)):
+            if isinstance(_src, dict):
+                _rec.update({k: v for k, v in _src.items() if v not in (None, '', [], {})})
+        _rec = _rec or None
+        try:
+            _items = chs_verify_block(_b, _rec, out_path, cfg)
+        except Exception as _exc:                   # noqa: BLE001 — loud, never silent, never a halt
+            _items = [('CHS_CHECK_FAULT', f'Q{_b.q}: RE-25 verify raised {type(_exc).__name__}: {_exc}')]
+        _items = [(c, m) for c, m in _items if c != 'LEGACY_BLOCK'] + \
+                 [(c, m) for c, m in _items if c == 'LEGACY_BLOCK'][:1]
+        _real = [(c, m) for c, m in _items if c != 'LEGACY_BLOCK']
+        for _c, _m in _real:
+            _body = _m[len(f'Q{_b.q}: '):] if _m.startswith(f'Q{_b.q}: ') else _m
+            problems.append(_body if _body.startswith(f'Q{_b.q}') else
+                            (f'Q{_b.q}: {_body}' if _c in _body.split(' ', 1)[0] else f'Q{_b.q}: {_c} — {_body}'))
+            if _c == 'CHS_NA_CONTRADICTED':
+                _na_contra = True
+        if _real:
+            _led.setdefault('attempts', {})[str(_b.q)] = int(_led.get('attempts', {}).get(str(_b.q), 0)) + 1
+            _led['last'][str(_b.q)] = [[c, m[:240]] for c, m in _real]
+        for _c, _m in (_prev_last.get(str(_b.q)) or []):
+            if _c not in {c for c, _ in _real}:
+                _led.setdefault('resolved', {})[_c] = int(_led.get('resolved', {}).get(_c, 0)) + 1
+        _un = getattr(_b, '_chs_unresolved', None)
+        if _un:
+            _led.setdefault('unresolved_names', {})[str(_b.q)] = list(_un)
+    # OPSIN availability is a CHEMISTRY paper's disclosure only: a paper with no RE-25 block
+    # after re-decision (every non-chemistry paper) records nothing, so its footer is unchanged.
+    _chem_after = any(str((getattr(b, 'chem_structure_module', None) or {}).get('status', '')).startswith('APPLIES')
+                      for b in blocks) or _na_contra
+    if records is not None and _chem_after:
+        _led['opsin'] = bool(opsin_status(install=False)['available'])
+    elif not _chem_after:
+        _led.pop('opsin', None)
+    chs_ledger_save(out_path, _led)
 
     # v2.3 — count drawings per EXPLANATION region (question regions excluded):
     # walked once here so the figure-landing check below is O(doc), not O(q*doc).
@@ -4262,30 +6294,49 @@ def self_test():
     _PNG = _figpng
     def _vrec(req='MECHANISM'):
         return {'renderer': req, 'intended': 'x', 'derived': 'x', 'match': True}
-    def _rf(fid, req='MECHANISM', **kw):
-        return RepresentationFigure(_PNG, 5.6, _vrec(req), fig_id=fid, requirement=req, **kw)
     _ANS = 'O=C1CC(C(C)C)C[C@@H]2CC([Si](C)(C)C)=C(C)[C@]12C'
     _OPTS = {1: 'O=C1CC(C(C)C)C[C@@H]2C(=C(C)[Si](C)(C)C)C[C@]12C',
              2: 'O=C1CC(C(C)C)C[C@@H]2CC(=C(C)[Si](C)(C)C)[C@]12C',
              3: 'O=C1CC(C(C)C)C[C@@H]2CC([Si](C)(C)C)C(C)[C@]12C',
              4: 'O=C1CC(C(C)C)C[C@@H]2CC(C)C([Si](C)(C)C)[C@]12C'}
+    _CH0 = ('[Ti]<-[O:20]=[C:1]1[C:2](C)=[CH:3][CH2:4][CH:5](C(C)C)[CH2:6]1.'
+            '[CH2:7]=[C:8]=[C:9](C)[Si:10](C)(C)C')
+    _CH1 = '[Ti]<-[O-:20][C:1]1=[C:2](C)[CH:3]([CH2:7][C+:8]=[C:9](C)[Si:10](C)(C)C)[CH2:4][CH:5](C(C)C)[CH2:6]1'
+    # v2.14 — a fixture figure states what it DREW, in a record signed exactly as
+    # figure_record() signs a rendered one (F-0); the v2.13 'intended: x' records were
+    # deliberately retired (GAP-2026-11-07 §7: "_chsblk ... must be updated deliberately").
+    _RF_SPEC = {'S1': dict(initial=_CH0.split('.'), final=[_CH1], captions=['The allene attacks C3'],
+                           labels={'7': 'a', '8': 'b', '9': 'c'}),
+                'S2': dict(initial=[_CH1], final=[_ANS], captions=['1,2-silyl shift and ring closure']),
+                'O1': dict(final=[_OPTS[1]], captions=['attack through b']),
+                'O2': dict(final=[_OPTS[2]], captions=['no silyl shift']),
+                'O3': dict(final=[_OPTS[3]], captions=['printed option 3']),
+                'O4': dict(final=[_OPTS[4]], captions=['methyl and silyl swapped'])}
+    def _ded(last):
+        return ['Atoms a, b, c.', 'Attack at C3.', 'Both ring-fusion stereocentres are retained.', last]
+    def _rf(fid, req='MECHANISM', **kw):
+        _sp = dict(_RF_SPEC.get(fid, {'final': [_OPTS[1]]}))
+        for _kk in ('initial', 'final', 'captions', 'labels', 'model', 'arrows', 'cip', 'step_id', 'degrade_ledger'):
+            if _kk in kw:
+                _sp[_kk] = kw.pop(_kk)
+        return _chs_test_figure(_PNG, fid, req, **_sp, **kw)
     def _chsblk(**over):
         kw = dict(q=1, ca=3, cfg=cfg,
                   axiom=['A silyl group stabilises a cation on the carbon beta to it.'],
                   deduction=['Atoms a, b and c are the allene carbons and 1 to 6 the ring carbons.',
                              'The allene attacks C3 to give intermediate I.',
+                             'Both ring-fusion stereocentres of the enone are retained, so C8 stays R.',
                              'A 1,2-silyl shift then ring closure give the TMS-cyclopentene, Option 3, '
                              'which the paper draws as C\u2081\u2087H\u2083\u2082OSi, +H2 relative to the product.'],
+                  labels_sentence_index=0, stereo_sentence_index=2,
+                  stereo_claims=[{'species': _ANS, 'atom': 8, 'descriptor': 'R'}],
                   why_wrong={1: ['Attack through b would bond C3 to b, not a.'],
                              2: ['Without the silyl shift the ring would be four-membered.'],
                              4: ['Swapping the methyl and silyl carbons puts Si on the carbon bonded to C2.']},
                   representation_verdict='MECHANISM',
                   chem_structure_module={'status': 'APPLIES', 'reason': 'T2 A1', 'ask_shape': 'A1'},
-                  transformation_chain=['[Ti]<-[O:20]=[C:1]1[C:2](C)=[CH:3][CH2:4][CH:5](C(C)C)[CH2:6]1.'
-                                        '[CH2:7]=[C:8]=[C:9](C)[Si:10](C)(C)C',
-                                        '[Ti]<-[O-:20][C:1]1=[C:2](C)[CH:3]([CH2:7][C+:8]=[C:9](C)[Si:10](C)(C)C)[CH2:4][CH:5](C(C)C)[CH2:6]1',
-                                        _ANS],
-                  figures=[_rf('S1', after_step=2), _rf('S2', after_step=3)],
+                  transformation_chain=[_CH0, _CH1, _ANS],
+                  figures=[_rf('S1', after_step=2), _rf('S2', after_step=4)],
                   why_wrong_figures={1: [_rf('O1')], 2: [_rf('O2')], 4: [_rf('O4', 'STRUCTURE_GRAPH')]},
                   option_smiles=dict(_OPTS), answer_smiles=_ANS,
                   option_mismatch={'nearest': 3, 'delta_text': '+H2 — printed Option 3 lacks the ring C=C'},
@@ -4311,16 +6362,16 @@ def self_test():
         check('CHS-D-E07-CA-MUST-BE-NEAREST',
               _raises(lambda: _chsblk(ca=2, why_wrong={1: ['x a.'], 3: ['y b.'], 4: ['z c.']},
                                       why_wrong_figures={1: [_rf('O1')], 3: [_rf('O3')], 4: [_rf('O4')]},
-                                      deduction=['Atoms a, b, c.', 'Attack at C3.', 'Ring closure gives Option 2, +H2 difference.'],
+                                      deduction=_ded('Ring closure gives Option 2, +H2 difference.'),
                                       option_mismatch={'nearest': 2, 'delta_text': '+H2'}).validate()))
         check('CHS-D-E07-DISCLOSURE-MISSING',
-              _raises(lambda: _chsblk(deduction=['Atoms a, b, c.', 'Attack at C3.', 'Ring closure gives Option 3.']).validate()))
+              _raises(lambda: _chsblk(deduction=_ded('Ring closure gives Option 3.')).validate()))
         _exact = _chsblk(option_smiles={**_OPTS, 3: _ANS}, option_mismatch=None,
-                         deduction=['Atoms a, b, c.', 'Attack at C3.', 'Ring closure gives Option 3.'])
+                         deduction=_ded('Ring closure gives Option 3.'))
         check('CHS-D-EXACT-MATCH-BINDS', _exact.validate() is True)
         check('CHS-D-EXACT-MATCH-WRONG-KEY-REFUSED',
               _raises(lambda: _chsblk(option_smiles={**_OPTS, 1: _ANS}, option_mismatch=None,
-                                      deduction=['Atoms a, b, c.', 'Attack at C3.', 'Ring closure gives Option 3.']).validate()))
+                                      deduction=_ded('Ring closure gives Option 3.')).validate()))
         # (e) a MODE A wrong path must END at that option's structure
         check('CHS-E-DISTRACTOR-PATH-MATCH', _chsblk(wrong_paths={1: ['CC', _OPTS[1]]}).validate() is True)
         check('CHS-E-DISTRACTOR-PATH-MISMATCH', _raises(lambda: _chsblk(wrong_paths={1: ['CC', _OPTS[2]]}).validate()))
@@ -4331,15 +6382,15 @@ def self_test():
         _okE, _ = check_stereo_claims([{'species': 'C/C=C/C', 'bond': [1, 2], 'descriptor': 'E'}])
         _okZ, _ = check_stereo_claims([{'species': 'C/C=C/C', 'bond': [1, 2], 'descriptor': 'Z'}])
         check('CHS-F-EZ-RE-DERIVED', _okE and not _okZ)
-        _true_d, _false_d = ('S', 'R') if _okR else ('R', 'S')
+        _true_d, _false_d = 'R', 'S'           # v2.14 — claims are about a DRAWN species (F-15 c)
         check('CHS-F-FALSE-CLAIM-RAISES',
-              _raises(lambda: _chsblk(stereo_claims=[{'species': 'C[C@H](O)CC', 'atom': 1,
+              _raises(lambda: _chsblk(stereo_claims=[{'species': _ANS, 'atom': 8,
                                                       'descriptor': _false_d}]).validate()))
         check('CHS-F-UNDECLARED-TOKEN-RAISES',
-              _raises(lambda: _chsblk(axiom=['The (R) isomer forms because the silyl group blocks one face.']).validate()))
+              _raises(lambda: _chsblk(axiom=['The (S) isomer forms because the silyl group blocks one face.']).validate()))
         check('CHS-F-DECLARED-TOKEN-PASSES',
               _chsblk(axiom=[f'The ({_true_d}) isomer forms because the silyl group blocks one face.'],
-                      stereo_claims=[{'species': 'C[C@H](O)CC', 'atom': 1, 'descriptor': _true_d}]).validate() is True)
+                      stereo_claims=[{'species': _ANS, 'atom': 8, 'descriptor': _true_d}]).validate() is True)
         # (g) an unbalanced step in mechanism_spec raises; a wrong arrow raises
         _good_step = {'id': 'S1', 'before': '[OH-:1].[CH3:2][Br:3]', 'after': '[OH:1][CH3:2].[Br-:3]',
                       'arrows': [{'from': {'lone_pair': 1}, 'to': {'atom': 2}, 'electrons': 2},
@@ -4387,8 +6438,12 @@ def self_test():
         _make_sample_paper(_csrc, _cfgG, nq=6)
         _cb = _chsblk()
         build_interleaved_docx(_csrc, [_cb], _cout, _cfgG)
-        _okc, _pc = verify_explanations(_cout, [_cb], _cfgG, expected_qs=[1])
+        _okc, _pc = verify_explanations(_cout, [_cb], _cfgG, expected_qs=[1], records={1: {}})
         check('CHS-E05-SECTION-FIGURES-LAND', _okc and not _pc)
+        if _pc: print('   E05 problems:', _pc[:3])
+        # v2.14 F-2 — an RE-25 paper verified without its content records is a finding
+        _okr, _pr = verify_explanations(_cout, [_cb], _cfgG, expected_qs=[1])
+        check('V214-F2-RECORDS-MISSING-IS-A-FINDING', (not _okr) and any('CHS_RECORDS_MISSING' in p for p in _pr))
         # E-05 placement: the why_wrong figure lands UNDER its option heading
         _cd = Document(_cout)
         _seq = []
@@ -4403,7 +6458,7 @@ def self_test():
         check('CHS-E05-READER-COUNTS-FIGURES',
               _rb2[1]._figure_counts.get(('why_wrong', 1)) == 1 and _rb2[1]._figure_counts.get(('deduction', None)) == 2)
         _cb.figure_review = {'S1': 'ok', 'S2': 'mismatch: arrow lands on the wrong carbon', 'O1': 'ok', 'O2': 'ok', 'O4': 'ok'}
-        _okc2, _pc2 = verify_explanations(_cout, [_cb], _cfgG, expected_qs=[1])
+        _okc2, _pc2 = verify_explanations(_cout, [_cb], _cfgG, expected_qs=[1], records={1: {}})
         check('CHS-E09-REVIEW-NOT-OK-REFUSED', (not _okc2) and any('figure_review' in p for p in _pc2))
         # strip_solutions removes the section figures with the block
         _cstr = os.path.join(tempfile.gettempdir(), 'st_chs_strip.docx')
@@ -4486,7 +6541,7 @@ def self_test():
         _msq = dict(ca=[3, 4], why_wrong={1: ['x a.'], 2: ['y b.']},
                     why_wrong_figures={1: [_rf('O1')], 2: [_rf('O2')]},
                     figure_review={'S1': 'ok', 'S2': 'ok', 'O1': 'ok', 'O2': 'ok'},
-                    deduction=['Atoms a, b, c.', 'Attack at C3.', 'Ring closure gives Option 3 and Option 4, +H2 difference.'])
+                    deduction=_ded('Ring closure gives Option 3 and Option 4, +H2 difference.'))
         check('CHS-R10-MSQ-NEAREST-IN-SET', _chsblk(**_msq).validate() is True)
         check('CHS-R10-MSQ-NEAREST-NOT-IN-SET-RAISES',
               _raises(lambda: _chsblk(**dict(_msq, ca=[1, 2], why_wrong={3: ['x a.'], 4: ['y b.']},
@@ -4526,9 +6581,16 @@ def self_test():
         check('CHS-R22-LIB-TRIGGERS-SKIP-NOT-APPLICABLE',
               _nb(chem_structure_module={'status': 'NOT_APPLICABLE', 'reason': 'NA-NO-CHEM-CONTENT'}).validate() is True)
     with tempfile.TemporaryDirectory() as _td2:
-        open(os.path.join(_td2, 'CHEMISTRY_EXPLAIN_LEARNINGS_v10.md'), 'w').write('# x\n')
-        open(os.path.join(_td2, 'CHEMISTRY_EXPLAIN_LEARNINGS_v2.md'), 'w').write('# x\n')
+        open(os.path.join(_td2, 'CHEMISTRY_EXPLAIN_LEARNINGS_v10.md'), 'w').write('# x v99.0\n')
+        open(os.path.join(_td2, 'CHEMISTRY_EXPLAIN_LEARNINGS_v2.md'), 'w').write('# x v99.0\n')
         check('CHS-R212-LIB-VERSION-NUMERIC', resolve_chem_library(_td2)[0].endswith('_v10.md'))
+    with tempfile.TemporaryDirectory() as _td3:
+        # v2.14 (GAP-2026-11-07 item A) — a STALE project copy (older header version than the
+        # repo's library) never withholds the repo's newer rules; an equal or newer one wins.
+        open(os.path.join(_td3, 'CHEMISTRY_EXPLAIN_LEARNINGS_v1.md'), 'w').write('# CHEMISTRY v0.9 stale\n')
+        check('V214-LIB-STALE-PROJECT-COPY-LOSES', resolve_chem_library(_td3)[1] == 'repo')
+        open(os.path.join(_td3, 'CHEMISTRY_EXPLAIN_LEARNINGS_v1.md'), 'w').write('# CHEMISTRY v99.0 local\n')
+        check('V214-LIB-NEWER-PROJECT-COPY-WINS', resolve_chem_library(_td3)[1] == 'project')
     # R2-6 — a label "(P)" is not a stereodescriptor; "(R)-2-butanol" and "Trans-fused" are
     check('CHS-R26-LABEL-NOT-DESCRIPTOR', not _STEREO_TOKEN_RE.search('The major product (P) is an alcohol.'))
     check('CHS-R26-DESCRIPTOR-CAUGHT', bool(_STEREO_TOKEN_RE.search('(R)-2-butanol forms.'))
@@ -5028,9 +7090,11 @@ def self_test():
                   for v in REPRESENTATION_RENDERERS.values()))
         check('V30-STRUCTURE-IS-ROUNDTRIP',
               'round-trip' in REPRESENTATION_RENDERERS['STRUCTURE_GRAPH']['identifier'])
-        check('V30-CONFORMER-USES-LEVEL-LIB',
-              REPRESENTATION_RENDERERS['CONFORMER']['library'] ==
-              REPRESENTATION_RENDERERS['LEVEL_DIAGRAM']['library'])
+        # v2.14 F-4 — CONFORMER is structure-derived (rdkit 3-D conformer), deliberately no
+        # longer the matplotlib dihedral chart (that stays available as DATA_PLOT).
+        check('V214-CONFORMER-IS-STRUCTURE-DERIVED',
+              REPRESENTATION_RENDERERS['CONFORMER']['library'] == 'rdkit'
+              and REPRESENTATION_RENDERERS['DATA_PLOT']['library'] == 'matplotlib')
         # v2.11 — every renderer carries a colour clause naming the palette owner.
         check('V31-RENDERERS-CARRY-COLOUR',
               all(isinstance(v.get('colour'), str) and 'figural_core' in v['colour']
@@ -5196,6 +7260,530 @@ def self_test():
                'explained_type': 'same_family'}])
     check('7AS_distractor_absent_side_is_not_a_disagreement',
           distractor_type_disagreements({'B': {'type': 'near_miss'}}, {}) == [])
+
+    os.environ.setdefault('RE25_OPSIN_NO_INSTALL', '1')   # a self-test never pip-installs
+    # ══ v2.14 RE-25 HARDENING (GAP-2026-11-07-RE25-HARDENING) — every new gate has a
+    # must-fail fixture that fails WITH ITS OWN CODE and a must-pass twin. Generic,
+    # class-based molecules; nothing is copied from one paper (owner decision 2026-11-08).
+    def _rc(fn, code):
+        try:
+            fn()
+        except ValueError as _ex:
+            return code in str(_ex)
+        return False
+    # T-01 — F-1 normaliser (owner Q11 (b)): mechanism notation, biology acronyms, hydrates,
+    # organic group formulae; existing shapes unchanged
+    for _a, _b in (('an SN2 opening', 'an SN2 opening'), ('SN1 solvolysis', 'SN1 solvolysis'),
+                   ("SN2' attack", "SN2' attack"), ('E1cB loss', 'E1cB loss'), ('SH2 domain', 'SH2 domain'),
+                   ('PS2 and PS1', 'PS2 and PS1'), ('HIV1', 'HIV1'), ('PI3K', 'PI3K'), ('H2 receptor', 'H2 receptor'),
+                   ('HSP70', 'HSP70'), ('HPV16', 'HPV16'), ('H1N1', 'H1N1'), ('PIN1', 'PIN1'),
+                   ('SnCl2', 'SnCl₂'), ('H2O', 'H₂O'), ('NO2', 'NO₂'), ('CO2', 'CO₂'),
+                   ('N2O4', 'N₂O₄'), ('Fe3+', 'Fe³⁺'), ('CuSO4·5H2O', 'CuSO₄·5H₂O'),
+                   ('BF3·OEt2', 'BF₃·OEt₂'), ('Et2O', 'Et₂O'), ('PPh3', 'PPh₃'),
+                   ('Pd(PPh3)4', 'Pd(PPh₃)₄'), ('iPr2NEt', 'iPr₂NEt'), ('CO2Et', 'CO₂Et'),
+                   ('Bu3SnH', 'Bu₃SnH'), ('C2-C3 bond', 'C2-C3 bond'), ('C2 is S', 'C2 is S'),
+                   ('vitamin B12', 'vitamin B12'), ('Option 2', 'Option 2')):
+        check(f'V214-F1-NORM:{_a}', normalise_formula_text(_a) == _b)
+    check('V214-F1-IDEMPOTENT', all(normalise_formula_text(normalise_formula_text(x)) == normalise_formula_text(x)
+                                    for x in ('CuSO4·5H2O', 'BF3·OEt2', 'Et3N and SN2', 'Pd(PPh3)4')))
+    _cfgX = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, formula_allow=['XeO3'], formula_stoplist=['NaCl2X'])
+    check('V214-F1-CFG-ALLOW-EXTENDS', normalise_formula_text('XeO3', _cfgX) == 'XeO₃'
+          and normalise_formula_text('XeO3') == 'XeO₃')
+    check('V214-F1-NO-S_N-EVER', 'S_N' not in normalise_formula_text('SN2 and SN1 and SNAr'))
+    # T-07 — F-5 stereo detector: positives, multi-centre split, label negatives
+    for _s in ('(2R,3S)-2,3-dibromo-3-phenylpropanoic acid', 'C2 is S', 'so C1 is R', 'the S configuration',
+               '(1R,2S,4R)-borneol', 'cis-1,2-dimethylcyclopentane, a meso compound', 'trans-2-iodocyclohexyl acetate',
+               'erythro dibromide', 'the product is racemic', 'gives a mixture of diastereomers', 'rac-2-butanol',
+               'trans-decalin', '(Z)-stilbene', 'E-isomer'):
+        check(f'V214-F5-DETECT:{_s[:28]}', bool(stereo_descriptors_in(_s)))
+    for _s in ('S phase of the cell cycle', 'an R group', 'trans-Golgi network', 'Z-DNA', 'E. coli', 'C2 is S-shaped',
+               'Compound (E) is formed', 'Match (P),(Q),(R),(S)', 'Statement (S) is true', 'the (P) product',
+               '(E) none of these', 'Assertion (A) and Reason (R)', 'anti-inflammatory drug', 'trans fats'):
+        check(f'V214-F5-QUIET:{_s[:28]}', not stereo_descriptors_in(_s))
+    check('V214-F5-SPLIT-MULTI-CENTRE', stereo_descriptors_in('(2R,3S)-x')[0][1] == ['R', 'S'])
+    _cfgS = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, stereo_token_re=r'\b(sinister)\b')
+    check('V214-F5-EXAM-PATTERN-MERGED-NOT-REPLACED',
+          stereo_descriptors_in('the sinister isomer and C2 is S', _cfgS) and
+          len(stereo_descriptors_in('the sinister isomer and C2 is S', _cfgS)) == 2)
+    # RC-17 / owner Q10 (a) — text-only organic questions are chemistry content
+    _tx = {'stem_text': 'The major product of the reaction of butan-2-ol with conc. H2SO4 at 443 K is',
+           'option_texts': ['but-1-ene', '(E)-but-2-ene', '(Z)-but-2-ene', 'di-sec-butyl ether']}
+    check('V214-RC17-TEXT-ONLY-ORGANIC-IS-CONTENT', chem_content_present(_tx)[0])
+    check('V214-RC17-PHYSICS-TEXT-IS-NOT', not chem_content_present(
+        {'stem_text': 'In hexagonal close packing the coordination number is', 'option_texts': ['6', '8', '12', '4']})[0])
+    check('V214-RC17-GIVEN-SMILES-IS-CONTENT', chem_content_present({'given_smiles': ['CCO']})[0])
+    check('V214-RC17-DECISION-APPLIES', chem_structure_decision(_tx, ask_shape='A1')['status'] == 'APPLIES')
+    if _chs_rd:
+        _OK = _chsblk()
+        check('V214-BASE-BLOCK-VALIDATES', _OK.validate() is True)
+        # T-27 — F-0 provenance: a typed record, an edited signed record, a swapped PNG
+        _typed = RepresentationFigure(_PNG, 5.6, _vrec(), fig_id='S1', requirement='MECHANISM', after_step=2)
+        check('V214-F0-TYPED-RECORD-REFUSED',
+              _rc(lambda: _chsblk(figures=[_typed, _rf('S2', after_step=4)]).validate(), 'CHS_FIGURE_PROVENANCE'))
+        _ed = _rf('S1', after_step=2); _ed.validation = dict(_ed.validation, model='CHAIR')
+        check('V214-F0-EDITED-RECORD-REFUSED',
+              _rc(lambda: _chsblk(figures=[_ed, _rf('S2', after_step=4)]).validate(), 'CHS_FIGURE_PROVENANCE'))
+        _sw = os.path.join(tempfile.gettempdir(), 'st_v214_swap.png')
+        open(_sw, 'wb').write(open(_PNG, 'rb').read() + b'\x00')
+        _swf = _rf('S1', after_step=2); _swf.path = _sw
+        check('V214-F0-SWAPPED-PNG-REFUSED',
+              _rc(lambda: _chsblk(figures=[_swf, _rf('S2', after_step=4)]).validate(), 'CHS_FIGURE_PROVENANCE'))
+        # Q3 — a block with NO decision record but a chemistry content record: the engine derives it
+        check('V214-Q3-AUTO-DECISION-APPLIES-CHECKS',
+              _rc(lambda: ExplanationBlock(q=1, ca=2, cfg=cfg, axiom=['A.'], deduction=['B.', 'Option 2.'],
+                                           why_wrong={1: ['x.'], 3: ['y.'], 4: ['z.']},
+                                           content_record={'option_smiles': {1: 'CCO', 2: 'CC=O'}}).validate(),
+                  'CHS_MISSING_FIGURE'))
+        _lg = ExplanationBlock(q=1, ca=2, cfg=cfg, axiom=['A.'], deduction=['B.', 'Option 2.'],
+                               why_wrong={1: ['x.'], 3: ['y.'], 4: ['z.']})
+        check('V214-Q3-NO-RECORD-NO-CHEMISTRY-PASSES', _lg.validate() is True)
+        # v2.14 pre-deployment review — one CODE-SPECIFIC must-fail fixture per gate branch the
+        # code-rename mutation audit found unasserted (each asserts its own code / message)
+        def _hc(**over):
+            return [(c, m) for c, m in chs_hardening_findings(_chsblk(**over), None)]
+        check('V214-R-BASE-HAS-NO-HARDENING-FINDING', _hc() == [])
+        from rdkit import Chem as _Crr
+        from rdkit.Chem import rdCIPLabeler as _Lrr
+        _b2 = 'C[C@H](O)CC'
+        _m2 = _Crr.MolFromSmiles(_b2); _Lrr.AssignCIPLabels(_m2)
+        _lab = [a.GetProp('_CIPCode') for a in _m2.GetAtoms() if a.HasProp('_CIPCode')][0]
+        _wrong = 'S' if _lab == 'R' else 'R'
+        check('V214-R-CAPTION-RS-FALSE',
+              any(c == 'CHS_STEREO_CLAIM_FALSE' for c, _ in _caption_descriptor_findings(
+                  {'final': [_b2], 'species': [_b2], 'captions': [f'({_wrong})-butan-2-ol']}, 1))
+              and not _caption_descriptor_findings({'final': [_b2], 'species': [_b2], 'captions': [f'({_lab})-butan-2-ol']}, 1))
+        check('V214-R-FIGURE-UNSPECIFIED-CENTRE',
+              any(c == 'CHS_FIGURE_STEREO_UNSPECIFIED' and 'unspecified stereo' in m
+                  for c, m in _hc(figures=[_rf('S1', after_step=2, final=['CC(O)C(O)C(O)C(O)C(O)C(O)C(O)CCl']),
+                                           _rf('S2', after_step=4)])))
+        check('V214-R-WRONG-PATH-STEREO-MISMATCH',
+              any(c == 'CHS_FINAL_STEREO_MISMATCH' and 'wrong_paths[1]' in m
+                  for c, m in _hc(wrong_paths={1: [_CH0, _chs_mirror(_OPTS[1])]})))
+        check('V214-R-A1-NEEDS-SCHEME',
+              any(c == 'CHS_SHAPE_FIGURE_MISSING' and 'A1 needs' in m
+                  for c, m in _hc(figures=[_rf('S1', 'STRUCTURE_GRAPH', after_step=2),
+                                           _rf('S2', 'STRUCTURE_GRAPH', after_step=4)])))
+        check('V214-R-A9-NEEDS-LOCANTS',
+              any(c == 'CHS_SHAPE_FIGURE_MISSING' and 'A9' in m
+                  for c, m in _hc(chem_structure_module={'status': 'APPLIES', 'reason': 'T2 A9', 'ask_shape': 'A9'},
+                                  figures=[_rf('S1', after_step=2, labels={}), _rf('S2', after_step=4, labels={})])))
+        check('V214-R-A5-CLAIM-WITHOUT-ITS-CIP-FIGURE',
+              any(c == 'CHS_CIP_ANNOTATION_MISSING' and 'has no CIP-annotated figure of that species' in m
+                  for c, m in _hc(chem_structure_module={'status': 'APPLIES', 'reason': 'T2 A5', 'ask_shape': 'A5'},
+                                  figures=[_rf('S1', after_step=2), _rf('S2', after_step=4),
+                                           _rf('S3', 'STRUCTURE_GRAPH', after_step=4, model='CIP',
+                                               final=[_OPTS[1]], cip={'1': 'R'})])))
+        check('V214-R-A5-NEEDS-A-CIP-FIGURE',
+              any(c == 'CHS_CIP_ANNOTATION_MISSING' and 'A5 needs a CIP-annotated figure' in m
+                  for c, m in _hc(chem_structure_module={'status': 'APPLIES', 'reason': 'T2 A5', 'ask_shape': 'A5'})))
+        check('V214-R-STEREO-CHAIN-NEEDS-CLAIMS',
+              any(c == 'CHS_STEREO_SENTENCE' and 'bound to stereo_claims' in m
+                  for c, m in _hc(stereo_claims=[])))
+        check('V214-R-STEREO-UNDECLARED',
+              _rc(lambda: _chsblk(why_wrong={1: ['Attack through b gives the (S) alcohol at C3.'],
+                                             2: ['Without the silyl shift the ring would be four-membered.'],
+                                             4: ['Swapping the methyl and silyl carbons puts Si on the carbon bonded to C2.']}
+                                  ).validate(), 'CHS_STEREO_UNDECLARED'))
+        _ub = _chsblk(chem_structure_module={'status': 'APPLIES-UNRENDERABLE', 'reason': 'EC-41 bound', 'ask_shape': 'A1'},
+                      unrenderable_evidence={'code': 'EC41_BOUND', 'species': _ANS})
+        check('V214-R-DEGRADED-QUESTION-HAS-AMBER-FOOTER-LINE',
+              'Q1 explanation degraded (RE-25: EC41_BOUND)' in chs_report_lines([_ub], 'st_v214_none.docx')['footer_amber'])
+        check('V214-R-UNRENDERABLE-CODE-SET',
+              all(_c in CHS_UNRENDERABLE_CODES for _c in ('CHS_LAYOUT_UNRENDERABLE', 'RDKIT_UNAVAILABLE',
+                                                         'RDKIT_PARSE_FAIL', 'EC41_BOUND', 'OPSIN_UNAVAILABLE')))
+        # names through the curated table (no OPSIN needed): 1,8-cineole and alpha-terpineol
+        # are both C10H18O; aspirin / benzocaine are different structures
+        _cin = CHEM_TRIVIAL_NAMES['1,8-cineole']
+        check('V214-R-OPTION-NAME-MISMATCH',
+              [c for c, _ in name_check_item('Which compound is shown?', ['aspirin', 'benzocaine', 'x', 'y'],
+                                              option_smiles={1: CHEM_TRIVIAL_NAMES['benzocaine'],
+                                                             2: CHEM_TRIVIAL_NAMES['benzocaine']})]
+              == ['CHS_OPTION_NAME_MISMATCH'])
+        from types import SimpleNamespace as _NSr
+        _pyq_stub = _NSr(q=5, answer_smiles=_cin, transformation_chain=[_cin], option_smiles={}, cfg=cfg,
+                         paper_kind='pyq', stem_defect=None, deduction=['The ether forms.'])
+        _sr = {'stem_text': 'Acid treatment of the diol gives alpha-terpineol, the major product.', 'option_texts': []}
+        check('V214-R-PYQ-STEM-NAME-NEEDS-DISCLOSURE',
+              [c for c, _ in stem_name_findings(_pyq_stub, _sr)] == ['CHS_STEM_NAME_MISMATCH'])
+        _pyq_ok = _NSr(**{**vars(_pyq_stub), 'stem_defect': {'printed': 'alpha-terpineol', 'correct': '1,8-cineole'},
+                          'deduction': ['The ether forms.', STEM_DEFECT_TEMPLATE.replace('<correct name>', '1,8-cineole')]})
+        check('V214-R-PYQ-STEM-NAME-DISCLOSED-PASSES', stem_name_findings(_pyq_ok, _sr) == [])
+        _unk = _NSr(**{**vars(_pyq_stub), 'paper_kind': None})
+        check('V214-R-STEM-NAME-UNKNOWN-PIPELINE-GIVES-BOTH-ROUTES',
+              any(c == 'CHS_STEM_NAME_MISMATCH' and 'mock:' in m and 'PYQ:' in m for c, m in stem_name_findings(_unk, _sr)))
+        _inf = _NSr(**{**vars(_pyq_ok), 'paper_kind': None})
+        check('V214-R-STEM-DEFECT-RECORD-MEANS-PYQ', stem_name_findings(_inf, _sr) == [])
+        _eq = _NSr(q=6, axiom=[], deduction=['1,8-Cineole is the same compound as 18-crown-6.'], speed_hack=[],
+                   why_wrong={}, common_pitfalls={}, stem_defect=None)
+        check('V214-R-PROSE-EQUIVALENCE-FALSE',
+              any(c == 'CHS_PROSE_NAME_FALSE' and 'are one compound' in m for c, m in prose_name_findings(_eq, None, [])[0]))
+        _sref = _NSr(q=7, axiom=[], deduction=['1,8-Cineole denotes the compound the stem names.'], speed_hack=[],
+                     why_wrong={}, common_pitfalls={}, stem_defect={'printed': 'alpha-terpineol', 'correct': '1,8-cineole'})
+        check('V214-R-PROSE-STEM-REFERENCE-FALSE',
+              any(c == 'CHS_PROSE_NAME_FALSE' and "the compound the stem names, but" in m
+                  for c, m in prose_name_findings(_sref, None, [])[0]))
+        # T-02 / T-04 / T-28 — verify-time decision re-checks
+        _na = _chsblk(chem_structure_module={'status': 'NOT_APPLICABLE', 'reason': 'NA-NO-CHEM-CONTENT'})
+        check('V214-T04-NA-CONTRADICTED', any(c == 'CHS_NA_CONTRADICTED' for c, _ in
+                                              chs_verify_block(_na, {'option_smiles': {1: 'CCO'}}, 'x.docx')))
+        _ir = _chsblk(chem_structure_module={'status': 'NOT_APPLICABLE', 'reason': 'NA-STRUCTURE-IRRELEVANT'})
+        check('V214-T04-IRRELEVANT-ON-PRODUCT-ASK', any(c == 'CHS_NA_CONTRADICTED' for c, _ in
+                                                       chs_verify_block(_ir, {'option_smiles': {1: 'CCO'},
+                                                                              'ask_type': 'product_prediction'}, 'x.docx')))
+        # the PYQExplain image-item record spells the field figural_ask_type (§13A-3)
+        check('V214-T04-IRRELEVANT-ON-IMAGE-ITEM', any(c == 'CHS_NA_CONTRADICTED' for c, _ in
+                                                      chs_verify_block(_ir, {'option_smiles': {1: 'CCO'},
+                                                                             'figural_ask_type': 'stereo_outcome'}, 'x.docx')))
+        check('V214-T28-GAS-LAW-STAYS-NA', not chs_verify_block(_ir, {'option_smiles': {1: 'CCO'},
+                                                                      'ask_type': 'quantitative_calculation'}, 'x.docx'))
+        # T-03 — owner Q4 (b): an APPLIES-UNRENDERABLE claim must reproduce
+        _ur = lambda ev: _chsblk(chem_structure_module={'status': 'APPLIES-UNRENDERABLE', 'reason': 'EC-41',
+                                                        'ask_shape': 'A1'}, unrenderable_evidence=ev)
+        check('V214-T03-UNRENDERABLE-STILL-BUILDS', _ur({'code': 'EC41_BOUND'}).validate() is True)
+        check('V214-T03-NO-EVIDENCE-UNPROVEN', any(c == 'CHS_DEGRADE_UNPROVEN' for c, _ in
+                                                  chs_verify_block(_ur(None), {}, 'x.docx')))
+        check('V214-T03-EC41-WITHOUT-ENGINE-COUNT-UNPROVEN', any(c == 'CHS_DEGRADE_UNPROVEN' for c, _ in
+                                                                chs_verify_block(_ur({'code': 'EC41_BOUND'}), {}, 'st_v214_none.docx')))
+        check('V214-T03-CAGE-CLAIM-NO-LONGER-REPRODUCES', any(c == 'CHS_DEGRADE_UNPROVEN' for c, _ in chs_verify_block(
+            _ur({'code': 'CHS_LAYOUT_UNRENDERABLE', 'species': 'CC1(C)C2CCC1(C)C(O)C2'}), {}, 'x.docx')))
+        check('V214-T03-PARSE-FAIL-REPRODUCES', not chs_verify_block(
+            _ur({'code': 'RDKIT_PARSE_FAIL', 'species': 'C1CC(('}), {}, 'x.docx'))
+        # F-15 — the drawn stereoisomer is the claimed one
+        check('V214-F15B-FINAL-STEREO-MISMATCH',
+              _rc(lambda: _chsblk(transformation_chain=[_CH0, _CH1, _ANS.replace('[C@@H]2', '[C@H]2')]).validate(),
+                  'CHS_FINAL_STEREO_MISMATCH'))
+        check('V214-F15C-CLAIM-NOT-DRAWN',
+              _rc(lambda: _chsblk(stereo_claims=[{'species': _ANS, 'atom': 8, 'descriptor': 'R'},
+                                                 {'species': 'C[C@H](O)CC', 'atom': 1, 'descriptor': 'S'}]).validate(),
+                  'CHS_CLAIM_NOT_DRAWN'))
+        _vE = 'Br/C(c1ccccc1)=C/c1ccccc1'
+        _vZ = 'Br/C(c1ccccc1)=C\\c1ccccc1'
+        def _ezlab(sm):
+            from rdkit import Chem as _Ch
+            from rdkit.Chem import rdCIPLabeler as _rl
+            _m = _Ch.MolFromSmiles(sm); _rl.AssignCIPLabels(_m)
+            return [b.GetProp('_CIPCode') for b in _m.GetBonds() if b.HasProp('_CIPCode')]
+        _drawnZ = _vE if _ezlab(_vE) == ['Z'] else _vZ
+        _drawnE = _vZ if _drawnZ == _vE else _vE
+        _capfig = lambda sp, cap: _rf('O1', final=[sp], captions=[cap])
+        check('V214-F15D-CAPTION-E-ON-DRAWN-Z',
+              _rc(lambda: _chsblk(why_wrong_figures={1: [_capfig(_drawnZ, '(E)-vinyl bromide, Br trans to Ph'),
+                                                         _rf('O1b', final=[_OPTS[1]])],
+                                                     2: [_rf('O2')], 4: [_rf('O4')]}).validate(), 'CHS_STEREO_CLAIM_FALSE'))
+        check('V214-F15D-CAPTION-E-ON-DRAWN-E-PASSES',
+              _chsblk(why_wrong_figures={1: [_capfig(_drawnE, '(E)-vinyl bromide'), _rf('O1b', final=[_OPTS[1]])],
+                                         2: [_rf('O2')], 4: [_rf('O4')]},
+                      figure_review={'S1': 'ok', 'S2': 'ok', 'O1': 'ok', 'O1b': 'ok', 'O2': 'ok', 'O4': 'ok'}).validate() is True)
+        check('V214-F15A-UNSPECIFIED-ALKENE-REFUSED',
+              _rc(lambda: _chsblk(why_wrong_figures={1: [_rf('O1', final=[_OPTS[1], 'BrC(c1ccccc1)=Cc1ccccc1'])],
+                                                     2: [_rf('O2')], 4: [_rf('O4')]}).validate(), 'CHS_FIGURE_STEREO_UNSPECIFIED'))
+        # F-3 — ask-shape contracts + caption claims
+        _A = lambda a, **kw: _chsblk(chem_structure_module={'status': 'APPLIES', 'reason': 'T2', 'ask_shape': a}, **kw)
+        check('V214-F3-A3-NEEDS-CONFORMER', _rc(lambda: _A('A3').validate(), 'CHS_SHAPE_FIGURE_MISSING'))
+        check('V214-F3-A3-WITH-CHAIR-PASSES', _A('A3', figures=[_rf('S1', after_step=2),
+                                                                _rf('S2', after_step=4, model='CHAIR')]).validate() is True)
+        check('V214-F3-A5-NEEDS-CIP', _rc(lambda: _A('A5').validate(), 'CHS_CIP_ANNOTATION_MISSING'))
+        check('V214-F3-A5-WITH-CIP-PASSES', _A('A5', figures=[_rf('S1', after_step=2),
+                                                              _rf('S2', after_step=4, model='CIP')]).validate() is True)
+        check('V214-F3-A11-NEEDS-PROJECTION', _rc(lambda: _A('A11').validate(), 'CHS_SHAPE_FIGURE_MISSING'))
+        check('V214-F3-A4-NEEDS-COMPETITOR',
+              _rc(lambda: _A('A4', figures=[_rf('S2', after_step=4)]).validate(), 'CHS_COMPETITOR_MISSING'))
+        check('V214-F3-A1-ANSWER-MUST-BE-DRAWN',
+              _rc(lambda: _A('A1', figures=[_rf('S1', after_step=2), _rf('S2', after_step=4, final=[_OPTS[2]])]).validate(),
+                  'CHS_SHAPE_FIGURE_MISSING'))
+        check('V214-F3-CAPTION-CHAIR-ON-FLAT-RING',
+              _rc(lambda: _chsblk(figures=[_rf('S1', after_step=2),
+                                           _rf('S2', after_step=4, captions=['Cl-axial chair, ring closure'])]).validate(),
+                  'CHS_CAPTION_CLAIM'))
+        check('V214-F3-RESONANCE-COUNT',
+              _rc(lambda: _chsblk(deduction=_ded('Five resonance forms stabilise it, ring closure gives Option 3, +H2.')
+                                  ).validate(), 'CHS_RESONANCE_COUNT'))
+        # F-13 — arrows wherever electrons move (A2), pericyclic cyclic arrows
+        check('V214-F13-A2-SCHEME-WITHOUT-LEDGER',
+              _rc(lambda: _A('A2', figures=[_rf('S1', 'REACTION_SCHEME', after_step=2), _rf('S2', after_step=4)]).validate(),
+                  'CHS_ARROWS_MISSING'))
+        check('V214-F13-A2-RECORDED-STEP-DOWN-PASSES',
+              _A('A2', figures=[_rf('S1', 'REACTION_SCHEME', after_step=2,
+                                    degrade_ledger=[{'from': 'MECHANISM', 'to': 'REACTION_SCHEME', 'why': 'E-04'}]),
+                                _rf('S2', after_step=4)]).validate() is True)
+        check('V214-F13-PROTON-TRANSFER-MAY-BE-A-SCHEME',
+              _A('A2', figures=[_rf('S1', 'REACTION_SCHEME', after_step=2, initial=['CC(=O)C'], final=['CC(O)=C']),
+                                _rf('S2', after_step=4)]).validate() is True)
+        _cyc = [{'from': {'bond': [5, 6]}, 'to': {'bond': [6, 1]}}, {'from': {'bond': [1, 2]}, 'to': {'bond': [2, 3]}},
+                {'from': {'bond': [3, 4]}, 'to': {'bond': [4, 5]}}]
+        check('V214-F13-PERICYCLIC-WITHOUT-CYCLIC-ARROWS',
+              _rc(lambda: _chsblk(deduction=_ded('A [3,3]-sigmatropic silyl shift then ring closure give Option 3, +H2.')).validate(),
+                  'CHS_ARROWS_MISSING'))
+        check('V214-F13-PERICYCLIC-WITH-CYCLIC-ARROWS-PASSES',
+              _chsblk(deduction=_ded('A [3,3]-sigmatropic silyl shift then ring closure give Option 3, +H2.'),
+                      figures=[_rf('S1', after_step=2), _rf('S2', after_step=4, arrows=_cyc)]).validate() is True)
+        # F-11 — WHY WRONG figures prove their option
+        check('V214-F11-OPTION-FIGURE-IDENTITY',
+              _rc(lambda: _chsblk(why_wrong_figures={1: [_rf('O1', final=[_OPTS[2]])], 2: [_rf('O2')],
+                                                     4: [_rf('O4')]}).validate(), 'CHS_OPTION_FIGURE_IDENTITY'))
+        check('V214-F11-OPTION-FIGURE-SUBSTRATE',
+              _rc(lambda: _chsblk(option_smiles={**_OPTS, 1: None},
+                                  why_wrong_figures={1: [_rf('O1', final=[_CH0.split('.')[0]])], 2: [_rf('O2')],
+                                                     4: [_rf('O4')]}).validate(), 'CHS_OPTION_FIGURE_SUBSTRATE'))
+        check('V214-F11-OPTION-FIGURE-DUPLICATE',
+              _rc(lambda: _chsblk(option_smiles={**_OPTS, 1: None, 2: None},
+                                  why_wrong_figures={1: [_rf('O1', final=['CCCC=O'])], 2: [_rf('O2', final=['CCCC=O'])],
+                                                     4: [_rf('O4')]}).validate(), 'CHS_OPTION_FIGURE_DUPLICATE'))
+        # F-8 / F-14 — labels and sections
+        check('V214-F8-MAP-NUMBER-LABEL', _rc(lambda: _chsblk(figures=[_rf('S1', after_step=2, labels={'7': 'a', '20': '45'}),
+                                                                      _rf('S2', after_step=4)]).validate(), 'CHS_LABEL_INVALID'))
+        check('V214-F8-DUPLICATE-LOCANT', _rc(lambda: _chsblk(figures=[_rf('S1', after_step=2, labels={'3': '4', '5': '4'}),
+                                                                      _rf('S2', after_step=4)]).validate(), 'CHS_LABEL_DUPLICATE'))
+        check('V214-F8-LEGEND-MISSES-LABEL', _rc(lambda: _chsblk(figures=[_rf('S1', after_step=2, labels={'7': 'q'}),
+                                                                         _rf('S2', after_step=4)]).validate(), 'CHS_LABEL_LEGEND'))
+        check('V214-F14-LABELS-SENTENCE-REQUIRED', _rc(lambda: _chsblk(labels_sentence_index=None).validate(),
+                                                       'CHS_LABELS_SENTENCE'))
+        check('V214-F14-LABELS-SENTENCE-OTHER-SCRIPT',
+              _chsblk(deduction=['परमाणु a, b और c एलीन कार्बन हैं।',
+                                 'The allene attacks C3 to give intermediate I.',
+                                 'Both ring-fusion stereocentres are retained.',
+                                 'A 1,2-silyl shift then ring closure give Option 3, +H2 relative to the product.']).validate() is True)
+        check('V214-F14-STEREO-SENTENCE-REQUIRED', _rc(lambda: _chsblk(stereo_sentence_index=None).validate(),
+                                                       'CHS_STEREO_SENTENCE'))
+        check('V214-F14-STEREO-SENTENCE-NEEDS-CONTENT', _rc(lambda: _chsblk(stereo_sentence_index=1).validate(),
+                                                            'CHS_STEREO_SENTENCE'))
+        # §5 item 7 — balance sentences are re-computed
+        check('V214-BALANCE-WRONG', _rc(lambda: _chsblk(deduction=_ded('Ring closure: C10H16O gives C10H14O + H2O, Option 3, +H2.')).validate(),
+                                        'CHS_BALANCE_SENTENCE'))
+        check('V214-BALANCE-RIGHT-PASSES', balance_sentence_findings(
+            'Atom balance: C₁₄H₁₈N₂O₂S²⁻ gives C₇H₁₁⁻ + '
+            'C₇H₇O₂S⁻ + N₂.') is True)
+        # F-10 — a figure sits under the sentence it draws
+        check('V214-F10-FIGURE-UNDER-WRONG-SENTENCE',
+              _rc(lambda: _chsblk(figures=[_rf('S1', after_step=2), _rf('S2', after_step=2, captions=['norbornyl cation'])]
+                                  ).validate(), 'CHS_FIGURE_ANCHOR'))
+        # F-12 — the library checks prose in EVERY section
+        _cfgL = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, **{k: v for k, v in chem_library_config(None).items()
+                                                                       if k.startswith('chem_')})
+        check('V214-F12-LIBRARY-LOADED', any(c == 'EX-CHEM-18' for c, _t, _f in _cfgL.chem_learnings_contradicts))
+        check('V214-F12-WHY-WRONG-CONTRADICTION',
+              _rc(lambda: _chsblk(cfg=_cfgL, why_wrong={1: ['A diazo compound gives a carbene by the Bamford-Stevens '
+                                                           'pathway under protic conditions.'],
+                                                       2: ['Without the silyl shift the ring would be four-membered.'],
+                                                       4: ['Swapping the methyl and silyl carbons puts Si on C2.']}).validate(),
+                  'CHEM_LIBRARY_CONTRADICTION'))
+        check('V214-F12-DEFAULT-LIBRARY-WHEN-CFG-SILENT',
+              _rc(lambda: _chsblk(why_wrong={1: ['L-Selectride is a powerful, unselective hydride.'],
+                                             2: ['Without the silyl shift the ring would be four-membered.'],
+                                             4: ['Swapping the methyl and silyl carbons puts Si on C2.']}).validate(),
+                  'CHEM_LIBRARY_CONTRADICTION'))
+        # F-6 — names (table-seeded so the fixture never depends on Java / OPSIN)
+        CHEM_TRIVIAL_NAMES['4-tert-butyl-1-methylcyclohex-1-ene'] = 'CC1=CCC(CC1)C(C)(C)C'
+        CHEM_TRIVIAL_NAMES['5-tert-butyl-1-methylcyclohex-1-ene'] = 'CC1=CCCC(C1)C(C)(C)C'
+        try:
+            _p25 = 'CC1=CCCC(C1)C(C)(C)C'
+            import types as _ty
+            _b25 = _ty.SimpleNamespace(q=25, answer_smiles=_p25, transformation_chain=['CC1CCCC(C1Br)C(C)(C)C', _p25],
+                                       option_smiles={}, cfg=cfg, paper_kind='mock', stem_defect=None,
+                                       axiom=[], deduction=['x'], speed_hack=None, why_wrong={}, common_pitfalls={})
+            _rec25 = {'stem_text': 'Which stereoisomer gives 4-tert-butyl-1-methylcyclohex-1-ene as the major product?'}
+            check('V214-F6-STEM-NAME-MISMATCH', any(c == 'CHS_STEM_NAME_MISMATCH' for c, _ in stem_name_findings(_b25, _rec25)))
+            _rec25ok = {'stem_text': 'Which stereoisomer gives 5-tert-butyl-1-methylcyclohex-1-ene as the major product?'}
+            check('V214-F6-STEM-NAME-RIGHT-PASSES', not stem_name_findings(_b25, _rec25ok))
+            _b25.deduction = ['x', 'The product is 5-tert-butyl-1-methylcyclohex-1-ene, the compound the stem name '
+                                   'denotes, which is also called 4-tert-butyl-1-methylcyclohex-1-ene.']
+            _pn, _un = prose_name_findings(_b25, _rec25, [_p25])
+            check('V214-F6-PROSE-FALSE-EQUIVALENCE', any(c == 'CHS_PROSE_NAME_FALSE' for c, _ in _pn))
+            check('V214-F6-RELATIVE-NAME-ACCEPTS-ENANTIOMER',
+                  name_matches_species('CC(=O)O[C@@H]1CCCC[C@H]1I', 'CC(=O)O[C@H]1CCCC[C@@H]1I',
+                                       'trans-2-iodocyclohexyl acetate') is True)
+            check('V214-F6-ABSOLUTE-NAME-REJECTS-ENANTIOMER',
+                  name_matches_species('C[C@@H](O)CC', 'C[C@H](O)CC', '(R)-butan-2-ol') is False)
+        finally:
+            CHEM_TRIVIAL_NAMES.pop('4-tert-butyl-1-methylcyclohex-1-ene', None)
+            CHEM_TRIVIAL_NAMES.pop('5-tert-butyl-1-methylcyclohex-1-ene', None)
+        # trivial-name table: every entry parses and keeps its formula (asserted at release)
+        try:
+            from rdkit import Chem as _Ct
+            check('V214-F6-TRIVIAL-TABLE-PARSES', all(_Ct.MolFromSmiles(v) is not None for v in CHEM_TRIVIAL_NAMES.values()))
+            _mt = _Ct.MolFromSmiles(CHEM_TRIVIAL_NAMES['meso-tartaric acid'])
+            check('V214-F6-MESO-TARTARIC-IS-MESO', _chs_mirror(CHEM_TRIVIAL_NAMES['meso-tartaric acid'])
+                  == _chs_can(CHEM_TRIVIAL_NAMES['meso-tartaric acid'], True))
+        except Exception:
+            check('V214-F6-TRIVIAL-TABLE-PARSES', False)
+        # T-25 — OPSIN absent never raises, never halts
+        _st = dict(_OPSIN_STATE)
+        _OPSIN_STATE.update({'checked': True, 'available': False, 'why': 'fixture: Java runtime not found'})
+        try:
+            check('V214-T25-OPSIN-ABSENT-NO-RAISE', isinstance(names_to_smiles(['some unknown name xyz']), dict)
+                  and opsin_status()['available'] is False)
+        finally:
+            _OPSIN_STATE.clear(); _OPSIN_STATE.update(_st)
+        # the engine's own EC-41 counter
+        _lp = os.path.join(tempfile.gettempdir(), 'st_v214_ledger_paper.docx')
+        try:
+            os.remove(_chs_ledger_path(_lp))
+        except OSError:
+            pass
+        _l0 = chs_attempts(_lp, 1)
+        _led = chs_ledger_load(_lp); _led.setdefault('attempts', {})['1'] = 3; chs_ledger_save(_lp, _led)
+        check('V214-T03-ENGINE-COUNTER', _l0 == 0 and chs_attempts(_lp, 1) == 3)
+        check('V214-T03-EC41-AFTER-3-REPRODUCES', not chs_verify_block(_ur({'code': 'EC41_BOUND'}), {}, _lp))
+        _rl = chs_report_lines([_ur({'code': 'EC41_BOUND'})], _lp)
+        check('V214-R3-LINES-ENGINE-WRITTEN', any('APPLIES-UNRENDERABLE' in x for x in _rl['r3']))
+    # T-23 — byte identity for non-chemistry blocks: no RE-25 field, no new obligation
+    _plain = ExplanationBlock(q=1, ca=2, cfg=cfg, axiom=['Momentum is conserved in every collision.'],
+                              deduction=['The total momentum before equals the total after.', 'So Option 2.'],
+                              why_wrong={1: ['x.'], 3: ['y.'], 4: ['z.']})
+    check('V214-T23-NON-CHEMISTRY-UNTOUCHED', _plain.validate() is True and _plain.chem_structure_module is None
+          and _plain.axiom == ['Momentum is conserved in every collision.'])
+    # v2.14 — mechanism vocabulary is not a species descriptor (no stereo_claims needed)
+    _proc = ['Anti addition of Br2 is stereospecific.', 'H and Br are anti-periplanar.',
+             'Syn elimination occurs through a cyclic TS.', 'Endo approach is favoured.',
+             'Attack on the exo face gives the product.', 'trans-diaxial opening of the epoxide',
+             'a syn-clinal arrangement of the groups']
+    # v2.14 — a full-stop hydrate formats like a middle-dot one; a decimal never does
+    check('V214-F1-HYDRATE-FULL-STOP',
+          normalise_formula_text('CuSO4.5H2O and Na2CO3.10H2O') == 'CuSO\u2084\u00b75H\u2082O and Na\u2082CO\u2083\u00b710H\u2082O'
+          and normalise_formula_text('pH 4.5H2O; 2.5H2O; Fig 3.2H2O') == 'pH 4.5H2O; 2.5H2O; Fig 3.2H2O')
+    # v2.14 R1 / R2 — a text-only organic question is chemistry content whatever verbs the
+    # stem uses; calculations, non-chemistry subjects and English words never are
+    _gr = {'stem_text': 'Treatment of cyclohexanone with methylmagnesium bromide followed by aqueous work-up gives',
+           'option_texts': ['1-methylcyclohexanol', 'cyclohexanol', '2-methylcyclohexanone', 'methylenecyclohexane']}
+    check('V214-T32-TEXT-ONLY-ORGANIC-IS-CHEMISTRY', chem_content_present(_gr)[0] is True)
+    _neg = [{'stem_text': 'Benzene and toluene form an ideal solution. The mole fraction of benzene in the vapour is',
+             'option_texts': ['0.6', '0.4', '0.3', '0.7']},
+            {'stem_text': 'Which approach gives the best results?',
+             'option_texts': ['methodological', 'phenomenological', 'ethnological', 'statistical']},
+            {'stem_text': 'The Treaty of Westphalia was signed in', 'option_texts': ['1648', '1658', '1748', '1548']},
+            {'stem_text': '', 'option_texts': []}]
+    check('V214-T33-CALC-AND-NON-CHEM-STAY-NA', all(chem_content_present(r)[0] is False for r in _neg))
+    # v2.14 H-0 — verify reads the PRINTED question text; a text-only item with no record is re-decided
+    _pd = Document()
+    _pd.add_paragraph('Q.1  ' + _gr['stem_text'])
+    for _i, _o in enumerate(_gr['option_texts'], 1):
+        _pd.add_paragraph(f'{_i}.  {_o}')
+    _pd.add_paragraph(cfg.labels['correct_answer'] + ': 1')
+    _pd.add_paragraph('Q.2  The Treaty of Westphalia was signed in')
+    for _i, _o in enumerate(['1648', '1658', '1748', '1548'], 1):
+        _pd.add_paragraph(f'{_i}.  {_o}')
+    _prs = chs_printed_records(_pd, cfg)
+    check('V214-T34-PRINTED-RECORDS-READ',
+          _prs.get(1, {}).get('option_texts') == _gr['option_texts']
+          and _prs.get(1, {}).get('stem_text') == _gr['stem_text']
+          and _prs.get(2, {}).get('option_texts') == ['1648', '1658', '1748', '1548'])
+    _nab = _chsblk(chem_structure_module={'status': 'NOT_APPLICABLE', 'reason': 'NA-NO-CHEM-CONTENT'})
+    check('V214-T35-PRINTED-TEXT-CONTRADICTS-NA',
+          any(c == 'CHS_NA_CONTRADICTED' for c, _ in chs_verify_block(_nab, _prs[1], 'x.docx'))
+          and not any(c == 'CHS_NA_CONTRADICTED' for c, _ in chs_verify_block(_nab, _prs[2], 'x.docx')))
+    check('V214-T36-PRINTED-RECORDS-NEVER-RAISE', chs_printed_records(None, cfg) == {})
+    # v2.14 — full build -> verify with records={} (every PYQ / mock call): a text-only
+    # organic item marked NA is contradicted (code in the message, OPSIN line in the footer
+    # when OPSIN is absent); a non-chemistry paper gains no finding and no footer line
+    def _e2e_blk(q, ca):
+        return ExplanationBlock(q=q, ca=ca, cfg=cfg, axiom=['A rule that holds with its reason stated here.'],
+            deduction=['A first step gives the result stated here.', f'That result is Option {ca} here.'],
+            why_wrong={k: [f'Option {k} applies the rule to the wrong quantity here.'] for k in range(1, 5) if k != ca},
+            chem_structure_module={'status': 'NOT_APPLICABLE', 'reason': 'NA-NO-CHEM-CONTENT'},
+            transfer_record=[{'section': 'AXIOM', 'claim': 'the rule holds', 'epistemic_type': 'SCIENTIFIC_GENERAL_RULE',
+                              'scope': 'this item', 'neighbour_tested': 'a neighbouring item', 'outcome': 'SAFE'}],
+            error_provenance={k: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'wrong quantity'}
+                              for k in range(1, 5) if k != ca})
+    def _e2e(items, tag):
+        _d = Document()
+        for _q, (_st, _op) in enumerate(items, 1):
+            _d.add_paragraph(f'Q.{_q}  {_st}')
+            for _i, _o in enumerate(_op, 1):
+                _d.add_paragraph(f'{_i}.  {_o}')
+            _d.add_paragraph('')
+        _src = os.path.join(tempfile.gettempdir(), f'st_v214_{tag}_src.docx'); _d.save(_src)
+        _out = os.path.join(tempfile.gettempdir(), f'st_v214_{tag}_out.docx')
+        for _lp in (_chs_ledger_path(_out),):
+            try:
+                os.remove(_lp)
+            except OSError:
+                pass
+        _bl = [_e2e_blk(_q, 1) for _q in range(1, len(items) + 1)]
+        build_interleaved_docx(_src, _bl, _out, cfg)
+        return verify_explanations(_out, _bl, cfg, expected_qs=list(range(1, len(items) + 1)), records={}), \
+            chs_report_lines(_bl, _out)['footer_amber']
+    _st_o = dict(_OPSIN_STATE)
+    _OPSIN_STATE.update({'checked': True, 'available': False, 'why': 'fixture: Java runtime not found'})
+    try:
+        (_okc, _pc), _fc = _e2e([(_gr['stem_text'], _gr['option_texts'])], 'chem')
+        (_okn, _pn), _fn = _e2e([('Which ethical and methodical approach gives the best results?',
+                                  ['methodological', 'phenomenological', 'ethnological', 'statistical']),
+                                 ('The Treaty of Westphalia was signed in', ['1648', '1658', '1748', '1548'])], 'nonchem')
+        check('V214-T37-E2E-TEXT-ORGANIC-NA-CONTRADICTED',
+              (not _okc) and any(p.startswith('Q1: CHS_NA_CONTRADICTED') for p in _pc)
+              and any(l.startswith('OPSIN_UNAVAILABLE') for l in _fc))
+        check('V214-T38-E2E-NON-CHEMISTRY-UNCHANGED', _okn and not _pn and _fn == [])
+        # a CHECKER fault is LOUD (CHS_CHECK_FAULT), never a crash and never silent: each guarded
+        # checker is made to raise in turn
+        def _boom(*a, **k):
+            raise RuntimeError('injected fault')
+        _g = globals()
+        for _fn_name, _needle in (('chs_hardening_findings', 'hardening check raised'),
+                                  ('prose_name_findings', 'name check raised')):
+            _orig = _g[_fn_name]
+            try:
+                _g[_fn_name] = _boom
+                _fi = chs_verify_block(_chsblk(), None, 'x.docx', cfg)
+            finally:
+                _g[_fn_name] = _orig
+            check(f'V214-R-CHECK-FAULT-{_fn_name.upper()}',
+                  any(c == 'CHS_CHECK_FAULT' and _needle in m for c, m in _fi))
+        _orig = _g['chs_verify_block']
+        try:
+            _g['chs_verify_block'] = _boom
+            (_okf, _pf), _ = _e2e([(_gr['stem_text'], _gr['option_texts'])], 'fault')
+        finally:
+            _g['chs_verify_block'] = _orig
+        check('V214-R-CHECK-FAULT-VERIFY-LOOP', (not _okf) and any('CHS_CHECK_FAULT' in p for p in _pf))
+        check('V214-R-CHECK-FAULT-NAME-CHECK-ITEM',
+              [c for c, _ in name_check_item('x', [], option_smiles={'not-a-number': 'CCO'})] == ['CHS_CHECK_FAULT'])
+    finally:
+        _OPSIN_STATE.clear(); _OPSIN_STATE.update(_st_o)
+    # v2.14 — the library check: a negated clause states the true chemistry (never a hit);
+    # the rule is triggered by the whole block; a false assertion is still caught
+    from types import SimpleNamespace as _NS
+    def _lib(sents, ctx=()):
+        return [m for _, m in library_contradiction_findings(
+            _NS(q=1, axiom=list(ctx), deduction=list(sents), speed_hack=[], why_wrong={}, common_pitfalls={}))]
+    check('V214-F12-NEGATED-CLAUSE-NOT-A-CONTRADICTION',
+          not _lib(['NaBH4 does not reduce the ester.', 'NaBH4 fails to reduce the carboxylic acid.',
+                    'H2 with Lindlar catalyst never gives a trans alkene.',
+                    'L-Selectride is not unselective; it is highly stereoselective.']))
+    check('V214-F12-BLOCK-TRIGGER-AND-FALSE-CLAIM-CAUGHT',
+          bool(_lib(['The carbene forms under protic conditions.'], ['The tosylhydrazone is treated with NaOMe (Bamford–Stevens).']))
+          and bool(_lib(['NaBH4 reduces the ester to the alcohol.']))
+          and bool(_lib(['This is not an SN\u2082 reaction.'])))
+    # v2.14 F-6 — the prose name check flags a WRONG-LOCANT claim (an isomer of a species,
+    # asserted) and never a neighbour named for comparison / transfer / a denied alternative
+    _pn = names_to_smiles(['2-methyl-5-tert-butylcyclohexan-1-ol'])
+    _pp = _pn.get('2-methyl-5-tert-butylcyclohexan-1-ol') or 'CC1CCC(CC1O)C(C)(C)C'
+    def _pnf(sents):
+        return [c for c, _ in prose_name_findings(_NS(q=1, axiom=[], deduction=sents, speed_hack=[], why_wrong={},
+                                                     common_pitfalls={}, stem_defect=None),
+                                                 None, ['CC1=CCC(C(C)(C)C)CC1', _pp])[0]]
+    if opsin_status()['available']:
+        check('V214-F6-PROSE-NAME-ISOMER-CLAIM-FLAGGED',
+              _pnf(['Hydroboration-oxidation gives 2-methyl-4-tert-butylcyclohexan-1-ol.']) == ['CHS_PROSE_NAME_FALSE'])
+        check('V214-F6-PROSE-NAME-NEIGHBOUR-NOT-FLAGGED',
+              not _pnf(['Unlike 4-tert-butylcyclohexan-1-one, the alkene has no carbonyl to reduce.',
+                        'Hydroboration-oxidation gives 2-methyl-5-tert-butylcyclohexan-1-ol, not '
+                        '2-methyl-4-tert-butylcyclohexan-1-ol.']))
+    # v2.14 F-6 — a stem defect is a stem clause ASSERTING a wrong product; a comparison stem
+    # naming the isomers it asks about is never one
+    _cis = 'C[C@@H]1CCCC[C@@H]1C'; _tr = 'C[C@@H]1CCCC[C@H]1C'
+    check('V214-F6-COMPARISON-STEM-NOT-A-DEFECT',
+          not name_check_item('Which is more stable, cis-1,2-dimethylcyclohexane or trans-1,2-dimethylcyclohexane?',
+                              ['A', 'B', 'C', 'D'], answer_smiles=_tr, option_smiles={1: _cis, 2: _tr}))
+    check('V214-T29-PROCESS-WORDS-NOT-DESCRIPTORS',
+          all(not stereo_descriptors_in(t) for t in _proc))
+    _spec = ['The anti diol is formed.', 'The cis isomer forms.', 'The product is trans-stilbene.',
+             'the meso dibromide forms', 'The two Br are anti across the C2-C3 bond.']
+    check('V214-T31-CONFORMATIONAL-ANTI-NOT-CONFIG',
+          not stereo_descriptors_in('In the Newman projection H on C1 lies anti to Br on C2.')
+          and stereo_descriptors_in('In the Newman projection the cis isomer is shown.'))
+    check('V214-T30-SPECIES-DESCRIPTORS-STILL-CAUGHT',
+          all(stereo_descriptors_in(t) for t in _spec))
+
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
@@ -5474,6 +8062,7 @@ def parse_learnings(path):
             'prevention': field('Prevention rule') or field('Rule'),
             'verification': field('Verification'),
             'triggers': field('Triggers'),          # v2.8 — curated-neighbour trigger terms
+            'contradicts': field('Contradicts'),    # v2.14 F-12 — forbidden assertions
             'superseded': bool(field('Supersedes')),
         })
     by_defect = {}

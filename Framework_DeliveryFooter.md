@@ -1,10 +1,9 @@
-# Framework_DeliveryFooter v1.42.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.42.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
-#   MockTestCreate v5.94, MockDeliver v1.27.0). §FOOTER-FT gains the DIFFICULTY LAYER LINES —
-#   bc.difficulty_layer_lines over the paper's recorded difficulty_state.paper_gate / l2_model:
-#   delivered vs target counts, DR3 items (accepted below their slot after full repair, disclosed),
-#   unmeasured slots, the organic ruler's state and the source of its shares. "ℹ️ "-prefixed,
-#   disclosure only; a paper without the records prints nothing (byte-identical).
+# Framework_DeliveryFooter v1.43.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.43.0 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   PYQExplain v2.30, explain_engine v2.14). §LADDER RE-25 gains two engine-written lines:
+#   "OPSIN_UNAVAILABLE — …" (AMBER-CLASS) and "RE-25 open findings on <N> question(s) — …"
+#   (AMBER-CLASS), both taken VERBATIM from the explanation engine's chs_report_lines output ['footer_amber'];
+#   a paper with no RE-25 question prints nothing new (byte-identical).
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
@@ -1028,7 +1027,8 @@ After every present_files call, Claude evaluates:
             "systemic: …", a difficulty or allocation amendment, "difficulty schedule
             unverified…" (EXCEPT its "(no difficulty profile in the project)" variant,
             which is INFORMATIONAL), "renderer degraded (…)", "Q<n> explanation degraded
-            (…)" (Step 9), or "A-READ: …"? The auditor reports
+            (…)" (Step 9), "A-READ: …", or (v1.43.0) "OPSIN_UNAVAILABLE — …" / "RE-25 open
+            findings on …"? The auditor reports
             AMBER figure advisories as WARN lines (no exit 1 — Q8b "ALWAYS complete");
             the certificate is what carries them here.
             YES → Render F1 (AMBER) and print every §LADDER line. The paper IS
@@ -1119,6 +1119,15 @@ force F1 through Q0c; INFORMATIONAL lines (prefix "ℹ️ ") never change the fo
         the three-attempt bound (EC-41) or a figure the layout fallback could not pass.
       - "document size <X> MB (RE-25 figures)" — INFORMATIONAL; printed when a delivered
         docx exceeds 25 MB (EC-37). Never a stop, never an upload instruction.
+  • v1.43.0 — RE-25 HARDENING (GAP-2026-11-07; MockTestExplain v1.55.0 AND PYQExplain v2.30
+    §6A-13). The lines below are WRITTEN BY THE ENGINE — the explanation engine's chs_report_lines
+    output ['footer_amber'] — and printed VERBATIM after the AMBER prefix "⚠️ "; a producer never
+    composes them. ['footer_amber'] also carries, for every APPLIES-UNRENDERABLE question, the
+    v1.41.0 line "Q<n> explanation degraded (RE-25: <evidence code>)":
+      - "OPSIN_UNAVAILABLE — chemical names in stems, options and prose were not checked
+        against the structures in this paper; recorded per question in §R3." — AMBER-CLASS.
+      - "RE-25 open findings on <N> question(s) — listed by question in §R3." — AMBER-CLASS;
+        the §R3 scorecard (the same output's ['scorecard']) lists every code.
   • v1.38.0 (GAP-2026-11-03) QUALITY LINES, Step 7 / Step 11:
       - QUALITY_FOOTER_LINE (S3-2e; bc.degraded_footer_line): "DEGRADED QUALITY — dormant
         controls: <ids> (inputs missing or stale; OD-1: run continued)" — AMBER-CLASS; or

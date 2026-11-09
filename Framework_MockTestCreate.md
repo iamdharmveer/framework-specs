@@ -1,26 +1,12 @@
-# Framework_MockTestCreate v5.94
-# v5.94 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07 D1 (b),
-#   D2 relative, D3, D4, D5, D6, Q1 (c), Q4, Q5 and 2026-11-08 (a); paired with blueprint_core v1.33,
-#   MockTestAnalyse v2.61.0, MockReview v2.1.0, analyse_engine v1.4). Measured 2026-11-07: a
-#   post-graduate organic paper was scheduled Hard 28 and shipped with the blind reviewer grading it
-#   Hard 9; the reviewer's verdict was recorded as a note and never acted on, and nothing counted the
-#   delivered paper against the ORIGINAL schedule. WHAT CHANGES HERE (every exam unless marked):
-#   NEW S3-8L builds the organic decision-load ruler (L2; organic subtopics only, owner Q4) from the
-#   exam's OWN past papers (shares: the Step-5 blind grades of the SAME profile, else the registry
-#   cache, else the blueprint's measured shares — printed), freezes it for the series, and derives the
-#   pattern cards; S3-15L (from the final plan) fixes the target plan and gives each organic slot a
-#   pattern source (never a past question, D6);
-#   CHECK 3c gains (b0) (the L2 band is the organic item's content evidence; L1 is informational for
-#   it) and ONE generic rule: a slot measured BELOW its band is re-authored (DR1 next pattern source,
-#   DR2 band-target brief, inside the one G-DIFF budget) and then CARRIED TO REVIEW at its band
-#   (decision 'carried_below') instead of the R5 easier relabel; the band-swap escape also updates the
-#   TARGET plan (batch_state 'difficulty_plan_target', count-neutral). S13-2G phase 1 gives the
-#   reviewer the concept vocabulary; phase 3 replaces DL-52 with bc.dl_phase3_decision (reviewer band
-#   when anchored, the in-batch measured band, the L2 ruler on the lower of author / reviewer
-#   concepts): round 1 BELOW -> a repair, round 2 BELOW -> DR3, the only relabel, disclosed. NEW S13-2L
-#   counts the paper against the target plan (bc.difficulty_paper_gate). S13-4 caches the blind
-#   grades in the registry; S13-6 prints bc.difficulty_layer_lines. Nothing here stops (C1); no
-#   certificate effect (C2); no new user action (C4). Entry v5.93 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v5.95
+# v5.95 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   PYQExplain v2.30, explain_engine v2.14, corpus_io v1.20). One S7-QUALITY field and one
+#   authoring check, nothing else: option_text_smiles (every TEXT option that names a species
+#   gets its structure, RC-17 / owner Q10 (a)); the NAME CHECK AT
+#   AUTHORING (explain_engine.name_check_item: a stem or text option whose name is not the
+#   structure it must be is a defect and the item is regenerated, RC-6). OPSIN is installed
+#   once per session by the engine; absent -> NAME_UNRESOLVED recorded, never a stop. Entry v5.94
+#   moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -7033,6 +7019,28 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           (draw_fn, '2E,4Z' | '(2R,3S)' | 'none') — owner Q-A; S10-8 runs
                           bc.stereo_declaration_check before the figure is accepted
                           (G-STEREODECL: the author's SMILES must encode the author's intent).
+    option_text_smiles    (v5.95 — RC-17, owner Q10 (a)) {option label: SMILES} for every TEXT
+                          option that names a chemical species: explain_engine.names_to_smiles
+                          (curated table, then OPSIN — installed once per session by the engine),
+                          else the SMILES the author meant, re-parsed by RDKit; an unparsable or
+                          unresolved name is listed in name_unresolved. It feeds the NAME CHECK
+                          below (a record field of THIS step: the registry does not carry it, and
+                          Step 9 re-resolves every printed name itself, MockTestExplain §6A-13 H-2,
+                          so a text-only organic item is still explained with figures).
+    name_unresolved       (v5.95) [names in the stem / text options that neither the curated
+                          table nor OPSIN resolved] — informational, [] when every name
+                          resolved; never a defect by itself (a Step 7 record only — Step 9 resolves
+                          every printed name again and lists its own NAME_UNRESOLVED in MockTestExplain §R3).
+  NAME CHECK AT AUTHORING (v5.95 — GAP-2026-11-07 RC-6 / F-6; [CLASS: D]): before
+  write_q_to_sidecar, run explain_engine.name_check_item(stem_text, option_texts,
+  answer_smiles=<the key's structure>, option_smiles=<option_smiles merged with
+  option_text_smiles>, chain=<the solution's species>). Any CHS_STEM_NAME_MISMATCH (the stem
+  names the product's formula as another structure — a locant error) or
+  CHS_OPTION_NAME_MISMATCH makes the item a DEFECT: the code is the finding's reason on the
+  S10 repair ladder (bc.ladder_entry -> R2, regenerate the same item; L1 — with other
+  findings the lowest rung first), so it is regenerated in this batch, never shipped and
+  never carried as an author note. A CHS_CHECK_FAULT is recorded and the item proceeds.
+  Never a stop of the run.
 
   THE JUDGE PACKET (G02; OD-4 keeps the existing tolerance and R5): CHECK 3c (a) now
   builds its blind input with bc.build_judge_input(item, EXEMPLARS, difficulty_labels) —
@@ -12609,7 +12617,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.94
+# END OF Framework_MockTestCreate v5.95
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

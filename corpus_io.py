@@ -1,7 +1,25 @@
 """
-corpus_io.py v1.19 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.20 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
 
+v1.20 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with explain_engine v2.14).
+    F-4 structure-derived stereo renderers, each PROVED by rebuilding the drawn arrangement in
+    3-D and re-labelling it: render_chair (occupants from an ETKDG/MMFF conformer, ring flip),
+    render_newman / render_sawhorse (dihedral within 10 degrees), render_fischer,
+    render_haworth, render_cip (CIP Rule 1a digraph priorities, printed only when they
+    reproduce rdkit's labeller), render_ts_chair (bonds = the E-03 step's). F-7 Step 7 layout
+    engine for explanations + _depict_on_printed (printed MolBlock coordinates, reflection
+    allowed, MolBlock round-trip identity) + structure_draw_fn .molblock. F-8 no map-number
+    labels; check_ring_locants / ring_locants (fused systems). F-9 engine-drawn notes with a
+    placement search; L1b / L3d / L3e / L3f. F-16 cage set (_cage_atoms) with relaxed L3b / L3c
+    inside it only, CHEM_CAGE_TEMPLATES. F-10 context cells in figure_review_sheet. Draw meta
+    records captions / labels / model / step id for figure_record.
+    Pre-deployment review (2026-11-09): every stereo renderer refuses an unspecified carbon
+    stereocentre (CHS_FIGURE_STEREO_UNSPECIFIED — it would draw an arbitrary configuration),
+    a Newman / sawhorse refuses a non-bond, and every renderer fails ONLY with ValueError
+    (_chs_renderer_errors: a bad map or argument is one EC-41 attempt, never a crash).
+    Printed-coordinate placement is a capability for a caller holding the exact printed
+    MolBlock; no pipeline persists one (project knowledge is size-capped).
 v1.19 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE;
     paired with explain_engine v2.13, figural_core v5.91, PYQExplain v2.28,
     MockTestExplain v1.54.0). Incident: a 120-question chemistry PYQ paper shipped 34
@@ -5725,6 +5743,19 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         draw.palette_note = state['note']
 
     draw.canonical = canon
+    # v1.20 (GAP-2026-11-07 RC-7 / F-7) — the 2-D coordinates the option was PRINTED with
+    # (MolBlock, wedges from the chiral tags) — what a caller passes as printed_molblock when
+    # it holds the exact printed drawing (no pipeline persists it; project knowledge is capped).
+    try:
+        if _native is not None:
+            draw.molblock = Chem.MolToMolBlock(_native.mol)
+        else:
+            from rdkit.Chem import rdDepictor as _rdd
+            _mc = Chem.Mol(mol)
+            _rdd.Compute2DCoords(_mc)
+            draw.molblock = Chem.MolToMolBlock(_mc)
+    except Exception:                                   # noqa: BLE001
+        draw.molblock = None
     draw.coloured_elements = frozenset(present & _coloured)
     draw.element_colours = state['colours']
     draw.highlight = {'atoms': hl_atoms, 'bonds': hl_bonds}
@@ -7047,12 +7078,203 @@ def _depict(mol, template=None):
     return mol
 
 
+# v1.20 F-8 — IUPAC locants of named ring systems: {name: (SMILES of the ring system in
+# locant order, [locant per atom])}. A NUMERIC label a producer prints on an atom of one
+# of these systems must be consistent with SOME IUPAC numbering of it (every symmetry-
+# equivalent numbering is tried); "18/13" on azulene's fusion atoms (3a/8a) or a ring
+# atom labelled "7" in p-menthane is refused at render time (CHS_LABEL_INVALID).
+CHEM_RING_LOCANTS = {
+    'naphthalene': ('c1ccc2ccccc2c1', ['3', '2', '1', '8a', '8', '7', '6', '5', '4a', '4']),
+    'azulene': ('c1ccc2cccc2cc1', ['6', '7', '8', '8a', '1', '2', '3', '3a', '4', '5']),
+    'indole': ('[nH]1ccc2ccccc21', ['1', '2', '3', '3a', '4', '5', '6', '7', '7a']),
+    'quinoline': ('n1cccc2ccccc21', ['1', '2', '3', '4', '4a', '5', '6', '7', '8', '8a']),
+}
+# Semi-systematic (terpene) numberings: applied only when the producer names the
+# compound that way (ring_locants(..., system=)), never enforced on a compound numbered
+# by its own IUPAC parent (a p-menthane skeleton inside a cyclohexenone keeps the
+# cyclohexenone numbering).
+CHEM_TERPENE_LOCANTS = {
+    'p-menthane': ('CC1CCC(CC1)C(C)C', ['7', '1', '2', '3', '4', '5', '6', '8', '9', '10']),
+    'bornane': ('CC12CCC(CC1)C2(C)C', ['10', '1', '2', '3', '4', '5', '6', '7', '8', '9']),
+}
+
+
+def ring_locants(smiles, system=None):
+    """{atom map (or index): locant} for the first named ring system the species
+    contains (or the one named in `system`, CHEM_RING_LOCANTS or CHEM_TERPENE_LOCANTS) —
+    the producer's way to print IUPAC locants instead of guessing them (F-8)."""
+    from rdkit import Chem
+    m = mapped_mol(smiles, keep_h=False)
+    table = dict(CHEM_RING_LOCANTS); table.update(CHEM_TERPENE_LOCANTS)
+    for name, (smi, locs) in table.items():
+        if system and name != system:
+            continue
+        q = Chem.MolFromSmiles(smi)
+        mt = m.GetSubstructMatch(q) if q is not None else ()
+        if mt:
+            return {(m.GetAtomWithIdx(i).GetAtomMapNum() or i): locs[k] for k, i in enumerate(mt)}
+    return {}
+
+
+def _locant_norm(v):
+    v = str(v).strip()
+    m = re.fullmatch(r'C?(\d{1,2}[a-z]?)', v)
+    return m.group(1) if m else None
+
+
+def check_ring_locants(mol, labels):
+    """Raise ValueError('CHS_LABEL_INVALID ...') when numeric labels on a named ring system
+    match no IUPAC numbering of it, or when one figure prints one locant twice
+    (CHS_LABEL_DUPLICATE). `labels`: {map number: text}. Letters, primes, NMR values and
+    model marks are not locants and are not checked here."""
+    from rdkit import Chem
+    if not labels:
+        return True
+    idx_by_map = {a.GetAtomMapNum(): a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum()}
+    lab_idx = {}
+    for k, v in labels.items():
+        i = idx_by_map.get(int(k))
+        n = _locant_norm(v)
+        if i is not None and n is not None:
+            lab_idx[i] = n
+    vals = list(lab_idx.values())
+    dup = sorted({x for x in vals if vals.count(x) > 1})
+    if dup:
+        raise ValueError(f'CHS_LABEL_DUPLICATE: locant(s) {dup} printed on more than one atom of one figure (F-8)')
+    for name, (smi, locs) in CHEM_RING_LOCANTS.items():
+        q = Chem.MolFromSmiles(smi)
+        if q is None:
+            continue
+        try:
+            matches = mol.GetSubstructMatches(q, uniquify=False, maxMatches=500)
+        except Exception:                               # noqa: BLE001
+            continue
+        for mt in matches:
+            on = {i: lab_idx[i] for i in mt if i in lab_idx}
+            if not on:
+                break
+            if all(locs[mt.index(i)] == v for i, v in on.items()):
+                break
+        else:
+            if matches and any(i in lab_idx for i in matches[0]):
+                bad = {lab_idx[i] for i in matches[0] if i in lab_idx}
+                raise ValueError(f'CHS_LABEL_INVALID: locant(s) {sorted(bad)} on the {name} ring system match no '
+                                 f'IUPAC numbering of it ({", ".join(locs)}) — print IUPAC locants (F-8)')
+    return True
+
+
+def _depict_on_printed(mol, molblock):
+    """F-7 / owner Q1 (b). Place `mol` on the coordinates the question PRINTED it with
+    (a Step 7 / PYQ figural MolBlock): full match -> the printed coordinates verbatim;
+    partial match (a condensed group, a fragment) -> GenerateDepictionMatching2DStructure
+    on the maximum common substructure. The printed layout may be the MIRROR of rdkit's own
+    layout; that is safe because the drawer re-derives every wedge from the atoms' chiral
+    tags — an IMAGE is never mirrored. PROOF: a MolBlock round trip with wedges gives the
+    same isomeric identity before and after, else the placement is discarded.
+    Returns True when the printed coordinates were used."""
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor, rdFMCS
+    if not molblock:
+        return False
+    try:
+        pm = Chem.MolFromMolBlock(str(molblock), sanitize=True, removeHs=True)
+    except Exception:                                   # noqa: BLE001
+        pm = None
+    if pm is None or pm.GetNumConformers() == 0:
+        return False
+    before_iso = Chem.MolToSmiles(Chem.RemoveHs(_strip_maps(mol), sanitize=False), isomericSmiles=True)
+    saved = _coords(mol) if mol.GetNumConformers() else None
+    import math
+    c = pm.GetConformer()
+    bl = [math.dist(tuple(c.GetAtomPosition(b.GetBeginAtomIdx()))[:2], tuple(c.GetAtomPosition(b.GetEndAtomIdx()))[:2])
+          for b in pm.GetBonds()]
+    med = sorted(bl)[len(bl) // 2] if bl else 1.0
+    from rdkit.Geometry import Point3D
+    f = 1.5 / (med or 1.0)
+    for i in range(pm.GetNumAtoms()):
+        p = c.GetAtomPosition(i)
+        c.SetAtomPosition(i, Point3D(p.x * f, p.y * f, 0.0))
+    heavy = Chem.Mol(mol)
+    pairs = None
+    mt = mol.GetSubstructMatch(pm, useChirality=False)
+    if mt and len(mt) == pm.GetNumAtoms():
+        pairs = list(zip(range(pm.GetNumAtoms()), mt))
+    else:
+        try:
+            res = rdFMCS.FindMCS([pm, Chem.RemoveHs(_strip_maps(heavy), sanitize=False)], timeout=3,
+                                 ringMatchesRingOnly=True, completeRingsOnly=True)
+            q = Chem.MolFromSmarts(res.smartsString) if res and res.numAtoms >= 3 else None
+            if q is not None:
+                a, b = pm.GetSubstructMatch(q), mol.GetSubstructMatch(q)
+                if a and b and len(a) == len(b) and len(a) >= 0.5 * mol.GetNumHeavyAtoms():
+                    pairs = list(zip(a, b))
+        except Exception:                               # noqa: BLE001
+            pairs = None
+    if not pairs:
+        return False
+    try:
+        if mol.GetNumConformers() == 0:
+            rdDepictor.Compute2DCoords(mol)
+        rdDepictor.GenerateDepictionMatching2DStructure(mol, pm, atomMap=pairs)
+    except Exception:                                   # noqa: BLE001
+        if saved:
+            _set_coords(mol, saved)
+        return False
+    try:
+        mb = Chem.MolToMolBlock(_strip_maps(mol))
+        back = Chem.MolFromMolBlock(mb, sanitize=True, removeHs=True)
+        after_iso = Chem.MolToSmiles(back, isomericSmiles=True) if back is not None else None
+        ref = Chem.MolToSmiles(Chem.MolFromSmiles(before_iso), isomericSmiles=True) if before_iso else None
+    except Exception:                                   # noqa: BLE001
+        after_iso, ref = None, 'x'
+    if after_iso != ref:
+        if saved:
+            _set_coords(mol, saved)
+        return False
+    return True
+
+
+def _strip_maps(mol):
+    from rdkit import Chem
+    m = Chem.Mol(mol)
+    for a in m.GetAtoms():
+        a.SetAtomMapNum(0)
+    return m
+
+
 def _chs_compute_2d(mol):
-    """Fresh 2-D coordinates: rdkit's default depictor first; when that layout clashes
-    (crowded quaternary centres), CoordGen — the global preference flag is restored
-    afterwards so no other renderer's bytes change. Keeps whichever is not distorted
-    (default preferred); when both are, the CoordGen layout, and the L3 gate decides."""
+    """Fresh 2-D coordinates. v1.20 (GAP-2026-11-07-RE25-HARDENING RC-7 / F-7): the
+    explanation lays a molecule out with the SAME engine Step 7 used to print it
+    (_native_layout, CoordGen first) so the student sees one orientation on the question
+    and in its explanation; a cage template (CHEM_CAGE_TEMPLATES, F-16 step 3) is applied
+    when one matches. Fallback, unchanged from v1.19: rdkit's default depictor, then
+    CoordGen when that clashes; the L3 gate decides."""
     from rdkit.Chem import rdDepictor
+    if mol.GetNumConformers() == 0:
+        rdDepictor.Compute2DCoords(mol)
+    try:
+        if _apply_cage_template(mol):
+            return mol
+        _cage = _cage_atoms(mol)
+        _m0, _dep, _note = _native_layout(mol)
+        _cands = []
+        if _m0 is not None and _m0.GetNumAtoms() == mol.GetNumAtoms() and _native_coords_finite(_m0):
+            _cands.append([(x * 1.5, y * 1.5) for (x, y) in _coords(_m0)])
+        if _cage:
+            # F-16 step 2: for a cage, the best of both engines (CoordGen and rdkit)
+            for _w in ('coordgen', 'rdkit'):
+                try:
+                    _mx = _native_depict(mol, _w)
+                    if _native_coords_finite(_mx):
+                        _cands.append([(x * 1.5, y * 1.5) for (x, y) in _coords(_mx)])
+                except Exception:                       # noqa: BLE001
+                    pass
+        for _xy in _cands:
+            _set_coords(mol, _xy)
+            if not _distorted(mol, cage=_cage):
+                return mol
+    except Exception:                                   # noqa: BLE001 — fall back to v1.19
+        pass
     rdDepictor.Compute2DCoords(mol)
     if not _distorted(mol):
         return mol
@@ -7075,26 +7297,96 @@ def _chs_compute_2d(mol):
     return mol
 
 
-def _distorted(mol, bond_tol=0.30, clash=0.55):
+def _cage_atoms(mol):
+    """F-16 step 2 — the CAGE SET: atoms of ring pairs that share more than two atoms
+    (bridged) or exactly one atom (spiro), plus their first-shell neighbours. A 2-D
+    projection of these skeletons cannot keep every bond equal AND every non-bonded pair
+    apart (measured: borneol, camphor, pinene, adamantane, tropane, morphinan, spiroketal);
+    only inside this set are the L3b / L3c limits relaxed."""
+    try:
+        from rdkit import Chem
+        rings = [set(r) for r in Chem.GetSymmSSSR(mol)]
+    except Exception:                                   # noqa: BLE001
+        return set()
+    core = set()
+    for i in range(len(rings)):
+        for j in range(i + 1, len(rings)):
+            n = len(rings[i] & rings[j])
+            if n > 2 or n == 1:
+                core |= rings[i] | rings[j]
+    try:                                                # F-16 step 3: a template core is a cage
+        from rdkit import Chem
+        for _name, (_smi, _xy) in CHEM_CAGE_TEMPLATES.items():
+            _core = Chem.MolFromSmiles(_smi)
+            for _mt in (mol.GetSubstructMatches(_core) if _core is not None else ()):
+                core |= set(_mt)
+    except Exception:                                   # noqa: BLE001
+        pass
+    shell = set(core)
+    for a in core:
+        shell |= {nb.GetIdx() for nb in mol.GetAtomWithIdx(a).GetNeighbors()}
+    return shell
+
+
+CHS_CAGE_BOND_TOL = 0.70      # F-16 step 2 (owner Q6 (a)): bond deviation inside the cage set
+CHS_CAGE_CLASH = 0.30         # F-16 step 2: non-bonded distance inside the cage set
+# F-16 step 3 — textbook cage templates for the residue no layout engine can draw within
+# the relaxed limits (measured: cubane). {name: (core SMILES, [(x, y) per core atom])},
+# coordinates in rdkit depiction units (bond ~1.5), perspective drawings as printed in
+# textbooks. Matched with GenerateDepictionMatching2DStructure on the core atoms.
+CHEM_CAGE_TEMPLATES = {
+    'cubane': ('C12C3C4C1C5C2C3C45',
+               [(0.0, 0.0), (1.5, 0.0), (1.5, 1.5), (0.0, 1.5), (0.65, 2.15), (0.65, 0.65), (2.15, 0.65),
+                (2.15, 2.15)]),
+}
+
+
+def _apply_cage_template(mol):
+    """True when a CHEM_CAGE_TEMPLATES core was found and the molecule depicted on it."""
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor
+    from rdkit.Geometry import Point3D
+    for _name, (smi, xy) in CHEM_CAGE_TEMPLATES.items():
+        core = Chem.MolFromSmiles(smi)
+        if core is None or not mol.HasSubstructMatch(core):
+            continue
+        rdDepictor.Compute2DCoords(core)
+        conf = core.GetConformer()
+        for i, (x, y) in enumerate(xy):
+            conf.SetAtomPosition(i, Point3D(x, y, 0.0))
+        try:
+            rdDepictor.GenerateDepictionMatching2DStructure(mol, core)
+            return True
+        except Exception:                               # noqa: BLE001
+            return False
+    return False
+
+
+def _distorted(mol, bond_tol=0.30, clash=0.55, cage=None):
     """True when a depiction is unreadable: a bond longer/shorter than the median by
-    more than bond_tol, or two non-bonded atoms closer than clash × median bond length."""
+    more than bond_tol, or two non-bonded atoms closer than clash × median bond length.
+    v1.20 F-16: inside `cage` (a set of atom indices, _cage_atoms) the limits are
+    CHS_CAGE_BOND_TOL / CHS_CAGE_CLASH; everywhere else they are unchanged."""
     import math
+    cage = cage or set()
     xy = _coords(mol)
-    L = [math.hypot(xy[b.GetBeginAtomIdx()][0] - xy[b.GetEndAtomIdx()][0],
-                    xy[b.GetBeginAtomIdx()][1] - xy[b.GetEndAtomIdx()][1]) for b in mol.GetBonds()]
+    bl = [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()]
+    L = [math.hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1]) for i, j in bl]
     if not L:
         return False
     med = sorted(L)[len(L) // 2] or 1.0
-    if any(abs(l - med) > bond_tol * med for l in L):
-        return True
-    bonded = {(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()}
-    bonded |= {(j, i) for i, j in bonded}
+    for (i, j), l in zip(bl, L):
+        tol = CHS_CAGE_BOND_TOL if (i in cage and j in cage) else bond_tol
+        if abs(l - med) > tol * med:
+            return True
+    bonded = set(bl) | {(j, i) for i, j in bl}
     n = mol.GetNumAtoms()
     for i in range(n):
         for j in range(i + 1, n):
             if (i, j) in bonded:
                 continue
-            if math.hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1]) < clash * med:
+            lim = CHS_CAGE_CLASH if (i in cage and j in cage) else clash
+            if math.hypot(xy[i][0] - xy[j][0], xy[i][1] - xy[j][1]) < lim * med:
                 return True
     return False
 
@@ -7297,12 +7589,15 @@ def _prep_display(mol, labels, reagent_atoms):
     for a in m.GetAtoms():
         n = a.GetAtomMapNum()
         if n:
-            # default label = the map number, on CARBONS (the locant / letter the prose
-            # cites); a heteroatom draws its symbol and takes a note only when the spec
-            # labels it explicitly
-            lab = labels.get(n, labels.get(str(n), (str(n) if a.GetAtomicNum() == 6 else None)))
+            # v1.20 (GAP-2026-11-07 RC-8 / F-8): a mapped atom prints ONLY the label the
+            # producer declared (a substrate locant, a reagent letter, a fusion locant).
+            # v1.19 printed the internal map number by default, which leaked "20/21",
+            # "11/12" and non-IUPAC "18/13" into delivered figures.
+            lab = labels.get(n, labels.get(str(n)))
             if lab is not None and str(lab) != a.GetSymbol():
-                a.SetProp('atomNote', str(lab))
+                # v1.20 F-9: the ENGINE draws the note (placement search, measured box);
+                # rdkit's own atomNote placement could not be steered off a bond.
+                a.SetProp('_chs_note', str(lab))
             a.SetIntProp('_chs_map', n)
             a.SetAtomMapNum(0)
         if a.GetAtomicNum() == 6 and a.GetFormalCharge() == 0 and not a.GetNumRadicalElectrons() \
@@ -7370,6 +7665,7 @@ def _panel(mol, labels, atom_tints, form_bonds, break_bonds, wrong_bonds, arrows
     P = {i: (d.GetDrawCoords(i).x, d.GetDrawCoords(i).y) for i in range(disp.GetNumAtoms())}
     d.FinishDrawing()
     im = Image.open(io.BytesIO(d.GetDrawingText())).convert('RGB')
+    _measured = {}
     # geometry: bonds, label boxes
     bonds = [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in disp.GetBonds()]
     label_boxes = {}
@@ -7381,10 +7677,45 @@ def _panel(mol, labels, atom_tints, form_bonds, break_bonds, wrong_bonds, arrows
             w = font_px * 0.62 * max(1, len(a.GetSymbol()) + (1 if a.GetFormalCharge() else 0)
                                      + (1 if a.GetTotalNumHs() else 0))
             label_boxes[i] = (x - w / 2, y - font_px * 0.55, x + w / 2, y + font_px * 0.55)
-        if a.HasProp('atomNote'):
-            nw = font_px * 0.8 * 0.62 * len(a.GetProp('atomNote'))
-            nb = (x + font_px * 0.35, y - font_px * 1.05, x + font_px * 0.35 + nw, y - font_px * 0.25)
-            label_boxes[('note', i)] = nb
+    # v1.20 F-9 — engine-drawn notes: for each labelled atom try 12 positions around it
+    # (the free side first) and keep the first whose MEASURED text box crosses no bond, no
+    # atom symbol and no earlier note; the gate (L3/L3d/L3e) re-checks the result.
+    _note_font, _ = _native_font('regular', max(10, int(round(font_px * 0.8))))
+    _ndr = ImageDraw.Draw(im)
+    _placed = []
+    _bsegs = [(P[b.GetBeginAtomIdx()], P[b.GetEndAtomIdx()]) for b in disp.GetBonds()]
+    for a in disp.GetAtoms():
+        if not a.HasProp('_chs_note'):
+            continue
+        i = a.GetIdx(); x, y = P[i]
+        txt = a.GetProp('_chs_note')
+        tw = _ndr.textlength(txt, font=_note_font)
+        th = font_px * 0.8
+        nbv = [(P[n.GetIdx()][0] - x, P[n.GetIdx()][1] - y) for n in a.GetNeighbors()]
+        free = math.atan2(-sum(v[1] for v in nbv), -sum(v[0] for v in nbv)) if nbv else -math.pi / 4
+        cands = [free + math.radians(d) for d in (0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180)]
+        best = None
+        for ang in cands:
+            for rr in (0.95, 1.25):
+                cx_, cy_ = x + math.cos(ang) * font_px * rr, y + math.sin(ang) * font_px * rr
+                bx = (cx_ - tw / 2 - 1, cy_ - th / 2 - 1, cx_ + tw / 2 + 1, cy_ + th / 2 + 1)
+                if any(_seg_box_hit(p_, q_, bx) for p_, q_ in _bsegs):
+                    continue
+                if any(_boxes_overlap(bx, ob) for ob in _placed):
+                    continue
+                if any(_boxes_overlap(bx, lb) for k_, lb in label_boxes.items() if k_ != i):
+                    continue
+                best = bx
+                break
+            if best:
+                break
+        if best is None:
+            ang = free
+            cx_, cy_ = x + math.cos(ang) * font_px * 0.95, y + math.sin(ang) * font_px * 0.95
+            best = (cx_ - tw / 2 - 1, cy_ - th / 2 - 1, cx_ + tw / 2 + 1, cy_ + th / 2 + 1)
+        _ndr.text((best[0] + 1, best[1] - th * 0.05), txt, fill='#0040B3', font=_note_font)
+        _placed.append(best)
+        label_boxes[('note', i)] = best
     # curly arrows
     dr = ImageDraw.Draw(im)
     arrow_geoms = []
@@ -7436,7 +7767,9 @@ def _panel(mol, labels, atom_tints, form_bonds, break_bonds, wrong_bonds, arrows
                 'arrows': [{'pts': [sh(p) for p in g['pts']], 'start_atoms': g['start_atoms'],
                             'end_atoms': g['end_atoms'], 'tip': sh(g['tip']), 'target': sh(g['target'])}
                            for g in arrow_geoms],
-                'captions': [], 'bond_px': bond_px, 'font_px': font_px}
+                'captions': [], 'bond_px': bond_px, 'font_px': font_px,
+                'cage': sorted(_cage_atoms(disp)),
+                'notes_measured': bool(_measured)}
     return _Panel(im, geometry, caption)
 
 
@@ -7665,10 +7998,13 @@ def _layout_findings(panels, offsets, canvas_size, dpi, scale=1.0, ink=None):
         # L3b — atoms that are not bonded never sit closer than 0.55 bond length; L3c — no
         # drawn bond is stretched or squashed by more than 30 % (a distorted depiction)
         import math as _m
+        cage = set(g.get('cage') or ())
         bl = [_m.hypot(atoms[i][0] - atoms[j][0], atoms[i][1] - atoms[j][1]) for (i, j) in g['bonds']]
         if bl:
             med = sorted(bl)[len(bl) // 2] or 1.0
-            if any(abs(l - med) > 0.30 * med for l in bl):
+            # v1.20 F-16 step 2 (owner Q6 (a)): relaxed limits inside the cage set only
+            if any(abs(l - med) > (CHS_CAGE_BOND_TOL if (i in cage and j in cage) else 0.30) * med
+                   for l, (i, j) in zip(bl, g['bonds'])):
                 findings.append('L3c: a drawn bond deviates > 30 % from the median bond length')
             bonded = set(g['bonds']) | {(j, i) for i, j in g['bonds']}
             ids = sorted(atoms)
@@ -7677,12 +8013,52 @@ def _layout_findings(panels, offsets, canvas_size, dpi, scale=1.0, ink=None):
                     i, j = ids[a_], ids[b_]
                     if (i, j) in bonded:
                         continue
-                    if _m.hypot(atoms[i][0] - atoms[j][0], atoms[i][1] - atoms[j][1]) < 0.55 * med:
+                    lim = CHS_CAGE_CLASH if (i in cage and j in cage) else 0.55
+                    if _m.hypot(atoms[i][0] - atoms[j][0], atoms[i][1] - atoms[j][1]) < lim * med:
                         findings.append(f'L3b: atoms {i} and {j} overlap')
                         break
                 else:
                     continue
                 break
+        # v1.20 F-9 — the geometric blind spots of v1.19 (GAP-2026-11-07 RC-9): a note box
+        # crossing a bond (L3d), a note box over another atom's symbol (L3e), a caption over
+        # the drawing (L3f), an arrow crossing another arrow (L1b).
+        sym_boxes = {k: b for k, b in boxes.items() if not isinstance(k, tuple)}
+        for key, nb in boxes.items():
+            if not isinstance(key, tuple):
+                continue
+            own = key[1]
+            shrink = 2.0
+            nbs = (nb[0] + shrink, nb[1] + shrink, nb[2] - shrink, nb[3] - shrink)
+            if nbs[2] <= nbs[0] or nbs[3] <= nbs[1]:
+                continue
+            for (i, j) in g['bonds']:
+                p1, p2 = atoms[i], atoms[j]
+                if own in (i, j):
+                    # the note's own bonds: only the outer 75 % of the bond counts
+                    q0 = p1 if i == own else p2
+                    q1 = p2 if i == own else p1
+                    p1 = (q0[0] + 0.25 * (q1[0] - q0[0]), q0[1] + 0.25 * (q1[1] - q0[1])); p2 = q1
+                if _seg_box_hit(p1, p2, nbs):
+                    findings.append(f'L3d: note of atom {own} lies across bond {i}-{j}')
+                    break
+            for idx, sb in sym_boxes.items():
+                if idx != own and _boxes_overlap(nbs, sb):
+                    findings.append(f'L3e: note of atom {own} covers the symbol of atom {idx}')
+                    break
+        for cb in caps:
+            if any(cb[0] <= p[0] <= cb[2] and cb[1] <= p[1] <= cb[3] for p in atoms.values()):
+                findings.append('L3f: a caption line covers the drawing')
+                break
+        _arr = [[sh(p) for p in ar['pts']] for ar in g['arrows']]
+        for a1 in range(len(_arr)):
+            for a2 in range(a1 + 1, len(_arr)):
+                s1 = list(zip(_arr[a1][:-1], _arr[a1][1:]))[2:-2]
+                s2 = list(zip(_arr[a2][:-1], _arr[a2][1:]))[2:-2]
+                if g['arrows'][a1]['target'] == g['arrows'][a2]['target']:
+                    continue
+                if any(_seg_intersect(p, q, r, t) for p, q in s1 for r, t in s2):
+                    findings.append(f'L1b: arrows {a1} and {a2} cross')
         notes = [(k, b) for k, b in boxes.items() if isinstance(k, tuple)]
         for a in range(len(notes)):
             for b in range(a + 1, len(notes)):
@@ -7888,9 +8264,16 @@ def _render_mechanism(spec, dpi=CHS_FIGURE_DPI, width_in=None, section='DEDUCTIO
     before = _strip_unmoving_h(before, moving); after = _strip_unmoving_h(after, moving)
     tmpl = template
     _depict(before, tmpl)
+    if spec.get('printed_before'):
+        _depict_on_printed(before, spec.get('printed_before'))
     _place_fragments(before, arrows)          # placement angle 0; attempts re-place from here
     _depict(after, before)
+    if spec.get('printed_after'):
+        # F-7: the product is drawn in the orientation the printed option shows
+        _depict_on_printed(after, spec.get('printed_after'))
     labels = {int(k): v for k, v in (spec.get('atom_labels') or {}).items()}
+    check_ring_locants(before, labels)               # v1.20 F-8
+    check_ring_locants(after, labels)
     tints = {int(k): v for k, v in (spec.get('atom_colours') or {}).items()}
     if not tints:
         frags = _fragments(before)
@@ -7949,7 +8332,11 @@ def _render_mechanism(spec, dpi=CHS_FIGURE_DPI, width_in=None, section='DEDUCTIO
                         'canvas': im.size, 'dpi': dpi}
             meta = {'attempts': attempts, 'attempt': att, 'bytes': len(png), 'dpi': dpi,
                     'canvas_px': im.size, 'width_in': im.width / float(dpi), 'section': section,
-                    'target_bytes': CHS_TARGET_BYTES, 'over_target': len(png) > CHS_TARGET_BYTES}
+                    'target_bytes': CHS_TARGET_BYTES, 'over_target': len(png) > CHS_TARGET_BYTES,
+                    # v1.20 — recorded for figure_record (F-0 / F-10 / F-15 d / F-8)
+                    'captions': {'before': list(cap_before), 'after': list(cap)},
+                    'labels': {str(k): str(v) for k, v in labels.items()},
+                    'step_id': spec.get('id'), 'model': None}
             d = MechanismDraw(png, min(width_in, im.width / float(dpi)), meta, identifier, geometry, req, ledger)
             d.after_mol = after
             d.before_mol = before
@@ -8000,7 +8387,7 @@ def figure_layout_audit(draw):
 
 def render_structure_panel(smiles, caption, section='WHY_WRONG', dpi=CHS_FIGURE_DPI, template=None,
                            wrong_bonds=(), form_bonds=(), atom_labels=None, atom_colours=None,
-                           wrong_atoms=()):
+                           wrong_atoms=(), printed_molblock=None, cip=False, cip_atoms=None):
     """Public entry: the E-04 retry for a single-species panel is the in-plane rotation
     schedule (0/90/180/270 — never a mirror) at the section width, then at the full
     DEDUCTION width; a panel that fails every attempt raises CHS_LAYOUT_UNRENDERABLE
@@ -8019,7 +8406,8 @@ def render_structure_panel(smiles, caption, section='WHY_WRONG', dpi=CHS_FIGURE_
             try:
                 d = _render_structure_panel(smiles, [str(x) for x in (caption or [])], section, dpi, template,
                                             wrong_bonds, form_bonds, atom_labels, atom_colours, wrong_atoms,
-                                            rot=rot, width_in=w_in)
+                                            rot=rot, width_in=w_in, printed_molblock=printed_molblock,
+                                            cip=cip, cip_atoms=cip_atoms)
                 d.meta['attempts'] = attempts
                 return d
             except ValueError as exc:
@@ -8032,7 +8420,8 @@ def render_structure_panel(smiles, caption, section='WHY_WRONG', dpi=CHS_FIGURE_
 
 
 def _render_structure_panel(smiles, caption, section, dpi, template, wrong_bonds, form_bonds,
-                            atom_labels, atom_colours, wrong_atoms, rot=0, width_in=None):
+                            atom_labels, atom_colours, wrong_atoms, rot=0, width_in=None,
+                            printed_molblock=None, cip=False, cip_atoms=None):
     """ANNOTATED_STRUCTURE / option panel: one species with persisting labels, the wrong
     bond(s) in WRONG_INK tint, caption inside the image, aligned to `template`. Returns
     MechanismDraw (requirement 'STRUCTURE_GRAPH'); identifier = canonical SMILES + labels."""
@@ -8043,8 +8432,13 @@ def _render_structure_panel(smiles, caption, section, dpi, template, wrong_bonds
     mol = mapped_mol(smiles, keep_h=True)
     mol = _strip_unmoving_h(mol, set())
     _depict(mol, template)
+    _printed_used = _depict_on_printed(mol, printed_molblock) if printed_molblock else False
     _rotate_all(mol, rot)
     labels = {int(k): v for k, v in (atom_labels or {}).items()}
+    check_ring_locants(mol, labels)                      # v1.20 F-8 — raises CHS_LABEL_INVALID
+    _cip_meta = None
+    if cip:
+        mol, labels, _cip_meta = _cip_layer(mol, labels, cip_atoms)
     tints = {int(k): v for k, v in (atom_colours or {}).items()}
     for n in wrong_atoms or ():
         tints[int(n)] = CHS_WRONG_TINT
@@ -8067,14 +8461,20 @@ def _render_structure_panel(smiles, caption, section, dpi, template, wrong_bonds
     if findings:
         raise ValueError('render_structure_panel: layout gate — ' + '; '.join(findings))
     png = _png_bytes(im)
+    _req = 'ANNOTATED_STRUCTURE' if cip else 'STRUCTURE_GRAPH'
     identifier = {'canonical': mechanism_canonical(smiles, stereo=True), 'labels': dict(sorted(labels.items())),
-                  'requirement': 'STRUCTURE_GRAPH'}
+                  'requirement': _req}
+    if _cip_meta:
+        identifier['cip'] = _cip_meta
     meta = {'attempts': 1, 'rotation': rot, 'bytes': len(png), 'dpi': dpi, 'canvas_px': im.size, 'section': section,
             'width_in': im.width / float(dpi), 'target_bytes': CHS_TARGET_BYTES,
-            'over_target': len(png) > CHS_TARGET_BYTES}
+            'over_target': len(png) > CHS_TARGET_BYTES,
+            # v1.20 — what the image carries, for figure_record (F-0 / F-15 d / F-8)
+            'captions': {'after': list(caption or [])}, 'labels': {str(k): str(v) for k, v in labels.items()},
+            'model': 'CIP' if cip else None, 'cip': _cip_meta or {}, 'printed_orientation': bool(_printed_used)}
     d = MechanismDraw(png, min(width_in, im.width / float(dpi)), meta, identifier,
                       {'panels': [p.geometry], 'offsets': [(0, 0)], 'scale': scale, 'canvas': im.size, 'dpi': dpi},
-                      'STRUCTURE_GRAPH', [])
+                      _req, [])
     d.after_mol = mol
     return d
 
@@ -8102,10 +8502,22 @@ def figure_review_sheet(figures, out_png, cols=3, cell_px=560, dpi=CHS_FIGURE_DP
     f, _ = _native_font('bold', 22)
     rows = (len(items) + cols - 1) // cols
     label_h = 32
-    sheet = Image.new('RGB', (cols * cell_px + (cols + 1) * 10, rows * (cell_px + label_h) + (rows + 1) * 10), 'white')
+    # v1.20 F-10 (GAP-2026-11-07 RC-10): an item may be (fig_id, src, context) with context
+    # {'sentence': the sentence the figure follows, 'option': the PRINTED option image
+    # (path / draw) for a WHY WRONG figure, 'captions': the figure's caption claims}. The
+    # reviewer then judges each figure against its sentence and its printed option on ONE
+    # cell (verdicts: ok | mismatch:anchor | mismatch:option | mismatch:claim |
+    # mismatch:legibility). 2-tuples render exactly as v1.19.
+    _ctx_any = any(len(it) > 2 and it[2] for it in items)
+    ctx_h = 150 if _ctx_any else 0
+    sheet = Image.new('RGB', (cols * cell_px + (cols + 1) * 10,
+                              rows * (cell_px + label_h + ctx_h) + (rows + 1) * 10), 'white')
     dr = ImageDraw.Draw(sheet)
+    fr_, _ = _native_font('regular', 18)
     cells = []
-    for k, (fid, src) in enumerate(items):
+    for k, it in enumerate(items):
+        fid, src = it[0], it[1]
+        ctx = it[2] if len(it) > 2 else None
         if isinstance(src, MechanismDraw):
             im = Image.open(io.BytesIO(src.png_bytes))
         elif hasattr(src, 'path'):                       # a RepresentationFigure
@@ -8115,15 +8527,1190 @@ def figure_review_sheet(figures, out_png, cols=3, cell_px=560, dpi=CHS_FIGURE_DP
         else:
             raise ValueError(f'figure_review_sheet: {fid!r} is not a draw, a figure or a path')
         im = im.convert('RGB')
-        s = min(cell_px / im.width, cell_px / im.height, 1.0)
+        opt_im = None
+        if ctx and ctx.get('option') is not None:
+            o = ctx['option']
+            try:
+                opt_im = (Image.open(io.BytesIO(o.png_bytes)) if isinstance(o, MechanismDraw) else
+                          Image.open(o.path if hasattr(o, 'path') else o)).convert('RGB')
+            except Exception:                           # noqa: BLE001
+                opt_im = None
+        avail = cell_px if opt_im is None else (cell_px - 10) // 2
+        s = min(avail / im.width, cell_px / im.height, 1.0)
         im = im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), resample=1)
         r, c = divmod(k, cols)
-        x = 10 + c * (cell_px + 10); y = 10 + r * (cell_px + label_h + 10)
+        x = 10 + c * (cell_px + 10); y = 10 + r * (cell_px + label_h + ctx_h + 10)
         dr.text((x, y), str(fid), fill='#000000', font=f)
-        sheet.paste(im, (x, y + label_h))
-        cells.append({'id': str(fid), 'box': (x, y, x + cell_px, y + label_h + cell_px)})
+        if ctx_h:
+            import textwrap as _tw
+            txt = ''
+            if ctx:
+                txt = 'Sentence: ' + str(ctx.get('sentence') or '—')
+                if ctx.get('captions'):
+                    txt += '  |  Caption: ' + ' / '.join(str(c_) for c_ in ctx['captions'])
+            for li, line in enumerate(_tw.wrap(txt, width=max(20, cell_px // 10))[:6]):
+                dr.text((x, y + label_h + li * 23), line, fill='#333333', font=fr_)
+        sheet.paste(im, (x, y + label_h + ctx_h))
+        if opt_im is not None:
+            so = min(avail / opt_im.width, cell_px / opt_im.height, 1.0)
+            opt_im = opt_im.resize((max(1, int(opt_im.width * so)), max(1, int(opt_im.height * so))), resample=1)
+            sheet.paste(opt_im, (x + avail + 10, y + label_h + ctx_h))
+            dr.text((x + avail + 10, y + label_h + ctx_h - 2), 'printed option', fill='#D55E00', font=fr_)
+        cells.append({'id': str(fid), 'box': (x, y, x + cell_px, y + label_h + ctx_h + cell_px),
+                      'context': bool(ctx)})
     sheet.save(out_png, format='PNG', optimize=True)
     return out_png, {'count': len(items), 'cols': cols, 'rows': rows, 'cells': cells, 'sheets': [out_png]}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v1.20 F-4 — STRUCTURE-DERIVED STEREO RENDERERS (GAP-2026-11-07-RE25-HARDENING RC-4;
+# owner Q5 (a): CHAIR + NEWMAN + SAWHORSE + FISCHER + HAWORTH + CIP layer + TS_CHAIR now,
+# FMO lobe diagrams later). v1.19 had none: §6A-8 A3 / A5 / A11 demanded drawings no
+# renderer could make, so producers drew flat rings captioned "chair". Every renderer
+# here draws FROM the atom-mapped SMILES and PROVES the drawing: the configuration the
+# picture shows is rebuilt as 3-D coordinates from the drawn template and re-labelled by
+# rdkit; a drawing whose re-derived descriptors differ from the input never returns.
+# Deterministic (fixed embedding seed, fixed templates).
+# ═══════════════════════════════════════════════════════════════════════════════
+CHS_EMBED_SEED = 0xC0FFEE
+_GROUP_LABELS = {
+    '*C(C)(C)C': 't-Bu', '*C(C)C': 'i-Pr', '*c1ccccc1': 'Ph', '*CC': 'Et', '*CCC': 'n-Pr', '*CCCC': 'n-Bu',
+    '*C(=O)O': 'COOH', '*C(=O)[O-]': 'COO⁻', '*C(=O)OC': 'CO₂Me', '*C(=O)OCC': 'CO₂Et',
+    '*OC(C)=O': 'OAc', '*C=O': 'CHO', '*C#N': 'CN', '*[N+](=O)[O-]': 'NO₂', '*OC': 'OMe', '*OCC': 'OEt',
+    '*N(C)C': 'NMe₂', '*[N+](C)(C)C': 'NMe₃⁺', '*CO': 'CH₂OH', '*C(C)=C': 'C(Me)=CH₂',
+    '*[Si](C)(C)C': 'SiMe₃', '*C(C)=O': 'COMe', '*C(N)=O': 'CONH₂', '*OS(=O)(=O)c1ccc(C)cc1': 'OTs',
+    '*OS(C)(=O)=O': 'OMs', '*Cc1ccccc1': 'CH₂Ph', '*C=C': 'CH=CH₂', '*C#C': 'C≡CH',
+    '*OCc1ccccc1': 'OBn', '*NC(C)=O': 'NHAc', '*CCO': 'CH₂CH₂OH', '*C(F)(F)F': 'CF₃',
+}
+_SINGLE_ATOM_LABEL = {'C': {3: 'CH₃', 2: 'CH₂', 1: 'CH', 0: 'C'}, 'O': {1: 'OH', 0: 'O'},
+                      'N': {2: 'NH₂', 1: 'NH', 0: 'N'}, 'S': {1: 'SH', 0: 'S'}}
+
+
+def _group_label(mol, root, sub):
+    """Text for the branch that starts at atom `sub` and leaves atom `root` (explicit-H
+    molecule): 'H', 'CH3', 'OH', 't-Bu', 'CO2Me' ... else the branch's Hill formula."""
+    from rdkit import Chem
+    a = mol.GetAtomWithIdx(sub)
+    if a.GetAtomicNum() == 1:
+        return 'H'
+    seen, stack = {root, sub}, [sub]
+    while stack:
+        x = stack.pop()
+        for nb in mol.GetAtomWithIdx(x).GetNeighbors():
+            if nb.GetIdx() not in seen:
+                seen.add(nb.GetIdx()); stack.append(nb.GetIdx())
+    seen.discard(root)
+    heavy = [i for i in seen if mol.GetAtomWithIdx(i).GetAtomicNum() > 1]
+    if len(heavy) == 1:
+        sym = a.GetSymbol()
+        nh = sum(1 for nb in a.GetNeighbors() if nb.GetAtomicNum() == 1)
+        lab = _SINGLE_ATOM_LABEL.get(sym, {}).get(nh, sym + ('H' + (str(nh) if nh > 1 else '') if nh else ''))
+        ch = a.GetFormalCharge()
+        return lab + ('⁺' if ch > 0 else '⁻' if ch < 0 else '')
+    try:
+        rw = Chem.RWMol(mol)
+        keep = set(seen) | {root}
+        for i in sorted(set(range(mol.GetNumAtoms())) - keep, reverse=True):
+            rw.RemoveAtom(i)
+        frag = rw.GetMol()
+        idx = {old: new for new, old in enumerate(sorted(keep))}
+        fr = Chem.RWMol(frag)
+        fr.GetAtomWithIdx(idx[root]).SetAtomicNum(0)
+        fr.GetAtomWithIdx(idx[root]).SetNoImplicit(True)
+        for b in list(fr.GetAtomWithIdx(idx[root]).GetBonds()):
+            if b.GetOtherAtomIdx(idx[root]) != idx[sub]:
+                fr.RemoveBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+        m2 = Chem.RemoveHs(fr.GetMol(), sanitize=False)
+        frags = Chem.GetMolFrags(m2, asMols=True, sanitizeFrags=False)
+        m2 = Chem.RWMol(max(frags, key=lambda f: f.GetNumAtoms()))
+        for _x in m2.GetAtoms():
+            _x.SetAtomMapNum(0)
+        smi = Chem.MolToSmiles(m2.GetMol()).replace('[*]', '*')
+        for k, v in _GROUP_LABELS.items():
+            km = Chem.MolFromSmiles(k)
+            if km is not None and Chem.MolToSmiles(km).replace('[*]', '*') == smi:
+                return v
+    except Exception:                                   # noqa: BLE001
+        pass
+    from collections import Counter
+    c = Counter(mol.GetAtomWithIdx(i).GetSymbol() for i in seen)
+    order = ['C', 'H'] + sorted(k for k in c if k not in ('C', 'H'))
+    sub_ = str.maketrans('0123456789', '₀₁₂₃₄₅₆₇₈₉')
+    return ''.join(f'{k}{(str(c[k]) if c[k] > 1 else "").translate(sub_)}' for k in order if c.get(k))
+
+
+def _chs_embed(mol, n=24):
+    """ETKDG conformers (fixed seed) of an explicit-H molecule, MMFF-optimised when the
+    force field is available. Returns [(conf_id, energy)] sorted by energy."""
+    from rdkit.Chem import AllChem
+    ps = AllChem.ETKDGv3()
+    ps.randomSeed = CHS_EMBED_SEED
+    ids = list(AllChem.EmbedMultipleConfs(mol, numConfs=n, params=ps))
+    if not ids:
+        ps.useRandomCoords = True
+        ids = list(AllChem.EmbedMultipleConfs(mol, numConfs=n, params=ps))
+    out = []
+    try:
+        res = AllChem.MMFFOptimizeMoleculeConfs(mol, maxIters=800)
+        out = [(cid, e) for cid, (conv, e) in zip(ids, res)]
+    except Exception:                                   # noqa: BLE001
+        out = [(cid, 0.0) for cid in ids]
+    return sorted(out, key=lambda t: (round(t[1], 4), t[0]))
+
+
+def _cip_labels(mol):
+    """{atom index: 'R'|'S'} and {(i, j): 'E'|'Z'} by rdkit's new CIP labeller."""
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+    m = Chem.Mol(mol)
+    Chem.AssignStereochemistry(m, cleanIt=True, force=True)
+    try:
+        rdCIPLabeler.AssignCIPLabels(m)
+    except Exception:                                   # noqa: BLE001
+        pass
+    at = {a.GetIdx(): a.GetProp('_CIPCode') for a in m.GetAtoms() if a.HasProp('_CIPCode')}
+    bd = {tuple(sorted((b.GetBeginAtomIdx(), b.GetEndAtomIdx()))): b.GetProp('_CIPCode')
+          for b in m.GetBonds() if b.HasProp('_CIPCode')}
+    return at, bd
+
+
+def _labels_from_coords(mol, xyz):
+    """CIP labels of `mol` (explicit H) re-derived from 3-D coordinates `xyz` alone."""
+    from rdkit import Chem
+    from rdkit.Geometry import Point3D
+    m = Chem.Mol(mol)
+    m.RemoveAllConformers()
+    conf = Chem.Conformer(m.GetNumAtoms())
+    for i, p in enumerate(xyz):
+        conf.SetAtomPosition(i, Point3D(*[float(v) for v in p]))
+    conf.Set3D(True)
+    m.AddConformer(conf, assignId=True)
+    for a in m.GetAtoms():
+        a.SetChiralTag(Chem.ChiralType.CHI_UNSPECIFIED)
+    Chem.AssignStereochemistryFrom3D(m)
+    return _cip_labels(m)
+
+
+def _chs_figure_image(lines, texts, size, bond_px, caption, dpi, ink, dashed=(), bold=(), width_in=None,
+                      section='DEDUCTION'):
+    """Draw line art: lines [(p, q, colour, width)], texts [(p, text, colour)] (px coords
+    in a canvas of `size`), caption inside; returns (PIL image, scale, text boxes)."""
+    from PIL import Image, ImageDraw, ImageOps
+    W, H = size
+    im = Image.new('RGB', (int(W), int(H)), 'white')
+    dr = ImageDraw.Draw(im)
+    for (p, q, col, w) in lines:
+        if (p, q) in dashed:
+            import math
+            L = math.dist(p, q); n = max(4, int(L / 10))
+            for k in range(0, n, 2):
+                a = (p[0] + (q[0] - p[0]) * k / n, p[1] + (q[1] - p[1]) * k / n)
+                b = (p[0] + (q[0] - p[0]) * (k + 1) / n, p[1] + (q[1] - p[1]) * (k + 1) / n)
+                dr.line([a, b], fill=col, width=w)
+        else:
+            dr.line([p, q], fill=col, width=w)
+    font, _ = _native_font('regular', int(CHS_FONT_PX * dpi / CHS_FIGURE_DPI))
+    boxes = []
+    cx0 = sum(p[0] for p, _t, _c in texts) / max(1, len(texts))
+    cy0 = sum(p[1] for p, _t, _c in texts) / max(1, len(texts))
+    for (p, t, col) in texts:
+        tw = dr.textlength(t, font=font)
+        th = CHS_FONT_PX * dpi / CHS_FIGURE_DPI
+        # a label that would overlap an earlier one is moved sideways, then outward (F-9
+        # placement search for engine-drawn stereo figures); the gate below re-checks
+        import math as _mm
+        vx, vy = p[0] - cx0, p[1] - cy0
+        L = _mm.hypot(vx, vy) or 1.0
+        tries = [(0.0, 0.0)] + [(dx, dy) for k in (0.6, 1.0, 1.5) for dx, dy in
+                                ((k * th * (-vy / L) * 1.4, k * th * (vx / L) * 1.4),
+                                 (-k * th * (-vy / L) * 1.4, -k * th * (vx / L) * 1.4),
+                                 (k * th * vx / L, k * th * vy / L))]
+        for dx, dy in tries:
+            q = (p[0] + dx, p[1] + dy)
+            box = (q[0] - tw / 2 - 2, q[1] - th / 2 - 2, q[0] + tw / 2 + 2, q[1] + th / 2 + 2)
+            if not any(_boxes_overlap(box, b) for b in boxes):
+                break
+        dr.text((box[0] + 2, box[1] + 2 - th * 0.1), t, fill=col, font=font)
+        boxes.append(box)
+    from PIL import ImageChops
+    bb = ImageChops.difference(im, Image.new('RGB', im.size, 'white')).getbbox() or (0, 0, W, H)
+    m = int(CHS_FONT_PX * 0.9)
+    im = im.crop((max(0, bb[0] - m), max(0, bb[1] - m), min(W, bb[2] + m), min(H, bb[3] + m)))
+    pnl = _Panel(im, {'atoms': {}, 'bonds': [], 'label_boxes': {}, 'arrows': [], 'captions': [],
+                      'bond_px': bond_px, 'font_px': CHS_FONT_PX}, caption)
+    cap_px = tuple(int(round(c * dpi / CHS_FIGURE_DPI)) for c in CHS_CAPTION_PX)
+    _caption_panel(pnl, list(caption or []), cap_px)
+    im = ImageOps.expand(pnl.image, border=int(CHS_EDGE_PX_300 * dpi / 300.0) + 2, fill='white')
+    width_in = float(width_in or CHS_WIDTH_IN.get(section, 6.0))
+    scale = 1.0
+    if im.width > width_in * dpi:
+        scale = width_in * dpi / im.width
+        im = im.resize((int(im.width * scale), int(im.height * scale)), resample=1)
+    # overlap gate on the drawn text (L3 for these renderers)
+    for a in range(len(boxes)):
+        for b in range(a + 1, len(boxes)):
+            if _boxes_overlap(boxes[a], boxes[b]):
+                raise ValueError('layout gate — L3: two labels of the stereo drawing overlap')
+    return im, scale
+
+
+def _finish_with_caption(body, caption, dpi, width_in, section):
+    from PIL import ImageOps
+    pnl = _Panel(body, {'atoms': {}, 'bonds': [], 'label_boxes': {}, 'arrows': [], 'captions': [],
+                        'bond_px': CHS_BOND_PX, 'font_px': CHS_FONT_PX}, caption)
+    cap_px = tuple(int(round(c * dpi / CHS_FIGURE_DPI)) for c in CHS_CAPTION_PX)
+    _caption_panel(pnl, list(caption or []), cap_px)
+    im = ImageOps.expand(pnl.image, border=int(CHS_EDGE_PX_300 * dpi / 300.0) + 2, fill='white')
+    w = float(width_in or CHS_WIDTH_IN.get(section, 6.0))
+    if im.width > w * dpi:
+        sc = w * dpi / im.width
+        im = im.resize((int(im.width * sc), int(im.height * sc)), resample=1)
+    return im
+
+
+def _stereo_draw(png_im, width_in, dpi, smiles, model, extra_ident, extra_meta, requirement, mol_for_species,
+                 section, caption, labels=None, before_mol=None):
+    png = _png_bytes(png_im)
+    ident = {'canonical': mechanism_canonical(smiles, stereo=True), 'model': model, 'requirement': requirement}
+    ident.update(extra_ident or {})
+    meta = {'attempts': 1, 'bytes': len(png), 'dpi': dpi, 'canvas_px': png_im.size, 'section': section,
+            'width_in': png_im.width / float(dpi), 'target_bytes': CHS_TARGET_BYTES,
+            'over_target': len(png) > CHS_TARGET_BYTES, 'captions': {'after': list(caption or [])},
+            'labels': {str(k): str(v) for k, v in (labels or {}).items()}, 'model': model, 'step_id': None}
+    meta.update(extra_meta or {})
+    d = MechanismDraw(png, min(width_in, png_im.width / float(dpi)), meta, ident,
+                      {'panels': [], 'offsets': [], 'scale': 1.0, 'canvas': png_im.size, 'dpi': dpi},
+                      requirement, [])
+    d.after_mol = mol_for_species
+    if before_mol is not None:
+        d.before_mol = before_mol
+    return d
+
+
+def _ring_order(mol, ring_maps=None, size=6):
+    """Ring atom indices in bond order: the declared maps, else the first ring of `size`."""
+    from rdkit import Chem
+    if ring_maps:
+        mi = {a.GetAtomMapNum(): a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum()}
+        order = [mi[int(m)] for m in ring_maps]
+    else:
+        rings = [list(r) for r in Chem.GetSymmSSSR(mol) if len(r) == size]
+        if not rings:
+            raise ValueError(f'CHS_CONFORMER_UNAVAILABLE: no {size}-membered ring')
+        r = set(rings[0])
+        order = [min(r)]
+        while len(order) < len(r):
+            nxt = [nb.GetIdx() for nb in mol.GetAtomWithIdx(order[-1]).GetNeighbors()
+                   if nb.GetIdx() in r and nb.GetIdx() not in order]
+            order.append(min(nxt))
+    for k in range(len(order)):
+        if mol.GetBondBetweenAtoms(order[k], order[(k + 1) % len(order)]) is None:
+            raise ValueError('CHS_CONFORMER_UNAVAILABLE: ring maps are not in bond order')
+    return order
+
+
+def _chair_template(s=1, h=0.42, phi=0.0, elev=28.0):
+    """Ideal chair: ring position k at angle 60k, z = s*h*(-1)^k; axial unit vector
+    (0, 0, s*(-1)^k); equatorial = outward radial tipped against the axial. Projected
+    with a rotation phi about z and an elevation `elev`."""
+    import math
+    # h = 0.42, phi = 0, elev = 28 reproduce the textbook chair (both tips are atoms, the
+    # back pair above the front pair, axial bonds vertical, every equatorial bond parallel
+    # to the ring bonds once removed); chosen by a parameter search for a simple, two-reflex
+    # outline with near-equal drawn bonds (2026-11-08)
+    P, AX, EQ = [], [], []
+    for k in range(6):
+        t = math.radians(60 * k)
+        z = s * h * (-1) ** k
+        P.append((math.cos(t), math.sin(t), z))
+        AX.append((0.0, 0.0, float(s * (-1) ** k)))
+        e = (math.cos(t), math.sin(t), -0.40 * s * (-1) ** k)
+        L = math.sqrt(sum(c * c for c in e))
+        EQ.append(tuple(c / L for c in e))
+    f, e_ = math.radians(phi), math.radians(elev)
+
+    def proj(p):
+        x, y, z = p
+        xp = x * math.cos(f) - y * math.sin(f)
+        yp = x * math.sin(f) + y * math.cos(f)
+        # a horizontal stretch (an affine map: parallel bonds stay parallel) gives the wide,
+        # flat textbook chair; the stereo proof uses the 3-D template, never these 2-D points
+        return (xp * 1.55, -(z * math.cos(e_) + yp * math.sin(e_)))
+    return P, AX, EQ, proj
+
+
+def _chs_renderer_errors(fn):
+    """v1.20 — a stereo renderer's ONLY failure is ValueError (one §6A-12 EC-41 attempt):
+    an unknown map number, a malformed argument or a non-text caption must never surface
+    as KeyError / IndexError / TypeError and crash the producer's step."""
+    import functools as _ft
+
+    @_ft.wraps(fn)
+    def _w(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        except ValueError:
+            raise
+        except (KeyError, IndexError, TypeError, AttributeError, ZeroDivisionError) as exc:
+            raise ValueError(f'{fn.__name__}: invalid input — {type(exc).__name__}: {exc} '
+                             f'(check the atom maps and arguments; EC-41 attempt)') from exc
+    return _w
+
+
+def _chs_require_specified_stereo(mol, where):
+    """v1.20 — a CHAIR / NEWMAN / SAWHORSE / FISCHER / HAWORTH drawing SHOWS configuration, so
+    an unspecified carbon stereocentre would be drawn with an ARBITRARY configuration. Refuse:
+    the producer passes the stereochemistry the question has (a racemate: one enantiomer,
+    captioned rac — EC-H7)."""
+    from rdkit import Chem
+    try:
+        infos = Chem.FindPotentialStereo(Chem.Mol(mol), cleanIt=True, flagPossible=True)
+    except Exception:                               # noqa: BLE001 — an old rdkit: no guard, never a crash
+        return
+    bad = []
+    for si in infos:
+        if si.type != Chem.StereoType.Atom_Tetrahedral or si.specified != Chem.StereoSpecified.Unspecified:
+            continue
+        a = mol.GetAtomWithIdx(si.centeredOn)
+        if a.GetSymbol() == 'C':
+            bad.append(a.GetAtomMapNum() or a.GetIdx())
+    if bad:
+        raise ValueError(f'CHS_FIGURE_STEREO_UNSPECIFIED: {where} would draw an arbitrary configuration at '
+                         f'unspecified stereocentre(s) {sorted(bad)} — pass the configured SMILES (EC-H7: a racemate '
+                         f'is drawn as one enantiomer, captioned rac)')
+
+
+@_chs_renderer_errors
+def render_chair(smiles, caption, ring=None, axial=None, equatorial=None, show_h=None, flip=False,
+                 emphasise=(), atom_labels=None, section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None):
+    """CHAIR (A3 / A11 / EX-CHEM-04). `ring`: six atom maps in bond order (else the first
+    six-membered ring); the chair shown is the one in which every map in `axial` is axial
+    and every map in `equatorial` equatorial, else the MMFF lowest-energy chair;
+    `show_h`: ring maps whose H is drawn (an anti-periplanar β-H); `flip=True` draws the
+    ring-flip partner beside it (⇌). `emphasise`: [(map, map)] bonds drawn in ARROW_INK
+    (the anti-periplanar pair). PROOF: the up / down sides are read from an embedded 3-D
+    conformer; the drawn chair is rebuilt in 3-D from the template and every ring
+    stereocentre's CIP label re-derived from those coordinates must equal the input's."""
+    from rdkit import Chem
+    import math
+    if caption is not None and not isinstance(caption, (list, tuple)):
+        raise ValueError('render_chair: caption must be a list of strings')
+    base = mapped_mol(smiles, keep_h=True)
+    _chs_require_specified_stereo(base, 'render_chair')
+    mH = Chem.AddHs(base, addCoords=False)
+    order = _ring_order(mH, ring, 6)
+    rset = set(order)
+    confs = _chs_embed(mH)
+    if not confs:
+        raise ValueError('CHS_CONFORMER_UNAVAILABLE: 3-D embedding failed (EC-H12)')
+    maps = {a.GetIdx(): a.GetAtomMapNum() for a in mH.GetAtoms() if a.GetAtomMapNum()}
+    idx_of = {v: k for k, v in maps.items()}
+    want_ax = {idx_of[int(m)] for m in (axial or []) if int(m) in idx_of}
+    want_eq = {idx_of[int(m)] for m in (equatorial or []) if int(m) in idx_of}
+    chosen = None
+    for cid, _e in confs:
+        X = [tuple(mH.GetConformer(cid).GetAtomPosition(i)) for i in range(mH.GetNumAtoms())]
+        R = [X[i] for i in order]
+        cx = [sum(p[k] for p in R) / 6.0 for k in range(3)]
+        import numpy as _np
+        A = _np.array([[p[k] - cx[k] for k in range(3)] for p in R])
+        n = _np.linalg.svd(A)[2][2]
+        disp = [float(_np.dot(A[k], n)) for k in range(6)]
+        if not all((disp[k] > 0) != (disp[(k + 1) % 6] > 0) and abs(disp[k]) > 0.12 for k in range(6)):
+            continue                                       # not a chair
+        side, axeq = {}, {}
+        for k, ri in enumerate(order):
+            for nb in mH.GetAtomWithIdx(ri).GetNeighbors():
+                j = nb.GetIdx()
+                if j in rset:
+                    continue
+                v = _np.array(X[j]) - _np.array(X[ri]); v = v / (_np.linalg.norm(v) or 1.0)
+                c = float(_np.dot(v, n))
+                side[j] = (k, 1 if c > 0 else -1)
+                axeq[j] = 'ax' if abs(c) > 0.7 else 'eq'
+        if any(axeq.get(j) != 'ax' for j in want_ax) or any(axeq.get(j) != 'eq' for j in want_eq):
+            continue
+        chosen = (order, side, axeq, n, disp, cid)
+        break
+    if chosen is None:
+        raise ValueError('CHS_CONFORMER_UNAVAILABLE: no chair places the requested groups axial / equatorial')
+    order, side, axeq, n, disp, _cid = chosen
+    # orient: ring position 0 is an "up" atom and traversal is counter-clockwise seen from +n
+    import numpy as _np
+    k0 = next(k for k in range(6) if disp[k] > 0)
+    order = order[k0:] + order[:k0]
+    side = {j: ((kk - k0) % 6, sd) for j, (kk, sd) in side.items()}
+    X0 = [_np.array(mH.GetConformer(_cid).GetAtomPosition(i)) for i in range(mH.GetNumAtoms())]
+    p0, p1, p2 = X0[order[0]], X0[order[1]], X0[order[2]]
+    if float(_np.dot(_np.cross(p1 - p0, p2 - p1), n)) < 0:
+        order = [order[0]] + order[1:][::-1]
+        side = {j: ((-kk) % 6, sd) for j, (kk, sd) in side.items()}
+
+    def draw_one(s):
+        P, AX, EQ, proj = _chair_template(s)
+        sc = CHS_BOND_PX * 1.25
+        xyz = {}
+        for k, ri in enumerate(order):
+            xyz[ri] = P[k]
+        for j, (k, sd) in side.items():
+            ax_up = (s * (-1) ** k) == 1
+            is_ax = (sd == 1) == ax_up
+            vec = AX[k] if is_ax else EQ[k]
+            L = 1.0 if is_ax else 1.0
+            xyz[j] = tuple(P[k][c] + vec[c] * L for c in range(3))
+        return P, AX, EQ, proj, sc, xyz
+    # PROOF on the drawn template(s)
+    ref_at, _ = _cip_labels(mH)
+    for s in ((1, -1) if flip else (1,)):
+        P, AX, EQ, proj, sc, xyz = draw_one(s)
+        full = []
+        for i in range(mH.GetNumAtoms()):
+            if i in xyz:
+                full.append(xyz[i])
+            else:
+                # atoms beyond the first shell: continue the bond from the drawn neighbour
+                nb = [x.GetIdx() for x in mH.GetAtomWithIdx(i).GetNeighbors() if x.GetIdx() in xyz]
+                full.append(tuple(c + 0.5 * (i % 3 - 1) for c in (xyz[nb[0]] if nb else (5.0, 5.0, 5.0))))
+        # fill the remaining atoms from the embedded conformer, translated (no stereocentre there
+        # depends on them unless it is a ring atom, whose four neighbours are all placed above)
+        got_at, _ = _labels_from_coords(mH, full)
+        for ri in order:
+            if ri in ref_at and got_at.get(ri) != ref_at[ri]:
+                raise ValueError(f'render_chair: the drawn chair gives {got_at.get(ri)} at ring atom {ri}, the '
+                                 f'structure is {ref_at[ri]} — refused (proof failed)')
+    # draw
+    ink = _chs_ink()
+    labels_txt = {int(k): v for k, v in (atom_labels or {}).items()}
+    show = {idx_of[int(m)] for m in (show_h or []) if int(m) in idx_of}
+    emph = {tuple(sorted((idx_of[int(a)], idx_of[int(b)]))) for a, b in (emphasise or [])
+            if int(a) in idx_of and int(b) in idx_of}
+    panels = []
+    occupants = {}
+    for s in ((1, -1) if flip else (1,)):
+        P, AX, EQ, proj, sc, xyz = draw_one(s)
+        pts = {i: (proj(p)[0] * sc, proj(p)[1] * sc) for i, p in xyz.items()}
+        lines, texts = [], []
+        lw = max(2, int(round(CHS_BOND_PX / 18.0 * 1.4)))
+        for k in range(6):
+            a, b = order[k], order[(k + 1) % 6]
+            lines.append((pts[a], pts[b], '#191919', lw))
+        for j, (k, sd) in side.items():
+            ri = order[k]
+            if mH.GetAtomWithIdx(j).GetAtomicNum() == 1 and j not in show and ri not in show:
+                continue
+            col = ink['ARROW_INK'] if tuple(sorted((ri, j))) in emph else '#191919'
+            q = pts[j]
+            lab = _group_label(mH, ri, j)
+            lines.append((pts[ri], q, col, lw + (1 if col != '#191919' else 0)))
+            dx, dy = q[0] - pts[ri][0], q[1] - pts[ri][1]
+            Ld = math.hypot(dx, dy) or 1.0
+            texts.append(((q[0] + dx / Ld * CHS_FONT_PX * 0.9, q[1] + dy / Ld * CHS_FONT_PX * 0.9), lab, col))
+            ax_up = (s * (-1) ** k) == 1
+            occupants.setdefault(s, {})[maps.get(j, f'{lab}@{maps.get(ri, ri)}')] = \
+                'ax' if ((sd == 1) == ax_up) else 'eq'
+        for k, ri in enumerate(order):
+            m_ = maps.get(ri)
+            if m_ in labels_txt:
+                p = pts[ri]
+                texts.append(((p[0] - CHS_FONT_PX * 0.7, p[1] + CHS_FONT_PX * 0.2), str(labels_txt[m_]), '#003399'))
+        xs = [p[0] for p in pts.values()] + [t[0][0] for t in texts]
+        ys = [p[1] for p in pts.values()] + [t[0][1] for t in texts]
+        ox, oy = -min(xs) + CHS_FONT_PX * 3, -min(ys) + CHS_FONT_PX * 2
+        sh = lambda p: (p[0] + ox, p[1] + oy)
+        lines = [(sh(p), sh(q), c, w) for p, q, c, w in lines]
+        texts = [(sh(p), t, c) for p, t, c in texts]
+        size = (max(xs) + ox + CHS_FONT_PX * 3, max(ys) + oy + CHS_FONT_PX * 2)
+        im, _sc = _chs_figure_image(lines, texts, size, CHS_BOND_PX, [], dpi, ink, section=section,
+                                    width_in=(width_in or CHS_WIDTH_IN.get(section, 6.0)) / (2 if flip else 1))
+        panels.append(im)
+    if flip:
+        from PIL import Image, ImageDraw
+        gap = int(CHS_FONT_PX * 3)
+        Hh = max(p.height for p in panels)
+        canvas = Image.new('RGB', (panels[0].width + panels[1].width + gap, Hh), 'white')
+        canvas.paste(panels[0], (0, (Hh - panels[0].height) // 2))
+        canvas.paste(panels[1], (panels[0].width + gap, (Hh - panels[1].height) // 2))
+        dr = ImageDraw.Draw(canvas)
+        f, _ = _native_font('regular', int(CHS_FONT_PX * 1.4))
+        dr.text((panels[0].width + gap * 0.2, Hh / 2 - CHS_FONT_PX), '⇌', fill='#191919', font=f)
+        body = canvas
+    else:
+        body = panels[0]
+    im = _finish_with_caption(body, caption, dpi, width_in, section)
+    occ = {str(k): v for k, v in sorted((occupants.get(1) or {}).items(), key=lambda kv: str(kv[0]))}
+    return _stereo_draw(im, float(width_in or CHS_WIDTH_IN.get(section, 6.0)), dpi, smiles, 'CHAIR',
+                        {'occupants': occ, 'flip': bool(flip)}, {'occupants': occ}, 'CONFORMER',
+                        base, section, caption, labels=atom_labels)
+
+
+def _newman_geometry(smiles, bond, anti=None, gauche=None, dihedral=None):
+    """Embed, set the requested dihedral about `bond` (two maps: front, back), return
+    (explicit-H mol, coordinates, front idx, back idx, measured dihedral or None)."""
+    from rdkit import Chem
+    from rdkit.Chem import rdMolTransforms as T
+    base = mapped_mol(smiles, keep_h=True)
+    _chs_require_specified_stereo(base, 'render_newman / render_sawhorse')
+    mH = Chem.AddHs(base, addCoords=False)
+    mi = {a.GetAtomMapNum(): a.GetIdx() for a in mH.GetAtoms() if a.GetAtomMapNum()}
+    if not bond or len(bond) != 2 or any(int(m) not in mi for m in bond):
+        raise ValueError(f'render_newman: bond {bond!r} must be two atom maps present in the SMILES')
+    fa, ba = mi[int(bond[0])], mi[int(bond[1])]
+    if mH.GetBondBetweenAtoms(fa, ba) is None:
+        raise ValueError(f'render_newman: maps {bond[0]} and {bond[1]} are not bonded — a Newman projection '
+                         f'looks along a bond')
+    confs = _chs_embed(mH)
+    if not confs:
+        raise ValueError('CHS_CONFORMER_UNAVAILABLE: 3-D embedding failed (EC-H12)')
+    pair, target = None, None
+    if anti:
+        pair, target = anti, 180.0
+    elif gauche:
+        pair, target = gauche, 60.0
+    elif dihedral is not None:
+        pair, target = dihedral[0], float(dihedral[1])
+    best, measured = confs[0][0], None
+    if pair:
+        x, y = mi[int(pair[0])], mi[int(pair[1])]
+        in_ring = mH.GetBondBetweenAtoms(fa, ba).IsInRing()
+        cands = []
+        for cid, _e in confs:
+            c = mH.GetConformer(cid)
+            if not in_ring:
+                T.SetDihedralDeg(c, x, fa, ba, y, target)
+            d = T.GetDihedralDeg(c, x, fa, ba, y)
+            dev = min(abs(abs(d) - abs(target)), 360 - abs(abs(d) - abs(target)))
+            cands.append((dev, cid, d))
+        cands.sort()
+        dev, best, measured = cands[0]
+        if dev > 10.0:
+            raise ValueError(f'CHS_CONFORMER_UNAVAILABLE: no conformer within 10 degrees of the requested '
+                             f'{target:.0f} dihedral (best {measured:.0f})')
+    X = [tuple(mH.GetConformer(best).GetAtomPosition(i)) for i in range(mH.GetNumAtoms())]
+    return base, mH, X, fa, ba, measured
+
+
+def _newman_angles(mH, X, fa, ba):
+    import numpy as _np
+    pf, pb = _np.array(X[fa]), _np.array(X[ba])
+    axis = pb - pf; axis = axis / _np.linalg.norm(axis)
+    ref = _np.array([0.0, 0.0, 1.0]) if abs(axis[2]) < 0.9 else _np.array([1.0, 0.0, 0.0])
+    u = _np.cross(axis, ref); u /= _np.linalg.norm(u); v = _np.cross(axis, u)
+    def ang(j, origin):
+        w = _np.array(X[j]) - origin
+        w = w - _np.dot(w, axis) * axis
+        # viewer at the FRONT atom looking along the axis: right = u, up = -v keeps the
+        # projection right-handed (the proof below re-derives both centres from it)
+        return float(_np.degrees(_np.arctan2(-_np.dot(w, v), _np.dot(w, u))))
+    front = [(nb.GetIdx(), ang(nb.GetIdx(), pf)) for nb in mH.GetAtomWithIdx(fa).GetNeighbors() if nb.GetIdx() != ba]
+    back = [(nb.GetIdx(), ang(nb.GetIdx(), pb)) for nb in mH.GetAtomWithIdx(ba).GetNeighbors() if nb.GetIdx() != fa]
+    return front, back
+
+
+def _newman_proof(mH, fa, ba, front, back):
+    """Rebuild the DRAWN Newman (front atom at z = 0, back at z = -1, substituents at the
+    drawn angles) in 3-D and re-derive the CIP labels at both carbons."""
+    import math
+    ref_at, _ = _cip_labels(mH)
+    xyz = [None] * mH.GetNumAtoms()
+    xyz[fa] = (0.0, 0.0, 0.0); xyz[ba] = (0.0, 0.0, -1.5)
+    for j, a in front:
+        xyz[j] = (math.cos(math.radians(a)), math.sin(math.radians(a)), 0.35)
+    for j, a in back:
+        xyz[j] = (math.cos(math.radians(a)), math.sin(math.radians(a)), -1.85)
+    for i in range(len(xyz)):
+        if xyz[i] is None:
+            nb = [x.GetIdx() for x in mH.GetAtomWithIdx(i).GetNeighbors() if xyz[x.GetIdx()] is not None]
+            base = xyz[nb[0]] if nb else (3.0, 3.0, 3.0)
+            xyz[i] = (base[0] * 1.6 + 0.1 * (i % 5), base[1] * 1.6 + 0.1 * (i % 7), base[2] + 0.2 * (i % 3 - 1))
+    got, _ = _labels_from_coords(mH, xyz)
+    for c in (fa, ba):
+        if c in ref_at and got.get(c) != ref_at[c]:
+            raise ValueError(f'the drawn projection gives {got.get(c)} at atom {c}, the structure is {ref_at[c]} '
+                             f'— refused (proof failed)')
+
+
+@_chs_renderer_errors
+def render_newman(smiles, bond, caption, anti=None, gauche=None, dihedral=None, emphasise=(),
+                  section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None, sawhorse=False):
+    """NEWMAN (A3; EX-CHEM-09 / -04). `bond`: [front map, back map]; `anti`: [map on front,
+    map on back] drawn anti-periplanar (180 ± 10 degrees), or `gauche` (60), or
+    `dihedral`: ([map, map], degrees). PROOF: the measured dihedral is within 10 degrees
+    of the request; the drawn projection rebuilt in 3-D re-derives the CIP labels of both
+    carbons. `sawhorse=True` draws the same conformation as a sawhorse (SAWHORSE)."""
+    import math
+    if caption is not None and not isinstance(caption, (list, tuple)):
+        raise ValueError('render_newman: caption must be a list of strings')
+    base, mH, X, fa, ba, measured = _newman_geometry(smiles, bond, anti, gauche, dihedral)
+    front, back = _newman_angles(mH, X, fa, ba)
+    try:
+        _newman_proof(mH, fa, ba, front, back)
+    except ValueError as exc:
+        raise ValueError(f'render_newman: {exc}') from exc
+    ink = _chs_ink()
+    mi = {a.GetAtomMapNum(): a.GetIdx() for a in mH.GetAtoms() if a.GetAtomMapNum()}
+    emph = {mi[int(m)] for pair in (emphasise or ()) for m in pair if int(m) in mi}
+    R = CHS_BOND_PX * 1.3
+    lw = max(2, int(round(CHS_BOND_PX / 18.0 * 1.4)))
+    lines, texts = [], []
+    if not sawhorse:
+        cx, cy = R * 2.6, R * 2.4
+        # circle as a polyline
+        pts = [(cx + R * math.cos(t / 36.0 * 2 * math.pi), cy + R * math.sin(t / 36.0 * 2 * math.pi)) for t in range(37)]
+        for a, b in zip(pts[:-1], pts[1:]):
+            lines.append((a, b, '#191919', lw))
+        for j, a in back:
+            ca, sa = math.cos(math.radians(a)), -math.sin(math.radians(a))
+            p = (cx + R * ca, cy + R * sa); q = (cx + R * 1.75 * ca, cy + R * 1.75 * sa)
+            col = ink['ARROW_INK'] if j in emph else '#191919'
+            lines.append((p, q, col, lw))
+            texts.append(((cx + R * 2.15 * ca, cy + R * 2.15 * sa), _group_label(mH, ba, j), col))
+        for j, a in front:
+            ca, sa = math.cos(math.radians(a)), -math.sin(math.radians(a))
+            q = (cx + R * 1.35 * ca, cy + R * 1.35 * sa)
+            col = ink['ARROW_INK'] if j in emph else '#191919'
+            lines.append(((cx, cy), q, col, lw))
+            texts.append(((cx + R * 1.75 * ca, cy + R * 1.75 * sa), _group_label(mH, fa, j), col))
+        size = (cx * 2, cy * 2)
+        model = 'NEWMAN'
+    else:
+        fx, fy = R * 2.2, R * 3.2
+        bx, by = fx + R * 1.3, fy - R * 1.3
+        lines.append(((fx, fy), (bx, by), '#191919', lw))
+        for (cen, cx_, cy_, subs) in ((ba, bx, by, back), (fa, fx, fy, front)):
+            for j, a in subs:
+                ca, sa = math.cos(math.radians(a)), -math.sin(math.radians(a)) * 0.8
+                q = (cx_ + R * 0.95 * ca, cy_ + R * 0.95 * sa)
+                col = ink['ARROW_INK'] if j in emph else '#191919'
+                lines.append(((cx_, cy_), q, col, lw))
+                texts.append(((cx_ + R * 1.35 * ca, cy_ + R * 1.35 * sa), _group_label(mH, cen, j), col))
+        size = (bx + R * 2.4, fy + R * 2.0)
+        model = 'SAWHORSE'
+    im, _ = _chs_figure_image(lines, texts, size, CHS_BOND_PX, caption, dpi, ink, section=section, width_in=width_in)
+    return _stereo_draw(im, float(width_in or CHS_WIDTH_IN.get(section, 6.0)), dpi, smiles, model,
+                        {'dihedral': None if measured is None else round(measured, 1)},
+                        {'dihedral': measured}, 'CONFORMER', base, section, caption)
+
+
+@_chs_renderer_errors
+def render_sawhorse(smiles, bond, caption, **kw):
+    """SAWHORSE — the render_newman conformation drawn as a sawhorse."""
+    return render_newman(smiles, bond, caption, sawhorse=True, **kw)
+
+
+_CHIRAL_SIGN = {}
+
+
+def _chiral_sign():
+    """Calibrate (once) which signed-volume sign rdkit's CHI_TETRAHEDRAL_CCW tag has, on
+    an embedded reference molecule — so the projection renderers decide left / right and
+    up / down from the tag without assuming a convention."""
+    if 'ccw' in _CHIRAL_SIGN:
+        return _CHIRAL_SIGN['ccw']
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    import numpy as _np
+    m = Chem.AddHs(Chem.MolFromSmiles('N[C@@H](C)C(=O)O'))
+    ps = AllChem.ETKDGv3(); ps.randomSeed = CHS_EMBED_SEED
+    AllChem.EmbedMolecule(m, ps)
+    a = m.GetAtomWithIdx(1)
+    nb = [b.GetOtherAtomIdx(1) for b in a.GetBonds()]
+    X = [_np.array(m.GetConformer().GetAtomPosition(i)) for i in nb]
+    c = _np.array(m.GetConformer().GetAtomPosition(1))
+    vol = float(_np.dot(X[1] - X[0], _np.cross(X[2] - X[0], X[3] - X[0])))
+    sign = 1 if vol > 0 else -1
+    _CHIRAL_SIGN['ccw'] = sign if a.GetChiralTag() == Chem.ChiralType.CHI_TETRAHEDRAL_CCW else -sign
+    return _CHIRAL_SIGN['ccw']
+
+
+def _tag_for_positions(mol, centre, pos):
+    """The chiral tag the 3-D positions {neighbour idx: xyz} imply for `centre`."""
+    from rdkit import Chem
+    import numpy as _np
+    a = mol.GetAtomWithIdx(centre)
+    nb = [b.GetOtherAtomIdx(centre) for b in a.GetBonds()]
+    if len(nb) != 4:
+        return None
+    X = [_np.array(pos[i], dtype=float) for i in nb]
+    vol = float(_np.dot(X[1] - X[0], _np.cross(X[2] - X[0], X[3] - X[0])))
+    s = 1 if vol > 0 else -1
+    return Chem.ChiralType.CHI_TETRAHEDRAL_CCW if s == _chiral_sign() else Chem.ChiralType.CHI_TETRAHEDRAL_CW
+
+
+def _projection_proof(mH, choices, tag_of):
+    """Rebuild the molecule with every centre's tag taken from the DRAWN arrangement and
+    compare the isomeric identity with the input."""
+    from rdkit import Chem
+    rw = Chem.RWMol(mH)
+    for c, tag in tag_of.items():
+        rw.GetAtomWithIdx(c).SetChiralTag(tag)
+    m2 = rw.GetMol()
+    Chem.AssignStereochemistry(m2, cleanIt=True, force=True)
+    a = Chem.MolToSmiles(Chem.RemoveHs(_strip_maps(m2)), isomericSmiles=True)
+    b = Chem.MolToSmiles(Chem.RemoveHs(_strip_maps(mH)), isomericSmiles=True)
+    return a == b
+
+
+def _main_chain(mH, chain_maps=None):
+    from rdkit import Chem
+    if chain_maps:
+        mi = {a.GetAtomMapNum(): a.GetIdx() for a in mH.GetAtoms() if a.GetAtomMapNum()}
+        return [mi[int(m)] for m in chain_maps]
+    carbons = [a.GetIdx() for a in mH.GetAtoms() if a.GetSymbol() == 'C' and not a.IsInRing()]
+    best = []
+    import itertools
+    for s_ in carbons:
+        stack = [(s_, [s_])]
+        while stack:
+            x, path = stack.pop()
+            ext = False
+            for nb in mH.GetAtomWithIdx(x).GetNeighbors():
+                j = nb.GetIdx()
+                if j in carbons and j not in path:
+                    stack.append((j, path + [j])); ext = True
+            if not ext and len(path) > len(best):
+                best = path
+    def ox(i):
+        return sum(int(b.GetBondTypeAsDouble()) for b in mH.GetAtomWithIdx(i).GetBonds()
+                   if b.GetOtherAtom(mH.GetAtomWithIdx(i)).GetSymbol() in ('O', 'N'))
+    if best and ox(best[-1]) > ox(best[0]):
+        best = best[::-1]
+    return best
+
+
+@_chs_renderer_errors
+def render_fischer(smiles, caption, chain=None, section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None):
+    """FISCHER (A11 — sugars, amino acids, tartaric acids). The main carbon chain runs
+    top -> bottom with the most oxidised end on top (or `chain`: maps top -> bottom); at
+    each stereocentre the two horizontal groups come towards the viewer, the vertical
+    ones go back. Left / right is decided from the chiral tag (calibrated sign); PROOF:
+    the tags implied by the drawn arrangement rebuild the input's isomeric identity."""
+    from rdkit import Chem
+    if caption is not None and not isinstance(caption, (list, tuple)):
+        raise ValueError('render_fischer: caption must be a list of strings')
+    base = mapped_mol(smiles, keep_h=True)
+    _chs_require_specified_stereo(base, 'render_fischer')
+    mH = Chem.AddHs(base)
+    Chem.AssignStereochemistry(mH, cleanIt=True, force=True)
+    ch = _main_chain(mH, chain)
+    if len(ch) < 3:
+        raise ValueError('CHS_CONFORMER_UNAVAILABLE: no open carbon chain of three or more atoms for a Fischer projection')
+    rows, tag_of = [], {}
+    for k, c in enumerate(ch):
+        a = mH.GetAtomWithIdx(c)
+        others = [nb.GetIdx() for nb in a.GetNeighbors() if nb.GetIdx() not in ch]
+        up = ch[k - 1] if k > 0 else None
+        dn = ch[k + 1] if k + 1 < len(ch) else None
+        if up is not None and dn is not None and len(others) == 2 and a.GetChiralTag() != Chem.ChiralType.CHI_UNSPECIFIED:
+            L, Rr = others
+            pos = {up: (0, 1, -1), dn: (0, -1, -1), L: (-1, 0, 1), Rr: (1, 0, 1)}
+            if _tag_for_positions(mH, c, pos) != a.GetChiralTag():
+                L, Rr = Rr, L
+                pos = {up: (0, 1, -1), dn: (0, -1, -1), L: (-1, 0, 1), Rr: (1, 0, 1)}
+            tag_of[c] = _tag_for_positions(mH, c, pos)
+            rows.append(('centre', c, L, Rr))
+        else:
+            rows.append(('end' if (up is None or dn is None) else 'plain', c, others, None))
+    if not _projection_proof(mH, None, tag_of):
+        raise ValueError('render_fischer: the drawn projection does not rebuild the input stereoisomer — refused')
+    ink = _chs_ink()
+    lw = max(2, int(round(CHS_BOND_PX / 18.0 * 1.4)))
+    step = CHS_BOND_PX * 1.25
+    cx = CHS_BOND_PX * 4.2
+    lines, texts = [], []
+    y = CHS_FONT_PX * 2
+    for n_, row in enumerate(rows):
+        kind, c = row[0], row[1]
+        if n_ > 0:
+            lines.append(((cx, y - step + CHS_FONT_PX * 0.7), (cx, y - CHS_FONT_PX * 0.7), '#191919', lw))
+        if kind == 'centre':
+            _, _, L, Rr = row
+            lines.append(((cx - step, y), (cx + step, y), '#191919', lw))
+            texts.append(((cx - step - CHS_FONT_PX * 1.3, y), _group_label(mH, c, L), '#191919'))
+            texts.append(((cx + step + CHS_FONT_PX * 1.3, y), _group_label(mH, c, Rr), '#191919'))
+        else:
+            # an end or a non-stereogenic chain atom: its condensed group text
+            prev_ = rows[n_ - 1][1] if n_ > 0 else None
+            nxt_ = rows[n_ + 1][1] if n_ + 1 < len(rows) else None
+            att = nxt_ if prev_ is None else prev_
+            lab = _group_label(mH, att, c) if (prev_ is None or nxt_ is None) else \
+                ('C=O' if any(b.GetBondTypeAsDouble() == 2 and b.GetOtherAtom(mH.GetAtomWithIdx(c)).GetSymbol() == 'O'
+                              for b in mH.GetAtomWithIdx(c).GetBonds()) else 'C')
+            texts.append(((cx, y), lab, '#191919'))
+        y += step
+    size = (cx * 2.2, y + CHS_FONT_PX)
+    im, _ = _chs_figure_image(lines, texts, size, CHS_BOND_PX, caption, dpi, ink, section=section, width_in=width_in)
+    _rows = [{'left': _group_label(mH, r[1], r[2]), 'right': _group_label(mH, r[1], r[3])}
+             for r in rows if r[0] == 'centre']
+    return _stereo_draw(im, float(width_in or CHS_WIDTH_IN.get(section, 6.0)), dpi, smiles, 'FISCHER',
+                        {'chain': len(ch), 'rows': _rows}, {}, 'ANNOTATED_STRUCTURE', base, section, caption)
+
+
+@_chs_renderer_errors
+def render_haworth(smiles, caption, ring=None, section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None):
+    """HAWORTH (A11 — pyranoses and furanoses). The ring oxygen sits at the back right,
+    the anomeric carbon on the right, the front edge is bold; each ring carbon's two
+    exocyclic groups are drawn up / down as the chiral tag requires (calibrated sign).
+    PROOF: the tags implied by the drawn up / down arrangement rebuild the input's
+    isomeric identity. `ring`: ring maps starting at the ring O, then C1 (anomeric)."""
+    from rdkit import Chem
+    import math
+    if caption is not None and not isinstance(caption, (list, tuple)):
+        raise ValueError('render_haworth: caption must be a list of strings')
+    base = mapped_mol(smiles, keep_h=True)
+    _chs_require_specified_stereo(base, 'render_haworth')
+    mH = Chem.AddHs(base)
+    Chem.AssignStereochemistry(mH, cleanIt=True, force=True)
+    if ring:
+        mi = {a.GetAtomMapNum(): a.GetIdx() for a in mH.GetAtoms() if a.GetAtomMapNum()}
+        order = [mi[int(m)] for m in ring]
+    else:
+        rings = [list(r) for r in Chem.GetSymmSSSR(mH) if len(r) in (5, 6)
+                 and sum(1 for i in r if mH.GetAtomWithIdx(i).GetSymbol() == 'O') == 1]
+        if not rings:
+            raise ValueError('CHS_CONFORMER_UNAVAILABLE: no pyranose / furanose ring')
+        r = set(rings[0])
+        o = next(i for i in r if mH.GetAtomWithIdx(i).GetSymbol() == 'O')
+        nbs = [nb.GetIdx() for nb in mH.GetAtomWithIdx(o).GetNeighbors() if nb.GetIdx() in r]
+        # C1 = the ring carbon next to O that carries another O (the anomeric carbon)
+        c1 = next((c for c in nbs if any(x.GetSymbol() in ('O', 'N') and x.GetIdx() != o
+                                         for x in mH.GetAtomWithIdx(c).GetNeighbors())), nbs[0])
+        order = [o, c1]
+        while len(order) < len(r):
+            nxt = [nb.GetIdx() for nb in mH.GetAtomWithIdx(order[-1]).GetNeighbors()
+                   if nb.GetIdx() in r and nb.GetIdx() not in order]
+            order.append(nxt[0])
+    n = len(order)
+    # template (x, z) around the ring, y up; O back right, C1 right, ... front edge low z
+    if n == 6:
+        XZ = [(0.75, -0.55), (1.25, 0.15), (0.6, 0.75), (-0.6, 0.75), (-1.25, 0.15), (-0.75, -0.55)]
+    else:
+        XZ = [(0.0, -0.6), (1.05, -0.05), (0.6, 0.7), (-0.6, 0.7), (-1.05, -0.05)]
+    pos3 = {order[k]: (XZ[k][0], 0.0, XZ[k][1]) for k in range(n)}
+    rset = set(order)
+    updown, tag_of = {}, {}
+    for k in range(1, n):
+        c = order[k]
+        a = mH.GetAtomWithIdx(c)
+        exo = [nb.GetIdx() for nb in a.GetNeighbors() if nb.GetIdx() not in rset]
+        if len(exo) != 2:
+            continue
+        up, dn = exo
+        def P(u, d):
+            p = dict((nb, pos3[nb]) for nb in (x.GetIdx() for x in a.GetNeighbors()) if nb in rset)
+            p[u] = (XZ[k][0], 1.0, XZ[k][1]); p[d] = (XZ[k][0], -1.0, XZ[k][1])
+            return p
+        if a.GetChiralTag() != Chem.ChiralType.CHI_UNSPECIFIED:
+            if _tag_for_positions(mH, c, P(up, dn)) != a.GetChiralTag():
+                up, dn = dn, up
+            tag_of[c] = _tag_for_positions(mH, c, P(up, dn))
+        updown[c] = (up, dn)
+    if not _projection_proof(mH, None, tag_of):
+        raise ValueError('render_haworth: the drawn ring does not rebuild the input stereoisomer — refused')
+    ink = _chs_ink()
+    lw = max(2, int(round(CHS_BOND_PX / 18.0 * 1.4)))
+    sc = CHS_BOND_PX * 1.6
+    ox, oy = sc * 2.4, sc * 1.9
+    # stylised Haworth outline: back edge (C5-O) at the top, front edge (C2-C3) bold at
+    # the bottom; same left / right / front / back topology as the proof template XZ
+    _HW6 = {(0.75, -0.55): (0.70, 0.0), (1.25, 0.15): (1.30, 0.65), (0.6, 0.75): (0.70, 1.25),
+            (-0.6, 0.75): (-0.70, 1.25), (-1.25, 0.15): (-1.30, 0.65), (-0.75, -0.55): (-0.70, 0.0)}
+    _HW5 = {(0.0, -0.6): (0.0, 0.0), (1.05, -0.05): (1.0, 0.45), (0.6, 0.7): (0.65, 1.0),
+            (-0.6, 0.7): (-0.65, 1.0), (-1.05, -0.05): (-1.0, 0.45)}
+    _HW = _HW6 if n == 6 else _HW5
+    proj = lambda x, z: (ox + _HW[(x, z)][0] * sc, oy + _HW[(x, z)][1] * sc)
+    lines, texts = [], []
+    for k in range(n):
+        a, b = order[k], order[(k + 1) % n]
+        pa, pb = proj(*XZ[k]), proj(*XZ[(k + 1) % n])
+        front = XZ[k][1] > 0.3 and XZ[(k + 1) % n][1] > 0.3
+        lines.append((pa, pb, '#191919', lw * (3 if front else 1)))
+    po = proj(*XZ[0])
+    texts.append(((po[0], po[1] - CHS_FONT_PX * 0.2), 'O', '#191919'))
+    for k in range(1, n):
+        c = order[k]
+        if c not in updown:
+            continue
+        up, dn = updown[c]
+        p = proj(*XZ[k])
+        for j, dy in ((up, -1), (dn, 1)):
+            inner = (XZ[k][1] > 0.3 and dy < 0) or (XZ[k][1] < -0.3 and dy > 0)
+            q = (p[0], p[1] + dy * sc * (0.22 if inner else 0.45))
+            lines.append((p, q, '#191919', lw))
+            texts.append(((q[0], q[1] + dy * CHS_FONT_PX * 0.62), _group_label(mH, c, j), '#191919'))
+    size = (ox * 2.1, oy * 2.2)
+    im, _ = _chs_figure_image(lines, texts, size, CHS_BOND_PX, caption, dpi, ink, section=section, width_in=width_in)
+    _ud = [{'position': k, 'up': _group_label(mH, order[k], updown[order[k]][0]),
+            'down': _group_label(mH, order[k], updown[order[k]][1])} for k in range(1, n) if order[k] in updown]
+    return _stereo_draw(im, float(width_in or CHS_WIDTH_IN.get(section, 6.0)), dpi, smiles, 'HAWORTH',
+                        {'ring': n, 'updown': _ud}, {}, 'ANNOTATED_STRUCTURE', base, section, caption)
+
+
+def _cip_branch_key(mol, root, parent, depth=0, path=None, limit=24):
+    """CIP Rule 1a hierarchical digraph of the branch at `root` reached from `parent`:
+    (Z, [child keys sorted high -> low]). Multiple bonds and ring closures add DUPLICATE
+    atoms (same Z, no further children); implicit H counts as Z = 1."""
+    path = (path or ()) + (root,)
+    a = mol.GetAtomWithIdx(root)
+    kids = []
+    if depth < limit:
+        for b in a.GetBonds():
+            j = b.GetOtherAtomIdx(root)
+            if j == parent:
+                order = int(round(b.GetBondTypeAsDouble())) if not b.GetIsAromatic() else 1
+                kids += [(mol.GetAtomWithIdx(j).GetAtomicNum(), ())] * max(0, order - 1)
+                continue
+            zj = mol.GetAtomWithIdx(j).GetAtomicNum()
+            if j in path:                                   # ring closure: a duplicate
+                kids.append((zj, ()))
+                continue
+            kids.append(_cip_branch_key(mol, j, root, depth + 1, path, limit))
+            order = int(round(b.GetBondTypeAsDouble())) if not b.GetIsAromatic() else 1
+            if b.GetIsAromatic():
+                order = 2 if (b.GetIdx() % 2 == 0) else 1   # Kekulé-equivalent duplicate (rare tie-break)
+            kids += [(zj, ())] * max(0, order - 1)
+        kids += [(1, ())] * a.GetTotalNumHs()
+    return (a.GetAtomicNum() if a.GetAtomicNum() else 0, tuple(kids))
+
+
+def _cip_sort_key(node, _memo=None):
+    """Total order on digraph nodes, HIERARCHICAL (CIP Rule 1a): sphere by sphere, the
+    duplicated-atom sets of each sphere are compared GROUP BY GROUP in the rank order of
+    their parents (the highest-ranked branch is explored first), not as one pooled set."""
+    memo = {} if _memo is None else _memo
+    k_ = id(node)
+    if k_ in memo:
+        return memo[k_]
+    def ordered_kids(n):
+        return sorted(n[1], key=lambda kid: _cip_sort_key(kid, memo), reverse=True)
+    levels = [((node[0],),)]
+    frontier = [node]
+    for _ in range(24):
+        groups, nxt = [], []
+        for n in frontier:
+            ks = ordered_kids(n)
+            groups.append(tuple(k[0] for k in ks))
+            nxt += ks
+        if not nxt:
+            break
+        levels.append(tuple(groups))
+        frontier = nxt
+    memo[k_] = tuple(levels)
+    return memo[k_]
+
+
+def cip_neighbour_ranks(mol, centre):
+    """[neighbour idx, ...] highest priority first (CIP Rule 1a, hierarchical digraph,
+    duplicate atoms). The caller verifies the descriptor these ranks imply against rdkit's
+    CIP labeller before printing anything."""
+    keys = {}
+    for b in mol.GetAtomWithIdx(centre).GetBonds():
+        j = b.GetOtherAtomIdx(centre)
+        keys[j] = _cip_sort_key(_cip_branch_key(mol, j, centre))
+    order = sorted(keys, key=lambda j: keys[j], reverse=True)
+    ties = any(keys[order[k]] == keys[order[k + 1]] for k in range(len(order) - 1))
+    return order, ties
+
+
+_CIP_PARITY_REF = {}
+
+
+def _descriptor_from_ranks(mol, centre, ranked):
+    """R / S implied by the chiral tag and a priority order (calibrated once on
+    F[C@](Cl)(Br)I against rdkit's CIP labeller — no convention assumed)."""
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+    if 'even_ccw' not in _CIP_PARITY_REF:
+        r = Chem.MolFromSmiles('F[C@](Cl)(Br)I')
+        rdCIPLabeler.AssignCIPLabels(r)
+        # bond order F, Cl, Br, I; priority I, Br, Cl, F = positions (3, 2, 1, 0): an even permutation
+        _CIP_PARITY_REF['even_ccw'] = r.GetAtomWithIdx(1).GetProp('_CIPCode').upper()
+    a = mol.GetAtomWithIdx(centre)
+    nb = [b.GetOtherAtomIdx(centre) for b in a.GetBonds()]
+    if len(nb) != 4 or a.GetChiralTag() not in (Chem.ChiralType.CHI_TETRAHEDRAL_CCW, Chem.ChiralType.CHI_TETRAHEDRAL_CW):
+        return None
+    perm = [nb.index(x) for x in ranked]
+    inv = sum(1 for i in range(4) for j in range(i + 1, 4) if perm[i] > perm[j])
+    flip = (inv % 2 == 1) != (a.GetChiralTag() == Chem.ChiralType.CHI_TETRAHEDRAL_CW)
+    base = _CIP_PARITY_REF['even_ccw']
+    return base if not flip else ('S' if base == 'R' else 'R')
+
+
+def _cip_layer(mol, labels, cip_atoms=None):
+    """CIP priorities 1-4 on the four neighbours of ONE stereocentre (or 1 / 2 at each
+    end of one stereogenic double bond) + an explicit H when H is a neighbour. Ranks from
+    rdkit's legacy _CIPRank; ACCEPTED ONLY where the legacy descriptor equals the new
+    CIP labeller's (else ValueError — never a wrong priority on a page). Returns
+    (mol, labels, cip meta)."""
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+    m = Chem.Mol(mol)
+    maps = {a.GetAtomMapNum(): a.GetIdx() for a in m.GetAtoms() if a.GetAtomMapNum()}
+    want = [maps[int(x)] for x in (cip_atoms or []) if int(x) in maps]
+    Chem.AssignStereochemistry(m, cleanIt=True, force=True)
+    new = Chem.Mol(m); rdCIPLabeler.AssignCIPLabels(new)
+    centres = [a.GetIdx() for a in new.GetAtoms() if a.HasProp('_CIPCode')]
+    if not want:
+        want = centres[:1]
+    if len(want) != 1:
+        raise ValueError('CIP layer: one stereocentre per panel — call render_cip() for several')
+    c = want[0]
+    # explicit H on the centre so priority 4 is drawn
+    mh = Chem.AddHs(m, onlyOnAtoms=[c], addCoords=True)
+    next_map = max([a.GetAtomMapNum() for a in mh.GetAtoms()] + [0]) + 1
+    for a in mh.GetAtoms():
+        if a.GetAtomicNum() == 1 and not a.GetAtomMapNum() and any(n.GetIdx() == c for n in a.GetNeighbors()):
+            a.SetAtomMapNum(next_map); next_map += 1
+    Chem.AssignStereochemistry(mh, cleanIt=True, force=True)
+    n2 = Chem.Mol(mh); rdCIPLabeler.AssignCIPLabels(n2)
+    newd = n2.GetAtomWithIdx(c).GetProp('_CIPCode') if n2.GetAtomWithIdx(c).HasProp('_CIPCode') else None
+    # v1.20 — priorities by the engine's own CIP Rule 1a digraph (rdkit exposes no public
+    # per-neighbour rank; its legacy _CIPRank misorders e.g. CH(Br)Ph vs COOH). PRINTED
+    # ONLY when the descriptor the ranks imply equals the CIP labeller's (else ValueError).
+    ranks, ties = cip_neighbour_ranks(mh, c)
+    implied = _descriptor_from_ranks(mh, c, ranks)
+    if newd is None or ties or implied is None or implied.upper() != newd.upper():
+        raise ValueError(f'CIP layer: the priority order ({implied}, ties={ties}) does not reproduce the CIP '
+                         f'labeller ({newd}) at this centre — the priorities cannot be printed safely '
+                         f'(degrade this figure)')
+    labels = dict(labels)
+    pr = {}
+    for k, i in enumerate(ranks, start=1):
+        mp = mh.GetAtomWithIdx(i).GetAtomMapNum()
+        if not mp:
+            mh.GetAtomWithIdx(i).SetAtomMapNum(next_map); mp = next_map; next_map += 1
+        labels[mp] = str(k)
+        pr[str(mp)] = k
+    from rdkit.Chem import rdDepictor
+    rdDepictor.Compute2DCoords(mh)
+    _chs_compute_2d(mh)
+    meta = {'centres': {str(mh.GetAtomWithIdx(c).GetAtomMapNum() or c): {'descriptor': newd.upper(), 'ranks': pr}}}
+    return mh, labels, meta
+
+
+@_chs_renderer_errors
+def render_cip(smiles, caption, centres=None, section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None):
+    """CIP-ANNOTATED structure (A5; EX-CHEM-16): one panel per stereocentre (`centres`:
+    maps; default every labelled centre), each with priorities 1-4 on that centre's
+    neighbours, the lowest-priority group drawn, and the descriptor + viewing rule in its
+    caption; composed side by side. Model 'CIP'."""
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+    base = mapped_mol(smiles, keep_h=True)
+    rw = Chem.RWMol(base)
+    nxt = max([a.GetAtomMapNum() for a in rw.GetAtoms()] + [0]) + 1
+    for a in rw.GetAtoms():
+        if not a.GetAtomMapNum():
+            a.SetAtomMapNum(nxt); nxt += 1
+    mm = rw.GetMol()
+    smi_m = Chem.MolToSmiles(mm)
+    n2 = Chem.Mol(mm); Chem.AssignStereochemistry(n2, cleanIt=True, force=True); rdCIPLabeler.AssignCIPLabels(n2)
+    allc = [a.GetAtomMapNum() for a in n2.GetAtoms() if a.HasProp('_CIPCode')]
+    want = [int(x) for x in (centres or allc)]
+    if not want:
+        raise ValueError('render_cip: no labelled stereocentre')
+    draws = []
+    for c in want:
+        a = next(x for x in n2.GetAtoms() if x.GetAtomMapNum() == c)
+        d = a.GetProp('_CIPCode') if a.HasProp('_CIPCode') else '?'
+        cap = [f'centre {c}: {d}', 'view with 4 pointing away; 1→2→3 ' +
+               ('clockwise' if d.upper() == 'R' else 'anticlockwise') + f' = {d}']
+        draws.append(render_structure_panel(smi_m, cap, section=section, dpi=dpi, cip=True, cip_atoms=[c]))
+    from PIL import Image
+    import io
+    ims = [Image.open(io.BytesIO(d.png_bytes)).convert('RGB') for d in draws]
+    gap = int(CHS_FONT_PX * 1.5)
+    W = sum(i.width for i in ims) + gap * (len(ims) - 1)
+    H = max(i.height for i in ims)
+    canvas = Image.new('RGB', (W, H), 'white')
+    x = 0
+    for i in ims:
+        canvas.paste(i, (x, 0)); x += i.width + gap
+    width_in = float(width_in or CHS_WIDTH_IN.get(section, 6.0))
+    if canvas.width > width_in * dpi:
+        s_ = width_in * dpi / canvas.width
+        canvas = canvas.resize((int(canvas.width * s_), int(canvas.height * s_)), resample=1)
+    cip = {'centres': {}}
+    caps = []
+    for d in draws:
+        cip['centres'].update(d.meta.get('cip', {}).get('centres', {}))
+        caps += list((d.meta.get('captions') or {}).get('after', []))
+    return _stereo_draw(canvas, width_in, dpi, smiles, 'CIP', {'cip': cip}, {'cip': cip, 'captions': {'after': caps}},
+                        'ANNOTATED_STRUCTURE', base, section, caps)
+
+
+@_chs_renderer_errors
+def render_ts_chair(step, ring, caption, section='DEDUCTION', dpi=CHS_FIGURE_DPI, width_in=None,
+                    placement=None):
+    """TS_CHAIR (Zimmerman–Traxler, Claisen / Cope chair, Ireland–Claisen): the six atoms
+    of the pericyclic ring (`ring`: maps in ring order) on the chair template, the forming
+    bond dashed in FORM ink and the breaking bond dashed grey. `placement`: {map: 'eq'|'ax'}
+    for substituents (default equatorial). PROOF: the forming / breaking bonds equal the
+    bond changes of the E-03-verified mechanism step `step` (before -> after)."""
+    from rdkit import Chem
+    import math
+    ok, why = verify_mechanism_step(step)
+    if not ok:
+        raise ValueError(f'render_ts_chair: {why}')
+    before = mapped_mol(step['before'], keep_h=True); after = mapped_mol(step['after'], keep_h=True)
+    def bonds(m):
+        mi = {a.GetIdx(): a.GetAtomMapNum() for a in m.GetAtoms()}
+        return {tuple(sorted((mi[b.GetBeginAtomIdx()], mi[b.GetEndAtomIdx()]))) for b in m.GetBonds()
+                if mi[b.GetBeginAtomIdx()] and mi[b.GetEndAtomIdx()]}
+    B, A = bonds(before), bonds(after)
+    ring = [int(x) for x in ring]
+    rb = {tuple(sorted((ring[k], ring[(k + 1) % 6]))) for k in range(6)}
+    forming = sorted((A - B) & rb); breaking = sorted((B - A) & rb)
+    if not forming or not breaking or (A - B) - rb or (B - A) - rb:
+        raise ValueError('render_ts_chair: the ring does not carry exactly the bonds the step forms and breaks')
+    P, AX, EQ, proj = _chair_template(1)
+    sc = CHS_BOND_PX * 1.25
+    ink = _chs_ink()
+    lw = max(2, int(round(CHS_BOND_PX / 18.0 * 1.4)))
+    pts = {ring[k]: (proj(P[k])[0] * sc, proj(P[k])[1] * sc) for k in range(6)}
+    lines, texts, dashed = [], [], set()
+    for k in range(6):
+        a, b = ring[k], ring[(k + 1) % 6]
+        key = tuple(sorted((a, b)))
+        col = ink.get('FORM_INK', '#009E73') if key in forming else ('#888888' if key in breaking else '#191919')
+        lines.append((pts[a], pts[b], col, lw))
+        if key in forming or key in breaking:
+            dashed.add((pts[a], pts[b]))
+    mi = {x.GetAtomMapNum(): x.GetIdx() for x in before.GetAtoms() if x.GetAtomMapNum()}
+    mH = Chem.AddHs(before)
+    for k, mp in enumerate(ring):
+        ai = mi.get(mp)
+        if ai is None:
+            continue
+        a = mH.GetAtomWithIdx(ai)
+        for nb in a.GetNeighbors():
+            if nb.GetAtomMapNum() in ring or nb.GetAtomicNum() == 1:
+                continue
+            lab = _group_label(mH, ai, nb.GetIdx())
+            where = (placement or {}).get(nb.GetAtomMapNum(), 'eq')
+            vec = AX[k] if where == 'ax' else EQ[k]
+            q3 = tuple(P[k][c] + vec[c] for c in range(3))
+            q = (proj(q3)[0] * sc, proj(q3)[1] * sc)
+            lines.append((pts[mp], q, '#191919', lw))
+            dx, dy = q[0] - pts[mp][0], q[1] - pts[mp][1]; L = math.hypot(dx, dy) or 1.0
+            texts.append(((q[0] + dx / L * CHS_FONT_PX * 0.9, q[1] + dy / L * CHS_FONT_PX * 0.9), lab, '#191919'))
+        if a.GetSymbol() != 'C' or a.GetFormalCharge():
+            texts.append((pts[mp], a.GetSymbol() + ('⁺' if a.GetFormalCharge() > 0 else '⁻' if a.GetFormalCharge() < 0 else ''), '#191919'))
+    xs = [p[0] for p in pts.values()] + [t[0][0] for t in texts]
+    ys = [p[1] for p in pts.values()] + [t[0][1] for t in texts]
+    ox, oy = -min(xs) + CHS_FONT_PX * 3, -min(ys) + CHS_FONT_PX * 2
+    sh = lambda p: (p[0] + ox, p[1] + oy)
+    lines2 = [(sh(p), sh(q), c, w) for p, q, c, w in lines]
+    dashed2 = {(sh(p), sh(q)) for p, q in dashed}
+    texts2 = [(sh(p), t, c) for p, t, c in texts]
+    size = (max(xs) + ox + CHS_FONT_PX * 3, max(ys) + oy + CHS_FONT_PX * 2)
+    im, _ = _chs_figure_image(lines2, texts2, size, CHS_BOND_PX, caption, dpi, ink, dashed=dashed2,
+                              section=section, width_in=width_in)
+    d = _stereo_draw(im, float(width_in or CHS_WIDTH_IN.get(section, 6.0)), dpi,
+                     step['after'], 'TS_CHAIR', {'forming': [list(x) for x in forming],
+                                                 'breaking': [list(x) for x in breaking]},
+                     {'step_id': step.get('id')}, 'CONFORMER', after, section, caption, before_mol=before)
+    d.identifier['canonical'] = mechanism_canonical(step['after'], stereo=True)
+    return d
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -9932,7 +11519,9 @@ def self_test():
             _again = render_mechanism(_q73[0]); check('chs_e04_deterministic_bytes', _again.png_bytes == _draws[0].png_bytes)
             check('chs_e04_identifier_records_e03', all(d.identifier['e03'] == 'PASS' and d.identifier['arrows'] for d in _draws))
             # the retry search is REAL: a clipped/crossing first attempt must be retried, S3 needs > 1
-            check('chs_e04_retry_search_ran', _draws[2].meta['attempts'] > 1)
+            # v1.20 — with Step 7's layout engine (F-7) the step that needs a retry moved
+            # (S2 now, S3 under v1.19); the property under test is unchanged: the search is REAL.
+            check('chs_e04_retry_search_ran', any(d.meta['attempts'] > 1 for d in _draws))
             # E-04 MUST FAIL path: an arrow forced across a label — L1 finding is produced by the gate
             _pan = _Panel(None, {'atoms': {0: (10, 10), 1: (60, 10), 2: (110, 10)}, 'bonds': [(0, 1), (1, 2)],
                                  'label_boxes': {1: (50, 0, 70, 20)}, 'captions': [], 'bond_px': 48, 'font_px': 26,
@@ -10014,6 +11603,182 @@ def self_test():
             check('chs_l7_tall_panel_refused', 'CHS_LAYOUT_UNRENDERABLE' in str(_e7))
         _d7 = render_structure_panel('C' * 30 + 'O', ['chain'])
         check('chs_l7_normal_panel_fits', _d7.meta['canvas_px'][1] / float(CHS_FIGURE_DPI) <= CHS_MAX_HEIGHT_IN)
+
+        # ══ v1.20 RE-25 HARDENING (GAP-2026-11-07-RE25-HARDENING) — must-fail first ══
+        def _raises_with(fn, code):
+            try:
+                fn()
+            except ValueError as _e:
+                return code in str(_e)
+            return False
+        # F-8 — a mapped atom with no declared label prints NOTHING (v1.19 printed "20/21")
+        _nl = render_structure_panel('[CH3:20][O:21][CH2:3][CH3:4]', ['methyl ether'])
+        check('v120_f8_no_default_map_label', _nl.meta['labels'] == {} and _nl.identifier['labels'] == {})
+        _az = '[cH:1]1[cH:2][cH:3][c:4]2[cH:5][cH:6][cH:7][cH:8][cH:9][c:10]12'
+        check('v120_f8_azulene_18_13_refused', _raises_with(
+            lambda: render_structure_panel(_az, ['azulene'], atom_labels={4: '18', 10: '13'}), 'CHS_LABEL_INVALID'))
+        _azok = ring_locants(_az, 'azulene')
+        check('v120_f8_azulene_fusion_locants', sorted(v for v in _azok.values() if v.endswith('a')) == ['3a', '8a'])
+        check('v120_f8_azulene_iupac_passes', render_structure_panel(
+            _az, ['azulene'], atom_labels={k: v for k, v in _azok.items() if v in ('3a', '8a')}).requirement
+            == 'STRUCTURE_GRAPH')
+        check('v120_f8_duplicate_locant_refused', _raises_with(
+            lambda: render_structure_panel('[CH3:1][CH:2]1[CH2:3][CH2:4][CH:5]([CH3:7])[CH2:6]1', ['x'],
+                                           atom_labels={1: '4', 2: '1', 5: '4', 7: '1'}), 'CHS_LABEL_DUPLICATE'))
+        # F-9 — the v1.19 blind spots: a note across a bond (L3d), crossing arrows (L1b)
+        _pg = {'atoms': {0: (0.0, 50.0), 1: (100.0, 50.0), 2: (50.0, 0.0)}, 'bonds': [(0, 1)],
+               'label_boxes': {('note', 2): (40.0, 40.0, 60.0, 60.0)}, 'arrows': [], 'captions': [],
+               'bond_px': 48, 'font_px': 26}
+        check('v120_f9_L3d_note_across_bond', any(f.startswith('L3d') for f in
+                                                  _layout_findings([_Panel(None, _pg, [])], [(0, 0)], (400, 400), 200)))
+        _pa = {'atoms': {0: (0.0, 0.0), 1: (100.0, 100.0), 2: (0.0, 100.0), 3: (100.0, 0.0)}, 'bonds': [],
+               'label_boxes': {}, 'captions': [], 'bond_px': 48, 'font_px': 26,
+               'arrows': [{'pts': [(0.0 + k * 10, 0.0 + k * 10) for k in range(11)], 'start_atoms': (0,), 'end_atoms': (1,),
+                           'tip': (100.0, 100.0), 'target': (100.0, 100.0)},
+                          {'pts': [(5.0 + k * 10, 100.0 - k * 10) for k in range(11)], 'start_atoms': (2,), 'end_atoms': (3,),
+                           'tip': (100.0, 0.0), 'target': (100.0, 0.0)}]}
+        check('v120_f9_L1b_crossing_arrows', any(f.startswith('L1b') for f in
+                                                 _layout_findings([_Panel(None, _pa, [])], [(0, 0)], (400, 400), 200)))
+        _lab = render_structure_panel('[CH3:1][CH:2]([OH:3])[CH2:4][C:5](=[O:6])[CH3:7]', ['labelled ketol'],
+                                      atom_labels={1: '1', 2: '2', 4: '3', 5: '4', 7: '5'})
+        check('v120_f9_engine_drawn_notes_pass_gate', figure_layout_audit(_lab)[0])
+        # F-16 — cages, substituted bridged and spiro skeletons draw (owner Q6 (a)); controls unchanged
+        for _nm, _sm in (('borneol', 'CC1(C)C2CCC1(C)C(O)C2'), ('camphor', 'CC1(C)C2CCC1(C)C(=O)C2'),
+                         ('alpha-pinene', 'CC1=CCC2CC1C2(C)C'), ('1-bromoadamantane', 'BrC12CC3CC(CC(C3)C1)C2'),
+                         ('tropinone', 'CN1C2CCC1CC(=O)C2'), ('cubane', 'C12C3C4C1C5C2C3C45'),
+                         ('spiroketal', 'CC12CCC3(OCCO3)C=C1CCCC2=O'), ('cocaine', 'CN1C2CCC1C(C(=O)OC)C(C2)OC(=O)c1ccccc1')):
+            try:
+                check(f'v120_f16_cage_renders:{_nm}', render_structure_panel(_sm, [_nm]).requirement == 'STRUCTURE_GRAPH')
+            except ValueError:
+                check(f'v120_f16_cage_renders:{_nm}', False)
+        check('v120_f16_cage_set_found', len(_cage_atoms(mapped_mol('CC1(C)C2CCC1(C)C(O)C2'))) == 11)
+        check('v120_f16_no_cage_in_decalin', not _cage_atoms(mapped_mol('C1CCC2CCCCC2C1')))
+        # F-7 — the printed orientation: a mirror-layout MolBlock is honoured, the molecule is unchanged
+        try:
+            from rdkit import Chem as _C7
+            from rdkit.Chem import rdDepictor as _D7
+            _e2 = 'C[C@]12CC[C@H]3[C@@H](CCc4cc(O)ccc34)[C@@H]1CC[C@@H]2O'
+            _pm = _C7.MolFromSmiles(_e2); _D7.Compute2DCoords(_pm)
+            _cf = _pm.GetConformer()
+            from rdkit.Geometry import Point3D as _P3
+            for _i in range(_pm.GetNumAtoms()):
+                _p = _cf.GetAtomPosition(_i); _cf.SetAtomPosition(_i, _P3(-_p.x, _p.y, 0.0))   # the MIRROR layout
+            _mb = _C7.MolToMolBlock(_pm)
+            _m7 = mapped_mol(_e2, keep_h=True); _m7 = _strip_unmoving_h(_m7, set()); _chs_compute_2d(_m7)
+            check('v120_f7_printed_layout_used', _depict_on_printed(_m7, _mb))
+            _back = _C7.MolFromMolBlock(_C7.MolToMolBlock(_strip_maps(_m7)))
+            check('v120_f7_identity_survives_reflected_layout',
+                  _C7.MolToInchiKey(_back) == _C7.MolToInchiKey(_C7.MolFromSmiles(_e2)))
+            _d7p = render_structure_panel(_e2, ['estradiol as printed'], printed_molblock=_mb)
+            check('v120_f7_panel_records_printed_orientation', _d7p.meta['printed_orientation'] is True)
+        except Exception as _x7:
+            check('v120_f7_printed_layout_used', False); print('   f7:', _x7)
+        # F-4 — structure-derived stereo renderers, each PROVED
+        _mcl = 'CC(C)[C@H:2]1[C@H:1]([Cl:10])[CH2:6][C@H:5](C)[CH2:4][CH2:3]1'      # menthyl chloride
+        _ch = render_chair(_mcl, ['menthyl chloride'], ring=[1, 2, 3, 4, 5, 6])
+        check('v120_f4_chair_lowest_all_equatorial', set(_ch.identifier['occupants'].values()) == {'eq'})
+        _cha = render_chair(_mcl, ['menthyl chloride, Cl axial'], ring=[1, 2, 3, 4, 5, 6], axial=[10])
+        check('v120_f4_chair_cl_axial_all_axial', set(_cha.identifier['occupants'].values()) == {'ax'}
+              and _cha.requirement == 'CONFORMER' and _cha.meta['model'] == 'CHAIR')
+        _ncl = 'CC(C)[C@H:2]1[C@@H:1]([Cl:10])[CH2:6][C@H:5](C)[CH2:4][CH2:3]1'     # neomenthyl chloride
+        check('v120_f4_chair_neomenthyl_cl_axial_lowest',
+              render_chair(_ncl, ['neomenthyl'], ring=[1, 2, 3, 4, 5, 6]).identifier['occupants'].get('10') == 'ax')
+        check('v120_f4_chair_impossible_request_refused', _raises_with(
+            lambda: render_chair('[CH3:7][C@@H:1]1[CH2:2][CH2:3][C@H:4]([CH3:8])[CH2:5][CH2:6]1', ['x'],
+                                 ring=[1, 2, 3, 4, 5, 6], axial=[7, 8]), 'CHS_CONFORMER_UNAVAILABLE'))
+        _P0, _A0, _E0, _pr0 = _chair_template(1)
+        check('v120_f4_chair_template_axial_vertical', all(abs(_pr0((p[0] + a[0], p[1] + a[1], p[2] + a[2]))[0]
+                                                                - _pr0(p)[0]) < 1e-9 for p, a in zip(_P0, _A0)))
+        _nw = render_newman('[CH3:1][C@@H:2]([Br:5])[CH2:3][CH3:4]', [2, 3], ['anti'], anti=[5, 4])
+        check('v120_f4_newman_anti_measured', abs(abs(_nw.identifier['dihedral']) - 180.0) <= 10.0
+              and _nw.meta['model'] == 'NEWMAN')
+        check('v120_f4_sawhorse_model', render_sawhorse('[CH3:1][C@@H:2]([Br:5])[CH2:3][CH3:4]', [2, 3], ['s'],
+                                                        anti=[5, 4]).meta['model'] == 'SAWHORSE')
+        check('v120_f4_fischer_D_glyceraldehyde', render_fischer('O=C[C@H](O)CO', ['D'])
+              .identifier['rows'] == [{'left': 'H', 'right': 'OH'}])
+        check('v120_f4_fischer_L_alanine', render_fischer('C[C@H](N)C(=O)O', ['L'])
+              .identifier['rows'][0]['left'].startswith('NH'))
+        check('v120_f4_fischer_D_glucose', [r['right'] for r in render_fischer(
+            'O=C[C@H](O)[C@@H](O)[C@H](O)[C@H](O)CO', ['D-glucose']).identifier['rows']] == ['OH', 'H', 'OH', 'OH'])
+        _hb = render_haworth('OC[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]1O', ['beta'])
+        check('v120_f4_haworth_beta_D_glucose', [u['up'] for u in _hb.identifier['updown']]
+              == ['OH', 'H', 'OH', 'H', 'CH₂OH'])
+        check('v120_f4_haworth_alpha_anomer', render_haworth('OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O', ['alpha'])
+              .identifier['updown'][0]['down'] == 'OH')
+        _cp = render_cip('Br[C@H](C(=O)O)[C@H](c1ccccc1)Br', ['(2R,3S)'])
+        check('v120_f4_cip_two_centres', sorted(v['descriptor'] for v in _cp.identifier['cip']['centres'].values())
+              == ['R', 'S'] and _cp.meta['model'] == 'CIP')
+        check('v120_f4_cip_ranks_reproduce_labeller', all(
+            sorted(v['ranks'].values()) == [1, 2, 3, 4] for v in _cp.identifier['cip']['centres'].values()))
+        _mor = 'CN1CC[C@]23c4c5ccc(O)c4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5'
+        check('v120_f4_cip_refuses_unproved_priorities', _raises_with(
+            lambda: _cip_layer(_strip_unmoving_h(mapped_mol(_mor.replace('[C@]23', '[C@:99]23'), keep_h=True), set()),
+                               {}, [99]),
+            'CIP layer'))
+        _cl = {'id': 'S1', 'before': '[CH2:1]=[CH:2][CH2:3][O:4][CH:5]=[CH2:6]',
+               'after': '[CH2:1]([CH:2]=[CH2:3])[CH2:6][CH:5]=[O:4]',
+               'arrows': [{'from': {'bond': [5, 6]}, 'to': {'bond': [6, 1]}, 'electrons': 2},
+                          {'from': {'bond': [1, 2]}, 'to': {'bond': [2, 3]}, 'electrons': 2},
+                          {'from': {'bond': [3, 4]}, 'to': {'bond': [4, 5]}, 'electrons': 2}]}
+        _ts = render_ts_chair(_cl, [1, 2, 3, 4, 5, 6], ['Claisen chair TS'])
+        check('v120_f4_ts_chair_bonds_proved', _ts.identifier['forming'] == [[1, 6]] and _ts.identifier['breaking'] == [[3, 4]])
+        check('v120_f4_ts_chair_wrong_ring_refused', _raises_with(
+            lambda: render_ts_chair(_cl, [1, 2, 3, 4, 6, 5], ['x']), 'render_ts_chair'))
+        # F-10 — the review sheet shows sentence + figure + printed option on one cell
+        _rv = os.path.join(tempfile.gettempdir(), 'st_v120_review.png')
+        _, _rvm = figure_review_sheet([('Q1-O1', _nl, {'sentence': 'The ether is cleaved.', 'option': _nl,
+                                                        'captions': ['methyl ether']}), ('Q1-S1', _nl)], _rv)
+        check('v120_f10_context_cells', _rvm['cells'][0]['context'] is True and _rvm['cells'][1]['context'] is False)
+        # F-7 — Step 7 draws expose the printed MolBlock
+        try:
+            _sd = structure_draw_fn('CCO')
+            check('v120_f7_step7_draw_has_molblock', isinstance(getattr(_sd, 'molblock', None), str)
+                  and 'M  END' in _sd.molblock)
+        except Exception:
+            check('v120_f7_step7_draw_has_molblock', False)
+        # v1.20 — a stereo renderer refuses an unspecified stereocentre (it would draw an
+        # arbitrary configuration), refuses a Newman along a non-bond, and fails ONLY with
+        # ValueError on a bad map or argument (one EC-41 attempt, never a crash)
+        def _only_ve(fn):
+            try:
+                fn()
+            except ValueError as _x:
+                return str(_x)
+            except Exception as _x:                 # noqa: BLE001
+                return f'WRONG-TYPE {type(_x).__name__}'
+            return 'RETURNED'
+        _u = [_only_ve(lambda: render_chair('CC1CCCC(C)C1', ['x'])),
+              _only_ve(lambda: render_fischer('OCC(O)C(O)C=O', ['x'])),
+              _only_ve(lambda: render_haworth('OCC1OC(O)C(O)C(O)C1O', ['x'])),
+              _only_ve(lambda: render_newman('[CH3:1][CH:2](Br)[CH:3](Br)[CH3:4]', [2, 3], ['x']))]
+        check('v120_stereo_renderer_refuses_unspecified', all(x.startswith('CHS_FIGURE_STEREO_UNSPECIFIED') for x in _u))
+        check('v120_newman_refuses_non_bond',
+              'not bonded' in _only_ve(lambda: render_newman('[CH3:1][CH2:2][CH2:3][CH3:4]', [1, 4], ['x'])))
+        _e = [_only_ve(lambda: render_chair('[CH2:1]1[CH2:2][CH2:3][CH2:4][CH2:5][CH2:6]1', ['x'], ring=[1, 2, 3, 9, 9, 9])),
+              _only_ve(lambda: render_newman('[CH3:1][CH2:2][CH2:3][CH3:4]', [1, 7], ['x'])),
+              _only_ve(lambda: render_chair('C1CCCCC1', [12345])),
+              _only_ve(lambda: render_ts_chair(None, None, ['x']))]
+        check('v120_renderers_fail_only_with_valueerror', not any(x.startswith(('WRONG-TYPE', 'RETURNED')) for x in _e))
+        # every CHS_CONFORMER_UNAVAILABLE site carries ITS code (the engine records it per
+        # figure, EC-H12): no ring, ring maps out of order, no chain, no sugar ring, an
+        # impossible dihedral, and a failed 3-D embedding (injected)
+        _cu = [_only_ve(lambda: render_chair('CCCCCC', ['x'])),
+               _only_ve(lambda: render_chair('[CH2:1]1[CH2:2][CH2:3][CH2:4][CH2:5][CH2:6]1', ['x'],
+                                             ring=[1, 3, 2, 4, 5, 6])),
+               _only_ve(lambda: render_fischer('CC', ['x'])),
+               _only_ve(lambda: render_haworth('C1CCCCCCC1', ['x'])),
+               _only_ve(lambda: render_newman('[CH3:1][CH2:2][CH2:3][CH3:4]', [2, 3], ['x'], anti=[1, 1]))]
+        _emb = _chs_embed
+        try:
+            globals()['_chs_embed'] = lambda *a, **k: []
+            _cu += [_only_ve(lambda: render_chair('C1CCCCC1', ['x'])),
+                    _only_ve(lambda: render_newman('[CH3:1][CH2:2][CH2:3][CH3:4]', [2, 3], ['x']))]
+        finally:
+            globals()['_chs_embed'] = _emb
+        check('v120_conformer_unavailable_code_everywhere',
+              len(_cu) == 7 and all(x.startswith('CHS_CONFORMER_UNAVAILABLE') for x in _cu))
+        check('v120_specified_still_renders',
+              _only_ve(lambda: render_chair('C[C@@H]1CCC[C@H](C)C1', ['cis-1,3-dimethylcyclohexane'])) == 'RETURNED')
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

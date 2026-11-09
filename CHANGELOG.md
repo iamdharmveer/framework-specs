@@ -1,5 +1,131 @@
 # Changelog
 
+## 2026.11.08.1 — GAP-2026-11-07-RE25-HARDENING: world-class organic-chemistry explanations with zero silent defects, in every exam
+(explain_engine v2.14; corpus_io v1.20; Framework_MockTestExplain v1.55.0; Framework_PYQExplain v2.30;
+Framework_MockTestCreate v5.95; Framework_DeliveryFooter v1.43.0; CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1;
+SHARED_RULES_VERSION 1.8; STEP_CONTRACTS.json override floors raised; MANIFEST / SPEC_MANIFEST /
+SPEC_SECTIONS / SHA256SUMS regenerated; SPEC_HISTORY.md.)
+
+**Cause (evidence: the first RE-25 paper — a post-graduate chemistry exam's SUBJ Organic Chemistry
+Test 01, 40 questions, ~330 figures, 2026-11-07).** Every key right, 36 questions defective: a
+product drawn (Z) under an "(E)" caption that contradicted the key; a stem naming a compound no
+option gives, explained away with a false equivalence; a question with no figure at all because the
+layout gate refused every cage molecule (borneol, camphor, pinene, adamantane, tropane, morphinan,
+spiroketal) that Step 7 had printed; Bamford–Stevens stated backwards in a WHY WRONG; "SN₂" in every
+mechanism sentence; flat rings captioned "chair"; leaked map numbers ("18/13" for 3a/8a); figures
+under the wrong sentence; wrong-option figures that redrew the substrate. Seventeen exam-independent
+root causes — the deepest: every RE-25 gate compared one producer-typed field with another, and a
+text-only organic question (no drawing, no SMILES) was NOT_APPLICABLE by construction (RC-17).
+
+**Owner decisions (2026-11-08).** Q1 (b) coordinate reflection with wedges re-derived · Q2 (a) OPSIN
+installed once per session, never a stop · Q3 (a) with the ENGINE deriving a missing decision · Q4 (b)
+evidence-backed degrade · Q5 (a) CHAIR / NEWMAN / SAWHORSE / FISCHER / HAWORTH / CIP / TS_CHAIR now,
+FMO later · Q6 (a) cage-aware gate · Q7 (a) library Contradicts · Q8 (a) one release · Q9 base = the
+difficulty release 2026.11.08 · Q10 (a) text-only organic questions get structures · Q11 (b)
+structural normaliser.
+
+**What changed.**
+- *explain_engine v2.14.* PRODUCER-CLAIM RULE: signed figure records (what the renderer DREW, png
+  sha256, session signature — CHS_FIGURE_PROVENANCE); per-ask-shape contracts (CHS_SHAPE_FIGURE_MISSING,
+  CHS_ARROWS_MISSING incl. pericyclic cyclic arrows, CHS_COMPETITOR_MISSING, CHS_CIP_ANNOTATION_MISSING,
+  CHS_RESONANCE_COUNT, CHS_CAPTION_CLAIM); drawn stereo == claimed (CHS_FINAL_STEREO_MISMATCH,
+  CHS_CLAIM_NOT_DRAWN, caption descriptors re-derived, CHS_FIGURE_STEREO_UNSPECIFIED); wrong-option
+  identity / substrate / duplicate; labels (CHS_LABEL_INVALID / _DUPLICATE / _LEGEND), labels and
+  stereo sentences, balance sentences, figure anchoring; stereo detector 35/35 positives, 0/34 label
+  and biology negatives, multi-centre split, exam patterns MERGED; the decision derived from
+  content_record and re-decided at verify from records= (CHS_NA_CONTRADICTED, CHS_RECORDS_MISSING);
+  APPLIES-UNRENDERABLE re-run at verify against the engine's own attempt ledger (CHS_DEGRADE_UNPROVEN);
+  engine-written §R3 lines, footer lines and scorecard (chs_report_lines); OPSIN once per session +
+  CHEM_TRIVIAL_NAMES (86 entries, formula-verified) + stem / option / prose name checks (relative
+  descriptors accept the enantiomer) + name_check_item for Step 7; library Contradicts over every
+  section (chem_library_config; a stale project library never wins); normaliser never subscripts
+  SN1 / SN2 / SNi / SNAr / E1cB / HSP70 / H1N1 / PI3K / "H2 receptor", formats Et₂O, PPh₃, CO₂Et and
+  CuSO₄·5H₂O. Self-test 276 -> 448 with OPSIN / 446 without (every new gate: a must-fail
+  fixture failing with its own code and a must-pass twin; the v2.13 _chsblk fixtures updated
+  deliberately to signed records).
+- *corpus_io v1.20.* render_chair / render_newman / render_sawhorse / render_fischer / render_haworth /
+  render_cip / render_ts_chair — each proved by rebuilding the drawn arrangement in 3-D and
+  re-labelling it (verified: menthyl chloride all-equatorial / all-axial chairs, neomenthyl Cl axial,
+  D-glucose Fischer R-L-R-R, β- and α-D-glucopyranose Haworth, CIP priorities on 76/77 test centres —
+  the one disagreement is refused, never printed); Step 7's layout engine for explanations;
+  printed-coordinate placement as a capability (_depict_on_printed, MolBlock round-trip identity;
+  structure_draw_fn .molblock) for a caller holding the exact printed MolBlock; no map-number
+  labels, IUPAC fused-ring locants (check_ring_locants);
+  engine-drawn notes with a placement search; L1b / L3d / L3e / L3f; cage set with relaxed limits
+  inside it only + CHEM_CAGE_TEMPLATES (34/34 cage, bridged, spiro and alkaloid molecules render,
+  cubane included); context cells in figure_review_sheet. Self-test 530 -> 575.
+- *Specs.* MockTestExplain v1.55.0 and PYQExplain v2.30: NEW §6A-13 (H-0..H-14, EC-H1..H16); amended
+  §5-1, §6A-10 items 2 / 4 and the gate, §6A-12, §17-3 (mock: NEW STEM_TEXT_DEFECT route; PYQ:
+  STEM-NAME DEFECT disclosure), §18 verify with records=. MockTestCreate v5.95: option_text_smiles
+  and the NAME CHECK AT AUTHORING. DeliveryFooter v1.43.0: two engine-written
+  AMBER lines. CHEMISTRY_EXPLAIN_LEARNINGS v1.1: EX-CHEM-15b, 18..28 and Contradicts on 02 / 03 / 11 / 14.
+- *Found by the pre-release end-to-end run (a full Q24-shaped block built, validated, and its
+  original defect re-planted).* (1) Mechanism vocabulary — anti addition, syn elimination,
+  anti-periplanar, endo approach, exo face, trans-diaxial, and syn / anti in a Newman / conformer
+  sentence — is not a species descriptor and needs no stereo_claims entry (V214-T29 / T30 / T31);
+  "(E)-alkene", "the cis isomer", "trans-stilbene" still do. (2) The NA-STRUCTURE-IRRELEVANT
+  re-check now reads PYQExplain's real field name figural_ask_type (it read a name no step writes,
+  so it could never fire on an image item — audit_seam ORPHAN-READ; V214-T04-IRRELEVANT-ON-IMAGE-ITEM).
+  (3) §6A-13 H-6 gains the executable chs_render dispatcher, the one call site of all seven stereo
+  renderers (render_fischer / render_haworth were otherwise unreachable — audit_callgraph C4).
+  (4) The MockTestCreate v5.95 header now replaces ONLY the v5.94 entry: an over-wide first cut had
+  also moved the VERSION-HISTORY banner, the audit-script Q&A and MANDATE 0 (spec_sections
+  t_step7_mandates); restored byte-for-byte from production, SPEC_HISTORY holds only the v5.94 entry.
+  The re-planted Q24 defect ((Z) drawn under an "(E)" caption) fails with CHS_STEREO_CLAIM_FALSE.
+- *Pre-deployment review (2026-11-09, two full passes, same release).* (1) PYQ text-only organic
+  questions have no §13A-3 record, so the re-decision never ran on them: verify now reads every
+  question's PRINTED stem and options from the built document (chs_printed_records) under the
+  records; records= is required on every paper ({} is valid; PYQ §18-1a passes {} for a missing or
+  other-paper file, guarded like S7A-6). (2) "Treatment of cyclohexanone with MeMgBr gives …" was
+  NOT_APPLICABLE: T1 gains R1 (options are organic species), R2 (>= 2 species + a reaction verb,
+  never all-numeric options) and an IUPAC-shape fallback without OPSIN; chem_name_plausible keeps
+  every OPSIN call (and install) off non-chemistry papers — 14 subjects probed, 0 false positives.
+  (3) The library check missed rules whose trigger sits in another sentence and HIT correct negated
+  sentences ("NaBH4 does not reduce the ester"): triggers now read over the whole block and a negated
+  clause never counts — 31 / 31 adversarial cases, and on the real Organic Test 01 exactly its known
+  defects (SN₂ notation, Q8, Q20, Q23) and nothing else. (4) The prose / stem name checks flagged a
+  neighbour compound named for comparison and a comparison stem ("cis- or trans-…?"): only an
+  ASSERTED wrong-locant isomer counts now. (5) Chair / Newman / Fischer / Haworth drew an ARBITRARY
+  configuration for an unspecified stereocentre: refused (CHS_FIGURE_STEREO_UNSPECIFIED); a Newman
+  along a non-bond is refused; every renderer fails only with ValueError. (6) MockTestCreate's
+  option_molblock / stem_molblock never reached Step 9 (registry.question_index does not carry them)
+  and persisting them would outgrow the size-capped project knowledge: removed; H-7 / §6A-10 item 4
+  now state that explanation figures use Step 7's layout engine + template alignment (identical in
+  both explain specs). (7) PYQExplain named a registry and figural manifest a past paper does not
+  have (H-0 / H-7 / H-10 / EC-H14) and tagged shared rules with MockTestExplain's version: corrected
+  to the "v2.30 / v1.55.0" pair convention; the SHARED_RULES record lists the exact remaining
+  pipeline-specific sentences (H-0, H-2, H-10). (8) The OPSIN AMBER line could print on a
+  non-chemistry paper and a footer sentence lacked "in"; verify messages now carry their code.
+  (9) Full-stop hydrates (CuSO4.5H2O) are formatted. (10) Stems naming curated or natural-product
+  compounds (α-terpineol, camphor, borneol, pinene) were invisible to every name check: they are found
+  now. (11) A code-rename mutation audit of every new code-emission line found gate branches no
+  fixture asserted (R/S captions, open centres, wrong-path stereo, A1 / A5 / A9 contracts, chain
+  stereo without claims, PYQ stem disclosure, option names, prose equivalence, every
+  CHS_CONFORMER_UNAVAILABLE site): each now has a code-specific must-fail fixture (V214-R-*,
+  v120_conformer_unavailable_code_everywhere); validate() lists EVERY finding code, not the first.
+  (12) Every CHS_CHECK_FAULT handler is fault-injected (a checker that crashes is reported, never a
+  crash, never silent), and the EC-41 exit is proved end to end (three engine-counted attempts, then
+  EC41_BOUND clears verify; claimed early it is CHS_DEGRADE_UNPROVEN). Result: all 60 new
+  code-emission lines are killed by the code-rename mutation audit (0 survivors). Fixtures
+  V214-T29..T38, V214-F1 / F6 / F12, V214-R-* and v120_* renderer refusals cover every fix.
+- *Cross-step handshake audit (2026-11-09, second request; every new or changed field traced
+  producer -> consumer on the real engines and the literal spec fences).* (1) A degraded RE-25
+  question (APPLIES-UNRENDERABLE / EC-41 bound) produced no footer line, so it could ship under a
+  GREEN footer: chs_report_lines now writes DeliveryFooter's v1.41.0 "Q<n> explanation degraded
+  (RE-25: <code>)" line, and Q0c lists the two v1.43.0 lines (printed after the "⚠️ " prefix). (2)
+  The mock records= source named a per-PAPER registry entry: it is now the exact expression over
+  THIS paper's per-question records (P10 _p10_entry['questions']). (3) A PYQ block without
+  paper_kind got the mock-only "regenerate" route for a stem-name defect: a recorded stem_defect
+  now means PYQ and an unknown pipeline gets both routes. (4) Step 7: name_unresolved is a
+  defined record key, and a name defect enters the S10 repair ladder at R2 (bc.ladder_entry,
+  verified) — blueprint_core unchanged. (5) S24-1c documents the **Contradicts:** field for rule
+  authors. (6) Two cross-spec references now name their spec (PYQExplain §13A-3, MockTestExplain
+  §R3). Verified unchanged: STEP_CONTRACTS floors refuse a stale project copy of all four changed
+  specs; the exam's own EXPLAIN_LEARNINGS parses identically; the PYQ §18-1a fence executed
+  literally for missing / current / other-paper records files; handshake_audit 123/123.
+- *No new hard stop; no trigger, deliverable, end state or user action changes; SKILL.md unchanged.*
+  A NOT_APPLICABLE / non-chemistry block is untouched (V214-T23).
+
 ## 2026.11.08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: a "Hard" question is as hard as the real exam's Hard — measured from the exam's own past papers, repaired before it is relabelled, counted against the schedule at the end, for every exam
 (blueprint_core v1.33 — NEW Cluster DL (every exam) + Cluster L2 (organic ruler); analyse_engine v1.4;
 Framework_MockTestAnalyse v2.61.0; Framework_MockTestCreate v5.94; Framework_MockReview v2.1.0;

@@ -1,11 +1,19 @@
-# Framework_PYQExplain v2.29 — Universal PYQ Explanation Generator
-# v2.29 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
-#   MockTestCreate v5.94). FORWARD-ONLY, one field rule: §13A-3 "named_concepts" of an ORGANIC
-#   question is written with the CANONICAL label of bc.l2_vocabulary() wherever the AXIOM's concept
-#   is in that controlled vocabulary (the vocabulary the organic decision-load ruler scores, owner
-#   D4); a concept outside it is written as printed. Profiles written earlier are NOT re-run:
-#   bc.l2_concept_match maps the printed names onto the same labels, and the ruler discloses its
-#   concept coverage. No other field, phase, gate or output changes.
+# Framework_PYQExplain v2.30 — Universal PYQ Explanation Generator
+# v2.30 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   explain_engine v2.14, corpus_io v1.20, CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1,
+#   DeliveryFooter v1.43.0, SHARED_RULES_VERSION 1.8). NEW §6A-13 (identical to the mock copy
+#   except the record source in H-0 / H-2 and H-10's stem route / option source): signed figure
+#   provenance;
+#   engine-derived and verify-re-decided RE-25 status (text-only organic questions included);
+#   evidence-backed APPLIES-UNRENDERABLE; full stereo-claim binding; per-ask-shape figure
+#   contracts; structure-derived CHAIR / NEWMAN / SAWHORSE / FISCHER / HAWORTH / CIP / TS_CHAIR
+#   renderers; printed-coordinate placement (engine capability); cage-aware layout gate + L1b /
+#   L3d-f; IUPAC labels and labels / stereo / balance sentences; wrong-option figure identity;
+#   OPSIN once per session with name checks; SN2-safe normaliser; library Contradicts over every
+#   section; context review; engine-written §R3 lines and scorecard. §18-1a passes records= (the
+#   §13A-3 content records). PYQ stem-name defects are DISCLOSED with one fixed sentence
+#   (a past paper cannot be regenerated). Amended §5-1, §6A-10 items 2 / 4 and the gate,
+#   §6A-12, §17-3.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
@@ -606,7 +614,11 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   | representation_verdict | str/None      | v2.6, optional. The §6A router verdict (PROSE / EQUATION / TABLE / STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT / CONFORMER v2.7). When set, a VISUAL verdict with zero figures raises at validate() — verdict↔emission coherence (§6A-3); after a §6A-4 degrade the block carries the DEGRADED requirement |
   | absolutes_justified | dict{str:str}  | v2.7. {sentence: reason} for each absolute KEPT in AXIOM / SPEED HACK / WHY WRONG / COMMON PITFALLS; an undeclared universal there raises at validate() (§8-0b). Reason = why it is absolute in the subject's own terms |
   | transfer_record | list[dict]/None  | v2.7, REQUIRED by this spec on every block (§7-7). One entry per claim {section, claim, epistemic_type, scope, neighbour_tested, outcome}; shape-validated: AXIOM needs an AXIOM entry, SPEED HACK a SPEED_HACK entry, no QUESTION_SPECIFIC in AXIOM, no OPTION_SET_SHORTCUT outside SPEED_HACK |
-  | chem_structure_module | dict/None       | v2.28 / v1.54.0 (RE-25 §6A-7). {status, reason, ask_shape}: APPLIES / NOT_APPLICABLE (NA-NO-CHEM-CONTENT, NA-STRUCTURE-IRRELEVANT) / APPLIES-UNRENDERABLE. None on a block that was never decided (legacy). APPLIES switches on the E-06 / E-07 gates; NOT_APPLICABLE and None add NO obligation |
+  | chem_structure_module | dict/None       | v2.28 / v1.54.0 (RE-25 §6A-7). {status, reason, ask_shape}: APPLIES / NOT_APPLICABLE (NA-NO-CHEM-CONTENT, NA-STRUCTURE-IRRELEVANT) / APPLIES-UNRENDERABLE. v2.30 / v1.55.0 (§6A-13 H-2): None + a content_record → the ENGINE derives it (ask_shape A0 when undetermined); verify re-decides every question from records= |
+  | content_record  | dict                 | v2.30 (§6A-13 H-2). The question's §13A-3 content record (pyq_content_objects.json[q]). Pass it on EVERY block |
+  | labels_sentence_index · stereo_sentence_index | int | v2.30 (§6A-13 H-8). 0 when any figure prints a label (that sentence defines every label); the index of the DEDUCTION sentence stating the stereo outcome on every APPLIES block |
+  | unrenderable_evidence | dict/None      | v2.30 (§6A-13 H-3). {code, species} on an APPLIES-UNRENDERABLE block; re-run at verify |
+  | stem_defect · paper_kind | dict/None · 'pyq' | v2.30 (§6A-13 H-10). paper_kind='pyq' on this pipeline; stem_defect = {printed, correct} when a stem name is a different structure from the derived product — the last DEDUCTION paragraph then carries the fixed disclosure sentence |
   | transformation_chain | list[SMILES]    | RE-25. The mapped species of the DEDUCTION chain, reactant first, derived product last; A1 / A2 need one DEDUCTION figure per link (E-06 a); the last entry must equal answer_smiles (E-06 c) |
   | mechanism_spec  | dict/None            | RE-25. {"steps": [E-02 step dicts]} (§6A-11); every step re-proved at validate() — E-03 arrows and, on arrow steps, E-06 g balance |
   | wrong_paths     | dict{int:list[SMILES]} | RE-25. MODE A structure distractors: the wrong path per option; its end must equal option_smiles[k] (E-06 e) |
@@ -1151,17 +1163,21 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   1. SOURCE. Generated only from atom-mapped SMILES by the engine (corpus_io v1.19
      render_mechanism / render_structure_panel). Deterministic: the same input gives
      the same bytes. Never a hand-drawn or copied image.
-  2. ATOM LABELS. Atom-map numbers persist across every figure of the question (the
-     atomNote of each mapped carbon; a heteroatom draws its symbol). The starting
-     material keeps its own locant numbers; atoms arriving from a reagent get letters
-     (a, b, c) — given once per question in atom_labels and reused on every step.
+  2. ATOM LABELS (amended v2.30 / v1.55.0, §6A-13 H-8). A mapped atom prints ONLY the label
+     declared in atom_labels — never its map number. The starting material keeps its own
+     IUPAC locants (fused systems: corpus_io.ring_locants); atoms arriving from a reagent get
+     letters (a, b, c) — given once per question in atom_labels and reused on every step;
+     the FIRST DEDUCTION sentence defines every printed label.
   3. COLOURS. One fixed highlight tint per reagent atom, constant across all figures of
      the question. Forming bonds use FORM_INK, wrong bonds and wrong arrows WRONG_INK,
      curly arrows ARROW_INK (figural_core v5.91, Okabe-Ito, colour-blind safe).
-  4. ORIENTATION. Every species is aligned to the previous one by template matching on
-     the shared atom maps (the DEDUCTION chain passes template=draw.after_mol from
-     step to step). Layout retries may rotate in-plane only. MIRRORING IS FORBIDDEN,
-     because a reflection inverts stereochemistry.
+  4. ORIENTATION (amended v2.30 / v1.55.0, owner Q1 (b), §6A-13 H-7). Every species is aligned to
+     the previous one by template matching on the shared atom maps (the DEDUCTION chain
+     passes template=draw.after_mol from step to step) and laid out by Step 7's engine. An
+     IMAGE is never mirrored. 2-D COORDINATES may be reflected — the drawer re-derives every
+     wedge from the atoms' chiral tags and the isomeric identity is re-proved by a MolBlock
+     round trip; layout retries rotate in-plane. Printed-coordinate placement applies only
+     when the exact printed MolBlock is in hand (§6A-13 H-7).
   5. REACTIVE CONFORMATION. For an intramolecular bond formation the chain is rotated so
      the two reacting atoms face each other (E-04 conformation retries ±20/30/40°).
   6. CHEMISTRY SHOWN. Formal charges, the lone pairs that arrows use, radicals, leaving
@@ -1185,7 +1201,10 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
      two non-bonded atoms clash, no bond is distorted by more than 30 % · L4 no ink
      within 8 px of the canvas edge, captions fully inside · L5 at printed width bond
      length ≥ 0.18 in and text ≥ 7 pt · L6 every coloured label is a figural_core
-     text-tier ink · L7 printed height ≤ 8.0 in (a figure never overflows a page). A
+     text-tier ink · L7 printed height ≤ 8.0 in (a figure never overflows a page) ·
+     v2.30 / v1.55.0 L1b no two arrows cross · L3d no note across a bond · L3e no note over another
+     atom's symbol · L3f no caption over the drawing; inside the cage set L3c ≤ 70 % and
+     L3b ≥ 0.30 × median (§6A-13 H-7). A
      single-species panel (option / annotated structure) retries in-plane rotations at
      its section width, then at 6.0 in.
   RETRY POLICY (deterministic, cap 64 attempts): arrow curvature +0.35, −0.35, +0.6,
@@ -1195,9 +1214,10 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   FALLBACK (recorded in the §6A-4 degrade ledger, never silent): MECHANISM steps down
      to REACTION_SCHEME (no arrows, forming bonds in FORM_INK, breaking bonds dashed);
      then to one STRUCTURE_GRAPH panel per species. If even that fails the gate
-     (CHS_LAYOUT_UNRENDERABLE), the QUESTION is recorded APPLIES-UNRENDERABLE (EC-05;
-     the status is per question — its other passing figures are kept) and the run
-     continues. A figure that fails L1-L6 is NEVER
+     (CHS_LAYOUT_UNRENDERABLE), THAT FIGURE degrades (v2.30 / v1.55.0, §6A-13 H-7); the question is
+     recorded APPLIES-UNRENDERABLE with unrenderable_evidence only when NO species of it
+     renders (never a PROSE step-down while any species rendered), and the run continues.
+     A figure that fails L1-L6 is NEVER
      shipped; a run is NEVER halted by one.
 
 ## S6A-11 — RE-25 CURLY-ARROW SEMANTICS AND THE STEP DICT (v2.28 / v1.54.0 — E-02 / E-03)
@@ -1255,13 +1275,21 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   (ExplanationBlock.validate(): CHS_MISSING_FIGURE, CHS_OPTION_FIGURE_MISSING,
   CHS_FINAL_MISMATCH, CHS_KEY_OPTION_MISMATCH, CHS_DISTRACTOR_PATH_MISMATCH,
   CHS_STEREO_CLAIM_FALSE, CHS_STEREO_UNDECLARED, CHS_UNBALANCED_STEP,
-  CHS_DISCLOSURE_MISSING, META_INTERNAL_TERM). E-07 compares stereo only where an
+  CHS_DISCLOSURE_MISSING, META_INTERNAL_TERM; v2.30 / v1.55.0 adds every §6A-13 code —
+  CHS_FIGURE_PROVENANCE, CHS_FIGURE_STEREO_UNSPECIFIED, CHS_FINAL_STEREO_MISMATCH,
+  CHS_CLAIM_NOT_DRAWN, CHS_SHAPE_FIGURE_MISSING, CHS_ARROWS_MISSING, CHS_COMPETITOR_MISSING,
+  CHS_CIP_ANNOTATION_MISSING, CHS_RESONANCE_COUNT, CHS_CAPTION_CLAIM, CHS_OPTION_FIGURE_IDENTITY
+  / _SUBSTRATE / _DUPLICATE, CHS_LABEL_INVALID / _DUPLICATE / _LEGEND, CHS_LABELS_SENTENCE,
+  CHS_STEREO_SENTENCE, CHS_BALANCE_SENTENCE, CHS_FIGURE_ANCHOR, CHEM_LIBRARY_CONTRADICTION,
+  CHS_STEM_NAME_MISMATCH, CHS_OPTION_NAME_MISMATCH, CHS_PROSE_NAME_FALSE, and at verify
+  CHS_NA_CONTRADICTED, CHS_DEGRADE_UNPROVEN, CHS_RECORDS_MISSING). E-07 compares stereo only where an
   option draws it; the enantiomer of the derived product is the NEAREST option (same
   relative configuration) and becomes an exact match when stereo_claims declares the
   product "rac" (EC-33); two equally near options are never resolved by option number —
   CHS_KEY_OPTION_MISMATCH, EC-29 RARE.
   CHECK 2 — MODEL REVIEW (CLASS T, in-turn, EXECUTION-BOUNDARY-LAW): after the batch
-  renders, explain_engine.figure_review_sheet([(fig_id, figure), …], out_png) composes
+  renders, explain_engine.figure_review_sheet([(fig_id, figure, context), …], out_png)
+  (v2.30 / v1.55.0: context = {'sentence', 'option', 'captions'}, §6A-13 H-13) composes
   ONE contact sheet per batch (12 figures per sheet; zoom tiles for any figure judged
   illegible — about 5 views per batch of 10 questions, priced in the session budget).
   The model VIEWS it and records, per figure, figure_review[fig_id] = 'ok' or
@@ -1291,10 +1319,237 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   the block is built from the best attempt (its passing figures kept, the failing one
   omitted), the §R3 ledger lists it, the footer carries the existing AMBER-class line
   "Q<n> explanation degraded (RE-25: <reason>)", and the batch continues. CHS_LAYOUT_UNRENDERABLE
-  (§6A-10 fallback exhausted) records the question APPLIES-UNRENDERABLE at once. An
+  (§6A-10 fallback exhausted) degrades THAT figure; the question is APPLIES-UNRENDERABLE
+  only when no species of it renders, and every APPLIES-UNRENDERABLE block carries
+  unrenderable_evidence the engine re-runs at verify (§6A-13 H-3; the attempt count is the
+  engine's own ledger, chs_attempts). An
   APPLIES-UNRENDERABLE block ALWAYS validates (the engine waives E-06 a-g on it; fixture
   CHS-R21-UNRENDERABLE-ALWAYS-VALIDATES) — the degrade can never itself stop a build.
   Nothing in RE-25 halts a run: every failure degrades, is recorded, and is visible.
+
+## S6A-13 — RE-25 HARDENING (v1.55.0 / PYQExplain v2.30 — GAP-2026-11-07-RE25-HARDENING)
+  Evidence: a post-graduate chemistry exam's SUBJ Organic Chemistry Test 01 (2026-11-07, the
+  first RE-25 paper): 40 keys right, ~330 figures, 36 questions with a defect — a product
+  drawn (Z) under an "(E)" caption, a stem naming a compound no option gives, a question
+  with no figure (cage molecules the layout gate refused), Bamford–Stevens stated backwards,
+  "SN₂" in every mechanism sentence. Root causes RC-1..RC-17 are exam-independent; this
+  section binds the fixes. Owner decisions 2026-11-08: Q1 (b), Q2 (a), Q3 (a) with the
+  engine deriving the decision, Q4 (b), Q5 (a), Q6 (a), Q7 (a), Q8 (a) one release, Q10 (a),
+  Q11 (b). NOTHING HERE HALTS A RUN: every finding returns the question to solving (EC-41,
+  at most three attempts); after the bound the ENGINE writes the §R3 line and the footer line.
+  H-0 PRODUCER-CLAIM RULE. Every field the producer types (status, ask shape, chain,
+  answer, stereo claims, figure requirement) is a CLAIM, checked against something the
+  producer did not type: the §13A-3 transcription record, the figure's own signed record,
+  rdkit or OPSIN.
+  H-1 FIGURE PROVENANCE (F-0). Every RE-25 figure is built by explain_engine.figure_record()
+  from a renderer's draw. The record carries what the renderer DREW (every species,
+  isomeric; captions; printed labels; model; arrows; CIP layer; step id), the PNG's
+  sha256 and a session signature. A typed or edited record, or a swapped PNG, raises
+  CHS_FIGURE_PROVENANCE.
+  H-2 THE DECISION (F-2, RC-17, owner Q3 / Q10). Pass content_record=<the question's §13A-3
+  content record> to every ExplanationBlock. When chem_structure_module is absent,
+  the engine DERIVES it from that record (a missing record never skips the checks). T1 now
+  also reads given_smiles, named_entities and the stem / option TEXT: an organic species
+  named in words is chemistry content when (i) an OPSIN- or table-resolved species (>= 2 C),
+  or an unresolved lexical organic name of six or more letters, meets an organic-reaction
+  context word, (ii) two or more OPTIONS are resolved organic species, (iii) two or more
+  resolved organic species meet a reaction verb (treated, gives, yields, reacts, heated…)
+  and the options are not all numbers, or (iv) two or more options are wholly IUPAC-shaped
+  names though unresolved (no OPSIN) — so "Treatment of cyclohexanone with MeMgBr gives …"
+  is RE-25, while a Raoult's-law calculation and every non-chemistry paper are not (only
+  chemistry-shaped names, explain_engine.chem_name_plausible, ever reach OPSIN).
+  verify_explanations(out, blocks, cfg, expected_qs=…, records={q: content record})
+  re-decides every question from the records and from the question's PRINTED stem and
+  options read off the built document (explain_engine.chs_printed_records — text the
+  producer did not type), so a text-only question with no record is still re-decided:
+  NA-NO-CHEM-CONTENT on chemistry content, or NA-STRUCTURE-IRRELEVANT on a structure ask
+  (figure_types ask mapped by explain_engine.FIGURAL_ASK_TO_CHS; quantitative_calculation
+  maps to none) → CHS_NA_CONTRADICTED (a question that names organic species but whose
+  answer does not turn on structure — a solvent property, a calculation — takes
+  NA-STRUCTURE-IRRELEVANT with its T2 sentence, which verify accepts unless the item's ask
+  is a structure ask). Pass records= on EVERY paper ({} is valid); a paper with an RE-25
+  block or chemistry in its printed text verified without them → CHS_RECORDS_MISSING. A
+  block resumed from before engine v2.14 is LEGACY_BLOCK (EC-H15).
+  ask_shape A0 = undetermined (T3): the minimum contract (≥ 1 DEDUCTION figure, option
+  identity) applies.
+  H-3 DEGRADE EVIDENCE (owner Q4 (b)). APPLIES-UNRENDERABLE still always builds at
+  construction (fixture CHS-R21-UNRENDERABLE-ALWAYS-VALIDATES), and now carries
+  unrenderable_evidence = {code, species}, code ∈ CHS_LAYOUT_UNRENDERABLE · RDKIT_UNAVAILABLE ·
+  RDKIT_PARSE_FAIL · EC41_BOUND · OPSIN_UNAVAILABLE. verify_explanations RE-RUNS it (re-renders
+  the species, re-parses it, reads the ENGINE's own attempt ledger chs_attempts(out, q) for
+  EC41_BOUND — never the producer's count). A claim that does not reproduce →
+  CHS_DEGRADE_UNPROVEN. The §R3 ledger, the scorecard and the AMBER footer lines come from
+  explain_engine.chs_report_lines(blocks, out) and are pasted VERBATIM.
+  H-4 STEREO (F-5, F-15). The detector reads locant lists "(2R,3S)", "C2 is S", "the S
+  configuration", cis/trans/erythro/threo/meso/syn/anti/endo/exo forms, "racemic" / "rac-"
+  and "mixture of diastereomers"; a bare "(E)" / "(P)" label in a match-the-column or
+  assertion item never counts. Every descriptor needs a stereo_claims entry (one per centre;
+  RAC and MIXTURE are descriptors). Every claim's species is a species some figure DRAWS
+  or a printed option (CHS_CLAIM_NOT_DRAWN). The chain end equals the answer WITH stereo
+  when the answer carries it (CHS_FINAL_STEREO_MISMATCH; rac accepts the enantiomer). A
+  caption's descriptor is re-derived on the species that figure drew — "(E)" under a drawn
+  (Z) is CHS_STEREO_CLAIM_FALSE. A drawn species may leave open only what the printed
+  paper leaves open; an unspecified stereogenic C=C on an unprinted species is
+  CHS_FIGURE_STEREO_UNSPECIFIED (its picture shows an arbitrary E or Z).
+  H-5 FIGURE CONTRACTS PER ASK SHAPE (F-3, F-13) — replaces "a flat STRUCTURE_GRAPH
+  satisfies every shape":
+    A1  ≥ 1 REACTION_SCHEME / MECHANISM in DEDUCTION and a DEDUCTION figure draws the answer.
+    A2  every DEDUCTION figure is MECHANISM, except an engine-recorded E-04 step-down or a
+        proton transfer / tautomerisation (heavy-atom skeleton unchanged) → else
+        CHS_ARROWS_MISSING. Any pericyclic step named in DEDUCTION (Claisen, Cope,
+        Diels–Alder, ene, electrocyclic, sigmatropic, [m,n]) needs a figure with the
+        cyclic arrow set (EC-22).
+    A3  a CHAIR / NEWMAN / SAWHORSE / TS_CHAIR figure (corpus_io.render_chair /
+        render_newman / render_sawhorse / render_ts_chair).
+    A4  ≥ 2 competing outcomes drawn (CHS_COMPETITOR_MISSING).
+    A5  a CIP figure (corpus_io.render_cip: priorities 1-4 per centre, the descriptor and
+        the viewing rule in its caption) of every species an R/S/E/Z claim is about
+        (CHS_CIP_ANNOTATION_MISSING).
+    A7  "n resonance forms" in prose needs n distinct drawn structures (CHS_RESONANCE_COUNT).
+    A9  printed locants. A11 a FISCHER / HAWORTH / CHAIR figure (render_fischer /
+        render_haworth / render_chair).
+  A caption naming a chair, Newman, sawhorse, Fischer, Haworth or chair TS model on a
+  figure that is not that model → CHS_CAPTION_CLAIM.
+  H-6 STEREO RENDERERS (F-4, owner Q5 (a); corpus_io v1.20). Each draws FROM the atom-
+  mapped SMILES and PROVES the drawing: the configuration the picture shows is rebuilt in
+  3-D from its template and re-labelled by rdkit; a drawing that does not reproduce the
+  input never returns. An unspecified carbon stereocentre is refused
+  (CHS_FIGURE_STEREO_UNSPECIFIED — the picture would show an arbitrary configuration; a
+  racemate is drawn as one enantiomer captioned rac, EC-H7); a Newman / sawhorse bond must
+  be a bond; `caption` is a list of strings; every failure is a ValueError (one EC-41
+  attempt), never another exception type. render_chair(smiles, caption, ring=[6 maps],
+  axial=[maps],
+  equatorial=[maps], show_h=[ring maps], flip=bool, emphasise=[(m, n)]) — the chair whose
+  occupants match the request, else the MMFF lowest-energy chair; flip draws the ring-flip
+  partner (⇌). render_newman(smiles, [front, back], caption, anti=[m, n] | gauche=[m, n] |
+  dihedral=([m, n], deg)) — measured within 10°; render_sawhorse the same. render_fischer
+  (most-oxidised end on top), render_haworth (ring O back right, C1 right). render_cip
+  (one panel per centre; priorities from the engine's CIP digraph, printed only when they
+  reproduce rdkit's CIP label — else the figure degrades). render_ts_chair(step, ring,
+  caption) — the forming / breaking bonds must equal the E-03 step's. FMO lobe diagrams are
+  not in this release (owner Q5 (a)).
+  Call every stereo renderer through `chs_render` — the one entry point for A3 / A5 / A11
+  figures, so a model name never reaches a renderer that does not draw it:
+
+  ```python
+  import corpus_io
+
+  def chs_render(model, *args, **kw):
+      """H-6 — the structure-derived stereo figure for `model` (CHAIR, NEWMAN, SAWHORSE,
+      FISCHER, HAWORTH, CIP, TS_CHAIR). Each renderer proves its drawing by 3-D rebuild
+      or raises; a raise is a §6A-12 EC-41 attempt, never a hand-drawn substitute."""
+      m = str(model).strip().upper().replace(' ', '_')
+      if m == 'CHAIR':
+          return corpus_io.render_chair(*args, **kw)
+      if m == 'NEWMAN':
+          return corpus_io.render_newman(*args, **kw)
+      if m == 'SAWHORSE':
+          return corpus_io.render_sawhorse(*args, **kw)
+      if m == 'FISCHER':
+          return corpus_io.render_fischer(*args, **kw)
+      if m == 'HAWORTH':
+          return corpus_io.render_haworth(*args, **kw)
+      if m == 'CIP':
+          return corpus_io.render_cip(*args, **kw)
+      if m in ('TS_CHAIR', 'CHAIR_TS'):
+          return corpus_io.render_ts_chair(*args, **kw)
+      raise ValueError(f'chs_render: no structure-derived renderer for model {model!r} '
+                       '(FMO lobe diagrams are not in this release)')
+  ```
+  H-7 ORIENTATION AND LAYOUT (F-7, F-9, F-16; owner Q1 (b), Q6 (a)). Explanation figures use
+  Step 7's layout engine, aligned step to step by template matching. No pipeline persists
+  the printed 2-D coordinates (a registry carrying them would outgrow the size-capped
+  project knowledge; a past paper's PYQExplain §13A-3 transcription is SMILES), so placement on
+  printed coordinates is an ENGINE CAPABILITY used only when the exact printed MolBlock is
+  in hand: render_structure_panel(…, printed_molblock=…) and render_mechanism step dicts'
+  "printed_after" / "printed_before" (a reflected layout is allowed — an IMAGE is never
+  mirrored; wedges are re-derived from chiral tags and the identity is re-proved by a
+  MolBlock round trip). Never a guessed orientation.
+  The layout gate adds L3d (a note across a bond), L3e (a note over another atom's symbol),
+  L3f (a caption over the drawing) and L1b (two arrows crossing); notes are drawn by the
+  engine with a 12-position placement search and measured boxes. Inside the CAGE SET
+  (bridged / spiro ring pairs + first shell, corpus_io._cage_atoms) L3c allows 70 % bond
+  deviation and L3b 0.30 × median; elsewhere the limits are unchanged; cubane-class cores
+  use CHEM_CAGE_TEMPLATES. A failing figure degrades PER FIGURE; a question is never stepped
+  down to PROSE while any of its species rendered.
+  H-8 LABELS AND SECTIONS (F-8, F-14). A mapped atom prints only the label the producer
+  declares (no map numbers). Numeric labels on a fused ring system (naphthalene, azulene,
+  indole, quinoline) must be an IUPAC numbering of it (corpus_io.ring_locants gives it; "18"
+  for azulene's 3a is refused at render, CHS_LABEL_INVALID); one locant printed twice →
+  CHS_LABEL_DUPLICATE. When any figure prints labels the block sets labels_sentence_index =
+  0 and that FIRST DEDUCTION sentence defines every printed label (CHS_LABELS_SENTENCE,
+  CHS_LABEL_LEGEND — structural, so translated papers work). Every APPLIES block sets
+  stereo_sentence_index to a DEDUCTION sentence stating retained / inverted / rac /
+  mixture of diastereomers / achiral (CHS_STEREO_SENTENCE), bound to stereo_claims when the
+  chain carries stereo (EX-CHEM-24). A balance sentence ("X gives Y + Z") is re-computed
+  (CHS_BALANCE_SENTENCE). A DEDUCTION figure sits under a sentence that names what it draws
+  (a caption word, a printed label or "Step <id>") — else CHS_FIGURE_ANCHOR.
+  H-9 WRONG-OPTION FIGURES (F-11). A structure option's figure draws THAT option's species
+  (CHS_OPTION_FIGURE_IDENTITY); a figure that only redraws the starting material needs an
+  EC-15 "no reaction" caption (CHS_OPTION_FIGURE_SUBSTRATE); two options never carry the same
+  drawn species unless they make the same structural claim (CHS_OPTION_FIGURE_DUPLICATE).
+  H-10 NAMES (F-6, owner Q2 (a)). OPSIN is installed ONCE per container session by the engine
+  (explain_engine.opsin_status — one pip attempt, recorded; Java is checked) and reused by
+  every later step and question; absent → OPSIN_UNAVAILABLE, AMBER footer line, never a
+  stop. Names are FOUND by the systematic-name pattern, every curated-table name and a
+  natural-product lexicon (camphor, borneol, pinene, α-terpineol …), and RESOLVED through the
+  curated table CHEM_TRIVIAL_NAMES (formula-verified), the
+  session cache, then one OPSIN batch per paper (chs_names_prefetch). A stem that NAMES a
+  species with the product's formula but another structure (not a chain species, not an
+  option's species) in a clause that ASSERTS it as a product ("… gives X") — never a
+  comparison stem naming the isomers it asks about, never a contrast clause →
+  CHS_STEM_NAME_MISMATCH: on this PYQ pipeline the paper cannot be regenerated, so the
+  block records stem_defect = {printed, correct}, sets paper_kind='pyq', and its LAST
+  DEDUCTION paragraph carries the fixed sentence explain_engine.STEM_DEFECT_TEMPLATE ("The
+  name printed in the question has a numbering error; the product formed is <correct
+  name>.") — see §17-3. A text option whose name is not its §13A-3 option_smiles structure →
+  CHS_OPTION_NAME_MISMATCH (§17-3). A prose sentence that says two names denote one
+  compound when they do not, or that a name "denotes the compound the stem names" when the
+  stem's name is another structure, or a locant-bearing name that is an ISOMER of a species
+  of the question (same formula, another structure — a wrong locant) in a clause that
+  asserts it → CHS_PROSE_NAME_FALSE; a neighbour named for comparison, transfer, a
+  hypothetical or a denied alternative ("unlike …", "if …", "…, not X") never counts.
+  Relative descriptors (cis / trans / rac / erythro) accept
+  the enantiomer; absolute ones do not. An unresolvable name is NAME_UNRESOLVED in §R3,
+  never a block.
+  H-11 NOTATION (F-1, owner Q11 (b)). The formula normaliser never touches mechanism
+  notation (SN1, SN2, SN1′, SNi, SNAr, SE2, SEAr, SH2, E1, E2, E1cB, AdE2, AdN, SRN1), never a
+  token with an explicit count 1 (HSV1, H1N1), never an all-capital token with one
+  trailing number unless it is a known species (CO2 yes, PS2 / HSP70 no; EngineConfig
+  formula_allow / formula_stoplist extend the lists per exam), never "H2 receptor"; it
+  formats organic group formulae (Et₂O, PPh₃, CO₂Et, iPr₂NEt) and hydrate coefficients
+  (CuSO₄·5H₂O). Write SN2 plainly; a subscript N only as a MATH region (EX-CHEM-26).
+  H-12 THE LIBRARY CHECKS PROSE (F-12, owner Q7 (a)). CHEMISTRY_EXPLAIN_LEARNINGS v1.1 rules
+  carry **Contradicts:**; a rule triggered anywhere in the block whose forbidden assertion
+  appears in ANY sentence (AXIOM, DEDUCTION, SPEED HACK, WHY WRONG, COMMON PITFALLS) →
+  CHEM_LIBRARY_CONTRADICTION; a negated clause ("does not", "never", "fails to") states the
+  true chemistry and never counts (a bare notation token such as "SN₂" always does). Build the
+  config with EngineConfig(…, **{k: v for k, v in explain_engine.chem_library_config(
+  project_dir).items() if k.startswith('chem_')}); a config built without it still uses the
+  repo library. A project copy of the library OLDER than the repo's never wins.
+  H-13 THE REVIEW SEES CONTEXT (F-10). figure_review_sheet takes (fig_id, figure, {'sentence':
+  the sentence it follows, 'option': the printed option image for a WHY WRONG figure,
+  'captions': its caption claims}); the verdict grammar is ok · mismatch:anchor ·
+  mismatch:option · mismatch:claim · mismatch:legibility.
+  H-14 SCORECARD. The §R3 block prints chs_report_lines(blocks, out)['scorecard'] — every
+  CHS code that fired and was resolved, every open one, every degrade, every
+  NAME_UNRESOLVED. The release target is 0 open.
+  EDGE CASES (binding, every exam): EC-H1 another script — descriptors and labels are
+  matched structurally, OPSIN runs on Latin names only (else NAME_UNRESOLVED) · EC-H2 school
+  exams — text-only organic questions are RE-25 (H-2) and name checks matter most · EC-H3
+  biomolecules — A11 renderers · EC-H4 coordination / organometallic — no stereo renderer
+  required, inorganic names OPSIN cannot parse are NAME_UNRESOLVED · EC-H5 polymers — repeat
+  unit as REACTION_SCHEME · EC-H6 > 60 heavy atoms — EC-25 R-abbreviation; CHAIR on the
+  reacting ring only · EC-H7 racemic stems — the drawn enantiomer is the template, captions
+  say rac · EC-H8 text options — H-10 option-name check and H-9 identity by name · EC-H9
+  assertion-reason / match / MSQ — contracts per structure-decided item · EC-H10 NAT —
+  every pitfall value has its figure · EC-H11 Java / OPSIN missing — H-10 degrade · EC-H12
+  3-D embedding fails — CHS_CONFORMER_UNAVAILABLE for that figure only, recorded · EC-H13
+  printed perspective drawing — redrawn by the stereo renderers from the structure, never
+  traced · EC-H14 no printed coordinates (every pipeline today) — template alignment and
+  Step 7's layout engine only, never a guessed orientation · EC-H15 legacy blocks — LEGACY_BLOCK ·
+  EC-H16 cages, bridged and spiro skeletons — H-7 order; never a PROSE step-down while any
+  species rendered.
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2882,6 +3137,16 @@ print(fv.vision_report_line(report))
     omits the product's C=O) of the GAP-2026-11-06 evidence paper, both bound silently.
     Two options matching the derived product → RARE (EC-29); no option close → re-derive
     first (§17-1), still none → RARE (EC-30).
+  • STEM-NAME DEFECT (v2.30 — GAP-2026-11-07 RC-6; §6A-13 H-10): the stem NAMES a species
+    whose structure is not the derived product though it has the product's formula (a
+    locant / numbering error — CHS_STEM_NAME_MISMATCH). A past paper cannot be regenerated:
+    explain the true chemistry IN FULL, record stem_defect = {printed, correct} on the
+    block, and close the last DEDUCTION paragraph with the fixed sentence
+    explain_engine.STEM_DEFECT_TEMPLATE. NEVER claim that the printed name denotes the
+    derived product (CHS_PROSE_NAME_FALSE / EX-CHEM-25). Record STEM-TEXT-DEFECT in
+    pyq_answer_keys.json and in §R7 — a mandatory line, never an optional note. A TEXT
+    option whose name is a different structure from its record (CHS_OPTION_NAME_MISMATCH)
+    is recorded the same way.
   • VERY RARE: the question is genuinely unanswerable (corrupt image, missing
     data, truncated stem from scan defect) → set the anomaly flag (no content),
     skip explanation for this question, note in report for human review.
@@ -2970,7 +3235,21 @@ print(fv.vision_report_line(report))
   must consume that return — not merely call it.
 ```python
 import explain_engine as _ee
-_ok, _problems = _ee.verify_explanations(out, blocks, cfg, expected_qs=EXPECTED)
+# v2.30 (§6A-13 H-2): RE-25 is re-decided and re-checked from the §13A-3 content records
+import json as _json_v, os as _os_v
+_cop_v = '/home/claude/pyq_content_objects.json'
+try:
+    _cov = _json_v.load(open(_cop_v, encoding='utf-8')) or {}
+except (OSError, ValueError):
+    _cov = {}
+if not isinstance(_cov, dict):
+    _cov = {}
+_crf_v = globals().get('CLEAN_ROW_FILE')
+if _crf_v and ((_cov.get('_meta') or {}).get('source_file') != _os_v.path.basename(_crf_v)):
+    _cov = {}          # a file left from another paper is never merged (same rule as S7A-6)
+# {} is still passed: the engine then re-decides every question from its PRINTED text
+_records = {k: v for k, v in _cov.items() if k != '_meta' and isinstance(v, dict)}
+_ok, _problems = _ee.verify_explanations(out, blocks, cfg, expected_qs=EXPECTED, records=_records)
 _degraded = list(_ee.T3_STATS.get('failed', []))
 if (not _ok) or _problems or _degraded:
     # A ⟦MATH:⟧ region degraded to raw text, or another render check failed.
@@ -3339,6 +3618,17 @@ present_files(deliverables)
 #   rules[].triggers; triggers_from_learnings compiles the table; the engine uses it
 #   for §7-7 step 3. Every NEIGHBOUR-LIBRARY rule SHOULD carry one.
 #
+# ── S24-1c — THE **Contradicts:** FIELD (v2.30 / v1.55.0 — additive; the frozen schema still parses) ──
+#   A rule MAY carry `**Contradicts:** phrase; re:<regex>; …` — the FALSE assertions the rule
+#   forbids, SEMICOLON-separated (a semicolon inside a regex is written \x3b); a plain phrase
+#   matches case-insensitive and whole-word, `re:` takes a raw regex. parse_learnings reads it
+#   into rules[].contradicts; explain_engine.contradicts_from_learnings compiles it; the rule
+#   is TRIGGERED when its **Triggers:** match anywhere in the block, and a forbidden assertion
+#   in ANY sentence of AXIOM / DEDUCTION / SPEED HACK / WHY WRONG / COMMON PITFALLS is
+#   CHEM_LIBRARY_CONTRADICTION (§6A-13 H-12). Write each pattern as ONE positive false claim
+#   bounded to one clause ([^.,\x3b]); a negated clause ("does not …", "never …") states the
+#   true chemistry and is never matched. A rule without Contradicts is obeyed as before.
+#
 # ── S24-6 — DEFECT CODES INTRODUCED BY v2.15 ─────────────────────────────────────────
 #   SEMANTIC-MISREAD · UNVERIFIED-PROVENANCE · HEDGED-PROVENANCE · LIBRARY-NOT-CITED ·
 #   FORMULA-TYPOGRAPHY · MINIMUM-SPECIFICITY · FORMULA-OXIDATION-STATE ·
@@ -3405,7 +3695,24 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.7 (2026-11-07)
+# SHARED_RULES_VERSION: 1.8 (2026-11-08)
+#
+# SHARED-RULES BUMP (v1.8, 2026-11-08): GAP-2026-11-07-RE25-HARDENING added NEW §6A-13
+# (H-0..H-14, EC-H1..H16) and amended §5-1 (RE-25 fields), §6A-10 items 2 / 4, the layout
+# gate and FALLBACK, §6A-12 (codes, context review, EC-41 evidence) in BOTH files —
+# MockTestExplain v1.55.0 and PYQExplain v2.30 — paired with explain_engine v2.14, corpus_io
+# v1.20 and CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1.
+# PIPELINE-SPECIFIC, RECORDED: §6A-13 H-2 names the content record (PYQ: the §13A-3 record;
+# mock: the per-question registry record (P10) + figural-manifest SMILES); §6A-13 H-10 routes a
+# stem-name defect (PYQ: stem_defect + the fixed disclosure sentence, §17-3 STEM-NAME DEFECT;
+# mock: §17-3 STEM_TEXT_DEFECT, regeneration); §5-1 paper_kind ('pyq' / 'mock') and
+# content_record wording; the §18 verify call (PYQ §18-1a passes records= from
+# pyq_content_objects.json, {} when absent or from another paper; mock §18 checklist); §6A-13
+# H-0 names the PYQ check source (the §13A-3 transcription record; mock: the registry); §6A-13
+# H-10's text-option source (PYQ: §13A-3 option_smiles; mock: the registry). Every other §6A-13
+# sentence is identical in both files.
+#
+# (previous) SHARED_RULES_VERSION: 1.7 (2026-11-07)
 #
 # SHARED-RULES BUMP (v1.7, 2026-11-07): GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS
 # added RE-25 CHEM-STRUCTURE STANDARD and the shared §4-§18 sections it needs to BOTH
@@ -3550,5 +3857,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.29
+# END OF Framework_PYQExplain v2.30
 # ════════════════════════════════════════════════════════════════════════

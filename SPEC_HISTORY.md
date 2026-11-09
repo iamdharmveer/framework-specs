@@ -805,6 +805,17 @@ Entry v1.41.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 #   PYQPrepare footer path is untouched).
 ```
 
+Entry v1.42.0 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENING; v1.43.0 supersedes).
+
+```
+# v1.42.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94, MockDeliver v1.27.0). §FOOTER-FT gains the DIFFICULTY LAYER LINES —
+#   bc.difficulty_layer_lines over the paper's recorded difficulty_state.paper_gate / l2_model:
+#   delivered vs target counts, DR3 items (accepted below their slot after full repair, disclosed),
+#   unmeasured slots, the organic ruler's state and the source of its shares. "ℹ️ "-prefixed,
+#   disclosure only; a paper without the records prints nothing (byte-identical).
+```
+
 ## Framework_MockDeliver.md
 
 Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
@@ -2872,6 +2883,33 @@ Entry v5.93 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFIC
 #   No question-writing rule, gate, artefact, deliverable, end state or user action changed.
 ```
 
+Entry v5.94 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENING; v5.95 supersedes).
+
+```
+# v5.94 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07 D1 (b),
+#   D2 relative, D3, D4, D5, D6, Q1 (c), Q4, Q5 and 2026-11-08 (a); paired with blueprint_core v1.33,
+#   MockTestAnalyse v2.61.0, MockReview v2.1.0, analyse_engine v1.4). Measured 2026-11-07: a
+#   post-graduate organic paper was scheduled Hard 28 and shipped with the blind reviewer grading it
+#   Hard 9; the reviewer's verdict was recorded as a note and never acted on, and nothing counted the
+#   delivered paper against the ORIGINAL schedule. WHAT CHANGES HERE (every exam unless marked):
+#   NEW S3-8L builds the organic decision-load ruler (L2; organic subtopics only, owner Q4) from the
+#   exam's OWN past papers (shares: the Step-5 blind grades of the SAME profile, else the registry
+#   cache, else the blueprint's measured shares — printed), freezes it for the series, and derives the
+#   pattern cards; S3-15L (from the final plan) fixes the target plan and gives each organic slot a
+#   pattern source (never a past question, D6);
+#   CHECK 3c gains (b0) (the L2 band is the organic item's content evidence; L1 is informational for
+#   it) and ONE generic rule: a slot measured BELOW its band is re-authored (DR1 next pattern source,
+#   DR2 band-target brief, inside the one G-DIFF budget) and then CARRIED TO REVIEW at its band
+#   (decision 'carried_below') instead of the R5 easier relabel; the band-swap escape also updates the
+#   TARGET plan (batch_state 'difficulty_plan_target', count-neutral). S13-2G phase 1 gives the
+#   reviewer the concept vocabulary; phase 3 replaces DL-52 with bc.dl_phase3_decision (reviewer band
+#   when anchored, the in-batch measured band, the L2 ruler on the lower of author / reviewer
+#   concepts): round 1 BELOW -> a repair, round 2 BELOW -> DR3, the only relabel, disclosed. NEW S13-2L
+#   counts the paper against the target plan (bc.difficulty_paper_gate). S13-4 caches the blind
+#   grades in the registry; S13-6 prints bc.difficulty_layer_lines. Nothing here stops (C1); no
+#   certificate effect (C2); no new user action (C4). Entry v5.93 moved to SPEC_HISTORY.md.
+```
+
 ## S16-1 — Trigger and preflight
 
   TRIGGER: `TestCreateRepair P[N] Q4 Q8 Q20 …` or `MockCreateRepair M[N] Q…`
@@ -4166,6 +4204,29 @@ Section §7A-R (REPAIR MODE, v1.42.0–v1.46.3) RETIRED and moved here VERBATIM 
 release 2026.08.27.3 (REPAIR-RETIRED-2026-08-27, operator decision). Not executable.
 
 ````
+Entry v1.54.0 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENING; v1.55.0 supersedes).
+
+```
+# v1.54.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE
+#   STANDARD; paired with PYQExplain v2.28, explain_engine v2.13, corpus_io v1.19, figural_core
+#   v5.91, SHARED_RULES_VERSION 1.7, the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS_v1.md).
+#   Incident: CSIR NET Chemical Sciences 18-Jul-2026 — 120 questions, 34 structure questions,
+#   ZERO explanation figures, 11 chemistry defects, every key right: the router said PROSE,
+#   the renderer drew one molecule, figures could land only in DEDUCTION, nothing compared
+#   the derived product with the keyed option, the chemistry library had never loaded.
+#   NEW RE-25 (decided per question from CONTENT — never a subject, topic or exam name, §6A-7
+#   T1-T3, ask shapes A1-A12): every step drawn inside DEDUCTION with curly arrows (E-03
+#   proved), every wrong option drawn under its own heading (E-05), every figure layout-gated
+#   and auto-retried (E-04), reviewed once in-turn (E-09), reconciled with the options (E-06
+#   c-e, E-07), stereo descriptors re-derived (E-06 f), per-step balance (E-06 g), pipeline
+#   vocabulary banned (E-08). NEW §6A-7..§6A-12, §7-0d / §7-0e, §24 S24-7; amended §5-1 /
+#   §5-3, §6-1, §6A-1 / 1b / 2 / 3b / 5 / 6, §7-2, §8-3 / §8-5, §15-2, §18-1, §R3, §21.
+#   option_smiles come from the registry; a key that is not the derived product is a Step 7
+#   defect under §17-3 (EC-39), never a NEAREST-OPTION disclosure.
+#   No new section heading; a NOT_APPLICABLE question takes no new obligation and renders
+#   byte-identically (GAP Section 10.1; engine fixture AT-4 b).
+```
+
 ## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0; v1.44.0 — STATE-PAIR PREFLIGHT, ATOMIC RE-GATE; v1.45.0 — WINDOWED RE-GATE)
 
   TRIGGER: `TestExplainRepair P[N]` or `MockExplainRepair M[N]`.
@@ -6938,6 +6999,18 @@ Entry v2.28 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFIC
 #   difference disclosed in the last DEDUCTION paragraph, OPTION-DRAWING-DEFECT recorded).
 #   No new section heading; a NOT_APPLICABLE question takes no new obligation and renders
 #   byte-identically (GAP Section 10.1; engine fixture AT-4 b).
+```
+
+Entry v2.29 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENING; v2.30 supersedes).
+
+```
+# v2.29 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94). FORWARD-ONLY, one field rule: §13A-3 "named_concepts" of an ORGANIC
+#   question is written with the CANONICAL label of bc.l2_vocabulary() wherever the AXIOM's concept
+#   is in that controlled vocabulary (the vocabulary the organic decision-load ruler scores, owner
+#   D4); a concept outside it is written as printed. Profiles written earlier are NOT re-run:
+#   bc.l2_concept_match maps the printed names onto the same labels, and the ruler discloses its
+#   concept coverage. No other field, phase, gate or output changes.
 ```
 
 ## Framework_PYQFormat.md

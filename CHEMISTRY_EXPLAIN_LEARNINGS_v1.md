@@ -1,4 +1,14 @@
-# CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.0 — chemistry subject library (RE-25, §24 S24-7)
+# CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1 — chemistry subject library (RE-25, §24 S24-7)
+# v1.1 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (F-12; owner Q7 (a)). The library now
+#   CHECKS PROSE: a rule may carry **Contradicts:** — forbidden assertions (phrase or re:regex,
+#   ';'-separated, backward-compatible S24 field; parse_learnings reads it). When the rule's
+#   trigger fires in ANY sentence of AXIOM / DEDUCTION / SPEED HACK / WHY WRONG / COMMON
+#   PITFALLS of an RE-25 block and the sentence matches a forbidden pattern, the question
+#   returns to solving (CHEM_LIBRARY_CONTRADICTION). Forbidden patterns are POSITIVE false
+#   assertions bounded to one clause ([^.,\x3b]), so a sentence that contrasts both cases is not
+#   hit; a NEGATED clause ("NaBH4 does not reduce the ester") states the true chemistry and is
+#   never hit; a rule's Triggers are read from the WHOLE block, its Contradicts per sentence. NEW EX-CHEM-18..28; Contradicts added to EX-CHEM-02 / -03 / -11 / -14. A project copy
+#   OLDER than this file no longer wins (explain_engine v2.14 resolve_chem_library).
 # v1.0 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS. SHIPPED IN THE REPO,
 #   tracked in MANIFEST.json, routed to PYQExplain / TestExplain / MockExplain; loaded by
 #   explain_engine.resolve_chem_library() whenever at least one question of a paper is
@@ -30,6 +40,7 @@
 **Prevention rule:** Only a poisoned catalyst (Lindlar: Pd/CaCO3 + Pb or quinoline; or P-2 nickel) stops at the cis alkene, and Na/NH3(l) gives the trans alkene; Pt, Pd/C and Raney Ni reduce C≡C through the alkene to the alkane. Raney Ni at high pressure and temperature also saturates an aromatic ring.
 **Verification:** The drawn product's H count matches full or partial reduction exactly as claimed (E-06 g).
 **Triggers:** Lindlar, Raney nickel, catalytic hydrogenation, re:hydrogenation of (?:the |an? )?(?:alkyne|alkene|triple|double|C≡C|C=C), re:(?-i:H2)\s*/\s*(?-i:Pt|Pd|Ni), re:(?-i:Na)\s*/\s*(?-i:NH3)
+**Contradicts:** re:(?:Pd/C|Pt|PtO2|Raney\s+(?:Ni|nickel))[^.,\x3b]{0,40}?\bstops?\s+at\s+(?:the\s+)?(?:cis-?\s*)?alkene; re:\bLindlar[^.,\x3b]{0,40}?\b(?:gives?|forms?|yields?)\s+(?:the\s+|a\s+)?trans-?\s*alkene
 
 ## EX-CHEM-03 — What each alcohol oxidant gives
 **Defect code:** NEIGHBOUR-LIBRARY
@@ -38,6 +49,7 @@
 **Pattern:** PCC is said to take a primary alcohol to the carboxylic acid.
 **Prevention rule:** PCC, PDC in CH2Cl2, Swern (DMSO/(COCl)2/Et3N), Dess–Martin periodinane, TEMPO/NaOCl and TPAP/NMO stop at the ALDEHYDE from a primary alcohol and give the ketone from a secondary one; the ACID needs Jones (CrO3/H2SO4/acetone), KMnO4, PDC in DMF, or Pinnick (NaClO2) on the aldehyde; MnO2 oxidises ONLY allylic, benzylic and propargylic alcohols and leaves a saturated or homoallylic OH untouched; a tertiary alcohol is not oxidised by any of them.
 **Verification:** Each oxidation step's product oxidation level matches the reagent; the drawn product carries the aldehyde, ketone or acid the table gives.
+**Contradicts:** re:\b(?-i:PCC)\b[^.,\x3b]{0,40}?\b(?:gives?|forms?|yields?|oxidi[sz]es?\s+(?:\w+\s+){1,4}?to)\s+(?:the\s+|a\s+)?carboxylic\s+acid; re:\b(?-i:MnO2)\b[^.,\x3b]{0,40}?\boxidi[sz]es?\s+(?:a\s+|the\s+)?saturated
 **Triggers:** Jones reagent, Jones oxidation, Swern, re:Dess.?Martin, Pinnick, TPAP, re:(?-i:PCC|PDC|TEMPO|CrO3|MnO2)\b[^.]*?(?:aldehyde|ketone|carboxylic acid|alcohol), re:alcohol[^.]*?(?-i:PCC|PDC|TEMPO|CrO3|MnO2)\b
 
 ## EX-CHEM-04 — E2 on a cyclohexane: list every anti-periplanar β-H
@@ -111,6 +123,7 @@
 **Prevention rule:** I2 with silver acetate (or AgOBz) in WET acetic acid (Woodward) gives the CIS-diol on the more hindered face (via the cyclic acetoxonium ion opened by water on the same face); ANHYDROUS conditions (Prévost) give the TRANS-diol; OsO4 / KMnO4 (cold, dilute) give the cis-diol on the less hindered face; epoxide hydrolysis gives the trans-diol.
 **Verification:** The diol's relative stereochemistry matches the water content and the face is drawn (§6A-8 A3).
 **Triggers:** re:Woodward (?:modification|dihydroxylation|reaction|conditions), re:Pr[eé]vost, silver acetate, AgOAc, AgOBz, dihydroxylation, re:(?-i:OsO4)[^.]*?(?:alkene|diol|dihydrox|olefin|syn)
+**Contradicts:** re:\bWoodward\s+(?:conditions?\s+|dihydroxylation\s+|reaction\s+|modification\s+)?(?:gives?|yields?|forms?|affords?)\s+(?:the\s+|a\s+)?trans; re:\bPr[eé]vost\s+(?:conditions?\s+|reaction\s+)?(?:gives?|yields?|forms?|affords?)\s+(?:the\s+|a\s+)?cis; re:\b(?-i:OsO4)[^.,\x3b]{0,30}?\b(?:gives?|yields?|forms?)\s+(?:the\s+|a\s+)?trans-?\s*diol
 
 ## EX-CHEM-12 — The option set never justifies a chemical step
 **Defect code:** CHEM-OPTION-JUSTIFIED
@@ -136,6 +149,7 @@
 **Prevention rule:** NaBH4 reduces aldehydes and ketones (not esters or amides); LiBH4 also reduces esters; LiAlH4 reduces aldehydes, ketones, esters, acids, amides (to amines), nitriles and epoxides; DIBAL-H at −78 °C takes an ester to the aldehyde and a nitrile to the aldehyde after work-up; NaBH3CN / NaBH(OAc)3 reduce iminium ions (reductive amination); L-Selectride gives the axial alcohol from a cyclohexanone (attack from the equatorial face), NaBH4 the equatorial alcohol; Luche (NaBH4/CeCl3) reduces an enone 1,2; Wolff–Kishner and Clemmensen take C=O to CH2.
 **Verification:** Each reduction step's product matches the table; a wrong-reagent option draws the product it would really give or the substrate unchanged (§6A-8, EC-15/16).
 **Triggers:** re:(?-i:NaBH4|LiAlH4|LiBH4|NaBH3CN)\b, re:NaBH\(OAc\)3, re:DIBAL(?:-H)?, Selectride, Luche reduction, re:Wolff.?Kishner, Clemmensen, reductive amination
+**Contradicts:** re:\b(?-i:NaBH4)\b[^.,\x3b]{0,40}?\breduces?\s+(?:an?\s+|the\s+)?(?:ester|amide|carboxylic\s+acid)\b
 
 ## EX-CHEM-15 — Named carbonyl and pericyclic reactions: the product that is actually formed
 **Defect code:** NEIGHBOUR-LIBRARY
@@ -162,4 +176,118 @@
 **Prevention rule:** Minimum-concept components for a regio- / chemo- / stereoselectivity DEDUCTION (§7-0d): (1) every competing site / face / pathway listed and drawn side by side; (2) the controlling factor named (sterics, electronics, chelation, kinetic vs thermodynamic, Curtin–Hammett); (3) the reason the winner wins stated as a comparison, not an assertion; (4) if the keyed option is the minor pathway, the last DEDUCTION paragraph says so.
 **Verification:** The competitors appear in the figure and the DEDUCTION names the controlling factor.
 
-# END OF CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.0
+## EX-CHEM-18 — Bamford–Stevens versus Shapiro: the solvent and the base decide the intermediate
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.8 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The carbene path is said to run under protic conditions, or a Shapiro reaction is said to pass through a carbene or a cation.
+**Prevention rule:** A sulfonylhydrazone with a base (NaOMe, NaH, NaNH2) gives the diazo compound. In a PROTIC solvent the diazo compound is protonated and loses N2 to a carbenium ion (more substituted / rearranged alkenes, Wagner–Meerwein shifts possible); in an APROTIC solvent it loses N2 to a carbene that gives the alkene by a 1,2-H shift. With two equivalents of an alkyllithium (Shapiro) the dianion loses sulfinate and N2 to a vinyllithium: no carbene, no cation, the C=C forms toward the less hindered alpha-carbon and the less substituted alkene results after protonation.
+**Verification:** The DEDUCTION names the solvent class and the intermediate it gives; the Shapiro chain draws the dianion and the vinyllithium (§6A-8 A2).
+**Triggers:** Bamford, Shapiro, tosylhydrazone, re:sulfonyl\s*hydrazone, re:arenesulfonylhydrazone
+**Contradicts:** re:\bcarbene[^.,\x3b]{0,60}?\b(?:under|in)\s+(?:a\s+|the\s+)?protic\b; re:\bprotic\b[^.,\x3b]{0,40}?\b(?:gives?|forms?|generates?|leads?\s+to)\s+(?:a\s+|the\s+)?(?:free\s+)?carbene\b; re:\bShapiro\b[^.,\x3b]{0,80}?\b(?:via|through|by\s+way\s+of)\s+(?:a\s+|the\s+)?(?:carbene|carbocation|carbenium); re:\bweakly\s+basic\b[^.,\x3b]{0,40}?\bBamford; re:\bBamford[^.,\x3b]{0,60}?\bweakly\s+basic\b
+
+## EX-CHEM-19 — An alpha-haloketone with alkoxide: Favorskii or quasi-Favorskii
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.2 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The wrong-option figures redraw the substrate instead of the cyclopropanone, oxyallyl or alpha-lactone each option names.
+**Prevention rule:** With an alpha'-H the enolate closes to a cyclopropanone that the alkoxide opens (Favorskii); with no alpha'-H the alkoxide adds to the carbonyl and the tetrahedral intermediate undergoes a 1,2-shift with loss of halide (quasi-Favorskii, semibenzilic). Draw the tetrahedral intermediate and the migrating bond; each wrong option draws the species it names.
+**Verification:** The deciding alpha'-H (or its absence) is stated; every option names a species and its figure draws that species (F-11).
+**Triggers:** Favorskii, re:quasi-?Favorskii, semibenzilic, cyclopropanone, oxyallyl
+**Contradicts:** re:\bquasi-?Favorskii[^.,\x3b]{0,30}?\b(?:via|through|forms?)\s+(?:a\s+|the\s+)?cyclopropanone
+
+## EX-CHEM-20 — Beckmann rearrangement or Beckmann fragmentation
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.26 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The intermediate the question asks for is never drawn, or the syn group is said to migrate.
+**Prevention rule:** The group ANTI to the leaving group on nitrogen migrates to give a nitrilium ion that water turns into the amide. When that anti carbon is quaternary or can carry a cation (a bridgehead next to a gem-dimethyl, an alpha-heteroatom), the C–C bond cleaves instead: Beckmann fragmentation gives a nitrile and a carbocation. Draw both and name the deciding factor.
+**Verification:** The oxime geometry (E/Z) is declared and the anti group is the one that moves (E-03).
+**Triggers:** Beckmann, re:oxime[^.]*?(?:rearrang|fragment|PCl5|H2SO4|TsCl), nitrilium
+**Contradicts:** re:\bthe\s+(?:group|substituent|carbon)\s+syn\s+to\s+(?:the\s+)?(?:leaving\s+group|OH|hydroxyl|OTs)[^.,\x3b]{0,30}?\bmigrates; re:\bsyn\s+(?:group|substituent)\s+migrates
+
+## EX-CHEM-21 — Hydride chemoselectivity: L-Selectride, NaBH(OAc)3, Luche
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.20 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** L-Selectride is called unselective.
+**Prevention rule:** L-Selectride is bulky and highly STEREOselective (axial alcohol from a cyclohexanone) and reduces an unhindered aldehyde fast, so it does not leave an aldehyde intact; NaBH(OAc)3 reduces aldehydes (and iminium ions) over ketones; NaBH4–CeCl3 in an alcohol reduces a KETONE in the presence of an aldehyde because the aldehyde is masked as its hemiacetal / hydrate (Gemal and Luche, J. Am. Chem. Soc. 1981, 103, 5454) and reduces an enone 1,2. Extends EX-CHEM-14.
+**Verification:** Each hydride's selectivity is stated as chemo- or stereo-selectivity, never as "unselective".
+**Triggers:** Selectride, re:NaBH\(OAc\)3, re:CeCl3, Luche
+**Contradicts:** re:\bSelectride[^.\x3b]{0,80}?\bunselective\b; re:\bunselective\b[^.,\x3b]{0,40}?\bSelectride
+
+## EX-CHEM-22 — From a phenol to an aryl halide: two real routes
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.23 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The diazonium route is presented as the only way to replace a phenolic OH by halogen.
+**Prevention rule:** Aryl C–O does not undergo SN1 or SN2. Routes: Bucherer amination then diazotisation and Sandmeyer (CuBr / CuCl); or Ph3PBr2 (or PBr5 / Ph3P–Br2) at high temperature, which converts 2-naphthol directly to 2-bromonaphthalene (Org. Synth. 1969, 49, 6). Never write that only one route exists.
+**Verification:** The AXIOM is not absolute about a single route; the chosen route's reagents are named.
+**Triggers:** re:(?:phenol|naphthol)[^.]*?(?:bromide|bromo|halide|chloride|chloro), Sandmeyer, Bucherer, re:Ph3PBr2
+**Contradicts:** re:\b(?:only|sole)\s+(?:route|way|method)\b[^.,\x3b]{0,80}?\b(?:aryl\s+(?:halide|bromide|chloride|iodide)|bromo\w+|chloro\w+); re:\baryl\s+(?:halide|bromide|chloride)\s+is\s+made\s+from\s+(?:a\s+)?(?:phenol|naphthol)\s+(?:only\s+)?by\s+(?:converting|way\s+of)
+
+## EX-CHEM-23 — Woodward, Prévost and halohydrin chains carry their wedges
+**Defect code:** CONCEPT-MINIMUM-MISSING
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.15 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The iodonium, trans-iodo ester, acetoxonium and diol are drawn flat.
+**Prevention rule:** Every intermediate of an anti-addition chain is drawn with wedges (iodonium / bromonium face, trans-iodo ester, cyclic acetoxonium, diol); a flat drawing of a stereo-deciding step is a defect (F-15 a).
+**Verification:** Every drawn chain species carries its configuration (CHS_FIGURE_STEREO_UNSPECIFIED does not fire).
+**Triggers:** iodonium, bromonium, acetoxonium, halohydrin, bromohydrin, re:Woodward (?:modification|dihydroxylation|reaction|conditions), re:Pr[eé]vost
+
+## EX-CHEM-24 — A cation captured at a new stereocentre: say rac or diastereomer mixture
+**Defect code:** CONCEPT-MINIMUM-MISSING
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.2, Q.29 (2026-11-07)
+**Occurrences:** 2
+**Pattern:** A racemic substrate or a planar cation is captured and no stereo outcome is stated.
+**Prevention rule:** For every new or affected stereocentre the stereochemistry sentence states retained, inverted, rac, or a mixture of diastereomers; a racemic substrate gives a racemic product unless a chiral reagent is present (EC-33).
+**Verification:** The stereochemistry sentence exists and is bound to stereo_claims (F-14).
+**Triggers:** carbocation, re:cation is (?:captured|trapped|attacked), re:planar (?:cation|carbocation|intermediate), racemic, re:ring expansion
+
+## EX-CHEM-25 — Ring nomenclature after an elimination: one name, one compound
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.25 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** The explanation says two different names denote the same compound to reconcile a numbering error in the stem.
+**Prevention rule:** Name the alkene from the drawn product (the double bond takes locants 1,2; then the lowest locants for substituents). Never assert that two names denote one compound unless their structures are identical (the engine resolves both names). A stem whose name is a different structure from the product is a stem defect (§17-3 STEM_TEXT_DEFECT on a mock; the fixed disclosure sentence on a past paper), never something to explain away.
+**Verification:** CHS_PROSE_NAME_FALSE and CHS_STEM_NAME_MISMATCH do not fire.
+**Triggers:** re:systematically, re:denotes, re:the (?:stem|question)(?:'s)? name, re:is also (?:named|called)
+
+## EX-CHEM-26 — SN notation: the subscript is N
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 (13 tokens in 12 sentences, 2026-11-07)
+**Occurrences:** 13
+**Pattern:** SN2 is printed with a subscript 2.
+**Prevention rule:** The IUPAC notation is S with subscript N, then the molecularity (IUPAC Gold Book, "nucleophilic substitution"). Write plain SN1 / SN2 / SNi / SNAr / E1 / E2 / E1cB in prose (the engine never subscripts them), or a MATH region for a typeset subscript N; never subscript the digit, never write a bare underscore form.
+**Verification:** No sentence contains a subscripted mechanism digit.
+**Triggers:** re:\bS[NE][12₁₂]
+**Contradicts:** re:\bS[NE][₁₂]
+
+## EX-CHEM-27 — Carbohydrate configuration is argued in Fischer or Haworth form
+**Defect code:** CONCEPT-MINIMUM-MISSING
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.18 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** An osazone or epimer argument is drawn as zig-zag chains.
+**Prevention rule:** Open-chain sugars are compared in Fischer projection (render_fischer), cyclic ones in Haworth (render_haworth) or chair form; osazone formation destroys C1 and C2 configuration only, so sugars that differ only at C2 give one osazone.
+**Verification:** A11 figure contract satisfied (FISCHER / HAWORTH / CHAIR, F-3).
+**Triggers:** osazone, epimer, anomer, Haworth, re:Fischer projection, re:(?:glucose|fructose|mannose|galactose|ribose|aldose|ketose)
+
+## EX-CHEM-28 — Resonance forms counted are resonance forms drawn
+**Defect code:** CONCEPT-MINIMUM-MISSING
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 Q.37 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** "Three resonance forms" are claimed and one is drawn.
+**Prevention rule:** When the prose counts n resonance forms of a sigma-complex, enolate or carbocation, all n are drawn (A7); for electrophilic substitution of pyrrole / furan / thiophene / indole the C2 and C3 sigma-complexes are both drawn with their forms.
+**Verification:** CHS_RESONANCE_COUNT does not fire.
+**Triggers:** re:resonance (?:forms?|structures?|contributors?), re:sigma.?complex, Wheland
+
+## EX-CHEM-15b — Named reactions added to the EX-CHEM-15 table
+**Defect code:** NEIGHBOUR-LIBRARY
+**First seen:** a post-graduate chemistry exam, SUBJ Organic Chemistry Test 01 (2026-11-07)
+**Occurrences:** 1
+**Pattern:** A named reaction is invoked without its product class.
+**Prevention rule:** Shapiro → less substituted alkene via vinyllithium; Bamford–Stevens → alkene via carbene (aprotic) or carbenium (protic); quasi-Favorskii → ring-contracted acid / ester without an alpha'-H; Beckmann fragmentation → nitrile + carbocation; Wharton → allylic alcohol from an alpha,beta-epoxy ketone and hydrazine; Woodward → cis-diol (wet), Prévost → trans-diol (dry); Mannich → beta-amino carbonyl (aminomethylation at an enol or an electron-rich arene C2 / C3); Oppenauer → ketone from a secondary alcohol (Al(OiPr)3, acetone; the reverse of Meerwein–Ponndorf–Verley); Weitz–Scheffer → alpha,beta-epoxy ketone from an enone (H2O2 / NaOH); Johnson–Claisen → gamma,delta-unsaturated ester (triethyl orthoacetate, chair TS, E-alkene); Birch → 1-substituted cyclohexa-1,4-diene from anisole (an enol ether: mild acid gives the beta,gamma-enone, strong acid the conjugated enone); Sharpless asymmetric epoxidation → the face given by the mnemonic, drawn.
+**Verification:** The product class named is the product class drawn (E-06 c).
+**Triggers:** Shapiro, re:Bamford.?Stevens, re:quasi-?Favorskii, re:Beckmann fragmentation, Wharton, Mannich, Oppenauer, re:Weitz.?Scheffer, re:Johnson.?Claisen, re:Birch reduction, re:Meerwein.?Ponndorf
+
+# END OF CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1
