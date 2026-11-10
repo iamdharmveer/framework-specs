@@ -1,11 +1,12 @@
-# Framework_MockTestOrchestrate v1.0.0
-# v1.0.0 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (owner decision OD-2026-11-06;
-#   paired with Framework_MockTestCreate v5.93 S1-0R, SESSION_BUDGET.json and the bootstrap.py read /
-#   retention / staging / worker commands). NEW. How a Step 7 run (MockCreate / TestCreate) is executed
-#   so that the specification that writes the paper stays in the context that writes it: the user's
-#   chat orchestrates, worker sub-agents execute Framework_MockTestCreate.md, and every read is proved
-#   present (READ-RETENTION). No question-writing rule, gate, artefact, deliverable, end state or user
-#   action is defined or changed here.
+# Framework_MockTestOrchestrate v1.1.0
+# v1.1.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09; paired with Framework_MockTestCreate v5.96, blueprint_core v1.34). NEW O2-8: a
+#   run parked at a HARD STOP resumes under a NEWER production release on the user's "continue" (Step 0 is
+#   re-run once, the paper's working files are kept, the worker's S4-12 migrates the paper's state). O3-6:
+#   a part marked 'switch' (an adjudication, a panel copy, a D0 re-review) goes to a reviewer on a DIFFERENT
+#   model; delta rounds use REVIEW_DIR .../delta<k>/part<n>. O3-8: an INFRA-HEAL is not a stop, and a worker
+#   never raises a stop the executed code does not raise (MTC MANDATE 0b). Entry v1.0.0 moved to
+#   SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -58,7 +59,7 @@ nothing is lost: its state is the worker reports on disk.
 A RUN is one paper: it starts with a MockCreate / TestCreate trigger message and ends with
 PAPER_DELIVERED or a printed HARD STOP. Step 0 runs ONCE per run. A later user message of the same
 run (a continue trigger included) never runs Step 0 again: rebuilding /tmp/fw_effective deletes the
-read state the current worker proves its read against. The one exception is O2-7.
+read state the current worker proves its read against. The exceptions are O2-7 and O2-8.
 Besides that it reads only bootstrap output, SESSION_BUDGET.json and worker reports. It never reads
 Framework_MockTestCreate.md, Framework_MockReview.md or Framework_DeliveryFooter.md; never opens the
 paper, a sidecar, the registry, the BATCH STATE, a review folder or a verdict file; never authors,
@@ -159,6 +160,7 @@ The accepted continue triggers are MTC S4-6's, compared case-insensitively after
   worker); to any other message answer in one sentence that Step 7 is complete for this paper,
   start no worker, generate nothing (MTC S4-6). The same holds after a printed HARD STOP that this
   spec says ends the run (WORKDIR-LOST, O2-7).
+- A continue trigger when the last worker report is HARD_STOP: O2-8.
 - Any other message, a continue trigger in any other situation included: send
   `USER MESSAGE: <the message, verbatim>` (O2-5). The worker applies MTC S4-6 to it.
 The orchestrator never starts a batch without a continue trigger (Batch Stop Law, MTC S4-4 B-5).
@@ -177,6 +179,21 @@ progress. When a bootstrap command fails because /tmp/fw_effective is missing, r
   S4-12 has no rebuild for that file (its step 4 loads it; a worker started now would begin the
   paper again from question 1 without saying so). Start no worker. Print this line and END the run:
   `HARD STOP [HS:INFRA] WORKDIR-LOST — the platform removed this paper's working files; the batches delivered so far cannot be continued. Send the same trigger again to write the paper from the start.`
+
+## O2-8 — A run parked at a HARD STOP; a newer framework release (v1.1.0, OD-2026-11-09)
+
+When the last worker report is HARD_STOP and the user sends a continue trigger:
+1. Compare the production commit with the one this run verified:
+   `git ls-remote https://github.com/iamdharmveer/framework-specs.git production` and
+   `git -C /tmp/fw rev-parse HEAD` (read only; never a push).
+2. DIFFERENT commit — a release was deployed after the stop. Run Step 0 and input staging again in this
+   chat (they never touch /home/claude/<EXAM>_M<N>_* — the paper's working files are kept), read and
+   prove this spec again (O2-1), then start a fresh worker with `--continue` and
+   `USER MESSAGE: continue`. Its MTC S4-12 runs the state migration (bc.migrate_paper_state) first and
+   continues the paper from where it stopped; nothing is written again from question 1.
+3. SAME commit — start a fresh `--continue` worker with `USER MESSAGE: continue` (the stop may have been
+   an INFRA-HEAL the previous worker could not finish). A stop it raises again ends the run.
+A missing /tmp/fw or /tmp/fw_effective is O2-7, which comes first.
 
 ## O3-1 — PART B: WORKER LAW — ground rules
 
@@ -309,6 +326,14 @@ When S13-2G phase 1 has written REVIEW_DIR/queue.json (a worker cannot start sub
    parts) and the same-session fallback of step 3 when 'attempts' is 2. Then phase 3, in this turn.
 Steps 3 to 5 of phase 2, the round-2 review after REVIEW_REPAIR and S4-12's REVIEW_RUNNING branch are
 unchanged. In DIRECT MODE S13-2G runs as written.
+v1.1.0: the review MODE is carried by the folder name the worker reports with `--review-parts` (the
+orchestrator never opens queue.json): a folder whose name ends in `_switch` (an adjudication) or `_panel`
+(a panel copy), or a folder named `switched` (a D0 re-review — the worker copies the part's
+review_packet.json and *_Create.docx into '<dir>/switched/', writes the brief there with <PART_DIR> =
+'<dir>/switched' and reports that folder; MTC S13-2G phase 2 step 3b) gets its reviewer on a DIFFERENT
+model than the round's other reviewers — the next of SESSION_BUDGET.json worker_models; with one model
+only, a fresh context. Every other folder is reviewed as before. Delta rounds use REVIEW_DIR names
+.../delta<k>/part<n>[_switch|_panel]; nothing else differs.
 
 ## O3-7 — A worker that starts from disk (`--continue`)
 
@@ -326,6 +351,9 @@ first performs O3-6 step 2, which runs inside S4-12's REVIEW_RUNNING branch.
 A HARD STOP [HS:PROSE] raised anywhere (MTC, bootstrap, an engine) ends the turn: its full text goes
 to the CHAT BLOCK FILE and the worker reports HARD_STOP. RETENTION_FAIL needs no chat block. MTC
 MANDATE 0 covers the CHAT BLOCK FILE, the worker report and the final line: no question content.
+v1.1.0 (MTC MANDATE 0b): an "INFRA-HEAL [HS:LADDER]", "SLOT-CHAIN [HS:LADDER]", "DELTA [HS:LADDER]" or
+"REVIEW-VOID [HS:LADDER]" is NOT a stop — the worker performs what it names and continues in the same
+turn. A worker never reports HARD_STOP for a stop the executed block did not raise at that point.
 
 ## O4-1 — Budgets (SESSION_BUDGET.json; never copy a value into a run)
 
@@ -356,4 +384,4 @@ plainly: a long paper is read again each time retention fails. When a completed 
 in a row in this chat, print this line and END:
 `HARD STOP [HS:INFRA] MODEL-CAPACITY — this chat's model cannot hold the Step 7 specification. Select a larger-context model for this chat and type continue. Nothing was lost: the paper resumes from its saved state.`
 
-# END OF Framework_MockTestOrchestrate v1.0.0
+# END OF Framework_MockTestOrchestrate v1.1.0

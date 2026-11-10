@@ -140,7 +140,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.33'
+BLUEPRINT_CORE_VERSION = '1.34'
 
 __all__ = [
     "AllocationError",
@@ -455,6 +455,52 @@ __all__ = [
     "pyq_bench_card",
     "quality_status",
     "LADDER_SUBRUNGS",
+    "LB_RULE_CURRENT",
+    "LB_KINDS",
+    "LB_RUNGS",
+    "LB_DECISIONS",
+    "LB_SETTLED_RUNGS",
+    "SC_RULE_CURRENT",
+    "SC_STAGES",
+    "SC_SIBLING_SUBTOPICS",
+    "SC_TERMINALS",
+    "SC_NEEDS",
+    "REVIEW_VOID_RATE",
+    "REVIEW_VOID_CONFIRM",
+    "REVIEW_PANEL_SIZE",
+    "S13_2F_MAX_SWEEPS",
+    "INFRA_GATES",
+    "PAPER_GATE_ROUTE",
+    "floor_clamp",
+    "verify_difficulty_label",
+    "qindex_count_band",
+    "dl_set_label_basis",
+    "clear_label_basis",
+    "slot_chain_new",
+    "slot_chain_next",
+    "slot_chain_record",
+    "slot_chain_finish",
+    "slot_chain_exhausted",
+    "slot_chain_reviewed_max",
+    "dl_swap_partner",
+    "dl_upgrade_candidate",
+    "item_hash",
+    "review_item_certified",
+    "review_record_agrees",
+    "review_coverage_missing",
+    "review_record_independent",
+    "slot_chain_reopen",
+    "slot_chain_compact",
+    "review_round_void",
+    "review_void_confirmed",
+    "review_panel_majority",
+    "sweep_route",
+    "chain_kind_for",
+    "chain_footer_lines",
+    "migrate_paper_state",
+    "INFRA_HEAL_MAX",
+    "infra_heal_step",
+    "infra_heal_clear",
     "qq_verdict",
     "read_quality_block",
     "quality_block_for_subtopic",
@@ -6359,6 +6405,682 @@ def _dl_l2_self_test(check):
           and ladder_entry('G-NAMESTRUCT') == 'R2s')
 
 
+
+def _lb_sc_self_test(check):
+    """Cluster LB + SC self-tests (v1.34, GAP-2026-11-08-DR3-QINDEX-CONFLICT). Every fixture names the
+    defect class it kills; each new function has a must-fail twin."""
+    L = ['Easy', 'Medium', 'Hard']
+    _obs_hard = {'qtype': 'mcq', 'question_class': 'C-COMPUTATIONAL', 'facets': ['C-COMPUTATIONAL'],
+                 'deduction_steps': 6, 'axiom_concepts': 3, 'speed_hack_exists': False, 'is_negative': False}
+    _m_obs = verify_difficulty_obs('Hard', _obs_hard, L)[1]
+    check('lb_fixture_obs_measures_hard', _m_obs == 'Hard')
+    # ── floor clamp (G6) ──
+    check('lb_floor_clamp', floor_clamp('Easy', 'msq', L) == 'Medium' and floor_clamp('Easy', 'mcq', L) == 'Easy'
+          and floor_clamp('Hard', 'nat', L) == 'Hard' and floor_clamp('Nope', 'mcq', L) is None
+          and floor_clamp('Easy', None, L) == 'Easy' and floor_clamp('Lo', 'msq', ['Lo', 'Hi']) == 'Lo')
+    # ── T1-T5 legacy DR3 (2026.11.08 records) ──
+    _dr3 = {'difficulty': 'Medium', 'qtype': 'mcq', 'difficulty_obs': dict(_obs_hard),
+            'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Hard',
+                                 'review_controls': {'reviewer': 'Medium', 'judge': 'Hard'}}}
+    check('lb_T1_legacy_dr3_verified', verify_difficulty_label(_dr3, L) == (True, 'Medium', 'dr3'))
+    check('lb_T2_legacy_dr3_forged_lower_fails', verify_difficulty_label(dict(_dr3, difficulty='Easy'), L) == (False, 'Medium', 'dr3'))
+    _dr3_at = {'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Hard', 'review_controls': {'reviewer': 'Hard'}}}
+    check('lb_T3_dr3_not_below_target_fails', verify_difficulty_label(_dr3_at, L) == (False, 'Hard', 'dr3'))
+    _dr3_fb = {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'review_measured': 'Medium', 'measured': 'Hard'}}
+    check('lb_T4_dr3_fallback_controls', verify_difficulty_label(_dr3_fb, L) == (True, 'Medium', 'dr3'))
+    _dr3_none = {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3'}}
+    check('lb_T5_dr3_no_controls_expected_none', verify_difficulty_label(_dr3_none, L) == (False, None, 'dr3'))
+    # ── the incident itself: a DR3 item WITH obs passes the label verifier while obs alone fails ──
+    check('lb_incident_obs_alone_fails_label_basis_passes',
+          verify_difficulty_obs('Medium', _obs_hard, L)[0] is False and verify_difficulty_label(_dr3, L)[0] is True)
+    # ── T7/T8 L2 basis (G5) ──
+    _lv = {'rule': 'L1', 'composite': 5.0, 'cuts_list': [10.0, 60.0]}
+    _l2e = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': {'qtype': 'mcq', 'level': _lv,
+                                                                       'l2': {'band': 'Hard', 'binding': True}}}
+    _ob_l1 = verify_difficulty_obs('Hard', _l2e['difficulty_obs'], L)
+    check('lb_T7_l2_binding_decides', _ob_l1[0] is False and verify_difficulty_label(_l2e, L) == (True, 'Hard', 'l2'))
+    _l2a = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': {'qtype': 'mcq', 'level': _lv, 'l2': {'band': 'Hard', 'binding': False}}}
+    check('lb_T8_l2_advisory_uses_obs', verify_difficulty_label(_l2a, L) == (False, _ob_l1[1], 'obs'))
+    _l2leg = {'difficulty': 'Hard', 'difficulty_check': {'l2_review': {'band': 'Hard'}},
+              'difficulty_obs': {'qtype': 'mcq', 'level': _lv, 'l2': {'band': 'Hard'}}}
+    check('lb_l2_legacy_binding_from_l2_review', verify_difficulty_label(_l2leg, L) == (True, 'Hard', 'l2'))
+    _l2leg_nr = {'difficulty': 'Hard', 'difficulty_obs': {'qtype': 'mcq', 'level': _lv, 'l2': {'band': 'Hard'}}}
+    check('lb_l2_legacy_without_review_is_obs', verify_difficulty_label(_l2leg_nr, L)[2] == 'obs')
+    check('lb_l2_msq_floor', verify_difficulty_label({'difficulty': 'Medium', 'qtype': 'msq',
+                                                      'difficulty_obs': {'l2': {'band': 'Easy', 'binding': True}}}, L)
+          == (True, 'Medium', 'l2'))
+    # ── obs / none (E9, E27) ──
+    check('lb_obs_basis_unchanged', verify_difficulty_label({'difficulty': 'Hard', 'difficulty_obs': _obs_hard}, L) == (True, 'Hard', 'obs')
+          and verify_difficulty_label({'difficulty': 'Easy', 'difficulty_obs': _obs_hard}, L) == (False, 'Hard', 'obs'))
+    check('lb_none_basis', verify_difficulty_label({'difficulty': 'Hard'}, L) == (True, None, 'none'))
+    # ── T10 hostile inputs never raise ──
+    _host = [None, 5, 'x', [], {'difficulty_check': 'x'}, {'difficulty_check': {'dl_rung': 'SWAP'}},
+             {'difficulty_check': {'dl_rung': 'DR3', 'review_controls': [1]}},
+             {'difficulty_obs': {'level': {'rule': 'L1', 'composite': float('nan'), 'cuts_list': [1]}}},
+             {'difficulty_obs': {'l2': {'band': ['x'], 'binding': True}}}]
+    _ok_h = True
+    for h in _host:
+        try:
+            r = verify_difficulty_label(h, L)
+            _ok_h = _ok_h and isinstance(r, tuple) and len(r) == 3
+            qindex_count_band(h, L)
+            clear_label_basis(h)
+        except Exception:
+            _ok_h = False
+    check('lb_T10_hostile_never_raises', _ok_h and verify_difficulty_label(None, None) == (True, None, 'none'))
+    check('lb_rung_without_basis_fails', verify_difficulty_label({'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'FORCED'}}, L)
+          == (False, None, 'unknown'))
+    # ── label basis writer: review (swap) ──
+    _e = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': dict(_obs_hard), 'difficulty_check': {'decision': 'carried_below'}}
+    _sw, _ok_sw, _ = dl_set_label_basis(_e, 'review', L, 'Medium', controls={'reviewer': 'Medium', 'judge': 'Hard'}, partner=7)
+    check('lb_swap_writes_basis', _ok_sw and _sw['difficulty'] == 'Medium'
+          and _sw['difficulty_check']['dl_rung'] == 'SWAP' and _sw['difficulty_check']['decision'] == 'dl_swap'
+          and _sw['difficulty_check']['label_basis']['partner'] == '7' and _sw['difficulty_obs'] == _obs_hard)
+    check('lb_swap_verified', verify_difficulty_label(_sw, L) == (True, 'Medium', 'review'))
+    _sw_bad = dict(_sw, difficulty='Easy')
+    check('lb_swap_forged_label_fails', verify_difficulty_label(_sw_bad, L)[0] is False)
+    _sw2, _ok2, _why2 = dl_set_label_basis(_e, 'review', L, 'Hard', controls={'reviewer': 'Medium'})
+    check('lb_swap_refused_when_controls_below', _ok2 is False and _sw2 == _e and 'do not measure' in _why2)
+    _sw_dc = dict(_sw['difficulty_check'], label_basis=dict(_sw['difficulty_check']['label_basis'], controls={'reviewer': 'Easy'}))
+    check('lb_swap_tampered_controls_fail', verify_difficulty_label(dict(_sw, difficulty_check=_sw_dc), L)[0] is False)
+    check('lb_writer_unknown_kind', dl_set_label_basis(_e, 'dr3', L, 'Medium')[1] is False
+          and dl_set_label_basis(_e, 'review', L, 'Nope')[1] is False)
+    # ── slot chain (difficulty): 13 reviewed attempts, then swap, upgrade, forced ──
+    check('sc_bounds', slot_chain_reviewed_max('difficulty') == 13 and slot_chain_reviewed_max('dispute') == 12
+          and slot_chain_reviewed_max('quality') == 11 and slot_chain_reviewed_max('nope') == 11
+          and slot_chain_reviewed_max('upgrade') == 5)
+    _cu = slot_chain_new(8, 'upgrade', 'Hard')
+    _su = []
+    for _i in range(12):
+        _nu = slot_chain_next(_cu)
+        _cu = _nu['chain']
+        _su.append(_nu['action'])
+        if _nu['action'] in ('abandon', 'done'):
+            break
+        _cu = slot_chain_record(_cu, _nu['stage'], 'fail')
+    check('sc_upgrade_order', _su == ['rework_dr1', 'rework_dr2', 'replace', 'replace', 'replace', 'abandon'])
+    ch = slot_chain_new(17, 'difficulty', 'Hard', 'oc.a.b')
+    seq = []
+    for _i in range(40):
+        nx = slot_chain_next(ch, siblings=['s1', 's2', 's3', 's4'])
+        ch = nx['chain']
+        if nx['action'] in ('done', 'forced'):
+            seq.append(nx['action'])
+            break
+        seq.append(nx['action'] + (':' + nx['sibling'] if nx['sibling'] else ''))
+        if nx['action'] in SC_TERMINALS['difficulty']:
+            ch = slot_chain_record(ch, nx['action'], 'fail')
+        else:
+            ch = slot_chain_record(ch, nx['stage'], 'fail', item_hash=f'h{_i}', sibling=nx['sibling'])
+    check('sc_difficulty_order', seq == ['rework_dr1', 'rework_dr2', 'replace', 'replace', 'replace', 'shape', 'shape',
+                                         'sibling:s1', 'sibling:s1', 'sibling:s2', 'sibling:s2', 'sibling:s3', 'sibling:s3',
+                                         'band_swap', 'paired_upgrade', 'forced'])
+    check('sc_exhausted_only_at_end', slot_chain_exhausted(ch, 'difficulty') and not slot_chain_exhausted(ch, 'dispute'))
+    _ch_short = slot_chain_new(1, 'difficulty', 'Hard')
+    _ch_short = slot_chain_record(_ch_short, 'rework_dr1', 'fail')
+    check('sc_not_exhausted_early', not slot_chain_exhausted(_ch_short, 'difficulty'))
+    _f, _okf, _ = dl_set_label_basis(dict(_e, difficulty='Medium'), 'forced', L, 'Hard', controls={'reviewer': 'Medium'}, chain=ch)
+    check('lb_forced_verified', _okf and verify_difficulty_label(_f, L) == (True, 'Hard', 'forced')
+          and _f['difficulty_check']['label_basis']['measured'] == 'Medium')
+    _f2, _okf2, _ = dl_set_label_basis(_e, 'forced', L, 'Hard', controls={'reviewer': 'Medium'}, chain=_ch_short)
+    check('lb_forced_refused_before_exhaustion', _okf2 is False and _f2 == _e)
+    _fdc = dict(_f['difficulty_check'], label_basis=dict(_f['difficulty_check']['label_basis'], chain=_ch_short))
+    check('lb_forced_tampered_chain_fails', verify_difficulty_label(dict(_f, difficulty_check=_fdc), L) == (False, 'Hard', 'forced'))
+    check('lb_forced_label_must_be_target', verify_difficulty_label(dict(_f, difficulty='Medium'), L)[0] is False)
+    # unavailable stages are skipped and count as exhausted; pending blocks exhaustion
+    ch2 = slot_chain_new(3, 'difficulty', 'Hard')
+    acts = []
+    for _i in range(10):
+        nx = slot_chain_next(ch2, sources=False, shapes=False, siblings=[])
+        ch2 = nx['chain']
+        acts.append(nx['action'])
+        if nx['action'] in ('forced', 'done'):
+            break
+        ch2 = slot_chain_record(ch2, nx['stage'], 'fail')
+    check('sc_unavailable_skipped', acts == ['rework_dr1', 'rework_dr2', 'band_swap', 'paired_upgrade', 'forced']
+          and slot_chain_exhausted(ch2, 'difficulty') and set(ch2['unavailable']) == {'replace', 'shape', 'sibling'})
+    _sp = slot_chain_record(slot_chain_new(4, 'dispute'), 'sibling', 'pending', sibling='s1')
+    _sp = slot_chain_record(_sp, 'sibling', 'fail')                 # phase 3 resolves it without naming the sibling
+    _sp = slot_chain_record(slot_chain_record(_sp, 'sibling', 'pending', sibling='s1'), 'sibling', 'fail')
+    check('sc_resolution_keeps_sibling', [a.get('sibling') for a in _sp['attempts']] == ['s1', 's1']
+          and _sc_used(_sp['attempts'], 'sibling', 's1') == 2)
+    _pend = slot_chain_record(slot_chain_new(4, 'difficulty'), 'rework_dr1', 'pending')
+    check('sc_pending_blocks_and_is_replaced', not slot_chain_exhausted(_pend)
+          and len(slot_chain_record(_pend, 'rework_dr1', 'fail')['attempts']) == 1)
+    _pass = slot_chain_record(slot_chain_new(5, 'difficulty'), 'replace', 'pass')
+    check('sc_pass_ends_chain', _pass['done'] and _pass['outcome'] == 'replace'
+          and slot_chain_next(_pass)['action'] == 'done' and slot_chain_next(None)['action'] == 'done')
+    # dispute chain order
+    cd = slot_chain_new(29, 'dispute')
+    sd = []
+    for _i in range(30):
+        nx = slot_chain_next(cd, siblings=['x'])
+        cd = nx['chain']
+        sd.append(nx['action'])
+        if nx['action'] in ('majority', 'done'):
+            break
+        cd = slot_chain_record(cd, nx['stage'], 'fail', sibling=nx['sibling'])
+    check('sc_dispute_order', sd == ['adjudicate', 'replace', 'replace', 'replace', 'shape', 'shape', 'sibling', 'sibling',
+                                     'panel', 'rekey', 'majority'])
+    _fin = slot_chain_finish(cd, 'majority', agree=1, n=4)
+    check('sc_finish', _fin['done'] and _fin['outcome'] == 'majority' and _fin['agree'] == 1
+          and 'majority' in _fin['terminal_tried'] and slot_chain_exhausted(_fin, 'dispute'))
+    # ── swap partner / upgrade candidate (stages 6-7) ──
+    tp = {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Easy', '5': 'Medium'}
+    gi = [{'q': '1', 'measured': 'Medium'}, {'q': '2', 'measured': 'Medium'}, {'q': '3', 'measured': 'Hard'},
+          {'q': '4', 'measured': 'Easy'}, {'q': '5', 'measured': 'Hard', 'rung': 'FORCED'}]
+    check('sc_swap_partner', dl_swap_partner(1, tp, gi, L) == '3' and dl_swap_partner(1, tp, gi, L, exclude=['3']) is None
+          and dl_swap_partner(2, tp, gi, L) is None and dl_swap_partner(9, tp, gi, L) is None)
+    _tp2 = dl_target_plan_swap(tp, '1', '3')
+    check('sc_swap_count_neutral', dl_band_counts(_tp2, L) == dl_band_counts(tp, L) and _tp2['1'] == 'Medium' and _tp2['3'] == 'Hard')
+    check('sc_upgrade_candidate', dl_upgrade_candidate(1, tp, gi, L, exclude=['3']) == '2'
+          and dl_upgrade_candidate(1, tp, gi, L, exclude=['2', '3']) is None)
+    # ── gate items / paper gate: FORCED and SWAP never counted below (the S13-2L loop) ──
+    cm_g = {'1': _f, '2': {'difficulty': 'Medium', 'difficulty_check': {'review_measured': 'Medium'}},
+            '3': _sw, '4': {'difficulty': 'Hard', 'difficulty_check': {'review_measured': 'Medium'}}}
+    tp_g = {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Hard'}
+    g = difficulty_paper_gate(dl_gate_items(tp_g, cm_g, L), L)
+    check('lb_gate_forced_swap_not_below', g['rework_qs'] == ['4'] and g['forced'][0]['q'] == '1'
+          and g['forced'][0]['measured'] == 'Medium' and g['swapped'] == ['3'])
+    _ll = difficulty_layer_lines(g)
+    check('lb_footer_lines', any('schedule-forced: 1 item' in x for x in _ll)
+          and any('band swaps' in x and 'Q3' in x for x in _ll))
+    # ── HELD (owner 2026-11-10): a HARDER slot keeps its scheduled label, schedule exact ──
+    _hb = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': dict(_obs_hard), 'difficulty_check': {}}
+    _hd, _okh, _ = dl_set_label_basis(dict(_hb, difficulty='Medium'), 'held', L, 'Medium', controls={'measured': 'Hard'})
+    check('lb_held_written_and_verified', _okh and _hd['difficulty'] == 'Medium' and _hd['difficulty_check']['dl_rung'] == 'HELD'
+          and _hd['difficulty_check']['decision'] == 'dl_held' and verify_difficulty_label(_hd, L) == (True, 'Medium', 'held')
+          and verify_difficulty_obs('Medium', _obs_hard, L)[0] is False)
+    check('lb_held_refused_when_not_harder', dl_set_label_basis(_hb, 'held', L, 'Hard', controls={'measured': 'Hard'})[1] is False
+          and dl_set_label_basis(_hb, 'held', L, 'Hard', controls={'measured': 'Medium'})[1] is False)
+    check('lb_held_forged_label_fails', verify_difficulty_label(dict(_hd, difficulty='Easy'), L)[0] is False
+          and verify_difficulty_label(dict(_hd, difficulty_check=dict(_hd['difficulty_check'],
+              label_basis=dict(_hd['difficulty_check']['label_basis'], controls={'measured': 'Medium'}))), L)[0] is False)
+    check('lb_held_counts_at_label_and_gate_lists_it', qindex_count_band(_hd, L) == 'Medium'
+          and difficulty_paper_gate(dl_gate_items({'1': 'Medium'}, {'1': _hd}, L), L)['held'] == ['1']
+          and any('held at slot' in x for x in difficulty_layer_lines(difficulty_paper_gate(dl_gate_items({'1': 'Medium'}, {'1': _hd}, L), L))))
+    check('lb_held_is_a_swap_partner', dl_swap_partner('1', {'1': 'Hard', '2': 'Medium'},
+          [{'q': '1', 'measured': 'Medium'}, {'q': '2', 'measured': 'Hard', 'rung': 'HELD'}], L) == '2'
+          and clear_label_basis(_hd)['difficulty_check'].get('decision') == 'carried_below')
+    # ── check 6 count band ──
+    check('lb_qindex_count_band', qindex_count_band(_dr3, L) == 'Hard' and qindex_count_band(_sw, L) == 'Medium'
+          and qindex_count_band(_f, L) == 'Hard' and qindex_count_band({'difficulty': 'Easy'}, L) == 'Easy'
+          and qindex_count_band({'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'dr3_basis': {'target': 'Hard'}}}, L) == 'Hard')
+    # ── clear on re-author (E10) ──
+    _cl = clear_label_basis(_sw)
+    check('lb_E10_clear', 'label_basis' not in _cl['difficulty_check'] and 'dl_rung' not in _cl['difficulty_check']
+          and _cl['difficulty_check']['decision'] == 'carried_below' and _sw['difficulty_check']['dl_rung'] == 'SWAP')
+    # ── phase-3 decision floor clamp (G6 / T6) ──
+    _d6 = dl_phase3_decision('Medium', L, review_rec={'difficulty_band_with_exemplar': 'Easy (exemplar 3)'},
+                             review_round=1, qtype='msq')
+    _d6m = dl_phase3_decision('Medium', L, review_rec={'difficulty_band_with_exemplar': 'Easy (exemplar 3)'},
+                              review_round=1, qtype='mcq')
+    _d6r0 = dl_phase3_decision('Medium', L, review_rec={'difficulty_band_with_exemplar': 'Easy (exemplar 3)'},
+                               review_round=0, qtype='nat')
+    check('lb_T6_phase3_floor_clamp', _d6['action'] == 'accept' and _d6m['action'] == 'dr3' and _d6m['final_band'] == 'Easy'
+          and _d6r0['action'] == 'accept' and _d6r0['measured'] == 'Medium')
+    # ── review coverage / certification ──
+    h1 = item_hash(['Q.1 stem', '(1) a'], ['d1'])
+    check('rv_item_hash', h1 == item_hash(['Q.1  stem', '(1) a'], ['d1']) and h1 != item_hash(['Q.1 stem', '(1) b'], ['d1'])
+          and h1 != item_hash(['Q.1 stem', '(1) a'], ['d2']) and len(h1) == 64)
+    _ag = {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': h1}
+    _dis = dict(_ag, key_agrees=False)
+    check('rv_certified_two_latest', review_item_certified([_dis, _ag, _ag], h1)
+          and not review_item_certified([_ag, _dis], h1) and not review_item_certified([_ag], h1)
+          and not review_item_certified([_ag, dict(_ag, item_hash='old')], h1)
+          and not review_item_certified([_ag, dict(_ag, reviewer='same-session')], h1)
+          and not review_item_certified([_ag, dict(_ag, confidence='low')], h1)
+          and not review_item_certified([_ag, dict(_ag, selectivity_basis='contested: two answers')], h1)
+          and not review_item_certified(None, h1))
+    cmv = {'1': {'review': _ag}, '2': {'review': dict(_ag, item_hash='old')}, '3': {}, '4': {'review': {'status': 'NOT_RUN'}},
+           '5': {'review': dict(_ag, reviewer='same-session')}}
+    check('rv_record_agrees', review_record_agrees(_ag) and not review_record_agrees(_dis) and not review_record_agrees(None)
+          and not review_record_agrees(dict(_ag, verdict='FAIL')))
+    cmv['6'] = {'review': {'status': 'NOT_RUN', 'item_hash': h1}}
+    check('rv_coverage_missing', review_coverage_missing(cmv, {'1': h1, '2': h1, '3': h1, '4': h1, '5': h1, '6': h1}) == ['2', '3', '4']
+          and review_coverage_missing({'1': {'review': dict(_ag, item_hash=None)}}, {'1': None}) == ['1'])
+    check('rv_record_independent', review_record_independent(_ag) and not review_record_independent(dict(_ag, reviewer='same-session'))
+          and not review_record_independent({'status': 'NOT_RUN', 'reviewer': 'sub-agent'}) and not review_record_independent(None))
+    # slot_chain_reopen: suspend / resume / history (bounded difficulty <-> dispute alternation, no lost disclosure)
+    _dch = slot_chain_record(slot_chain_record(slot_chain_new('5', 'difficulty', 'Hard'), 'rework_dr1', 'fail'),
+                             'rework_dr2', 'pending')
+    _dsp = slot_chain_reopen(_dch, '5', 'dispute')
+    check('sc_reopen_suspends_open_difficulty', _dsp['kind'] == 'dispute' and _dsp['suspended']['kind'] == 'difficulty'
+          and [a['outcome'] for a in _dsp['suspended']['attempts']] == ['fail', 'fail'] and _dsp['history'] == [])
+    _dsp_done = slot_chain_finish(_dsp, 'majority', agree=2, n=4)
+    _res = slot_chain_reopen(_dsp_done, '5', 'difficulty', 'Hard')
+    check('sc_reopen_resumes_suspended_and_keeps_history', _res['kind'] == 'difficulty' and len(_res['attempts']) == 2
+          and slot_chain_next(_res)['action'] == 'replace' and _res['history'][0]['outcome'] == 'majority'
+          and 'suspended' not in _res)
+    _fzr = chain_footer_lines({'5': _res})
+    _cmp = slot_chain_compact(_dsp_done)
+    check('sc_compact_keeps_proof_drops_nesting', 'suspended' not in _cmp and 'history' not in _cmp
+          and slot_chain_exhausted(_cmp, 'dispute') == slot_chain_exhausted(_dsp_done, 'dispute')
+          and slot_chain_compact(None) == {})
+    check('sc_footer_reports_history', any('Q5: certified by majority' in x for x in _fzr['amber']))
+    _fr = chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard'), 'forced_refused', why='x')})
+    check('sc_footer_forced_refused_is_amber', any('Q9: below its Hard slot' in x for x in _fr['amber']))
+    _same = slot_chain_new('6', 'quality')
+    check('sc_reopen_same_kind_live_is_identity', slot_chain_reopen(_same, '6', 'quality') is _same
+          and slot_chain_reopen(None, '7', 'dispute')['kind'] == 'dispute'
+          and slot_chain_reopen(slot_chain_finish(_same, 'amber'), '6', 'difficulty')['history'][0]['outcome'] == 'amber')
+    _vi = {str(i): (_dis if i < 4 else _ag) for i in range(10)}
+    check('rv_void_rate', review_round_void(_vi, 10)[0] is True and review_round_void({str(i): _ag for i in range(10)}, 10)[0] is False
+          and review_round_void({'1': _ag}, 3)[0] is True and review_round_void(None, 1)[0] is True
+          and review_round_void({str(i): (_dis if i < 3 else _ag) for i in range(10)}, 10)[0] is False)
+    check('rv_void_confirm', review_void_confirmed(['0', '1'], {'0': _ag, '1': _dis}) is True
+          and review_void_confirmed(['0', '1', '2'], {'0': _ag, '1': _dis, '2': _dis}) is False
+          and review_void_confirmed([], {}) is True)
+    _p = review_panel_majority([_ag, _ag, dict(_dis, own_key=2)])
+    _p2 = review_panel_majority([dict(_dis, own_key=3), dict(_dis, own_key=3), _ag])
+    check('rv_panel', _p['certified'] and _p['agree'] == 2 and _p['alt'] is None
+          and not _p2['certified'] and _p2['alt'] == '3' and review_panel_majority(None)['certified'] is False)
+    # ── S13-2F routing (OD-2026-11-09): never a stop for a quality or rule condition ──
+    _if = [{'gate': 'A-OPTDISTINCT', 'q': '4'}, {'gate': 'A-QINDEX-LABEL', 'q': '2'}]
+    _fl = [{'check': 'A-QINDEX', 'message': 'check 8 (obs consistency): Q2(label=Medium!=measured=Hard)'},
+           {'check': 'A-SEQ', 'message': 'missing=[3] extra=[]'}, {'check': 'A-GATEERROR', 'message': 'gate x raised'}]
+    r1 = sweep_route(_if, _fl, 1)
+    check('sr_sweep1', r1['items']['4']['route'] == 'R2o' and r1['items']['2']['gates'] == ['A-QINDEX', 'A-QINDEX-LABEL']
+          and r1['paper'] == {'A-GATEERROR': 'self_heal', 'A-SEQ': 'reassemble'} and r1['stop'] is False)
+    r4 = sweep_route(_if, _fl, 4)
+    r6 = sweep_route(_if, _fl, 6)
+    rx = sweep_route(_if, _fl, 2, self_test_ok=False)
+    check('sr_sweep_ladder', sweep_route(_if, [], 3)['items']['4']['route'] == 'TERMINAL'
+          and r4['items']['4']['route'] == 'REPLACE' and r4['paper']['A-SEQ'] == 'reassemble'
+          and r6['paper']['A-SEQ'] == 'amber' and r6['stop'] is False
+          and rx['stop'] is True and rx['stop_gates'] == ['A-GATEERROR'])
+    check('sr_unlisted_paper_gate_recaptures', sweep_route([], [{'check': 'A-NEW', 'message': 'x'}], 1)['paper'] == {'A-NEW': 'recapture'})
+    check('sr_hostile', sweep_route(None, None, None) == {'items': {}, 'paper': {}, 'stop': False, 'stop_gates': []})
+    _a1, _s1, _n1 = infra_heal_step({}, 'S13-4c')
+    _a2, _s2, _n2 = infra_heal_step(_s1, 'S13-4c')
+    _a3, _s3, _n3 = infra_heal_step(_s2, 'S13-4c')
+    check('ih_heal_twice_then_stop', (_a1, _a2, _a3) == ('heal', 'heal', 'stop') and (_n1, _n2, _n3) == (1, 2, 3)
+          and infra_heal_step(_s3, 'S13-2F')[0] == 'heal' and infra_heal_clear(_s3, 'S13-4c') == {}
+          and infra_heal_step(None, 'x', max_heals='bad')[0] == 'heal' and infra_heal_step({'x': 9}, 'x', max_heals=0)[0] == 'stop')
+    check('sr_chain_kind', chain_kind_for(['A-REVIEW']) == 'dispute' and chain_kind_for(['A-OPTDISTINCT']) == 'quality'
+          and chain_kind_for(None) == 'quality')
+    check('sr_ladder_entries', ladder_entry('A-QINDEX-FLOOR') == 'RL' and ladder_entry('A-REVIEW-COVERAGE') == 'RV'
+          and ladder_entry('A-QINDEX-LABEL') == 'R2' and ladder_entry(['A-QINDEX-FLOOR', 'G-FIGLABEL']) == 'RL')
+    # ── footer lines for terminals ──
+    _fz = chain_footer_lines({'17': slot_chain_finish(ch, 'forced', measured='Medium'),
+                              '2': slot_chain_finish(slot_chain_new(2, 'difficulty', 'Hard'), 'band_swap', partner='9'),
+                              '29': _fin, '8': {'done': False}})
+    check('sc_footer', any('Q17: labelled Hard per schedule; independent review measured Medium' in x for x in _fz['amber'])
+          and any('Q29: certified by majority' in x and '1/4' in x for x in _fz['amber'])
+          and any('Q2: difficulty band swapped with Q9' in x for x in _fz['info']) and not any('Q8' in x for x in _fz['info'] + _fz['amber']))
+    # ── T21 migration of THIS incident's state shape (21 DR3 + 6 S13-2L reworks + 1 UNRESOLVED) ──
+    _dr3_qs = [2, 6, 8, 10, 11, 12, 13, 15, 18, 19, 21, 24, 25, 26, 27, 30, 33, 34, 35, 37, 40]
+    _rw = [1, 3, 17, 23, 28, 29]
+    _tpi = {str(q): ('Easy' if q in (5, 9) else 'Medium' if q % 4 == 0 and q not in _dr3_qs else 'Hard') for q in range(1, 41)}
+    _cmi = {}
+    for q in range(1, 41):
+        e = {'difficulty': _tpi[str(q)], 'subtopic_id': 'oc.x', 'difficulty_obs': dict(_obs_hard), 'difficulty_check': {}}
+        if q in _dr3_qs:
+            e['difficulty'] = 'Medium' if q % 3 else 'Easy'
+            e['difficulty_check'] = {'dl_rung': 'DR3', 'decision': 'dl_dr3', 'final_band': e['difficulty'],
+                                     'review_controls': {'reviewer': e['difficulty']}}
+        if q == 29:
+            e['quality_status'] = 'UNRESOLVED(A-REVIEW)'
+        _cmi[str(q)] = e
+    _bsi = {'difficulty_plan_target': dict(_tpi), 'difficulty_plan': {k: _cmi[k]['difficulty'] for k in _cmi},
+            'review_summary': {'repaired': [str(q) for q in _dr3_qs]}, 'paper_gate_passes': 1,
+            'paper_gate_rework': [str(q) for q in _rw], 'uncertified_items': ['29'],
+            'difficulty_state': {'dr3_qs': [str(q) for q in _dr3_qs]}}
+    bs2, kd2, rep = migrate_paper_state(_bsi, {'concept_map': _cmi}, '2026.11.08')
+    _cm2 = kd2['concept_map']
+    check('mig_T21_dr3_restored', rep['dr3_restored'] == [str(q) for q in _dr3_qs]
+          and all(_cm2[str(q)]['difficulty'] == _tpi[str(q)] and 'dl_rung' not in _cm2[str(q)]['difficulty_check']
+                  and _cm2[str(q)]['difficulty_check']['decision'] == 'carried_below' for q in _dr3_qs)
+          and all(bs2['slot_chain'][str(q)]['attempts'][0]['stage'] == 'rework_dr1' for q in _dr3_qs))
+    check('mig_T21_rework_pending_and_q29', rep['rework_pending'] == [str(q) for q in _rw]
+          and bs2['slot_chain']['1']['attempts'][-1]['outcome'] == 'pending'
+          and bs2['slot_chain']['29']['attempts'] == []
+          and 'quality_status' not in _cm2['29'] and rep['unresolved_cleared'] == ['29']
+          and bs2['slot_chain']['29']['kind'] == 'dispute' and bs2['uncertified_items'] == []
+          and 'paper_gate_passes' not in bs2 and bs2['difficulty_plan'] == _tpi and bs2['difficulty_state']['dr3_qs'] == [])
+    check('mig_counts_exact_after', dl_band_counts({k: v['difficulty'] for k, v in _cm2.items()}, L) == dl_band_counts(_tpi, L))
+    check('mig_idempotent_and_pure', migrate_paper_state(bs2, kd2, '2026.11.08')[2]['skipped'] is True
+          and _cmi['2']['difficulty_check'].get('dl_rung') == 'DR3' and migrate_paper_state(None, None, 'x')[2]['skipped'] is False)
+    _both = {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'review_controls': {'reviewer': 'Medium'}},
+             'quality_status': 'UNRESOLVED(A-REVIEW)'}
+    _bsb, _kdb, _rpb = migrate_paper_state({'difficulty_plan_target': {'7': 'Hard'}}, {'concept_map': {'7': _both}}, '2026.11.08')
+    check('mig_dr3_and_unresolved_dispute_wins', _bsb['slot_chain']['7']['kind'] == 'dispute'
+          and _kdb['concept_map']['7']['difficulty'] == 'Hard' and _rpb['dr3_restored'] == ['7']
+          and _rpb['unresolved_cleared'] == ['7'] and 'quality_status' not in _kdb['concept_map']['7'])
+    _sk = dict(slot_chain_new('4', 'quality'), skip_siblings=['s1'])
+    for _st in ('replace', 'replace', 'replace', 'shape', 'shape'):
+        _sk = slot_chain_record(_sk, _st, 'fail')
+    _n1 = slot_chain_next(_sk, siblings=['s1', 's2', 's3', 's4'])
+    check('sc_unqualified_sibling_skipped_not_counted', _n1['sibling'] == 's2')
+    # a sibling ALREADY attempted and then found unqualified still counts toward the 3 (budget never exceeded)
+    _sk2 = slot_chain_record(_sk, 'sibling', 'fail', sibling='s2')
+    _sk2 = dict(_sk2, skip_siblings=['s1', 's2'])
+    _seq2 = []
+    for _i in range(10):
+        _nx2 = slot_chain_next(_sk2, siblings=['s1', 's2', 's3', 's4', 's5'])
+        _sk2 = _nx2['chain']
+        if _nx2['action'] != 'sibling':
+            break
+        _seq2.append(_nx2['sibling'])
+        _sk2 = slot_chain_record(_sk2, 'sibling', 'fail', sibling=_nx2['sibling'])
+    check('sc_skipped_attempted_sibling_counts_toward_cap', _seq2 == ['s3', 's3', 's4', 's4']
+          and sum(1 for a in _sk2['attempts'] if a.get('outcome') == 'fail') <= slot_chain_reviewed_max('quality'))
+    _cs = slot_chain_new(9, 'difficulty', 'Hard')
+    for _st in ('rework_dr1', 'rework_dr2'):
+        _cs = slot_chain_record(_cs, _st, 'fail')
+    _ns = slot_chain_next(_cs, sources=False, shapes=False, siblings=['s1'])
+    check('sc_unavailable_kept_when_sibling_returned', _ns['action'] == 'sibling'
+          and set(_ns['chain']['unavailable']) == {'replace', 'shape'})
+    check('mig_prelegacy_noop', migrate_paper_state({}, {'concept_map': {'1': {'difficulty': 'Hard'}}}, '2026.11.01')[1]
+          == {'concept_map': {'1': {'difficulty': 'Hard'}}})
+    # ── T18 end-to-end simulation: 3 below-slot items, 1 dispute, 1 L2 item -> exact schedule, no stop ──
+    _tp18 = {'1': 'Hard', '2': 'Hard', '3': 'Hard', '4': 'Medium', '5': 'Medium', '6': 'Easy'}
+    _meas = {'1': 'Medium', '2': 'Medium', '3': 'Medium', '4': 'Hard', '5': 'Medium', '6': 'Easy'}
+    _cm18 = {q: {'difficulty': b, 'difficulty_check': {'review_measured': _meas[q]}} for q, b in _tp18.items()}
+    _gi18 = dl_gate_items(_tp18, _cm18, L)
+    # q1: chain succeeds at replace (re-measured Hard); q2: swap with q4; q3: forced after exhaustion
+    _cm18['1']['difficulty_check']['review_measured'] = 'Hard'
+    _p2 = dl_swap_partner('2', _tp18, _gi18, L)
+    _tp18b = dl_target_plan_swap(_tp18, '2', _p2)
+    _cm18['2'], _ok_a, _ = dl_set_label_basis(_cm18['2'], 'review', L, _tp18b['2'], controls={'reviewer': 'Medium'}, partner=_p2)
+    _cm18[_p2], _ok_b, _ = dl_set_label_basis(_cm18[_p2], 'review', L, _tp18b[_p2], controls={'reviewer': 'Hard'}, partner='2')
+    _cm18['3'], _ok_c, _ = dl_set_label_basis(_cm18['3'], 'forced', L, 'Hard', controls={'reviewer': 'Medium'}, chain=ch)
+    _g18 = difficulty_paper_gate(dl_gate_items(_tp18b, _cm18, L), L)
+    check('T18_exact_schedule_no_rework', _p2 == '4' and _ok_a and _ok_b and _ok_c and _g18['status'] == 'PASS'
+          and dl_band_counts({q: e['difficulty'] for q, e in _cm18.items()}, L) == dl_band_counts(_tp18, L)
+          and all(verify_difficulty_label(_cm18[q], L)[0] for q in ('2', '3', '4')))
+
+
+def _lb_sc_edge_self_test(check):
+    """v1.34 pre-deploy review — BOUNDARY fixtures found by the mutation run (2026-11-10): every threshold, every
+    terminal line and every preference order the cluster LB + SC encodes is pinned by an exact expected value."""
+    L = ['Easy', 'Medium', 'Hard']
+    ag = {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': 'h'}
+    dis = dict(ag, key_agrees=False)
+    # review_round_void — the 30% boundary is EXCLUSIVE; fewer records than items is void; 0 items never divides by 0
+    check('edge_void_30pct_exact_not_void', review_round_void({str(i): (dis if i < 3 else ag) for i in range(10)}, 10) == (False, 'ok'))
+    check('edge_void_31pct_void', review_round_void({str(i): (dis if i < 4 else ag) for i in range(10)}, 10)[0] is True)
+    check('edge_void_incomplete', review_round_void({'1': ag, '2': ag}, 3)[0] is True
+          and review_round_void({'1': ag, '2': ag}, 2)[0] is False and review_round_void({}, 0)[0] is True)
+    check('edge_void_reason_text', review_round_void({str(i): dis for i in range(4)}, 4)[1] == '4 of 4 items disputed (> 30%)')
+    check('edge_void_rate_param', review_round_void({str(i): (dis if i < 1 else ag) for i in range(10)}, 10, rate=0.05)[0] is True)
+    # review_void_confirmed — the 50% boundary is INCLUSIVE
+    check('edge_void_confirm_half', review_void_confirmed(['1', '2'], {'1': ag, '2': dis}) is True
+          and review_void_confirmed(['1', '2', '3'], {'1': ag, '2': dis, '3': dis}) is False)
+    # review_panel_majority — strict majority of SIZE (not of the records present); alt needs a strict majority too
+    ss = dict(ag, reviewer='same-session')
+    check('edge_panel_two_of_three', review_panel_majority([ag, ag, dis]) == {'certified': True, 'agree': 2, 'n': 3, 'alt': None})
+    check('edge_panel_two_records_both_agree', review_panel_majority([ag, ag])['certified'] is True
+          and review_panel_majority([ag])['certified'] is False and review_panel_majority([ag, ss, ss])['n'] == 1)
+    check('edge_panel_only_first_size_counted', review_panel_majority([dis, dis, ag, ag, ag])['certified'] is False
+          and review_panel_majority([dis, dis, ag, ag, ag])['n'] == 3)
+    check('edge_panel_alt', review_panel_majority([dict(dis, own_key=2), dict(dis, own_key=2), ag])['alt'] == '2'
+          and review_panel_majority([dict(dis, own_key=2), dict(dis, own_key=3), ag])['alt'] is None
+          and review_panel_majority([dict(dis, own_key=2), dict(dis, own_key=2), dict(dis, own_key=2)], size=5)['alt'] == '2'
+          and review_panel_majority([dict(dis, own_key=2), dict(dis, own_key=2)], size=5)['alt'] is None
+          and review_panel_majority([ag, ag, ag], size=5)['certified'] is True
+          and review_panel_majority([ag, ag], size=5)['certified'] is False)
+    # review_item_certified — the two most recent INDEPENDENT on the current hash; an empty hash never certifies
+    check('edge_certified', review_item_certified([ag, ss, ag], 'h') is True and review_item_certified([ag, ag], '') is False
+          and review_item_certified([ag, dict(ag, status='NOT_RUN')], 'h') is False
+          and review_item_certified([dict(ag, confidence='low'), ag, ag], 'h') is True)
+    # sweep_route — thresholds 2 / 3 / 4 and the cap; INFRA gates never items; a Q inside a FAIL line is an item
+    fi = [{'q': 4, 'gate': 'A-OPTDISTINCT'}]
+    check('edge_sweep_thresholds', sweep_route(fi, [], 2)['items']['4']['route'] == 'R2o'
+          and sweep_route(fi, [], 3)['items']['4']['route'] == 'TERMINAL' and sweep_route(fi, [], 4)['items']['4']['route'] == 'REPLACE'
+          and sweep_route(fi, [], 0)['items']['4']['route'] == 'R2o')
+    fl = [{'check': 'A-SEQ', 'message': 'x'}]
+    check('edge_sweep_cap', sweep_route([], fl, 5)['paper'] == {'A-SEQ': 'reassemble'} and sweep_route([], fl, 6)['paper'] == {'A-SEQ': 'amber'}
+          and sweep_route([], fl, 3, max_sweeps=3)['paper'] == {'A-SEQ': 'amber'} and sweep_route([], fl, 2, max_sweeps=3)['paper'] == {'A-SEQ': 'reassemble'})
+    check('edge_sweep_infra_with_q_is_paper', sweep_route([], [{'check': 'A-GATEERROR', 'message': 'Q3 crashed'}], 1)
+          == {'items': {}, 'paper': {'A-GATEERROR': 'self_heal'}, 'stop': False, 'stop_gates': []})
+    check('edge_sweep_infra_cap_never_amber', sweep_route([], [{'check': 'A-ZIP', 'message': 'x'}], 9)['paper'] == {'A-ZIP': 'self_heal'})
+    check('edge_sweep_q_parse', sorted(sweep_route([], [{'check': 'A-QINDEX', 'message': 'Q.12 and Q 4 and Q07'}], 1)['items']) == ['12', '4', '7']
+          and sweep_route([], [{'gate': 'A-QINDEX', 'message': 'Q2 x'}], 1)['items']['2']['gates'] == ['A-QINDEX'])
+    check('edge_sweep_item_without_q_ignored', sweep_route([{'q': None, 'gate': 'A-X'}], [], 1)['items'] == {})
+    # infra_heal_step — exactly max_heals heals
+    check('edge_heal_max', [infra_heal_step({'s': n}, 's', max_heals=1)[0] for n in (0, 1)] == ['heal', 'stop']
+          and infra_heal_step({'s': 1}, 's')[0] == 'heal' and infra_heal_step({'s': 2}, 's')[0] == 'stop'
+          and infra_heal_step({}, 's', max_heals=-3)[0] == 'stop' and infra_heal_step({'s': 'x'}, 's')[2] == 1)
+    # slot_chain_exhausted — every stage to its cap or unavailable; < 3 siblings without 'unavailable' is NOT exhausted;
+    # every terminal BEFORE the last must be tried; a pending attempt blocks; kind must match
+    def _run(kind, sibs, terms):
+        c = slot_chain_new('1', kind)
+        while True:
+            nx = slot_chain_next(c, siblings=sibs)
+            c = nx['chain']
+            if nx['action'] in SC_TERMINALS[kind] or nx['action'] == 'done':
+                break
+            c = slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
+        for t in terms:
+            c = slot_chain_record(c, t, 'fail')
+        return c
+    cq = _run('quality', ['a', 'b'], [])
+    check('edge_exhaust_two_siblings_marked_unavailable', 'sibling' in cq['unavailable'] and slot_chain_exhausted(cq, 'quality'))
+    cq2 = dict(cq, unavailable=[])
+    check('edge_exhaust_two_siblings_without_mark_not_exhausted', not slot_chain_exhausted(cq2, 'quality'))
+    cd = _run('difficulty', ['a', 'b', 'c'], [])
+    check('edge_exhaust_terminals_required', not slot_chain_exhausted(cd, 'difficulty')
+          and not slot_chain_exhausted(slot_chain_record(cd, 'band_swap', 'fail'), 'difficulty')
+          and slot_chain_exhausted(slot_chain_record(slot_chain_record(cd, 'band_swap', 'fail'), 'paired_upgrade', 'fail'), 'difficulty')
+          and not slot_chain_exhausted(slot_chain_record(slot_chain_record(cd, 'band_swap', 'fail'), 'paired_upgrade', 'fail'), 'dispute')
+          and slot_chain_exhausted(slot_chain_record(slot_chain_record(cd, 'band_swap', 'fail'), 'paired_upgrade', 'fail'))
+          and not slot_chain_exhausted(dict(cd, attempts=cd['attempts'][:-1]), 'difficulty'))
+    cdp = slot_chain_record(slot_chain_record(slot_chain_record(cd, 'band_swap', 'fail'), 'paired_upgrade', 'fail'), 'rework_dr1', 'pending')
+    check('edge_exhaust_pending_blocks', not slot_chain_exhausted(cdp, 'difficulty'))
+    # slot_chain_record — a terminal is recorded once; a pass ends the chain with that stage as outcome; facts kept
+    ct = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty'), 'band_swap', 'fail'), 'band_swap', 'fail')
+    check('edge_record_terminal_once', ct['terminal_tried'] == ['band_swap'] and ct['attempts'] == [])
+    cr = slot_chain_record(slot_chain_new('1', 'quality'), 'replace', 'pending', item_hash='H', source='S', sibling=None, note='n')
+    cr2 = slot_chain_record(cr, 'replace', 'pass')
+    check('edge_record_resolution_keeps_facts', cr2['attempts'] == [{'stage': 'replace', 'outcome': 'pass', 'item_hash': 'H', 'source': 'S'}]
+          and cr2['done'] is True and cr2['outcome'] == 'replace'
+          and slot_chain_record(cr, 'replace', 'weird')['attempts'][-1]['outcome'] == 'fail'
+          and len(slot_chain_record(cr, 'shape', 'fail')['attempts']) == 2)
+    # slot_chain_finish — records the terminal once and the facts
+    cf = slot_chain_finish(slot_chain_record(slot_chain_new('1', 'dispute'), 'panel', 'fail'), 'panel', agree=2)
+    check('edge_finish', cf['terminal_tried'] == ['panel'] and cf['done'] and cf['outcome'] == 'panel' and cf['agree'] == 2
+          and slot_chain_finish(slot_chain_new('1', 'quality'), 'replace')['terminal_tried'] == [])
+    # slot_chain_reopen — history grows across reopens; a live chain of the same kind is returned unchanged
+    a1 = slot_chain_finish(slot_chain_new('1', 'quality'), 'amber')
+    a2 = slot_chain_finish(slot_chain_reopen(a1, '1', 'dispute'), 'majority')
+    a3 = slot_chain_reopen(a2, '1', 'difficulty', 'Hard', 's')
+    check('edge_reopen_history', [h['outcome'] for h in a3['history']] == ['amber', 'majority'] and a3['kind'] == 'difficulty'
+          and a3['target'] == 'Hard' and a3['subtopic_id'] == 's' and 'suspended' not in a3)
+    op = slot_chain_new('1', 'difficulty')
+    sp = slot_chain_reopen(op, '1', 'dispute')
+    check('edge_reopen_suspend_open_without_pending', sp['suspended']['attempts'] == [] and sp['kind'] == 'dispute'
+          and slot_chain_reopen(slot_chain_finish(sp, 'panel'), '1', 'quality')['kind'] == 'quality')
+    # chain_footer_lines — the exact text of every terminal line
+    fz = chain_footer_lines({
+        '2': slot_chain_finish(slot_chain_record(slot_chain_new('2', 'difficulty', 'Hard'), 'rework_dr1', 'fail'), 'forced', measured='Medium'),
+        '3': slot_chain_finish(slot_chain_new('3', 'difficulty'), 'paired_upgrade', partner='8'),
+        '4': slot_chain_finish(slot_chain_new('4', 'dispute'), 'rekey_review'),
+        '5': slot_chain_finish(slot_chain_new('5', 'quality'), 'amber', gates=['A-X', 'A-Y']),
+        '6': slot_chain_finish(slot_chain_new('6', 'quality', None, 'oc.s'), 'sibling'),
+        '7': slot_chain_finish(slot_chain_new('7', 'dispute'), 'replace'),
+        '10': slot_chain_finish(slot_chain_new('10', 'difficulty', 'Hard'), 'forced'),
+        '9': 'junk', '11': {'done': True, 'outcome': 'rekey'}})
+    check('edge_footer_text', fz['amber'] == [
+        'Q2: labelled Hard per schedule; independent review measured Medium after 1 reviewed attempt(s) and both swap routes (schedule_forced)',
+        'Q5: A-X, A-Y persisted on every replacement — delivered, disclosed',
+        'Q10: labelled Hard per schedule; independent review measured it lower after 0 reviewed attempt(s) and both swap routes (schedule_forced)']
+          and fz['info'] == ['Q3: difficulty band swapped with Q8 (count-neutral; both labels match independent review)',
+                             'Q4: answer key corrected to the option a majority of independent reviewers derived, then re-reviewed',
+                             'Q6: replaced from a sibling subtopic (oc.s -> another; allocation ±1, disclosed)',
+                             'Q11: answer key corrected to the option a majority of independent reviewers derived, then re-reviewed'])
+    # swap partner / upgrade candidate — preference order and exclusions
+    tp = {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Medium', '5': 'Easy'}
+    gi = [{'q': '1', 'measured': 'Medium'}, {'q': '2', 'measured': 'Hard'}, {'q': '3', 'measured': 'Hard'},
+          {'q': '4', 'measured': 'Hard', 'rung': 'SWAP'}, {'q': '5', 'measured': 'Easy'}]
+    check('edge_swap_lowest_q_at_exact_band', dl_swap_partner('1', tp, gi, L) == '2' and dl_swap_partner('1', tp, gi, L, exclude=['2']) == '3'
+          and dl_swap_partner('1', tp, gi, L, exclude=['2', '3']) is None)
+    tp2 = {'1': 'Hard', '2': 'Easy', '3': 'Easy'}
+    gi2 = [{'q': '1', 'measured': 'Easy'}, {'q': '2', 'measured': 'Medium'}, {'q': '3', 'measured': 'Hard'}]
+    check('edge_swap_prefers_exact_over_higher', dl_swap_partner('1', tp2, gi2, L) == '3'
+          and dl_swap_partner('1', {'1': 'Medium', '2': 'Easy', '3': 'Easy'}, [{'q': '1', 'measured': 'Easy'}, {'q': '2', 'measured': 'Medium'}, {'q': '3', 'measured': 'Hard'}], L) == '2')
+    tp3 = {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Medium'}
+    gi3 = [{'q': '1', 'measured': 'Medium'}, {'q': '2', 'measured': 'Easy'}, {'q': '3', 'measured': 'Medium', 'rung': 'FORCED'},
+           {'q': '4', 'measured': 'Medium'}]
+    check('edge_upgrade_candidate_exact_measured_unsettled', dl_upgrade_candidate('1', tp3, gi3, L) == '4'
+          and dl_upgrade_candidate('1', dict(tp3, **{'1': 'Medium'}), gi3, L) is None
+          and dl_upgrade_candidate('1', tp3, gi3, L, exclude=['4']) is None)
+    # verify_difficulty_label — dr3 without target; l2 legacy binding only with l2_review; held is STRICT
+    check('edge_verify_dr3_no_target', verify_difficulty_label({'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3',
+          'review_controls': {'reviewer': 'Medium'}}}, L) == (True, 'Medium', 'dr3'))
+    check('edge_verify_dr3_equal_target_fails', verify_difficulty_label({'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3',
+          'scheduled': 'Medium', 'review_controls': {'reviewer': 'Medium'}}}, L)[0] is False)
+    hd = {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'HELD', 'label_basis': {'kind': 'held', 'target': 'Medium',
+                                                                                          'controls': {'m': 'Medium'}}}}
+    check('edge_verify_held_strict', verify_difficulty_label(hd, L) == (False, 'Medium', 'held')
+          and verify_difficulty_label(dict(hd, difficulty_check={'dl_rung': 'HELD', 'label_basis': {'kind': 'held', 'target': 'Medium',
+                                                                                                    'controls': {'m': 'Hard'}}}), L) == (True, 'Medium', 'held'))
+    sw = {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'SWAP', 'label_basis': {'kind': 'review', 'target': 'Medium',
+                                                                                         'controls': {'r': 'Medium'}}}}
+    check('edge_verify_swap_equal_ok', verify_difficulty_label(sw, L) == (True, 'Medium', 'review')
+          and verify_difficulty_label({'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'SWAP', 'label_basis': {'kind': 'forced'}}}, L)
+          == (False, None, 'unknown'))
+    check('edge_verify_obs_hostile_is_none', verify_difficulty_label({'difficulty': 'Hard', 'difficulty_obs': {'deduction_steps': 'x'}}, L)[2]
+          in ('none', 'obs'))
+    # dl_set_label_basis — invalid controls are dropped; partner only when given; review equal band allowed
+    e0 = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_check': {'dr3_basis': {'x': 1}}}
+    e1, ok1, _ = dl_set_label_basis(e0, 'review', L, 'Medium', controls={'a': 'Medium', 'b': 'Nope', 'c': None})
+    check('edge_writer_controls_filtered', ok1 and e1['difficulty_check']['label_basis']['controls'] == {'a': 'Medium'}
+          and 'partner' not in e1['difficulty_check']['label_basis'] and 'dr3_basis' not in e1['difficulty_check']
+          and e1['difficulty_check']['final_band'] == 'Medium' and e1['difficulty_check']['label_basis']['rule'] == LB_RULE_CURRENT)
+    e2, ok2, why2 = dl_set_label_basis(e0, 'review', L, 'Hard', controls={'a': 'Nope'})
+    check('edge_writer_no_valid_controls_refused', ok2 is False and e2 is e0)
+    e3, ok3, _ = dl_set_label_basis(dict(e0, qtype='msq'), 'review', L, 'Medium', controls={'a': 'Easy'})
+    check('edge_writer_floor_clamped_review', ok3 and e3['difficulty'] == 'Medium')
+    # dl_phase3_decision — round boundary and the floor
+    check('edge_phase3_round_boundary', dl_phase3_decision('Hard', L, review_rec={'difficulty_band_with_exemplar': 'Medium (exemplar 1)'},
+                                                           review_round=0)['action'] == 'repair'
+          and dl_phase3_decision('Hard', L, review_rec={'difficulty_band_with_exemplar': 'Medium (exemplar 1)'}, review_round=1)['action'] == 'dr3'
+          and dl_phase3_decision('Hard', L, review_rec={'difficulty_band_with_exemplar': 'Medium (exemplar 1)'}, review_round=1)['final_band'] == 'Medium'
+          and dl_phase3_decision('Medium', L, review_rec={'difficulty_band_with_exemplar': 'Hard (exemplar 1)'})['action'] == 'above'
+          and dl_phase3_decision('Medium', L, review_rec={'difficulty_band_with_exemplar': 'Medium (exemplar 1)'})['action'] == 'accept'
+          and dl_phase3_decision('Hard', L, review_rec={'difficulty_band_with_exemplar': 'Easy (exemplar 1)'}, review_round=1, qtype='nat')['final_band'] == 'Medium')
+    # dl_gate_items — an unmeasured slot whose label already sits below counts below; otherwise unmeasured
+    gx = dl_gate_items({'1': 'Hard', '2': 'Hard', '3': 'Hard'}, {'1': {'difficulty': 'Medium'}, '2': {'difficulty': 'Hard'},
+                                                                '3': {'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'DR1', 'review_measured': 'Medium'}}}, L)
+    check('edge_gate_items', [i['final_band'] for i in gx] == ['Medium', None, 'Medium'] and gx[2]['rung'] == 'DR1')
+    # migrate — a repaired DR3 slot gets its failed rework_dr1; paper_gate_reworked counts as rework; both rework keys retire
+    bsm = {'difficulty_plan_target': {'1': 'Hard', '2': 'Hard'}, 'review_dl_repair': ['1'], 'paper_gate_reworked': ['2'],
+           'paper_gate_passes': 2, 'difficulty_plan': {'1': 'Medium', '2': 'Hard'}}
+    kdm = {'concept_map': {'1': {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3'}}, '2': {'difficulty': 'Hard'}}}
+    b1, k1, r1 = migrate_paper_state(bsm, kdm, 'p')
+    check('edge_migrate', r1['dr3_restored'] == ['1'] and b1['slot_chain']['1']['attempts'][0]['stage'] == 'rework_dr1'
+          and b1['slot_chain']['1']['attempts'][0]['outcome'] == 'fail' and r1['rework_pending'] == ['2']
+          and b1['slot_chain']['2']['attempts'][-1]['outcome'] == 'pending' and 'paper_gate_passes' not in b1
+          and b1['difficulty_plan'] == {'1': 'Hard', '2': 'Hard'} and k1['concept_map']['1']['difficulty'] == 'Hard'
+          and b1['migrations'] == ['p->2026.11.09'])
+    b2, k2, r2 = migrate_paper_state({'difficulty_plan_target': {'1': 'Hard'}}, {'concept_map': {'1': {'difficulty': 'Medium',
+                                     'difficulty_check': {'dl_rung': 'DR3'}, 'quality_status': 'UNRESOLVED(A-STEMFORM)'}}}, 'p')
+    check('edge_migrate_quality_kind_and_unrepaired_dr3', b2['slot_chain']['1']['kind'] == 'quality'
+          and b2['slot_chain']['1']['suspended']['kind'] == 'difficulty' and b2['slot_chain']['1']['suspended']['attempts'] == [])
+
+
+def _lb_sc_edge2_self_test(check):
+    """v1.34 pre-deploy review, mutation round 2 (2026-11-10): the remaining non-equivalent survivors pinned."""
+    L = ['Easy', 'Medium', 'Hard']
+    ag = {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': 'h'}
+    dis = dict(ag, key_agrees=False)
+    # a rung and a basis kind that do not belong together are never trusted
+    for rung, kind in (('SWAP', 'held'), ('HELD', 'review'), ('FORCED', 'held'), ('HELD', 'forced')):
+        check(f'edge2_mismatched_{rung}_{kind}_unknown', verify_difficulty_label({'difficulty': 'Medium', 'difficulty_check': {
+            'dl_rung': rung, 'label_basis': {'kind': kind, 'target': 'Medium', 'controls': {'m': 'Hard'}}}}, L) == (False, None, 'unknown'))
+    # an unknown basis kind is refused even with an exhausted chain (never a KeyError, never a write)
+    cx = slot_chain_new('1', 'difficulty')
+    while True:
+        nx = slot_chain_next(cx, sources=False, shapes=False, siblings=[])
+        cx = nx['chain']
+        if nx['action'] == 'forced':
+            cx = slot_chain_finish(cx, 'forced'); break
+        cx = slot_chain_record(cx, nx['stage'], 'fail')
+    check('edge2_unknown_kind_refused_with_exhausted_chain', dl_set_label_basis({'difficulty': 'Hard'}, 'x', L, 'Hard', chain=cx)[1] is False
+          and dl_set_label_basis({'difficulty': 'Hard'}, 'forced', L, 'Hard', chain=cx)[1] is True)
+    e_h = dl_set_label_basis({'difficulty': 'Medium'}, 'held', L, 'Medium', controls={'m': 'Hard'})[0]['difficulty_check']['label_basis']
+    e_r = dl_set_label_basis({'difficulty': 'Hard'}, 'review', L, 'Medium', controls={'m': 'Hard'})[0]['difficulty_check']['label_basis']
+    check('edge2_measured_recorded_only_for_held_and_forced', e_h.get('measured') == 'Hard' and 'measured' not in e_r)
+    # a None sibling is never a candidate
+    cn = slot_chain_new('1', 'quality')
+    for st in ('replace', 'replace', 'replace', 'shape', 'shape'):
+        cn = slot_chain_record(cn, st, 'fail')
+    check('edge2_none_sibling_ignored', slot_chain_next(cn, siblings=[None, 'a'])['sibling'] == 'a')
+    # resolving a pending attempt copies ITS facts (the last attempt), never an earlier attempt's
+    c2 = slot_chain_record(slot_chain_record(slot_chain_new('1', 'quality'), 'sibling', 'fail', sibling='a', source='sA'),
+                           'sibling', 'pending', sibling='b')
+    c2 = slot_chain_record(c2, 'sibling', 'fail')
+    check('edge2_resolution_copies_last_attempt', [(a.get('sibling'), a.get('source')) for a in c2['attempts']] == [('a', 'sA'), ('b', None)])
+    # sibling exhaustion counted from the attempts (no 'unavailable' mark): 3 siblings x 2 -> exhausted; fewer -> not
+    def _qc(sib_attempts):
+        c = slot_chain_new('1', 'quality')
+        for st in ('replace', 'replace', 'replace', 'shape', 'shape'):
+            c = slot_chain_record(c, st, 'fail')
+        for sb, k in sib_attempts:
+            for _ in range(k):
+                c = slot_chain_record(c, 'sibling', 'fail', sibling=sb)
+        return c
+    check('edge2_sibling_exhaustion_by_count', slot_chain_exhausted(_qc([('a', 2), ('b', 2), ('c', 2)]), 'quality')
+          and not slot_chain_exhausted(_qc([('a', 2), ('b', 2), ('c', 1)]), 'quality')
+          and not slot_chain_exhausted(_qc([('a', 2), ('b', 2)]), 'quality')
+          and not slot_chain_exhausted(_qc([('a', 2), ('a', 2), ('b', 2)]), 'quality'))
+    # reopen records the LAST attempt as failed only when it is pending
+    pa = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty'), 'rework_dr1', 'pending'), 'rework_dr1', 'fail')
+    pa = slot_chain_record(pa, 'rework_dr2', 'pending')
+    rp = slot_chain_reopen(pa, '1', 'dispute')
+    check('edge2_reopen_resolves_last_pending', [(a['stage'], a['outcome']) for a in rp['suspended']['attempts']]
+          == [('rework_dr1', 'fail'), ('rework_dr2', 'fail')])
+    rp2 = slot_chain_reopen(slot_chain_record(slot_chain_new('1', 'difficulty'), 'rework_dr1', 'fail'), '1', 'dispute')
+    check('edge2_reopen_no_pending_untouched', [(a['stage'], a['outcome']) for a in rp2['suspended']['attempts']] == [('rework_dr1', 'fail')])
+    # swap preference: an EXACT-band partner beats a lower-numbered higher-measured one
+    tp = {'1': 'Hard', '2': 'Easy', '3': 'Easy'}
+    gi = [{'q': '1', 'measured': 'Easy'}, {'q': '2', 'measured': 'Hard'}, {'q': '3', 'measured': 'Medium'}]
+    check('edge2_swap_exact_band_first', dl_swap_partner('1', {'1': 'Medium', '2': 'Easy', '3': 'Easy'}, gi, L) == '3'
+          and dl_swap_partner('1', tp, gi, L) == '2')
+    # certification: the LAST TWO must agree (an earlier agreement never counts)
+    check('edge2_certified_last_two', review_item_certified([ag, dis, ag], 'h') is False and review_item_certified([dis, ag, ag], 'h') is True)
+    # reviewer health: a single complete agreeing record is not void; rate boundary with one record
+    check('edge2_void_single', review_round_void({'1': ag}, 1) == (False, 'ok')
+          and review_round_void({'1': dis}, 1, rate=0.6)[0] is True)
+    # panel: size 1 and size 4 (strict majority of SIZE); an agreeing reviewer's own key is never an alternative
+    check('edge2_panel_size1', review_panel_majority([dis, ag], size=1) == {'certified': False, 'agree': 0, 'n': 1, 'alt': None})
+    check('edge2_panel_size4', review_panel_majority([ag, ag, dis, dis], size=4)['certified'] is False
+          and review_panel_majority([ag, ag, ag, dis], size=4)['certified'] is True
+          and review_panel_majority([dict(dis, own_key=2), dict(dis, own_key=2), ag, ag], size=4)['alt'] is None
+          and review_panel_majority([dict(dis, own_key=2)] * 3 + [ag], size=4)['alt'] == '2')
+    check('edge2_panel_size1_and_sweep_caps', review_panel_majority([ag], size=1)['certified'] is True
+          and review_panel_majority([dict(dis, own_key=2)], size=1)['alt'] == '2'
+          and sweep_route([], [{'check': 'A-SEQ', 'message': 'x'}], 1, max_sweeps=2)['paper'] == {'A-SEQ': 'reassemble'}
+          and sweep_route([], [{'check': 'A-SEQ', 'message': 'x'}], 0, max_sweeps=1)['paper'] == {'A-SEQ': 'amber'})
+    check('edge2_panel_agreeing_own_key_not_alt', review_panel_majority([dict(ag, own_key=1), dict(ag, own_key=1), dis])['alt'] is None)
+    # sweep cap parameter honoured at its low end
+    check('edge2_sweep_cap_param', sweep_route([], [{'check': 'A-SEQ', 'message': 'x'}], 1, max_sweeps=1)['paper'] == {'A-SEQ': 'amber'})
+    # forced_refused line carries the reason verbatim
+    check('edge2_forced_refused_text', chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard'),
+          'forced_refused', why='target not a label')})['amber'] == [
+          'Q9: below its Hard slot after every route; its schedule label could not be recorded (target not a label) — delivered, disclosed'])
+    # migrate: a reworked q absent from the concept map gets no chain; a q both DR3-restored and reworked keeps ONE
+    # difficulty chain; a reworked q's new chain is a full difficulty chain at its slot band
+    bm, km, rm = migrate_paper_state({'difficulty_plan_target': {'1': 'Hard', '2': 'Hard'}, 'paper_gate_rework': ['1', '2', '9']},
+                                     {'concept_map': {'1': {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3'}},
+                                                      '2': {'difficulty': 'Hard', 'subtopic_id': 's2'}}}, 'p')
+    check('edge2_migrate_rework_keys', '9' not in bm['slot_chain'] and rm['rework_pending'] == ['2']
+          and bm['slot_chain']['1']['attempts'] == [] and bm['slot_chain']['2']['kind'] == 'difficulty'
+          and bm['slot_chain']['2']['target'] == 'Hard' and bm['slot_chain']['2']['subtopic_id'] == 's2')
+    bd, kd, rd = migrate_paper_state({'slot_chain': {'1': slot_chain_finish(slot_chain_new('1', 'difficulty'), 'replace')}},
+                                     {'concept_map': {'1': {'difficulty': 'Hard', 'quality_status': 'UNRESOLVED(A-REVIEW)'}}}, 'p')
+    check('edge2_migrate_unresolved_with_finished_chain', bd['slot_chain']['1']['kind'] == 'dispute'
+          and bd['slot_chain']['1']['history'][0]['outcome'] == 'replace' and rd['unresolved_cleared'] == ['1'])
+    # dl_gate_items: a label BELOW its measurement counts at the label (min of the two)
+    check('edge2_gate_min_label_measured', [i['final_band'] for i in dl_gate_items({'1': 'Hard'}, {'1': {'difficulty': 'Medium',
+          'difficulty_check': {'review_measured': 'Hard'}}}, L)] == ['Medium'])
+    # dl_phase3_decision: review_round omitted / None means round 1 (repair, never dr3)
+    rr = {'difficulty_band_with_exemplar': 'Medium (exemplar 1)'}
+    check('edge2_phase3_default_round', dl_phase3_decision('Hard', L, review_rec=rr)['action'] == 'repair'
+          and dl_phase3_decision('Hard', L, review_rec=rr, review_round=None)['action'] == 'repair')
+
+
 def self_test():
     passed = 0
     total = 0
@@ -10007,7 +10729,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.33')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.34')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -11326,6 +12048,11 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.33 — Clusters DL + L2 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER) ──────────────
     _dl_l2_self_test(check)
+
+    # ── v1.34 — Clusters LB + SC (GAP-2026-11-08-DR3-QINDEX-CONFLICT, OD-2026-11-09) ──────────
+    _lb_sc_self_test(check)
+    _lb_sc_edge_self_test(check)
+    _lb_sc_edge2_self_test(check)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
@@ -14091,7 +14818,7 @@ QF_BUILDER = 'bc.scoped_difficulty_schedule'
 # A-DPROFILE against the profile). Not recomputable by the scoped builder, never 'unverified'.
 FULL_PAPER_BUILDER = 'Framework_Blueprint.S7-0'
 LADDER_RUNGS = ('R1', 'R2', 'R3', 'R4', 'R5')
-LADDER_RUNG_ORDER = ('R1', 'R2s', 'R2o', 'R2', 'R3', 'R4', 'R5')   # v1.30 — with sub-rungs (GAP-2026-11-03 §4.1)
+LADDER_RUNG_ORDER = ('RV', 'RL', 'R1', 'R2s', 'R2o', 'R2', 'R3', 'R4', 'R5')   # v1.30 sub-rungs; v1.34 RV (delta review) < RL (relabel to recorded basis)
 LADDER_ENTRY_RUNG = {
     # R1 — deterministic re-render, no new content (GAP §4.2)
     'W-FIGLABELPX': 'R1', 'G-FIGLABEL': 'R1', 'G-FIGCOLLIDE': 'R1', 'G-FIGOVERPRINT': 'R1',
@@ -15707,6 +16434,9 @@ def ladder_terminal_accept(scheduled, measured):
     return {'final_band': measured, 'decision': 'accept_measured',
             'reason': f'R5: measured {measured}, scheduled {scheduled}; schedule amended in place',
             'from': scheduled, 'to': measured}
+# v1.34 (owner 2026-11-10, supersedes D3-R5 (A) for difficulty): Create v5.96 R5 never calls the function above
+# for a difficulty reason — a HARDER slot is HELD at its scheduled band (dl_set_label_basis 'held'); the schedule
+# is delivered exactly. Kept for legacy callers / fixtures only.
 
 
 def ladder_entry(reasons):
@@ -18349,10 +19079,16 @@ def difficulty_paper_gate(items, labels):
         if o is not None and f is not None and labs.index(f) < labs.index(o):
             (dr3 if i.get('rung') == 'DR3' else below).append(i)
     below.sort(key=lambda i: (labs.index(i.get('final_band')), _qf_qkey(str(i.get('q')))))
+    # v1.34: forced labels sit AT their slot (never below) — listed for the footer with the band the
+    # independent review measured; swaps are listed for the footer too
+    forced = [{'q': i.get('q'), 'label': i.get('label'), 'measured': i.get('measured')} for i in its
+              if i.get('rung') == 'FORCED']
+    swapped = [i.get('q') for i in its if i.get('rung') == 'SWAP']
+    held = [i.get('q') for i in its if i.get('rung') == 'HELD']
     return {'status': 'PASS' if not below else 'REWORK', 'counts_final': cf, 'counts_original': co,
             'below': [i.get('q') for i in below] + [i.get('q') for i in dr3],
             'rework_qs': [i.get('q') for i in below], 'accepted_dr3': [i.get('q') for i in dr3],
-            'unmeasured': unmeasured, 'rule': DL_RULE_CURRENT}
+            'unmeasured': unmeasured, 'forced': forced, 'swapped': swapped, 'held': held, 'rule': DL_RULE_CURRENT}
 
 
 def difficulty_layer_lines(gate=None, l2_model=None, n_l2_items=0, shares_source=None):
@@ -18368,6 +19104,18 @@ def difficulty_layer_lines(gate=None, l2_model=None, n_l2_items=0, shares_source
         if dr3:
             out.append(f"Difficulty fallback (DR3): {len(dr3)} item(s) accepted below their slot after "
                        f"full repair — Q{', Q'.join(str(q) for q in dr3[:12])}")
+        fz = [f for f in _dl_list(g.get('forced')) if isinstance(f, dict)]
+        if fz:
+            # counted here; each item is named on its own AMBER line by chain_footer_lines
+            out.append(f"Difficulty schedule-forced: {len(fz)} item(s) — listed on the amber lines")
+        sw = _dl_list(g.get('swapped'))
+        if sw:
+            out.append(f"Difficulty band swaps: {len(sw)} item(s) moved to the slot their independent review measured "
+                       f"(count-neutral; schedule unchanged) — Q{', Q'.join(str(q) for q in sw[:12])}")
+        hd = _dl_list(g.get('held'))
+        if hd:
+            out.append(f"Difficulty held at slot: {len(hd)} item(s) measured HARDER than their slot and kept at the "
+                       f"scheduled band (schedule delivered exactly) — Q{', Q'.join(str(q) for q in hd[:12])}")
         um = _dl_list(g.get('unmeasured'))
         if um:
             out.append(f"Difficulty unmeasured: {len(um)} slot(s) had no independent band — "
@@ -18527,8 +19275,9 @@ def dl_phase3_decision(target_band, labels, review_rec=None, judge_band=None, l2
       'above'   — measured above target (recorded; the label stays at target);
       'repair'  — measured BELOW target in review round 1 (review_round == 0 before the
                   round's increment): REVIEW_REPAIR at DR1;
-      'dr3'     — measured BELOW target in round 2: accepted at the measured band, the
-                  DISCLOSED last resort (the label becomes the measured band).
+      'dr3'     — measured BELOW target in round 2. v1.34: the caller (Create v5.96 S13-2G) never
+                  relabels on it — it opens the slot's difficulty chain (OD-2026-11-09). A band that is
+                  below the target only before the qtype floor clamp is 'accept' in either round.
     Returns {'action', 'measured', 'final_band', 'controls', 'source', 'reviewer_band',
     'reviewer_anchored', 'concepts_used', 'concepts_from', 'l2', 'rung', 'rule'}. Never raises."""
     labs = _dl_labels(labels)
@@ -18554,10 +19303,15 @@ def dl_phase3_decision(target_band, labels, review_rec=None, judge_band=None, l2
         out.update({'action': 'accept', 'final_band': tgt, 'rung': None})
     elif labs.index(meas) > labs.index(tgt):
         out.update({'action': 'above', 'final_band': tgt, 'rung': None})
+    elif labs.index(floor_clamp(meas, qtype, labs) or meas) >= labs.index(tgt):
+        # v1.34 (G6): the measured band is floor-clamped (an MSQ / NAT never measures to the bottom
+        # band); when the clamp reaches the slot nothing is below it — in EITHER round
+        out.update({'action': 'accept', 'final_band': tgt, 'rung': None, 'measured': floor_clamp(meas, qtype, labs)})
     elif _qf_int(review_round, 0) < 1:
         out.update({'action': 'repair', 'final_band': tgt, 'rung': 'DR1'})
     else:
-        out.update({'action': 'dr3', 'final_band': meas, 'rung': 'DR3'})
+        # Create v5.96 never relabels on 'dr3' — it opens the slot's difficulty chain (OD-2026-11-09)
+        out.update({'action': 'dr3', 'final_band': floor_clamp(meas, qtype, labs), 'rung': 'DR3'})
     return out
 
 
@@ -18598,9 +19352,13 @@ def dl_gate_items(target_plan, concept_map, labels):
         e = cm.get(str(q)) if isinstance(cm.get(str(q)), dict) else {}
         dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
         lab = _dl_band(e.get('difficulty'), labs)
-        meas = _dl_band(dc.get('review_measured'), labs) or _dl_band(dc.get('measured'), labs)
-        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS else None
-        if rung == 'DR3':
+        _lbm = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+        meas = (_dl_band(dc.get('review_measured'), labs) or _dl_band(dc.get('measured'), labs)
+                or _dl_band(_lbm.get('measured'), labs))
+        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS + LB_RUNGS else None
+        if rung in ('DR3',) + LB_RUNGS:
+            # v1.34: a band swap (SWAP) and a schedule-forced label (FORCED) count at their label —
+            # each carries its own verified basis (verify_difficulty_label)
             fin = lab
         elif meas is None:
             tb = _dl_band(b, labs)
@@ -19547,6 +20305,815 @@ LADDER_ENTRY_RUNG.update({
 
 # END CLUSTER L2
 # ════════════════════════════════════════════════════════════════════════════
+
+
+# ══════════════════════════════════════════════════════════════════
+# CLUSTER LB + SC — LABEL BASIS, SLOT CHAIN, REVIEW COVERAGE, SWEEP ROUTE (v1.34)
+# GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY
+# Owner decision OD-2026-11-09 (2026-11-09): a quality or rule condition is NEVER a stop;
+# no question and no paper is ever delivered NOT CERTIFIED; the difficulty schedule is
+# delivered EXACTLY. A slot that measures below its band is re-authored, replaced and
+# band-swapped (13 reviewed attempts + 2 swap routes); only then is its label held at
+# the slot band ('schedule_forced', disclosed in the delivery footer). DR3 (the
+# relabel to the measured band, v1.33) is RETIRED as a writer: no new DR3 record is
+# ever produced; legacy DR3 records are still verified (and migrated).
+#
+# THE LABEL HAS ONE VERIFIER (LABEL-BASIS-LAW): verify_difficulty_label checks a
+# label against the basis that SET it — 'review' (a count-neutral band swap: the
+# independent controls measured the item at or above its new slot), 'forced' (the
+# slot chain is provably exhausted), legacy 'dr3', 'l2' (a BINDING organic ruler
+# band), else 'obs' (the author's recorded evidence, verify_difficulty_obs) and
+# 'none' (no evidence). G-DIFF, A-QINDEX check 8 and notes_core call it.
+# Pure, stdlib only, never raises (THIN-CORE INVARIANT).
+# ══════════════════════════════════════════════════════════════════
+
+LB_RULE_CURRENT = 'LB1'
+LB_KINDS = ('review', 'forced', 'held')
+LB_RUNGS = ('SWAP', 'FORCED', 'HELD')  # difficulty_check.dl_rung — written ONLY by dl_set_label_basis
+LB_DECISIONS = {'review': 'dl_swap', 'forced': 'dl_forced', 'held': 'dl_held'}
+_LB_RUNG_OF = {'review': 'SWAP', 'forced': 'FORCED', 'held': 'HELD'}
+# a slot whose label basis came from a swap or a forced hold is never a swap / upgrade partner (its band is
+# settled); a HELD slot (measured HARDER than its slot, label held at it) is a welcome swap partner
+LB_SETTLED_RUNGS = ('SWAP', 'FORCED')
+
+SC_RULE_CURRENT = 'SC1'
+# (stage, reviewed attempts) — every attempt is ONE fresh independent (delta) review
+SC_STAGES = {
+    'difficulty': (('rework_dr1', 1), ('rework_dr2', 1), ('replace', 3), ('shape', 2), ('sibling', 2)),
+    'dispute': (('adjudicate', 1), ('replace', 3), ('shape', 2), ('sibling', 2)),
+    'quality': (('replace', 3), ('shape', 2), ('sibling', 2)),
+    # the PARTNER of a paired upgrade (stage 7): re-authored UP to the below slot's band; on success the two
+    # slots swap, on exhaustion it is abandoned (it keeps its own slot; its own label rules apply)
+    'upgrade': (('rework_dr1', 1), ('rework_dr2', 1), ('replace', 3)),
+}
+SC_SIBLING_SUBTOPICS = 3               # at most 3 sibling subtopics, SC 'sibling' attempts each
+SC_TERMINALS = {
+    'difficulty': ('band_swap', 'paired_upgrade', 'forced'),
+    'dispute': ('panel', 'rekey', 'majority'),
+    'quality': ('amber',),
+    'upgrade': ('abandon',),
+}
+SC_NEEDS = {'replace': 'sources', 'shape': 'shapes', 'sibling': 'siblings'}
+
+REVIEW_VOID_RATE = 0.30                # D0: a part disputing more than this share is suspect
+REVIEW_VOID_CONFIRM = 0.50             # E15: the switched reviewer must clear >= this share
+REVIEW_PANEL_SIZE = 3
+S13_2F_MAX_SWEEPS = 6
+
+# Gates whose FAIL means the TOOL or ENVIRONMENT is broken (the auditor crashed, the docx
+# cannot be opened / unzipped, the certificate file is unreadable). S13-2F self-heals
+# (reinstall + re-render + the auditor's own --self-test) before it may stop on one of these.
+INFRA_GATES = ('A-GATEERROR', 'A-DOCXOPEN', 'A-ZIP', 'A-CERT')
+# A FAIL line that names NO question is repaired deterministically, never by a stop:
+#   'reassemble' — rebuild the final docx from the per-item blocks (S13-1) and re-sweep;
+#   'recapture'  — recompute the sidecar records / registry preview (S13-4 preview) and re-sweep.
+PAPER_GATE_ROUTE = {
+    'A-MONO': 'reassemble', 'A-SEQ': 'reassemble', 'A-HEADER': 'reassemble',
+    'A-ENCODING': 'reassemble', 'A-SCRIPT': 'reassemble', 'A-FIGCOMP-LINE': 'reassemble',
+    'A-BLOCK': 'reassemble', 'A-BLOCK-ORDER': 'reassemble', 'A-BLOCK-STIMULUS': 'reassemble',
+    'A-CLUSTER': 'reassemble', 'A-STIMORPHAN-XREF': 'reassemble', 'A-UNDERLINE-FAKE': 'reassemble',
+    'A-FIGTEXT-PROSE': 'reassemble', 'A-OPTN': 'reassemble',
+    'A-QINDEX': 'recapture', 'A-DOSSIER': 'recapture', 'A-QUALITYSTATUS': 'recapture',
+    'A-DGATE': 'recapture', 'A-FIGTYPE-KIND': 'recapture', 'A-DPROFILE': 'recapture',
+    'A-FIGPROFILE': 'recapture',
+    # the batch-ledger completion gate (--audit-state; never passed at S13-2F): rebuild the ledger
+    'C0': 'recapture', 'C1': 'recapture', 'C2': 'recapture', 'C6': 'recapture',
+}
+_SC_QREF_RE = re.compile(r'\bQ\.?\s?(\d{1,3})\b')
+
+
+def floor_clamp(band, qtype, labels):
+    """`band` raised to the qtype's structural floor (difficulty_min_band): an MSQ / NAT position
+    can never carry the bottom band. None when band is not a label. Never raises."""
+    labs = _dl_labels(labels)
+    b = _dl_band(band, labs)
+    if b is None:
+        return None
+    try:
+        fl = difficulty_min_band(qtype, labs)
+    except Exception:                        # a hostile qtype is treated as unfloored
+        fl = None
+    return _band_max(b, fl, labs)
+
+
+def _lb_entry(entry):
+    e = entry if isinstance(entry, dict) else {}
+    dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+    obs = e.get('difficulty_obs') if isinstance(e.get('difficulty_obs'), dict) else {}
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    qt = e.get('qtype') or obs.get('qtype') or 'mcq'
+    return e, dc, obs, lb, (qt if isinstance(qt, str) else 'mcq')
+
+
+def _lb_idx(b, labs):
+    return labs.index(b) if b in labs else None
+
+
+def verify_difficulty_label(entry, labels):
+    """(ok, expected, basis) — THE label verifier (LABEL-BASIS-LAW). entry: a question_index row
+    or a concept_map entry (keys difficulty, difficulty_obs, difficulty_check, qtype).
+      'review' — dl_rung 'SWAP' with label_basis kind 'review': ok iff the label equals the
+                 recorded slot (label_basis.target) AND the lowest independent control
+                 (difficulty_band_min over label_basis.controls, floor-clamped) is at or above it.
+      'forced' — dl_rung 'FORCED' with label_basis kind 'forced': ok iff the label equals the
+                 recorded target AND slot_chain_exhausted(label_basis.chain, 'difficulty').
+      'unknown'— a SWAP / FORCED rung without a usable basis: never ok (ladder R2).
+      'dr3'    — LEGACY (2026.11.08): label == floor-clamped lowest of dr3_basis.controls /
+                 review_controls / {reviewer: review_measured, judge: measured}, strictly below
+                 the target (dr3_basis.target / scheduled) when one is recorded.
+      'l2'     — difficulty_obs.l2.band under a BINDING L2 model (l2.binding True; a 2026.11.08
+                 record without the key counts as binding when difficulty_check.l2_review exists).
+      'obs'    — verify_difficulty_obs(label, difficulty_obs) unchanged.
+      'none'   — no usable evidence: (True, None, 'none'), the documented legacy fall-through.
+    Never raises."""
+    labs = _dl_labels(labels)
+    e, dc, obs, lb, qt = _lb_entry(entry)
+    lab = e.get('difficulty')
+    rung = dc.get('dl_rung')
+    kind = lb.get('kind')
+    if rung in LB_RUNGS or kind in LB_KINDS:
+        if rung == 'SWAP' and kind == 'review':
+            tgt = _dl_band(lb.get('target'), labs)
+            meas = floor_clamp(difficulty_band_min(lb.get('controls'), labs)['band'], qt, labs)
+            ok = (tgt is not None and meas is not None and lab == tgt
+                  and labs.index(meas) >= labs.index(tgt))
+            return ok, tgt, 'review'
+        if rung == 'FORCED' and kind == 'forced':
+            tgt = _dl_band(lb.get('target'), labs)
+            ok = tgt is not None and lab == tgt and slot_chain_exhausted(lb.get('chain'), 'difficulty')
+            return ok, tgt, 'forced'
+        if rung == 'HELD' and kind == 'held':
+            # owner 2026-11-10: a slot that measures HARDER than its band after the whole ladder keeps its
+            # scheduled label (the schedule is delivered exactly); ok iff the label is the recorded slot and the
+            # recorded measurement is STRICTLY harder (the item is at least as hard as its label says)
+            tgt = _dl_band(lb.get('target'), labs)
+            meas = floor_clamp(difficulty_band_min(lb.get('controls'), labs)['band'], qt, labs)
+            ok = (tgt is not None and meas is not None and lab == tgt
+                  and labs.index(meas) > labs.index(tgt))
+            return ok, tgt, 'held'
+        return False, None, 'unknown'
+    if rung == 'DR3':
+        db = dc.get('dr3_basis') if isinstance(dc.get('dr3_basis'), dict) else {}
+        ctl = db.get('controls') if isinstance(db.get('controls'), dict) else (
+            dc.get('review_controls') if isinstance(dc.get('review_controls'), dict) else
+            {'reviewer': dc.get('review_measured'), 'judge': dc.get('measured')})
+        exp = floor_clamp(difficulty_band_min(ctl, labs)['band'], qt, labs)
+        tgt = _dl_band(db.get('target'), labs) or _dl_band(dc.get('scheduled'), labs)
+        ok = exp is not None and lab == exp and (tgt is None or labs.index(exp) < labs.index(tgt))
+        return ok, exp, 'dr3'
+    l2 = obs.get('l2') if isinstance(obs.get('l2'), dict) else {}
+    l2b = _dl_band(l2.get('band'), labs)
+    binding = l2.get('binding') is True or ('binding' not in l2 and isinstance(dc.get('l2_review'), dict))
+    if l2b is not None and binding:
+        exp = floor_clamp(l2b, qt, labs)
+        return lab == exp, exp, 'l2'
+    if obs:
+        try:
+            ok, meas = verify_difficulty_obs(lab, obs, labs)
+        except Exception:                    # a hostile obs record never crashes a gate
+            return True, None, 'none'
+        return bool(ok), meas, ('obs' if meas is not None else 'none')
+    return True, None, 'none'
+
+
+def qindex_count_band(entry, labels):
+    """The band a question_index row COUNTS at in the schedule quota (A-QINDEX check 6, both
+    copies): its label — except a LEGACY DR3 row (a disclosed 2026.11.08 relabel), which counts
+    at the slot it was scheduled for (dr3_basis.target, else difficulty_check.scheduled), so a
+    legacy disclosure never turns into a quota FAIL. Swaps and forced labels count at their label
+    (a swap is count-neutral; a forced label IS the slot). Never raises."""
+    labs = _dl_labels(labels)
+    e, dc, _obs, _lb, _qt = _lb_entry(entry)
+    lab = e.get('difficulty')
+    if dc.get('dl_rung') == 'DR3':
+        db = dc.get('dr3_basis') if isinstance(dc.get('dr3_basis'), dict) else {}
+        return _dl_band(db.get('target'), labs) or _dl_band(dc.get('scheduled'), labs) or lab
+    return lab
+
+
+def dl_set_label_basis(entry, kind, labels, target, controls=None, chain=None, partner=None):
+    """THE ONE writer of a recorded label basis (LABEL-BASIS-LAW). Returns (new_entry, ok, why).
+      kind 'review' — a count-neutral band swap: the item's slot becomes `target`; ok only when
+                      the lowest independent control (floor-clamped) is at or above target.
+      kind 'forced' — the slot chain is exhausted (slot_chain_exhausted(chain, 'difficulty')):
+                      the label is held at `target` (the schedule band), disclosed.
+    On ok: difficulty = target; difficulty_check gets dl_rung SWAP / FORCED, decision dl_swap /
+    dl_forced, final_band = target, label_basis {kind, target, controls, chain, partner, rule}.
+    Never touches difficulty_obs (QQ-0: evidence is never rewritten). On not ok the entry is
+    returned UNCHANGED with the reason. Pure; never raises."""
+    labs = _dl_labels(labels)
+    e = dict(entry) if isinstance(entry, dict) else {}
+    dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else {}
+    _o = e.get('difficulty_obs') if isinstance(e.get('difficulty_obs'), dict) else {}
+    qt = e.get('qtype') or _o.get('qtype') or 'mcq'
+    qt = qt if isinstance(qt, str) else 'mcq'
+    tgt = _dl_band(target, labs)
+    if kind not in LB_KINDS or tgt is None:
+        return (entry if isinstance(entry, dict) else {}), False, f'unknown kind {kind!r} or target {target!r}'
+    ctl = {str(k): v for k, v in (controls.items() if isinstance(controls, dict) else []) if _dl_band(v, labs)}
+    if kind == 'review':
+        meas = floor_clamp(difficulty_band_min(ctl, labs)['band'], qt, labs)
+        if meas is None or labs.index(meas) < labs.index(tgt):
+            return (entry if isinstance(entry, dict) else {}), False, (
+                f'independent controls {ctl} do not measure the item at or above {tgt}')
+    elif kind == 'held':
+        meas = floor_clamp(difficulty_band_min(ctl, labs)['band'], qt, labs)
+        if meas is None or labs.index(meas) <= labs.index(tgt):
+            return (entry if isinstance(entry, dict) else {}), False, (
+                f'recorded measurement {ctl} is not HARDER than {tgt} — nothing to hold')
+    else:
+        if not slot_chain_exhausted(chain, 'difficulty'):
+            return (entry if isinstance(entry, dict) else {}), False, 'slot chain not exhausted'
+    lbrec = {'kind': kind, 'target': tgt, 'controls': ctl, 'rule': LB_RULE_CURRENT}
+    if kind == 'forced':
+        lbrec['chain'] = slot_chain_compact(chain)
+        lbrec['measured'] = difficulty_band_min(ctl, labs)['band']
+    if kind == 'held':
+        lbrec['measured'] = difficulty_band_min(ctl, labs)['band']
+    if partner is not None:
+        lbrec['partner'] = str(partner)
+    dc.update({'dl_rung': _LB_RUNG_OF[kind], 'decision': LB_DECISIONS[kind],
+               'final_band': tgt, 'label_basis': lbrec})
+    dc.pop('dr3_basis', None)
+    e['difficulty'] = tgt
+    e['difficulty_check'] = dc
+    return e, True, 'ok'
+
+
+def clear_label_basis(entry):
+    """E10 — an item RE-AUTHORED (any ladder R2+, a rework pass, a replacement) is a new item:
+    its recorded basis, rung and review measurements no longer describe it. Returns a new entry
+    with difficulty_check.{label_basis, dr3_basis, dl_rung, final_band, review_measured,
+    review_controls, reviewer_band, reviewer_anchored, review_decision, l2_review} removed and
+    decision reset to 'carried_below' when it was a relabel decision. Pure."""
+    e = dict(entry) if isinstance(entry, dict) else {}
+    dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else {}
+    for k in ('label_basis', 'dr3_basis', 'dl_rung', 'final_band', 'review_measured', 'review_controls',
+              'reviewer_band', 'reviewer_anchored', 'review_decision', 'l2_review'):
+        dc.pop(k, None)
+    if dc.get('decision') in ('dl_dr3', 'dl_swap', 'dl_forced', 'dl_held'):
+        dc['decision'] = 'carried_below'
+    e['difficulty_check'] = dc
+    return e
+
+
+# ── SLOT CHAIN — the bounded, never-stopping repair of ONE slot ─────────────────────────
+
+def slot_chain_new(q, kind, target=None, subtopic_id=None):
+    """A new chain record for slot q (kind 'difficulty' | 'dispute' | 'quality'). Persisted by the
+    caller in batch_state['slot_chain'][q] after EVERY attempt (resume-safe, E24)."""
+    k = kind if kind in SC_STAGES else 'quality'
+    return {'q': str(q), 'kind': k, 'target': target, 'subtopic_id': subtopic_id, 'rule': SC_RULE_CURRENT,
+            'attempts': [], 'unavailable': [], 'terminal_tried': [], 'done': False, 'outcome': None}
+
+
+def _sc(chain):
+    c = chain if isinstance(chain, dict) else {}
+    k = c.get('kind') if c.get('kind') in SC_STAGES else None
+    att = [a for a in (c.get('attempts') if isinstance(c.get('attempts'), list) else []) if isinstance(a, dict)]
+    una = [str(u) for u in (c.get('unavailable') if isinstance(c.get('unavailable'), list) else [])]
+    ter = [str(t) for t in (c.get('terminal_tried') if isinstance(c.get('terminal_tried'), list) else [])]
+    return c, k, att, una, ter
+
+
+def _sc_used(att, stage, sibling=None):
+    return sum(1 for a in att if a.get('stage') == stage and (sibling is None or str(a.get('sibling')) == str(sibling)))
+
+
+def slot_chain_next(chain, sources=True, shapes=True, siblings=()):
+    """The NEXT action for a chain — deterministic, bounded, never 'stop'. Returns
+    {'action', 'stage', 'sibling', 'chain'}: action is a stage name (one reviewed attempt), a
+    terminal name, or 'done'. A stage whose input does not exist (no further pattern source,
+    no other ask shape, no sibling subtopic left) is recorded in chain['unavailable'] and skipped
+    — an unavailable stage counts as exhausted for slot_chain_exhausted. Siblings are tried in
+    the order given (caller: same topic by r_avg desc, then same section), at most
+    SC_SIBLING_SUBTOPICS distinct, SC 'sibling' attempts each. Pure (returns a new chain)."""
+    c, k, att, una, ter = _sc(chain)
+    c = dict(c)
+    if k is None:
+        return {'action': 'done', 'stage': None, 'sibling': None, 'chain': c}
+    if c.get('done'):
+        return {'action': 'done', 'stage': None, 'sibling': None, 'chain': c}
+    avail = {'sources': bool(sources), 'shapes': bool(shapes)}
+    # a sibling S13-2R found is NOT an R5 REASSIGN candidate (qtype / format / group constraints) is skipped and
+    # never counted toward SC_SIBLING_SUBTOPICS
+    _skip = {str(x) for x in (c.get('skip_siblings') if isinstance(c.get('skip_siblings'), list) else [])}
+    sibs = [str(s) for s in (siblings if isinstance(siblings, (list, tuple)) else []) if s is not None and str(s) not in _skip]
+    for stage, cap in SC_STAGES[k]:
+        if stage in una:
+            continue
+        if stage == 'sibling':
+            tried = []                      # every sibling that HAS an attempt counts toward the cap, skipped or not
+            for a in att:
+                if a.get('stage') == 'sibling' and str(a.get('sibling')) not in tried:
+                    tried.append(str(a.get('sibling')))
+            for s in tried + [x for x in sibs if x not in tried]:
+                if s in _skip:
+                    continue                # never selected again
+                if s in tried and _sc_used(att, 'sibling', s) >= cap:
+                    continue
+                if len(tried) >= SC_SIBLING_SUBTOPICS and s not in tried:
+                    break
+                c['unavailable'] = una          # keep the stages found unavailable earlier in THIS call
+                return {'action': 'sibling', 'stage': 'sibling', 'sibling': s, 'chain': c}
+            una = una + ['sibling']
+            continue
+        if _sc_used(att, stage) >= cap:
+            continue
+        need = SC_NEEDS.get(stage)
+        if need in avail and not avail[need]:
+            una = una + [stage]
+            continue
+        c['unavailable'] = una
+        return {'action': stage, 'stage': stage, 'sibling': None, 'chain': c}
+    c['unavailable'] = una
+    for t in SC_TERMINALS[k]:
+        if t not in ter:
+            return {'action': t, 'stage': t, 'sibling': None, 'chain': c}
+    return {'action': 'done', 'stage': None, 'sibling': None, 'chain': c}
+
+
+def slot_chain_record(chain, stage, outcome, item_hash=None, source=None, sibling=None, note=None):
+    """Append ONE attempt (or a terminal outcome) to a chain. outcome: 'pass' (the slot is fixed:
+    measured at target / certified) ends the chain; 'fail' continues it; 'pending' records a
+    re-author whose delta review has not run yet (resume). A terminal stage is added to
+    terminal_tried. Pure (returns a new chain)."""
+    c, k, att, una, ter = _sc(chain)
+    c = dict(c)
+    rec = {'stage': str(stage), 'outcome': outcome if outcome in ('pass', 'fail', 'pending') else 'fail'}
+    for kk, vv in (('item_hash', item_hash), ('source', source), ('sibling', sibling), ('note', note)):
+        if vv is not None:
+            rec[kk] = vv
+    if k is not None and stage in SC_TERMINALS[k]:
+        c['terminal_tried'] = ter + ([str(stage)] if str(stage) not in ter else [])
+    elif att and att[-1].get('outcome') == 'pending' and att[-1].get('stage') == rec['stage']:
+        # RESOLVING the pending attempt: it keeps WHICH sibling / source it was (a resolution that dropped the
+        # sibling would never exhaust that sibling's cap — found by the 2026.11.09 randomized termination run)
+        for kk in ('sibling', 'source', 'item_hash'):
+            if kk not in rec and att[-1].get(kk) is not None:
+                rec[kk] = att[-1][kk]
+        c['attempts'] = att[:-1] + [rec]
+    else:
+        c['attempts'] = att + [rec]
+    if rec['outcome'] == 'pass':
+        c['done'], c['outcome'] = True, str(stage)
+    return c
+
+
+def slot_chain_finish(chain, outcome, **facts):
+    """End a chain at a TERMINAL (or a stage) with the facts its footer line reports (partner,
+    measured, agree, n, gates). Pure (returns a new chain); outcome is recorded as given."""
+    c, k, att, una, ter = _sc(chain)
+    c = dict(c)
+    if k is not None and outcome in SC_TERMINALS[k] and outcome not in ter:
+        c['terminal_tried'] = ter + [outcome]
+    c['done'], c['outcome'] = True, str(outcome)
+    for kk, vv in facts.items():
+        c[str(kk)] = vv
+    return c
+
+
+def _sc_strip(chain):
+    c = dict(chain) if isinstance(chain, dict) else {}
+    c.pop('history', None)
+    c.pop('suspended', None)
+    return c
+
+
+def slot_chain_compact(chain):
+    """The chain as RECORDED on an item / in the registry (forced basis, majority review, DISCLOSED item):
+    exactly what slot_chain_exhausted and the footer read — no nested 'history' / 'suspended' chains (the
+    registry stays small). Pure; never raises."""
+    c = chain if isinstance(chain, dict) else {}
+    keep = ('q', 'kind', 'target', 'subtopic_id', 'rule', 'attempts', 'unavailable', 'terminal_tried', 'done',
+            'outcome', 'measured', 'agree', 'n', 'gates', 'partner', 'why')
+    return {k: c[k] for k in keep if k in c}
+
+
+def slot_chain_reopen(prev, q, kind, target=None, subtopic_id=None):
+    """The chain a slot gets when a NEW problem needs one while `prev` (its current record) exists.
+      * prev open and of another kind (e.g. a difficulty chain when a dispute arises): the new chain
+        CARRIES prev as 'suspended' (its pending attempt recorded 'fail' — that text was the one
+        found wanting) and resumes it later (correctness first; attempt counts are never reset).
+      * prev done, or a new chain of the kind prev SUSPENDED: the suspended chain (same kind, open) is
+        resumed; otherwise a new chain of `kind`. Either way every finished chain is kept in
+        'history' (chain_footer_lines reports each one — a disclosure is never lost).
+    Pure; never raises."""
+    k = kind if kind in SC_STAGES else 'quality'
+    p = prev if isinstance(prev, dict) else None
+    hist = list(p.get('history') or []) if p else []
+    susp = p.get('suspended') if p and isinstance(p.get('suspended'), dict) else None
+    if p and not p.get('done') and p.get('kind') == k:
+        return p                                         # already a live chain of this kind
+    if p and not p.get('done'):
+        pa = p.get('attempts') or []
+        if pa and isinstance(pa[-1], dict) and pa[-1].get('outcome') == 'pending':
+            p = slot_chain_record(p, pa[-1].get('stage'), 'fail', note='superseded: disputed / failed a gate')
+        nc = slot_chain_new(q, k, target, subtopic_id)
+        nc['history'] = hist
+        nc['suspended'] = _sc_strip(p)
+        return nc
+    if p:
+        hist = hist + [_sc_strip(p)]
+    if susp and susp.get('kind') == k and not susp.get('done'):
+        nc = _sc_strip(susp)
+    else:
+        nc = slot_chain_new(q, k, target, subtopic_id)
+    nc['history'] = hist
+    return nc
+
+
+def slot_chain_exhausted(chain, kind=None):
+    """True iff every stage of the chain's kind was attempted to its cap or recorded unavailable,
+    and every terminal BEFORE the last one was tried. The proof a 'forced' label basis needs
+    (verify_difficulty_label) — re-derived from the attempt history, never declared. Never raises."""
+    c, k, att, una, ter = _sc(chain)
+    if k is None or (kind is not None and k != kind):
+        return False
+    if any(a.get('outcome') == 'pending' for a in att):
+        return False
+    for stage, cap in SC_STAGES[k]:
+        if stage in una:
+            continue
+        if stage == 'sibling':
+            sibs = []
+            for a in att:
+                if a.get('stage') == 'sibling' and str(a.get('sibling')) not in sibs:
+                    sibs.append(str(a.get('sibling')))
+            if len(sibs) < SC_SIBLING_SUBTOPICS or any(_sc_used(att, 'sibling', s) < cap for s in sibs):
+                return False
+            continue
+        if _sc_used(att, stage) < cap:
+            return False
+    return all(t in ter for t in SC_TERMINALS[k][:-1])
+
+
+def slot_chain_reviewed_max(kind):
+    """The most reviewed attempts a chain of this kind can spend (difficulty 13, dispute 12,
+    quality 11) — the bound the owner approved 2026-11-09."""
+    k = kind if kind in SC_STAGES else 'quality'
+    return sum(cap * (SC_SIBLING_SUBTOPICS if st == 'sibling' else 1) for st, cap in SC_STAGES[k])
+
+
+def dl_swap_partner(q, target_plan, gate_items, labels, exclude=()):
+    """Stage 6 (band swap) — a partner p for slot q whose independent measurement M sits below its
+    slot T: p's slot is M and p measured AT OR ABOVE T. Swapping the two slots (dl_target_plan_swap)
+    leaves the band counts unchanged and makes BOTH labels honest. Prefers a partner measured at
+    exactly T, then the lowest q. None when no partner exists. Never raises."""
+    labs = _dl_labels(labels)
+    tp = _dl_dict(target_plan)
+    gi = {str(i.get('q')): i for i in _dl_list(gate_items) if isinstance(i, dict)}
+    me = gi.get(str(q)) or {}
+    t, m = _dl_band(tp.get(str(q)), labs), _dl_band(me.get('measured'), labs)
+    if t is None or m is None or labs.index(m) >= labs.index(t):
+        return None
+    ex = {str(x) for x in (exclude or ())} | {str(q)}
+    cands = []
+    for p, it in gi.items():
+        if p in ex or _dl_band(tp.get(p), labs) != m or it.get('rung') in LB_SETTLED_RUNGS:
+            continue
+        pm = _dl_band(it.get('measured'), labs)
+        if pm is not None and labs.index(pm) >= labs.index(t):
+            cands.append((0 if pm == t else 1, _qf_qkey(p), p))
+    return sorted(cands)[0][2] if cands else None
+
+
+def dl_upgrade_candidate(q, target_plan, gate_items, labels, exclude=()):
+    """Stage 7 (paired upgrade) — when no swap partner exists: a slot p whose band is q's measured
+    band M and which measured exactly at its slot; p is re-authored UP to q's band T (stages 1-3 of
+    its own difficulty chain), and on success q and p swap. Lowest q first; None when none."""
+    labs = _dl_labels(labels)
+    tp = _dl_dict(target_plan)
+    gi = {str(i.get('q')): i for i in _dl_list(gate_items) if isinstance(i, dict)}
+    me = gi.get(str(q)) or {}
+    t, m = _dl_band(tp.get(str(q)), labs), _dl_band(me.get('measured'), labs)
+    if t is None or m is None or labs.index(m) >= labs.index(t):
+        return None
+    ex = {str(x) for x in (exclude or ())} | {str(q)}
+    cands = sorted((_qf_qkey(p), p) for p, it in gi.items()
+                   if p not in ex and _dl_band(tp.get(p), labs) == m and it.get('rung') not in LB_SETTLED_RUNGS
+                   and _dl_band(it.get('measured'), labs) == m)
+    return cands[0][1] if cands else None
+
+
+# ── REVIEW COVERAGE + CERTIFICATION (REVIEW-COVERAGE-LAW) ──────────────────────────────
+
+def item_hash(text_lines, image_digests=()):
+    """sha256 of ONE delivered question block: its paragraph / table text (whitespace-normalised,
+    in document order) plus the sha256 of each image's bytes in order. The auditor computes it
+    from the docx (--item-hashes) — the producer never declares it (QQ-0). Pure."""
+    import hashlib as _h
+    norm = [' '.join(str(t).split()) for t in (text_lines if isinstance(text_lines, (list, tuple)) else [text_lines])
+            if t is not None]
+    _dg = image_digests if isinstance(image_digests, (list, tuple)) else ()
+    body = '\n'.join(x for x in norm if x) + '\n#img\n' + '\n'.join(str(d) for d in _dg)
+    return _h.sha256(body.encode('utf-8')).hexdigest()
+
+
+def _rv_agrees(r):
+    return (isinstance(r, dict) and r.get('key_agrees') is True and r.get('confidence') != 'low'
+            and r.get('verdict') != 'FAIL'
+            and not str(r.get('selectivity_basis') or '').lower().startswith('contested'))
+
+
+def review_record_agrees(record):
+    """One independent verdict agrees with the key: key_agrees True, confidence not low, verdict not FAIL,
+    no 'contested' selectivity basis. Public form of the rule review_item_certified applies. Never raises."""
+    return _rv_agrees(record)
+
+
+def _rv_independent(r):
+    return isinstance(r, dict) and str(r.get('reviewer') or '') not in ('same-session', '') \
+        and str(r.get('status') or '').upper() != 'NOT_RUN'
+
+
+def review_item_certified(history, current_hash):
+    """An item is CERTIFIED iff the two most recent INDEPENDENT verdicts on its CURRENT item_hash
+    both agree with the key (key_agrees True, confidence not low, no 'contested' basis, verdict not
+    FAIL). history: the item's review records, oldest first. A same-session fallback review is not
+    independent (E13). Never raises."""
+    hs = [r for r in (history if isinstance(history, list) else []) if _rv_independent(r)
+          and r.get('item_hash') == current_hash and current_hash]
+    return len(hs) >= 2 and _rv_agrees(hs[-1]) and _rv_agrees(hs[-2])
+
+
+def review_coverage_missing(concept_map, current_hashes):
+    """REVIEW-COVERAGE-LAW: the q's whose LATEST review record is not bound to the item's current
+    hash (no record, or a record whose item_hash is another text). A record BOUND to the current
+    text covers the item whoever wrote it — a sub-agent verdict, the owner-accepted same-session
+    fallback (D1 / D4, disclosed) or a NOT_RUN stamp (a WARN, A5) — so a delta round always
+    terminates: S13-2G phase 3 binds every item it queued. Independence matters for CERTIFYING a
+    disputed item (review_item_certified, E13), not for coverage. current_hashes: {q: item_hash}
+    from the auditor (--item-hashes); the same rule as audit_canonical A-REVIEW-COVERAGE."""
+    cm = _dl_dict(concept_map)
+    out = []
+    for q, h in _dl_dict(current_hashes).items():
+        e = cm.get(str(q)) if isinstance(cm.get(str(q)), dict) else {}
+        rv = e.get('review') if isinstance(e.get('review'), dict) else None
+        if not (rv and h and rv.get('item_hash') == h):
+            out.append(str(q))
+    return sorted(out, key=_qf_qkey)
+
+
+def review_record_independent(record):
+    """One review record came from an independent reviewer (not the same-session fallback, not
+    NOT_RUN) — the only kind that can certify a disputed item (E13). Never raises."""
+    return _rv_independent(record)
+
+
+def review_round_void(verdict_items, n_items, rate=REVIEW_VOID_RATE):
+    """D0 reviewer health — (void, reason). A part's round is VOID when its verdict file failed
+    binding (verdict_items not a dict / fewer records than items) or it disputes more than `rate`
+    of its items. A VOID round's disputes count for nothing until a switched reviewer confirms
+    them (review_void_confirmed). Never raises."""
+    if not isinstance(verdict_items, dict) or len(verdict_items) < max(1, _qf_int(n_items, 0)):
+        return True, 'verdict file missing or incomplete'
+    dis = [q for q, r in verdict_items.items() if not _rv_agrees(r)]
+    n = max(1, len(verdict_items))
+    if len(dis) / float(n) > rate:
+        return True, f'{len(dis)} of {n} items disputed (> {int(rate * 100)}%)'
+    return False, 'ok'
+
+
+def review_void_confirmed(first_disputes, second_items, confirm=REVIEW_VOID_CONFIRM):
+    """E15 — after a VOID round the part is re-reviewed by a switched reviewer. The VOID stands
+    (the first reviewer was faulty; its disputes are dropped) iff the switched reviewer agrees with
+    the key on at least `confirm` of the first reviewer's disputes; otherwise the disputes are real
+    and the chain runs. Never raises."""
+    fd = [str(q) for q in (first_disputes or [])]
+    si = second_items if isinstance(second_items, dict) else {}
+    if not fd:
+        return True
+    cleared = sum(1 for q in fd if _rv_agrees(si.get(q)))
+    return cleared / float(len(fd)) >= confirm
+
+
+def review_panel_majority(records, size=REVIEW_PANEL_SIZE):
+    """Dispute terminal 'panel' — {'certified', 'agree', 'n', 'alt'}: certified iff a strict
+    majority of `size` fresh independent reviewers agree with the key; 'alt' is the option a
+    majority chose INSTEAD (rekey candidate) or None. Never raises."""
+    rs = [r for r in (records if isinstance(records, list) else []) if _rv_independent(r)][:max(1, size)]
+    agree = sum(1 for r in rs if _rv_agrees(r))
+    alts = {}
+    for r in rs:
+        if not _rv_agrees(r) and r.get('own_key') is not None:
+            k = str(r.get('own_key'))
+            alts[k] = alts.get(k, 0) + 1
+    alt = next((k for k, v in sorted(alts.items()) if v * 2 > max(1, size)), None)
+    return {'certified': agree * 2 > max(1, size), 'agree': agree, 'n': len(rs), 'alt': alt}
+
+
+# ── S13-2F ROUTING — every surviving finding has a route; INFRA only for a broken tool ─────
+
+def sweep_route(item_findings, fail_lines, sweep, max_sweeps=S13_2F_MAX_SWEEPS, self_test_ok=True):
+    """THE S13-2F decision (OD-2026-11-09). Returns {'items': {q: {'gates', 'route'}},
+    'paper': {gate: route}, 'stop': bool, 'stop_gates': [gate]}.
+    Items: every item finding, plus every FAIL line whose message names a question (Q<n>) —
+      sweeps 1-2 -> ladder_entry(gates); sweep 3 -> 'TERMINAL'; sweep >= 4 -> 'REPLACE' (the
+      slot chain, kind 'quality' / 'dispute' — never an UNRESOLVED stamp).
+    Paper-level (a FAIL line naming no question): INFRA_GATES -> 'self_heal' (stop ONLY when the
+      self-heal's own self-test failed: self_test_ok False); any other gate -> its
+      PAPER_GATE_ROUTE ('reassemble' | 'recapture'; an unlisted gate 'recapture'), and from
+      sweep max_sweeps on -> 'amber' (delivered with the gate's message disclosed — never a
+      stop). Never raises."""
+    sw = max(1, _qf_int(sweep, 1))
+    items = {}
+    for f in _dl_list(item_findings):
+        if isinstance(f, dict) and f.get('q') is not None:
+            items.setdefault(str(f.get('q')), set()).add(str(f.get('gate')))
+    paper = {}
+    for fl in _dl_list(fail_lines):
+        if not isinstance(fl, dict):
+            continue
+        g = str(fl.get('check') or fl.get('gate') or '')
+        qs = _SC_QREF_RE.findall(str(fl.get('message') or ''))
+        if qs and g not in INFRA_GATES:
+            for q in qs:
+                items.setdefault(str(int(q)), set()).add(g)
+        else:
+            paper[g] = True
+    out_items = {}
+    for q, gs in items.items():
+        if sw <= 2:
+            r = ladder_entry(sorted(gs))
+        elif sw == 3:
+            r = 'TERMINAL'
+        else:
+            r = 'REPLACE'
+        out_items[q] = {'gates': sorted(gs), 'route': r}
+    out_paper, stop = {}, []
+    for g in sorted(paper):
+        if g in INFRA_GATES:
+            r = 'self_heal' if self_test_ok else 'infra_stop'
+            if not self_test_ok:
+                stop.append(g)
+        elif sw >= max(1, _qf_int(max_sweeps, S13_2F_MAX_SWEEPS)):
+            r = 'amber'
+        else:
+            r = PAPER_GATE_ROUTE.get(g, 'recapture')
+        out_paper[g] = r
+    return {'items': out_items, 'paper': out_paper, 'stop': bool(stop), 'stop_gates': stop}
+
+
+def chain_kind_for(gates):
+    """Which chain a slot sent to 'REPLACE' enters: 'dispute' when an independent reviewer
+    disputed it (A-REVIEW), else 'quality'."""
+    return 'dispute' if any(str(g).startswith('A-REVIEW') for g in (gates or [])) else 'quality'
+
+
+def chain_footer_lines(slot_chains, target_plan=None):
+    """Informational / AMBER footer lines for every chain that ended at a TERMINAL (DeliveryFooter
+    v1.44.0 §FOOTER-FT): forced labels, band swaps, majority certifications, re-keys, amber items.
+    Returns {'info': [...], 'amber': [...]}. Pure."""
+    info, amber = [], []
+    _flat = []
+    for q, c0 in sorted(_dl_dict(slot_chains).items(), key=lambda kv: _qf_qkey(str(kv[0]))):
+        if not isinstance(c0, dict):
+            continue
+        for c in [h for h in (c0.get('history') or []) if isinstance(h, dict)] + [c0]:
+            _flat.append((q, c))
+    for q, c in _flat:
+        if not c.get('done'):
+            continue
+        out = c.get('outcome')
+        n = sum(1 for a in (c.get('attempts') or []) if isinstance(a, dict) and a.get('outcome') in ('pass', 'fail'))
+        if out == 'forced':
+            amber.append(f"Q{q}: labelled {c.get('target')} per schedule; independent review measured "
+                         f"{c.get('measured') or 'it lower'} after {n} reviewed attempt(s) and both swap routes (schedule_forced)")
+        elif out in ('band_swap', 'paired_upgrade'):
+            info.append(f"Q{q}: difficulty band swapped with Q{c.get('partner')} (count-neutral; both labels "
+                        f"match independent review)")
+        elif out == 'forced_refused':
+            amber.append(f"Q{q}: below its {c.get('target')} slot after every route; its schedule label could not be "
+                         f"recorded ({c.get('why') or 'no reason'}) — delivered, disclosed")
+        elif out == 'majority':
+            amber.append(f"Q{q}: certified by majority of independent reviews ({c.get('agree')}/{c.get('n')} agree with the key)")
+        elif out in ('rekey', 'rekey_review'):
+            info.append(f"Q{q}: answer key corrected to the option a majority of independent reviewers derived, then re-reviewed")
+        elif out == 'amber':
+            amber.append(f"Q{q}: {', '.join(c.get('gates') or [])} persisted on every replacement — delivered, disclosed")
+        elif out in ('sibling',):
+            info.append(f"Q{q}: replaced from a sibling subtopic ({c.get('subtopic_id')} -> another; allocation ±1, disclosed)")
+    return {'info': info, 'amber': amber}
+
+
+# ── MIGRATION of a paper parked under an older release (O2-8) ──────────────────────────
+
+def migrate_paper_state(batch_state, key_data, from_release, to_release='2026.11.09'):
+    """Idempotent migration of a paper's state files (batch_state, answer key sidecar) to this
+    release. From 2026.11.08 / 2026.11.08.1:
+      * every DR3 item -> label restored to its TARGET-plan band, decision 'carried_below',
+        dl_rung / final_band / dr3_basis cleared (review_controls kept as history); a difficulty
+        slot chain is opened with the round-1 repair recorded as a failed 'rework_dr1' attempt
+        when S13-2G repaired it;
+      * every q in paper_gate_rework / S13-2L-reworked list -> a difficulty chain with a PENDING
+        'rework_dr1' (its rework was never reviewed — the delta review runs first);
+      * every UNRESOLVED(...) quality_status -> removed; a 'dispute' (A-REVIEW) or 'quality' chain
+        is opened for it; uncertified_items -> []; paper_gate_passes removed;
+      * difficulty_plan entries restored to the target plan.
+    Returns (batch_state, key_data, report). Pure (copies); never raises."""
+    import copy as _copy
+    bs = _copy.deepcopy(batch_state) if isinstance(batch_state, dict) else {}
+    kd = _copy.deepcopy(key_data) if isinstance(key_data, dict) else {}
+    tag = f'{from_release}->{to_release}'
+    rep = {'tag': tag, 'dr3_restored': [], 'rework_pending': [], 'unresolved_cleared': [], 'skipped': False}
+    if tag in (bs.get('migrations') or []):
+        rep['skipped'] = True
+        return bs, kd, rep
+    cm = kd.get('concept_map') if isinstance(kd.get('concept_map'), dict) else {}
+    _tp = bs.get('difficulty_plan_target') or bs.get('difficulty_schedule_original') or bs.get('difficulty_plan')
+    tgt = {str(k): v for k, v in _tp.items()} if isinstance(_tp, dict) else {}
+    chains = bs.get('slot_chain') if isinstance(bs.get('slot_chain'), dict) else {}
+    repaired = {str(x) for x in ((bs.get('review_summary') or {}).get('repaired') or [])} \
+        | {str(x) for x in (bs.get('review_dl_repair') or [])}
+    for q in sorted(cm, key=_qf_qkey):
+        e = cm.get(q) if isinstance(cm.get(q), dict) else None
+        if e is None:
+            continue
+        dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+        if dc.get('dl_rung') == 'DR3':
+            t = tgt.get(str(q)) or dc.get('scheduled') or e.get('difficulty')
+            dc = dict(dc)
+            for k in ('dl_rung', 'final_band', 'dr3_basis'):
+                dc.pop(k, None)
+            dc['decision'] = 'carried_below'
+            e['difficulty_check'] = dc
+            e['difficulty'] = t
+            ch = slot_chain_new(q, 'difficulty', t, e.get('subtopic_id'))
+            if str(q) in repaired:
+                ch = slot_chain_record(ch, 'rework_dr1', 'fail', note='S13-2G round-1 repair; round 2 measured below')
+            chains[str(q)] = ch
+            rep['dr3_restored'].append(str(q))
+        st = str(e.get('quality_status') or '')
+        if st.startswith('UNRESOLVED'):
+            e.pop('quality_status', None)
+            kind = 'dispute' if 'A-REVIEW' in st else 'quality'
+            _ex = chains.get(str(q)) if isinstance(chains.get(str(q)), dict) else None
+            # correctness first: a disputed key / failed quality gate gets its chain through the ONE hand-over
+            # (slot_chain_reopen — the same S13-2G / S13-2F use): an open difficulty chain is SUSPENDED inside it
+            # (resumed later with its attempts), a finished chain is kept in its history, a live chain of the
+            # same kind is kept as it is
+            chains[str(q)] = slot_chain_reopen(_ex, q, kind, tgt.get(str(q)), e.get('subtopic_id'))
+            rep['unresolved_cleared'].append(str(q))
+    for q in [str(x) for x in (bs.get('paper_gate_rework') or [])] + [str(x) for x in (bs.get('paper_gate_reworked') or [])]:
+        if q in cm and q not in rep['dr3_restored']:
+            ex = chains.get(q) if isinstance(chains.get(q), dict) else None
+            if ex is not None and ex.get('kind') != 'difficulty':
+                # a dispute / quality chain on the same slot wins (correctness first): its first step,
+                # 'adjudicate', IS the fresh review of the reworked text; S13-2L re-counts the slot after
+                ch = ex
+            else:
+                _eq = cm.get(q) if isinstance(cm.get(q), dict) else {}
+                ch = slot_chain_record(ex or slot_chain_new(q, 'difficulty', tgt.get(q), _eq.get('subtopic_id')),
+                                       'rework_dr1', 'pending', note='S13-2L rework, never reviewed')
+            chains[q] = ch
+            if q not in rep['rework_pending']:
+                rep['rework_pending'].append(q)
+    if tgt and isinstance(bs.get('difficulty_plan'), dict):
+        bs['difficulty_plan'] = {str(k): tgt.get(str(k), v) for k, v in bs['difficulty_plan'].items()}
+    ds = bs.get('difficulty_state') if isinstance(bs.get('difficulty_state'), dict) else None
+    if ds is not None:
+        ds['dr3_qs'] = []
+    bs['slot_chain'] = chains
+    bs['uncertified_items'] = []
+    for k in ('paper_gate_passes', 'paper_gate_rework'):
+        bs.pop(k, None)
+    bs['migrations'] = list(bs.get('migrations') or []) + [tag]
+    kd['concept_map'] = cm
+    return bs, kd, rep
+
+
+INFRA_HEAL_MAX = 2                     # automatic repairs of ONE stop site before it may end a response
+
+
+def infra_heal_step(heal_state, site, max_heals=INFRA_HEAL_MAX):
+    """OD-2026-11-09 — every HARD STOP [HS:INFRA] site in Final Assembly names the repair it needs (re-run
+    S13-4, refresh the auditor copy, restore the registry, re-render...). The session performs that repair
+    AUTOMATICALLY and re-runs the block, up to `max_heals` times per site; only then may the stop end the
+    response. heal_state: batch_state['infra_heal'] ({site: count}). Returns (action, new_state, attempt):
+    action 'heal' (perform the named repair now, then re-run) or 'stop'. A site that later passes is reset
+    by infra_heal_clear. Pure; never raises."""
+    st = {str(k): _qf_int(v, 0) for k, v in _dl_dict(heal_state).items()}
+    k = str(site)
+    n = st.get(k, 0) + 1
+    st[k] = n
+    return ('heal' if n <= max(0, _qf_int(max_heals, INFRA_HEAL_MAX)) else 'stop'), st, n
+
+
+def infra_heal_clear(heal_state, site):
+    """The site passed: its counter is removed (a later, unrelated failure starts again at 1). Pure."""
+    st = dict(_dl_dict(heal_state))
+    st.pop(str(site), None)
+    return st
+
+
+LADDER_ENTRY_RUNG.update({
+    'A-QINDEX-LABEL': 'R2', 'A-QINDEX-FLOOR': 'RL', 'A-QINDEX-DIVERSITY': 'R2',
+    'A-REVIEW-COVERAGE': 'RV',
+})
+
+# END CLUSTER LB + SC
+# ══════════════════════════════════════════════════════════════════
 
 
 if __name__ == '__main__':

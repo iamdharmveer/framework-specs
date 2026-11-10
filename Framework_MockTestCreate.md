@@ -1,12 +1,21 @@
-# Framework_MockTestCreate v5.95
-# v5.95 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
-#   PYQExplain v2.30, explain_engine v2.14, corpus_io v1.20). One S7-QUALITY field and one
-#   authoring check, nothing else: option_text_smiles (every TEXT option that names a species
-#   gets its structure, RC-17 / owner Q10 (a)); the NAME CHECK AT
-#   AUTHORING (explain_engine.name_check_item: a stem or text option whose name is not the
-#   structure it must be is a defect and the item is regenerated, RC-6). OPSIN is installed
-#   once per session by the engine; absent -> NAME_UNRESOLVED recorded, never a stop. Entry v5.94
-#   moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v5.96
+# v5.96 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09 — supersedes OD-9 and the v5.94 DR3 relabel; paired with blueprint_core v1.34,
+#   audit_canonical v2.39, paper_pipeline qindex_count_band, notes_core v2.15, MockTestOrchestrate v1.1.0,
+#   MockDeliver v1.28.0, DeliveryFooter v1.44.0). Measured 2026-11-08 (a 40-question post-graduate organic
+#   TestCreate): S13-2G relabelled 21 items to the band the review measured (DR3) while A-QINDEX check 8
+#   required every label to equal the item's own recorded evidence and check 6 the exact schedule counts;
+#   no rung repaired either, S13-2F stopped HS:INFRA, and one disputed item made the paper NOT CERTIFIED.
+#   NOW: ONE label verifier with a recorded basis (bc.verify_difficulty_label — G-DIFF, check 8, notes);
+#   check 6 counts at the recorded basis; the schedule is delivered EXACTLY — S13-2G never relabels, and
+#   NEW S13-2L / S13-2R run a bounded SLOT CHAIN per problem slot (difficulty: 13 reviewed attempts, band
+#   swap, paired upgrade, then a schedule-forced label disclosed in the footer; dispute: adjudicate,
+#   replace, shape, sibling, panel, re-key, majority; quality: replace, shape, sibling, disclosed); every
+#   changed item is re-reviewed in a DELTA round bound to its text hash (REVIEW-COVERAGE-LAW); S13-2F
+#   routes every survivor through bc.sweep_route (no UNRESOLVED stamp, no NOT CERTIFIED paper, an AMBER
+#   escalation at the sweep cap for a paper-level FAIL); every HS:INFRA site in Final Assembly self-heals
+#   (bc.infra_heal_step) before it may stop; S4-12 migrates a parked paper (bc.migrate_paper_state).
+#   Entry v5.95 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -83,6 +92,12 @@
 # verification, not in debug output, not in status updates.
 # If referencing a Q: use ONLY "Q.12 — gate failed" — never the actual stem.
 # VIOLATION = exam compromise. This overrides every other instruction.
+#
+# MANDATE 0b (v5.96, OD-2026-11-09) — NO STOP THE EXECUTED CODE DOES NOT RAISE. A session or worker
+# never ends a response early: only a stop that the block it is executing itself raises at that
+# point may end it; a predicted non-convergence is handled by running the next step (every quality and
+# rule condition has a route: S13-2F bc.sweep_route, S13-2L slot chains). A raised
+# "INFRA-HEAL [HS:LADDER]" is not a stop: perform the repair it names and re-run, automatically.
 #
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestCreate.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
@@ -1411,7 +1426,7 @@ action: the same paper, the same two files, the same "continue".
   DIFF_SRC_NOTE = None
 
   def persist_bp_amendment():
-      # v5.89 L3: EVERY in-place amendment of `bp` (S3-2D recompute, R5 accept-at-measured,
+      # v5.89 L3: EVERY in-place amendment of `bp` (S3-2D recompute, legacy R5 accept-at-measured,
       # R5 subtopic reassignment) is written to BP_SRC_PATH IMMEDIATELY, so every later
       # auditor run (--blueprint BP_SRC_PATH), the S13-6 byte comparison and a resumed
       # session all see the same amended file. Call it right after each amendment.
@@ -1609,8 +1624,8 @@ action: the same paper, the same two files, the same "continue".
                                                        difficulty_labels, seed=N)
           PLAN_SECTIONS = []                         # a paper-wide plan: its counts are paper-wide (S3-12e)
       difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
-      # v5.89: on a RESUMED paper the persisted plan is authoritative — band swaps and R5
-      # accept-at-measured updates changed it after S3; a recomputed plan would disagree
+      # v5.89: on a RESUMED paper the persisted plan is authoritative — band swaps (and, on a
+      # legacy paper, R5 accept-at-measured) changed it after S3; a recomputed plan would disagree
       # with questions already accepted (G-QINDEX check 6).
       import os as _os_dp, json as _json_dp
       _bs_dp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
@@ -4559,16 +4574,17 @@ action: the same paper, the same two files, the same "continue".
         verdicts.json into EVERY part folder (one record covers the whole paper) and run
         PHASE 3 — no reviewer is started. With no matching file: run S13-2G from PHASE 1
         (the internal review). Never ask for a file.
-    v5.94: 'REVIEWED' with a non-empty batch_state['paper_gate_rework'] -> continue S13-2L's rework
-        pass on those items (S13-2L), then S13-2L again; 'REVIEWED' while a difficulty plan exists
-        and batch_state['difficulty_state'] has no 'paper_gate' yet -> run S13-2L before S13-3; batch_state['review_dl_repair'] lists the
-        REVIEW_REPAIR items that are DIFFICULTY repairs (S13-2G REVIEW_REPAIR, DR1 then DR2).
+    v5.96: 'REVIEWED' with an open chain in batch_state['slot_chain'] or a non-empty
+        batch_state['slot_chain_work'] -> S13-2R for every entry not yet 'recorded', then S13-2F,
+        S13-2G (delta round when delta_qs / delta_panel is non-empty), S13-2L; 'REVIEWED' with no chain
+        state -> S13-2L before S13-3; batch_state['review_dl_repair'] lists the REVIEW_REPAIR items
+        that are DIFFICULTY repairs (S13-2G REVIEW_REPAIR, DR1 then DR2).
     'REVIEW_REPAIR' -> the flagged items are being repaired; continue from §Q8b-LADDER on
         batch_state['review_defects'] (persisted by phase 3), SKIPPING every item already in
         batch_state['review_repaired'] (each repair appends its q there as soon as it is
         written — see S13-2G), then S13-2F, then S13-2G phase 1 with the WHOLE paper (round 2;
         the binding is per paper).
-    'REVIEWED' -> S13-2L (v5.94) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+    'REVIEWED' -> S13-2L (v5.96) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
         S13-8 / S13-9, in this same response.
     'DELIVERED' -> the paper is finished (S13-9): say so; generate and deliver nothing.
   Any other value (or none) -> if every batch of the plan is authored and the S3-1-resolved
@@ -4597,6 +4613,30 @@ action: the same paper, the same two files, the same "continue".
   ```
   batch_state['shape_plan'] (S3-12d) and ['quality_readiness'] (S3-2e) are READ,
   never re-derived, on every resume (FROZEN-PLAN LAW).
+  v5.96 MIGRATION (Framework_MockTestOrchestrate O2-8; GAP-2026-11-08): on EVERY resume, BEFORE the state
+  dispatch above, run the block below. It is idempotent (recorded in batch_state['migrations']) and changes
+  nothing on a paper written by this release. On a paper parked by 2026.11.08 / 2026.11.08.1 it restores
+  every DR3 label to its slot, opens the difficulty / dispute / quality chains, clears every UNRESOLVED
+  stamp and uncertified_items, and retires the paper-level rework counter (bc.migrate_paper_state).
+  ```python
+  # ── S4-12 migration (v5.96) ──
+  import json, os, blueprint_core as bc
+  _bsm_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _kdm_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  if os.path.exists(_bsm_p) and os.path.exists(_kdm_p):
+      _bsm, _kdm, _repm = bc.migrate_paper_state(json.load(open(_bsm_p, encoding='utf-8')),
+                                                 json.load(open(_kdm_p, encoding='utf-8')), 'pre-2026.11.09')
+      if not _repm['skipped']:
+          json.dump(_kdm, open(_kdm_p, 'w', encoding='utf-8'), indent=2)
+          json.dump(_bsm, open(_bsm_p, 'w', encoding='utf-8'), indent=2)
+          if _repm['dr3_restored'] or _repm['rework_pending'] or _repm['unresolved_cleared']:
+              for _f in (f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json', f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'):
+                  if os.path.exists(_f):
+                      os.remove(_f)                  # re-issued by S13-2F; the sweep count restarts
+              print(f"S4-12 MIGRATION {_repm['tag']}: DR3 restored to slot {_repm['dr3_restored']}; unreviewed reworks "
+                    f"{_repm['rework_pending']}; UNRESOLVED cleared {_repm['unresolved_cleared']} — continuing at "
+                    f"S13-2L (chains), S13-2F, S13-2G (delta), automatically.")
+  ```
 
   RECOVERY PROCEDURE:
     0. S3-1 has already run this turn (it runs at EVERY session start): the registry
@@ -5416,7 +5456,8 @@ action: the same paper, the same two files, the same "continue".
               G-L2CARDCOPY: bc.l2_copy_check(key_smiles, DIFFICULTY_PROFILE) True -> the key is a
               past question's answer: REJECT and re-author on a new substrate (R2; None = dormant,
               printed once). Then l2 = bc.l2_record(difficulty_obs, L2_MODEL, difficulty_labels,
-              qtype); difficulty_obs['l2'] = l2. When L2_MODEL is BINDING, l2['band'] is this
+              qtype); l2['binding'] = bool(L2_MODEL binding) (v5.96 — the label verifier reads it);
+              difficulty_obs['l2'] = l2. When L2_MODEL is BINDING, l2['band'] is this
               item's CONTENT EVIDENCE: the (b1) level record is still computed and recorded
               (informational — L1 measures size, not decision load) but does not decide; when
               ADVISORY, l2 is recorded and (b1)/(b2) decide as before. An item whose
@@ -5485,12 +5526,12 @@ action: the same paper, the same two files, the same "continue".
               exemplars side by side). When the budget is spent and the band-swap escape finds no
               partner: CARRY TO REVIEW — accept at the SCHEDULED band with decision
               'carried_below' (final_band = scheduled, the label stays the slot's band); S13-2G
-              phase 3 repairs it once more and only round 2 may accept it lower (DR3, disclosed);
-              an item re-authored after the review (S13-2L rework) that still measures below is
-              counted below by S13-2L and, after its passes, accepted at its measured band (DR3).
+              phase 3 repairs it once more; v5.96 (OD-2026-11-09): still below after round 2 -> S13-2L
+              opens its DIFFICULTY chain (rework, replace, shape, sibling, band swap, paired upgrade,
+              then a schedule-forced label, disclosed) — it is NEVER accepted lower (no DR3 relabel).
               Rungs and counters persist in batch_state['_diff_tries'] ('<q>:dr1' sources tried,
               '<q>:dr2' tries). PERSIST difficulty_state by MERGING (stored.update(DIFFICULTY_STATE)),
-              never by replacing it: S13-2G phase 3 and S13-2L add dr3_qs / hard_missed / paper_gate
+              never by replacing it: S13-2G phase 3 and S13-2L add paper_gate / chain_footer (legacy: dr3_qs / hard_missed)
               to the stored record.
             LEVEL ITEM (b1) — the level record and the independent rating decide:
               lc 'ok' and rated_band == scheduled -> 'agree', ACCEPT at the scheduled
@@ -5508,25 +5549,22 @@ action: the same paper, the same two files, the same "continue".
               below level' — never a second budget, never a stop. v5.94: SUPERSEDED for the
               decision — the judge's rated_band is a control of THE MEASURED BAND, so a judge
               below the slot takes THE DL REPAIR and, if it persists, carry-to-review (the
-              G-DIFF ACCEPT above only means the counts support the band). At R5,
-              bc.ladder_terminal_accept(scheduled, lc['record']['band']) (v5.94: for a level band
-              ABOVE the slot only — BELOW never reaches R5) accepts at
-              the LEVEL band (D3-R5 (A)).
+              G-DIFF ACCEPT above only means the counts support the band). At R5 a level band
+              ABOVE the slot (BELOW never reaches R5) is HELD at the scheduled band —
+              v5.96 (owner 2026-11-10 — supersedes D3-R5 (A) for difficulty): a HARDER slot is never relabelled and the schedule is never amended — it is HELD at its scheduled band (see R5).
             OTHER ITEM (b2) — v5.90 unchanged (v5.94: a band it gives BELOW the slot is THE
               MEASURED BAND's DL repair / carry-to-review, never the label): the band is bc.final_band_decision(
               rated_band, ccp['status'] if ccp else None, ccp['ccp_band'] if ccp
               else None, difficulty_labels) — rated unless the floor says 'below',
               then the lower of the two; the author's counts never raise it;
               r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
-              ccp['status'] if ccp else None, labels=difficulty_labels). At R5,
-              bc.ladder_terminal_accept(scheduled, measured) (v5.94: for a measured band ABOVE
-              the slot only — BELOW never reaches R5) accepts at the measured
-              band.
+              ccp['status'] if ccp else None, labels=difficulty_labels). At R5 a measured band
+              ABOVE the slot (BELOW never reaches R5) is HELD at the scheduled band —
+              v5.96 (owner 2026-11-10 — supersedes D3-R5 (A) for difficulty): a HARDER slot is never relabelled and the schedule is never amended — it is HELD at its scheduled band (see R5).
           In BOTH paths: 'agree' -> ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER
           with reason r['reason'] ('harder' / 'easier'; A-DIFFRATING /
-          A-CONTENTLEVEL), R2 first. R5's accept-at-measured runs ONLY when
-          difficulty_min_band allows the measured band at this slot's qtype;
-          otherwise R5 takes its REASSIGN path (§Q8b-LADDER) at the scheduled band.
+          A-CONTENTLEVEL), R2 first. R5 (v5.96) HOLDS a harder slot at its scheduled band
+          (always allowed: the scheduled band already satisfies difficulty_min_band).
           Either way set difficulty_plan[q] = final_band and persist
           batch_state['difficulty_plan'] (and batch_state['difficulty_state']) in the
           same write.
@@ -5547,8 +5585,13 @@ action: the same paper, the same two files, the same "continue".
           ask_format (v5.92; read by A-LEVEL / A-CLOSENESS / A-AXIS2 — WARN-only — and
           Step 9 §7A-M). Auditor gate
           A-CONTENTLEVEL verifies the record is resolved.
-        THE GATE: ok, measured = bc.verify_difficulty_obs(difficulty_plan[q],
-        difficulty_obs, difficulty_labels). If not ok:
+        THE GATE (v5.96, LABEL-BASIS-LAW): ok, measured, basis = bc.verify_difficulty_label(
+        {'difficulty': difficulty_plan[q], 'difficulty_obs': difficulty_obs, 'qtype': qtype,
+         'difficulty_check': <the item's recorded difficulty_check, when it has one>},
+        difficulty_labels) — the ONE label verifier (A-QINDEX check 8 and notes_core call it too;
+        a recorded basis (SWAP / FORCED / HELD) decides for an item that carries one — so an item
+        already HELD at R5 and re-gated on a resume passes; else a BINDING organic ruler band, else
+        the recorded evidence). A NEW candidate carries no basis. If not ok:
           → REJECT. Regenerate TOWARD the band using the profile (add or remove
             derivation load; change class facets). Bound: MAX_DIFF_TRIES = 6
             per slot, counted separately from MAX_SCENARIO_TRIES. v5.92 (owner
@@ -5571,23 +5614,22 @@ action: the same paper, the same two files, the same "continue".
             A-CONTENTLEVEL requires label == final_band. Otherwise the slot
             enters the REPAIR LADDER (§Q8b-LADDER) with reason 'harder'/'easier' —
             v5.94: reason 'easier' (measured BELOW) is the DL repair above and ends in
-            CARRY TO REVIEW, never in R5's accept-at-measured; the ladder below runs
+            CARRY TO REVIEW, never in R5; the ladder below runs
             for 'harder' and for every non-difficulty reason:
             R2 (regenerate, same subtopic/band/ask type) -> R3 (next under-target
-            ask type) -> R4/R4' (terminal) -> R5: ACCEPT AT THE MEASURED BAND and
-            amend the IN-RUN blueprint in place with
-            bc.amend_schedule_in_place(bp, N, section, band, measured,
-            'measured_band') followed AT ONCE by persist_bp_amendment() (S3-2D),
-            difficulty_plan[q] = measured and batch_state['difficulty_plan'] saved —
-            one count moves from the scheduled band to the measured one, logged in
-            bp['difficulty_amendments'] and written to BP_SRC_PATH [HS:LADDER R5].
-            The label then MATCHES its evidence, so the rule "never accept a
-            question whose label its own evidence contradicts" still holds, and
-            the run never stops for it. v5.92 (owner D3-R5 (a)): when the slot
-            was the TOP band and the measured band is lower (v5.94: no longer reached here — a
-            lower band is carried to review; hard_missed is counted at DR3, S13-2G / S13-2L), also
-            DIFFICULTY_STATE['hard_missed'] += 1 (persisted with batch_state) — the
-            footer prints `Hard target missed: k item(s)` (S13-6); the count is
+            ask type) -> R4/R4' (terminal) -> R5 (v5.96, owner 2026-11-10 — the requested
+            schedule is delivered EXACTLY; supersedes D3-R5 (A) for difficulty): HOLD THE SLOT
+            AT ITS SCHEDULED BAND — entry, ok, why = bc.dl_set_label_basis(entry, 'held',
+            difficulty_labels, scheduled, controls={'measured': measured}) (the ONE basis writer;
+            refused unless the measurement is strictly HARDER), difficulty_plan[q] stays the
+            scheduled band, the blueprint is NOT amended (no amend_schedule_in_place for a
+            difficulty reason) and the item is listed by the footer line "Difficulty held at
+            slot: …" (bc.difficulty_layer_lines). Its label is verified by
+            bc.verify_difficulty_label (basis 'held'), so G-DIFF / A-QINDEX check 8 pass and
+            check 6 counts it at its slot. A slot measured LOWER never reaches R5 (CHECK 3c
+            carries it to review; S13-2L's difficulty chain owns it). The count
+            `Hard target missed` (DIFFICULTY_STATE['hard_missed']) is therefore always 0 for a
+            v5.96 paper; it is still printed for a legacy paper that recorded it — the count is
             disclosed, never hidden, and never a stop. batch_state's
             'difficulty_schedule_original' is left untouched (S13-6 prints the
             slots whose band moved; A-PYQBENCH prints original vs final counts
@@ -5625,8 +5667,10 @@ action: the same paper, the same two files, the same "continue".
                                  f"— rebuild the difficulty_plan.")
             # (the candidate was authored INSIDE `profile`, its answer derived,
             #  and difficulty_obs recorded from that derivation — shape above)
-            ok_d, measured = bc.verify_difficulty_obs(band, difficulty_obs,
-                                                      difficulty_labels)
+            ok_d, measured, _basis_d = bc.verify_difficulty_label(       # v5.96: the ONE label verifier
+                {'difficulty': band, 'difficulty_obs': difficulty_obs,
+                 'qtype': difficulty_obs.get('qtype') if isinstance(difficulty_obs, dict) else None},
+                difficulty_labels)
             if ok_d:
                 rl = bc.reconcile_level(band, level_status, rated_band, difficulty_labels,
                                         diff_tries.get(str(q), 0), max_tries=MAX_DIFF_TRIES)
@@ -8995,16 +9039,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | (2 x 2 panels, S10-8 multi-panel path) is tried BEFORE R4' — it keeps
         |    | the chemistry intact. The CCP size target is waived here. | <= 3 |
         | R5 | LAST RESORT, only for a reason still failing after R4/R4':
-        |    | content level -> ACCEPT AT THE MEASURED BAND (a level item: its L1
-        |    | level band, bc.ladder_terminal_accept(scheduled, lc['record']['band']);
-        |    | owner D3-R5 (A)) and amend the IN-RUN
-        |    | blueprint in place: bc.amend_schedule_in_place(bp, N, section,
-        |    | scheduled, measured, 'measured_band') (difficulty_schedule[k] and
-        |    | its by_section move one count; logged in difficulty_amendments[]).
-        |    | A TOP-band slot accepted lower -> DIFFICULTY_STATE['hard_missed'] += 1
-        |    | (footer `Hard target missed: k item(s)`, S13-6; D3-R5 (a)).
-        |    | v5.94: content level measured BELOW its slot never reaches R5 — it is
-        |    | carried to review (CHECK 3c); only S13-2G round 2 (DR3) accepts lower.
+        |    | content level HARDER than the slot -> v5.96 (owner 2026-11-10,
+        |    | supersedes D3-R5 (A)): HOLD at the scheduled band —
+        |    | bc.dl_set_label_basis(entry, 'held', labels, scheduled,
+        |    | controls={'measured': measured}); the blueprint is NOT amended and the
+        |    | schedule is delivered exactly; footer "Difficulty held at slot: …".
+        |    | Content level measured BELOW its slot never reaches R5 — it is carried
+        |    | to review (CHECK 3c) and S13-2L's difficulty chain owns it (never a
+        |    | relabel; v5.96).
         |    | Render defect on ANY R4' figure (chemistry included), or a key never verified ->
         |    | REASSIGN the slot to another in-scope subtopic (same topic first,
         |    | largest allocation first, then same section) that keeps every
@@ -9039,8 +9081,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           L3. The in-run blueprint (BP_SRC_PATH) is the one the auditor reads
               (--blueprint BP_SRC_PATH), so A-QINDEX's exact count check (G-QINDEX
               check 6), A-COUNT and A-DPROFILE see the amended schedule and
-              allocation and stay exactly consistent. EVERY R5 amendment (difficulty
-              or allocation) is followed at once by persist_bp_amendment() (S3-2D),
+              allocation and stay exactly consistent. EVERY R5 amendment (allocation;
+              v5.96: never difficulty — a harder slot is HELD) is followed at once by persist_bp_amendment() (S3-2D),
               which writes bp to BP_SRC_PATH — an amendment held only in memory is a
               defect (the auditor and S13-6 read the FILE). A resumed run keeps the
               amended in-run file (S3-1).
@@ -9052,15 +9094,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           L5. Systemic flag: >= 3 items of one paper reaching a terminal rung for
               the same finding -> footer line "systemic: <finding>" and a GAP stub
               in the audit report. The paper still completes.
-          L7. (v5.90, owner decision OD-9) A QUALITY finding (any G-/A- gate of
-              S7-QUALITY's eleven) still failing after R5 does NOT stop the run and
-              is NOT absorbed: the item is delivered with quality_status =
-              bc.quality_status(<surviving finding ids>) = 'UNRESOLVED(...)'
-              (stamped at S13-2F), the paper's certificate lists it in
-              uncertified_items[] and is NOT CERTIFIED, the footer and the bench
-              card name it, and MockDeliver / TestDeliver refuse the paper unless
-              the Deliver trigger carries --accept-uncertified. A render /
-              infrastructure finding at sweep 4 keeps its [HS:INFRA] classing.
+          L7. (v5.96, owner decision OD-2026-11-09 — supersedes OD-9) A QUALITY or
+              RULE finding still failing after the terminal rung does NOT stop the run,
+              is NOT stamped UNRESOLVED and never makes a paper NOT CERTIFIED: S13-2F
+              (bc.sweep_route) sends the slot into its SLOT CHAIN (S13-2L / S13-2R —
+              replacement, another ask shape, a sibling subtopic); an exhausted chain
+              is delivered DISCLOSED (AMBER footer line) and the paper is CERTIFIED.
+              Only a bc.INFRA_GATES fault (a broken tool) is [HS:INFRA], self-healed
+              first (bc.infra_heal_step).
           L6. The ONLY remaining run stops are INFRASTRUCTURE faults ([HS:INFRA]:
               engine missing or failing its self-test, bootstrap failure, a
               corrupt/unreadable file, the docx changed after its item-sweep
@@ -10475,19 +10516,25 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   item record (A-ANSKEY, A-SECHDR, A-QNFIRST, A-OPTREF, A-OMML, A-FIGTYPE-KIND, …) names
   its question(s) in its message and is repaired by that gate's own [HS:LADDER R<n>] rule.
   Sweeps 1-2 repair at the entry rung; sweep 3 sends every item still failing straight to
-  its TERMINAL rung (R4 / R4' / R5 — constructed to pass every item gate); sweep 4 only
-  confirms. A sweep-4 failure on a RENDER / structural gate is infrastructure ([HS:INFRA]:
-  a renderer or gate is broken — its self-test). v5.90 (GAP-2026-11-03, owner decision
-  OD-9): a sweep-4 failure on a QUALITY gate (bc.ITEM_RULES / the eleven S7-QUALITY gates —
-  audit_canonical.QQ_GATE_IDS) is NOT infrastructure and NOT a stop: the block below stamps
-  quality_status = bc.quality_status(<its gate ids>) = 'UNRESOLVED(...)' on that item's
-  sidecar entry, every other item gets 'CERTIFIED', and sweep 5 runs ONCE MORE: the
-  auditor's A-QUALITYSTATUS then lists the UNRESOLVED items, the certificate is written
-  with schema 2 — uncertified_items[] non-empty, certified: false — and the paper proceeds
-  NOT CERTIFIED (A-CERT reports it as a WARN; TestDeliver refuses it without
-  --accept-uncertified). The sweep counter lives in a state file, so a resumed session
-  continues the count. A paper never fails S13-2F for a QUALITY reason.
-  AFTER a clean (or NOT-CERTIFIED) sweep the step goes on IMMEDIATELY, in the SAME response,
+  its TERMINAL rung (R4 / R4' / R5 — constructed to pass every item gate).
+  v5.96 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; owner decision OD-2026-11-09 — supersedes OD-9):
+  EVERY survivor has a route, decided by ONE engine function, bc.sweep_route; nothing is
+  stamped UNRESOLVED and no paper is NOT CERTIFIED. (1) An item finding — and any FAIL line
+  whose message names a question — that survives the terminal rung (sweep >= 4) enters that
+  slot's SLOT CHAIN (S13-2R: replacement on a new substrate, another ask shape, a sibling
+  subtopic; kind bc.chain_kind_for), and the sweep count restarts. A-QINDEX checks 7 / 8 now
+  emit item findings (A-QINDEX-FLOOR at RL, A-QINDEX-LABEL at R2), so a label clash is always
+  repairable. (2) A FAIL line naming NO question is rebuilt deterministically —
+  bc.PAPER_GATE_ROUTE 'reassemble' (rebuild the final docx from the per-item blocks, S13-1) or
+  'recapture' (recompute the sidecar records and the S13-4 preview) — and from sweep
+  bc.S13_2F_MAX_SWEEPS (6) on it is reported 'AMBER — ESCALATED' (--escalate-paper; delivered
+  disclosed, never a stop). (3) Only a bc.INFRA_GATES FAIL (the auditor crashed, the docx cannot
+  be opened, the certificate is unreadable) is a tool fault: it is SELF-HEALED
+  (bc.infra_heal_step — reinstall the dependencies, re-copy the verified auditor, re-run its
+  --self-test, re-render) up to bc.INFRA_HEAL_MAX times, and stops only when the tool is still
+  broken. The sweep counter lives in a state file, so a resumed session continues the count.
+  A paper never fails S13-2F for a QUALITY or RULE reason.
+  AFTER a clean sweep the step goes on IMMEDIATELY, in the SAME response,
   to S13-2G (the in-session independent review, OD-5 restated 2026-11-04) and from there to
   S13-3 / S13-4 and the two-file delivery. It never ends the response, never waits for the
   user and never asks for a file (v5.91 — GAP-2026-11-04 A1; STEP-CONTRACT-LAW).
@@ -10508,6 +10555,18 @@ _pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
 _fmj = f'/home/claude/{EXAM}_fig_manifest.json'
 _prev = f'/home/claude/{EXAM}_M{N}_registry_preview.json'   # written by step 1 (S13_PREVIEW)
 _stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'
+_bsp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+
+def _infra(site, msg):
+    # v5.96 (OD-2026-11-09): a tool fault is SELF-HEALED first — perform the repair the message names,
+    # automatically, then re-run this block; it may end the response only after bc.INFRA_HEAL_MAX heals.
+    _bsh = json.load(open(_bsp, encoding='utf-8'))
+    _act, _bsh['infra_heal'], _n = bc.infra_heal_step(_bsh.get('infra_heal'), site)
+    json.dump(_bsh, open(_bsp, 'w', encoding='utf-8'), indent=2)
+    if _act == 'heal':
+        raise RuntimeError(f"INFRA-HEAL [HS:LADDER] {site} (attempt {_n}/{bc.INFRA_HEAL_MAX}): perform the repair "
+                           f"named below NOW, automatically, then re-run this block — {msg}")
+    raise SystemExit(msg)
 
 # v5.89 (LAW F1.4 — moved here from S13-4): a figure recorded on a text_disclosed fallback
 # subtopic is an ITEM defect, repaired BEFORE the certificate — after the certificate any
@@ -10524,8 +10583,8 @@ if _fb_hit_pre:
 CERT, AMBER_NOTES = None, []
 if AUDIT_AVAILABLE:
     if not os.path.exists(_prev):
-        raise SystemExit("HARD STOP [HS:INFRA] (S13-2F): no registry preview — run step 1 "
-                         "(the S13-4 block with S13_PREVIEW = True) before this block.")
+        _infra('S13-2F-preview', "HARD STOP [HS:INFRA] (S13-2F): no registry preview — run step 1 "
+                                 "(the S13-4 block with S13_PREVIEW = True) before this block.")
     _st = json.load(open(_stp, encoding='utf-8')) if os.path.exists(_stp) else {}
     if _st.get('paper_id') != paper_id:               # another paper's counter never carries over
         _st = {'paper_id': paper_id, 'sweep': 0}
@@ -10580,7 +10639,13 @@ if AUDIT_AVAILABLE:
            '--rules', f'/mnt/project/{EXAM}_section_rules.md',
            '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
            '--registry', _prev,
-           '--mockN', str(N)]
+           '--mockN', str(N),
+           # v5.96: the hash of every delivered block (REVIEW-COVERAGE-LAW) and the paper-level gates
+           # this sweep escalates to AMBER at the sweep cap (bc.sweep_route 'amber')
+           '--item-hashes', f'/home/claude/{EXAM}_M{N}_item_hashes.json',
+           '--sweep', str(_st['sweep'])]
+    if _st.get('escalate'):
+        cmd += ['--escalate-paper', ','.join(_st['escalate'])]
     _sgp_pre = globals().get('STIM_PROFILE_PATH')     # v5.85 A-BLOCK — same source as S13-4c
     for _flag, _path in (('--profile', _pf), ('--key', _key), ('--fig-manifest', _fmj),
                          ('--stimulus-profile', _sgp_pre),
@@ -10591,66 +10656,90 @@ if AUDIT_AVAILABLE:
     print(_r.stdout)                                  # real STDOUT (B-7)
     os.remove(_prev)                                  # consumed: every sweep needs a FRESH preview
     if not os.path.exists(_ifj):
-        raise SystemExit(f"HARD STOP [HS:INFRA] (S13-2F): the auditor wrote no item-findings "
-                         f"file (rc={_r.returncode}) — it crashed or is a pre-v2.34 copy. "
-                         f"STDERR:\n{_r.stderr[-3000:]}")
+        _infra('S13-2F-auditor', f"HARD STOP [HS:INFRA] (S13-2F): the auditor wrote no item-findings "
+                                 f"file (rc={_r.returncode}) — it crashed or is a pre-v2.34 copy (repair: re-copy "
+                                 f"the verified repo audit_canonical.py to /home/claude/{EXAM}_mock_test_audit.py, "
+                                 f"run its --self-test, reinstall missing packages). STDERR:\n{_r.stderr[-3000:]}")
     _wl = json.load(open(_ifj, encoding='utf-8'))
-    if os.path.exists(_cert):                         # CLEAN sweep (or NOT CERTIFIED, OD-9)
+    if os.path.exists(_cert):                         # CLEAN sweep
         CERT = json.load(open(_cert, encoding='utf-8'))
-        AMBER_NOTES = list(CERT.get('amber_notes') or [])   # -> DeliveryFooter §5
-        UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # -> footer / Deliver (OD-9)
-        _bs2f = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+        AMBER_NOTES = list(CERT.get('amber_notes') or [])   # -> DeliveryFooter §5 (DISCLOSED / ESCALATED lines)
+        UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # v5.96: always [] (OD-2026-11-09)
+        _bs2f = json.load(open(_bsp, encoding='utf-8'))
         _bs2f['uncertified_items'] = UNCERTIFIED_ITEMS
-        json.dump(_bs2f, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
+        _bs2f['escalated_paper'] = {'gates': list(_st.get('escalate') or []), 'sweep': _st['sweep']}   # -> S13-4c / S13-QINDEX
+        _bs2f['infra_heal'] = bc.infra_heal_clear(bc.infra_heal_clear(_bs2f.get('infra_heal'), 'S13-2F-preview'),
+                                                  'S13-2F-auditor')
+        # a quality chain whose replacement swept clean is FIXED (bc.slot_chain_record 'pass')
+        for _qc, _ch in list((_bs2f.get('slot_chain') or {}).items()):
+            _att = (_ch or {}).get('attempts') or []
+            if _ch.get('kind') == 'quality' and not _ch.get('done') and _att and _att[-1].get('outcome') == 'pending':
+                _bs2f['slot_chain'][_qc] = bc.slot_chain_record(_ch, _att[-1]['stage'], 'pass')
+        json.dump(_bs2f, open(_bsp, 'w', encoding='utf-8'), indent=2)
         os.remove(_stp)
-        # v5.90: every item not UNRESOLVED is stamped CERTIFIED in the sidecar (the auditor's
-        # A-QUALITYSTATUS requires a stamp on every item of a 2026.11.03 paper)
+        # every item is stamped CERTIFIED in the sidecar — except a DISCLOSED item (its quality chain
+        # proven exhausted, S13-2L), which keeps its stamp and is listed as an amber note
         _kd = json.load(open(_key, encoding='utf-8'))
         for _qn, _e in (_kd.get('concept_map') or {}).items():
-            if not str(_e.get('quality_status', '')).startswith('UNRESOLVED'):
+            if not str(_e.get('quality_status', '')).startswith('DISCLOSED'):
                 _e['quality_status'] = 'CERTIFIED'
         json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
-        print(f"S13-2F: {'NOT CERTIFIED — uncertified items ' + str(UNCERTIFIED_ITEMS) if UNCERTIFIED_ITEMS else 'CERTIFIED'} "
-              f"after sweep {_st['sweep']}.")
+        print(f"S13-2F: CERTIFIED after sweep {_st['sweep']} ({len(AMBER_NOTES)} amber note(s)"
+              + (f"; DISCLOSED items {CERT.get('disclosed_items')}" if CERT.get('disclosed_items') else '') + ").")
     else:
-        _wl0 = json.load(open(_ifj, encoding='utf-8'))
-        _qq_gates = set(bc.ITEM_RULES) | {'A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
-                                          'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
-                                          'A-SHAPEMIX', 'A-TEMPLATE', 'A-QUALITYSTATUS'}   # = audit_canonical QQ_GATE_IDS (+status)
-        _only_quality = bool(_wl0.get('item_findings')) and all(
-            f.get('gate') in _qq_gates for f in _wl0.get('item_findings') or []) and not [
-            fl for fl in (_wl0.get('fail_lines') or []) if fl.get('check') not in _qq_gates]
-        if _st['sweep'] >= 4 and _only_quality:
-            # OD-9 (owner): a quality finding that survived R5 is UNRESOLVED, never a stop
-            _kd = json.load(open(_key, encoding='utf-8'))
-            _byq = {}
-            for _f in _wl0.get('item_findings') or []:
-                _byq.setdefault(str(_f.get('q')), []).append(_f['gate'])
-            for _qn, _gs in _byq.items():
-                _kd.setdefault('concept_map', {}).setdefault(_qn, {})['quality_status'] = bc.quality_status(_gs)
-            json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
-            # v5.91: these stamps come from ACTIVE gates of THIS release — the pre-sweep clean-up
-            # above must never remove them (only 2026.11.03's untrustworthy A-TEMPLATE stamps)
-            _bs_q = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
-            _bs_q['quality_stamps_release'] = '2026.11.04'
-            json.dump(_bs_q, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
-            print(f"S13-2F sweep {_st['sweep']}: quality findings survived R5 on {sorted(_byq)} — stamped "
-                  f"UNRESOLVED (OD-9); the paper will be NOT CERTIFIED. Run the next sweep (preview + this block).")
-            raise RuntimeError("LADDER-REPAIR [HS:LADDER] (S13-2F): UNRESOLVED stamps written — run the next "
-                               "sweep (preview + this block) to write the NOT-CERTIFIED certificate.")
-        if _st['sweep'] >= 4:
-            raise SystemExit(f"HARD STOP [HS:INFRA] (S13-2F): sweep 4 is not clean although "
-                             f"every remaining item was rebuilt at its terminal rung — a "
-                             f"renderer or gate is broken (run its self-test), or an INPUT file "
-                             f"(blueprint / profile / manifest) contradicts the paper — the FAIL "
-                             f"lines name which. Worklist: "
-                             f"{_wl.get('item_findings')} {_wl.get('fail_lines')}")
+        # v5.96 (OD-2026-11-09) — ONE routing decision for every survivor (bc.sweep_route): never a stop
+        # for a quality or rule condition, never an UNRESOLVED stamp
+        _infra_fl = [fl for fl in (_wl.get('fail_lines') or []) if fl.get('check') in bc.INFRA_GATES]
+        _stok = True
+        if _infra_fl:                                 # a tool fault: is the tool itself broken?
+            _stok = subprocess.run(['python3', f'/home/claude/{EXAM}_mock_test_audit.py', '--self-test'],
+                                   capture_output=True, text=True, env=AUDIT_ENV).returncode == 0
+        _route = bc.sweep_route(_wl.get('item_findings'), _wl.get('fail_lines'), _st['sweep'], self_test_ok=_stok)
+        for _g, _how in sorted(_route['paper'].items()):
+            if _how == 'amber':
+                _st['escalate'] = sorted(set(_st.get('escalate') or []) | {_g})
+            print(f"S13-2F sweep {_st['sweep']}: paper-level {_g} -> {_how}")
+        json.dump(_st, open(_stp, 'w', encoding='utf-8'))
+        if _route['stop'] or any(_h == 'self_heal' for _h in _route['paper'].values()):
+            _infra('S13-2F-' + ','.join(sorted(g for g, h in _route['paper'].items() if h in ('self_heal', 'infra_stop'))),
+                   f"HARD STOP [HS:INFRA] (S13-2F): tool fault {[fl['message'][:300] for fl in _infra_fl]} — the "
+                   f"auditor self-test {'PASSED' if _stok else 'FAILED'} (repair: reinstall the Step 0 packages, re-copy "
+                   f"the verified audit_canonical.py, re-render the final docx from the per-item blocks, re-run).")
+        _repl = {q: r['gates'] for q, r in _route['items'].items() if r['route'] == 'REPLACE'}
+        _kd_rp = json.load(open(_key, encoding='utf-8'))
+        _bs_rp = json.load(open(_bsp, encoding='utf-8'))
+        for _qd2 in [q for q in _repl if str(((_kd_rp.get('concept_map') or {}).get(q) or {}).get('quality_status', '')).startswith('DISCLOSED')
+                     and ((_bs_rp.get('slot_chain') or {}).get(q) or {}).get('outcome') == 'amber']:
+            _repl.pop(_qd2)                       # its quality chain is already proven exhausted: never re-opened
+        if _repl:
+            # a finding that survived the terminal rung enters the slot's chain (S13-2R) — the count restarts
+            _bsr = json.load(open(_bsp, encoding='utf-8'))
+            _kdr = json.load(open(_key, encoding='utf-8'))
+            _chs = _bsr.setdefault('slot_chain', {})
+            _tpr = _bsr.get('difficulty_plan_target') or _bsr.get('difficulty_plan') or {}
+            for _qr, _gr in sorted(_repl.items(), key=lambda kv: int(kv[0])):
+                _ch = _chs.get(_qr)
+                _att = (_ch or {}).get('attempts') or []
+                if _ch and not _ch.get('done') and _att and _att[-1].get('outcome') == 'pending':
+                    _chs[_qr] = bc.slot_chain_record(_ch, _att[-1]['stage'], 'fail', note=','.join(_gr))
+                elif not _ch or _ch.get('done') or _ch.get('kind') != bc.chain_kind_for(_gr):
+                    # a new chain of the right kind; an open chain of another kind is suspended inside it and a
+                    # finished one is kept in its history (bc.slot_chain_reopen)
+                    _chs[_qr] = bc.slot_chain_reopen(_ch, _qr, bc.chain_kind_for(_gr), _tpr.get(_qr),
+                                                     ((_kdr.get('concept_map') or {}).get(_qr) or {}).get('subtopic_id'))
+                _chs[_qr]['gates'] = list(_gr)
+            json.dump(_bsr, open(_bsp, 'w', encoding='utf-8'), indent=2)
+            os.remove(_stp)
+            raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2F sweep {_st['sweep']}): {sorted(_repl, key=int)} survived "
+                               f"the terminal rung — run S13-2L (it schedules each slot's next chain action) and S13-2R "
+                               f"NOW, then a fresh sweep (preview + this block). Never UNRESOLVED (OD-2026-11-09).")
         _by_q = {}
         for _f in _wl.get('item_findings') or []:
             _by_q.setdefault(_f.get('q'), []).append(_f['gate'])
         for _q, _reasons in sorted(_by_q.items(), key=lambda kv: str(kv[0])):
             _rung = 'TERMINAL' if _st['sweep'] >= 3 else bc.ladder_entry(_reasons)
-            print(f"S13-2F sweep {_st['sweep']}: Q{_q} {sorted(set(_reasons))} -> ladder {_rung}")
+            print(f"S13-2F sweep {_st['sweep']}: Q{_q} {sorted(set(_reasons))} -> ladder {_rung}"
+                  + (" (RL: set the label to the recorded basis's expected band, no content change)" if _rung == 'RL' else ''))
         if _st['sweep'] >= 3:
             # v5.91 (GAP-2026-11-04 B8): the ENGINE records which items it routed to their
             # terminal rung — in ITS OWN state file (the author's repair rewrites the sidecar
@@ -10666,7 +10755,9 @@ if AUDIT_AVAILABLE:
         raise RuntimeError(f"LADDER-REPAIR [HS:LADDER] (S13-2F sweep {_st['sweep']}): repair "
                            f"the questions above at their rungs in the final docx (S4-6 "
                            f"correction procedure), record registry question_index ladder "
-                           f"data in the sidecar, then run the next sweep (preview + this block).")
+                           f"data in the sidecar; a paper-level 'reassemble' line: rebuild the final docx "
+                           f"from the per-item blocks (S13-1); 'recapture': recompute the sidecar records "
+                           f"(S7-NEW-A) — 'amber' needs nothing; then run the next sweep (preview + this block).")
 ```
 
 ## S13-2G — INDEPENDENT REVIEW, IN-SESSION (v5.91 — GAP-2026-11-04 A1-A7; owner decisions OD-5 restated (D0), D1, D2, D4)
@@ -10692,16 +10783,23 @@ if AUDIT_AVAILABLE:
   typing "continue" between batches (or after an interrupted response — S4-12).
 
   THE FLOW (all in the final batch's response; every arrow is automatic):
-    S13-2F clean / NOT CERTIFIED
+    S13-2F clean (v5.96: a Create paper is never NOT CERTIFIED)
       -> phase 1 (packet, written ONLY under /home/claude)
       -> phase 2 (one FRESH reviewer per part — CLASS T, the model's own turn)
       -> phase 3 (bind + key_agrees + defects)
          defects in round 1 -> REVIEW_REPAIR: repair each at §Q8b-LADDER R2 in the final docx
                                -> S13-2F (fresh certificate) -> phase 1..3 again (round 2,
                                the WHOLE paper — the binding is per paper)
-         round 2 still disputed -> UNRESOLVED(A-REVIEW), NOT CERTIFIED (OD-9) — never a stop
-      -> REVIEWED -> S13-3 -> S13-4 -> S13-REGCHECK -> S13-QINDEX -> S13-4b/4c -> S13-6
-         -> S13-7 -> S13-8 (the two files) -> S13-9 -> footer.
+         round 2 still disputed -> that slot's DISPUTE chain (v5.96, OD-2026-11-09: S13-2L
+                                   schedules, S13-2R runs; never UNRESOLVED, never NOT CERTIFIED)
+      -> REVIEWED -> S13-2L (slot chains + DELTA reviews of every changed item, until every item is
+         at its slot band and covered: REVIEW-COVERAGE-LAW) -> S13-3 -> S13-4 -> S13-REGCHECK
+         -> S13-QINDEX -> S13-4b/4c -> S13-6 -> S13-7 -> S13-8 (the two files) -> S13-9 -> footer.
+  v5.96 DELTA ROUNDS. Rounds 1 and 2 review the WHOLE paper. Every later round is a DELTA round
+  over batch_state['delta_qs'] only (items changed since their last review, adjudications,
+  coverage gaps) plus batch_state['delta_panel'] (each such item to bc.REVIEW_PANEL_SIZE fresh
+  reviewers). Every verdict is bound to the hash of the block it reviewed (the auditor's
+  --item-hashes; bc.item_hash) and appended to the item's review_history.
   STATES (batch_state.state): 'REVIEW_RUNNING' during phases 1-3 and 'REVIEW_REPAIR' during
   the round-1 repairs — INTERNAL, used only so an interrupted response resumes (S4-12);
   'REVIEWED' after phase 3. 'AWAITING_REVIEW' is a LEGACY v5.90 state: S4-12 continues it
@@ -10710,7 +10808,7 @@ if AUDIT_AVAILABLE:
   PHASE 1 — build the packet, internally:
   ```python
   # ── S13-2G phase 1 (executable) ───────────────────────────────────────────────
-  import json, os, hashlib, shutil, blueprint_core as bc, paper_pipeline as pp
+  import json, os, hashlib, shutil, subprocess, blueprint_core as bc, paper_pipeline as pp
   # batch_state is RELOADED from disk: this block also runs after an interrupted response
   # (S4-12) and after the REVIEW_REPAIR re-sweep, where the in-memory copy may be stale.
   batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
@@ -10718,8 +10816,20 @@ if AUDIT_AVAILABLE:
   _key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
   _kd = json.load(open(_key, encoding='utf-8'))
   PAPER_MD5 = hashlib.md5(open(_docx, 'rb').read()).hexdigest()
+  # v5.96 (REVIEW-COVERAGE-LAW): the hash of every delivered block — computed by the auditor from the docx
+  _hj = f'/home/claude/{EXAM}_M{N}_item_hashes.json'
+  subprocess.run(['python3', f'/home/claude/{EXAM}_mock_test_audit.py', _docx, '--phase', 'precommit',
+                  '--item-hashes', _hj], capture_output=True, text=True, env=AUDIT_ENV)
+  REVIEW_HASHES = json.load(open(_hj, encoding='utf-8')) if os.path.exists(_hj) else {}
+  _delta = [str(x) for x in (batch_state.get('delta_qs') or [])]          # empty -> the WHOLE paper
+  _panel = [str(x) for x in (batch_state.get('delta_panel') or [])]
+  _switch = {str(x) for x in (batch_state.get('delta_switch') or [])}     # adjudication: a different model
+  if int(batch_state.get('review_round', 0)) < 2:
+      _delta, _panel, _switch = [], [], set()                             # rounds 1-2: always the whole paper
   _items = []
   for _qn in sorted((_kd.get('concept_map') or {}), key=int):
+      if (_delta or _panel) and _qn not in _delta and _qn not in _panel:
+          continue
       _e = _kd['concept_map'][_qn]
       # stem_text / option_texts / figure_files are S7-QUALITY record fields (the sidecar
       # carries them since v5.90); the reviewer ALSO reads the docx in its part folder.
@@ -10743,15 +10853,29 @@ if AUDIT_AVAILABLE:
   _l2_p1 = ((batch_state.get('difficulty_state') or {}).get('l2_model') or {})
   _l2_ids_p1 = set(_l2_p1.get('scope_ids') or []) if _l2_p1.get('active') else set()
   _vocab_p1 = (bc.l2_vocabulary() if any(str(_it.get('subtopic_id')) in _l2_ids_p1 for _it in _items) else None)
-  PACKET = bc.review_packet(_items, _slice, PAPER_MD5, concept_vocabulary=_vocab_p1)
+  _normal = [it for it in _items if str(it['q']) not in _panel and str(it['q']) not in _switch]
+  _swit = [it for it in _items if str(it['q']) in _switch and str(it['q']) not in _panel]
+  PACKET = bc.review_packet(_normal, _slice, PAPER_MD5, concept_vocabulary=_vocab_p1)
+  if not _normal:
+      PACKET['parts'] = []
+  _extra = [('switch', p) for p in (bc.review_packet(_swit, _slice, PAPER_MD5, concept_vocabulary=_vocab_p1)['parts'] if _swit else [])]
+  for _k in range(bc.REVIEW_PANEL_SIZE if _panel else 0):              # D-panel: one fresh reviewer per copy
+      _extra += [('panel', p) for p in bc.review_packet([it for it in _items if str(it['q']) in _panel], _slice, PAPER_MD5,
+                                                       concept_vocabulary=_vocab_p1)['parts']]
+  for _kind, _pt in _extra:
+      _pt['part'] = len(PACKET['parts']) + 1
+      _pt['mode'] = _kind
+      PACKET['parts'].append(_pt)
   REVIEW_ROUND = int(batch_state.get('review_round', 0)) + 1
   # INTERNAL ONLY (GAP-2026-11-04 A2): never /mnt/user-data/outputs, never present_files.
-  REVIEW_DIR = f'/home/claude/{EXAM}_M{N}_review/round{REVIEW_ROUND}'
+  REVIEW_DIR = f'/home/claude/{EXAM}_M{N}_review/{"delta" if REVIEW_ROUND > 2 else "round"}{REVIEW_ROUND}'
   if os.path.isdir(REVIEW_DIR):
       shutil.rmtree(REVIEW_DIR)                        # a re-run of phase 1 never reads stale verdicts
   _queue = []
   for _part in PACKET['parts']:
-      _pdir = os.path.join(REVIEW_DIR, f"part{_part['part']}")
+      # v5.96: the review MODE is in the folder name — the orchestrator receives only folder paths (worker
+      # report --review-parts) and never opens queue.json: '_switch' / '_panel' -> a DIFFERENT-model reviewer
+      _pdir = os.path.join(REVIEW_DIR, f"part{_part['part']}" + {'switch': '_switch', 'panel': '_panel'}.get(_part.get('mode'), ''))
       os.makedirs(_pdir, exist_ok=True)
       shutil.copy(_docx, os.path.join(_pdir, os.path.basename(_docx)))   # the reviewer views figures here
       _pk = {'exam': EXAM, 'paper_slug': pp.paper_slug(paper_id), 'paper_md5': PAPER_MD5,
@@ -10761,12 +10885,14 @@ if AUDIT_AVAILABLE:
                 ensure_ascii=False, indent=1)
       _queue.append({'part': _part['part'], 'dir': _pdir, 'qs': [int(it['q']) for it in _part['items']],
                      'verdicts': os.path.join(_pdir, 'verdicts.json'), 'attempts': 0, 'reviewer': None,
-                     'error': None})
+                     'error': None, 'switch': _part.get('mode') in ('switch', 'panel'),
+                     'panel': _part.get('mode') == 'panel'})
   json.dump({'paper_md5': PAPER_MD5, 'round': REVIEW_ROUND, 'parts': _queue},
             open(os.path.join(REVIEW_DIR, 'queue.json'), 'w', encoding='utf-8'), indent=1)
   batch_state['state'] = 'REVIEW_RUNNING'
   batch_state['paper_md5'] = PAPER_MD5
   batch_state['review_dir'] = REVIEW_DIR
+  batch_state['review_hashes'] = REVIEW_HASHES
   json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
   print(f"S13-2G phase 1: independent review round {REVIEW_ROUND} — {PACKET['n_items']} item(s) in "
         f"{len(_queue)} part(s), packet under {REVIEW_DIR} (internal; nothing for the user to do).")
@@ -10799,6 +10925,13 @@ if AUDIT_AVAILABLE:
   #     <PART_DIR>/answers.json, then its S3-1 and S3-2 blocks (S3-2 writes
   #     <PART_DIR>/verdicts.json).
   #     Weaker independence (owner accepted, D1/D4); disclosed by one footer line.
+  #  3b. v5.96 SWITCHED REVIEWER. A part whose queue entry has 'switch' true (an adjudication,
+  #     a panel copy, a D0 re-review — its folder name ends in _switch / _panel, or is 'switched')
+  #     is reviewed by a DIFFERENT model than its previous reviewer:
+  #     the next of SESSION_BUDGET.json worker_models (one model only, or no model choice: a fresh
+  #     context of the same model — E14). A D0 re-review runs in <PART_DIR>/switched/ (copy the
+  #     part's review_packet.json and docx there; the reviewer writes switched/verdicts.json).
+  #     A same-session fallback review is NOT independent: it never certifies a disputed item (E13).
   #  4. Only if even the fallback could not write a verdict for an item does that item get
   #     NOT_RUN in phase 3 (bc.review_not_run, with the reason) — a WARN, never a stop.
   #  5. NEVER ask the user for anything here, never present a file, never end the response.
@@ -10837,7 +10970,12 @@ if AUDIT_AVAILABLE:
   _qf = json.load(open(os.path.join(REVIEW_DIR, 'queue.json'), encoding='utf-8'))
   _kd = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
   _md5 = batch_state.get('paper_md5')
-  _expected = sorted((_kd.get('concept_map') or {}), key=int)
+  # v5.96: the items THIS round queued (the whole paper in rounds 1-2; only the delta items afterwards) — an
+  # item outside a delta round keeps its last review and is never stamped NOT_RUN
+  _queued = set()
+  for _pq in _qf.get('parts') or []:
+      _queued.update(str(q) for q in (_pq.get('qs') or []))
+  _expected = sorted(_queued or set(_kd.get('concept_map') or {}), key=int)
   _recs, _why_by_q, _kinds = [], {}, set()
   for _p in _qf.get('parts') or []:
       _r = None
@@ -10849,6 +10987,51 @@ if AUDIT_AVAILABLE:
       _kinds.add(str((_r or {}).get('reviewer') or _p.get('reviewer') or 'none'))
       for _q in _p.get('qs') or []:
           _why_by_q[str(_q)] = str(_p.get('error') or 'reviewer produced no verdict for this item after one retry')
+  # v5.96 — key agreement per PART record (before D0 and the merge; the reviewer never saw the key)
+  _ans3 = _kd.get('answers') or {}
+  def _fill_ka(rec):
+      for _qk, _rk in ((rec or {}).get('items') or {}).items() if isinstance((rec or {}).get('items'), dict) else []:
+          if isinstance(_rk, dict):
+              _rk['key_agrees'] = bc.review_key_agreement(_rk.get('own_key'), _ans3.get(str(_qk)),
+                                                          ((_kd.get('concept_map') or {}).get(str(_qk)) or {}).get('ca_range'))
+              if _rk['key_agrees'] is None:
+                  _rk['confidence'] = 'low'
+      return rec
+  _recs = [_fill_ka(_r) for _r in _recs]
+  # v5.96 D0 — REVIEWER HEALTH (bc.review_round_void): a part disputing more than bc.REVIEW_VOID_RATE of its
+  # items is re-reviewed ONCE by a switched reviewer (<PART_DIR>/switched/verdicts.json). Its disputes are
+  # dropped only when the switched reviewer clears >= bc.REVIEW_VOID_CONFIRM of them (E15).
+  _void_now = []
+  for _i, _p in enumerate(_qf.get('parts') or []):
+      _it1 = (_recs[_i] or {}).get('items') if isinstance((_recs[_i] or {}).get('items'), dict) else {}
+      if not _it1 or _p.get('panel') or not bc.review_round_void(_it1, len(_it1))[0]:
+          continue
+      _swp = os.path.join(_p['dir'], 'switched', 'verdicts.json')
+      if not os.path.exists(_swp):
+          if int(_p.get('d0_requested', 0)) >= 2:
+              continue                          # the switched reviewer produced nothing twice: the disputes stand
+          _p['d0_requested'] = int(_p.get('d0_requested', 0)) + 1
+          _p['switch'] = True
+          _void_now.append(_p['part'])
+          continue
+      _r2 = _fill_ka(json.load(open(_swp, encoding='utf-8')))
+      if bc.review_void_confirmed([q for q, r in _it1.items() if not bc.review_record_agrees(r)], (_r2 or {}).get('items')):
+          _recs[_i] = _r2                       # the first reviewer was faulty — its disputes count for nothing
+  if _void_now:
+      json.dump(_qf, open(os.path.join(REVIEW_DIR, 'queue.json'), 'w', encoding='utf-8'), indent=1)
+      raise RuntimeError(f"REVIEW-VOID [HS:LADDER] (S13-2G D0): part(s) {_void_now} disputed more than "
+                         f"{int(bc.REVIEW_VOID_RATE * 100)}% of their items — run PHASE 2 for those parts ONLY with a "
+                         f"SWITCHED reviewer in <PART_DIR>/switched/ (step 3b), then this phase 3 again (a switched "
+                         f"reviewer that writes nothing twice leaves the first reviewer's disputes standing — never a loop).")
+  # v5.96 — every verdict is bound to the hash of the block it reviewed and kept in the item's history
+  _H3 = batch_state.get('review_hashes') or {}
+  _allrecs = {}
+  for _i, _p in enumerate(_qf.get('parts') or []):
+      for _qk, _rk in (((_recs[_i] or {}).get('items')) or {}).items():
+          if isinstance(_rk, dict):
+              _rk['item_hash'] = _H3.get(str(_qk))
+              _rk['reviewer'] = str(_p.get('reviewer') or (_recs[_i] or {}).get('reviewer') or 'sub-agent')
+              _allrecs.setdefault(str(_qk), []).append(_rk)
   VERDICTS, _missing, _mprobs = bc.review_merge_parts(_recs, _md5, _expected)
   for _pr in _mprobs:
       print(f"S13-2G phase 3: {_pr} — its items are NOT_RUN (recorded, never a stop).")
@@ -10873,8 +11056,8 @@ if AUDIT_AVAILABLE:
   # the reviewer's band (only when it cites an exemplar), the in-batch measured band (CHECK 3c
   # difficulty_check['measured']), and for an organic item under a binding L2 model the ruler
   # re-measured on the LOWER-scoring of the author's and the reviewer's concept lists. Round 1
-  # BELOW -> a review defect repaired at DR1 (REVIEW_REPAIR); round 2 BELOW -> DR3, the only
-  # relabel, disclosed (S13-6 / footer). The slot band compared is the TARGET plan (S3-8L).
+  # BELOW -> a review defect repaired at DR1 (REVIEW_REPAIR); round 2 BELOW -> the slot's S13-2L DIFFICULTY
+  # chain (v5.96 — never a relabel). The slot band compared is the TARGET plan (S3-8L).
   _plan_p3 = {str(k): v for k, v in (batch_state.get('difficulty_plan') or {}).items()}
   _tgt_p3 = {str(k): v for k, v in (batch_state.get('difficulty_plan_target')
                                     or batch_state.get('difficulty_plan') or {}).items()}
@@ -10890,10 +11073,10 @@ if AUDIT_AVAILABLE:
   _rr_p3 = int(batch_state.get('review_round', 0))
   _vi_p3 = {str(k): v for k, v in (VERDICTS.get('items') or {}).items() if isinstance(v, dict)}
   _prev_rep_p3 = {str(x) for x in (batch_state.get('review_dl_repair') or [])}   # round 1's repairs
-  _dl_p3 = {'repair': [], 'dr3': [], 'above': [], 'unverified_l2': []}
+  _dl_p3 = {'repair': [], 'to_chain': [], 'above': [], 'unverified_l2': []}
   for _qs in [str(x) for x in _expected]:
-      if _qs not in _tgt_p3:
-          continue
+      if _qs not in _tgt_p3 or (_rr_p3 >= 2 and _qs not in _vi_p3):
+          continue                     # v5.96: a DELTA round decides only the items it reviewed
       _cm_e = _kd['concept_map'].setdefault(_qs, {})
       _dc = dict(_cm_e.get('difficulty_check')) if isinstance(_cm_e.get('difficulty_check'), dict) else {}
       _obs = dict(_cm_e.get('difficulty_obs')) if isinstance(_cm_e.get('difficulty_obs'), dict) else {}
@@ -10918,21 +11101,11 @@ if AUDIT_AVAILABLE:
       if _d['action'] == 'repair':
           _dl_p3['repair'].append(_qs)
           _dc['dl_rung'] = 'DR1'
-      elif _d['action'] == 'dr3' and _qs not in _prev_rep_p3:
-          # round 2 measured below an item round 1 never repaired: repair before relabel — it stays at its
-          # slot ('carried_below'); S13-2L counts it below and reworks it (DR1, DR2) before any DR3
-          _dl_p3.setdefault('to_rework', []).append(_qs)
-          _dc['decision'] = 'carried_below'
       elif _d['action'] == 'dr3':
-          _dl_p3['dr3'].append(_qs)
-          _dc.update({'decision': 'dl_dr3', 'final_band': _d['final_band'], 'dl_rung': 'DR3'})
-          _cm_e['difficulty'] = _d['final_band']
-          _plan_p3[_qs] = _d['final_band']
-          _ds_p3['dr3_qs'] = sorted(set(_ds_p3.get('dr3_qs') or []) | {_qs}, key=int)
-          if _tgt_p3[_qs] == _labs_p3[-1]:
-              _ds_p3['hard_missed'] = int(_ds_p3.get('hard_missed', 0)) + 1
-          if isinstance(globals().get('DIFFICULTY_STATE'), dict):     # keep the in-memory copy in step (CHECK 3c merges it)
-              globals()['DIFFICULTY_STATE'].update({k: _ds_p3[k] for k in ('dr3_qs', 'hard_missed')})
+          # v5.96 (OD-2026-11-09): NEVER a relabel. The slot keeps its band ('carried_below'); S13-2L opens /
+          # advances its DIFFICULTY chain — rework, replace, shape, sibling, band swap, then schedule-forced.
+          _dl_p3['to_chain'].append(_qs)
+          _dc['decision'] = 'carried_below'
       else:
           if _d['action'] == 'above':
               _dl_p3['above'].append(_qs)
@@ -10952,14 +11125,18 @@ if AUDIT_AVAILABLE:
   batch_state['difficulty_plan'] = _plan_p3
   batch_state['review_dl_repair'] = list(_dl_p3['repair'])
   if any(_dl_p3.values()):
-      print(f"S13-2G phase 3 (DL1): below their slot -> repair now {_dl_p3['repair']}; accepted lower after "
-            f"two rounds (DR3, disclosed) {_dl_p3['dr3']}; above their slot (label kept) {_dl_p3['above']}; "
-            f"organic items whose reviewer named no concepts (ruler not used) {_dl_p3['unverified_l2']}; "
-            f"below in round 2 but never repaired -> S13-2L rework {_dl_p3.get('to_rework', [])}.")
+      print(f"S13-2G phase 3 (DL1): below their slot -> repair now {_dl_p3['repair']}; still below -> S13-2L "
+            f"difficulty chain {_dl_p3['to_chain']}; above their slot (label kept) {_dl_p3['above']}; "
+            f"organic items whose reviewer named no concepts (ruler not used) {_dl_p3['unverified_l2']}.")
   for _qn, _rec in (VERDICTS.get('items') or {}).items():          # the verdict lives ON the item (§4.3)
       _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(_rec, paper_md5=_md5)
+  for _qn, _rl in _allrecs.items():                                 # v5.96: every verdict, oldest first
+      _kd['concept_map'].setdefault(str(_qn), {}).setdefault('review_history', []).extend(
+          dict(_r, paper_md5=_md5) for _r in _rl)
   for _qn in _missing:                                              # A5: NOT_RUN, a WARN in A-REVIEW
-      _kd['concept_map'].setdefault(str(_qn), {})['review'] = bc.review_not_run(_why_by_q.get(str(_qn)), _md5)
+      # v5.96: bound to the text it could not review (REVIEW-COVERAGE-LAW — the round terminates)
+      _kd['concept_map'].setdefault(str(_qn), {})['review'] = dict(bc.review_not_run(_why_by_q.get(str(_qn)), _md5),
+                                                                   item_hash=(batch_state.get('review_hashes') or {}).get(str(_qn)))
   json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
   REVIEW_DEFECTS = _bind['defects']                                 # key disagreement / low confidence / contested
   batch_state['review_round'] = int(batch_state.get('review_round', 0)) + 1
@@ -10976,29 +11153,62 @@ if AUDIT_AVAILABLE:
             "S13-2G phase 1 again — round 2 always carries the WHOLE paper.")
       batch_state['state'] = 'REVIEW_REPAIR'
   else:
-      if REVIEW_DEFECTS:                                            # round 2 still disputed -> OD-9
-          for _qn in REVIEW_DEFECTS:
-              _kd['concept_map'].setdefault(str(_qn), {})['quality_status'] = bc.quality_status(['A-REVIEW'])
-          json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
-          UNCERTIFIED_ITEMS = sorted(set([str(q) for q in (batch_state.get('uncertified_items') or [])]       # S13-2F's list (persisted)
-                                         + [str(q) for q in (globals().get('UNCERTIFIED_ITEMS') or [])]
-                                         + [str(q) for q in REVIEW_DEFECTS]),
-                                     key=lambda x: int(x) if str(x).isdigit() else 0)
-          batch_state['uncertified_items'] = list(UNCERTIFIED_ITEMS)   # -> footer / registry (OD-9)
-          # the S13-2F certificate must say the same as the stamps (A-CERT / footer / Deliver
-          # read different artefacts; they never disagree)
-          _cert_p3 = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'
-          if os.path.exists(_cert_p3):
-              _c3 = json.load(open(_cert_p3, encoding='utf-8'))
-              _c3['uncertified_items'] = list(UNCERTIFIED_ITEMS)
-              _c3['certified'] = not UNCERTIFIED_ITEMS
-              json.dump(_c3, open(_cert_p3, 'w', encoding='utf-8'), indent=1, sort_keys=True)
-          print(f"S13-2G: items {REVIEW_DEFECTS} still disputed after two review rounds — stamped "
-                "UNRESOLVED(A-REVIEW); the paper proceeds NOT CERTIFIED (OD-9).")
+      # v5.96 (OD-2026-11-09, supersedes OD-9) — DISPUTE CHAINS. A panel the chain scheduled is decided by
+      # bc.review_panel_majority over its copies on the CURRENT hash; an open dispute chain whose item now
+      # agrees is CERTIFIED once two consecutive independent verdicts on its current hash agree
+      # (bc.review_item_certified) — one agreement only: S13-2L schedules one more delta review. Any other
+      # dispute opens / advances that slot's dispute chain. Never UNRESOLVED; never NOT CERTIFIED.
+      _chs3 = batch_state.setdefault('slot_chain', {})
+      _done3 = set()
+      _miss3 = {str(x) for x in _missing}
+      for _qc, _c3 in list(_chs3.items()):
+          if not isinstance(_c3, dict) or _c3.get('kind') != 'dispute' or _c3.get('done') \
+                  or (_qc not in _allrecs and _qc not in _miss3):
+              continue
+          _hist3 = [r for r in ((_kd['concept_map'].get(_qc) or {}).get('review_history') or [])
+                    if r.get('item_hash') == _H3.get(_qc)]
+          if _c3.pop('awaiting', None) == 'panel':
+              _pm3 = bc.review_panel_majority(_hist3[-bc.REVIEW_PANEL_SIZE:])
+              if _pm3['certified']:
+                  _chs3[_qc] = bc.slot_chain_finish(_c3, 'panel', agree=_pm3['agree'], n=_pm3['n'])
+                  _kd['concept_map'][_qc]['review'] = dict(_hist3[-1], key_agrees=True, certified_by='panel',
+                                                           agree=_pm3['agree'], n=_pm3['n'],
+                                                           panel=_hist3[-bc.REVIEW_PANEL_SIZE:])   # registry-only re-derivation
+              else:
+                  _chs3[_qc] = dict(bc.slot_chain_record(_c3, 'panel', 'fail'), panel_alt=_pm3['alt'])
+              _done3.add(_qc)
+          elif bc.review_item_certified(_hist3, _H3.get(_qc)):
+              _st3 = ((_c3.get('attempts') or [{}])[-1] or {}).get('stage') or 'adjudicate'
+              _chs3[_qc] = bc.slot_chain_record(_c3, _st3, 'pass')
+              _done3.add(_qc)
+          elif ((_c3.get('attempts') or [{}])[-1] or {}).get('outcome') == 'pending' and (
+                  _qc in _miss3 or not bc.review_record_independent((_allrecs.get(_qc) or [{}])[-1])):
+              # E13: a NOT_RUN or same-session verdict can never certify a disputed item — the attempt fails and
+              # the chain moves on (bounded), instead of being queued again forever
+              _chs3[_qc] = bc.slot_chain_record(_c3, _c3['attempts'][-1]['stage'], 'fail', note='no independent verdict')
+              _done3.add(_qc)
+      for _qn in [str(x) for x in REVIEW_DEFECTS if str(x) not in _done3]:
+          _c3 = _chs3.get(_qn)
+          _a3 = (_c3 or {}).get('attempts') or []
+          if _c3 and not _c3.get('done') and _c3.get('kind') == 'dispute':
+              if _a3 and _a3[-1].get('outcome') == 'pending':
+                  _chs3[_qn] = bc.slot_chain_record(_c3, _a3[-1]['stage'], 'fail')
+          else:
+              # correctness first: an open difficulty / quality / upgrade chain on this slot is SUSPENDED inside the
+              # dispute chain (bc.slot_chain_reopen — resumed later with its attempt count; a finished chain is kept
+              # in 'history' so its footer line is never lost)
+              _chs3[_qn] = bc.slot_chain_reopen(_c3, _qn, 'dispute', _tgt_p3.get(_qn),
+                                                (_kd['concept_map'].get(_qn) or {}).get('subtopic_id'))
+      json.dump(_kd, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
+      batch_state['uncertified_items'] = []
+      batch_state['delta_qs'], batch_state['delta_panel'], batch_state['delta_switch'] = [], [], []
+      if REVIEW_DEFECTS:
+          print(f"S13-2G: items {REVIEW_DEFECTS} disputed after round {batch_state['review_round']} — each enters its "
+                "DISPUTE chain (S13-2L / S13-2R), never UNRESOLVED (OD-2026-11-09).")
       batch_state['state'] = 'REVIEWED'
       print(f"S13-2G: REVIEWED — round {batch_state['review_round']}, "
             f"{len(_summ.get('repaired') or [])} item(s) repaired, {len(_summ['not_run'])} not run; "
-            "continuing to S13-2L / S13-3 / S13-4 in this response.")
+            "continuing to S13-2L (slot chains, delta reviews, coverage) in this response.")
   json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
   ```
   REVIEW_REPAIR -> repair the items in batch_state['review_defects'] NOW (same response); after
@@ -11010,89 +11220,328 @@ if AUDIT_AVAILABLE:
   item: bc.l2_slot_source(..., skip = sources already tried); any other item: the next exemplar of
   its cell), then DR2's band-target brief if CHECK 3c still measures it below; the reviewer's
   difficulty reason is the constraint. Never relabel here: the item returns as 'agree' or
-  'carried_below'; round 2's phase 3 decides (accept, or DR3 disclosed).
-  REVIEWED -> S13-2L (v5.94) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
+  'carried_below'; round 2's phase 3 decides (accept, or the S13-2L difficulty chain — v5.96).
+  REVIEWED -> S13-2L (v5.96) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
   S13-8 in the SAME response. The S13-4c auditor's A-REVIEW reads the review record
   final_assembly committed on EVERY item (the auditor's effective concept map overlays the
-  registry record — it needs no sidecar at S13-4c); an item stamped UNRESOLVED(A-REVIEW) is
-  reconciled by the auditor to a WARN (OD-9), a NOT_RUN record is a WARN (A5) — never a FAIL.
+  registry record — it needs no sidecar at S13-4c); a record bound to a stale item_hash is an item
+  finding (A-REVIEW-COVERAGE, ladder RV); a NOT_RUN record is a WARN (A5).
   A verdict file the user happens to attach is NEVER required; S4-12 says when one is used.
 
-## S13-2L — PAPER DIFFICULTY GATE (v5.94 — GAP-2026-11-07; owner D1 (b), every exam)
+## S13-2L — PAPER DIFFICULTY GATE + SLOT CHAINS (v5.96 — GAP-2026-11-08-DR3-QINDEX-CONFLICT; owner OD-2026-11-09, every exam)
 
   Runs once S13-2G is REVIEWED, before S13-3 / S13-4, in the same response (and as the S4-12 entry
-  when batch_state['paper_gate_rework'] is non-empty). The delivered paper is counted against the
-  TARGET plan (the original schedule with only count-neutral swaps): every slot whose label sits
-  BELOW its target band is reworked — pass 1 at DR1, pass 2 at DR2 (bc.DL_REWORK_PASSES) — and only
-  then accepted at its measured band (DR3, disclosed). DR3 items from S13-2G are already disclosed
-  and pass. The gate record is written to batch_state['difficulty_state']['paper_gate'] (committed
-  with the registry, S13-4; printed by S13-6). Never a stop; no certificate effect.
+  whenever batch_state['slot_chain'] holds an open chain or batch_state['slot_chain_work'] is not
+  empty). OWNER RULES (OD-2026-11-09, supersedes OD-9 and the DR3 relabel of v5.94): the difficulty
+  schedule is delivered EXACTLY; no question and no paper is ever NOT CERTIFIED; a quality or rule
+  condition is never a stop; there is no manual step. Every slot with a problem gets ONE bounded
+  SLOT CHAIN (bc.slot_chain_*; batch_state['slot_chain'][q], saved after every attempt):
+    difficulty (measured BELOW its slot) — rework DR1, rework DR2, replace (3), another ask shape (2),
+      sibling subtopic (2 each, at most 3 siblings): at most bc.slot_chain_reviewed_max('difficulty')
+      = 13 reviewed attempts; then BAND SWAP with a slot measured at or above this band
+      (bc.dl_swap_partner — count-neutral, both labels honest); then PAIRED UPGRADE (bc.dl_upgrade_candidate:
+      a lower slot re-authored UP, its own 'upgrade' chain, then the swap); only then SCHEDULE-FORCED —
+      the label is held at the slot band (bc.dl_set_label_basis 'forced', proven by the exhausted chain)
+      and the footer names the band the review measured (owner decision 2026-11-09).
+    dispute (an independent reviewer disagrees with the key after round 2) — adjudicate (no content
+      change, a switched reviewer), replace (3), shape (2), sibling (2 x 3); then a PANEL of
+      bc.REVIEW_PANEL_SIZE fresh reviewers (certified on a strict majority); then RE-KEY (a panel
+      majority for one other option, re-derived by the author); then MAJORITY (certified with the
+      agreement count disclosed — AMBER). A dispute item is CERTIFIED when its two most recent
+      independent verdicts on its current text agree (bc.review_item_certified).
+    quality (an item finding that survived the S13-2F terminal rung) — replace (3), shape (2), sibling
+      (2 x 3); then DISCLOSED (quality_status 'DISCLOSED(<gates>)', the exhausted chain recorded on the
+      item; the auditor turns that item's FAIL into an AMBER note and certifies the paper).
+  Every changed item is re-swept (S13-2F) and re-reviewed in a DELTA round (S13-2G); before S13-3 every
+  item's latest review must be bound to its delivered text (REVIEW-COVERAGE-LAW, bc.review_coverage_missing).
+  The gate record goes to batch_state['difficulty_state']['paper_gate'] (committed at S13-4, printed by S13-6).
   ```python
-  # ── S13-2L (v5.94) ──
-  import json, blueprint_core as bc
-  _bs_l = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
-  _kd_l = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
-  _tgt_l = _bs_l.get('difficulty_plan_target') or _bs_l.get('difficulty_schedule_original')
-  if isinstance(_tgt_l, dict) and _tgt_l:
-      _labs_l = list(_bs_l.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
-      _cm_l = _kd_l.get('concept_map') or {}
-      _ds_l = _bs_l.setdefault('difficulty_state', {})
-      def _gate_items():
-          # ONE builder with the auditor (A-DIFFGATE): the label lowered to the latest independent
-          # measurement; DR3 at its label; a slot no control measured -> 'unmeasured' (disclosed)
-          return bc.dl_gate_items(_tgt_l, _cm_l, _labs_l)
-      G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
-      _orig_l = _bs_l.get('difficulty_schedule_original') or _tgt_l
-      if bc.dl_band_counts(_tgt_l, _labs_l) != bc.dl_band_counts(_orig_l, _labs_l):
-          print(f"S13-2L: the target plan's band counts {bc.dl_band_counts(_tgt_l, _labs_l)} differ from the "
-                f"original schedule {bc.dl_band_counts(_orig_l, _labs_l)} — only count-neutral swaps may change it; "
-                "the ORIGINAL schedule is used for this gate (recorded).")
-          _tgt_l = _orig_l
-          G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
-      # the pass counter lives at the TOP of batch_state: CHECK 3c (re-run during a rework) rewrites
-      # difficulty_state from its in-memory copy and must never reset it
-      _passes_l = int(_bs_l.get('paper_gate_passes', 0))
-      if G_PAPER['status'] == 'REWORK' and _passes_l < bc.DL_REWORK_PASSES:
-          _bs_l['paper_gate_passes'] = _passes_l + 1
-          _bs_l['paper_gate_rework'] = list(G_PAPER['rework_qs'])
-          print(f"S13-2L: {len(G_PAPER['rework_qs'])} slot(s) below their target band {G_PAPER['rework_qs']} — "
-                f"rework pass {_passes_l + 1}/{bc.DL_REWORK_PASSES} NOW: each item re-authored at its TARGET band "
-                f"through CHECK 3c at rung {'DR1' if _passes_l == 0 else 'DR2'} (bc.difficulty_repair_step), its label "
-                "and plan entry set back to the target band when it measures there, then S13-2F (re-sweep) and "
-                "S13-2L again.")
-      else:
-          if G_PAPER['status'] == 'REWORK':           # both passes spent: DR3, disclosed
-              _fin_l = {i['q']: i['final_band'] for i in _gate_items()}
-              _plan_l = {str(k): v for k, v in (_bs_l.get('difficulty_plan') or {}).items()}
-              for _q in G_PAPER['rework_qs']:
-                  _e = _cm_l.setdefault(str(_q), {})
-                  _dc = dict(_e.get('difficulty_check') or {})
-                  _e['difficulty'] = _fin_l.get(str(_q)) or _e.get('difficulty')   # the label follows the evidence
-                  _plan_l[str(_q)] = _e['difficulty']
-                  _dc.update({'decision': 'dl_dr3', 'final_band': _e['difficulty'], 'dl_rung': 'DR3'})
-                  _e['difficulty_check'] = _dc
-                  _ds_l['dr3_qs'] = sorted(set(_ds_l.get('dr3_qs') or []) | {str(_q)}, key=int)
-                  if _tgt_l.get(str(_q)) == _labs_l[-1]:
-                      _ds_l['hard_missed'] = int(_ds_l.get('hard_missed', 0)) + 1
-              _bs_l['difficulty_plan'] = _plan_l
-              json.dump(_kd_l, open(f'/home/claude/{EXAM}_M{N}_answer_key.json', 'w', encoding='utf-8'), indent=2)
-              G_PAPER = bc.difficulty_paper_gate(_gate_items(), _labs_l)
-          _bs_l['paper_gate_rework'] = []
-          print(f"S13-2L: paper difficulty gate {G_PAPER['status']} — delivered {G_PAPER['counts_final']} against "
-                f"target {G_PAPER['counts_original']}; DR3 (disclosed) {G_PAPER['accepted_dr3']}; "
-                f"unmeasured {G_PAPER['unmeasured']}. Continuing to S13-3 / S13-4.")
-      _ds_l['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original',
-                                                              'rework_qs', 'accepted_dr3', 'unmeasured', 'rule')},
+  # ── S13-2L (v5.96) ──
+  import json, os, blueprint_core as bc
+  _bsl_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _key_l = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  _bs_l = json.load(open(_bsl_p, encoding='utf-8'))
+  _kd_l = json.load(open(_key_l, encoding='utf-8'))
+  _cm_l = _kd_l.setdefault('concept_map', {})
+  _labs_l = list(_bs_l.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+  _tgt_l = {str(k): v for k, v in (_bs_l.get('difficulty_plan_target') or _bs_l.get('difficulty_schedule_original') or {}).items()}
+  _chs = _bs_l.setdefault('slot_chain', {})
+  _ds_l = _bs_l.setdefault('difficulty_state', {})
+  _hjl = f'/home/claude/{EXAM}_M{N}_item_hashes.json'          # written by every S13-2F sweep / S13-2G phase 1
+  _hl = json.load(open(_hjl, encoding='utf-8')) if os.path.exists(_hjl) else {}
+  _bp_l = json.load(open(BP_SRC_PATH, encoding='utf-8')) if os.path.exists(BP_SRC_PATH) else {}
+  _subs_l = [x for x in (_bp_l.get('subtopic_list') or []) if isinstance(x, dict)]
+  def _siblings(sid):
+      # same topic by r_avg desc, then the rest of the section (E19: a blueprint id missing from the manifest is fine)
+      me = next((x for x in _subs_l if x.get('subtopic_id') == sid), {})
+      rk = lambda x: (-float(x.get('r_avg') or 0), str(x.get('subtopic_id')))
+      t1 = sorted((x for x in _subs_l if x.get('topic') == me.get('topic') and x.get('subtopic_id') != sid), key=rk)
+      t2 = sorted((x for x in _subs_l if x.get('section') == me.get('section') and x.get('topic') != me.get('topic')), key=rk)
+      return [x['subtopic_id'] for x in t1 + t2]
+  def _fresh(q):
+      return bool(_hl.get(q)) and ((_cm_l.get(q) or {}).get('review') or {}).get('item_hash') == _hl.get(q)
+  _delta, _switch, _panel, _work, _changed = set(), set(), set(), [], False
+  _gi = bc.dl_gate_items(_tgt_l, _cm_l, _labs_l) if _tgt_l else []
+  _meas = {i['q']: i['measured'] for i in _gi}
+  def _ctl(q):
+      return ((_cm_l.get(q) or {}).get('difficulty_check') or {}).get('review_controls') or {'measured': _meas.get(q)}
+  def _swap(qa, qb):
+      # count-neutral band swap; both labels re-based on their independent controls (LABEL-BASIS-LAW)
+      tp2 = bc.dl_target_plan_swap(_tgt_l, qa, qb)
+      ea, oka, _ = bc.dl_set_label_basis(_cm_l.get(qa), 'review', _labs_l, tp2[qa], controls=_ctl(qa), partner=qb)
+      eb, okb, _ = bc.dl_set_label_basis(_cm_l.get(qb), 'review', _labs_l, tp2[qb], controls=_ctl(qb), partner=qa)
+      if not (oka and okb):
+          return False
+      _cm_l[qa], _cm_l[qb] = ea, eb
+      _tgt_l.update(tp2)
+      _bs_l['difficulty_plan_target'] = dict(_tgt_l)
+      _bs_l['difficulty_plan'] = dict(_bs_l.get('difficulty_plan') or {}, **{qa: tp2[qa], qb: tp2[qb]})
+      return True
+  # 1. OUTCOMES — a difficulty / upgrade attempt is decided once its delta review is bound to its new text
+  for _q, _c in list(_chs.items()):
+      _att = _c.get('attempts') or []
+      if _c.get('kind') not in ('difficulty', 'upgrade') or _c.get('done') or not _att \
+              or _att[-1].get('outcome') != 'pending' or not _fresh(_q):
+          continue
+      _t, _m = _c.get('target') or _tgt_l.get(_q), _meas.get(_q)
+      _rv_o = (_cm_l.get(_q) or {}).get('review') or {}
+      # the attempt is judged ONLY on an actual delta verdict (phase 3's review_measured); a NOT_RUN round is a
+      # failed attempt — never a pass on the author-side CHECK 3c band alone
+      _ok = (str(_rv_o.get('status') or '').upper() != 'NOT_RUN'
+             and bool(((_cm_l.get(_q) or {}).get('difficulty_check') or {}).get('review_measured'))
+             and _m in _labs_l and _t in _labs_l and _labs_l.index(_m) >= _labs_l.index(_t))
+      _chs[_q] = bc.slot_chain_record(_c, _att[-1]['stage'], 'pass' if _ok else 'fail', item_hash=_hl.get(_q))
+      if _c.get('kind') == 'upgrade' and _ok:                      # stage 7 succeeded: swap the pair
+          _qd = str(_c.get('upgrade_for'))
+          _cd = _chs.get(_qd) or {}
+          if _cd.get('kind') != 'difficulty' or _cd.get('done') or _cd.get('awaiting') != 'upgrade' \
+                  or str(_cd.get('partner')) != _q:
+              continue                                             # that slot moved on: no swap; this item keeps its slot
+          if _swap(_qd, _q):
+              _chs[_qd] = bc.slot_chain_finish(_chs[_qd], 'paired_upgrade', partner=_q)
+              _changed = True
+          else:
+              _chs[_qd] = bc.slot_chain_record(dict(_chs[_qd], awaiting=None), 'paired_upgrade', 'fail')
+  # 2. OPEN a difficulty chain on every slot below its band (a slot whose dispute / quality chain is open waits)
+  if _tgt_l:
+      for _q in bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l)['rework_qs']:
+          _c = _chs.get(_q)
+          if _c and _c.get('done') and _c.get('outcome') == 'forced_refused':
+              continue                        # already ended and disclosed — never reopened
+          if not _c or _c.get('done'):        # resumes a suspended difficulty chain; keeps every finished chain's history
+              _chs[_q] = bc.slot_chain_reopen(_c, _q, 'difficulty', _tgt_l.get(_q), (_cm_l.get(_q) or {}).get('subtopic_id'))
+  # 3. SCHEDULE the next action of every open chain — repeated until no deterministic terminal (a swap or an
+  #    upgrade that has no partner, a forced label, a majority, a disclosure) can advance any chain further
+  _progress, _pass3 = True, 0
+  while _progress and _pass3 < 12:
+    _progress, _pass3 = False, _pass3 + 1
+    _locked = {q for q, c in _chs.items() if not c.get('done')}
+    _work_qs = {w['q'] for w in _work}
+    for _q, _c in sorted(_chs.items(), key=lambda kv: int(kv[0])):
+        if _c.get('awaiting') == 'upgrade' and not _c.get('done'):
+            _pc = _chs.get(str(_c.get('partner'))) or {}
+            if _pc.get('kind') != 'upgrade' or _pc.get('done') or str(_pc.get('upgrade_for')) != _q:
+                # the partner's upgrade chain was superseded (e.g. its new text was disputed) or ended without the
+                # swap: stage 7 failed for this slot — it moves on (never parked forever)
+                _chs[_q] = bc.slot_chain_record(dict(_c, awaiting=None), 'paired_upgrade', 'fail')
+                _progress = True
+            continue
+        if _c.get('done') or _q in _work_qs or _q in _delta or _q in _panel:
+            continue
+        _att = _c.get('attempts') or []
+        if _att and _att[-1].get('outcome') == 'pending':
+            if not _fresh(_q) or _c.get('kind') == 'dispute':        # not yet reviewed / one agreement so far
+                _delta.add(_q)
+                if _c.get('kind') == 'dispute':
+                    _switch.add(_q)
+            continue
+        if _c.get('awaiting') == 'panel':
+            _panel.add(_q)
+            continue
+        _nx = bc.slot_chain_next(_c, siblings=_siblings(_c.get('subtopic_id') or (_cm_l.get(_q) or {}).get('subtopic_id')))
+        _c = _chs[_q] = _nx['chain']
+        _a = _nx['action']
+        if _a in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling'):
+            _work.append({'q': _q, 'action': _a, 'sibling': _nx['sibling'], 'kind': _c['kind'],
+                          'target': _c.get('target') or _tgt_l.get(_q), 'status': 'todo'})
+        elif _a == 'adjudicate':
+            _chs[_q] = bc.slot_chain_record(_c, 'adjudicate', 'pending')
+            _delta.add(_q); _switch.add(_q)
+        elif _a == 'panel':
+            _chs[_q] = dict(_c, awaiting='panel')
+            _panel.add(_q)
+        elif _a == 'rekey':
+            if _c.get('panel_alt') is None:                            # no majority for another option: nothing to re-key
+                _chs[_q] = bc.slot_chain_record(_c, 'rekey', 'fail')
+                _progress = True
+            else:
+                _work.append({'q': _q, 'action': 'rekey', 'alt': _c.get('panel_alt'), 'kind': 'dispute', 'status': 'todo'})
+        elif _a == 'majority':
+            _h = [r for r in ((_cm_l.get(_q) or {}).get('review_history') or []) if r.get('item_hash') == _hl.get(_q)]
+            _ag = sum(1 for r in _h if bc.review_record_agrees(r))
+            _chs[_q] = bc.slot_chain_finish(_c, 'majority', agree=_ag, n=len(_h))
+            # the latest verdict on the current text; none in the history (the last delta round was NOT_RUN): the
+            # item's current, text-bound review record — the certification stays bound to the delivered text
+            _base = (_h[-1] if _h else None) or ((_cm_l.get(_q) or {}).get('review') or {})
+            _cm_l[_q]['review'] = dict(_base, certified_by='majority', chain=bc.slot_chain_compact(_chs[_q]), agree=_ag, n=len(_h))
+            _progress = True
+            _changed = True
+        elif _a == 'amber':
+            _chs[_q] = bc.slot_chain_finish(_c, 'amber', gates=_c.get('gates') or [])
+            _cm_l[_q]['quality_status'] = 'DISCLOSED(' + ','.join(_c.get('gates') or []) + ')'
+            _cm_l[_q]['slot_chain'] = bc.slot_chain_compact(_chs[_q])     # committed to the registry (final_assembly v1.15)
+            _progress = True
+            _changed = True
+        elif _a == 'abandon':                                          # an upgrade partner that never reached the band
+            _chs[_q] = bc.slot_chain_finish(_c, 'abandon')
+            _progress = True
+            _qd = str(_c.get('upgrade_for'))
+            _cd = _chs.get(_qd) or {}
+            if _cd.get('kind') == 'difficulty' and not _cd.get('done') and _cd.get('awaiting') == 'upgrade' \
+                    and str(_cd.get('partner')) == _q:                  # only the slot still waiting on THIS partner
+                _chs[_qd] = bc.slot_chain_record(dict(_cd, awaiting=None), 'paired_upgrade', 'fail')
+        elif _a == 'band_swap':
+            _p = bc.dl_swap_partner(_q, _tgt_l, bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l, exclude=_locked)
+            if _p and _swap(_q, _p):
+                _chs[_q] = bc.slot_chain_finish(_c, 'band_swap', partner=_p)
+                _progress = True
+                _changed = True
+            else:
+                _chs[_q] = bc.slot_chain_record(_c, 'band_swap', 'fail')
+                _progress = True
+        elif _a == 'paired_upgrade':
+            _p = bc.dl_upgrade_candidate(_q, _tgt_l, bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l, exclude=_locked)
+            if _p:
+                _chs[_p] = dict(bc.slot_chain_new(_p, 'upgrade', _tgt_l.get(_q), (_cm_l.get(_p) or {}).get('subtopic_id')),
+                                upgrade_for=_q)
+                _chs[_q] = dict(_c, awaiting='upgrade', partner=_p)
+                _locked.add(_p)
+                _progress = True                                       # the partner's new chain is scheduled next pass
+            else:
+                _chs[_q] = bc.slot_chain_record(_c, 'paired_upgrade', 'fail')
+                _progress = True
+        elif _a == 'forced':
+            _fc = bc.slot_chain_finish(_c, 'forced', measured=_meas.get(_q))
+            _ef, _okf, _whyf = bc.dl_set_label_basis(_cm_l.get(_q), 'forced', _labs_l, _tgt_l.get(_q), controls=_ctl(_q), chain=_fc)
+            if _okf:
+                _cm_l[_q], _chs[_q], _changed = _ef, _fc, True
+                _progress = True
+            else:
+                # unreachable on a consistent plan (the target is one of the exam's labels and the chain is proven
+                # exhausted) — but never a loop: the chain ENDS, the label is left as it is and the slot is disclosed
+                _chs[_q] = bc.slot_chain_finish(_c, 'forced_refused', measured=_meas.get(_q), why=_whyf)
+                _progress = True
+                _changed = True
+                print(f"S13-2L: Q{_q} schedule label could not be recorded ({_whyf}) — disclosed (AMBER).")
+  # a chain may never be left open with nothing scheduled (the 2026.11.08 shape: stopped without a route)
+  _idle = [q for q, c in _chs.items() if not c.get('done') and c.get('awaiting') != 'upgrade'
+           and q not in {w['q'] for w in _work} and q not in _delta and q not in _panel]
+  if _idle:                                                    # persist every decision taken so far, then re-enter
+      _bs_l['slot_chain_work'] = _work
+      json.dump(_kd_l, open(_key_l, 'w', encoding='utf-8'), indent=2)
+      json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
+      raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): chains {sorted(_idle, key=int)} still open — run this block again.")
+  # 4. REVIEW-COVERAGE-LAW — every item's latest review bound to its delivered text
+  for _q in bc.review_coverage_missing(_cm_l, _hl):
+      if _q not in _chs or _chs[_q].get('done'):
+          _delta.add(_q)
+  _bs_l['slot_chain_work'] = _work
+  _bs_l['delta_qs'] = sorted(_delta - _panel, key=int)
+  _bs_l['delta_switch'] = sorted(_switch - _panel, key=int)
+  _bs_l['delta_panel'] = sorted(_panel, key=int)
+  G_PAPER = bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l) if _tgt_l else {'status': 'DORMANT'}
+  if _tgt_l:
+      _ds_l['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original', 'rework_qs',
+                                                              'accepted_dr3', 'unmeasured', 'forced', 'swapped', 'rule')},
                                  target_plan=dict(_tgt_l), labels=list(_labs_l))   # A-DIFFGATE re-counts from these
-      if isinstance(globals().get('DIFFICULTY_STATE'), dict):     # the in-memory copy CHECK 3c writes from
-          globals()['DIFFICULTY_STATE'].update({k: _ds_l[k] for k in ('paper_gate', 'dr3_qs', 'hard_missed') if k in _ds_l})
-      json.dump(_bs_l, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w', encoding='utf-8'), indent=2)
-  else:
-      print("S13-2L: dormant — this paper has no difficulty plan.")
+  # the per-item disclosures of every chain that ended at a terminal — committed with difficulty_state (S13-4),
+  # printed by S13-6 and reprinted by MockDeliver; the engine is their only source
+  _ds_l['chain_footer'] = bc.chain_footer_lines(_chs)
+  _ds_l['allocation_swaps'] = list(_bs_l.get('allocation_swaps') or [])
+  if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy CHECK 3c writes from
+      globals()['DIFFICULTY_STATE'].update({k: _ds_l[k] for k in ('paper_gate', 'chain_footer') if k in _ds_l})
+  json.dump(_kd_l, open(_key_l, 'w', encoding='utf-8'), indent=2)
+  json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
+  if _work:
+      raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): run S13-2R on batch_state['slot_chain_work'] "
+                         f"{[(w['q'], w['action']) for w in _work]} NOW, then S13-2F (fresh sweep), then S13-2G phases 1-3 "
+                         f"(a DELTA round), then this block again.")
+  if _bs_l['delta_qs'] or _panel or _changed:
+      raise RuntimeError(f"DELTA [HS:LADDER] (S13-2L): run S13-2F (fresh sweep{' — labels changed' if _changed else ''}), "
+                         f"then S13-2G phases 1-3 over delta {_bs_l['delta_qs']} panel {sorted(_panel, key=int)} "
+                         f"(skip S13-2G when both are empty), then this block again.")
+  print(f"S13-2L: paper difficulty gate {G_PAPER.get('status')} — delivered {G_PAPER.get('counts_final')} against "
+        f"target {G_PAPER.get('counts_original')}; swapped {G_PAPER.get('swapped')}; schedule-forced "
+        f"{[f.get('q') for f in G_PAPER.get('forced') or []]}; every chain closed and every item covered. "
+        f"Continuing to S13-3 / S13-4.")
   ```
-  A REWORK pass repairs the listed items NOW (same response): each through §Q8b-LADDER R2 with the
-  DL brief, CHECK 3c re-measures it, S13-2F re-sweeps (a changed docx needs a fresh certificate),
-  then this block runs again. The S13-2G review is not repeated (its two rounds are spent).
+
+## S13-2R — SLOT CHAIN RUNNER (v5.96 — OD-2026-11-09; the actions S13-2L schedules)
+
+  For each entry of batch_state['slot_chain_work'] (in q order), perform its action IN THE FINAL DOCX
+  through the S4-6 correction procedure (edit only that question's block, re-render its figures, update its
+  sidecar entry and fig_manifest record, keep every other question byte-unchanged), keep the slot's KEY
+  POSITION (K-BAL / K-PAT unchanged, E22), its section, its figural / text format (Axis 1, E17) and its
+  stimulus group (a group member is replaced inside the group; two or more disputed members of one group
+  -> the whole group is replaced and keeps its placement, E16). Each new item passes CHECK 3c and every
+  batch gate against the WHOLE paper (entity, stem, media, PYQ distance — a hit is a failed attempt, E21).
+    rework_dr1 / rework_dr2 — re-author at the slot's band through CHECK 3c at rung DR1 (the NEXT pattern
+      source: an organic item bc.l2_slot_source(..., skip = sources tried); any other item the next
+      exemplar of its cell) / DR2 (the band-target brief, bc.DL_DR2_TRIES); the reviewer's reason is the
+      constraint. For an 'upgrade' chain the band is the chain's target (the higher band).
+    replace — a NEW item: same subtopic, band and ask shape, on a NEW substrate (next pattern source; a
+      zero-PYQ subtopic: the concept source, E18). None left -> set entry 'status' 'unavailable'.
+    shape — same subtopic and band, another ask shape the subtopic carries (DIRECT first; a blueprint id
+      missing from the manifest is treated as DIRECT-capable, E19) — ONLY a shape that keeps the paper's
+      shape mix lawful: bc.shape_mix_check(<the paper's shape counts with this item moved>,
+      bp['shape_target_per_paper'][str(N)], infeasible=<the plan's _infeasible>)['state'] != 'FAIL' (the
+      SAME function A-SHAPEMIX calls). No such shape -> set entry 'status' 'unavailable'.
+    sibling — same band, qtype and shape on the entry's 'sibling' subtopic, performed EXACTLY as §Q8b-LADDER R5
+      REASSIGN (its candidate rule — qtype / answer type / cardinality / Axis-1 format / stimulus group /
+      answer-position budget / G-ALTGROUP / G-GROUPMANDATE / G-MINCOUNT — the q_count amendment in the in-run
+      blueprint, alloc_ids and subtopic_by_qnum, allocation_amendments[], persist_bp_amendment()), so every
+      allocation-derived gate reads the amended blueprint and stays consistent; also recorded in
+      batch_state['allocation_swaps'] as {'q', 'from', 'to'} (footer). A sibling that is NOT a REASSIGN
+      candidate -> set entry 'status' 'unqualified' (skipped; it does not count toward the 3 siblings).
+    rekey — a panel majority chose option 'alt'. Re-derive the item cold; if 'alt' IS the answer, set the
+      key to it (entry 'status' 'rekeyed'); otherwise 'rejected'. No other change.
+  After EACH entry is written, set its 'status' ('done' | 'unavailable' | 'unqualified' | 'rekeyed' | 'rejected') in
+  batch_state['slot_chain_work'], save batch_state, then run (resume-safe; an entry is recorded once):
+  ```python
+  # ── S13-2R record (v5.96) ──
+  import json, blueprint_core as bc
+  _bsr_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _kr_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  _bsr = json.load(open(_bsr_p, encoding='utf-8'))
+  _kdr = json.load(open(_kr_p, encoding='utf-8'))
+  _cmr = _kdr.setdefault('concept_map', {})
+  for _w in _bsr.get('slot_chain_work') or []:
+      _q, _st = str(_w['q']), _w.get('status')
+      _c = (_bsr.get('slot_chain') or {}).get(_q)
+      if _st in (None, 'todo', 'recorded') or not isinstance(_c, dict):
+          continue
+      if _st == 'unavailable':
+          _c['unavailable'] = sorted(set(_c.get('unavailable') or []) | {_w['action']})
+      elif _st == 'unqualified':                               # a sibling that is not an R5 REASSIGN candidate
+          _c['skip_siblings'] = sorted(set(_c.get('skip_siblings') or []) | {str(_w.get('sibling'))})
+      elif _st == 'rekeyed':
+          _c = dict(bc.slot_chain_record(_c, 'rekey', 'fail'), done=False)          # 'rekey' tried ...
+          _c['attempts'] = list(_c.get('attempts') or []) + [{'stage': 'rekey_review', 'outcome': 'pending'}]
+      elif _st == 'rejected':
+          _c = bc.slot_chain_record(_c, 'rekey', 'fail')
+      else:                                                     # 'done' — a re-authored item: E10
+          _c = bc.slot_chain_record(_c, _w['action'], 'pending', sibling=_w.get('sibling'))
+          _cmr[_q] = bc.clear_label_basis(_cmr.get(_q))
+          _cmr[_q].pop('quality_status', None)
+          if _w['action'] == 'sibling':
+              _bsr.setdefault('allocation_swaps', []).append({'q': _q, 'from': _c.get('subtopic_id'), 'to': _w.get('sibling')})
+      _bsr['slot_chain'][_q] = _c
+      _w['status'] = 'recorded'
+  json.dump(_kdr, open(_kr_p, 'w', encoding='utf-8'), indent=2)
+  json.dump(_bsr, open(_bsr_p, 'w', encoding='utf-8'), indent=2)
+  ```
+  When every entry is 'recorded': S13-2F (a fresh sweep of the changed docx), S13-2G phases 1-3 (a DELTA
+  round), S13-2L. Every arrow is automatic and in the same response; the user types nothing.
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -11369,11 +11818,26 @@ if AUDIT_AVAILABLE:
   IIT_JAM_BIOTECHNOLOGY always declares one, so nothing changes for this exam.
 
   ```python
+  import json, os, blueprint_core as bc, final_assembly as fa
   _qi = fa.qindex_certify(registry, bp, N)
+  # v5.96 (OD-2026-11-09): check 6 counts every row at its recorded basis (pp.qindex_count_band), so a
+  # forced label or a band swap never fails it; a FAIL the S13-2F sweep escalated to AMBER stays AMBER here,
+  # and any other FAIL is self-healed (rebuild question_index at S13-4, re-run) before it may stop
+  _bsq_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _bsq = json.load(open(_bsq_p, encoding='utf-8')) if os.path.exists(_bsq_p) else {}
+  if not _qi['ok'] and 'A-QINDEX' in ((_bsq.get('escalated_paper') or {}).get('gates') or []):
+      print("G-QINDEX: AMBER — ESCALATED at S13-2F (OD-2026-11-09): " + "; ".join(_qi['fails']))
+      _qi = dict(_qi, ok=True)
   if not _qi['ok']:
-      raise SystemExit("HARD STOP [HS:INFRA] (G-QINDEX): " + "; ".join(_qi['fails'])
-                       + ". Fix the per-Q subtopic_id/difficulty capture (S7-NEW-A) or the "
-                       + "schedule-first assignment, rebuild question_index (S13-4), re-run.")
+      _act_q, _bsq['infra_heal'], _n_q = bc.infra_heal_step(_bsq.get('infra_heal'), 'S13-QINDEX')
+      json.dump(_bsq, open(_bsq_p, 'w', encoding='utf-8'), indent=2)
+      _msg_q = ("HARD STOP [HS:INFRA] (G-QINDEX): " + "; ".join(_qi['fails'])
+                + ". Fix the per-Q subtopic_id/difficulty capture (S7-NEW-A) or the "
+                + "schedule-first assignment, rebuild question_index (S13-4), re-run.")
+      if _act_q == 'heal':
+          raise RuntimeError(f"INFRA-HEAL [HS:LADDER] S13-QINDEX (attempt {_n_q}/{bc.INFRA_HEAL_MAX}): perform the "
+                             f"repair named below NOW, automatically, then re-run — {_msg_q}")
+      raise SystemExit(_msg_q)
   QINDEX_OK = True
   print(f"G-QINDEX: question_index certified for mock {N} — OK.")
   ```
@@ -11475,6 +11939,20 @@ if AUDIT_AVAILABLE:
 
   ```python
   _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
+  import json, os, blueprint_core as bc
+  _bs4c_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _bs4c = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
+  _esc4c = _bs4c.get('escalated_paper') or {}
+  def _infra4c(site, msg):
+      # v5.96 (OD-2026-11-09): every S13-4c stop names its own repair — perform it automatically and re-run
+      # this block; only after bc.INFRA_HEAL_MAX heals of the same site may it end the response
+      _b = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
+      _act, _b['infra_heal'], _n = bc.infra_heal_step(_b.get('infra_heal'), site)
+      json.dump(_b, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
+      if _act == 'heal':
+          raise RuntimeError(f"INFRA-HEAL [HS:LADDER] {site} (attempt {_n}/{bc.INFRA_HEAL_MAX}): perform the repair "
+                             f"named below NOW, automatically, then re-run this block — {msg}")
+      raise SystemExit(msg)                      # the tool is still broken after INFRA_HEAL_MAX heals
   # v5.90/v5.91: a RESUMED response (S4-12, after an interruption) may not have run S13-2F in
   # this turn — CERT,
   # AMBER_NOTES and UNCERTIFIED_ITEMS (DeliveryFooter §LADDER lines) are re-read from the
@@ -11523,19 +12001,22 @@ if AUDIT_AVAILABLE:
              if os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json') else []),
            *(['--style-profile', f'/mnt/project/{EXAM}_style_profile.json']
              if os.path.exists(f'/mnt/project/{EXAM}_style_profile.json') else []),   # A-ITEMRULE suspension (R7.2)
-           '--mockN', str(N)],
+           '--mockN', str(N),
+           # v5.96: the paper-level gates S13-2F escalated to AMBER at its sweep cap (the same verdict)
+           *(['--escalate-paper', ','.join(_esc4c['gates']), '--sweep', str(_esc4c.get('sweep'))]
+             if _esc4c.get('gates') else [])],
           capture_output=True, text=True, env=AUDIT_ENV)        # S3-9: engines importable
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
       if _r.returncode != 0:
           # v5.89: S13-2F certified this docx against the PREVIEW of this very commit
           # with every gate (no FAIL line of any gate), and AMBER advisories are WARN
-          # lines (no exit 1). v5.90 (OD-9): a quality finding that sits ONLY on items
-          # stamped UNRESOLVED is reconciled by the auditor to a WARN line (the paper is
-          # NOT CERTIFIED, which Deliver reads) — it never exits 1 either. A non-zero exit
+          # lines (no exit 1). v5.96 (OD-2026-11-09): a finding that sits ONLY on DISCLOSED items
+          # (exhausted chains) is reconciled by the auditor to an AMBER WARN line (a legacy
+          # UNRESOLVED stamp likewise) — it never exits 1 either. A non-zero exit
           # here therefore means the committed record differs from its preview, or the
           # docx changed after certification (A-CERT) — INFRASTRUCTURE, never a
           # question-quality matter.
-          raise SystemExit(
+          _infra4c('S13-4c-2',
               "HARD STOP [HS:INFRA] (S13-4c re-sweep, v5.89): the committed paper fails a gate "
               "its S13-2F preview passed (or A-CERT: the docx changed after certification) — "
               "see STDOUT above. The registry is committed: restore "
@@ -11552,7 +12033,7 @@ if AUDIT_AVAILABLE:
       # to print a line in both states (armed verdict or 'dormant'), so its
       # ABSENCE is unambiguous evidence of a stale copy, never of a pass.
       if 'A-QINDEX' not in (_r.stdout or ''):
-          raise SystemExit(
+          _infra4c('S13-4c-3',
               f"HARD STOP [HS:INFRA] (S13-4c, v5.48.0): {EXAM}_mock_test_audit.py printed no "
               "A-QINDEX line, so it predates the FK gate and the question_index "
               "was NOT certified — a clean exit code here would be meaningless. "
@@ -11566,7 +12047,7 @@ if AUDIT_AVAILABLE:
       # batch's STEP B, before S13-4) — here that would mean S13-4 never committed it.
       if any(re.search(r'\]\s+A-QINDEX\s+dormant\b', l)
              for l in (_r.stdout or '').splitlines()):
-          raise SystemExit(
+          _infra4c('S13-4c-4',
               f"HARD STOP [HS:INFRA] (S13-4c, v5.86): A-QINDEX reported dormant — this paper is not "
               f"in the registry's commit ledgers, so S13-4 did not commit it. Re-run S13-4 "
               f"in FULL, then S13-REGCHECK, S13-QINDEX and this re-sweep. present_files is "
@@ -11592,7 +12073,7 @@ if AUDIT_AVAILABLE:
               # blueprint_core (stale or unimportable engine) — equally uncertified.
               if not _gl or any(('dormant' in l or 'NOT AUDITED' in l or 'NOT CHECKED' in l
                                  or 'NOT ESTABLISHED' in l) for l in _gl):
-                  raise SystemExit(
+                  _infra4c('S13-4c-5',
                       f"HARD STOP [HS:INFRA] (S13-4c, v5.88): the auditor did not certify this paper's "
                       f"figures — {_g}: {_gl[0].strip() if _gl else 'no line (auditor < v2.32; refresh the per-exam copy from the verified repo audit_canonical.py)'}. "
                       f"The figure record must be in the registry (S13-4 commits it whenever "
@@ -11609,13 +12090,17 @@ if AUDIT_AVAILABLE:
           _ab = [l for l in (_r.stdout or '').splitlines()
                  if re.search(r'\]\s+A-BLOCK\s', l)]
           if not _ab or any('dormant' in l for l in _ab):
-              raise SystemExit(
+              _infra4c('S13-4c-6',
                   f"HARD STOP [HS:INFRA] (S13-4c, v5.85): the auditor did not certify the "
                   f"stimulus groups of this set-placed paper "
                   f"({_ab[0].strip() if _ab else 'no A-BLOCK line'}). The paper's "
                   f"profile snapshot {STIM_PROFILE_PATH} must exist (S3-12b writes it) "
                   f"and be passed as --stimulus-profile; re-run S3-12b and this "
                   f"re-sweep. present_files is forbidden until clean (B-7).")
+      _bs4c = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
+      for _k4 in [k for k in (_bs4c.get('infra_heal') or {}) if str(k).startswith('S13-4c')]:
+          _bs4c['infra_heal'] = bc.infra_heal_clear(_bs4c.get('infra_heal'), _k4)   # this re-sweep passed
+      json.dump(_bs4c, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
   ```
 
   v5.48.0: this re-sweep now ALSO arms A-QINDEX (the engine-enforced FK gate over the
@@ -11671,7 +12156,7 @@ if AUDIT_AVAILABLE:
                              "run used the verified repo auditor; informational, nothing to upload")
   # v5.92 (GAP-2026-11-05 Part D / DeliveryFooter §FOOTER-FT): a difficulty control that could
   # not measure SAYS SO — AMBER lines from the ONE formatter; never a stop, no certification
-  # effect (OD-9: NOT CERTIFIED only from an ACTIVE, measured gate).
+  # effect (v5.96, OD-2026-11-09: a Create paper is never NOT CERTIFIED).
   # The persisted record is the source (every CHECK 3c mutation was written there in the same
   # write as difficulty_plan); the in-memory globals are the fallback for a fresh session.
   try:
@@ -11698,7 +12183,7 @@ if AUDIT_AVAILABLE:
       _kd6 = _json6.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')) or {}
   except Exception:                                   # noqa: BLE001 — never a stop
       _kd6 = {}
-  # v5.94 (GAP-2026-11-07): delivered vs target counts, DR3 items, unmeasured slots and the organic
+  # v5.94 (GAP-2026-11-07): delivered vs target counts, forced / swapped / held items (legacy: DR3), unmeasured slots and the organic
   # ruler's state — one formatter (bc.difficulty_layer_lines), informational, never a verdict.
   _l2_6 = _ds.get('l2_model') if isinstance(_ds.get('l2_model'), dict) else None
   _l2ids_6 = set((_l2_6 or {}).get('scope_ids') or [])
@@ -11706,6 +12191,13 @@ if AUDIT_AVAILABLE:
                 if isinstance(_e6x, dict) and str(_e6x.get('subtopic_id')) in _l2ids_6)
   INFO_LINES_S136.extend(bc.difficulty_layer_lines(_ds.get('paper_gate'), _l2_6, n_l2_items=_n_l2_6,
                                                    shares_source=(_l2_6 or {}).get('grades_source')))
+  # v5.96 (OD-2026-11-09): every slot chain that ended at a terminal — forced labels, majority
+  # certifications and DISCLOSED items are AMBER-class (DeliveryFooter §LADDER), re-keys and sibling
+  # replacements informational. Engine-written (bc.chain_footer_lines, recorded by S13-2L).
+  _cf6 = _ds.get('chain_footer') if isinstance(_ds.get('chain_footer'), dict) else {}
+  INFO_LINES_S136.extend(_cf6.get('info') or [])
+  AMBER_NOTES = list(globals().get('AMBER_NOTES') or []) + [x for x in (_cf6.get('amber') or [])
+                                                             if x not in (globals().get('AMBER_NOTES') or [])]
   _notes6 = {}
   for _q6, _e6 in ((_kd6.get('concept_map') or {}).items()):
       _ln6 = ((_e6 or {}).get('difficulty_check') or {}).get('level_note') if isinstance(_e6, dict) else None
@@ -12617,7 +13109,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.95
+# END OF Framework_MockTestCreate v5.96
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

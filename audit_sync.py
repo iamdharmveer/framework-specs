@@ -482,6 +482,27 @@ def _self_test():
     check("the regex this replaced DOES truncate the same input",
           bool(_old) and 'after_the_marker' not in _old[0])
 
+    # ── 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT) — LABEL-VERIFIER / REVIEW-COVERAGE / LADDER-COVERAGE ──
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\nok, m = bc.verify_difficulty_obs(label, obs, labels)\n```\n'))
+    check("LABEL-VERIFIER fires when a governed spec verifies a label with the obs primitive",
+          rc == 1 and 'LABEL-VERIFIER' in out and 'Framework_MockTestCreate.md' in out)
+    def _strip_cov(r):
+        p08 = os.path.join(r, 'Framework_MockTestCreate.md')
+        t08 = open(p08, encoding='utf-8').read().replace('bc.review_coverage_missing(', 'bc.review_coverage_gone(')
+        open(p08, 'w', encoding='utf-8').write(t08)
+    rc, out = mutated(_strip_cov)
+    check("REVIEW-COVERAGE fires when the governed spec stops checking coverage",
+          rc == 1 and 'REVIEW-COVERAGE' in out)
+    rc, out = mutated(lambda r: append(r, 'audit_canonical.py',
+        "\n\ndef gate_unrouted_fixture(src):\n    _fail('A-UNROUTED-FIXTURE', 'x')\n"))
+    check("LADDER-COVERAGE fires on an auditor FAIL gate with no route",
+          rc == 1 and 'LADDER-COVERAGE' in out and 'A-UNROUTED-FIXTURE' in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQCount.md',
+        '\n```python\nok = bc.verify_difficulty_label(entry, labels)\n```\n'))
+    check("LAW-COVERAGE derives the LABEL-BASIS-LAW performing set from the corpus",
+          rc == 1 and 'LAW-COVERAGE' in out and 'LABEL-BASIS-LAW' in out and 'Framework_PYQCount.md' in out)
+
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -884,7 +905,9 @@ if _REG is not None:
                          'quality_gate_producer',
                          'step_contract_spec',
                          'chem_structure_rule',
-                         'difficulty_layer_rule'):
+                         'difficulty_layer_rule',
+                         'label_basis_rule',
+                         'review_coverage_rule'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -977,6 +1000,17 @@ if _REG is not None:
             _performing = {f for f, t in TXT.items()
                            if re.search(r'\bbc\.(?:difficulty_band_min|dl_phase3_decision|difficulty_paper_gate|'
                                         r'l2_model_for_scope|pyq_grade_packet)\(', _live_text(t))}
+        elif _rule == 'label_basis_rule':
+            # GAP-2026-11-08-DR3-QINDEX-CONFLICT LABEL-BASIS-LAW. A spec performs a label-basis operation
+            # when its live text calls the ONE label verifier or the ONE basis writer.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\bbc\.(?:verify_difficulty_label|dl_set_label_basis)\(', _live_text(t))}
+        elif _rule == 'review_coverage_rule':
+            # GAP-2026-11-08-UNCERTIFIED-DELIVERY REVIEW-COVERAGE-LAW. A spec performs a review-coverage
+            # operation when its live text builds a review packet or decides review certification / coverage.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\bbc\.(?:review_packet|review_item_certified|review_coverage_missing)\(',
+                                        _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.
@@ -1009,6 +1043,51 @@ if _REG is not None:
                     if not any(c == 'LAW-VERIFY' for c in ISSUES):
                         rec('LAW-VERIFY', f"{_law}: audit_callgraph exited "
                                           f"{_r.returncode} on the governed specs.")
+
+# ── 8b. LABEL-VERIFIER / REVIEW-COVERAGE / LADDER-COVERAGE (2026.11.09) ─────────────
+# GAP-2026-11-08-DR3-QINDEX-CONFLICT. Release 2026.11.08 shipped two authorities over one field (the DR3
+# relabel and A-QINDEX check 8) and a closed stop allow-list, and every gate was green: no check asked
+# whether a spec still verified a label with the retired single-basis function, whether a reviewed item was
+# bound to the text it reviewed, or whether a FAIL the auditor can emit has ANY repair route. Three checks:
+#   LABEL-VERIFIER   — a spec governed by LABEL-BASIS-LAW never calls bc.verify_difficulty_obs( in live text
+#                      (the label verifier is bc.verify_difficulty_label — one verifier, a recorded basis).
+#   REVIEW-COVERAGE  — a spec governed by REVIEW-COVERAGE-LAW calls bc.review_coverage_missing( and passes
+#                      '--item-hashes' to the auditor (the hash is computed, never declared).
+#   LADDER-COVERAGE  — every gate id audit_canonical.py can FAIL is routable: it emits item findings, or it
+#                      is in blueprint_core LADDER_ENTRY_RUNG / INFRA_GATES / PAPER_GATE_ROUTE. An unrouted
+#                      FAIL is exactly the 2026.11.08 stop (bc.sweep_route).
+_LAWS_08B = (_REG.get('laws') or {}) if _REG is not None else {}
+for _f in (_LAWS_08B.get('LABEL-BASIS-LAW') or {}).get('governs') or []:
+    if _f in TXT and re.search(r'\bbc\.verify_difficulty_obs\(', _live_text(TXT[_f])):
+        rec('LABEL-VERIFIER', f"{_f}: live text calls bc.verify_difficulty_obs( — a label is verified ONLY by "
+                              f"bc.verify_difficulty_label (LABEL-BASIS-LAW); the obs primitive alone cannot see "
+                              f"a swap / forced / binding-ruler basis and recreates the 2026.11.08 clash.")
+for _f in (_LAWS_08B.get('REVIEW-COVERAGE-LAW') or {}).get('governs') or []:
+    if _f in TXT:
+        _lv08 = _live_text(TXT[_f])
+        if 'bc.review_coverage_missing(' not in _lv08 or "'--item-hashes'" not in _lv08:
+            rec('REVIEW-COVERAGE', f"{_f}: governed by REVIEW-COVERAGE-LAW but its live text does not call "
+                                   f"bc.review_coverage_missing( AND pass '--item-hashes' — a changed item could be "
+                                   f"delivered with no review bound to its final text.")
+if os.path.exists('audit_canonical.py') and os.path.exists('blueprint_core.py'):
+    try:
+        sys.path.insert(0, os.path.abspath('.'))
+        import importlib as _il08
+        _bc08 = _il08.import_module('blueprint_core')
+        _ac08 = open('audit_canonical.py', encoding='utf-8').read()
+        _a08, _b08 = _ac08.find('\ndef self_test():'), _ac08.find('\ndef main():')
+        _ac08 = _ac08[:_a08] + _ac08[_b08:] if 0 <= _a08 < _b08 else _ac08
+        _fails08 = set(re.findall(r"_fail\(\s*'([A-Za-z0-9\-]+)'", _ac08))
+        _items08 = set(re.findall(r"_item\(\s*'([A-Za-z0-9\-]+)'", _ac08))
+        _routed08 = (set(getattr(_bc08, 'LADDER_ENTRY_RUNG', {})) | set(getattr(_bc08, 'INFRA_GATES', ()))
+                     | set(getattr(_bc08, 'PAPER_GATE_ROUTE', {})) | _items08)
+        for _g08 in sorted(_fails08 - _routed08):
+            rec('LADDER-COVERAGE', f"audit_canonical.py can FAIL gate {_g08!r} but it has NO route — not an item "
+                                   f"gate and not in blueprint_core LADDER_ENTRY_RUNG / INFRA_GATES / PAPER_GATE_ROUTE. "
+                                   f"S13-2F would have no lawful repair for it (GAP-2026-11-08-DR3-QINDEX-CONFLICT).")
+    except Exception as _e08:                                   # noqa: BLE001
+        rec('LADDER-COVERAGE', f"could not verify gate routes ({type(_e08).__name__}: {_e08}) — an unverified "
+                               f"route table is the 2026.11.08 defect waiting to recur.")
 
 # ── 9. DOC COUNTS (2026.08.15.7) — no hand-maintained live count survives ────
 # WHY. CLAUDE.md's deploy gate carried "39/39 — 23 specs + 16 engines" through six

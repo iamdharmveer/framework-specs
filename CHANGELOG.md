@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026.11.09 — GAP-2026-11-08-DR3-QINDEX: a paper is never stopped and never delivered NOT CERTIFIED, in every exam
+(blueprint_core v1.34; audit_canonical v2.39; final_assembly v1.15; paper_pipeline (check-6 mirror); notes_core v2.15;
+audit_sync (LABEL-VERIFIER / REVIEW-COVERAGE / LADDER-COVERAGE); handshake_audit (189 checks); Framework_MockTestCreate
+v5.96; Framework_MockTestOrchestrate v1.1.0; Framework_MockDeliver v1.28.0; Framework_DeliveryFooter v1.44.0;
+LAW_REGISTRY.json (+LABEL-BASIS-LAW, +REVIEW-COVERAGE-LAW, DIFFICULTY-LAYER-LAW and QUALITY-GATE-LAW amended);
+STEP_CONTRACTS.json override floors; SPEC_SECTIONS / MANIFEST / SPEC_MANIFEST / SHA256SUMS regenerated.)
+
+**Cause (evidence: TestCreate, a post-graduate chemistry exam, SUBJ Organic Chemistry P1, 40 Q, 2026-11-08).**
+The run HARD STOPPED at Final Assembly. Two exam-independent defects: (1) the DR3 fallback RELABELLED a
+question to the band every reviewer measured, but A-QINDEX check 8 (label == review) and check 6 (exact
+schedule counts — also run post-commit by S13-QINDEX as HS:INFRA) were never taught that basis, so the
+paper could not pass its own auditor; (2) a disputed key (Q29) was stamped UNRESOLVED, which makes the
+paper NOT CERTIFIED with no automatic route out.
+
+**Owner decisions (OD-2026-11-09).** Never relabel — replace. Per slot: rework DR1 (1), rework DR2 (1),
+replace (3), shape (2), sibling subtopic (2 each, at most 3) = 13 reviewed attempts, then BAND SWAP with a
+paired item, then PAIRED UPGRADE, then — never a stop — the slot's label is FORCED to the schedule and the
+item is listed on an AMBER footer line. No paper or question is ever delivered NOT CERTIFIED; no rule or
+quality conflict ever hard-stops.
+
+**What changed.**
+- *LABEL-BASIS-LAW (blueprint_core v1.34).* ONE label verifier, verify_difficulty_label, with a recorded
+  basis (review / SWAP / FORCED / legacy dr3 / l2 binding / obs); used by A-QINDEX check 8, G-DIFF,
+  CHECK 3c and notes recall. Check 6 counts through qindex_count_band (mirrored in paper_pipeline,
+  parity-tested). dl_set_label_basis is the only writer.
+- *Slot chains.* Kinds difficulty / dispute / quality / upgrade, each with a fixed attempt budget and
+  deterministic terminals (difficulty: band_swap -> paired_upgrade -> forced; dispute: panel -> rekey ->
+  majority; quality: amber disclosure; upgrade: abandon). New MockTestCreate S13-2L (scheduler) and
+  S13-2R (re-author + record); an UNRESOLVED stamp is never written again.
+- *REVIEW-COVERAGE-LAW.* Every item's latest review is bound to the hash of its delivered text (computed
+  by the auditor, --item-hashes); delta review rounds; D0 reviewer-health void; switched reviewer; 3-reviewer
+  panel majority.
+- *S13-2F sweep_route.* Infra gates self-heal (2 heals); paper gates route to reassemble / recapture; AMBER
+  escalation at sweep 6 — no hard stop.
+- *Orchestrate v1.1.0 O2-8.* A stop is resumed by re-running Step 0 on fresh production and continuing the
+  worker; migrate_paper_state moves a pre-2026.11.09 paper (its DR3 relabels and UNRESOLVED items) onto chains.
+- *Footer v1.44.0 / Deliver v1.28.0.* SLOT-CHAIN LINES: forced / majority / disclosed items as AMBER lines;
+  swaps / rekeys / siblings as info lines. --accept-uncertified is legacy-only.
+- *Two spec bugs found and fixed by the new handshake:* a delta round stamped NOT_RUN on items it never
+  queued; S13-2L left a newly opened upgrade chain unscheduled and raised before saving state.
+- *Pre-deploy line-by-line review (2 passes) + a randomized termination run* (the spec's own S13-2L /
+  S13-2R code on 500+ random papers: every terminal reached; 0 non-terminations, schedule exact, every chain
+  closed, every item covered, every SWAP / FORCED label verified). Defects found and fixed, each with a
+  fixture that fails on the defect:
+  * a resolved PENDING attempt dropped its sibling name, so a sibling's cap never filled and the chain
+    looped forever (found by the randomized run: 6 of 60 papers never ended) — bc.slot_chain_record keeps it;
+  * S13-4c's self-heal called itself instead of stopping after INFRA_HEAL_MAX (unbounded recursion);
+  * coverage demanded an INDEPENDENT review, so a session that can only use the owner-accepted same-session
+    fallback (D1 / D4), or a reviewer that keeps failing (NOT_RUN), looped delta rounds forever — coverage
+    is now "a record bound to the delivered text" (NOT_RUN records carry the hash); independence still
+    gates CERTIFYING a disputed item, and a NOT_RUN / same-session verdict FAILS that dispute attempt;
+  * a difficulty attempt could PASS on the author-side CHECK 3c band when its delta review was NOT_RUN —
+    it now needs an actual delta verdict;
+  * a slot awaiting a paired-upgrade partner whose chain was superseded (the partner's new text disputed)
+    stayed parked forever — it now moves on (stage 7 failed);
+  * a dispute replacing an open difficulty / quality chain reset its attempt count (unbounded alternation)
+    and a reopened chain overwrote a finished one (its AMBER footer line lost) — bc.slot_chain_reopen
+    suspends / resumes and keeps every finished chain in 'history' (chain_footer_lines reports it);
+  * a re-key with no panel majority for another option was scheduled as work — it now fails at once;
+  * a MAJORITY reached after a NOT_RUN round lost its text binding — it is bound to the current record;
+  * a registry-only final audit (no sidecar) could not re-derive a DISCLOSED item or a panel certification —
+    final_assembly v1.15 commits 'slot_chain' (DISCLOSED items only) and the review carries its panel records;
+  * dl_phase3_decision floor-clamps in BOTH rounds (an MSQ / NAT is never reworked for a band it cannot carry);
+  * slot_chain_next kept the stages it found unavailable when it returned a sibling.
+
+- *Owner decision 2026-11-10 (supersedes D3-R5 (A) for difficulty).* A slot that still measures HARDER than its
+  band after the whole ladder is no longer relabelled with the schedule amended: it is HELD at its scheduled band
+  (bc.dl_set_label_basis 'held', verified by the one label verifier, counted at its slot, footer "Difficulty held at
+  slot: …") — the requested schedule is delivered exactly in every direction. A HELD slot is a valid band-swap partner.
+- *Cross-step sync audit.* Every reader of every changed value checked (Deliver certification reads only
+  UNRESOLVED; Step 9's difficulty gate DISCLOSES, never fails; Explain checks canonical bands only; Analyse no longer
+  reads mock labels); stale Create prose that still described OD-9 UNRESOLVED / NOT CERTIFIED and the DR3
+  relabel corrected.
+
+- *Second pre-deploy review (2026-11-10) — new verification methods, each finding fixed with a fixture that fails on it:*
+  mutation testing of every new engine function (390 mutants, every survivor proven equivalent or killed by a new
+  boundary fixture — _lb_sc_edge_self_test / _lb_sc_edge2_self_test); property tests (12,000 random / hostile inputs,
+  0 violations); static analysis (pyflakes on engines and every spec block — no new finding); a permanent
+  downstream replay (handshake H-DOWN: a v5.96 paper through commit, S13-QINDEX, the registry-only final audit,
+  MockDeliver, Explain, Step 9 and Notes). Found and fixed: a quality chain could exceed its 11-attempt budget when
+  an attempted sibling was later found unqualified; the orchestrator could not tell a switched / panel review part
+  (the mode now travels in the folder name it receives); a D0 switched reviewer that never answered re-raised
+  forever (bounded at 2); S13-2R promised that A-SHAPEMIX and the allocation gates "accept" shape / sibling
+  changes that no gate knew — a shape change now has to pass bc.shape_mix_check and a sibling replacement IS the
+  R5 REASSIGN procedure (q_count amendment included); migration replaced a difficulty chain instead of suspending it;
+  forced / majority / DISCLOSED records now store a compact chain (registry size); item_hash / migrate never raise
+  on malformed input; stale L7 (OD-9) and DR3 prose corrected.
+
+**Unchanged.** MockReview.md (single-read limit). No trigger, deliverable or end state changed.
+
 ## 2026.11.08.1 — GAP-2026-11-07-RE25-HARDENING: world-class organic-chemistry explanations with zero silent defects, in every exam
 (explain_engine v2.14; corpus_io v1.20; Framework_MockTestExplain v1.55.0; Framework_PYQExplain v2.30;
 Framework_MockTestCreate v5.95; Framework_DeliveryFooter v1.43.0; CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1;

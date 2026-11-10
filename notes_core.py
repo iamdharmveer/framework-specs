@@ -1,5 +1,12 @@
 """
-notes_core.py v2.14 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.15 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.15 — 2026-11-09 — ONE LABEL VERIFIER (GAP-2026-11-08-DR3-QINDEX-CONFLICT, LABEL-BASIS-LAW; pairs with
+    blueprint_core v1.34). recall_verify_difficulty calls bc.verify_difficulty_label — the one label verifier
+    G-DIFF and A-QINDEX check 8 call — on {difficulty, difficulty_obs}. A Notes Recall carries no
+    difficulty_check, so its basis is 'obs' (or 'l2' when its obs records a BINDING ruler band) and the
+    verdict is byte-identical to v2.14 for every existing record; an engine without the function falls back
+    to verify_difficulty_obs.
 
 v2.14 — 2026-11-05 — RUBRIC RULE PASS-THROUGH (GAP-2026-11-05-DIFFICULTY-FIDELITY, guards
     G1/G10; pairs with blueprint_core v1.32, notes_audit v2.11, Framework_NotesCreate
@@ -2293,13 +2300,17 @@ def _partner_key_norm(partner):
 
 def recall_verify_difficulty(label, obs, labels=DIFFICULTY_LABELS_DEFAULT):
     """label == the shared rubric's band for the recorded observations?
-    Wraps blueprint_core.verify_difficulty_obs — the SAME check Step 7's G-DIFF
+    Wraps blueprint_core.verify_difficulty_label (v2.15) — the SAME check Step 7's G-DIFF
     and A-QINDEX check 8 run. Returns (ok, measured, dormant_reason)."""
     try:
         import blueprint_core as _bc
     except ImportError:
         return (True, None, "blueprint_core unavailable — rubric dormant")
-    ok, measured = _bc.verify_difficulty_obs(label, obs, list(labels))
+    if hasattr(_bc, 'verify_difficulty_label'):
+        ok, measured, _basis = _bc.verify_difficulty_label(
+            {'difficulty': label, 'difficulty_obs': obs if isinstance(obs, dict) else {}}, list(labels))
+    else:
+        ok, measured = _bc.verify_difficulty_obs(label, obs, list(labels))
     if measured is None:
         return (True, None, "observations unusable — rubric fall-through")
     return (bool(ok), measured, None)

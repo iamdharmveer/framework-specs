@@ -188,7 +188,7 @@ def _dl_handshake(check, ROOT, run_fence, W):
         items = [{'q': int(q), 'subtopic_id': e['subtopic_id'], 'stem': e['stem_text'], 'options': e['option_texts'],
                   'named_concepts': e['difficulty_obs']['named_concepts'], 'figures': []} for q, e in cm.items()]
         P1 = {'bc': bc, 'batch_state': {'difficulty_state': copy.deepcopy(DS)}, '_items': items, '_slice': {},
-              'PAPER_MD5': 'f' * 32}
+              'PAPER_MD5': 'f' * 32, '_panel': [], '_switch': set()}
         run_fence(snip("  # v5.94: an organic paper's reviewer also names", "  REVIEW_ROUND = int("), P1)
         PK = P1['PACKET']
         _flat = json.dumps(PK)
@@ -200,6 +200,7 @@ def _dl_handshake(check, ROOT, run_fence, W):
             recs[q] = {'own_key': 1, 'single_answer': 'yes', 'leak_or_paraphrase': 'none',
                        'difficulty_band_with_exemplar': f"{e['difficulty_check']['measured'] or e['difficulty']}, like exemplar {e['subtopic_id']}/1",
                        'distractor_existence_and_class': '1: x', 'key_derivation': 'd', 'confidence': 'high',
+                       'consistency_and_names': 'ok', 'selectivity_basis': 'clean',   # a COMPLETE record (D0, 2026.11.09)
                        'concepts_used': list(e['difficulty_obs']['named_concepts'])}
         VF, _vprobs = bc.review_verdict_file(EXAM, 'm01', 'f' * 32, recs, reviewer='sub-agent')
         _vf_items = VF.get('items') if isinstance(VF, dict) else {}
@@ -229,16 +230,68 @@ def _dl_handshake(check, ROOT, run_fence, W):
                 check(f'H-DL {EXAM} phase 3 round 1: every below item is a REVIEW_REPAIR defect at DR1, none relabelled',
                       len(rep) == n_below and set(rep) <= set(bs['review_defects']) and bs['state'] == 'REVIEW_REPAIR'
                       and all(kd['concept_map'][q]['difficulty'] == plan[int(q)] for q in rep), str(len(rep)))
-        dr3 = bs['difficulty_state'].get('dr3_qs') or []
-        check(f'H-DL {EXAM} phase 3 round 2: unrepaired items accepted at the measured band (DR3), label == final band',
-              len(dr3) == n_below and all(kd['concept_map'][q]['difficulty'] == kd['concept_map'][q]['difficulty_check']['final_band']
-                                          == kd['concept_map'][q]['difficulty_check']['measured'] for q in dr3))
-        run_fence(blk('# ── S13-2L (v5.94) ──'), {'EXAM': EXAM, 'N': 1})
+        below = sorted((q for q, e in kd['concept_map'].items() if e['difficulty_check'].get('decision') == 'carried_below'), key=int)
+        check(f'H-DL {EXAM} phase 3 round 2 (OD-2026-11-09): below items stay AT their slot (carried_below) — never relabelled',
+              len(below) == n_below and not (bs['difficulty_state'].get('dr3_qs') or [])
+              and all(kd['concept_map'][q]['difficulty'] == plan[int(q)] and kd['concept_map'][q]['difficulty_check'].get('dl_rung') != 'DR3'
+                      for q in below), str(len(below)))
+        _bpp = HOME + f'/{EXAM}_hs_bp.json'; json.dump(bp, open(_bpp, 'w'))
+        def _l2l():
+            try:
+                run_fence(blk('# ── S13-2L (v5.96) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': _bpp}); return None
+            except RuntimeError as _x:
+                return str(_x)
+        _r1 = _l2l()
+        bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json')); kd = json.load(open(HOME + f'/{EXAM}_M1_answer_key.json'))
+        check(f'H-DL {EXAM} S13-2L: every below slot opens a DIFFICULTY chain whose first action is rework DR1 (SLOT-CHAIN, no stop)',
+              _r1 and 'SLOT-CHAIN' in _r1 and sorted((w['q'] for w in bs['slot_chain_work']), key=int) == below
+              and all(w['action'] == 'rework_dr1' for w in bs['slot_chain_work'])
+              and all(bs['slot_chain'][q]['kind'] == 'difficulty' for q in below), str(_r1)[:200])
+        # every reviewed attempt of every chain fails (the worst case): exhaust stages 1-5 from the engine itself
+        for q in below:
+            c = bs['slot_chain'][q]
+            for _i in range(40):
+                nx = bc.slot_chain_next(c, siblings=['s1', 's2', 's3'])
+                c = nx['chain']
+                if nx['action'] not in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling'):
+                    break
+                c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
+            bs['slot_chain'][q] = c
+        bs['slot_chain_work'] = []
+        json.dump(bs, open(HOME + f'/{EXAM}_M1_batch_state.json', 'w'))
+        _rs = []
+        for _pass in range(12):                       # swap -> upgrade (its own chain exhausted) -> forced
+            _rs.append(_l2l())
+            bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json'))
+            for p_, c_ in list(bs['slot_chain'].items()):
+                if c_.get('kind') == 'upgrade' and not c_.get('done'):
+                    for _i in range(12):
+                        nx = bc.slot_chain_next(c_)
+                        c_ = nx['chain']
+                        if nx['action'] == 'abandon':
+                            break
+                        c_ = bc.slot_chain_record(c_, nx['stage'], 'fail')
+                    bs['slot_chain'][p_] = c_
+            bs['slot_chain_work'] = []
+            json.dump(bs, open(HOME + f'/{EXAM}_M1_batch_state.json', 'w'))
+            if _rs[-1] is None:
+                break
         bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json')); kd = json.load(open(HOME + f'/{EXAM}_M1_answer_key.json'))
         PG = bs['difficulty_state']['paper_gate']
-        check(f'H-DL {EXAM} S13-2L: gate PASS with every DR3 disclosed, target plan + labels recorded for the auditor',
-              PG['status'] == 'PASS' and sorted(PG['accepted_dr3'], key=int) == sorted(dr3, key=int)
-              and PG.get('target_plan') == G['DIFFICULTY_PLAN_TARGET'] and PG.get('labels') == labs)
+        forced = sorted((f['q'] for f in PG.get('forced') or []), key=int)
+        check(f'H-DL {EXAM} S13-2L: after swap and paired-upgrade routes the exhausted slots are SCHEDULE-FORCED; the loop ends (no stop)',
+              _rs[-1] is None and forced == below and all(bs['slot_chain'][q]['outcome'] == 'forced' for q in below), str((_rs[-1], forced[:4]))[:300])
+        check(f'H-DL {EXAM} S13-2L: the schedule is delivered EXACTLY — labels counted == target plan counts; gate PASS; target plan + labels recorded',
+              PG['status'] == 'PASS' and bc.dl_band_counts({q: e['difficulty'] for q, e in kd['concept_map'].items()}, labs)
+              == bc.dl_band_counts(G['DIFFICULTY_PLAN_TARGET'], labs) and PG.get('labels') == labs
+              and PG.get('target_plan') == G['DIFFICULTY_PLAN_TARGET'], str(PG.get('counts_final')))
+        check(f'H-DL {EXAM} LABEL-BASIS-LAW: every forced label passes the ONE verifier (A-QINDEX check 8) while its obs alone would not always',
+              all(bc.verify_difficulty_label(kd['concept_map'][q], labs)[:3:2] == (True, 'forced') for q in below)
+              and all(kd['concept_map'][q]['difficulty_obs'] == cm[q]['difficulty_obs'] for q in below))
+        _cf = bs['difficulty_state'].get('chain_footer') or {}
+        check(f'H-DL {EXAM} footer: one AMBER line per forced item naming the band the review measured',
+              len([x for x in _cf.get('amber') or [] if 'schedule_forced' in x]) == len(below)
+              and all(f"Q{q}: labelled {plan[int(q)]} per schedule" in ' '.join(_cf['amber']) for q in below))
         # final_assembly: difficulty_state committed on the entry; the grade cache kept by regcheck
         R = {'question_index': [], 'papers_completed': []}
         qrecs = [dict(e, q=int(q)) for q, e in kd['concept_map'].items()]
@@ -256,8 +309,10 @@ def _dl_handshake(check, ROOT, run_fence, W):
         check(f'H-DL {EXAM} audit_canonical: A-CONTENTLEVEL OK on DL decisions; A-DIFFGATE re-count == S13-2L gate',
               _r.get('A-CONTENTLEVEL') == 'OK' and _r.get('A-DIFFGATE') == 'OK', str(ac.RESULTS)[:200])
         # S13-6 lines (spec) == MockDeliver 3f'' lines (spec formula over the committed entry)
-        S6 = {'bc': bc, '_ds': bs['difficulty_state'], '_kd6': kd, 'INFO_LINES_S136': []}
+        S6 = {'bc': bc, '_ds': bs['difficulty_state'], '_kd6': kd, 'INFO_LINES_S136': [], 'AMBER_NOTES': []}
         run_fence(snip("  # v5.94 (GAP-2026-11-07): delivered vs target counts", "  _notes6 = {}"), S6)
+        check(f'H-DL {EXAM} S13-6: the chain AMBER lines reach AMBER_NOTES (DeliveryFooter §LADDER) verbatim',
+              S6['AMBER_NOTES'] == list(_cf.get('amber') or []))
         st = _ent['difficulty_state']
         _ids11 = set((st.get('l2_model') or {}).get('scope_ids') or [])
         L11 = bc.difficulty_layer_lines(st.get('paper_gate'), st.get('l2_model'),
@@ -275,6 +330,350 @@ def _dl_handshake(check, ROOT, run_fence, W):
     check('H-DL Analyse S11-1c and Create S3-8L hash the same file (/mnt/project/<EXAM>_difficulty_profile.json)',
           "_qi_path = f'/mnt/project/{exam_code}_difficulty_profile.json'" in A
           and "open(f'/mnt/project/{EXAM}_difficulty_profile.json', 'rb')" in S)
+
+
+def _lb_swap_handshake(check, ROOT, run_fence, W):
+    """H-LB (release 2026.11.09, OD-2026-11-09) — the spec's own S13-2L / S13-2R code on a 6-item paper:
+    stage 6 BAND SWAP (Q1 Hard slot measured Medium <-> Q2 Medium slot measured Hard) and stage 7 PAIRED
+    UPGRADE (Q3 Hard slot measured Medium; Q4 Medium slot re-authored up, re-reviewed Hard, then swapped).
+    Counts never move; every relabelled item passes the ONE verifier."""
+    import blueprint_core as bc
+    labs = ['Easy', 'Medium', 'Hard']
+    S = open(os.path.join(W, 'Framework_MockTestCreate.md'), encoding='utf-8').read()
+    def blk(tag):
+        a = S.index(tag); b = S.index('  ```', a)
+        return '\n'.join(l[2:] if l.startswith('  ') else l for l in S[a:b].split('\n'))
+    HOME = ROOT + '/home/claude'; os.makedirs(HOME, exist_ok=True)
+    EXAM = 'LBX'
+    tp = {'1': 'Hard', '2': 'Medium', '3': 'Hard', '4': 'Medium', '5': 'Easy', '6': 'Hard'}
+    meas = {'1': 'Medium', '2': 'Hard', '3': 'Medium', '4': 'Medium', '5': 'Easy', '6': 'Hard'}
+    hashes = {q: f'h{q}' * 8 for q in tp}
+    cm = {q: {'subtopic_id': 'oc.a.b', 'difficulty': tp[q], 'qtype': 'mcq',
+              'difficulty_check': {'decision': 'dl_agree', 'review_measured': meas[q], 'review_controls': {'reviewer': meas[q]}},
+              'review': {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': hashes[q]}} for q in tp}
+    chains = {}
+    for q in ('1', '3'):
+        c = bc.slot_chain_new(q, 'difficulty', tp[q], 'oc.a.b')
+        for _i in range(40):
+            nx = bc.slot_chain_next(c, siblings=['oc.a.c', 'oc.a.d', 'oc.a.e'])
+            c = nx['chain']
+            if nx['action'] not in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling'):
+                break
+            c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
+        chains[q] = c
+    bs = {'difficulty_plan_target': dict(tp), 'difficulty_plan': dict(tp), 'difficulty_labels': labs, 'slot_chain': chains,
+          'difficulty_state': {}}
+    bp = {'subtopic_list': [{'subtopic_id': 'oc.a.b', 'topic': 'A', 'section': 'S'}]}
+    P = {'bs': f'{HOME}/{EXAM}_M1_batch_state.json', 'kd': f'{HOME}/{EXAM}_M1_answer_key.json',
+         'hj': f'{HOME}/{EXAM}_M1_item_hashes.json', 'bp': f'{HOME}/{EXAM}_bp.json'}
+    json.dump(bs, open(P['bs'], 'w')); json.dump({'concept_map': cm, 'answers': {q: 1 for q in tp}}, open(P['kd'], 'w'))
+    json.dump(hashes, open(P['hj'], 'w')); json.dump(bp, open(P['bp'], 'w'))
+    def l2l():
+        try:
+            run_fence(blk('  # ── S13-2L (v5.96) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': P['bp']}); return None
+        except RuntimeError as x:
+            return str(x)
+    r1 = l2l()
+    bs = json.load(open(P['bs'])); kd = json.load(open(P['kd'])); cmx = kd['concept_map']
+    check('H-LB S13-2L stage 6: Q1 <-> Q2 BAND SWAP — both labels re-based on their review, target plan swapped, counts unchanged',
+          bs['slot_chain']['1'].get('outcome') == 'band_swap' and cmx['1']['difficulty'] == 'Medium' and cmx['2']['difficulty'] == 'Hard'
+          and bs['difficulty_plan_target']['1'] == 'Medium' and bs['difficulty_plan_target']['2'] == 'Hard'
+          and bc.dl_band_counts(bs['difficulty_plan_target'], labs) == bc.dl_band_counts(tp, labs)
+          and bc.verify_difficulty_label(cmx['1'], labs) == (True, 'Medium', 'review')
+          and bc.verify_difficulty_label(cmx['2'], labs) == (True, 'Hard', 'review'), str((r1, bs['slot_chain']['1'].get('outcome'))))
+    check('H-LB S13-2L stage 7: no partner for Q3 -> Q4 opens an UPGRADE chain targeting Hard; its rework is S13-2R work',
+          bs['slot_chain']['4']['kind'] == 'upgrade' and bs['slot_chain']['4']['target'] == 'Hard'
+          and bs['slot_chain']['3'].get('awaiting') == 'upgrade'
+          and any(w['q'] == '4' and w['action'] == 'rework_dr1' and w['target'] == 'Hard' for w in bs['slot_chain_work'])
+          and r1 and 'SLOT-CHAIN' in r1, str((r1, bs['slot_chain'].get('4'))))
+    # S13-2R: the item is re-authored (the session's CLASS J work) and recorded by the spec's record block
+    for w in bs['slot_chain_work']:
+        w['status'] = 'done'
+    json.dump(bs, open(P['bs'], 'w'))
+    run_fence(blk('  # ── S13-2R record (v5.96) ──'), {'EXAM': EXAM, 'N': 1})
+    bs = json.load(open(P['bs'])); kd = json.load(open(P['kd']))
+    check('H-LB S13-2R record: Q4 attempt PENDING (resume-safe), its old basis cleared (E10), entry marked recorded',
+          bs['slot_chain']['4']['attempts'][-1]['outcome'] == 'pending' and all(w['status'] == 'recorded' for w in bs['slot_chain_work'])
+          and 'label_basis' not in kd['concept_map']['4']['difficulty_check'])
+    # the new Q4 text is swept and DELTA-reviewed: new hash, independent review measures it Hard
+    hashes['4'] = 'z4' * 32; json.dump(hashes, open(P['hj'], 'w'))
+    kd['concept_map']['4']['difficulty_check'].update({'review_measured': 'Hard', 'review_controls': {'reviewer': 'Hard'}})
+    kd['concept_map']['4']['review'] = dict(kd['concept_map']['4']['review'], item_hash=hashes['4'])
+    json.dump(kd, open(P['kd'], 'w'))
+    r2 = l2l()
+    bs = json.load(open(P['bs'])); kd = json.load(open(P['kd'])); cmx = kd['concept_map']
+    check('H-LB S13-2L stage 7 success: Q4 measured Hard -> Q3 <-> Q4 swap; schedule EXACT; both labels verified; footer names the swap',
+          bs['slot_chain']['3'].get('outcome') == 'paired_upgrade' and bs['slot_chain']['4'].get('outcome') == 'rework_dr1'
+          and cmx['3']['difficulty'] == 'Medium' and cmx['4']['difficulty'] == 'Hard'
+          and bc.dl_band_counts({q: e['difficulty'] for q, e in cmx.items()}, labs) == bc.dl_band_counts(tp, labs)
+          and bc.verify_difficulty_label(cmx['3'], labs)[0] and bc.verify_difficulty_label(cmx['4'], labs)[0]
+          and any('Q3: difficulty band swapped with Q4' in x for x in (bs['difficulty_state'].get('chain_footer') or {}).get('info', []))
+          and bs['difficulty_state']['paper_gate']['status'] == 'PASS', str((r2, bs['slot_chain'].get('3'))))
+    r3 = l2l()
+    check('H-LB S13-2L: nothing open -> the block ends (no stop, no further round)', r3 is None, str(r3))
+    # ── 2026.11.09 review: chain hand-over edge cases, through the spec's own S13-2L ──
+    def _exh(c, upto):                                        # run a chain's stages as failed attempts up to a terminal
+        for _i in range(40):
+            nx = bc.slot_chain_next(c, siblings=['oc.a.c', 'oc.a.d', 'oc.a.e'])
+            c = nx['chain']
+            if nx['action'] == upto or nx['action'] not in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling', 'adjudicate'):
+                return c
+            c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
+        return c
+    tp2 = {'1': 'Hard', '2': 'Medium', '5': 'Medium', '6': 'Hard'}
+    me2 = {'1': 'Medium', '2': 'Medium', '5': 'Medium', '6': 'Medium'}
+    hs2 = {q: f'k{q}' * 8 for q in tp2}
+    _ag = lambda q, ok: {'key_agrees': ok, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': hs2[q]}
+    cm2 = {q: {'subtopic_id': 'oc.a.b', 'difficulty': tp2[q], 'qtype': 'mcq',
+               'difficulty_check': {'decision': 'carried_below' if me2[q] != tp2[q] else 'dl_agree', 'review_measured': me2[q],
+                                    'review_controls': {'reviewer': me2[q]}},
+               'review': _ag(q, True), 'review_history': [_ag(q, True)]} for q in tp2}
+    cm2['5']['review_history'] = [_ag('5', False), _ag('5', True), _ag('5', False)]
+    c1 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('1', 'difficulty', 'Hard', 'oc.a.b'), 'paired_upgrade'),
+                                   'band_swap', 'fail'), awaiting='upgrade', partner='2')
+    c2 = bc.slot_chain_reopen(dict(bc.slot_chain_new('2', 'upgrade', 'Hard', 'oc.a.b'), upgrade_for='1'), '2', 'dispute')
+    c2 = bc.slot_chain_finish(c2, 'adjudicate')                # the partner's text was disputed, then settled
+    c5 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('5', 'dispute'), 'panel'), 'panel', 'fail'), panel_alt=None)
+    c6s = bc.slot_chain_record(bc.slot_chain_record(bc.slot_chain_new('6', 'difficulty', 'Hard', 'oc.a.b'), 'rework_dr1', 'fail'),
+                               'rework_dr2', 'pending')
+    c6 = bc.slot_chain_finish(bc.slot_chain_reopen(c6s, '6', 'dispute'), 'majority', agree=2, n=3)
+    bs2 = {'difficulty_plan_target': dict(tp2), 'difficulty_plan': dict(tp2), 'difficulty_labels': labs,
+           'slot_chain': {'1': c1, '2': c2, '5': c5, '6': c6}, 'difficulty_state': {}}
+    json.dump(bs2, open(P['bs'], 'w')); json.dump({'concept_map': cm2, 'answers': {q: 1 for q in tp2}}, open(P['kd'], 'w'))
+    json.dump(hs2, open(P['hj'], 'w'))
+    r4 = l2l()
+    bs2 = json.load(open(P['bs'])); kd2 = json.load(open(P['kd']))
+    check('H-LB edge: Q1 awaited an upgrade partner whose chain was superseded -> stage 7 fails, Q1 moves on to FORCED (never parked)',
+          bs2['slot_chain']['1'].get('outcome') == 'forced' and kd2['concept_map']['1']['difficulty'] == 'Hard'
+          and bc.verify_difficulty_label(kd2['concept_map']['1'], labs) == (True, 'Hard', 'forced'), str((r4, bs2['slot_chain']['1'])))
+    check('H-LB edge: a re-key with no panel majority for another option is not scheduled as work -> MAJORITY (AMBER)',
+          bs2['slot_chain']['5'].get('outcome') == 'majority' and 'rekey' in bs2['slot_chain']['5']['terminal_tried']
+          and not any(w['q'] == '5' for w in bs2.get('slot_chain_work') or []), str(bs2['slot_chain']['5']))
+    check('H-LB edge: a SUSPENDED difficulty chain is RESUMED with its attempts (bounded) and the finished dispute\'s AMBER line survives',
+          bs2['slot_chain']['6']['kind'] == 'difficulty' and len(bs2['slot_chain']['6']['attempts']) == 2
+          and any(w['q'] == '6' and w['action'] == 'replace' for w in bs2.get('slot_chain_work') or [])
+          and any('Q6: certified by majority' in x for x in bs2['difficulty_state']['chain_footer']['amber']), str(bs2['slot_chain']['6']))
+    # ── NOT_RUN delta verdicts: a difficulty attempt is never PASSED on the author-side band; a majority stays bound ──
+    hs3 = {'7': 'n7' * 32, '8': 'n8' * 32}
+    _nr = lambda q: {'status': 'NOT_RUN', 'reason': 'sub-agent timed out twice', 'item_hash': hs3[q]}
+    cm3 = {'7': {'subtopic_id': 'oc.a.b', 'difficulty': 'Hard', 'qtype': 'mcq',
+                 'difficulty_check': {'decision': 'carried_below', 'measured': 'Hard'}, 'review': _nr('7')},
+           '8': {'subtopic_id': 'oc.a.b', 'difficulty': 'Medium', 'qtype': 'mcq',
+                 'difficulty_check': {'decision': 'dl_agree', 'review_measured': 'Medium'}, 'review': _nr('8')}}
+    c7 = bc.slot_chain_record(bc.slot_chain_new('7', 'difficulty', 'Hard', 'oc.a.b'), 'rework_dr1', 'pending')
+    c8 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('8', 'dispute'), 'panel'), 'panel', 'fail'), panel_alt=None)
+    json.dump({'difficulty_plan_target': {'7': 'Hard', '8': 'Medium'}, 'difficulty_plan': {'7': 'Hard', '8': 'Medium'},
+               'difficulty_labels': labs, 'slot_chain': {'7': c7, '8': c8}, 'difficulty_state': {}}, open(P['bs'], 'w'))
+    json.dump({'concept_map': cm3, 'answers': {'7': 1, '8': 1}}, open(P['kd'], 'w')); json.dump(hs3, open(P['hj'], 'w'))
+    r5 = l2l()
+    bs3 = json.load(open(P['bs'])); kd3 = json.load(open(P['kd']))
+    check('H-LB edge: a NOT_RUN delta round FAILS the pending difficulty attempt (never passed on the CHECK 3c band) -> rework_dr2 next',
+          bs3['slot_chain']['7']['attempts'][-1]['outcome'] == 'fail'
+          and any(w['q'] == '7' and w['action'] == 'rework_dr2' for w in bs3.get('slot_chain_work') or []), str((r5, bs3['slot_chain']['7'])))
+    check('H-LB edge: a MAJORITY reached after a NOT_RUN round stays bound to the delivered text (no coverage loop)',
+          bs3['slot_chain']['8'].get('outcome') == 'majority' and kd3['concept_map']['8']['review'].get('item_hash') == hs3['8']
+          and kd3['concept_map']['8']['review'].get('certified_by') == 'majority'
+          and '8' not in bc.review_coverage_missing(kd3['concept_map'], hs3), str(kd3['concept_map']['8']['review']))
+    # ── a schedule label that cannot be recorded (an inconsistent plan) ENDS the chain, disclosed — never a loop ──
+    c9 = bc.slot_chain_record(bc.slot_chain_record(_exh(bc.slot_chain_new('9', 'difficulty', 'Extreme', 'oc.a.b'), 'forced'),
+                                                   'band_swap', 'fail'), 'paired_upgrade', 'fail')
+    cm9 = {'9': {'subtopic_id': 'oc.a.b', 'difficulty': 'Medium', 'qtype': 'mcq',
+                 'difficulty_check': {'decision': 'carried_below', 'review_measured': 'Medium', 'review_controls': {'reviewer': 'Medium'}},
+                 'review': {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': 'q9' * 32}}}
+    json.dump({'difficulty_plan_target': {'9': 'Extreme'}, 'difficulty_plan': {'9': 'Extreme'}, 'difficulty_labels': labs,
+               'slot_chain': {'9': c9}, 'difficulty_state': {}}, open(P['bs'], 'w'))
+    json.dump({'concept_map': cm9, 'answers': {'9': 1}}, open(P['kd'], 'w')); json.dump({'9': 'q9' * 32}, open(P['hj'], 'w'))
+    r6 = l2l(); r7 = l2l()
+    bs9 = json.load(open(P['bs']))
+    check('H-LB edge: a label the plan cannot carry ENDS the chain (forced_refused, AMBER line) and is never reopened — no loop',
+          bs9['slot_chain']['9'].get('outcome') == 'forced_refused' and r7 is None
+          and any('Q9: below its Extreme slot' in x for x in bs9['difficulty_state']['chain_footer']['amber']), str((r6, r7)))
+    # ── S13-2F sweep >= 4: the spec's own REPLACE slice (new chain / pending fail / disclosed skipped) ──
+    _ls2 = S[S.index("        _repl = {q: r['gates'] for q, r in _route['items'].items() if r['route'] == 'REPLACE'}"):].split('\n')
+    _sl = []
+    for _l in _ls2:
+        _sl.append(_l)
+        if 'Never UNRESOLVED (OD-2026-11-09).")' in _l:
+            break
+    _slice = '\n'.join(l[8:] for l in _sl)
+    cq = {'1': bc.slot_chain_finish(bc.slot_chain_new('1', 'quality'), 'amber', gates=['A-OPTDISTINCT']),
+          '2': bc.slot_chain_record(bc.slot_chain_new('2', 'dispute'), 'replace', 'pending')}
+    json.dump({'difficulty_plan_target': {'1': 'Hard', '2': 'Hard', '3': 'Hard'}, 'slot_chain': cq}, open(P['bs'], 'w'))
+    json.dump({'concept_map': {'1': {'quality_status': 'DISCLOSED(A-OPTDISTINCT)'}, '2': {}, '3': {'subtopic_id': 'oc.a.b'}}},
+              open(P['kd'], 'w'))
+    _stp_t = P['bs'] + '.s13'; json.dump({'sweep': 4}, open(_stp_t, 'w'))
+    _route_t = {'items': {'1': {'gates': ['A-OPTDISTINCT'], 'route': 'REPLACE'}, '2': {'gates': ['A-REVIEW'], 'route': 'REPLACE'},
+                          '3': {'gates': ['A-STEMFORM'], 'route': 'REPLACE'}}, 'paper': {}, 'stop': False}
+    _gr = {'json': json, 'os': os, 'bc': bc, '_route': _route_t, '_key': P['kd'], '_bsp': P['bs'], '_stp': _stp_t, '_st': {'sweep': 4}}
+    _rx = None
+    try:
+        exec(_slice, _gr)
+    except RuntimeError as x:
+        _rx = str(x)
+    bsr = json.load(open(P['bs']))
+    check('H-LB S13-2F sweep 4: a new finding opens a QUALITY chain, a pending dispute attempt FAILS, a DISCLOSED item is never re-opened',
+          bsr['slot_chain']['3']['kind'] == 'quality' and bsr['slot_chain']['2']['attempts'][-1]['outcome'] == 'fail'
+          and bsr['slot_chain']['1'].get('outcome') == 'amber' and _rx and "['2', '3']" in _rx and not os.path.exists(_stp_t),
+          str((_rx, bsr['slot_chain'].get('1'))))
+    # ── S13-4c: after INFRA_HEAL_MAX heals the stop is a real stop (never a recursion) ──
+    _ls = S[S.index('  def _infra4c(site, msg):'):].split('\n')
+    _body = [_ls[0]]
+    for _l in _ls[1:]:
+        if _l.strip() and (len(_l) - len(_l.lstrip())) <= 2:
+            break                                                  # the function body ends at the block indentation
+        _body.append(_l)
+    _src = '\n'.join(l[2:] for l in _body)
+    _g4c = {'json': json, 'os': os, 'bc': bc, '_bs4c_p': P['bs']}
+    exec(_src, _g4c)
+    _seen = []
+    for _i in range(4):
+        try:
+            _g4c['_infra4c']('S13-4c-2', 'broken tool')
+        except RuntimeError as x:
+            _seen.append('heal' if 'INFRA-HEAL' in str(x) else 'other')
+        except SystemExit:
+            _seen.append('stop')
+        except RecursionError:
+            _seen.append('recursion')
+    check('H-LB S13-4c: heal, heal, then a real STOP (no recursion, no counter reset)', _seen == ['heal', 'heal', 'stop', 'stop'], str(_seen))
+
+
+def _downstream_replay(check):
+    """H-DOWN (release 2026.11.09 pre-deploy review): a paper written by Create v5.96 (a FORCED, two SWAP, a HELD,
+    a DISCLOSED, a panel- and a majority-certified question) replayed through EVERY later reader: final_assembly
+    commit, S13-QINDEX (pp.validate_question_index), the check-8 verifier on the committed rows, the auditor's
+    registry-only A-REVIEW and DISCLOSED reconcile, MockDeliver 3f certification and its difficulty / slot-chain
+    lines, Explain P10, Step 9's difficulty gate, Notes recall. Every step reads what the earlier one wrote."""
+    import copy, io, contextlib
+    import blueprint_core as bc, paper_pipeline as pp, audit_canonical as ac, notes_core as nc, final_assembly as fa
+    L = ['Easy', 'Medium', 'Hard']
+    obs_hard = {'qtype': 'mcq', 'question_class': 'C-COMPUTATIONAL', 'facets': ['C-COMPUTATIONAL'],
+                'deduction_steps': 6, 'axiom_concepts': 3, 'speed_hack_exists': False, 'is_negative': False}
+    obs_med = dict(obs_hard, deduction_steps=3, axiom_concepts=2)
+    # exhausted difficulty chain -> forced
+    ch = bc.slot_chain_new('1', 'difficulty', 'Hard', 'S.A.x')
+    while True:
+        nx = bc.slot_chain_next(ch, siblings=['S.A.y', 'S.A.z', 'S.A.w'])
+        ch = nx['chain']
+        if nx['action'] == 'forced':
+            break
+        ch = bc.slot_chain_record(ch, nx['stage'], 'fail', sibling=nx['sibling'])
+    fch = bc.slot_chain_finish(ch, 'forced', measured='Medium')
+    # exhausted quality chain -> disclosed; exhausted dispute -> majority
+    def exhaust(kind, last):
+        c = bc.slot_chain_new('x', kind)
+        while True:
+            nx = bc.slot_chain_next(c, siblings=['a', 'b', 'c'])
+            c = nx['chain']
+            if nx['action'] == last:
+                return bc.slot_chain_finish(c, last)
+            c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
+    qch = bc.slot_chain_compact(exhaust('quality', 'amber'))
+    dch = bc.slot_chain_compact(exhaust('dispute', 'majority'))
+    H = {str(q): f'h{q}' * 16 for q in range(1, 7)}
+    rv = lambda q, ok=True: {'key_agrees': ok, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': H[q]}
+    cm = {}
+    cm['1'], _, _ = bc.dl_set_label_basis({'difficulty': 'Medium', 'qtype': 'mcq', 'difficulty_obs': obs_hard,
+                                           'difficulty_check': {'decision': 'carried_below'}}, 'forced', L, 'Hard',
+                                          controls={'reviewer': 'Medium'}, chain=fch)
+    cm['2'], _, _ = bc.dl_set_label_basis({'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': obs_med,
+                                           'difficulty_check': {}}, 'review', L, 'Medium', controls={'reviewer': 'Medium'}, partner='3')
+    cm['3'], _, _ = bc.dl_set_label_basis({'difficulty': 'Medium', 'qtype': 'mcq', 'difficulty_obs': obs_hard,
+                                           'difficulty_check': {}}, 'review', L, 'Hard', controls={'reviewer': 'Hard'}, partner='2')
+    cm['4'], _, _ = bc.dl_set_label_basis({'difficulty': 'Medium', 'qtype': 'mcq', 'difficulty_obs': obs_hard,
+                                           'difficulty_check': {}}, 'held', L, 'Medium', controls={'measured': 'Hard'})
+    cm['5'] = {'difficulty': 'Medium', 'qtype': 'mcq', 'difficulty_obs': obs_med, 'difficulty_check': {'decision': 'dl_agree', 'final_band': 'Medium'},
+               'quality_status': 'DISCLOSED(A-OPTDISTINCT)', 'slot_chain': qch}
+    cm['6'] = {'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_obs': obs_hard, 'difficulty_check': {'decision': 'dl_agree', 'final_band': 'Hard'}}
+    for q in cm:
+        cm[q].update({'subtopic_id': 'S.A.x', 'review': rv(q)})
+        cm[q].setdefault('quality_status', 'CERTIFIED')
+    cm['6']['review'] = dict(rv('6', False), certified_by='majority', chain=dch, agree=2, n=4)
+    pan = [rv('2'), rv('2'), rv('2', False)]
+    cm['2']['review'] = dict(rv('2'), certified_by='panel', panel=pan, agree=2, n=3)
+    labels_by_q = {q: e['difficulty'] for q, e in cm.items()}
+    check('H-DOWN schedule exact: Easy 0 / Medium 3 / Hard 3 (forced, swap, held never move a count)',
+          bc.dl_band_counts(labels_by_q, L) == {'Easy': 0, 'Medium': 3, 'Hard': 3})
+    for q, e in cm.items():
+        v = bc.verify_difficulty_label(e, L)
+        check(f'H-DOWN Q{q} label verified by the ONE verifier (basis {v[2]})', v[0], v)
+
+    # commit through the real final_assembly (registry rows)
+    BP = {'exam_code': 'EX', 'blueprint_version': 't', 'difficulty_labels': L,
+          'subtopic_list': [{'subtopic_id': 'S.A.x', 'section': 'S', 'topic': 'A'}],
+          'difficulty_schedule': [{'mock': 1, 'simple': 0, 'medium': 3, 'hard': 3}],
+          'mocks': [{'mock': 1, 'sections': [{'section_name': 'S', 'q_range': [1, 6],
+                     'subtopic_allocations': [{'subtopic_id': 'S.A.x', 'q_count': 6}]}]}], 'total_questions': 6}
+    reg0 = {'exam_code': 'EX', 'schema_version': '1.0', 'mocks_completed': [], 'papers_completed': [], 'question_hashes': [],
+            'stem_texts': [], 'semantic_tuples': [], 'semantic_usage': [], 'exhausted_subtopics': {}, 'question_index': [],
+            'image_phashes': [], 'image_sources_used': [], 'session_log': [], 'content_tracking': {k: [] for k in fa._REQUIRED_CT},
+            'section_names': [], 'rc_manifests': [], 'figural_manifests': [], 'di_manifests': []}
+    tp = {'1': 'Hard', '2': 'Medium', '3': 'Hard', '4': 'Medium', '5': 'Medium', '6': 'Hard'}
+    gate = bc.difficulty_paper_gate(bc.dl_gate_items(tp, cm, L), L)
+    check('H-DOWN S13-2L paper gate PASS with forced / swapped / held listed', gate['status'] == 'PASS' and gate['forced'][0]['q'] == '1'
+          and sorted(gate['swapped']) == ['2', '3'] and gate['held'] == ['4'], gate)
+    ds = {'paper_gate': dict({k: gate.get(k) for k in ('status', 'counts_final', 'counts_original', 'rework_qs', 'accepted_dr3',
+                                                       'unmeasured', 'forced', 'swapped', 'held', 'rule')}, target_plan=tp, labels=L),
+          'chain_footer': bc.chain_footer_lines({'1': fch, '5': dict(qch, q='5'), '6': dict(dch, q='6')})}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            res = fa.commit_registry(copy.deepcopy(reg0), {}, BP, 1, paper_id='MOCK:M01', batches_completed=1,
+                                     axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                                     concept_map=copy.deepcopy(cm), difficulty_state=ds)
+        reg = res['registry']
+        entry = reg['question_index'][0]
+        rows = {str(r['q']): r for r in entry['questions']}
+        check('H-DOWN final_assembly commit carries difficulty_check (basis), review, quality_status and slot_chain (DISCLOSED)',
+              rows['1']['difficulty_check'].get('dl_rung') == 'FORCED' and rows['5'].get('slot_chain', {}).get('outcome') == 'amber'
+              and rows['2']['review'].get('certified_by') == 'panel' and rows['5']['quality_status'].startswith('DISCLOSED'),
+              {q: list(r) for q, r in rows.items()})
+    except Exception as x:
+        check('H-DOWN final_assembly commit', False, repr(x)); return
+
+    # A-QINDEX (both copies) on the committed registry
+    okq, repq = pp.validate_question_index(reg, BP, mock_n=1)
+    check('H-DOWN paper_pipeline.validate_question_index (post-commit S13-QINDEX) OK — check 6 exact, no stop', okq, repq.get('fails'))
+    for r in entry['questions']:
+        v = bc.verify_difficulty_label(r, L)
+        check(f'H-DOWN registry row Q{r["q"]}: check-8 verifier OK on the COMMITTED row (basis {v[2]})', v[0], v)
+    # auditor final phase on the REGISTRY ONLY (no sidecar) — A-REVIEW and the DISCLOSED reconcile
+    ac._reset()
+    src = {'registry': reg, '_mockN': 1, 'concept_map': {}, '_item_hashes': H}
+    ac.gate_review(src, type('A', (), {'phase': 'final'})())
+    lv = [(l, m) for l, c, m in ac.RESULTS if c == 'A-REVIEW']
+    check('H-DOWN auditor A-REVIEW registry-only: panel re-derived, majority AMBER (WARN), never FAIL',
+          [l for l, _ in lv] == ['WARN'] and 'majority' in lv[0][1], lv)
+    ac._reset(); ac._item('A-OPTDISTINCT', '5', 'x'); ac._fail('A-OPTDISTINCT', 'ITEM DEFECT Q5')
+    ac._lb_reconcile_disclosed(src)
+    check('H-DOWN auditor DISCLOSED reconcile from the registry alone: FAIL -> AMBER WARN',
+          [l for l, c, m in ac.RESULTS if c == 'A-OPTDISTINCT'] == ['WARN'] and ac.DISCLOSED_ITEMS == {'5'})
+    # Deliver certification (3f)
+    act, rec = bc.certificate_uncertified_active({str(r['q']): r.get('quality_status') for r in entry['questions']},
+                                                 entry.get('quality_readiness'), (entry.get('qindex_cert') or {}).get('producer_release'))
+    check('H-DOWN MockDeliver 3f: no uncertified item (DISCLOSED / forced / majority are disclosures) -> delivered with no flag',
+          act == [] and bc.deliver_allowed({'uncertified_items': act})[0], act)
+    # Deliver 3f'' / 3f''' lines
+    dl = bc.difficulty_layer_lines(entry['difficulty_state']['paper_gate'])
+    cf = entry['difficulty_state']['chain_footer']
+    check("MockDeliver 3f'' difficulty lines name forced / swaps / held",
+          any('schedule-forced' in x for x in dl) and any('band swaps' in x for x in dl) and any('held at slot' in x for x in dl), dl)
+    check("MockDeliver 3f''' slot-chain AMBER lines: forced Q1, disclosed Q5, majority Q6",
+          any(x.startswith('Q1: labelled Hard') for x in cf['amber']) and any(x.startswith('Q5:') for x in cf['amber'])
+          and any(x.startswith('Q6: certified by majority') for x in cf['amber']), cf)
+    # Explain P10 canonical-label check
+    check('H-DOWN MockTestExplain P10: every committed label is canonical', all(r['difficulty'] in L for r in entry['questions']))
+    # Step 9 difficulty gate (engine) never FAILS on these labels
+    try:
+        g9 = bc.evaluate_difficulty_gate({int(q): e['difficulty'] for q, e in cm.items()},
+                                         {int(q): bc.verify_difficulty_obs(e['difficulty'], e['difficulty_obs'], L)[1] for q, e in cm.items()}, L)
+        check('H-DOWN Step 9 difficulty gate evaluates the forced / swapped / held labels without raising (its write is PASSED or DISCLOSED, never FAILED)',
+              isinstance(g9, dict) and 'verdict' in g9, g9)
+    except Exception as x:
+        check('H-DOWN Step 9 difficulty gate', False, repr(x))
+    # Notes recall verifier (shares the one verifier)
+    for q in ('4', '6'):
+        r = nc.recall_verify_difficulty(cm[q]['difficulty'], cm[q]['difficulty_obs'], L)
+        check(f'H-DOWN notes_core.recall_verify_difficulty Q{q} never raises (a Recall carries no basis -> obs rule)', isinstance(r, tuple) and len(r) == 3, r)
 
 
 def self_test():
@@ -597,7 +996,8 @@ def self_test():
               and 'AWAITING_REVIEW' not in _g2.split('PHASE 1')[1].split('PHASE 2')[0].replace("'AWAITING_REVIEW' is a LEGACY", ''),
               'phase-1 text still stages a packet for the user')
         _outs_before = sorted(os.listdir(OUT))
-        g6 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}
+        _AENV = dict(os.environ, PYTHONPATH=W)
+        g6 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}
         run_fence(ph[0][1], g6)
         check('H6 phase 1 writes NOTHING to the user outputs folder (contract: exactly the two files at the end)', sorted(os.listdir(OUT)) == _outs_before, str(sorted(set(os.listdir(OUT)) - set(_outs_before))))
         RQ = json.load(open(os.path.join(g6['REVIEW_DIR'], 'queue.json')))
@@ -637,22 +1037,124 @@ def self_test():
               kd['concept_map']['1']['review']['key_agrees'] is True and kd['concept_map']['2']['review']['key_agrees'] is True and kd['concept_map']['3']['review']['key_agrees'] is False and bs['state'] == 'REVIEW_REPAIR' and bs['review_defects'] == ['3'], str((bs.get('state'), bs.get('review_defects'), kd['concept_map']['2']['review'].get('key_agrees'))))
         # round 2 (T5): the whole paper again; the reviewer still disagrees on Q3 -> UNRESOLVED(A-REVIEW)
         shutil.copy(f'{TMP}/cert.json', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json')
-        g6b = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}; run_fence(ph[0][1], g6b)
+        g6b = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}; run_fence(ph[0][1], g6b)
         RQ2 = json.load(open(os.path.join(g6b['REVIEW_DIR'], 'queue.json')))
         check('H6 round 2 packet is a NEW round folder with the WHOLE paper', g6b['REVIEW_DIR'].endswith('round2') and sum(len(p_['qs']) for p_ in RQ2['parts']) == MQ)
         for i_, p_ in enumerate(RQ2['parts']):
             _review(p_['dir'], disagree_q=3)
         g9 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g9)
         _c_after = json.load(open(f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'))
-        check('H6 round 2: the S13-2F certificate now says the same as the stamps (uncertified_items, certified False)', _c_after['uncertified_items'] == ['3'] and _c_after['certified'] is False, str(_c_after))
+        check('H6 round 2 (OD-2026-11-09): the certificate is NOT rewritten NOT CERTIFIED (certified, no uncertified_items)', _c_after['uncertified_items'] == [] and _c_after['certified'] is True, str(_c_after))
         kd = json.load(open(key_path)); bs = json.load(open(bs_path))
-        check('H6 round 2: Q3 stamped UNRESOLVED(A-REVIEW), REVIEWED, uncertified persisted, review_summary recorded', kd['concept_map']['3']['quality_status'] == 'UNRESOLVED(A-REVIEW)' and bs['state'] == 'REVIEWED' and bs['uncertified_items'] == ['3']
-              and bs['review_summary']['repaired'] == ['3'] and bs['review_summary']['reviewer'] == ['sub-agent'])
+        check('H6 round 2: Q3 enters its DISPUTE chain — never UNRESOLVED; REVIEWED, uncertified empty, review_summary recorded',
+              not str(kd['concept_map']['3'].get('quality_status', '')).startswith('UNRESOLVED') and bs['state'] == 'REVIEWED'
+              and bs['uncertified_items'] == [] and (bs.get('slot_chain') or {}).get('3', {}).get('kind') == 'dispute'
+              and bs['review_summary']['repaired'] == ['3'] and bs['review_summary']['reviewer'] == ['sub-agent'], str(bs.get('slot_chain')))
+        # v2026.11.09 — the dispute chain, end to end: S13-2L schedules a SWITCHED adjudication (delta round);
+        # one agreement is not enough (the latest two on the current text must agree); the second certifies
+        _l2l = fences(cre, '# ── S13-2L (v5.96) ──')
+        check('H6 S13-2L fence found', len(_l2l) == 1)
+        _bp_p = f'{HOME}/hs_bp.json'; json.dump(BP, open(_bp_p, 'w'))
+        def _s13_2l():
+            _gl = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'BP_SRC_PATH': _bp_p}
+            try:
+                run_fence(_l2l[0][1], _gl); return None
+            except RuntimeError as _x:
+                return str(_x)
+        _m1 = _s13_2l(); bs = json.load(open(bs_path))
+        check('H6 S13-2L: Q3 adjudication scheduled as a DELTA round with a switched reviewer (no content change)',
+              _m1 and 'DELTA' in _m1 and bs['delta_qs'] == ['3'] and bs['delta_switch'] == ['3']
+              and bs['slot_chain']['3']['attempts'][-1] == {'stage': 'adjudicate', 'outcome': 'pending'}, str((_m1, bs.get('delta_qs'))))
+        for _rnd_d in (3, 4):
+            gd = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}
+            run_fence(ph[0][1], gd)
+            RQd = json.load(open(os.path.join(gd['REVIEW_DIR'], 'queue.json')))
+            if _rnd_d == 3:
+                check('H6 delta round: a NEW delta folder carrying ONLY Q3, marked switch — in the FOLDER NAME too (the orchestrator sees only paths)',
+                      gd['REVIEW_DIR'].endswith('delta3') and [q_ for p_ in RQd['parts'] for q_ in p_['qs']] == [3]
+                      and all(p_.get('switch') and p_['dir'].endswith('_switch') for p_ in RQd['parts']), str(RQd)[:300])
+            for p_ in RQd['parts']:
+                _review(p_['dir'])
+            run_fence(ph[1][1], {'EXAM': EXAM, 'N': N, 'paper_id': paper_id})
+            bs = json.load(open(bs_path))
+            if _rnd_d == 3:
+                check('H6 delta round 3: one agreement after two disputes is NOT certification (chain still open)',
+                      not bs['slot_chain']['3'].get('done'), str(bs['slot_chain']['3']))
+                _m2 = _s13_2l(); bs = json.load(open(bs_path))
+                check('H6 S13-2L: a second switched review is scheduled for Q3', _m2 and bs['delta_qs'] == ['3'], str(_m2))
+        kd = json.load(open(key_path))
+        check('H6 delta round 4: two consecutive agreeing reviews on the current text CERTIFY Q3 (chain closed, review bound to its hash)',
+              bs['slot_chain']['3'].get('done') and bs['slot_chain']['3'].get('outcome') == 'adjudicate'
+              and kd['concept_map']['3']['review']['key_agrees'] is True and kd['concept_map']['3']['review'].get('item_hash')
+              and len(kd['concept_map']['3'].get('review_history') or []) >= 4, str(bs['slot_chain']['3']))
+        _m3 = _s13_2l()
+        check('H6 S13-2L: every chain closed and every item covered -> no further round (no raise)', _m3 is None, str(_m3))
         check('H6 the whole review left the user outputs folder untouched (T4/T5: exactly the paper so far)', sorted(os.listdir(OUT)) == _outs_before, str(sorted(os.listdir(OUT))))
+        # 2026.11.09 review — LOOP GUARDS: a dispute attempt whose delta verdict is NOT_RUN or a same-session fallback
+        # can never certify (E13); the attempt FAILS and the chain moves on — it is never queued again forever
+        _kd_lg = json.load(open(key_path)); _bs_lg = json.load(open(bs_path))
+        for _mode in ('not_run', 'same_session'):
+            bs = json.load(open(bs_path))
+            bs['slot_chain']['3'] = bc.slot_chain_record(bc.slot_chain_new('3', 'dispute'), 'adjudicate', 'pending')
+            bs['delta_qs'], bs['delta_switch'], bs['delta_panel'] = ['3'], ['3'], []
+            json.dump(bs, open(bs_path, 'w'))
+            kd = json.load(open(key_path))                         # a fresh dispute: the latest independent verdict disagrees
+            _h3 = kd['concept_map']['3']['review'].get('item_hash')
+            kd['concept_map']['3'].setdefault('review_history', []).append(
+                {'key_agrees': False, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': _h3})
+            json.dump(kd, open(key_path, 'w'))
+            ge = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}
+            run_fence(ph[0][1], ge)
+            _qp = os.path.join(ge['REVIEW_DIR'], 'queue.json'); RQe = json.load(open(_qp))
+            for p_ in RQe['parts']:
+                if _mode == 'not_run':
+                    p_['error'] = 'sub-agent timed out twice'
+                else:
+                    _review(p_['dir']); p_['reviewer'] = 'same-session'
+            json.dump(RQe, open(_qp, 'w'))
+            run_fence(ph[1][1], {'EXAM': EXAM, 'N': N, 'paper_id': paper_id})
+            bs = json.load(open(bs_path)); kd = json.load(open(key_path))
+            check(f'H6 loop guard ({_mode}): the dispute attempt FAILS (no independent verdict) — the chain moves on',
+                  bs['slot_chain']['3']['attempts'][-1]['outcome'] == 'fail' and not bs['slot_chain']['3'].get('done')
+                  and bool((bs.get('review_hashes') or {}).get('3'))
+                  and kd['concept_map']['3']['review'].get('item_hash') == (bs.get('review_hashes') or {}).get('3'),
+                  str(bs['slot_chain']['3']))
+            _me = _s13_2l(); bs = json.load(open(bs_path))
+            check(f'H6 loop guard ({_mode}): S13-2L schedules the NEXT stage (replace) — not the same review again; Q3 covered',
+                  any(w['q'] == '3' and w['action'] == 'replace' for w in bs.get('slot_chain_work') or [])
+                  and '3' not in (bs.get('delta_qs') or []) and _me and 'SLOT-CHAIN' in _me, str((_me, bs.get('delta_qs'))))
+        json.dump(_kd_lg, open(key_path, 'w')); json.dump(_bs_lg, open(bs_path, 'w'))
+        # D0 is BOUNDED: a part disputing every item asks for a switched reviewer; one that never answers is asked
+        # twice, then the first reviewer's disputes stand — phase 3 completes (never a loop)
+        _kd_d0 = json.load(open(key_path)); _bs_d0 = json.load(open(bs_path))
+        bs = json.load(open(bs_path)); bs['delta_qs'] = sorted(json.load(open(key_path))['concept_map'], key=int)
+        bs['delta_switch'], bs['delta_panel'] = [], []
+        json.dump(bs, open(bs_path, 'w'))
+        g_d0 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}
+        run_fence(ph[0][1], g_d0)
+        RQ_d0 = json.load(open(os.path.join(g_d0['REVIEW_DIR'], 'queue.json')))
+        for p_ in RQ_d0['parts']:
+            _review(p_['dir'])
+            _vfp = os.path.join(p_['dir'], 'verdicts.json'); _vf0 = json.load(open(_vfp))
+            for _qk in _vf0['items']:
+                _a0 = ANS[str(_qk)]
+                _vf0['items'][_qk]['own_key'] = 'abcd'[_a0 % 4] if isinstance(_a0, int) else 'b'   # a wrong key
+            json.dump(_vf0, open(_vfp, 'w'))
+        _d0_seq = []
+        for _i in range(3):
+            try:
+                run_fence(ph[1][1], {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}); _d0_seq.append('done')
+            except RuntimeError as _x:
+                _d0_seq.append('void' if 'REVIEW-VOID' in str(_x) else 'other:' + str(_x)[:60])
+            if _d0_seq[-1] == 'done':
+                break
+        check('H6 D0 bounded: a switched reviewer that never answers is asked twice, then phase 3 completes (disputes stand)',
+              _d0_seq == ['void', 'void', 'done'], str(_d0_seq))
+        json.dump(_kd_d0, open(key_path, 'w')); json.dump(_bs_d0, open(bs_path, 'w'))
         # T7: a part whose reviewer produced nothing (after the retry) -> NOT_RUN records, never a stop
         _kd_save = json.load(open(key_path)); _bs_save = json.load(open(bs_path))
         _bs_t7 = dict(_bs_save, review_round=0); json.dump(_bs_t7, open(bs_path, 'w'))
-        g6c = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH']}; run_fence(ph[0][1], g6c)
+        g6c = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}; run_fence(ph[0][1], g6c)
         RQ3 = json.load(open(os.path.join(g6c['REVIEW_DIR'], 'queue.json')))
         RQ3['parts'][0]['error'] = 'sub-agent timed out twice'
         json.dump(RQ3, open(os.path.join(g6c['REVIEW_DIR'], 'queue.json'), 'w'))
@@ -693,9 +1195,9 @@ def self_test():
         check('H7 commit carries review + quality_status per question', final['ok'] and all('review' in qq and 'quality_status' in qq for qq in final['registry']['question_index'][0]['questions']))
         reg_path = f'{HOME}/{EXAM}_registry.json'; json.dump(final['registry'], open(reg_path, 'w')); prev_path = reg_path
         r2, lv2 = audit('final', ['--profile', prof_path, '--certificate', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'])   # NO --key: registry overlay only
-        check('H7 final audit: A-CERT reads the rewritten certificate (WARN NOT CERTIFIED, never FAIL), A-DISTRACTOR ok for the MSQ item from the registry record', lv2.get('A-CERT') == 'WARN' and lv2.get('A-DISTRACTOR') != 'FAIL', str((lv2.get('A-CERT'), lv2.get('A-DISTRACTOR'))))
-        check('H7 final audit without sidecar: A-REVIEW reconciled to WARN (UNRESOLVED item), A-QUALITYSTATUS WARN NOT CERTIFIED, rc 0',
-              lv2.get('A-REVIEW') == 'WARN' and lv2.get('A-QUALITYSTATUS') == 'WARN' and r2.returncode == 0,
+        check('H7 final audit: A-CERT confirms the CERTIFIED docx, A-DISTRACTOR ok for the MSQ item from the registry record', lv2.get('A-CERT') in ('OK', 'ok') and lv2.get('A-DISTRACTOR') != 'FAIL', str((lv2.get('A-CERT'), lv2.get('A-DISTRACTOR'))))
+        check('H7 final audit without sidecar (OD-2026-11-09): A-REVIEW OK — every review bound to the delivered text (computed hashes) — A-QUALITYSTATUS OK CERTIFIED, rc 0',
+              lv2.get('A-REVIEW') in ('OK', 'ok') and lv2.get('A-QUALITYSTATUS') in ('OK', 'ok') and r2.returncode == 0,
               str((lv2.get('A-REVIEW'), lv2.get('A-QUALITYSTATUS'), r2.returncode, [l for l in r2.stdout.split('\n') if l.startswith('[ FAIL]')][:5])))
         # MockDeliver 3f
         t3 = open(f'{W}/Framework_MockDeliver.md', encoding='utf-8').read(); i = t3.find('# ── S1-2 item 3f (executable'); j = t3.find('# Build the tag-value lookup table', i)
@@ -703,11 +1205,23 @@ def self_test():
         gD = {'blueprint': BP, 'registry': R, 'N': N, 'ACCEPT_UNCERTIFIED': False}
         try:
             run_fence(t3[i:j], gD); refused = False
+        except SystemExit:
+            refused = True
+        check('H7 MockDeliver delivers the v5.96 paper with NO flag (it is never uncertified, OD-2026-11-09)', not refused and gD.get('UNCERTIFIED_ITEMS') == [])
+        # LEGACY: a registry committed NOT CERTIFIED by 2026.11.03-2026.11.08.1 keeps its old behaviour
+        RL = copy.deepcopy(R)
+        for _qq in RL['question_index'][0]['questions']:
+            if str(_qq['q']) == '3':
+                _qq['quality_status'] = 'UNRESOLVED(A-REVIEW)'
+        FP_BEFORE = pp.registry_fingerprint(RL)
+        gD = {'blueprint': BP, 'registry': RL, 'N': N, 'ACCEPT_UNCERTIFIED': False}
+        try:
+            run_fence(t3[i:j], gD); refused = False
         except SystemExit as e:
             refused = (e.code == 0)
-        check('H7 MockDeliver refuses the NOT CERTIFIED paper (SystemExit 0 before render)', refused)
-        gD = {'blueprint': BP, 'registry': R, 'N': N, 'ACCEPT_UNCERTIFIED': True}; run_fence(t3[i:j], gD)
-        check('H7 MockDeliver --accept-uncertified records registry.accepted_uncertified and proceeds', gD['registry']['accepted_uncertified'][paper_id]['items'] == ['3'] and gD['UNCERTIFIED_ITEMS'] == ['3'])
+        check('H7 MockDeliver still refuses a LEGACY NOT CERTIFIED registry (SystemExit 0 before render)', refused)
+        gD = {'blueprint': BP, 'registry': RL, 'N': N, 'ACCEPT_UNCERTIFIED': True}; run_fence(t3[i:j], gD)
+        check('H7 MockDeliver --accept-uncertified (legacy) records registry.accepted_uncertified and proceeds', gD['registry']['accepted_uncertified'][paper_id]['items'] == ['3'] and gD['UNCERTIFIED_ITEMS'] == ['3'])
         check('H7 registry change detected -> delivered under §8', pp.registry_changed(FP_BEFORE, gD['registry']) is True)
         # D5 (GAP-2026-11-04 U9): a paper committed NOT CERTIFIED under 2026.11.03 ONLY by the
         # unmeasured template cap (readiness G-TEMPLATE STALE) is re-certified at Deliver with no flag
@@ -737,12 +1251,16 @@ def self_test():
         # footer lines
         fl = bc.degraded_footer_line(bs['quality_readiness'])
         check('H7 DeliveryFooter QUALITY_FOOTER_LINE from the persisted readiness', isinstance(fl, str) and fl)
-        check('H7 certificate_uncertified(registry stamps) == batch_state uncertified_items == Deliver list',
-              bc.certificate_uncertified({str(qq['q']): qq.get('quality_status') for qq in R['question_index'][0]['questions']}) == bs['uncertified_items'] == ['3'])
+        check('H7 certificate_uncertified(registry stamps) == batch_state uncertified_items == [] (nothing uncertified, OD-2026-11-09)',
+              bc.certificate_uncertified({str(qq['q']): qq.get('quality_status') for qq in R['question_index'][0]['questions']}) == bs['uncertified_items'] == [])
 
         # ═══ H-DL  difficulty layer, three synthetic exams (release 2026.11.08) ═══
         print('H-DL difficulty layer: Step 5 bank -> Create S3-8L/S3-12c/CHECK 3c/S13-2G/S13-2L -> commit -> audit -> footer')
         _dl_handshake(check, ROOT, run_fence, W)
+        print('H-LB band swap + paired upgrade through the spec\'s own S13-2L / S13-2R (release 2026.11.09)')
+        _lb_swap_handshake(check, ROOT, run_fence, W)
+        print('H-DOWN downstream replay of a v5.96 paper through every later reader (release 2026.11.09)')
+        _downstream_replay(check)
 
     finally:
         shutil.rmtree(ROOT, ignore_errors=True)
@@ -756,7 +1274,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 123             # 79 + 44 H-DL (release 2026.11.08)
+EXPECTED_CHECKS = 189             # 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

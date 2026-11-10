@@ -1,12 +1,14 @@
-# Framework_MockDeliver v1.27.0 — Universal Mock Test Tagger & Delivery Engine
-# v1.27.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
-#   MockTestCreate v5.94, DeliveryFooter v1.42.0). S1-2 gains item 3f'' — the DIFFICULTY LAYER LINES
-#   reprinted from the paper's recorded difficulty_state (paper_gate: delivered vs target counts, DR3
-#   items accepted below their slot after full repair, unmeasured slots; l2_model: the organic
-#   ruler's state and where its shares came from) through bc.difficulty_layer_lines (engine-sourced,
-#   "ℹ️ "-prefixed, disclosure only). The Complexity tag stays the canonical label (guard G9);
-#   nothing here stops, withholds or re-certifies. A paper without these records prints nothing —
-#   legacy footers byte-identical.
+# Framework_MockDeliver v1.28.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.28.0 — 2026-11-09 — GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner decision OD-2026-11-09; paired with
+#   blueprint_core v1.34, MockTestCreate v5.96, DeliveryFooter v1.44.0). Create v5.96 never produces an
+#   uncertified paper, so --accept-uncertified is reachable only for a LEGACY registry (a paper committed
+#   by 2026.11.03 - 2026.11.08.1 with uncertified_items); behaviour for that case is unchanged. S1-2 gains
+#   item 3f''' — the SLOT-CHAIN LINES reprinted verbatim from the paper's recorded
+#   difficulty_state.chain_footer (written by Create S13-2L with bc.chain_footer_lines): 'amber' lines
+#   (schedule-forced labels with the band the review measured, majority certifications, DISCLOSED items)
+#   "⚠️ "-prefixed, 'info' lines (band swaps, re-keys, sibling replacements) "ℹ️ "-prefixed. Disclosure only; the
+#   Complexity tag stays the canonical label (G9); nothing stops or re-certifies. A paper without the
+#   record prints nothing — legacy footers byte-identical.
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 #
@@ -184,6 +186,8 @@ Trigger matching is case-insensitive.
   --accept-uncertified (v1.24.0, OD-9): the OWNER's per-run decision to deliver a paper
   whose certificate lists uncertified_items (quality findings that survived ladder R5).
   Never stored in exam_config; never a default. ACCEPT_UNCERTIFIED = True iff present.
+  v1.28.0 (OD-2026-11-09): LEGACY ONLY — a paper written by Create v5.96+ is never uncertified,
+  so this flag is never needed for it; it remains for registries committed before 2026.11.09.
 
 ALIAS (v1.9 — mock-only, working alias, unchanged behaviour):
   MockDeliver M[N]   ==   TestDeliver P[N] --level mock
@@ -399,6 +403,13 @@ Parse:
        is the ONLY source of these lines. An entry without paper_gate / l2_model prints
        nothing (legacy series byte-identical). Disclosure only: the Complexity tag stays the
        canonical label (guard G9); no verdict changes, no certification effect, no stop.
+
+    3f'''. SLOT-CHAIN LINES (v1.28.0 — OD-2026-11-09; DeliveryFooter v1.44.0 §FOOTER-FT).
+       Immediately after the 3f'' lines print, VERBATIM, every string of
+       (state.get('chain_footer') or {}).get('amber') prefixed "⚠️ " (AMBER-CLASS) and every
+       string of (state.get('chain_footer') or {}).get('info') prefixed "ℹ️ ", with `state` as
+       in 3f'. Create S13-2L wrote them with bc.chain_footer_lines — never compose them by
+       hand. An entry without chain_footer prints nothing (legacy series byte-identical).
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -2059,4 +2070,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.27.0
+# END OF Framework_MockDeliver v1.28.0

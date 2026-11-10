@@ -586,6 +586,14 @@ def _self_test():
     _QBP6 = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 1, 'hard': 1}])
     ck('QINDEX-quota-exact-match-certifies',
        validate_question_index(_qreg(_QCLEAN), _QBP6, mock_n=1)[0])
+    # 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT): a legacy DR3 row (a disclosed 2026.11.08 relabel)
+    # counts at its slot, so it can never turn the post-commit G-QINDEX into a HARD STOP
+    ck('QINDEX-quota-legacy-dr3-counts-at-slot [2026.11.08-FAILS]',
+       validate_question_index(_qreg([_QCLEAN[0], dict(_QCLEAN[1], difficulty='Medium',
+                                                       difficulty_check={'dl_rung': 'DR3', 'scheduled': 'Hard'})]),
+                               _QBP6, mock_n=1)[0])
+    ck('QINDEX-count-band-plain-label', qindex_count_band({'difficulty': 'Easy'}, ['Easy', 'Medium', 'Hard']) == 'Easy'
+       and qindex_count_band(None, None) is None)
     ck('QINDEX-quota-mismatch-fails',
        not validate_question_index(
            _qreg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
@@ -1652,6 +1660,23 @@ def subtopic_set_hash(blueprint):
     return hashlib.sha256('\n'.join(ids).encode('utf-8')).hexdigest()[:16]
 
 
+def qindex_count_band(row, labels):
+    """The band a question_index row counts at in check 6 (GAP-2026-11-08-DR3-QINDEX-CONFLICT). A MIRROR of
+    blueprint_core.qindex_count_band — the thin core may not import it (CHECK AB); parity is asserted in
+    audit_canonical --self-test. Its label, except a LEGACY DR3 row (difficulty_check.dl_rung 'DR3', a
+    disclosed 2026.11.08 relabel), which counts at its slot (dr3_basis.target, else scheduled). Never raises."""
+    r = row if isinstance(row, dict) else {}
+    dc = r.get('difficulty_check') if isinstance(r.get('difficulty_check'), dict) else {}
+    lab = r.get('difficulty')
+    if dc.get('dl_rung') == 'DR3':
+        labs = list(labels) if isinstance(labels, (list, tuple)) else []
+        db = dc.get('dr3_basis') if isinstance(dc.get('dr3_basis'), dict) else {}
+        for cand in (db.get('target'), dc.get('scheduled')):
+            if isinstance(cand, str) and cand in labs:
+                return cand
+    return lab
+
+
 def validate_question_index(registry, blueprint, mock_n=None, paper_id=None):
     """FK-validate one paper's question_index against the blueprint.
     Returns (ok: bool, report: dict). report['fails'] lists every violation;
@@ -1728,7 +1753,7 @@ def validate_question_index(registry, blueprint, mock_n=None, paper_id=None):
             want = {lab: want.get(lab, 0) for lab in canon}
             got = {lab: 0 for lab in canon}
             for x in qs:
-                d = x.get('difficulty')
+                d = qindex_count_band(x, canon)      # 2026.11.09: a legacy DR3 row counts at its slot
                 if d in got:
                     got[d] += 1
             if _comparable and got != want:

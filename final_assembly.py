@@ -13,6 +13,11 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.15 — GAP-2026-11-08-DR3-QINDEX-CONFLICT (release 2026.11.09, OD-2026-11-09). QINDEX_V589_FIELDS
+    carries 'slot_chain' — present ONLY on an item delivered DISCLOSED (its quality chain proven exhausted,
+    Create S13-2L) — so the final S13-4c audit re-derives the disclosure from the REGISTRY alone (a resumed
+    session without the sidecar) instead of failing that item. Additive; an item without it is unchanged.
+
     v1.14 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D. commit_registry accepts
     difficulty_state=None and, when a dict, commits it on the question_index entry beside
     quality_readiness (Create S3 / S13-6 record it; MockDeliver 3f' reprints the AMBER
@@ -382,7 +387,8 @@ def _entry_number(e):
 
 # v1.11 — optional per-question fields carried concept_map -> registry.question_index.
 QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
-                      'scheme_grammar', 'marked_sites', 'ladder')
+                      'scheme_grammar', 'marked_sites', 'ladder',
+                      'slot_chain')            # v1.15: a DISCLOSED item's exhausted chain (S13-4c re-derives it)
 # v1.12 — GAP-2026-11-03 §4.3: every quality verdict lives ON the item and is READ
 # downstream, never recomputed differently.
 QINDEX_V590_FIELDS = (

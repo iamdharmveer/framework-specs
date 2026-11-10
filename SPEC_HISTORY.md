@@ -816,6 +816,16 @@ Entry v1.42.0 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDE
 #   disclosure only; a paper without the records prints nothing (byte-identical).
 ```
 
+Entry v1.43.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+```
+# v1.43.0 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   PYQExplain v2.30, explain_engine v2.14). §LADDER RE-25 gains two engine-written lines:
+#   "OPSIN_UNAVAILABLE — …" (AMBER-CLASS) and "RE-25 open findings on <N> question(s) — …"
+#   (AMBER-CLASS), both taken VERBATIM from the explanation engine's chs_report_lines output ['footer_amber'];
+#   a paper with no RE-25 question prints nothing new (byte-identical).
+```
+
 ## Framework_MockDeliver.md
 
 Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
@@ -1060,6 +1070,19 @@ Entry v1.26.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 #   bc.difficulty_unverified_lines (engine-sourced, "⚠️ "-prefixed, disclosure only). The
 #   Complexity tag stays the canonical label (guard G9); nothing here stops, withholds or
 #   re-certifies. Legacy series (no difficulty_state) print nothing — byte-identical.
+```
+
+Entry v1.27.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+```
+# v1.27.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
+#   MockTestCreate v5.94, DeliveryFooter v1.42.0). S1-2 gains item 3f'' — the DIFFICULTY LAYER LINES
+#   reprinted from the paper's recorded difficulty_state (paper_gate: delivered vs target counts, DR3
+#   items accepted below their slot after full repair, unmeasured slots; l2_model: the organic
+#   ruler's state and where its shares came from) through bc.difficulty_layer_lines (engine-sourced,
+#   "ℹ️ "-prefixed, disclosure only). The Complexity tag stays the canonical label (guard G9);
+#   nothing here stops, withholds or re-certifies. A paper without these records prints nothing —
+#   legacy footers byte-identical.
 ```
 
 ## Framework_MockReview.md
@@ -2908,6 +2931,19 @@ Entry v5.94 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENI
 #   counts the paper against the target plan (bc.difficulty_paper_gate). S13-4 caches the blind
 #   grades in the registry; S13-6 prints bc.difficulty_layer_lines. Nothing here stops (C1); no
 #   certificate effect (C2); no new user action (C4). Entry v5.93 moved to SPEC_HISTORY.md.
+```
+
+Entry v5.95 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+```
+# v5.95 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   PYQExplain v2.30, explain_engine v2.14, corpus_io v1.20). One S7-QUALITY field and one
+#   authoring check, nothing else: option_text_smiles (every TEXT option that names a species
+#   gets its structure, RC-17 / owner Q10 (a)); the NAME CHECK AT
+#   AUTHORING (explain_engine.name_check_item: a stem or text option whose name is not the
+#   structure it must be is a defect and the item is regenerated, RC-6). OPSIN is installed
+#   once per session by the engine; absent -> NAME_UNRESOLVED recorded, never a stop. Entry v5.94
+#   moved to SPEC_HISTORY.md.
 ```
 
 ## S16-1 — Trigger and preflight
@@ -7695,4 +7731,18 @@ TRANSITION_DECLARATION_FIELDS = (
                     c['subtopic'] = assign_to_refined_subtopic(
                         c, new_subs
                     )
+```
+
+## Framework_MockTestOrchestrate.md
+
+Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+```
+# v1.0.0 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (owner decision OD-2026-11-06;
+#   paired with Framework_MockTestCreate v5.93 S1-0R, SESSION_BUDGET.json and the bootstrap.py read /
+#   retention / staging / worker commands). NEW. How a Step 7 run (MockCreate / TestCreate) is executed
+#   so that the specification that writes the paper stays in the context that writes it: the user's
+#   chat orchestrates, worker sub-agents execute Framework_MockTestCreate.md, and every read is proved
+#   present (READ-RETENTION). No question-writing rule, gate, artefact, deliverable, end state or user
+#   action is defined or changed here.
 ```

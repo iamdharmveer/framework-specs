@@ -1,9 +1,13 @@
-# Framework_DeliveryFooter v1.43.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.43.0 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
-#   PYQExplain v2.30, explain_engine v2.14). §LADDER RE-25 gains two engine-written lines:
-#   "OPSIN_UNAVAILABLE — …" (AMBER-CLASS) and "RE-25 open findings on <N> question(s) — …"
-#   (AMBER-CLASS), both taken VERBATIM from the explanation engine's chs_report_lines output ['footer_amber'];
-#   a paper with no RE-25 question prints nothing new (byte-identical).
+# Framework_DeliveryFooter v1.44.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.44.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09; paired with MockTestCreate v5.96, MockDeliver v1.28.0, blueprint_core v1.34).
+#   §FOOTER-FT gains the SLOT-CHAIN LINES — difficulty_state.chain_footer written by Create S13-2L with
+#   bc.chain_footer_lines: 'amber' (schedule-forced labels naming the band the review measured, majority
+#   certifications, DISCLOSED items) AMBER-CLASS, 'info' (band swaps, re-keys, sibling replacements) informational.
+#   Q0c also treats the auditor's "AMBER — DISCLOSED …" and "AMBER — ESCALATED …" certificate notes as
+#   AMBER-CLASS; DIFFICULTY LAYER LINES gain "Difficulty schedule-forced / band swaps / held at slot" (owner
+#   2026-11-10: a harder slot is held at its band, the schedule is delivered exactly). A Create v5.96 paper is never NOT CERTIFIED; the NOT CERTIFIED lines remain for legacy
+#   registries only. A paper without the records prints nothing new (byte-identical).
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
@@ -658,6 +662,25 @@ untouched, guard G9); "unverified" appears ONLY in these footer lines. These lin
 DISCLOSURE: they never change a verdict, never make a paper NOT CERTIFIED (OD-9) and
 never stop a step.
 
+SLOT-CHAIN LINES (v1.44.0 — OD-2026-11-09). Immediately after the DIFFICULTY LAYER LINES below,
+print VERBATIM every string of difficulty_state.chain_footer['amber'] prefixed "⚠️ " (AMBER-CLASS —
+Q0c) and every string of ['info'] prefixed "ℹ️ ". Create S13-2L writes them with
+bc.chain_footer_lines (Step 7 S13-6 prints them; Step 11 3f''' reprints them) — never compose them:
+    a schedule-forced label    → "Q<n>: labelled <band> per schedule; independent review measured
+                                  <band> after <k> reviewed attempt(s) and both swap routes
+                                  (schedule_forced)"
+    a majority certification   → "Q<n>: certified by majority of independent reviews (a/n agree with
+                                  the key)"
+    a DISCLOSED item           → "Q<n>: <gates> persisted on every replacement — delivered, disclosed"
+    a label the plan cannot carry → "Q<n>: below its <band> slot after every route; its schedule label
+                                  could not be recorded (<why>) — delivered, disclosed"
+    a band swap                → "Q<n>: difficulty band swapped with Q<m> (count-neutral; both labels
+                                  match independent review)" (informational)
+    a re-key / a sibling       → "Q<n>: answer key corrected …" / "Q<n>: replaced from a sibling
+                                  subtopic …" (informational)
+They are DISCLOSURE: the paper is CERTIFIED (OD-2026-11-09), the Complexity tag is the canonical
+label (G9), nothing stops.
+
 DIFFICULTY LAYER LINES (v1.42.0 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER; owner decisions
 D1 (b), Q1 (c)). Immediately after the DIFFICULTY DISCLOSURE LINES print EVERY string
 returned by
@@ -670,9 +693,15 @@ record). The engine is the ONLY source of these lines — never compose them by 
     always, when a paper gate was recorded
                             → "Difficulty vs schedule: Easy a / Medium b / Hard c
                                (schedule Easy x / Medium y / Hard z)"
-    items accepted below their slot after DR1 / DR2 and two review rounds
+    items accepted below their slot after DR1 / DR2 and two review rounds (LEGACY papers only
+    — Create v5.96 never relabels)
                             → "Difficulty fallback (DR3): k item(s) accepted below their
                                slot after full repair — Q…"
+    (v1.44.0) schedule-forced labels → "Difficulty schedule-forced: k item(s) — listed on the amber lines"
+    (v1.44.0) count-neutral band swaps → "Difficulty band swaps: k item(s) moved to the slot their
+                               independent review measured (count-neutral; schedule unchanged) — Q…"
+    (v1.44.0) harder slots held      → "Difficulty held at slot: k item(s) measured HARDER than their slot
+                               and kept at the scheduled band (schedule delivered exactly) — Q…"
     slots no independent control could measure
                             → "Difficulty unmeasured: k slot(s) had no independent band — Q…"
     the organic ruler (an organic paper only)
@@ -1028,7 +1057,8 @@ After every present_files call, Claude evaluates:
             unverified…" (EXCEPT its "(no difficulty profile in the project)" variant,
             which is INFORMATIONAL), "renderer degraded (…)", "Q<n> explanation degraded
             (…)" (Step 9), "A-READ: …", or (v1.43.0) "OPSIN_UNAVAILABLE — …" / "RE-25 open
-            findings on …"? The auditor reports
+            findings on …", or (v1.44.0) an S13-2L SLOT-CHAIN 'amber' line, or a certificate
+            note "AMBER — DISCLOSED …" / "AMBER — ESCALATED …"? The auditor reports
             AMBER figure advisories as WARN lines (no exit 1 — Q8b "ALWAYS complete");
             the certificate is what carries them here.
             YES → Render F1 (AMBER) and print every §LADDER line. The paper IS

@@ -15,6 +15,19 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.39 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (paired with
+#   blueprint_core v1.34, Framework_MockTestCreate v5.96; owner decision OD-2026-11-09). A-QINDEX check 8 verifies
+#   every label against the basis that SET it (bc.verify_difficulty_label: review / forced / legacy dr3 / l2 /
+#   obs — LABEL-BASIS-LAW); check 6 counts each row at bc.qindex_count_band (a legacy DR3 row at its slot);
+#   checks 7 and 8 emit per-question item findings A-QINDEX-FLOOR / A-QINDEX-LABEL (ladder RL / R2), so a
+#   label defect is always repairable. A-CONTENTLEVEL accepts 'dl_swap' / 'dl_forced'. NEW --item-hashes OUT
+#   (bc.item_hash of every delivered question block — the producer never declares it) and A-REVIEW coverage
+#   (REVIEW-COVERAGE-LAW: on a 2026.11.09 paper a review record bound to a stale item_hash is an item finding
+#   A-REVIEW-COVERAGE, ladder RV = a delta review); A-REVIEW accepts certified_by 'panel' (re-derived majority)
+#   and 'majority' (the dispute chain proven exhausted). DISCLOSED items (quality_status 'DISCLOSED(...)' whose
+#   recorded slot chain is exhausted) never block the certificate — listed as amber notes, paper certified.
+#   NEW --escalate-paper GATES --sweep N: at the S13-2F sweep cap a non-INFRA paper-level FAIL is reported as an
+#   AMBER WARN (never a stop, OD-2026-11-09).
 # v2.38 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (paired with blueprint_core v1.33,
 #   Framework_MockTestCreate v5.94). A-CONTENTLEVEL accepts the v5.94 difficulty decisions:
 #   'carried_below' (CHECK 3c carried a below-slot item to the independent review at its slot
@@ -359,6 +372,7 @@ def _reset():
     RESULTS.clear()
     ITEM_FINDINGS.clear()
     UNCERTIFIED_ITEMS.clear()     # v2.35
+    DISCLOSED_ITEMS.clear()       # v2.39
 
 
 # v2.34 (GAP-2026-11-02 G1) — ITEM-QUALITY findings, one record per question, for
@@ -368,6 +382,7 @@ def _reset():
 # inputs and a certificate over them is meaningful.
 ITEM_FINDINGS = []
 UNCERTIFIED_ITEMS = set()   # v2.35 (OD-9): items whose findings survived R5; filled by gate_qualitystatus
+DISCLOSED_ITEMS = set()     # v2.39 (OD-2026-11-09): exhausted-chain items delivered with an AMBER disclosure
 ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE',
                  'A-FIGOVERPRINT', 'A-FIGBONDORDER', 'A-FIGMARK', 'A-FIGFIT',
                  'A-FIGINK', 'A-FIGOPTUNIF', 'A-FIGOPTWINDOW', 'A-FIGMONO',
@@ -4818,7 +4833,7 @@ def _qq_entry(src):
 
 _QQ_V590_FIELDS = ('ask_format', 'difficulty_obs', 'option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint', 'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family', 'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres', 'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities', 'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed', 'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist', 'stereo_decl', 'review', 'quality_status', 'judge_input_sha256',
                    'subtopic_id', 'difficulty', 'difficulty_check', 'ca_range', 'stimulus_group_id', 'correct_option', 'key', 'answer',
-                   'figural_ask_type')
+                   'figural_ask_type', 'slot_chain')     # v2.39: a DISCLOSED item's chain (final_assembly v1.15)
 
 
 def _qq_cm(src):
@@ -4866,6 +4881,88 @@ def _qq_reconcile_unresolved(phase):
         if qs and qs <= unres:
             RESULTS[i] = ('WARN', code, 'UNRESOLVED (OD-9: items ' + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
                           + ' stamped; paper NOT CERTIFIED) — ' + str(msg))
+
+
+def _lb_reconcile_disclosed(src):
+    """v2.39 (OD-2026-11-09) — an item whose quality_status is 'DISCLOSED(<gates>)' AND whose recorded
+    slot chain (concept_map[q].slot_chain) is EXHAUSTED (bc.slot_chain_exhausted — re-derived from the
+    attempt history, never declared) is delivered with an AMBER disclosure: a FAIL whose item findings sit
+    ONLY on such items becomes an 'AMBER — DISCLOSED' WARN and those items never block the certificate. A
+    DISCLOSED stamp on a chain that is NOT exhausted changes nothing (the FAIL stands)."""
+    try:
+        cm = _qq_cm(src)
+        bc = _qq_bc()
+    except Exception:
+        return
+    if not isinstance(cm, dict):
+        return
+    disc = {str(q) for q, e in cm.items() if isinstance(e, dict)
+            and str(e.get('quality_status') or '').startswith('DISCLOSED')
+            and bc.slot_chain_exhausted(e.get('slot_chain'), (e.get('slot_chain') or {}).get('kind'))}
+    if not disc:
+        return
+    by_gate = {}
+    for f in ITEM_FINDINGS:
+        by_gate.setdefault(f.get('gate'), set()).add(str(f.get('q')))
+    hit = set()
+    for i, (lvl, code, msg) in enumerate(list(RESULTS)):
+        if lvl != 'FAIL':
+            continue
+        qs = set()
+        for g, gq in by_gate.items():
+            if g == code or str(g).startswith(str(code) + '-'):
+                qs |= gq
+        if qs and qs <= disc:
+            hit |= qs
+            RESULTS[i] = ('WARN', code, 'AMBER — DISCLOSED (OD-2026-11-09: every replacement route exhausted; '
+                          'delivered with this disclosure) items ' + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
+                          + ' — ' + str(msg))
+    DISCLOSED_ITEMS.update(hit)
+
+
+def _lb_escalate_paper(gates, sweep):
+    """v2.39 (OD-2026-11-09) — S13-2F sweep cap: a PAPER-LEVEL FAIL (no item finding) of a gate named in
+    --escalate-paper, on sweep >= bc.S13_2F_MAX_SWEEPS, is reported as an 'AMBER — ESCALATED' WARN: it
+    survived every deterministic rebuild (reassemble / recapture) and is delivered disclosed, never a stop.
+    INFRA gates (a broken tool) are never escalated."""
+    try:
+        bc = _qq_bc()
+        cap, infra = bc.S13_2F_MAX_SWEEPS, set(bc.INFRA_GATES)
+    except Exception:
+        return
+    gs = {g.strip() for g in str(gates or '').split(',') if g.strip()}
+    try:
+        sw = int(sweep)
+    except (TypeError, ValueError):
+        return
+    if not gs or sw < cap:
+        return
+    with_items = {f.get('gate') for f in ITEM_FINDINGS}
+    for i, (lvl, code, msg) in enumerate(list(RESULTS)):
+        if lvl == 'FAIL' and code in gs and code not in infra and code not in with_items:
+            RESULTS[i] = ('WARN', code, f'AMBER — ESCALATED at S13-2F sweep {sw} (OD-2026-11-09: survived every '
+                                        f'rebuild; delivered with this disclosure) — {msg}')
+
+
+def _block_item_hash(b):
+    """bc.item_hash over ONE parsed question block: paragraph and table text in document order plus the
+    sha256 of every bound image (its extracted file, else its media part name)."""
+    import hashlib as _hl
+    texts = [para_text(p) for p in b.paras]
+    for t in b.tables:
+        try:
+            texts += [c.text for row in t.rows for c in row.cells]
+        except Exception:
+            pass
+    digs = []
+    for im in b.images:
+        pth = im.get('path') if isinstance(im, dict) else None
+        if pth and os.path.exists(pth):
+            with open(pth, 'rb') as fh:
+                digs.append(_hl.sha256(fh.read()).hexdigest())
+        else:
+            digs.append(str((im or {}).get('part') or (im or {}).get('name') or ''))
+    return _qq_bc().item_hash(texts, digs)
 
 
 def _paper_is_qq(src):
@@ -5451,18 +5548,47 @@ def gate_review(src, args=None):
     bad_missing = sorted((q for q, e in cm.items() if not isinstance(e, dict) or not isinstance(e.get('review'), dict)),
                      key=lambda x: int(x) if str(x).isdigit() else 0)
     bad_defect, not_run = [], {}
+    bad_cov, by_majority = [], []
+    bc = _qq_bc()
+    # v2.39 (REVIEW-COVERAGE-LAW): once ANY record carries item_hash (a 2026.11.09 producer), EVERY item's
+    # latest record must be bound to the hash of the block actually delivered (--item-hashes, computed
+    # here from the docx — never declared). A stale or missing binding is an item finding (ladder RV).
+    _hashes = src.get('_item_hashes') if isinstance(src.get('_item_hashes'), dict) else {}
+    _cov_on = bool(_hashes) and any(isinstance(e, dict) and isinstance(e.get('review'), dict)
+                                    and e['review'].get('item_hash') for e in cm.values())
     for q, e in cm.items():
         rv = e.get('review') if isinstance(e, dict) else None
         if not isinstance(rv, dict):
             continue
+        if _cov_on and str(q) in _hashes and rv.get('item_hash') != _hashes.get(str(q)):
+            bad_cov.append(f'Q{q}')
+            _item('A-REVIEW-COVERAGE', q, f'A-REVIEW-COVERAGE: Q{q} review bound to a different text than the '
+                                           f'delivered block — a delta review is required', 'VOID_ITEM')
+            continue
         if str(rv.get('status') or '').upper() == 'NOT_RUN':
             not_run.setdefault(str(rv.get('reason') or 'no reason recorded'), []).append(str(q))
             continue
-        if rv.get('key_agrees') is False or rv.get('confidence') == 'low' \
+        _cb = rv.get('certified_by')
+        if _cb == 'panel':
+            # re-derived, never declared: a strict majority of the recorded panel agrees with the key
+            # the sidecar's full history, else the panel records the review itself carries (a registry-only
+            # final audit: review_history is not committed — the registry stays small)
+            _src_h = e.get('review_history') or rv.get('panel') or []
+            _hist = [r for r in _src_h if isinstance(r, dict)
+                     and (not _hashes or r.get('item_hash') == _hashes.get(str(q), r.get('item_hash')))]
+            if bc.review_panel_majority(_hist[-bc.REVIEW_PANEL_SIZE:])['certified']:
+                continue
+        elif _cb == 'majority' and bc.slot_chain_exhausted(rv.get('chain'), 'dispute'):
+            by_majority.append(f'Q{q} ({rv.get("agree")}/{rv.get("n")})')
+            continue
+        if rv.get('key_agrees') is False or rv.get('confidence') == 'low' or _cb in ('panel', 'majority') \
                 or str(rv.get('selectivity_basis') or '').lower().startswith('contested') or rv.get('verdict') == 'FAIL':
             bad_defect.append(f'Q{q}')
             _item('A-REVIEW', q, 'A-REVIEW: ' + str(rv.get('reason') or 'reviewer disagrees / low confidence'), 'VOID_ITEM')
-    if bad_missing:
+    if bad_cov:
+        _fail('A-REVIEW', f'{len(bad_cov)} item(s) were changed after their independent review (item_hash mismatch) — '
+                          f'ladder RV, a delta review: ' + _flist(bad_cov))
+    elif bad_missing:
         _fail('A-REVIEW', f'{len(bad_missing)} item(s) carry NO independent-review record — an S13-2G binding defect '
                           f'[HS:INFRA] (the in-session review stamps every item, a verdict or NOT_RUN): ' + _flist(bad_missing))
     elif bad_defect:
@@ -5471,6 +5597,9 @@ def gate_review(src, args=None):
         _warn('A-REVIEW', 'independent review NOT RUN on ' + '; '.join(
             f"{_flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))} ({why})" for why, qs in sorted(not_run.items()))
             + ' — recorded and disclosed in the footer (GAP-2026-11-04 A5); never a stop.')
+    elif by_majority:
+        _warn('A-REVIEW', 'AMBER — certified by majority of independent reviews after the dispute chain was exhausted '
+                          '(OD-2026-11-09): ' + ', '.join(by_majority))
     else:
         _ok('A-REVIEW', f'{len(cm)} item(s) independently reviewed; every key agreed.')
 
@@ -6088,6 +6217,14 @@ def run_audit(args):
     # _fig_verdict rather than a missing gate line or a silent pass.
     _safe_gate('A-MEDIA', attach_block_images, blocks, media_map,
                extract_media(args.docx, media_map))
+    # v2.39 (REVIEW-COVERAGE-LAW): the hash of every delivered block, for A-REVIEW and for the producer
+    try:
+        src['_item_hashes'] = {str(b.qnum): _block_item_hash(b) for b in blocks if b.qnum is not None}
+    except Exception:
+        src['_item_hashes'] = {}
+    if getattr(args, 'item_hashes', None):
+        with open(args.item_hashes, 'w', encoding='utf-8') as fh:
+            json.dump(src['_item_hashes'], fh, indent=1, sort_keys=True)
     _safe_gate('A-DOSSIER', gate_dossier, blocks, src, src.get('dossier'),
                src.get('dossier_why'))
     _safe_gate('A-STRUCTURE', gate_structure, blocks, src)
@@ -6152,6 +6289,8 @@ def run_audit(args):
     _safe_gate('A-PYQBENCH', gate_pyqbench, src)               # INFO — bench card
     _safe_gate('A-DIFFGATE', gate_diffgate, src)               # v2.38 WARN-only — paper vs target plan
     _qq_reconcile_unresolved(getattr(args, 'phase', 'final'))  # OD-9: UNRESOLVED-only FAILs -> WARN
+    _lb_reconcile_disclosed(src)                               # v2.39: exhausted-chain items -> AMBER WARN
+    _lb_escalate_paper(getattr(args, 'escalate_paper', None), getattr(args, 'sweep', None))
     rc = print_results()
     _okw = write_item_outputs(args)
     if getattr(args, 'write_certificate', None) and not _okw:
@@ -6247,9 +6386,10 @@ def gate_contentlevel(src):
         lab = e.get('difficulty')
         dec = r.get('decision')
         why = None
-        if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3'):
+        if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3', 'dl_swap', 'dl_forced', 'dl_held'):
             why = f'decision {dec!r} unresolved'
-        elif r.get('ccp_status') == 'below' and dec not in ('accept_measured', 'carried_below', 'dl_agree', 'dl_dr3'):
+        elif r.get('ccp_status') == 'below' and dec not in ('accept_measured', 'carried_below', 'dl_agree', 'dl_dr3',
+                                                            'dl_swap', 'dl_forced', 'dl_held'):
             why = 'content measured below its band and not repaired'
         elif lab is not None and r.get('final_band') not in (None, lab):
             why = f"label {lab!r} != final band {r.get('final_band')!r}"
@@ -6258,7 +6398,7 @@ def gate_contentlevel(src):
             _item('A-CONTENTLEVEL', q, f'A-CONTENTLEVEL: Q{q} {why}', 'VOID_ITEM')
     if bad:
         _fail('A-CONTENTLEVEL', f'ITEM DEFECT — {len(bad)} item(s) whose level is not '
-                                f'resolved (ladder R2, R5 accept-at-measured): ' + _flist(bad))
+                                f'resolved (ladder R2; a harder slot is HELD at R5 — owner 2026-11-10): ' + _flist(bad))
     else:
         _ok('A-CONTENTLEVEL', f'{len(recs)} item(s) carry a resolved, evidence-anchored '
                               f'difficulty decision.')
@@ -6524,7 +6664,8 @@ def write_item_outputs(args):
         # certificate; they are LISTED in it (uncertified_items) and the paper is NOT
         # CERTIFIED — Deliver refuses it without --accept-uncertified. Never a stop.
         _unres = set(UNCERTIFIED_ITEMS)
-        _open_items = [f for f in ITEM_FINDINGS if str(f.get('q')) not in _unres]
+        _open_items = [f for f in ITEM_FINDINGS if str(f.get('q')) not in _unres
+                       and str(f.get('q')) not in DISCLOSED_ITEMS]
         _unres_gates = {f['gate'] for f in ITEM_FINDINGS if str(f.get('q')) in _unres}
         blocking = [f'{c}: {m}' for lvl, c, m in RESULTS
                     if lvl == 'FAIL' and not (c in _unres_gates and _unres)]
@@ -6538,6 +6679,7 @@ def write_item_outputs(args):
                 'phase': 'precommit', 'gate_ids': list(ITEM_GATE_IDS),
                 'findings': len(ITEM_FINDINGS) - len(_open_items), 'amber_notes': amber,
                 'uncertified_items': sorted(_unres, key=lambda x: int(x) if str(x).isdigit() else 0),
+                'disclosed_items': sorted(DISCLOSED_ITEMS, key=lambda x: int(x) if str(x).isdigit() else 0),
                 'certified': not _unres,
                 'auditor': 'audit_canonical v2.36'}
         with open(wc, 'w', encoding='utf-8') as fh:
@@ -6645,8 +6787,13 @@ def gate_qindex(src):
                  if k not in ('mock', 'band') and isinstance(v, int)} <= set(canon))
             want = {lab: want.get(lab, 0) for lab in canon}
             got = {lab: 0 for lab in canon}
+            try:                       # v2.39: count each row at its recorded basis (legacy DR3 at its slot)
+                import blueprint_core as _bc6
+                _cb6 = getattr(_bc6, 'qindex_count_band', None)
+            except ImportError:
+                _cb6 = None
             for x in qs:
-                d = x.get('difficulty')
+                d = _cb6(x, canon) if _cb6 else x.get('difficulty')
                 if d in got:
                     got[d] += 1
             if _comparable and got != want:
@@ -6675,6 +6822,8 @@ def gate_qindex(src):
                 _t = _qt_at(int(x.get('q', -1)))
                 if _t in ('msq', 'nat'):
                     _floor_bad.append(f"Q{x.get('q')}({_t.upper()})")
+                    _item('A-QINDEX-FLOOR', x.get('q'), f"A-QINDEX-FLOOR: Q{x.get('q')} carries '{canon[0]}' "
+                                                       f"on a {_t.upper()} position (structural floor)", 'VOID_ITEM')
         if _floor_bad:
             fails.append(
                 f"check 7 (structural floor): '{canon[0]}' label on MSQ/NAT "
@@ -6695,16 +6844,24 @@ def gate_qindex(src):
             try:
                 import blueprint_core as _bc
                 _obs_bad = []
+                _vl = getattr(_bc, 'verify_difficulty_label', None)
                 for x in _obs_qs:
-                    _okc, _meas = _bc.verify_difficulty_obs(
-                        x.get('difficulty'), x.get('difficulty_obs'), canon)
+                    # v2.39 (LABEL-BASIS-LAW): the label is verified against the basis that SET it
+                    if _vl:
+                        _okc, _meas, _basis8 = _vl(x, canon)
+                    else:
+                        (_okc, _meas), _basis8 = _bc.verify_difficulty_obs(
+                            x.get('difficulty'), x.get('difficulty_obs'), canon), 'obs'
                     if not _okc:
+                        _item('A-QINDEX-LABEL', x.get('q'),
+                              f"A-QINDEX-LABEL: Q{x.get('q')} label {x.get('difficulty')!r} != expected "
+                              f"{_meas!r} on basis {_basis8}", 'VOID_ITEM')
                         _o8 = x.get('difficulty_obs') or {}
                         _rule8 = ('L1' if isinstance(_o8.get('level'), dict)
                                   and str(_o8['level'].get('rule') or '').upper() == 'L1'
                                   else _bc.rubric_rule_of(_o8)) if hasattr(_bc, 'rubric_rule_of') else 'r1'
                         _obs_bad.append(f"Q{x.get('q')}(label={x.get('difficulty')}"
-                                        f"!=measured={_meas})[rule {_rule8}]")
+                                        f"!=measured={_meas})[rule {_rule8}; basis {_basis8}]")
                 if _obs_bad:
                     fails.append(
                         f"check 8 (obs consistency): label contradicts its own "
@@ -8731,6 +8888,15 @@ def self_test():
         except Exception:
             _q6p = False
         check('A-QINDEX-QUOTA-PARITY-auditor-gate-matches-pp-validate', _q6p)
+        # v2.39 — the check-6 count rule is mirrored in the thin core (CHECK AB): assert the pair equal
+        _cb_rows = [{'difficulty': 'Easy'}, {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Hard'}},
+                    {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'dr3_basis': {'target': 'Hard'}, 'scheduled': 'Easy'}},
+                    {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3'}}, {'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'FORCED'}},
+                    {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Nope'}}, None, 7, {'difficulty_check': 'x'}]
+        import blueprint_core as _bc_cb
+        check('v239-QINDEX-COUNT-BAND-PARITY-bc-equals-pp',
+              all(_bc_cb.qindex_count_band(r, ['Easy', 'Medium', 'Hard']) == _pp_q.qindex_count_band(r, ['Easy', 'Medium', 'Hard'])
+                  for r in _cb_rows))
     except ImportError:
         check('A-QINDEX-PARITY-skipped-standalone', True)
 
@@ -12984,6 +13150,176 @@ def self_test():
     check('v238-A-DIFFGATE-hostile-input-never-raises', [l for l, c, m in RESULTS if c == 'A-DIFFGATE'] in (['OK'], ['WARN']))
     _reset()
 
+    # ---- v2.39 (GAP-2026-11-08-DR3-QINDEX-CONFLICT, OD-2026-11-09) — every fixture names its defect ----
+    import blueprint_core as _bc39
+    _L39 = ['Easy', 'Medium', 'Hard']
+    _o39 = {'qtype': 'mcq', 'question_class': 'C-COMPUTATIONAL', 'facets': ['C-COMPUTATIONAL'],
+            'deduction_steps': 6, 'axiom_concepts': 3, 'speed_hack_exists': False, 'is_negative': False}
+    _BP39 = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 0, 'medium': 0, 'hard': 2}])
+    def _q39(qs, bp=_BP39):
+        _reset()
+        gate_qindex({'total_questions': 2, 'blueprint': bp, 'registry': _q_reg(qs), '_mockN': 1})
+        return [(l, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+    # T13 — THE INCIDENT: a legacy DR3 row (label Medium, obs measuring Hard) passes checks 6 and 8
+    _dr3row = {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium', 'difficulty_obs': dict(_o39),
+               'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Hard', 'review_controls': {'reviewer': 'Medium'}}}
+    _hard1 = {'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Hard', 'difficulty_obs': dict(_o39)}
+    _r13 = _q39([_hard1, _dr3row])
+    check('v239-T13-legacy-dr3-with-obs-passes-checks-6-and-8 [v2.38-FAILS]', [l for l, _ in _r13] == ['OK'])
+    # T14 — a DR3 label forged one band below its controls: FAIL + item finding naming the question
+    _r14 = _q39([_hard1, dict(_dr3row, difficulty='Easy')])
+    check('v239-T14-forged-dr3-fails-with-item', [l for l, _ in _r14] == ['FAIL'] and 'basis dr3' in _r14[0][1]
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-QINDEX-LABEL'] == ['2'])
+    # HELD (owner 2026-11-10): a slot measured HARDER keeps its scheduled label — checks 6 AND 8 pass; the same row
+    # without the recorded basis (a label below its own evidence) still FAILs check 8
+    _BP39h = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 0, 'medium': 1, 'hard': 1}])
+    _heldrow = _bc39.dl_set_label_basis({'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium', 'qtype': 'mcq',
+                                         'difficulty_obs': dict(_o39)}, 'held', _L39, 'Medium', controls={'measured': 'Hard'})[0]
+    check('v239-held-row-passes-checks-6-and-8', [l for l, _ in _q39([_hard1, _heldrow], bp=_BP39h)] == ['OK'])
+    check('v239-unheld-lower-label-still-fails-check-8',
+          [l for l, _ in _q39([_hard1, {k: v for k, v in _heldrow.items() if k != 'difficulty_check'}], bp=_BP39h)] == ['FAIL'])
+    # T15 — an organic item under a BINDING L2 ruler whose L1 band differs: the L2 band decides (G5)
+    _lv39 = {'rule': 'L1', 'composite': 5.0, 'cuts_list': [10.0, 60.0]}
+    _l2row = {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard',
+              'difficulty_obs': {'qtype': 'mcq', 'level': _lv39, 'l2': {'band': 'Hard', 'binding': True}}}
+    check('v239-T15-l2-binding-row-passes [v2.38-FAILS]', [l for l, _ in _q39([_hard1, _l2row])] == ['OK'])
+    check('v239-T15b-l2-advisory-row-still-fails', [l for l, _ in _q39([_hard1, dict(_l2row, difficulty_obs=dict(
+        _l2row['difficulty_obs'], l2={'band': 'Hard', 'binding': False}))])] == ['FAIL'])
+    # check 6 — a FORCED / SWAP row counts at its label; a wrong quota still FAILs
+    _chx = _bc39.slot_chain_new(2, 'difficulty', 'Hard')
+    for _i39 in range(40):
+        _nx = _bc39.slot_chain_next(_chx)
+        _chx = _nx['chain']
+        if _nx['action'] in ('forced', 'done'):
+            break
+        _chx = _bc39.slot_chain_record(_chx, _nx['stage'], 'fail', sibling=_nx['sibling'])
+    _frow, _fok, _ = _bc39.dl_set_label_basis(dict(_dr3row, difficulty='Medium', difficulty_check={}), 'forced', _L39, 'Hard',
+                                              controls={'reviewer': 'Medium'}, chain=_chx)
+    check('v239-forced-row-passes', _fok and [l for l, _ in _q39([_hard1, dict(_frow, q=2)])] == ['OK'])
+    _r6 = _q39([_hard1, {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}])
+    check('v239-check6-wrong-quota-still-fails', [l for l, _ in _r6] == ['FAIL'] and 'schedule quota' in _r6[0][1])
+    # T16 — check 7 emits an item finding A-QINDEX-FLOOR (ladder RL)
+    _BP7 = dict(_QBP, marking_scheme=[{'q_range': [1, 2], 'question_type': 'MSQ'}])
+    _r7 = _q39([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+                {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}], bp=_BP7)
+    check('v239-T16-check7-item-finding', [l for l, _ in _r7] == ['FAIL']
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-QINDEX-FLOOR'] == ['1']
+          and _bc39.ladder_entry('A-QINDEX-FLOOR') == 'RL')
+    # A-CONTENTLEVEL accepts the v5.96 decisions; an unknown decision still FAILs
+    _reset(); gate_contentlevel({'concept_map': {'1': {'difficulty': 'Medium', 'difficulty_check': {'decision': 'dl_swap', 'final_band': 'Medium'}},
+                                                 '2': {'difficulty': 'Hard', 'difficulty_check': {'decision': 'dl_forced', 'final_band': 'Hard'}}}})
+    check('v239-A-CONTENTLEVEL-accepts-swap-forced', [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['OK'])
+    _reset(); gate_contentlevel({'concept_map': {'1': {'difficulty': 'Hard', 'difficulty_check': {'decision': 'dl_relabel', 'final_band': 'Hard'}}}})
+    check('v239-A-CONTENTLEVEL-unknown-decision-fails', [l for l, c, m in RESULTS if c == 'A-CONTENTLEVEL'] == ['FAIL'])
+    # T17 — REVIEW-COVERAGE-LAW: a record bound to a stale item_hash is an item finding (ladder RV)
+    _h1, _h2 = 'a' * 64, 'b' * 64
+    _rvA = {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': _h1}
+    _s17 = _src35(concept_map={'1': {'review': _rvA}, '2': {'review': dict(_rvA, item_hash='stale')}})
+    _s17['_item_hashes'] = {'1': _h1, '2': _h2}
+    _reset(); gate_review(_s17, _A35())
+    check('v239-T17-stale-hash-coverage-item', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW-COVERAGE') == ['2']
+          and 'delta review' in _msg('A-REVIEW') and _bc39.ladder_entry('A-REVIEW-COVERAGE') == 'RV')
+    _s17ok = _src35(concept_map={'1': {'review': _rvA}, '2': {'review': dict(_rvA, item_hash=_h2)}})
+    _s17ok['_item_hashes'] = {'1': _h1, '2': _h2}
+    _reset(); gate_review(_s17ok, _A35())
+    check('v239-T17-bound-hashes-ok', _lv('A-REVIEW') == ['OK'])
+    _s17leg = _src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {'review': {'key_agrees': True}}})
+    _s17leg['_item_hashes'] = {'1': _h1, '2': _h2}
+    _reset(); gate_review(_s17leg, _A35())
+    check('v239-T17-legacy-records-coverage-dormant', _lv('A-REVIEW') == ['OK'])
+    # certified_by 'panel' is re-derived from the recorded panel; 'majority' needs an exhausted dispute chain
+    _pan = [dict(_rvA), dict(_rvA), dict(_rvA, key_agrees=False)]
+    _s_pan = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='panel'), 'review_history': _pan},
+                                 '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_pan, _A35())
+    check('v239-panel-majority-certifies', _lv('A-REVIEW') == ['OK'])
+    _s_pan_bad = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='panel'),
+                                           'review_history': [dict(_rvA, key_agrees=False)] * 2 + [dict(_rvA)]},
+                                     '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_pan_bad, _A35())
+    check('v239-panel-declared-without-majority-fails', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1'])
+    _chd = _bc39.slot_chain_new(1, 'dispute')
+    for _i39 in range(40):
+        _nx = _bc39.slot_chain_next(_chd)
+        _chd = _nx['chain']
+        if _nx['action'] in ('majority', 'done'):
+            break
+        _chd = _bc39.slot_chain_record(_chd, _nx['stage'], 'fail', sibling=_nx['sibling'])
+    _s_maj = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='majority', chain=_chd, agree=2, n=5)},
+                                 '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_maj, _A35())
+    check('v239-majority-after-exhausted-chain-is-amber', _lv('A-REVIEW') == ['WARN'] and 'AMBER' in _msg('A-REVIEW') and '2/5' in _msg('A-REVIEW'))
+    _s_maj_bad = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='majority',
+                                                          chain=_bc39.slot_chain_new(1, 'dispute'))}, '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_maj_bad, _A35())
+    check('v239-majority-without-exhaustion-fails', _lv('A-REVIEW') == ['FAIL'])
+    # DISCLOSED — an exhausted quality chain turns that item's FAIL into AMBER; an unexhausted one does not
+    _chq = _bc39.slot_chain_new(1, 'quality')
+    for _i39 in range(40):
+        _nx = _bc39.slot_chain_next(_chq)
+        _chq = _nx['chain']
+        if _nx['action'] in ('amber', 'done'):
+            break
+        _chq = _bc39.slot_chain_record(_chq, _nx['stage'], 'fail', sibling=_nx['sibling'])
+    _chq = _bc39.slot_chain_finish(_chq, 'amber', gates=['A-OPTDISTINCT'])
+    def _disc_run(chain):
+        _reset()
+        _item('A-OPTDISTINCT', '1', 'x')
+        _fail('A-OPTDISTINCT', 'ITEM DEFECT Q1')
+        _lb_reconcile_disclosed({'concept_map': {'1': {'quality_status': 'DISCLOSED(A-OPTDISTINCT)', 'slot_chain': chain}}})
+        return [l for l, c, m in RESULTS if c == 'A-OPTDISTINCT'], set(DISCLOSED_ITEMS), _msg('A-OPTDISTINCT')
+    _dok, _dset, _dmsg = _disc_run(_chq)
+    _dno, _dset2, _ = _disc_run(_bc39.slot_chain_new(1, 'quality'))
+    check('v239-disclosed-exhausted-is-amber', _dok == ['WARN'] and _dset == {'1'} and 'AMBER — DISCLOSED' in _dmsg)
+    check('v239-disclosed-unexhausted-still-fails', _dno == ['FAIL'] and _dset2 == set())
+    # REGISTRY-ONLY final audit (no sidecar): the committed slot_chain (final_assembly v1.15) and the panel records
+    # carried in the review re-derive the disclosure / the panel certification — never a FAIL for want of the sidecar
+    _reg_only = {'registry': {'question_index': [dict(_QQ_ENTRY, questions=[
+        {'q': 1, 'difficulty': 'Hard', 'quality_status': 'DISCLOSED(A-OPTDISTINCT)', 'slot_chain': _chq}])]}, '_mockN': 1}
+    _reset(); _item('A-OPTDISTINCT', '1', 'x'); _fail('A-OPTDISTINCT', 'ITEM DEFECT Q1')
+    _lb_reconcile_disclosed(_reg_only)
+    check('v239-disclosed-from-registry-only', [l for l, c, m in RESULTS if c == 'A-OPTDISTINCT'] == ['WARN']
+          and DISCLOSED_ITEMS == {'1'} and 'slot_chain' in _QQ_V590_FIELDS)
+    _s_pan_reg = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='panel', panel=_pan)},
+                                     '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_pan_reg, _A35())
+    check('v239-panel-from-review-records-certifies', _lv('A-REVIEW') == ['OK'])
+    _s_pan_reg_bad = _src35(concept_map={'1': {'review': dict(_rvA, key_agrees=None, certified_by='panel',
+                                                              panel=[dict(_rvA, key_agrees=False)] * 2 + [dict(_rvA)])},
+                                         '2': {'review': dict(_rvA)}})
+    _reset(); gate_review(_s_pan_reg_bad, _A35())
+    check('v239-panel-from-review-records-without-majority-fails', _lv('A-REVIEW') == ['FAIL'])
+    # ESCALATE — only at the sweep cap, only non-INFRA, only paper-level
+    def _esc_run(gates, sweep, code='A-SEQ', with_item=False):
+        _reset()
+        if with_item:
+            _item(code, '3', 'x')
+        _fail(code, 'missing=[3]')
+        _lb_escalate_paper(gates, sweep)
+        return [l for l, c, m in RESULTS if c == code]
+    check('v239-escalate-at-cap', _esc_run('A-SEQ', _bc39.S13_2F_MAX_SWEEPS) == ['WARN']
+          and 'AMBER — ESCALATED' in RESULTS[-1][2])
+    check('v239-escalate-not-before-cap', _esc_run('A-SEQ', _bc39.S13_2F_MAX_SWEEPS - 1) == ['FAIL']
+          and _esc_run('A-SEQ', None) == ['FAIL'] and _esc_run('', 9) == ['FAIL'])
+    check('v239-escalate-never-infra-or-item', _esc_run('A-GATEERROR', 9, code='A-GATEERROR') == ['FAIL']
+          and _esc_run('A-SEQ', 9, with_item=True) == ['FAIL'])
+    # block hash — text and image both bind it
+    class _B39:
+        def __init__(self, t, img):
+            self.qnum, self.paras, self.tables, self.images = 1, [], [], [{'part': img}]
+            self._t = t
+    _pt0 = para_text
+    try:
+        globals()['para_text'] = lambda p: p
+        _b1 = _B39('x', 'image1.png'); _b1.paras = ['Q.1 stem']
+        _b2 = _B39('x', 'image1.png'); _b2.paras = ['Q.1 stem changed']
+        _b3 = _B39('x', 'image2.png'); _b3.paras = ['Q.1 stem']
+        check('v239-block-hash-binds-text-and-image', _block_item_hash(_b1) != _block_item_hash(_b2)
+              and _block_item_hash(_b1) != _block_item_hash(_b3) and len(_block_item_hash(_b1)) == 64)
+    finally:
+        globals()['para_text'] = _pt0
+    _reset()
+
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
     return 0 if passed == total else 1
@@ -13005,6 +13341,11 @@ def main():
                     help='[ExamCode]_fig_manifest.json (v2.32, E19): the Step-7 sidecar for a '
                          'paper not yet committed; arms A-FIGPROFILE / A-FIGTYPE-KIND per batch.')
     ap.add_argument('--mockN', type=int)
+    ap.add_argument('--item-hashes', dest='item_hashes',
+                    help='v2.39: write {q: bc.item_hash} of every delivered question block (REVIEW-COVERAGE-LAW).')
+    ap.add_argument('--escalate-paper', dest='escalate_paper',
+                    help='v2.39: comma list of paper-level gates S13-2F escalates to AMBER at its sweep cap.')
+    ap.add_argument('--sweep', dest='sweep', type=int, help='v2.39: the S13-2F sweep number (with --escalate-paper).')
     # v2.34 GAP-2026-11-02 — S13-2F pre-commit item sweep + certificate
     ap.add_argument('--phase', choices=('precommit', 'final'), default='final',
                     help='precommit = S13-2F item sweep (before S13-4 commit); final = S13-4c')
