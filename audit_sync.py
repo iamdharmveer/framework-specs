@@ -494,6 +494,24 @@ def _self_test():
     rc, out = mutated(_strip_cov)
     check("REVIEW-COVERAGE fires when the governed spec stops checking coverage",
           rc == 1 and 'REVIEW-COVERAGE' in out)
+    # ── 2026.11.10 (GAP-2026-11-10) — STOP-NEEDS-REPAIR / organic_parity_rule ──
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\nraise SystemExit("HARD STOP [HS:INPUT] (S3 difficulty feasibility, x)")\n```\n'))
+    check("STOP-NEEDS-REPAIR fires when Create stops on a difficulty input again",
+          rc == 1 and 'STOP-NEEDS-REPAIR' in out and 'difficulty feasibility' in out)
+    def _sc1_back(r):
+        p10 = os.path.join(r, 'Framework_MockTestCreate.md')
+        t10 = open(p10, encoding='utf-8').read()
+        i10 = t10.index('\n', t10.index('\n## S13-2L') + 1)          # just after the real S13-2L header line
+        t10 = t10[:i10] + '\n```python\n_p = bc.dl_swap_partner(q, t, g, l)\n```\n' + t10[i10:]
+        open(p10, 'w', encoding='utf-8').write(t10)
+    rc, out = mutated(_sc1_back)
+    check("STOP-NEEDS-REPAIR fires when S13-2L writes a retired SC1 ending again",
+          rc == 1 and 'STOP-NEEDS-REPAIR' in out and 'dl_swap_partner(' in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_NotesCreate.md',
+        '\n```python\nok = bc.clone_guard(item, past=p)\n```\n'))
+    check("organic_parity_rule: a spec that calls an S0-OP entry point but is not governed fails LAW-COVERAGE",
+          rc == 1 and 'LAW-COVERAGE' in out and 'Framework_NotesCreate.md' in out and 'LAW-ORG' in out)
     rc, out = mutated(lambda r: append(r, 'audit_canonical.py',
         "\n\ndef gate_unrouted_fixture(src):\n    _fail('A-UNROUTED-FIXTURE', 'x')\n"))
     check("LADDER-COVERAGE fires on an auditor FAIL gate with no route",
@@ -878,6 +896,29 @@ except ValueError as _exc:
     _REG = None
     rec('LAW-REGISTRY', f"LAW_REGISTRY.json is not valid JSON: {_exc}")
 
+# GAP-2026-11-10 LAW-ORG-12 STOP-NEEDS-REPAIR (difficulty path) + LAW-ORG-3 / LAW-ORG-5: Step 7 may never again stop on a
+# requested schedule or a difficulty input, and may never again WRITE a retired label basis or ladder ending.
+_C7 = TXT.get('Framework_MockTestCreate.md') or ''
+_C7L = _live_text(_C7)
+for _stop in ('HARD STOP [HS:INPUT] (S3 difficulty feasibility', 'HARD STOP [HS:INPUT] (S3 per-section difficulty plan',
+              'HARD STOP [HS:INPUT] (S3 difficulty profile', 'HARD STOP [HS:INPUT] (S3-2D)'):
+    if _stop in _C7L:
+        rec('STOP-NEEDS-REPAIR', f"Framework_MockTestCreate.md still raises '{_stop} ...' — LAW-ORG-12: a difficulty input "
+                                 f"is repaired (bc.schedule_normalize / schedule_place / the exam ruler), never a stop.")
+_C7S = _live_text(_C7.split('\n## S13-2L')[-1].split('\n## S13-3 ')[0]) if '\n## S13-2L' in _C7 else ''
+for _w in ("bc.dl_set_label_basis(", "'band_swap'", "'paired_upgrade'", "'majority'", "dl_swap_partner(", "dl_upgrade_candidate("):
+    if _w in _C7S:
+        rec('STOP-NEEDS-REPAIR', f"Create S13-2L live code still uses the retired SC1 ending / writer {_w} — LAW-ORG-3 / "
+                                 f"LAW-ORG-5 (SC2: reserve_refill -> refill_session -> last_resort; dl_set_label_basis_strict).")
+try:
+    import blueprint_core as _bc_org12
+    _unrep = [k for k, v in _bc_org12.STOP_REPAIRS.items() if not v[0]]
+    if _unrep or not set(v[1] for v in _bc_org12.STOP_REPAIRS.values() if v[1]) <= set(_bc_org12.ENVIRONMENT_FAILURES):
+        rec('STOP-NEEDS-REPAIR', f"blueprint_core.STOP_REPAIRS: stop classes without a repair {_unrep} or an environment "
+                                 f"failure outside ENVIRONMENT_FAILURES.")
+except Exception as _e_org12:                                  # noqa: BLE001
+    rec('STOP-NEEDS-REPAIR', f"blueprint_core.STOP_REPAIRS unreadable ({type(_e_org12).__name__}).")
+
 if _REG is not None:
     if not _REG.get('laws'):
         rec('LAW-REGISTRY', "LAW_REGISTRY.json declares no laws — an empty registry "
@@ -907,7 +948,8 @@ if _REG is not None:
                          'chem_structure_rule',
                          'difficulty_layer_rule',
                          'label_basis_rule',
-                         'review_coverage_rule'):
+                         'review_coverage_rule',
+                         'organic_parity_rule'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -1011,6 +1053,13 @@ if _REG is not None:
             _performing = {f for f, t in TXT.items()
                            if re.search(r'\bbc\.(?:review_packet|review_item_certified|review_coverage_missing)\(',
                                         _live_text(t))}
+        elif _rule == 'organic_parity_rule':
+            # GAP-2026-11-10-ORGANIC-QUESTION-PARITY LAW-ORG-1..12. A spec performs an organic-parity /
+            # difficulty-integrity operation when its live text calls an S0-OP engine entry point.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\b(?:bc|_bc_s3)\.(?:dl_set_label_basis_strict|clone_guard|stem_stereo_gate|'
+                                        r'schedule_normalize|schedule_place|build_difficulty_ruler|pyq_record_complete|'
+                                        r'organic_flag)\(|\bfa\.paper_parity_gate\(', _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

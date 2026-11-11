@@ -4,6 +4,11 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.97 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-11 / G-12 (LAW-ORG-8). G-FIGCOLLIDE now gates a
+native / rdkit structure raster on its DRAWN 2-D coordinates (spec['geometry'] = corpus_io draw.geometry: bond
+crossing, bond through a label, label overlap, atom clash) instead of returning nothing; NEW G-ORGPROOF
+(VOID_ITEM, A-ORGPROOF) — an organic figure certifies only with identity_ok, vision_ok and gates_ok. 30 -> 31 gates.
+
 v5.91 — 2026-11-07 — GAP-2026-11-06-ORGANIC-STRUCTURE-EXPLANATIONS (RE-25 CHEM-STRUCTURE).
 Three named inks for the explanation mechanism renderer (corpus_io v1.19
 render_mechanism, bound by explain_engine v2.13): ARROW_INK (curly arrows),
@@ -412,6 +417,8 @@ SEVERITY = {
     # set drawn at divergent scales is a size cue. Both void the ITEM.
     "G-FIGCOLLIDE":   "VOID_ITEM",
     "G-FIGOPTWINDOW": "VOID_ITEM",
+    # v5.97 (GAP-2026-11-10 G-12): an organic figure without its three proofs voids the ITEM
+    "G-ORGPROOF":     "VOID_ITEM",
     # renderer-contract regressions on v5.33+ output
     "G-FIGSCALE":   "BLOCKING",
     "G-FIGLABEL":   "BLOCKING",
@@ -468,6 +475,7 @@ AUDIT_GATE_ID = {
     "W-FIGINK":       "A-FIGINKPX",
     "G-FIGCOLLIDE":   "A-FIGCOLLIDE",
     "G-FIGOPTWINDOW": "A-FIGOPTWINDOW",
+    "G-ORGPROOF":     "A-ORGPROOF",
     "W-FIGFITPX":     "A-FIGFITPX",
     # v5.80 colour roles
     "G-FIGTEXTINK":       "A-FIGTEXTINK",
@@ -2617,8 +2625,16 @@ def g_figcollide(spec):
     not mask. An option a candidate cannot read is not a degraded option, it is
     an unanswerable one — so the ITEM is void and regenerated. The RUN never
     halts (CLAUDE.md: silence is the defect; a halt is not the remedy)."""
-    if is_native(spec):
-        return []          # v5.89: overprint on a native raster is G-FIGOVERPRINT's
+    if is_native(spec) or isinstance((spec or {}).get("geometry"), dict):
+        # v5.97 (GAP-2026-11-10 G-11): a native / rdkit structure raster is gated on its DRAWN 2-D coordinates —
+        # draw.geometry from corpus_io (bond crossing, bond through a label, label overlap, atom clash). Label
+        # overprint on a native raster stays G-FIGOVERPRINT's. A native spec with no geometry record is legacy.
+        g = (spec or {}).get("geometry")
+        if isinstance(g, dict) and not g.get("ok"):
+            return ["G-FIGCOLLIDE: drawn structure fails its geometry gates: "
+                    + "; ".join(f"{a}: {b}" for a, b in (g.get("findings") or [])[:4])
+                    + " — re-depict (corpus_io.native_layout_proof) or replace the item."]
+        return []
     f = spec.get("fit")
     if f is None:
         return [] if is_legacy(spec) else [
@@ -3325,6 +3341,23 @@ def g_figbondorder(spec):
     return []
 
 
+def g_orgproof(spec):
+    """VOID_ITEM (v5.97 — GAP-2026-11-10 G-12 F-12.5, LAW-ORG-8 DIAGRAM-PROOF). An ORGANIC figure (spec['organic']
+    True) certifies only with all three proofs in spec['proof']: identity_ok (the molecule re-perceived from the
+    drawn coordinates / projection rules equals the intended one), vision_ok (C_VISION_READS fresh vision
+    read-backs equal it) and gates_ok (geometry + drawing-chemistry + size gates). A non-organic figure is
+    out of scope. The ITEM is replaced; the run never halts."""
+    sp = spec or {}
+    if sp.get("organic") is not True:
+        return []
+    pr = sp.get("proof") if isinstance(sp.get("proof"), dict) else {}
+    miss = [k for k in ("identity_ok", "vision_ok", "gates_ok") if pr.get(k) is not True]
+    if not miss:
+        return []
+    return [f"G-ORGPROOF: organic figure lacks {', '.join(miss)} — re-depict / re-read, else replace the item "
+            f"(LAW-ORG-8)."]
+
+
 def audit_figure(spec, png_path, descr=None, stem=None, lexicon_extra=None):
     """Run every gate. Returns (hard_failures, warnings).
     v5.89: stem / lexicon_extra feed G-FIGMARK (the sidecar's own stem is used
@@ -3338,6 +3371,7 @@ def audit_figure(spec, png_path, descr=None, stem=None, lexicon_extra=None):
     _ink = g_figink(spec, png_path)        # v5.57 — census == pixels
     hard += [x for x in _ink if x.startswith("G-FIGINK") and "DORMANT" not in x]
     hard += g_figcollide(spec)             # v5.55 Q11 — no overprinted labels
+    hard += g_orgproof(spec)               # v5.97 G-12 — identity + vision + gates proofs
     hard += g_figcolour(spec, png_path)
     hard += g_figaccent(spec, png_path)
     hard += g_figmono(spec, png_path)
@@ -3677,7 +3711,16 @@ def self_test():
     # +G-FIGBONDORDER, +W-FIGBONDORDER, +G-FIGLABELPX).
     # The count is asserted, not hardcoded in prose, so a gate added without a
     # severity cannot ship silently at the default.
-    check("gate_count_is_thirty", len(SEVERITY) == 30)
+    # v5.97: 30 -> 31 (+G-ORGPROOF, GAP-2026-11-10 G-12).
+    check("gate_count_is_thirty_one", len(SEVERITY) == 31)
+    check("v597_orgproof", g_orgproof({"organic": True, "proof": {"identity_ok": True, "vision_ok": True,
+                                                                   "gates_ok": True}}) == []
+          and g_orgproof({"organic": True, "proof": {"identity_ok": True}}) != []
+          and g_orgproof({"organic": False}) == [] and g_orgproof(None) == [])
+    check("v597_native_geometry_gate", g_figcollide({"render_mode": "native_raster",
+                                                     "geometry": {"ok": False, "findings": [["G-BONDCROSS", "x"]]}}) != []
+          and g_figcollide({"render_mode": "native_raster", "geometry": {"ok": True}}) == []
+          and g_figcollide({"render_mode": "native_raster"}) == [])
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit

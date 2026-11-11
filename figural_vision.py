@@ -455,7 +455,7 @@ def rendered_counts(smiles):
     except Exception:                                        # noqa: BLE001
         return None
     try:
-        tot = {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0}
+        tot = {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0, 'stereo_marks': 0}
         for part in str(smiles or '').split('.'):
             if not part.strip():
                 continue
@@ -473,12 +473,15 @@ def rendered_counts(smiles):
             SN = Chem.BondStereo
             tot['stereocentres'] += sum(1 for b in m.GetBonds()
                                         if b.GetStereo() in (SN.STEREOE, SN.STEREOZ, SN.STEREOCIS, SN.STEREOTRANS))
+        # v3 (GAP-2026-11-10 F-02.3): every DEFINED stereo element is one stereo mark the image must show
+        tot['stereo_marks'] = tot['stereocentres']
         return tot
     except Exception:                                        # noqa: BLE001
         return None
 
 
 CONF_FULL, CONF_PARTIAL = 'full', 'partial'
+CONF_UNVERIFIED = 'unverified'      # v3 (GAP-2026-11-10 G-02, LAW-ORG-2): nothing was compared — FAIL CLOSED
 
 
 def transcription_confidence(objects, image_counts, reviewed=False):
@@ -490,10 +493,19 @@ def transcription_confidence(objects, image_counts, reviewed=False):
     VOID_ITEM, guard S10). `reviewed` = Phase B already re-viewed once (the spec's one
     re-view rule): the verdict is final either way; the flag is only recorded. Returns
     {'confidence', 'mismatches': [{'index','field','rendered','image'}], 'reviewed',
-    'compared': n}. RDKit unavailable or no counts -> 'full' with compared 0 (the
-    transcription is not contradicted by anything). Never raises."""
+    'compared': n}.
+    v3 (GAP-2026-11-10 G-02 F-02.1, LAW-ORG-2 PYQ-FAIL-CLOSED): when the item HAS a structure / reaction
+    object and nothing was compared (image_counts missing / empty / no usable entry, or RDKit unavailable),
+    the confidence is 'unverified' — NEVER 'full'. An item with no structure object has nothing to compare
+    and stays 'full'. 'stereo_marks' (wedges, hashes, wavy bonds, drawn ring-fusion H, chair axial /
+    equatorial substituents, stereo double bonds) is compared with the DEFINED stereo elements. Never raises."""
     out = {'confidence': CONF_FULL, 'mismatches': [], 'reviewed': bool(reviewed), 'compared': 0}
+    _has_struct = isinstance(objects, (list, tuple)) and any(
+        isinstance(o, dict) and str(o.get('kind') or '').upper() in ('STRUCTURE', 'REACTION')
+        and isinstance(o.get('canonical'), str) and o.get('canonical').strip() for o in objects)
     if not isinstance(objects, (list, tuple)) or not isinstance(image_counts, dict):
+        if _has_struct:
+            out['confidence'] = CONF_UNVERIFIED
         return out
     for i, ob in enumerate(objects):
         if not isinstance(ob, dict):
@@ -513,7 +525,7 @@ def transcription_confidence(objects, image_counts, reviewed=False):
         if got is None:
             continue
         out['compared'] += 1
-        for f in ('heavy_atoms', 'rings', 'stereocentres'):
+        for f in ('heavy_atoms', 'rings', 'stereocentres', 'stereo_marks'):
             if f in want and want[f] is not None:
                 try:
                     w = int(want[f])
@@ -523,7 +535,42 @@ def transcription_confidence(objects, image_counts, reviewed=False):
                     out['mismatches'].append({'index': i, 'field': f, 'rendered': got[f], 'image': w})
     if out['mismatches']:
         out['confidence'] = CONF_PARTIAL
+    elif _has_struct and out['compared'] == 0:
+        out['confidence'] = CONF_UNVERIFIED
     return out
+
+
+def readback_compare(intended_smiles, readback_smiles, stereo_mode='abs'):
+    """v3 (GAP-2026-11-10 G-12 F-12.3, G-VISION) — does a FRESH vision read-back of a RENDERED figure (a pass
+    that never saw the SMILES) equal the intended structure? Compared by standard InChI including stereo
+    layers ('abs'); for stereo_mode 'rel' the /m layer (absolute sense) is ignored; for 'rac' / 'mixture' /
+    'none' only the connectivity + H layers are compared. Returns {'match': bool | None, 'why'} — None when
+    RDKit is unavailable or either SMILES does not parse (DORMANT: never a pass). Never raises."""
+    import importlib as _il
+    try:
+        Chem = _il.import_module('rdkit.Chem')
+        _il.import_module('rdkit.RDLogger').DisableLog('rdApp.*')
+    except Exception:                                        # noqa: BLE001
+        return {'match': None, 'why': 'rdkit unavailable'}
+    try:
+        def inchi(s):
+            m = Chem.MolFromSmiles(str(s or ''))
+            return Chem.MolToInchi(m) if m is not None else None
+        a, b = inchi(intended_smiles), inchi(readback_smiles)
+        if not a or not b:
+            return {'match': None, 'why': 'unparseable SMILES'}
+
+        def layers(x):
+            parts = x.split('/')
+            if stereo_mode in ('rac', 'mixture', 'none'):
+                parts = [p for p in parts if not p[:1] in ('b', 't', 'm', 's')]
+            elif stereo_mode == 'rel':
+                parts = [p for p in parts if not p[:1] in ('m', 's')]
+            return '/'.join(parts)
+        ok = layers(a) == layers(b)
+        return {'match': ok, 'why': 'ok' if ok else f'read-back {b} != intended {a}'}
+    except Exception as e:                                    # noqa: BLE001
+        return {'match': None, 'why': f'error {type(e).__name__}'}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -752,18 +799,28 @@ def self_test():
     _rc = rendered_counts('C[C@H](O)CC')
     if _rc is not None:
         ck('rendered_counts: atoms / rings / stereocentres from the re-rendered SMILES',
-           _rc == {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 1} and rendered_counts('c1ccccc1') == {'heavy_atoms': 6, 'rings': 1, 'stereocentres': 0}
-           and rendered_counts('not smiles') is None and rendered_counts('') == {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0})
+           _rc == {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 1, 'stereo_marks': 1} and rendered_counts('c1ccccc1') == {'heavy_atoms': 6, 'rings': 1, 'stereocentres': 0, 'stereo_marks': 0}
+           and rendered_counts('not smiles') is None and rendered_counts('') == {'heavy_atoms': 0, 'rings': 0, 'stereocentres': 0, 'stereo_marks': 0})
         ck('transcription_confidence: matching counts -> full; a stereocentre the image shows but the SMILES lacks -> partial, never VOID',
            transcription_confidence(_obj, {0: {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 1}})['confidence'] == 'full'
            and transcription_confidence(_obj, {0: {'heavy_atoms': 5, 'rings': 0, 'stereocentres': 2}})['confidence'] == 'partial'
            and transcription_confidence(_obj, {0: {'stereocentres': 2}}, reviewed=True)['mismatches'][0]['field'] == 'stereocentres'
            and transcription_confidence(_obj, {1: {'heavy_atoms': 5}})['confidence'] == 'full'     # reactants + products = 3 + 2
            and transcription_confidence(_obj, {1: {'heavy_atoms': 4}})['compared'] == 1)
-    ck('transcription_confidence: no counts / junk -> full with compared 0 (never raises)',
-       transcription_confidence(_obj, {})['compared'] == 0 and transcription_confidence(None, None)['confidence'] == 'full'
+    ck('transcription_confidence v3: no counts on a structure item -> unverified (FAIL CLOSED); junk never raises',
+       transcription_confidence(_obj, {})['compared'] == 0 and transcription_confidence(_obj, {})['confidence'] == 'unverified'
+       and transcription_confidence(None, None)['confidence'] == 'full'
+       and transcription_confidence([{'kind': 'TEXT', 'canonical': 'x'}], {})['confidence'] == 'full'
        and transcription_confidence([{'kind': 'STRUCTURE', 'canonical': 7}], {0: {'heavy_atoms': 'x'}})['confidence'] == 'full'
        and transcription_confidence(_obj, {0: {'heavy_atoms': 'x'}})['confidence'] == 'full')
+    ck('readback_compare v3 (G-VISION): same molecule -> match; wrong stereoisomer -> no match; rel ignores /m; '
+       'rac ignores stereo',
+       (readback_compare('C[C@H](O)CC', 'CC[C@H](C)O')['match'] is True
+        and readback_compare('C[C@H](O)CC', 'C[C@@H](O)CC')['match'] is False
+        and readback_compare('C[C@H](O)CC', 'C[C@@H](O)CC', 'rac')['match'] is True
+        and readback_compare('C[C@H]1CC[C@@H](C)CC1', 'C[C@@H]1CC[C@H](C)CC1', 'rel')['match'] is True
+        and readback_compare('xx', 'CC')['match'] is None) if rendered_counts('C') is not None
+       else readback_compare('CC', 'CC')['match'] is None)
 
     for m in msgs:
         print(m)

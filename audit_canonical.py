@@ -15,6 +15,13 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.40 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (paired with blueprint_core
+#   v2.0, figural_core v5.97, final_assembly v1.16, Framework_MockTestCreate v6.0). On a paper whose
+#   qindex_cert.framework_release >= 2026.11.10 (or any LB2 row): A-QINDEX check 8 runs on EVERY row and accepts ONLY
+#   the measured_exact / last_resort bases (LAW-ORG-5 — obs / l2 / none / dr3 / swap / forced / held rejected);
+#   A-REVIEW requires a unanimous key (author + 2 blind solvers, concept_map[q].key_votes — LAW-ORG-7) and treats
+#   panel / majority / re-key / NOT_RUN as item defects (the slot is replaced). NEW item gate A-ORGPROOF (figural_core
+#   G-ORGPROOF: identity_ok + vision_ok + gates_ok on every organic figure — LAW-ORG-8). Legacy papers unchanged.
 # v2.39 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (paired with
 #   blueprint_core v1.34, Framework_MockTestCreate v5.96; owner decision OD-2026-11-09). A-QINDEX check 8 verifies
 #   every label against the basis that SET it (bc.verify_difficulty_label: review / forced / legacy dr3 / l2 /
@@ -383,7 +390,7 @@ def _reset():
 ITEM_FINDINGS = []
 UNCERTIFIED_ITEMS = set()   # v2.35 (OD-9): items whose findings survived R5; filled by gate_qualitystatus
 DISCLOSED_ITEMS = set()     # v2.39 (OD-2026-11-09): exhausted-chain items delivered with an AMBER disclosure
-ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE',
+ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE', 'A-ORGPROOF',
                  'A-FIGOVERPRINT', 'A-FIGBONDORDER', 'A-FIGMARK', 'A-FIGFIT',
                  'A-FIGINK', 'A-FIGOPTUNIF', 'A-FIGOPTWINDOW', 'A-FIGMONO',
                  'A-FIGOPTELEM', 'A-FIGSCALE', 'A-FIGDPI', 'A-FIGDEGEN',
@@ -3078,7 +3085,9 @@ def gate_images(blocks, src, media_map):
                    'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX',
                    # v2.34 GAP-2026-11-02
                    'A-FIGMARK', 'A-FIGOVERPRINT', 'A-FIGOVERPRINTLEGACY',
-                   'A-FIGBONDORDER', 'A-FIGBONDORDERLEGACY', 'A-FIGLABELRASTER'):
+                   'A-FIGBONDORDER', 'A-FIGBONDORDERLEGACY', 'A-FIGLABELRASTER',
+                   # v2.40 GAP-2026-11-10 (figural_core v5.97)
+                   'A-ORGPROOF'):
             _warn(_g, 'figural_core engine unavailable — gate NOT RUN '
                       f'(dependency degraded: {_fc_why}).')
     else:
@@ -3314,6 +3323,8 @@ def gate_images(blocks, src, media_map):
         _fig_verdict('A-FIGBONDORDER', _by_gate)
         _fig_verdict('A-FIGBONDORDERLEGACY', _by_gate)
         _fig_verdict('A-FIGLABELRASTER', _by_gate)
+        # v2.40 GAP-2026-11-10 (figural_core v5.97): organic figure identity / vision / gates proofs
+        _fig_verdict('A-ORGPROOF', _by_gate)
 
         # v2.13: the EC-V18 legacy count was previously emitted as a SECOND
         # A-FIGDPI line, which breaks the v2.12 roster rule ("EVERY gate prints
@@ -4833,7 +4844,11 @@ def _qq_entry(src):
 
 _QQ_V590_FIELDS = ('ask_format', 'difficulty_obs', 'option_identities', 'entities', 'shape', 'scheme_grammar', 'fingerprint', 'concept', 'pattern_key', 'distractor_mechanisms', 'distractor_pathways', 'mechanism_family', 'class_word', 'stated_formula', 'stated_dbe', 'stated_rings', 'stated_stereocentres', 'given_smiles', 'reagents', 'reagent_unit_formula', 'stem_agents', 'named_entities', 'scheme_annotations', 'condition_vocab', 'trailing_placeholders', 'asked_placeholders', 'multi_step_lettered_allowed', 'pyq_phrase_states_constitution', 'key_set_size', 'ladder', 'stem_leak', 'consist', 'stereo_decl', 'review', 'quality_status', 'judge_input_sha256',
                    'subtopic_id', 'difficulty', 'difficulty_check', 'ca_range', 'stimulus_group_id', 'correct_option', 'key', 'answer',
-                   'figural_ask_type', 'slot_chain')     # v2.39: a DISCLOSED item's chain (final_assembly v1.15)
+                   'figural_ask_type', 'slot_chain',     # v2.39: a DISCLOSED item's chain (final_assembly v1.15)
+                   # v2.40 (GAP-2026-11-10): final_assembly v1.16 QINDEX_OP_FIELDS — the registry-only final audit reads them
+                   'organic', 'organic_reason', 'chain', 'decisions_author', 'decisions_grader', 'grades', 'key_votes',
+                   'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
+                   'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template')
 
 
 def _qq_cm(src):
@@ -5550,6 +5565,11 @@ def gate_review(src, args=None):
     bad_defect, not_run = [], {}
     bad_cov, by_majority = [], []
     bc = _qq_bc()
+    # v2.40 (GAP-2026-11-10 LAW-ORG-7 UNANIMOUS-KEY): on a paper produced at or after 2026.11.10 a key is valid only
+    # when the author and C_SOLVERS blind solvers agree (concept_map[q].key_votes.unanimous). Panel / majority / re-key
+    # certifications and a NOT_RUN review are item defects there (the slot is REPLACED — never certified by vote).
+    _rel_r = str(((_qq_entry(src) or {}).get('qindex_cert') or {}).get('framework_release') or '')
+    _strict_r = bool(re.match(r'^\d{4}\.\d{2}\.\d{2}', _rel_r)) and _rel_r[:10] >= '2026.11.10'
     # v2.39 (REVIEW-COVERAGE-LAW): once ANY record carries item_hash (a 2026.11.09 producer), EVERY item's
     # latest record must be bound to the hash of the block actually delivered (--item-hashes, computed
     # here from the docx — never declared). A stale or missing binding is an item finding (ladder RV).
@@ -5565,6 +5585,14 @@ def gate_review(src, args=None):
             _item('A-REVIEW-COVERAGE', q, f'A-REVIEW-COVERAGE: Q{q} review bound to a different text than the '
                                            f'delivered block — a delta review is required', 'VOID_ITEM')
             continue
+        if _strict_r:
+            _kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
+            if str(rv.get('status') or '').upper() == 'NOT_RUN' or rv.get('certified_by') in ('panel', 'majority', 'rekey') \
+                    or _kv.get('unanimous') is not True:
+                bad_defect.append(f'Q{q}')
+                _item('A-REVIEW', q, f'A-REVIEW: Q{q} key is not unanimous (author + {getattr(bc, "C_SOLVERS", 2)} blind solvers'
+                                     f'; LAW-ORG-7) — replace the item', 'VOID_ITEM')
+                continue
         if str(rv.get('status') or '').upper() == 'NOT_RUN':
             not_run.setdefault(str(rv.get('reason') or 'no reason recorded'), []).append(str(q))
             continue
@@ -6386,10 +6414,12 @@ def gate_contentlevel(src):
         lab = e.get('difficulty')
         dec = r.get('decision')
         why = None
-        if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3', 'dl_swap', 'dl_forced', 'dl_held'):
+        if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3', 'dl_swap', 'dl_forced', 'dl_held',
+                       'dl_measured_exact', 'dl_last_resort'):          # v2.40: the LB2 decisions
             why = f'decision {dec!r} unresolved'
         elif r.get('ccp_status') == 'below' and dec not in ('accept_measured', 'carried_below', 'dl_agree', 'dl_dr3',
-                                                            'dl_swap', 'dl_forced', 'dl_held'):
+                                                            'dl_swap', 'dl_forced', 'dl_held',
+                                                            'dl_measured_exact', 'dl_last_resort'):
             why = 'content measured below its band and not repaired'
         elif lab is not None and r.get('final_band') not in (None, lab):
             why = f"label {lab!r} != final band {r.get('final_band')!r}"
@@ -6817,8 +6847,15 @@ def gate_qindex(src):
                     return str(_m.get('question_type') or '').strip().lower()
             return None
         _floor_bad = []
+        _lb2r7 = lambda x: (isinstance(x.get('difficulty_check'), dict)
+                            and ((x['difficulty_check'].get('label_basis') or {}).get('kind') in ('measured_exact', 'last_resort')
+                                 or x['difficulty_check'].get('lb_rule') == 'LB2'
+                                 or (x['difficulty_check'].get('label_basis') or {}).get('rule') == 'LB2'))
         for x in qs:
-            if x.get('difficulty') == canon[0]:
+            # v2.40 (LAW-ORG-5 / F-08.2): an LB2 row's band was MEASURED by two fresh blind graders + the recipe and
+            # the exam ruler's anchors decide whether that band exists for the qtype — the legacy rubric floor is
+            # not a control of it
+            if x.get('difficulty') == canon[0] and not _lb2r7(x):
                 _t = _qt_at(int(x.get('q', -1)))
                 if _t in ('msq', 'nat'):
                     _floor_bad.append(f"Q{x.get('q')}({_t.upper()})")
@@ -6838,17 +6875,41 @@ def gate_qindex(src):
         # never drift apart. Legacy entries (obs absent) are SKIPPED — their
         # protection is check 7 — and a run without the engine on sys.path
         # degrades to a WARN, never a false FAIL.
-        _obs_qs = [x for x in qs if isinstance(x.get('difficulty_obs'), dict)
-                   and x.get('difficulty_obs')]
+        # v2.40 (GAP-2026-11-10 LAW-ORG-5): a paper produced at or after FRAMEWORK_RELEASE_STRICT (qindex_cert.
+        # framework_release) — or any LB2 row — is judged STRICTLY: EVERY row, with or without obs, must carry a
+        # measured_exact / last_resort basis; obs / l2 / none / dr3 / swap / forced / held are rejected.
+        _rel8 = str(((entry or {}).get('qindex_cert') or {}).get('framework_release') or '')
+        _strict8 = bool(re.match(r'^\d{4}\.\d{2}\.\d{2}', _rel8)) and _rel8[:10] >= '2026.11.10'
+        # a paper WITHOUT a difficulty plan (no difficulty_schedule entry for this mock — Create's plan is dormant,
+        # so no LB2 basis is ever written) is not judged strictly; its rows keep the evidence rule (v2.40 fix)
+        _has_plan8 = bool(bp.get('difficulty_schedule')) and any(
+            isinstance(d, dict) and d.get('mock') == N for d in (bp.get('difficulty_schedule') or []))
+        _strict8 = _strict8 and _has_plan8
+        _lb2row = lambda x: (isinstance(x.get('difficulty_check'), dict)
+                             and (x['difficulty_check'].get('lb_rule') == 'LB2'
+                                  or ((x['difficulty_check'].get('label_basis') or {}).get('rule') == 'LB2')))
+        _obs_qs = [x for x in qs if (isinstance(x.get('difficulty_obs'), dict) and x.get('difficulty_obs'))
+                   or _strict8 or _lb2row(x)]
         if _obs_qs:
             try:
                 import blueprint_core as _bc
                 _obs_bad = []
                 _vl = getattr(_bc, 'verify_difficulty_label', None)
+                _carried8 = []
                 for x in _obs_qs:
+                    # v2.40 (LAW-ORG-5): a slot CHECK 3c carried to Create S13-2L (decision 'carried' / 'carried_below')
+                    # has no basis YET — S13-2L re-bases or replaces it and refuses to continue until every label
+                    # verifies strictly, so it is S13-2L's work, not an item defect here (never an RL relabel)
+                    if _strict8 and (x.get('difficulty_check') or {}).get('decision') in ('carried', 'carried_below') \
+                            and not _lb2row(x):
+                        _carried8.append(str(x.get('q')))
+                        continue
                     # v2.39 (LABEL-BASIS-LAW): the label is verified against the basis that SET it
                     if _vl:
-                        _okc, _meas, _basis8 = _vl(x, canon)
+                        try:
+                            _okc, _meas, _basis8 = _vl(x, canon, strict=(True if _strict8 else None))
+                        except TypeError:                 # an engine older than v2.0 on the path
+                            _okc, _meas, _basis8 = _vl(x, canon)
                     else:
                         (_okc, _meas), _basis8 = _bc.verify_difficulty_obs(
                             x.get('difficulty'), x.get('difficulty_obs'), canon), 'obs'
@@ -6862,6 +6923,9 @@ def gate_qindex(src):
                                   else _bc.rubric_rule_of(_o8)) if hasattr(_bc, 'rubric_rule_of') else 'r1'
                         _obs_bad.append(f"Q{x.get('q')}(label={x.get('difficulty')}"
                                         f"!=measured={_meas})[rule {_rule8}; basis {_basis8}]")
+                if _carried8:
+                    _warn('A-QINDEX', f"check 8: Q{', Q'.join(_carried8[:12])} carried to S13-2L (no LB2 basis yet) — "
+                                      f"S13-2L re-bases or replaces each before the paper continues")
                 if _obs_bad:
                     fails.append(
                         f"check 8 (obs consistency): label contradicts its own "
@@ -13170,6 +13234,22 @@ def self_test():
     _r14 = _q39([_hard1, dict(_dr3row, difficulty='Easy')])
     check('v239-T14-forged-dr3-fails-with-item', [l for l, _ in _r14] == ['FAIL'] and 'basis dr3' in _r14[0][1]
           and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-QINDEX-LABEL'] == ['2'])
+    # v2.40 (GAP-2026-11-10 LAW-ORG-5): a 2026.11.10 paper is LB2-strict — an obs-only / forced row FAILS check 8,
+    # a measured_exact row (two fresh blind grades + the recipe) passes
+    def _q40(qs, bp=_BP39):
+        _reset()
+        gate_qindex({'total_questions': 2, 'blueprint': bp, '_mockN': 1, 'registry': {'question_index': [
+            {'paper_id': 'MOCK:M01', 'qindex_cert': {'framework_release': '2026.11.10'}, 'questions': qs}]}})
+        return [(l, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+    _pk40 = {'grader_1': {'context': 'fresh', 'sha256': 'a' * 64}, 'grader_2': {'context': 'fresh', 'sha256': 'b' * 64}}
+    _ex40 = [_bc39.dl_set_label_basis_strict(dict(r, difficulty_check={}), 'measured_exact', _L39, 'Hard',
+                                             {'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}, _pk40)[0]
+             for r in (_hard1, dict(_hard1, q=2, subtopic_id='PHY.MECH.WORK'))]
+    check('v240-strict-measured-exact-rows-pass', [l for l, _ in _q40(_ex40)] == ['OK'])
+    _r40 = _q40([_ex40[0], dict(_hard1, q=2, subtopic_id='PHY.MECH.WORK')])
+    check('v240-strict-obs-only-row-fails', [l for l, _ in _r40] == ['FAIL'] and 'strict_reject' in _r40[0][1]
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-QINDEX-LABEL'] == ['2'])
+    check('v240-legacy-paper-unchanged', [l for l, _ in _q39([_hard1, dict(_hard1, q=2, subtopic_id='PHY.MECH.WORK')])] == ['OK'])
     # HELD (owner 2026-11-10): a slot measured HARDER keeps its scheduled label — checks 6 AND 8 pass; the same row
     # without the recorded basis (a label below its own evidence) still FAILs check 8
     _BP39h = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 0, 'medium': 1, 'hard': 1}])
@@ -13186,7 +13266,7 @@ def self_test():
     check('v239-T15b-l2-advisory-row-still-fails', [l for l, _ in _q39([_hard1, dict(_l2row, difficulty_obs=dict(
         _l2row['difficulty_obs'], l2={'band': 'Hard', 'binding': False}))])] == ['FAIL'])
     # check 6 — a FORCED / SWAP row counts at its label; a wrong quota still FAILs
-    _chx = _bc39.slot_chain_new(2, 'difficulty', 'Hard')
+    _chx = _bc39.slot_chain_new(2, 'difficulty', 'Hard', rule='SC1')      # v2.40: a LEGACY (SC1) record
     for _i39 in range(40):
         _nx = _bc39.slot_chain_next(_chx)
         _chx = _nx['chain']
@@ -13223,6 +13303,24 @@ def self_test():
     _s17ok['_item_hashes'] = {'1': _h1, '2': _h2}
     _reset(); gate_review(_s17ok, _A35())
     check('v239-T17-bound-hashes-ok', _lv('A-REVIEW') == ['OK'])
+    # v2.40 (GAP-2026-11-10 LAW-ORG-7): on a 2026.11.10 paper a key needs key_votes.unanimous; majority / NOT_RUN = item defect
+    _QQ_E40 = dict(_QQ_ENTRY, qindex_cert=dict(_QQ_ENTRY['qindex_cert'], framework_release='2026.11.10'))
+    _s40 = _src35(concept_map={'1': {'review': dict(_rvA, item_hash=None), 'key_votes': {'unanimous': True}},
+                               '2': {'review': dict(_rvA, item_hash=None, certified_by='majority'),
+                                     'key_votes': {'unanimous': False}}})
+    _s40['registry'] = {'question_index': [_QQ_E40]}
+    _reset(); gate_review(_s40, _A35())
+    check('v240-strict-review-majority-is-item-defect', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['2'])
+    _s40ok = _src35(concept_map={'1': {'review': dict(_rvA, item_hash=None), 'key_votes': {'unanimous': True}},
+                                 '2': {'review': dict(_rvA, item_hash=None), 'key_votes': {'unanimous': True}}})
+    _s40ok['registry'] = {'question_index': [_QQ_E40]}
+    _reset(); gate_review(_s40ok, _A35())
+    check('v240-strict-review-unanimous-ok', _lv('A-REVIEW') == ['OK'])
+    _s40nr = _src35(concept_map={'1': {'review': {'status': 'NOT_RUN', 'reason': 'x'}, 'key_votes': {'unanimous': True}},
+                                 '2': {'review': dict(_rvA, item_hash=None), 'key_votes': {'unanimous': True}}})
+    _s40nr['registry'] = {'question_index': [_QQ_E40]}
+    _reset(); gate_review(_s40nr, _A35())
+    check('v240-strict-review-not-run-is-item-defect', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1'])
     _s17leg = _src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {'review': {'key_agrees': True}}})
     _s17leg['_item_hashes'] = {'1': _h1, '2': _h2}
     _reset(); gate_review(_s17leg, _A35())

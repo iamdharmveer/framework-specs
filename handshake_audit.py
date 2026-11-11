@@ -180,7 +180,15 @@ def _dl_handshake(check, ROOT, run_fence, W):
             if m['band'] and labs.index(m['band']) < labs.index(b):
                 dc['decision'] = 'carried_below'
             cm[str(q)] = {'subtopic_id': sub_by_q[q], 'difficulty': b, 'difficulty_obs': obs, 'difficulty_check': dc,
-                          'distractor_mechanisms': ['formula_error'] * 3, 'stem_text': f'stem {q}', 'option_texts': ['a', 'b', 'c', 'd']}
+                          'distractor_mechanisms': ['formula_error'] * 3, 'stem_text': f'stem {q}', 'option_texts': ['a', 'b', 'c', 'd'],
+                          # v2.0 (S0-OP-5): two FRESH blind graders measure the band the author actually wrote (wb);
+                          # the key is unanimous (author + 2 blind solvers)
+                          }
+            # written by THE one writer (bc.op_record_controls — bound to the item's own text)
+            cm[str(q)] = bc.op_record_controls(cm[str(q)], wb, wb, True,
+                                               {'grader_1': {'context': 'fresh', 'sha256': 'a' * 64},
+                                                'grader_2': {'context': 'fresh', 'sha256': 'b' * 64}},
+                                               key_votes={'author': 1, 'solver_1': 1, 'solver_2': 1, 'unanimous': True})
         n_below = sum(1 for e in cm.values() if e['difficulty_check']['decision'] == 'carried_below')
         check(f'H-DL {EXAM} CHECK 3c: one-band-easier writing is measured below its slot ({n_below}/16 non-bottom slots)',
               n_below >= 12, str(n_below))
@@ -238,7 +246,7 @@ def _dl_handshake(check, ROOT, run_fence, W):
         _bpp = HOME + f'/{EXAM}_hs_bp.json'; json.dump(bp, open(_bpp, 'w'))
         def _l2l():
             try:
-                run_fence(blk('# ── S13-2L (v5.96) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': _bpp}); return None
+                run_fence(blk('# ── S13-2L (v6.0) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': _bpp}); return None
             except RuntimeError as _x:
                 return str(_x)
         _r1 = _l2l()
@@ -260,38 +268,35 @@ def _dl_handshake(check, ROOT, run_fence, W):
         bs['slot_chain_work'] = []
         json.dump(bs, open(HOME + f'/{EXAM}_M1_batch_state.json', 'w'))
         _rs = []
-        for _pass in range(12):                       # swap -> upgrade (its own chain exhausted) -> forced
+        for _pass in range(12):                       # v2.0: reserve_refill -> refill_session(s) -> bounded last resort
             _rs.append(_l2l())
             bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json'))
-            for p_, c_ in list(bs['slot_chain'].items()):
-                if c_.get('kind') == 'upgrade' and not c_.get('done'):
-                    for _i in range(12):
-                        nx = bc.slot_chain_next(c_)
-                        c_ = nx['chain']
-                        if nx['action'] == 'abandon':
-                            break
-                        c_ = bc.slot_chain_record(c_, nx['stage'], 'fail')
-                    bs['slot_chain'][p_] = c_
-            bs['slot_chain_work'] = []
+            bs['slot_chain_work'] = []                # every refill worker of the worst case produces nothing usable
             json.dump(bs, open(HOME + f'/{EXAM}_M1_batch_state.json', 'w'))
             if _rs[-1] is None:
                 break
         bs = json.load(open(HOME + f'/{EXAM}_M1_batch_state.json')); kd = json.load(open(HOME + f'/{EXAM}_M1_answer_key.json'))
         PG = bs['difficulty_state']['paper_gate']
-        forced = sorted((f['q'] for f in PG.get('forced') or []), key=int)
-        check(f'H-DL {EXAM} S13-2L: after swap and paired-upgrade routes the exhausted slots are SCHEDULE-FORCED; the loop ends (no stop)',
-              _rs[-1] is None and forced == below and all(bs['slot_chain'][q]['outcome'] == 'forced' for q in below), str((_rs[-1], forced[:4]))[:300])
-        check(f'H-DL {EXAM} S13-2L: the schedule is delivered EXACTLY — labels counted == target plan counts; gate PASS; target plan + labels recorded',
-              PG['status'] == 'PASS' and bc.dl_band_counts({q: e['difficulty'] for q, e in kd['concept_map'].items()}, labs)
-              == bc.dl_band_counts(G['DIFFICULTY_PLAN_TARGET'], labs) and PG.get('labels') == labs
-              and PG.get('target_plan') == G['DIFFICULTY_PLAN_TARGET'], str(PG.get('counts_final')))
-        check(f'H-DL {EXAM} LABEL-BASIS-LAW: every forced label passes the ONE verifier (A-QINDEX check 8) while its obs alone would not always',
-              all(bc.verify_difficulty_label(kd['concept_map'][q], labs)[:3:2] == (True, 'forced') for q in below)
+        lr = sorted((str(f['q']) for f in PG.get('last_resort') or []), key=int)
+        check(f'H-DL {EXAM} S13-2L v6.0: exhausted slots end at reserve_refill -> refill_session -> the bounded LAST RESORT; the loop ends (no stop)',
+              _rs[-1] is None and lr == below and all(bs['slot_chain'][q]['outcome'] == 'last_resort' for q in below)
+              and not any(c.get('outcome') in ('forced', 'band_swap', 'paired_upgrade', 'majority', 'amber')
+                          for c in bs['slot_chain'].values())
+              and bs.get('refill_sessions_used') == bc.C_REFILL_SESSIONS, str((_rs[-1], lr[:4]))[:300])
+        check(f'H-DL {EXAM} S13-2L v6.0: never relabelled to the request — a last-resort slot is labelled at the band it MEASURED; every other slot exactly at its band',
+              all(kd['concept_map'][q]['difficulty'] == labs[max(0, labs.index(plan[int(q)]) - 1)] for q in below)
+              and all(kd['concept_map'][q]['difficulty'] == plan[int(q)] for q in kd['concept_map'] if q not in below)
+              and PG.get('labels') == labs and PG.get('target_plan') == G['DIFFICULTY_PLAN_TARGET'], str(PG.get('counts_final')))
+        check(f'H-DL {EXAM} LAW-ORG-5: every label verifies STRICTLY (measured_exact or last_resort); obs is never a basis',
+              all(bc.verify_difficulty_label(kd['concept_map'][q], labs, strict=True)[0] for q in kd['concept_map'])
+              and all(bc.verify_difficulty_label(kd['concept_map'][q], labs)[2] == 'last_resort' for q in below)
               and all(kd['concept_map'][q]['difficulty_obs'] == cm[q]['difficulty_obs'] for q in below))
         _cf = bs['difficulty_state'].get('chain_footer') or {}
-        check(f'H-DL {EXAM} footer: one AMBER line per forced item naming the band the review measured',
-              len([x for x in _cf.get('amber') or [] if 'schedule_forced' in x]) == len(below)
-              and all(f"Q{q}: labelled {plan[int(q)]} per schedule" in ' '.join(_cf['amber']) for q in below))
+        check(f'H-DL {EXAM} footer: one AMBER line per last-resort item naming requested and delivered band + one P0 incident each',
+              len([x for x in _cf.get('amber') or [] if 'last resort' in x]) == len(below)
+              and all(f"Q{q}: last resort — requested {plan[int(q)]}" in ' '.join(_cf['amber']) for q in below)
+              and len(bs['difficulty_state'].get('incidents') or []) == len(below)
+              and all(i['severity'] == 'P0' for i in bs['difficulty_state']['incidents']))
         # final_assembly: difficulty_state committed on the entry; the grade cache kept by regcheck
         R = {'question_index': [], 'papers_completed': []}
         qrecs = [dict(e, q=int(q)) for q, e in kd['concept_map'].items()]
@@ -333,10 +338,11 @@ def _dl_handshake(check, ROOT, run_fence, W):
 
 
 def _lb_swap_handshake(check, ROOT, run_fence, W):
-    """H-LB (release 2026.11.09, OD-2026-11-09) — the spec's own S13-2L / S13-2R code on a 6-item paper:
-    stage 6 BAND SWAP (Q1 Hard slot measured Medium <-> Q2 Medium slot measured Hard) and stage 7 PAIRED
-    UPGRADE (Q3 Hard slot measured Medium; Q4 Medium slot re-authored up, re-reviewed Hard, then swapped).
-    Counts never move; every relabelled item passes the ONE verifier."""
+    """H-LB v2.0 (release 2026.11.10, GAP-2026-11-10 G-10; LAW-ORG-3/4/5) — the spec's own S13-2L / S13-2R code on a
+    6-item paper: an exact item is based measured_exact on its two fresh blind grades; an item measured ABOVE its slot
+    is REPAIRED (never held); an exhausted slot is refilled from the verified RESERVE; another goes through a fresh
+    REFILL SESSION and then the bounded LAST RESORT (delivered at the band it measured, one AMBER line, one P0
+    incident). No swap, no paired upgrade, no forced / held label, no stop."""
     import blueprint_core as bc
     labs = ['Easy', 'Medium', 'Hard']
     S = open(os.path.join(W, 'Framework_MockTestCreate.md'), encoding='utf-8').read()
@@ -348,9 +354,13 @@ def _lb_swap_handshake(check, ROOT, run_fence, W):
     tp = {'1': 'Hard', '2': 'Medium', '3': 'Hard', '4': 'Medium', '5': 'Easy', '6': 'Hard'}
     meas = {'1': 'Medium', '2': 'Hard', '3': 'Medium', '4': 'Medium', '5': 'Easy', '6': 'Hard'}
     hashes = {q: f'h{q}' * 8 for q in tp}
-    cm = {q: {'subtopic_id': 'oc.a.b', 'difficulty': tp[q], 'qtype': 'mcq',
-              'difficulty_check': {'decision': 'dl_agree', 'review_measured': meas[q], 'review_controls': {'reviewer': meas[q]}},
-              'review': {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': hashes[q]}} for q in tp}
+    PK = {'grader_1': {'context': 'fresh', 'sha256': 'a' * 64}, 'grader_2': {'context': 'fresh', 'sha256': 'b' * 64}}
+    def graded(e, b, h):                    # THE one writer (bc.op_record_controls), bound to the item's text
+        return bc.op_record_controls(e, b, b, True, PK, item_hash=h, key_votes={'unanimous': True})
+    cm = {q: graded({'subtopic_id': 'oc.a.b', 'difficulty': tp[q], 'qtype': 'mcq', 'difficulty_check': {'decision': 'dl_agree'},
+                     'stem_text': f'stem {q}', 'option_texts': ['a', 'b', 'c', 'd'],
+                     'review': {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': hashes[q]}},
+                    meas[q], hashes[q]) for q in tp}
     chains = {}
     for q in ('1', '3'):
         c = bc.slot_chain_new(q, 'difficulty', tp[q], 'oc.a.b')
@@ -361,133 +371,80 @@ def _lb_swap_handshake(check, ROOT, run_fence, W):
                 break
             c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
         chains[q] = c
-    bs = {'difficulty_plan_target': dict(tp), 'difficulty_plan': dict(tp), 'difficulty_labels': labs, 'slot_chain': chains,
-          'difficulty_state': {}}
+    bs = {'paper_id': 'MOCK:M01', 'difficulty_plan_target': dict(tp), 'difficulty_plan': dict(tp), 'difficulty_labels': labs,
+          'slot_chain': chains, 'difficulty_state': {'ruler': {'ruler_version': 'R1'}}}
     bp = {'subtopic_list': [{'subtopic_id': 'oc.a.b', 'topic': 'A', 'section': 'S'}]}
     P = {'bs': f'{HOME}/{EXAM}_M1_batch_state.json', 'kd': f'{HOME}/{EXAM}_M1_answer_key.json',
-         'hj': f'{HOME}/{EXAM}_M1_item_hashes.json', 'bp': f'{HOME}/{EXAM}_bp.json'}
+         'hj': f'{HOME}/{EXAM}_M1_item_hashes.json', 'bp': f'{HOME}/{EXAM}_bp.json', 'rs': f'{HOME}/{EXAM}_reserve.json'}
+    # the verified reserve holds one Hard mcq item of this subtopic (it passed every control in an earlier attempt)
+    rs_item = {'q': 'r1', 'difficulty': 'Hard', 'qtype': 'mcq', 'subtopic_id': 'oc.a.b', 'key_smiles': 'O=C1CCCCC1c1ccccc1',
+               'difficulty_check': {'label_basis': {'kind': 'measured_exact'}}, 'key_votes': {'unanimous': True},
+               'figures': [{'identity_ok': True, 'vision_ok': True, 'gates_ok': True}], 'clone_check': {'status': 'PASS'}}
+    rsv, _okr, _ = bc.reserve_add(bc.reserve_new(EXAM), rs_item, 'R1', 'MOCK:M00')
+    json.dump(rsv, open(P['rs'], 'w'))
     json.dump(bs, open(P['bs'], 'w')); json.dump({'concept_map': cm, 'answers': {q: 1 for q in tp}}, open(P['kd'], 'w'))
     json.dump(hashes, open(P['hj'], 'w')); json.dump(bp, open(P['bp'], 'w'))
     def l2l():
         try:
-            run_fence(blk('  # ── S13-2L (v5.96) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': P['bp']}); return None
+            run_fence(blk('  # ── S13-2L (v6.0) ──'), {'EXAM': EXAM, 'N': 1, 'BP_SRC_PATH': P['bp']}); return None
         except RuntimeError as x:
             return str(x)
     r1 = l2l()
     bs = json.load(open(P['bs'])); kd = json.load(open(P['kd'])); cmx = kd['concept_map']
-    check('H-LB S13-2L stage 6: Q1 <-> Q2 BAND SWAP — both labels re-based on their review, target plan swapped, counts unchanged',
-          bs['slot_chain']['1'].get('outcome') == 'band_swap' and cmx['1']['difficulty'] == 'Medium' and cmx['2']['difficulty'] == 'Hard'
-          and bs['difficulty_plan_target']['1'] == 'Medium' and bs['difficulty_plan_target']['2'] == 'Hard'
-          and bc.dl_band_counts(bs['difficulty_plan_target'], labs) == bc.dl_band_counts(tp, labs)
-          and bc.verify_difficulty_label(cmx['1'], labs) == (True, 'Medium', 'review')
-          and bc.verify_difficulty_label(cmx['2'], labs) == (True, 'Hard', 'review'), str((r1, bs['slot_chain']['1'].get('outcome'))))
-    check('H-LB S13-2L stage 7: no partner for Q3 -> Q4 opens an UPGRADE chain targeting Hard; its rework is S13-2R work',
-          bs['slot_chain']['4']['kind'] == 'upgrade' and bs['slot_chain']['4']['target'] == 'Hard'
-          and bs['slot_chain']['3'].get('awaiting') == 'upgrade'
-          and any(w['q'] == '4' and w['action'] == 'rework_dr1' and w['target'] == 'Hard' for w in bs['slot_chain_work'])
-          and r1 and 'SLOT-CHAIN' in r1, str((r1, bs['slot_chain'].get('4'))))
-    # S13-2R: the item is re-authored (the session's CLASS J work) and recorded by the spec's record block
+    W1 = {w['q']: w['action'] for w in bs['slot_chain_work']}
+    check('H-LB v2.0 S13-2L: an item graded EXACTLY at its slot by two fresh blind graders is based measured_exact (LAW-ORG-5)',
+          all(bc.verify_difficulty_label(cmx[q], labs, strict=True) == (True, tp[q], 'measured_exact') for q in ('4', '5', '6')), str(r1)[:200])
+    check('H-LB v2.0 S13-2L: an item measured ABOVE its slot is REPAIRED (a difficulty chain, rework DR1) — never held at the slot',
+          bs['slot_chain']['2']['kind'] == 'difficulty' and W1.get('2') == 'rework_dr1'
+          and not bc.verify_difficulty_label(cmx['2'], labs, strict=True)[0], str(W1))
+    check('H-LB v2.0 S13-2L: an exhausted slot takes a VERIFIED RESERVE item at its exact band; another goes to a REFILL SESSION',
+          W1.get('1') == 'reserve_refill' and W1.get('3') == 'refill_session' and r1 and 'SLOT-CHAIN' in r1
+          and json.load(open(P['rs']))['items'] == [] and bs.get('refill_sessions_used') == 1, str((r1, W1))[:300])
+    # S13-2R: the work is performed (the session's CLASS J work) and recorded by the spec's record block
     for w in bs['slot_chain_work']:
         w['status'] = 'done'
     json.dump(bs, open(P['bs'], 'w'))
-    run_fence(blk('  # ── S13-2R record (v5.96) ──'), {'EXAM': EXAM, 'N': 1})
+    run_fence(blk('  # ── S13-2R record (v6.0) ──'), {'EXAM': EXAM, 'N': 1})
     bs = json.load(open(P['bs'])); kd = json.load(open(P['kd']))
-    check('H-LB S13-2R record: Q4 attempt PENDING (resume-safe), its old basis cleared (E10), entry marked recorded',
-          bs['slot_chain']['4']['attempts'][-1]['outcome'] == 'pending' and all(w['status'] == 'recorded' for w in bs['slot_chain_work'])
-          and 'label_basis' not in kd['concept_map']['4']['difficulty_check'])
-    # the new Q4 text is swept and DELTA-reviewed: new hash, independent review measures it Hard
-    hashes['4'] = 'z4' * 32; json.dump(hashes, open(P['hj'], 'w'))
-    kd['concept_map']['4']['difficulty_check'].update({'review_measured': 'Hard', 'review_controls': {'reviewer': 'Hard'}})
-    kd['concept_map']['4']['review'] = dict(kd['concept_map']['4']['review'], item_hash=hashes['4'])
-    json.dump(kd, open(P['kd'], 'w'))
+    check('H-LB v2.0 S13-2R record: every attempt PENDING (resume-safe), old bases cleared (E10), entries recorded',
+          all(bs['slot_chain'][q]['attempts'][-1]['outcome'] == 'pending' for q in ('1', '2', '3'))
+          and all(w['status'] == 'recorded' for w in bs['slot_chain_work'])
+          and 'label_basis' not in kd['concept_map']['1']['difficulty_check'])
+    # the new texts are swept, DELTA-reviewed and freshly graded: Q1 (reserve item) and Q2 (rework) exact; Q3 still Medium
+    for q, b in (('1', 'Hard'), ('2', 'Medium'), ('3', 'Medium')):
+        hashes[q] = f'z{q}' * 32
+        kd['concept_map'][q]['stem_text'] = f'stem {q} (new text)'      # the re-authored text, freshly graded
+        kd['concept_map'][q] = graded(kd['concept_map'][q], b, hashes[q])
+        kd['concept_map'][q]['review'] = dict(kd['concept_map'][q]['review'], item_hash=hashes[q])
+    json.dump(hashes, open(P['hj'], 'w')); json.dump(kd, open(P['kd'], 'w'))
     r2 = l2l()
     bs = json.load(open(P['bs'])); kd = json.load(open(P['kd'])); cmx = kd['concept_map']
-    check('H-LB S13-2L stage 7 success: Q4 measured Hard -> Q3 <-> Q4 swap; schedule EXACT; both labels verified; footer names the swap',
-          bs['slot_chain']['3'].get('outcome') == 'paired_upgrade' and bs['slot_chain']['4'].get('outcome') == 'rework_dr1'
-          and cmx['3']['difficulty'] == 'Medium' and cmx['4']['difficulty'] == 'Hard'
-          and bc.dl_band_counts({q: e['difficulty'] for q, e in cmx.items()}, labs) == bc.dl_band_counts(tp, labs)
-          and bc.verify_difficulty_label(cmx['3'], labs)[0] and bc.verify_difficulty_label(cmx['4'], labs)[0]
-          and any('Q3: difficulty band swapped with Q4' in x for x in (bs['difficulty_state'].get('chain_footer') or {}).get('info', []))
-          and bs['difficulty_state']['paper_gate']['status'] == 'PASS', str((r2, bs['slot_chain'].get('3'))))
-    r3 = l2l()
-    check('H-LB S13-2L: nothing open -> the block ends (no stop, no further round)', r3 is None, str(r3))
-    # ── 2026.11.09 review: chain hand-over edge cases, through the spec's own S13-2L ──
-    def _exh(c, upto):                                        # run a chain's stages as failed attempts up to a terminal
-        for _i in range(40):
-            nx = bc.slot_chain_next(c, siblings=['oc.a.c', 'oc.a.d', 'oc.a.e'])
-            c = nx['chain']
-            if nx['action'] == upto or nx['action'] not in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling', 'adjudicate'):
-                return c
-            c = bc.slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
-        return c
-    tp2 = {'1': 'Hard', '2': 'Medium', '5': 'Medium', '6': 'Hard'}
-    me2 = {'1': 'Medium', '2': 'Medium', '5': 'Medium', '6': 'Medium'}
-    hs2 = {q: f'k{q}' * 8 for q in tp2}
-    _ag = lambda q, ok: {'key_agrees': ok, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': hs2[q]}
-    cm2 = {q: {'subtopic_id': 'oc.a.b', 'difficulty': tp2[q], 'qtype': 'mcq',
-               'difficulty_check': {'decision': 'carried_below' if me2[q] != tp2[q] else 'dl_agree', 'review_measured': me2[q],
-                                    'review_controls': {'reviewer': me2[q]}},
-               'review': _ag(q, True), 'review_history': [_ag(q, True)]} for q in tp2}
-    cm2['5']['review_history'] = [_ag('5', False), _ag('5', True), _ag('5', False)]
-    c1 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('1', 'difficulty', 'Hard', 'oc.a.b'), 'paired_upgrade'),
-                                   'band_swap', 'fail'), awaiting='upgrade', partner='2')
-    c2 = bc.slot_chain_reopen(dict(bc.slot_chain_new('2', 'upgrade', 'Hard', 'oc.a.b'), upgrade_for='1'), '2', 'dispute')
-    c2 = bc.slot_chain_finish(c2, 'adjudicate')                # the partner's text was disputed, then settled
-    c5 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('5', 'dispute'), 'panel'), 'panel', 'fail'), panel_alt=None)
-    c6s = bc.slot_chain_record(bc.slot_chain_record(bc.slot_chain_new('6', 'difficulty', 'Hard', 'oc.a.b'), 'rework_dr1', 'fail'),
-                               'rework_dr2', 'pending')
-    c6 = bc.slot_chain_finish(bc.slot_chain_reopen(c6s, '6', 'dispute'), 'majority', agree=2, n=3)
-    bs2 = {'difficulty_plan_target': dict(tp2), 'difficulty_plan': dict(tp2), 'difficulty_labels': labs,
-           'slot_chain': {'1': c1, '2': c2, '5': c5, '6': c6}, 'difficulty_state': {}}
-    json.dump(bs2, open(P['bs'], 'w')); json.dump({'concept_map': cm2, 'answers': {q: 1 for q in tp2}}, open(P['kd'], 'w'))
-    json.dump(hs2, open(P['hj'], 'w'))
-    r4 = l2l()
-    bs2 = json.load(open(P['bs'])); kd2 = json.load(open(P['kd']))
-    check('H-LB edge: Q1 awaited an upgrade partner whose chain was superseded -> stage 7 fails, Q1 moves on to FORCED (never parked)',
-          bs2['slot_chain']['1'].get('outcome') == 'forced' and kd2['concept_map']['1']['difficulty'] == 'Hard'
-          and bc.verify_difficulty_label(kd2['concept_map']['1'], labs) == (True, 'Hard', 'forced'), str((r4, bs2['slot_chain']['1'])))
-    check('H-LB edge: a re-key with no panel majority for another option is not scheduled as work -> MAJORITY (AMBER)',
-          bs2['slot_chain']['5'].get('outcome') == 'majority' and 'rekey' in bs2['slot_chain']['5']['terminal_tried']
-          and not any(w['q'] == '5' for w in bs2.get('slot_chain_work') or []), str(bs2['slot_chain']['5']))
-    check('H-LB edge: a SUSPENDED difficulty chain is RESUMED with its attempts (bounded) and the finished dispute\'s AMBER line survives',
-          bs2['slot_chain']['6']['kind'] == 'difficulty' and len(bs2['slot_chain']['6']['attempts']) == 2
-          and any(w['q'] == '6' and w['action'] == 'replace' for w in bs2.get('slot_chain_work') or [])
-          and any('Q6: certified by majority' in x for x in bs2['difficulty_state']['chain_footer']['amber']), str(bs2['slot_chain']['6']))
-    # ── NOT_RUN delta verdicts: a difficulty attempt is never PASSED on the author-side band; a majority stays bound ──
-    hs3 = {'7': 'n7' * 32, '8': 'n8' * 32}
-    _nr = lambda q: {'status': 'NOT_RUN', 'reason': 'sub-agent timed out twice', 'item_hash': hs3[q]}
-    cm3 = {'7': {'subtopic_id': 'oc.a.b', 'difficulty': 'Hard', 'qtype': 'mcq',
-                 'difficulty_check': {'decision': 'carried_below', 'measured': 'Hard'}, 'review': _nr('7')},
-           '8': {'subtopic_id': 'oc.a.b', 'difficulty': 'Medium', 'qtype': 'mcq',
-                 'difficulty_check': {'decision': 'dl_agree', 'review_measured': 'Medium'}, 'review': _nr('8')}}
-    c7 = bc.slot_chain_record(bc.slot_chain_new('7', 'difficulty', 'Hard', 'oc.a.b'), 'rework_dr1', 'pending')
-    c8 = dict(bc.slot_chain_record(_exh(bc.slot_chain_new('8', 'dispute'), 'panel'), 'panel', 'fail'), panel_alt=None)
-    json.dump({'difficulty_plan_target': {'7': 'Hard', '8': 'Medium'}, 'difficulty_plan': {'7': 'Hard', '8': 'Medium'},
-               'difficulty_labels': labs, 'slot_chain': {'7': c7, '8': c8}, 'difficulty_state': {}}, open(P['bs'], 'w'))
-    json.dump({'concept_map': cm3, 'answers': {'7': 1, '8': 1}}, open(P['kd'], 'w')); json.dump(hs3, open(P['hj'], 'w'))
-    r5 = l2l()
-    bs3 = json.load(open(P['bs'])); kd3 = json.load(open(P['kd']))
-    check('H-LB edge: a NOT_RUN delta round FAILS the pending difficulty attempt (never passed on the CHECK 3c band) -> rework_dr2 next',
-          bs3['slot_chain']['7']['attempts'][-1]['outcome'] == 'fail'
-          and any(w['q'] == '7' and w['action'] == 'rework_dr2' for w in bs3.get('slot_chain_work') or []), str((r5, bs3['slot_chain']['7'])))
-    check('H-LB edge: a MAJORITY reached after a NOT_RUN round stays bound to the delivered text (no coverage loop)',
-          bs3['slot_chain']['8'].get('outcome') == 'majority' and kd3['concept_map']['8']['review'].get('item_hash') == hs3['8']
-          and kd3['concept_map']['8']['review'].get('certified_by') == 'majority'
-          and '8' not in bc.review_coverage_missing(kd3['concept_map'], hs3), str(kd3['concept_map']['8']['review']))
-    # ── a schedule label that cannot be recorded (an inconsistent plan) ENDS the chain, disclosed — never a loop ──
-    c9 = bc.slot_chain_record(bc.slot_chain_record(_exh(bc.slot_chain_new('9', 'difficulty', 'Extreme', 'oc.a.b'), 'forced'),
-                                                   'band_swap', 'fail'), 'paired_upgrade', 'fail')
-    cm9 = {'9': {'subtopic_id': 'oc.a.b', 'difficulty': 'Medium', 'qtype': 'mcq',
-                 'difficulty_check': {'decision': 'carried_below', 'review_measured': 'Medium', 'review_controls': {'reviewer': 'Medium'}},
-                 'review': {'key_agrees': True, 'confidence': 'high', 'reviewer': 'sub-agent', 'item_hash': 'q9' * 32}}}
-    json.dump({'difficulty_plan_target': {'9': 'Extreme'}, 'difficulty_plan': {'9': 'Extreme'}, 'difficulty_labels': labs,
-               'slot_chain': {'9': c9}, 'difficulty_state': {}}, open(P['bs'], 'w'))
-    json.dump({'concept_map': cm9, 'answers': {'9': 1}}, open(P['kd'], 'w')); json.dump({'9': 'q9' * 32}, open(P['hj'], 'w'))
-    r6 = l2l(); r7 = l2l()
-    bs9 = json.load(open(P['bs']))
-    check('H-LB edge: a label the plan cannot carry ENDS the chain (forced_refused, AMBER line) and is never reopened — no loop',
-          bs9['slot_chain']['9'].get('outcome') == 'forced_refused' and r7 is None
-          and any('Q9: below its Extreme slot' in x for x in bs9['difficulty_state']['chain_footer']['amber']), str((r6, r7)))
+    check('H-LB v2.0 S13-2L: the reserve item and the rework both measure EXACTLY at their slots -> measured_exact; Q3 refills again',
+          bs['slot_chain']['1'].get('outcome') == 'reserve_refill' and bs['slot_chain']['2'].get('outcome') == 'rework_dr1'
+          and bc.verify_difficulty_label(cmx['1'], labs, strict=True) == (True, 'Hard', 'measured_exact')
+          and bc.verify_difficulty_label(cmx['2'], labs, strict=True) == (True, 'Medium', 'measured_exact')
+          and any(w['q'] == '3' and w['action'] == 'refill_session' for w in bs['slot_chain_work']), str((r2, bs['slot_chain'].get('3')))[:300])
+    # every remaining refill session produces nothing usable: the per-paper budget runs out -> the bounded last resort
+    _rs = []
+    for _p in range(10):
+        bs = json.load(open(P['bs'])); bs['slot_chain_work'] = []; json.dump(bs, open(P['bs'], 'w'))
+        _rs.append(l2l())
+        if _rs[-1] is None:
+            break
+    bs = json.load(open(P['bs'])); kd = json.load(open(P['kd'])); cmx = kd['concept_map']
+    check('H-LB v2.0 S13-2L: after C_REFILL_SESSIONS the slot ends at the LAST RESORT — delivered at the band it MEASURED (Medium), '
+          'never labelled Hard; one AMBER line + one P0 incident; the block then ends (no stop)',
+          _rs[-1] is None and bs['slot_chain']['3'].get('outcome') == 'last_resort' and cmx['3']['difficulty'] == 'Medium'
+          and bc.verify_difficulty_label(cmx['3'], labs, strict=True)[:3:2] == (True, 'last_resort')
+          and bs.get('refill_sessions_used') == bc.C_REFILL_SESSIONS
+          and any('Q3: last resort — requested Hard, delivered Medium' in x for x in bs['difficulty_state']['chain_footer']['amber'])
+          and [i['slot'] for i in bs['difficulty_state']['incidents']] == ['3']
+          and bs['difficulty_state']['paper_gate']['last_resort'] == [{'q': '3', 'requested': 'Hard', 'delivered': 'Medium'}]
+          and bc.qindex_count_band(cmx['3'], labs) == 'Hard', str((_rs[-3:], bs['slot_chain']['3']))[:400])
+    check('H-LB v2.0: no retired SC1 ending anywhere (forced / held / swap / upgrade / panel / re-key / majority / amber)',
+          not any(c.get('outcome') in ('forced', 'held', 'band_swap', 'paired_upgrade', 'panel', 'rekey', 'majority', 'amber')
+                  for c in bs['slot_chain'].values())
+          and all(bc.verify_difficulty_label(cmx[q], labs, strict=True)[0] for q in cmx))
     # ── S13-2F sweep >= 4: the spec's own REPLACE slice (new chain / pending fail / disclosed skipped) ──
     _ls2 = S[S.index("        _repl = {q: r['gates'] for q, r in _route['items'].items() if r['route'] == 'REPLACE'}"):].split('\n')
     _sl = []
@@ -496,7 +453,7 @@ def _lb_swap_handshake(check, ROOT, run_fence, W):
         if 'Never UNRESOLVED (OD-2026-11-09).")' in _l:
             break
     _slice = '\n'.join(l[8:] for l in _sl)
-    cq = {'1': bc.slot_chain_finish(bc.slot_chain_new('1', 'quality'), 'amber', gates=['A-OPTDISTINCT']),
+    cq = {'1': bc.slot_chain_finish(bc.slot_chain_new('1', 'quality', rule='SC1'), 'amber', gates=['A-OPTDISTINCT']),
           '2': bc.slot_chain_record(bc.slot_chain_new('2', 'dispute'), 'replace', 'pending')}
     json.dump({'difficulty_plan_target': {'1': 'Hard', '2': 'Hard', '3': 'Hard'}, 'slot_chain': cq}, open(P['bs'], 'w'))
     json.dump({'concept_map': {'1': {'quality_status': 'DISCLOSED(A-OPTDISTINCT)'}, '2': {}, '3': {'subtopic_id': 'oc.a.b'}}},
@@ -539,7 +496,9 @@ def _lb_swap_handshake(check, ROOT, run_fence, W):
 
 
 def _downstream_replay(check):
-    """H-DOWN (release 2026.11.09 pre-deploy review): a paper written by Create v5.96 (a FORCED, two SWAP, a HELD,
+    """H-DOWN (release 2026.11.09 pre-deploy review; v2.0: a LEGACY paper — its chains are SC1 records and its
+    registry entry carries no 2026.11.10 framework_release, so every reader keeps the legacy verdicts, GAP §9):
+    a paper written by Create v5.96 (a FORCED, two SWAP, a HELD,
     a DISCLOSED, a panel- and a majority-certified question) replayed through EVERY later reader: final_assembly
     commit, S13-QINDEX (pp.validate_question_index), the check-8 verifier on the committed rows, the auditor's
     registry-only A-REVIEW and DISCLOSED reconcile, MockDeliver 3f certification and its difficulty / slot-chain
@@ -551,7 +510,7 @@ def _downstream_replay(check):
                 'deduction_steps': 6, 'axiom_concepts': 3, 'speed_hack_exists': False, 'is_negative': False}
     obs_med = dict(obs_hard, deduction_steps=3, axiom_concepts=2)
     # exhausted difficulty chain -> forced
-    ch = bc.slot_chain_new('1', 'difficulty', 'Hard', 'S.A.x')
+    ch = bc.slot_chain_new('1', 'difficulty', 'Hard', 'S.A.x', rule='SC1')
     while True:
         nx = bc.slot_chain_next(ch, siblings=['S.A.y', 'S.A.z', 'S.A.w'])
         ch = nx['chain']
@@ -561,7 +520,7 @@ def _downstream_replay(check):
     fch = bc.slot_chain_finish(ch, 'forced', measured='Medium')
     # exhausted quality chain -> disclosed; exhausted dispute -> majority
     def exhaust(kind, last):
-        c = bc.slot_chain_new('x', kind)
+        c = bc.slot_chain_new('x', kind, rule='SC1')
         while True:
             nx = bc.slot_chain_next(c, siblings=['a', 'b', 'c'])
             c = nx['chain']
@@ -622,6 +581,9 @@ def _downstream_replay(check):
                                      concept_map=copy.deepcopy(cm), difficulty_state=ds)
         reg = res['registry']
         entry = reg['question_index'][0]
+        # v2.0: this replays a paper DELIVERED by 2026.11.09 — its committed entry carries that release (GAP §9: never
+        # re-certified retroactively); the stamp the v1.16 committer writes is set back to the paper's own release
+        entry['qindex_cert']['framework_release'] = '2026.11.09'
         rows = {str(r['q']): r for r in entry['questions']}
         check('H-DOWN final_assembly commit carries difficulty_check (basis), review, quality_status and slot_chain (DISCLOSED)',
               rows['1']['difficulty_check'].get('dl_rung') == 'FORCED' and rows['5'].get('slot_chain', {}).get('outcome') == 'amber'
@@ -893,6 +855,18 @@ def self_test():
                        'pattern_key': (pattern_keys_for(order[n-1]) or [None])[0],
                        'distractor_mechanisms': ['regioisomer', 'over_reaction', 'starting_material'], 'mechanism_family': 'chemistry',
                        'stem_text': ' '.join(BASE[(n-1) % len(BASE)].split()[:12]) + f' (mock {n})?', 'option_texts': ['Alpha', 'Beta', 'Gamma', 'Delta'], 'figure_files': []} for n in range(1, MQ + 1)}
+        # v2.0 (GAP-2026-11-10 LAW-ORG-5 / LAW-ORG-7): a paper produced by THIS release carries an LB2 basis on every
+        # label (two fresh blind grades + the recipe) and a unanimous key record — the synthetic paper does too
+        _pk_hs = {'grader_1': {'context': 'fresh', 'sha256': 'a' * 64}, 'grader_2': {'context': 'fresh', 'sha256': 'b' * 64}}
+        for _n_hs in list(cm):
+            _b_hs = cm[_n_hs]['difficulty']
+            cm[_n_hs] = bc.dl_set_label_basis_strict(cm[_n_hs], 'measured_exact', _labs_hs, _b_hs,
+                                                     {'grader_1': _b_hs, 'grader_2': _b_hs, 'recipe': True}, _pk_hs)[0]
+            cm[_n_hs] = bc.op_record_controls(cm[_n_hs], _b_hs, _b_hs, True, _pk_hs,
+                                              key_votes={'author': 'k', 'solver_1': 'k', 'solver_2': 'k', 'unanimous': True})
+        check('H5 v2.0 every label carries an LB2 measured_exact basis', all(
+            bc.verify_difficulty_label(cm[_n], _labs_hs)[2] == 'measured_exact' and bc.verify_difficulty_label(cm[_n], _labs_hs)[0]
+            for _n in cm), str({_n: bc.verify_difficulty_label(cm[_n], _labs_hs) for _n in cm})[:200])
         check('H5 S7-QUALITY pattern_key resolvable from section_rules PATTERN_KEYS', all(cm[str(n)]['pattern_key'] for n in range(1, MQ + 1)), str(pattern_keys_for(sid0))[:100])
         key_path = f'{HOME}/{EXAM}_M{N}_answer_key.json'
         ANS = {str(n): 1 + (n % 4) for n in range(1, MQ + 1)}
@@ -1052,7 +1026,7 @@ def self_test():
               and bs['review_summary']['repaired'] == ['3'] and bs['review_summary']['reviewer'] == ['sub-agent'], str(bs.get('slot_chain')))
         # v2026.11.09 — the dispute chain, end to end: S13-2L schedules a SWITCHED adjudication (delta round);
         # one agreement is not enough (the latest two on the current text must agree); the second certifies
-        _l2l = fences(cre, '# ── S13-2L (v5.96) ──')
+        _l2l = fences(cre, '# ── S13-2L (v6.0) ──')
         check('H6 S13-2L fence found', len(_l2l) == 1)
         _bp_p = f'{HOME}/hs_bp.json'; json.dump(BP, open(_bp_p, 'w'))
         def _s13_2l():
@@ -1274,7 +1248,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 189             # 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 186             # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

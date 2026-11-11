@@ -1,21 +1,18 @@
-# Framework_MockTestCreate v5.96
-# v5.96 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
-#   decision OD-2026-11-09 — supersedes OD-9 and the v5.94 DR3 relabel; paired with blueprint_core v1.34,
-#   audit_canonical v2.39, paper_pipeline qindex_count_band, notes_core v2.15, MockTestOrchestrate v1.1.0,
-#   MockDeliver v1.28.0, DeliveryFooter v1.44.0). Measured 2026-11-08 (a 40-question post-graduate organic
-#   TestCreate): S13-2G relabelled 21 items to the band the review measured (DR3) while A-QINDEX check 8
-#   required every label to equal the item's own recorded evidence and check 6 the exact schedule counts;
-#   no rung repaired either, S13-2F stopped HS:INFRA, and one disputed item made the paper NOT CERTIFIED.
-#   NOW: ONE label verifier with a recorded basis (bc.verify_difficulty_label — G-DIFF, check 8, notes);
-#   check 6 counts at the recorded basis; the schedule is delivered EXACTLY — S13-2G never relabels, and
-#   NEW S13-2L / S13-2R run a bounded SLOT CHAIN per problem slot (difficulty: 13 reviewed attempts, band
-#   swap, paired upgrade, then a schedule-forced label disclosed in the footer; dispute: adjudicate,
-#   replace, shape, sibling, panel, re-key, majority; quality: replace, shape, sibling, disclosed); every
-#   changed item is re-reviewed in a DELTA round bound to its text hash (REVIEW-COVERAGE-LAW); S13-2F
-#   routes every survivor through bc.sweep_route (no UNRESOLVED stamp, no NOT CERTIFIED paper, an AMBER
-#   escalation at the sweep cap for a paper-level FAIL); every HS:INFRA site in Final Assembly self-heals
-#   (bc.infra_heal_step) before it may stop; S4-12 migrates a parked paper (bc.migrate_paper_state).
-#   Entry v5.95 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.0
+# v6.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY (owner
+#   decisions 2026-11-10: D-1 (a) bounded last resort, C_REFILL_SESSIONS 5; difficulty integrity for EVERY item of
+#   EVERY exam; one release; paired with blueprint_core v2.0, corpus_io v1.21, figural_core v5.97, figural_vision v3,
+#   figure_types v1.3, final_assembly v1.16, audit_canonical v2.40, analyse_engine v1.5, MockTestOrchestrate v1.2.0,
+#   PYQExplain v2.31, DeliveryFooter v1.45.0). Measured 2026-11-10 (CSIR NET Organic Test 1): requested 2/10/28,
+#   two blind graders found about 7/17/16 — labels were verified against the author's own counts (obs), a same-
+#   context rating that agreed by default when exemplars were thin, and ladders that ended FORCED / HELD.
+#   NOW: NEW S0-OP governs every paper — organic scope by content; PYQ records fail closed (schema 3, back-fill on
+#   first use); ONE calibrated ruler per exam from two fresh blind graders; the schedule is input (normalised once,
+#   placed exactly, frozen; the feasibility / plan / profile stops are repairs); every candidate passes stem stereo,
+#   clone guard, Easy floor, recipe, TWO FRESH BLIND GRADERS, decision contract, TWO FRESH BLIND SOLVERS and figure
+#   proofs; a label is written only as measured_exact (bc.dl_set_label_basis_strict); S13-2L / S13-2R end every
+#   ladder by replacement (reserve_refill -> refill_session -> bounded last_resort); NEW S13-2P parity floors;
+#   chair / Newman / sawhorse / Fischer / Haworth through the proven renderers. Entry v5.96 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -162,6 +159,234 @@
 # ════════════════════════════════════════════════════════════════════════
 # §1 — PIPELINE POSITION & SOURCES OF TRUTH
 # ════════════════════════════════════════════════════════════════════════
+
+## S0-OP — ORGANIC PARITY + DIFFICULTY INTEGRITY (v6.0 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY; binding on EVERY paper of EVERY exam)
+
+  OWNER DECISIONS (2026-11-10): D-1 (a) — a slot that no repair can bring to its exact band ends at the
+  bounded LAST RESORT (nearest band, fully verified, one AMBER line, an automatic P0 incident), with
+  bc.C_REFILL_SESSIONS = 5; the difficulty rules below apply to EVERY item of EVERY exam (organic or not);
+  everything ships in ONE release. The organic rules (scope, records, chains, conventions, clone guard,
+  figure proofs) apply to every ORGANIC item, decided per item by content (bc.is_organic_item — LAW-ORG-1),
+  never by a section, subject or topic name. Where this section and older text in this spec disagree,
+  THIS SECTION WINS (S0-OP-11 lists what it supersedes). Nothing here is a stop except the three
+  environment failures of S0-OP-10. All constants are bc.op_constants(exam_config) — §6.2 defaults, an
+  exam override only through exam_config['constants'], every override printed in the footer.
+  EXECUTION ORDER: the S0-OP-0 / S0-OP-2 / S0-OP-7 code runs at S3, immediately after S3-2 has loaded the
+  blueprint, exam_config and difficulty_labels and BEFORE the S3 difficulty plan (which reads EXAM_RULER);
+  S0-OP-5 runs inside CHECK 3c for every candidate; S13-2P (S0-OP-9) runs after S13-2G and before S13-2L;
+  S13-4OP (S0-OP-7) runs inside S13-4 right after `registry = _commit['registry']` (before the registry is written).
+
+### S0-OP-0 — MIGRATION ON FIRST USE (automatic; GAP §9)
+
+  Before Q1, once per exam per release: (1) classify every PYQ record (bc.organic_flag); (2) records below
+  bc.PYQ_SCHEMA_VERSION or with status 'partial' / 'unverified' (bc.pyq_record_status) are BACK-FILLED by
+  Framework_PYQExplain §13A-3 BACKFILL in fresh Orchestrate workers (O-BACKFILL — Phase B re-read of the zoom
+  tiles, Phase C completeness gate, two fresh blind grades per record) from the page images already in the
+  project; progress is saved and resumed, no user step; (3) the exam ruler is (re)built (S0-OP-2); (4) the
+  reserve and the series registry are read from registry.json (S0-OP-7; the series registry is seeded from
+  every delivered mock's committed keys). A record that cannot reach 'full' stays 'partial' with its missing
+  list: excluded from every target pool, INCLUDED in the clone guard. Papers delivered before this release
+  are never re-certified (their audits keep the legacy verdicts).
+  (Executable block '# ── S0-OP-0 / S0-OP-1 (v6.0) ──' — runs INSIDE S3-2, right before the difficulty plan; see there.)
+  When OP_NEEDS_BACKFILL is not empty the orchestrator runs O-BACKFILL to completion BEFORE Q1 (the ruler needs
+  the two fresh blind grades of every usable record). O-BACKFILL writes each upgraded record into
+  /home/claude/{EXAM}_op_profile.json (saved per record, so a resumed run continues), then this block and the
+  S0-OP-2 block are RE-RUN (bc.ruler_needs_recalibration sees the new graded_count and rebuilds EXAM_RULER from
+  the exam's own anchors) — S3 placement and Q1 use only the rebuilt ruler. S13-4OP stores the upgraded records
+  in registry.json['pyq_backfill'] (bc.profile_backfill_delta), so the next run restores them (bc.profile_overlay);
+  a record that stays 'partial' is re-read at most bc.C_PYQ_REREAD_MAX times in all; no user upload is needed. A newer PYQExplain profile upload wins. A record whose re-reads reached bc.C_PYQ_REREAD_MAX is
+  not listed again: it stays 'partial' (out of every target pool, in the clone guard). With nothing listed
+  the run starts at once.
+
+### S0-OP-1 — ORGANIC SCOPE PER SLOT (G-01)
+
+  A slot is ORGANIC when its subtopic is in OP_SCOPE['organic_subtopics'] (>= bc.C_ORG_SUBTOPIC_SHARE of its past
+  records organic) or its
+  generated item is organic (bc.is_organic_item on the item record); every organic rule reads the item's
+  'organic' flag (written on every concept_map entry with 'organic_reason'), never a name.
+  bc.l2_applies(..., record=<item>, organic_subtopics=OP_SCOPE['organic_subtopics']) is the ONE predicate.
+  A mixed section applies organic rules per slot; a text-only organic item has no figure rules to run.
+
+### S0-OP-2 — ONE CALIBRATED RULER PER EXAM (G-08, LAW-ORG-5, DIFFICULTY-LAYER-LAW)
+
+  The ruler is bc.build_difficulty_ruler over the exam's verified past items, each graded by TWO FRESH BLIND
+  GRADERS (records' blind_grade_1 / blind_grade_2, written by the back-fill): anchors = items both graders put
+  in the same band; a band with < bc.C_ANCHOR_MIN anchors borrows library-level anchors, then the neighbouring
+  band (recipe interpolated, flagged — never a stop). The ruler (anchors, recipe per band, past distribution,
+  grader prompt version, model id, date) is frozen in registry.json['difficulty_ruler'] and recalibrated
+  automatically (bc.ruler_needs_recalibration: grader model changed, anchor re-grade agreement <
+  bc.C_RULER_AGREE, papers added). The generic rubric (bc.assess_difficulty, CLASS_BASELINE, the qtype floor
+  classes) is a GRADER INPUT only — it never decides a band; whether an Easy figural / MSQ / NAT item exists is
+  decided by the anchors (bc.ruler_min_band). Every artefact prints the ruler's past distribution; the
+  requested schedule is printed separately as "requested" — neither is derived from the other.
+  (Executable block '# ── S0-OP-2 (v6.0) ──' — runs INSIDE S3-2, right after S0-OP-0 / S0-OP-1; see there.)
+
+### S0-OP-3 — THE SCHEDULE IS INPUT (G-09, LAW-ORG-6)
+
+  S3 normalises the request ONCE (bc.schedule_normalize; SCHEDULE_APPLIED) and places it ONCE
+  (bc.schedule_place — never infeasible; the exam's anchors decide which positions take a band first). The
+  request, the applied counts (with every normalisation note) and the placement are FROZEN in batch_state by
+  bc.schedule_freeze and are read-only from then on: no later step may swap, carry, hold, force or relabel a
+  position; a resumed run restores them, never recomputes them. A per-section schedule wins over a
+  whole-paper one (the whole-paper figure is recomputed from it and printed). The footer prints "schedule as
+  applied" (Framework_DeliveryFooter §2D). bc.schedule_frozen_check(batch_state, labels) must pass at S13-2L
+  except for the slots in batch_state['last_resort_slots'] (each with its AMBER line).
+
+### S0-OP-4 — THE SLOT PLAN AND THE AUTHOR BRIEF (G-04, G-05, G-06, G-13)
+
+  For every slot: band (fixed at intake), qtype, the band RECIPE (EXAM_RULER['recipe'][band]: decision range, ask
+  formats, substrate heavy-atom IQR, stereocentre range, near-isomer distractor share, conventions); for an
+  ORGANIC slot also: the CHAIN source — bc.l2_slot_source(cards, band, subtopic, used, seed,
+  min_decisions=<recipe minimum>, chains=bc.chain_compose(<exam cards + library cards>, <recipe minimum>,
+  max_len=<exam's longest past chain>)) — a single concept is NEVER a source for a band needing >= 2
+  decisions (F-06.2); a composed chain is used only after a blind forward solve; the asked unknown rotates
+  between product, intermediate, starting material, reagent and A-and-B (F-06.5) toward the format floors
+  (bc.format_floors over bc.format_shares(OP_TARGET_POOL)); the drawing CONVENTION — bc.scaffold_convention
+  (bridged bicyclic -> perspective, axial / equatorial ask -> chair, sugar -> the exam's sugar convention,
+  decalin / steroid -> ring-fusion H) and the convention floors (bc.convention_floors over
+  bc.convention_shares(OP_TARGET_POOL)). Low supply NEVER lowers a band (F-06.6): it triggers composition and
+  the library. The author worker reads bc.author_brief(<slot blocks>) (<= bc.C_BRIEF_MAX_PAGES pages: chain,
+  decisions, ask format, recipe, convention, two real exemplars of the same family) and the engine call list —
+  not the full spec (Framework_MockTestOrchestrate O-AUTHOR).
+
+### S0-OP-5 — THE CONTROLS OF EVERY ITEM (every exam; G-03, G-07, G-08, G-10, G-11, G-12)
+
+  Each slot is written as bc.k_candidates() candidates (3; 5 once a band has missed in this paper), each from
+  a different chain card or band operator. EVERY candidate goes through EVERY control; the first that passes
+  all of them becomes the item; every other fully-passing candidate goes to the reserve (S0-OP-7).
+  THE CANDIDATE RECORD — ONE dict per candidate; every control below receives that SAME dict and the winner
+  becomes its concept_map entry (field names exactly): qtype, subtopic_id, organic, organic_reason,
+  stem_text, option_texts (the S7-QUALITY names), figure_files, option_smiles {label: smiles} (structure options),
+  key (the correct option / value), key_smiles (the
+  answer structure, when it is one), starting_smiles, reagents [...], species [{role: stem|scheme, id, smiles,
+  stereo_mode}], declarations, irrelevance, ask_format, answer_kind, task_template, asked_reaction,
+  structure_named (a structure given by name only), chain, decisions_author. A field that does not apply is
+  omitted, never invented; key_smiles and every option_smiles value are stereo-checked by C1 even when species
+  does not list them:
+    C1 STEM STEREO (organic) — bc.stem_stereo_gate: every stereo element of the stem, key and options drawn,
+       named, declared rac / rel / mixture, or 'irrelevant' with a re-solve proof (LAW-ORG-9).
+    C2 ORIGINALITY (organic) — bc.clone_guard(item, past=OP_GUARD_POOL, library=OP_LIBRARY['fingerprints'],
+       series=bc.series_registry_rows(<registry series_registry>)): structure clone -> replace; reaction /
+       task near-clone -> mutate (change the scaffold class, add a competing site or a controlling
+       stereocentre, swap the chain) and re-run every control (LAW-ORG-10). A text item keeps the PYQ-distance
+       gates.
+    C3 EASY FLOOR (organic Easy) — bc.easy_quality_floor: >= 1 decision on a drawn or named structure; the
+       stem never names the reaction whose outcome it asks.
+    C4 RECIPE — bc.band_recipe_check(item, recipe[band]) -> grades['recipe'] (decisions, ask format,
+       substrate inside the band's ranges).
+    C5 TWO FRESH BLIND GRADERS — each a FRESH context (a sub-agent, or an Orchestrate worker) that receives
+       ONLY bc.build_judge_input(item_record, <ruler anchors with content>) — never difficulty_plan, the
+       band, difficulty_obs, the solution or the author's counts — and returns {band, decisions}. Its packet
+       sha256 and context 'fresh' are recorded in grades['packets'][grader_n]. A grade produced in the
+       author's own context is NOT a control and is never recorded as 'fresh'. When no exemplar exists for
+       a band the anchors come, in order, from the library level, then the exam's exemplar bank items
+       of that band, then the band recipe written out in words (EXAM_RULER['recipe'][band]) — a grader is
+       NEVER told to agree by default (the v5.92 DORMANT 'agree' path is RETIRED).
+    C6 DECISION CONTRACT — bc.decision_contract_check(author decisions, grader_1 decisions, recipe minimum).
+    C7 TWO FRESH BLIND SOLVERS — each a fresh context given the stem and options only; each returns its
+       answer, confidence and every assumption it made. bc.key_unanimous(author, [s1, s2], qtype, NAT
+       tolerance) and bc.solver_assumption_check: a decisive assumption fails the candidate (LAW-ORG-7).
+       Recorded as key_votes {author, solver_1, solver_2, unanimous}.
+    C8 FIGURE PROOFS (organic figures) — S0-OP-8.
+  The label is written ONLY by bc.dl_set_label_basis_strict(entry, 'measured_exact', labels, band,
+  {grader_1, grader_2, recipe}, packets): ok only when both graders AND the recipe name the band
+  (bc.band_exact — no vote). A candidate that grades another band is never relabelled: it is a failed
+  candidate (it may still enter the reserve at the band it graded EXACTLY at). Record on the concept_map entry
+  (committed by final_assembly QINDEX_OP_FIELDS): organic, organic_reason, chain, decisions_author,
+  decisions_grader, grades {grader_1, grader_2, recipe, packets, item_hash}, key_votes, clone_check,
+  stereo_gate, figures [{identity_ok, vision_ok, gates_ok, layout_attempt}], and the C2 item fields
+  key_smiles, starting_smiles, reagents, ask_format, answer_kind, task_template (the exact dict passed to
+  bc.clone_guard; its result's 'fingerprint' is stored inside clone_check, so the series registry
+  (bc.series_registry_add) and the reserve exclusion (bc.op_key_ids) always see the key).
+  THE WRITER (v6.0): every control record is written by ONE call, OP_WRITE_CONTROLS(q, grader_1, grader_2,
+  packets, key_votes, decisions_grader, figures, clone_check, stereo_gate) — defined at S3-2 (S0-OP-0 block), it
+  wraps bc.op_record_controls and computes the recipe verdict at the entry's label band. CHECK 3c calls it right
+  after write_q_to_sidecar (the candidate record fields above travel in quality={...}); the S13-2G delta round calls
+  it for every re-graded item in delta_qs (O-GRADE on the item's CURRENT text). Each record is bound to the
+  item's own text (bc.op_content_sha); S13-2L reads it only while bc.op_controls_current holds, so a replaced item
+  is never certified on its predecessor's grades, and a hand-written grade is not a grade.
+  A surface that can start neither a sub-agent nor an Orchestrate worker cannot produce a fresh grade: that is
+  the NO-MODEL environment failure (S0-OP-10) — the run saves state, prints one instruction and resumes; a
+  same-session grade is never counted as fresh and nothing is delivered uncertified.
+
+### S0-OP-6 — BAND OPERATORS (F-10.2; DR2, refill, last-resort generation)
+
+  To RAISE a band: add a decision (chemo-, regio- or facial selectivity), add a controlling stereocentre,
+  ask for the starting material or for A and B, tighten the distractors to near-isomers. To LOWER: remove a
+  decision, or ask the forward product of one step. Operators are drawn from the exam's recipe (S0-OP-2), so
+  they work for any exam and any subject (a non-organic item raises / lowers by one inferential move or one
+  concept, inside the recipe's decision range). Every operated item is a new candidate: every control again.
+
+### S0-OP-7 — RESERVE AND SERIES REGISTRY (F-07.4, F-10.3)
+
+  The reserve (bc.reserve_new / reserve_add / reserve_take) and the series registry (bc.series_registry_add /
+  series_registry_rows) persist in registry.json['reserve'] and registry.json['series_registry'] (the Step 7
+  contract stays exactly two delivered files). During the run they live at /home/claude/{EXAM}_reserve.json and
+  /home/claude/{EXAM}_series_registry.json and are committed by S13-4. A reserve item is used only if it was
+  never delivered, its clone and series guards are re-run at use time, and it is re-graded when its ruler
+  version differs. A delivered paper's items (keys, chain ids, task templates) are added to the series
+  registry at S13-4, so no later mock repeats them.
+  (Executable block '# ── S0-OP-7 load (v6.0) ──' — runs INSIDE S3-2 after S0-OP-2; '# ── S13-4OP (v6.0) ──' runs INSIDE S13-4
+  right after `paper_id = _commit['paper_id']`; see there.)
+
+### S0-OP-8 — ORGANIC FIGURES: GEOMETRY, IDENTITY, VISION (G-11, G-12, LAW-ORG-8)
+
+  Every structure of an organic item (stem, every option, every scheme species; explanations and notes too) is
+  laid out by corpus_io.organic_structure_layout (metal coordination as dative bonds — G-METALCHARGE; every
+  stereo element defined or declared — G-STEREODEF; the bounded re-depiction ladder with the perspective
+  templates — G-BONDCROSS / G-BONDLABEL / G-LABELOVERLAP / G-ATOMCLASH; identity re-perceived from the drawn
+  MolBlock — G-IDENTITY), option sets by corpus_io.option_set_align (one scale, one orientation, distinct
+  molecules), chair / Newman / sawhorse / Fischer / Haworth figures by corpus_io.render_projection (the PROVEN
+  renderers — figure_types renderer 'corpus_io.render_projection', identity kind STRUCTURE_CONFORMER). After
+  rendering, a FRESH vision pass that never saw the SMILES transcribes every rendered structure;
+  figural_vision.readback_compare(intended, read_back, stereo_mode) must match — 2 independent reads when the
+  answer depends on stereo, else 1; a read that disagrees with a geometrically correct drawing triggers a
+  second read, then a re-depiction, never an accept on one read. corpus_io.organic_figure_proof records
+  identity_ok / vision_ok / gates_ok from ONE figure dict built exactly so: {'kind': <the convention tag, e.g.
+  'skeletal' or 'chair_conformation'>, 'smiles', 'stereo_mode', 'role': 'stem'|'option', 'width_in',
+  'answer_depends_on_stereo', 'vision_reads': [{'smiles', 'match': figural_vision.readback_compare(...)['match']}],
+  and 'layout': corpus_io.organic_structure_layout(...) for a 2-D structure OR 'projection_proof': the second
+  value of corpus_io.render_projection(kind, smiles, ...) for a chair / Newman / sawhorse / Fischer / Haworth};
+  its result is the item's figures[] entry. The FigureSpec carries spec['organic'] = True, spec['proof'] = that record
+  and spec['geometry'] = draw.geometry, so figural_core G-ORGPROOF / G-FIGCOLLIDE (audit A-ORGPROOF /
+  A-FIGCOLLIDE) re-check them. corpus_io.min_size_gate: stem >= 1.0 in, option >= 0.8 in wide. A figure that
+  cannot be proven is never shipped: the item is replaced (S13-2L quality chain).
+
+### S0-OP-9 — PARITY AT ASSEMBLY (LAW-ORG-11; runs as S13-2P before S13-2L)
+
+  (Executable block '# ── S13-2P parity (v6.0) ──' — section S13-2P, right before S13-2L; see there.)
+  Formats are planned UP FRONT so parity is met by construction: S3-12d's shape plan and the author brief
+  (S0-OP-4) carry the floors, and an author may write a slot in a converted form with the band kept (a chain item ->
+  two_part; a stereo / selectivity item -> statement_combination; a same-family set -> match_list; a forward item ->
+  starting_material — bc.FORMAT_CONVERTERS), every control again. At assembly S13-2P MEASURES and records; no
+  automatic re-authoring is scheduled for a format shortfall (band counts always win over format floors): a floor
+  still short is DISCLOSED — the footer line "Organic parity: FAIL — short ..." (difficulty_state.chain_footer['info'],
+  written by S13-2L) — never hidden and never a stop. A figure-proof miss opens that item's quality chain (S13-2L
+  step 2b re-checks the proofs on every pass; after two replacements still without a structure proof record the slot
+  is disclosed on an AMBER line — bounded). A last-resort slot is final: its item passed every control when chosen.
+  The §LADDER-OP lines (requested / applied schedule, exam ruler, schedule notes, constant overrides, organic parity) are
+  written ONCE by S13-2L into difficulty_state.chain_footer['info'] (committed by S13-4); Create S13-6 and MockDeliver
+  3f''' print them verbatim with the chain footer.
+
+### S0-OP-10 — THE ONLY STOPS (G-14, LAW-ORG-12)
+
+  Every former stop site names its automatic repair (bc.STOP_REPAIRS / bc.stop_repair_for). The ONLY halts are
+  the three environment failures bc.ENVIRONMENT_FAILURES: NO-FRAMEWORK (primary, DR mirror and the project
+  cache all unavailable), NO-SOURCE-DATA (an exam with no source papers and no registry at all), NO-MODEL (no
+  model / workspace / fresh context the platform can provide). Each saves state, prints ONE plain instruction
+  and resumes automatically when the environment returns; none ever delivers anything uncertified.
+
+### S0-OP-11 — WHAT THIS SECTION SUPERSEDES (for every paper produced by this release)
+
+  * the S3 difficulty-feasibility stop, the per-section plan stop and both difficulty-profile stops —
+    replaced in place by schedule_normalize / schedule_place / the ruler (S0-OP-3).
+  * CHECK 3c (a) INDEPENDENT RATING in the author's own context, and its DORMANT 'agree' path — replaced by
+    C5 (two fresh blind graders). CHECK 3c (b0) L2 'binding' band as a label basis — replaced by C4 + C5 (the
+    L2 load is a grader input). The rubric bands of difficulty_authoring_profile — authoring hints only.
+  * S13-2L / S13-2R v5.96 endings (band swap, paired upgrade, schedule-forced, panel, re-key, majority,
+    DISCLOSED) — replaced by the SC2 endings (reserve_refill -> refill_session -> last_resort).
+  * Label bases obs / l2 / none / dr3 / review (swap) / forced / held — never written for a new paper; the
+    auditor rejects them on any paper produced at or after 2026.11.10 (A-QINDEX check 8, LB2-strict).
 
 ## S1-0 — SESSION CLASS AND READ SET (v5.63 — decide at STEP 0, before any spec read)
 
@@ -1438,8 +1663,12 @@ action: the same paper, the same two files, the same "continue".
       _prof_dsrc = (json.load(open(_pf_dsrc, encoding='utf-8'))
                     if bp.get('difficulty_schedule') and os.path.exists(_pf_dsrc) else None)
   except (ValueError, OSError) as _e_dsrc:
-      raise SystemExit(f"HARD STOP [HS:INPUT] (S3-2D): {EXAM}_difficulty_profile.json is not "
-                       f"readable JSON ({type(_e_dsrc).__name__}: {_e_dsrc}) — re-upload it.")
+      # v6.0 (GAP-2026-11-10 G-09 F-09.3 / G-14 row 5, LAW-ORG-12): an unreadable profile is NEVER a stop — the run
+      # continues on the exam ruler (S0-OP-2; library level when the exam has too few anchors) and the profile is
+      # rebuilt by the S0-OP-0 migration from the project's own past papers. One AMBER line, recorded.
+      _prof_dsrc = None
+      print(f"S3-2D: {EXAM}_difficulty_profile.json unreadable ({type(_e_dsrc).__name__}) — continuing on the exam "
+            f"ruler / library level; the profile is rebuilt by the S0-OP-0 migration (AMBER, never a stop).")
   # The full-paper Blueprint's S7-0 schedule (builder 'Framework_Blueprint.S7-0', or a
   # pre-v1.62 full-paper difficulty_source with no builder and no subtopic_ids) is the
   # operator-chosen mix validated by A-DPROFILE — never reported as 'unverified'.
@@ -1559,6 +1788,137 @@ action: the same paper, the same two files, the same "continue".
                   'hard': difficulty_labels[2]}.get(sched_key, _alias.get(sched_key, sched_key))
       return _alias.get(sched_key, sched_key)
 
+  ```
+  S0-OP AT S3 (v6.0 — §S0-OP-0 / -1 / -2 / -7): run these three blocks NOW, in order, before the difficulty
+  plan below (the plan reads EXAM_RULER; S0-OP-0 may hand the run to O-BACKFILL first).
+  ```python
+  # ── S0-OP-0 / S0-OP-1 (v6.0) ──
+  import json, os, blueprint_core as bc
+  EXAM = globals()['EXAM']                                     # bound by S3-1 (this block runs at S3, S0-OP order)
+  _op_prof_p = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _op_work_p = f'/home/claude/{EXAM}_op_profile.json'          # the S0-OP working profile (O-BACKFILL writes HERE)
+  if os.path.exists(_op_work_p):                               # this session already loaded / back-filled it
+      OP_PROFILE = json.load(open(_op_work_p, encoding='utf-8'))
+  else:                                                        # project profile + earlier runs' back-fill (registry)
+      _op_r0 = ((globals().get('REG_SRC') or {}).get('registry') or {}) if isinstance(globals().get('REG_SRC'), dict) else {}
+      OP_PROFILE, _op_n_ov = bc.profile_overlay(json.load(open(_op_prof_p, encoding='utf-8')) if os.path.exists(_op_prof_p)
+                                                else {'papers': {}}, _op_r0.get('pyq_backfill'))
+      json.dump(OP_PROFILE, open(_op_work_p, 'w', encoding='utf-8'), ensure_ascii=False)
+      print(f"S0-OP-0: {_op_n_ov} back-filled record(s) restored from registry.json['pyq_backfill'].")
+  # the exam config S3-2 loaded (exam-level file wins over the shared one); there is no global named exam_config
+  OP_EXAM_CONFIG = {**(globals().get('_ecfg') or {}), **(globals().get('exam_config') or {}),
+                    **(globals().get('_ecfg_exam') or {})}        # the exam's own file wins
+  bc.op_constants_reset()                                      # an earlier exam's override never leaks into this one
+  OP_CONST = bc.op_constants(OP_EXAM_CONFIG)
+  for _ck in OP_CONST['overrides']:                            # an override is APPLIED, not only printed (§6.2)
+      setattr(bc, _ck.split('=')[0], OP_CONST[_ck.split('=')[0]])
+  OP_SCOPE = bc.organic_scope(OP_PROFILE)                      # LAW-ORG-1 — by content
+  OP_TARGET_POOL = bc.pyq_target_pool(OP_PROFILE)              # 'full' + schema 3 only (LAW-ORG-2)
+  OP_GUARD_POOL = bc.pyq_guard_pool(OP_PROFILE)                # every record (clone guard)
+  OP_N_VERIFIED_ORG = sum(1 for r in OP_TARGET_POOL if r.get('organic') is True)
+  OP_NEEDS_BACKFILL = [f"{r['_paper']}:{r['_q']}" for r in OP_GUARD_POOL if bc.pyq_record_status(r) != 'full'
+                       and int(r.get('reread_count') or 0) < bc.C_PYQ_REREAD_MAX]   # a capped record stays 'partial'
+  OP_LEVEL = bc.exam_level(OP_EXAM_CONFIG, EXAM)
+  _op_lib_p = '/tmp/fw_effective/organic_library.json'
+  OP_LIBRARY = bc.organic_library_from(json.load(open(_op_lib_p, encoding='utf-8')) if os.path.exists(_op_lib_p)
+                                       else None)               # framework-level; empty-capable (LEVEL_DEFAULT_RECIPES)
+  print(f"S0-OP-0: {len(OP_GUARD_POOL)} PYQ records, {len(OP_TARGET_POOL)} verified (schema {bc.PYQ_SCHEMA_VERSION}); "
+        f"organic exam {OP_SCOPE['exam_organic']} ({OP_SCOPE['n_organic']} organic records, {OP_N_VERIFIED_ORG} verified); "
+        f"{len(OP_NEEDS_BACKFILL)} record(s) for O-BACKFILL; level {OP_LEVEL[0]} ({OP_LEVEL[1]}); "
+        f"library {'used' if bc.library_needed(OP_N_VERIFIED_ORG) else 'fallback only'}; "
+        f"constant overrides {OP_CONST['overrides'] or 'none'}.")
+  # BACK-FILL BEFORE THE RULER AND THE PLAN (S0-OP-0): the run hands over to O-BACKFILL while records are listed and
+  # the last pass made progress — at most bc.C_PYQ_REREAD_MAX + 1 passes per paper; a record that cannot be
+  # completed stays 'partial' (out of every target pool, in the clone guard) and the run continues.
+  import hashlib as _hl_bf
+  _op_bf_p = f'/home/claude/{EXAM}_M{N}_op_backfill_state.json'   # per PAPER
+  _op_bf = json.load(open(_op_bf_p, encoding='utf-8')) if os.path.exists(_op_bf_p) else {'passes': 0, 'last_n': None}
+  _op_wh = _hl_bf.sha256(open(_op_work_p, 'rb').read()).hexdigest() if os.path.exists(_op_work_p) else None
+  _op_raise = False
+  if OP_NEEDS_BACKFILL and _op_bf.get('last_hash') is not None and _op_bf.get('last_hash') == _op_wh:
+      # re-entered without any back-fill having run since the hand-over: ask again (at most twice), then continue
+      _op_bf['idle'] = int(_op_bf.get('idle') or 0) + 1
+      _op_raise = _op_bf['idle'] <= 2
+  elif OP_NEEDS_BACKFILL and _op_bf['passes'] <= bc.C_PYQ_REREAD_MAX and (
+          _op_bf['last_n'] is None or len(OP_NEEDS_BACKFILL) < _op_bf['last_n']):
+      _op_bf = {'passes': _op_bf['passes'] + 1, 'last_n': len(OP_NEEDS_BACKFILL), 'last_hash': _op_wh, 'idle': 0}
+      _op_raise = True
+  _op_bf['records'] = OP_NEEDS_BACKFILL
+  json.dump(_op_bf, open(_op_bf_p, 'w', encoding='utf-8'), indent=2)
+  if _op_raise:
+      raise RuntimeError(f"BACKFILL [HS:LADDER] (S0-OP-0): {len(OP_NEEDS_BACKFILL)} PYQ record(s) need the schema-3 "
+                         f"back-fill — run O-BACKFILL (Framework_PYQExplain §13A-3B, fresh workers / sub-agents) on "
+                         f"{_op_bf_p} 'records', writing each paper's records into {_op_work_p} with bc.profile_merge_records; then "
+                         f"re-run S3-2 from this block.")
+  def OP_WRITE_CONTROLS(q, grader_1, grader_2, packets, key_votes, decisions_grader=None, figures=None,
+                        clone_check=None, stereo_gate=None):
+      """S0-OP-5 THE WRITER — records an item's control results ON its answer-key concept_map entry, bound to that
+      entry's own text (bc.op_content_sha over stem_text / option_texts / figure_files) and to the auditor's item hash
+      when one exists; the recipe verdict is computed here at the entry's label band. Used by CHECK 3c (after
+      write_q_to_sidecar) and by the S13-2G delta round (re-graded items). Returns the written entry."""
+      _kp_w = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+      _kd_w = json.load(open(_kp_w, encoding='utf-8'))
+      _e_w = (_kd_w.setdefault('concept_map', {})).get(str(q)) or {}
+      _ru_w = globals().get('EXAM_RULER') or {}
+      _rb_w = ((_ru_w.get('recipe') or {}) if isinstance(_ru_w.get('recipe'), dict) else {}).get(_e_w.get('difficulty'))
+      _rc_w = bc.band_recipe_check(_e_w, _rb_w) if isinstance(_rb_w, dict) else (False, ['no recipe'])
+      _rec_ok = bool(_rc_w[0]) or (bool(_rc_w[1]) and all('dormant' in str(_x) for _x in _rc_w[1]))
+      _hj_w = f'/home/claude/{EXAM}_M{N}_item_hashes.json'
+      _ih_w = (json.load(open(_hj_w, encoding='utf-8')) if os.path.exists(_hj_w) else {}).get(str(q))
+      _kd_w['concept_map'][str(q)] = bc.op_record_controls(_e_w, grader_1, grader_2, _rec_ok, packets,
+                                                           decisions_grader, key_votes, figures, clone_check,
+                                                           stereo_gate, item_hash=_ih_w)
+      json.dump(_kd_w, open(_kp_w, 'w', encoding='utf-8'), indent=2)
+      return _kd_w['concept_map'][str(q)]
+  if OP_NEEDS_BACKFILL:
+      print(f"S0-OP-0: {len(OP_NEEDS_BACKFILL)} record(s) stay 'partial' after {_op_bf['passes']} back-fill pass(es) — "
+            f"excluded from every target pool, kept in the clone guard; the run continues.")
+  ```
+  ```python
+  # ── S0-OP-2 (v6.0) ──
+  import datetime as _dt_op
+  # the registry this run reads (REGISTRY-SOURCE-LAW: S3-1 resolved it through pp.resolve_registry; a first paper has
+  # none yet — the ruler is then built here and committed by S13-4OP)
+  _op_reg = ((globals().get('REG_SRC') or {}).get('registry') or {}) if isinstance(globals().get('REG_SRC'), dict) else {}
+  EXAM_RULER = _op_reg.get('difficulty_ruler') if isinstance(_op_reg.get('difficulty_ruler'), dict) else None
+  _op_labels = list(globals().get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+  _op_graded = bc.ruler_graded_count(OP_PROFILE, _op_labels)  # the ruler's OWN input rule (back-fill progress)
+  _op_recal, _op_why = bc.ruler_needs_recalibration(EXAM_RULER, model_id=globals().get('GRADER_MODEL_ID'),
+                                                    paper_count=len(OP_PROFILE.get('papers') or {}),
+                                                    graded_count=_op_graded)
+  if _op_recal:
+      EXAM_RULER = bc.build_difficulty_ruler(OP_PROFILE, _op_labels, version=f'{EXAM}-{_dt_op.date.today().isoformat()}',
+                                             model_id=globals().get('GRADER_MODEL_ID') or 'session-model',
+                                             prompt_version='S0-OP-5/v1', date=_dt_op.date.today().isoformat(),
+                                             library=OP_LIBRARY, level=OP_LEVEL[0])
+      EXAM_RULER['paper_count'] = len(OP_PROFILE.get('papers') or {})
+      EXAM_RULER['graded_count'] = _op_graded
+  print(f"S0-OP-2: ruler {EXAM_RULER['ruler_version']} ({EXAM_RULER['basis']}; {_op_why}); anchors "
+        + ', '.join(f"{b} {len(EXAM_RULER['anchors'].get(b) or [])}" for b in _op_labels)
+        + f"; past distribution {EXAM_RULER['past_distribution']} (printed apart from the requested schedule).")
+  ```
+  ```python
+  # ── S0-OP-7 load (v6.0) — at S3 ──
+  _op_rsv_p = f'/home/claude/{EXAM}_reserve.json'
+  _op_ser_p = f'/home/claude/{EXAM}_series_registry.json'
+  if not os.path.exists(_op_rsv_p):
+      json.dump(_op_reg.get('reserve') if isinstance(_op_reg.get('reserve'), dict) else bc.reserve_new(EXAM),
+                open(_op_rsv_p, 'w', encoding='utf-8'), indent=2)
+  if not os.path.exists(_op_ser_p):
+      _op_sr = _op_reg.get('series_registry') if isinstance(_op_reg.get('series_registry'), dict) else None
+      if _op_sr is None:                                       # seeded from every delivered mock's committed rows
+          _op_sr = {'papers': {}}
+          _op_byp = {}
+          for _pe in (_op_reg.get('question_index') or []):          # one entry per committed PAPER
+              for _qi in ((_pe.get('questions') or []) if isinstance(_pe, dict) else []):
+                  if isinstance(_qi, dict) and _qi.get('organic') is True:
+                      _op_byp.setdefault(str(_pe.get('paper_id') or _pe.get('mock') or 'legacy'), []).append(_qi)
+          for _pid_s, _rows_s in _op_byp.items():
+              _op_sr = bc.series_registry_add(_op_sr, _pid_s, _rows_s)
+      json.dump(_op_sr, open(_op_ser_p, 'w', encoding='utf-8'), indent=2)
+  OP_SERIES_ROWS = bc.series_registry_rows(json.load(open(_op_ser_p, encoding='utf-8')))
+  ```
+  ```python
   # v5.60 — THE DIFFICULTY PLAN (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS).
   # SCHEDULE-FIRST survives intact: the user's trigger/band ratio is the LAW for
   # HOW MANY questions sit in each band, exactly as before — including deliberately
@@ -1582,18 +1942,26 @@ action: the same paper, the same two files, the same "continue".
   PROFILE_COVERAGE = None                      # v5.92: set below when a profile is loaded
   if diff_entry and len(difficulty_labels) == 3:
       _dcounts = {'simple': n_simple, 'medium': n_medium, 'hard': n_hard}
+      # v6.0 (GAP-2026-11-10 G-09, LAW-ORG-6 SCHEDULE-IS-INPUT): the requested schedule is the REQUIREMENT, never
+      # something validated against framework assumptions. It is normalised ONCE (bc.schedule_normalize — an
+      # exact-sum request is never altered; percentages / wrong sums / unknown band names are normalised and
+      # printed "schedule as applied") and frozen in S0-OP-3. difficulty_feasibility is a PLANNING HINT only: it
+      # names the slots that need band operators or the library; it NEVER stops and NEVER changes the schedule.
+      _sched_req = {difficulty_labels[0]: n_simple, difficulty_labels[1]: n_medium, difficulty_labels[2]: n_hard}
+      SCHEDULE_APPLIED = bc.schedule_normalize(_sched_req, total_questions, difficulty_labels,
+                                               (EXAM_RULER or {}).get('past_distribution') if 'EXAM_RULER' in globals() else None)
+      if SCHEDULE_APPLIED['altered']:
+          print('S3 schedule as applied: ' + '; '.join(SCHEDULE_APPLIED['notes']))
+      n_simple, n_medium, n_hard = (SCHEDULE_APPLIED['counts'][difficulty_labels[0]],
+                                    SCHEDULE_APPLIED['counts'][difficulty_labels[1]],
+                                    SCHEDULE_APPLIED['counts'][difficulty_labels[2]])
+      _dcounts = {'simple': n_simple, 'medium': n_medium, 'hard': n_hard}
       _dshort = bc.difficulty_feasibility(_dcounts, _qtype_by_q, difficulty_labels)
       if _dshort:
           _lab, _d = next(iter(_dshort.items()))
-          raise SystemExit(
-              f"HARD STOP [HS:INPUT] (S3 difficulty feasibility, v5.60): the schedule asks for "
-              f"{_d['requested']} '{_lab}' questions but this exam's shape can honestly "
-              f"hold at most {_d['max_achievable']} — the shared rubric's qtype floor "
-              f"makes '{_lab}' unreachable on MSQ/NAT positions (an options-free or "
-              f"choose-all mechanic is never bottom-band work). Re-run Step 6 with "
-              f"'{_lab}' <= {_d['max_achievable']} for this mock (any Medium/Hard "
-              f"split is unrestricted), or drop position-based typing. Do NOT relabel "
-              f"around this.")
+          print(f"S3 planning hint (v6.0 — never a stop): {_d['requested']} '{_lab}' slots requested; the legacy rubric "
+                f"floor would allow {_d['max_achievable']}. The exam ruler's anchors decide (bc.ruler_min_band); slots "
+                f"without an anchor of that band are written with band operators + the library (S0-OP-6).")
       # Deterministic, floor-honouring, seed-rotated per mock so the bottom band
       # doesn't sit on the same positions in every paper of the series.
       # v5.75 (GAP-2026-08-27-DIFFICULTY-PROFILE): when the schedule carries PER-SECTION
@@ -1617,11 +1985,30 @@ action: the same paper, the same two files, the same "continue".
           try:
               difficulty_plan = bc.assign_difficulty_bands_by_section(
                   _by_sec, _qtype_by_q, _plan_secs, difficulty_labels, seed=N)
-          except bc.DPError as _e:
-              raise SystemExit(f"HARD STOP [HS:INPUT] (S3 per-section difficulty plan, v5.75): {_e}")
+          except (bc.DPError, ValueError) as _e:
+              # v6.0 (G-09 / G-14 row 5): never a stop — each section's counts are placed EXACTLY by
+              # bc.schedule_place (no infeasibility exists; the exam ruler's anchors decide qtype floors)
+              print(f"S3 per-section plan: {_e} — placed by bc.schedule_place (v6.0, never a stop).")
+              difficulty_plan = {}
+              for _sx in (_plan_secs or []):
+                  _lo, _hi = _sx['q_range']
+                  _sc = bc.schedule_normalize(_by_sec.get(_sx['name']) or {}, _hi - _lo + 1, difficulty_labels)['counts']
+                  _pl = bc.schedule_place(_sc, {q: _qtype_by_q[q] for q in range(_lo, _hi + 1)}, difficulty_labels,
+                                          ruler=globals().get('EXAM_RULER'), seed=N)
+                  difficulty_plan.update({int(k): v for k, v in _pl.items()})
+              if set(difficulty_plan) != set(_qtype_by_q):           # no usable sections: place paper-wide, exactly
+                  difficulty_plan = {int(k): v for k, v in bc.schedule_place(
+                      {difficulty_labels[0]: n_simple, difficulty_labels[1]: n_medium, difficulty_labels[2]: n_hard},
+                      _qtype_by_q, difficulty_labels, ruler=globals().get('EXAM_RULER'), seed=N).items()}
       else:
-          difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
-                                                       difficulty_labels, seed=N)
+          # v6.0 (G-09 F-09.2): placement never stops — the legacy floor-honouring placement when it can place the
+          # counts, else bc.schedule_place (exact, never infeasible; the exam ruler's anchors decide qtype floors)
+          try:
+              difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q, difficulty_labels, seed=N)
+          except ValueError:
+              difficulty_plan = {int(k): v for k, v in bc.schedule_place(
+                  {difficulty_labels[0]: n_simple, difficulty_labels[1]: n_medium, difficulty_labels[2]: n_hard},
+                  _qtype_by_q, difficulty_labels, ruler=globals().get('EXAM_RULER'), seed=N).items()}
           PLAN_SECTIONS = []                         # a paper-wide plan: its counts are paper-wide (S3-12e)
       difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
       # v5.89: on a RESUMED paper the persisted plan is authoritative — band swaps (and, on a
@@ -1662,7 +2049,10 @@ action: the same paper, the same two files, the same "continue".
               DIFFICULTY_PROFILE = bc.dp_check_profile(_json.load(open(_pf_p, encoding='utf-8')),
                                                        EXAM, difficulty_labels)
           except bc.DPError as _e:
-              raise SystemExit(f"HARD STOP [HS:INPUT] (S3 difficulty profile, v5.75): {_e}")
+              # v6.0 (G-09 F-09.3, LAW-ORG-12): an unusable profile is rebuilt by the S0-OP-0 migration; this run
+              # continues on the exam ruler / library level — never a stop
+              DIFFICULTY_PROFILE = None
+              print(f"S3 difficulty profile unusable ({_e}) — continuing on the exam ruler / library level (AMBER).")
       # v5.89 (GAP-2026-11-02 L1) — CONTENT-COMPLEXITY MODEL for CHECK 3c (b). Built
       # ONCE from the profile's per-question content vectors (PYQExplain v2.25 §13A) of the
       # questions in THIS paper's scope; dormant (None / active False) otherwise.
@@ -1731,7 +2121,7 @@ action: the same paper, the same two files, the same "continue".
           print('S3: ' + PROFILE_COVERAGE['line'])
       # Persisted as batch_state.json['difficulty_plan'] = {str(q): label} alongside
       # the rest of the S3 state (same write, same file) so `continue` resumes the
-      # identical plan and the CHECK 3c band-swap escape can update it in place.
+      # identical plan (v6.0: frozen — S0-OP-3; no band swap ever rewrites it).
   # DORMANT (difficulty_plan is None) when the exam declares no difficulty_schedule
   # entry for this mock OR a non-3-band vocabulary — the documented fall-through of
   # every Cluster-E2 function. Dormant means: no plan, no G-DIFF, labels assigned
@@ -2267,7 +2657,7 @@ action: the same paper, the same two files, the same "continue".
   L2_PYQ_GRADES_RECORD = None                     # S13-4 caches it in the registry (fresh bank grades only)
   _dp_l2 = globals().get('DIFFICULTY_PROFILE')
   if globals().get('difficulty_plan') and isinstance(_dp_l2, dict):
-      L2_ORGANIC_IDS = bc.l2_scope_ids(MANIFEST_IDS)
+      L2_ORGANIC_IDS = bc.l2_scope_ids(MANIFEST_IDS, organic_subtopics=(globals().get('OP_SCOPE') or {}).get('organic_subtopics'))
       _org_set = set(L2_ORGANIC_IDS)
       L2_SCOPE_IDS = sorted({str(x.get('subtopic_id')) for x in subtopic_list
                              if str(x.get('subtopic_id')) in _org_set})
@@ -3150,8 +3540,9 @@ action: the same paper, the same two files, the same "continue".
   band, so both products describe the FINAL plan (release review 2026-11-08: drawn earlier they
   described a plan S3-12e then rearranged).
   (1) DIFFICULTY_PLAN_TARGET — the slot bands the paper is measured against at the end (S13-2L,
-  S13-2G phase 3): the plan as built; only a count-neutral BAND-SWAP (CHECK 3c) ever changes it; a
-  resume of the SAME paper restores it (same slots, same band counts).
+  S13-2G phase 3): the plan as built — v6.0: FROZEN with the request and the applied counts
+  (bc.schedule_freeze, S0-OP-3; no band swap exists); a resume of the SAME paper restores it (same slots,
+  same band counts).
   (2) L2_SOURCES — when L2_MODEL is active, each slot whose subtopic is in L2_SCOPE_IDS gets ONE
   pattern source, drawn deterministically (bc.l2_slot_source, seed bc.brief_seed): an unused
   pattern card of the slot's band (cascade subtopic -> topic -> family -> any) or, when none exists,
@@ -3169,6 +3560,23 @@ action: the same paper, the same two files, the same "continue".
       DIFFICULTY_PLAN_TARGET = (dict(_saved_t) if isinstance(_saved_t, dict) and set(_saved_t) == set(_fresh_t)
                                 and bc.dl_band_counts(_saved_t, difficulty_labels)
                                 == bc.dl_band_counts(_fresh_t, difficulty_labels) else _fresh_t)
+  # ── S0-OP-3 freeze (v6.0) — the request, the applied counts and the placement, ONCE (a resume restores) ──
+  SCHEDULE_FROZEN_STATE = None
+  if DIFFICULTY_PLAN_TARGET:
+      _sa_f = globals().get('SCHEDULE_APPLIED') or {}
+      _app_f = bc.dl_band_counts(DIFFICULTY_PLAN_TARGET, difficulty_labels)
+      _notes_f = list(_sa_f.get('notes') or [])
+      if _sa_f.get('counts') and dict(_sa_f['counts']) != dict(_app_f):
+          _notes_f.append(f"per-section schedule wins: whole-paper counts recomputed as {dict(_app_f)} "
+                          f"(was {dict(_sa_f['counts'])})")
+          print('S3 schedule as applied: ' + _notes_f[-1])
+      _prev_f = ({k: _bs_l2[k] for k in ('schedule_requested', 'schedule_applied', 'schedule_frozen',
+                                         'refill_sessions_used', 'last_resort_slots') if k in _bs_l2}
+                 if _same_paper_l2 and isinstance(_bs_l2, dict) else {})
+      if (_prev_f.get('schedule_frozen') or {}).get('placement') not in (None, {str(q): b for q, b in DIFFICULTY_PLAN_TARGET.items()}):
+          _prev_f = {}                                            # a frozen state of ANOTHER placement is never reused
+      SCHEDULE_FROZEN_STATE = bc.schedule_freeze(_prev_f, dict(globals().get('_sched_req') or _app_f), dict(_app_f),
+                                                 DIFFICULTY_PLAN_TARGET, notes=_notes_f)
   L2_SOURCES = {}
   if L2_MODEL and L2_MODEL.get('active') and difficulty_plan:
       _saved_src = (_bs_l2.get('l2_sources') if _same_paper_l2 else None) or {}
@@ -3268,13 +3676,17 @@ action: the same paper, the same two files, the same "continue".
       # in-run amendment — committed with difficulty_state (S13-4) so A-PYQBENCH prints
       # original vs final (DL-51). Every paper with a plan; {} when the plan is dormant.
       'difficulty_labels': list(difficulty_labels),   # v5.92: read by S13-2G phase 3 (resume-safe)
-      # v5.94 (GAP-2026-11-07): the TARGET plan S13-2L counts the paper against (only a
-      # count-neutral band swap changes it) and each organic slot's pattern source (S3-15L).
+      # v5.94 (GAP-2026-11-07): the TARGET plan S13-2L counts the paper against (v6.0: frozen,
+      # never changed) and each organic slot's pattern source (S3-15L).
       'difficulty_plan_target': (dict(DIFFICULTY_PLAN_TARGET) if globals().get('DIFFICULTY_PLAN_TARGET') else None),
+      **(globals().get('SCHEDULE_FROZEN_STATE') or {}),   # v6.0 S0-OP-3: schedule_requested / _applied / _frozen
       'l2_sources': dict(globals().get('L2_SOURCES') or {}),
       'difficulty_state': dict(DIFFICULTY_STATE, schedule_original=(
           {l: sum(1 for v in difficulty_plan.values() if v == l) for l in difficulty_labels}
-          if difficulty_plan else {})),
+          if difficulty_plan else {}),
+          ruler={k: (globals().get('EXAM_RULER') or {}).get(k) for k in ('ruler_version', 'basis', 'past_distribution')}),
+      'exam_ruler': globals().get('EXAM_RULER'),     # v6.0 S0-OP-2: resume-safe copy (S13-2L / S13-4OP)
+      'op_overrides': list((globals().get('OP_CONST') or {}).get('overrides') or []),   # §LADDER-OP line (S13-2L)
       'bp_project_sha': dict(BP_PROJECT_SHA),   # v5.89: which project blueprint this paper
                                                 # started from (S3-1 keep-amended rule)
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
@@ -3948,9 +4360,13 @@ action: the same paper, the same two files, the same "continue".
                                      (data_series / data_single per series count)
                                   == 'glyph_path'                  → S10-7
                                      render_figural_image (reasoning_glyph)
+                                  == 'corpus_io.render_projection' → v6.0 (G-12):
+                                     chair / Newman / sawhorse / Fischer / Haworth
+                                     through the PROVEN renderers (S0-OP-8) — never
+                                     hand-drawn; identity kind STRUCTURE_CONFORMER
                                   == 'hand_drawn+descriptor'       → matplotlib
-                                     artists + a descriptor (NEWMAN, FISCHER,
-                                     MO_DIAGRAM, ORBITAL_BOXES, GENERIC …)
+                                     artists + a descriptor (MO_DIAGRAM,
+                                     ORBITAL_BOXES, GENERIC …)
                  row['semantic_kinds'][0] is the kind the semantic object registers;
                  row['render_classes'] bounds the S10-6A class the FigureSpec declares.
                ── ASK TYPE (v5.89 — GAP-2026-11-02 F8) ─────────────────────────
@@ -5397,6 +5813,13 @@ action: the same paper, the same two files, the same "continue".
         evidence the AUTHOR declares; measured on a delivered paper, 24 items
         declared 5-6 steps and labelled Hard were easier than the real exam's
         Medium items. Two checks anchor the label to the EXAM ITSELF:
+          v6.0 (GAP-2026-11-10, S0-OP-5 — BINDING FOR EVERY ITEM OF EVERY EXAM): the rating below is now done
+              by TWO FRESH BLIND GRADERS in fresh contexts (sub-agents or Orchestrate workers), each given
+              ONLY the packet bc.build_judge_input builds, plus the recipe check and two fresh blind solvers;
+              the label is written only by bc.dl_set_label_basis_strict (measured_exact). The author's own
+              in-context rating and its counts are NEVER a control and never set or verify a label. The
+              DORMANT 'agree' rule below is RETIRED: with no content-carrying exemplar for a band the graders
+              use the ruler's library-level anchors (S0-OP-2) — they are never told to agree by default.
           (a) INDEPENDENT RATING — every item, every exam [CLASS: J]. After the
               item and its solution are final, rate it BLIND. v5.90 (GAP-2026-11-03
               G02 R2.1/R2.2): the exemplars are CONTENT-CARRYING — from the
@@ -5430,11 +5853,10 @@ action: the same paper, the same two files, the same "continue".
               objects of kind STRUCTURE / REACTION) the snippet fallback is DORMANT —
               a snippet carries no chemistry, and rating from it echoes the author's
               own counts. DORMANT when neither source holds a content-carrying
-              exemplar for at least two bands: rated_band = difficulty_plan[q] (no
-              anchor, so no override), rationale "no exemplars", the decision stays
-              `agree`, the item's difficulty_check gains level_note 'unverified' and
-              q is appended to DIFFICULTY_STATE['judge_dormant_qs'] (the footer's
-              AMBER line, S13-6). Never a stop (OD-1).
+              exemplar for at least two bands: [v6.0 RETIRED for every new paper — the
+              graders use the ruler's library-level anchors; a grade is never copied from
+              difficulty_plan] (legacy v5.92 text: rated_band = difficulty_plan[q], decision
+              `agree`, level_note 'unverified', DIFFICULTY_STATE['judge_dormant_qs']). Never a stop (OD-1).
           (b0) ORGANIC DECISION-LOAD RULER — L2 ITEM (v5.94, GAP-2026-11-07; owner D1 (b), D3,
               D4, D6). An L2 ITEM is one whose subtopic_id is in L2_SCOPE_IDS while L2_MODEL
               (S3-8L) is active. AUTHOR FROM THE PATTERN, NEVER FROM A PAST QUESTION (D6): the
@@ -5523,12 +5945,12 @@ action: the same paper, the same two files, the same "continue".
               G-DIFF budget — 'reauthor' (DR1): write the item again from the NEXT pattern source
               (L2 item: bc.l2_slot_source(..., skip=k); any other item: the next exemplar of the
               cell); 'reauthor_target' (DR2): the band-target brief (the band's profile and its
-              exemplars side by side). When the budget is spent and the band-swap escape finds no
-              partner: CARRY TO REVIEW — accept at the SCHEDULED band with decision
+              exemplars side by side). When the budget is spent (v6.0: there is no band-swap
+              escape): CARRY TO REVIEW — accept at the SCHEDULED band with decision
               'carried_below' (final_band = scheduled, the label stays the slot's band); S13-2G
               phase 3 repairs it once more; v5.96 (OD-2026-11-09): still below after round 2 -> S13-2L
-              opens its DIFFICULTY chain (rework, replace, shape, sibling, band swap, paired upgrade,
-              then a schedule-forced label, disclosed) — it is NEVER accepted lower (no DR3 relabel).
+              opens its DIFFICULTY chain (v6.0 SC2: rework, replace, shape, sibling, reserve_refill, refill_session,
+              then the bounded last_resort, disclosed) — it is NEVER accepted lower (no DR3 relabel).
               Rungs and counters persist in batch_state['_diff_tries'] ('<q>:dr1' sources tried,
               '<q>:dr2' tries). PERSIST difficulty_state by MERGING (stored.update(DIFFICULTY_STATE)),
               never by replacing it: S13-2G phase 3 and S13-2L add paper_gate / chain_footer (legacy: dr3_qs / hard_missed)
@@ -5549,23 +5971,21 @@ action: the same paper, the same two files, the same "continue".
               below level' — never a second budget, never a stop. v5.94: SUPERSEDED for the
               decision — the judge's rated_band is a control of THE MEASURED BAND, so a judge
               below the slot takes THE DL REPAIR and, if it persists, carry-to-review (the
-              G-DIFF ACCEPT above only means the counts support the band). At R5 a level band
-              ABOVE the slot (BELOW never reaches R5) is HELD at the scheduled band —
-              v5.96 (owner 2026-11-10 — supersedes D3-R5 (A) for difficulty): a HARDER slot is never relabelled and the schedule is never amended — it is HELD at its scheduled band (see R5).
+              G-DIFF ACCEPT above only means the counts support the band). A level band ABOVE the slot
+              is a FAILED candidate (v6.0 R5 below — never held, never relabelled).
             OTHER ITEM (b2) — v5.90 unchanged (v5.94: a band it gives BELOW the slot is THE
               MEASURED BAND's DL repair / carry-to-review, never the label): the band is bc.final_band_decision(
               rated_band, ccp['status'] if ccp else None, ccp['ccp_band'] if ccp
               else None, difficulty_labels) — rated unless the floor says 'below',
               then the lower of the two; the author's counts never raise it;
               r = bc.reconcile_difficulty(difficulty_plan[q], rated_band,
-              ccp['status'] if ccp else None, labels=difficulty_labels). At R5 a measured band
-              ABOVE the slot (BELOW never reaches R5) is HELD at the scheduled band —
-              v5.96 (owner 2026-11-10 — supersedes D3-R5 (A) for difficulty): a HARDER slot is never relabelled and the schedule is never amended — it is HELD at its scheduled band (see R5).
+              ccp['status'] if ccp else None, labels=difficulty_labels). A measured band ABOVE the slot
+              is a FAILED candidate (v6.0 R5 below — never held, never relabelled).
           In BOTH paths: 'agree' -> ACCEPT; 'ladder' -> the slot enters §Q8b-LADDER
           with reason r['reason'] ('harder' / 'easier'; A-DIFFRATING /
-          A-CONTENTLEVEL), R2 first. R5 (v5.96) HOLDS a harder slot at its scheduled band
-          (always allowed: the scheduled band already satisfies difficulty_min_band).
-          Either way set difficulty_plan[q] = final_band and persist
+          A-CONTENTLEVEL), R2 first; R5 is the v6.0 rule below (a candidate not graded EXACTLY at its band
+          fails; the slot's band never changes). On ACCEPT final_band == difficulty_plan[q] (the frozen
+          placement, S0-OP-3); persist
           batch_state['difficulty_plan'] (and batch_state['difficulty_state']) in the
           same write.
           PRECEDENCE (one rule): the independent rating and the content floor
@@ -5589,8 +6009,8 @@ action: the same paper, the same two files, the same "continue".
         {'difficulty': difficulty_plan[q], 'difficulty_obs': difficulty_obs, 'qtype': qtype,
          'difficulty_check': <the item's recorded difficulty_check, when it has one>},
         difficulty_labels) — the ONE label verifier (A-QINDEX check 8 and notes_core call it too;
-        a recorded basis (SWAP / FORCED / HELD) decides for an item that carries one — so an item
-        already HELD at R5 and re-gated on a resume passes; else a BINDING organic ruler band, else
+        a recorded basis decides for an item that carries one (v6.0: measured_exact / last_resort; a
+        legacy SWAP / FORCED / HELD row of an earlier paper still verifies); else a BINDING organic ruler band, else
         the recorded evidence). A NEW candidate carries no basis. If not ok:
           → REJECT. Regenerate TOWARD the band using the profile (add or remove
             derivation load; change class facets). Bound: MAX_DIFF_TRIES = 6
@@ -5602,40 +6022,26 @@ action: the same paper, the same two files, the same "continue".
             Medium / Easy slot that measured above is simplified the same way in
             reverse. There is ONE budget: every reason to retry (rubric, level
             model, judge disagreement — D11) spends from the same 6.
-          → BAND-SWAP ESCAPE (after MAX_DIFF_TRIES): if another not-yet-accepted
-            slot q' exists in the SAME section with difficulty_plan[q'] ==
-            measured and difficulty_min_band allows this slot's band at q',
-            swap the two plan entries (quota unchanged, floors re-checked) and
-            accept; v5.94: swap the SAME two entries of the target plan
-            (DIFFICULTY_PLAN_TARGET = bc.dl_target_plan_swap(DIFFICULTY_PLAN_TARGET, q, q'),
-            persisted as batch_state['difficulty_plan_target'] in the same write — the
-            counts never change); update batch_state['difficulty_plan'] AND set this item's
-            difficulty_check.final_band (and decision 'agree') to its swapped band —
-            A-CONTENTLEVEL requires label == final_band. Otherwise the slot
+          → v6.0: NO BAND-SWAP ESCAPE (RETIRED — S0-OP-3: the placement is frozen; no step swaps, carries,
+            holds, forces or relabels a position; bc.dl_target_plan_swap is legacy-only). After MAX_DIFF_TRIES the slot
             enters the REPAIR LADDER (§Q8b-LADDER) with reason 'harder'/'easier' —
             v5.94: reason 'easier' (measured BELOW) is the DL repair above and ends in
             CARRY TO REVIEW, never in R5; the ladder below runs
             for 'harder' and for every non-difficulty reason:
             R2 (regenerate, same subtopic/band/ask type) -> R3 (next under-target
-            ask type) -> R4/R4' (terminal) -> R5 (v5.96, owner 2026-11-10 — the requested
-            schedule is delivered EXACTLY; supersedes D3-R5 (A) for difficulty): HOLD THE SLOT
-            AT ITS SCHEDULED BAND — entry, ok, why = bc.dl_set_label_basis(entry, 'held',
-            difficulty_labels, scheduled, controls={'measured': measured}) (the ONE basis writer;
-            refused unless the measurement is strictly HARDER), difficulty_plan[q] stays the
-            scheduled band, the blueprint is NOT amended (no amend_schedule_in_place for a
-            difficulty reason) and the item is listed by the footer line "Difficulty held at
-            slot: …" (bc.difficulty_layer_lines). Its label is verified by
-            bc.verify_difficulty_label (basis 'held'), so G-DIFF / A-QINDEX check 8 pass and
-            check 6 counts it at its slot. A slot measured LOWER never reaches R5 (CHECK 3c
-            carries it to review; S13-2L's difficulty chain owns it). The count
-            `Hard target missed` (DIFFICULTY_STATE['hard_missed']) is therefore always 0 for a
-            v5.96 paper; it is still printed for a legacy paper that recorded it — the count is
-            disclosed, never hidden, and never a stop. batch_state's
-            'difficulty_schedule_original' is left untouched (S13-6 prints the
-            slots whose band moved; A-PYQBENCH prints original vs final counts
-            from difficulty_state.schedule_original, DL-51).
+            ask type) -> R4/R4' (terminal) -> R5 (v6.0, owner 2026-11-10 — LAW-ORG-3 / LAW-ORG-5: the
+            requested schedule is delivered EXACTLY and a label is never held, swapped or forced): a
+            candidate that does not grade EXACTLY at its band (S0-OP-5 C4 + C5) is a FAILED candidate —
+            the next of the bc.k_candidates() candidates is tried; when every candidate of the slot has
+            failed, the slot is CARRIED to S13-2L (record difficulty_check.decision = 'carried' on the kept item —
+            the strict audit reads it as S13-2L's work, never as an RL relabel), whose SC2 difficulty chain owns it (rework, replace,
+            shape, sibling, reserve_refill, refill_session, bounded last_resort). The blueprint is never
+            amended for a difficulty reason; batch_state['difficulty_schedule_original'] is untouched
+            (A-PYQBENCH prints original vs final counts from difficulty_state.schedule_original, DL-51).
+            [Legacy v5.96 text — a HELD label written by bc.dl_set_label_basis(entry, 'held', ...) — is
+            RETIRED for every paper produced by this release; held rows of earlier papers still verify.]
         On ACCEPT: pass difficulty=final_band (== difficulty_plan[q], kept in
-        step by the band swap and R5 above), difficulty_obs AND
+        step by the frozen placement — v6.0: no band swap, no R5 relabel), difficulty_obs AND
         difficulty_check to write_q_to_sidecar — the label and its evidence travel together into
         registry.question_index (S13-4) and are what A-QINDEX checks 7/8 and
         Step 9's advisory re-measure (TestExplain §7A-M) verify downstream.
@@ -5685,7 +6091,7 @@ action: the same paper, the same two files, the same "continue".
             diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
             if diff_tries[str(q)] < MAX_DIFF_TRIES:
                 return 'RETRY'          # regenerate toward `band`, per profile['note']
-            return 'SWAP_OR_LADDER'     # band-swap escape; else BELOW -> carry to review (v5.94), ABOVE -> ladder (rules above)
+            return 'SWAP_OR_LADDER'     # v6.0: NO swap (retired) — BELOW -> carry to review, ABOVE -> ladder (rules above)
         ```
 
       Only when CHECK 1, 1b, 2, 3 all PASS:
@@ -9039,14 +9445,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         |    | (2 x 2 panels, S10-8 multi-panel path) is tried BEFORE R4' — it keeps
         |    | the chemistry intact. The CCP size target is waived here. | <= 3 |
         | R5 | LAST RESORT, only for a reason still failing after R4/R4':
-        |    | content level HARDER than the slot -> v5.96 (owner 2026-11-10,
-        |    | supersedes D3-R5 (A)): HOLD at the scheduled band —
-        |    | bc.dl_set_label_basis(entry, 'held', labels, scheduled,
-        |    | controls={'measured': measured}); the blueprint is NOT amended and the
-        |    | schedule is delivered exactly; footer "Difficulty held at slot: …".
-        |    | Content level measured BELOW its slot never reaches R5 — it is carried
-        |    | to review (CHECK 3c) and S13-2L's difficulty chain owns it (never a
-        |    | relabel; v5.96).
+        |    | content level HARDER or LOWER than the slot -> v6.0 (LAW-ORG-3 / -5):
+        |    | the item is NEVER held, swapped or relabelled; it is a failed
+        |    | candidate and the slot is carried to S13-2L's SC2 difficulty chain
+        |    | (rework, replace, shape, sibling, reserve_refill, refill_session,
+        |    | bounded last_resort); the blueprint is NOT amended. [The v5.96 HOLD
+        |    | at the scheduled band is retired for papers of this release.]
         |    | Render defect on ANY R4' figure (chemistry included), or a key never verified ->
         |    | REASSIGN the slot to another in-scope subtopic (same topic first,
         |    | largest allocation first, then same section) that keeps every
@@ -9098,8 +9502,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               RULE finding still failing after the terminal rung does NOT stop the run,
               is NOT stamped UNRESOLVED and never makes a paper NOT CERTIFIED: S13-2F
               (bc.sweep_route) sends the slot into its SLOT CHAIN (S13-2L / S13-2R —
-              replacement, another ask shape, a sibling subtopic); an exhausted chain
-              is delivered DISCLOSED (AMBER footer line) and the paper is CERTIFIED.
+              replacement, another ask shape, a sibling subtopic); v6.0 (LAW-ORG-3): an
+              exhausted chain ends by REPLACEMENT (reserve_refill -> refill_session ->
+              last_resort with a fully verified item) — no item of a paper produced by this
+              release is delivered DISCLOSED; the paper is CERTIFIED. [DISCLOSED stays only
+              as the recorded outcome of chains of papers delivered before 2026.11.10.]
               Only a bc.INFRA_GATES fault (a broken tool) is [HS:INFRA], self-healed
               first (bc.infra_heal_step).
           L6. The ONLY remaining run stops are INFRASTRUCTURE faults ([HS:INFRA]:
@@ -10694,6 +11101,36 @@ if AUDIT_AVAILABLE:
         if _infra_fl:                                 # a tool fault: is the tool itself broken?
             _stok = subprocess.run(['python3', f'/home/claude/{EXAM}_mock_test_audit.py', '--self-test'],
                                    capture_output=True, text=True, env=AUDIT_ENV).returncode == 0
+        # v6.0 (LAW-ORG-5): a label that does not verify strictly is S13-2L's work — the item is marked 'carried' and
+        # its difficulty chain decides (rework / replace / refill / last resort); the RL relabel rung is never used
+        _lbl_qs = sorted({str(f.get('q')) for f in (_wl.get('item_findings') or [])
+                          if f.get('gate') in ('A-QINDEX-LABEL', 'A-QINDEX-FLOOR') and f.get('q') is not None})
+        _bs_c = json.load(open(_bsp, encoding='utf-8'))
+        if not _bs_c.get('difficulty_plan_target'):
+            _lbl_qs = []                                  # no difficulty plan: S13-2L owns no chain — the legacy route
+        if _lbl_qs:
+            _kd_c = json.load(open(_key, encoding='utf-8'))
+            for _qc in _lbl_qs:
+                _ec = _kd_c.setdefault('concept_map', {}).setdefault(_qc, {})
+                _ec['difficulty_check'] = dict(_ec.get('difficulty_check') or {}, decision='carried')
+            json.dump(_kd_c, open(_key, 'w', encoding='utf-8'), indent=2)
+            _wl['item_findings'] = [f for f in (_wl.get('item_findings') or [])
+                                    if not (f.get('gate') in ('A-QINDEX-LABEL', 'A-QINDEX-FLOOR') and str(f.get('q')) in _lbl_qs)]
+            _fl_keep = []
+            for _fl in (_wl.get('fail_lines') or []):                  # A-QINDEX joins its checks with '; '
+                if _fl.get('check') == 'A-QINDEX':
+                    _rest = [x for x in str(_fl.get('message', '')).split('; ') if not x.startswith(('check 7', 'check 8'))]
+                    if not _rest:
+                        continue
+                    _fl = dict(_fl, message='; '.join(_rest))
+                _fl_keep.append(_fl)
+            _wl['fail_lines'] = _fl_keep
+            print(f"S13-2F sweep {_st['sweep']}: Q{', Q'.join(_lbl_qs)} carried to S13-2L (label not yet measured_exact).")
+            if not _wl['item_findings'] and not _wl['fail_lines']:
+                json.dump(_st, open(_stp, 'w', encoding='utf-8'))   # the sweep counter is KEPT (caps still apply)
+                raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}): only carried labels remain — run "
+                                   f"S13-2G phases 1-3, then S13-2L (it schedules each carried slot's difficulty chain), then a "
+                                   f"fresh sweep (preview + this block).")
         _route = bc.sweep_route(_wl.get('item_findings'), _wl.get('fail_lines'), _st['sweep'], self_test_ok=_stok)
         for _g, _how in sorted(_route['paper'].items()):
             if _how == 'amber':
@@ -11098,12 +11535,17 @@ if AUDIT_AVAILABLE:
       if isinstance(_d.get('l2'), dict):
           _dc['l2_review'] = {'band': _d['l2'].get('band'), 'score': _d['l2'].get('score'),
                               'concepts_from': _d.get('concepts_from')}
-      if _d['action'] == 'repair':
+      _lb2_e3 = ((_dc.get('label_basis') or {}).get('kind') if isinstance(_dc.get('label_basis'), dict) else None) in bc.LB2_KINDS
+      if _lb2_e3 and _d['action'] in ('repair', 'dr3'):
+          # v6.0 (LAW-ORG-5): a label measured by two fresh blind graders + the recipe is not re-authored on ONE
+          # reviewer's band — the reviewer's band is recorded as advisory; difficulty changes come only from grades
+          _dc['review_note'] = 'advisory — LB2 label (two fresh blind graders + recipe) kept'
+      elif _d['action'] == 'repair':
           _dl_p3['repair'].append(_qs)
           _dc['dl_rung'] = 'DR1'
       elif _d['action'] == 'dr3':
           # v5.96 (OD-2026-11-09): NEVER a relabel. The slot keeps its band ('carried_below'); S13-2L opens /
-          # advances its DIFFICULTY chain — rework, replace, shape, sibling, band swap, then schedule-forced.
+          # advances its DIFFICULTY chain — rework, replace, shape, sibling, then the SC2 endings (v6.0).
           _dl_p3['to_chain'].append(_qs)
           _dc['decision'] = 'carried_below'
       else:
@@ -11113,7 +11555,12 @@ if AUDIT_AVAILABLE:
               _dc['decision'] = 'dl_agree'          # the review measured it at (or above) its slot
           _lab = _cm_e.get('difficulty')
           _m = _d.get('measured')
-          if (_lab in _labs_p3 and _m in _labs_p3 and _labs_p3.index(_m) < _labs_p3.index(_lab)
+          # v6.0 (LB2): a label certified by two fresh blind graders + the recipe (measured_exact) or disclosed as
+          # last_resort is NEVER rewritten here — a disagreeing review opens the slot's chain (S13-2L), never a
+          # relabel (a relabel to max(measured, slot) would print the REQUESTED band on a last-resort item)
+          _lb2_p3 = ((_dc.get('label_basis') or {}).get('kind') if isinstance(_dc.get('label_basis'), dict)
+                     else None) in bc.LB2_KINDS
+          if (not _lb2_p3 and _lab in _labs_p3 and _m in _labs_p3 and _labs_p3.index(_m) < _labs_p3.index(_lab)
                   and _lab != _tgt_p3[_qs]):
               # an R5 'harder' label above its slot that the review measures lower: the label follows
               # the evidence, never below the slot
@@ -11153,11 +11600,13 @@ if AUDIT_AVAILABLE:
             "S13-2G phase 1 again — round 2 always carries the WHOLE paper.")
       batch_state['state'] = 'REVIEW_REPAIR'
   else:
-      # v5.96 (OD-2026-11-09, supersedes OD-9) — DISPUTE CHAINS. A panel the chain scheduled is decided by
-      # bc.review_panel_majority over its copies on the CURRENT hash; an open dispute chain whose item now
+      # v5.96 (OD-2026-11-09, supersedes OD-9) — DISPUTE CHAINS. (v6.0: the review panel is retired — LAW-ORG-7.)
+      # An open dispute chain whose item now
       # agrees is CERTIFIED once two consecutive independent verdicts on its current hash agree
       # (bc.review_item_certified) — one agreement only: S13-2L schedules one more delta review. Any other
       # dispute opens / advances that slot's dispute chain. Never UNRESOLVED; never NOT CERTIFIED.
+      # v6.0 (LAW-ORG-7): a dispute attempt passes only when its CURRENT text also has a unanimous key (author +
+      # 2 fresh blind solvers, concept_map[q].key_votes — S0-OP-5 C7); S13-2L never schedules a panel any more.
       _chs3 = batch_state.setdefault('slot_chain', {})
       _done3 = set()
       _miss3 = {str(x) for x in _missing}
@@ -11167,19 +11616,18 @@ if AUDIT_AVAILABLE:
               continue
           _hist3 = [r for r in ((_kd['concept_map'].get(_qc) or {}).get('review_history') or [])
                     if r.get('item_hash') == _H3.get(_qc)]
-          if _c3.pop('awaiting', None) == 'panel':
-              _pm3 = bc.review_panel_majority(_hist3[-bc.REVIEW_PANEL_SIZE:])
-              if _pm3['certified']:
-                  _chs3[_qc] = bc.slot_chain_finish(_c3, 'panel', agree=_pm3['agree'], n=_pm3['n'])
-                  _kd['concept_map'][_qc]['review'] = dict(_hist3[-1], key_agrees=True, certified_by='panel',
-                                                           agree=_pm3['agree'], n=_pm3['n'],
-                                                           panel=_hist3[-bc.REVIEW_PANEL_SIZE:])   # registry-only re-derivation
-              else:
-                  _chs3[_qc] = dict(bc.slot_chain_record(_c3, 'panel', 'fail'), panel_alt=_pm3['alt'])
-              _done3.add(_qc)
-          elif bc.review_item_certified(_hist3, _H3.get(_qc)):
+          _c3.pop('awaiting', None)        # v6.0 (LAW-ORG-7): the review PANEL is retired — a leftover 'panel' wait is dropped
+          if bc.review_item_certified(_hist3, _H3.get(_qc)) \
+                  and (((_kd['concept_map'].get(_qc) or {}).get('key_votes') or {}).get('unanimous') is True) \
+             and bc.op_controls_current(_kd['concept_map'].get(_qc), (_kd['concept_map'].get(_qc) or {}).get('key_votes')):
               _st3 = ((_c3.get('attempts') or [{}])[-1] or {}).get('stage') or 'adjudicate'
               _chs3[_qc] = bc.slot_chain_record(_c3, _st3, 'pass')
+              _done3.add(_qc)
+          elif bc.review_item_certified(_hist3, _H3.get(_qc)) and \
+                  ((_c3.get('attempts') or [{}])[-1] or {}).get('outcome') == 'pending':
+              # the reviews agree but the key is not unanimous on THIS text (author + 2 fresh blind solvers): the
+              # attempt FAILS and the chain moves on (bounded) — never left pending
+              _chs3[_qc] = bc.slot_chain_record(_c3, _c3['attempts'][-1]['stage'], 'fail', note='key not unanimous')
               _done3.add(_qc)
           elif ((_c3.get('attempts') or [{}])[-1] or {}).get('outcome') == 'pending' and (
                   _qc in _miss3 or not bc.review_record_independent((_allrecs.get(_qc) or [{}])[-1])):
@@ -11228,36 +11676,80 @@ if AUDIT_AVAILABLE:
   finding (A-REVIEW-COVERAGE, ladder RV); a NOT_RUN record is a WARN (A5).
   A verdict file the user happens to attach is NEVER required; S4-12 says when one is used.
 
-## S13-2L — PAPER DIFFICULTY GATE + SLOT CHAINS (v5.96 — GAP-2026-11-08-DR3-QINDEX-CONFLICT; owner OD-2026-11-09, every exam)
+## S13-2P — ORGANIC PARITY + FIGURE PROOFS AT ASSEMBLY (v6.0 — §S0-OP-9; LAW-ORG-11, LAW-ORG-8)
+
+  Runs after S13-2G and before S13-2L on EVERY paper (no organic item -> PASS). Never a stop.
+  ```python
+  # ── S13-2P parity (v6.0) ──
+  import json, os, final_assembly as fa, blueprint_core as bc
+  _kp = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  _cmp = _kp.get('concept_map') or {}
+  if 'OP_TARGET_POOL' not in globals():                       # resume-safe: the S0-OP working profile
+      _opw2 = f'/home/claude/{EXAM}_op_profile.json'
+      OP_TARGET_POOL = bc.pyq_target_pool(json.load(open(_opw2, encoding='utf-8')) if os.path.exists(_opw2) else {'papers': {}})
+  _n_org = sum(1 for _e in _cmp.values() if isinstance(_e, dict) and _e.get('organic') is True)
+  _fl = bc.format_floors(bc.format_shares(OP_TARGET_POOL), _n_org)
+  _cv = bc.convention_floors(bc.convention_shares(OP_TARGET_POOL), _n_org)
+  _past2 = [r for r in OP_TARGET_POOL if r.get('organic') is True]
+  _share2 = (sum(1 for r in _past2 if len(r.get('decisions') or []) >= 2) / len(_past2)) if _past2 else None
+  PARITY = fa.paper_parity_gate(_cmp, _fl, _cv, _share2)
+  _fmp = f'/home/claude/{EXAM}_fig_manifest.json'
+  FIGPROOF = fa.paper_figure_proof_gate(_cmp, json.load(open(_fmp, encoding='utf-8')) if os.path.exists(_fmp) else None)
+  print(f"S13-2P: parity {PARITY['status']} (chain share {PARITY['chain_share']}; short {PARITY['short']}); "
+        f"figure proofs {FIGPROOF['status']} {FIGPROOF['missing'] or ''}")
+  _bs2p_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _bs2p = json.load(open(_bs2p_p, encoding='utf-8'))
+  _bs2p.setdefault('difficulty_state', {})['parity'] = {k: PARITY.get(k) for k in ('status', 'chain_share', 'short')}
+  json.dump(_bs2p, open(_bs2p_p, 'w', encoding='utf-8'), indent=2)   # read by S13-2L (§LADDER-OP line, resume-safe)
+  ```
+
+## S13-2L — PAPER DIFFICULTY GATE + SLOT CHAINS (v6.0 — GAP-2026-11-10 G-10; LAW-ORG-3/4/5/7; owner 2026-11-10, every exam)
 
   Runs once S13-2G is REVIEWED, before S13-3 / S13-4, in the same response (and as the S4-12 entry
   whenever batch_state['slot_chain'] holds an open chain or batch_state['slot_chain_work'] is not
-  empty). OWNER RULES (OD-2026-11-09, supersedes OD-9 and the DR3 relabel of v5.94): the difficulty
-  schedule is delivered EXACTLY; no question and no paper is ever NOT CERTIFIED; a quality or rule
-  condition is never a stop; there is no manual step. Every slot with a problem gets ONE bounded
-  SLOT CHAIN (bc.slot_chain_*; batch_state['slot_chain'][q], saved after every attempt):
-    difficulty (measured BELOW its slot) — rework DR1, rework DR2, replace (3), another ask shape (2),
-      sibling subtopic (2 each, at most 3 siblings): at most bc.slot_chain_reviewed_max('difficulty')
-      = 13 reviewed attempts; then BAND SWAP with a slot measured at or above this band
-      (bc.dl_swap_partner — count-neutral, both labels honest); then PAIRED UPGRADE (bc.dl_upgrade_candidate:
-      a lower slot re-authored UP, its own 'upgrade' chain, then the swap); only then SCHEDULE-FORCED —
-      the label is held at the slot band (bc.dl_set_label_basis 'forced', proven by the exhausted chain)
-      and the footer names the band the review measured (owner decision 2026-11-09).
-    dispute (an independent reviewer disagrees with the key after round 2) — adjudicate (no content
-      change, a switched reviewer), replace (3), shape (2), sibling (2 x 3); then a PANEL of
-      bc.REVIEW_PANEL_SIZE fresh reviewers (certified on a strict majority); then RE-KEY (a panel
-      majority for one other option, re-derived by the author); then MAJORITY (certified with the
-      agreement count disclosed — AMBER). A dispute item is CERTIFIED when its two most recent
-      independent verdicts on its current text agree (bc.review_item_certified).
-    quality (an item finding that survived the S13-2F terminal rung) — replace (3), shape (2), sibling
-      (2 x 3); then DISCLOSED (quality_status 'DISCLOSED(<gates>)', the exhausted chain recorded on the
-      item; the auditor turns that item's FAIL into an AMBER note and certifies the paper).
+  empty). OWNER RULES (2026-11-10, supersede OD-2026-11-09 for every paper produced by this release):
+  the requested difficulty schedule is delivered EXACTLY — never relabelled, swapped, carried, held or
+  forced; no question and no paper is ever NOT CERTIFIED; nothing is delivered with a known defect, a
+  disputed key or a wrong label; no step is manual; nothing here is a stop. EVERY item of EVERY exam
+  (organic or not) carries an LB2 label basis written by bc.dl_set_label_basis_strict:
+    measured_exact — two FRESH blind graders (S0-OP-5, each in a fresh context that never saw the author's
+      plan, band or counts; packet sha256 recorded) AND the band-recipe check all name the slot's band
+      (bc.band_exact — no vote; any disagreement is not exact).
+    last_resort    — the bounded last resort below (one AMBER line + an automatic P0 incident).
+  A slot whose label does not verify (bc.verify_difficulty_label(..., strict=True)) — whether it measured
+  BELOW or ABOVE its band — gets ONE bounded SLOT CHAIN (bc.slot_chain_*; rule SC2; batch_state['slot_chain'][q]):
+    difficulty — rework DR1, rework DR2, replace (3), another ask shape (2), sibling subtopic (2 each, at
+      most 3 siblings), each attempt writing bc.k_candidates() candidates (3; 5 after a miss in this paper)
+      in parallel, each fully controlled (2 blind graders + recipe, 2 blind solvers, figure proofs, clone
+      guard, stem stereo gate); then the SC2 ENDINGS:
+        reserve_refill — bc.reserve_take(EXACT band, qtype, subtopic -> topic) from {EXAM}_reserve.json
+          (verified items that passed everything but were not chosen; a reserve item made under another
+          ruler version is re-graded first — never used on its old grade);
+        refill_session — bc.refill_session_next(batch_state): a FRESH worker (Orchestrate O-REFILL) resumes
+          from saved state and writes up to bc.C_REFILL_CANDIDATES candidates per open slot (composer and
+          library on); at most bc.C_REFILL_SESSIONS (5) per paper;
+        last_resort (difficulty only, LAW-ORG-4) — the nearest-band FULLY VERIFIED item (unanimous key,
+          proven figures, original): a reserve item (bc.reserve_take nearest=True), else the slot's own
+          current item when its two blind grades + recipe agree exactly on another band; delivered at THAT
+          measured band (never labelled as the requested band), one AMBER footer line (requested vs
+          delivered) and an automatic P0 incident (bc.last_resort_incident -> difficulty_state['incidents']).
+          If neither exists the slot gets a 'last_resort_generate' work entry (a fresh worker writes
+          candidates nearest band first until one is fully verified — each round a fresh worker, so this
+          can never exhaust a session).
+    dispute (the author and the 2 blind solvers do not give the same answer — LAW-ORG-7; panel, re-key and
+      majority are RETIRED) — adjudicate, replace (3), shape (2), sibling (2 x 3), then reserve_refill ->
+      refill_session -> last_resort (a verified reserve item, any band, nearest first; else
+      'last_resort_generate'). A disputed key is NEVER delivered.
+    quality (an item finding that survived the S13-2F terminal rung; DISCLOSED / amber is RETIRED for items)
+      — replace (3), shape (2), sibling (2 x 3), then the same SC2 endings. A known defect is NEVER delivered.
   Every changed item is re-swept (S13-2F) and re-reviewed in a DELTA round (S13-2G); before S13-3 every
   item's latest review must be bound to its delivered text (REVIEW-COVERAGE-LAW, bc.review_coverage_missing).
   The gate record goes to batch_state['difficulty_state']['paper_gate'] (committed at S13-4, printed by S13-6).
+  Chains recorded under rule SC1 (a paper resumed from 2026.11.09) keep their recorded outcome; any OPEN SC1
+  chain is migrated to SC2 here (its attempts are kept; its SC1 terminals are never run).
   ```python
-  # ── S13-2L (v5.96) ──
-  import json, os, blueprint_core as bc
+  # ── S13-2L (v6.0) ──
+  import json, os, datetime as _dt_l, blueprint_core as bc
   _bsl_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _key_l = f'/home/claude/{EXAM}_M{N}_answer_key.json'
   _bs_l = json.load(open(_bsl_p, encoding='utf-8'))
@@ -11265,12 +11757,24 @@ if AUDIT_AVAILABLE:
   _cm_l = _kd_l.setdefault('concept_map', {})
   _labs_l = list(_bs_l.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
   _tgt_l = {str(k): v for k, v in (_bs_l.get('difficulty_plan_target') or _bs_l.get('difficulty_schedule_original') or {}).items()}
+  _fz_l = (_bs_l.get('schedule_frozen') or {}).get('placement') if isinstance(_bs_l.get('schedule_frozen'), dict) else None
+  if isinstance(_fz_l, dict) and _fz_l and {str(k): v for k, v in _fz_l.items()} != _tgt_l:
+      # S0-OP-3: the FROZEN placement is the authority — a drifted target plan (a legacy swap) is never used
+      print(f"S13-2L: target plan differs from the frozen placement at "
+            f"{sorted((q for q in _fz_l if _tgt_l.get(str(q)) != _fz_l[q]), key=lambda x: int(x))} — frozen placement used.")
+      _tgt_l = {str(k): v for k, v in _fz_l.items()}
+      _bs_l['difficulty_plan_target'] = dict(_tgt_l)
   _chs = _bs_l.setdefault('slot_chain', {})
   _ds_l = _bs_l.setdefault('difficulty_state', {})
   _hjl = f'/home/claude/{EXAM}_M{N}_item_hashes.json'          # written by every S13-2F sweep / S13-2G phase 1
   _hl = json.load(open(_hjl, encoding='utf-8')) if os.path.exists(_hjl) else {}
   _bp_l = json.load(open(BP_SRC_PATH, encoding='utf-8')) if os.path.exists(BP_SRC_PATH) else {}
   _subs_l = [x for x in (_bp_l.get('subtopic_list') or []) if isinstance(x, dict)]
+  _rsv_p = f'/home/claude/{EXAM}_reserve.json'                 # S0-OP-7: per exam, persists across the series
+  _rsv = json.load(open(_rsv_p, encoding='utf-8')) if os.path.exists(_rsv_p) else bc.reserve_new(EXAM)
+  _ruler_v = ((_ds_l.get('ruler') or {}).get('ruler_version') or (_bs_l.get('exam_ruler') or {}).get('ruler_version')
+              or (globals().get('EXAM_RULER') or {}).get('ruler_version'))
+  _today = _dt_l.date.today().isoformat()
   def _siblings(sid):
       # same topic by r_avg desc, then the rest of the section (E19: a blueprint id missing from the manifest is fine)
       me = next((x for x in _subs_l if x.get('subtopic_id') == sid), {})
@@ -11280,164 +11784,237 @@ if AUDIT_AVAILABLE:
       return [x['subtopic_id'] for x in t1 + t2]
   def _fresh(q):
       return bool(_hl.get(q)) and ((_cm_l.get(q) or {}).get('review') or {}).get('item_hash') == _hl.get(q)
-  _delta, _switch, _panel, _work, _changed = set(), set(), set(), [], False
-  _gi = bc.dl_gate_items(_tgt_l, _cm_l, _labs_l) if _tgt_l else []
-  _meas = {i['q']: i['measured'] for i in _gi}
-  def _ctl(q):
-      return ((_cm_l.get(q) or {}).get('difficulty_check') or {}).get('review_controls') or {'measured': _meas.get(q)}
-  def _swap(qa, qb):
-      # count-neutral band swap; both labels re-based on their independent controls (LABEL-BASIS-LAW)
-      tp2 = bc.dl_target_plan_swap(_tgt_l, qa, qb)
-      ea, oka, _ = bc.dl_set_label_basis(_cm_l.get(qa), 'review', _labs_l, tp2[qa], controls=_ctl(qa), partner=qb)
-      eb, okb, _ = bc.dl_set_label_basis(_cm_l.get(qb), 'review', _labs_l, tp2[qb], controls=_ctl(qb), partner=qa)
-      if not (oka and okb):
-          return False
-      _cm_l[qa], _cm_l[qb] = ea, eb
-      _tgt_l.update(tp2)
-      _bs_l['difficulty_plan_target'] = dict(_tgt_l)
-      _bs_l['difficulty_plan'] = dict(_bs_l.get('difficulty_plan') or {}, **{qa: tp2[qa], qb: tp2[qb]})
-      return True
-  # 1. OUTCOMES — a difficulty / upgrade attempt is decided once its delta review is bound to its new text
+  def _grades(q):
+      # the two FRESH blind grades + the recipe verdict of the item's CURRENT text (S0-OP-5); {} when not graded.
+      # v6.0: a grades record counts only while bc.op_record_controls' content binding holds (a replaced item never
+      # inherits its predecessor's grades; a record not written by the one writer is not a grade)
+      g = (_cm_l.get(q) or {}).get('grades') or {}
+      if not bc.op_controls_current(_cm_l.get(q), g):
+          return {}, {}
+      if _hl.get(q) and g.get('item_hash') not in (None, _hl.get(q)):
+          return {}, {}
+      return ({'grader_1': g.get('grader_1'), 'grader_2': g.get('grader_2'), 'recipe': g.get('recipe') is True},
+              g.get('packets') or {})
+  def _recipe_at(q, band):
+      # the band recipe verdict AT `band` (the recorded grades.recipe was checked at the slot's target band)
+      _ru = _bs_l.get('exam_ruler') or globals().get('EXAM_RULER') or {}
+      _rb = (_ru.get('recipe') or {}).get(band) if isinstance(_ru.get('recipe'), dict) else None
+      if not isinstance(_rb, dict):                               # no ruler recipe for that band: the recorded verdict
+          return _grades(q)[0].get('recipe') is True
+      _rc = bc.band_recipe_check(_cm_l.get(q), _rb)
+      return bool(_rc[0]) or (bool(_rc[1]) and all('dormant' in str(_x) for _x in _rc[1]))   # RDKit absent: dormant
+  def _exact_at(q, band):
+      ctl, pk = _grades(q)
+      e2, ok, _w = bc.dl_set_label_basis_strict(_cm_l.get(q), 'measured_exact', _labs_l, band, ctl, pk)
+      return (e2 if ok else None)
+  def _unanimous(q):
+      _kv = (_cm_l.get(q) or {}).get('key_votes') or {}
+      return _kv.get('unanimous') is True and bc.op_controls_current(_cm_l.get(q), _kv)
+  def _strict_ok(q):
+      return bc.verify_difficulty_label(_cm_l.get(q), _labs_l, strict=True)[0] and _cm_l[q].get('difficulty') == _tgt_l.get(q)
+  # work S13-2L scheduled earlier that S13-2R has not performed yet is CARRIED (a re-entry never takes a second reserve
+  # item or spends a second refill session for the same slot)
+  _delta, _switch, _changed = set(), set(), False
+  _work = [w for w in (_bs_l.get('slot_chain_work') or []) if isinstance(w, dict) and w.get('status') == 'todo']
+  _incidents = _ds_l.setdefault('incidents', [])
+  # 0. MIGRATE an open SC1 chain (a paper parked under 2026.11.09) onto SC2: attempts kept, SC1 terminals never run
+  for _q, _c in list(_chs.items()):
+      if not _c.get('done') and _c.get('rule') in ('SC1', None):
+          _chs[_q] = dict(_c, rule=bc.SC_RULE_CURRENT, terminal_tried=[], awaiting=None)
+  # 1. OUTCOMES — an attempt is decided once its delta review AND its fresh grades are bound to its new text
   for _q, _c in list(_chs.items()):
       _att = _c.get('attempts') or []
-      if _c.get('kind') not in ('difficulty', 'upgrade') or _c.get('done') or not _att \
-              or _att[-1].get('outcome') != 'pending' or not _fresh(_q):
+      if _c.get('done') or not _att or _att[-1].get('outcome') != 'pending' or not _fresh(_q):
           continue
-      _t, _m = _c.get('target') or _tgt_l.get(_q), _meas.get(_q)
       _rv_o = (_cm_l.get(_q) or {}).get('review') or {}
-      # the attempt is judged ONLY on an actual delta verdict (phase 3's review_measured); a NOT_RUN round is a
-      # failed attempt — never a pass on the author-side CHECK 3c band alone
-      _ok = (str(_rv_o.get('status') or '').upper() != 'NOT_RUN'
-             and bool(((_cm_l.get(_q) or {}).get('difficulty_check') or {}).get('review_measured'))
-             and _m in _labs_l and _t in _labs_l and _labs_l.index(_m) >= _labs_l.index(_t))
-      _chs[_q] = bc.slot_chain_record(_c, _att[-1]['stage'], 'pass' if _ok else 'fail', item_hash=_hl.get(_q))
-      if _c.get('kind') == 'upgrade' and _ok:                      # stage 7 succeeded: swap the pair
-          _qd = str(_c.get('upgrade_for'))
-          _cd = _chs.get(_qd) or {}
-          if _cd.get('kind') != 'difficulty' or _cd.get('done') or _cd.get('awaiting') != 'upgrade' \
-                  or str(_cd.get('partner')) != _q:
-              continue                                             # that slot moved on: no swap; this item keeps its slot
-          if _swap(_qd, _q):
-              _chs[_qd] = bc.slot_chain_finish(_chs[_qd], 'paired_upgrade', partner=_q)
-              _changed = True
+      _t = _c.get('target') or _tgt_l.get(_q)
+      _ok = False
+      if _att[-1].get('stage') == 'last_resort':
+          # an inserted / generated last-resort item: delivered at the band its fresh grades + recipe agree on
+          _ctl, _pk = _grades(_q)
+          _gb = _ctl.get('grader_1') if _ctl.get('grader_1') == _ctl.get('grader_2') else None
+          _lrr = _bs_l.setdefault('last_resort_rounds', {})
+          _nlr = int(_lrr.get(_q) or 0)
+          if _gb in _labs_l and not _recipe_at(_q, _gb) and _nlr >= bc.C_LAST_RESORT_ROUNDS:
+              _ctl = dict(_ctl, recipe=True, recipe_note=f'recipe not met after {_nlr} rounds (disclosed)')
           else:
-              _chs[_qd] = bc.slot_chain_record(dict(_chs[_qd], awaiting=None), 'paired_upgrade', 'fail')
-  # 2. OPEN a difficulty chain on every slot below its band (a slot whose dispute / quality chain is open waits)
+              _gb = _gb if (_gb in _labs_l and _recipe_at(_q, _gb)) else None
+          if _gb is not None:
+              _ctl = dict(_ctl, recipe=True)                       # the recipe verdict AT the delivered band
+          _clean = (str(_rv_o.get('status') or '').upper() != 'NOT_RUN' and _unanimous(_q)
+                    and not (_cm_l.get(_q) or {}).get('item_findings'))
+          if _clean and _gb == _t:
+              _e2 = _exact_at(_q, _t)
+              if _e2 is not None:
+                  _cm_l[_q] = _e2
+                  # the replacement measured EXACTLY at the requested band: no deviation, no AMBER line
+                  _cr = dict(_c, attempts=_att[:-1])
+                  _chs[_q] = bc.slot_chain_record(_cr, 'last_resort_round', 'pass', item_hash=_hl.get(_q))
+                  _changed = True
+                  continue
+          if _clean and _gb in _labs_l:
+              _cr = dict(_c, attempts=_att[:-1])
+              _inc = bc.last_resort_incident(EXAM, _bs_l.get('paper_id'), _q, _t, _gb,
+                                             [a.get('stage') for a in _att], _ruler_v, _today)
+              _fin = bc.slot_chain_finish(_cr, 'last_resort', delivered=_gb, incident_id=_inc['incident_id'])
+              _ef, _okf, _whyf = bc.dl_set_label_basis_strict(_cm_l.get(_q), 'last_resort', _labs_l, _t, _ctl, _pk,
+                                                              chain=_fin, delivered=_gb, incident_id=_inc['incident_id'])
+              if _okf:
+                  _cm_l[_q], _chs[_q], _changed = _ef, _fin, True
+                  _cm_l[_q]['last_resort'] = {'requested': _t, 'delivered': _gb, 'incident_id': _inc['incident_id'],
+                                              **({'note': _ctl['recipe_note']} if _ctl.get('recipe_note') else {})}
+                  _incidents.append(_inc)
+                  _bs_l.setdefault('last_resort_slots', []).append({'q': _q, 'requested': _t, 'delivered': _gb})
+                  continue
+          # not verified: this round failed; the last-resort terminal stays untried, so S13-2L schedules another round —
+          # counted (bc.C_LAST_RESORT_ROUNDS with the recipe; twice that and the graders never agree is the NO-MODEL
+          # environment failure: state saved, resume)
+          _lrr[_q] = _nlr + 1
+          if _lrr[_q] > 2 * bc.C_LAST_RESORT_ROUNDS:
+              json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
+              raise RuntimeError(f"NO-MODEL [HS:ENV] (S13-2L): Q{_q}: {_lrr[_q] - 1} last-resort rounds and the two fresh blind "
+                                 f"graders never agreed on a band — the grading environment is not producing independent "
+                                 f"grades. State saved; restore sub-agents / Orchestrate workers and type continue.")
+          _chs[_q] = bc.slot_chain_record(_c, 'last_resort_round', 'fail', item_hash=_hl.get(_q))
+          _chs[_q]['attempts'] = [a for a in _chs[_q]['attempts'] if a.get('stage') != 'last_resort']
+          continue
+      if _c.get('kind') != 'difficulty':
+          continue        # a dispute attempt is decided by S13-2G phase 3, a quality attempt by the S13-2F re-sweep
+      if str(_rv_o.get('status') or '').upper() != 'NOT_RUN' and _unanimous(_q):
+          _e2 = _exact_at(_q, _t)
+          if _e2 is not None:
+              _cm_l[_q], _ok = _e2, True
+      _chs[_q] = bc.slot_chain_record(_c, _att[-1]['stage'], 'pass' if _ok else 'fail', item_hash=_hl.get(_q))
+      if not _ok and _att[-1].get('stage') == 'refill_session' and int(_bs_l.get('refill_sessions_used') or 0) < bc.C_REFILL_SESSIONS:
+          # another fresh refill session may still be spent on this slot (the budget is per PAPER, F-10.4)
+          _chs[_q]['terminal_tried'] = [t for t in (_chs[_q].get('terminal_tried') or []) if t != 'refill_session']
+      _changed = _changed or _ok
+  # 2. OPEN a difficulty chain on every slot whose label does not verify STRICTLY at its band (below OR above —
+  #    an item is never relabelled to what it measured); a slot whose dispute / quality chain is open waits
   if _tgt_l:
-      for _q in bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l)['rework_qs']:
+      for _q in sorted(_tgt_l, key=int):
+          if _q not in _cm_l or _strict_ok(_q):
+              continue
+          _e2 = _exact_at(_q, _tgt_l[_q])                          # first grading of an item never chained
+          if _e2 is not None and _unanimous(_q):
+              _cm_l[_q], _changed = _e2, True
+              continue
           _c = _chs.get(_q)
-          if _c and _c.get('done') and _c.get('outcome') == 'forced_refused':
-              continue                        # already ended and disclosed — never reopened
-          if not _c or _c.get('done'):        # resumes a suspended difficulty chain; keeps every finished chain's history
+          if _c and _c.get('done') and _c.get('outcome') == 'last_resort':
+              continue                                             # ended and disclosed — never reopened
+          if not _c or _c.get('done'):
               _chs[_q] = bc.slot_chain_reopen(_c, _q, 'difficulty', _tgt_l.get(_q), (_cm_l.get(_q) or {}).get('subtopic_id'))
-  # 3. SCHEDULE the next action of every open chain — repeated until no deterministic terminal (a swap or an
-  #    upgrade that has no partner, a forced label, a majority, a disclosure) can advance any chain further
+  # 2b. FIGURE PROOFS (LAW-ORG-8, S13-2P): an organic item whose figure is unproven — or that places a picture with no
+  #     proof record — opens its QUALITY chain (replaced, never shipped unproven); re-checked on every S13-2L pass
+  import final_assembly as _fa_l
+  _fmp_l = f'/home/claude/{EXAM}_fig_manifest.json'
+  _fp_l = _fa_l.paper_figure_proof_gate(_cm_l, json.load(open(_fmp_l, encoding='utf-8')) if os.path.exists(_fmp_l) else None)
+  _ds_l['figproof'] = {'status': _fp_l['status'], 'missing': _fp_l['missing']}
+  for _q in sorted(_fp_l['missing'], key=int):
+      _c = _chs.get(_q)
+      if _c and not _c.get('done'):
+          continue                                                 # a chain is already working on this slot
+      if _c and _c.get('done') and _c.get('outcome') == 'last_resort':
+          continue
+      _ro = _bs_l.setdefault('reopen_count', {})
+      if int(_ro.get(f'{_q}:figproof') or 0) >= 2:
+          _ds_l.setdefault('figproof_disclosed', [])
+          if _q not in _ds_l['figproof_disclosed']:
+              _ds_l['figproof_disclosed'].append(_q)           # AMBER line (chain_footer) — bounded, never a loop
+          continue
+      _ro[f'{_q}:figproof'] = int(_ro.get(f'{_q}:figproof') or 0) + 1
+      _chs[_q] = bc.slot_chain_reopen(_c, _q, 'quality', _tgt_l.get(_q), (_cm_l.get(_q) or {}).get('subtopic_id'))
+  # 3. SCHEDULE the next action of every open chain (bounded; never a stop)
   _progress, _pass3 = True, 0
   while _progress and _pass3 < 12:
     _progress, _pass3 = False, _pass3 + 1
-    _locked = {q for q, c in _chs.items() if not c.get('done')}
     _work_qs = {w['q'] for w in _work}
     for _q, _c in sorted(_chs.items(), key=lambda kv: int(kv[0])):
-        if _c.get('awaiting') == 'upgrade' and not _c.get('done'):
-            _pc = _chs.get(str(_c.get('partner'))) or {}
-            if _pc.get('kind') != 'upgrade' or _pc.get('done') or str(_pc.get('upgrade_for')) != _q:
-                # the partner's upgrade chain was superseded (e.g. its new text was disputed) or ended without the
-                # swap: stage 7 failed for this slot — it moves on (never parked forever)
-                _chs[_q] = bc.slot_chain_record(dict(_c, awaiting=None), 'paired_upgrade', 'fail')
-                _progress = True
-            continue
-        if _c.get('done') or _q in _work_qs or _q in _delta or _q in _panel:
+        if _c.get('done') or _q in _work_qs or _q in _delta:
             continue
         _att = _c.get('attempts') or []
         if _att and _att[-1].get('outcome') == 'pending':
-            if not _fresh(_q) or _c.get('kind') == 'dispute':        # not yet reviewed / one agreement so far
-                _delta.add(_q)
+            if not _fresh(_q) or _c.get('kind') == 'dispute' or not _grades(_q)[0].get('grader_1'):
+                _delta.add(_q)                                    # not yet reviewed / graded; a dispute: one agreement so far
                 if _c.get('kind') == 'dispute':
                     _switch.add(_q)
-            continue
-        if _c.get('awaiting') == 'panel':
-            _panel.add(_q)
             continue
         _nx = bc.slot_chain_next(_c, siblings=_siblings(_c.get('subtopic_id') or (_cm_l.get(_q) or {}).get('subtopic_id')))
         _c = _chs[_q] = _nx['chain']
         _a = _nx['action']
+        _qt = str((_cm_l.get(_q) or {}).get('qtype') or 'mcq')
+        _sid = (_cm_l.get(_q) or {}).get('subtopic_id')
         if _a in ('rework_dr1', 'rework_dr2', 'replace', 'shape', 'sibling'):
             _work.append({'q': _q, 'action': _a, 'sibling': _nx['sibling'], 'kind': _c['kind'],
-                          'target': _c.get('target') or _tgt_l.get(_q), 'status': 'todo'})
+                          'target': _c.get('target') or _tgt_l.get(_q), 'k': bc.k_candidates(bool(_att)),
+                          'status': 'todo'})
         elif _a == 'adjudicate':
             _chs[_q] = bc.slot_chain_record(_c, 'adjudicate', 'pending')
             _delta.add(_q); _switch.add(_q)
-        elif _a == 'panel':
-            _chs[_q] = dict(_c, awaiting='panel')
-            _panel.add(_q)
-        elif _a == 'rekey':
-            if _c.get('panel_alt') is None:                            # no majority for another option: nothing to re-key
-                _chs[_q] = bc.slot_chain_record(_c, 'rekey', 'fail')
-                _progress = True
+        elif _a == 'reserve_refill':
+            _excl = sorted(set().union(*[bc.op_key_ids(x) for x in _cm_l.values() if isinstance(x, dict)]))
+            _rsv, _it, _why = bc.reserve_take(_rsv, _tgt_l.get(_q), _qt, _sid, None,
+                                              ruler_version=_ruler_v, exclude_keys=_excl, labels=_labs_l)
+            if _it is not None:
+                _work.append({'q': _q, 'action': 'reserve_refill', 'kind': _c['kind'], 'target': _tgt_l.get(_q),
+                              'item': _it, 'status': 'todo'})
             else:
-                _work.append({'q': _q, 'action': 'rekey', 'alt': _c.get('panel_alt'), 'kind': 'dispute', 'status': 'todo'})
-        elif _a == 'majority':
-            _h = [r for r in ((_cm_l.get(_q) or {}).get('review_history') or []) if r.get('item_hash') == _hl.get(_q)]
-            _ag = sum(1 for r in _h if bc.review_record_agrees(r))
-            _chs[_q] = bc.slot_chain_finish(_c, 'majority', agree=_ag, n=len(_h))
-            # the latest verdict on the current text; none in the history (the last delta round was NOT_RUN): the
-            # item's current, text-bound review record — the certification stays bound to the delivered text
-            _base = (_h[-1] if _h else None) or ((_cm_l.get(_q) or {}).get('review') or {})
-            _cm_l[_q]['review'] = dict(_base, certified_by='majority', chain=bc.slot_chain_compact(_chs[_q]), agree=_ag, n=len(_h))
-            _progress = True
-            _changed = True
-        elif _a == 'amber':
-            _chs[_q] = bc.slot_chain_finish(_c, 'amber', gates=_c.get('gates') or [])
-            _cm_l[_q]['quality_status'] = 'DISCLOSED(' + ','.join(_c.get('gates') or []) + ')'
-            _cm_l[_q]['slot_chain'] = bc.slot_chain_compact(_chs[_q])     # committed to the registry (final_assembly v1.15)
-            _progress = True
-            _changed = True
-        elif _a == 'abandon':                                          # an upgrade partner that never reached the band
+                _chs[_q] = bc.slot_chain_record(_c, 'reserve_refill', 'fail', note=_why)
+                _progress = True
+        elif _a == 'refill_session':
+            _act, _bs_l = bc.refill_session_next(_bs_l)
+            if _act == 'refill':
+                _work.append({'q': _q, 'action': 'refill_session', 'kind': _c['kind'], 'target': _tgt_l.get(_q),
+                              'k': bc.C_REFILL_CANDIDATES, 'status': 'todo'})
+            else:
+                _chs[_q] = bc.slot_chain_record(_c, 'refill_session', 'fail', note='C_REFILL_SESSIONS used')
+                _progress = True
+        elif _a == 'last_resort':
+            _excl_lr = sorted(set().union(*[bc.op_key_ids(x) for x in _cm_l.values() if isinstance(x, dict)]))
+            _rsv, _it, _why = bc.reserve_take(_rsv, _tgt_l.get(_q), _qt, _sid, None, ruler_version=_ruler_v,
+                                              exclude_keys=_excl_lr, nearest=True, labels=_labs_l)
+            _own = None
+            if _it is None and _c['kind'] == 'difficulty' and _unanimous(_q):
+                _ctl, _pk = _grades(_q)
+                _gb = _ctl.get('grader_1') if _ctl.get('grader_1') == _ctl.get('grader_2') else None
+                _own = _gb if (_gb in _labs_l and _recipe_at(_q, _gb)) else None
+            if _it is None and _own is None:
+                _work.append({'q': _q, 'action': 'last_resort_generate', 'kind': _c['kind'], 'target': _tgt_l.get(_q),
+                              'k': bc.C_REFILL_CANDIDATES, 'status': 'todo'})
+                continue
+            _dlv = _own if _own is not None else _it.get('difficulty')
+            _inc = bc.last_resort_incident(EXAM, _bs_l.get('paper_id'), _q, _tgt_l.get(_q), _dlv,
+                                           [a.get('stage') for a in (_c.get('attempts') or [])], _ruler_v, _today)
+            _fin = bc.slot_chain_finish(_c, 'last_resort', delivered=_dlv, incident_id=_inc['incident_id'])
+            if _it is not None:                                    # S13-2R inserts the reserve item, then this block re-bases it
+                _work.append({'q': _q, 'action': 'last_resort_insert', 'kind': _c['kind'], 'target': _tgt_l.get(_q),
+                              'item': _it, 'incident': _inc, 'status': 'todo'})
+                _chs[_q] = dict(_c, awaiting='last_resort_insert')
+                continue
+            _ctl, _pk = _grades(_q)
+            _ctl = dict(_ctl, recipe=_recipe_at(_q, _dlv))           # judged at the band it is DELIVERED at
+            _ef, _okf, _whyf = bc.dl_set_label_basis_strict(_cm_l.get(_q), 'last_resort', _labs_l, _tgt_l.get(_q), _ctl, _pk,
+                                                            chain=_fin, delivered=_dlv, incident_id=_inc['incident_id'])
+            if _okf:
+                _cm_l[_q], _chs[_q], _changed = _ef, _fin, True
+                _cm_l[_q]['last_resort'] = {'requested': _tgt_l.get(_q), 'delivered': _dlv, 'incident_id': _inc['incident_id']}
+                _incidents.append(_inc)
+                _ls = _bs_l.setdefault('last_resort_slots', [])
+                if _q not in [str(x.get('q')) for x in _ls if isinstance(x, dict)]:
+                    _ls.append({'q': _q, 'requested': _tgt_l.get(_q), 'delivered': _dlv})
+                _progress = True
+            else:                                                  # unreachable on consistent records; generate instead
+                _work.append({'q': _q, 'action': 'last_resort_generate', 'kind': _c['kind'], 'target': _tgt_l.get(_q),
+                              'k': bc.C_REFILL_CANDIDATES, 'status': 'todo', 'why': _whyf})
+        elif _a == 'abandon':
             _chs[_q] = bc.slot_chain_finish(_c, 'abandon')
             _progress = True
-            _qd = str(_c.get('upgrade_for'))
-            _cd = _chs.get(_qd) or {}
-            if _cd.get('kind') == 'difficulty' and not _cd.get('done') and _cd.get('awaiting') == 'upgrade' \
-                    and str(_cd.get('partner')) == _q:                  # only the slot still waiting on THIS partner
-                _chs[_qd] = bc.slot_chain_record(dict(_cd, awaiting=None), 'paired_upgrade', 'fail')
-        elif _a == 'band_swap':
-            _p = bc.dl_swap_partner(_q, _tgt_l, bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l, exclude=_locked)
-            if _p and _swap(_q, _p):
-                _chs[_q] = bc.slot_chain_finish(_c, 'band_swap', partner=_p)
-                _progress = True
-                _changed = True
-            else:
-                _chs[_q] = bc.slot_chain_record(_c, 'band_swap', 'fail')
-                _progress = True
-        elif _a == 'paired_upgrade':
-            _p = bc.dl_upgrade_candidate(_q, _tgt_l, bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l, exclude=_locked)
-            if _p:
-                _chs[_p] = dict(bc.slot_chain_new(_p, 'upgrade', _tgt_l.get(_q), (_cm_l.get(_p) or {}).get('subtopic_id')),
-                                upgrade_for=_q)
-                _chs[_q] = dict(_c, awaiting='upgrade', partner=_p)
-                _locked.add(_p)
-                _progress = True                                       # the partner's new chain is scheduled next pass
-            else:
-                _chs[_q] = bc.slot_chain_record(_c, 'paired_upgrade', 'fail')
-                _progress = True
-        elif _a == 'forced':
-            _fc = bc.slot_chain_finish(_c, 'forced', measured=_meas.get(_q))
-            _ef, _okf, _whyf = bc.dl_set_label_basis(_cm_l.get(_q), 'forced', _labs_l, _tgt_l.get(_q), controls=_ctl(_q), chain=_fc)
-            if _okf:
-                _cm_l[_q], _chs[_q], _changed = _ef, _fc, True
-                _progress = True
-            else:
-                # unreachable on a consistent plan (the target is one of the exam's labels and the chain is proven
-                # exhausted) — but never a loop: the chain ENDS, the label is left as it is and the slot is disclosed
-                _chs[_q] = bc.slot_chain_finish(_c, 'forced_refused', measured=_meas.get(_q), why=_whyf)
-                _progress = True
-                _changed = True
-                print(f"S13-2L: Q{_q} schedule label could not be recorded ({_whyf}) — disclosed (AMBER).")
-  # a chain may never be left open with nothing scheduled (the 2026.11.08 shape: stopped without a route)
-  _idle = [q for q, c in _chs.items() if not c.get('done') and c.get('awaiting') != 'upgrade'
-           and q not in {w['q'] for w in _work} and q not in _delta and q not in _panel]
+  # a chain may never be left open with nothing scheduled
+  _idle = [q for q, c in _chs.items() if not c.get('done') and not c.get('awaiting')
+           and q not in {w['q'] for w in _work} and q not in _delta]
   if _idle:                                                    # persist every decision taken so far, then re-enter
       _bs_l['slot_chain_work'] = _work
+      json.dump(_rsv, open(_rsv_p, 'w', encoding='utf-8'), indent=2)
       json.dump(_kd_l, open(_key_l, 'w', encoding='utf-8'), indent=2)
       json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
       raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): chains {sorted(_idle, key=int)} still open — run this block again.")
@@ -11445,71 +12022,145 @@ if AUDIT_AVAILABLE:
   for _q in bc.review_coverage_missing(_cm_l, _hl):
       if _q not in _chs or _chs[_q].get('done'):
           _delta.add(_q)
+  # 4b. v6.0 (A-REVIEW strict): a NOT_RUN review on the CURRENT text is not a review — it is re-queued at most twice
+  #     per text, then the slot's QUALITY chain replaces the item (bounded; never a stop, never delivered unreviewed)
+  _nr_l = _bs_l.setdefault('not_run_retries', {})
+  for _q, _e in sorted(_cm_l.items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+      _rv = (_e or {}).get('review') if isinstance(_e, dict) else None
+      if not (isinstance(_rv, dict) and str(_rv.get('status') or '').upper() == 'NOT_RUN' and _hl.get(_q)
+              and _rv.get('item_hash') == _hl.get(_q)):
+          continue
+      _k = f'{_q}:{_hl.get(_q)}'
+      _c = _chs.get(_q)
+      if _c and not _c.get('done'):
+          continue
+      _ro = _bs_l.setdefault('reopen_count', {})
+      if int(_nr_l.get(_k) or 0) < 2:
+          _nr_l[_k] = int(_nr_l.get(_k) or 0) + 1
+          _delta.add(_q)
+      elif int(_ro.get(f'{_q}:not_run') or 0) >= 2:           # replaced twice and still never reviewed: environment
+          json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
+          raise RuntimeError(f"NO-MODEL [HS:ENV] (S13-2L): Q{_q}: the independent review returned NOT_RUN on every text "
+                             f"(two replacements) — no reviewer context is available. State saved; restore sub-agents / "
+                             f"Orchestrate workers and type continue.")
+      elif not (_c and _c.get('done') and _c.get('outcome') == 'last_resort'):
+          _ro[f'{_q}:not_run'] = int(_ro.get(f'{_q}:not_run') or 0) + 1
+          _chs[_q] = bc.slot_chain_reopen(_c, _q, 'quality', _tgt_l.get(_q), (_e or {}).get('subtopic_id'))
+          _nr_open = globals().setdefault('_NR_OPENED_L', set()); _nr_open.add(_q)
   _bs_l['slot_chain_work'] = _work
-  _bs_l['delta_qs'] = sorted(_delta - _panel, key=int)
-  _bs_l['delta_switch'] = sorted(_switch - _panel, key=int)
-  _bs_l['delta_panel'] = sorted(_panel, key=int)
+  _bs_l['delta_qs'] = sorted(_delta, key=int)
+  _bs_l['delta_switch'] = sorted(_switch, key=int)
+  _bs_l['delta_panel'] = []                                     # v6.0: no panel (LAW-ORG-7)
+  # the SAME item builder audit_canonical A-DIFFGATE uses (an LB2 row counts at its label; a last resort is listed)
   G_PAPER = bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_l, _cm_l, _labs_l), _labs_l) if _tgt_l else {'status': 'DORMANT'}
   if _tgt_l:
       _ds_l['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original', 'rework_qs',
-                                                              'accepted_dr3', 'unmeasured', 'forced', 'swapped', 'rule')},
+                                                              'accepted_dr3', 'unmeasured', 'forced', 'swapped', 'rule',
+                                                              'last_resort')},
                                  target_plan=dict(_tgt_l), labels=list(_labs_l))   # A-DIFFGATE re-counts from these
-  # the per-item disclosures of every chain that ended at a terminal — committed with difficulty_state (S13-4),
-  # printed by S13-6 and reprinted by MockDeliver; the engine is their only source
+      if isinstance(_bs_l.get('schedule_frozen'), dict):
+          _fzok, _fzbad = bc.schedule_frozen_check(_bs_l, {q: (e or {}).get('difficulty') for q, e in _cm_l.items()})
+          _ds_l['paper_gate']['frozen_check'] = {'ok': _fzok, 'violations': _fzbad[:20]}
+          if not _fzok:
+              print(f"S13-2L: {len(_fzbad)} label(s) differ from the frozen schedule (open chains replace them): {_fzbad[:5]}")
   _ds_l['chain_footer'] = bc.chain_footer_lines(_chs)
+  # v6.0 DeliveryFooter §LADDER-OP: the requested / applied schedule, the exam ruler, the normalisation notes, the
+  # constant overrides and the organic parity — ONE source (chain_footer['info'], committed by S13-4 with
+  # difficulty_state): Create S13-6 and MockDeliver 3f''' print it verbatim, nobody composes it twice
+  _rq_l = _bs_l.get('schedule_requested') or {}
+  _sa_l = _bs_l.get('schedule_applied') or {}
+  _ru_l = _bs_l.get('exam_ruler') or globals().get('EXAM_RULER') or {}
+  _op_info = []
+  if _rq_l:
+      _op_info.append('Requested difficulty: ' + ' / '.join(f'{_b} {_n}' for _b, _n in _rq_l.items()))
+  if (_sa_l.get('counts') or {}) and dict(_sa_l['counts']) != dict(_rq_l):
+      _op_info.append('Applied difficulty: ' + ' / '.join(f'{_b} {_n}' for _b, _n in _sa_l['counts'].items()))
+  if _ru_l.get('ruler_version'):
+      _op_info.append(f"Exam ruler {_ru_l.get('ruler_version')} ({_ru_l.get('basis')}): past distribution "
+                      f"{_ru_l.get('past_distribution')}")
+  _op_info += [f'Schedule as applied: {_n}' for _n in (_sa_l.get('notes') or [])]
+  if _bs_l.get('op_overrides'):
+      _op_info.append('Constant overrides: ' + ', '.join(_bs_l['op_overrides']))
+  _pa_l = _ds_l.get('parity') if isinstance(_ds_l.get('parity'), dict) else None
+  if _pa_l and _pa_l.get('status'):
+      _op_info.append(f"Organic parity: {_pa_l['status']} — items with >= 2 decisions {float(_pa_l.get('chain_share') or 0):.0%}"
+                      + (f"; short {_pa_l['short']}" if _pa_l.get('short') else ''))
+  _ds_l['chain_footer'] = dict(_ds_l['chain_footer'], info=_op_info + list(_ds_l['chain_footer'].get('info') or []),
+                               amber=list(_ds_l['chain_footer'].get('amber') or []) + [
+                                   f"Q{_qd}: a structure figure has no proof record after two replacements — disclosed"
+                                   for _qd in (_ds_l.get('figproof_disclosed') or [])])
+  _ds_l['schedule'] = {'requested': _rq_l, 'applied': _sa_l}
   _ds_l['allocation_swaps'] = list(_bs_l.get('allocation_swaps') or [])
   if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy CHECK 3c writes from
-      globals()['DIFFICULTY_STATE'].update({k: _ds_l[k] for k in ('paper_gate', 'chain_footer') if k in _ds_l})
+      globals()['DIFFICULTY_STATE'].update({k: _ds_l[k] for k in ('paper_gate', 'chain_footer', 'incidents') if k in _ds_l})
+  json.dump(_rsv, open(_rsv_p, 'w', encoding='utf-8'), indent=2)
   json.dump(_kd_l, open(_key_l, 'w', encoding='utf-8'), indent=2)
   json.dump(_bs_l, open(_bsl_p, 'w', encoding='utf-8'), indent=2)
+  _nr_new = sorted(globals().pop('_NR_OPENED_L', set()), key=int)
+  if _nr_new and not _work:                                    # a chain opened at step 4b is scheduled on re-entry
+      raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): quality chain(s) {_nr_new} opened (review NOT_RUN twice) — "
+                         f"run this block again.")
   if _work:
       raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): run S13-2R on batch_state['slot_chain_work'] "
                          f"{[(w['q'], w['action']) for w in _work]} NOW, then S13-2F (fresh sweep), then S13-2G phases 1-3 "
-                         f"(a DELTA round), then this block again.")
-  if _bs_l['delta_qs'] or _panel or _changed:
+                         f"(a DELTA round with fresh grades), then this block again.")
+  if _bs_l['delta_qs'] or _changed:
       raise RuntimeError(f"DELTA [HS:LADDER] (S13-2L): run S13-2F (fresh sweep{' — labels changed' if _changed else ''}), "
-                         f"then S13-2G phases 1-3 over delta {_bs_l['delta_qs']} panel {sorted(_panel, key=int)} "
-                         f"(skip S13-2G when both are empty), then this block again.")
+                         f"then S13-2G phases 1-3 over delta {_bs_l['delta_qs']} (skip S13-2G when it is empty), then this block again.")
+  _bad_l = [q for q in sorted(_tgt_l, key=int) if not bc.verify_difficulty_label(_cm_l.get(q), _labs_l, strict=True)[0]]
+  if _bad_l:                                                    # never reached on consistent records — re-enter, never ship
+      raise RuntimeError(f"SLOT-CHAIN [HS:LADDER] (S13-2L): labels {_bad_l} do not verify strictly — run this block again.")
   print(f"S13-2L: paper difficulty gate {G_PAPER.get('status')} — delivered {G_PAPER.get('counts_final')} against "
-        f"target {G_PAPER.get('counts_original')}; swapped {G_PAPER.get('swapped')}; schedule-forced "
-        f"{[f.get('q') for f in G_PAPER.get('forced') or []]}; every chain closed and every item covered. "
-        f"Continuing to S13-3 / S13-4.")
+        f"requested {G_PAPER.get('counts_original')}; last resort {G_PAPER.get('last_resort')}; every label measured_exact "
+        f"or last_resort; every chain closed and every item covered. Continuing to S13-3 / S13-4.")
   ```
 
-## S13-2R — SLOT CHAIN RUNNER (v5.96 — OD-2026-11-09; the actions S13-2L schedules)
+## S13-2R — SLOT CHAIN RUNNER (v6.0 — the actions S13-2L schedules; GAP-2026-11-10 G-10)
 
   For each entry of batch_state['slot_chain_work'] (in q order), perform its action IN THE FINAL DOCX
   through the S4-6 correction procedure (edit only that question's block, re-render its figures, update its
   sidecar entry and fig_manifest record, keep every other question byte-unchanged), keep the slot's KEY
   POSITION (K-BAL / K-PAT unchanged, E22), its section, its figural / text format (Axis 1, E17) and its
   stimulus group (a group member is replaced inside the group; two or more disputed members of one group
-  -> the whole group is replaced and keeps its placement, E16). Each new item passes CHECK 3c and every
-  batch gate against the WHOLE paper (entity, stem, media, PYQ distance — a hit is a failed attempt, E21).
-    rework_dr1 / rework_dr2 — re-author at the slot's band through CHECK 3c at rung DR1 (the NEXT pattern
-      source: an organic item bc.l2_slot_source(..., skip = sources tried); any other item the next
-      exemplar of its cell) / DR2 (the band-target brief, bc.DL_DR2_TRIES); the reviewer's reason is the
-      constraint. For an 'upgrade' chain the band is the chain's target (the higher band).
+  -> the whole group is replaced and keeps its placement, E16). Every new item passes CHECK 3c, the S0-OP
+  item controls and every batch gate against the WHOLE paper (entity, stem, media, PYQ distance, clone guard —
+  a hit is a failed attempt, E21). EVERY action writes entry 'k' candidates in parallel (bc.k_candidates);
+  the first candidate that passes EVERY control replaces the item; every other fully-passing candidate goes
+  to the reserve (bc.reserve_add) — a candidate is never accepted on fewer controls.
+    rework_dr1 / rework_dr2 — re-author at the slot's band (DR1: the NEXT pattern source — an organic item
+      bc.l2_slot_source(..., skip = sources tried, min_decisions = the band recipe's minimum, chains =
+      bc.chain_compose(...)); any other item the next exemplar of its cell; DR2: a band operator from the
+      exam's recipe — add / remove a decision, a controlling stereocentre, ask for the starting material or
+      A-and-B, tighten distractors to near-isomers — S0-OP-6). The grader's reason is the constraint.
     replace — a NEW item: same subtopic, band and ask shape, on a NEW substrate (next pattern source; a
-      zero-PYQ subtopic: the concept source, E18). None left -> set entry 'status' 'unavailable'.
+      zero-PYQ subtopic: the library / a composed chain, never a single concept for a band needing >= 2
+      decisions). None left -> set entry 'status' 'unavailable'.
     shape — same subtopic and band, another ask shape the subtopic carries (DIRECT first; a blueprint id
       missing from the manifest is treated as DIRECT-capable, E19) — ONLY a shape that keeps the paper's
       shape mix lawful: bc.shape_mix_check(<the paper's shape counts with this item moved>,
-      bp['shape_target_per_paper'][str(N)], infeasible=<the plan's _infeasible>)['state'] != 'FAIL' (the
-      SAME function A-SHAPEMIX calls). No such shape -> set entry 'status' 'unavailable'.
+      bp['shape_target_per_paper'][str(N)], infeasible=<the plan's _infeasible>)['state'] != 'FAIL'. No such
+      shape -> set entry 'status' 'unavailable'.
     sibling — same band, qtype and shape on the entry's 'sibling' subtopic, performed EXACTLY as §Q8b-LADDER R5
-      REASSIGN (its candidate rule — qtype / answer type / cardinality / Axis-1 format / stimulus group /
-      answer-position budget / G-ALTGROUP / G-GROUPMANDATE / G-MINCOUNT — the q_count amendment in the in-run
-      blueprint, alloc_ids and subtopic_by_qnum, allocation_amendments[], persist_bp_amendment()), so every
-      allocation-derived gate reads the amended blueprint and stays consistent; also recorded in
+      REASSIGN (its candidate rule, the q_count amendment in the in-run blueprint, alloc_ids and
+      subtopic_by_qnum, allocation_amendments[], persist_bp_amendment()); also recorded in
       batch_state['allocation_swaps'] as {'q', 'from', 'to'} (footer). A sibling that is NOT a REASSIGN
       candidate -> set entry 'status' 'unqualified' (skipped; it does not count toward the 3 siblings).
-    rekey — a panel majority chose option 'alt'. Re-derive the item cold; if 'alt' IS the answer, set the
-      key to it (entry 'status' 'rekeyed'); otherwise 'rejected'. No other change.
-  After EACH entry is written, set its 'status' ('done' | 'unavailable' | 'unqualified' | 'rekeyed' | 'rejected') in
+    reserve_refill / last_resort_insert — insert entry['item'] (a verified reserve item) at this slot; its
+      key position is re-budgeted by K-BAL (the reserve item's options are re-ordered, never re-written);
+      a reserve item flagged regrade_required is first re-graded by two fresh blind graders under the
+      current ruler — if it no longer grades exactly at its band it is returned to the reserve and the
+      entry is 'unavailable'.
+    refill_session — Orchestrate O-REFILL: a FRESH worker resumes from saved state and writes entry['k']
+      candidates for this slot (composer + library on). Without an orchestrator the same session writes them
+      in its NEXT response (never more than one refill per response).
+    last_resort_generate — a fresh worker writes entry['k'] candidates, nearest band to entry['target'] first,
+      and keeps the first FULLY verified one (unanimous key, proven figures, original, both graders and the
+      recipe exact at ITS band); S13-2L then records it as the last resort at that band.
+  After EACH entry is written, set its 'status' ('done' | 'unavailable' | 'unqualified') in
   batch_state['slot_chain_work'], save batch_state, then run (resume-safe; an entry is recorded once):
   ```python
-  # ── S13-2R record (v5.96) ──
-  import json, blueprint_core as bc
+  # ── S13-2R record (v6.0) ──
+  import json, os, blueprint_core as bc
   _bsr_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _kr_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
   _bsr = json.load(open(_bsr_p, encoding='utf-8'))
@@ -11521,15 +12172,27 @@ if AUDIT_AVAILABLE:
       if _st in (None, 'todo', 'recorded') or not isinstance(_c, dict):
           continue
       if _st == 'unavailable':
-          _c['unavailable'] = sorted(set(_c.get('unavailable') or []) | {_w['action']})
+          if isinstance(_w.get('item'), dict):
+              # a reserve item that FAILED its use-time re-grade / clone guard is no longer verified: it is dropped
+              # (never returned — a returned item would be taken again on the next pass)
+              _w['item'] = None
+          if _w['action'] in ('reserve_refill', 'refill_session'):
+              _c = bc.slot_chain_record(_c, _w['action'], 'fail', note='unavailable')
+          elif _w['action'] in ('last_resort_insert', 'last_resort_generate'):
+              _c = dict(_c, awaiting=None)                      # S13-2L schedules the next last-resort round
+          else:
+              _c['unavailable'] = sorted(set(_c.get('unavailable') or []) | {_w['action']})
       elif _st == 'unqualified':                               # a sibling that is not an R5 REASSIGN candidate
           _c['skip_siblings'] = sorted(set(_c.get('skip_siblings') or []) | {str(_w.get('sibling'))})
-      elif _st == 'rekeyed':
-          _c = dict(bc.slot_chain_record(_c, 'rekey', 'fail'), done=False)          # 'rekey' tried ...
-          _c['attempts'] = list(_c.get('attempts') or []) + [{'stage': 'rekey_review', 'outcome': 'pending'}]
-      elif _st == 'rejected':
-          _c = bc.slot_chain_record(_c, 'rekey', 'fail')
-      else:                                                     # 'done' — a re-authored item: E10
+      elif _w['action'] in ('last_resort_insert', 'last_resort_generate'):
+          # the inserted / generated item is re-graded and re-reviewed; S13-2L records the last resort at the band
+          # its fresh grades agree on (its chain's last-resort terminal stays the next action)
+          _c = dict(_c, awaiting=None, done=False,
+                    terminal_tried=[t for t in (_c.get('terminal_tried') or []) if t != 'last_resort'],
+                    attempts=list(_c.get('attempts') or []) + [{'stage': 'last_resort', 'outcome': 'pending'}])
+          _cmr[_q] = bc.clear_label_basis(_cmr.get(_q))
+          _cmr[_q].pop('quality_status', None)
+      else:                                                     # 'done' — a re-authored / refilled item: E10
           _c = bc.slot_chain_record(_c, _w['action'], 'pending', sibling=_w.get('sibling'))
           _cmr[_q] = bc.clear_label_basis(_cmr.get(_q))
           _cmr[_q].pop('quality_status', None)
@@ -11541,7 +12204,7 @@ if AUDIT_AVAILABLE:
   json.dump(_bsr, open(_bsr_p, 'w', encoding='utf-8'), indent=2)
   ```
   When every entry is 'recorded': S13-2F (a fresh sweep of the changed docx), S13-2G phases 1-3 (a DELTA
-  round), S13-2L. Every arrow is automatic and in the same response; the user types nothing.
+  round with fresh grades), S13-2L. Every arrow is automatic and in the same response; the user types nothing.
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -11686,6 +12349,29 @@ if AUDIT_AVAILABLE:
                        f"certification. Re-run S13-2F.")
   registry = _commit['registry']
   paper_id = _commit['paper_id']
+  # ── S13-4OP (v6.0) — inside S13-4, right after `registry = _commit['registry']; paper_id = _commit['paper_id']` ──
+  import json, os, blueprint_core as bc
+  _reg4 = globals()['registry']                                # S13-4's committed registry (written to disk after this)
+  _rsv4_p = f'/home/claude/{EXAM}_reserve.json'
+  _ser4_p = f'/home/claude/{EXAM}_series_registry.json'
+  _bs4 = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+  if os.path.exists(_rsv4_p):
+      _reg4['reserve'] = json.load(open(_rsv4_p, encoding='utf-8'))
+  _km4 = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')).get('concept_map') or {}
+  _reg4['series_registry'] = bc.series_registry_add(
+      json.load(open(_ser4_p, encoding='utf-8')) if os.path.exists(_ser4_p) else (_reg4.get('series_registry') or {'papers': {}}),
+      globals()['paper_id'],
+      [dict(_e, q=_q) for _q, _e in _km4.items() if isinstance(_e, dict) and _e.get('organic') is True])
+  if not globals().get('_s13_preview'):                         # a preview commit never touches the series file
+      json.dump(_reg4['series_registry'], open(_ser4_p, 'w', encoding='utf-8'), indent=2)   # the next paper sees it
+  _ru4 = globals().get('EXAM_RULER') or _bs4.get('exam_ruler')  # resume-safe (S3-16 persisted it)
+  if isinstance(_ru4, dict):
+      _reg4['difficulty_ruler'] = _ru4
+  _op_base4 = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _op_work4 = f'/home/claude/{EXAM}_op_profile.json'
+  _reg4['pyq_backfill'] = dict(_reg4.get('pyq_backfill') or {}, **bc.profile_backfill_delta(
+      json.load(open(_op_work4, encoding='utf-8')) if os.path.exists(_op_work4) else {'papers': {}},
+      json.load(open(_op_base4, encoding='utf-8')) if os.path.exists(_op_base4) else {'papers': {}}))
   # v5.94 (GAP-2026-11-07; owner Q1 (c)): the Step-5 blind grades of THIS profile (S3-8L, fresh bank
   # only) are cached against the profile's sha256 — a later paper whose bank is not attached reuses
   # them (bc.pyq_grades_from_registry); a cache for another profile version is never read.
@@ -12208,6 +12894,8 @@ if AUDIT_AVAILABLE:
                              f"{'…' if len(_qs6) > 12 else ''} — recorded on the item (difficulty_check.level_note)")
   EXTRA_DELIVERABLES = ()          # the closed set is ALWAYS exactly the two files
   EXTRA_REPLACE = ()
+  # ── S13-6OP (v6.0) — the §LADDER-OP lines arrive through difficulty_state.chain_footer['info'] (written by
+  #    S13-2L, printed above with the chain footer); nothing is composed here a second time ──
   for _l in INFO_LINES_S136:
       print("INFO: " + _l)
   ```
@@ -13109,7 +13797,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v5.96
+# END OF Framework_MockTestCreate v6.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

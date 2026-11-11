@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026.11.10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY: every label is measured, never declared, in every exam
+(blueprint_core v2.0; corpus_io v1.21; figural_core v5.97; figural_vision v3; figure_types v1.3; final_assembly v1.16;
+audit_canonical v2.40; analyse_engine v1.5; audit_sync (organic_parity_rule, STOP-NEEDS-REPAIR); handshake_audit (186
+checks); bootstrap (--make-cache); Framework_MockTestCreate v6.0; Framework_PYQExplain v2.31;
+Framework_MockTestOrchestrate v1.2.0; Framework_DeliveryFooter v1.45.0; SKILL.md / mocktestframework_SKILL.md (DR mirror +
+project cache); LAW_REGISTRY.json (+LAW-ORG-1..12; LABEL-BASIS, REVIEW-COVERAGE, QUALITY-GATE, DIFFICULTY-LAYER,
+GATE-AT-SOURCE amended); MANIFEST / SPEC_MANIFEST / SPEC_SECTIONS / SHA256SUMS regenerated.)
+
+**Cause (evidence: CSIR NET Chemical Sciences, SUBJ Organic Test 1, 40 Q, made on 2026.11.08).** Requested 2 Easy /
+10 Medium / 28 Hard; two blind graders found about 7 / 17 / 16. Verified on production bbc6c14 (all 10 probes of the
+gap evidence pack reproduce): (1) a label was verified against the author's OWN recorded counts (basis 'obs'), or
+against nothing (basis 'none' returned ok); (2) the "independent rating" ran in the author's own context and, with
+thin exemplars, copied the planned band ("agree" by default); (3) Hard supply was 16 full-content patterns for 28 Hard
+slots and l2_slot_source fell back to ONE concept; (4) every ladder ended by shipping anyway (FORCED / HELD / at-or-above
+swap; MAJORITY key; DISCLOSED defect); (5) the rubric forbade any figural / structural Easy item and a requested schedule
+could HARD STOP the run; plus the organic gaps G-01..G-07, G-11..G-14 of the GAP spec.
+
+**Owner decisions (2026-11-10).** D-1 (a): a slot that no repair can bring to its exact band ends at the bounded LAST
+RESORT (nearest band, fully verified, one AMBER line, an automatic P0 incident), C_REFILL_SESSIONS = 5. Difficulty
+integrity applies to EVERY item of EVERY exam. One release.
+
+**What changed.**
+- *LB2 — EXACT-BAND (LAW-ORG-5).* A label is written only by bc.dl_set_label_basis_strict: measured_exact (two FRESH
+  blind graders + the band recipe all name the band; packet sha256 + context 'fresh' recorded; no vote) or last_resort.
+  bc.verify_difficulty_label is strict for every LB2 row and every paper whose qindex_cert.framework_release >=
+  2026.11.10 (stamped by final_assembly v1.16); obs / l2 / none / dr3 / swap / forced / held verify only older papers.
+- *One ruler per exam (G-08).* bc.build_difficulty_ruler: anchors from two fresh blind grades, library / neighbour
+  borrowing, band recipes; the rubric is a grader input only; bc.ruler_min_band replaces the qtype floor classes.
+- *The schedule is input (G-09, LAW-ORG-6).* bc.schedule_normalize (an exact-sum request is never altered),
+  bc.schedule_place (never infeasible), bc.schedule_freeze; the S3 feasibility / per-section plan / profile stops are
+  automatic repairs.
+- *SC2 endings (G-10, LAW-ORG-3/4/7).* reserve_refill -> refill_session (fresh worker, <= 5 per paper) -> bounded
+  last_resort; SC1 endings kept only to verify legacy chains; unanimous key (author + 2 fresh blind solvers); panel /
+  re-key / majority / DISCLOSED retired for new papers. Create S13-2L / S13-2R rewritten; K candidates per slot;
+  verified reserve and series registry persisted in registry.json.
+- *Organic parity.* Content-based scope (bc.is_organic_item); PYQ schema 3 failing closed (figural_vision
+  'unverified'; bc.pyq_record_complete; PYQExplain §13A-3B BACKFILL); stem stereo gate; measured conventions +
+  scaffold rule + cross-exam library hooks; one ask-format vocabulary + parity floors (fa.paper_parity_gate);
+  chain cards + composer (no single-concept fallback for bands needing >= 2 decisions); clone_guard (structure /
+  reaction / task near-clone + series registry).
+- *Figures (G-11, G-12, LAW-ORG-8).* Geometry gates on drawn coordinates (bond cross, bond through label, label overlap,
+  atom clash) with a bounded re-depiction ladder and perspective templates (norbornane / bornane, bicyclo[2.2.2],
+  bicyclo[3.2.1]); G-METALCHARGE (dative bonds), G-STEREODEF, G-MINSIZE, G-IDENTITY from the drawn MolBlock; chair /
+  Newman / sawhorse / Fischer / Haworth question figures through the existing PROVEN renderers (figure_types
+  R_PROJ, identity STRUCTURE_CONFORMER); fresh vision read-back (figural_vision.readback_compare); figural_core
+  G-ORGPROOF / audit A-ORGPROOF.
+- *Stops (G-14).* SKILL Step 0: distinct DR mirror (project file FRAMEWORK_MIRROR.txt) then a project-cached verified
+  release (bootstrap --make-cache); WORKDIR-LOST restarts the paper automatically; INFRA faults move to a fresh worker,
+  then the previous verified release + P0. Only NO-FRAMEWORK / NO-SOURCE-DATA / NO-MODEL halt (save state, resume).
+- *Pre-deploy audit (owner 2026-11-10: static analysis of every engine and spec block, a field-by-field step handshake
+  map, a real-data run on the CSIR NET Chemical Sciences project files, an independent review).* Fixed before release:
+  the ruler is rebuilt once the back-fill finishes (bc.ruler_graded_count / graded_count; an all-empty anchor table is
+  'no anchors'); back-filled PYQ records persist across runs in registry.json['pyq_backfill'] (bc.profile_backfill_delta
+  / bc.profile_overlay; working copy /home/claude/{EXAM}_op_profile.json); the schedule is frozen in code at S3-15L
+  (bc.schedule_freeze) and checked at S13-2L (bc.schedule_frozen_check; the frozen placement is the authority); the
+  CHECK 3c band-swap escape and the S13-2G phase-3 relabel are retired for LB2 items; the clone fingerprint travels on
+  clone_check (bc.op_item_fingerprint / bc.op_key_ids) so the series registry and the reserve exclusion always see the
+  key; one CANDIDATE RECORD feeds every control (S0-OP-5); the stem stereo gate always checks the key and every
+  option; fa.paper_figure_proof_gate cross-checks the figure manifest (a picture without its proof record fails);
+  organic scope: ambiguous terms (Tanabe-Sugano, Grubbs, chirality of complexes, NMR, Hückel, polymer ...) count only
+  beside a strong organic word and never in an inorganic / physical context, free text is never a structure, a subtopic
+  is organic as a whole only at >= C_ORG_SUBTOPIC_SHARE (0.5) of its records; exam_level reads the producers' word
+  levels ('Post Graduation' ...); perspective templates match by topology (norbornENEs, 7-oxa / 7-aza bridges) with a
+  tall variant for labelled bridges; a free metal ion is not an unintended charge; real PYQ structures proven: 262 / 263.
+  Independent review (22 findings, each verified and fixed): the profile now CARRIES every schema-3 field
+  (DP_CONTENT_KEYS); A-QINDEX check 7 skips LB2 rows and check 8 is strict only on papers with a difficulty plan; a
+  slot carried to S13-2L is never routed to the RL relabel rung (S13-2F marks it 'carried'); the S0-OP code blocks
+  run INSIDE their host sections (S3-2, S13-2P, S13-4, S13-6) and are resume-safe (batch_state exam_ruler /
+  op_overrides; S13-2P parity persisted); the exam config S3-2 loaded is the S0-OP config and constant overrides are
+  APPLIED; a bounded back-fill hand-over runs before the ruler and the plan; the series registry file is written
+  back and seeded from committed rows; ONE control-record writer (bc.op_record_controls) binds grades / key votes to
+  the item's text (bc.op_content_sha) — a replaced item never inherits its predecessor's grades; a NOT_RUN review is
+  re-queued twice, then the item is replaced; S13-2L carries pending work across re-entry, re-checks figure proofs,
+  judges a last resort's recipe at the delivered band and writes the §LADDER-OP lines once (chain_footer info) for
+  S13-6 and MockDeliver; the review panel and single-review relabels of LB2 items are retired in S13-2G;
+  schedule_place never loops; organic scope by content in S3-8L (l2_scope_ids(organic_subtopics=)); reserve topic
+  tier unified; stereo 'none' and cyclooctene; options / answers always count as structures (canonical solvent list
+  for reaction partners only); text stems with two strong organic signals and Hindi class names are organic.
+  Second independent review (13 findings, each verified and fixed): one exam-config merge (no duplicate-key crash);
+  OP_WRITE_CONTROLS — the executable writer (S3-2) CHECK 3c and the S13-2G delta round call, bound to the
+  concept_map text fields (stem_text / option_texts / figure_files); an unplaceable reserve item is dropped, the
+  last-resort reserve take excludes the paper's keys; last-resort rounds are counted (C_LAST_RESORT_ROUNDS; a
+  recipe that is only 'dormant' without RDKit passes; graders that never agree -> NO-MODEL, state saved); figure-proof
+  and NOT_RUN reopens are capped per slot (then AMBER / NO-MODEL); only STRUCTURE pictures need a proof record; the
+  S13-4 preview never writes the series file; a certified review with a non-unanimous key fails the dispute attempt;
+  a tagged named reaction counts unless the item is inorganic / physical (stem_snippet read); the series seed reads
+  paper entries; carried labels only on papers with a difficulty plan, sweep counter kept; the back-fill guard is
+  per paper and counts a pass only when the working profile changed; bc.profile_merge_records is the O-BACKFILL
+  writer; constants reset to release defaults before an exam's overrides (bc.op_constants_reset).
+
 ## 2026.11.09 — GAP-2026-11-08-DR3-QINDEX: a paper is never stopped and never delivered NOT CERTIFIED, in every exam
 (blueprint_core v1.34; audit_canonical v2.39; final_assembly v1.15; paper_pipeline (check-6 mirror); notes_core v2.15;
 audit_sync (LABEL-VERIFIER / REVIEW-COVERAGE / LADDER-COVERAGE); handshake_audit (189 checks); Framework_MockTestCreate

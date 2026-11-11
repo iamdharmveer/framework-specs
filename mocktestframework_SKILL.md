@@ -42,16 +42,26 @@ NEVER work from memory. That rule is unchanged and absolute.
 set -e
 FW=/tmp/fw && rm -rf "$FW"
 PRIMARY=https://github.com/iamdharmveer/framework-specs.git
-# NOTE: no DR yet — same URL as PRIMARY; set a distinct mirror before relying on failover.
-MIRROR=https://github.com/iamdharmveer/framework-specs.git
+# 2026.11.10 (GAP-2026-11-10 G-14 row 1): failover = a DISTINCT DR mirror (one URL in the project file
+# FRAMEWORK_MIRROR.txt; mirror.yml keeps it in sync), then a project-cached VERIFIED release
+# (framework_cache*.zip, made by `python3 bootstrap.py --make-cache OUT.zip`; bootstrap re-verifies every hash).
+# Only when all three are unavailable is it the NO-FRAMEWORK environment failure (nothing is generated).
+MIRROR=$(head -1 /mnt/project/FRAMEWORK_MIRROR.txt 2>/dev/null | tr -d '[:space:]')
+[ -n "$MIRROR" ] || MIRROR=https://github.com/iamdharmveer/framework-specs.git
 n=0
 until git clone --depth 1 --branch production "$PRIMARY" "$FW" 2>/dev/null; do
   n=$((n+1)); [ "$n" -ge 3 ] && break; sleep $((2**n)); done
-if [ ! -d "$FW/.git" ]; then
-  [ "$MIRROR" = "$PRIMARY" ] && { echo "HARD STOP: primary unreachable and no DR mirror configured (MIRROR == PRIMARY). DO NOT proceed from memory."; exit 1; }
-  git clone --depth 1 --branch production "$MIRROR" "$FW" 2>/dev/null \
-    || { echo "HARD STOP: framework repo unreachable (primary + mirror). DO NOT proceed from memory."; exit 1; }
+if [ ! -d "$FW/.git" ] && [ "$MIRROR" != "$PRIMARY" ]; then
+  git clone --depth 1 --branch production "$MIRROR" "$FW" 2>/dev/null || true
 fi
+if [ ! -d "$FW/.git" ]; then
+  CACHE=$(ls /mnt/project/framework_cache*.zip /mnt/user-data/attachments/*/framework_cache*.zip 2>/dev/null | head -1)
+  if [ -n "$CACHE" ]; then
+    rm -rf "$FW" && mkdir -p "$FW" && python3 -c "import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$CACHE" "$FW" \
+      && echo "FRAMEWORK SOURCE: project cache $CACHE (primary and mirror unreachable) — verified below."
+  fi
+fi
+[ -f "$FW/bootstrap.py" ] || { echo "HARD STOP: NO-FRAMEWORK — primary, mirror and project cache all unavailable. DO NOT proceed from memory. Type the same trigger again when GitHub is reachable."; exit 1; }
 cd "$FW" && python3 bootstrap.py \
   || { echo "HARD STOP: framework verification failed. DO NOT proceed."; exit 1; }
 # Figure rendering + conformance gates (Framework v5.33 / Audit v2.11).

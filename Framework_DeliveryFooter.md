@@ -1,14 +1,11 @@
-# Framework_DeliveryFooter v1.44.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.44.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
-#   decision OD-2026-11-09; paired with MockTestCreate v5.96, MockDeliver v1.28.0, blueprint_core v1.34).
-#   §FOOTER-FT gains the SLOT-CHAIN LINES — difficulty_state.chain_footer written by Create S13-2L with
-#   bc.chain_footer_lines: 'amber' (schedule-forced labels naming the band the review measured, majority
-#   certifications, DISCLOSED items) AMBER-CLASS, 'info' (band swaps, re-keys, sibling replacements) informational.
-#   Q0c also treats the auditor's "AMBER — DISCLOSED …" and "AMBER — ESCALATED …" certificate notes as
-#   AMBER-CLASS; DIFFICULTY LAYER LINES gain "Difficulty schedule-forced / band swaps / held at slot" (owner
-#   2026-11-10: a harder slot is held at its band, the schedule is delivered exactly). A Create v5.96 paper is never NOT CERTIFIED; the NOT CERTIFIED lines remain for legacy
-#   registries only. A paper without the records prints nothing new (byte-identical).
-# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
+# Framework_DeliveryFooter v1.45.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.45.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (paired with MockTestCreate
+#   v6.0, blueprint_core v2.0). NEW §LADDER-OP: "schedule as applied" (every normalisation of the request — an
+#   exact-sum request prints nothing), the LAST-RESORT line (AMBER-CLASS: requested vs delivered band + the P0
+#   incident id — the only difficulty deviation a v6.0 paper can carry), constant overrides, the ruler line
+#   (past distribution, printed apart from the requested schedule), reserve / refill information lines. The
+#   schedule-forced / held / majority / DISCLOSED lines are written only for papers produced before 2026.11.10.
+#   Entry v1.44.0 moved to SPEC_HISTORY.md.
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
 ---
@@ -1182,6 +1179,24 @@ These lines are DISCLOSURE: nothing here stops, voids or re-runs anything.
 ```
 
 ---
+
+## §LADDER-OP — DIFFICULTY INTEGRITY AND ORGANIC PARITY LINES (v1.45.0 — GAP-2026-11-10)
+
+```
+Step 7 (Create S13-6) and MockDeliver 3f print, one per line, every line that applies:
+  • ℹ️ "Requested difficulty: <band n / ...>" and ℹ️ "Exam ruler <version> (<basis>): past distribution <...>"
+    — two separate lines; neither is ever derived from the other (S0-OP-2).
+  • ℹ️ "Schedule as applied: <note>" — one line per bc.schedule_normalize note (percentages -> counts, a short
+    or long sum, an unknown band name). An exact-sum request prints NOTHING here.
+  • ⚠️ "Q<n>: last resort — requested <band>, delivered <band> (fully verified ...); P0 incident <id>" —
+    AMBER-CLASS, one per batch_state['last_resort_slots'] entry (difficulty_state.chain_footer['amber']).
+  • ℹ️ "Q<n>: replaced by a verified reserve item at its exact band ..." / "Q<n>: replaced in a fresh refill
+    session ..." — informational (chain_footer['info']).
+  • ℹ️ "Constant overrides: C_X=v, ..." — bc.op_constants(exam_config)['overrides'], only when non-empty.
+  • ℹ️ "Organic parity: formats <ok|short ...>; conventions <...>; items with >= 2 decisions <share>" (S13-2P).
+A paper produced by 2026.11.10 or later never prints a schedule-forced, held, band-swap, majority or DISCLOSED
+line: those terminals are retired (LAW-ORG-3); a paper delivered earlier keeps the lines it was delivered with.
+```
 
 ## §6 — NEXT-STEP REFERENCE TABLE
 

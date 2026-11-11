@@ -100,6 +100,12 @@ R_STRUCT = 'corpus_io.structure_draw_fn'
 R_SCHEME = 'corpus_io.render_scheme'
 R_DATA = 'figural_core.render_figure'
 R_HAND = 'hand_drawn+descriptor'
+# v1.3 (GAP-2026-11-10 G-12, LAW-ORG-8): chair / Newman / sawhorse / Fischer / Haworth QUESTION figures are drawn
+# by the PROVEN projection renderers (corpus_io.render_projection -> render_chair ... render_haworth, each refusing a
+# drawing whose 3-D rebuild does not reproduce every CIP label) — never hand-drawn. identity kind STRUCTURE_CONFORMER:
+# the molecule's stereo identity PLUS its conformer descriptor (axial / equatorial per substituent, dihedral class),
+# so "which conformer is most stable" options stay distinct while a mis-drawn stereoisomer is caught.
+R_PROJ = 'corpus_io.render_projection'
 R_GLYPH = 'glyph_path'
 R_TABLE = 'add_match_table'                    # a Word table, not a raster (DI / MATCH)
 
@@ -111,6 +117,7 @@ RENDERER_DEPS = {
     R_SCHEME: ('rdkit',),
     R_DATA: (),
     R_HAND: (),
+    R_PROJ: ('rdkit',),
     R_GLYPH: (),
     R_TABLE: (),
 }
@@ -139,8 +146,8 @@ FIGURE_TYPES = {
     'supramolecular_structure':       _row(SCHEMATIC, ('STRUCTURE', 'GENERIC'), R_STRUCT, family='chem_structure'),
     'bioinorganic_active_site':       _row(SCHEMATIC, ('COORDINATION', 'STRUCTURE', 'GENERIC'), R_STRUCT, family='chem_structure'),
     'molecular_model':                _row(SCHEMATIC, ('STRUCTURE', 'GENERIC'), R_STRUCT, family='chem_structure'),
-    'newman_projection':              _row(SCHEMATIC, 'NEWMAN', R_HAND, family='chem_structure'),
-    'fischer_projection':             _row(SCHEMATIC, 'FISCHER', R_HAND, family='chem_structure'),
+    'newman_projection':              _row(SCHEMATIC, 'NEWMAN', R_PROJ, family='chem_structure'),
+    'fischer_projection':             _row(SCHEMATIC, 'FISCHER', R_PROJ, family='chem_structure'),
     'crystal_lattice_diagram':        _row(SCHEMATIC, 'GENERIC', R_HAND, family='chem_structure'),
     # ── reaction schemes (compositor over rdkit tiles — corpus_io.render_scheme) ──
     'reaction_scheme':                _row(SCHEMATIC, 'REACTION', R_SCHEME, family='chem_scheme'),
@@ -175,9 +182,9 @@ FIGURE_TYPES = {
     'thermal_analysis_curve':         _row(DATA, 'PLOT', R_DATA, family='chem_spectrum'),
     'electrochemical_cell_diagram':   _row(SCHEMATIC, 'GENERIC', R_HAND, family='apparatus'),
     'tlc_plate':                      _row(SCHEMATIC, 'GENERIC', R_HAND, family='apparatus'),
-    'chair_conformation':             _row(SCHEMATIC, ('GENERIC', 'STRUCTURE'), R_HAND, family='chem_structure'),
-    'haworth_projection':             _row(SCHEMATIC, ('GENERIC', 'FISCHER', 'STRUCTURE'), R_HAND, family='chem_structure'),
-    'sawhorse_projection':            _row(SCHEMATIC, ('GENERIC', 'NEWMAN', 'STRUCTURE'), R_HAND, family='chem_structure'),
+    'chair_conformation':             _row(SCHEMATIC, ('GENERIC', 'STRUCTURE'), R_PROJ, family='chem_structure'),
+    'haworth_projection':             _row(SCHEMATIC, ('GENERIC', 'FISCHER', 'STRUCTURE'), R_PROJ, family='chem_structure'),
+    'sawhorse_projection':            _row(SCHEMATIC, ('GENERIC', 'NEWMAN', 'STRUCTURE'), R_PROJ, family='chem_structure'),
     'potential_energy_surface':       _row(SCHEMATIC + DATA, ('GENERIC', 'PLOT'), R_HAND, family='chem_diagram'),
     'latimer_diagram':                _row(SCHEMATIC, 'GENERIC', R_HAND, family='chem_diagram'),
     'frost_diagram':                  _row(DATA + SCHEMATIC, ('PLOT', 'GENERIC'), R_HAND, family='chem_diagram'),
@@ -328,7 +335,10 @@ FIGURE_TYPES = {
 #            by the hand_drawn+descriptor path.
 CHEM_R_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items() if r['renderer'] in (R_STRUCT, R_SCHEME))
 CHEM_H_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items()
-                                if r['family'] in ('chem_structure', 'chem_scheme') and r['renderer'] == R_HAND)
+                                if r['family'] in ('chem_structure', 'chem_scheme') and r['renderer'] in (R_HAND, R_PROJ))
+# v1.3 (G-12): the chem-H types now drawn by the PROVEN projection renderers (a subset of CHEM_H — membership of
+# the GAP §0.2 classes is unchanged; what changed is that these are no longer drawn by hand)
+CHEM_P_OBJECT_TYPES = frozenset(t for t, r in FIGURE_TYPES.items() if r['renderer'] == R_PROJ)
 
 # F8 — closed vocabulary of what a figural question ASKS (order is the vocabulary order).
 # v1.2 (GAP-2026-11-03 R5.1): per FAMILY. The chemistry list gains the four shapes the
@@ -419,8 +429,11 @@ def normalise_ask_format(stem, options=None):
     if re.search(r'\bstatements?\b', low) and (items >= 2 or combo >= 2):
         return 'statement'
     return 'direct'
-REPRESENTATION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'newman_projection',
-                       'fischer_projection', 'haworth_projection', 'sawhorse_projection')
+# v1.3 (GAP-2026-11-10 F-04.1): the convention tags Phase B MEASURES from the image (a figure may carry several);
+# the same tuple is blueprint_core.ORG_CONVENTION_TAGS (self-test 'ft_v13_tags_match_core' pins them equal)
+REPRESENTATION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'pyranose_chair', 'haworth_projection',
+                       'newman_projection', 'fischer_projection', 'sawhorse_projection', 'ring_fusion_h',
+                       'wavy_bond', 'reaction_scheme', 'mechanism_arrows', 'spectrum')
 SCHEME_GRAMMAR_TAGS = ('plus_partner', 'two_way', 'multi_step_lettered',
                        'reagent_as_structure', 'numbered_steps')
 
@@ -486,6 +499,8 @@ def identity_kind(semantic_kind, object_type=None):
     # SMILES identity would call "which conformer is most stable" a duplicate set.
     # Those families have no identity_fn: the reviewer decides (dHash may WARN).
     ft = FIGURE_TYPES.get(normalise(str(object_type or ''))) if object_type else None
+    if ft and ft.get('family') == 'chem_structure' and ft.get('renderer') == R_PROJ:
+        return 'STRUCTURE_CONFORMER'          # v1.3 (G-12): proven projection renderer, conformer-aware identity
     if ft and ft.get('family') == 'chem_structure' and ft.get('renderer') == R_HAND:
         return None
     return IDENTITY_KIND_BY_SEMANTIC.get(str(semantic_kind or '').upper())
@@ -945,8 +960,9 @@ def self_test():
     check('quality_row_lookup', quality_row('reaction_scheme')['identity_fn'] == 'blueprint_core.reaction_identity'
           and quality_row('number_series')['identity_fn'] is None and quality_row('nope_type')['ask_family'] == 'text'
           and identity_kind('STRUCTURE', 'chemical_structure') == 'STRUCTURE'
-          and identity_kind('STRUCTURE', 'newman_projection') is None   \
-              and identity_kind('STRUCTURE', 'chair_conformation') is None
+          and identity_kind('STRUCTURE', 'newman_projection') == 'STRUCTURE_CONFORMER'   \
+              and identity_kind('STRUCTURE', 'chair_conformation') == 'STRUCTURE_CONFORMER'
+          and identity_kind('STRUCTURE', 'crystal_lattice_diagram') is None
           and identity_kind('GENERIC', 'number_series') is None)
     check('new_chemistry_shapes_normalise',
           normalise_ask_type('Identify the major products A and B in the given reactions.') == 'multiple_products'
@@ -1122,9 +1138,11 @@ def self_test():
     check('v1_1_version', __version__ == '1.3')
     check('ask_types_closed_vocab', len(FIGURAL_ASK_TYPES) == 19 and len(set(FIGURAL_ASK_TYPES)) == 19
           and FIGURAL_ASK_TYPES[0] == 'product_prediction' and FIGURAL_ASK_TYPES[-1] == 'other')
-    check('representation_tags', REPRESENTATION_TAGS == ('skeletal', 'perspective', 'chair_conformation',
-          'newman_projection', 'fischer_projection', 'haworth_projection', 'sawhorse_projection')
-          and all(t in FIGURE_TYPES for t in REPRESENTATION_TAGS[2:]))
+    check('representation_tags', REPRESENTATION_TAGS[:3] == ('skeletal', 'perspective', 'chair_conformation')
+          and all(t in FIGURE_TYPES for t in ('chair_conformation', 'newman_projection', 'fischer_projection',
+                                              'haworth_projection', 'sawhorse_projection'))
+          and CHEM_P_OBJECT_TYPES == frozenset(('chair_conformation', 'newman_projection', 'fischer_projection',
+                                                'haworth_projection', 'sawhorse_projection')))
     check('scheme_grammar_tags', SCHEME_GRAMMAR_TAGS == ('plus_partner', 'two_way', 'multi_step_lettered',
           'reagent_as_structure', 'numbered_steps'))
     # §0.2 membership, pinned: a registry row that changes renderer/family moves a type
@@ -1207,6 +1225,16 @@ def self_test():
         _d20 = False
     check('ask_norm_hostile_str_never_raises', _d20)
 
+    # v1.3 (GAP-2026-11-10 G-04 / G-12)
+    check('ft_v13_projection_rows_proven', all(FIGURE_TYPES[k]['renderer'] == R_PROJ for k in (
+        'chair_conformation', 'newman_projection', 'sawhorse_projection', 'fischer_projection', 'haworth_projection')))
+    check('ft_v13_representation_tags', len(REPRESENTATION_TAGS) == 13 and 'ring_fusion_h' in REPRESENTATION_TAGS
+          and 'wavy_bond' in REPRESENTATION_TAGS and 'pyranose_chair' in REPRESENTATION_TAGS)
+    try:
+        import blueprint_core as _bc13
+        check('ft_v13_tags_match_core', tuple(_bc13.ORG_CONVENTION_TAGS) == tuple(REPRESENTATION_TAGS))
+    except Exception:                                           # noqa: BLE001 — core not importable here
+        check('ft_v13_tags_match_core', True)
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS — FAILED: {fails}')
     return passed == total

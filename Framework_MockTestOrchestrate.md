@@ -1,12 +1,13 @@
-# Framework_MockTestOrchestrate v1.1.0
-# v1.1.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
-#   decision OD-2026-11-09; paired with Framework_MockTestCreate v5.96, blueprint_core v1.34). NEW O2-8: a
-#   run parked at a HARD STOP resumes under a NEWER production release on the user's "continue" (Step 0 is
-#   re-run once, the paper's working files are kept, the worker's S4-12 migrates the paper's state). O3-6:
-#   a part marked 'switch' (an adjudication, a panel copy, a D0 re-review) goes to a reviewer on a DIFFERENT
-#   model; delta rounds use REVIEW_DIR .../delta<k>/part<n>. O3-8: an INFRA-HEAL is not a stop, and a worker
-#   never raises a stop the executed code does not raise (MTC MANDATE 0b). Entry v1.0.0 moved to
-#   SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.2.0
+# v1.2.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (owner decisions 2026-11-10;
+#   paired with Framework_MockTestCreate v6.0, blueprint_core v2.0). NEW PART F (O6): fresh-context WORKERS for the
+#   controls that must never run in the author's context — O-GRADE (two fresh blind graders + two fresh blind
+#   solvers per candidate, packet only), O-VISION (fresh vision read-back of rendered figures), O-REFILL (refill
+#   sessions, <= C_REFILL_SESSIONS per paper), O-BACKFILL (PYQ schema-3 back-fill on first use), O-AUTHOR (the
+#   slim author brief, G-13). WORKDIR-LOST restarts the paper automatically (no user step); an INFRA fault that
+#   survives INFRA_HEAL_MAX heals continues in a FRESH worker (<= 3 per stop site), then on the previous verified
+#   release with a P0 incident. The only halts are the three environment failures (Create S0-OP-10), each saving
+#   state and resuming. Entry v1.1.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -177,8 +178,10 @@ progress. When a bootstrap command fails because /tmp/fw_effective is missing, r
   this chat (O2-1), then start a fresh worker (`--continue`) with the message being handled.
 - none is listed — the paper's working files are gone, the answer-key sidecar among them, and MTC
   S4-12 has no rebuild for that file (its step 4 loads it; a worker started now would begin the
-  paper again from question 1 without saying so). Start no worker. Print this line and END the run:
-  `HARD STOP [HS:INFRA] WORKDIR-LOST — the platform removed this paper's working files; the batches delivered so far cannot be continued. Send the same trigger again to write the paper from the start.`
+  paper again from question 1 without saying so). v1.2.0 (G-14 row 11): the orchestrator RESTARTS THE PAPER
+  AUTOMATICALLY — it re-runs Step 0 and input staging, starts a fresh worker with the ORIGINAL trigger, and
+  prints once: `WORKDIR-LOST — the platform removed this paper's working files; the paper is being written
+  again from question 1 automatically (batches delivered earlier are superseded).` No user step; never a stop.
 
 ## O2-8 — A run parked at a HARD STOP; a newer framework release (v1.1.0, OD-2026-11-09)
 
@@ -206,8 +209,7 @@ In every worker, reused or fresh, the ORCHESTRATOR MESSAGE `continue — deliver
 user's continue trigger for MTC S4-6 and S4-5 CHECK 4, and `USER MESSAGE: <m>` is the user's message
 <m> for S4-6.
 A worker started with `--continue` that finds no BATCH STATE in /home/claude writes nothing: it
-reports HARD_STOP with the chat block
-`HARD STOP [HS:INFRA] WORKDIR-LOST — the platform removed this paper's working files; the batches delivered so far cannot be continued. Send the same trigger again to write the paper from the start.`
+reports RESTART (WORKDIR-LOST) and the orchestrator restarts the paper automatically (O2-7, v1.2.0).
 
 ## O3-2 — Reading the route
 
@@ -384,4 +386,37 @@ plainly: a long paper is read again each time retention fails. When a completed 
 in a row in this chat, print this line and END:
 `HARD STOP [HS:INFRA] MODEL-CAPACITY — this chat's model cannot hold the Step 7 specification. Select a larger-context model for this chat and type continue. Nothing was lost: the paper resumes from its saved state.`
 
-# END OF Framework_MockTestOrchestrate v1.1.0
+## O6-1 — PART F (v1.2.0): FRESH-CONTEXT WORKERS (GAP-2026-11-10; Create S0-OP-5 / S0-OP-8 / S13-2R)
+
+A control that must be INDEPENDENT of the author is never run in the author's context. The orchestrator (or,
+in DIRECT MODE, a sub-agent the session starts) runs it in a FRESH context that receives ONLY the packet the
+engine builds, and returns ONLY the fields named here. Each result records context 'fresh' and the packet's
+sha256 (blueprint_core.dl_set_label_basis_strict refuses a grade without them).
+- O-GRADE — per candidate: two blind GRADERS (packet = blueprint_core.build_judge_input(item, <ruler anchors
+  with content>); never the band, plan, obs, solution or the author's counts) -> {band, decisions, rationale};
+  two blind SOLVERS (packet = stem + options only) -> {answer, confidence, assumptions[]}. Graders and solvers
+  are four separate fresh contexts; a switched model is used when the platform offers one.
+- O-VISION — per rendered organic figure: a fresh vision pass that never saw the SMILES transcribes the image
+  -> {smiles, stereo_mode}; 2 independent reads when the answer depends on stereo, else 1
+  (figural_vision.readback_compare decides the match).
+- O-REFILL — Create S13-2R 'refill_session' / 'last_resort_generate': a fresh worker resumes from saved state
+  and writes the entry's K candidates for the open slot only (composer + library on), each through O-GRADE and
+  O-VISION; at most blueprint_core.C_REFILL_SESSIONS refill sessions per paper (batch_state counter).
+- O-BACKFILL — Create S0-OP-0: PYQExplain §13A-3B on the records listed, in fresh workers; each upgraded record
+  is saved into /home/claude/<E>_op_profile.json as it completes (a resumed run continues from it). When every
+  listed record is done the orchestrator re-runs Create S0-OP-0 and S0-OP-2 (ruler rebuilt) before Q1.
+- O-AUTHOR — the author worker of an organic slot reads blueprint_core.author_brief (<= C_BRIEF_MAX_PAGES
+  pages) plus the engine call list instead of the full Create spec (G-13); the orchestrator keeps the full spec.
+A platform that can start neither a sub-agent nor a worker cannot produce a fresh control: that is the
+NO-MODEL environment failure — save state, print one plain instruction, resume when it returns; a same-context
+result is never recorded as 'fresh' and nothing is delivered uncertified.
+
+## O6-2 — Faults that outlive their self-heals (v1.2.0, G-14 row 7)
+
+An INFRA fault still present after blueprint_core.INFRA_HEAL_MAX heals in one worker is retried in a FRESH
+worker (at most 3 fresh workers per stop site). A fault that persists on the verified clone is a release
+defect: the paper continues on the PREVIOUS verified production release (Step 0 with that commit) and a P0
+framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
+missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
+
+# END OF Framework_MockTestOrchestrate v1.2.0

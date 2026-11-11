@@ -84,7 +84,7 @@
   "GATE-AT-SOURCE-LAW": {
    "gap": "GAP-2026-08-30-TYPE1-HALT-ELIMINATION",
    "stated_in": "Framework_PYQCore.md",
-   "requires": "Every structural check a later step enforces on an artifact must run at the step that CREATES the artifact, before delivery, inside a bounded self-correction loop (max reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS constraint-carrying rounds; exhaustion exits AMBER with a finding-keyed amber_status — never a dead stop, never a silent green). A HARD STOP on Claude's own output is a spec violation; only input-integrity (Type-2) stops are permitted and each must name exactly one operator action. ONE RULEBOOK: each structural threshold has exactly one implementation in a routed engine — the over-aggregation gate is reconcile_taxonomy.check_topic_density (one implementation, three call sites: PYQDraft pre-delivery, PYQScan S3-1 tripwire, PYQApprove C6 backstop); specs cite it and its constants, never restate values. Every auto-correction and AMBER exit is recorded in telemetry.",
+   "requires": "Every structural check a later step enforces on an artifact must run at the step that CREATES the artifact, before delivery, inside a bounded self-correction loop (max reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS constraint-carrying rounds; exhaustion exits AMBER with a finding-keyed amber_status — never a dead stop, never a silent green). A HARD STOP on Claude's own output is a spec violation; only input-integrity (Type-2) stops are permitted and each must name exactly one operator action. ONE RULEBOOK: each structural threshold has exactly one implementation in a routed engine — the over-aggregation gate is reconcile_taxonomy.check_topic_density (one implementation, three call sites: PYQDraft pre-delivery, PYQScan S3-1 tripwire, PYQApprove C6 backstop); specs cite it and its constants, never restate values. Every auto-correction and AMBER exit is recorded in telemetry. AMENDED 2026.11.10 (G-02): Step 5 (PYQExplain §13A-4) runs the PYQ record completeness gate (bc.pyq_record_complete) and fails closed.",
    "detect": "topic_density_gate_call",
    "detect_note": "A spec PERFORMS a GATE-AT-SOURCE operation when its live text names check_topic_density — hosting the gate's normative statement (PYQCore), calling it pre-delivery (PYQDraft), at the S3-1 tripwire (PYQScan), or as the C6 backstop (PYQApprove).",
    "governs": [
@@ -178,7 +178,7 @@
   "QUALITY-GATE-LAW": {
    "gap": "GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY",
    "stated_in": "Framework_MockTestCreate.md S2-2 R1..R5 / S3-2e / S3-12d / S7-QUALITY / S13-2F / S13-2G; Framework_MockReview.md; Framework_MockDeliver.md S1-2 item 3f; Framework_Blueprint.md §7-8; Framework_ScopedBlueprint.md S8-2d; Framework_MockTestAnalyse.md S11-1b; blueprint_core Cluster QQ; audit_canonical v2.35 QQ_GATE_IDS",
-   "requires": "A content rule is a sentence that NAMES the engine function enforcing it, and every quality control reads artefact-derived evidence (docx text, the renderer's own figure record, the registry), never an author declaration (principle QQ-0). Every Create quality gate has an auditor twin emitted in both states. The difficulty judge is run against the exam's own PYQ exemplar bank, and every paper is read once by an INDEPENDENT context that never sees the key, the author notes or the scheduled bands (bc.review_packet strips them; MockReview never reads the key or the registry) — its findings are REPAIRED through the ladder, not listed. A finding that survives the ladder's terminal rung enters that slot's chain (replacement on a new substrate, another ask shape, a sibling subtopic — bc.sweep_route, bc.slot_chain_next); no item is ever stamped UNRESOLVED and no paper is delivered NOT CERTIFIED (amended 2026.11.09, owner decision OD-2026-11-09, superseding OD-9); --accept-uncertified remains for legacy registries only. OD-1: no quality condition is ever a stop — dormancy is printed and recorded (quality_readiness), a defect is a ladder rung or a recorded status.",
+   "requires": "A content rule is a sentence that NAMES the engine function enforcing it, and every quality control reads artefact-derived evidence (docx text, the renderer's own figure record, the registry), never an author declaration (principle QQ-0). Every Create quality gate has an auditor twin emitted in both states. The difficulty judge is run against the exam's own PYQ exemplar bank, and every paper is read once by an INDEPENDENT context that never sees the key, the author notes or the scheduled bands (bc.review_packet strips them; MockReview never reads the key or the registry) — its findings are REPAIRED through the ladder, not listed. A finding that survives the ladder's terminal rung enters that slot's chain (replacement on a new substrate, another ask shape, a sibling subtopic — bc.sweep_route, bc.slot_chain_next); no item is ever stamped UNRESOLVED and no paper is delivered NOT CERTIFIED (amended 2026.11.09, owner decision OD-2026-11-09, superseding OD-9); --accept-uncertified remains for legacy registries only. OD-1: no quality condition is ever a stop — dormancy is printed and recorded (quality_readiness), a defect is a ladder rung or a recorded status. AMENDED 2026.11.10 (LAW-ORG-3): the DISCLOSED / amber item terminal is retired for new papers — an item whose quality or diagram finding survives every repair is REPLACED (reserve, refill session, last resort).",
    "detect": "quality_gate_producer",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster QQ entry point: bc.quality_readiness(, bc.review_packet(, bc.bind_review_verdicts(, bc.review_verdict_file(, bc.deliver_allowed(, bc.shape_targets(, bc.assign_shape_plan(, or analyse_engine write_exemplar_bank(.",
    "governs": [
@@ -243,7 +243,7 @@
   "DIFFICULTY-LAYER-LAW": {
    "gap": "GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER",
    "stated_in": "blueprint_core v1.33 Cluster DL / Cluster L2; Framework_MockTestCreate.md v5.94 S3-8L, CHECK 3c (b0), S13-2G phase 3 (DL1), S13-2L; Framework_MockTestAnalyse.md v2.61.0 S11-1c; amended 2026.11.09 (OD-2026-11-09): blueprint_core v1.34 Cluster LB / SC, Framework_MockTestCreate.md v5.96 S13-2G phase 3, S13-2L, S13-2R",
-   "requires": "Every spec that decides a question's difficulty band from independent controls, counts a paper against its schedule, builds the organic decision-load ruler or blind-grades the exam's past papers must do it through the ONE engine: bc.difficulty_band_min (the lowest independent band; the author's counts are never a control), bc.dl_phase3_decision (round 1 below -> repair, round 2 below -> the slot's DIFFICULTY chain; amended 2026.11.09, OD-2026-11-09: NO relabel to the measured band is ever written — the chain re-authors, replaces and band-swaps (bc.slot_chain_next, bc.dl_swap_partner, bc.dl_upgrade_candidate) and only an EXHAUSTED chain holds the label at its slot through bc.dl_set_label_basis 'forced', disclosed; the schedule is delivered exactly), bc.difficulty_paper_gate against the TARGET plan (count-neutral swaps only), bc.l2_model_for_scope with the exam's own past papers and blind grades bound to the profile sha256 (owner D5: never the exam's type or degree), and bc.pyq_grade_packet (blind: no band, counts, concepts or key). Nothing stops (C1); no certificate effect (C2); no new user action (C4).",
+   "requires": "Every spec that decides a question's difficulty band from independent controls, counts a paper against its schedule, builds the organic decision-load ruler or blind-grades the exam's past papers must do it through the ONE engine: bc.difficulty_band_min (the lowest independent band; the author's counts are never a control), bc.dl_phase3_decision (round 1 below -> repair, round 2 below -> the slot's DIFFICULTY chain; amended 2026.11.09, OD-2026-11-09: NO relabel to the measured band is ever written — the chain re-authors, replaces and band-swaps (bc.slot_chain_next, bc.dl_swap_partner, bc.dl_upgrade_candidate) and only an EXHAUSTED chain holds the label at its slot through bc.dl_set_label_basis 'forced', disclosed; the schedule is delivered exactly), bc.difficulty_paper_gate against the TARGET plan (count-neutral swaps only), bc.l2_model_for_scope with the exam's own past papers and blind grades bound to the profile sha256 (owner D5: never the exam's type or degree), and bc.pyq_grade_packet (blind: no band, counts, concepts or key). Nothing stops (C1); no certificate effect (C2); no new user action (C4). AMENDED 2026.11.10 (G-08): ONE calibrated ruler per exam (bc.build_difficulty_ruler, two fresh blind graders, anchors, band recipes); the generic rubric is a grader input only and never decides a band.",
    "detect": "difficulty_layer_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls bc.difficulty_band_min(, bc.dl_phase3_decision(, bc.difficulty_paper_gate(, bc.l2_model_for_scope( or bc.pyq_grade_packet(. A spec that measures difficulty by hand inherits the layer's SURFACE without its CHECKS.",
    "governs": [
@@ -264,7 +264,7 @@
   "LABEL-BASIS-LAW": {
    "gap": "GAP-2026-11-08-DR3-QINDEX-CONFLICT",
    "stated_in": "blueprint_core v1.34 Cluster LB (verify_difficulty_label, dl_set_label_basis, qindex_count_band); Framework_MockTestCreate.md v5.96 CHECK 3c (G-DIFF), S13-2L; audit_canonical v2.39 A-QINDEX checks 6 / 8; paper_pipeline qindex_count_band; notes_core v2.15",
-   "requires": "A difficulty label has ONE verifier and a RECORDED basis: every label check (G-DIFF, A-QINDEX check 8, notes) calls bc.verify_difficulty_label, which verifies the label against the basis that SET it — review (a count-neutral band swap; the independent controls measured the item at or above its slot), forced (the slot chain proven exhausted from its attempt history), held (owner 2026-11-10: a slot measured strictly HARDER than its band after the whole ladder keeps its scheduled label \u2014 the schedule is delivered exactly, never amended for difficulty), legacy dr3, l2 (a BINDING organic ruler band), obs (the recorded evidence) or none. Only bc.dl_set_label_basis writes a basis; recorded evidence (difficulty_obs) is never rewritten (QQ-0). The schedule quota (check 6, both copies) counts each row at bc.qindex_count_band. bc.verify_difficulty_obs is the obs primitive, never a label verifier on its own.",
+   "requires": "A difficulty label has ONE verifier and a RECORDED basis: every label check (G-DIFF, A-QINDEX check 8, notes) calls bc.verify_difficulty_label, which verifies the label against the basis that SET it — review (a count-neutral band swap; the independent controls measured the item at or above its slot), forced (the slot chain proven exhausted from its attempt history), held (owner 2026-11-10: a slot measured strictly HARDER than its band after the whole ladder keeps its scheduled label — the schedule is delivered exactly, never amended for difficulty), legacy dr3, l2 (a BINDING organic ruler band), obs (the recorded evidence) or none. Only bc.dl_set_label_basis writes a basis; recorded evidence (difficulty_obs) is never rewritten (QQ-0). The schedule quota (check 6, both copies) counts each row at bc.qindex_count_band. bc.verify_difficulty_obs is the obs primitive, never a label verifier on its own. AMENDED 2026.11.10 (LAW-ORG-5): on any paper produced at or after 2026.11.10 the ONLY valid bases are measured_exact and last_resort (bc.verify_difficulty_label strict path; bc.dl_set_label_basis_strict is the writer); review / forced / held / dr3 / l2 / obs / none verify ONLY rows of papers delivered earlier.",
    "detect": "label_basis_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls bc.verify_difficulty_label( or bc.dl_set_label_basis(.",
    "governs": [
@@ -284,7 +284,7 @@
   "REVIEW-COVERAGE-LAW": {
    "gap": "GAP-2026-11-08-UNCERTIFIED-DELIVERY",
    "stated_in": "blueprint_core v1.34 (item_hash, review_coverage_missing, review_item_certified, review_round_void, review_panel_majority); Framework_MockTestCreate.md v5.96 S13-2G (delta rounds), S13-2L; audit_canonical v2.39 --item-hashes, A-REVIEW-COVERAGE",
-   "requires": "Every delivered item carries a review record bound to the text actually delivered (an independent verdict; where none could run, the owner-accepted same-session fallback (D1 / D4) or a NOT_RUN stamp, both disclosed \u2014 a bound record is what makes every delta round terminate): the hash of each question block is computed by the auditor from the docx (--item-hashes, bc.item_hash — never declared), every verdict records it, and before S13-3 bc.review_coverage_missing must be empty — an item changed after its review (a ladder repair, a rework, a replacement) is re-reviewed in a DELTA round. A disputed item is CERTIFIED only when its two most recent independent verdicts on its current hash agree (bc.review_item_certified); a same-session fallback review is not independent. A reviewer disputing more than bc.REVIEW_VOID_RATE of a part is re-run by a switched reviewer before its disputes count (D0).",
+   "requires": "Every delivered item carries a review record bound to the text actually delivered (an independent verdict; where none could run, the owner-accepted same-session fallback (D1 / D4) or a NOT_RUN stamp, both disclosed — a bound record is what makes every delta round terminate): the hash of each question block is computed by the auditor from the docx (--item-hashes, bc.item_hash — never declared), every verdict records it, and before S13-3 bc.review_coverage_missing must be empty — an item changed after its review (a ladder repair, a rework, a replacement) is re-reviewed in a DELTA round. A disputed item is CERTIFIED only when its two most recent independent verdicts on its current hash agree (bc.review_item_certified); a same-session fallback review is not independent. A reviewer disputing more than bc.REVIEW_VOID_RATE of a part is re-run by a switched reviewer before its disputes count (D0). AMENDED 2026.11.10 (LAW-ORG-7): panel, re-key and majority certification are retired for new papers; a disputed key is replaced, never certified by vote; the key must be unanimous (author + 2 fresh blind solvers).",
    "detect": "review_coverage_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls bc.review_packet(, bc.review_item_certified( or bc.review_coverage_missing(.",
    "governs": [
@@ -297,6 +297,237 @@
    ],
    "preconditions": [
     "A REVIEW OF A TEXT THAT WAS LATER CHANGED REVIEWS NOTHING. Release 2026.11.08 recorded its S13-2L reworks NOT_RUN and would have delivered them with no blind check bound to the final text."
+   ]
+  },
+  "LAW-ORG-1 ORGANIC-SCOPE-BY-CONTENT": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.is_organic_item, bc.l2_applies(record=, organic_subtopics=); Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "Whether an item is organic is decided per item from its content (bc.is_organic_item: carbon-skeleton structure, reaction, named organic reaction / reagent, organic spectroscopy, organic stereochemistry), never from a section, subject or topic name; every organic rule reads the item's organic flag.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-2 PYQ-FAIL-CLOSED": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "fv.transcription_confidence, bc.pyq_record_complete, bc.pyq_record_status, bc.pyq_target_pool; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "A PYQ record not verified against its image is 'unverified' (figural_vision.transcription_confidence never reports 'full' when nothing was compared) and is excluded from every target pool (cards, exemplars, ruler, conventions, formats); it stays in the clone guard. Records are schema 3; completeness is checked in code (bc.pyq_record_complete); old records are back-filled, never silently trusted.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-3 NO-DELIVER-ANYWAY": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.SC_TERMINALS, bc.slot_chain_next, Create S13-2L / S13-2R v6.0; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "No ladder may end by accepting a failing item: every SC2 ending is a replacement (reserve_refill, refill_session); the only exception is LAW-ORG-4. FORCED, HELD, band swap, paired upgrade, panel, re-key, majority and DISCLOSED are retired as writers.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "audit_sync:STOP-NEEDS-REPAIR",
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-4 BOUNDED-LAST-RESORT": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "Create S13-2L last_resort, bc.last_resort_incident, DeliveryFooter §LADDER-OP; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "After the reserve and C_REFILL_SESSIONS fresh refill sessions, a difficulty slot takes the nearest-band FULLY verified item, labelled at the band it measured, with one AMBER footer line and an automatic P0 incident; key, figures and originality are never relaxed.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-5 EXACT-BAND": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.verify_difficulty_label(strict), bc.dl_set_label_basis_strict, audit_canonical A-QINDEX check 8 v2.40; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "A difficulty label is valid only on basis measured_exact (two FRESH blind graders and the band recipe all name the band — bc.band_exact, no vote) or last_resort; obs, l2, none, dr3, swap, forced and held are rejected on every paper produced at or after 2026.11.10 — for EVERY item of EVERY exam.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "audit_sync:STOP-NEEDS-REPAIR",
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-6 SCHEDULE-IS-INPUT": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.schedule_normalize, bc.schedule_place, bc.schedule_freeze, bc.schedule_frozen_check; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "The requested schedule is normalised once (an exact-sum request is never altered), placed exactly and frozen at intake; nothing may swap, carry, hold, force, relabel or stop on it.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-7 UNANIMOUS-KEY": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.key_unanimous, bc.solver_assumption_check, audit_canonical A-REVIEW v2.40; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "A key is valid only when the author and C_SOLVERS fresh blind solvers give the same answer (same set for MSQ, same value within tolerance for NAT); a decisive solver assumption fails the item; no majority.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-8 DIAGRAM-PROOF": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "corpus_io.organic_structure_layout / render_projection / organic_figure_proof, figural_core G-ORGPROOF + G-FIGCOLLIDE, final_assembly.paper_figure_proof_gate; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "Every organic figure has identity_ok (re-perceived from the drawn coordinates / projection rules), vision_ok (fresh vision read-back) and gates_ok (geometry, drawing-chemistry and size gates) true.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-9 STEREO-SUFFICIENCY": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.stem_stereo_gate, corpus_io.stereo_defined_gate; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "Every stereo element an organic item's outcome depends on is drawn, named, declared rac / rel / mixture, or proven irrelevant by a re-solve with every alternative configuration.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-10 ORIGINALITY": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.clone_guard, bc.series_registry_add; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "No structure clone, reaction near-clone or task near-clone of any past, library or series item.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-11 PARITY-FLOORS": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "fa.paper_parity_gate, bc.format_floors, bc.convention_floors, bc.substrate_check; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "Ask formats, drawing conventions, chain depth and substrate complexity sit inside the exam's own past ranges, scaled to the organic slots; shortfalls are filled by conversion or generation at the same band.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
+   ]
+  },
+  "LAW-ORG-12 STOP-NEEDS-REPAIR": {
+   "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
+   "stated_in": "bc.STOP_REPAIRS, bc.stop_repair_for, Create S0-OP-10, Orchestrate O2-7 / O6-2; Framework_MockTestCreate.md v6.0 S0-OP",
+   "requires": "Every stop site names its automatic repair; only the three environment failures (NO-FRAMEWORK, NO-SOURCE-DATA, NO-MODEL) may halt, and each saves state and resumes.",
+   "detect": "organic_parity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md"
+   ],
+   "verified_by": [
+    "audit_sync:STOP-NEEDS-REPAIR",
+    "blueprint_core.py --self-test (_op_self_test)",
+    "audit_canonical.py --self-test (v240 strict A-QINDEX / A-REVIEW)",
+    "handshake_audit.py --self-test (H-LB v2.0, H-DL v6.0, H5 LB2)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
    ]
   }
  },

@@ -13,6 +13,12 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.16 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (release 2026.11.10). qindex_cert
+    gains framework_release (bc.OP_RELEASE) — every audit of a paper at or after FRAMEWORK_RELEASE_STRICT judges its
+    labels LB2-strict; QINDEX_OP_FIELDS carries the generated-item records (organic flag, chain, decisions,
+    grades, key votes, clone check, stereo elements, figure proofs, last resort) when present;
+    paper_parity_gate (LAW-ORG-11) and paper_figure_proof_gate (LAW-ORG-8) are the assembly checks S13-2L runs.
+
     v1.15 — GAP-2026-11-08-DR3-QINDEX-CONFLICT (release 2026.11.09, OD-2026-11-09). QINDEX_V589_FIELDS
     carries 'slot_chain' — present ONLY on an item delivered DISCLOSED (its quality chain proven exhausted,
     Create S13-2L) — so the final S13-4c audit re-derives the disclosure from the REGISTRY alone (a resumed
@@ -386,6 +392,12 @@ def _entry_number(e):
 
 
 # v1.11 — optional per-question fields carried concept_map -> registry.question_index.
+# v1.16 (GAP-2026-11-10, GAP §6.1 generated item record): the per-item organic-parity / difficulty-integrity
+# records — carried ONLY when the concept_map entry has them (a legacy entry stays byte-identical)
+QINDEX_OP_FIELDS = ('organic', 'organic_reason', 'chain', 'decisions_author', 'decisions_grader', 'grades',
+                    'key_votes', 'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
+                    # the C2 item fields (S0-OP-5 CANDIDATE RECORD) — the series registry is seeded from them
+                    'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template')
 QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
                       'scheme_grammar', 'marked_sites', 'ladder',
                       'slot_chain')            # v1.15: a DISCLOSED item's exhausted chain (S13-4c re-derives it)
@@ -711,7 +723,9 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # concept_map entry has them, so a legacy entry stays byte-identical.
             **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V589_FIELDS if _k in concept_map[qn]},
             # v1.12 (GAP-2026-11-03): the quality verdicts, carried only when present.
-            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V590_FIELDS if _k in concept_map[qn]}}
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V590_FIELDS if _k in concept_map[qn]},
+            # v1.16 (GAP-2026-11-10): organic parity / difficulty integrity records
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_OP_FIELDS if _k in concept_map[qn]}}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(
@@ -722,7 +736,10 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                     # v1.13 (GAP-2026-11-04 D5): the release whose quality gates wrote this
                     # paper's quality_status stamps — Deliver re-certifies A-TEMPLATE-only
                     # stamps ONLY when they were written by 2026.11.03 (no stamps_release)
-                    "stamps_release": bc.STAMPS_RELEASE}
+                    "stamps_release": bc.STAMPS_RELEASE,
+                    # v1.16 (GAP-2026-11-10): the release that produced this paper — a paper at or after
+                    # bc.FRAMEWORK_RELEASE_STRICT is LB2-strict in every later audit (LAW-ORG-5)
+                    "framework_release": bc.OP_RELEASE}
     if framework_repo_commit is not None:
         _qindex_cert["framework_repo_commit"] = framework_repo_commit
     if spec_source_report is not None:
@@ -1297,6 +1314,56 @@ def outputs_to_clear(staged, *, docx_name, reg_name):
 # ══════════════════════════════════════════════════════════════════════════
 # S13-7 — predelivery_checklist()
 # ══════════════════════════════════════════════════════════════════════════
+def paper_parity_gate(concept_map, format_floors=None, convention_floors=None, chain_share_floor=None):
+    """v1.16 — LAW-ORG-11 PARITY-FLOORS at assembly (G-04 / G-05 / G-06): {'status': 'PASS'|'FAIL', 'formats',
+    'conventions', 'chain_share', 'short': [...]} over the paper's ORGANIC items: every ask-format floor and
+    convention floor met, and the share of items with >= 2 decisions >= chain_share_floor (the exam's past
+    share). A FAIL names what is short; Create S13-2L converts / generates to fill it (never a stop)."""
+    items = [dict(v, q=k) for k, v in (concept_map or {}).items() if isinstance(v, dict)]
+    org = [i for i in items if i.get('organic') is True]
+    fm = bc.parity_floor_check(org, format_floors or {}, key='ask_format')
+    cv = bc.parity_floor_check(org, convention_floors or {}, key='representations')
+    n2 = sum(1 for i in org if len([d for d in (i.get('decisions_author') or []) if d in bc.DECISION_TAGS]) >= 2)
+    share = (n2 / len(org)) if org else 1.0
+    short = [f'ask format {k}: {v} short' for k, v in fm['short'].items()] + \
+            [f'convention {k}: {v} short' for k, v in cv['short'].items()]
+    if isinstance(chain_share_floor, (int, float)) and share + 1e-9 < chain_share_floor:
+        short.append(f'items with >= 2 decisions {share:.0%} < past share {chain_share_floor:.0%}')
+    return {'status': 'FAIL' if short else 'PASS', 'formats': fm, 'conventions': cv,
+            'chain_share': round(share, 4), 'short': short}
+
+
+def paper_figure_proof_gate(concept_map, fig_manifest=None):
+    """v1.16 — LAW-ORG-8 at assembly: {'status', 'missing': {q: [proof names]}} — every figure record of every
+    ORGANIC item carries identity_ok, vision_ok and gates_ok True (the certificate requires all three).
+    fig_manifest (the paper's {EXAM}_fig_manifest.json, when given): an organic item that places a picture
+    (questions[q].image_hashes non-empty) with FEWER figures[] records than distinct pictures is missing
+    'figure_proof_record' —
+    a picture is never certified by the absence of its proof."""
+    miss = {}
+    fq = (fig_manifest or {}).get('questions') if isinstance(fig_manifest, dict) else None
+    fq = fq if isinstance(fq, dict) else {}
+    for q, v in (concept_map or {}).items():
+        if not isinstance(v, dict) or v.get('organic') is not True:
+            continue
+        _fqe = fq.get(str(q)) if isinstance(fq.get(str(q)), dict) else {}
+        _ot = str(_fqe.get('object_type') or '').lower()
+        # only a STRUCTURE picture needs a structure proof record (a spectrum / graph / photo picture does not)
+        _pics = _fqe.get("image_hashes") if _re.search(
+            r'struct|reaction|scheme|molecule|chair|newman|fischer|haworth|sawhorse|conform|projection', _ot) else None
+        _recs = [f for f in (v.get('figures') or []) if isinstance(f, dict)]
+        if _pics and len(_recs) < len(set(_pics)):                 # every picture holds >= 1 proven structure
+            miss[str(q)] = ['figure_proof_record']
+            continue
+        for f in (v.get('figures') or []):
+            if not isinstance(f, dict):
+                continue
+            m = [k for k in ('identity_ok', 'vision_ok', 'gates_ok') if f.get(k) is not True]
+            if m:
+                miss.setdefault(str(q), sorted(set(miss.get(str(q), []) + m)))
+    return {'status': 'FAIL' if miss else 'PASS', 'missing': miss}
+
+
 def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None,
                           regcheck_ok, qindex_ok, listdir=None, exists=None,
                           extra_deliverables=()):
@@ -2427,6 +2494,35 @@ def self_test():
     check('commit_difficulty_gate_absent_without_key',
           'difficulty_gate' not in r1['registry'])
 
+    # ── v1.16 (GAP-2026-11-10) — parity floors, figure proofs, release stamp ────────────────────
+    _cmp = {'1': {'organic': True, 'ask_format': 'two_part', 'decisions_author': ['chemoselectivity', 'facial_selectivity'],
+                  'representations': ['chair_conformation'],
+                  'figures': [{'identity_ok': True, 'vision_ok': True, 'gates_ok': True}]},
+            '2': {'organic': True, 'ask_format': 'forward_product', 'decisions_author': ['regioselectivity'],
+                  'representations': ['skeletal'], 'figures': [{'identity_ok': True, 'vision_ok': False, 'gates_ok': True}]},
+            '3': {'organic': False, 'ask_format': 'forward_product'}}
+    _pg = paper_parity_gate(_cmp, {'two_part': 1, 'statement_combination': 1}, {'chair_conformation': 1}, 0.66)
+    check('v116_parity_gate_names_shortfalls', _pg['status'] == 'FAIL' and _pg['chain_share'] == 0.5
+          and any('statement_combination' in x for x in _pg['short']) and any('decisions' in x for x in _pg['short'])
+          and paper_parity_gate(_cmp, {'two_part': 1}, {'chair_conformation': 1}, 0.5)['status'] == 'PASS')
+    _fp = paper_figure_proof_gate(_cmp)
+    check('v116_figure_proof_gate', _fp['status'] == 'FAIL' and _fp['missing'] == {'2': ['vision_ok']}
+          and paper_figure_proof_gate({})['status'] == 'PASS')
+    _fm2 = {'questions': {'5': {'image_hashes': ['h5'], 'object_type': 'chemical_structure'}, '6': {'image_hashes': []},
+                          '7': {'image_hashes': ['h7'], 'object_type': 'spectrum'}}}
+    _cm2 = {'5': {'organic': True}, '6': {'organic': True}, '7': {'organic': False}}
+    check('v116_picture_without_proof_record_fails',
+          paper_figure_proof_gate(_cm2, _fm2) == {'status': 'FAIL', 'missing': {'5': ['figure_proof_record']}}
+          and paper_figure_proof_gate(_cm2)['status'] == 'PASS'
+          and paper_figure_proof_gate(_cm2, {'questions': 'bad'})['status'] == 'PASS'
+          and paper_figure_proof_gate({'5': {'organic': True, 'figures': [
+              {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}]}}, _fm2)['status'] == 'PASS'
+          and paper_figure_proof_gate({'5': {'organic': True, 'figures': [
+              {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}]}},
+              {'questions': {'5': {'image_hashes': ['a', 'b'], 'object_type': 'reaction_scheme'}}})['status'] == 'FAIL'
+          and paper_figure_proof_gate({'7': {'organic': True}}, _fm2)['status'] == 'PASS')
+    check('v116_op_fields_carried', set(QINDEX_OP_FIELDS) >= {'organic', 'figures', 'key_votes', 'clone_check', 'grades'}
+          and not (set(QINDEX_OP_FIELDS) & set(QINDEX_V589_FIELDS)) and bc.OP_RELEASE >= bc.FRAMEWORK_RELEASE_STRICT)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

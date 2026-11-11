@@ -42,6 +42,20 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.0 (2026-11-10) — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY (owner
+      decisions 2026-11-10: D-1 (a) bounded last resort with C_REFILL_SESSIONS = 5; difficulty integrity for
+      EVERY item of EVERY exam; one release). NEW Cluster OP: content-based organic scope (is_organic_item;
+      l2_applies(record=, organic_subtopics=)); PYQ schema 3 + fail-closed status (pyq_record_complete,
+      pyq_stereo_fidelity, pyq_record_status, pyq_target_pool / pyq_guard_pool); stereo sufficiency
+      (stem_stereo_gate); conventions + scaffold rule + cross-exam library; one ask-format vocabulary + parity
+      floors; chain cards + composer (l2_slot_source never falls back to a single concept for a band needing
+      >= 2 decisions); clone_guard (structure / reaction / task + series registry; l2_copy_check now also
+      sees products held in content_objects); one calibrated ruler per exam (build_difficulty_ruler,
+      band_exact — two FRESH blind graders + the recipe, no vote); the schedule is input (schedule_normalize,
+      schedule_place never infeasible, schedule_freeze); SC2 ladders end reserve_refill -> refill_session ->
+      last_resort (SC1 endings kept ONLY to verify legacy records); LB2 strict label verifier (measured_exact /
+      last_resort only — obs / l2 / none / dr3 / swap / forced / held rejected on every LB2 row); reserve,
+      unanimous key, P0 incident, author brief, STOP_REPAIRS. Self-test _op_self_test.
     v1.33 (2026-11-07) — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07
       D1 (b), D2 relative, D3, D4, D5, D6, Q1 (c)). NEW Cluster DL — the difficulty layer every
       exam uses: difficulty_band_min (the lowest band of every independent control decides;
@@ -522,6 +536,127 @@ __all__ = [
     "l2_card_id", "l2_cards", "l2_band_load_floor", "l2_slot_source", "l2_copy_check", "l2_hard_supply",
     "dl_reviewer_band", "dl_phase3_decision", "dl_target_plan_swap", "dl_band_counts", "dl_gate_items", "PYQ_GRADE_PART_MAX",
     "pyq_grade_parts", "pyq_grades_from_parts", "bank_pyq_grades",
+    "op_constants",
+    "is_organic_item",
+    "organic_flag",
+    "organic_scope",
+    "normalize_ask_format",
+    "pyq_record_complete",
+    "stereo_elements",
+    "pyq_stereo_fidelity",
+    "pyq_record_status",
+    "pyq_target_pool",
+    "pyq_guard_pool",
+    "pyq_coverage",
+    "stem_stereo_gate",
+    "solver_assumption_check",
+    "exam_level",
+    "convention_shares",
+    "convention_floors",
+    "scaffold_convention",
+    "organic_library_empty",
+    "organic_library_build",
+    "organic_library_from",
+    "library_needed",
+    "format_shares",
+    "format_floors",
+    "parity_floor_check",
+    "chain_card_from_record",
+    "chain_compose",
+    "decision_contract_check",
+    "substrate_recipe",
+    "substrate_check",
+    "reagent_class",
+    "clone_fingerprint",
+    "clone_guard",
+    "series_registry_add",
+    "series_registry_rows",
+    "build_difficulty_ruler",
+    "ruler_needs_recalibration",
+    "ruler_min_band",
+    "band_recipe_check",
+    "band_exact",
+    "easy_quality_floor",
+    "schedule_normalize",
+    "schedule_place",
+    "schedule_freeze",
+    "schedule_frozen_check",
+    "k_candidates",
+    "key_unanimous",
+    "reserve_new",
+    "op_item_fingerprint",
+    "profile_backfill_delta",
+    "profile_merge_records",
+    "op_constants_reset",
+    "op_content_sha",
+    "op_record_controls",
+    "op_controls_current",
+    "ruler_input_records",
+    "ruler_graded_count",
+    "profile_overlay",
+    "op_key_ids",
+    "reserve_add",
+    "reserve_take",
+    "last_resort_incident",
+    "lb2_strict_row",
+    "verify_difficulty_label_strict",
+    "dl_set_label_basis_strict",
+    "refill_session_next",
+    "author_brief",
+    "stop_repair_for",
+    "OP_RULE_CURRENT",
+    "FRAMEWORK_RELEASE_STRICT",
+    "C_PYQ_REREAD_MAX",
+    "C_MIN_ORG_PYQ",
+    "C_CONV_MIN_SHARE",
+    "C_FORMAT_MIN_SHARE",
+    "C_NEAR_SIM",
+    "C_HOMOLOGUE_DELTA",
+    "C_SMALL_KEY",
+    "C_GRADERS",
+    "C_ANCHOR_MIN",
+    "C_RULER_AGREE",
+    "C_K_CANDIDATES",
+    "C_K_AFTER_MISS",
+    "C_REFILL_SESSIONS",
+    "C_REFILL_CANDIDATES",
+    "C_SOLVERS",
+    "C_LABEL_PAD",
+    "C_MIN_ATOM_SEP",
+    "C_REDEPICT_MAX",
+    "C_MIN_STEM_WIDTH_IN",
+    "C_MIN_OPTION_WIDTH_IN",
+    "C_VISION_READS_STEREO",
+    "C_VISION_READS",
+    "C_BRIEF_MAX_PAGES",
+    "C_BRIEF_CHARS_PER_PAGE",
+    "OP_CONSTANTS",
+    "ORGANIC_LEXICON",
+    "ORGANIC_STEREO_WORDS",
+    "ORGANIC_SPECTRO_WORDS",
+    "PYQ_SCHEMA_VERSION",
+    "ANSWER_KINDS",
+    "STEREO_MODES",
+    "TRANSCRIPTION_CONFIDENCE",
+    "ORG_CONVENTION_TAGS",
+    "FAMILY_TAGS",
+    "DECISION_TAGS",
+    "ASK_FORMATS",
+    "ASK_FORMAT_LEGACY",
+    "PYQ_REQUIRED_ORGANIC",
+    "STEREO_DECLARATIONS",
+    "EXAM_LEVELS",
+    "LEVEL_DEFAULT_RECIPES",
+    "FORMAT_CONVERTERS",
+    "REAGENT_CLASSES",
+    "SC_TERMINALS_V2",
+    "LB2_KINDS",
+    "LB_RULE_STRICT",
+    "ENVIRONMENT_FAILURES",
+    "STOP_REPAIRS",
+    "SC_TERMINALS_SC1",
+    "sc_terminals",
+    "OP_RELEASE",
 ]
 
 
@@ -3872,6 +4007,10 @@ def difficulty_feasibility(counts, qtype_by_q, difficulty_labels):
     Returns {} when feasible, else {label: {'requested': r, 'max_achievable': m}}.
     {} (vacuous pass) on a non-3-band vocabulary — same fall-through as the rubric.
 
+    v2.0 (G-09 F-09.1, LAW-ORG-6): a PLANNING HINT ONLY — it tells the planner which slots need band
+    operators or the library; it NEVER stops a run and NEVER changes the schedule (schedule_normalize +
+    schedule_place place every request). Under an exam ruler the qtype floor comes from the anchors
+    (ruler_min_band), not from the rubric.
     Only the BOTTOM band is capacity-bound (an MSQ/NAT position can never be
     authored down to it — difficulty_min_band). Any position can be authored UP
     (more steps, more concepts), so the middle and top bands are never capped.
@@ -3967,9 +4106,10 @@ def difficulty_authoring_profile(band, qtype, difficulty_labels, rule=RUBRIC_RUL
                 return None                    # structurally impossible — floor (unchanged)
             return dict(_r2, classes=['C-FACTUAL', 'C-VOCAB-ITEM', 'C-FORMAL-LOGIC'],
                         steps=(0, 1), concepts=(1, 1), avoid_negative=True,
-                        note='recall / one principle, at most one inferential move; NEVER '
-                             'computational, figural, structural or derivational (their '
-                             'baseline alone exceeds the bottom band); no speed hack')
+                        note='recall / one principle, at most one inferential move; no speed hack '
+                             '(LEGACY rubric feature only — v2.0 F-08.2: the band is decided by the '
+                             "exam's calibrated ruler; a figural / structural Easy item is valid when the "
+                             "exam's Easy anchors are figural / structural)")
         if band == MEDIUM:
             if qt in _QTYPE_FLOOR_CLASS:
                 return dict(_r2, classes=[], steps=(0, 1), concepts=(1, 2), avoid_negative=True,
@@ -6489,7 +6629,7 @@ def _lb_sc_self_test(check):
     check('sc_bounds', slot_chain_reviewed_max('difficulty') == 13 and slot_chain_reviewed_max('dispute') == 12
           and slot_chain_reviewed_max('quality') == 11 and slot_chain_reviewed_max('nope') == 11
           and slot_chain_reviewed_max('upgrade') == 5)
-    _cu = slot_chain_new(8, 'upgrade', 'Hard')
+    _cu = slot_chain_new(8, 'upgrade', 'Hard', rule='SC1')
     _su = []
     for _i in range(12):
         _nu = slot_chain_next(_cu)
@@ -6499,7 +6639,7 @@ def _lb_sc_self_test(check):
             break
         _cu = slot_chain_record(_cu, _nu['stage'], 'fail')
     check('sc_upgrade_order', _su == ['rework_dr1', 'rework_dr2', 'replace', 'replace', 'replace', 'abandon'])
-    ch = slot_chain_new(17, 'difficulty', 'Hard', 'oc.a.b')
+    ch = slot_chain_new(17, 'difficulty', 'Hard', 'oc.a.b', rule='SC1')
     seq = []
     for _i in range(40):
         nx = slot_chain_next(ch, siblings=['s1', 's2', 's3', 's4'])
@@ -6508,7 +6648,7 @@ def _lb_sc_self_test(check):
             seq.append(nx['action'])
             break
         seq.append(nx['action'] + (':' + nx['sibling'] if nx['sibling'] else ''))
-        if nx['action'] in SC_TERMINALS['difficulty']:
+        if nx['action'] in SC_TERMINALS_SC1['difficulty']:
             ch = slot_chain_record(ch, nx['action'], 'fail')
         else:
             ch = slot_chain_record(ch, nx['stage'], 'fail', item_hash=f'h{_i}', sibling=nx['sibling'])
@@ -6516,7 +6656,7 @@ def _lb_sc_self_test(check):
                                          'sibling:s1', 'sibling:s1', 'sibling:s2', 'sibling:s2', 'sibling:s3', 'sibling:s3',
                                          'band_swap', 'paired_upgrade', 'forced'])
     check('sc_exhausted_only_at_end', slot_chain_exhausted(ch, 'difficulty') and not slot_chain_exhausted(ch, 'dispute'))
-    _ch_short = slot_chain_new(1, 'difficulty', 'Hard')
+    _ch_short = slot_chain_new(1, 'difficulty', 'Hard', rule='SC1')
     _ch_short = slot_chain_record(_ch_short, 'rework_dr1', 'fail')
     check('sc_not_exhausted_early', not slot_chain_exhausted(_ch_short, 'difficulty'))
     _f, _okf, _ = dl_set_label_basis(dict(_e, difficulty='Medium'), 'forced', L, 'Hard', controls={'reviewer': 'Medium'}, chain=ch)
@@ -6528,7 +6668,7 @@ def _lb_sc_self_test(check):
     check('lb_forced_tampered_chain_fails', verify_difficulty_label(dict(_f, difficulty_check=_fdc), L) == (False, 'Hard', 'forced'))
     check('lb_forced_label_must_be_target', verify_difficulty_label(dict(_f, difficulty='Medium'), L)[0] is False)
     # unavailable stages are skipped and count as exhausted; pending blocks exhaustion
-    ch2 = slot_chain_new(3, 'difficulty', 'Hard')
+    ch2 = slot_chain_new(3, 'difficulty', 'Hard', rule='SC1')
     acts = []
     for _i in range(10):
         nx = slot_chain_next(ch2, sources=False, shapes=False, siblings=[])
@@ -6539,19 +6679,19 @@ def _lb_sc_self_test(check):
         ch2 = slot_chain_record(ch2, nx['stage'], 'fail')
     check('sc_unavailable_skipped', acts == ['rework_dr1', 'rework_dr2', 'band_swap', 'paired_upgrade', 'forced']
           and slot_chain_exhausted(ch2, 'difficulty') and set(ch2['unavailable']) == {'replace', 'shape', 'sibling'})
-    _sp = slot_chain_record(slot_chain_new(4, 'dispute'), 'sibling', 'pending', sibling='s1')
+    _sp = slot_chain_record(slot_chain_new(4, 'dispute', rule='SC1'), 'sibling', 'pending', sibling='s1')
     _sp = slot_chain_record(_sp, 'sibling', 'fail')                 # phase 3 resolves it without naming the sibling
     _sp = slot_chain_record(slot_chain_record(_sp, 'sibling', 'pending', sibling='s1'), 'sibling', 'fail')
     check('sc_resolution_keeps_sibling', [a.get('sibling') for a in _sp['attempts']] == ['s1', 's1']
           and _sc_used(_sp['attempts'], 'sibling', 's1') == 2)
-    _pend = slot_chain_record(slot_chain_new(4, 'difficulty'), 'rework_dr1', 'pending')
+    _pend = slot_chain_record(slot_chain_new(4, 'difficulty', rule='SC1'), 'rework_dr1', 'pending')
     check('sc_pending_blocks_and_is_replaced', not slot_chain_exhausted(_pend)
           and len(slot_chain_record(_pend, 'rework_dr1', 'fail')['attempts']) == 1)
-    _pass = slot_chain_record(slot_chain_new(5, 'difficulty'), 'replace', 'pass')
+    _pass = slot_chain_record(slot_chain_new(5, 'difficulty', rule='SC1'), 'replace', 'pass')
     check('sc_pass_ends_chain', _pass['done'] and _pass['outcome'] == 'replace'
           and slot_chain_next(_pass)['action'] == 'done' and slot_chain_next(None)['action'] == 'done')
     # dispute chain order
-    cd = slot_chain_new(29, 'dispute')
+    cd = slot_chain_new(29, 'dispute', rule='SC1')
     sd = []
     for _i in range(30):
         nx = slot_chain_next(cd, siblings=['x'])
@@ -6642,7 +6782,7 @@ def _lb_sc_self_test(check):
     check('rv_record_independent', review_record_independent(_ag) and not review_record_independent(dict(_ag, reviewer='same-session'))
           and not review_record_independent({'status': 'NOT_RUN', 'reviewer': 'sub-agent'}) and not review_record_independent(None))
     # slot_chain_reopen: suspend / resume / history (bounded difficulty <-> dispute alternation, no lost disclosure)
-    _dch = slot_chain_record(slot_chain_record(slot_chain_new('5', 'difficulty', 'Hard'), 'rework_dr1', 'fail'),
+    _dch = slot_chain_record(slot_chain_record(slot_chain_new('5', 'difficulty', 'Hard', rule='SC1'), 'rework_dr1', 'fail'),
                              'rework_dr2', 'pending')
     _dsp = slot_chain_reopen(_dch, '5', 'dispute')
     check('sc_reopen_suspends_open_difficulty', _dsp['kind'] == 'dispute' and _dsp['suspended']['kind'] == 'difficulty'
@@ -6658,9 +6798,9 @@ def _lb_sc_self_test(check):
           and slot_chain_exhausted(_cmp, 'dispute') == slot_chain_exhausted(_dsp_done, 'dispute')
           and slot_chain_compact(None) == {})
     check('sc_footer_reports_history', any('Q5: certified by majority' in x for x in _fzr['amber']))
-    _fr = chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard'), 'forced_refused', why='x')})
+    _fr = chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard', rule='SC1'), 'forced_refused', why='x')})
     check('sc_footer_forced_refused_is_amber', any('Q9: below its Hard slot' in x for x in _fr['amber']))
-    _same = slot_chain_new('6', 'quality')
+    _same = slot_chain_new('6', 'quality', rule='SC1')
     check('sc_reopen_same_kind_live_is_identity', slot_chain_reopen(_same, '6', 'quality') is _same
           and slot_chain_reopen(None, '7', 'dispute')['kind'] == 'dispute'
           and slot_chain_reopen(slot_chain_finish(_same, 'amber'), '6', 'difficulty')['history'][0]['outcome'] == 'amber')
@@ -6703,7 +6843,7 @@ def _lb_sc_self_test(check):
           and ladder_entry('A-QINDEX-LABEL') == 'R2' and ladder_entry(['A-QINDEX-FLOOR', 'G-FIGLABEL']) == 'RL')
     # ── footer lines for terminals ──
     _fz = chain_footer_lines({'17': slot_chain_finish(ch, 'forced', measured='Medium'),
-                              '2': slot_chain_finish(slot_chain_new(2, 'difficulty', 'Hard'), 'band_swap', partner='9'),
+                              '2': slot_chain_finish(slot_chain_new(2, 'difficulty', 'Hard', rule='SC1'), 'band_swap', partner='9'),
                               '29': _fin, '8': {'done': False}})
     check('sc_footer', any('Q17: labelled Hard per schedule; independent review measured Medium' in x for x in _fz['amber'])
           and any('Q29: certified by majority' in x and '1/4' in x for x in _fz['amber'])
@@ -6747,7 +6887,7 @@ def _lb_sc_self_test(check):
     check('mig_dr3_and_unresolved_dispute_wins', _bsb['slot_chain']['7']['kind'] == 'dispute'
           and _kdb['concept_map']['7']['difficulty'] == 'Hard' and _rpb['dr3_restored'] == ['7']
           and _rpb['unresolved_cleared'] == ['7'] and 'quality_status' not in _kdb['concept_map']['7'])
-    _sk = dict(slot_chain_new('4', 'quality'), skip_siblings=['s1'])
+    _sk = dict(slot_chain_new('4', 'quality', rule='SC1'), skip_siblings=['s1'])
     for _st in ('replace', 'replace', 'replace', 'shape', 'shape'):
         _sk = slot_chain_record(_sk, _st, 'fail')
     _n1 = slot_chain_next(_sk, siblings=['s1', 's2', 's3', 's4'])
@@ -6765,7 +6905,7 @@ def _lb_sc_self_test(check):
         _sk2 = slot_chain_record(_sk2, 'sibling', 'fail', sibling=_nx2['sibling'])
     check('sc_skipped_attempted_sibling_counts_toward_cap', _seq2 == ['s3', 's3', 's4', 's4']
           and sum(1 for a in _sk2['attempts'] if a.get('outcome') == 'fail') <= slot_chain_reviewed_max('quality'))
-    _cs = slot_chain_new(9, 'difficulty', 'Hard')
+    _cs = slot_chain_new(9, 'difficulty', 'Hard', rule='SC1')
     for _st in ('rework_dr1', 'rework_dr2'):
         _cs = slot_chain_record(_cs, _st, 'fail')
     _ns = slot_chain_next(_cs, sources=False, shapes=False, siblings=['s1'])
@@ -6845,11 +6985,11 @@ def _lb_sc_edge_self_test(check):
     # slot_chain_exhausted — every stage to its cap or unavailable; < 3 siblings without 'unavailable' is NOT exhausted;
     # every terminal BEFORE the last must be tried; a pending attempt blocks; kind must match
     def _run(kind, sibs, terms):
-        c = slot_chain_new('1', kind)
+        c = slot_chain_new('1', kind, rule='SC1')
         while True:
             nx = slot_chain_next(c, siblings=sibs)
             c = nx['chain']
-            if nx['action'] in SC_TERMINALS[kind] or nx['action'] == 'done':
+            if nx['action'] in SC_TERMINALS_SC1[kind] or nx['action'] == 'done':
                 break
             c = slot_chain_record(c, nx['stage'], 'fail', sibling=nx['sibling'])
         for t in terms:
@@ -6869,37 +7009,37 @@ def _lb_sc_edge_self_test(check):
     cdp = slot_chain_record(slot_chain_record(slot_chain_record(cd, 'band_swap', 'fail'), 'paired_upgrade', 'fail'), 'rework_dr1', 'pending')
     check('edge_exhaust_pending_blocks', not slot_chain_exhausted(cdp, 'difficulty'))
     # slot_chain_record — a terminal is recorded once; a pass ends the chain with that stage as outcome; facts kept
-    ct = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty'), 'band_swap', 'fail'), 'band_swap', 'fail')
+    ct = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty', rule='SC1'), 'band_swap', 'fail'), 'band_swap', 'fail')
     check('edge_record_terminal_once', ct['terminal_tried'] == ['band_swap'] and ct['attempts'] == [])
-    cr = slot_chain_record(slot_chain_new('1', 'quality'), 'replace', 'pending', item_hash='H', source='S', sibling=None, note='n')
+    cr = slot_chain_record(slot_chain_new('1', 'quality', rule='SC1'), 'replace', 'pending', item_hash='H', source='S', sibling=None, note='n')
     cr2 = slot_chain_record(cr, 'replace', 'pass')
     check('edge_record_resolution_keeps_facts', cr2['attempts'] == [{'stage': 'replace', 'outcome': 'pass', 'item_hash': 'H', 'source': 'S'}]
           and cr2['done'] is True and cr2['outcome'] == 'replace'
           and slot_chain_record(cr, 'replace', 'weird')['attempts'][-1]['outcome'] == 'fail'
           and len(slot_chain_record(cr, 'shape', 'fail')['attempts']) == 2)
     # slot_chain_finish — records the terminal once and the facts
-    cf = slot_chain_finish(slot_chain_record(slot_chain_new('1', 'dispute'), 'panel', 'fail'), 'panel', agree=2)
+    cf = slot_chain_finish(slot_chain_record(slot_chain_new('1', 'dispute', rule='SC1'), 'panel', 'fail'), 'panel', agree=2)
     check('edge_finish', cf['terminal_tried'] == ['panel'] and cf['done'] and cf['outcome'] == 'panel' and cf['agree'] == 2
-          and slot_chain_finish(slot_chain_new('1', 'quality'), 'replace')['terminal_tried'] == [])
+          and slot_chain_finish(slot_chain_new('1', 'quality', rule='SC1'), 'replace')['terminal_tried'] == [])
     # slot_chain_reopen — history grows across reopens; a live chain of the same kind is returned unchanged
-    a1 = slot_chain_finish(slot_chain_new('1', 'quality'), 'amber')
+    a1 = slot_chain_finish(slot_chain_new('1', 'quality', rule='SC1'), 'amber')
     a2 = slot_chain_finish(slot_chain_reopen(a1, '1', 'dispute'), 'majority')
     a3 = slot_chain_reopen(a2, '1', 'difficulty', 'Hard', 's')
     check('edge_reopen_history', [h['outcome'] for h in a3['history']] == ['amber', 'majority'] and a3['kind'] == 'difficulty'
           and a3['target'] == 'Hard' and a3['subtopic_id'] == 's' and 'suspended' not in a3)
-    op = slot_chain_new('1', 'difficulty')
+    op = slot_chain_new('1', 'difficulty', rule='SC1')
     sp = slot_chain_reopen(op, '1', 'dispute')
     check('edge_reopen_suspend_open_without_pending', sp['suspended']['attempts'] == [] and sp['kind'] == 'dispute'
           and slot_chain_reopen(slot_chain_finish(sp, 'panel'), '1', 'quality')['kind'] == 'quality')
     # chain_footer_lines — the exact text of every terminal line
     fz = chain_footer_lines({
-        '2': slot_chain_finish(slot_chain_record(slot_chain_new('2', 'difficulty', 'Hard'), 'rework_dr1', 'fail'), 'forced', measured='Medium'),
-        '3': slot_chain_finish(slot_chain_new('3', 'difficulty'), 'paired_upgrade', partner='8'),
-        '4': slot_chain_finish(slot_chain_new('4', 'dispute'), 'rekey_review'),
-        '5': slot_chain_finish(slot_chain_new('5', 'quality'), 'amber', gates=['A-X', 'A-Y']),
-        '6': slot_chain_finish(slot_chain_new('6', 'quality', None, 'oc.s'), 'sibling'),
-        '7': slot_chain_finish(slot_chain_new('7', 'dispute'), 'replace'),
-        '10': slot_chain_finish(slot_chain_new('10', 'difficulty', 'Hard'), 'forced'),
+        '2': slot_chain_finish(slot_chain_record(slot_chain_new('2', 'difficulty', 'Hard', rule='SC1'), 'rework_dr1', 'fail'), 'forced', measured='Medium'),
+        '3': slot_chain_finish(slot_chain_new('3', 'difficulty', rule='SC1'), 'paired_upgrade', partner='8'),
+        '4': slot_chain_finish(slot_chain_new('4', 'dispute', rule='SC1'), 'rekey_review'),
+        '5': slot_chain_finish(slot_chain_new('5', 'quality', rule='SC1'), 'amber', gates=['A-X', 'A-Y']),
+        '6': slot_chain_finish(slot_chain_new('6', 'quality', None, 'oc.s', rule='SC1'), 'sibling'),
+        '7': slot_chain_finish(slot_chain_new('7', 'dispute', rule='SC1'), 'replace'),
+        '10': slot_chain_finish(slot_chain_new('10', 'difficulty', 'Hard', rule='SC1'), 'forced'),
         '9': 'junk', '11': {'done': True, 'outcome': 'rekey'}})
     check('edge_footer_text', fz['amber'] == [
         'Q2: labelled Hard per schedule; independent review measured Medium after 1 reviewed attempt(s) and both swap routes (schedule_forced)',
@@ -6990,7 +7130,7 @@ def _lb_sc_edge2_self_test(check):
         check(f'edge2_mismatched_{rung}_{kind}_unknown', verify_difficulty_label({'difficulty': 'Medium', 'difficulty_check': {
             'dl_rung': rung, 'label_basis': {'kind': kind, 'target': 'Medium', 'controls': {'m': 'Hard'}}}}, L) == (False, None, 'unknown'))
     # an unknown basis kind is refused even with an exhausted chain (never a KeyError, never a write)
-    cx = slot_chain_new('1', 'difficulty')
+    cx = slot_chain_new('1', 'difficulty', rule='SC1')
     while True:
         nx = slot_chain_next(cx, sources=False, shapes=False, siblings=[])
         cx = nx['chain']
@@ -7003,18 +7143,18 @@ def _lb_sc_edge2_self_test(check):
     e_r = dl_set_label_basis({'difficulty': 'Hard'}, 'review', L, 'Medium', controls={'m': 'Hard'})[0]['difficulty_check']['label_basis']
     check('edge2_measured_recorded_only_for_held_and_forced', e_h.get('measured') == 'Hard' and 'measured' not in e_r)
     # a None sibling is never a candidate
-    cn = slot_chain_new('1', 'quality')
+    cn = slot_chain_new('1', 'quality', rule='SC1')
     for st in ('replace', 'replace', 'replace', 'shape', 'shape'):
         cn = slot_chain_record(cn, st, 'fail')
     check('edge2_none_sibling_ignored', slot_chain_next(cn, siblings=[None, 'a'])['sibling'] == 'a')
     # resolving a pending attempt copies ITS facts (the last attempt), never an earlier attempt's
-    c2 = slot_chain_record(slot_chain_record(slot_chain_new('1', 'quality'), 'sibling', 'fail', sibling='a', source='sA'),
+    c2 = slot_chain_record(slot_chain_record(slot_chain_new('1', 'quality', rule='SC1'), 'sibling', 'fail', sibling='a', source='sA'),
                            'sibling', 'pending', sibling='b')
     c2 = slot_chain_record(c2, 'sibling', 'fail')
     check('edge2_resolution_copies_last_attempt', [(a.get('sibling'), a.get('source')) for a in c2['attempts']] == [('a', 'sA'), ('b', None)])
     # sibling exhaustion counted from the attempts (no 'unavailable' mark): 3 siblings x 2 -> exhausted; fewer -> not
     def _qc(sib_attempts):
-        c = slot_chain_new('1', 'quality')
+        c = slot_chain_new('1', 'quality', rule='SC1')
         for st in ('replace', 'replace', 'replace', 'shape', 'shape'):
             c = slot_chain_record(c, st, 'fail')
         for sb, k in sib_attempts:
@@ -7026,12 +7166,12 @@ def _lb_sc_edge2_self_test(check):
           and not slot_chain_exhausted(_qc([('a', 2), ('b', 2)]), 'quality')
           and not slot_chain_exhausted(_qc([('a', 2), ('a', 2), ('b', 2)]), 'quality'))
     # reopen records the LAST attempt as failed only when it is pending
-    pa = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty'), 'rework_dr1', 'pending'), 'rework_dr1', 'fail')
+    pa = slot_chain_record(slot_chain_record(slot_chain_new('1', 'difficulty', rule='SC1'), 'rework_dr1', 'pending'), 'rework_dr1', 'fail')
     pa = slot_chain_record(pa, 'rework_dr2', 'pending')
     rp = slot_chain_reopen(pa, '1', 'dispute')
     check('edge2_reopen_resolves_last_pending', [(a['stage'], a['outcome']) for a in rp['suspended']['attempts']]
           == [('rework_dr1', 'fail'), ('rework_dr2', 'fail')])
-    rp2 = slot_chain_reopen(slot_chain_record(slot_chain_new('1', 'difficulty'), 'rework_dr1', 'fail'), '1', 'dispute')
+    rp2 = slot_chain_reopen(slot_chain_record(slot_chain_new('1', 'difficulty', rule='SC1'), 'rework_dr1', 'fail'), '1', 'dispute')
     check('edge2_reopen_no_pending_untouched', [(a['stage'], a['outcome']) for a in rp2['suspended']['attempts']] == [('rework_dr1', 'fail')])
     # swap preference: an EXACT-band partner beats a lower-numbered higher-measured one
     tp = {'1': 'Hard', '2': 'Easy', '3': 'Easy'}
@@ -7057,7 +7197,7 @@ def _lb_sc_edge2_self_test(check):
     # sweep cap parameter honoured at its low end
     check('edge2_sweep_cap_param', sweep_route([], [{'check': 'A-SEQ', 'message': 'x'}], 1, max_sweeps=1)['paper'] == {'A-SEQ': 'amber'})
     # forced_refused line carries the reason verbatim
-    check('edge2_forced_refused_text', chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard'),
+    check('edge2_forced_refused_text', chain_footer_lines({'9': slot_chain_finish(slot_chain_new('9', 'difficulty', 'Hard', rule='SC1'),
           'forced_refused', why='target not a label')})['amber'] == [
           'Q9: below its Hard slot after every route; its schedule label could not be recorded (target not a label) — delivered, disclosed'])
     # migrate: a reworked q absent from the concept map gets no chain; a q both DR3-restored and reworked keeps ONE
@@ -7068,7 +7208,7 @@ def _lb_sc_edge2_self_test(check):
     check('edge2_migrate_rework_keys', '9' not in bm['slot_chain'] and rm['rework_pending'] == ['2']
           and bm['slot_chain']['1']['attempts'] == [] and bm['slot_chain']['2']['kind'] == 'difficulty'
           and bm['slot_chain']['2']['target'] == 'Hard' and bm['slot_chain']['2']['subtopic_id'] == 's2')
-    bd, kd, rd = migrate_paper_state({'slot_chain': {'1': slot_chain_finish(slot_chain_new('1', 'difficulty'), 'replace')}},
+    bd, kd, rd = migrate_paper_state({'slot_chain': {'1': slot_chain_finish(slot_chain_new('1', 'difficulty', rule='SC1'), 'replace')}},
                                      {'concept_map': {'1': {'difficulty': 'Hard', 'quality_status': 'UNRESOLVED(A-REVIEW)'}}}, 'p')
     check('edge2_migrate_unresolved_with_finished_chain', bd['slot_chain']['1']['kind'] == 'dispute'
           and bd['slot_chain']['1']['history'][0]['outcome'] == 'replace' and rd['unresolved_cleared'] == ['1'])
@@ -7079,6 +7219,428 @@ def _lb_sc_edge2_self_test(check):
     rr = {'difficulty_band_with_exemplar': 'Medium (exemplar 1)'}
     check('edge2_phase3_default_round', dl_phase3_decision('Hard', L, review_rec=rr)['action'] == 'repair'
           and dl_phase3_decision('Hard', L, review_rec=rr, review_round=None)['action'] == 'repair')
+
+
+
+def _op_self_test(check):
+    """v2.0 — Cluster OP fixtures (GAP-2026-11-10 07_fixtures.json FX-G01..FX-G14, engine-level)."""
+    L = ['Easy', 'Medium', 'Hard']
+    rd = _qf_rdkit() is not None
+    # ── G-01 (FX-G01-1..4) ──
+    halo = {'content_objects': [{'kind': 'STRUCTURE', 'canonical': 'CCCCBr'}], 'named_concepts': ['SN2']}
+    check('op_G01_1_haloalkane_by_content', is_organic_item(halo)[0] is True
+          and l2_applies('ch.b', 'Chemistry', 'Haloalkanes and Haloarenes', record=halo) is True)
+    iupac = {'content_objects': [{'kind': 'STRUCTURE', 'canonical': 'CC(C)CC(=O)O'}], 'stem': 'Give the IUPAC name'}
+    mole = {'stem': 'How many moles of NaCl are present in 5.85 g?', 'content_objects': [],
+            'answer_kind': 'number'}
+    check('op_G01_2_iupac_item_organic', is_organic_item(iupac)[0] is True)
+    check('op_G01_3_mole_concept_not_organic', is_organic_item(mole)[0] is False
+          and l2_applies('ch.h', 'Chemistry', 'Some Basic Principles and Techniques', record=mole) is False)
+    med = {'content_objects': [{'kind': 'STRUCTURE', 'canonical': 'CC(=O)Nc1ccc(O)cc1'}]}
+    check('op_G01_4_medicinal_chem_organic', l2_applies('ph.g', 'Pharmacy', 'Medicinal Chemistry', record=med) is True)
+    check('op_G01_counterion_only_not_organic', is_organic_item({'content_objects': [
+        {'kind': 'STRUCTURE', 'canonical': '[Co+3].[Cl-].[Cl-].[Cl-]'}], 'option_smiles': {'1': 'CC(=O)[O-]'}})[0] is False)
+    check('op_G01_subtopic_membership', l2_applies('ch.x.y', 'Chemistry', 'Amines', organic_subtopics=['ch.x.y']) is True
+          and l2_applies('ch.x.z', 'Chemistry', 'Amines', organic_subtopics=['ch.x.y']) is False)
+    check('op_G01_name_rule_tiebreak_unchanged', l2_applies('oc.x', 'Organic Chemistry', None) is True
+          and l2_applies('ic.x', 'Inorganic Chemistry', None) is False)
+    check('op_G01_scope', organic_scope({'papers': {'p': {'questions': {'1': dict(halo, subtopic_id='oc.a'),
+                                                                          '2': mole}}}})['organic_subtopics'] == ['oc.a'])
+    check('op_G01_no_false_positive_on_names_and_biology',
+          is_organic_item({'stem': 'Michael and Julia bought 12 pens; how many did Jones get?'})[0] is False
+          and is_organic_item({'stem': 'A cis-acting element regulates the trans gene in E1 cells'})[0] is False
+          and is_organic_item({'stem': 'The Michael addition of the enolate gives which product?'})[0] is True
+          and is_organic_item({'stem': 'x', 'named_concepts': ['Wittig']})[0] is True
+          and is_organic_item({'stem': 'Which isomer is the cis alkene?'})[0] is True)
+    check('op_G01_smiles_validity', _op_smiles_valid('c1ccccc1') and _op_smiles_valid('Brc1ccc(Br)cc1')
+          and _op_smiles_valid('C[C@H](Cl)C(=O)O') and _op_smiles_valid('[Cu+2].[O-]c1ccccc1')
+          and not _op_smiles_valid('bis(N,O-chelate)Cu(II), N trans N') and not _op_smiles_valid('2 Cr(CO)6 + X')
+          and not _op_smiles_valid('[(CO)5Cr(mu-H)Cr(CO)5]-') and not _op_smiles_valid(''))
+    check('op_G01_real_data_false_positives', all(is_organic_item(x)[0] is False for x in [
+        {'named_concepts': ['Tanabe-Sugano diagram'], 'stem': 'The lowest energy absorption bands for [CrF6]3- are'},
+        {'named_concepts': ['chirality'], 'stem': 'Amongst the given complexes, cis-[Co(en)2Cl2], [Cr(ox)3]3- the chiral ones are'},
+        {'named_concepts': ['kinetic isotope'], 'stem': 'For the following bimolecular gas-phase reactions, the Arrhenius parameters'},
+        {'named_concepts': ['NMR'], 'stem': 'Match the physical methods in Column I with the information in Column II'},
+        {'content_objects': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'bis(N,O-chelate)Cu(II), N trans N'}],
+         'stem': 'The total number of lines expected in the EPR spectrum of the Cu(II) complex'},
+        {'content_objects': [{'role': 'problem', 'kind': 'REACTION', 'canonical': '2 Cr(CO)6 + X -> [(CO)5Cr(mu-H)Cr(CO)5]-'}],
+         'stem': 'Consider the following reaction. X is'},
+        {'named_concepts': ['Huckel theory'], 'stem': 'Using Huckel theory the delocalisation energy of the allyl radical is'},
+        {'named_concepts': ['polymer'], 'stem': 'The number-average molar mass of a polymer sample is'}]))
+    check('op_G01_real_data_true_positives', all(is_organic_item(x)[0] is True for x in [
+        {'content_objects': [{'role': 'problem', 'kind': 'REACTION',
+                              'canonical': 'COCC1C=CC=C1.C=C[N+](=O)[O-]>>COCC1C2C=CC1C(=O)C2'}]},
+        {'option_smiles': {'1': 'c1ccccc1O', '2': 'c1ccccc1N'}},
+        {'named_concepts': ['Michael addition'], 'stem': 'The major product of the reaction of the enolate with methyl vinyl ketone'},
+        {'named_concepts': ['chirality'], 'stem': 'The number of stereocentres in the given alcohol is'},
+        {'content_objects': [{'role': 'problem', 'kind': 'REACTION', 'canonical': 'C=CC.[Rh]>>CCCC=O'}],
+         'stem': 'hydroformylation gives'},
+        {'option_smiles': {'1': 'CCO', '2': 'CCCO'}}, {'answer_smiles': 'c1ccccc1'},
+        {'stem': 'The number of 1H NMR signals in toluene is'},
+        {'stem': 'The major product of the reaction of 2-butanol with conc. H2SO4 is'},
+        {'stem': 'एल्कीन का उत्पाद'}]))
+    check('op_G01_text_biology_not_organic', is_organic_item({'stem': 'The major product of glycolysis is'})[0] is False
+          and is_organic_item({'content_objects': [{'canonical': 'CCO'}], 'stem': 'x'})[0] is False)
+    _bp = {'papers': {'P1': {'questions': {'1': {'subtopic_id': 'oc.a', 'schema_version': 2},
+                                            '2': {'subtopic_id': 'oc.b', 'schema_version': 2}}}}}
+    _wp = {'papers': {'P1': {'questions': {'1': {'subtopic_id': 'oc.a', 'schema_version': 3, 'blind_grade_1': 'Hard'},
+                                            '2': {'subtopic_id': 'oc.b', 'schema_version': 2}}}}}
+    _dl = profile_backfill_delta(_wp, _bp)
+    _ov, _na = profile_overlay(_bp, _dl)
+    check('op_G02_backfill_persists_via_registry', list(_dl) == ['P1:1'] and _na == 1
+          and _ov['papers']['P1']['questions']['1']['schema_version'] == 3
+          and _ov['papers']['P1']['questions']['2']['schema_version'] == 2
+          and profile_overlay(_bp, None) == (_bp, 0) and profile_backfill_delta(None, None) == {}
+          and _bp['papers']['P1']['questions']['1']['schema_version'] == 2)
+    _rp = {'papers': {'P': {'questions': {'1': {'organic': False, 'has_figure': False, 'blind_grade_1': 'Easy',
+                                                'blind_grade_2': 'Hard'},
+                                          '2': {'organic': False, 'transcription_confidence': 'full',
+                                                'blind_grade_1': 'Easy', 'blind_grade_2': 'Easy'},
+                                          '3': {'organic': False, 'transcription_confidence': 'partial',
+                                                'blind_grade_1': 'Easy', 'blind_grade_2': 'Easy'},
+                                          '4': {'organic': False, 'has_figure': False}}}}}
+    check('op_G08_graded_count_matches_ruler_inputs', ruler_graded_count(_rp, L) == 2
+          and len(ruler_input_records(_rp)) == 3 and ruler_graded_count(None) == 0)
+    _ec4 = {'exam_code': 'X', 'total_questions': 1, 'sections': [{'name': 'A', 'q_range': [1, 1]}],
+            'difficulty_labels': ['Easy', 'Medium', 'Hard']}
+    _r4 = {'qtype': 'mcq', 'subtopic_id': 'a.b.c', 'concept_load': 2, 'steps': 3, 'traps': 1, 'data_volume': 1,
+           'novelty': 1, 'answer_derived': True, 'organic': False, 'organic_reason': 'x', 'schema_version': 3,
+           'answer_kind': 'text', 'blind_grade_1': 'Hard', 'blind_grade_2': 'Hard', 'has_figure': False,
+           'reread_count': 1}
+    _p4, _s4, _ = dp_add_paper(None, source_file='X_01-Jan-2024.docx', exam_config=_ec4, questions={'1': dict(_r4)},
+                               paper_positions=[1], now='2026-11-10T00:00:00+00:00')
+    _st4 = [r for _a, _b, r in _op_iter_records(_p4)]
+    check('op_G02_profile_carries_schema3', bool(_st4) and _st4[0].get('schema_version') == 3
+          and _st4[0].get('reread_count') == 1 and ruler_graded_count(_p4, L) == 1
+          and pyq_record_status(_st4[0]) == 'full')
+    _ce = {'stem_text': 'Which product?', 'option_texts': ['A', 'B', 'C', 'D'], 'figure_files': ['f1.png']}
+    _ce2 = op_record_controls(_ce, 'Hard', 'Hard', True, {'grader_1': {'sha256': 'x', 'context': 'fresh'}},
+                              key_votes={'author': 'B', 'solver_1': 'B', 'solver_2': 'B', 'unanimous': True})
+    _ce3 = dict(_ce2, stem_text='Which product is formed?')          # re-authored text
+    check('op_G10_controls_bound_to_text', op_controls_current(_ce2, _ce2['grades'])
+          and op_controls_current(_ce2, _ce2['key_votes']) and not op_controls_current(_ce3, _ce3['grades'])
+          and not op_controls_current(_ce, {'grader_1': 'Hard'}) and _ce2['grades']['recipe'] is True
+          and op_content_sha({'stem_text': ' a  b ', 'option_texts': ['x']}) == op_content_sha({'stem_text': 'a b', 'option_texts': ['x']}))
+    check('op_G09_place_over_count_terminates', len(schedule_place({'Easy': 6}, {q: 'nat' for q in range(1, 6)}, L,
+                                                                    ruler={'qtype_bands': {'nat': ['Hard']}})) == 5
+          and len(schedule_place({'Easy': 9, 'Hard': 9}, {1: 'mcq', 2: 'mcq'}, L)) == 2)
+    _wm = profile_merge_records({'papers': {'P': {'questions': {'1': {'a': 1}, '2': {'b': 2}}}}}, 'P', {'1': {'a': 9}, 3: {'c': 3}})
+    check('op_G02_profile_merge_records', _wm['papers']['P']['questions'] == {'1': {'a': 9}, '2': {'b': 2}, '3': {'c': 3}}
+          and profile_merge_records(None, 'Q', {'1': {'x': 1}}) == {'papers': {'Q': {'questions': {'1': {'x': 1}}}}})
+    _g = globals(); _old = _g['C_REFILL_SESSIONS']; _g['C_REFILL_SESSIONS'] = 99
+    check('op_constants_reset_restores_release_defaults', op_constants_reset()['C_REFILL_SESSIONS'] == _old
+          and _g['C_REFILL_SESSIONS'] == _old)
+    check('op_G01_tagged_named_reaction_counts', is_organic_item({'named_concepts': ['Heck reaction'],
+                                                                  'stem': 'The product X in the following reaction is'})[0] is True
+          and is_organic_item({'named_concepts': ['Tanabe-Sugano'], 'stem': 'bands of [CrF6]3- complex'})[0] is False)
+    check('op_G08_recal_empty_and_graded',
+          ruler_needs_recalibration({'anchors': {'Easy': [], 'Medium': [], 'Hard': []}})[0] is True
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'graded_count': 10}, graded_count=10)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'graded_count': 10}, graded_count=40)[0] is True
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}}, graded_count=0)[0] is False
+          and ruler_needs_recalibration(None)[0] is True)
+    check('op_G04_exam_level_words', exam_level({'level': 'Post Graduation', 'exam_name': 'CSIR NET Chemical Sciences'})
+          == ('research', 'stated+name') and exam_level({'level': 'Post Graduation', 'exam_name': 'Some MSc test'})
+          == ('pg', 'stated+name') and exam_level({'level': 'Post Graduation', 'exam_name': 'Board exam'}) == ('pg', 'stated')
+          and exam_level({'level': 'School', 'exam_name': 'Olympiad'}) == ('school', 'stated')
+          and exam_level({'level': 'Graduation', 'exam_name': 'GATE Chemistry'}) == ('research', 'stated+name')
+          and exam_level({'level': 'pg'}) == ('pg', 'stated') and exam_level({}) == ('pg_entrance', 'default')
+          and exam_level(None, 'JEE_MAIN') == ('ug_entrance', 'inferred'))
+    check('op_G01_subtopic_share', organic_scope([{'subtopic_id': 'ic.a', 'option_smiles': {'1': 'CCO'}},
+                                                  {'subtopic_id': 'ic.a'}, {'subtopic_id': 'ic.a'},
+                                                  {'subtopic_id': 'oc.b', 'option_smiles': {'1': 'CCCO'}},
+                                                  {'subtopic_id': 'oc.b'}])['organic_subtopics'] == ['oc.b'])
+    check('op_G01_coordination_ligands_not_organic',
+          is_organic_item({'content_objects': [{'canonical': '[Co+3].NCCN.NCCN.NCCN'}]})[0] is False
+          and is_organic_item({'content_objects': [{'canonical': 'C[Mg]Br.CC=O'}], 'answer_smiles': 'CC(C)O'})[0] is True)
+    check('op_G01_hindi_lexicon', is_organic_item({'stem': 'एल्डोल अभिक्रिया का उत्पाद'})[0] is True)
+    check('op_G01_flag_written', organic_flag(halo)['organic'] is True and organic_flag(halo)['organic_reason'])
+    # ── G-02 (FX-G02-1..3) ──
+    q29 = {'organic': True, 'organic_reason': 'x', 'content_objects': [
+        {'kind': 'REACTION', 'canonical': 'C=C1CCC(C(C)(C)C)CC1>>CC(C)(C)C1CCC2(CC1)CO2'}], 'image_counts': {}}
+    check('op_G02_1_no_counts_unverified', pyq_record_status(q29) == 'unverified' and pyq_target_pool([q29]) == []
+          and len(pyq_guard_pool([q29])) == 1)
+    full = {'organic': True, 'organic_reason': 'r', 'schema_version': PYQ_SCHEMA_VERSION, 'answer_kind': 'structure',
+            'answer_smiles': 'CC(C)(C)[C@H]1CC[C@]2(CC1)CO2', 'content_objects': [
+                {'kind': 'REACTION', 'canonical': 'C=C1CCC(C(C)(C)C)CC1>>CC(C)(C)[C@H]1CC[C@]2(CC1)CO2'}],
+            'option_kind': {'1': 'structure'}, 'option_smiles': {'1': 'CC(C)(C)[C@H]1CC[C@]2(CC1)CO2'},
+            'image_counts': {'0': {'heavy_atoms': 12, 'stereo_marks': 2}}, 'representations': ['chair_conformation'],
+            'ask_format': 'forward_product', 'named_concepts': ['Corey-Chaykovsky'], 'family': ['conformational_stereoelectronic'],
+            'decisions': ['facial_selectivity'], 'stereo_mode': 'rel',
+            'transcription_confidence': {'confidence': 'full', 'compared': 1}}
+    check('op_G02_2_complete_record_full', pyq_record_complete(full) == [] and (pyq_record_status(full) == 'full' or not rd))
+    check('op_G02_missing_fields_listed', set(pyq_record_complete({'organic': True})) >= {
+        'answer_kind', 'image_counts', 'representations', 'family', 'decisions', 'schema_version', 'ask_format'})
+    if rd:
+        lost = dict(full, content_objects=[{'kind': 'REACTION', 'canonical': q29['content_objects'][0]['canonical']}])
+        check('op_G02_3_stereo_lost_is_partial', pyq_stereo_fidelity(lost)['status'] == 'mismatch'
+              and pyq_record_status(lost) == 'partial')
+    check('op_G02_coverage', pyq_coverage([full])['structure_answers'] == 1)
+    check('op_G02_ask_format_vocab', normalize_ask_format('identify_reagent') == 'reagent_or_conditions'
+          and normalize_ask_format('direct') is None and normalize_ask_format('two_part') == 'two_part')
+    # ── G-03 (FX-G03-1) ──
+    if rd:
+        q21 = {'species': [{'role': 'stem', 'id': 'S', 'smiles': 'C=CC1(O)CCCCC1C=C'},
+                           {'role': 'key', 'id': 'K', 'smiles': 'O=C1CC/C=C/CCCC1'.replace('/', '')}]}
+        g = stem_stereo_gate(q21)
+        check('op_G03_1_q21_fails', g['status'] == 'FAIL' and g['undefined'])
+        rep = {'species': [{'role': 'stem', 'id': 'S', 'smiles': 'C=C[C@]1(O)CCCC[C@@H]1C=C'}]}
+        check('op_G03_1_repaired_passes', stem_stereo_gate(rep)['status'] == 'PASS')
+        d0 = q21['species'][0]
+        el = [e for e in stereo_elements(d0['smiles']) if not e['defined']]
+        decl = {f"S:{','.join(map(str, e['atoms']))}": 'irrelevant' for e in el}
+        irr_ok = {k: {'keys': ['K1', 'K1'], 'key': 'K1'} for k in decl}
+        irr_bad = {k: {'keys': ['K1', 'K2'], 'key': 'K1'} for k in decl}
+        sp = {'species': [d0], 'declarations': decl}
+        check('op_G03_irrelevant_needs_proof', stem_stereo_gate(dict(sp, irrelevance=irr_ok))['status'] == 'PASS'
+              and stem_stereo_gate(dict(sp, irrelevance=irr_bad))['status'] == 'FAIL')
+        check('op_G03_unreadable_species_fails', stem_stereo_gate({'species': [{'id': 'S', 'smiles': 'C1CC(('}]})['status'] == 'FAIL')
+        check('op_G03_rac_declared', stem_stereo_gate({'species': [dict(d0, stereo_mode='rac')]})['status'] == 'PASS')
+        _g3 = stem_stereo_gate({'species': [], 'key_smiles': 'CC(O)CC', 'option_smiles': {'A': 'C[C@H](O)CC', 'B': 'CC(Cl)CC'}})
+        check('op_G03_key_and_options_always_checked', _g3['status'] == 'FAIL'
+              and any(u.startswith('key:') for u in _g3['undefined'])
+              and any(u.startswith('option_B:') for u in _g3['undefined'])
+              and not any(u.startswith('option_A:') for u in _g3['undefined'])
+              and stem_stereo_gate({'key_smiles': 'C[C@H](O)CC', 'option_smiles': {'A': 'C[C@H](O)CC'}})['status'] == 'PASS'
+              and stem_stereo_gate({'key_smiles': 'CC(O)CC', 'declarations': {'key:1': 'rac'}})['status'] == 'PASS')
+    check('op_G03_solver_assumption', solver_assumption_check([{'answer': '1', 'assumptions': [
+        {'about': 'stereo', 'text': 'assumed cis', 'changes_answer': True}]}])['status'] == 'FAIL'
+          and solver_assumption_check([{'answer': '1', 'assumptions': []}])['status'] == 'PASS')
+    # ── G-04 (FX-G04-1) ──
+    recs = [dict(full, representations=['chair_conformation'], _paper='J26'),
+            dict(full, representations=['skeletal'], _paper='J26'),
+            dict(full, representations=['perspective'], _paper='D25')]
+    sh = convention_shares(recs) if rd else {}
+    if rd:
+        check('op_G04_1_shares', sh.get('chair_conformation', {}).get('n') == 1 and 'perspective' in sh)
+        check('op_G04_floors', convention_floors(sh, 30).get('chair_conformation') == 10
+              and 'skeletal' not in convention_floors(sh, 30))
+        check('op_G04_scaffold_bridged', scaffold_convention('C1CC2CCC1C2', exam_conventions=['perspective']) == 'perspective'
+              and scaffold_convention('C1CC2CCC1C2', exam_conventions=[]) is None)
+        check('op_G04_scaffold_decalin', scaffold_convention('C1CCC2CCCCC2C1', exam_conventions=['ring_fusion_h'])
+              == 'ring_fusion_h')
+        check('op_G04_scaffold_thin_exam_uses_level', scaffold_convention('C1CC2CCC1C2', exam_conventions=[],
+                                                                          level_conventions=['perspective'], n_verified=5)
+              == 'perspective')
+    check('op_G04_chair_by_ask', scaffold_convention(None, ask='axial vs equatorial attack',
+                                                     exam_conventions=['chair_conformation']) == 'chair_conformation')
+    check('op_G04_level', exam_level({'level': 'school'}) == ('school', 'stated')
+          and exam_level({'exam_name': 'CSIR NET Chemical Sciences'})[0] == 'research'
+          and exam_level({})[1] == 'default')
+    check('op_G04_library_needed', library_needed(5) is True and library_needed(40, 20) is False and library_needed(40, 3) is True)
+    lib = organic_library_build({'CSIR': recs}, {'CSIR': 'research'}, 'L1', '2026-11-10') if rd else organic_library_empty()
+    check('op_G04_library_shape', set(organic_library_empty()) == set(lib) and isinstance(lib['records'], list))
+    # ── G-05 (FX-G05-1) ──
+    fs = {'forward_product': 0.6, 'statement_combination': 0.1, 'two_part': 0.08, 'match_list': 0.02}
+    ff = format_floors(fs, 40)
+    check('op_G05_1_floors', ff == {'forward_product': 24, 'statement_combination': 4, 'two_part': 3}
+          and 'match_list' not in ff and sum(format_floors({'a': 0}, 2).values()) == 0)
+    check('op_G05_floor_sum_capped', sum(format_floors({'forward_product': 0.9, 'two_part': 0.9}, 4).values()) <= 4)
+    pf = parity_floor_check([{'organic': True, 'ask_format': 'two_part'}], {'two_part': 3, 'statement_combination': 1})
+    check('op_G05_parity_short', pf['status'] == 'FAIL' and pf['short'] == {'two_part': 2, 'statement_combination': 1})
+    # ── G-06 (FX-G06-1) ──
+    a = {'card_id': 'A', 'families': ['rearrangement'], 'steps': [{'family': 'rearrangement', 'template': 'Eschenmoser-Tanabe',
+         'decisions': ['chemoselectivity'], 'substrate_fg': ['epoxide'], 'product_fg': ['aldehyde']}]}
+    b = {'card_id': 'B', 'families': ['carbonyl_enolate'], 'steps': [{'family': 'carbonyl_enolate', 'template': 'Still-Gennari',
+         'decisions': ['stereospecificity'], 'substrate_fg': ['aldehyde'], 'product_fg': ['alkene']}]}
+    cc = chain_compose([a, b], 2)
+    check('op_G06_1_composed_chain', cc and cc[0]['card_id'] == 'cmp.A+B' and cc[0]['n_decisions'] >= 2)
+    s0 = l2_slot_source([], 'Hard', 'oc.a', min_decisions=2, chains=cc)
+    check('op_G06_1_no_single_concept_for_hard', s0['kind'] == 'chain' and s0['ref'] == 'cmp.A+B'
+          and l2_slot_source([], 'Hard', 'oc.a', min_decisions=2, chains=[])['kind'] == 'none')
+    check('op_G06_decision_contract', decision_contract_check(['facial_selectivity', 'chemoselectivity'],
+                                                              ['chemoselectivity', 'facial_selectivity'], 2)[0] is True
+          and decision_contract_check(['chemoselectivity'], ['facial_selectivity'], 1)[0] is False
+          and decision_contract_check(['chemoselectivity'], ['chemoselectivity'], 2)[0] is False)
+    check('op_G06_supply_counts_chains', l2_hard_supply([], L, chains=cc)['Hard'] == len(cc))
+    if rd:
+        check('op_G06_substrate_check', substrate_check('CCCCCCCCCCCCCC', {'heavy_atoms': (12, 20)})[0] is True
+              and substrate_check('CCC', {'heavy_atoms': (12, 20)})[0] is False)
+    check('op_G06_card_from_record', chain_card_from_record(full)['families'] == ['conformational_stereoelectronic'])
+    # ── G-07 (FX-G07-1..3) ──
+    if rd:
+        p95 = {'content_objects': [{'canonical': 'CC(CCC=C(C)C)CC=O>>CC1CCC(C(C)=C)C(O)C1'}], 'answer_smiles': None}
+        check('op_G07_1_structure_clone', clone_guard({'key_smiles': 'CC1CCC(C(C)=C)C(O)C1'}, past=[p95])['structure'] is True)
+        check('op_G07_1_copy_check_sees_products', l2_copy_check('C[C@@H]1CC[C@@H](C(C)=C)[C@H](O)C1',
+                                                                 {'papers': {'D25': {'questions': {'95': p95}}}}) is True)
+        p86 = {'content_objects': [{'canonical': 'CC(=O)OC1CCC=C1>>COC(=O)CC1CCC=C1'}],
+               'reagents_seen': ['Pd(PPh3)4, NaCH(CO2Me)2', 'LiCl, DMSO, heat']}
+        n5 = {'key_smiles': 'COC(=O)CC1CCCC=C1', 'starting_smiles': 'CC(=O)OC1CCCC=C1',
+              'reagents': ['Pd(PPh3)4, dimethyl malonate', 'LiCl, DMSO, 160 C']}
+        check('op_G07_2_reaction_near_clone', clone_guard(n5, past=[p86])['reaction'] is True)
+        p37 = {'content_objects': [{'canonical': 'CC(C)C(C)=O'}], 'ask_format': 'structure_to_spectrum',
+               'answer_kind': 'spectrum_assignment'}
+        n10 = {'key_smiles': 'CC(C)CC(C)=O', 'ask_format': 'structure_to_spectrum', 'answer_kind': 'spectrum_assignment'}
+        check('op_G07_3_task_near_clone', clone_guard(n10, past=[p37])['task'] is True)
+        check('op_G07_distinct_passes', clone_guard({'key_smiles': 'O=C1CCCCC1c1ccccc1', 'ask_format': 'forward_product',
+                                                     'answer_kind': 'structure'}, past=[p95, p86, p37])['status'] == 'PASS')
+        check('op_G07_small_key_needs_same_reagents', clone_guard({'key_smiles': 'CC(C)=O', 'reagents': ['O3']},
+                                                                  past=[{'answer_smiles': 'CC(C)=O', 'reagents_seen': ['NaBH4']}])['structure'] is False)
+        check('op_G07_enantiomer_is_clone', clone_guard({'key_smiles': 'C[C@H](N)C(=O)OCc1ccccc1'},
+                                                        past=[{'answer_smiles': 'C[C@@H](N)C(=O)OCc1ccccc1'}])['structure'] is True)
+        reg = series_registry_add({}, 'M1', [{'q': 1, 'key_smiles': 'O=C1CCCCC1c1ccccc1', 'reagents': []}])
+        check('op_G07_series_guard', clone_guard({'key_smiles': 'O=C1CCCCC1c1ccccc1'}, series=series_registry_rows(reg))['status'] == 'FAIL')
+        # handshake (pass 3): the record carries only clone_check — its fingerprint still feeds the series guard
+        _cg = clone_guard({'key_smiles': 'O=C1CCCCC1c1ccccc1', 'reagents': ['LDA'], 'ask_format': 'forward_product'})
+        check('op_G07_fingerprint_returned', _cg['fingerprint']['keys'] == ['O=C1CCCCC1c1ccccc1']
+              and _cg['fingerprint']['reagent_seq'] == [reagent_class('LDA')])
+        reg2 = series_registry_add({}, 'M1', [{'q': 4, 'organic': True, 'clone_check': _cg}])
+        check('op_G07_series_from_clone_check', clone_guard({'key_smiles': 'O=C1CCCCC1c1ccccc1'},
+                                                          series=series_registry_rows(reg2))['status'] == 'FAIL'
+              and series_registry_rows(reg2)[0]['ref'] == 'series:M1:4')
+        check('op_G07_key_ids', op_key_ids({'clone_check': _cg}) == {_op_ik('O=C1CCCCC1c1ccccc1')}
+              and op_key_ids({}) == set() and op_key_ids(None) == set()
+              and op_key_ids({'key_smiles': 'CCO'}) == {_op_ik('CCO')})
+        _rsx, _ = reserve_new('EX'), None
+        _itx = {'difficulty': 'Hard', 'qtype': 'mcq', 'subtopic_id': 'oc.a.b', 'key_smiles': 'CCO', 'difficulty_check':
+                {'label_basis': {'kind': 'measured_exact'}}, 'key_votes': {'unanimous': True}, 'figures': [
+                    {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}], 'clone_check': {'status': 'PASS'}}
+        _rsx, _okx, _ = reserve_add(_rsx, _itx, 'R1', 'M1')
+        _ex = sorted(set().union(*[op_key_ids(x) for x in [{'clone_check': clone_guard({'key_smiles': 'OCC'})}]]))
+        _, _gx, _ = reserve_take(_rsx, 'Hard', 'mcq', 'oc.a.b', ruler_version='R1', exclude_keys=_ex, labels=L)
+        _, _gy, _ = reserve_take(_rsx, 'Hard', 'mcq', 'oc.a.b', ruler_version='R1', exclude_keys=[], labels=L)
+        check('op_G07_reserve_excludes_paper_key_via_clone_check', _okx and _gx is None and _gy is not None)
+    else:
+        check('op_G07_dormant_without_rdkit', clone_guard({'key_smiles': 'CC'})['status'] == 'DORMANT')
+    # ── G-08 (FX-G08-1) ──
+    gr = []
+    for i in range(10):
+        gr.append({'q': str(i), 'paper': 'P', 'has_figure': False, 'blind_grade_1': 'Easy', 'blind_grade_2': 'Easy',
+                   'qtype': 'msq', 'organic': False, 'organic_reason': 'x', 'answer_kind': 'text',
+                   'schema_version': PYQ_SCHEMA_VERSION})
+    for i in range(10, 22):
+        gr.append({'q': str(i), 'paper': 'P', 'has_figure': False, 'blind_grade_1': 'Hard', 'blind_grade_2': 'Hard',
+                   'qtype': 'mcq', 'organic': False, 'organic_reason': 'x', 'answer_kind': 'text',
+                   'schema_version': PYQ_SCHEMA_VERSION})
+    gr.append({'q': '99', 'paper': 'P', 'has_figure': False, 'blind_grade_1': 'Easy', 'blind_grade_2': 'Hard'})
+    ru = build_difficulty_ruler(gr, L, 'R1', 'model-x', 'gp1', '2026-11-10', level='pg')
+    check('op_G08_1_ruler_anchors', len(ru['anchors']['Easy']) == 10 and len(ru['anchors']['Hard']) == 12
+          and ru['borrowed'].get('Medium') and ru['recipe']['Medium']['decisions'] == (2, 3))
+    check('op_G08_1_easy_msq_from_anchors', ruler_min_band(ru, 'msq', L) == 'Easy' and ruler_min_band(ru, 'nat', L) is None)
+    check('op_G08_band_exact', band_exact({'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}, 'Hard', L)[0] is True
+          and band_exact({'grader_1': 'Hard', 'grader_2': 'Medium', 'recipe': True}, 'Hard', L)[0] is False
+          and band_exact({'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': False}, 'Hard', L)[0] is False
+          and band_exact({'grader_1': 'Hard'}, 'Hard', L)[0] is False)
+    check('op_G08_recipe_check', band_recipe_check({'decisions_author': ['a', 'b']}, {'decisions': (2, 3)})[0] is True
+          and band_recipe_check({'decisions_author': ['a']}, {'decisions': (2, 3)})[0] is False)
+    check('op_G08_5_easy_floor', easy_quality_floor({'organic': True, 'decisions_author': ['regioselectivity'],
+                                                     'key_smiles': 'CC'})[0] is True
+          and easy_quality_floor({'organic': True, 'decisions_author': [], 'key_smiles': 'CC'})[0] is False
+          and easy_quality_floor({'organic': True, 'decisions_author': ['x'], 'key_smiles': 'C',
+                                  'stem': 'In the Wittig reaction ...', 'asked_reaction': 'wittig'})[0] is False)
+    check('op_G08_recalibrate', ruler_needs_recalibration(ru, agreement=0.7)[0] is True
+          and ruler_needs_recalibration(ru, agreement=0.9, model_id='model-x')[0] is False
+          and ruler_needs_recalibration(ru, model_id='model-y')[0] is True)
+    # ── G-09 (FX-G09-1) ──
+    sn = schedule_normalize({'Easy': 35, 'Medium': 5, 'Hard': 0}, 40, L)
+    check('op_G09_1_exact_request_unaltered', sn == {'counts': {'Easy': 35, 'Medium': 5, 'Hard': 0}, 'altered': False, 'notes': []})
+    qt = {q: ('nat' if q > 30 else 'mcq') for q in range(1, 41)}
+    pl = schedule_place(sn['counts'], qt, L, ruler=ru)
+    check('op_G09_1_place_never_infeasible', sum(1 for v in pl.values() if v == 'Easy') == 35 and len(pl) == 40)
+    for req in ({'Easy': 0, 'Medium': 0, 'Hard': 40}, {'Easy': 10, 'Medium': 20, 'Hard': 10}, {'Easy': 2, 'Medium': 10, 'Hard': 28}):
+        _pl = schedule_place(schedule_normalize(req, 40, L)['counts'], qt, L)
+        check(f"op_G09_schedule_{req['Easy']}_{req['Medium']}_{req['Hard']}",
+              all(sum(1 for v in _pl.values() if v == b) == req[b] for b in L))
+    pc = schedule_normalize({'easy': '5%', 'medium': '25%', 'hard': '70%'}, 40, L)
+    check('op_G09_4_percent_and_names', pc['counts'] == {'Easy': 2, 'Medium': 10, 'Hard': 28} and pc['altered'])
+    check('op_G09_4_short_sum_filled', sum(schedule_normalize({'Easy': 5, 'Medium': 5}, 40, L,
+                                                              {'Easy': .2, 'Medium': .5, 'Hard': .3})['counts'].values()) == 40)
+    check('op_G09_4_over_sum_reduced', sum(schedule_normalize({'Easy': 30, 'Medium': 30, 'Hard': 30}, 40, L)['counts'].values()) == 40)
+    st = schedule_freeze({}, {'Easy': 35}, sn['counts'], pl)
+    st2 = schedule_freeze(st, {'Easy': 1}, {'Easy': 1}, {'1': 'Hard'})
+    check('op_G09_2_freeze_is_read_only', st2['schedule_frozen']['sha256'] == st['schedule_frozen']['sha256']
+          and st2['schedule_requested'] == {'Easy': 35})
+    check('op_G09_frozen_check', schedule_frozen_check(st, pl)[0] is True
+          and schedule_frozen_check(st, dict(pl, **{'1': 'Hard' if pl['1'] != 'Hard' else 'Easy'}))[0] is False
+          and schedule_frozen_check({}, pl)[0] is False)
+    # ── G-10 (FX-G10-1..3) ──
+    for kind in ('difficulty', 'dispute', 'quality'):
+        ch = slot_chain_new('1', kind, 'Hard', 'oc.a')
+        seq = []
+        for _ in range(60):
+            nx = slot_chain_next(ch, siblings=['s1', 's2', 's3'])
+            if nx['action'] == 'done':
+                break
+            seq.append(nx['action'])
+            ch = slot_chain_record(nx['chain'], nx['action'], 'fail', sibling=nx['sibling'])
+        check(f'op_G10_{kind}_ends_by_replacing', seq[-3:] == ['reserve_refill', 'refill_session', 'last_resort']
+              and not ({'forced', 'band_swap', 'paired_upgrade', 'majority', 'panel', 'rekey', 'amber'} & set(seq))
+              and slot_chain_exhausted(ch, kind))
+    legacy = dict(slot_chain_new('2', 'difficulty', 'Hard'), rule='SC1')
+    check('op_G10_legacy_chain_keeps_sc1_terminals', sc_terminals(legacy)['difficulty'][-1] == 'forced'
+          and sc_terminals(slot_chain_new('3', 'quality'))['quality'][-1] == 'last_resort')
+    pk = {'grader_1': {'context': 'fresh', 'sha256': 'a' * 64}, 'grader_2': {'context': 'fresh', 'sha256': 'b' * 64}}
+    ctl = {'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}
+    e1, ok1, _ = dl_set_label_basis_strict({'difficulty': 'Medium', 'difficulty_obs': {'deduction_steps': 9}},
+                                           'measured_exact', L, 'Hard', ctl, pk)
+    check('op_G10_5_measured_exact_writes_and_verifies', ok1 and verify_difficulty_label(e1, L) == (True, 'Hard', 'measured_exact'))
+    check('op_G10_5_strict_rejects_obs_none_forced', verify_difficulty_label({'difficulty': 'Hard'}, L, strict=True)[0] is False
+          and verify_difficulty_label({'difficulty': 'Hard', 'difficulty_obs': {'deduction_steps': 9}}, L, strict=True)[0] is False
+          and verify_difficulty_label({'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'FORCED',
+                                       'label_basis': {'kind': 'forced', 'target': 'Hard'}}}, L, strict=True)[0] is False)
+    check('op_G10_5_strict_by_release', verify_difficulty_label({'difficulty': 'Hard'}, L, paper_release='2026.11.10')[0] is False
+          and verify_difficulty_label({'difficulty': 'Hard'}, L, paper_release='2026.11.09') == (True, None, 'none'))
+    _, okw, _ = dl_set_label_basis_strict({}, 'measured_exact', L, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Medium', 'recipe': True}, pk)
+    _, okp, _ = dl_set_label_basis_strict({}, 'measured_exact', L, 'Hard', ctl, {'grader_1': {'context': 'same', 'sha256': 'x'}})
+    check('op_G10_5_disagreement_and_stale_context_refused', okw is False and okp is False)
+    check('op_G10_5_forged_label_fails', verify_difficulty_label(dict(e1, difficulty='Medium'), L)[0] is False)
+    lr_ch = ch                                                     # an exhausted SC2 quality chain from the loop above
+    inc = last_resort_incident('EX', 'M1', '1', 'Hard', 'Medium', ['c1'], 'R1', '2026-11-10')
+    e2, ok2, _ = dl_set_label_basis_strict({}, 'last_resort', L, 'Hard', {'grader_1': 'Medium', 'grader_2': 'Medium',
+                                                                       'recipe': True}, pk, chain=lr_ch,
+                                           delivered='Medium', incident_id=inc['incident_id'])
+    check('op_G10_7_last_resort', ok2 and e2['difficulty'] == 'Medium' and verify_difficulty_label(e2, L)[:3:2] == (True, 'last_resort')
+          and qindex_count_band(e2, L) == 'Hard' and inc['severity'] == 'P0')
+    _, ok3, _ = dl_set_label_basis_strict({}, 'last_resort', L, 'Hard', {'grader_1': 'Medium', 'grader_2': 'Medium',
+                                                                      'recipe': True}, pk, chain=slot_chain_new('9', 'difficulty'),
+                                          delivered='Medium', incident_id='INC-x')
+    check('op_G10_7_last_resort_needs_exhausted_chain', ok3 is False)
+    check('op_G10_6_unanimous_key', key_unanimous('B', ['b', 'B'])[0] is True and key_unanimous('B', ['B', 'C'])[0] is False
+          and key_unanimous('B', ['B'])[0] is False and key_unanimous('A,C', ['C A', 'a;c'], 'msq')[0] is True
+          and key_unanimous(2.0, [2.04, 1.97], 'nat', 0.05)[0] is True and key_unanimous('B', ['B', None])[0] is False)
+    item = {'difficulty': 'Hard', 'qtype': 'mcq', 'subtopic_id': 'oc.a.b', 'key_smiles': 'CCO', 'difficulty_check':
+            {'label_basis': {'kind': 'measured_exact'}}, 'key_votes': {'unanimous': True}, 'figures': [
+                {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}], 'clone_check': {'status': 'PASS'}}
+    rs, okr, _ = reserve_add(reserve_new('EX'), item, 'R1', 'M1')
+    rs_bad, okb, _ = reserve_add(reserve_new('EX'), dict(item, figures=[{'identity_ok': True}]), 'R1', 'M1')
+    check('op_G10_3_reserve_add_requires_proofs', okr and not okb and rs_bad['items'] == [])
+    rs2, got, _ = reserve_take(rs, 'Hard', 'mcq', 'oc.a.b', ruler_version='R2', labels=L)
+    check('op_G10_3_reserve_take_regrade_flag', got and got.get('regrade_required') is True and rs2['items'] == [])
+    _, none_, _ = reserve_take(rs, 'Easy', 'mcq', 'oc.a.b', labels=L)
+    _, near, _ = reserve_take(rs, 'Medium', 'mcq', 'oc.z', nearest=True, labels=L)
+    check('op_G10_7_nearest_only_on_last_resort', none_ is None and near is not None and near['difficulty'] == 'Hard')
+    s1 = {}
+    acts = []
+    for _ in range(C_REFILL_SESSIONS + 1):
+        a, s1 = refill_session_next(s1)
+        acts.append(a)
+    check('op_G10_refill_bounded', acts.count('refill') == C_REFILL_SESSIONS and acts[-1] == 'last_resort')
+    check('op_G10_k_candidates', k_candidates() == C_K_CANDIDATES and k_candidates(True) == C_K_AFTER_MISS)
+    # ── G-13 / G-14 ──
+    br = author_brief([{'q': i, 'band': 'Hard', 'chain': cc[0] if cc else {}, 'recipe': {'decisions': (2, 3)}}
+                       for i in range(1, 200)], max_pages=1)
+    if rd:
+        check('op_G12_conformer_identity', option_identity({'smiles': 'CC1CCCCC1', 'conformer': {'C1': 'ax'}}, 'STRUCTURE_CONFORMER')
+              != option_identity({'smiles': 'CC1CCCCC1', 'conformer': {'C1': 'eq'}}, 'STRUCTURE_CONFORMER')
+              and option_identity('C[C@H](O)CC|anti', 'STRUCTURE_CONFORMER') != option_identity('C[C@@H](O)CC|anti', 'STRUCTURE_CONFORMER'))
+    check('op_G13_brief_bounded', br['chars'] <= C_BRIEF_CHARS_PER_PAGE + 200 and br['slots_out'] and br['slots_in'])
+    check('op_G14_every_stop_class_has_repair', all(stop_repair_for(k)[0] for k in STOP_REPAIRS)
+          and stop_repair_for('nonsense') == (None, None)
+          and {v[1] for v in STOP_REPAIRS.values() if v[1]} <= set(ENVIRONMENT_FAILURES))
+    co = op_constants({'constants': {'K_CANDIDATES': 4, 'C_NEAR_SIM': 0.75, 'C_SOLVERS': 2.5, 'bogus': 1}})
+    check('op_constants_overrides_printed', co['C_K_CANDIDATES'] == 4 and co['C_NEAR_SIM'] == 0.75
+          and co['C_SOLVERS'] == C_SOLVERS and co['overrides'] == ['C_K_CANDIDATES=4', 'C_NEAR_SIM=0.75'])
+    # hostile input never raises
+    _ok = True
+    for h in (None, 1, 'x', [], {}, {'papers': 3}, [None, 3]):
+        try:
+            is_organic_item(h); pyq_record_complete(h); pyq_record_status(h); organic_scope(h); convention_shares(h)
+            format_shares(h); clone_guard(h, past=h); stem_stereo_gate(h); schedule_normalize(h, 40, L)
+            schedule_place(h, h, L); build_difficulty_ruler(h, L, 1, 2, 3, 4); verify_difficulty_label_strict(h, L)
+            reserve_take(h, 'Hard', 'mcq'); author_brief(h); chain_compose(h, 2); substrate_recipe(h)
+        except Exception:                                    # noqa: BLE001
+            _ok = False
+    check('op_hostile_never_raises', _ok)
 
 
 def self_test():
@@ -12054,6 +12616,9 @@ PYQ_IMAGE_ANALYSIS:
     _lb_sc_edge_self_test(check)
     _lb_sc_edge2_self_test(check)
 
+    # ── v2.0 — Cluster OP (GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY) ──────────
+    _op_self_test(check)
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -12576,7 +13141,13 @@ DP_CONTENT_KEYS = ('content_objects', 'answer_smiles', 'abbreviations_seen',
                    # seen on scheme arrows (the read-time method lexicon, §4.6), and the
                    # engine-set transcription confidence.
                    'option_smiles', 'ask_format', 'content_source', 'reagents_seen',
-                   'transcription_confidence')
+                   'transcription_confidence',
+                   # v2.0 (GAP-2026-11-10 G-02, PYQExplain v2.31 §13A-3 / §13A-3B) — the schema-3 record: the
+                   # profile CARRIES every field the fail-closed status, the ruler and the back-fill read
+                   'organic', 'organic_reason', 'schema_version', 'answer_kind', 'answer_set', 'option_kind',
+                   'image_counts', 'stereo_mode', 'family', 'decisions', 'has_figure', 'blind_grade_1',
+                   'blind_grade_2', 'reread_count', 'record_status', 'missing_fields', 'scheme_steps',
+                   'starting_smiles', 'task_template')
 
 
 def dp_marks_of(q, marking_scheme, default=None):
@@ -16946,6 +17517,22 @@ def option_identity(option, kind, sig_fig_sensitive=False):
         return text_identity(option, sig_fig_sensitive)
     if k == 'STRUCTURE':
         return structure_identity(option)
+    if k == 'STRUCTURE_CONFORMER':
+        # v2.0 (G-12): a projection / conformer figure — the stereo identity of its molecule PLUS its conformer
+        # descriptor (option {'smiles', 'conformer': {...}} or 'SMILES|descriptor'); the same molecule drawn as two
+        # conformers stays two options, a mis-drawn stereoisomer is a different identity
+        if isinstance(option, dict):
+            smi, conf = option.get('smiles'), option.get('conformer')
+        elif isinstance(option, str) and '|' in option:
+            smi, conf = option.split('|', 1)
+        else:
+            smi, conf = option, None
+        sid = structure_identity(smi) if isinstance(smi, str) else None
+        if sid is None:
+            return None
+        if isinstance(conf, dict):
+            conf = ';'.join(f'{kk}={conf[kk]}' for kk in sorted(conf, key=str))
+        return sid + ('|' + str(conf) if conf else '')
     if k == 'REACTION':
         return reaction_identity(option)
     if k == 'DATA':
@@ -19085,7 +19672,14 @@ def difficulty_paper_gate(items, labels):
               if i.get('rung') == 'FORCED']
     swapped = [i.get('q') for i in its if i.get('rung') == 'SWAP']
     held = [i.get('q') for i in its if i.get('rung') == 'HELD']
+    # v2.0 (LAW-ORG-4): a last-resort slot is the one disclosed deviation (requested vs delivered); it is listed
+    # and never counted 'below' (its replacement was proven exactly at the delivered band)
+    last_resort = [{'q': i.get('q'), 'requested': i.get('original_band'), 'delivered': i.get('final_band')}
+                   for i in its if i.get('rung') == 'LAST_RESORT']
+    _lr = {str(x['q']) for x in last_resort}
+    below = [i for i in below if str(i.get('q')) not in _lr]
     return {'status': 'PASS' if not below else 'REWORK', 'counts_final': cf, 'counts_original': co,
+            'last_resort': last_resort,
             'below': [i.get('q') for i in below] + [i.get('q') for i in dr3],
             'rework_qs': [i.get('q') for i in below], 'accepted_dr3': [i.get('q') for i in dr3],
             'unmeasured': unmeasured, 'forced': forced, 'swapped': swapped, 'held': held, 'rule': DL_RULE_CURRENT}
@@ -19355,8 +19949,10 @@ def dl_gate_items(target_plan, concept_map, labels):
         _lbm = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
         meas = (_dl_band(dc.get('review_measured'), labs) or _dl_band(dc.get('measured'), labs)
                 or _dl_band(_lbm.get('measured'), labs))
-        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS + LB_RUNGS else None
-        if rung in ('DR3',) + LB_RUNGS:
+        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS + LB_RUNGS + ('EXACT', 'LAST_RESORT') else None
+        if rung in ('DR3',) + LB_RUNGS + ('EXACT', 'LAST_RESORT'):
+            # v2.0: an LB2 basis (measured_exact / last_resort) counts at its label — the label IS the band every
+            # control agreed on (verify_difficulty_label strict); a last-resort slot is listed, never 'below'
             # v1.34: a band swap (SWAP) and a schedule-forced label (FORCED) count at their label —
             # each carries its own verified basis (verify_difficulty_label)
             fin = lab
@@ -19881,8 +20477,14 @@ def _l2_band_of(score, cuts, labels):
     return labels[-1]
 
 
-def l2_applies(subtopic_id=None, subject=None, topic=None, prefix_subject=None):
-    """§10.1 — True for an ORGANIC chemistry item. The WORD 'organic' (with 'bio' / 'bio-' /
+def l2_applies(subtopic_id=None, subject=None, topic=None, prefix_subject=None, record=None,
+               organic_subtopics=None):
+    """v2.0 (G-01, LAW-ORG-1) — ORGANIC SCOPE BY CONTENT FIRST: when `record` (a PYQ record or a generated
+    item) is given, bc.is_organic_item decides; else when `organic_subtopics` (organic_scope(...)
+    ['organic_subtopics']) is given, membership of subtopic_id makes it organic (a subtopic whose past
+    records are >= C_ORG_SUBTOPIC_SHARE organic). Only when neither is available does the legacy NAME rule below act, as a
+    tie-breaker for a record with no content (which is then re-read under G-02).
+    §10.1 — True for an ORGANIC chemistry item. The WORD 'organic' (with 'bio' / 'bio-' /
     'physical' allowed before it, and the 'organique' / 'organica' / 'organico' / 'organisch'
     forms) must not be preceded by a letter: 'Inorganic', 'Bioinorganic', 'Organometallic'
     are False. CamelCase names are split ('OrganicChemistry'). Order: (1) a SUBJECT name that
@@ -19902,6 +20504,15 @@ def l2_applies(subtopic_id=None, subject=None, topic=None, prefix_subject=None):
 
     def _other_branch(n):
         return bool(n and re.search(L2_OTHER_BRANCH, n))
+    if isinstance(record, dict) and record:
+        _rec_has_content = any(record.get(k) for k in ('content_objects', 'option_smiles', 'answer_smiles',
+                                                       'answer_set', 'named_concepts', 'reagents_seen', 'stem',
+                                                       'organic'))
+        if _rec_has_content:
+            return bool(is_organic_item(record)[0])
+    if isinstance(organic_subtopics, (list, tuple, set, frozenset)) and isinstance(subtopic_id, str) and subtopic_id:
+        if subtopic_id in set(organic_subtopics):
+            return True
     sub, top = _norm(subject), _norm(topic)
     if sub is not None:
         if _organic(sub):
@@ -19937,15 +20548,18 @@ def l2_prefix_subjects(subtopic_rows):
     return out
 
 
-def l2_scope_ids(subtopic_rows):
+def l2_scope_ids(subtopic_rows, organic_subtopics=None):
     """The organic subtopic ids of an exam taxonomy (rows as in l2_prefix_subjects): every row
-    whose subject (section) or topic passes l2_applies."""
+    whose subject (section) or topic passes l2_applies. v2.0 (LAW-ORG-1): `organic_subtopics`
+    (organic_scope(...)['organic_subtopics'] — the CONTENT rule) adds every subtopic the exam's past items
+    show to be organic, whatever its section is called."""
     rows = subtopic_rows
     if isinstance(rows, dict):
         rows = [dict(v, subtopic_id=k) for k, v in rows.items() if isinstance(v, dict)]
     return sorted({str(r.get('subtopic_id')) for r in (rows if isinstance(rows, (list, tuple)) else [])
                    if isinstance(r, dict) and r.get('subtopic_id')
-                   and l2_applies(r.get('subtopic_id'), r.get('subject') or r.get('section'), r.get('topic'))})
+                   and l2_applies(r.get('subtopic_id'), r.get('subject') or r.get('section'), r.get('topic'),
+                                  organic_subtopics=organic_subtopics)})
 
 
 def l2_model_for_scope(profile, subtopic_ids, labels, pyq_grades=None, measured_pct=None,
@@ -20216,13 +20830,17 @@ def l2_band_load_floor(cards, band):
     return ls[(len(ls) - 1) // 2] if ls else None
 
 
-def l2_slot_source(cards, band, subtopic_id, used=(), seed=0, family=None, skip=0):
+def l2_slot_source(cards, band, subtopic_id, used=(), seed=0, family=None, skip=0, min_decisions=None,
+                   chains=None):
     """§6.2 pattern source for one slot, deterministic (seed = bc.brief_seed(...)). Order:
     (1) an unused card of `band` in the cascade subtopic -> topic -> family -> any; (2) an
     unused vocabulary concept whose load >= the band's load floor (l2_band_load_floor) and
     whose family is the slot's family (else any family), never a label used in this paper;
     `skip` advances to the k-th source (repair rung DR1 source k). Returns {'kind': 'card' |
-    'concept' | 'none', 'ref', 'family', 'load_floor'}. Never raises."""
+    'concept' | 'chain' | 'none', 'ref', 'family', 'load_floor'}.
+    v2.0 (G-06 F-06.2): when the band recipe needs >= 2 decisions (min_decisions), a single vocabulary
+    concept is NEVER a source; composed chains (bc.chain_compose, passed as `chains`) follow the cards
+    instead. Never raises."""
     import random as _rnd
     used = {str(u) for u in _dl_list(used)}
     cards = [c for c in _dl_list(cards) if isinstance(c, dict)]
@@ -20247,7 +20865,12 @@ def l2_slot_source(cards, band, subtopic_id, used=(), seed=0, family=None, skip=
     other = [v for v in vocab if v not in same]
     rng.shuffle(same)
     rng.shuffle(other)
-    srcs += [{'kind': 'concept', 'ref': v['label'], 'family': v['family']} for v in same + other]
+    if isinstance(min_decisions, int) and not isinstance(min_decisions, bool) and min_decisions >= 2:
+        srcs += [{'kind': 'chain', 'ref': c.get('card_id'), 'family': (_dl_list(c.get('families')) or [fam])[0]}
+                 for c in _dl_list(chains) if isinstance(c, dict) and c.get('card_id') not in used
+                 and _qf_int(c.get('n_decisions'), 0) >= min_decisions]
+    else:
+        srcs += [{'kind': 'concept', 'ref': v['label'], 'family': v['family']} for v in same + other]
     k = max(0, _qf_int(skip, 0))
     if k >= len(srcs):
         return {'kind': 'none', 'ref': None, 'family': fam, 'load_floor': floor}
@@ -20260,7 +20883,8 @@ def l2_copy_check(key_smiles, profile, card_ids=None):
     """G-L2CARDCOPY (owner D6): True when the candidate key's InChIKey connectivity block
     (first 14 characters) equals ANY past answer's in the profile (every paper, not only the
     window), i.e. the item copies a past question. None when RDKit or the key is absent
-    (the check is DORMANT, printed by the caller). Never raises."""
+    (the check is DORMANT, printed by the caller). v2.0: past products held only in content_objects
+    count too; the originality LAW is bc.clone_guard (LAW-ORG-10). Never raises."""
     rd = _qf_rdkit()
     if rd is None or not isinstance(key_smiles, str) or not key_smiles.strip():
         return None
@@ -20283,18 +20907,31 @@ def l2_copy_check(key_smiles, profile, card_ids=None):
         for rec in ((p or {}).get('questions') or {}).values() if isinstance(p, dict) else []:
             if isinstance(rec, dict) and rec.get('answer_smiles') and _ik1(rec['answer_smiles']) == k:
                 return True
+    # v2.0 (G-07): also every past PRODUCT held only in content_objects (a record whose answer_smiles is
+    # missing) — the full three-test guard is bc.clone_guard; this keeps the legacy key-only entry point honest
+    for fp in (clone_fingerprint(r) for r in pyq_guard_pool(profile)):
+        for s2 in fp['products'] + fp['keys']:
+            if _ik1(s2) == k:
+                return True
     return False
 
 
-def l2_hard_supply(cards, labels):
+def l2_hard_supply(cards, labels, chains=None):
     """{band: n cards} — the pattern supply ScopedBlueprint / Blueprint print at blueprint
-    time beside the schedule (AF-9). Advisory; never routed into feasibility."""
+    time beside the schedule (AF-9). Advisory; never routed into feasibility.
+    v2.0 (F-06.6): composable chains (bc.chain_compose) count too — a chain with a 'band' at that band,
+    one without at the top band. Low supply triggers composition and the library; it NEVER lowers a band."""
     labs = _dl_labels(labels)
     out = {l: 0 for l in labs}
     for c in _dl_list(cards):
         b = _dl_band(c.get('band'), labs) if isinstance(c, dict) else None
         if b is not None:
             out[b] += 1
+    for c in _dl_list(chains):
+        if isinstance(c, dict):
+            b = _dl_band(c.get('band'), labs) or (labs[-1] if labs else None)
+            if b is not None:
+                out[b] += 1
     return out
 
 
@@ -20336,7 +20973,7 @@ _LB_RUNG_OF = {'review': 'SWAP', 'forced': 'FORCED', 'held': 'HELD'}
 # settled); a HELD slot (measured HARDER than its slot, label held at it) is a welcome swap partner
 LB_SETTLED_RUNGS = ('SWAP', 'FORCED')
 
-SC_RULE_CURRENT = 'SC1'
+SC_RULE_CURRENT = 'SC2'               # v2.0 (G-10): SC2 chains end by REPLACING (LAW-ORG-3); SC1 = legacy records
 # (stage, reviewed attempts) — every attempt is ONE fresh independent (delta) review
 SC_STAGES = {
     'difficulty': (('rework_dr1', 1), ('rework_dr2', 1), ('replace', 3), ('shape', 2), ('sibling', 2)),
@@ -20347,12 +20984,33 @@ SC_STAGES = {
     'upgrade': (('rework_dr1', 1), ('rework_dr2', 1), ('replace', 3)),
 }
 SC_SIBLING_SUBTOPICS = 3               # at most 3 sibling subtopics, SC 'sibling' attempts each
+# v2.0 (GAP-2026-11-10 G-10, LAW-ORG-3 NO-DELIVER-ANYWAY): every SC2 ladder ends by REPLACEMENT —
+# reserve_refill (a verified reserve item at the exact band) -> refill_session (a fresh worker writes up to
+# C_REFILL_CANDIDATES candidates per open slot, at most C_REFILL_SESSIONS per paper) -> last_resort (the
+# nearest-band fully verified reserve item, one AMBER line + an automatic P0 incident; key, diagrams and
+# originality never relaxed — LAW-ORG-4). The SC1 endings (band swap, paired upgrade, forced, panel, re-key,
+# majority, amber) are RETIRED as writers and kept ONLY to verify chains recorded before this release.
 SC_TERMINALS = {
+    'difficulty': ('reserve_refill', 'refill_session', 'last_resort'),
+    'dispute': ('reserve_refill', 'refill_session', 'last_resort'),
+    'quality': ('reserve_refill', 'refill_session', 'last_resort'),
+    'upgrade': ('abandon',),
+}
+SC_TERMINALS_SC1 = {
     'difficulty': ('band_swap', 'paired_upgrade', 'forced'),
     'dispute': ('panel', 'rekey', 'majority'),
     'quality': ('amber',),
     'upgrade': ('abandon',),
 }
+
+
+def sc_terminals(chain):
+    """The terminal tuple-map a chain is judged under: SC_TERMINALS_SC1 for a chain recorded under rule
+    'SC1' (or with no rule — every chain before v1.34 had none), else SC_TERMINALS. Never raises."""
+    c = chain if isinstance(chain, dict) else {}
+    return SC_TERMINALS_SC1 if c.get('rule') in ('SC1', None) else SC_TERMINALS
+
+
 SC_NEEDS = {'replace': 'sources', 'shape': 'shapes', 'sibling': 'siblings'}
 
 REVIEW_VOID_RATE = 0.30                # D0: a part disputing more than this share is suspect
@@ -20409,8 +21067,16 @@ def _lb_idx(b, labs):
     return labs.index(b) if b in labs else None
 
 
-def verify_difficulty_label(entry, labels):
-    """(ok, expected, basis) — THE label verifier (LABEL-BASIS-LAW). entry: a question_index row
+def verify_difficulty_label(entry, labels, strict=None, paper_release=None):
+    """(ok, expected, basis) — THE label verifier (LABEL-BASIS-LAW, amended v2.0 by LAW-ORG-5).
+    v2.0 STRICT PATH (LB2 — every item of every exam): when strict is True, or the row is an LB2 row
+    (lb2_strict_row: difficulty_check.lb_rule / label_basis.rule 'LB2', or its paper was committed at or
+    after FRAMEWORK_RELEASE_STRICT), the ONLY valid bases are 'measured_exact' and 'last_resort'
+    (verify_difficulty_label_strict); 'obs' (the author's own counts), 'l2' (one model's band), 'none' (no
+    evidence), 'dr3', 'review' (swap), 'forced' and 'held' are rejected. strict=False forces the legacy path
+    (a paper delivered before this release is never re-certified — GAP §9). The legacy bases below remain
+    ONLY to verify rows recorded before this release.
+    entry: a question_index row
     or a concept_map entry (keys difficulty, difficulty_obs, difficulty_check, qtype).
       'review' — dl_rung 'SWAP' with label_basis kind 'review': ok iff the label equals the
                  recorded slot (label_basis.target) AND the lowest independent control
@@ -20426,11 +21092,15 @@ def verify_difficulty_label(entry, labels):
       'obs'    — verify_difficulty_obs(label, difficulty_obs) unchanged.
       'none'   — no usable evidence: (True, None, 'none'), the documented legacy fall-through.
     Never raises."""
+    if strict is True or (strict is None and lb2_strict_row(entry, paper_release)):
+        return verify_difficulty_label_strict(entry, labels)
     labs = _dl_labels(labels)
     e, dc, obs, lb, qt = _lb_entry(entry)
     lab = e.get('difficulty')
     rung = dc.get('dl_rung')
     kind = lb.get('kind')
+    if kind in LB2_KINDS:                    # an LB2 basis is always judged strictly, whatever the caller says
+        return verify_difficulty_label_strict(entry, labels)
     if rung in LB_RUNGS or kind in LB_KINDS:
         if rung == 'SWAP' and kind == 'review':
             tgt = _dl_band(lb.get('target'), labs)
@@ -20485,6 +21155,10 @@ def qindex_count_band(entry, labels):
     labs = _dl_labels(labels)
     e, dc, _obs, _lb, _qt = _lb_entry(entry)
     lab = e.get('difficulty')
+    if isinstance(_lb, dict) and _lb.get('kind') == 'last_resort':
+        # v2.0 (LAW-ORG-4): a last-resort slot counts at its SLOT in the schedule quota; the deviation is the
+        # one disclosed AMBER line (requested vs delivered), never a quota FAIL
+        return _dl_band(_lb.get('target'), labs) or lab
     if dc.get('dl_rung') == 'DR3':
         db = dc.get('dr3_basis') if isinstance(dc.get('dr3_basis'), dict) else {}
         return _dl_band(db.get('target'), labs) or _dl_band(dc.get('scheduled'), labs) or lab
@@ -20524,6 +21198,9 @@ def dl_set_label_basis(entry, kind, labels, target, controls=None, chain=None, p
     else:
         if not slot_chain_exhausted(chain, 'difficulty'):
             return (entry if isinstance(entry, dict) else {}), False, 'slot chain not exhausted'
+        if sc_terminals(chain) is not SC_TERMINALS_SC1:
+            # v2.0 (LAW-ORG-3): a FORCED label is a retired SC1 ending — an SC2 chain ends by replacement
+            return (entry if isinstance(entry, dict) else {}), False, 'forced is retired for SC2 chains (LAW-ORG-3)'
     lbrec = {'kind': kind, 'target': tgt, 'controls': ctl, 'rule': LB_RULE_CURRENT}
     if kind == 'forced':
         lbrec['chain'] = slot_chain_compact(chain)
@@ -20538,6 +21215,49 @@ def dl_set_label_basis(entry, kind, labels, target, controls=None, chain=None, p
     e['difficulty'] = tgt
     e['difficulty_check'] = dc
     return e, True, 'ok'
+
+
+def op_content_sha(entry):
+    """sha256 of the item's OWN text as the concept_map records it (stem_text, option_texts in order, figure_files
+    in order; whitespace-normalised) — the binding of every control record (grades, key_votes) to the exact text
+    it judged: a re-authored / replaced item has a different sha, so an earlier item's controls never certify it.
+    Pure; never raises."""
+    import hashlib as _h
+    import json as _j
+    e = entry if isinstance(entry, dict) else {}
+    ops = e.get('option_texts')
+    ops = [ops[k] for k in sorted(ops, key=str)] if isinstance(ops, dict) else (ops if isinstance(ops, list) else [])
+    body = {'stem': ' '.join(str(e.get('stem_text') or '').split()),
+            'options': [' '.join(str(x or '').split()) for x in ops],
+            'figures': [str(x) for x in (e.get('figure_files') if isinstance(e.get('figure_files'), list) else [])]}
+    return _h.sha256(_j.dumps(body, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+
+
+def op_record_controls(entry, grader_1=None, grader_2=None, recipe=None, packets=None, decisions_grader=None,
+                       key_votes=None, figures=None, clone_check=None, stereo_gate=None, item_hash=None):
+    """THE ONE WRITER of an item's control records (S0-OP-5): returns the concept_map entry with
+    grades {grader_1, grader_2, recipe, packets, item_hash, content_sha}, key_votes (+ content_sha), and — when
+    given — decisions_grader, figures, clone_check, stereo_gate. Each record is bound to op_content_sha(entry);
+    Create S13-2L reads grades / key_votes only while that binding holds. Pure; never raises."""
+    e = dict(entry) if isinstance(entry, dict) else {}
+    sha = op_content_sha(e)
+    e['grades'] = {'grader_1': grader_1, 'grader_2': grader_2, 'recipe': recipe is True,
+                   'packets': dict(packets) if isinstance(packets, dict) else {}, 'item_hash': item_hash,
+                   'content_sha': sha}
+    if isinstance(key_votes, dict):
+        e['key_votes'] = dict(key_votes, content_sha=sha)
+    for k, v in (('decisions_grader', decisions_grader), ('figures', figures), ('clone_check', clone_check),
+                 ('stereo_gate', stereo_gate)):
+        if v is not None:
+            e[k] = v
+    return e
+
+
+def op_controls_current(entry, record):
+    """True when a grades / key_votes record still describes the entry's CURRENT text (content_sha match).
+    A record without content_sha was not written by op_record_controls: False (fail closed). Never raises."""
+    return (isinstance(record, dict) and isinstance(record.get('content_sha'), str)
+            and record['content_sha'] == op_content_sha(entry))
 
 
 def clear_label_basis(entry):
@@ -20559,11 +21279,14 @@ def clear_label_basis(entry):
 
 # ── SLOT CHAIN — the bounded, never-stopping repair of ONE slot ─────────────────────────
 
-def slot_chain_new(q, kind, target=None, subtopic_id=None):
+def slot_chain_new(q, kind, target=None, subtopic_id=None, rule=None):
     """A new chain record for slot q (kind 'difficulty' | 'dispute' | 'quality'). Persisted by the
-    caller in batch_state['slot_chain'][q] after EVERY attempt (resume-safe, E24)."""
+    caller in batch_state['slot_chain'][q] after EVERY attempt (resume-safe, E24). v2.0: rule defaults to
+    SC_RULE_CURRENT ('SC2' — ends by replacement); rule='SC1' rebuilds a LEGACY chain only to verify a record
+    written before this release (a generation step never passes it)."""
     k = kind if kind in SC_STAGES else 'quality'
-    return {'q': str(q), 'kind': k, 'target': target, 'subtopic_id': subtopic_id, 'rule': SC_RULE_CURRENT,
+    rl = rule if rule in ('SC1', 'SC2') else SC_RULE_CURRENT
+    return {'q': str(q), 'kind': k, 'target': target, 'subtopic_id': subtopic_id, 'rule': rl,
             'attempts': [], 'unavailable': [], 'terminal_tried': [], 'done': False, 'outcome': None}
 
 
@@ -20627,7 +21350,7 @@ def slot_chain_next(chain, sources=True, shapes=True, siblings=()):
         c['unavailable'] = una
         return {'action': stage, 'stage': stage, 'sibling': None, 'chain': c}
     c['unavailable'] = una
-    for t in SC_TERMINALS[k]:
+    for t in sc_terminals(c)[k]:
         if t not in ter:
             return {'action': t, 'stage': t, 'sibling': None, 'chain': c}
     return {'action': 'done', 'stage': None, 'sibling': None, 'chain': c}
@@ -20644,8 +21367,11 @@ def slot_chain_record(chain, stage, outcome, item_hash=None, source=None, siblin
     for kk, vv in (('item_hash', item_hash), ('source', source), ('sibling', sibling), ('note', note)):
         if vv is not None:
             rec[kk] = vv
-    if k is not None and stage in SC_TERMINALS[k]:
+    _is_term = k is not None and stage in sc_terminals(c)[k]
+    if _is_term:
         c['terminal_tried'] = ter + ([str(stage)] if str(stage) not in ter else [])
+    if _is_term and sc_terminals(c) is SC_TERMINALS_SC1:
+        pass                                    # SC1 (legacy): a terminal is never an attempt
     elif att and att[-1].get('outcome') == 'pending' and att[-1].get('stage') == rec['stage']:
         # RESOLVING the pending attempt: it keeps WHICH sibling / source it was (a resolution that dropped the
         # sibling would never exhaust that sibling's cap — found by the 2026.11.09 randomized termination run)
@@ -20665,7 +21391,7 @@ def slot_chain_finish(chain, outcome, **facts):
     measured, agree, n, gates). Pure (returns a new chain); outcome is recorded as given."""
     c, k, att, una, ter = _sc(chain)
     c = dict(c)
-    if k is not None and outcome in SC_TERMINALS[k] and outcome not in ter:
+    if k is not None and outcome in sc_terminals(c)[k] and outcome not in ter:
         c['terminal_tried'] = ter + [outcome]
     c['done'], c['outcome'] = True, str(outcome)
     for kk, vv in facts.items():
@@ -20709,7 +21435,7 @@ def slot_chain_reopen(prev, q, kind, target=None, subtopic_id=None):
         pa = p.get('attempts') or []
         if pa and isinstance(pa[-1], dict) and pa[-1].get('outcome') == 'pending':
             p = slot_chain_record(p, pa[-1].get('stage'), 'fail', note='superseded: disputed / failed a gate')
-        nc = slot_chain_new(q, k, target, subtopic_id)
+        nc = slot_chain_new(q, k, target, subtopic_id, rule=p.get('rule'))
         nc['history'] = hist
         nc['suspended'] = _sc_strip(p)
         return nc
@@ -20718,7 +21444,7 @@ def slot_chain_reopen(prev, q, kind, target=None, subtopic_id=None):
     if susp and susp.get('kind') == k and not susp.get('done'):
         nc = _sc_strip(susp)
     else:
-        nc = slot_chain_new(q, k, target, subtopic_id)
+        nc = slot_chain_new(q, k, target, subtopic_id, rule=(p.get('rule') if p else None))
     nc['history'] = hist
     return nc
 
@@ -20745,7 +21471,7 @@ def slot_chain_exhausted(chain, kind=None):
             continue
         if _sc_used(att, stage) < cap:
             return False
-    return all(t in ter for t in SC_TERMINALS[k][:-1])
+    return all(t in ter for t in sc_terminals(c)[k][:-1])
 
 
 def slot_chain_reviewed_max(kind):
@@ -20994,6 +21720,15 @@ def chain_footer_lines(slot_chains, target_plan=None):
             amber.append(f"Q{q}: {', '.join(c.get('gates') or [])} persisted on every replacement — delivered, disclosed")
         elif out in ('sibling',):
             info.append(f"Q{q}: replaced from a sibling subtopic ({c.get('subtopic_id')} -> another; allocation ±1, disclosed)")
+        # v2.0 (SC2 endings — LAW-ORG-3 / LAW-ORG-4)
+        elif out == 'reserve_refill':
+            info.append(f"Q{q}: replaced by a verified reserve item at its exact band ({c.get('target')}; unanimous key, "
+                        f"proven figures, clone-checked)")
+        elif out == 'refill_session':
+            info.append(f"Q{q}: replaced in a fresh refill session at its exact band ({c.get('target')})")
+        elif out == 'last_resort':
+            amber.append(f"Q{q}: last resort — requested {c.get('target')}, delivered {c.get('delivered') or '?'} (fully "
+                         f"verified: unanimous key, proven figures, original); P0 incident {c.get('incident_id') or 'filed'}")
     return {'info': info, 'amber': amber}
 
 
@@ -21113,6 +21848,2083 @@ LADDER_ENTRY_RUNG.update({
 })
 
 # END CLUSTER LB + SC
+# ══════════════════════════════════════════════════════════════════
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# CLUSTER OP — ORGANIC PARITY + DIFFICULTY INTEGRITY (v2.0 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY
+# + GAP-2026-11-10-DIFFICULTY-INTEGRITY; owner decisions 2026-11-10: D-1 (a) bounded last resort,
+# C_REFILL_SESSIONS = 5; difficulty integrity applies to EVERY item of EVERY exam; one release)
+#
+#   G-01 is_organic_item / organic_scope / l2_applies(record=, organic_subtopics=)  — scope by CONTENT
+#   G-02 pyq_record_complete / pyq_stereo_fidelity / pyq_record_status / pyq_target_pool — fail closed
+#   G-03 stereo_elements / stem_stereo_gate / solver_assumption_check
+#   G-04 convention_shares / convention_floors / scaffold_convention / organic_library_*
+#   G-05 ASK_FORMATS / normalize_ask_format / format_shares / format_floors / parity_floor_check
+#   G-06 chain_card_from_record / chain_compose / decision_contract_check / substrate_recipe / substrate_check
+#   G-07 clone_guard (replaces the answer-only l2_copy_check; l2_copy_check delegates) / series registry
+#   G-08 build_difficulty_ruler / band_recipe_check / band_exact / easy_quality_floor / ruler_min_band
+#   G-09 schedule_normalize / schedule_place / schedule_freeze / schedule_frozen_check (never raises a stop)
+#   G-10 SC rule SC2 endings reserve_refill -> refill_session -> last_resort; reserve_*; key_unanimous;
+#        label bases measured_exact / last_resort (LB2 — strict: no obs / l2 / none / dr3 / swap / forced /
+#        held / majority / disclosed basis on any LB2 row); last_resort_incident
+#   G-13 author_brief                                 G-14 STOP_REPAIRS / stop_repair_for
+#
+# Thin core: stdlib only; RDKit through _qf_rdkit (importlib) and DORMANT (None) when absent — a DORMANT
+# chemistry check never certifies (the spec treats it as an environment repair: Step 0 installs rdkit).
+# Every function is pure and never raises.
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+OP_RULE_CURRENT = 'OP1'
+FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
+OP_RELEASE = '2026.11.10'                    # qindex_cert.framework_release stamped by final_assembly v1.16
+
+# ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
+C_PYQ_REREAD_MAX = 2
+C_MIN_ORG_PYQ = 30
+C_CONV_MIN_SHARE = 0.03
+C_FORMAT_MIN_SHARE = 0.03
+C_NEAR_SIM = 0.70
+C_HOMOLOGUE_DELTA = 2
+C_SMALL_KEY = 6
+C_GRADERS = 2
+C_ANCHOR_MIN = 8
+C_RULER_AGREE = 0.80
+C_K_CANDIDATES = 3
+C_K_AFTER_MISS = 5
+C_REFILL_SESSIONS = 5                        # owner 2026-11-10: raised from the GAP default 3
+C_REFILL_CANDIDATES = 10
+C_SOLVERS = 2
+C_LABEL_PAD = 0.15
+C_MIN_ATOM_SEP = 0.5
+C_REDEPICT_MAX = 24
+C_MIN_STEM_WIDTH_IN = 1.0
+C_MIN_OPTION_WIDTH_IN = 0.8
+C_VISION_READS_STEREO = 2
+C_VISION_READS = 1
+C_BRIEF_MAX_PAGES = 5
+C_BRIEF_CHARS_PER_PAGE = 3000
+C_LAST_RESORT_ROUNDS = 3                     # recipe-checked last-resort rounds per slot (then disclosed; 2x: NO-MODEL)
+C_ORG_SUBTOPIC_SHARE = 0.5                   # a subtopic is organic as a WHOLE only when >= this share of its
+                                             # past records is organic; below it every slot is decided by its item
+OP_CONSTANTS = ('C_PYQ_REREAD_MAX', 'C_MIN_ORG_PYQ', 'C_CONV_MIN_SHARE', 'C_FORMAT_MIN_SHARE', 'C_NEAR_SIM',
+                'C_HOMOLOGUE_DELTA', 'C_SMALL_KEY', 'C_GRADERS', 'C_ANCHOR_MIN', 'C_RULER_AGREE',
+                'C_K_CANDIDATES', 'C_K_AFTER_MISS', 'C_REFILL_SESSIONS', 'C_REFILL_CANDIDATES', 'C_SOLVERS',
+                'C_LABEL_PAD', 'C_MIN_ATOM_SEP', 'C_REDEPICT_MAX', 'C_MIN_STEM_WIDTH_IN',
+                'C_MIN_OPTION_WIDTH_IN', 'C_VISION_READS_STEREO', 'C_VISION_READS', 'C_BRIEF_MAX_PAGES',
+                'C_ORG_SUBTOPIC_SHARE', 'C_LAST_RESORT_ROUNDS')
+OP_CONSTANT_DEFAULTS = {k: globals()[k] for k in OP_CONSTANTS}
+
+
+def op_constants_reset():
+    """Restore every §6.2 constant to its RELEASE default (an exam's override applied by S0-OP-0 never leaks into
+    the next exam of the same session). Returns the defaults. Never raises."""
+    g = globals()
+    for k, v in (OP_CONSTANT_DEFAULTS or {}).items():
+        g[k] = v
+    return dict(OP_CONSTANT_DEFAULTS or {})
+
+
+def op_constants(exam_config=None):
+    """{name: value} — the §6.2 defaults with the exam's overrides applied. An override is honoured ONLY
+    from exam_config['constants'] (a numeric value of the same type family) and is listed in
+    'overrides' so the delivery footer prints it (GAP §6.2). Never raises."""
+    g = globals()
+    out = {k: g[k] for k in OP_CONSTANTS}
+    ov = []
+    cfg = exam_config.get('constants') if isinstance(exam_config, dict) else None
+    for k, v in (cfg.items() if isinstance(cfg, dict) else []):
+        kk = str(k).replace('-', '_')
+        if not kk.startswith('C_'):
+            kk = 'C_' + kk
+        if kk in out and isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+            if isinstance(out[kk], int) and not float(v).is_integer():
+                continue
+            out[kk] = type(out[kk])(v)
+            ov.append(f'{kk}={out[kk]}')
+    out['overrides'] = sorted(ov)
+    return out
+
+
+# ── G-01 — ORGANIC SCOPE BY CONTENT (LAW-ORG-1) ───────────────────────────────────────────
+ORGANIC_LEXICON = frozenset({
+    # named reactions / rearrangements / reagents (lower case, punctuation-free; transliterations appended)
+    'aldol', 'diels alder', 'diels-alder', 'claisen', 'cope', 'oxy cope', 'oxy-cope', 'wittig', 'horner wadsworth emmons',
+    'still gennari', 'julia', 'peterson', 'grignard', 'gilman', 'suzuki', 'heck', 'sonogashira', 'stille', 'negishi',
+    'buchwald hartwig', 'tsuji trost', 'krapcho', 'michael', 'robinson annulation', 'mannich', 'baylis hillman',
+    'birch', 'clemmensen', 'wolff kishner', 'cannizzaro', 'perkin', 'knoevenagel', 'stobbe', 'darzens', 'reformatsky',
+    'baeyer villiger', 'beckmann', 'curtius', 'hofmann', 'lossen', 'schmidt', 'wolff', 'arndt eistert', 'favorskii',
+    'pinacol', 'wagner meerwein', 'fries', 'nef', 'eschenmoser', 'tanabe', 'danheiser', 'sharpless', 'jacobsen',
+    'shi epoxidation', 'corey chaykovsky', 'corey fuchs', 'seyferth gilbert', 'ohira bestmann', 'swern', 'dess martin',
+    'jones', 'pcc', 'pdc', 'tpap', 'ozonolysis', 'hydroboration', 'oxymercuration', 'epoxidation', 'dihydroxylation',
+    'woodward', 'prevost', 'upjohn', 'luche', 'meerwein ponndorf verley', 'oppenauer', 'mitsunobu', 'appel',
+    'finkelstein', 'sn1', 'sn2', 'e1', 'e2', 'e1cb', 'friedel crafts', 'vilsmeier', 'reimer tiemann', 'kolbe',
+    'gattermann', 'sandmeyer', 'chichibabin', 'fischer indole', 'hantzsch', 'paal knorr', 'skraup', 'bischler napieralski',
+    'pictet spengler', 'ene reaction', 'carbonyl ene', 'prins', 'nazarov', 'pauson khand', 'metathesis', 'grubbs',
+    'norrish', 'paterno buchi', 'electrocyclic', 'sigmatropic', 'cycloaddition', 'woodward hoffmann', 'fmo',
+    'retrosynthesis', 'protecting group', 'boc', 'fmoc', 'tbs', 'tbdms', 'thp', 'acetal', 'enamine', 'enolate', 'lda',
+    'nbs', 'mcpba', 'dibal', 'lialh4', 'nabh4', 'osO4'.lower(), 'kmno4', 'pd c', 'lindlar', 'hydrogenation',
+    'biosynthesis', 'terpene', 'steroid', 'alkaloid', 'carbohydrate', 'pyranose', 'furanose', 'anomer', 'mutarotation',
+    'amino acid', 'peptide', 'nucleoside', 'polymer', 'monomer', 'chirality', 'enantiomer', 'diastereomer', 'meso',
+    'racemic', 'axial', 'equatorial', 'conformation', 'newman', 'fischer projection', 'haworth', 'sawhorse', 'chair',
+    'iupac', 'nomenclature', 'aromaticity', 'huckel', 'carbocation', 'carbanion', 'carbene', 'nitrene', 'radical',
+    'benzyne', 'ylide', 'hammett', 'kinetic isotope', 'nmr', '1h nmr', '13c nmr', 'ir spectrum', 'mass spectrum',
+    'karplus', 'organic compound', 'hammett plot', 'esterification', 'saponification',
+    # transliterations (Hindi / Devanagari-script exams write the same names; matched after l2_normalise)
+    'एल्डोल', 'ग्रिगनार्ड', 'डील्स एल्डर', 'विटिग', 'कार्बोकैटायन', 'एल्कीन', 'ऐल्कीन', 'एल्काइन', 'ऐल्कोहॉल',
+    'एल्डिहाइड', 'कीटोन', 'एस्टर',
+})
+# terms SHARED with inorganic / physical chemistry (Tanabe-Sugano, Grubbs catalyst structure, chirality of
+# complexes, NMR / EPR methods, Hückel theory, polymer molar masses, radical kinetics, ...): they count ONLY beside a
+# STRONG organic context word and never inside an inorganic / physical context (real-data audit 2026-11-10).
+ORGANIC_LEXICON_AMBIGUOUS = frozenset({
+    'tanabe', 'grubbs', 'metathesis', 'chirality', 'enantiomer', 'diastereomer', 'meso', 'racemic', 'nmr', '1h nmr',
+    '13c nmr', 'ir spectrum', 'mass spectrum', 'kinetic isotope', 'huckel', 'aromaticity', 'radical',
+    'polymer', 'monomer', 'conformation', 'chair', 'axial', 'equatorial', 'nomenclature', 'iupac', 'jones', 'hofmann',
+    'schmidt', 'wolff', 'kolbe', 'e1', 'e2', 'e1cb', 'sn1', 'sn2', 'boc', 'thp', 'tbs', 'fmo', 'hydrogenation',
+    'carbene', 'nitrene', 'ylide', 'cycloaddition', 'electrocyclic', 'sigmatropic', 'woodward', 'woodward hoffmann',
+    'amino acid', 'peptide', 'nucleoside', 'carbohydrate', 'epoxidation', 'dihydroxylation', 'acetal', 'carbocation',
+    'carbanion', 'newman', 'sawhorse', 'fischer projection', 'haworth', 'pcc', 'pdc', 'kmno4', 'oso4', 'pd c',
+    'ozonolysis', 'steroid', 'terpene', 'alkaloid', 'biosynthesis', 'michael', 'julia', 'heck', 'perkin', 'stille',
+    'peterson', 'cope', 'fries', 'nef', 'birch', 'appel', 'prins', 'woodward', 'kolbe', 'gattermann', 'woodward'})
+ORGANIC_STRONG_CONTEXT = re.compile(r'(?<![a-z])(ester|ketone|aldehyde|alcohol|alkene|alkyne|alkane|arene|amine|'
+                                    r'amide|ether|carbonyl|enol|enolate|nucleophil|electrophil|substituent|stereocent|'
+                                    r'regioselect|diastereoselect|enantioselect|organic|benzene|phenyl|methyl|ethyl|'
+                                    r'alkyl|aryl|olefin|diene|dienophile|cyclohex|hydroxy|halide|carboxyl|lactone|'
+                                    r'lactam|ring opening|ring closing|annulation|major product|starting material|'
+                                    r'ch3|ch2|c2h5|c6h5|cf3|bromo|chloro|iodo|propane|butane|ethane|esterif|'
+                                    r'toluene|phenol|aniline|pyridine|benzaldehyde|acetophenone|anisole|naphthalene|'
+                                    r'\d-\w*an-?\d?-?ol|\d-\w*an-?\d?-?one|\d-\w*ene|conc h2so4|'
+                                    r'यौगिक)')
+INORGANIC_CONTEXT = re.compile(r'(?<![a-z])(complex(es)?|ligand|ligands|crystal field|ligand field|d d|term symbol|'
+                               r'tanabe sugano|orgel|oxidation state|coordination|spin only|magnetic moment|epr|esr|'
+                               r'mossbauer|mössbauer|cluster|hapticity|18 electron|point group|character table|'
+                               r'lattice|unit cell|partition function|wavefunction|wave function|eigen|hamiltonian|'
+                               r'rate constant|arrhenius|gas phase|bimolecular gas|nuclear|isotope pattern|'
+                               r'cu\(ii\)|co\(iii\)|fe\(ii\)|fe\(iii\)|cr\(iii\)|ni\(ii\)|'
+                               # physical chemistry / organometallic-catalyst identity (not an organic item)
+                               r'delocali[sz]ation energy|huckel theory|secular|molar mass|number average|weight average|'
+                               r'degree of polymeri|physical method|selection rule|generation grubbs|grubbs catalyst|'
+                               r'wilkinson|zeise|ferrocene|metallocene|organometallic)')
+_OP_TEXT_METAL = re.compile(r'(?<![A-Za-z])(' + '|'.join(sorted(
+    'Li Be Na Mg Al K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Cs Ba La Ce '
+    'Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi U'.split(), key=len, reverse=True)) + r')(?![a-z])')
+ORGANIC_STEREO_WORDS = re.compile(r'(?<![a-z])(\(r\)|\(s\)|\(e\)|\(z\)|cis|trans|meso|axial|equatorial|r/s|e/z|'
+                                  r'enantiomer|diastereomer|chiral|stereocent|conformer|anti-periplanar)(?![a-z])')
+# a free-text organic word counts only beside one of these (F-01.1 — content, not coincidence)
+ORGANIC_CONTEXT_WORDS = re.compile(r'(?<![a-z])(reaction|rearrangement|reagent|product|synthes|addition|coupling|'
+                                   r'condensation|oxidation|reduction|elimination|substitution|mechanism|compound|'
+                                   r'catalys|ester|ketone|aldehyde|alcohol|alkene|alkyne|alkane|arene|amine|amide|'
+                                   r'ether|carbonyl|enol|isomer|configuration|stereo|molecule|substituent|ring|'
+                                   r'nucleophil|electrophil|carbocation|acid|base|solvent|yield|अभिक्रिया|यौगिक|उत्पाद|अभिकर्मक)')
+ORGANIC_SPECTRO_WORDS = re.compile(r'(?<![a-z0-9])(1h|13c|¹h|¹³c)?\s?(nmr|ir|mass spectr|uv-vis)(?![a-z])')
+_OP_METALS = frozenset('Li Be Na Mg Al K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In '
+                       'Sn Sb Cs Ba La Ce Pr Nd Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi U'.split())
+# fragments that never make an item organic on their own (counter-ions, solvents, ligand labels)
+_OP_NON_ORGANIC_FRAGMENTS = frozenset({
+    'C(=O)=O', 'O=C=O', '[C-]#[O+]', '[C-]#N', 'C#N', '[O-]C([O-])=O', 'OC(O)=O', 'C', 'CO', 'CCO', 'CS(C)=O',
+    'ClCCl', 'ClC(Cl)Cl', 'CC#N', 'C1CCOC1', 'CC(C)=O', 'CN(C)C=O', 'CC(=O)[O-]', 'CC(=O)O', 'O=S(=O)([O-])C(F)(F)F',
+    'c1ccccc1',
+})
+_OP_SMILES_ATOM = re.compile(r'\[[^\]]+\]|Br|Cl|[BCNOPSFIbcnops]')
+
+
+def _op_frag_atoms(frag):
+    """[(symbol, aromatic)] of one SMILES fragment, stdlib tokeniser (bracket atoms read their element)."""
+    out = []
+    for t in _OP_SMILES_ATOM.findall(frag or ''):
+        if t.startswith('['):
+            m = re.match(r'\[(\d*)([A-Z][a-z]?|[a-z]{1,2})', t)
+            if m:
+                out.append((m.group(2).capitalize() if m.group(2).islower() else m.group(2), m.group(2).islower()))
+        else:
+            out.append((t.capitalize() if t.islower() else t, t.islower()))
+    return out
+
+
+def _op_smiles_valid(f):
+    """True when f is a SMILES string: SMILES characters only (no spaces / commas / words) and, when RDKit is
+    present, parsed by RDKit without sanitisation (dative / charged complexes still parse). Never raises."""
+    if not isinstance(f, str) or not f or re.search(r'[\s,;]', f) or not re.fullmatch(r'[A-Za-z0-9@+\-\[\]()=#$:/\\.%*>~]+', f):
+        return False
+    _bare = re.sub(r'Cl|Br', '', re.sub(r'\[[^\]]*\]', '', f))     # outside brackets SMILES lower case is b c n o p s
+    if re.search(r'[ad-mqrt-z]', _bare):                             # a word ('chelate', 'trans', 'mu') is not SMILES
+        return False
+    rd = _qf_rdkit()
+    if rd is None:
+        return True
+    try:
+        rd[3].DisableLog('rdApp.*')
+    except Exception:                                       # noqa: BLE001
+        pass
+    try:
+        return rd[0].MolFromSmiles(f, sanitize=False) is not None
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
+_OP_NON_ORGANIC_CANON = None
+
+
+def _op_canon(f):
+    rd = _qf_rdkit()
+    if rd is None:
+        return f
+    try:
+        m = rd[0].MolFromSmiles(f)
+        return rd[0].MolToSmiles(m) if m is not None else f
+    except Exception:                                       # noqa: BLE001
+        return f
+
+
+def _op_fragment_organic(frag, role='content'):
+    """(organic: bool, has_metal: bool) for one SMILES fragment: organic = >= 2 carbons, or 1 carbon
+    bonded to H/N/O/halogen in a molecule that is not a listed counter-ion / solvent; metal-bearing
+    fragments report has_metal so the caller applies the organometallic rule."""
+    if not isinstance(frag, str) or not frag.strip():
+        return False, False
+    f = frag.strip()
+    if not _op_smiles_valid(f):
+        # free text ('bis(N,O-chelate)Cu(II)', '2 Cr(CO)6 + X') is never a structure; it may still name a metal
+        return False, bool(_OP_TEXT_METAL.search(f))
+    atoms = _op_frag_atoms(f)
+    syms = [a for a, _ in atoms]
+    metal = any(s in _OP_METALS for s in syms)
+    nc = sum(1 for s in syms if s == 'C')
+    global _OP_NON_ORGANIC_CANON
+    if role == 'content':
+        # a counter-ion / solvent / ligand label never makes a STEM species or a reaction partner organic on its
+        # own (compared in canonical form, so 'OCC' == 'CCO'); an OPTION or ANSWER structure always counts
+        if _OP_NON_ORGANIC_CANON is None:
+            _OP_NON_ORGANIC_CANON = frozenset(_op_canon(x) for x in _OP_NON_ORGANIC_FRAGMENTS) | _OP_NON_ORGANIC_FRAGMENTS
+        if f in _OP_NON_ORGANIC_CANON or _op_canon(f) in _OP_NON_ORGANIC_CANON:
+            return False, metal
+    if nc >= 2:
+        return True, metal
+    return False, metal
+
+
+def is_organic_item(record):
+    """(bool, reason) — G-01 F-01.1: decided from the item's CONTENT, never from a section / subject name.
+    True when any of: a content object / option / answer structure whose fragment has a carbon skeleton
+    (not just a counter-ion, solvent or ligand label); a reaction SMILES; a named organic reaction or
+    reagent from ORGANIC_LEXICON in named_concepts / reagents_seen / stem; an organic spectroscopy task on
+    a carbon compound; organic stereochemistry words. An organometallic structure counts only when the
+    ASKED result (answer) is a metal-free organic structure or no answer is metal-centred. A record that
+    already carries organic (bool) + organic_reason keeps it. Never raises."""
+    r = record if isinstance(record, dict) else {}
+    if isinstance(r.get('organic'), bool) and isinstance(r.get('organic_reason'), str) and r.get('organic_reason'):
+        return r['organic'], r['organic_reason']
+    smis = []
+    for o in (r.get('content_objects') if isinstance(r.get('content_objects'), list) else []):
+        if isinstance(o, dict):
+            for k in ('canonical', 'smiles', 'reaction_smiles'):
+                if isinstance(o.get(k), str) and o.get(k).strip():
+                    smis.append(('content', o[k]))
+    ops = r.get('option_smiles')
+    for v in (ops.values() if isinstance(ops, dict) else (ops if isinstance(ops, list) else [])):
+        if isinstance(v, str) and v.strip():
+            smis.append(('option', v))
+    for k in ('answer_smiles',):
+        if isinstance(r.get(k), str) and r.get(k).strip():
+            smis.append(('answer', r[k]))
+    for k in ('answer_set',):
+        for v in (r.get(k) if isinstance(r.get(k), list) else []):
+            if isinstance(v, str) and v.strip():
+                smis.append(('answer', v))
+    answer_metal = False
+    answer_organic = None
+    org_hit = None
+    metal_seen = False
+    for role, s in smis:
+        if '>' in s:
+            parts = [p for p in re.split(r'>+', s) if p]
+            fl = [(i, _op_fragment_organic(fr)) for i, p in enumerate(parts) for fr in p.split('.')]
+            if any(m for _, (_, m) in fl):
+                metal_seen = True                            # an organometallic reaction: the asked result decides
+                if any(o and not m for i, (o, m) in fl if i == len(parts) - 1):
+                    org_hit = org_hit or ('reaction', s)     # a metal-free organic PRODUCT
+            elif any(o for _, (o, _) in fl):
+                org_hit = org_hit or ('reaction', s)
+            continue
+        for fr in s.split('.'):
+            o, m = _op_fragment_organic(fr, role)
+            metal_seen = metal_seen or m
+            if role == 'answer':
+                answer_metal = answer_metal or m
+                if o and not m:
+                    answer_organic = True
+            if o and not m:
+                org_hit = org_hit or (role, fr)
+    if org_hit and org_hit[0] == 'reaction':
+        return True, f'reaction SMILES with a carbon skeleton ({org_hit[1][:40]})'
+    _mtxt = ' '.join(str(r.get(k) or '') for k in ('stem', 'question', 'stem_text', 'stem_snippet'))
+    metal_seen = metal_seen or bool(re.search(r'\[\s*[A-Z][a-z]?\s*[(A-Z]', _mtxt) and _OP_TEXT_METAL.search(_mtxt))
+    if metal_seen:
+        # a coordination / organometallic item: its ligands (en, acac, bipy as separate fragments) never make it
+        # organic on their own — only an ASKED result that is a metal-free organic structure does (F-01.1)
+        if answer_organic and not answer_metal:
+            return True, 'organometallic item whose asked result is an organic structure'
+        org_hit = None
+    if org_hit:
+        return True, f'{org_hit[0]} structure with a carbon skeleton ({org_hit[1][:40]})'
+    words = []
+    for k in ('named_concepts', 'reagents_seen', 'tested_concepts'):
+        v = r.get(k)
+        words += [str(x) for x in (v if isinstance(v, list) else [v] if isinstance(v, str) else [])]
+    for k in ('stem', 'question', 'stem_text', 'stem_snippet'):
+        if isinstance(r.get(k), str):
+            words.append(r[k])
+    txt = ' '.join(words)
+    norm = re.sub(r'[^\w\s/()ऀ-ॿ+-]', ' ', txt.lower())
+    norm = re.sub(r'[-_]', ' ', norm)
+    norm = re.sub(r'\s+', ' ', norm)
+    has_ctx = bool(ORGANIC_CONTEXT_WORDS.search(norm))
+    strong_ctx = bool(ORGANIC_STRONG_CONTEXT.search(norm))
+    inorg_ctx = bool(INORGANIC_CONTEXT.search(norm)) or metal_seen
+    named = ' '.join(str(x) for k in ('named_concepts', 'reagents_seen')
+                     for x in (r.get(k) if isinstance(r.get(k), list) else []))
+    named_norm = re.sub(r'\s+', ' ', re.sub(r'[-_]', ' ', re.sub(r'[^\w\s/()ऀ-ॿ+-]', ' ', named.lower())))
+    for lex in sorted(ORGANIC_LEXICON, key=len, reverse=True):
+        lx = re.sub(r'[-_]', ' ', lex)
+        pat = r'(?<![a-z0-9ऀ-ॿ])' + re.escape(lx) + r'(?![a-z0-9ऀ-ॿ])'
+        # a TAGGED named concept / reagent counts alone; a word in free stem text counts only beside an organic
+        # chemistry context word (a passage name 'Michael' / 'Julia', or an enzyme 'E1', is never organic)
+        if lex in ORGANIC_LEXICON_AMBIGUOUS:
+            # shared with inorganic / physical chemistry: only beside a strong organic word, never in an
+            # inorganic / physical context, tagged or not
+            # a TAGGED concept (named_concepts / reagents_seen) counts unless the item is inorganic / physical; a
+            # free-text match also needs a strong organic word
+            if not inorg_ctx and (re.search(pat, named_norm) or (strong_ctx and re.search(pat, norm))):
+                return True, f'named organic reaction / reagent / concept: {lex}'
+            continue
+        if re.search(pat, named_norm) or (has_ctx and re.search(pat, norm)):
+            return True, f'named organic reaction / reagent / concept: {lex}'
+    if ORGANIC_SPECTRO_WORDS.search(norm) and not inorg_ctx and re.search(r'(?<![a-z])(compound|ketone|alcohol|ester|amine|acid|'
+                                                        r'aldehyde|alkene|alkyne|arene|ether|amide|ethyl|methyl|'
+                                                        r'propyl|bromo\w*|chloro\w*|iodo\w*|\w*propane|\w*ethane|'
+                                                        r'\w+ iodide|\w+ bromide)(?![a-z])', norm):
+        return True, 'organic spectroscopy task'
+    if ORGANIC_STEREO_WORDS.search(norm) and strong_ctx and not inorg_ctx:
+        return True, 'organic stereochemistry'
+    _strong_hits = {m.group(1) for m in ORGANIC_STRONG_CONTEXT.finditer(norm)}
+    if len(_strong_hits) >= 2 and not inorg_ctx:
+        return True, f"organic text ({', '.join(sorted(_strong_hits)[:3])})"
+    if ORGANIC_SPECTRO_WORDS.search(norm) and not inorg_ctx and strong_ctx:
+        return True, 'organic spectroscopy task'
+    return False, ('no organic content (no carbon-skeleton structure, reaction, named organic reaction / '
+                   'reagent, organic spectroscopy or stereochemistry)')
+
+
+def organic_flag(record):
+    """record + {'organic', 'organic_reason'} (F-01.2). Pure; never raises."""
+    r = dict(record) if isinstance(record, dict) else {}
+    o, why = is_organic_item({k: v for k, v in r.items() if k not in ('organic', 'organic_reason')})
+    r['organic'], r['organic_reason'] = o, why
+    return r
+
+
+def organic_scope(profile_or_records):
+    """F-01.3 — {'exam_organic', 'organic_subtopics' (sorted ids whose ORGANIC SHARE of past records is
+    >= C_ORG_SUBTOPIC_SHARE), 'subtopic_share' {id: share}, 'n_records', 'n_organic'} from a difficulty_profile ({'papers': {p: {'questions': {q: rec}}}}) or a
+    plain list of records. Never raises."""
+    recs = []
+    p = profile_or_records
+    if isinstance(p, dict) and isinstance(p.get('papers'), dict):
+        for pp in p['papers'].values():
+            qs = pp.get('questions') if isinstance(pp, dict) else None
+            recs += [x for x in (qs.values() if isinstance(qs, dict) else []) if isinstance(x, dict)]
+    elif isinstance(p, list):
+        recs = [x for x in p if isinstance(x, dict)]
+    tot, org, n = {}, {}, 0
+    for r in recs:
+        sid = r.get('subtopic_id') if isinstance(r.get('subtopic_id'), str) and r.get('subtopic_id') else None
+        o = is_organic_item(r)[0]
+        n += 1 if o else 0
+        if sid:
+            tot[sid] = tot.get(sid, 0) + 1
+            org[sid] = org.get(sid, 0) + (1 if o else 0)
+    share = {k: round(org.get(k, 0) / v, 4) for k, v in sorted(tot.items())}
+    subs = sorted(k for k, v in share.items() if v >= C_ORG_SUBTOPIC_SHARE)
+    return {'exam_organic': n > 0, 'organic_subtopics': subs, 'subtopic_share': share, 'n_records': len(recs),
+            'n_organic': n}
+
+
+# ── G-02 — PYQ RECORD SCHEMA 3, FAIL CLOSED (LAW-ORG-2) ──────────────────────────────────
+PYQ_SCHEMA_VERSION = 3
+ANSWER_KINDS = ('structure', 'structure_set', 'text', 'number', 'order', 'statement_set', 'match',
+                'spectrum_assignment')
+STEREO_MODES = ('abs', 'rel', 'rac', 'mixture', 'none')
+TRANSCRIPTION_CONFIDENCE = ('full', 'partial', 'unverified')
+ORG_CONVENTION_TAGS = ('skeletal', 'perspective', 'chair_conformation', 'pyranose_chair', 'haworth_projection',
+                       'newman_projection', 'fischer_projection', 'sawhorse_projection', 'ring_fusion_h',
+                       'wavy_bond', 'reaction_scheme', 'mechanism_arrows', 'spectrum')
+FAMILY_TAGS = ('pericyclic', 'rearrangement', 'organometallic_cc', 'carbonyl_enolate', 'radical',
+               'oxidation_reduction', 'heterocycle', 'protecting_group', 'conformational_stereoelectronic',
+               'spectroscopy', 'natural_product_biosynthesis', 'photochemistry', 'physical_organic',
+               'reactive_intermediate', 'asymmetric_synthesis')
+DECISION_TAGS = ('chemoselectivity', 'regioselectivity', 'facial_selectivity', 'stereospecificity', 'cascade',
+                 'reversibility_equilibrium', 'conformation', 'rate_order', 'spectral_assignment', 'retrosynthesis',
+                 'label_tracking')
+ASK_FORMATS = ('forward_product', 'intermediate', 'starting_material', 'reagent_or_conditions', 'two_part',
+               'statement_combination', 'match_list', 'order_ranking', 'mechanism_step', 'spectrum_to_structure',
+               'structure_to_spectrum', 'stereo_descriptor', 'count', 'assertion_reason')
+# legacy ask_format words -> the F-05.1 vocabulary; None = the legacy word carries no format ('direct'),
+# so the record must be re-read (it is never silently mapped to forward_product)
+ASK_FORMAT_LEGACY = {
+    'identify_product': 'forward_product', 'product_prediction': 'forward_product', 'product': 'forward_product',
+    'identify_reagent': 'reagent_or_conditions', 'reagent': 'reagent_or_conditions',
+    'identify_reactant': 'starting_material', 'starting_material': 'starting_material',
+    'sequence': 'order_ranking', 'order': 'order_ranking', 'ranking': 'order_ranking',
+    'combination': 'statement_combination', 'statement': 'statement_combination',
+    'statements': 'statement_combination', 'match': 'match_list', 'matching': 'match_list',
+    'identify_graph': 'spectrum_to_structure', 'spectrum': 'spectrum_to_structure',
+    'assertion_reason': 'assertion_reason', 'assertion-reason': 'assertion_reason', 'count': 'count',
+    'two_part': 'two_part', 'intermediate': 'intermediate', 'mechanism': 'mechanism_step',
+    'direct': None, '': None,
+}
+PYQ_REQUIRED_ORGANIC = ('organic', 'content_objects', 'answer_kind', 'image_counts', 'representations',
+                        'ask_format', 'named_concepts', 'family', 'decisions', 'schema_version')
+
+
+def normalize_ask_format(value):
+    """F-05.1 — the vocabulary word for `value` (already-vocabulary words pass), or None when the legacy word
+    carries no format ('direct', blank, unknown) — the caller re-reads the record. Never raises."""
+    if not isinstance(value, str):
+        return None
+    v = value.strip().lower().replace(' ', '_')
+    if v in ASK_FORMATS:
+        return v
+    return ASK_FORMAT_LEGACY.get(v)
+
+
+def pyq_record_complete(rec):
+    """F-02.2 — the list of missing required fields of one PYQ record (empty = complete). Organic records
+    need every PYQ_REQUIRED_ORGANIC field plus: the answer structure when answer_kind is structure /
+    structure_set; option_smiles (with option_kind 'structure' per option) when options are structures;
+    image_counts.stereo_marks; vocabulary values for answer_kind / ask_format / representations / family /
+    decisions; schema_version == PYQ_SCHEMA_VERSION. A non-organic record needs organic + organic_reason,
+    answer_kind and schema_version only. Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    miss = []
+    org = r.get('organic')
+    if not isinstance(org, bool):
+        miss.append('organic')
+        org = is_organic_item(r)[0]
+    if not isinstance(r.get('organic_reason'), str) or not r.get('organic_reason'):
+        miss.append('organic_reason')
+    if r.get('schema_version') != PYQ_SCHEMA_VERSION:
+        miss.append('schema_version')
+    ak = r.get('answer_kind')
+    if ak not in ANSWER_KINDS:
+        miss.append('answer_kind')
+    if not org:
+        return sorted(set(miss))
+    if not (isinstance(r.get('content_objects'), list) and r['content_objects']):
+        miss.append('content_objects')
+    if ak == 'structure' and not (isinstance(r.get('answer_smiles'), str) and r['answer_smiles'].strip()):
+        miss.append('answer_smiles')
+    if ak == 'structure_set' and not (isinstance(r.get('answer_set'), list) and r['answer_set']):
+        miss.append('answer_set')
+    ok_kinds = r.get('option_kind') if isinstance(r.get('option_kind'), dict) else None
+    if ok_kinds is None:
+        miss.append('option_kind')
+    else:
+        osm = r.get('option_smiles') if isinstance(r.get('option_smiles'), dict) else {}
+        for lab, kind in ok_kinds.items():
+            if kind not in ('structure', 'text'):
+                miss.append('option_kind')
+                break
+            if kind == 'structure' and not (isinstance(osm.get(lab), str) and osm.get(lab).strip()):
+                miss.append('option_smiles')
+                break
+    ic = r.get('image_counts')
+    if not isinstance(ic, dict):
+        miss.append('image_counts')
+    elif r.get('has_figure', True) and not any(isinstance(v, dict) and 'stereo_marks' in v for v in ic.values()) \
+            and 'stereo_marks' not in ic:
+        miss.append('image_counts.stereo_marks')
+    rep = r.get('representations')
+    if not (isinstance(rep, list) and rep and all(t in ORG_CONVENTION_TAGS for t in rep)):
+        miss.append('representations')
+    if normalize_ask_format(r.get('ask_format')) is None or r.get('ask_format') not in ASK_FORMATS:
+        miss.append('ask_format')
+    if not (isinstance(r.get('named_concepts'), list) and r['named_concepts']):
+        miss.append('named_concepts')
+    fam = r.get('family')
+    if not (isinstance(fam, list) and fam and all(f in FAMILY_TAGS for f in fam)):
+        miss.append('family')
+    dec = r.get('decisions')
+    if not (isinstance(dec, list) and all(d in DECISION_TAGS for d in dec)):
+        miss.append('decisions')
+    if r.get('stereo_mode') not in STEREO_MODES:
+        miss.append('stereo_mode')
+    return sorted(set(miss))
+
+
+def stereo_elements(smiles):
+    """G-03 — [{'type': 'centre'|'double_bond'|'axial', 'atoms': (...), 'defined': bool}] for every stereo
+    element RDKit finds in `smiles` (stereo centres, stereo double bonds incl. ring alkenes of 8+ atoms,
+    atropisomer bonds). None when RDKit is absent or the SMILES does not parse (DORMANT). Never raises."""
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smiles, str) or not smiles.strip():
+        return None
+    Chem = rd[0]
+    try:
+        rd[3].DisableLog('rdApp.*')
+    except Exception:                                       # noqa: BLE001
+        pass
+    try:
+        m = Chem.MolFromSmiles(smiles.split('>')[-1] if '>' in smiles else smiles)
+        if m is None:
+            return None
+        out = []
+        for si in Chem.FindPotentialStereo(m):
+            t = str(si.type)
+            kind = ('centre' if 'Atom' in t else 'double_bond' if 'Bond_Double' in t
+                    else 'axial' if 'Atropisomer' in t or 'Bond' in t else 'centre')
+            defined = str(si.specified) == 'Specified'
+            if kind == 'double_bond':
+                b = m.GetBondWithIdx(si.centeredOn)
+                ring_ok = (not b.IsInRing()) or any(len(r) >= 8 for r in m.GetRingInfo().BondRings()
+                                                    if si.centeredOn in r)
+                if not ring_ok:
+                    continue
+                atoms = (b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+            else:
+                atoms = (si.centeredOn,)
+            out.append({'type': kind, 'atoms': atoms, 'defined': defined})
+        return out
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def pyq_stereo_fidelity(rec):
+    """F-02.3 — {'status': 'ok'|'mismatch'|'dormant', 'image', 'transcribed'}: the image's stereo marks
+    (image_counts[...]['stereo_marks'] summed, or image_counts['stereo_marks']) against the DEFINED stereo
+    elements of every transcribed structure. stereo_mode 'rac' / 'mixture' / 'none' records compare
+    the image count with the number of stereo marks drawn as wavy / omitted = 0 defined. Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    ic = r.get('image_counts') if isinstance(r.get('image_counts'), dict) else {}
+    img = 0
+    seen = False
+    if isinstance(ic.get('stereo_marks'), int):
+        img, seen = ic['stereo_marks'], True
+    for v in ic.values():
+        if isinstance(v, dict) and isinstance(v.get('stereo_marks'), int):
+            img += v['stereo_marks']
+            seen = True
+    if not seen:
+        return {'status': 'mismatch', 'image': None, 'transcribed': None, 'why': 'image_counts.stereo_marks missing'}
+    tot = 0
+    for o in (r.get('content_objects') if isinstance(r.get('content_objects'), list) else []):
+        s = o.get('canonical') if isinstance(o, dict) else None
+        if not isinstance(s, str) or not s.strip():
+            continue
+        parts = [p for p in re.split(r'>+', s) if p] if '>' in s else [s]
+        for p in parts:
+            el = stereo_elements(p)
+            if el is None:
+                return {'status': 'dormant', 'image': img, 'transcribed': None}
+            tot += sum(1 for e in el if e['defined'])
+    if r.get('stereo_mode') in ('rac', 'mixture', 'none') and tot == 0:
+        return {'status': 'ok', 'image': img, 'transcribed': 0}
+    return {'status': 'ok' if tot == img else 'mismatch', 'image': img, 'transcribed': tot}
+
+
+def pyq_record_status(rec):
+    """'full' | 'partial' | 'unverified' (LAW-ORG-2). 'unverified' when the record has a figure and its
+    transcription_confidence is not 'full' or compared == 0 / image_counts absent; 'partial' when any
+    required field is missing (pyq_record_complete) or the stereo fidelity mismatches; else 'full'.
+    Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    tc = r.get('transcription_confidence')
+    tcv = tc.get('confidence') if isinstance(tc, dict) else tc
+    cmp_ = tc.get('compared') if isinstance(tc, dict) else None
+    if r.get('has_figure', True) and (tcv != 'full' or cmp_ == 0 or not isinstance(r.get('image_counts'), dict)):
+        if tcv == 'partial':
+            return 'partial'
+        return 'unverified'
+    if pyq_record_complete(r):
+        return 'partial'
+    if r.get('organic') is True and pyq_stereo_fidelity(r)['status'] != 'ok':
+        return 'partial'
+    return 'full'
+
+
+def _op_iter_records(profile_or_records):
+    p = profile_or_records
+    if isinstance(p, dict) and isinstance(p.get('papers'), dict):
+        for pk, pp in p['papers'].items():
+            qs = pp.get('questions') if isinstance(pp, dict) else None
+            for qk, r in (qs.items() if isinstance(qs, dict) else []):
+                if isinstance(r, dict):
+                    yield str(pk), str(qk), r
+    elif isinstance(p, list):
+        for i, r in enumerate(p):
+            if isinstance(r, dict):
+                yield str(r.get('paper') or ''), str(r.get('q') or i), r
+
+
+def pyq_target_pool(profile_or_records):
+    """Records usable for TARGETS (cards, exemplars, ruler, conventions, formats): status 'full' at the
+    current schema only (F-02.1 / F-02.5). Each item is the record with '_paper' / '_q' added. Never raises."""
+    out = []
+    for pk, qk, r in _op_iter_records(profile_or_records):
+        if pyq_record_status(r) == 'full':
+            x = dict(r)
+            x['_paper'], x['_q'] = pk, qk
+            out.append(x)
+    return out
+
+
+def pyq_guard_pool(profile_or_records):
+    """Records for the CLONE GUARD: every record whatever its status (missing a clone is worse than
+    over-matching — F-02.1). Never raises."""
+    out = []
+    for pk, qk, r in _op_iter_records(profile_or_records):
+        x = dict(r)
+        x['_paper'], x['_q'] = pk, qk
+        out.append(x)
+    return out
+
+
+def profile_backfill_delta(work_profile, base_profile):
+    """GAP §9 persistence — {'<paper>:<q>': record} for every record of the session's back-filled working
+    profile that is schema >= PYQ_SCHEMA_VERSION and differs from the project copy (base). Stored by S13-4OP in
+    registry.json['pyq_backfill'] so the NEXT run starts from the upgraded records without a user upload.
+    Pure; never raises."""
+    base = {f'{p}:{q}': r for p, q, r in _op_iter_records(base_profile)}
+    out = {}
+    for p, q, r in _op_iter_records(work_profile):
+        k = f'{p}:{q}'
+        try:
+            sv = int(r.get('schema_version') or 0)
+        except (TypeError, ValueError):
+            sv = 0
+        if sv >= PYQ_SCHEMA_VERSION and r != base.get(k):
+            out[k] = dict(r)
+    return out
+
+
+def profile_merge_records(work_profile, paper_key, records):
+    """O-BACKFILL writer (PYQExplain §13A-3B inside a Create run): the working profile with `records` ({q: record},
+    one paper) laid into papers[paper_key].questions — each record REPLACES the old one for that q (the back-filled
+    record is complete). The shape S0-OP-0 reads ({'papers': {p: {'questions': {q: rec}}}}). Pure; never raises."""
+    w = dict(work_profile) if isinstance(work_profile, dict) else {'papers': {}}
+    papers = dict(w.get('papers') or {}) if isinstance(w.get('papers'), dict) else {}
+    pv = dict(papers.get(str(paper_key)) or {}) if isinstance(papers.get(str(paper_key)), dict) else {}
+    qs = dict(pv.get('questions') or {}) if isinstance(pv.get('questions'), dict) else {}
+    for q, r in ((records or {}).items() if isinstance(records, dict) else []):
+        if isinstance(r, dict):
+            qs[str(q)] = dict(r)
+    pv['questions'] = qs
+    papers[str(paper_key)] = pv
+    w['papers'] = papers
+    return w
+
+
+def profile_overlay(profile, backfill):
+    """The project profile with registry.json['pyq_backfill'] records laid over it: a back-filled record
+    replaces the project record ONLY while the project record is below schema PYQ_SCHEMA_VERSION or not 'full'
+    (a newer PYQExplain upload wins). Returns (profile, n_applied). Pure; never raises."""
+    pr = profile if isinstance(profile, dict) else {}
+    bf = backfill if isinstance(backfill, dict) else {}
+    out = dict(pr)
+    papers = {}
+    n = 0
+    for pk, pv in (pr.get('papers') or {}).items() if isinstance(pr.get('papers'), dict) else []:
+        pv2 = dict(pv) if isinstance(pv, dict) else {}
+        qs = dict(pv2.get('questions') or {}) if isinstance(pv2.get('questions'), dict) else {}
+        for qk, r in list(qs.items()):
+            b = bf.get(f'{pk}:{qk}')
+            if not isinstance(b, dict) or not isinstance(r, dict):
+                continue
+            try:
+                sv = int(r.get('schema_version') or 0)
+            except (TypeError, ValueError):
+                sv = 0
+            if sv < PYQ_SCHEMA_VERSION or pyq_record_status(r) != 'full':
+                qs[qk] = dict(b)
+                n += 1
+        pv2['questions'] = qs
+        papers[pk] = pv2
+    if papers:
+        out['papers'] = papers
+    return out, n
+
+
+def pyq_coverage(profile_or_records):
+    """F-02.4 coverage line: {'organic', 'structure_answers', 'with_structure_full', 'share', 'meets'}."""
+    org = sa = ok = 0
+    for _p, _q, r in _op_iter_records(profile_or_records):
+        if r.get('organic') is not True:
+            continue
+        org += 1
+        if r.get('answer_kind') in ('structure', 'structure_set'):
+            sa += 1
+            has = (isinstance(r.get('answer_smiles'), str) and r['answer_smiles'].strip()) or \
+                  (isinstance(r.get('answer_set'), list) and r['answer_set'])
+            if has and pyq_record_status(r) == 'full':
+                ok += 1
+    share = (ok / sa) if sa else 1.0
+    return {'organic': org, 'structure_answers': sa, 'with_structure_full': ok, 'share': round(share, 4),
+            'meets': share >= 0.95}
+
+
+# ── G-03 — STEREO SUFFICIENCY (LAW-ORG-9) ─────────────────────────────────────────────────
+STEREO_DECLARATIONS = ('drawn', 'named', 'rac', 'rel', 'mixture', 'irrelevant')
+
+
+def stem_stereo_gate(item):
+    """G-STEMSTEREO (F-03.1). item: {'species': [{'role': 'stem'|'key'|'option'|'scheme', 'id', 'smiles',
+    'stereo_mode'}], 'declarations': {'<id>:<atoms>': decl}, 'irrelevance': {'<id>:<atoms>':
+    {'keys': [key under each alternative configuration], 'key': the item's key}}}. Every stereo element of
+    every species must be DEFINED in its SMILES (drawn), or declared 'named' / 'rac' / 'rel' / 'mixture',
+    or 'irrelevant' with a re-solve proof whose every key equals the item key. Returns {'status': 'PASS' |
+    'FAIL' | 'DORMANT', 'undefined': [...], 'elements': n}. The item's key_smiles (id 'key') and every
+    option_smiles value (id 'option_<label>') are checked even when species does not list them (LAW-ORG-9:
+    stem, key AND options). Never raises."""
+    it = item if isinstance(item, dict) else {}
+    decl = it.get('declarations') if isinstance(it.get('declarations'), dict) else {}
+    irr = it.get('irrelevance') if isinstance(it.get('irrelevance'), dict) else {}
+    bad, n = [], 0
+    spl = [x for x in (it.get('species') if isinstance(it.get('species'), list) else []) if isinstance(x, dict)]
+    _seen = {x.get('smiles') for x in spl if isinstance(x.get('smiles'), str)}
+    if isinstance(it.get('key_smiles'), str) and it['key_smiles'].strip() and it['key_smiles'] not in _seen:
+        spl.append({'role': 'key', 'id': 'key', 'smiles': it['key_smiles']})   # the key is ALWAYS checked
+        _seen.add(it['key_smiles'])
+    _os = it.get('option_smiles') if isinstance(it.get('option_smiles'), dict) else {}
+    for _lb in sorted(_os, key=str):                                            # and every structure option
+        _v = _os[_lb]
+        if isinstance(_v, str) and _v.strip() and _v not in _seen:
+            spl.append({'role': 'option', 'id': f'option_{_lb}', 'smiles': _v})
+            _seen.add(_v)
+    for sp in spl:
+        sid = str(sp.get('id') or sp.get('role') or '?')
+        el = stereo_elements(sp.get('smiles'))
+        if el is None:
+            if isinstance(sp.get('smiles'), str) and sp['smiles'].strip():
+                if _qf_rdkit() is None:
+                    return {'status': 'DORMANT', 'undefined': [], 'elements': n}
+                bad.append(f'{sid}: unreadable SMILES')            # an unparseable species never passes
+            continue
+        for e in el:
+            n += 1
+            if e['defined']:
+                continue
+            key = f"{sid}:{','.join(str(a) for a in e['atoms'])}"
+            d = decl.get(key) or (sp.get('stereo_mode') if sp.get('stereo_mode') in ('rac', 'rel', 'mixture') else None)
+            if d in ('named', 'rac', 'rel', 'mixture'):
+                continue
+            if d == 'irrelevant':
+                pr = irr.get(key) if isinstance(irr.get(key), dict) else {}
+                ks = pr.get('keys') if isinstance(pr.get('keys'), list) else []
+                if len(ks) >= 2 and all(k == pr.get('key') for k in ks) and pr.get('key') is not None:
+                    continue
+                bad.append(key + ' (irrelevant without a re-solve proof)')
+                continue
+            bad.append(key)
+    return {'status': 'FAIL' if bad else 'PASS', 'undefined': bad, 'elements': n}
+
+
+def solver_assumption_check(reports):
+    """F-03.3 — {'status': 'PASS'|'FAIL', 'decisive': [...]}: a blind solver report {'answer', 'confidence',
+    'assumptions': [{'about': 'stereo'|'conditions'|'workup'|..., 'text', 'changes_answer': bool}]} with
+    any assumption that changes the answer fails the item. Never raises."""
+    bad = []
+    for i, r in enumerate(reports if isinstance(reports, list) else []):
+        for a in (r.get('assumptions') if isinstance(r, dict) and isinstance(r.get('assumptions'), list) else []):
+            if isinstance(a, dict) and a.get('changes_answer') is True:
+                bad.append(f"solver {i + 1}: {a.get('about', '?')}: {str(a.get('text', ''))[:80]}")
+    return {'status': 'FAIL' if bad else 'PASS', 'decisive': bad}
+
+
+# ── G-04 — CONVENTIONS, SCAFFOLD RULE, CROSS-EXAM LIBRARY ─────────────────────────────────
+EXAM_LEVELS = ('school', 'ug_entrance', 'ug', 'pg_entrance', 'pg', 'research')
+# level fallbacks used ONLY when neither the exam nor the library has >= C_ANCHOR_MIN anchors for a band
+# (a thin-history exam still gets a concrete recipe; every value is a range the item must sit inside)
+LEVEL_DEFAULT_RECIPES = {
+    'school': {'Easy': {'decisions': (1, 1), 'heavy_atoms': (4, 10), 'stereocentres': (0, 0)},
+               'Medium': {'decisions': (1, 2), 'heavy_atoms': (6, 14), 'stereocentres': (0, 1)},
+               'Hard': {'decisions': (2, 3), 'heavy_atoms': (8, 18), 'stereocentres': (0, 2)}},
+    'ug_entrance': {'Easy': {'decisions': (1, 1), 'heavy_atoms': (5, 12), 'stereocentres': (0, 1)},
+                    'Medium': {'decisions': (1, 2), 'heavy_atoms': (7, 16), 'stereocentres': (0, 1)},
+                    'Hard': {'decisions': (2, 3), 'heavy_atoms': (9, 20), 'stereocentres': (0, 2)}},
+    'ug': {'Easy': {'decisions': (1, 1), 'heavy_atoms': (6, 12), 'stereocentres': (0, 1)},
+           'Medium': {'decisions': (1, 2), 'heavy_atoms': (8, 16), 'stereocentres': (0, 2)},
+           'Hard': {'decisions': (2, 3), 'heavy_atoms': (10, 22), 'stereocentres': (1, 3)}},
+    'pg_entrance': {'Easy': {'decisions': (1, 1), 'heavy_atoms': (6, 14), 'stereocentres': (0, 1)},
+                    'Medium': {'decisions': (2, 2), 'heavy_atoms': (10, 18), 'stereocentres': (0, 2)},
+                    'Hard': {'decisions': (2, 4), 'heavy_atoms': (12, 26), 'stereocentres': (1, 4)}},
+    'pg': {'Easy': {'decisions': (1, 1), 'heavy_atoms': (8, 14), 'stereocentres': (0, 1)},
+           'Medium': {'decisions': (2, 3), 'heavy_atoms': (10, 20), 'stereocentres': (1, 3)},
+           'Hard': {'decisions': (2, 4), 'heavy_atoms': (12, 28), 'stereocentres': (1, 4)}},
+    'research': {'Easy': {'decisions': (1, 2), 'heavy_atoms': (8, 16), 'stereocentres': (0, 2)},
+                 'Medium': {'decisions': (2, 3), 'heavy_atoms': (12, 22), 'stereocentres': (1, 3)},
+                 'Hard': {'decisions': (3, 4), 'heavy_atoms': (14, 30), 'stereocentres': (2, 5)}},
+}
+_OP_LEVEL_HINTS = (('research', r'(phd|research|jrf|csir|gate|net\b|set\b)'), ('pg', r'(m\.?sc|post ?grad|pg\b)'),
+                   ('pg_entrance', r'(jam|tifr|jest|cuet ?pg|entrance.*m\.?sc)'), ('ug', r'(b\.?sc|undergrad)'),
+                   ('ug_entrance', r'(jee|neet|cuet|bitsat|ug ?entrance)'),
+                   ('school', r'(class|grade|cbse|icse|board|ssc|hsc|std)'))
+_OP_LEVEL_FAMILY = {'school': ('school', 'ug_entrance'), 'ug': ('ug', 'ug_entrance', 'pg_entrance', 'research'),
+                    'pg': ('pg', 'pg_entrance', 'research')}
+
+
+def exam_level(exam_config, exam_code=None):
+    """(level, source) — exam_config['level'] when it is one of EXAM_LEVELS ('stated'); a producer's word level
+    ('School' / 'Under Graduation' / 'Graduation' / 'Post Graduation') fixes the family and a name hint refines
+    inside it ('stated' / 'stated+name'); else inferred from the exam name / code / syllabus fields
+    ('inferred'), else 'pg_entrance' ('default'). Never raises."""
+    cfg = exam_config if isinstance(exam_config, dict) else {}
+    lv = cfg.get('level')
+    if lv in EXAM_LEVELS:
+        return lv, 'stated'
+    txt = ' '.join(str(cfg.get(k) or '') for k in ('exam_name', 'exam_code', 'syllabus', 'paper_code', 'title'))
+    txt = (txt + ' ' + str(exam_code or '')).lower().replace('_', ' ')
+    hint = next((lvl for lvl, pat in _OP_LEVEL_HINTS if re.search(pat, txt)), None)
+    # the Blueprint / Analyse producers write the level in words ('School', 'Under Graduation', 'Graduation',
+    # 'Post Graduation'): it decides the FAMILY; a name hint only refines inside that family
+    lw = re.sub(r'[^a-z]', '', str(lv or '').lower())
+    coarse = ('school' if lw in ('school', 'secondary', 'highersecondary', 'senior secondary') or lw.startswith('school')
+              else 'pg' if lw in ('postgraduation', 'postgraduate', 'pg', 'masters', 'master')
+              else 'ug' if lw in ('undergraduation', 'undergraduate', 'graduation', 'graduate', 'ug', 'bachelors',
+                                  'bachelor')
+              else None)
+    if coarse is not None:
+        fam = _OP_LEVEL_FAMILY[coarse]
+        return (hint, 'stated+name') if hint in fam else (coarse, 'stated')
+    if hint is not None:
+        return hint, 'inferred'
+    return 'pg_entrance', 'default'
+
+
+def convention_shares(records):
+    """F-04.1 — {tag: {'share', 'n', 'papers'}} over ORGANIC records of status 'full' that carry a
+    figure (pyq_target_pool). A record contributes once per tag. Never raises."""
+    pool = [r for r in pyq_target_pool(records) if r.get('organic') is True]
+    figs = [r for r in pool if isinstance(r.get('representations'), list) and r['representations']]
+    out = {}
+    for t in ORG_CONVENTION_TAGS:
+        hit = [r for r in figs if t in r['representations']]
+        if hit:
+            out[t] = {'share': round(len(hit) / len(figs), 4), 'n': len(hit),
+                      'papers': sorted({r.get('_paper') for r in hit if r.get('_paper')})}
+    return out
+
+
+def _op_largest_remainder(shares, total):
+    """{k: int} with sum == total from {k: weight} (largest remainder, ties by key). Never raises."""
+    w = {k: max(0.0, float(v)) for k, v in shares.items() if isinstance(v, (int, float))}
+    tw = sum(w.values())
+    if total <= 0 or tw <= 0:
+        return {k: 0 for k in shares}
+    raw = {k: v / tw * total for k, v in w.items()}
+    base = {k: int(v) for k, v in raw.items()}
+    left = total - sum(base.values())
+    for k in sorted(raw, key=lambda k: (-(raw[k] - base[k]), str(k)))[:left]:
+        base[k] += 1
+    return base
+
+
+def convention_floors(shares, organic_slots, min_share=None):
+    """F-04.3 — {tag: floor} = round(share x organic slots) for every tag whose share >= C_CONV_MIN_SHARE
+    (rounding to 0 allowed; 'skeletal' carries no floor). Never raises."""
+    ms = C_CONV_MIN_SHARE if min_share is None else min_share
+    n = max(0, _qf_int(organic_slots, 0))
+    out = {}
+    for t, v in (shares.items() if isinstance(shares, dict) else []):
+        s = v.get('share') if isinstance(v, dict) else v
+        if t == 'skeletal' or not isinstance(s, (int, float)) or s < ms:
+            continue
+        out[t] = int(round(s * n))
+    return out
+
+
+def scaffold_convention(smiles, ask=None, exam_conventions=None, level_conventions=None, n_verified=None):
+    """F-04.3 scaffold rule — the convention a structure MUST use, or None. bridged bicyclic -> perspective;
+    a question about axial / equatorial positions or ring flips -> chair_conformation; a pyranose sugar ->
+    the exam's sugar convention (pyranose_chair or haworth_projection); a fused 6-6 / 6-5 carbocycle
+    (decalin, hydrindane, steroid) -> ring_fusion_h. A convention the exam has never used is required only
+    when the library level uses it and the exam has fewer than C_MIN_ORG_PYQ verified organic records.
+    None when RDKit is absent (the caller records DORMANT). Never raises."""
+    exam = set(exam_conventions or ())
+    lvl = set(level_conventions or ())
+    thin = isinstance(n_verified, int) and n_verified < C_MIN_ORG_PYQ
+
+    def allowed(tag):
+        return tag in exam or (thin and tag in lvl)
+    a = str(ask or '').lower()
+    if re.search(r'(axial|equatorial|ring ?flip|chair)', a) and allowed('chair_conformation'):
+        return 'chair_conformation'
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smiles, str) or not smiles.strip():
+        return None
+    Chem = rd[0]
+    try:
+        m = Chem.MolFromSmiles(smiles.split('>')[-1])
+        if m is None:
+            return None
+        ri = m.GetRingInfo()
+        rings = [set(r) for r in ri.AtomRings()]
+        bridged = any(len(rings[i] & rings[j]) >= 3 for i in range(len(rings)) for j in range(i + 1, len(rings)))
+        if bridged and allowed('perspective'):
+            return 'perspective'
+        sugar = Chem.MolFromSmarts('[OX2;R1]1[CX4;R1][CX4;R1]([OX2])[CX4;R1]([OX2])[CX4;R1]([OX2])[CX4;R1]1')
+        if sugar is not None and m.HasSubstructMatch(sugar):
+            for t in ('pyranose_chair', 'haworth_projection'):
+                if t in exam:
+                    return t
+            for t in ('pyranose_chair', 'haworth_projection'):
+                if allowed(t):
+                    return t
+        fused = any(len(rings[i] & rings[j]) == 2 and all(m.GetAtomWithIdx(x).GetSymbol() == 'C'
+                                                          for x in rings[i] | rings[j])
+                    and not any(m.GetAtomWithIdx(x).GetIsAromatic() for x in rings[i] | rings[j])
+                    for i in range(len(rings)) for j in range(i + 1, len(rings)))
+        if fused and allowed('ring_fusion_h'):
+            return 'ring_fusion_h'
+        return None
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def organic_library_empty():
+    """The framework-level cross-exam organic library shape (F-04.4, GAP §6.1)."""
+    return {'library_version': None, 'built': None, 'records': [], 'chain_cards': [],
+            'conventions': {lv: {} for lv in EXAM_LEVELS}, 'recipes': {lv: {} for lv in EXAM_LEVELS},
+            'fingerprints': []}
+
+
+def organic_library_build(records_by_exam, levels, version, built):
+    """F-04.4 — the library from every exam's VERIFIED organic records: {exam_code: profile_or_records},
+    {exam_code: level}. Records keep exam_code / level; chain cards and per-level conventions are derived;
+    fingerprints carry every record (verified or not) for the clone guard. Never raises."""
+    lib = organic_library_empty()
+    lib['library_version'], lib['built'] = version, built
+    per_level = {lv: [] for lv in EXAM_LEVELS}
+    for ex, recs in (records_by_exam.items() if isinstance(records_by_exam, dict) else []):
+        lv = (levels or {}).get(ex) if isinstance(levels, dict) else None
+        lv = lv if lv in EXAM_LEVELS else 'pg_entrance'
+        for r in pyq_guard_pool(recs):
+            fp = clone_fingerprint(r)
+            if fp:
+                fp['exam_code'] = str(ex)
+                lib['fingerprints'].append(fp)
+        for r in pyq_target_pool(recs):
+            if r.get('organic') is not True:
+                continue
+            x = dict(r)
+            x['exam_code'], x['level'] = str(ex), lv
+            lib['records'].append(x)
+            per_level[lv].append(x)
+            c = chain_card_from_record(x)
+            if c:
+                c['exam_code'], c['level'] = str(ex), lv
+                lib['chain_cards'].append(c)
+    for lv, recs in per_level.items():
+        lib['conventions'][lv] = convention_shares(recs)
+        lib['recipes'][lv] = substrate_recipe(recs)
+    return lib
+
+
+def organic_library_from(obj):
+    """The library from an already-parsed JSON object (the caller reads the file — the thin core performs no
+    file I/O), or organic_library_empty() when the object is not a library. Never raises."""
+    if isinstance(obj, dict) and isinstance(obj.get('records'), list):
+        base = organic_library_empty()
+        base.update(obj)
+        return base
+    return organic_library_empty()
+
+
+def library_needed(n_verified_organic, cell_cards=None):
+    """F-04.4 — True when the exam has fewer than C_MIN_ORG_PYQ verified organic records or the family-band
+    cell holds fewer than L2_MIN_POOL cards. Never raises."""
+    if not isinstance(n_verified_organic, int) or n_verified_organic < C_MIN_ORG_PYQ:
+        return True
+    return isinstance(cell_cards, int) and cell_cards < L2_MIN_POOL
+
+
+# ── G-05 — ASK FORMATS AND PARITY FLOORS (LAW-ORG-11) ─────────────────────────────────────
+def format_shares(records):
+    """{format: share} over organic 'full' records (F-05.1 vocabulary only)."""
+    pool = [r for r in pyq_target_pool(records) if r.get('organic') is True]
+    tags = [r.get('ask_format') for r in pool if r.get('ask_format') in ASK_FORMATS]
+    if not tags:
+        return {}
+    return {f: round(tags.count(f) / len(tags), 4) for f in ASK_FORMATS if f in tags}
+
+
+def format_floors(shares, organic_slots, min_share=None):
+    """F-05.2 — {format: floor} for formats with share >= C_FORMAT_MIN_SHARE; floor = round(share x slots);
+    the sum never exceeds the organic slots (reduced by largest remainder). Never raises."""
+    ms = C_FORMAT_MIN_SHARE if min_share is None else min_share
+    n = max(0, _qf_int(organic_slots, 0))
+    keep = {f: s for f, s in (shares.items() if isinstance(shares, dict) else [])
+            if isinstance(s, (int, float)) and s >= ms and f in ASK_FORMATS}
+    fl = {f: int(round(s * n)) for f, s in keep.items()}
+    if sum(fl.values()) > n:
+        fl = _op_largest_remainder(keep, n)
+    return fl
+
+
+FORMAT_CONVERTERS = {
+    # target format -> source shapes it may be made from (F-05.2), the band is KEPT and re-graded
+    'two_part': ('chain',), 'statement_combination': ('stereo', 'selectivity'),
+    'match_list': ('same_family_set',), 'starting_material': ('forward',),
+}
+
+
+def parity_floor_check(items, floors, key='ask_format'):
+    """LAW-ORG-11 — {'status': 'PASS'|'FAIL', 'short': {value: missing}} for delivered organic items
+    against their floors (formats, conventions — key 'representations' counts list membership).
+    Never raises."""
+    cnt = {}
+    for it in (items if isinstance(items, list) else []):
+        if not isinstance(it, dict) or it.get('organic') is not True:
+            continue
+        v = it.get(key)
+        for x in (v if isinstance(v, list) else [v]):
+            if isinstance(x, str):
+                cnt[x] = cnt.get(x, 0) + 1
+    short = {k: n - cnt.get(k, 0) for k, n in (floors.items() if isinstance(floors, dict) else [])
+             if isinstance(n, int) and cnt.get(k, 0) < n}
+    return {'status': 'FAIL' if short else 'PASS', 'short': short, 'counts': cnt}
+
+
+# ── G-06 — CHAIN CARDS, COMPOSER, DECISION CONTRACT, SUBSTRATE RECIPE ─────────────────────
+def chain_card_from_record(rec):
+    """F-06.1 — a chain card (never the substrate): {'card_id', 'steps': [{'family', 'template',
+    'decisions', 'substrate_fg', 'product_fg'}], 'n_steps', 'decisions', 'band', 'source'} from one verified
+    record (family + decisions + named_concepts + scheme steps). None when the record has no family.
+    Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    fam = [f for f in (r.get('family') if isinstance(r.get('family'), list) else []) if f in FAMILY_TAGS]
+    if not fam:
+        return None
+    dec = [d for d in (r.get('decisions') if isinstance(r.get('decisions'), list) else []) if d in DECISION_TAGS]
+    steps_in = r.get('scheme_steps') if isinstance(r.get('scheme_steps'), list) else None
+    steps = []
+    if steps_in:
+        for s in steps_in[:4]:
+            if isinstance(s, dict):
+                steps.append({'family': s.get('family') if s.get('family') in FAMILY_TAGS else fam[0],
+                              'template': str(s.get('template') or s.get('named') or ''),
+                              'decisions': [d for d in (s.get('decisions') or []) if d in DECISION_TAGS],
+                              'substrate_fg': sorted(set(s.get('substrate_fg') or [])),
+                              'product_fg': sorted(set(s.get('product_fg') or []))})
+    else:
+        nc = [str(x) for x in (r.get('named_concepts') if isinstance(r.get('named_concepts'), list) else [])][:4]
+        for i, c in enumerate(nc or ['']):
+            steps.append({'family': fam[min(i, len(fam) - 1)], 'template': c, 'decisions': dec if i == 0 else [],
+                          'substrate_fg': [], 'product_fg': []})
+    band = r.get('ruler_band') or (r.get('blind_grade_1') if r.get('blind_grade_1') == r.get('blind_grade_2') else None)
+    cid = f"cc.{r.get('_paper') or r.get('paper') or 'x'}.{r.get('_q') or r.get('q') or 'x'}"
+    return {'card_id': cid, 'steps': steps, 'n_steps': len(steps), 'decisions': dec,
+            'n_decisions': max(len(dec), len(steps)), 'band': band, 'families': fam,
+            'subtopic_id': r.get('subtopic_id'), 'source': 'record'}
+
+
+def chain_compose(cards, need_decisions, max_len=3, used=(), seed=0):
+    """F-06.2 — composed chains from 2..max_len cards whose interfaces match (product_fg of step n
+    intersects substrate_fg of step n+1; a card with no FG tags joins only on a shared family), with the
+    decision count >= need_decisions. Deterministic; returns [{'card_id': 'cmp.<a>+<b>', 'steps', 'source':
+    'composed', 'from': [ids], 'n_decisions'}]. A composed chain is used only after a blind forward solve
+    (the caller). Never raises."""
+    import random as _rnd
+    usedset = {str(u) for u in (used if isinstance(used, (list, tuple, set)) else [])}
+    cs = [c for c in (cards if isinstance(cards, list) else []) if isinstance(c, dict) and c.get('steps')
+          and str(c.get('card_id')) not in usedset]
+    cs.sort(key=lambda c: str(c.get('card_id')))
+    rng = _rnd.Random(_qf_int(seed, 0))
+    out = []
+    mx = max(2, min(4, _qf_int(max_len, 3)))
+
+    def joins(a, b):
+        pa, sb = set(a['steps'][-1].get('product_fg') or []), set(b['steps'][0].get('substrate_fg') or [])
+        if pa and sb:
+            return bool(pa & sb)
+        return bool(set(a.get('families') or []) & set(b.get('families') or []))
+    for a in cs:
+        for b in cs:
+            if a is b or len(a['steps']) + len(b['steps']) > mx or not joins(a, b):
+                continue
+            steps = list(a['steps']) + list(b['steps'])
+            dec = sorted({d for s in steps for d in (s.get('decisions') or [])})
+            nd = max(len(dec), len(steps))
+            if nd >= max(1, _qf_int(need_decisions, 2)):
+                out.append({'card_id': f"cmp.{a['card_id']}+{b['card_id']}", 'steps': steps, 'source': 'composed',
+                            'from': [a['card_id'], b['card_id']], 'decisions': dec, 'n_decisions': nd,
+                            'n_steps': len(steps), 'families': sorted(set((a.get('families') or [])
+                                                                           + (b.get('families') or [])))})
+    rng.shuffle(out)
+    out.sort(key=lambda c: -c['n_decisions'])
+    return out
+
+
+def decision_contract_check(author_decisions, grader_decisions, min_decisions=1):
+    """F-06.3 — (ok, why): the author's and the blind grader's decision lists match in count and type (as
+    multisets of DECISION_TAGS) and the count >= the band recipe's minimum. Never raises."""
+    a = sorted(d for d in (author_decisions if isinstance(author_decisions, list) else []) if d in DECISION_TAGS)
+    g = sorted(d for d in (grader_decisions if isinstance(grader_decisions, list) else []) if d in DECISION_TAGS)
+    if a != g:
+        return False, f'author decisions {a} != grader decisions {g}'
+    if len(a) < max(1, _qf_int(min_decisions, 1)):
+        return False, f'{len(a)} decisions < recipe minimum {min_decisions}'
+    return True, 'ok'
+
+
+def _op_mol_stats(smiles):
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smiles, str) or not smiles.strip():
+        return None
+    try:
+        m = rd[0].MolFromSmiles(smiles.split('>')[-1])
+        if m is None:
+            return None
+        el = stereo_elements(smiles.split('>')[-1]) or []
+        return {'heavy_atoms': m.GetNumHeavyAtoms(), 'stereocentres': sum(1 for e in el if e['type'] == 'centre')}
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _op_iqr(vals):
+    v = sorted(vals)
+    if not v:
+        return None
+    q1 = v[(len(v) - 1) // 4]
+    q3 = v[min(len(v) - 1, (3 * (len(v) - 1) + 3) // 4)]
+    return (q1, q3)
+
+
+def substrate_recipe(records):
+    """F-06.4 — {band: {'heavy_atoms': IQR, 'stereocentres': (min, max), 'decisions': (min, max), 'n'}} from
+    graded organic 'full' records (ruler_band, else agreeing blind grades). Never raises."""
+    by = {}
+    for r in pyq_target_pool(records):
+        if r.get('organic') is not True:
+            continue
+        b = r.get('ruler_band') or (r.get('blind_grade_1') if r.get('blind_grade_1') == r.get('blind_grade_2') else None)
+        if not isinstance(b, str):
+            continue
+        st = _op_mol_stats(r.get('answer_smiles') or (r.get('answer_set') or [None])[0])
+        d = len([x for x in (r.get('decisions') or []) if x in DECISION_TAGS])
+        e = by.setdefault(b, {'ha': [], 'sc': [], 'dec': []})
+        if st:
+            e['ha'].append(st['heavy_atoms'])
+            e['sc'].append(st['stereocentres'])
+        e['dec'].append(max(1, d))
+    out = {}
+    for b, e in by.items():
+        out[b] = {'heavy_atoms': _op_iqr(e['ha']), 'stereocentres': (min(e['sc']), max(e['sc'])) if e['sc'] else None,
+                  'decisions': (min(e['dec']), max(e['dec'])) if e['dec'] else None, 'n': len(e['dec'])}
+    return out
+
+
+def substrate_check(smiles, band_recipe):
+    """(ok, why) — F-06.4: heavy atoms inside the band's IQR and stereocentres inside its range. A recipe
+    field that is None is not checked. (None, 'dormant') without RDKit. Never raises."""
+    br = band_recipe if isinstance(band_recipe, dict) else {}
+    st = _op_mol_stats(smiles)
+    if st is None:
+        return None, 'dormant (RDKit absent or SMILES unreadable)'
+    ha, sc = br.get('heavy_atoms'), br.get('stereocentres')
+    if isinstance(ha, (list, tuple)) and len(ha) == 2 and not (ha[0] <= st['heavy_atoms'] <= ha[1]):
+        return False, f"heavy atoms {st['heavy_atoms']} outside {tuple(ha)}"
+    if isinstance(sc, (list, tuple)) and len(sc) == 2 and not (sc[0] <= st['stereocentres'] <= sc[1]):
+        return False, f"stereocentres {st['stereocentres']} outside {tuple(sc)}"
+    return True, 'ok'
+
+
+# ── G-07 — CLONE GUARD (LAW-ORG-10) ───────────────────────────────────────────────────────
+REAGENT_CLASSES = (
+    ('pd_allylic', r'(pd\(pph3\)4|pd2\(dba\)3|tsuji|trost|pd\(0\))'), ('krapcho', r'(krapcho|licl.*dmso|nacl.*dmso)'),
+    ('lewis_acid', r'(zncl2|zn ?br2|bf3|alcl3|ticl4|sncl4|lewis acid)'), ('hydride', r'(lialh4|nabh4|dibal|lah\b|l-selectride)'),
+    ('organolithium', r'(n-?buli|t-?buli|meli|phli|lda|lihmds)'), ('grignard', r'(mgbr|mgcl|grignard)'),
+    ('peracid', r'(mcpba|peracid|peroxy|dmdo)'), ('oso4', r'(oso4|nmo|upjohn|woodward|prevost)'),
+    ('ozone', r'(o3\b|ozon)'), ('wittig', r'(ph3p=|wittig|ylide|hwe|horner|still|gennari)'),
+    ('base_alkoxide', r'(naoet|naome|kotbu|t-?buok|naoh|koh|kh\b|nah\b)'), ('acid', r'(h2so4|hcl|tsoh|p-?tsa|h3o\+)'),
+    ('hydrogenation', r'(h2.*pd|pd/c|pt|lindlar|raney)'), ('oxidant', r'(pcc|pdc|swern|dess|jones|kmno4|cro3|tpap)'),
+    ('heat', r'(heat|Δ|reflux|hv|light)'),
+)
+
+
+def reagent_class(text):
+    """The REAGENT_CLASSES name of a reagent string, else its normalised text (never None)."""
+    t = str(text or '').lower()
+    for name, pat in REAGENT_CLASSES:
+        if re.search(pat, t):
+            return name
+    return re.sub(r'\s+', ' ', t).strip()
+
+
+def _op_ik(smi, connectivity=True):
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smi, str) or not smi.strip():
+        return None
+    try:
+        rd[3].DisableLog('rdApp.*')
+    except Exception:                                       # noqa: BLE001
+        pass
+    try:
+        m = rd[0].MolFromSmiles(smi)
+        if m is None:
+            return None
+        k = rd[0].MolToInchiKey(m)
+        return k[:14] if connectivity else k
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _op_scaffold_norm(smi):
+    """Murcko scaffold with ring sizes and chain lengths normalised (every ring atom / bond made generic,
+    ring size kept as a COUNT signature only) — homologous rings compare equal."""
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smi, str):
+        return None
+    try:
+        import importlib as _il
+        MS = _il.import_module('rdkit.Chem.Scaffolds.MurckoScaffold')
+        m = rd[0].MolFromSmiles(smi)
+        if m is None:
+            return None
+        sc = MS.GetScaffoldForMol(m)
+        ri = sc.GetRingInfo()
+        n_rings = ri.NumRings()
+        arom = sum(1 for r in ri.AtomRings() if all(sc.GetAtomWithIdx(i).GetIsAromatic() for i in r))
+        hetero = sorted({a.GetSymbol() for a in sc.GetAtoms() if a.GetSymbol() not in ('C', 'H')})
+        fused = sum(1 for i, a in enumerate(ri.AtomRings()) for b in ri.AtomRings()[i + 1:] if len(set(a) & set(b)) >= 2)
+        return f'r{n_rings}a{arom}f{fused}h{"".join(hetero)}'
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _op_morgan_sim(a, b):
+    rd = _qf_rdkit()
+    if rd is None:
+        return None
+    try:
+        import importlib as _il
+        AC = _il.import_module('rdkit.Chem.AllChem')
+        DS = _il.import_module('rdkit.DataStructs')
+        ma, mb = rd[0].MolFromSmiles(a), rd[0].MolFromSmiles(b)
+        if ma is None or mb is None:
+            return None
+        fa = AC.GetMorganFingerprintAsBitVect(ma, 2, nBits=2048)
+        fb = AC.GetMorganFingerprintAsBitVect(mb, 2, nBits=2048)
+        return DS.TanimotoSimilarity(fa, fb)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _op_fgset(smi):
+    rd = _qf_rdkit()
+    if rd is None or not isinstance(smi, str):
+        return None
+    pats = {'ketone': '[CX3](=O)([#6])[#6]', 'aldehyde': '[CX3H1](=O)[#6]', 'alcohol': '[OX2H][CX4]',
+            'acid': 'C(=O)[OH]', 'ester': 'C(=O)O[#6]', 'amide': 'C(=O)N', 'amine': '[NX3;!$(NC=O)]',
+            'alkene': 'C=C', 'alkyne': 'C#C', 'arene': 'a', 'halide': '[Cl,Br,I]', 'ether': '[OD2]([#6])[#6]',
+            'nitrile': 'C#N', 'nitro': '[N+](=O)[O-]', 'epoxide': 'C1OC1'}
+    try:
+        m = rd[0].MolFromSmiles(smi)
+        if m is None:
+            return None
+        return frozenset(k for k, p in pats.items() if m.HasSubstructMatch(rd[0].MolFromSmarts(p)))
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def clone_fingerprint(rec):
+    """F-07.1 — {'keys', 'products', 'starting', 'options', 'reagent_seq', 'ask_format', 'answer_kind',
+    'ref'} for one past / library / series record (status ignored). Products include products held only in
+    content_objects reaction SMILES; starting materials are their reactants. Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    keys, prods, starts, opts = [], [], [], []
+    if isinstance(r.get('answer_smiles'), str) and r['answer_smiles'].strip():
+        keys.append(r['answer_smiles'])
+    keys += [s for s in (r.get('answer_set') or []) if isinstance(s, str)]
+    for o in (r.get('content_objects') if isinstance(r.get('content_objects'), list) else []):
+        s = o.get('canonical') if isinstance(o, dict) else None
+        if not isinstance(s, str) or not s.strip():
+            continue
+        if '>' in s:
+            parts = [p for p in s.split('>')]
+            starts += [x for x in parts[0].split('.') if x]
+            prods += [x for x in parts[-1].split('.') if x]
+        else:
+            starts.append(s)
+    osm = r.get('option_smiles')
+    opts += [v for v in (osm.values() if isinstance(osm, dict) else []) if isinstance(v, str)]
+    rs = r.get('reagents_seen') if isinstance(r.get('reagents_seen'), list) else []
+    return {'keys': keys, 'products': prods, 'starting': starts, 'options': opts,
+            'reagent_seq': [reagent_class(x) for x in rs], 'ask_format': normalize_ask_format(r.get('ask_format'))
+            or r.get('ask_format'), 'answer_kind': r.get('answer_kind'), 'task_template': r.get('task_template'),
+            'ref': f"{r.get('exam_code') or ''}:{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"}
+
+
+def op_item_fingerprint(item):
+    """F-07.4 — the clone fingerprint of one NEW item (the exact dict passed to clone_guard): the series-row
+    shape {'keys', 'products', 'starting', 'options', 'reagent_seq', 'ask_format', 'answer_kind',
+    'task_template', 'chain'}. clone_guard returns it as result['fingerprint'], so it travels on the item's
+    committed clone_check even when the record itself does not repeat the fields. Pure; never raises."""
+    it = item if isinstance(item, dict) else {}
+    rg = it.get('reagents') if isinstance(it.get('reagents'), list) else []
+    return {'keys': [it['key_smiles']] if isinstance(it.get('key_smiles'), str) and it['key_smiles'].strip() else [],
+            'products': [],
+            'starting': [it['starting_smiles']] if isinstance(it.get('starting_smiles'), str)
+            and it['starting_smiles'].strip() else [],
+            'options': [], 'reagent_seq': [reagent_class(x) for x in rg],
+            'ask_format': normalize_ask_format(it.get('ask_format')) or it.get('ask_format'),
+            'answer_kind': it.get('answer_kind'), 'task_template': it.get('task_template'), 'chain': it.get('chain')}
+
+
+def op_key_ids(entry):
+    """The InChIKey connectivity blocks (14 chars) of one item's key: from key_inchikey, key_smiles and the
+    fingerprint its clone_check carries. Used for the reserve exclusion (an item already in the paper is never
+    refilled again). Empty set when none is known or RDKit is absent. Pure; never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    out = set()
+    if isinstance(e.get('key_inchikey'), str) and len(e['key_inchikey']) >= 14:
+        out.add(e['key_inchikey'][:14])
+    cc = e.get('clone_check') if isinstance(e.get('clone_check'), dict) else {}
+    fp = cc.get('fingerprint') if isinstance(cc.get('fingerprint'), dict) else {}
+    for s in ([e.get('key_smiles')] + list(fp.get('keys') or [])):
+        k = _op_ik(s) if isinstance(s, str) else None
+        if k:
+            out.add(k)
+    return out
+
+
+def clone_guard(item, past=(), library=(), series=()):
+    """F-07.2 — the three originality tests for one new organic item against every past record (any status),
+    every library fingerprint and every series-registry entry.
+      item: {'key_smiles', 'starting_smiles', 'reagents': [...], 'ask_format', 'answer_kind', 'task_template'}
+      1 structure clone — the key's InChIKey connectivity == a past key / past product, or the starting
+        material + same reagent class == a past starting material with that class (a key of <= C_SMALL_KEY
+        heavy atoms counts only with the same reagent-class sequence);
+      2 reaction near-clone — same ordered reagent-class sequence AND (normalised Murcko scaffold equal OR
+        Morgan r2 Tanimoto >= C_NEAR_SIM on the starting material);
+      3 task near-clone — same ask_format + answer_kind (+ task_template when both carry one), key within
+        C_HOMOLOGUE_DELTA heavy atoms of a past key with the same functional-group set.
+    Returns {'status': 'PASS'|'FAIL'|'DORMANT', 'structure', 'reaction', 'task', 'matches': [...]}. Never raises."""
+    it = item if isinstance(item, dict) else {}
+    if _qf_rdkit() is None:
+        return {'status': 'DORMANT', 'structure': None, 'reaction': None, 'task': None, 'matches': [],
+                'fingerprint': op_item_fingerprint(it)}
+    fps = []
+    for src in (past, library, series):
+        for r in (src if isinstance(src, (list, tuple)) else []):
+            if isinstance(r, dict):
+                fps.append(r if 'keys' in r and 'reagent_seq' in r else clone_fingerprint(r))
+    key = it.get('key_smiles') if isinstance(it.get('key_smiles'), str) else None
+    sm = it.get('starting_smiles') if isinstance(it.get('starting_smiles'), str) else None
+    rseq = [reagent_class(x) for x in (it.get('reagents') if isinstance(it.get('reagents'), list) else [])]
+    kik = _op_ik(key) if key else None
+    kst = _op_mol_stats(key) if key else None
+    small = bool(kst and kst['heavy_atoms'] <= C_SMALL_KEY)
+    sik = _op_ik(sm) if sm else None
+    ssc = _op_scaffold_norm(sm) if sm else None
+    kfg = _op_fgset(key) if key else None
+    res = {'structure': False, 'reaction': False, 'task': False}
+    matches = []
+    for fp in fps:
+        same_seq = bool(rseq) and rseq == fp.get('reagent_seq')
+        same_cls = bool(rseq) and bool(set(rseq) & set(fp.get('reagent_seq') or []))
+        if kik:
+            for s in (fp.get('keys') or []) + (fp.get('products') or []):
+                if _op_ik(s) == kik and (not small or same_seq):
+                    res['structure'] = True
+                    matches.append(('structure', fp.get('ref'), 'key'))
+                    break
+        if sik and same_cls:
+            for s in fp.get('starting') or []:
+                if _op_ik(s) == sik:
+                    res['structure'] = True
+                    matches.append(('structure', fp.get('ref'), 'starting+reagent'))
+                    break
+        if sm and same_seq:
+            for s in fp.get('starting') or []:
+                sim = _op_morgan_sim(sm, s)
+                if (ssc and _op_scaffold_norm(s) == ssc) or (sim is not None and sim >= C_NEAR_SIM):
+                    res['reaction'] = True
+                    matches.append(('reaction', fp.get('ref'), round(sim or 0, 3)))
+                    break
+        fa, fk = fp.get('ask_format'), fp.get('answer_kind')
+        if key and kst and fa and fa == normalize_ask_format(it.get('ask_format')) and fk == it.get('answer_kind') \
+                and (not it.get('task_template') or not fp.get('task_template')
+                     or it.get('task_template') == fp.get('task_template')):
+            subj = list(fp.get('keys') or [])
+            if fk == 'spectrum_assignment' or fa in ('structure_to_spectrum', 'spectrum_to_structure', 'count'):
+                subj += list(fp.get('starting') or [])       # a spectroscopy task's subject compound
+            for s in subj:
+                st = _op_mol_stats(s)
+                if st and abs(st['heavy_atoms'] - kst['heavy_atoms']) <= C_HOMOLOGUE_DELTA and \
+                        kfg is not None and _op_fgset(s) == kfg:
+                    res['task'] = True
+                    matches.append(('task', fp.get('ref'), s))
+                    break
+    status = 'FAIL' if any(res.values()) else 'PASS'
+    return dict(res, status=status, matches=matches[:12], fingerprint=op_item_fingerprint(it))
+
+
+def series_registry_add(registry, paper_id, items):
+    """F-07.4 — registry ({'papers': {id: [fingerprint, ...]}}) with one delivered mock's items added
+    (key InChIKey, chain fingerprint, task template, full clone fingerprint). Pure."""
+    reg = dict(registry) if isinstance(registry, dict) else {}
+    papers = dict(reg.get('papers') or {})
+    rows = []
+    for it in (items if isinstance(items, list) else []):
+        if not isinstance(it, dict):
+            continue
+        fp = op_item_fingerprint(it)
+        cc = it.get('clone_check') if isinstance(it.get('clone_check'), dict) else {}
+        cf = cc.get('fingerprint') if isinstance(cc.get('fingerprint'), dict) else {}
+        for f in ('keys', 'starting', 'reagent_seq'):               # the record may not repeat the item fields:
+            if not fp.get(f) and isinstance(cf.get(f), list):        # its committed clone_check carries them
+                fp[f] = list(cf[f])
+        for f in ('ask_format', 'answer_kind', 'task_template', 'chain'):
+            if fp.get(f) in (None, '') and cf.get(f) not in (None, ''):
+                fp[f] = cf[f]
+        fp['ref'] = f"series:{paper_id}:{it.get('q')}"
+        rows.append(fp)
+    papers[str(paper_id)] = rows
+    reg['papers'] = papers
+    return reg
+
+
+def series_registry_rows(registry):
+    """Every fingerprint in a series registry (for clone_guard(series=...)) plus the used chain ids."""
+    rows = []
+    for v in ((registry or {}).get('papers') or {}).values() if isinstance(registry, dict) else []:
+        rows += [x for x in (v if isinstance(v, list) else []) if isinstance(x, dict)]
+    return rows
+
+
+# ── G-08 — ONE CALIBRATED RULER PER EXAM (LAW-ORG-5, DIFFICULTY-LAYER-LAW) ────────────────
+def ruler_input_records(records):
+    """The past records the ruler may use (each with _paper / _q): an organic record must be 'full'
+    (pyq_record_status); a non-organic record is usable when it has no figure or its transcription is 'full' —
+    difficulty integrity covers EVERY item kind. ONE rule for build_difficulty_ruler and ruler_graded_count.
+    Never raises."""
+    out = []
+    for pk, qk, r in _op_iter_records(records):
+        tc = r.get('transcription_confidence')
+        st = pyq_record_status(r) if r.get('organic') is True else (
+            'full' if r.get('has_figure') is False or (tc.get('confidence') if isinstance(tc, dict) else tc) == 'full'
+            else 'unverified')
+        if st == 'full':
+            x = dict(r)
+            x['_paper'], x['_q'] = pk, qk
+            out.append(x)
+    return out
+
+
+def ruler_graded_count(records, labels=None):
+    """How many ruler-usable records carry two fresh blind grades in a defined band — the number
+    ruler_needs_recalibration compares (graded_count) so a ruler built before the back-fill finished is
+    rebuilt. Never raises."""
+    labs = _dl_labels(labels)
+    return sum(1 for r in ruler_input_records(records)
+               if _dl_band(r.get('blind_grade_1'), labs) is not None and _dl_band(r.get('blind_grade_2'), labs) is not None)
+
+
+def build_difficulty_ruler(records, labels, version, model_id, prompt_version, date, library=None, level=None):
+    """F-08.1 / F-08.3 — the exam's ruler from its verified past items graded by C_GRADERS fresh blind
+    graders (record fields blind_grade_1 / blind_grade_2). Anchors = records both graders put in the same
+    band; a band with < C_ANCHOR_MIN anchors borrows the library level's anchors, then the neighbouring
+    band's (recipe interpolated, flagged). Applies to EVERY item kind (not only organic). Returns
+    {'ruler_version', 'grader_prompt_version', 'model_id', 'date', 'labels', 'anchors': {band: [ref]},
+    'basis': 'exam'|'library_based'|'mixed', 'borrowed': {band: source}, 'recipe': {band: {...}},
+    'past_distribution': {band: share}, 'qtype_bands': {qtype: [bands with anchors]}}. Never raises."""
+    labs = _dl_labels(labels)
+    allrec = ruler_input_records(records)
+    anchors = {b: [] for b in labs}
+    graded = {b: [] for b in labs}
+    qtb = {}
+    for r in allrec:
+        g1, g2 = _dl_band(r.get('blind_grade_1'), labs), _dl_band(r.get('blind_grade_2'), labs)
+        if g1 is None or g2 is None:
+            continue
+        graded[g1].append(r)
+        if g1 == g2:
+            anchors[g1].append(r)
+            qt = str(r.get('qtype') or 'mcq').lower()
+            qtb.setdefault(qt, set()).add(g1)
+    borrowed, basis_parts = {}, set()
+    lib_recs = [x for x in ((library or {}).get('records') or []) if isinstance(x, dict)
+                and (level is None or x.get('level') == level)] if isinstance(library, dict) else []
+    for b in labs:
+        if len(anchors[b]) >= C_ANCHOR_MIN:
+            basis_parts.add('exam')
+            continue
+        extra = [x for x in lib_recs if _dl_band(x.get('blind_grade_1'), labs) == b
+                 and x.get('blind_grade_1') == x.get('blind_grade_2')]
+        if extra:
+            anchors[b] = anchors[b] + extra[:max(0, C_ANCHOR_MIN - len(anchors[b]))]
+            borrowed[b] = 'library'
+            basis_parts.add('library')
+        if len(anchors[b]) < C_ANCHOR_MIN:
+            borrowed[b] = (borrowed.get(b, '') + '+neighbour').lstrip('+')
+            basis_parts.add('library')
+    recipe = {}
+    for b in labs:
+        rs = anchors[b]
+        dec = [max(1, len([d for d in (r.get('decisions') or []) if d in DECISION_TAGS])) for r in rs if r.get('organic')]
+        fmts = sorted({r.get('ask_format') for r in rs if r.get('ask_format') in ASK_FORMATS})
+        conv = sorted({t for r in rs for t in (r.get('representations') or []) if t in ORG_CONVENTION_TAGS})
+        subs = substrate_recipe([dict(r, ruler_band=b) for r in rs])
+        near = [r.get('closeness') for r in rs if isinstance(r.get('closeness'), (int, float))]
+        recipe[b] = {'decisions': (min(dec), max(dec)) if dec else None, 'ask_formats': fmts,
+                     'heavy_atoms': (subs.get(b) or {}).get('heavy_atoms'),
+                     'stereocentres': (subs.get(b) or {}).get('stereocentres'),
+                     'near_isomer_share': round(sum(near) / len(near), 3) if near else None,
+                     'conventions': conv, 'n_anchors': len(rs)}
+    lv = level if level in LEVEL_DEFAULT_RECIPES else None
+    for i, b in enumerate(labs):
+        if recipe[b]['n_anchors'] >= C_ANCHOR_MIN:
+            continue
+        nb = [labs[j] for j in (i - 1, i + 1) if 0 <= j < len(labs) and recipe[labs[j]]['n_anchors'] >= C_ANCHOR_MIN]
+        if lv:
+            names = ('Easy', 'Medium', 'Hard')
+            src = LEVEL_DEFAULT_RECIPES[lv].get(names[min(i, 2)] if len(labs) == 3 else
+                                                names[min(2, round(i * 2 / max(1, len(labs) - 1)))], {})
+            for k in ('decisions', 'heavy_atoms', 'stereocentres'):
+                if recipe[b].get(k) is None:
+                    recipe[b][k] = src.get(k)
+        recipe[b]['interpolated_from'] = nb or ([f'level:{lv}'] if lv else [])
+    tot = sum(len(v) for v in graded.values())
+    past = {b: round(len(graded[b]) / tot, 4) if tot else 0.0 for b in labs}
+    basis = 'exam' if basis_parts == {'exam'} else ('library_based' if 'exam' not in basis_parts else 'mixed')
+    return {'ruler_version': str(version), 'grader_prompt_version': str(prompt_version), 'model_id': str(model_id),
+            'date': str(date), 'labels': list(labs),
+            'anchors': {b: [f"{r.get('exam_code') or ''}{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"
+                            for r in anchors[b]] for b in labs},
+            'basis': basis, 'borrowed': borrowed, 'recipe': recipe, 'past_distribution': past,
+            'qtype_bands': {k: sorted(v, key=labs.index) for k, v in qtb.items()}, 'rule': OP_RULE_CURRENT}
+
+
+def ruler_needs_recalibration(ruler, agreement=None, model_id=None, paper_count=None, graded_count=None):
+    """(bool, why) — recalibrate when there is no ruler or it holds NO anchor in any band, the grader model
+    changed, re-grade agreement with the frozen anchors < C_RULER_AGREE, papers were added, or more past
+    records carry two fresh blind grades than when the ruler was built (graded_count — the back-fill finished
+    after the ruler was first built). Never raises."""
+    r = ruler if isinstance(ruler, dict) else {}
+    an = r.get('anchors') if isinstance(r.get('anchors'), dict) else {}
+    if not an:
+        return True, 'no ruler'
+    if not any(isinstance(v, list) and v for v in an.values()):
+        return True, 'ruler has no anchors yet'
+    if model_id is not None and str(model_id) != str(r.get('model_id')):
+        return True, f"grader model changed ({r.get('model_id')} -> {model_id})"
+    if isinstance(agreement, (int, float)) and agreement < C_RULER_AGREE:
+        return True, f'anchor re-grade agreement {agreement:.2f} < {C_RULER_AGREE}'
+    if isinstance(paper_count, int) and isinstance(r.get('paper_count'), int) and paper_count > r['paper_count']:
+        return True, f"papers added ({r['paper_count']} -> {paper_count})"
+    if isinstance(graded_count, int) and graded_count > int(r.get('graded_count') or 0):
+        return True, f"blind-graded records added ({int(r.get('graded_count') or 0)} -> {graded_count})"
+    return False, 'current'
+
+
+def ruler_min_band(ruler, qtype, labels):
+    """The lowest band the exam's anchors show for `qtype` (F-08.2: whether an Easy MSQ / NAT / figural item
+    exists is decided by the anchors), or None (no floor). Never raises."""
+    labs = _dl_labels(labels)
+    r = ruler if isinstance(ruler, dict) else {}
+    bands = (r.get('qtype_bands') or {}).get(str(qtype or 'mcq').lower())
+    bs = [b for b in (bands or []) if b in labs]
+    return min(bs, key=labs.index) if bs else None
+
+
+def band_recipe_check(item, recipe_band, organic=None):
+    """F-08.3 — (ok, why-list): the item's recorded decision count, ask format and substrate sit inside the
+    band recipe. item: {'decisions_author' | 'decisions', 'ask_format', 'key_smiles', 'organic'}. Non-organic
+    items are checked on decisions only (their recipe is the anchors' step range). Never raises."""
+    it = item if isinstance(item, dict) else {}
+    rb = recipe_band if isinstance(recipe_band, dict) else {}
+    why = []
+    dec = it.get('decisions_author') if isinstance(it.get('decisions_author'), list) else it.get('decisions')
+    nd = len([d for d in (dec if isinstance(dec, list) else [])]) or _qf_int(it.get('n_decisions'), 0)
+    rng = rb.get('decisions')
+    if isinstance(rng, (list, tuple)) and len(rng) == 2 and not (rng[0] <= nd <= rng[1]):
+        why.append(f'decisions {nd} outside {tuple(rng)}')
+    org = it.get('organic') if organic is None else organic
+    if org:
+        fm = rb.get('ask_formats')
+        if fm and it.get('ask_format') not in fm and normalize_ask_format(it.get('ask_format')) not in fm:
+            why.append(f"ask format {it.get('ask_format')!r} not among the band's {fm}")
+        if isinstance(it.get('key_smiles'), str):
+            ok, w = substrate_check(it['key_smiles'], rb)
+            if ok is False:
+                why.append(w)
+            elif ok is None:
+                why.append('substrate check dormant (RDKit absent)')
+    return (not why), why
+
+
+def band_exact(controls, target, labels):
+    """F-08.4 / LAW-ORG-5 — (ok, why): every control is present and names `target`. controls must hold
+    grader_1, grader_2 (each a band from a FRESH-context blind grade) and recipe (True when band_recipe_check
+    passed). No vote: any disagreement is not exact. Never raises."""
+    labs = _dl_labels(labels)
+    c = controls if isinstance(controls, dict) else {}
+    t = _dl_band(target, labs)
+    if t is None:
+        return False, f'target {target!r} is not a band'
+    g1, g2 = _dl_band(c.get('grader_1'), labs), _dl_band(c.get('grader_2'), labs)
+    if g1 is None or g2 is None:
+        return False, 'both blind grades are required'
+    if c.get('recipe') is not True:
+        return False, 'band recipe check did not pass'
+    if g1 != t or g2 != t:
+        return False, f'graders {g1}/{g2} != target {t}'
+    return True, 'ok'
+
+
+def easy_quality_floor(item, organic=None):
+    """F-08.5 — (ok, why): an Easy ORGANIC item applies >= 1 decision to a drawn or named structure; a pure
+    definition / name-recall item is not allowed and the stem may not name the reaction whose outcome it
+    asks. item: {'decisions_author', 'species' or 'key_smiles', 'stem', 'asked_reaction'}. Never raises."""
+    it = item if isinstance(item, dict) else {}
+    org = it.get('organic') if organic is None else organic
+    if not org:
+        return True, 'not organic'
+    dec = it.get('decisions_author') if isinstance(it.get('decisions_author'), list) else it.get('decisions')
+    if not (isinstance(dec, list) and len(dec) >= 1):
+        return False, 'no decision applied (recall item)'
+    has_struct = bool(it.get('species')) or isinstance(it.get('key_smiles'), str) or bool(it.get('structure_named'))
+    if not has_struct:
+        return False, 'no drawn or named structure'
+    rx = str(it.get('asked_reaction') or '').strip().lower()
+    if rx and rx in str(it.get('stem') or '').lower():
+        return False, f'stem names the reaction whose outcome is asked ({rx})'
+    return True, 'ok'
+
+
+# ── G-09 — THE SCHEDULE IS INPUT (LAW-ORG-6) ─────────────────────────────────────────────
+def schedule_normalize(request, n_items, labels, past_distribution=None):
+    """F-09.4 — {'counts': {band: n}, 'altered': bool, 'notes': [...]}. A request summing exactly to N is
+    never altered. Percentages (values summing to ~100 with any float, or a '%' string) become counts by
+    largest remainder; a sum below N fills the rest in the ruler's past proportions (equal shares when
+    unknown); a sum above N is reduced proportionally by largest remainder; an unknown band name maps to
+    the nearest defined band (case-insensitive prefix / ordinal: simple/easy -> first, medium/moderate ->
+    middle, hard/difficult/tough -> last). Never raises."""
+    labs = _dl_labels(labels)
+    n = max(0, _qf_int(n_items, 0))
+    req = request if isinstance(request, dict) else {}
+    notes = []
+    syn = {}
+    for k in req:
+        kl = str(k).strip().lower().rstrip('%')
+        hit = next((b for b in labs if b.lower() == kl), None)
+        if hit is None:
+            if kl in ('simple', 'easy', 'low', 'basic', 'e'):
+                hit = labs[0]
+            elif kl in ('medium', 'moderate', 'mid', 'average', 'm'):
+                hit = labs[len(labs) // 2]
+            elif kl in ('hard', 'difficult', 'tough', 'high', 'advanced', 'h'):
+                hit = labs[-1]
+            else:
+                hit = next((b for b in labs if b.lower().startswith(kl[:3])), labs[len(labs) // 2])
+            notes.append(f'band name {k!r} mapped to {hit!r}')
+        syn[hit] = syn.get(hit, 0.0) + (float(str(req[k]).rstrip('%')) if re.match(r'^\s*\d+(\.\d+)?\s*%?\s*$', str(req[k])) else 0.0)
+    vals = {b: syn.get(b, 0.0) for b in labs}
+    tot = sum(vals.values())
+    pct = any('%' in str(v) for v in req.values()) or (abs(tot - 100.0) < 0.51 and n != 100 and round(tot) != n)
+    if pct and tot > 0:
+        counts = _op_largest_remainder(vals, n)
+        notes.append(f'percentages {dict((b, vals[b]) for b in labs)} -> counts {counts}')
+        return {'counts': counts, 'altered': True, 'notes': notes}
+    counts = {b: int(round(vals[b])) for b in labs}
+    s = sum(counts.values())
+    if s == n:
+        return {'counts': counts, 'altered': bool(notes), 'notes': notes}
+    if s < n:
+        pdist = past_distribution if isinstance(past_distribution, dict) and sum(
+            v for v in past_distribution.values() if isinstance(v, (int, float))) > 0 else {b: 1 for b in labs}
+        add = _op_largest_remainder({b: pdist.get(b, 0) for b in labs}, n - s)
+        for b in labs:
+            counts[b] += add.get(b, 0)
+        notes.append(f'request summed to {s} < {n}; {n - s} filled in past proportions {add}')
+    else:
+        counts = _op_largest_remainder({b: counts[b] for b in labs}, n)
+        notes.append(f'request summed to {s} > {n}; reduced proportionally to {counts}')
+    return {'counts': counts, 'altered': True, 'notes': notes}
+
+
+def schedule_place(counts, qtype_by_q, labels, ruler=None, seed=0, pattern=None):
+    """F-09.2 — {q: band} placing the counts EXACTLY and never raising (no infeasibility exists). The bottom
+    band goes first to positions whose qtype the exam's anchors show at that band (ruler_min_band), then to
+    any position; `pattern` ({q: band}, the exam's position pattern) is honoured first when given.
+    Deterministic. Never raises."""
+    labs = _dl_labels(labels)
+    qtype_by_q = qtype_by_q if isinstance(qtype_by_q, dict) else {}
+    counts = counts if isinstance(counts, dict) else {}
+    qs = sorted((int(q) for q in qtype_by_q if str(q).isdigit()))
+    cnt = {b: max(0, _qf_int(counts.get(b, 0), 0)) for b in labs}
+    plan = {}
+    left = dict(cnt)
+    if isinstance(pattern, dict):
+        for q in qs:
+            b = _dl_band(pattern.get(q, pattern.get(str(q))), labs)
+            if b and left.get(b, 0) > 0:
+                plan[q] = b
+                left[b] -= 1
+    rot = _qf_int(seed, 0)
+
+    def spread(pool, k):
+        if k <= 0 or not pool:
+            return []
+        step = len(pool) / k
+        pick, free = [], list(pool)
+        for i in range(k):
+            c = pool[(int(i * step) + rot) % len(pool)]
+            while c not in free:
+                c = pool[(pool.index(c) + 1) % len(pool)]
+            free.remove(c)
+            pick.append(c)
+        return pick
+    for b in labs:
+        if left[b] <= 0:
+            continue
+        free = [q for q in qs if q not in plan]
+        pref = []
+        for q in free:
+            qt = (qtype_by_q or {}).get(q, (qtype_by_q or {}).get(str(q)))
+            mb = ruler_min_band(ruler, qt, labs) if ruler is not None else None
+            if mb is None or labs.index(mb) <= labs.index(b):
+                pref.append(q)
+        take = spread(pref, min(left[b], len(pref)))
+        rest = [q for q in free if q not in take]
+        take += spread(rest, min(left[b] - len(take), len(rest)))      # never more than the free positions
+        for q in take:
+            plan[q] = b
+        left[b] = 0
+    for q in qs:
+        plan.setdefault(q, labs[-1])
+    return {str(q): plan[q] for q in qs}
+
+
+def schedule_freeze(state, requested, applied, placement, source='request', notes=None):
+    """F-09.2 / LAW-ORG-6 — paper state with schedule_requested, schedule_applied (+ normalisation notes),
+    the frozen placement and its sha256. An already-frozen state is returned UNCHANGED (resume restores,
+    never recomputes). Pure."""
+    import hashlib as _h
+    import json as _j
+    st = dict(state) if isinstance(state, dict) else {}
+    if isinstance(st.get('schedule_frozen'), dict) and st['schedule_frozen'].get('sha256'):
+        return st
+    body = {'requested': requested, 'applied': applied, 'placement': {str(k): v for k, v in (placement or {}).items()}}
+    sha = _h.sha256(_j.dumps(body, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+    st['schedule_requested'] = requested
+    st['schedule_applied'] = {'counts': applied, 'notes': list(notes or []), 'source': source}
+    st['schedule_frozen'] = dict(body, sha256=sha, rule=OP_RULE_CURRENT)
+    st.setdefault('refill_sessions_used', 0)
+    st.setdefault('last_resort_slots', [])
+    return st
+
+
+def schedule_frozen_check(state, labels_by_q):
+    """(ok, violations) — every delivered label equals the frozen placement, except a slot recorded in
+    last_resort_slots (disclosed). Never raises."""
+    st = state if isinstance(state, dict) else {}
+    fz = st.get('schedule_frozen') if isinstance(st.get('schedule_frozen'), dict) else None
+    if fz is None:
+        return False, ['schedule not frozen at intake']
+    lr = {str(x.get('q')) if isinstance(x, dict) else str(x) for x in (st.get('last_resort_slots') or [])}
+    bad = []
+    for q, b in (fz.get('placement') or {}).items():
+        got = (labels_by_q or {}).get(str(q), (labels_by_q or {}).get(_qf_int(q, -1)))
+        if got != b and str(q) not in lr:
+            bad.append(f'Q{q}: delivered {got!r} != frozen {b!r}')
+    return (not bad), bad
+
+
+# ── G-10 — TERMINATE BY REPLACING (LAW-ORG-3/4/5/7) ─────────────────────────────────────
+SC_TERMINALS_V2 = SC_TERMINALS          # alias (GAP §8.1 name)
+LB2_KINDS = ('measured_exact', 'last_resort')
+LB_RULE_STRICT = 'LB2'
+
+
+def k_candidates(missed_before=False):
+    """F-10.1 — candidates written per attempt for a slot (C_K_CANDIDATES, C_K_AFTER_MISS after a miss)."""
+    return C_K_AFTER_MISS if missed_before else C_K_CANDIDATES
+
+
+def key_unanimous(author, solvers, qtype='mcq', tolerance=None):
+    """F-10.6 / LAW-ORG-7 — (ok, why): the author and C_SOLVERS blind solvers give the same answer (same SET
+    for MSQ; same value within `tolerance` for NAT). A solver with no answer (timeout) is not unanimous.
+    Never raises."""
+    sv = list(solvers) if isinstance(solvers, (list, tuple)) else []
+    if len(sv) < C_SOLVERS:
+        return False, f'{len(sv)} blind solvers < {C_SOLVERS}'
+    qt = str(qtype or 'mcq').lower()
+
+    def norm(x):
+        if x is None:
+            return None
+        if qt == 'msq':
+            if isinstance(x, str):
+                x = re.split(r'[\s,;/]+', x.strip())
+            return frozenset(str(y).strip().upper() for y in x if str(y).strip())
+        if qt == 'nat':
+            try:
+                return float(x)
+            except Exception:                               # noqa: BLE001
+                return None
+        return str(x).strip().upper()
+    a = norm(author)
+    if a is None:
+        return False, 'author answer missing'
+    for i, s in enumerate(sv):
+        v = norm(s)
+        if v is None:
+            return False, f'solver {i + 1} gave no answer'
+        if qt == 'nat':
+            tol = float(tolerance) if isinstance(tolerance, (int, float)) else 0.0
+            if abs(v - a) > tol:
+                return False, f'solver {i + 1} value {v} != author {a} (tolerance {tol})'
+        elif v != a:
+            return False, f'solver {i + 1} answer {sorted(v) if isinstance(v, frozenset) else v} != author'
+    return True, 'ok'
+
+
+def reserve_new(exam_code):
+    """{EXAM}_reserve.json shape (GAP §6.1): items persist across the series."""
+    return {'exam_code': str(exam_code or ''), 'items': [], 'rule': OP_RULE_CURRENT}
+
+
+def reserve_add(reserve, item, ruler_version, created_paper):
+    """F-10.3 — reserve with one candidate that passed EVERY control but was not chosen. The entry must carry
+    label_basis kind measured_exact, a unanimous key, figure proofs all True and clone status PASS;
+    otherwise the reserve is returned unchanged with ok False. Returns (reserve, ok, why). Pure."""
+    rs = dict(reserve) if isinstance(reserve, dict) else reserve_new('')
+    it = item if isinstance(item, dict) else {}
+    lb = ((it.get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(it.get('difficulty_check'), dict) else {}
+    if lb.get('kind') != 'measured_exact':
+        return rs, False, 'not measured_exact'
+    kv = it.get('key_votes') if isinstance(it.get('key_votes'), dict) else {}
+    if kv.get('unanimous') is not True:
+        return rs, False, 'key not unanimous'
+    figs = it.get('figures') if isinstance(it.get('figures'), list) else []
+    if any(not (f.get('identity_ok') and f.get('vision_ok') and f.get('gates_ok')) for f in figs if isinstance(f, dict)):
+        return rs, False, 'a figure lacks its three proofs'
+    if (it.get('clone_check') or {}).get('status') != 'PASS':
+        return rs, False, 'clone guard not PASS'
+    e = dict(it, ruler_version=str(ruler_version), created_paper=str(created_paper), never_delivered=True)
+    rs['items'] = list(rs.get('items') or []) + [e]
+    return rs, True, 'ok'
+
+
+def reserve_take(reserve, band, qtype, subtopic_id=None, topic=None, ruler_version=None, exclude_keys=(),
+                 nearest=False, labels=None):
+    """F-10.4 step 1 / F-10.7 — (reserve, item | None, why). Order: exact band + qtype + subtopic; then exact
+    band + qtype in the same topic (the caller re-balances subtopic counts); with nearest=True (LAST RESORT
+    only) the nearest band (ties -> the harder band) with the same qtype. An item made under another ruler
+    version is returned flagged 'regrade_required' (the caller re-grades it before use — it is never used
+    on its old grade). Items whose key InChIKey is in exclude_keys (series / paper clones) are skipped.
+    Pure."""
+    rs = dict(reserve) if isinstance(reserve, dict) else reserve_new('')
+    labs = _dl_labels(labels)
+    if topic is None and isinstance(subtopic_id, str) and subtopic_id:
+        topic = _qf_topic_of(subtopic_id)            # the SAME topic rule the tier compares with
+    items = [x for x in (rs.get('items') or []) if isinstance(x, dict) and x.get('never_delivered')]
+    ex = {str(k) for k in (exclude_keys or ())}
+
+    ex = {k[:14] for k in ex if k}                                 # compare InChIKey connectivity blocks
+
+    def ok_item(x):
+        return not (op_key_ids(x) & ex)
+    tiers = [lambda x: x.get('difficulty') == band and x.get('qtype') == qtype and x.get('subtopic_id') == subtopic_id,
+             lambda x: x.get('difficulty') == band and x.get('qtype') == qtype and topic is not None
+             and _qf_topic_of(str(x.get('subtopic_id') or '')) == topic]
+    if nearest and _dl_band(band, labs) is not None:
+        bi = labs.index(band)
+        order = sorted((b for b in labs if b != band), key=lambda b: (abs(labs.index(b) - bi), -labs.index(b)))
+        for b in order:
+            tiers.append(lambda x, b=b: x.get('difficulty') == b and x.get('qtype') == qtype)
+    for tier in tiers:
+        for x in items:
+            if tier(x) and ok_item(x):
+                rest = [y for y in rs['items'] if y is not x]
+                rs['items'] = rest
+                y = dict(x)
+                y['never_delivered'] = False
+                if ruler_version is not None and str(x.get('ruler_version')) != str(ruler_version):
+                    y['regrade_required'] = True
+                return rs, y, 'ok'
+    return rs, None, 'no reserve item'
+
+
+def last_resort_incident(exam_code, paper, q, requested, delivered, candidate_log, ruler_version, date):
+    """F-10.7 / LAW-ORG-4 — the automatic P0 framework incident record (GAP §6.1)."""
+    import hashlib as _h
+    body = f'{exam_code}|{paper}|{q}|{requested}|{delivered}|{date}'
+    return {'severity': 'P0', 'kind': 'last_resort', 'exam': str(exam_code), 'paper': str(paper), 'slot': str(q),
+            'requested_band': requested, 'delivered_band': delivered, 'candidate_log': list(candidate_log or []),
+            'ruler_version': str(ruler_version), 'date': str(date),
+            'incident_id': 'INC-' + _h.sha256(body.encode('utf-8')).hexdigest()[:12]}
+
+
+def lb2_strict_row(entry, paper_release=None):
+    """True when a question_index / concept_map row is judged under LB2 (strict): the row carries
+    difficulty_check.lb_rule == 'LB2' or label_basis.rule == 'LB2', or its paper was committed at or after
+    FRAMEWORK_RELEASE_STRICT (paper_release, 'YYYY.MM.DD[.n]'). Never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    if dc.get('lb_rule') == LB_RULE_STRICT or lb.get('rule') == LB_RULE_STRICT:
+        return True
+    if isinstance(paper_release, str) and re.match(r'^\d{4}\.\d{2}\.\d{2}', paper_release):
+        return paper_release[:10] >= FRAMEWORK_RELEASE_STRICT
+    return False
+
+
+def verify_difficulty_label_strict(entry, labels):
+    """(ok, expected, basis) — LB2 (LAW-ORG-5). The ONLY valid bases:
+      'measured_exact' — label == label_basis.target and band_exact(label_basis.controls, target) (two fresh
+                         blind grades + the recipe check all on the target; each grader's packet sha recorded
+                         in label_basis.packets with context 'fresh');
+      'last_resort'    — label == label_basis.delivered, band_exact(controls, delivered), the SC2 chain proven
+                         exhausted through refill_session, and an incident id recorded.
+    Every other basis (obs, l2, none, dr3, review/swap, forced, held) is rejected. Never raises."""
+    labs = _dl_labels(labels)
+    e = entry if isinstance(entry, dict) else {}
+    dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    lab = e.get('difficulty')
+    kind = lb.get('kind')
+    pk = lb.get('packets') if isinstance(lb.get('packets'), dict) else {}
+    fresh = all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh' and pk[g].get('sha256')
+                for g in ('grader_1', 'grader_2'))
+    if kind == 'measured_exact':
+        tgt = _dl_band(lb.get('target'), labs)
+        ok, _why = band_exact(lb.get('controls'), tgt, labs)
+        return bool(ok and fresh and lab == tgt), tgt, 'measured_exact'
+    if kind == 'last_resort':
+        dlv = _dl_band(lb.get('delivered'), labs)
+        ok, _why = band_exact(lb.get('controls'), dlv, labs)
+        ch = lb.get('chain') if isinstance(lb.get('chain'), dict) else {}
+        ex = slot_chain_exhausted(ch, ch.get('kind')) and 'refill_session' in (ch.get('terminal_tried') or [])
+        return bool(ok and fresh and ex and lab == dlv and lb.get('incident_id')), dlv, 'last_resort'
+    return False, None, 'strict_reject:' + str(kind or dc.get('dl_rung') or 'none')
+
+
+def dl_set_label_basis_strict(entry, kind, labels, target, controls, packets, chain=None, delivered=None,
+                              incident_id=None):
+    """THE writer of an LB2 basis. kind 'measured_exact' (label := target) or 'last_resort' (label :=
+    delivered, the nearest band the replacement item measured exactly at). Returns (entry, ok, why); on
+    not ok the entry is returned unchanged. Never touches difficulty_obs. Pure."""
+    labs = _dl_labels(labels)
+    e = dict(entry) if isinstance(entry, dict) else {}
+    dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else {}
+    if kind not in LB2_KINDS:
+        return (entry if isinstance(entry, dict) else {}), False, f'unknown LB2 kind {kind!r}'
+    tgt = _dl_band(target, labs)
+    band = tgt if kind == 'measured_exact' else _dl_band(delivered, labs)
+    ok, why = band_exact(controls, band, labs)
+    if not ok:
+        return (entry if isinstance(entry, dict) else {}), False, why
+    pk = packets if isinstance(packets, dict) else {}
+    if not all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh' and pk[g].get('sha256')
+               for g in ('grader_1', 'grader_2')):
+        return (entry if isinstance(entry, dict) else {}), False, 'grader packets must be fresh-context with sha256'
+    lbrec = {'kind': kind, 'target': tgt, 'controls': dict(controls), 'packets': pk, 'rule': LB_RULE_STRICT}
+    if kind == 'last_resort':
+        ch = chain if isinstance(chain, dict) else {}
+        if not (slot_chain_exhausted(ch, ch.get('kind')) and 'refill_session' in (ch.get('terminal_tried') or [])):
+            return (entry if isinstance(entry, dict) else {}), False, 'SC2 chain not exhausted through refill_session'
+        if not incident_id:
+            return (entry if isinstance(entry, dict) else {}), False, 'last resort needs its P0 incident id'
+        lbrec.update({'delivered': band, 'chain': slot_chain_compact(ch), 'incident_id': str(incident_id)})
+    dc.update({'dl_rung': 'EXACT' if kind == 'measured_exact' else 'LAST_RESORT', 'decision': 'dl_' + kind,
+               'final_band': band, 'label_basis': lbrec, 'lb_rule': LB_RULE_STRICT})
+    for k in ('dr3_basis',):
+        dc.pop(k, None)
+    e['difficulty'] = band
+    e['difficulty_check'] = dc
+    return e, True, 'ok'
+
+
+def refill_session_next(state):
+    """(action, state) — F-10.4 step 2: 'refill' while refill_sessions_used < C_REFILL_SESSIONS (the counter
+    is incremented), else 'last_resort'. Pure."""
+    st = dict(state) if isinstance(state, dict) else {}
+    used = _qf_int(st.get('refill_sessions_used'), 0)
+    if used < C_REFILL_SESSIONS:
+        st['refill_sessions_used'] = used + 1
+        return 'refill', st
+    return 'last_resort', st
+
+
+# ── G-13 — THE AUTHOR BRIEF ──────────────────────────────────────────────────────────────
+def author_brief(slots, max_pages=None):
+    """F-13.1 — the per-paper Organic Authoring Brief: one block per slot {'q', 'band', 'qtype', 'chain'
+    (card), 'decisions', 'ask_format', 'recipe', 'convention', 'exemplars': [refs]} with the engine call
+    list. Truncated at max_pages x C_BRIEF_CHARS_PER_PAGE characters with a final line naming the slots
+    left out (they get their own brief). Returns {'text', 'slots_in', 'slots_out', 'chars'}. Never raises."""
+    mp = max(1, _qf_int(max_pages if max_pages is not None else C_BRIEF_MAX_PAGES, C_BRIEF_MAX_PAGES))
+    cap = mp * C_BRIEF_CHARS_PER_PAGE
+    head = ('ORGANIC AUTHORING BRIEF (GAP-2026-11-10) — write each slot to its recipe; gates are engine calls:\n'
+            '  bc.stem_stereo_gate  bc.clone_guard  bc.band_recipe_check  bc.easy_quality_floor\n'
+            '  bc.decision_contract_check  bc.key_unanimous  bc.band_exact  ci.organic_figure_proof\n')
+    lines, sin, sout = [head], [], []
+    used = len(head)
+    for s in (slots if isinstance(slots, list) else []):
+        if not isinstance(s, dict):
+            continue
+        ch = s.get('chain') if isinstance(s.get('chain'), dict) else {}
+        steps = ' -> '.join(f"{x.get('family')}:{x.get('template')}" for x in (ch.get('steps') or []) if isinstance(x, dict))
+        rc = s.get('recipe') if isinstance(s.get('recipe'), dict) else {}
+        blk = (f"Q{s.get('q')} [{s.get('band')} / {s.get('qtype', 'mcq')}] chain {ch.get('card_id', '-')}: {steps or '-'}\n"
+               f"   decisions {s.get('decisions') or rc.get('decisions')}  ask {s.get('ask_format')}  "
+               f"heavy atoms {rc.get('heavy_atoms')}  stereocentres {rc.get('stereocentres')}  "
+               f"convention {s.get('convention') or 'skeletal'}\n"
+               f"   exemplars {', '.join(str(x) for x in (s.get('exemplars') or [])[:2]) or '-'}\n")
+        if used + len(blk) > cap:
+            sout.append(s.get('q'))
+            continue
+        lines.append(blk)
+        used += len(blk)
+        sin.append(s.get('q'))
+    if sout:
+        _shown = ', '.join(str(x) for x in sout[:6]) + (f' … +{len(sout) - 6}' if len(sout) > 6 else '')
+        lines.append(f"({len(sout)} slots ({_shown}) are in the next brief — one brief per {mp} pages)\n")
+    txt = ''.join(lines)
+    return {'text': txt, 'slots_in': sin, 'slots_out': sout, 'chars': len(txt)}
+
+
+# ── G-14 — EVERY STOP NAMES ITS AUTOMATIC REPAIR (LAW-ORG-12) ─────────────────────────────
+ENVIRONMENT_FAILURES = ('NO-FRAMEWORK', 'NO-SOURCE-DATA', 'NO-MODEL')
+STOP_REPAIRS = {
+    'FRAMEWORK-UNREACHABLE': ('DR mirror (MIRROR != PRIMARY), then the project-cached verified release', 'NO-FRAMEWORK'),
+    'PROJECT-SPEC-MALFORMED': ('ignore the project copy, use the verified repo copy, one AMBER line', None),
+    'EXAM-FILE-MISSING': ('run the producing step inside the run from the past papers, or the library level', 'NO-SOURCE-DATA'),
+    'EXAM-FILE-MISMATCH': ('migrate / regenerate with the blueprint engine; normalise; default the policy', None),
+    'DIFFICULTY-FEASIBILITY': ('schedule_normalize + schedule_place; feasibility is a planning hint (G-09)', None),
+    'DIFFICULTY-PROFILE': ('rebuild the profile / ruler / per-section plan in the run (F-09.3)', None),
+    'FIGURE-TYPE-UNDRAWABLE': ('install in Step 0, re-run preflight, template renderer', None),
+    'ENGINE-FAULT': ('re-copy from the verified clone, reinstall, re-run; after INFRA_HEAL_MAX a fresh worker '
+                     '(<= 3 per site); persistent on the verified clone -> previous verified release + P0', None),
+    'STATE-CORRUPT': ('rebuild state from per-question blocks + registry; else restart the paper', None),
+    'COMMIT-FINAL-CHECK': ('restore the registry from source; re-run S13-2F and the commit', None),
+    'WORKER-FAILED': ('a fresh worker resumes saved state', None),
+    'WORKDIR-LOST': ('restart the paper automatically', None),
+    'MODEL-CAPACITY': ('the slim author brief (G-13)', 'NO-MODEL'),
+}
+
+
+def stop_repair_for(site):
+    """(repair, environment_failure | None) for a stop class (STOP_REPAIRS), or (None, None) for an unknown
+    class — an unknown stop is itself a LAW-ORG-12 violation. Never raises."""
+    v = STOP_REPAIRS.get(str(site or '').upper())
+    return (v[0], v[1]) if v else (None, None)
+
+
+LADDER_ENTRY_RUNG.update({'A-ORGPROOF': 'R1', 'G-ORGPROOF': 'R1'})
+
+# END CLUSTER OP
 # ══════════════════════════════════════════════════════════════════
 
 

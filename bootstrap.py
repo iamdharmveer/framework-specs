@@ -1171,6 +1171,9 @@ def main():
     ap.add_argument("--when", choices=RETENTION_WHEN, default="after-read")
     ap.add_argument("--read-receipts", action="store_true")
     ap.add_argument("--stage-inputs", action="store_true")
+    ap.add_argument("--make-cache", default=None, metavar="OUT.zip",
+                    help="2026.11.10 (G-14): write a project-cacheable copy of THIS verified release (every "
+                         "MANIFEST file + MANIFEST.json); SKILL Step 0 uses it only when primary and mirror fail")
     ap.add_argument("--stage-doc", default=None, metavar="NAME")
     ap.add_argument("--from", dest="from_path", default=None, metavar="PATH")
     ap.add_argument("--typed", action="store_true")
@@ -1193,6 +1196,22 @@ def main():
     ap.add_argument("--continue", dest="cont", action="store_true")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
+    if args.make_cache:
+        # 2026.11.10 (G-14 row 1): the project-cached verified release — every top-level file of this clone (what a
+        # git clone gives: specs, engines, bootstrap, manifests; never .git / caches); Step 0 extracts it and this
+        # same bootstrap re-verifies every hash against the MANIFEST.json inside it
+        import zipfile as _zf
+        _here = os.path.dirname(os.path.abspath(__file__))
+        _man = json.load(open(os.path.join(_here, args.manifest), encoding="utf-8"))
+        _names = sorted(n for n in os.listdir(_here) if os.path.isfile(os.path.join(_here, n))
+                        and not n.startswith('.') and not n.endswith('.pyc'))
+        with _zf.ZipFile(args.make_cache, "w", _zf.ZIP_DEFLATED) as _z:
+            for _n in _names:
+                _p = os.path.join(_here, _n)
+                if os.path.isfile(_p):
+                    _z.write(_p, _n)
+        print(f"CACHE written: {args.make_cache} ({len(_names)} files, release {_man.get('framework_version')})")
+        sys.exit(0)
 
     # Sub-commands that are not the verification gate; each returns its exit code.
     if args.self_test:

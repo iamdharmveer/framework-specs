@@ -1,20 +1,11 @@
-# Framework_PYQExplain v2.30 — Universal PYQ Explanation Generator
-# v2.30 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
-#   explain_engine v2.14, corpus_io v1.20, CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1,
-#   DeliveryFooter v1.43.0, SHARED_RULES_VERSION 1.8). NEW §6A-13 (identical to the mock copy
-#   except the record source in H-0 / H-2 and H-10's stem route / option source): signed figure
-#   provenance;
-#   engine-derived and verify-re-decided RE-25 status (text-only organic questions included);
-#   evidence-backed APPLIES-UNRENDERABLE; full stereo-claim binding; per-ask-shape figure
-#   contracts; structure-derived CHAIR / NEWMAN / SAWHORSE / FISCHER / HAWORTH / CIP / TS_CHAIR
-#   renderers; printed-coordinate placement (engine capability); cage-aware layout gate + L1b /
-#   L3d-f; IUPAC labels and labels / stereo / balance sentences; wrong-option figure identity;
-#   OPSIN once per session with name checks; SN2-safe normaliser; library Contradicts over every
-#   section; context review; engine-written §R3 lines and scorecard. §18-1a passes records= (the
-#   §13A-3 content records). PYQ stem-name defects are DISCLOSED with one fixed sentence
-#   (a past paper cannot be regenerated). Amended §5-1, §6A-10 items 2 / 4 and the gate,
-#   §6A-12, §17-3.
-# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
+# Framework_PYQExplain v2.31 — Universal PYQ Explanation Generator
+# v2.31 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-02 / G-04 / G-05 (paired with blueprint_core v2.0,
+#   figural_vision v3, MockTestCreate v6.0). §13A-3 Phase B writes the SCHEMA 3 record (organic flag by content,
+#   answer_kind + answer structure, option_kind, image_counts.stereo_marks, stereo_mode, measured convention tags,
+#   one ask-format vocabulary, family / decision tags, two fresh blind grades); §13A-4 Phase C fails CLOSED
+#   (fv.transcription_confidence 'unverified' when nothing was compared), stamps schema 3, checks completeness in
+#   code (bc.pyq_record_complete / pyq_record_status) and lists re-reads; NEW §13A-3B BACKFILL. Entry v2.30 moved
+#   to SPEC_HISTORY.md.
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
 #   v2.14 at 2026.08.21.2:
@@ -2667,6 +2658,41 @@ for it in items:
 
 ## S13A-3 — PHASE B (model — IN-TURN tool calls; NOT a code block)
 
+  v2.31 — SCHEMA 3 REQUIRED FIELDS (GAP-2026-11-10 G-02 / G-04 / G-05; every organic record of every exam).
+  Phase B writes, per question, measured FROM THE ZOOM TILES (never from the figure-type name):
+    organic + organic_reason (blueprint_core.is_organic_item — content, never the section name);
+    has_figure (true when the question shows any structure, scheme, graph or image; false for a text-only item);
+    content_objects (one per species; reaction schemes one per species with reagents to reagents_seen);
+    answer_kind (structure | structure_set | text | number | order | statement_set | match | spectrum_assignment)
+      and the answer structure (answer_smiles / answer_set) whenever answer_kind is structure / structure_set;
+    option_kind {label: structure | text} and option_smiles for every structure option;
+    image_counts {object: {heavy_atoms, rings, stereocentres, stereo_marks, labels}} — stereo_marks counts
+      wedges, hashes, wavy bonds, drawn ring-fusion H, chair axial / equatorial substituents and stereo double
+      bonds; the transcribed SMILES must carry the same number of DEFINED stereo elements;
+    stereo_mode (abs | rel | rac | mixture | none) — relative-only stereo 'rel', racemates 'rac', wavy 'mixture';
+    representations — EVERY convention visible, from blueprint_core.ORG_CONVENTION_TAGS (skeletal, perspective,
+      chair_conformation, pyranose_chair, haworth_projection, newman_projection, fischer_projection,
+      sawhorse_projection, ring_fusion_h, wavy_bond, reaction_scheme, mechanism_arrows, spectrum);
+    ask_format from blueprint_core.ASK_FORMATS (never 'direct'); named_concepts; family (FAMILY_TAGS) and
+      decisions (DECISION_TAGS) — planning tags; the syllabus taxonomy is unchanged;
+    blind_grade_1 / blind_grade_2 — two FRESH blind graders (sub-agents / Orchestrate workers, never this
+      context) each band the record from the packet alone; schema_version 3.
+  Family, decisions and ask_format are checked by a second blind pass; on disagreement the record is re-read
+  once, then kept 'partial'. Markush / R groups keep attachment points; polymers the repeat unit with *
+  end-groups; isotopes stay in the SMILES; charges, radicals, ylides as drawn; metal complexes with dative
+  bonds; spectra as a peak list; a structure given only as a name is converted and cross-checked with any
+  formula in the stem. A record Phase C marks reread_due is re-read from its zoom tiles (at most
+  blueprint_core.C_PYQ_REREAD_MAX times) — never a stop.
+
+  v2.31 — §13A-3B BACKFILL (Create S0-OP-0 / Orchestrate O-BACKFILL). For every record below schema 3 or with
+  record_status != 'full', re-run Phase B and Phase C on the page images already in the project (the trigger
+  PYQExplain BACKFILL, or an Orchestrate worker); the difficulty_profile / exemplar_bank are rewritten with the
+  schema-3 fields (inside a Create run: each paper's records are written into /home/claude/<ExamCode>_op_profile.json
+  with work = blueprint_core.profile_merge_records(work, <paper key as in the profile>, {q: record}) — Create
+  S0-OP-0 — and persisted through registry.json['pyq_backfill'] at S13-4); a record that cannot reach
+  'full' stays 'partial' with missing_fields. Old records are never
+  silently trusted for targets; every record stays in the clone guard. Delivered papers are not touched.
+
   Phase B is prose by law. Do not implement it, do not wrap it in a ```python
   fence, and do not name a function for it. The urge to "implement" Phase B is
   the bug, not the fix.
@@ -2857,19 +2883,39 @@ if os.path.exists(_cop):
         for _q, _rec in list(_content.items()):
             if _q == '_meta' or not isinstance(_rec, dict):
                 continue
-            _tc = fv.transcription_confidence(_rec.get('content_objects'), _rec.get('image_counts') or {},
+            # v2.31 (GAP-2026-11-10 G-02, LAW-ORG-2): FAIL CLOSED — a structure item whose image counts are missing
+            # is 'unverified' (figural_vision v3), never 'full'; the record is stamped schema 3 and its completeness
+            # is checked in code (bc.pyq_record_complete); a missing / mismatched field is re-read by Phase B up to
+            # bc.C_PYQ_REREAD_MAX times, then the record stays 'partial' with its missing list (never a stop)
+            import blueprint_core as _bc_s3
+            _tc = fv.transcription_confidence(_rec.get('content_objects'), _rec.get('image_counts'),
                                               reviewed=bool(_rec.get('re_viewed')))
             _rec['transcription_confidence'] = _tc['confidence']
-            if _tc['confidence'] == 'partial':
-                _rec['content_confidence'] = 'partial'          # kept out of the level pool
+            _rec.update({k: v for k, v in _bc_s3.organic_flag(_rec).items() if k in ('organic', 'organic_reason')})
+            _af = _bc_s3.normalize_ask_format(_rec.get('ask_format'))
+            if _af:
+                _rec['ask_format'] = _af
+            _rec['schema_version'] = _bc_s3.PYQ_SCHEMA_VERSION
+            _was_checked = 'missing_fields' in _rec                # a previous Phase C already judged this record
+            _rec['missing_fields'] = _bc_s3.pyq_record_complete(_rec)
+            _rec['record_status'] = _bc_s3.pyq_record_status(_rec)
+            if _rec['record_status'] != 'full':
+                # one re-read per Phase C pass after the first; at bc.C_PYQ_REREAD_MAX the record stays 'partial'
+                _rec['reread_count'] = int(_rec.get('reread_count') or 0) + (1 if _was_checked else 0)
+                _rec['reread_due'] = _rec['reread_count'] < _bc_s3.C_PYQ_REREAD_MAX
+            else:
+                _rec['reread_due'] = False
+            if _tc['confidence'] in ('partial', 'unverified'):
+                _rec['content_confidence'] = _tc['confidence']  # kept out of every target pool (in the clone guard)
                 _rec['transcription_mismatches'] = _tc['mismatches']
                 _n_partial += 1
             if not _rec.get('reagents_seen'):
                 import blueprint_core as _bc_rs
                 _rec['reagents_seen'] = _bc_rs.reagent_names_of(_rec.get('content_objects'))
         json.dump(_content, open(_cop, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        _due = sorted(k for k, r in _content.items() if k != '_meta' and isinstance(r, dict) and r.get('reread_due'))
         print(f"§13A-4: transcription confidence set on {sum(1 for k in _content if k != '_meta')} content record(s); "
-              f"{_n_partial} partial (kept; not in the level pool)")
+              f"{_n_partial} partial / unverified (kept; out of every target pool); re-read due (Phase B, zoom tiles): {_due}")
     except (OSError, ValueError) as _e:
         print(f"§13A-4: content records not re-checked ({type(_e).__name__}: {_e}) — recorded, never a stop")
 fv.write_manifest(items, transcripts, report,
@@ -3857,5 +3903,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.30
+# END OF Framework_PYQExplain v2.31
 # ════════════════════════════════════════════════════════════════════════

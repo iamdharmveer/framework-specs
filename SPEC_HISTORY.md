@@ -826,6 +826,21 @@ Entry v1.43.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-C
 #   a paper with no RE-25 question prints nothing new (byte-identical).
 ```
 
+Entry v1.44.0 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUESTION-PARITY).
+
+```
+# v1.44.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09; paired with MockTestCreate v5.96, MockDeliver v1.28.0, blueprint_core v1.34).
+#   §FOOTER-FT gains the SLOT-CHAIN LINES — difficulty_state.chain_footer written by Create S13-2L with
+#   bc.chain_footer_lines: 'amber' (schedule-forced labels naming the band the review measured, majority
+#   certifications, DISCLOSED items) AMBER-CLASS, 'info' (band swaps, re-keys, sibling replacements) informational.
+#   Q0c also treats the auditor's "AMBER — DISCLOSED …" and "AMBER — ESCALATED …" certificate notes as
+#   AMBER-CLASS; DIFFICULTY LAYER LINES gain "Difficulty schedule-forced / band swaps / held at slot" (owner
+#   2026-11-10: a harder slot is held at its band, the schedule is delivered exactly). A Create v5.96 paper is never NOT CERTIFIED; the NOT CERTIFIED lines remain for legacy
+#   registries only. A paper without the records prints nothing new (byte-identical).
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
+```
+
 ## Framework_MockDeliver.md
 
 Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
@@ -2931,6 +2946,28 @@ Entry v5.94 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENI
 #   counts the paper against the target plan (bc.difficulty_paper_gate). S13-4 caches the blind
 #   grades in the registry; S13-6 prints bc.difficulty_layer_lines. Nothing here stops (C1); no
 #   certificate effect (C2); no new user action (C4). Entry v5.93 moved to SPEC_HISTORY.md.
+```
+
+Entry v5.96 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY).
+
+```
+# v5.96 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09 — supersedes OD-9 and the v5.94 DR3 relabel; paired with blueprint_core v1.34,
+#   audit_canonical v2.39, paper_pipeline qindex_count_band, notes_core v2.15, MockTestOrchestrate v1.1.0,
+#   MockDeliver v1.28.0, DeliveryFooter v1.44.0). Measured 2026-11-08 (a 40-question post-graduate organic
+#   TestCreate): S13-2G relabelled 21 items to the band the review measured (DR3) while A-QINDEX check 8
+#   required every label to equal the item's own recorded evidence and check 6 the exact schedule counts;
+#   no rung repaired either, S13-2F stopped HS:INFRA, and one disputed item made the paper NOT CERTIFIED.
+#   NOW: ONE label verifier with a recorded basis (bc.verify_difficulty_label — G-DIFF, check 8, notes);
+#   check 6 counts at the recorded basis; the schedule is delivered EXACTLY — S13-2G never relabels, and
+#   NEW S13-2L / S13-2R run a bounded SLOT CHAIN per problem slot (difficulty: 13 reviewed attempts, band
+#   swap, paired upgrade, then a schedule-forced label disclosed in the footer; dispute: adjudicate,
+#   replace, shape, sibling, panel, re-key, majority; quality: replace, shape, sibling, disclosed); every
+#   changed item is re-reviewed in a DELTA round bound to its text hash (REVIEW-COVERAGE-LAW); S13-2F
+#   routes every survivor through bc.sweep_route (no UNRESOLVED stamp, no NOT CERTIFIED paper, an AMBER
+#   escalation at the sweep cap for a paper-level FAIL); every HS:INFRA site in Final Assembly self-heals
+#   (bc.infra_heal_step) before it may stop; S4-12 migrates a parked paper (bc.migrate_paper_state).
+#   Entry v5.95 moved to SPEC_HISTORY.md.
 ```
 
 Entry v5.95 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
@@ -7049,6 +7086,27 @@ Entry v2.29 moved at framework release 2026.11.08.1 (GAP-2026-11-07-RE25-HARDENI
 #   concept coverage. No other field, phase, gate or output changes.
 ```
 
+Entry v2.30 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUESTION-PARITY).
+
+```
+# v2.30 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with MockTestExplain v1.55.0,
+#   explain_engine v2.14, corpus_io v1.20, CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1,
+#   DeliveryFooter v1.43.0, SHARED_RULES_VERSION 1.8). NEW §6A-13 (identical to the mock copy
+#   except the record source in H-0 / H-2 and H-10's stem route / option source): signed figure
+#   provenance;
+#   engine-derived and verify-re-decided RE-25 status (text-only organic questions included);
+#   evidence-backed APPLIES-UNRENDERABLE; full stereo-claim binding; per-ask-shape figure
+#   contracts; structure-derived CHAIR / NEWMAN / SAWHORSE / FISCHER / HAWORTH / CIP / TS_CHAIR
+#   renderers; printed-coordinate placement (engine capability); cage-aware layout gate + L1b /
+#   L3d-f; IUPAC labels and labels / stereo / balance sentences; wrong-option figure identity;
+#   OPSIN once per session with name checks; SN2-safe normaliser; library Contradicts over every
+#   section; context review; engine-written §R3 lines and scorecard. §18-1a passes records= (the
+#   §13A-3 content records). PYQ stem-name defects are DISCLOSED with one fixed sentence
+#   (a past paper cannot be regenerated). Amended §5-1, §6A-10 items 2 / 4 and the gate,
+#   §6A-12, §17-3.
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
+```
+
 ## Framework_PYQFormat.md
 
 Entry v1.6.0 moved at framework release 2026.11.06 (EC-P42; v1.6.1 supersedes;
@@ -7745,4 +7803,17 @@ Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CO
 #   chat orchestrates, worker sub-agents execute Framework_MockTestCreate.md, and every read is proved
 #   present (READ-RETENTION). No question-writing rule, gate, artefact, deliverable, end state or user
 #   action is defined or changed here.
+```
+
+Entry v1.1.0 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUESTION-PARITY).
+
+```
+# v1.1.0 — 2026-11-09 — GAP-2026-11-08-DR3-QINDEX-CONFLICT + GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner
+#   decision OD-2026-11-09; paired with Framework_MockTestCreate v5.96, blueprint_core v1.34). NEW O2-8: a
+#   run parked at a HARD STOP resumes under a NEWER production release on the user's "continue" (Step 0 is
+#   re-run once, the paper's working files are kept, the worker's S4-12 migrates the paper's state). O3-6:
+#   a part marked 'switch' (an adjudication, a panel copy, a D0 re-review) goes to a reviewer on a DIFFERENT
+#   model; delta rounds use REVIEW_DIR .../delta<k>/part<n>. O3-8: an INFRA-HEAL is not a stop, and a worker
+#   never raises a stop the executed code does not raise (MTC MANDATE 0b). Entry v1.0.0 moved to
+#   SPEC_HISTORY.md.
 ```

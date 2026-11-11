@@ -1,7 +1,16 @@
 """
-corpus_io.py v1.20 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.21 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
 
+v1.21 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-11 / G-12 (LAW-ORG-8). Geometry gates on the
+    FINAL 2-D coordinates of every structure (G-BONDCROSS, G-BONDLABEL, G-LABELOVERLAP, G-ATOMCLASH —
+    mol_geometry_gates); _native_layout and the legacy raster walk a bounded re-depiction ladder
+    (native_layout_proof: CoordGen, rdkit, canonOrient, ring templates, sampled layouts, <= 24) when a layout
+    fails; draw.geometry records the drawn layout's gates. G-METALCHARGE (metal_charge_gate + to_dative),
+    G-STEREODEF (stereo_defined_gate), G-MINSIZE (min_size_gate), G-IDENTITY from the DRAWN MolBlock
+    (drawn_identity), organic_structure_layout (the proven layout of one question structure),
+    option_set_align (F-11.5), render_projection (chair / Newman / sawhorse / Fischer / Haworth question
+    figures through the PROVEN renderers), organic_figure_proof (identity_ok / vision_ok / gates_ok).
 v1.20 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with explain_engine v2.14).
     F-4 structure-derived stereo renderers, each PROVED by rebuilding the drawn arrangement in
     3-D and re-labelling it: render_chair (occupants from an ETKDG/MMFF conformer, ring flip),
@@ -4865,11 +4874,24 @@ def _native_coords_finite(m):
 
 def _native_bond_ratio(m):
     """min / max depicted bond length (1.0 with no bond). CoordGen squashes some
-    bridged rings (2,3-disubstituted norbornanes: 'CC1CC2CCC1C2N' at 0.33x)."""
+    bridged rings (2,3-disubstituted norbornanes: 'CC1CC2CCC1C2N' at 0.33x). On a PERSPECTIVE template layout
+    (the molecule carries '_tpl_core') the template's own core bonds are excluded: their foreshortening is
+    designed, and the ratio judges only the bonds the depictor laid out (substituents, fused rings); the core
+    geometry is checked by the crossing / label / clash gates, not by this ratio."""
     import math
     c = m.GetConformer()
+    core = set()
+    try:
+        if m.HasProp('_tpl_core'):
+            core = {int(x) for x in m.GetProp('_tpl_core').split(',') if x != ''}
+    except Exception:                                         # noqa: BLE001
+        core = set()
+    bonds = [b for b in m.GetBonds()
+             if not (b.GetBeginAtomIdx() in core and b.GetEndAtomIdx() in core)] if core else list(m.GetBonds())
+    if core and not bonds:
+        return 1.0
     ls = [math.dist(tuple(c.GetAtomPosition(b.GetBeginAtomIdx()))[:2],
-                    tuple(c.GetAtomPosition(b.GetEndAtomIdx()))[:2]) for b in m.GetBonds()]
+                    tuple(c.GetAtomPosition(b.GetEndAtomIdx()))[:2]) for b in bonds]
     ls = [x for x in ls if math.isfinite(x)]
     if not ls or max(ls) <= 0:
         return 1.0
@@ -4890,7 +4912,14 @@ def _native_layout(mol):
         if _native_coords_finite(m1) and _native_bond_ratio(m1) > _native_bond_ratio(m0):
             m0, dep0 = m1, 'rdkit'
     if not _native_cross_atoms(m0):
-        return m0, dep0, None
+        if mol_geometry_gates(m0)['ok']:
+            return m0, dep0, None
+        # v1.21 (G-11 F-11.2): a layout that fails a geometry gate walks the bounded re-depiction ladder
+        _mp, _dp, _gp = native_layout_proof(mol)
+        if _gp['ok']:
+            return _mp, _dp, None
+        return m0, dep0, ('GEOMETRY-GATES FAIL after the re-depiction ladder: '
+                          + '; '.join(f'{g}: {d}' for g, d in _gp['findings'][:4]))
     m1 = _native_depict(mol, 'rdkit')
     if not _native_cross_atoms(m1):
         return m1, 'rdkit', None
@@ -5695,6 +5724,23 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
         _native = _NativeStructure(mol, _tk, _marks, abbreviations, protect_atoms,
                                    (_atom_pal, bool(element_colours)), _conv)
 
+    # v1.21 (G-11, LAW-ORG-8): the legacy raster is laid out by rdkit's default depictor; that layout is
+    # gated, and a failing one is replaced by the first ladder layout that passes (draw.geometry records it)
+    _geom = None
+    try:
+        if mol.GetNumConformers() == 0:
+            from rdkit.Chem import rdDepictor as _rdd0
+            _m_def = Chem.Mol(mol)
+            _rdd0.Compute2DCoords(_m_def)
+            _geom = mol_geometry_gates(_m_def)
+            if not _geom['ok']:
+                _m_pf, _dep_pf, _g_pf = native_layout_proof(mol)
+                if _g_pf['ok'] and _m_pf.GetNumAtoms() == mol.GetNumAtoms():
+                    mol = _m_pf
+                _geom = _g_pf
+    except Exception:                                         # noqa: BLE001 — gating never breaks a render
+        _geom = None
+
     def _raster():
         d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
         o = d.drawOptions()
@@ -5776,6 +5822,8 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
     # conformer / projection option set (the SAME molecule drawn differently by design)
     # — the option identity check skips it (identity_exempt; reviewer decides).
     identity_exempt(draw, bool(conformer_set))
+    # v1.21 (G-11 / G-12, LAW-ORG-8): the geometry gates of the layout actually drawn
+    draw.geometry = (mol_geometry_gates(_native.mol) if _native is not None else _geom)
     return draw
 
 
@@ -9712,6 +9760,562 @@ def render_ts_chair(step, ring, caption, section='DEDUCTION', dpi=CHS_FIGURE_DPI
     d.identifier['canonical'] = mechanism_canonical(step['after'], stereo=True)
     return d
 
+# ══════════════════════════════════════════════════════════════════════════════════════
+# v1.21 — ORGANIC FIGURE PROOF (GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-11 / G-12, LAW-ORG-8)
+# Every gate runs on the FINAL 2-D coordinates (and wedges) BEFORE rasterising, for every structure in
+# every stem, option, explanation and notes figure:
+#   G-BONDCROSS   no two bonds without a shared atom intersect (wedges / hashes included)
+#   G-BONDLABEL   no bond passes through the padded box of an atom label it does not belong to
+#   G-LABELOVERLAP no two label boxes overlap          G-ATOMCLASH non-bonded atoms >= C_MIN_ATOM_SEP x L
+#   G-METALCHARGE coordination drawn with dative bonds; no spurious metal / donor charges
+#   G-STEREODEF   every stereo element defined unless stereo_mode rac / rel / mixture is declared
+#   G-MINSIZE     stem >= 1.0 in, option >= 0.8 in (exam_config may raise, never lower)
+#   G-IDENTITY    the molecule re-perceived from the DRAWN coordinates + wedges equals the intended one
+# A layout that fails is re-depicted along a bounded ladder (<= ORG_REDEPICT_MAX layouts); if none passes
+# the figure is refused (ValueError) and the ITEM is replaced (G-10) — a failing drawing is never shipped.
+# Chair / Newman / sawhorse / Fischer / Haworth question figures route to the PROVEN renderers above
+# (render_chair ... render_haworth refuse a drawing whose 3-D rebuild does not reproduce every CIP label).
+# ══════════════════════════════════════════════════════════════════════════════════════
+ORG_LABEL_PAD = 0.15             # x median bond length (C_LABEL_PAD; blueprint_core is the owner of the default)
+ORG_MIN_ATOM_SEP = 0.5           # x median bond length (C_MIN_ATOM_SEP)
+ORG_LABEL_HALF = 0.28            # half-size of an atom-label box, x median bond length
+ORG_REDEPICT_MAX = 24            # C_REDEPICT_MAX
+ORG_TEMPLATE_MIN_BOND_RATIO = 0.5    # a PERSPECTIVE template foreshortens by design (bridge vs back edge)
+ORG_MIN_STEM_WIDTH_IN = 1.0      # C_MIN_STEM_WIDTH_IN
+ORG_MIN_OPTION_WIDTH_IN = 0.8    # C_MIN_OPTION_WIDTH_IN
+ORG_PROJECTION_KINDS = ('chair_conformation', 'newman_projection', 'sawhorse_projection', 'fischer_projection',
+                        'haworth_projection')
+_ORG_METALS = frozenset('Li Be Na Mg Al K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn '
+                        'Cs Ba La Ce Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi'.split())
+
+
+def _org_xy(mol):
+    c = mol.GetConformer()
+    return [tuple(c.GetAtomPosition(i))[:2] for i in range(mol.GetNumAtoms())]
+
+
+def _org_median_bond(mol, xy):
+    import math
+    ls = sorted(math.dist(xy[b.GetBeginAtomIdx()], xy[b.GetEndAtomIdx()]) for b in mol.GetBonds())
+    ls = [x for x in ls if x > 1e-6]
+    return ls[len(ls) // 2] if ls else 1.0
+
+
+def _org_label_atoms(mol):
+    """Atoms that print a label: every non-carbon, and a carbon with a charge, isotope, radical or no
+    heavy neighbour (CH4-like)."""
+    out = []
+    for a in mol.GetAtoms():
+        if a.GetSymbol() != 'C' or a.GetFormalCharge() or a.GetIsotope() or a.GetNumRadicalElectrons() \
+                or a.GetDegree() == 0:
+            out.append(a.GetIdx())
+    return out
+
+
+def _org_seg_cross(p1, p2, p3, p4):
+    """Proper intersection of segments p1p2 and p3p4 (touching at an endpoint is not a cross)."""
+    def orient(a, b, c):
+        v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+        return 0 if abs(v) < 1e-9 else (1 if v > 0 else -1)
+    o1, o2, o3, o4 = orient(p1, p2, p3), orient(p1, p2, p4), orient(p3, p4, p1), orient(p3, p4, p2)
+    return o1 * o2 < 0 and o3 * o4 < 0
+
+
+def mol_geometry_gates(mol, label_pad=None, min_sep=None):
+    """G-BONDCROSS / G-BONDLABEL / G-LABELOVERLAP / G-ATOMCLASH on a molecule's 2-D conformer. Returns
+    {'ok': bool, 'findings': [(gate, detail)], 'median_bond': L}. A molecule with no conformer fails
+    ('no 2-D coordinates'). Never raises."""
+    try:
+        import math
+        if mol is None or mol.GetNumConformers() == 0:
+            return {'ok': False, 'findings': [('G-BONDCROSS', 'no 2-D coordinates')], 'median_bond': None}
+        xy = _org_xy(mol)
+        L = _org_median_bond(mol, xy)
+        pad = (ORG_LABEL_PAD if label_pad is None else label_pad) * L
+        half = ORG_LABEL_HALF * L
+        sep = (ORG_MIN_ATOM_SEP if min_sep is None else min_sep) * L
+        fnd = []
+        bonds = [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()]
+        for i in range(len(bonds)):
+            a1, a2 = bonds[i]
+            for j in range(i + 1, len(bonds)):
+                b1, b2 = bonds[j]
+                if {a1, a2} & {b1, b2}:
+                    continue
+                if _org_seg_cross(xy[a1], xy[a2], xy[b1], xy[b2]):
+                    fnd.append(('G-BONDCROSS', f'bond {a1}-{a2} crosses bond {b1}-{b2}'))
+        labs = _org_label_atoms(mol)
+        boxes = {k: [xy[k][0] - half - pad, xy[k][1] - half - pad, xy[k][0] + half + pad, xy[k][1] + half + pad]
+                 for k in labs}
+        for (a1, a2) in bonds:
+            p, q = xy[a1], xy[a2]
+            for k, r in boxes.items():
+                if k in (a1, a2):
+                    continue
+                if _seg_hits_rect(p, q, r):
+                    fnd.append(('G-BONDLABEL', f'bond {a1}-{a2} passes through the label of atom {k} '
+                                               f'({mol.GetAtomWithIdx(k).GetSymbol()})'))
+        for i in range(len(labs)):
+            for j in range(i + 1, len(labs)):
+                ri = [boxes[labs[i]][0] + pad, boxes[labs[i]][1] + pad, boxes[labs[i]][2] - pad, boxes[labs[i]][3] - pad]
+                rj = [boxes[labs[j]][0] + pad, boxes[labs[j]][1] + pad, boxes[labs[j]][2] - pad, boxes[labs[j]][3] - pad]
+                if _rects_overlap(ri, rj):
+                    fnd.append(('G-LABELOVERLAP', f'labels of atoms {labs[i]} and {labs[j]} overlap'))
+        bonded = {frozenset(b) for b in bonds}
+        n = mol.GetNumAtoms()
+        for i in range(n):
+            for j in range(i + 1, n):
+                if frozenset((i, j)) in bonded:
+                    continue
+                if math.dist(xy[i], xy[j]) < sep:
+                    fnd.append(('G-ATOMCLASH', f'atoms {i} and {j} closer than {ORG_MIN_ATOM_SEP} bond lengths'))
+        return {'ok': not fnd, 'findings': fnd[:24], 'median_bond': L}
+    except Exception as e:                                    # noqa: BLE001
+        return {'ok': False, 'findings': [('G-BONDCROSS', f'gate error {type(e).__name__}')], 'median_bond': None}
+
+
+# F-12.1 scaffold templates — fixed 2-D coordinates (bond length 1.0) in the textbook PERSPECTIVE convention;
+# applied with GenerateDepictionMatching2DStructure (substituents laid out around the fixed core).
+ORG_SCAFFOLD_TEMPLATES = {
+    # coordinates are indexed by the CORE SMILES atom order. norbornane 'C1CC2CCC1C2': bridgeheads 5 (left)
+    # and 2 (right); 5-0-1-2 the front edge, 2-3-4-5 the back edge, bridge 6 drawn above (bornane / camphor)
+    'norbornane': ('C1CC2CCC1C2', [(0.55, -0.80), (1.55, -0.80), (2.10, 0.0), (1.45, 0.42), (0.65, 0.42),
+                                   (0.0, 0.0), (1.05, 1.05)]),
+    # the same scaffold with the bridge raised and the back edge lowered: a LABELLED bridge (7-oxa / 7-aza,
+    # N-Boc) clears the back edge (real-data audit 2026-11-10: furan + maleic anhydride adducts)
+    'norbornane_tall': ('C1CC2CCC1C2', [(0.55, -0.95), (1.55, -0.95), (2.10, 0.0), (1.45, 0.20), (0.65, 0.20),
+                                        (0.0, 0.0), (1.05, 1.65)]),
+    # bicyclo[2.2.2]octane 'C1CC2CCC1CC2': bridgeheads 5 / 2; bridges 0-1 (front), 3-4 (back), 6-7 (top)
+    'bicyclo222': ('C1CC2CCC1CC2', [(0.55, -0.80), (1.55, -0.80), (2.10, 0.0), (1.55, 0.25), (0.55, 0.25),
+                                    (0.0, 0.0), (0.55, 1.00), (1.55, 1.00)]),
+    # bicyclo[3.2.1]octane 'C1CC2CCC(C1)C2': bridgeheads 5 / 2; 6-0-1 front, 4-3 back, 7 on top
+    'bicyclo321': ('C1CC2CCC(C1)C2', [(1.05, -1.25), (1.80, -0.90), (2.10, 0.0), (1.45, 0.42), (0.65, 0.42),
+                                      (0.0, 0.0), (0.30, -0.90), (1.05, 1.05)]),
+}
+
+
+def _org_topology_query(core):
+    """The scaffold as a TOPOLOGY query in the core SMILES atom order: any atom, any bond (a norbornENE,
+    a 7-oxa- / aza-norbornane, an aromatic-fused or charged bridge all match the norbornane template; the
+    real-data audit 2026-11-10 found the bond-order-exact match missed the Diels-Alder adducts). None on error."""
+    try:
+        from rdkit import Chem
+        m = Chem.MolFromSmiles(core)
+        if m is None:
+            return None
+        q = Chem.RWMol()
+        for a in m.GetAtoms():
+            q.AddAtom(Chem.AtomFromSmarts('*'))
+        for b in m.GetBonds():
+            q.AddBond(b.GetBeginAtomIdx(), b.GetEndAtomIdx(), Chem.BondType.SINGLE)
+        qm = q.GetMol()
+        for b in qm.GetBonds():
+            qm.GetBondWithIdx(b.GetIdx())
+        sm = Chem.MolToSmarts(qm)
+        sm = sm.replace('-', '~')
+        out = Chem.MolFromSmarts(sm)
+        if out is None or out.GetNumAtoms() != m.GetNumAtoms():
+            return None
+        # keep the core atom order: the SMARTS round trip preserves atom indices when every atom is '*'
+        return out
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
+def _org_template_layouts(mol):
+    """[(name, mol)] — the molecule laid out on every scaffold template whose core it contains, once per
+    distinct core mapping (the core's symmetry decides which edge is drawn in front — every mapping is
+    offered to the gates). rdDepictor.Compute2DCoords with a coordMap fixes the core coordinates."""
+    out = []
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import rdDepictor
+        from rdkit.Geometry import Point2D
+        for name, (core, xy) in ORG_SCAFFOLD_TEMPLATES.items():
+            t = _org_topology_query(core)
+            if t is None:
+                continue
+            seen = set()
+            for k, match in enumerate(mol.GetSubstructMatches(t, uniquify=False, maxMatches=24)):
+                key = tuple(match)
+                if key in seen:
+                    continue
+                seen.add(key)
+                cmap = {int(match[i]): Point2D(float(x), float(y)) for i, (x, y) in enumerate(xy)}
+                m = Chem.Mol(mol)
+                m.SetProp('_tpl_core', ','.join(str(int(a)) for a in match))
+                m.RemoveAllConformers()
+                prev = rdDepictor.GetPreferCoordGen()
+                try:
+                    rdDepictor.SetPreferCoordGen(False)
+                    rdDepictor.Compute2DCoords(m, coordMap=cmap)
+                    # print at the token bond length: the MEAN drawn bond is rescaled to 1.0 unit (as _native_depict)
+                    import math as _m21
+                    _xy = _org_xy(m)
+                    _bl = [_m21.dist(_xy[b.GetBeginAtomIdx()], _xy[b.GetEndAtomIdx()]) for b in m.GetBonds()]
+                    _bl = [x for x in _bl if x > 0]
+                    _L = (sum(_bl) / len(_bl)) if _bl else 0
+                    if _L > 0:
+                        from rdkit.Geometry import Point3D as _P3
+                        _cf = m.GetConformer()
+                        for _i, (_x, _y) in enumerate(_xy):
+                            _cf.SetAtomPosition(_i, _P3(_x / _L, _y / _L, 0.0))
+                    out.append((f'template:{name}#{k}', m))
+                except Exception:                             # noqa: BLE001
+                    continue
+                finally:
+                    rdDepictor.SetPreferCoordGen(prev)
+    except Exception:                                         # noqa: BLE001
+        return out
+    return out
+
+
+def _org_depict_variants(mol):
+    """The bounded re-depiction ladder (F-11.2): CoordGen -> rdkit -> rdkit canonOrient -> rdkit with ring
+    templates -> rdkit sampled layouts (seeds) — at most ORG_REDEPICT_MAX molecules with coordinates."""
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor
+    yield 'coordgen', _native_depict(mol, 'coordgen')
+    yield 'rdkit', _native_depict(mol, 'rdkit')
+    yield 'rdkit_canon', _native_depict(mol, 'rdkit', canon_orient=True)
+    n = 3
+    for name, m in _org_template_layouts(mol):
+        n += 1
+        yield name, m
+    prev = rdDepictor.GetPreferCoordGen()
+    try:
+        rdDepictor.SetPreferCoordGen(False)
+        for use_tpl in (True,):
+            m = Chem.Mol(mol)
+            m.RemoveAllConformers()
+            try:
+                rdDepictor.Compute2DCoords(m, useRingTemplates=use_tpl)
+                n += 1
+                yield 'ring_template', m
+            except Exception:                                 # noqa: BLE001 — older rdkit: no templates
+                pass
+        seed = 1
+        while n < ORG_REDEPICT_MAX:
+            m = Chem.Mol(mol)
+            m.RemoveAllConformers()
+            try:
+                rdDepictor.Compute2DCoords(m, nFlipsPerSample=3, nSample=20, sampleSeed=seed, permuteDeg4Nodes=True)
+            except Exception:                                 # noqa: BLE001
+                break
+            n += 1
+            seed += 1
+            yield f'sampled_{seed - 1}', m
+    finally:
+        rdDepictor.SetPreferCoordGen(prev)
+
+
+def native_layout_proof(mol):
+    """(mol_with_coords, depictor, gates) — the first layout of the ladder that passes every geometry gate
+    (and keeps the bond-length ratio >= NATIVE_MIN_BOND_RATIO); gates['ok'] False with the best attempt's
+    findings when none passes (the caller refuses the figure). Never raises on a valid molecule."""
+    best = None
+    best_relaxed = []
+    for name, m in _org_depict_variants(mol):
+        try:
+            if not _native_coords_finite(m):
+                continue
+            g = mol_geometry_gates(m)
+            g['layout_attempt'] = name
+            floor = ORG_TEMPLATE_MIN_BOND_RATIO if name.startswith('template:') else NATIVE_MIN_BOND_RATIO
+            if g['ok'] and floor > ORG_TEMPLATE_MIN_BOND_RATIO and _native_bond_ratio(m) >= ORG_TEMPLATE_MIN_BOND_RATIO \
+                    and _native_bond_ratio(m) < floor:
+                best_relaxed.append((name, m))
+            if _native_bond_ratio(m) < floor:
+                g['ok'] = False
+                g['findings'] = list(g['findings']) + [('G-BONDLENGTH', f'bond-length ratio {_native_bond_ratio(m):.2f} '
+                                                                         f'< {floor} (distorted layout)')]
+            if g['ok']:
+                return m, name, g
+            if best is None or len(g['findings']) < len(best[2]['findings']):
+                best = (m, name, g)
+        except Exception:                                     # noqa: BLE001
+            continue
+    if best is None:
+        m = _native_depict(mol, 'rdkit')
+        return m, 'rdkit', {'ok': False, 'findings': [('G-BONDCROSS', 'no finite layout')], 'layout_attempt': 'none'}
+    # last rung (real-data audit 2026-11-10, spiro ketals): when NO attempt passed, an attempt whose ONLY finding
+    # is the generic bond-length heuristic and whose ratio still reaches the template floor is drawn — every
+    # crossing / label / clash gate passed on it; anything else stays refused
+    for name, m in (best_relaxed or []):
+        g = dict(mol_geometry_gates(m), layout_attempt=f'{name} (ratio {_native_bond_ratio(m):.2f})')
+        if g['ok']:
+            return m, name, g
+    return best
+
+
+def to_dative(smiles):
+    """G-METALCHARGE repair — a charge-separated coordination SMILES rewritten with DATIVE bonds: every bond
+    from a positively charged N / O / P / S / As donor to a metal becomes donor->metal with the donor's +1
+    charge removed and the metal's charge raised by 1 (the drawn picture then shows the intended oxidation
+    state, e.g. a salen Mn(III) with no Mn2- / N+). Returns the new SMILES or None. Never raises."""
+    try:
+        from rdkit import Chem
+        m = Chem.MolFromSmiles(str(smiles or ''), sanitize=False)
+        if m is None:
+            return None
+        rw = Chem.RWMol(m)
+        changed = False
+        for b in list(rw.GetBonds()):
+            a, c = b.GetBeginAtom(), b.GetEndAtom()
+            for donor, metal in ((a, c), (c, a)):
+                if metal.GetSymbol() in _ORG_METALS and donor.GetSymbol() in ('N', 'O', 'P', 'S', 'As') \
+                        and donor.GetFormalCharge() == 1 and b.GetBondType() == Chem.BondType.SINGLE:
+                    i, j = donor.GetIdx(), metal.GetIdx()
+                    rw.RemoveBond(i, j)
+                    rw.AddBond(i, j, Chem.BondType.DATIVE)
+                    rw.GetAtomWithIdx(i).SetFormalCharge(0)
+                    rw.GetAtomWithIdx(j).SetFormalCharge(rw.GetAtomWithIdx(j).GetFormalCharge() + 1)
+                    changed = True
+                    break
+        out = rw.GetMol()
+        Chem.SanitizeMol(out, catchErrors=True)
+        return Chem.MolToSmiles(out) if changed else Chem.MolToSmiles(out)
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
+def metal_charge_gate(smiles, intended_charges=None):
+    """G-METALCHARGE — (ok, why): a structure with a metal must draw coordination as DATIVE bonds — a metal
+    bonded to a positively charged donor (charge-separated coordination) fails, and a metal charge that is
+    not in `intended_charges` ({atom symbol: charge}) fails (a free, unbonded metal ion is charged by nature and
+    passes). A structure with no metal passes. Never raises."""
+    try:
+        from rdkit import Chem
+        m = Chem.MolFromSmiles(str(smiles or ''), sanitize=False)
+        if m is None:
+            return False, 'unparseable'
+        why = []
+        for a in m.GetAtoms():
+            if a.GetSymbol() not in _ORG_METALS:
+                continue
+            for nb in a.GetNeighbors():
+                bt = m.GetBondBetweenAtoms(a.GetIdx(), nb.GetIdx()).GetBondType()
+                if nb.GetFormalCharge() > 0 and bt != Chem.BondType.DATIVE:
+                    why.append(f'{a.GetSymbol()}-{nb.GetSymbol()}+ drawn charge-separated (use a dative bond)')
+            want = (intended_charges or {}).get(a.GetSymbol()) if isinstance(intended_charges, dict) else None
+            if a.GetFormalCharge() and want is None and a.GetDegree() == 0:
+                continue                      # a FREE metal ion ([Na+], [Mg+2] counter-ion) is charged by nature
+            if a.GetFormalCharge() and want is None:
+                why.append(f'{a.GetSymbol()} shows charge {a.GetFormalCharge():+d} that is not intended')
+            elif want is not None and a.GetFormalCharge() != want:
+                why.append(f'{a.GetSymbol()} charge {a.GetFormalCharge():+d} != intended {want:+d}')
+        return (not why), ('ok' if not why else '; '.join(why[:4]))
+    except Exception as e:                                    # noqa: BLE001
+        return False, f'error {type(e).__name__}'
+
+
+def stereo_defined_gate(smiles, stereo_mode=None, irrelevant=()):
+    """G-STEREODEF — (ok, undefined): every stereocentre / stereo double bond is defined, unless the item
+    declares stereo_mode 'rac' / 'rel' / 'mixture' (then undefined elements are allowed) or the element's
+    atom indices are in `irrelevant` (verified irrelevant by the G-03 re-solve). Never raises."""
+    try:
+        from rdkit import Chem
+        if stereo_mode in ('rac', 'rel', 'mixture', 'none'):
+            # 'none' — a connectivity-only item: drawn_identity / readback_compare compare connectivity only too
+            return True, []
+        m = Chem.MolFromSmiles(str(smiles or ''))
+        if m is None:
+            return False, ['unparseable']
+        irr = {tuple(x) if isinstance(x, (list, tuple)) else (x,) for x in (irrelevant or ())}
+        bad = []
+        for si in Chem.FindPotentialStereo(m):
+            if str(si.specified) == 'Specified':
+                continue
+            t = str(si.type)
+            if 'Bond_Double' in t:
+                b = m.GetBondWithIdx(si.centeredOn)
+                # a ring double bond in a ring of <= 8 atoms is drawn cis by convention (cyclooctene)
+                if b.IsInRing() and not any(len(r) > 8 for r in m.GetRingInfo().BondRings() if si.centeredOn in r):
+                    continue
+                key = (b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+            else:
+                key = (si.centeredOn,)
+            if key in irr:
+                continue
+            bad.append(f"{'double bond' if 'Bond' in t else 'centre'} {key}")
+        return (not bad), bad
+    except Exception as e:                                    # noqa: BLE001
+        return False, [f'error {type(e).__name__}']
+
+
+def min_size_gate(width_in, role='stem', exam_min=None):
+    """G-MINSIZE — (ok, why): a stem structure >= ORG_MIN_STEM_WIDTH_IN wide, an option >= ORG_MIN_OPTION_WIDTH_IN
+    (exam_min may RAISE the floor, never lower it). Never raises."""
+    floor = ORG_MIN_OPTION_WIDTH_IN if str(role).lower().startswith('opt') else ORG_MIN_STEM_WIDTH_IN
+    if isinstance(exam_min, (int, float)) and exam_min > floor:
+        floor = float(exam_min)
+    try:
+        w = float(width_in)
+    except Exception:                                         # noqa: BLE001
+        return False, 'width unknown'
+    return (w >= floor - 1e-9), (f'{w:.2f} in >= {floor:.2f} in' if w >= floor - 1e-9 else f'{w:.2f} in < {floor:.2f} in')
+
+
+def drawn_identity(molblock, intended_smiles, stereo_mode='abs'):
+    """G-IDENTITY (F-12.2) — (ok, why): the molecule RE-PERCEIVED from the drawn MolBlock (coordinates +
+    wedge / hash directions: AssignChiralTypesFromBondDirs; double-bond geometry from 2-D) equals the
+    intended structure by standard InChI including stereo layers ('rel': absolute-sense layer ignored;
+    'rac' / 'mixture' / 'none': connectivity only). Never raises."""
+    try:
+        from rdkit import Chem
+        m = Chem.MolFromMolBlock(str(molblock or ''), removeHs=False)
+        t = Chem.MolFromSmiles(str(intended_smiles or ''))
+        if m is None or t is None:
+            return False, 'unparseable molblock or SMILES'
+        Chem.AssignChiralTypesFromBondDirs(m)
+        Chem.AssignStereochemistry(m, cleanIt=True, force=True)
+        a, b = Chem.MolToInchi(Chem.RemoveHs(m)), Chem.MolToInchi(t)
+
+        def lay(x):
+            p = x.split('/')
+            if stereo_mode in ('rac', 'mixture', 'none'):
+                p = [s for s in p if s[:1] not in ('b', 't', 'm', 's')]
+            elif stereo_mode == 'rel':
+                p = [s for s in p if s[:1] not in ('m', 's')]
+            return '/'.join(p)
+        ok = lay(a) == lay(b)
+        return ok, ('ok' if ok else f'drawn {a} != intended {b}')
+    except Exception as e:                                    # noqa: BLE001
+        return False, f'error {type(e).__name__}'
+
+
+def organic_structure_layout(smiles, stereo_mode='abs', intended_charges=None):
+    """The proven 2-D layout of ONE question structure (F-11.1 .. F-11.3, F-12.2). Returns
+    {'mol', 'molblock', 'smiles' (the drawn SMILES — dative-converted when needed), 'depictor',
+    'gates_ok', 'identity_ok', 'findings', 'layout_attempt'}; gates_ok / identity_ok False means the
+    figure must NOT be drawn (the item is replaced). Never raises on input."""
+    out = {'mol': None, 'molblock': None, 'smiles': smiles, 'depictor': None, 'gates_ok': False,
+           'identity_ok': False, 'findings': [], 'layout_attempt': None}
+    try:
+        from rdkit import Chem
+        smi = str(smiles or '')
+        ok_m, why_m = metal_charge_gate(smi, intended_charges)
+        if not ok_m:
+            fixed = to_dative(smi)
+            if fixed and metal_charge_gate(fixed, intended_charges)[0]:
+                out['findings'].append(('G-METALCHARGE', f'repaired to dative bonds ({why_m})'))
+                smi = fixed
+            else:
+                out['findings'].append(('G-METALCHARGE', why_m))
+                return out
+        ok_s, und = stereo_defined_gate(smi, stereo_mode)
+        if not ok_s:
+            out['findings'].append(('G-STEREODEF', ', '.join(und[:6])))
+            return out
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            out['findings'].append(('G-IDENTITY', 'unparseable'))
+            return out
+        m, dep, g = native_layout_proof(mol)
+        out.update({'mol': m, 'depictor': dep, 'layout_attempt': g.get('layout_attempt'), 'smiles': smi})
+        out['findings'] += g['findings']
+        out['gates_ok'] = bool(g['ok'])
+        try:
+            Chem.WedgeMolBonds(m, m.GetConformer())
+        except Exception:                                     # noqa: BLE001
+            pass
+        mb = Chem.MolToMolBlock(m)
+        out['molblock'] = mb
+        idok, idwhy = drawn_identity(mb, smi, stereo_mode)
+        out['identity_ok'] = idok
+        if not idok:
+            out['findings'].append(('G-IDENTITY', idwhy))
+        return out
+    except Exception as e:                                    # noqa: BLE001
+        out['findings'].append(('G-IDENTITY', f'error {type(e).__name__}'))
+        return out
+
+
+def option_set_align(smiles_list):
+    """F-11.5 option-set coherence — (mols, ok, why): every option depicted on ONE orientation of the
+    maximum common substructure (GenerateDepictionMatching2DStructure on the first option's proven layout),
+    one scale (median bond lengths within 5 %), and every option a DISTINCT molecule (InChIKey with
+    stereo). An option whose aligned layout fails a geometry gate keeps its own proven layout. Never raises."""
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import rdFMCS, AllChem
+        smis = [str(s) for s in (smiles_list or [])]
+        mols = [Chem.MolFromSmiles(s) for s in smis]
+        if not mols or any(m is None for m in mols):
+            return [], False, 'unparseable option'
+        keys = [Chem.MolToInchiKey(m) for m in mols]
+        if len(set(keys)) != len(keys):
+            return [], False, 'two options are the same molecule'
+        ref, _dep, _g = native_layout_proof(mols[0])
+        out = [ref]
+        for m in mols[1:]:
+            done = None
+            if len(mols) > 1:
+                res = rdFMCS.FindMCS([ref, m], timeout=2, ringMatchesRingOnly=True, completeRingsOnly=True)
+                patt = Chem.MolFromSmarts(res.smartsString) if res and res.numAtoms >= 3 else None
+                if patt is not None:
+                    mm = Chem.Mol(m)
+                    try:
+                        AllChem.GenerateDepictionMatching2DStructure(mm, ref, refPatt=patt)
+                        if mol_geometry_gates(mm)['ok']:
+                            done = mm
+                    except Exception:                         # noqa: BLE001
+                        done = None
+            out.append(done if done is not None else native_layout_proof(m)[0])
+        Ls = [_org_median_bond(x, _org_xy(x)) for x in out]
+        spread = (max(Ls) - min(Ls)) / max(Ls) if Ls and max(Ls) > 0 else 0
+        if spread > 0.05:
+            return out, False, f'option scales differ by {spread:.0%}'
+        return out, True, 'ok'
+    except Exception as e:                                    # noqa: BLE001
+        return [], False, f'error {type(e).__name__}'
+
+
+def render_projection(kind, smiles, caption=None, **kw):
+    """G-12 F-12.1 — the ONE renderer for a chair / Newman / sawhorse / Fischer / Haworth QUESTION figure:
+    dispatches to the PROVEN renderer (render_chair, render_newman, render_sawhorse, render_fischer,
+    render_haworth), which refuses (ValueError) any drawing whose 3-D rebuild does not reproduce every
+    CIP label. Returns (result, proof) with proof {'identity_ok': True, 'renderer', 'kind'} — a refused
+    drawing raises ValueError and the item is replaced (never hand-drawn). Never returns an unproven figure."""
+    k = str(kind or '').strip().lower()
+    fn = {'chair_conformation': render_chair, 'newman_projection': render_newman,
+          'sawhorse_projection': render_sawhorse, 'fischer_projection': render_fischer,
+          'haworth_projection': render_haworth}.get(k)
+    if fn is None:
+        raise ValueError(f'render_projection: {kind!r} is not one of {ORG_PROJECTION_KINDS}')
+    cap = list(caption) if isinstance(caption, (list, tuple)) else ([str(caption)] if caption else [])
+    if k in ('newman_projection', 'sawhorse_projection'):
+        bond = kw.pop('bond', None)
+        if bond is None:
+            raise ValueError(f'render_projection: {k} needs bond=[front map, back map]')
+        res = fn(smiles, bond, cap, **kw)
+    else:
+        res = fn(smiles, cap, **kw)
+    return res, {'identity_ok': True, 'renderer': fn.__name__, 'kind': k}
+
+
+def organic_figure_proof(figure):
+    """LAW-ORG-8 — the proof record of ONE organic figure: {'identity_ok', 'vision_ok', 'gates_ok',
+    'layout_attempt', 'missing'}. figure: {'kind', 'smiles', 'stereo_mode', 'layout' (organic_structure_layout
+    result) | 'projection_proof', 'vision_reads': [{'smiles' (read back by a FRESH vision pass), 'match'}],
+    'answer_depends_on_stereo', 'width_in', 'role'}. vision_ok needs C_VISION_READS matching reads (2 when the
+    answer depends on stereo) — a read that disagrees with a geometrically correct drawing never passes on its
+    own; geometry always wins over a passing read. Never raises."""
+    f = figure if isinstance(figure, dict) else {}
+    lay = f.get('layout') if isinstance(f.get('layout'), dict) else {}
+    pp = f.get('projection_proof') if isinstance(f.get('projection_proof'), dict) else {}
+    ident = bool(lay.get('identity_ok')) or bool(pp.get('identity_ok'))
+    gates = bool(lay.get('gates_ok')) or (bool(pp.get('identity_ok')) and str(f.get('kind') or '') in ORG_PROJECTION_KINDS)
+    if f.get('width_in') is not None:
+        gates = gates and min_size_gate(f.get('width_in'), f.get('role') or 'stem')[0]
+    need = 2 if f.get('answer_depends_on_stereo') else 1
+    reads = [r for r in (f.get('vision_reads') if isinstance(f.get('vision_reads'), list) else []) if isinstance(r, dict)]
+    vis = sum(1 for r in reads if r.get('match') is True) >= need and not any(r.get('match') is False for r in reads[-need:])
+    miss = [k for k, v in (('identity_ok', ident), ('vision_ok', vis), ('gates_ok', gates)) if not v]
+    return {'identity_ok': ident, 'vision_ok': vis, 'gates_ok': gates, 'layout_attempt': lay.get('layout_attempt')
+            or pp.get('renderer'), 'missing': miss}
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SELF-TEST
@@ -11400,8 +12004,11 @@ def self_test():
             _m17 = _ns17.native_png(300)[2]
             _from_rdkit = _ChF.MolFromSmiles('CC1CC2CCC1C2N')
             _lay = _native_layout(_from_rdkit)[0]
+            # v1.21 (G-11): rdkit's own layout of this norbornane crosses two bonds — the geometry gates reject
+            # it and the PERSPECTIVE template layout is drawn instead (still at the token bond length)
             check('native_distorted_coordgen_layout_redepicted',
-                  _m17['depictor'] == 'rdkit' and _native_bond_ratio(_lay) >= NATIVE_MIN_BOND_RATIO
+                  str(_m17['depictor']).startswith('template:norbornane')
+                  and _native_bond_ratio(_lay) >= ORG_TEMPLATE_MIN_BOND_RATIO and mol_geometry_gates(_lay)['ok']
                   and abs(_m17['bond_px_measured'] - 14.4 * 300 / 72.0) < 0.5)
         except Exception:                                # noqa: BLE001
             check('native_distorted_coordgen_layout_redepicted', False)
@@ -11780,6 +12387,77 @@ def self_test():
         check('v120_specified_still_renders',
               _only_ve(lambda: render_chair('C[C@@H]1CCC[C@H](C)C1', ['cis-1,3-dimethylcyclohexane'])) == 'RETURNED')
 
+    # ── v1.21 — ORGANIC FIGURE PROOF (GAP-2026-11-10 FX-G11-1..6, FX-G12-1..2) ─────────────────────
+    try:
+        from rdkit import Chem as _C21, RDLogger as _RL21
+        _RL21.DisableLog('rdApp.*')
+        _have21 = True
+    except Exception:                                    # noqa: BLE001
+        _have21 = False
+    if _have21:
+        # FX-G11-2 camphor / bornane: every automatic layout clashes or crosses; the perspective template passes
+        _cam = organic_structure_layout('CC1(C)[C@@H]2CC[C@@]1(C)C(=O)C2')
+        check('v121_G11_2_camphor_template', _cam['gates_ok'] and _cam['identity_ok']
+              and str(_cam['layout_attempt']).startswith('template:norbornane'))
+        _bad = _native_depict(_C21.MolFromSmiles('CC1CC2CCC1C2N'), 'rdkit')
+        check('v121_G11_bondcross_detected', any(g == 'G-BONDCROSS' for g, _ in mol_geometry_gates(_bad)['findings']))
+        _cg = _native_depict(_C21.MolFromSmiles('CC1CC2CCC1C2N'), 'coordgen')
+        check('v121_G11_1_bondlabel_detected', any(g == 'G-BONDLABEL' for g, _ in mol_geometry_gates(_cg)['findings']))
+        # FX-G11-3 azide: drawn with no label overprint
+        check('v121_G11_3_azide_passes', organic_structure_layout('CCCCN=[N+]=[N-]', 'rac')['gates_ok'])
+        # FX-G11-4 Mn-salen charge-separated -> dative, no spurious charges
+        _salen = 'C1=CC=C2C(=C1)C=[N+]3CC[N+]4=CC5=CC=CC=C5O[Mn-2]34O2'
+        _mc = metal_charge_gate(_salen)
+        _fx = to_dative(_salen)
+        check('v121_G11_5b_none_and_cyclooctene', stereo_defined_gate('CC(O)CC', 'none')[0] is True
+              and stereo_defined_gate('C1=CCCCCCC1')[0] is True and stereo_defined_gate('CC(O)CC')[0] is False)
+        check('v121_G11_4b_free_ion_passes', metal_charge_gate('[Na+]')[0] is True
+              and metal_charge_gate('[O-]C(=O)c1ccccc1.[Na+]')[0] is True and metal_charge_gate('[Na+]', {'Na': 2})[0] is False)
+        _spx = organic_structure_layout('O=C1C=CC(C(=O)O)(C2(c3ccccc3)OCCO2)C1', 'rac')
+        check('v121_G11_spiro_ketal_drawn', _spx['gates_ok'] and _spx['identity_ok'])
+        for _bsm in ('O=C1OC(=O)C2C1C1C=CC2O1', 'C1=CC2C=CC1N2C(=O)OC(C)(C)C', 'COCC1C2C=CC1C(=O)C2'):
+            _blx = organic_structure_layout(_bsm, 'rac')
+            check(f'v121_G11_bridged_real_{_bsm[:10]}', _blx['gates_ok'] and _blx['identity_ok']
+                  and str(_blx['layout_attempt']).startswith('template:norbornane'))
+        check('v121_G11_4_metalcharge', _mc[0] is False and _fx and metal_charge_gate(_fx)[0] is True
+              and organic_structure_layout(_salen, 'none')['findings'][0][0] == 'G-METALCHARGE')
+        # FX-G11-5 an undefined stereocentre fails unless rac / rel / mixture is declared
+        check('v121_G11_5_stereodef', stereo_defined_gate('CC(O)C(C)=O')[0] is False
+              and stereo_defined_gate('CC(O)C(C)=O', 'rac')[0] is True
+              and stereo_defined_gate('C[C@H](O)C(C)=O')[0] is True
+              and stereo_defined_gate('CC(O)C(C)=O', irrelevant=[(1,)])[0] is True
+              and organic_structure_layout('CC(O)C(C)=O')['findings'][0][0] == 'G-STEREODEF')
+        # FX-G11-6 minimum display size
+        check('v121_G11_6_minsize', min_size_gate(0.55, 'stem')[0] is False and min_size_gate(1.0, 'stem')[0] is True
+              and min_size_gate(0.8, 'option')[0] is True and min_size_gate(0.9, 'option', exam_min=1.2)[0] is False
+              and min_size_gate(1.1, 'stem', exam_min=0.5)[0] is True)
+        # G-IDENTITY from the drawn MolBlock: a forged wedge (the other enantiomer) fails
+        _l = organic_structure_layout('C[C@H](O)CC')
+        check('v121_G12_identity_from_drawing', _l['identity_ok'] and drawn_identity(_l['molblock'], 'C[C@@H](O)CC')[0] is False
+              and drawn_identity(_l['molblock'], 'C[C@@H](O)CC', 'rac')[0] is True)
+        # F-11.5 option-set coherence
+        _ms, _ok, _w = option_set_align(['CC(=O)c1ccccc1', 'CC(O)c1ccccc1', 'CCc1ccccc1'])
+        check('v121_G11_option_set_align', _ok and len(_ms) == 3
+              and option_set_align(['CCO', 'OCC'])[1] is False)
+        # FX-G12-1 / -2 proven projection renderers through the ONE dispatcher; an unknown kind refuses
+        try:
+            _ch, _pf = render_projection('chair_conformation', 'C[C@H]1CC[C@H](O)CC1')
+            check('v121_G12_1_chair_proven', _pf['identity_ok'] is True and _pf['renderer'] == 'render_chair')
+        except ValueError:
+            check('v121_G12_1_chair_proven', False)
+        check('v121_G12_unknown_projection_refused', _raises_with(lambda: render_projection('bogus', 'CC'), 'render_projection'))
+        _pr = organic_figure_proof({'kind': 'chemical_structure', 'layout': _cam, 'answer_depends_on_stereo': True,
+                                    'vision_reads': [{'match': True}, {'match': True}], 'width_in': 1.2, 'role': 'stem'})
+        _pr1 = organic_figure_proof({'kind': 'chemical_structure', 'layout': _cam, 'answer_depends_on_stereo': True,
+                                     'vision_reads': [{'match': True}]})
+        _pr2 = organic_figure_proof({'kind': 'chemical_structure', 'layout': _cam, 'vision_reads': [{'match': False}]})
+        check('v121_G12_proof_record', _pr['missing'] == [] and _pr1['vision_ok'] is False
+              and _pr2['missing'] == ['vision_ok'] and organic_figure_proof(None)['missing'] == ['identity_ok', 'vision_ok', 'gates_ok'])
+        _sd = structure_draw_fn('CC1(C)[C@@H]2CC[C@@]1(C)C(=O)C2', tokens={'font_pt': 10, 'line_pt': 0.6, 'bond_pt': 14.4,
+                                                                         'monochrome': True, 'mark_colour': '#000000'})
+        check('v121_draw_records_geometry', isinstance(getattr(_sd, 'geometry', None), dict) and _sd.geometry['ok'])
+    else:
+        check('v121_dormant_without_rdkit', mol_geometry_gates(None)['ok'] is False)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print('FAILED: ' + ', '.join(fails))

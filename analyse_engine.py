@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""analyse_engine.py v1.4 — Step 5 (PYQExtract) shared extraction engine.
+"""analyse_engine.py v1.5 — Step 5 (PYQExtract) shared extraction engine.
+
+v1.5 (2026-11-10, GAP-2026-11-10-ORGANIC-QUESTION-PARITY F-04.1 / F-05.1): style_profile_add_conventions(prof,
+  difficulty_profile) adds FIGURE_STYLE_PROFILE.conventions (convention shares measured from the verified PYQ
+  records) and .ask_formats (the one ask-format vocabulary) — computed by blueprint_core, mirrored nowhere.
 
 v1.4 (2026-11-08, GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER, owner decision 2026-11-08 (a)):
   write_exemplar_bank(..., profile_sha256=None, pyq_grades=None) — the bank records the sha256
@@ -152,6 +156,7 @@ __all__ = [
     # v1.1 — FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY)
     'measure_docx_figure_style', 'aggregate_figure_style', 'format_figure_style_block',
     'parse_figure_style_block', 'aggregate_pyq_figure_tags', 'style_profile_from_docx_set',
+    "style_profile_add_conventions",
 ]
 
 
@@ -10321,6 +10326,22 @@ def style_profile_from_docx_set(docx_paths, picture_types_by_doc=None):
     if isinstance(prof.get('evidence'), dict):
         prof['evidence']['skipped_documents'] = skipped
     return prof
+
+
+def style_profile_add_conventions(prof, difficulty_profile):
+    """v1.5 (GAP-2026-11-10 F-04.1 / F-05.1) — FIGURE_STYLE_PROFILE + 'conventions' (blueprint_core.convention_shares:
+    {tag: {share, n, papers}} over the exam's VERIFIED organic records) and 'ask_formats' (format_shares, the
+    F-05.1 vocabulary). Typography stays as measured; CONVENTION is what the generator targets (chairs,
+    perspective, sugar rings, ring-fusion H, wavy bonds). Pure; returns a new dict; never raises."""
+    out = dict(prof) if isinstance(prof, dict) else {}
+    try:
+        import blueprint_core as _bc15
+        out['conventions'] = _bc15.convention_shares(difficulty_profile)
+        out['ask_formats'] = _bc15.format_shares(difficulty_profile)
+        out['conventions_rule'] = getattr(_bc15, 'OP_RULE_CURRENT', 'OP1')
+    except Exception:                                   # noqa: BLE001 — a missing core leaves the profile as is
+        pass
+    return out
 
 
 if __name__ == "__main__":
