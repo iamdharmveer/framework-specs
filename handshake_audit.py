@@ -714,7 +714,13 @@ def _bv_handshake(check, ROOT, run_fence, W):
                 n_ = seen.setdefault(('n', q, k), 0)
                 seen[('n', q, k)] = n_ + 1
                 g = grades[q][min(n_, len(grades[q]) - 1)]
-                out[q] = {'band': g[k - 1], 'decisions': 2, 'rationale': 'matches exemplar', 'class': 'computation',
+                # 2026.11.13 (BV-10): the reviewer LISTS its moves and principles; the band is computed from them
+                _cnt = {'Easy': (['C-FACTUAL'], 1, 1), 'Medium': (['C-COMPUTATIONAL'], 2, 1),
+                        'Hard': (['C-COMPUTATIONAL'], 4, 2)}[g[k - 1]]
+                out[q] = {'band': ('Easy' if g[k - 1] != 'Easy' else 'Hard'),     # the judged band is ignored
+                          'facets': _cnt[0], 'moves': [f'm{i}' for i in range(_cnt[1])],
+                          'principles': [f'p{i}' for i in range(_cnt[2])], 'speed_hack': False, 'shortcut': '',
+                          'negative': False, 'decisions': 2, 'rationale': 'counted moves', 'class': 'computation',
                           'computation_generic': False, 'concept': 'c' + q,
                           'answer': json.load(open(kp))['answers'][q], 'confidence': 'high', 'assumptions': []}
             json.dump({'items': out}, open(os.path.join(jb['dir'], 'result.json'), 'w'))
@@ -741,6 +747,36 @@ def _bv_handshake(check, ROOT, run_fence, W):
     answer_jobs(); r = a2()
     check('H-BV batch 1 DONE in ONE reviewer round: both questions settled at their slot (a 2-1 split is a majority, no tiebreak)',
           r['status'] == 'done' and r['settled'] == ['1', '2'] and r['disclosed'] == [] and r['open'] == [], r)
+    _cm_r = json.load(open(kp))['concept_map']
+    check('H-BV 2026.11.13 BV-10: the band is COMPUTED from the reviewers\' counts (the judged band is ignored) and the '
+          'reviewer packet carries the PYQ counting rules',
+          all((_cm_r[q].get('difficulty_check') or {}).get('measure') == 'rubric_r2' for q in ('1', '2'))
+          and 'counting_rules' in json.load(open(f'{HOME}/{EXAM}_M{N}_bv/b1/r1/reviewer_1/packet.json'))
+          and 'score' not in json.dumps(json.load(open(f'{HOME}/{EXAM}_M{N}_bv/b1/r1/reviewer_1/packet.json'))['items']),
+          _cm_r.get('1'))
+    # 2026.11.13 (GAP-2026-11-13-RUN-NOT-READ): what bootstrap --session-start RUNS is exactly what the read does NOT serve
+    import spec_sections as _ssx
+    _mtc = os.path.join(W, 'Framework_MockTestCreate.md')
+    _eb = bsm.ns_engine_blocks(_mtc)
+    _sec = json.load(open(os.path.join(W, 'SPEC_SECTIONS.json')))
+    _er = _sec['files']['Framework_MockTestCreate.md']['engine_ranges']
+    _rd = {j for a, b in _ssx.read_plan(_sec, 'Framework_MockTestCreate.md', 'NON-FINAL') for j in range(a, b + 1)}
+    _rf = {j for a, b in _ssx.read_plan(_sec, 'Framework_MockTestCreate.md', 'FINAL') for j in range(a, b + 1)}
+    check('H-NS bootstrap --session-start runs every ENGINE-RUN block and the read (NON-FINAL and FINAL) serves none of their code, only '
+          'the marker line',
+          len(_eb) == len(_er) >= 40 and all(a + 1 in _rd and a + 1 in _rf for a, _b in [(l, 0) for l, _s in _eb])
+          and not any(j in _rd or j in _rf for a, b in _er for j in range(a, b + 1)))
+    _ss_txt = '\n'.join(src for _l, src in _eb)
+    check('H-NS the engine blocks are §3 / S0-OP and pure helper libraries: none is a model-agency (CLASS J) block and '
+          'none is the S4-7 author packet or the S7-CONCEPT generator',
+          'CLASS: J' not in _ss_txt and 'def BV_AUTHOR_PACKET' not in _ss_txt and 'def build_question' not in _ss_txt
+          and 'def derive_scenario_from_pattern' not in _ss_txt)
+    _wpt = bsm.WORKER_PROMPT if hasattr(bsm, 'WORKER_PROMPT') else ''
+    _ctx = open(_mtc, encoding='utf-8').read()
+    check('H-NS the worker prompt, Create S1-0R and bootstrap name the same two commands',
+          'bootstrap.py --session-start' in _wpt and 'bootstrap.py --run-block' in _wpt and 'PYTHON SESSION (v6.3' in _ctx
+          and '`python3 bootstrap.py --session-start --exam <ExamCode> --paper <N>' in _ctx
+          and bsm.NS_ENGINE_MARK == _ssx.ENGINE_MARK)
     # bootstrap worker report: GRADE_REQUEST needs job folders; ROTATE carries the progress sha
     check('H-BV bootstrap WORKER_STATES carry GRADE_REQUEST and ROTATE (Orchestrate O2-3 / O3-9)',
           'GRADE_REQUEST' in bsm.WORKER_STATES and 'ROTATE' in bsm.WORKER_STATES and 'GRADE_REQUEST' in bsm.WORKER_STATES_NEED_PARTS)
@@ -1455,7 +1491,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 213   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 217   # 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

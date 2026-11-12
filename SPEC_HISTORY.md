@@ -463,6 +463,14 @@ Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (E
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
+Entry v1.47.0 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v1.48.0 supersedes).
+
+```
+# v1.47.0 — 2026-11-12 — GAP-2026-11-12-RULER-ANCHORS (paired with MockTestCreate v6.2): §LADDER-NF gains the AMBER
+#   line naming the difficulty-anchor basis when the exam has no blind-graded past questions yet. Entry v1.46.0
+#   moved to SPEC_HISTORY.md.
+```
+
 Entry v1.45.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v1.46.0 supersedes).
 
 ```
@@ -2167,6 +2175,22 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v6.2 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v6.3 supersedes).
+
+```
+# v6.2 — 2026-11-12 — GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED
+#   (paired with blueprint_core v2.2, final_assembly v1.18, bootstrap --checkpoint, Framework_MockTestOrchestrate
+#   v1.4.0). Measured on CSIR Chemical Sciences (release 2026.11.11, Organic paper, batch 1): Q1-Q9 graded one band
+#   below their slot and a fresh worker was told to restore the PRE-batch checkpoint. Causes: the exam ruler held
+#   ZERO anchors (none of the 358 past records carries blind grades; the ruler kept anchor REFS, never content) — the
+#   reviewers and the author compared against nothing; a planned handover never refreshed the checkpoint. NEW: the
+#   ruler stores anchor CONTENT (bc.ruler_anchor_records) and, with no blind grades yet, uses the bands PYQExplain
+#   measured — the scale the difficulty schedule was built from (disclosed, S0-BV BV-7); S4-7 STEP A2 writes 3
+#   reviewer jobs per batch (solve + grade + figure read of every question; 3 graders from the start: no tiebreak
+#   round); a planned handover refreshes the checkpoint (BV-8); the PYQ back-fill no longer holds Q1 (S0-OP-0).
+#   Entry v6.1 moved to SPEC_HISTORY.md.
+```
 
 Entry v6.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v6.1 supersedes).
 
@@ -7944,6 +7968,18 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.4.0 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v1.5.0 supersedes).
+
+```
+# v1.4.0 — 2026-11-12 — GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED (paired with
+#   Framework_MockTestCreate v6.2, blueprint_core v2.2, final_assembly v1.18, bootstrap --checkpoint). The CHECKPOINT
+#   is ONE command (bootstrap --checkpoint make|restore|drop); a planned handover (GRADE_REQUEST, ROTATE) refreshes it,
+#   so a fresh worker's restore keeps the batch in work (v1.3.0 would have deleted it). GRADE_REQUEST now carries at
+#   most 3 reviewer jobs per batch (each solves, grades and reads the figures of every question), started together in
+#   ONE message. The orchestrator never asks the user a framework question during a run (O2-9). Entry v1.3.0 moved
+#   to SPEC_HISTORY.md.
+```
 
 ```
 # v1.0.0 — 2026-11-06 — GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY (owner decision OD-2026-11-06;

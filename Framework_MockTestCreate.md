@@ -1,15 +1,15 @@
-# Framework_MockTestCreate v6.2
-# v6.2 — 2026-11-12 — GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED
-#   (paired with blueprint_core v2.2, final_assembly v1.18, bootstrap --checkpoint, Framework_MockTestOrchestrate
-#   v1.4.0). Measured on CSIR Chemical Sciences (release 2026.11.11, Organic paper, batch 1): Q1-Q9 graded one band
-#   below their slot and a fresh worker was told to restore the PRE-batch checkpoint. Causes: the exam ruler held
-#   ZERO anchors (none of the 358 past records carries blind grades; the ruler kept anchor REFS, never content) — the
-#   reviewers and the author compared against nothing; a planned handover never refreshed the checkpoint. NEW: the
-#   ruler stores anchor CONTENT (bc.ruler_anchor_records) and, with no blind grades yet, uses the bands PYQExplain
-#   measured — the scale the difficulty schedule was built from (disclosed, S0-BV BV-7); S4-7 STEP A2 writes 3
-#   reviewer jobs per batch (solve + grade + figure read of every question; 3 graders from the start: no tiebreak
-#   round); a planned handover refreshes the checkpoint (BV-8); the PYQ back-fill no longer holds Q1 (S0-OP-0).
-#   Entry v6.1 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.3
+# v6.3 — 2026-11-13 — GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ (paired with blueprint_core
+#   v2.3 Cluster BR, final_assembly v1.19, bootstrap --session-start, Framework_MockTestOrchestrate v1.5.0). Measured: every one
+#   of the 358 CSIR past records' bands is reproduced exactly by bc.difficulty_score (r2) from its counts — the
+#   scale the schedule was built from — but release 2026.11.12 measured a new question by asking reviewers which
+#   120-character past-question opening it 'resembles' (on 31 real past Organic questions of 28-Jul-2025 that judged
+#   band matched the recorded one 14 times; the counted band 22 times with the first rules, then with the
+#   tightened rules of this release — see CHANGELOG). NEW (S0-BV BV-10..12): reviewers list their moves and
+#   principles under the PYQ counting rules and the band is COMPUTED; the author writes to the slot band's measured
+#   profile (subtopic -> topic -> section -> exam); no fresh reviewer is never a stop (BV-11); §3 and the helper
+#   libraries are RUN by bootstrap.py --session-start from this verified file, not read (S1-0R PYTHON SESSION: ~102,000 tokens less
+#   per worker read). Entry v6.2 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -609,6 +609,22 @@
          undone.
     BV-9 (v6.2) Speed: ONE round of at most 3 fresh reviewers per batch (each solves, grades and reads the figures
          of every question; started together, Orchestrate O2-3), a second round only for rewritten questions.
+    BV-10 (v6.3 — GAP-2026-11-13-DIFFICULTY-RUBRIC) ONE RULER FOR PAST AND NEW QUESTIONS. Every past record of an
+         exam was banded by bc.difficulty_score (rule r2) from its counts — class facets, inferential steps,
+         distinct principles, speed hack, polarity, qtype (measured on CSIR NET Chemical Sciences: 358 of 358 bands
+         reproduced exactly). A new question is measured the SAME way: each fresh reviewer lists the moves and
+         the principles of its own solution under the counting rules PYQExplain counted with
+         (bc.br_counting_rules — INFERENTIAL_STEP_RULE verbatim), and its grade is bc.br_band of those counts;
+         the batch band is the majority / median of the three. The author writes to the slot band's measured
+         profile from the exam's own past questions (bc.br_target: subtopic -> topic -> section -> exam, at least
+         bc.BR_RECIPE_MIN records; else the rubric's score range) and counts its own solution the same way. On an
+         exam whose labels are not three bands the rubric does not apply: the judged band stands, disclosed
+         (AMBER "Difficulty judged, not counted"). Exam-agnostic; no value is set per exam.
+    BV-11 (v6.3) No reviewer is never a stop: a question with no fresh result after bc.BV_MAX_ROUNDS rounds stays
+         unlabelled in its batch (STEP A2 DONE lists it) and S13-2L measures it at Final Assembly.
+    BV-12 (v6.3 — GAP-2026-11-13-RUN-NOT-READ) The session-start code (§3, S0-OP) and the helper libraries of
+         §6-§11 are RUN from this verified file by `bootstrap.py --session-start`, not read (S1-0R PYTHON SESSION);
+         every block runs in one namespace per paper kept on disk.
   A paper begun under an earlier release keeps its recorded state; S0-BV applies to every batch written from
   this release on (S4-12 migration).
 
@@ -689,6 +705,25 @@ of this spec (S4-6, S4-7 STEP E, S13-8) is replaced by that spec's DELIVERY PROX
 phase 2 by its review hand-over (O3-6), and S4-7 STEP A2's fresh jobs by its grading hand-over (O3-9, v6.1);
 a worker short of room reports ROTATE (never a stop, S0-BV BV-6); everything else in this spec applies unchanged. In DIRECT
 MODE (no sub-agent tool) this spec runs as written, with READ METHOD and READ-RETENTION.
+
+PYTHON SESSION (v6.3 — GAP-2026-11-13-RUN-NOT-READ). Every python block of this spec runs in ONE namespace per
+paper, kept on disk by `bootstrap.py` (PYTHON SESSION) (/home/claude/[ExamCode]_M[N]_session_ns.pkl — a WORK FILE, so the Orchestrate
+O3-3 CHECKPOINT carries it):
+  * SESSION START (S3, at the start of EVERY session — a fresh worker, a resume, a handover):
+    `python3 bootstrap.py --session-start --exam <ExamCode> --paper <N> [--level <mock|subject|topic>]
+    [--subject "<scope subject>"] [--topic "<scope topic>"] [--resume] [--grader-model <model id>]`
+    (the options are the trigger's, S3-2). It runs, in file order, EVERY block whose first line is
+    `# ENGINE-RUN` — all of §3 (and the S0-OP blocks inside S3-2) and the helper libraries of §6-§11. Those
+    blocks are NOT in the read: the read shows their marker line and every rule around them; the code runs
+    from the same verified file. Its output is the session start's output (every S3 print, every stop
+    message, `FW-NS SESSION READY ...` at the end). A non-zero exit is that block's stop: act on its printed
+    message exactly as if the block had run in the session.
+  * EVERY OTHER BLOCK this spec tells you to run: write it (with your values filled in) to a file under
+    /home/claude/fwrun/ and run `python3 bootstrap.py --run-block <file> --exam <ExamCode> --paper <N>`. Every name an
+    earlier block or the session start bound (EXAM, bp, manifest, the ledgers, the plans, FONT_NAME, every
+    helper function) is there; what you bind is kept for the next call and the next worker.
+  * A name the session could not keep is printed on the next call (`FW-NS: not restored ...`); the block that
+    needs it rebuilds it from the paper's files. Nothing is lost silently.
 
 INPUT STAGING. The /mnt/project and /mnt/user-data/uploads paths used throughout this spec are
 satisfied on every surface by `python3 bootstrap.py --stage-inputs` (SKILL Step 0, run in the user's
@@ -1273,10 +1308,14 @@ action: the same paper, the same two files, the same "continue".
 
 ## S3-1 — File path management and copy protocol
 
+  v6.3: §3 is RUN, not read — `python3 bootstrap.py --session-start ...` (S1-0R PYTHON SESSION) executes every
+  `# ENGINE-RUN` block below in order; the rules and prose of every S3 section still bind and are in the read.
+
   /mnt/project/ (read-only) → /home/claude/ (working dir)
   /mnt/user-data/outputs/ (delivery)
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import shutil, os, json, re, glob
   from pathlib import Path
   EXAM = "[ExamCode]"  # from trigger
@@ -1538,6 +1577,7 @@ action: the same paper, the same two files, the same "continue".
   which would raise KeyError on the actual file. This is fixed below.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import paper_pipeline as pp
 
   # LEVEL / SCOPE_SUBJECT / SCOPE_TOPIC come from the trigger (§2 S2-1):
@@ -2017,6 +2057,7 @@ action: the same paper, the same two files, the same "continue".
   S0-OP AT S3 (v6.0 — §S0-OP-0 / -1 / -2 / -7): run these three blocks NOW, in order, before the difficulty
   plan below (the plan reads EXAM_RULER; S0-OP-0 may hand the run to O-BACKFILL first).
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S0-OP-0 / S0-OP-1 (v6.0) ──
   import json, os, blueprint_core as bc
   EXAM = globals()['EXAM']                                     # bound by S3-1 (this block runs at S3, S0-OP order)
@@ -2106,6 +2147,7 @@ action: the same paper, the same two files, the same "continue".
             f"excluded from every target pool, kept in the clone guard; the run continues.")
   ```
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S0-OP-2 (v6.0) ──
   import datetime as _dt_op
   # the registry this run reads (REGISTRY-SOURCE-LAW: S3-1 resolved it through pp.resolve_registry; a first paper has
@@ -2131,6 +2173,7 @@ action: the same paper, the same two files, the same "continue".
         + f"; past distribution {EXAM_RULER['past_distribution']} (printed apart from the requested schedule).")
   ```
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S0-OP-7 load (v6.0) — at S3 ──
   _op_rsv_p = f'/home/claude/{EXAM}_reserve.json'
   _op_ser_p = f'/home/claude/{EXAM}_series_registry.json'
@@ -2152,6 +2195,7 @@ action: the same paper, the same two files, the same "continue".
   OP_SERIES_ROWS = bc.series_registry_rows(json.load(open(_op_ser_p, encoding='utf-8')))
   ```
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # v5.60 — THE DIFFICULTY PLAN (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS).
   # SCHEDULE-FIRST survives intact: the user's trigger/band ratio is the LAW for
   # HOW MANY questions sit in each band, exactly as before — including deliberately
@@ -2365,6 +2409,7 @@ action: the same paper, the same two files, the same "continue".
   LOAD EXPLAIN_LEARNINGS for quality constraints (GAP-07 fix; v5.56 filename seam
   fix; v5.78 GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM):
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   learnings_bans = []  # Extra banned patterns from prior Explain sessions
   # v5.78: DISCOVERY, never a rename instruction. The v5.77 WARN told the operator
   # to rename a non-{EXAM}-prefixed file — but per the Explain specs' S24 contract that file IS the subject
@@ -2408,6 +2453,7 @@ action: the same paper, the same two files, the same "continue".
   dormant run is byte-identical to the pre-v5.82 baseline (§8.6 proof 1).
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-2b (executable) ──────────────────────────────────────────────────
   import json, os, blueprint_core as bc
 
@@ -2518,6 +2564,7 @@ action: the same paper, the same two files, the same "continue".
   line and the bench card). Nothing here raises, ever.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-2e (executable; after S3-2b/S3-2D, before S3-3) ───────────────────────────
   import json, os, blueprint_core as bc
   _rd_in = {}
@@ -2600,6 +2647,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-4 — Load registry.json — integrity check (non-blocking)
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import re as _re_pid
   reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
@@ -2666,6 +2714,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-5 — Registry snapshot
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   shutil.copy(f'/home/claude/{EXAM}_registry.json',
               f'/home/claude/{EXAM}_registry_snapshot.json')
   registry_snapshot = json.load(open(f'/home/claude/{EXAM}_registry_snapshot.json'))
@@ -2714,6 +2763,7 @@ action: the same paper, the same two files, the same "continue".
   the NEW shape only.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-5b (executable) ──────────────────────────────────────────────────
   import analyse_engine as ae
 
@@ -2758,6 +2808,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-6 — ExamCode cross-verification
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   bp_code  = bp['exam_code']
   reg_code = reg.get('exam_code', bp_code)
   assert bp_code == EXAM, \
@@ -2769,6 +2820,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-7 — Blueprint version compatibility check
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # v5.6: minimum-version check uses TUPLE comparison (not string) so "1.10" > "1.7"
   # is correct. v1.7 is the floor (subtopic_id contract); any version >= 1.7 is accepted.
   MIN_BLUEPRINT_VERSION = (1, 7)
@@ -2793,6 +2845,7 @@ action: the same paper, the same two files, the same "continue".
   unrecognised" and false "mandatory subtopic absent" hard stops.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # Load the Step 0 manifest (authoritative id registry). REQUIRED.
   manifest_path = f'/home/claude/{EXAM}_subtopic_manifest.json'
   if not os.path.exists(manifest_path):
@@ -2875,6 +2928,7 @@ action: the same paper, the same two files, the same "continue".
   blind grades now exist and the frozen model had none. Never a stop.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-8L (v5.94) ──
   import hashlib as _h_l2, json as _json_l2, os as _os_l2
   import blueprint_core as bc
@@ -2955,6 +3009,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-9 — Section allocation sum verification
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   for section in sections:
       sec_name = section['name']
       expected = section['total_qs']
@@ -2968,6 +3023,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-10 — Audit script self-test (Layer 2 — when audit.py exists)
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   if AUDIT_AVAILABLE:
       import subprocess
       result = subprocess.run(
@@ -3026,6 +3082,7 @@ action: the same paper, the same two files, the same "continue".
   READS it and none recomputes it.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # Subtopic metadata for placement — from the S3-8 manifest join. Every field
   # optional; §7.3 degradation applies inside the engine (absent concept_group
   # -> subtopic_id; absent family/subject -> that objective dormant; a garbage
@@ -3401,6 +3458,7 @@ action: the same paper, the same two files, the same "continue".
   session CONTINUES on the frozen briefs.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-12c (executable) ─────────────────────────────────────────────────
   import random, blueprint_core as bc
 
@@ -3488,6 +3546,7 @@ action: the same paper, the same two files, the same "continue".
   Axis-2. Shape floors REPLACE axis2_guarantee for the Axis-2 classes they cover.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-12d (executable; after S3-12c, before S3-13) ──────────────────────────────
   import blueprint_core as bc
   _shape_tg = ((bp.get('shape_target_per_paper') or {}).get(str(N))
@@ -3609,6 +3668,7 @@ action: the same paper, the same two files, the same "continue".
   Assign answer positions for ALL N questions before generating any content.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import random
 
   def build_answer_budget(total_questions, sections, options_count=4,
@@ -3758,6 +3818,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-14 — Initialise answer key sidecar (v2.0 GAP-18 fix)
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   answer_key_path = f'/home/claude/{EXAM}_M{N}_answer_key.json'
   if not os.path.exists(answer_key_path):
       # v4.5: msq_meta carries the MSQ config (from blueprint) so the gate sweep can
@@ -3817,6 +3878,7 @@ action: the same paper, the same two files, the same "continue".
   SMILES, key or source number: the author writes a NEW question on a NEW substrate (CHECK 3c (b0)).
   A saved source is reused on resume only for the same slot band.
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S3-15L (v5.94) ──
   import hashlib as _hl_src
   DIFFICULTY_PLAN_TARGET = None
@@ -3869,6 +3931,7 @@ action: the same paper, the same two files, the same "continue".
 ## S3-16 — Build batch plan → write batch_state.json
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   batch_plan = []
   batch_id = 1
   for sec in sections:
@@ -3976,6 +4039,7 @@ action: the same paper, the same two files, the same "continue".
   exam-agnostic — zero subtopic names hardcoded.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   MANDATORY_IDS = set(manifest.get('mandatory_every_mock', []))
   ALT_GROUPS    = manifest.get('alternation_groups', {})   # group -> [ids]
   MANDATORY_GROUPS = manifest.get('mandatory_groups', {})  # v5.0 group -> {members:[ids], min}
@@ -4094,6 +4158,7 @@ action: the same paper, the same two files, the same "continue".
   byte-identical to every exam that predates this.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # v5.50/v5.51 (GAP-2026-08-12-AXIS-PREFLIGHT / GAP-2026-08-12-AXIS3-PREFLIGHT).
   # Axis-1: composes THIS MOCK's own target (the rotating FIGURAL series value for
   #   mock N, substituted into the flat per-mock target — every other format in
@@ -4150,6 +4215,7 @@ action: the same paper, the same two files, the same "continue".
   time a reaction is drawn, mid-batch, after questions exist.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import os, json
   import blueprint_core as bc
   try:
@@ -4584,7 +4650,12 @@ action: the same paper, the same two files, the same "continue".
 
   STEP A — GENERATE: Produce exactly q_count questions for current_batch.
            v6.1 (S0-BV BV-2): BEFORE writing each question, print its author packet and write the question
-           ONCE against it — the same anchors its fresh graders will compare with, and the recipe range:
+           ONCE against it — the same anchors its fresh graders will compare with, and the recipe range.
+           v6.3 (S0-BV BV-10): the packet's 'target_text' is the slot band as THIS exam's past questions of the
+           same subtopic (else topic, section, exam) measured it — facets, inferential steps, distinct
+           principles, score range. Write to it, then count your own solution with 'counting_rules' (list the
+           moves and the principles): bc.br_band(counts, qtype, labels) must give the slot band. The reviewers
+           count the same way and their counts decide the band:
            ```python
            # ── S4-7 STEP A author packet (v6.1 BV1) ──
            import json, blueprint_core as bc
@@ -4599,7 +4670,7 @@ action: the same paper, the same two files, the same "continue".
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
                                              'ask_format': ask_format},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
-                                            _labs_ap, _rc_ap)
+                                            _labs_ap, _rc_ap, _ru_ap)
                print(json.dumps(_pk_ap, ensure_ascii=False, default=str)[:6000])
                return _pk_ap
            ```
@@ -4845,7 +4916,8 @@ action: the same paper, the same two files, the same "continue".
                           `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/returned.txt
                           and run the block again. DIRECT MODE: start one fresh sub-agent per job folder, ALL in one
                           message (prompt = its JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>` to
-                          returned.txt, run the block again; no sub-agent tool -> NO-MODEL (S0-OP-10).
+                          returned.txt, run the block again; no sub-agent tool -> append `<job_dir> REVIEW FAILED no
+                          sub-agent tool` for every folder and run the block again (v6.3 BV-11: never a stop).
              REWRITE q -> rewrite ONLY those questions, ONCE, in their slots (same subtopic, slot band, qtype),
                           from concept_map[q]['bv']['rewrite_brief'] (the graders' own reasons, the measured band,
                           a disputed key, a figure read back wrongly -> redraw it) and the SAME anchors
@@ -4854,9 +4926,12 @@ action: the same paper, the same two files, the same "continue".
                           — the new text is graded as attempt 2 automatically.
            A result is counted only from a job folder whose returned line starts with REVIEW DONE (or, for a job of
            release 2026.11.11, GRADE / SOLVE / VISION DONE)
-           (context 'fresh'); a grade made in this session is never written to a result.json. A question still
-           short of two grades after bc.BV_MAX_ROUNDS rounds is NO-MODEL (saved, resumed). Never a stop
-           otherwise; at most ONE rewrite per question (bc.C_WRITE_ATTEMPTS).
+           (context 'fresh'); a grade made in this session is never written to a result.json. v6.3 (BV-10): a
+           reviewer's grade is the band the PYQ rubric computes from ITS counts (bc.br_band), the judged band only
+           when the counts are missing or the exam does not use three bands. v6.3 (BV-11): a question with no fresh
+           result after bc.BV_MAX_ROUNDS rounds is carried unlabelled to S13-2L — never a stop; at most ONE
+           rewrite per question (bc.C_WRITE_ATTEMPTS). The REWRITE brief names the gap in counts
+           (rewrite_brief 'gap', 'target', 'measured_counts').
            ```python
            # ── S4-7 STEP A2 (v6.1 BV1) ──
            import final_assembly as fa
@@ -5759,6 +5834,7 @@ action: the same paper, the same two files, the same "continue".
 
     EXECUTABLE HELPERS (v3.9 — close G1/G2; referenced by S7-CONCEPT):
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     PRESENTATION_FAMILIES = {
       'vocab_single_word'    : {'antonym','synonym','spelling','homonym'},
       'one_word_substitution': {'one_word_substitution'},
@@ -5845,6 +5921,7 @@ action: the same paper, the same two files, the same "continue".
 
     ── v5.14 THREE-AXIS: OPTION-3 JOINT SOLVE — AXIS-2 STEERING (mirrors Step 5 classifier) ──
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     # Canonical stem_format_variant → Axis-2 class map. IDENTICAL semantics to Step 5's
     # STEM_FORMAT_TO_AXIS2 (AXIS CLASSIFIER v1.0). This is how a generated question's Axis-2
     # class is known from the variant it renders. Keep in sync with Step 5 if a variant is added.
@@ -6379,6 +6456,7 @@ action: the same paper, the same two files, the same "continue".
         `diff_tries` is the batch_state.json['_diff_tries'] dict, persisted with
         the rest of the S3 state):
         ```python
+        # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
         def g_diff_gate(q, band, qtype, difficulty_obs, difficulty_labels,
                         diff_tries, level_status=None, rated_band=None):
             """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_LADDER' for this candidate.
@@ -6497,6 +6575,7 @@ action: the same paper, the same two files, the same "continue".
     previous mock), then persist it:
 
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     def rotation_pick(sid, rotation_cycles, rotation_bans, rotation_state):
         cycle = [v for v in rotation_cycles.get(sid, [])
                  if v not in rotation_bans.get(sid, set())]
@@ -7199,6 +7278,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   properties the brief can actually pin are allowed to spend one.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # ── S7-STYLE (executable) ───────────────────────────────────────────────
   import blueprint_core as bc
 
@@ -7333,6 +7413,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   A-BLOCK-ORDER gates.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def stim_group_of(qnum):
       """The set a question belongs to, or None (single question / legacy paper)."""
       return STIM_GID_BY_Q.get(int(qnum)) if STIM_ACTIVE else None
@@ -7367,6 +7448,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   IMMEDIATELY after each question is accepted and added to docx:
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def write_q_to_sidecar(qnum, correct_pos, subtopic, concept_group, scenario_key,
                           *,   # v5.52 (GAP-2026-08-12-S10-CONCEPTMAP-MANDATE): everything
                           # from here on is keyword-only, and subtopic_id/difficulty below
@@ -7920,6 +8002,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   The draw_fn passed to figural_core.render_figure / render_option_set for a STRUCTURE
   role is (v5.89 — GAP-2026-11-02 F1/F2/F7):
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import corpus_io as cio
 
   def make_structure_draw(obj, marked_sites, TOK, ABBREV, NATIVE_OK, protect_atoms=()):
@@ -8084,6 +8167,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   express neither a colspan nor a rowspan.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import corpus_io      # routed to MockCreate / TestCreate in routes.json
 
   def build_di_table_styled(doc, spec, rows=None):
@@ -8181,6 +8265,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   through `figural_core`, exactly like any other data figure.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   import figural_core as fc
 
   def build_di_chart(doc, qnum, chart, *, role="stim"):
@@ -8487,6 +8572,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
     PRE-DELIVERY FONT CHECK:
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     def verify_configured_font(docx_path):
         from docx import Document
         doc = Document(docx_path)
@@ -8549,6 +8635,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     R13; underline is layered on the target run on top of bold.
 
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     from docx.shared import Pt
 
     def add_stem_with_underline(doc, qnum, instruction, pre, target, post,
@@ -8607,6 +8694,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   students…"). add_stem_with_underline already does this; add_carrier_sentence_stem
   is the non-underline equivalent:
     ```python
+    # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
     def add_carrier_sentence_stem(doc, qnum, instruction, sentence, bold=True):
         p1 = doc.add_paragraph(); r1 = p1.add_run(f"Q.{qnum}  {instruction}")
         r1.bold = bold; r1.font.name = FONT_NAME; r1.font.size = Pt(FONT_SIZE_PT)
@@ -8688,6 +8776,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 ## S10-3 — Python helpers (v2.0 — Calibri enforced)
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   from docx import Document
   from docx.shared import Pt
   from docx.oxml import parse_xml
@@ -8923,6 +9012,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   # v5.47 (MC2) — THE SINGLE FUNNEL. The SHARED Tier-3 compiler (t3_mathcomp.py,
   # byte-locked to Framework_PYQPrepare §S3-5b; routed to this trigger) replaces
   # per-expression segments authoring: write stems/options as ONE string with
@@ -9179,6 +9269,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   byte-identical text/table/image (resume-safe per S4-8b).
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def add_qn_context(doc, qnum, context):
       """Line 1 of the block: 'Q.<N>  <shared context/instruction>' (BOLD).
       This is the SINGLE Q-numbered paragraph for the whole block (R14)."""
@@ -9338,6 +9429,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   FRAMEWORK CONSTANTS (do NOT read these from section_rules — they are universal;
   they are DEFINED in figural_core.py and mirrored here for reference only):
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   FIGURAL_DPI            = 300  # savefig dpi — minimum, never below
   FIG_COLUMN_IN          = 6.0  # usable text column, A4/Letter at 1in margins
   FIG_PROBLEM_DISPLAY_IN = 4.0  # on-page width of the problem/series figure
@@ -10237,6 +10329,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   options, never a composite panel.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   from docx.shared import Inches, Pt
   import figural_core                     # v5.33 — alt_text() (S10-7 Q9.5)
 
@@ -10416,6 +10509,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   E.g., "How many triangles are in the given figure?" with text options.
 
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def add_figural_stem_question(doc, qnum, stem, problem_pngs, text_options,
                                 problem_label=None, problem_specs=None):
       """
@@ -10503,6 +10597,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   PRE-DELIVERY DETECTION:
   ```python
+  # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def check_no_answer_key_in_docx(docx_path):
       from docx import Document
       doc = Document(docx_path)
@@ -12485,7 +12580,12 @@ if AUDIT_AVAILABLE:
                                    f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_l.get('nf_disclosed') or {}).items())] + (
                                    # v6.2 S0-BV BV-7: the anchor basis when the exam's past records carry no blind grades
                                    ["Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)"]
-                                   if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band' else []))
+                                   if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band' else []) + (
+                                   # v6.3 S0-BV BV-10: questions whose band was judged, not computed from the reviewers' counts
+                                   [f"Difficulty judged, not counted: Q{', Q'.join(_jq)}"]
+                                   if (_jq := sorted((_q for _q, _e in _cm_l.items() if isinstance(_e, dict)
+                                                      and ((_e.get('difficulty_check') or {}).get('measure') in ('judged', 'mixed'))),
+                                                     key=lambda x: int(x) if str(x).isdigit() else 0)) else []))
   _ds_l['schedule'] = {'requested': _rq_l, 'applied': _sa_l}
   _ds_l['allocation_swaps'] = list(_bs_l.get('allocation_swaps') or [])
   if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy CHECK 3c writes from
@@ -14198,7 +14298,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.2
+# END OF Framework_MockTestCreate v6.3
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

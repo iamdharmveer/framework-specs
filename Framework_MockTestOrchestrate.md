@@ -1,11 +1,7 @@
-# Framework_MockTestOrchestrate v1.4.0
-# v1.4.0 — 2026-11-12 — GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED (paired with
-#   Framework_MockTestCreate v6.2, blueprint_core v2.2, final_assembly v1.18, bootstrap --checkpoint). The CHECKPOINT
-#   is ONE command (bootstrap --checkpoint make|restore|drop); a planned handover (GRADE_REQUEST, ROTATE) refreshes it,
-#   so a fresh worker's restore keeps the batch in work (v1.3.0 would have deleted it). GRADE_REQUEST now carries at
-#   most 3 reviewer jobs per batch (each solves, grades and reads the figures of every question), started together in
-#   ONE message. The orchestrator never asks the user a framework question during a run (O2-9). Entry v1.3.0 moved
-#   to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.5.0
+# v1.5.0 — 2026-11-13 — GAP-2026-11-13-RUN-NOT-READ (paired with Framework_MockTestCreate v6.3, bootstrap --session-start).
+#   No stop for a worker problem: when no worker model holds the specification, or a worker cannot be started
+#   twice in a row, the run switches to DIRECT MODE and continues from its saved state (O1-1, O2-3). Entry v1.4.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -44,6 +40,8 @@ Decide after Step 0 passed and, when bootstrap printed SURFACE, after
   the run. This chat is the Step 7 session itself (O5-1).
 Print one line in chat: `STEP 7 MODE: WORKER` or `STEP 7 MODE: DIRECT (<reason>)`; when the first
 worker cannot be started, print the DIRECT line with the tool's reason. DIRECT MODE lasts to run end.
+v1.5.0: a WORKER MODE run switches to DIRECT MODE (and stays there) only where O2-3 says so — no worker model
+holds the specification, or a worker cannot be started twice in a row; the paper continues from its saved state.
 
 ## O2-1 — PART A: ORCHESTRATOR LAW — what the orchestrator reads and does
 
@@ -134,14 +132,17 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
 - RETENTION_FAIL — retire that worker (never message it again) and start a fresh worker (O2-2) with
   the message the retired worker was handling. When two fresh workers in a row report RETENTION_FAIL,
   that model is ruled out for this run: continue with the next entry of `worker_models` (O2-2). When
-  no entry is left (or the tool offers no model choice), print this line and END:
-  `HARD STOP [HS:INFRA] MODEL-CAPACITY — no model available to the workers can hold the Step 7 specification (SESSION_BUDGET.json worker_models). Run this paper in an account whose sub-agents can use one of those models. Nothing was lost: on continue the paper resumes from its saved state.`
+  no entry is left (or the tool offers no model choice), v1.5.0: this chat switches to DIRECT MODE for the rest of
+  the run (O5-1 — it reads the route itself and continues the paper from its saved state, with the message the
+  retired worker was handling); print one line `STEP 7 MODE: DIRECT (no worker model holds the specification)` and
+  carry on. Never a stop here.
 - HARD_STOP — deliver nothing; print the CHAT BLOCK verbatim; END.
 When the turn ends without that line, or `--worker-report show` exits non-zero: send the same worker
 once the sentence `Write your worker report now.` (a repair request, not an ORCHESTRATOR MESSAGE); if
 that fails, start a fresh worker (O2-2) with the ORCHESTRATOR MESSAGE the failed worker was handling;
-if that fails too, print this line and END:
-`HARD STOP [HS:INFRA] WORKER-FAILED — <what bootstrap printed>`
+if that fails too, v1.5.0: switch to DIRECT MODE for the rest of the run (O5-1) — print
+`STEP 7 MODE: DIRECT (worker failed: <what bootstrap printed>)` and continue the paper from its saved state with
+that message. Never a stop here.
 
 ## O2-4 — Delivery failure
 
@@ -390,10 +391,11 @@ and blueprint_core.bv_apply decides: pass, ONE rewrite, or settle (a question wh
 and whose two graders split gets that reviewer again). A rewrite round asks the 3 reviewers again for the rewritten
 questions only (at most blueprint_core.BV_MAX_ROUNDS rounds per batch). A role asked twice without a usable result
 is not asked again (counted per text: a rewrite starts the count again); a question that still has fewer than two
-grades is carried to S13-2L (never a stop); no fresh reviewer at all after BV_MAX_ROUNDS is the NO-MODEL
-environment failure of MTC S0-OP-10. Only when STEP A2 prints DONE does the worker run STEP B and report
-BATCH_DELIVERED. In DIRECT MODE the session starts these jobs itself, all in one message, when it can start a
-sub-agent; otherwise NO-MODEL.
+grades is carried to S13-2L (never a stop); v1.5.0 (MTC S0-BV BV-11): a question with no fresh result at all after
+BV_MAX_ROUNDS is carried unlabelled to S13-2L as well — never a stop. Only when STEP A2 prints DONE does the
+worker run STEP B and report BATCH_DELIVERED. In DIRECT MODE the session starts these jobs itself, all in one
+message, when it can start a sub-agent; when it cannot, it appends `<job_dir> REVIEW FAILED no sub-agent tool` for
+every folder and runs STEP A2 again (BV-11 carries the questions).
 
 ## O3-7 — A worker that starts from disk (`--continue`)
 
@@ -480,4 +482,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.4.0
+# END OF Framework_MockTestOrchestrate v1.5.0

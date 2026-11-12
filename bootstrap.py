@@ -432,6 +432,8 @@ READ (O3-2). For K = 1..N, one call each, in order:
   python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K
 (omit --progress while the BATCH STATE does not exist). Never read a spec any other way, never
 with a sed range above 300 lines, never open a tool-output file the harness diverted.
+PYTHON (MTC S1-0R): session start `python3 bootstrap.py --session-start --exam <E> --paper <N> <trigger options>`;
+any other block: save it as /home/claude/fwrun/<x>.py, run `python3 bootstrap.py --run-block <file> --exam <E> --paper <N>`.
 RETENTION (O3-3). Prove the read from memory (never open .read_state):
   python3 bootstrap.py --retention "<nn>=<code> ..." --when <W>
 W = after-read (a), before-batch (b), after-batch (c), before-final (d; add --escalate for the
@@ -1190,7 +1192,7 @@ def budget_block(args, specs, files_meta):
         ln = info.get("lines") or meta.get("lines") or 0
         by = info.get("bytes") or meta.get("bytes") or 0
         use_b = (info.get("reduced_bytes", by)
-                 if klass == "NON-FINAL" and info.get("has_read_set") else by)
+                 if klass == "NON-FINAL" and info.get("has_read_set") else info.get("final_read_bytes", by))
         calls = len(plans[f]) if plans[f] is not None else -(-use_b // 28000)
         tok = math.ceil(use_b / bpt)
         tot_l += ln; tot_b += use_b; tot_t += tok; tot_calls += calls
@@ -1247,6 +1249,336 @@ def _regenerated_map_ok(fname):
     return open(fname, encoding="utf-8").read() == ss.render(ss.build("."))
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# PYTHON SESSION OF A STEP 7 PAPER (release 2026.11.13 — GAP-2026-11-13-RUN-NOT-READ; MTC S1-0R PYTHON SESSION)
+#   python3 bootstrap.py --session-start --exam <E> --paper <N> [--level L] [--subject S] [--topic T] [--resume]
+#   python3 bootstrap.py --run-block <file.py> --exam <E> --paper <N>
+# Framework_MockTestCreate.md runs its python blocks in ONE namespace per paper; a shell starts a fresh python for
+# every call, so a worker had to read every block (the session-start code of section 3 and the helper libraries of
+# sections 6-11: ~235 KB, ~102,000 tokens) and type it out again in each new worker. The namespace is now kept on
+# disk (/home/claude/<E>_M<N>_session_ns.pkl — a WORK FILE, so the O3-3 CHECKPOINT carries it). --session-start
+# runs, in file order, every block whose first line is the ENGINE-RUN marker, from the verified spec (those block
+# bodies are never served by --read: spec_sections.engine_ranges). --run-block runs one block the session wrote in
+# the same namespace. Values are pickled one by one (a value that cannot be is LISTED on the next load, never lost
+# silently); functions / classes are rebuilt from the logged source of the defs; modules are re-imported by name.
+# A block's SystemExit (the spec's stop lines) prints its message and exits with its code; any other exception
+# prints the spec line and the traceback and exits 1. Lives here (not in a new file) so it is verified with
+# bootstrap itself and the skill's script inventory is unchanged.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+import ast as _ns_ast
+import pickle as _ns_pickle
+import textwrap as _ns_textwrap
+import traceback as _ns_traceback
+import types as _ns_types
+
+NS_VERSION = '1.0'
+NS_ENGINE_MARK = '# ENGINE-RUN'
+NS_SPEC_DEFAULT = 'Framework_MockTestCreate.md'
+NS_NAME = 'fw_ns_session'
+_NS_SKIP = {'__builtins__', '__name__', '__doc__', '__loader__', '__spec__', '__package__', '__file__',
+         '__cached__', '__annotations__'}
+
+
+def ns_home_dir():
+    return os.environ.get('FW_HOME', '/home/claude')
+
+
+def ns_path(exam, paper):
+    return os.path.join(ns_home_dir(), f'{exam}_M{paper}_session_ns.pkl')
+
+
+def ns_engine_blocks(spec_path=NS_SPEC_DEFAULT):
+    """[(line, source)] — every ```python block whose first body line starts with ENGINE_MARK, dedented, in file
+    order. `line` is the 1-based line of the opening fence. Pure (reads the file only)."""
+    with open(spec_path, encoding='utf-8') as fh:
+        lines = fh.read().split('\n')
+    out, cur = [], None
+    for i, ln in enumerate(lines, 1):
+        s = ln.strip()
+        if cur is None:
+            if s.startswith('```python'):
+                cur = (i, [])
+            continue
+        if s.startswith('```'):
+            body = cur[1]
+            first = next((b for b in body if b.strip()), '')
+            if first.strip().startswith(NS_ENGINE_MARK):
+                out.append((cur[0], _ns_textwrap.dedent('\n'.join(body))))
+            cur = None
+            continue
+        cur[1].append(ln)
+    return out
+
+
+def _ns_defs_source(src):
+    """The top-level import / def / class statements of `src`, as source, in order (what a reload re-executes)."""
+    try:
+        tree = _ns_ast.parse(src)
+    except SyntaxError:
+        return []
+    out = []
+    for node in tree.body:
+        if isinstance(node, (_ns_ast.Import, _ns_ast.ImportFrom, _ns_ast.FunctionDef, _ns_ast.AsyncFunctionDef, _ns_ast.ClassDef)):
+            seg = _ns_ast.get_source_segment(src, node)
+            if seg:
+                if getattr(node, 'decorator_list', None):
+                    deco = '\n'.join('@' + _ns_ast.get_source_segment(src, d) for d in node.decorator_list)
+                    seg = deco + '\n' + seg
+                out.append(seg)
+    return out
+
+
+def ns_new():
+    """A fresh session namespace — the __dict__ of a module registered as NS_NAME, so an instance of a class a
+    block defined pickles by reference and loads again once the class is re-defined."""
+    mod = _ns_types.ModuleType(NS_NAME)
+    sys.modules[NS_NAME] = mod
+    ns = mod.__dict__
+    ns['__builtins__'] = __builtins__
+    return ns
+
+
+def ns_load(exam, paper, out=print):
+    """The saved namespace of the paper (a fresh one when none is saved). Never raises."""
+    ns = ns_new()
+    p = ns_path(exam, paper)
+    if not os.path.exists(p):
+        return ns, {'defs': [], 'lost': []}
+    try:
+        with open(p, 'rb') as fh:
+            rec = _ns_pickle.load(fh)
+    except Exception as ex:                                   # noqa: BLE001
+        out(f'FW-NS: the saved session {os.path.basename(p)} does not load ({type(ex).__name__}: {ex}) — '
+            f'starting a fresh namespace; run --session-start again.')
+        return ns, {'defs': [], 'lost': []}
+    for k, modname in (rec.get('modules') or {}).items():
+        try:
+            ns[k] = __import__(modname, fromlist=['_'])
+        except Exception:                                     # noqa: BLE001
+            pass
+    # two passes: a def whose default argument names a saved value, and a saved instance of a class a block
+    # defined, each need the other first — defs, values, then whatever failed of both, once more
+    failed_defs, failed_vals = [], []
+    for src in rec.get('defs') or []:
+        try:
+            exec(compile(src, '<session reload>', 'exec'), ns)
+        except Exception:                                     # noqa: BLE001
+            failed_defs.append(src)
+    for k, blob in (rec.get('values') or {}).items():
+        try:
+            ns[k] = _ns_pickle.loads(blob)
+        except Exception:                                     # noqa: BLE001
+            failed_vals.append((k, blob))
+    for src in failed_defs:
+        try:
+            exec(compile(src, '<session reload>', 'exec'), ns)
+        except Exception:                                     # noqa: BLE001
+            pass
+    for k, blob in failed_vals:
+        try:
+            ns[k] = _ns_pickle.loads(blob)
+        except Exception:                                     # noqa: BLE001
+            rec.setdefault('lost', []).append(k)
+    if rec.get('lost'):
+        out(f"FW-NS: not restored (could not be saved): {sorted(set(rec['lost']))} — a block that needs one of them "
+            f"rebuilds it from the paper's files.")
+    return ns, {'defs': list(rec.get('defs') or []), 'lost': list(rec.get('lost') or [])}
+
+
+def _ns_dedupe_defs(defs):
+    """The definition log without repeats: the LAST occurrence of an identical source is kept (its position is
+    where it was last run, so a later re-definition still wins)."""
+    seen, out = set(), []
+    for src in reversed(list(defs or [])):
+        if src in seen:
+            continue
+        seen.add(src)
+        out.append(src)
+    return list(reversed(out))
+
+
+def ns_save(ns, meta, exam, paper):
+    """Persist `ns` (values pickled one by one; functions / classes as their logged source). Returns the names
+    that could not be saved. Never raises."""
+    values, modules, lost = {}, {}, []
+    for k, v in list(ns.items()):
+        if k in _NS_SKIP:
+            continue
+        if isinstance(v, _ns_types.ModuleType):
+            modules[k] = v.__name__
+            continue
+        if isinstance(v, (_ns_types.FunctionType, type)) and getattr(v, '__module__', None) == NS_NAME \
+                and getattr(v, '__name__', None) == k:
+            continue                                         # rebuilt from the logged source (an alias is pickled
+            #                                                  by reference below; a lambda is listed as not saved)
+        if isinstance(v, (_ns_types.BuiltinFunctionType, _ns_types.FunctionType, type)) and getattr(v, '__module__', None) \
+                not in (None, NS_NAME):
+            mod = getattr(v, '__module__', None)
+            try:
+                if getattr(sys.modules.get(mod), getattr(v, '__name__', ''), None) is v:
+                    values[k] = _ns_pickle.dumps(v)
+                    continue
+            except Exception:                                 # noqa: BLE001
+                pass
+        try:
+            values[k] = _ns_pickle.dumps(v)
+        except Exception:                                     # noqa: BLE001
+            lost.append(k)
+    rec = {'version': NS_VERSION, 'values': values, 'modules': modules, 'defs': _ns_dedupe_defs(meta.get('defs')),
+           'lost': lost}
+    p = ns_path(exam, paper)
+    tmp = p + '.tmp'
+    try:
+        with open(tmp, 'wb') as fh:
+            _ns_pickle.dump(rec, fh)
+        os.replace(tmp, p)
+    except OSError as ex:
+        print(f'FW-NS: could not save the session ({ex}).')
+    return lost
+
+
+def _ns_exec_block(src, label, ns, meta):
+    """Run one block in ns, logging its defs. Returns None, or ('exit', code) / ('error', text)."""
+    meta.setdefault('defs', []).extend(_ns_defs_source(src))
+    try:
+        exec(compile(src, label, 'exec'), ns)
+    except SystemExit as ex:
+        return ('exit', ex.code)
+    except Exception:                                         # noqa: BLE001
+        return ('error', _ns_traceback.format_exc())
+    return None
+
+
+def ns_session_start(exam, paper, level=None, subject=None, topic=None, resume=False, grader_model=None,
+                  spec_path=NS_SPEC_DEFAULT, out=print):
+    """Run every ENGINE-RUN block of the spec, in file order, in the paper's namespace. Returns (rc, ns)."""
+    ns, meta = ns_load(exam, paper, out=out)
+    # the definitions earlier blocks made stay (a helper a non-engine block defined is still there for the next
+    # worker); the engine blocks' definitions are logged again after them, so the verified text wins
+    ns.update({'EXAM': exam, 'N': int(paper), 'RESUME_TRIGGER': bool(resume)})
+    # the trigger's scope: a later session start that omits an option keeps the value the paper started with
+    # (a continuing worker never turns a subject test into a full mock by leaving --level out)
+    for _k, _v in (('LEVEL', level), ('SCOPE_SUBJECT', subject), ('SCOPE_TOPIC', topic)):
+        if _v is not None or _k not in ns:
+            ns[_k] = _v
+    if grader_model:
+        ns['GRADER_MODEL_ID'] = grader_model
+    blocks = ns_engine_blocks(spec_path)
+    if not blocks:
+        out(f'FW-NS: {spec_path} has no ENGINE-RUN block — nothing to run (read the spec as before).')
+        return 2, ns
+    for line, src in blocks:
+        src = src.replace('"[ExamCode]"', repr(exam)).replace("'[ExamCode]'", repr(exam))
+        if 'RESUME = False' in src and resume:
+            src = src.replace('RESUME = False', 'RESUME = True', 1)
+        res = _ns_exec_block(src, f'<{os.path.basename(spec_path)}:{line}>', ns, meta)
+        if res is not None:
+            lost = ns_save(ns, meta, exam, paper)
+            if res[0] == 'exit':
+                if res[1] not in (None, 0):
+                    out(str(res[1]))
+                out(f'FW-NS: session start stopped in the block at {os.path.basename(spec_path)} line {line}.')
+                return (res[1] if isinstance(res[1], int) else 1) or 0, ns
+            out(res[1])
+            out(f'FW-NS: the block at {os.path.basename(spec_path)} line {line} raised — session start stopped; '
+                f'the error above is the report.')
+            return 1, ns
+    lost = ns_save(ns, meta, exam, paper)
+    out(f'FW-NS SESSION READY {exam} M{paper}: {len(blocks)} engine blocks run'
+        + (f'; not saved: {sorted(lost)}' if lost else '') + '.')
+    return 0, ns
+
+
+def ns_run_file(path, exam, paper, out=print):
+    """Run one block file in the paper's namespace and save it. Returns (rc, ns)."""
+    ns, meta = ns_load(exam, paper, out=out)
+    try:
+        with open(path, encoding='utf-8') as fh:
+            src = fh.read()
+    except OSError as ex:
+        out(f'FW-NS: cannot read {path} ({ex}).')
+        return 2, ns
+    res = _ns_exec_block(src, f'<{os.path.basename(path)}>', ns, meta)
+    lost = ns_save(ns, meta, exam, paper)
+    if res is None:
+        return 0, ns
+    if res[0] == 'exit':
+        if res[1] not in (None, 0):
+            out(str(res[1]))
+        return (res[1] if isinstance(res[1], int) else 1) or 0, ns
+    out(res[1])
+    return 1, ns
+
+
+def ns_self_test():
+    import tempfile
+    ok, bad = [], []
+
+    def check(name, cond):
+        (ok if cond else bad).append(name)
+    with tempfile.TemporaryDirectory() as d:
+        os.environ['FW_HOME'] = d
+        spec = os.path.join(d, 'S.md')
+        open(spec, 'w', encoding='utf-8').write(
+            '# S\n\n  ```python\n  # ENGINE-RUN S3-1\n  import json, re\n  EXAM = "[ExamCode]"\n  RESUME = False\n'
+            '  LEDGER = globals().get("LEDGER", set())\n  def helper(x):\n      return f"{EXAM}:{x}:{len(LEDGER)}"\n'
+            '  PAT = re.compile("a+")\n  class Box:\n      def __init__(self, v):\n          self.v = v\n'
+            '  ```\n\n  ```python\n  not_engine = 1\n  ```\n\n  ```python\n  # ENGINE-RUN S10-3\n'
+            '  def fmt(s):\n      return helper(s).upper()\n  ```\n')
+        bl = ns_engine_blocks(spec)
+        check('engine_blocks_marked_only_in_order', [b[0] for b in bl] == [3, 21] and 'not_engine' not in str(bl))
+        rc, ns = ns_session_start('EX', 1, level='subject', resume=True, spec_path=spec, out=lambda *a: None)
+        check('session_start_binds_and_runs', rc == 0 and ns['EXAM'] == 'EX' and ns['RESUME'] is True
+              and ns['fmt']('q') == 'EX:Q:0' and ns['N'] == 1 and ns['LEVEL'] == 'subject')
+        blk = os.path.join(d, 'b.py')
+        open(blk, 'w').write('LEDGER.add("k1")\nB = Box(3)\nVAL = helper("z")\nimport math\nR = math.sqrt(16)\n')
+        rc2, ns2 = ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        msgs = []
+        open(blk, 'w').write('OUT = (fmt("w"), sorted(LEDGER), VAL, R, PAT.match("aa") is not None, math.pi > 3)\n')
+        rc3, ns3 = ns_run_file(blk, 'EX', 1, out=msgs.append)
+        check('state_survives_processes', rc2 == 0 and rc3 == 0
+              and ns3['OUT'] == ('EX:W:1', ['k1'], 'EX:z:1', 4.0, True, True) and ns3['B'].v == 3)
+        open(blk, 'w').write('GEN = (i for i in range(3))\n')
+        ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        m3b = []
+        ns3b, _ = ns_load('EX', 1, out=m3b.append)
+        check('unpicklable_is_listed_never_silent', any("'GEN'" in m for m in m3b) and 'GEN' not in ns3b)
+        open(blk, 'w').write('raise SystemExit("HARD STOP [HS:INPUT]: x missing")\n')
+        m4 = []
+        rc4, _ = ns_run_file(blk, 'EX', 1, out=m4.append)
+        check('hard_stop_surfaces_message_and_code', rc4 == 1 and any('HARD STOP' in m for m in m4))
+        open(blk, 'w').write('1/0\n')
+        m5 = []
+        rc5, _ = ns_run_file(blk, 'EX', 1, out=m5.append)
+        check('error_reports_traceback', rc5 == 1 and any('ZeroDivisionError' in m for m in m5))
+        open(blk, 'w').write('OUT2 = sorted(LEDGER)\n')
+        rc6, ns6 = ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        check('state_kept_after_a_failed_block', rc6 == 0 and ns6['OUT2'] == ['k1'])
+        open(blk, 'w').write('DEFAULT_SEP = "|"\ndef joiner(a, b, sep=DEFAULT_SEP):\n    return a + sep + b\n')
+        ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        rc7, ns7 = ns_session_start('EX', 1, spec_path=spec, out=lambda *a: None)
+        open(blk, 'w').write('J = joiner("a", "b")\nALIAS = joiner\nLAM = lambda x: x\n')
+        rc7b, ns7b = ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        check('block_helpers_survive_a_session_start_and_defaults_reload', rc7b == 0 and ns7b['J'] == 'a|b')
+        m7 = []
+        ns7c, _ = ns_load('EX', 1, out=m7.append)
+        check('alias_kept_lambda_listed', ns7c['ALIAS']('x', 'y') == 'x|y' and any("'LAM'" in m for m in m7))
+        check('session_start_again_keeps_state_idempotent', rc7 == 0 and sorted(ns7['LEDGER']) == ['k1']
+              and ns7['RESUME'] is False and ns7['LEVEL'] == 'subject')
+        open(os.path.join(d, 'EX_M1_session_ns.pkl'), 'wb').write(b'garbage')
+        m8 = []
+        ns8, _ = ns_load('EX', 1, out=m8.append)
+        check('corrupt_session_is_reported_and_fresh', any('does not load' in m for m in m8) and 'LEDGER' not in ns8)
+        open(spec, 'w').write('# S\n```python\nx = 1\n```\n')
+        rc9, _ = ns_session_start('EX', 2, spec_path=spec, out=lambda *a: None)
+        check('no_engine_block_is_reported', rc9 == 2)
+        os.environ.pop('FW_HOME', None)
+    return ok, bad
+
+
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--trigger", default=None, help="optional step trigger, e.g. MockDeliver")
@@ -1290,6 +1622,17 @@ def main():
     ap.add_argument("--trigger-text", default="")
     ap.add_argument("--continue", dest="cont", action="store_true")
     ap.add_argument("--self-test", action="store_true")
+    # 2026.11.13 — the python session of a Step 7 paper (MTC S1-0R PYTHON SESSION)
+    ap.add_argument("--session-start", action="store_true",
+                    help="2026.11.13: run every ENGINE-RUN block of the verified spec in the paper's namespace")
+    ap.add_argument("--run-block", default=None, metavar="FILE",
+                    help="2026.11.13: run one block file in the paper's namespace (kept on disk)")
+    ap.add_argument("--level", default=None)
+    ap.add_argument("--subject", default=None)
+    ap.add_argument("--topic", default=None)
+    ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--grader-model", default=None)
+    ap.add_argument("--spec", default=None, metavar="FILE")
     args = ap.parse_args()
     if args.make_cache:
         # 2026.11.10 (G-14 row 1): the project-cached verified release — every top-level file of this clone (what a
@@ -1321,6 +1664,14 @@ def main():
         sys.exit(stage_status())
     if args.checkpoint:
         sys.exit(checkpoint_cmd(args))
+    if args.session_start or args.run_block:
+        if not args.exam or not args.paper or not str(args.paper).isdigit():
+            print("FW-NS: --exam <ExamCode> and --paper <N> are required.")
+            sys.exit(2)
+        if args.session_start:
+            sys.exit(ns_session_start(args.exam, int(args.paper), args.level, args.subject, args.topic, args.resume,
+                                      args.grader_model, spec_path=args.spec or NS_SPEC_DEFAULT)[0])
+        sys.exit(ns_run_file(args.run_block, args.exam, int(args.paper))[0])
     if args.worker_report == "write":
         sys.exit(worker_report_write(args))
     if args.worker_report == "show":
@@ -2038,7 +2389,7 @@ def self_test():
           rc == 0 and "TestCreate EX M2" in out and "do NOT re-run Step 0" in out
           and "do NOT\ndelete /tmp/fw" in out and "--worker-report write" in out
           and out.rstrip().endswith("WORKER DONE <STATE> batch K of M")
-          and len(out.splitlines()) < 60)
+          and len(out.splitlines()) < 64)   # 2026.11.13: +2 lines (the PYTHON SESSION rule)
     check("worker prompt names Orchestrate PART B, the read, retention and O2-2 messages",
           "Framework_MockTestOrchestrate.md\nPART B (O3-1 to O3-8)" in out
           and "python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K" in out
@@ -2049,7 +2400,7 @@ def self_test():
     rc, out = run(fx, "--worker-prompt", "--trigger-text", "TestCreate EX M2", "--continue")
     check("--continue prompt makes a fresh worker read, restore and apply S4-6",
           rc == 0 and "read (O3-2) and prove (a) first" in out and "RESTORE" in out
-          and "S4-6" in out and len(out.splitlines()) < 60)
+          and "S4-6" in out and len(out.splitlines()) < 64)   # 2026.11.13: +2 lines (PYTHON SESSION)
 
     # E: an overlay with a project spec carries a regenerated map that verifies
     import spec_source
@@ -2104,6 +2455,15 @@ def self_test():
           got == [(t, want) for t, _, want in table])
 
     shutil.rmtree(tmp, ignore_errors=True)
+    # 2026.11.13 — the python session (--session-start / --run-block)
+    _ns_ok, _ns_bad = ns_self_test()
+    for _n in _ns_ok:
+        check("NS " + _n, True)
+    for _n in _ns_bad:
+        check("NS " + _n, False)
+    rc_ns = subprocess.run([sys.executable, os.path.abspath(__file__), "--session-start", "--exam", "EX"],
+                           capture_output=True, text=True).returncode
+    check("NS --session-start without --paper is refused (exit 2)", rc_ns == 2)
     print(f"SELF-TEST: {passed}/{passed + len(fails)} PASS")
     if fails:
         print("FAILED: " + "; ".join(fails))

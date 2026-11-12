@@ -551,7 +551,7 @@ def check_spec_capacity(paths):
             tok = 0
             for f in mds:
                 info = sections.get(f, {})
-                used = info.get('bytes', os.path.getsize(os.path.join(root, f)))
+                used = info.get('final_read_bytes', info.get('bytes', os.path.getsize(os.path.join(root, f))))
                 if klass == 'NON-FINAL' and info.get('has_read_set'):
                     used = info['reduced_bytes']
                 tok += math.ceil(used / bpt)

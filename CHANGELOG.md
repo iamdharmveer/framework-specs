@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026.11.13 — GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ: one ruler for past and new questions; code that is run, not read
+
+(blueprint_core v2.3 Cluster BR; final_assembly v1.19; bootstrap (--session-start / --run-block: the python session
+of a paper; worker prompt PYTHON line; FINAL read size); spec_sections (engine_ranges); audit_specs_ext (FINAL read
+size); handshake_audit (+H-BV rubric, +3 H-NS); Framework_MockTestCreate v6.3 (S1-0R
+PYTHON SESSION, S0-BV BV-10..12, S3-1 note, S4-7 STEP A / A2, S13-2L footer line, 48 blocks marked ENGINE-RUN);
+Framework_MockTestOrchestrate v1.5.0 (O1-1, O2-3); Framework_DeliveryFooter v1.48.0 (§LADDER-NF judged-band line);
+LAW_REGISTRY (+LAW-BV-10..12); STEP_CONTRACTS (floors Create 6.3, Orchestrate 1.5.0, DeliveryFooter 1.48.0).)
+
+**Evidence.** (1) Difficulty: every one of the 358 CSIR past records' bands is reproduced EXACTLY by
+bc.difficulty_score (rule r2) from its own recorded counts — that formula is the scale the paper's difficulty
+schedule was built from. Release 2026.11.12 did not use it for new questions: reviewers and the author were asked
+which past questions a question "resembles", but each stored past question is its first 120 characters only (an
+Organic stem without its structures). Measured on 31 real Organic questions of the 28-Jul-2025 paper with fresh
+blind reviewers (3 per question): that judged band matched the recorded band 14 / 31 times and put 11 of 13 Hard
+questions at Medium (the Q1-Q9 symptom). Counting with this release's rules: 22 / 31 exact, Hard 11 / 13, every miss
+one band. Three rounds were run (first rules 22 / 31; listed moves, strict speed-hack and facet rules 22 / 31 with step
+counts exact 54 / 93 (was 33) and false speed hacks 19 / 93 (was 65); a stricter principle rule 21 / 31 with Hard
+5 / 13 — reverted). The shipped rules are the second round's, verbatim. (2) Tokens: every new worker read ~425,000
+tokens before its first question; 235 KB of that (~102,000 tokens) was code the worker had to read AND type out
+again to run: the session-start code of section 3 and the helper libraries of sections 6-11.
+
+**What changed.** Cluster BR: a fresh reviewer lists the moves and principles of its own solution under the PYQ
+counting rules (bc.br_counting_rules — INFERENTIAL_STEP_RULE verbatim, the facet table, strict speed-hack and
+polarity rules); its grade is bc.br_band of those counts; the batch band is the majority / median of three. The ruler
+carries each band's measured profile per scope (bc.br_build_recipe; a record whose band its own counts do not
+reproduce is skipped); the author packet carries the slot band's profile at the narrowest scope with >= 3 records
+(subtopic -> topic -> section -> exam; else the rubric's score range) and the counting rules; a rewrite brief names the
+gap ("3 steps measured; Hard needs about 4"). An exam whose labels are not three bands keeps the judged band (AMBER
+"Difficulty judged, not counted"). No value is set per exam. bootstrap.py PYTHON SESSION: one python namespace per paper kept on
+disk (a WORK FILE, so the checkpoint carries it); `bootstrap.py --session-start` runs every block marked `# ENGINE-RUN`
+from the verified spec (48 blocks: all of section 3, the S0-OP blocks, the helper libraries) and `--run-block` runs
+any other block in the same namespace; spec_sections excludes those block bodies from every read (NON-FINAL and
+FINAL), keeping each marker line. Model-agency (CLASS J) blocks, the S7-CONCEPT generator and the S4-7 author packet
+stay in the read. No-stop: a question with no fresh reviewer after bc.BV_MAX_ROUNDS rounds is carried unlabelled to
+S13-2L (was NO-MODEL); a worker that cannot be started twice, or no worker model that holds the spec, switches the
+run to DIRECT MODE and continues (was WORKER-FAILED / MODEL-CAPACITY).
+
+**Measured effect.** Create NON-FINAL read 840,676 B -> 609,025 B (~365,500 -> ~264,800 tokens); with Orchestrate,
+MockReview and DeliveryFooter a worker's read is ~324,000 tokens (was ~425,000), and no block of section 3 or of the
+helper libraries is typed again. On the real CSIR inputs `bootstrap.py --session-start` ran all 48 blocks to SESSION READY,
+the S4-7 author packet ran in a second process from the saved namespace (target "Hard here = score 6+; past Hard
+questions of this subtopic (4): facets C-FIGURAL+C-STRUCTURAL, about 4 inferential step(s), 2 distinct
+principle(s)"), and a second session start left batch_state and the answer key byte-identical.
+
+**Tests.** blueprint_core 1407 -> 1417 (rubric recipe ladder, skipped records, counts decide over the judged band,
+slot reached by counts, judged fallback, two-band exam, counts-only result, author packet target, reviewer packet
+rules without targets, ruler carries the recipe); final_assembly 188 -> 190 (no reviewer never a stop; max rounds
+carries unlabelled); bootstrap 72 -> 85 (13 PYTHON SESSION checks: marked blocks only, binding, state across processes, unsaved names listed, HARD STOP
+message and code, traceback, state kept after a failed block, idempotent session start keeping the trigger scope,
+block helpers and default arguments survive a session start, alias kept / lambda listed, corrupt session, no engine
+block, --paper required); spec_sections 34 -> 35 (engine ranges are the marked bodies; coverage read + final-only + engine exactly
+once; FINAL = file minus engine code); handshake 213 -> 217. The session runner lives in bootstrap.py (not a new
+file), so no file is added, routes.json and the skill's script inventory are unchanged.
+
 ## 2026.11.12 — GAP-2026-11-12-RULER-ANCHORS + HANDOVER-CHECKPOINT + BATCH-SPEED: real past questions to compare against, a handover that keeps the work, 3 reviewers per batch
 
 (blueprint_core v2.2; final_assembly v1.18; bootstrap (--checkpoint, --when handover, worker prompt); handshake_audit

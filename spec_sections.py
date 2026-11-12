@@ -227,6 +227,49 @@ def _banner_cut(lines, in_fence, start, end):
     return end + 1
 
 
+ENGINE_MARK = '# ENGINE-RUN'
+
+
+def engine_ranges(lines, in_fence):
+    """[[a, b]] — the BODY lines of every ```python block whose first body line carries ENGINE_MARK, minus that
+    marker line (release 2026.11.13, GAP-2026-11-13-RUN-NOT-READ). bootstrap.py --session-start executes those blocks
+    from the verified file; the read serves the marker line (it says where the code went) and the prose around
+    it, never the code. 1-indexed, inclusive; a block with nothing after its marker yields no range."""
+    out, i, n = [], 0, len(lines)
+    while i < n:
+        if lines[i].lstrip().startswith('```python'):
+            j = i + 1
+            while j < n and not lines[j].lstrip().startswith('```'):
+                j += 1
+            body = [k for k in range(i + 1, j) if lines[k].strip()]
+            if body and lines[body[0]].strip().startswith(ENGINE_MARK) and body[0] + 1 <= j - 1:
+                out.append([body[0] + 2, j])          # 1-based: the line after the marker .. the last body line
+            i = j + 1
+            continue
+        i += 1
+    return out
+
+
+def _minus(ranges, cut):
+    """ranges minus cut (both [[a, b]] 1-based inclusive), ordered and disjoint."""
+    out = []
+    for a, b in ranges:
+        segs = [(a, b)]
+        for c, d in sorted(cut):
+            nxt = []
+            for x, y in segs:
+                if d < x or c > y:
+                    nxt.append((x, y))
+                    continue
+                if x < c:
+                    nxt.append((x, c - 1))
+                if d < y:
+                    nxt.append((d + 1, y))
+            segs = nxt
+        out.extend(segs)
+    return [(x, y) for x, y in out if x <= y]
+
+
 def routed_md(repo_dir='.'):
     """Every .md routes.json routes, whatever it is named.
 
@@ -305,6 +348,11 @@ def build(repo_dir='.'):
         # are now read by construction (read_plan is the complement of final_only_ranges)
         # and recorded here so the cost is visible.
         pre = (spans[0]['start'] - 1) if spans else total_lines
+        eng = engine_ranges(lines, in_fence)
+        eng_bytes = sum(line_bytes[j - 1] for a, b in eng for j in range(a, b + 1))
+        eng_in_fo = sum(line_bytes[j - 1] for a, b in eng for j in range(a, b + 1)
+                        if any(x <= j <= y for x, y in skip_ranges))
+        red_bytes -= (eng_bytes - eng_in_fo)
         doc['files'][name] = {
             'sha256': sha256_file(path),
             'lines': total_lines,
@@ -320,6 +368,10 @@ def build(repo_dir='.'):
             'reduced_bash_calls': max(1, -(-red_bytes // BASH_SAFE_CHARS)),
             'final_only_ranges': skip_ranges,
             'final_only_titles': skipped,
+            # 2026.11.13: executed by bootstrap.py --session-start, never served by the read (both classes)
+            'engine_ranges': eng,
+            'engine_bytes': eng_bytes,
+            'final_read_bytes': total_bytes - eng_bytes,
             'sections': spans,
         }
     return doc
@@ -335,8 +387,9 @@ def read_plan(doc, name, session_class):
     NON-FINAL = the complement of final_only_ranges over 1..lines, so the preamble and
     everything after a banner cut are read without being named."""
     info = doc['files'][name]
+    eng = info.get('engine_ranges') or []
     if session_class.upper() == 'FINAL' or not info['has_read_set']:
-        return [(1, info['lines'])]
+        return _minus([(1, info['lines'])], eng) if eng else [(1, info['lines'])]
     ranges, nxt = [], 1
     for a, b in sorted(info['final_only_ranges']):
         if a > nxt:
@@ -344,7 +397,7 @@ def read_plan(doc, name, session_class):
         nxt = max(nxt, b + 1)
     if nxt <= info['lines']:
         ranges.append((nxt, info['lines']))
-    return ranges
+    return _minus(ranges, eng) if eng else ranges
 
 
 def chunk_ranges(path, ranges):
@@ -504,14 +557,30 @@ def self_test():
         return {j for a, b in ranges for j in range(a, b + 1)}
 
     def _covered_once(info, name):
+        # 2026.11.13: ENGINE-RUN code lines are executed (bootstrap.py --session-start), never read — the third disjoint class
         read = _lineset(read_plan(doc, name, 'NON-FINAL'))
-        skip = _lineset(info['final_only_ranges'])
-        return not (read & skip) and (read | skip) == set(range(1, info['lines'] + 1))
+        eng = _lineset(info.get('engine_ranges') or [])
+        skip = _lineset(info['final_only_ranges']) - eng
+        return (not (read & skip) and not (read & eng)
+                and (read | skip | eng) == set(range(1, info['lines'] + 1)))
     check('t_read_coverage_every_line_exactly_once',
           all(_covered_once(info, n) for n, info in doc['files'].items()))
     check('t_final_plan_is_the_whole_file_for_every_spec',
-          all(read_plan(doc, n, 'FINAL') == [(1, info['lines'])]
+          all(_lineset(read_plan(doc, n, 'FINAL')) | _lineset(info.get('engine_ranges') or [])
+              == set(range(1, info['lines'] + 1))
+              and not (_lineset(read_plan(doc, n, 'FINAL')) & _lineset(info.get('engine_ranges') or []))
               for n, info in doc['files'].items()))
+    # 2026.11.13 (GAP-2026-11-13-RUN-NOT-READ): the engine ranges are exactly the bodies of the marked blocks,
+    # each block's marker line stays in the read (it says where the code went), and nothing else is cut
+    _eng = doc['files']['Framework_MockTestCreate.md'].get('engine_ranges') or []
+    _ml = _spec_lines('Framework_MockTestCreate.md')[0]
+    check('t_engine_ranges_are_marked_block_bodies',
+          bool(_eng) and all(_ml[a - 2].strip().startswith(ENGINE_MARK) and _ml[b].lstrip().startswith('```')
+                             for a, b in _eng)
+          and engine_ranges(['```python', '  # ENGINE-RUN x', '  a = 1', '```', '```python', '  b = 2', '```'],
+                            None) == [[3, 3]]
+          and engine_ranges(['```python', '# ENGINE-RUN only', '```'], None) == []
+          and _minus([(1, 10)], [[3, 4], [8, 12]]) == [(1, 2), (5, 7)])
     def _plan_bytes(name):
         lb = _spec_lines(name)[1]
         return sum(sum(lb[a - 1:b]) for a, b in read_plan(doc, name, 'NON-FINAL'))

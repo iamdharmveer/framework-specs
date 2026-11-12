@@ -1,7 +1,6 @@
-# Framework_DeliveryFooter v1.47.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.47.0 — 2026-11-12 — GAP-2026-11-12-RULER-ANCHORS (paired with MockTestCreate v6.2): §LADDER-NF gains the AMBER
-#   line naming the difficulty-anchor basis when the exam has no blind-graded past questions yet. Entry v1.46.0
-#   moved to SPEC_HISTORY.md.
+# Framework_DeliveryFooter v1.48.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.48.0 — 2026-11-13 — GAP-2026-11-13-DIFFICULTY-RUBRIC (paired with MockTestCreate v6.3): §LADDER-NF gains the
+#   AMBER line naming the questions whose band was judged, not counted (Create BV-10). Entry v1.47.0 moved to SPEC_HISTORY.md.
 ---
 
 ## §1 — FOOTER TYPES
@@ -1206,6 +1205,7 @@ Printed with the §LADDER-OP lines, one line each, only when present (an exact p
   AMBER — PYQ grade calibration: agreement <x> < <min>; stricter grade used for <k> record(s)   (Blueprint §7-10)
   AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV)
   AMBER — Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)   EXAM_RULER.anchor_basis (Create BV-7)
+  AMBER — Difficulty judged, not counted: Q<a>, Q<b> ...                            difficulty_check.measure (Create BV-10)
 Each line is AMBER-CLASS (the paper is delivered; the shortfall is named). The registry record carries the same
 facts (question_index entry nf_disclosed), so MockDeliver reprints them verbatim. Source of the text:
 Create S13-2L, which writes every line above into difficulty_state.chain_footer['amber'] (nf_disclosed {gate: reason},

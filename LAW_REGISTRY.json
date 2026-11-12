@@ -938,6 +938,62 @@
    "preconditions": [
     "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
    ]
+  },
+  "LAW-BV-10": {
+   "gap": "GAP-2026-11-13-DIFFICULTY-RUBRIC",
+   "stated_in": "Framework_MockTestCreate.md v6.3 S0-BV BV-10; S4-7 STEP A / A2; blueprint_core v2.3 Cluster BR",
+   "requires": "A new question is measured on the SAME ruler as the exam's past questions: each fresh reviewer lists the moves and governing principles of its own solution under the PYQ counting rules (bc.br_counting_rules, INFERENTIAL_STEP_RULE verbatim) and its grade is bc.br_band of those counts (difficulty_score r2); the author writes to the slot band's measured profile (bc.br_target: subtopic -> topic -> section -> exam). Exams whose labels are not three bands keep the judged band, disclosed.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-11": {
+   "gap": "GAP-2026-11-13-RUN-NOT-READ",
+   "stated_in": "Framework_MockTestCreate.md v6.3 S0-BV BV-11; final_assembly v1.19 bv_batch_step",
+   "requires": "No fresh reviewer is never a stop in a batch: a question with no fresh result after bc.BV_MAX_ROUNDS rounds is carried unlabelled to S13-2L and the batch goes on.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-12": {
+   "gap": "GAP-2026-11-13-RUN-NOT-READ",
+   "stated_in": "Framework_MockTestCreate.md v6.3 S1-0R PYTHON SESSION / S0-BV BV-12; bootstrap.py --session-start / --run-block; spec_sections.engine_ranges",
+   "requires": "Every block marked # ENGINE-RUN (section 3, the S0-OP blocks and the helper libraries) is executed by bootstrap.py --session-start from the verified spec and never served by the read; every block of a paper runs in one namespace kept on disk.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "bootstrap.py --self-test (NS checks)",
+    "spec_sections.py --self-test (t_engine_ranges_are_marked_block_bodies)",
+    "handshake_audit.py --self-test"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

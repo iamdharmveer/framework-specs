@@ -13,6 +13,9 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.19 — GAP-2026-11-13-DIFFICULTY-RUBRIC (release 2026.11.13). No fresh reviewer is never a stop (S0-BV BV-11):
+    the question is carried unlabelled; each reviewer's grade is the band blueprint_core v2.3 computes from its counts.
+
     v1.18 — GAP-2026-11-12-BATCH-SPEED + RULER-ANCHORS (release 2026.11.12). bv_batch_step writes at most 3
     REVIEWER jobs per round for the whole batch (blueprint_core.bv_reviewer_jobs), each packet carrying every
     question's own past-question anchors and the band guide; a reviewer's result is split per question
@@ -1466,8 +1469,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     batch_state['bv']['items'] (write_q_to_sidecar replaces a sidecar entry — the one-rewrite limit survives it);
     (4) writes the fresh jobs still needed (job folder = packet.json + JOB_BRIEF.txt). Returns {'status':
     'jobs_out'|'rewrite'|'done', 'jobs': [dirs], 'rewrite': [q], 'settled', 'disclosed', 'key_chain', 'open', 'lines'}
-    and prints the lines (echo). Raises RuntimeError NO-MODEL [HS:ENV] only when a question still lacks fresh
-    grades after bc.BV_MAX_ROUNDS job rounds (S0-OP-10: saved, resumed)."""
+    and prints the lines (echo). v1.19: never raises for a missing reviewer — a question still without fresh
+    results after bc.BV_MAX_ROUNDS job rounds is carried unlabelled to S13-2L (batch_state['bv']['unmeasured'])."""
     import json, os, shutil
     _lines = []
 
@@ -1593,9 +1596,13 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             (_st_bv.get('asked') or {}).pop(_q, None)
     # 3. WRITE the fresh jobs still needed: at most bc.BV_REVIEWERS reviewer jobs for the WHOLE batch (v1.18)
     if _needs_bv and _jr_bv >= bc.BV_MAX_ROUNDS:
-        raise RuntimeError(f"NO-MODEL [HS:ENV] (S4-7 STEP A2): {sorted(_needs_bv, key=int)} still lack fresh results after "
-                           f"{bc.BV_MAX_ROUNDS} rounds — the platform returned no fresh reviewer. "
-                           "State is saved; type continue when sub-agents are available (S0-OP-10).")
+        # v1.19 (2026.11.13, S0-BV BV-11): never a stop — the questions the platform returned no fresh reviewer for
+        # stay unlabelled in this batch (STEP A2 DONE lists them; S13-2L measures them at Final Assembly) and the
+        # batch goes on
+        _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | set(_needs_bv), key=int)
+        _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
+             f"carried unlabelled to S13-2L (no stop).")
+        _needs_bv = {}
     if _needs_bv:
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
         _anc_bv = {q: bc.bv_anchors(_bank_bv, _ru_bv, (_cm_bv[q] or {}).get('subtopic_id'),
@@ -2810,6 +2817,34 @@ def self_test():
         r3 = bv_batch_step('EX', 1, home=_h, echo=False)
         check('bv_rewrite_clears_ask_count', len(r1['jobs']) == 3 and r2['status'] == 'rewrite' and r2['rewrite'] == ['1']
               and '1' not in _asked_after_rw and r3['status'] == 'jobs_out' and len(r3['jobs']) == 3)
+    # v1.19 (S0-BV BV-11) — no fresh reviewer at all is never a stop: after bc.BV_MAX_ROUNDS empty rounds the
+    # question is carried unlabelled and the batch finishes
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'],
+                                           'subtopic_id': 'A.b', 'qtype': 'mcq'}}, 'answers': {'1': 2}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Hard'}}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _seen, _raised, _last = [], None, None
+        try:
+            for _i in range(bc.BV_MAX_ROUNDS + 2):
+                _last = bv_batch_step('EX', 1, home=_h, echo=False)
+                _seen.append(_last['status'])
+                if _last['status'] == 'done':
+                    break
+        except Exception as _ex:                                   # noqa: BLE001
+            _raised = _ex
+        check('bv_no_reviewer_never_a_stop', _raised is None and _last is not None and _last['status'] == 'done'
+              and _last['open'] == ['1'] and 1 <= _seen.count('jobs_out') <= bc.BV_MAX_ROUNDS)
+        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsx['bv'].update({'round': bc.BV_MAX_ROUNDS, 'asked': {}, 'status': 'jobs_out', 'jobs': []})
+        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        try:
+            _mx = bv_batch_step('EX', 1, home=_h, echo=False)
+        except Exception as _ex:                                   # noqa: BLE001
+            _mx = {'status': f'raised {_ex}'}
+        check('bv_max_rounds_carries_unlabelled', _mx['status'] == 'done' and _mx.get('open') == ['1']
+              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == ['1'])
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

@@ -154,7 +154,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '2.2'
+BLUEPRINT_CORE_VERSION = '2.3'
 
 __all__ = [
     "AllocationError",
@@ -727,6 +727,9 @@ __all__ = [
     "bv_majority_band", "band_majority", "bv_decide", "bv_set_label", "bv_verify_majority", "bv_settled",
     "bv_jobs", "bv_read_result", "bv_author_packet", "bv_batch_status", "bv_anchors", "bv_recipe_verdict", "bv_apply", "NF_DISCLOSE_GATES", "BV_REVIEWERS", "BV_BRIEF_REVIEWER", "bv_band_guide",
     "bv_reviewer_jobs", "bv_split_reviewer_result", "ruler_anchor_records", "RULER_ANCHOR_FIELDS",
+    "BR_RULE", "BR_RECIPE_MIN", "BR_FACETS", "BR_FACET_HELP", "BR_CONCEPT_RULE", "BR_SPEED_RULE", "BR_NEGATIVE_RULE",
+    "br_counting_rules", "br_obs", "br_score", "br_band", "br_build_recipe", "br_band_edges", "br_target", "br_target_text",
+    "br_gap", "br_median_obs", "BR_MOVES_RULE", "BR_PRINCIPLES_RULE",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
 ]
@@ -7407,10 +7410,11 @@ def _op_self_test(check):
           and is_organic_item({'named_concepts': ['Tanabe-Sugano'], 'stem': 'bands of [CrF6]3- complex'})[0] is False)
     check('op_G08_recal_empty_and_graded',
           ruler_needs_recalibration({'anchors': {'Easy': [], 'Medium': [], 'Hard': []}})[0] is True
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'graded_count': 10}, graded_count=10)[0] is False
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'graded_count': 10}, graded_count=40)[0] is True
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}}, graded_count=0)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'rubric_recipe': {}, 'graded_count': 10}, graded_count=10)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'rubric_recipe': {}, 'graded_count': 10}, graded_count=40)[0] is True
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'rubric_recipe': {}}, graded_count=0)[0] is False
           and ruler_needs_recalibration({'anchors': {'Easy': ['a']}}, graded_count=0)[0] is True     # v2.2: no anchor content
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}})[0] is True     # v2.3: no rubric profile
           and ruler_needs_recalibration(None)[0] is True)
     check('op_G04_exam_level_words', exam_level({'level': 'Post Graduation', 'exam_name': 'CSIR NET Chemical Sciences'})
           == ('research', 'stated+name') and exam_level({'level': 'Post Graduation', 'exam_name': 'Some MSc test'})
@@ -8134,6 +8138,64 @@ def _bv_self_test(check):
     _rB = bv_apply(_it, 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2), 'grader_3': _fx('Hard', 3),
                                                      'solver_1': _sx(2), 'solver_2': _sx(2)})
     check('bv_three_graders_one_round', _rB['action'] == 'settled' and _rB['band'] == 'Hard')
+    # v2.3 Cluster BR (GAP-2026-11-13-DIFFICULTY-RUBRIC) — the reviewers' counts are scored with the PYQ rubric
+    _brp = {'papers': {'P': {'questions': {
+        str(i): dict(subtopic_id='oc.t.s' if i < 5 else 'oc.u.v', band=b, rubric_rule='r2', qtype='mcq',
+                     **{'class': ['C-STRUCTURAL', 'C-FIGURAL'], 'concepts': c, 'inferential_steps': st,
+                        'speed_hack': False, 'negative': False})
+        for i, (b, st, c) in enumerate([('Hard', 4, 2), ('Hard', 4, 2), ('Hard', 5, 2), ('Medium', 3, 1), ('Medium', 3, 1),
+                                         ('Medium', 2, 1), ('Medium', 3, 1), ('Hard', 4, 2), ('Easy', 0, 1)])}}}}
+    _brr = br_build_recipe(_brp, L)
+    _brt = br_target({'rubric_recipe': _brr}, 'oc.t.s', 'Hard', L)
+    _brm = br_target({'rubric_recipe': _brr}, 'oc.t.s', 'Medium', L)
+    check('br_recipe_ladder_narrowest_scope_with_enough', _brr['records_used'] == 9 and _brr['skipped'] == 0
+          and _brt['basis'] == 'subtopic:oc.t.s' and _brt['profile']['steps'] == 4 and _brt['profile']['concepts'] == 2
+          and _brm['basis'] == 'section:oc' and _brt['score_range'] == [6, None]
+          and br_target({'rubric_recipe': _brr}, 'zz.q.r', 'Hard', L)['basis'] == 'exam'
+          and br_target({}, 'oc.t.s', 'Hard', L)['basis'] == 'rubric_edges'
+          and br_target({'rubric_recipe': _brr}, 'oc.t.s', 'Hard', ['A', 'B'])['applies'] is False)
+    _brpb = {'papers': {'P': {'questions': {'1': dict(_brp['papers']['P']['questions']['0'], band='Easy')}}}}
+    check('br_recipe_skips_records_the_rubric_does_not_reproduce', br_build_recipe(_brpb, L)['skipped'] == 1
+          and br_build_recipe(_brpb, L)['scopes'] == {})
+    _cnt = lambda b, st, c, a=1: {'result': bv_read_result('grader', {'band': b, 'facets': ['C-STRUCTURAL', 'C-FIGURAL'],
+                                                                       'inferential_steps': st, 'concepts': c}, L),
+                                  'sha256': 'h' + str(a), 'context': 'fresh'}
+    _rC = bv_apply(dict(_it, subtopic_id='oc.t.s'), 'Hard', L, {'rubric_recipe': _brr}, 2,
+                   results={'grader_1': _cnt('Hard', 3, 1), 'grader_2': _cnt('Hard', 3, 1, 2), 'grader_3': _cnt('Hard', 4, 1, 3),
+                            'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('br_counts_decide_not_the_judged_band', _rC['action'] == 'rewrite' and _rC['band'] == 'Medium'
+          and _rC['entry']['bv']['meta']['grader_1']['measure'] == 'rubric_r2'
+          and _rC['entry']['bv']['meta']['grader_1']['band_judged'] == 'Hard'
+          and any('add inferential steps' in x for x in _rC['entry']['bv']['rewrite_brief']['gap'])
+          and 'Hard here = score 6+' in _rC['entry']['bv']['rewrite_brief']['target'])
+    _rD = bv_apply(dict(_it, subtopic_id='oc.t.s'), 'Hard', L, {'rubric_recipe': _brr}, 2,
+                   results={'grader_1': _cnt('Medium', 4, 2), 'grader_2': _cnt('Medium', 4, 2, 2), 'grader_3': _cnt('Easy', 5, 2, 3),
+                            'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('br_slot_reached_by_counts', _rD['action'] == 'settled' and _rD['band'] == 'Hard'
+          and _rD['entry']['difficulty_check']['measure'] == 'rubric_r2'
+          and verify_difficulty_label(_rD['entry'], L, strict=True)[0] is True)
+    _rE = bv_apply(_it, 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Hard', 2), 'grader_3': _fx('Hard', 3),
+                                                     'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('br_judged_band_when_no_counts', _rE['action'] == 'settled' and _rE['entry']['difficulty_check']['measure'] == 'judged')
+    _rF = bv_apply(_it, 'B', ['A', 'B'], {}, 2, results={'grader_1': _cnt('Hard', 4, 2), 'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('br_two_band_exam_keeps_the_judged_scale', _rF['entry']['bv']['grades'] == {})
+    check('br_counts_only_result_is_usable', bv_read_result('grader', {'facets': ['C-FACTUAL'], 'inferential_steps': 0,
+                                                                       'concepts': 1}, L)['rubric']['facets'] == ['C-FACTUAL']
+          and bv_read_result('grader', {'facets': ['X'], 'inferential_steps': 0, 'concepts': 1}, L) is None
+          and br_obs({'class': 'C-FIGURAL', 'concepts': True, 'inferential_steps': 1}) is None)
+    _apk = bv_author_packet({'q': 1, 'band': 'Hard', 'subtopic_id': 'oc.t.s'}, {}, L, None, {'rubric_recipe': _brr})
+    check('br_author_packet_carries_target_and_rules', 'Hard here = score 6+' in _apk['target_text']
+          and _apk['counting_rules']['inferential_steps'] == INFERENTIAL_STEP_RULE
+          and bv_author_packet({'q': 1, 'band': 'Hard'}, {}, L)['target']['basis'] == 'rubric_edges')
+    _rjb = bv_reviewer_jobs({'1': ['grader_1']}, {'1': {'stem_text': 's'}}, {}, L, {})
+    check('br_reviewer_packet_carries_rules_not_targets', _rjb[0]['packet']['counting_rules']['concepts'] == BR_CONCEPT_RULE
+          and 'score 6' not in str(_rjb[0]['packet']) and "'moves'" in BV_BRIEF_REVIEWER
+          and br_obs({'facets': ['C-FIGURAL'], 'moves': ['a', 'b', ' '], 'principles': ['P', 'p ', 'Q'], 'speed_hack': True,
+                      'shortcut': ''}) == {'facets': ['C-FIGURAL'], 'inferential_steps': 2, 'concepts': 2,
+                                           'speed_hack': False, 'negative': False})
+    _rf2 = build_difficulty_ruler(_brp, L, 'v', 'm', 'p', 'd')
+    check('br_ruler_carries_rubric_recipe', _rf2['rubric_recipe']['records_used'] == 9
+          and ruler_needs_recalibration(dict(_rf2, rubric_recipe=None))[0] is True)
     check('bv_one_write_constants', C_K_CANDIDATES == 1 and C_K_AFTER_MISS == 1 and C_WRITE_ATTEMPTS == 2
           and 'measured_majority' in LB2_KINDS)
 
@@ -11786,7 +11848,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.2')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.3')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -22380,7 +22442,7 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.12'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
+OP_RELEASE = '2026.11.13'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -23958,7 +24020,9 @@ def build_difficulty_ruler(records, labels, version, model_id, prompt_version, d
             'basis': basis, 'borrowed': borrowed, 'recipe': recipe, 'past_distribution': past,
             'qtype_bands': {k: sorted(v, key=labs.index) for k, v in qtb.items()}, 'rule': OP_RULE_CURRENT,
             # v2.1 F-04 — the per-subject recipe (cascade subject -> exam -> library; dormant never passes)
-            'recipe_by_subject': build_recipe_by_subject(allrec, labs, manifest=manifest, library=library)}
+            'recipe_by_subject': build_recipe_by_subject(allrec, labs, manifest=manifest, library=library),
+            # v2.3 Cluster BR — the measured component profile of every band, per scope (subtopic -> exam)
+            'rubric_recipe': br_build_recipe(records, labs)}
 
 
 def ruler_needs_recalibration(ruler, agreement=None, model_id=None, paper_count=None, graded_count=None):
@@ -23974,6 +24038,8 @@ def ruler_needs_recalibration(ruler, agreement=None, model_id=None, paper_count=
         return True, 'ruler has no anchors yet'
     if not isinstance(r.get('anchor_records'), dict):
         return True, 'ruler predates anchor content (release 2026.11.12)'
+    if not isinstance(r.get('rubric_recipe'), dict):
+        return True, 'ruler predates the rubric profile (release 2026.11.13)'
     if model_id is not None and str(model_id) != str(r.get('model_id')):
         return True, f"grader model changed ({r.get('model_id')} -> {model_id})"
     if isinstance(agreement, (int, float)) and agreement < C_RULER_AGREE:
@@ -26201,16 +26267,21 @@ BV_BRIEF_REVIEWER = (
     "You are a FRESH BLIND REVIEWER of exam questions. You did not write them and you are not told the level any of "
     "them was written for. Read ONLY <JOB_DIR>/packet.json. It holds 'items' (each: 'q', 'item' — the question as a "
     "candidate sees it, its figure files are in <JOB_DIR>: open and look at each — 'exemplars' — real past questions "
-    "of this exam grouped by difficulty band, the comparison scale for THIS item — and 'figures_to_read'), 'labels' "
-    "and 'band_guide' (what the exam's past questions of each band need). For EVERY item, on its own (never rank "
-    "the items against each other): (1) solve it as a candidate; (2) decide which band's exemplars it most "
-    "resembles in what a competent candidate must know and do — count the decisions its solution needs (recall of "
-    "an exam-level prerequisite is not a decision); (3) for each file in its 'figures_to_read', transcribe the "
+    "of this exam grouped by difficulty band — and 'figures_to_read'), 'labels', 'band_guide' and 'counting_rules' "
+    "(the exact rules the exam's past questions were counted with). For EVERY item, on its own (never rank the "
+    "items against each other): (1) solve it fully as a candidate; (2) COUNT, for YOUR OWN solution and with "
+    "'counting_rules' exactly: 'facets' (every class facet that applies), 'moves' (one line per inferential step), "
+    "'principles' (distinct), 'speed_hack' with its 'shortcut', and 'negative' — what the solution needed, never "
+    "aim at a band; (3) also name "
+    "the band whose exemplars it most resembles; (4) for each file in its 'figures_to_read', transcribe the "
     "structure it shows as ONE SMILES with stereochemistry exactly as drawn. Do not open any other file. Write "
     "<JOB_DIR>/result.json as {\"items\": {\"<q>\": {\"answer\": <option number 1-based, a list for "
     "multiple-select, or the value>, \"confidence\": <high|medium|low>, \"assumptions\": [{\"about\": "
-    "<stereo|conditions|data|wording|other>, \"text\": <...>, \"changes_answer\": <true|false>}], \"band\": <one "
-    "of labels>, \"decisions\": <int>, \"rationale\": <one sentence naming the exemplar it matches>, \"class\": "
+    "<stereo|conditions|data|wording|other>, \"text\": <...>, \"changes_answer\": <true|false>}], \"facets\": "
+    "[<names from counting_rules.facets>], \"moves\": [<one line per inferential step>], \"principles\": "
+    "[<distinct principles>], \"speed_hack\": <true|false>, \"shortcut\": <one sentence, or empty>, "
+    "\"negative\": <true|false>, \"band\": <one "
+    "of labels>, \"decisions\": <int>, \"rationale\": <one sentence: the moves you counted>, \"class\": "
     "<recall|conceptual|computation|derivational|figural|structural|other>, \"computation_generic\": <true|false>, "
     "\"concept\": <short label>, \"figure_reads\": [{\"file\": <name>, \"smiles\": <SMILES>, \"stereo_mode\": "
     "<abs|rel|rac|none>}]}}}. Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
@@ -26419,11 +26490,12 @@ def bv_read_result(role, result, labels=None):
     if str(role).startswith('grader'):
         _lb = _dl_labels(labels)
         b = _dl_band(r.get('band'), _lb) or next((x for x in _lb if str(x).lower() == str(r.get('band') or '').strip().lower()), None)
-        if b is None:
+        o = br_obs(r)                         # v2.3 Cluster BR: the rubric counts (scored by bv_apply with the qtype)
+        if b is None and o is None:
             return None
         return {'band': b, 'decisions': _qf_int(r.get('decisions'), 0), 'rationale': str(r.get('rationale') or '')[:400],
                 'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
-                'concept': r.get('concept')}
+                'concept': r.get('concept'), 'rubric': o}
     if str(role).startswith('vision_'):
         if not str(r.get('smiles') or '').strip():
             return None
@@ -26537,10 +26609,19 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         if not isinstance(rr, dict):
             continue
         pk = {'context': str((rec or {}).get('context') or 'same'), 'sha256': (rec or {}).get('sha256')}
-        if str(role).startswith('grader') and rr.get('band') in labs:
-            bvs['grades'][role] = rr['band']
+        if str(role).startswith('grader'):
+            # v2.3 Cluster BR: the grade IS the band the PYQ rubric computes from the reviewer's own counts (the
+            # scale every past record of the exam was banded on); the judged band only when the counts are
+            # incomplete or the exam does not use three bands (disclosed: meta 'measure')
+            _rb, _rs, _ro = br_band(rr.get('rubric'), qtype, labs) if isinstance(rr.get('rubric'), dict) else (None, None, None)
+            _band = _rb or (rr.get('band') if rr.get('band') in labs else None)
+            if _band is None:
+                continue
+            bvs['grades'][role] = _band
             bvs['packets'][role] = pk
-            bvs['meta'][role] = {k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')}
+            bvs['meta'][role] = dict({k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')},
+                                     measure='rubric_r2' if _rb else 'judged', score=_rs, rubric=_ro,
+                                     band_judged=rr.get('band') if rr.get('band') in labs else None)
         elif str(role).startswith('solver') and rr.get('answer') is not None:
             bvs['solvers'][role] = dict(rr, packet=pk)
         elif str(role).startswith('vision_') and rr.get('smiles'):
@@ -26643,6 +26724,14 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         e2, ok, why = bv_set_label(e, labs, tgt, ctl, bvs['packets'], bvs['attempt'], dlv)
         if ok:
             e = e2
+            # v2.3 Cluster BR: how the grades were measured, recorded with the label (S13-2L / footer read it)
+            _ms = sorted({(bvs['meta'].get(k) or {}).get('measure') or 'judged' for k in g})
+            _dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else None
+            if _dc is not None:
+                _dc = dict(_dc)
+                _dc['measure'] = _ms[0] if len(_ms) == 1 else 'mixed'
+                _dc['rubric_scores'] = {k: (bvs['meta'].get(k) or {}).get('score') for k in g}
+                e['difficulty_check'] = _dc
             bvs['state'] = 'settled'
             out.update({'action': 'settled', 'band': dlv, 'why': ('at slot' if dlv == tgt else f'delivered at {dlv} '
                                                                   f'(slot {tgt}) after the one rewrite')})
@@ -26651,9 +26740,14 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             out.update({'action': 'unlabelled', 'why': why})
     elif d['action'] == 'rewrite':
         bvs['state'] = 'rewrite'
+        _mobs = br_median_obs([(bvs['meta'].get(k) or {}).get('rubric') for k in g])
+        _tg = br_target(ruler, e.get('subtopic_id'), tgt, labs)
         bvs['rewrite_brief'] = {'graders': {k: (bvs['meta'].get(k) or {}).get('rationale') for k in g},
                                 'measured': d.get('band'), 'slot': tgt, 'recipe': rec_st,
-                                'key': (kv or {}).get('why') if kv and not kv.get('unanimous') else None}
+                                'key': (kv or {}).get('why') if kv and not kv.get('unanimous') else None,
+                                # v2.3 Cluster BR: what the reviewers counted against what the slot band needs
+                                'measured_counts': _mobs, 'target': br_target_text(_tg),
+                                'gap': br_gap(_mobs, _tg, qtype)}
     elif d['action'] == 'key_chain':
         bvs['state'] = 'key_chain'
         e['bv_state'] = 'key_chain'
@@ -26661,6 +26755,271 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     e['bv'] = bvs
     out['entry'] = e
     return out
+
+
+# ── v2.3 Cluster BR (GAP-2026-11-13-DIFFICULTY-RUBRIC; release 2026.11.13) — THE SAME RULER FOR PAST AND NEW ──
+# Measured on CSIR NET Chemical Sciences: every one of the 358 past records' bands is reproduced EXACTLY by
+# difficulty_score(rule r2) from its recorded counts (class facets, inferential steps, distinct principles, speed hack,
+# polarity, qtype) — that formula IS the scale the paper's difficulty schedule was built from. Release 2026.11.12
+# measured a new question by asking reviewers which band's 120-character past-question openings it "resembles":
+# a different, unanchored scale (Q1-Q9 of the Organic paper came out one band low). From this release every fresh
+# reviewer RECORDS the same counts PYQExplain recorded, under the same counting rules quoted verbatim, and the
+# band is COMPUTED (difficulty_score r2 -> band_for_score); the author gets the band's measured component profile
+# from the exam's own past questions (subtopic -> topic -> section -> exam ladder). Every exam: exam-agnostic, no
+# value hardcoded; on an exam whose vocabulary is not exactly three bands the rubric does not apply (band_for_score
+# returns None) and the judged band of release 2026.11.12 stands, disclosed.
+BR_RULE = 'BR1'
+BR_RECIPE_MIN = 3                 # past records of one band a scope needs before its profile is used (else widen)
+BR_FACETS = tuple(sorted(CLASS_BASELINE_R2))
+BR_FACET_HELP = {
+    'C-FACTUAL': 'the answer is a fact you know or do not (recall)',
+    'C-VOCAB-ITEM': 'the meaning of a term / a grammar point',
+    'C-FORMAL-LOGIC': 'a fixed formal procedure (syllogism, coding rule, set rule)',
+    'C-COMPUTATIONAL': 'a numeric answer from substituting into ONE relation',
+    'C-LINKED': 'a passage / table / data set SHARED BY SEVERAL questions must be read first (one question with its '
+                'own scheme or figure is not linked)',
+    'C-FIGURAL': 'an image in the stem or options must be analysed',
+    'C-STRUCTURAL': 'the answer turns on connectivity, reaction site, spatial / stereochemical arrangement, symmetry, '
+                    'or an enumeration over structures',
+    'C-DERIVATIONAL': 'a multi-step chain where each step feeds the next (relations composed or manipulated before use)',
+    'C-MULTI-SELECT': 'the candidate may mark MORE THAN ONE option (a multiple-select question). A single-answer '
+                      'question whose options are combinations of statements ("I and II") is NOT multi-select',
+    'C-NUMERICAL-INPUT': 'the candidate TYPES an exact value (there are no options)',
+}
+BR_CONCEPT_RULE = ("A DISTINCT PRINCIPLE is a named principle, law, formula or definition the solution must state. "
+                   "Two applications of one principle count once; a principle plus an independent definition it does "
+                   "not follow from count twice.")
+BR_SPEED_RULE = ("A SPEED HACK exists only when ALL THREE hold: (1) DISTINCT METHOD — it uses a different operation "
+                 "than the full solution (elimination by the single most discriminating feature, back-solving from the "
+                 "options, a parity / unit / ratio check, a known pattern); (2) GENUINELY FASTER — it removes at least "
+                 "one full computation or lets the candidate stop before the full solution; (3) TRANSFER-SAFE — read "
+                 "alone it is not a trick that fails on a neighbouring question. Write it as ONE sentence in "
+                 "'shortcut'; when you cannot, there is no speed hack (most questions have none).")
+BR_NEGATIVE_RULE = "NEGATIVE = the stem asks for the NOT / INCORRECT / EXCEPT / FALSE one."
+BR_MOVES_RULE = ("Write your solution as 'moves': one line per INFERENTIAL STEP, in order — every move that produces a "
+                 "new fact the next move uses (each principle applied, each intermediate or product predicted, each "
+                 "selectivity decided, each option class eliminated for a reason). Do not list restating the stem, "
+                 "reading the figure, or naming the answer. The number of steps is the number of lines.")
+BR_PRINCIPLES_RULE = ("List in 'principles' each DISTINCT named principle, law, formula or definition your moves used, "
+                      "once each (two uses of one principle are one entry).")
+
+
+def br_counting_rules():
+    """The counting rules every fresh reviewer and the author apply — the SAME text PYQExplain counted the past
+    questions with (INFERENTIAL_STEP_RULE verbatim). Pure."""
+    return {'inferential_steps': INFERENTIAL_STEP_RULE, 'moves': BR_MOVES_RULE, 'concepts': BR_CONCEPT_RULE,
+            'principles': BR_PRINCIPLES_RULE, 'speed_hack': BR_SPEED_RULE, 'negative': BR_NEGATIVE_RULE,
+            'facets': dict(BR_FACET_HELP),
+            'note': 'Count what YOUR OWN solution needed. More than one facet may apply. Never aim at a band.'}
+
+
+def br_obs(rec):
+    """The rubric observation of one record / reviewer result, or None when it cannot be scored: {'facets',
+    'inferential_steps', 'concepts', 'speed_hack', 'negative'}. Accepts PYQExplain record keys (class / concepts /
+    speed_hack / negative) and reviewer keys (facets / concepts / speed_hack / negative). Never raises."""
+    r = rec if isinstance(rec, dict) else {}
+    fac = r.get('facets', r.get('class'))
+    if isinstance(fac, str):
+        fac = [fac]
+    fac = [str(x).strip().upper() for x in (fac if isinstance(fac, (list, tuple)) else []) if str(x).strip()]
+    fac = [x for x in fac if x in CLASS_BASELINE_R2]
+    st, cc = r.get('inferential_steps'), r.get('concepts', r.get('axiom_concepts'))
+    # v2.3: a reviewer LISTS its moves and principles; the counts are the lists' lengths (the rule, not a guess)
+    mv = r.get('moves')
+    if isinstance(mv, list):
+        mv = [str(x).strip() for x in mv if str(x).strip()]
+        st = len(mv)
+    pr = r.get('principles')
+    if isinstance(pr, list):
+        pr = {' '.join(str(x).lower().split()) for x in pr if str(x).strip()}
+        cc = len(pr)
+    if isinstance(st, bool) or not isinstance(st, int) or st < 0 or st > 30:
+        return None
+    if isinstance(cc, bool) or not isinstance(cc, int) or cc < 0 or cc > 20:
+        return None
+    if not fac:
+        return None
+    sh = r.get('speed_hack', r.get('speed_hack_exists'))
+    sh = sh is True or str(sh).strip().lower() in ('true', 'yes')
+    if 'shortcut' in r:                                   # a reviewer's speed hack must be written (BR_SPEED_RULE)
+        sh = sh and len(str(r.get('shortcut') or '').strip()) >= 12
+    return {'facets': sorted(set(fac)), 'inferential_steps': st, 'concepts': cc,
+            'speed_hack': sh,
+            'negative': r.get('negative', r.get('is_negative')) is True}
+
+
+def br_score(obs, qtype='mcq'):
+    """difficulty_score under rule r2 for a br_obs, or None. Pure."""
+    o = obs if isinstance(obs, dict) else None
+    if not o:
+        return None
+    try:
+        return difficulty_score(list(o.get('facets') or []), None, o.get('concepts'), bool(o.get('speed_hack')), 'full',
+                                bool(o.get('negative')), qtype, rule=RUBRIC_RULE_CURRENT,
+                                inferential_steps=o.get('inferential_steps'))
+    except Exception:                                     # noqa: BLE001
+        return None
+
+
+def br_band(rec, qtype, labels):
+    """(band, score, obs) — the band the rubric computes for one record / reviewer result; (None, None, None) when
+    the counts are incomplete or the vocabulary is not three bands. Never raises."""
+    labs = _dl_labels(labels)
+    o = br_obs(rec)
+    sc = br_score(o, qtype) if o else None
+    b = band_for_score(sc, labs) if sc is not None else None
+    return (b, sc, o) if b is not None else (None, None, None)
+
+
+def _br_scopes(subtopic_id):
+    sid = str(subtopic_id or '')
+    parts = [x for x in sid.split('.') if x]
+    out = []
+    if sid:
+        out.append(('subtopic', sid))
+    if len(parts) >= 3:
+        out.append(('topic', '.'.join(parts[:2])))
+    if len(parts) >= 2:
+        out.append(('section', parts[0]))
+    out.append(('exam', ''))
+    return out
+
+
+def _br_median(xs):
+    xs = sorted(xs)
+    return xs[len(xs) // 2] if xs else None
+
+
+def br_build_recipe(records, labels):
+    """The measured component profile of every band, per scope, from the exam's past records (PYQExplain counts):
+    {'rule', 'labels', 'scopes': {'<kind>:<key>': {band: {'n', 'steps': median, 'steps_range', 'concepts': median,
+    'facets': [most common facet set], 'score_range', 'speed_hack_share'}}}}. Records whose recorded band is not the
+    band the rubric computes from their own counts are skipped (counted in 'skipped'). Never raises."""
+    labs = _dl_labels(labels)
+    acc, skipped, used = {}, 0, 0
+    for _pk, _qk, r in _op_iter_records(records):
+        if not isinstance(r, dict):
+            continue
+        b = _dl_band(r.get('band'), labs)
+        qt = str(r.get('qtype') or 'mcq').lower()
+        cb, sc, o = br_band(r, qt, labs)
+        if b is None or cb is None:
+            continue
+        if cb != b:
+            skipped += 1
+            continue
+        used += 1
+        for kind, key in _br_scopes(r.get('subtopic_id')):
+            acc.setdefault(f'{kind}:{key}', {}).setdefault(b, []).append((o, sc))
+    scopes = {}
+    for sk, bands in acc.items():
+        row = {}
+        for b, items in bands.items():
+            fs = {}
+            for o, _s in items:
+                t = tuple(o['facets'])
+                fs[t] = fs.get(t, 0) + 1
+            top = sorted(fs.items(), key=lambda kv: (-kv[1], kv[0]))[0][0] if fs else ()
+            st = [o['inferential_steps'] for o, _s in items]
+            row[b] = {'n': len(items), 'steps': _br_median(st), 'steps_range': [min(st), max(st)],
+                      'concepts': _br_median([o['concepts'] for o, _s in items]), 'facets': list(top),
+                      'score_range': [min(s for _o, s in items), max(s for _o, s in items)],
+                      'speed_hack_share': round(sum(1 for o, _s in items if o['speed_hack']) / len(items), 3)}
+        scopes[sk] = row
+    return {'rule': BR_RULE, 'labels': list(labs), 'scopes': scopes, 'records_used': used, 'skipped': skipped}
+
+
+def br_band_edges(labels):
+    """{band: [min score, max score]} of the rubric (None when the vocabulary is not three bands). Pure."""
+    labs = _dl_labels(labels)
+    if len(labs) != 3:
+        return None
+    return {labs[0]: [0, DIFFICULTY_EASY_MAX], labs[1]: [DIFFICULTY_EASY_MAX + 1, DIFFICULTY_MEDIUM_MAX],
+            labs[2]: [DIFFICULTY_MEDIUM_MAX + 1, None]}
+
+
+def br_target(ruler, subtopic_id, band, labels):
+    """The target an author writes to for ONE slot: the band's measured profile at the NARROWEST scope holding at
+    least BR_RECIPE_MIN past records of that band (subtopic -> topic -> section -> exam), the rubric score range of
+    the band and the scoring rule in words. {'band', 'basis', 'profile', 'score_range', 'rule', 'applies'}. With no
+    past profile at any scope the score range alone is the target ('basis': 'rubric_edges'). Never raises."""
+    labs = _dl_labels(labels)
+    b = _dl_band(band, labs)
+    edges = br_band_edges(labs)
+    if b is None or edges is None:
+        return {'band': b, 'applies': False, 'basis': 'not_three_bands', 'profile': None, 'score_range': None,
+                'rule': None}
+    rr = (ruler or {}).get('rubric_recipe') if isinstance((ruler or {}).get('rubric_recipe'), dict) else {}
+    sc = rr.get('scopes') if isinstance(rr.get('scopes'), dict) else {}
+    prof, basis = None, 'rubric_edges'
+    for kind, key in _br_scopes(subtopic_id):
+        row = (sc.get(f'{kind}:{key}') or {}).get(b)
+        if isinstance(row, dict) and _qf_int(row.get('n'), 0) >= BR_RECIPE_MIN:
+            prof, basis = row, f'{kind}:{key}' if key else 'exam'
+            break
+    base_txt = ', '.join(f'{k} {v}' for k, v in sorted(CLASS_BASELINE_R2.items()))
+    rule = (f"score = the highest facet value ({base_txt}; msq / nat at least 3) + inferential steps (>=4: +3, 2-3: "
+            f"+2, 1: +1) + distinct principles (>=3: +2, 2: +1) + 1 if the stem is negative + 1 if a speed hack exists "
+            f"on a derivation of >=3 steps. {labs[0]} <= {DIFFICULTY_EASY_MAX}, {labs[1]} "
+            f"{DIFFICULTY_EASY_MAX + 1}-{DIFFICULTY_MEDIUM_MAX}, {labs[2]} >= {DIFFICULTY_MEDIUM_MAX + 1}.")
+    return {'band': b, 'applies': True, 'basis': basis, 'profile': prof, 'score_range': edges[b], 'rule': rule}
+
+
+def br_target_text(target):
+    """One plain sentence of the target for the author packet / rewrite brief. Pure."""
+    t = target if isinstance(target, dict) else {}
+    if not t.get('applies'):
+        return None
+    lo, hi = (t.get('score_range') or [None, None])[:2]
+    rng = f"score {lo}+" if hi is None else f"score {lo}-{hi}"
+    p = t.get('profile')
+    if isinstance(p, dict):
+        return (f"{t['band']} here = {rng}; past {t['band']} questions of this {t['basis'].split(':')[0]} "
+                f"({p.get('n')}): facets {'+'.join(p.get('facets') or []) or '-'}, about {p.get('steps')} "
+                f"inferential step(s) ({p.get('steps_range', [None, None])[0]}-{p.get('steps_range', [None, None])[1]}), "
+                f"{p.get('concepts')} distinct principle(s).")
+    return f"{t['band']} = {rng} (no past questions of this band to profile)."
+
+
+def br_gap(measured_obs, target, qtype='mcq'):
+    """Plain-language gap between what the reviewers measured (median counts) and the target band — the rewrite
+    brief. [] when nothing is measurable. Pure."""
+    o = measured_obs if isinstance(measured_obs, dict) else None
+    t = target if isinstance(target, dict) else {}
+    if not o or not t.get('applies'):
+        return []
+    sc = br_score(o, qtype)
+    lo, hi = (t.get('score_range') or [None, None])[:2]
+    out = [f"measured: facets {'+'.join(o.get('facets') or [])}, {o.get('inferential_steps')} inferential steps, "
+           f"{o.get('concepts')} distinct principle(s) -> score {sc}; {t.get('band')} needs "
+           + (f"{lo}+" if hi is None else f"{lo}-{hi}")]
+    p = t.get('profile') if isinstance(t.get('profile'), dict) else {}
+    if sc is not None and lo is not None and sc < lo:
+        if p.get('steps') is not None and o.get('inferential_steps', 0) < p['steps']:
+            out.append(f"add inferential steps: the past {t['band']} questions here need about {p['steps']}")
+        if p.get('concepts') is not None and o.get('concepts', 0) < p['concepts']:
+            out.append(f"combine one more distinct principle: the past {t['band']} questions here use {p['concepts']}")
+        if len(out) == 1:
+            out.append('make the solution need one more real reasoning move or one more distinct principle')
+    elif sc is not None and hi is not None and sc > hi:
+        out.append('remove a reasoning move or a principle: the question is above the slot band')
+    return out
+
+
+def br_median_obs(observations):
+    """The per-component median of the reviewers' observations (facets: those named by at least half). Pure."""
+    obs = [o for o in (observations or []) if isinstance(o, dict)]
+    if not obs:
+        return None
+    fc = {}
+    for o in obs:
+        for f in o.get('facets') or []:
+            fc[f] = fc.get(f, 0) + 1
+    fac = sorted(f for f, c in fc.items() if c * 2 >= len(obs)) or sorted(fc, key=lambda f: -fc[f])[:1]
+    return {'facets': fac, 'inferential_steps': _br_median([o['inferential_steps'] for o in obs]),
+            'concepts': _br_median([o['concepts'] for o in obs]),
+            'speed_hack': sum(1 for o in obs if o.get('speed_hack')) * 2 > len(obs),
+            'negative': sum(1 for o in obs if o.get('negative')) * 2 > len(obs)}
 
 
 def bv_band_guide(ruler, labels=None):
@@ -26701,7 +27060,8 @@ def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None):
                          'figures_to_read': [x for x in reads if x]})
         if not rows:
             continue
-        pk = {'items': rows, 'labels': list(_dl_labels(labels)), 'band_guide': band_guide or {}}
+        pk = {'items': rows, 'labels': list(_dl_labels(labels)), 'band_guide': band_guide or {},
+              'counting_rules': br_counting_rules()}                  # v2.3 Cluster BR
         out.append({'role': f'reviewer_{k}', 'qs': [r['q'] for r in rows], 'packet': pk, 'sha256': _bv_sha(pk),
                     'brief': BV_BRIEF_REVIEWER})
     return out
@@ -26742,7 +27102,7 @@ def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_
     return out
 
 
-def bv_author_packet(slot, exemplars_by_band, labels, recipe=None):
+def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None):
     """What the author holds BEFORE writing (one write): the slot band, the SAME exemplar content the graders will
     compare against (the slot band and its neighbours), the recipe ranges for the band, and the self-checks to run
     before submitting. slot: {'q', 'band', 'qtype', 'subtopic_id', 'subject', 'ask_format'}. Never raises."""
@@ -26751,12 +27111,18 @@ def bv_author_packet(slot, exemplars_by_band, labels, recipe=None):
     b = _dl_band(s.get('band'), labs)
     i = labs.index(b) if b in labs else None
     near = [labs[j] for j in (i - 1, i, i + 1) if i is not None and 0 <= j < len(labs)]
+    _bp_tg = br_target(ruler, s.get('subtopic_id'), b, labs)
     ex = {k: [{f: v for f, v in (r or {}).items() if f not in ('band_rationale', 'solution')} for r in rows][:2]
           for k, rows in (exemplars_by_band or {}).items() if k in near}
     return {'q': s.get('q'), 'band': b, 'qtype': s.get('qtype') or 'mcq', 'subtopic_id': s.get('subtopic_id'),
             'ask_format': s.get('ask_format'), 'anchors': ex, 'recipe': recipe if isinstance(recipe, dict) else {},
+            # v2.3 Cluster BR — the slot band as the exam's past questions measured it, and the rules the reviewers
+            # will count this question with
+            'target': _bp_tg, 'target_text': br_target_text(_bp_tg), 'counting_rules': br_counting_rules(),
             'self_check': ['bc.band_recipe_check_any(item, EXAM_RULER["recipe_by_subject"], band) must be ok',
                            'every option and the key fixed; one defensible answer',
+                           'count your own solution with counting_rules: bc.br_band(counts, qtype, labels) must give '
+                           'the slot band (when target.applies)',
                            'the item resembles the slot band anchors more than the neighbours'],
             'rule': BV_RULE}
 
@@ -26808,6 +27174,16 @@ for _n, _d in {
         'bv_recipe_verdict': lambda *a, **k: (True, 'DORMANT'),
         'bv_apply': lambda e=None, *a, **k: {'entry': e if isinstance(e, dict) else {}, 'action': 'grade', 'roles': list(BV_ROLES_GRADE + BV_ROLES_SOLVE), 'band': None, 'why': 'invalid input'},
         'bv_batch_status': lambda *a, **k: {'settled': [], 'disclosed': [], 'key_chain': [], 'open': []},
+        'br_obs': lambda *a, **k: None,
+        'br_score': lambda *a, **k: None,
+        'br_band': lambda *a, **k: (None, None, None),
+        'br_build_recipe': lambda *a, **k: {'rule': BR_RULE, 'labels': [], 'scopes': {}, 'records_used': 0, 'skipped': 0},
+        'br_band_edges': lambda *a, **k: None,
+        'br_target': lambda *a, **k: {'band': None, 'applies': False, 'basis': 'invalid input', 'profile': None,
+                                      'score_range': None, 'rule': None},
+        'br_target_text': lambda *a, **k: None,
+        'br_gap': lambda *a, **k: [],
+        'br_median_obs': lambda *a, **k: None,
 }.items():
     _nf_guard(_n, _d)
 del _n, _d
