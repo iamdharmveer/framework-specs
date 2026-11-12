@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.11.12 — GAP-2026-11-12-RULER-ANCHORS + HANDOVER-CHECKPOINT + BATCH-SPEED: real past questions to compare against, a handover that keeps the work, 3 reviewers per batch
+
+(blueprint_core v2.2; final_assembly v1.18; bootstrap (--checkpoint, --when handover, worker prompt); handshake_audit
+(+H-BV real-shape ruler, reviewer jobs, handover); Framework_MockTestCreate v6.2 (S0-BV BV-7..9, S4-7 STEP A2, S0-OP-0,
+S0-OP-2, S13-2L footer line); Framework_MockTestOrchestrate v1.4.0 (O2-3, O2-9, O3-3, O3-7, O3-9);
+Framework_DeliveryFooter v1.47.0 (§LADDER-NF anchor-basis line); LAW_REGISTRY (+LAW-BV-7..9); STEP_CONTRACTS
+(floors Create 6.2, Orchestrate 1.4.0, DeliveryFooter 1.47.0).)
+
+**Evidence (CSIR NET Chemical Sciences, Organic test, release 2026.11.11, batch 1).** After round-2 grades, Q1-Q9
+each needed their rewrite (graded one band below the slot); the worker ran out of room and a fresh worker was told to
+restore the pre-batch checkpoint, which would have deleted the 10 written questions and every grade.
+
+**Causes (each reproduced on the real CSIR files).** RC-1: the exam ruler held ZERO anchors — none of the 358 past
+records carries blind grades (they carry the PYQExplain band), ruler_input_records admitted none of them, and the
+exemplar bank is empty; the ruler also stored anchor REFS, never content, and bv_anchors read only dict anchors — so
+every reviewer packet and the author packet had no past question to compare with, and the recipe was dormant.
+RC-2: the CHECKPOINT was made before the batch and only dropped at STEP E; a planned handover (GRADE_REQUEST, ROTATE)
+never refreshed it, so the next worker's restore would undo the batch. The worker prompt's message set lacked
+GRADE RETURNED. RC-3 (speed): 4 fresh jobs per question (40 per batch), a tiebreak round, jobs started one by one;
+the per-paper PYQ back-fill (358 records) held Q1. Also fixed: the STEP A2 shell wrote the key 'bc.manifest_hash'.
+
+**What changed.** The ruler stores anchor CONTENT (bc.ruler_anchor_records: stem snippet, ask format, inferential
+steps, concepts, reagents, distractor mechanisms; <= 3 per subtopic, <= 150 per band) and, with no blind grades yet,
+uses the PYQExplain bands — the scale the blueprint's difficulty schedule was built from — disclosed by an AMBER
+footer line; blind grades win as soon as any exist; an older ruler without content is rebuilt. bc.bv_anchors ranks
+same subtopic -> topic -> section -> any. STEP A2 writes at most 3 reviewer jobs per round for the whole batch
+(bc.bv_reviewer_jobs; each solves, grades with the band guide, and reads the figures it is asked to); three graders
+from the start (no tiebreak round); a role asked twice is not re-asked. The orchestrator starts every job in ONE
+message. bootstrap --checkpoint make|restore|drop is the only checkpoint; a planned handover proves retention
+(--when handover) and refreshes it. The orchestrator never asks the user a framework question mid-run (O2-9). The
+back-fill runs before Q1 only when exam_config sets pyq_backfill_before_q1. The spec read size is unchanged.
+
+**Tests.** blueprint_core 1399 -> 1407 (ruler fallback with content, blind grades win, nearest anchors, band guide,
+3 reviewer jobs, result split, asked-twice, one-round majority); final_assembly 188 (bv_batch_step with 3 reviewer
+jobs, blind grouped packets, key fix, a rewrite clears the ask count so the new text can be re-asked); bootstrap 70 -> 72 (planned handover keeps the batch, failed worker undone,
+--when handover); handshake 211 -> 213 (production-shaped ruler anchors for every band, author packet with same-
+subtopic content, 3 reviewer jobs, checkpoint refresh + restore keeps the batch, every packet anchored, worker prompt).
+On the real CSIR profile: anchors Easy 72 / Medium 245 / Hard 23 (content for 62 / 150 / 17), was 0 / 0 / 0.
+
 ## 2026.11.11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY: every subject, every item — composition, format, difficulty and originality measured against the exam's own papers; + GAP-2026-11-11-BATCH-VERIFICATION: every question verified in its own batch
 
 ### Part 2 — GAP-2026-11-11-BATCH-VERIFICATION (owner go-ahead 2026-11-11; same release)

@@ -254,6 +254,77 @@ def attach_dir():
 def home_dir():
     return _dir("FW_HOME", "/home/claude")
 
+def outputs_dir():
+    return _dir("FW_OUTPUTS", "/mnt/user-data/outputs")
+
+
+# ── 2026.11.12 (GAP-2026-11-12-HANDOVER-CHECKPOINT): the O3-3 CHECKPOINT as ONE deterministic command. A planned
+# handover (GRADE_REQUEST, ROTATE) REFRESHES it to the current progress (`make`), so the next worker's RESTORE
+# brings back exactly that progress — the batch in work survives; only a FAILED worker's unproven work is undone.
+def _ckpt_work_files(exam, paper):
+    import fnmatch
+    h = home_dir()
+    keep = (f"{exam}_M{paper}_chat_block.md", f"{exam}_M{paper}_worker_report.json")
+    out = []
+    if os.path.isdir(h):
+        for n in sorted(os.listdir(h)):
+            p = os.path.join(h, n)
+            if os.path.isfile(p) and n not in keep and (n.startswith(f"{exam}_") or fnmatch.fnmatch(n, "q*_*.png")
+                                                        or fnmatch.fnmatch(n, "q*_*.figspec.json")):
+                out.append(n)
+    return out
+
+
+def _ckpt_output_files(exam):
+    o = outputs_dir()
+    return sorted(n for n in os.listdir(o) if os.path.isfile(os.path.join(o, n)) and n.startswith(f"{exam}_")) \
+        if os.path.isdir(o) else []
+
+
+def checkpoint_cmd(a):
+    import shutil
+    if not a.exam or not a.paper:
+        return _refuse("--checkpoint needs --exam and --paper")
+    ck = os.path.join(home_dir(), f"{a.exam}_M{a.paper}_checkpoint")
+    if a.checkpoint == "make":
+        if os.path.isdir(ck):
+            shutil.rmtree(ck)
+        os.makedirs(os.path.join(ck, "home"))
+        os.makedirs(os.path.join(ck, "outputs"))
+        w, o = _ckpt_work_files(a.exam, a.paper), _ckpt_output_files(a.exam)
+        for n in w:
+            shutil.copy2(os.path.join(home_dir(), n), os.path.join(ck, "home", n))
+        for n in o:
+            shutil.copy2(os.path.join(outputs_dir(), n), os.path.join(ck, "outputs", n))
+        print(f"CHECKPOINT MADE: {len(w)} work file(s), {len(o)} output file(s) — {ck}")
+        return 0
+    if a.checkpoint == "restore":
+        if not os.path.isdir(ck):
+            print("CHECKPOINT: none — nothing to restore")
+            return 0
+        hw, ho = set(os.listdir(os.path.join(ck, "home"))), set(os.listdir(os.path.join(ck, "outputs")))
+        for n in _ckpt_work_files(a.exam, a.paper):
+            if n not in hw:
+                os.remove(os.path.join(home_dir(), n))
+        for n in _ckpt_output_files(a.exam):
+            if n not in ho:
+                os.remove(os.path.join(outputs_dir(), n))
+        for n in hw:
+            shutil.copy2(os.path.join(ck, "home", n), os.path.join(home_dir(), n))
+        os.makedirs(outputs_dir(), exist_ok=True)
+        for n in ho:
+            shutil.copy2(os.path.join(ck, "outputs", n), os.path.join(outputs_dir(), n))
+        shutil.rmtree(ck)
+        print(f"CHECKPOINT RESTORED: {len(hw)} work file(s), {len(ho)} output file(s); checkpoint deleted")
+        return 0
+    if a.checkpoint == "drop":
+        if os.path.isdir(ck):
+            shutil.rmtree(ck)
+        print("CHECKPOINT DROPPED")
+        return 0
+    print("CHECKPOINT: " + ("present" if os.path.isdir(ck) else "none"))
+    return 0
+
 READ_STATE_DIR = ".read_state"
 STAGED_RECORD = ".staged.json"
 # Fallback when SESSION_BUDGET.json is absent: the 2026-11-06 measurement (215,068 B of
@@ -265,7 +336,7 @@ DEFAULT_BYTES_PER_TOKEN = 2.3
 ANCHOR_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"
 ANCHOR_LEN = 7
 ANCHOR_EVERY = 8
-RETENTION_WHEN = ("after-read", "before-batch", "after-batch", "before-final")
+RETENTION_WHEN = ("after-read", "before-batch", "after-batch", "before-final", "handover")
 # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): GRADE_REQUEST — the worker hands the fresh blind grader /
 # solver jobs of the batch it is writing to the orchestrator (a worker cannot start sub-agents), BEFORE the
 # batch is delivered; ROTATE — the worker's room is short: its progress is on disk and a FRESH worker continues
@@ -352,6 +423,7 @@ the trigger. The messages (closed set, sent exactly as written):
   continue — delivery confirmed
   FINAL ASSEMBLY
   REVIEW RETURNED   (followed by one line per part: <part_dir> <the reviewer's line>)
+  GRADE RETURNED    (followed by one line per job folder: <job_dir> <the reviewer's line>)
   USER MESSAGE: <the user's message, verbatim>
 In every worker `continue — delivery confirmed` IS the user's continue trigger (MTC S4-6, S4-5
 CHECK 4) and `USER MESSAGE: <m>` is the user's message <m> for S4-6 (O3-1).
@@ -363,9 +435,13 @@ with a sed range above 300 lines, never open a tool-output file the harness dive
 RETENTION (O3-3). Prove the read from memory (never open .read_state):
   python3 bootstrap.py --retention "<nn>=<code> ..." --when <W>
 W = after-read (a), before-batch (b), after-batch (c), before-final (d; add --escalate for the
-escalation read of O3-5). Right after (b) passes make the O3-3 CHECKPOINT; delete it when the batch
-is recorded (S4-7 STEP E) or the correction has passed (c). A FAIL at any point: report
-RETENTION_FAIL and stop (the next worker restores the CHECKPOINT).
+escalation read of O3-5), handover (before a GRADE_REQUEST or ROTATE report). CHECKPOINT (O3-3), always with the command
+  python3 bootstrap.py --checkpoint make|restore|drop --exam <E> --paper <N>
+`make` right after (b) passes; `drop` when the batch is recorded (S4-7 STEP E) or the correction has passed (c).
+A PLANNED HANDOVER — GRADE_REQUEST or ROTATE — first proves retention (--when handover), then runs `make`
+again (the checkpoint now holds the progress so far: the next worker's restore keeps the batch in work), then
+reports. A FAIL at any point: report RETENTION_FAIL and stop (the next worker restores the CHECKPOINT: the work
+since the last make, made without the spec in context, is undone).
 {body}
 END EVERY TURN (O3-4): write MTC's chat prints of this turn to the CHAT BLOCK FILE, then run
   python3 bootstrap.py --worker-report write --exam <E> --paper <N> --state <STATE> --batch <K> --of <M> --files "<paths>" --chat-file {home}/<E>_M<N>_chat_block.md
@@ -381,13 +457,15 @@ REVIEW_REQUEST, GRADE_REQUEST and ROTATE. Prove (b) before authoring and (c) bef
 
 WORKER_CONTINUE = """THIS TURN (--continue: the paper is in progress on disk): read (O3-2) and prove (a) first.
 If {home}/<E>_M<N>_batch_state.json does not exist, write nothing and report HARD_STOP with the
-WORKDIR-LOST chat block of O3-1. Otherwise O3-7: RESTORE first when the CHECKPOINT exists (O3-3);
+WORKDIR-LOST chat block of O3-1. Otherwise O3-7: RESTORE first with `--checkpoint restore` (O3-3; a no-op when there is none; after a
+planned handover it restores exactly the saved progress);
 then, in every case, MTC's session start and S4-12, handling the ORCHESTRATOR MESSAGE at the end of
 this prompt exactly as O3-7 says: for `continue — delivery confirmed` and `USER MESSAGE: ...`
 S4-12's batch recovery ends after step 4c (no resume summary, no STOP) and MTC S4-6 is applied to
 the message; `FINAL ASSEMBLY` enters S13 by S4-12's FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW
-rule; `REVIEW RETURNED` is O3-6 step 2 inside S4-12's REVIEW_RUNNING branch. Prove (b) and (c) as
-in O3-3."""
+rule; `REVIEW RETURNED` is O3-6 step 2 inside S4-12's REVIEW_RUNNING branch; `GRADE RETURNED` is S4-12's
+BATCH IN VERIFICATION branch (append its lines to returned.txt, run S4-7 STEP A2 again; O3-9). Prove (b) and
+(c) as in O3-3; a worker continuing a batch in verification runs `--checkpoint make` right after (a)."""
 
 
 def _load_json(path):
@@ -1195,6 +1273,8 @@ def main():
     ap.add_argument("--stage-status", action="store_true")
     ap.add_argument("--stage-project-docs", action="store_true")
     ap.add_argument("--worker-report", choices=("write", "show"), default=None)
+    ap.add_argument("--checkpoint", choices=("make", "restore", "drop", "status"), default=None,
+                    help="2026.11.12: the O3-3 CHECKPOINT (make = refresh to the current progress)")
     ap.add_argument("--part", type=int, default=1,
                     help="--worker-report show: which part of the chat block (default 1)")
     ap.add_argument("--exam", default=None)
@@ -1239,6 +1319,8 @@ def main():
         sys.exit(stage_project_docs())
     if args.stage_status:
         sys.exit(stage_status())
+    if args.checkpoint:
+        sys.exit(checkpoint_cmd(args))
     if args.worker_report == "write":
         sys.exit(worker_report_write(args))
     if args.worker_report == "show":
@@ -1869,6 +1951,32 @@ def self_test():
                    "--of", "5", "--chat-file", chat, "--state", "ROTATE", "--files", "")
     rc_rs, out_rs = run(fx, "--worker-report", "show", "--exam", "EXF", "--paper", "1")
     check("worker-report ROTATE prints the BATCH STATE progress sha", rc_rt == 0 and rc_rs == 0 and "PROGRESS: " in out_rs)
+    # 2026.11.12 GAP-2026-11-12-HANDOVER-CHECKPOINT: a planned handover refreshes the checkpoint — the next
+    # worker's restore keeps the batch in work; a failed worker's work since the last make is undone
+    _h = env["FW_HOME"]
+    env["FW_OUTPUTS"] = os.path.join(tmp, "outputs")
+    os.makedirs(_h, exist_ok=True); os.makedirs(env["FW_OUTPUTS"], exist_ok=True)
+    def _w(n, t):
+        open(os.path.join(_h, n), "w").write(t)
+    _w("CKX_M1_answer_key.json", "pre-batch"); _w("CKX_M1_batch_state.json", "b0")
+    rc_c1, _ = run(fx, "--checkpoint", "make", "--exam", "CKX", "--paper", "1")             # (b) passed
+    _w("CKX_M1_answer_key.json", "10 questions + grades"); _w("CKX_M1_batch_state.json", "b1-verifying")
+    _w("q3_problem.png", "fig")
+    rc_c2, _ = run(fx, "--checkpoint", "make", "--exam", "CKX", "--paper", "1")             # planned handover
+    rc_c3, out_c3 = run(fx, "--checkpoint", "restore", "--exam", "CKX", "--paper", "1")     # the fresh worker
+    kept = open(os.path.join(_h, "CKX_M1_answer_key.json")).read() == "10 questions + grades" \
+        and os.path.exists(os.path.join(_h, "q3_problem.png"))
+    rc_c4, _ = run(fx, "--checkpoint", "make", "--exam", "CKX", "--paper", "1")
+    _w("CKX_M1_answer_key.json", "unproven work"); _w("CKX_stray.json", "x")
+    rc_c5, _ = run(fx, "--checkpoint", "restore", "--exam", "CKX", "--paper", "1")         # after a RETENTION_FAIL
+    undone = open(os.path.join(_h, "CKX_M1_answer_key.json")).read() == "10 questions + grades" \
+        and not os.path.exists(os.path.join(_h, "CKX_stray.json"))
+    rc_c6, out_c6 = run(fx, "--checkpoint", "status", "--exam", "CKX", "--paper", "1")
+    check("checkpoint: a planned handover keeps the batch in work; a failed worker's unproven work is undone",
+          (rc_c1, rc_c2, rc_c3, rc_c4, rc_c5, rc_c6) == (0, 0, 0, 0, 0, 0) and kept and undone
+          and "RESTORED" in out_c3 and "none" in out_c6)
+    rc_h, out_h = run(fx, "--retention", "01=XXXX", "--when", "handover")
+    check("retention accepts --when handover", "invalid choice" not in out_h and "RETENTION" in out_h)
     check("worker-report accepts --files \"\" (no files) for every state",
           rc_all == [0] * len(WORKER_STATES))
     empty = os.path.join(tmp, "empty.txt")

@@ -671,16 +671,29 @@ def _bv_handshake(check, ROOT, run_fence, W):
     json.dump({'concept_map': cm, 'answers': {'1': 1, '2': 1}}, open(kp, 'w'))
     json.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}, {'batch_id': 2, 'q_start': 3, 'q_end': 4}],
                'current_batch': 1, 'difficulty_labels': L, 'difficulty_plan_target': dict(tgt)}, open(bsp, 'w'))
-    G = {'EXAM': EXAM, 'N': N, 'EXAM_RULER': {'anchors': {b: [{'subtopic_id': 'PC.THERMO.work', 'stem_snippet': f'a real {b} item'}] for b in L}},
-         'manifest': {}, 'EXEMPLAR_BANK': {}}
-    # S4-7 STEP A author packet — the author holds the graders' anchors before writing
+    # v2026.11.12: the ruler is built by the REAL engine from past records SHAPED LIKE A PRODUCTION PROFILE — no
+    # blind grades, only the PYQExplain band (CSIR's 358 records): its anchors must carry CONTENT for every band
+    prof = {'papers': {'P1': {'questions': {
+        str(i): {'section': 'Part B', 'subtopic_id': sid_, 'qtype': 'mcq', 'band': b_, 'confidence': 'full',
+                 'stem_snippet': f'past {b_} item {i} on {sid_}', 'inferential_steps': {'Easy': 1, 'Medium': 2, 'Hard': 4}[b_],
+                 'ask_format': 'direct', 'named_concepts': ['x']}
+        for i, (sid_, b_) in enumerate([(s_, b0) for s_ in ('PC.THERMO.work', 'IN.SYM.pg', 'IN.CFT.mag') for b0 in L], 1)}}}}
+    ruler = bc.build_difficulty_ruler(prof, L, 't', 'm', 'p', '2026-11-12')
+    check('H-BV ruler from a production-shaped profile (no blind grades): content-carrying anchors for EVERY band, '
+          'basis disclosed', ruler.get('anchor_basis') == 'pyq_explain_band'
+          and all(ruler['anchor_records'].get(b) for b in L) and bc.ruler_needs_recalibration({'anchors': ruler['anchors']})[0],
+          {b: len(ruler['anchor_records'].get(b) or []) for b in L})
+    G = {'EXAM': EXAM, 'N': N, 'EXAM_RULER': ruler, 'manifest': {}, 'EXEMPLAR_BANK': {}}
+    # S4-7 STEP A author packet — the author holds the reviewers' anchors before writing
     run_fence(blk('# ── S4-7 STEP A author packet (v6.1 BV1) ──'), G)
     with contextlib.redirect_stdout(io.StringIO()):
         ap = G['BV_AUTHOR_PACKET'](1, 'PC.THERMO.work')
-    check('H-BV S4-7 STEP A author packet carries the slot band and the anchors the graders will see',
-          ap.get('band') == 'Hard' and 'Hard' in (ap.get('anchors') or {}), ap)
-    # simulated FRESH contexts: graders read packet.json only; Q2 split -> third grader; Q4 repeats Q1 -> its one rewrite
-    grades = {'1': ['Hard', 'Hard'], '2': ['Medium', 'Easy', 'Medium'], '3': ['Medium', 'Medium'], '4': ['Medium', 'Medium', 'Medium']}
+    check('H-BV S4-7 STEP A author packet carries the slot band and REAL past-question content of the same subtopic',
+          ap.get('band') == 'Hard' and (ap.get('anchors') or {}).get('Hard')
+          and ap['anchors']['Hard'][0].get('subtopic_id') == 'PC.THERMO.work' and ap['anchors']['Hard'][0].get('stem_snippet'), ap)
+    # simulated FRESH reviewers: each reads packet.json only and answers for every question it carries
+    grades = {'1': [['Hard', 'Hard', 'Hard']], '2': [['Medium', 'Easy', 'Medium']], '3': [['Medium', 'Medium', 'Medium']],
+              '4': [['Medium', 'Medium', 'Medium']]}
     seen = {}
     def answer_jobs():
         bs = json.load(open(bsp))
@@ -688,20 +701,24 @@ def _bv_handshake(check, ROOT, run_fence, W):
         for jb in bs['bv']['jobs']:
             pk = json.load(open(os.path.join(jb['dir'], 'packet.json')))
             brief = open(os.path.join(jb['dir'], 'JOB_BRIEF.txt')).read()
-            blind = ('difficulty' not in json.dumps(pk.get('item', {})) and 'decisions_author' not in json.dumps(pk)
-                     and 'rewrite_brief' not in json.dumps(pk) and jb['dir'] in brief)
+            items_ = pk.get('items') or []
+            blind = (all('difficulty' not in json.dumps(r.get('item', {})) for r in items_) and 'decisions_author' not in json.dumps(pk)
+                     and 'rewrite_brief' not in json.dumps(pk) and jb['dir'] in brief and jb['role'].startswith('reviewer_'))
+            anchored = all(all((r.get('exemplars') or {}).get(b) for b in L) for r in items_)
             seen.setdefault('blind', []).append(blind)
-            if jb['role'].startswith('grader'):
-                g = grades[jb['q']]
-                k = seen.setdefault(('g', jb['q']), 0)
-                seen[('g', jb['q'])] = k + 1
-                res = {'band': g[min(k, len(g) - 1)], 'decisions': 2, 'rationale': 'matches exemplar', 'class': 'computation',
-                       'computation_generic': False, 'concept': 'c' + jb['q']}
-                lines.append(jb['dir'] + ' GRADE DONE')
-            else:
-                res = {'answer': json.load(open(kp))['answers'][jb['q']], 'confidence': 'high', 'assumptions': []}
-                lines.append(jb['dir'] + ' SOLVE DONE')
-            json.dump(res, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+            seen.setdefault('anchored', []).append(anchored)
+            k = int(jb['role'].rsplit('_', 1)[-1])
+            out = {}
+            for r in items_:
+                q = r['q']
+                n_ = seen.setdefault(('n', q, k), 0)
+                seen[('n', q, k)] = n_ + 1
+                g = grades[q][min(n_, len(grades[q]) - 1)]
+                out[q] = {'band': g[k - 1], 'decisions': 2, 'rationale': 'matches exemplar', 'class': 'computation',
+                          'computation_generic': False, 'concept': 'c' + q,
+                          'answer': json.load(open(kp))['answers'][q], 'confidence': 'high', 'assumptions': []}
+            json.dump({'items': out}, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+            lines.append(jb['dir'] + ' REVIEW DONE')
         open(f'{HOME}/{EXAM}_M{N}_bv/returned.txt', 'a').write('\n'.join(lines) + '\n')
     step = blk('# ── S4-7 STEP A2 (v6.1 BV1) ──')
     def a2():
@@ -709,14 +726,21 @@ def _bv_handshake(check, ROOT, run_fence, W):
             run_fence(step, G)
         return G['BV_STEP']
     r = a2()
-    check('H-BV STEP A2 round 1 writes fresh jobs (2 graders + 2 solvers per question) before any delivery',
-          r['status'] == 'jobs_out' and len(r['jobs']) == 8, r)
+    check('H-BV STEP A2 round 1: at most 3 reviewer jobs for the WHOLE batch (was 4 jobs per question)',
+          r['status'] == 'jobs_out' and [d.rsplit('/', 1)[-1] for d in r['jobs']] == ['reviewer_1', 'reviewer_2', 'reviewer_3'], r)
+    # PLANNED HANDOVER (Orchestrate O3-3 v1.4.0): the worker refreshes the CHECKPOINT; the fresh worker restores it
+    env = dict(os.environ, FW_HOME=HOME, FW_OUTPUTS=ROOT + '/mnt/user-data/outputs')
+    import subprocess
+    def ck(cmd):
+        return subprocess.run([sys.executable, os.path.join(W, 'bootstrap.py'), '--checkpoint', cmd, '--exam', EXAM,
+                               '--paper', str(N)], env=env, capture_output=True, text=True).returncode
+    before = (open(kp).read(), open(bsp).read())
+    rcs = (ck('make'), ck('restore'))
+    check('H-BV planned handover: checkpoint refreshed then restored by the fresh worker — the batch in work is kept',
+          rcs == (0, 0) and (open(kp).read(), open(bsp).read()) == before, rcs)
     answer_jobs(); r = a2()
-    check('H-BV STEP A2: a grader split gets ONE more grader (tiebreak), never a rewrite', r['status'] == 'jobs_out'
-          and [d for d in r['jobs'] if d.endswith('grader_3')] and not r['rewrite'], r)
-    answer_jobs(); r = a2()
-    check('H-BV batch 1 DONE: both questions settled at their slot in ONE write', r['status'] == 'done' and r['settled'] == ['1', '2']
-          and r['disclosed'] == [] and r['open'] == [], r)
+    check('H-BV batch 1 DONE in ONE reviewer round: both questions settled at their slot (a 2-1 split is a majority, no tiebreak)',
+          r['status'] == 'done' and r['settled'] == ['1', '2'] and r['disclosed'] == [] and r['open'] == [], r)
     # bootstrap worker report: GRADE_REQUEST needs job folders; ROTATE carries the progress sha
     check('H-BV bootstrap WORKER_STATES carry GRADE_REQUEST and ROTATE (Orchestrate O2-3 / O3-9)',
           'GRADE_REQUEST' in bsm.WORKER_STATES and 'ROTATE' in bsm.WORKER_STATES and 'GRADE_REQUEST' in bsm.WORKER_STATES_NEED_PARTS)
@@ -743,8 +767,9 @@ def _bv_handshake(check, ROOT, run_fence, W):
     check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after its ONE rewrite (disclosed), never rewritten twice',
           r['status'] == 'done' and r['settled'] == ['3', '4'] and r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
           and bs['bv']['items']['4']['attempt'] == 2 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
-    check('H-BV every grader / solver packet was blind (no band, author counts or rewrite notes) and named its own folder',
-          seen.get('blind') and all(seen['blind']))
+    check('H-BV every reviewer packet was blind (no band, author counts or rewrite notes), named its own folder, '
+          'and carried past-question anchors for every band', seen.get('blind') and all(seen['blind'])
+          and seen.get('anchored') and all(seen['anchored']))
     labs = {q: bc.verify_difficulty_label(cm[q], L, strict=True) for q in cm}
     check('H-BV every label verifies STRICTLY (LB2: measured_exact / measured_majority)', all(v[0] for v in labs.values()), labs)
     # S13-2L settled rule (the spec's _strict_ok) and S13-2G phase-3 advisory rule (bc.LB2_KINDS)
@@ -808,8 +833,13 @@ def _bv_handshake(check, ROOT, run_fence, W):
           'Difficulty after one rewrite: Q{_qb} delivered {_db.get(\'delivered\')} (slot {_db.get(\'requested\')})' in txt
           and 'Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)' in fdt)
     orc = open(os.path.join(W, 'Framework_MockTestOrchestrate.md'), encoding='utf-8').read()
+    wp = bsm.WORKER_PROMPT if hasattr(bsm, 'WORKER_PROMPT') else ''
+    check('H-BV worker prompt (bootstrap): GRADE RETURNED is in the closed message set and every checkpoint is the one command',
+          'GRADE RETURNED    (followed by one line per job folder' in wp and '--checkpoint make|restore|drop' in wp
+          and 'PLANNED HANDOVER' in wp)
     check('H-BV Orchestrate: GRADE_REQUEST, GRADE RETURNED and ROTATE are handled (O2-3 / O2-5 / O3-9), and Create hands over to O3-9',
-          all(s in orc for s in ('- GRADE_REQUEST (v1.3.0)', '- ROTATE (v1.3.0)', '`GRADE RETURNED` goes to', '## O3-9'))
+          all(s in orc for s in ('- GRADE_REQUEST (v1.3.0', '- ROTATE (v1.3.0)', '`GRADE RETURNED` goes to', '## O3-9',
+                                    '- PLANNED HANDOVER (v1.4.0', '## O2-9 — No framework question', 'ALL of them in ONE message'))
           and 'Framework_MockTestOrchestrate O3-9' in txt)
 
 
@@ -1425,7 +1455,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 211   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 213   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

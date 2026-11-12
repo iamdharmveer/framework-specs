@@ -1,22 +1,15 @@
-# Framework_MockTestCreate v6.1
-# v6.1 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (owner decisions D-01..D-08 + amendments A-C; one
-#   release, paired with blueprint_core v2.1, analyse_engine v1.6, audit_canonical v2.41, final_assembly v1.17,
-#   figure_types v1.4, Blueprint v1.65.0, ScopedBlueprint v1.15.0, MockTestAnalyse v2.62.0, PYQExplain v2.32,
-#   DeliveryFooter v1.46.0). Measured on CSIR Chemical Sciences Mock 01/02 (152 Inorganic + Physical items, all keys
-#   correct): subject counts per Part drifted, Match / multi-statement formats absent, 65 % of Part C graded Easy
-#   (real ~5 %), stacked 'respectively' items faked difficulty, within-paper template repeats, one answer leak,
-#   PYQs reused with a step removed, metal figures with software charges. Root cause: every guarantee of v6.0
-#   was scoped to organic items or was advice. NEW S0-NF makes them hold for EVERY item of EVERY exam: refill
-#   never crosses a subject (F-01); a format plan per subject x Part, measured not self-reported (F-03); the
-#   recipe check runs for every item on a subject-agnostic decision vocabulary (F-04); MIP-credited decisions
-#   and control C9 (F-05); text clone guard + series registry for text items (F-06); within-paper uniqueness and
-#   key-leak checks (F-07); taxonomy bound by manifest_hash + crosswalk at start (F-08); figure convention and
-#   stem-figure consistency for every structure, computed data-figure kinds (F-09); class mix (F-10); the band
-#   counts of each Part distributed per subject from the subject's own PYQ mix (F-11). NEW S0-BV (GAP-2026-11-11-
-#   BATCH-VERIFICATION): every question is measured by fresh graders and solvers INSIDE ITS OWN BATCH (S4-7 STEP A2,
-#   before delivery); one write with the graders' anchors; a grader split -> a third grader; at most ONE rewrite,
-#   then delivered at its measured band (disclosed); Final Assembly never re-authors for difficulty; ROTATE
-#   replaces any stop for room. Nothing new can stop a run. Entry v6.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.2
+# v6.2 — 2026-11-12 — GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED
+#   (paired with blueprint_core v2.2, final_assembly v1.18, bootstrap --checkpoint, Framework_MockTestOrchestrate
+#   v1.4.0). Measured on CSIR Chemical Sciences (release 2026.11.11, Organic paper, batch 1): Q1-Q9 graded one band
+#   below their slot and a fresh worker was told to restore the PRE-batch checkpoint. Causes: the exam ruler held
+#   ZERO anchors (none of the 358 past records carries blind grades; the ruler kept anchor REFS, never content) — the
+#   reviewers and the author compared against nothing; a planned handover never refreshed the checkpoint. NEW: the
+#   ruler stores anchor CONTENT (bc.ruler_anchor_records) and, with no blind grades yet, uses the bands PYQExplain
+#   measured — the scale the difficulty schedule was built from (disclosed, S0-BV BV-7); S4-7 STEP A2 writes 3
+#   reviewer jobs per batch (solve + grade + figure read of every question; 3 graders from the start: no tiebreak
+#   round); a planned handover refreshes the checkpoint (BV-8); the PYQ back-fill no longer holds Q1 (S0-OP-0).
+#   Entry v6.1 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -192,8 +185,9 @@
   list: excluded from every target pool, INCLUDED in the clone guard. Papers delivered before this release
   are never re-certified (their audits keep the legacy verdicts).
   (Executable block '# ── S0-OP-0 / S0-OP-1 (v6.0) ──' — runs INSIDE S3-2, right before the difficulty plan; see there.)
-  When OP_NEEDS_BACKFILL is not empty the orchestrator runs O-BACKFILL to completion BEFORE Q1 (the ruler needs
-  the two fresh blind grades of every usable record). O-BACKFILL writes each upgraded record into
+  v6.2: the back-fill runs BEFORE Q1 only when the exam config sets 'pyq_backfill_before_q1': true; otherwise Q1
+  starts at once and the ruler's anchors use the PYQExplain bands (S0-BV BV-7). When it is set and OP_NEEDS_BACKFILL
+  is not empty the orchestrator runs O-BACKFILL to completion BEFORE Q1. O-BACKFILL writes each upgraded record into
   /home/claude/{EXAM}_op_profile.json (saved per record, so a resumed run continues), then this block and the
   S0-OP-2 block are RE-RUN (bc.ruler_needs_recalibration sees the new graded_count and rebuilds EXAM_RULER from
   the exam's own anchors) — S3 placement and Q1 use only the rebuilt ruler. S13-4OP stores the upgraded records
@@ -590,8 +584,9 @@
          (Framework_MockTestOrchestrate O3-9).
     BV-2 ONE write per slot, made with the graders' own anchors (bc.bv_anchors -> bc.bv_author_packet) and the
          recipe ranges; the author runs bc.band_recipe_check_any before submitting.
-    BV-3 Two graders that disagree get ONE more fresh grader (bc.bv_decide 'tiebreak'); the majority decides.
-         A disagreement between graders is never a reason to rewrite.
+    BV-3 Three fresh graders grade every question from the start (v6.2; bc.BV_ROLES_GRADE); the majority — or the
+         median of three different bands — decides; a third grader is re-asked only when its result is missing and
+         the two others disagree. A disagreement between graders is never a reason to rewrite.
     BV-4 At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band,
          the recipe fails at the slot, or the key is disputed (author + 2 blind solvers not unanimous, or a
          decisive assumption). The rewrite carries the graders' reasons. After it the question is delivered at
@@ -603,6 +598,17 @@
          reviewer's key disagreement, an unproven figure.
     BV-6 Room is never a stop: a worker short of room saves its state and reports ROTATE; a fresh worker
          continues the same message (Framework_MockTestOrchestrate O2-3). "WORKER-CAPACITY" is not a stop.
+    BV-7 (v6.2) The anchors the author and the reviewers compare against are REAL past questions of this exam with
+         their content (bc.bv_anchors over EXAM_RULER['anchor_records']; same subtopic first). With no blind grades
+         yet the ruler uses the bands PYQExplain measured — the same scale the blueprint's difficulty schedule was
+         built from — and the paper discloses it (AMBER "Difficulty anchors: ..."); blind grades replace it as soon
+         as they exist. A reviewer job is never written with an empty anchor set while the exam has past records.
+    BV-8 (v6.2) A planned handover (GRADE_REQUEST, ROTATE) refreshes the CHECKPOINT first
+         (`bootstrap.py --checkpoint make`, Framework_MockTestOrchestrate O3-3): the worker that continues keeps
+         every written question and grade. Only a worker that FAILED retention has its work since the last make
+         undone.
+    BV-9 (v6.2) Speed: ONE round of at most 3 fresh reviewers per batch (each solves, grades and reads the figures
+         of every question; started together, Orchestrate O2-3), a second round only for rewritten questions.
   A paper begun under an earlier release keeps its recorded state; S0-BV applies to every batch written from
   this release on (S4-12 migration).
 
@@ -2064,6 +2070,12 @@ action: the same paper, the same two files, the same "continue".
       _op_raise = True
   _op_bf['records'] = OP_NEEDS_BACKFILL
   json.dump(_op_bf, open(_op_bf_p, 'w', encoding='utf-8'), indent=2)
+  # v6.2 (GAP-2026-11-12-BATCH-SPEED): the back-fill no longer holds Q1 — the ruler's anchors use the PYQExplain
+  # bands until blind grades exist (S0-BV BV-7). It runs before Q1 only when the exam config asks for it.
+  if _op_raise and OP_EXAM_CONFIG.get('pyq_backfill_before_q1') is not True:
+      print(f"S0-OP-0: {len(OP_NEEDS_BACKFILL)} PYQ record(s) without blind grades — Q1 starts now; the ruler uses the "
+            f"PYQExplain bands as anchors (BV-7). Set exam_config 'pyq_backfill_before_q1': true to back-fill first.")
+      _op_raise = False
   if _op_raise:
       raise RuntimeError(f"BACKFILL [HS:LADDER] (S0-OP-0): {len(OP_NEEDS_BACKFILL)} PYQ record(s) need the schema-3 "
                          f"back-fill — run O-BACKFILL (Framework_PYQExplain §13A-3B, fresh workers / sub-agents) on "
@@ -2113,7 +2125,8 @@ action: the same paper, the same two files, the same "continue".
                                              manifest=globals().get('manifest'))     # v6.1: recipe keyed by manifest section
       EXAM_RULER['paper_count'] = len(OP_PROFILE.get('papers') or {})
       EXAM_RULER['graded_count'] = _op_graded
-  print(f"S0-OP-2: ruler {EXAM_RULER['ruler_version']} ({EXAM_RULER['basis']}; {_op_why}); anchors "
+  print(f"S0-OP-2: ruler {EXAM_RULER['ruler_version']} ({EXAM_RULER['basis']}; anchors from "
+        f"{EXAM_RULER.get('anchor_basis', 'blind_grades')}; {_op_why}); anchors "
         + ', '.join(f"{b} {len(EXAM_RULER['anchors'].get(b) or [])}" for b in _op_labels)
         + f"; past distribution {EXAM_RULER['past_distribution']} (printed apart from the requested schedule).")
   ```
@@ -4826,19 +4839,21 @@ action: the same paper, the same two files, the same "continue".
            resume-safe (final_assembly.bv_batch_step, the I/O shell over Cluster BV): it collects every returned job, decides every question (bc.bv_apply: pass, tiebreak,
            the ONE rewrite, settle) and writes the jobs still needed. Run it after STEP A, and again after
            each GRADE RETURNED and after each rewrite, until it prints `STEP A2: DONE`:
-             JOBS OUT  -> WORKER MODE: report GRADE_REQUEST with --review-parts = the printed job folders and
-                          end the turn (Framework_MockTestOrchestrate O3-9); on `GRADE RETURNED` append its
-                          lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/returned.txt and run the block
-                          again. DIRECT MODE: start one fresh sub-agent per job folder (prompt = its
-                          JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>` to returned.txt, run
-                          the block again; no sub-agent tool -> NO-MODEL (S0-OP-10).
+             JOBS OUT  -> (v6.2: at most 3 reviewer folders) WORKER MODE: prove retention `--when handover`, run
+                          `bootstrap.py --checkpoint make` (BV-8), report GRADE_REQUEST with --review-parts = the
+                          printed job folders and end the turn (Framework_MockTestOrchestrate O3-9); on
+                          `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/returned.txt
+                          and run the block again. DIRECT MODE: start one fresh sub-agent per job folder, ALL in one
+                          message (prompt = its JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>` to
+                          returned.txt, run the block again; no sub-agent tool -> NO-MODEL (S0-OP-10).
              REWRITE q -> rewrite ONLY those questions, ONCE, in their slots (same subtopic, slot band, qtype),
                           from concept_map[q]['bv']['rewrite_brief'] (the graders' own reasons, the measured band,
                           a disputed key, a figure read back wrongly -> redraw it) and the SAME anchors
                           (bc.bv_author_packet); replace the question block
                           in the cumulative docx and its sidecar entry (write_q_to_sidecar); then the block again
                           — the new text is graded as attempt 2 automatically.
-           A result is counted only from a job folder whose returned line starts with GRADE DONE / SOLVE DONE / VISION DONE
+           A result is counted only from a job folder whose returned line starts with REVIEW DONE (or, for a job of
+           release 2026.11.11, GRADE / SOLVE / VISION DONE)
            (context 'fresh'); a grade made in this session is never written to a result.json. A question still
            short of two grades after bc.BV_MAX_ROUNDS rounds is NO-MODEL (saved, resumed). Never a stop
            otherwise; at most ONE rewrite per question (bc.C_WRITE_ATTEMPTS).
@@ -12467,7 +12482,10 @@ if AUDIT_AVAILABLE:
                                    for _qb, _db in sorted((_ds_l.get('bv_disclosed') or {}).items(), key=lambda kv: int(kv[0]))
                                    if isinstance(_db, dict)] + [
                                    # v6.1 S0-NF-9: every disclosed composition gate (DeliveryFooter §LADDER-NF)
-                                   f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_l.get('nf_disclosed') or {}).items())])
+                                   f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_l.get('nf_disclosed') or {}).items())] + (
+                                   # v6.2 S0-BV BV-7: the anchor basis when the exam's past records carry no blind grades
+                                   ["Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)"]
+                                   if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band' else []))
   _ds_l['schedule'] = {'requested': _rq_l, 'applied': _sa_l}
   _ds_l['allocation_swaps'] = list(_bs_l.get('allocation_swaps') or [])
   if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy CHECK 3c writes from
@@ -14180,7 +14198,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.1
+# END OF Framework_MockTestCreate v6.2
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

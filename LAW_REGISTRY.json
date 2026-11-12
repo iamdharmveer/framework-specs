@@ -881,6 +881,63 @@
    "preconditions": [
     "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
    ]
+  },
+  "LAW-BV-7": {
+   "gap": "GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.2 S0-BV BV-7..9; Framework_MockTestOrchestrate.md v1.4.0 O2-3 / O2-9 / O3-3 / O3-9; blueprint_core v2.2; final_assembly v1.18; bootstrap --checkpoint",
+   "requires": "The author and every reviewer compare against REAL past questions of the exam with their content (blueprint_core.bv_anchors over EXAM_RULER['anchor_records'], same subtopic first); with no blind grades yet the ruler uses the bands PYQExplain measured (the scale the difficulty schedule was built from), disclosed as AMBER; a reviewer job is never written with an empty anchor set while the exam has past records.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-8": {
+   "gap": "GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.2 S0-BV BV-7..9; Framework_MockTestOrchestrate.md v1.4.0 O2-3 / O2-9 / O3-3 / O3-9; blueprint_core v2.2; final_assembly v1.18; bootstrap --checkpoint",
+   "requires": "A planned handover (GRADE_REQUEST, ROTATE) refreshes the CHECKPOINT first (bootstrap --checkpoint make; Orchestrate O3-3 PLANNED HANDOVER) so the worker that continues keeps every written question and grade; only a worker that failed retention has its work since the last make undone.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-9": {
+   "gap": "GAP-2026-11-12-RULER-ANCHORS + GAP-2026-11-12-HANDOVER-CHECKPOINT + GAP-2026-11-12-BATCH-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.2 S0-BV BV-7..9; Framework_MockTestOrchestrate.md v1.4.0 O2-3 / O2-9 / O3-3 / O3-9; blueprint_core v2.2; final_assembly v1.18; bootstrap --checkpoint",
+   "requires": "One round of at most 3 fresh reviewers per batch (blueprint_core.bv_reviewer_jobs: each solves, grades and reads the figures of every question; three graders from the start, no tiebreak round), started together in one message (Orchestrate O2-3); a second round only for rewritten questions; the orchestrator never asks the user a framework question during a run (O2-9).",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

@@ -154,7 +154,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '2.1'
+BLUEPRINT_CORE_VERSION = '2.2'
 
 __all__ = [
     "AllocationError",
@@ -725,7 +725,8 @@ __all__ = [
     "nf_item_mip",
     "BV_RULE", "C_WRITE_ATTEMPTS", "C_TIEBREAK_GRADERS", "BV_BRIEF_GRADER", "BV_BRIEF_SOLVER", "BV_MAX_ROUNDS",
     "bv_majority_band", "band_majority", "bv_decide", "bv_set_label", "bv_verify_majority", "bv_settled",
-    "bv_jobs", "bv_read_result", "bv_author_packet", "bv_batch_status", "bv_anchors", "bv_recipe_verdict", "bv_apply", "NF_DISCLOSE_GATES",
+    "bv_jobs", "bv_read_result", "bv_author_packet", "bv_batch_status", "bv_anchors", "bv_recipe_verdict", "bv_apply", "NF_DISCLOSE_GATES", "BV_REVIEWERS", "BV_BRIEF_REVIEWER", "bv_band_guide",
+    "bv_reviewer_jobs", "bv_split_reviewer_result", "ruler_anchor_records", "RULER_ANCHOR_FIELDS",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
 ]
@@ -7406,9 +7407,10 @@ def _op_self_test(check):
           and is_organic_item({'named_concepts': ['Tanabe-Sugano'], 'stem': 'bands of [CrF6]3- complex'})[0] is False)
     check('op_G08_recal_empty_and_graded',
           ruler_needs_recalibration({'anchors': {'Easy': [], 'Medium': [], 'Hard': []}})[0] is True
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'graded_count': 10}, graded_count=10)[0] is False
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'graded_count': 10}, graded_count=40)[0] is True
-          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}}, graded_count=0)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'graded_count': 10}, graded_count=10)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}, 'graded_count': 10}, graded_count=40)[0] is True
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}, 'anchor_records': {}}, graded_count=0)[0] is False
+          and ruler_needs_recalibration({'anchors': {'Easy': ['a']}}, graded_count=0)[0] is True     # v2.2: no anchor content
           and ruler_needs_recalibration(None)[0] is True)
     check('op_G04_exam_level_words', exam_level({'level': 'Post Graduation', 'exam_name': 'CSIR NET Chemical Sciences'})
           == ('research', 'stated+name') and exam_level({'level': 'Post Graduation', 'exam_name': 'Some MSc test'})
@@ -7997,9 +7999,9 @@ def _bv_self_test(check):
     check('bv_recipe_required', not okr)
     jobs = bv_jobs(7, {'stem_text': 's', 'option_texts': ['a', 'b'], 'difficulty': 'Hard', 'difficulty_obs': {'x': 1}},
                    {'Hard': [{'stem': 'p', 'solution': 'hidden'}]}, L)
-    check('bv_jobs_blind', [j['role'] for j in jobs] == ['grader_1', 'grader_2', 'solver_1', 'solver_2']
+    check('bv_jobs_blind', [j['role'] for j in jobs] == ['grader_1', 'grader_2', 'grader_3', 'solver_1', 'solver_2']
           and all(j['sha256'] for j in jobs) and 'hidden' not in str(jobs)
-          and 'difficulty_obs' not in str(jobs[0]['packet'].get('item')) and 'Hard' not in str(jobs[2]['packet']))
+          and 'difficulty_obs' not in str(jobs[0]['packet'].get('item')) and 'Hard' not in str(jobs[3]['packet']))
     jl = bv_jobs(8, {'stem_text': 's', 'option_texts': ['a'], 'decisions_author': ['x'], 'bv': {'rewrite_brief': {'slot': 'Hard'}},
                      'grades': {'grader_1': 'Hard'}, 'key_votes': {'author': 2}, 'nf_findings': ['f'], 'grader_meta': {}}, {}, L)
     check('bv_jobs_allow_list', all(set(j['packet'].get('item', {})) <= set(BV_GRADER_FIELDS) for j in jl if j['role'].startswith('grader'))
@@ -8020,7 +8022,7 @@ def _bv_self_test(check):
     _sx = lambda ans: {'result': {'answer': ans, 'assumptions': []}, 'sha256': 's', 'context': 'fresh'}
     _it = {'stem_text': 'Q', 'option_texts': ['a', 'b', 'c', 'd'], 'subject': 'X'}
     r1 = bv_apply(_it, 'Hard', L, {}, 2, results={})
-    check('bv_apply_first_jobs', r1['action'] == 'grade' and r1['roles'] == ['grader_1', 'grader_2', 'solver_1', 'solver_2'])
+    check('bv_apply_first_jobs', r1['action'] == 'grade' and r1['roles'] == ['grader_1', 'grader_2', 'grader_3', 'solver_1', 'solver_2'])
     r2 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2),
                                                           'solver_1': _sx(2), 'solver_2': _sx(2)})
     check('bv_apply_split_tiebreak', r2['action'] == 'tiebreak' and r2['roles'] == ['grader_3'])
@@ -8091,6 +8093,47 @@ def _bv_self_test(check):
           and v3['action'] == 'settled' and v3['entry']['figures'][0]['vision_ok'] is True
           and _vj[0]['packet'] == {'figures': ['/x/q9_problem.png']} and "'CC'" not in str(_vj[0]['packet'])
           and 'figure_dicts' not in str(_vj[1]['packet']))
+    # v2.2 GAP-2026-11-12-RULER-ANCHORS: a production-shaped profile (no blind grades, only the PYQExplain band)
+    _pf = {'papers': {'P': {'questions': {
+        '1': {'subtopic_id': 'oc.a.x', 'band': 'Hard', 'stem_snippet': 'hard same', 'inferential_steps': 4, 'qtype': 'mcq'},
+        '2': {'subtopic_id': 'oc.b.y', 'band': 'Hard', 'stem_snippet': 'hard other', 'inferential_steps': 5},
+        '3': {'subtopic_id': 'oc.a.z', 'band': 'Medium', 'stem_snippet': 'med topic', 'inferential_steps': 2},
+        '4': {'subtopic_id': 'pc.q.r', 'band': 'Easy', 'stem_snippet': 'easy far', 'inferential_steps': 1},
+        '5': {'subtopic_id': 'oc.a.x', 'band': 'Easy', 'stem_snippet': 'partial', 'content_confidence': 'partial'}}}}}
+    _rf = build_difficulty_ruler(_pf, L, 'v', 'm', 'p', 'd')
+    check('bv_ruler_explain_band_fallback_with_content', _rf['anchor_basis'] == 'pyq_explain_band'
+          and [len(_rf['anchor_records'][b]) for b in L] == [1, 1, 2] and _rf['anchor_records']['Hard'][0].get('stem_snippet')
+          and 'partial' not in str(_rf['anchor_records']) and _rf['past_distribution']['Hard'] == 0.5)
+    _ag = {'papers': {'P': {'questions': {'1': dict(_pf['papers']['P']['questions']['1'], blind_grade_1='Hard', blind_grade_2='Hard',
+                                                    has_figure=False)}}}}
+    check('bv_ruler_blind_grades_win', build_difficulty_ruler(_ag, L, 'v', 'm', 'p', 'd')['anchor_basis'] == 'blind_grades')
+    _an2 = bv_anchors({}, _rf, 'oc.a.x', 'mcq', L, k=2)
+    check('bv_anchors_nearest_first_content', [r['stem_snippet'] for r in _an2['Hard']] == ['hard same', 'hard other']
+          and _an2['Medium'][0]['stem_snippet'] == 'med topic' and set(_an2) == set(L))
+    _bg = bv_band_guide(_rf, L)
+    check('bv_band_guide', _bg['Hard']['median_inferential_steps'] == 5 and _bg['Easy']['n_anchors'] == 1)
+    _ents = {'1': {'stem_text': 's1', 'option_texts': ['a', 'b'], 'difficulty': 'Hard', 'decisions_author': ['x'],
+                   'figure_dicts': [{'file': '/w/q1_problem.png', 'smiles': 'CC'}]},
+             '2': {'stem_text': 's2', 'option_texts': ['c', 'd']}}
+    _rj = bv_reviewer_jobs({'1': ['grader_1', 'grader_2', 'grader_3', 'solver_1', 'solver_2', 'vision_1_1'], '2': ['grader_3']},
+                           _ents, {'1': _an2, '2': {}}, L, _bg)
+    check('bv_reviewer_jobs_three_for_the_batch', [j['role'] for j in _rj] == ['reviewer_1', 'reviewer_2', 'reviewer_3']
+          and _rj[0]['qs'] == ['1'] and _rj[2]['qs'] == ['1', '2'] and _rj[0]['packet']['items'][0]['figures_to_read'] == ['/w/q1_problem.png']
+          and _rj[1]['packet']['items'][0]['figures_to_read'] == [] and "'Hard'" not in str([r['item'] for j in _rj for r in j['packet']['items']])
+          and 'decisions_author' not in str(_rj) and "'CC'" not in str(_rj) and all(j['sha256'] for j in _rj))
+    _sp = bv_split_reviewer_result(1, {'items': {'1': {'band': 'hard', 'decisions': 3, 'answer': 2, 'assumptions': [],
+                                                       'figure_reads': [{'file': 'q1_problem.png', 'smiles': 'CC'}]},
+                                                 '9': {'band': 'Easy', 'answer': 1}}}, L, ['1'], 'sha', {'1': _ents['1']['figure_dicts']})
+    _sp3 = bv_split_reviewer_result(3, {'items': {'1': {'band': 'Medium', 'answer': 2}}}, L, ['1'], 'sha', {})
+    check('bv_split_reviewer_result', set(_sp) == {'1'} and set(_sp['1']) == {'grader_1', 'solver_1', 'vision_1_1'}
+          and _sp['1']['grader_1']['result']['band'] == 'Hard' and _sp['1']['vision_1_1']['context'] == 'fresh'
+          and set(_sp3['1']) == {'grader_3'})
+    _rA = bv_apply(_it, 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2), 'solver_1': _sx(2),
+                                                     'solver_2': _sx(2)}, asked={'grader_3': 2})
+    check('bv_asked_twice_not_reasked', _rA['action'] == 'tiebreak' and _rA['roles'] == [])
+    _rB = bv_apply(_it, 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2), 'grader_3': _fx('Hard', 3),
+                                                     'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('bv_three_graders_one_round', _rB['action'] == 'settled' and _rB['band'] == 'Hard')
     check('bv_one_write_constants', C_K_CANDIDATES == 1 and C_K_AFTER_MISS == 1 and C_WRITE_ATTEMPTS == 2
           and 'measured_majority' in LB2_KINDS)
 
@@ -11743,7 +11786,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.1')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.2')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -22337,7 +22380,7 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.11'                    # qindex_cert.framework_release stamped by final_assembly (v1.17: release 2026.11.11)
+OP_RELEASE = '2026.11.12'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -23790,6 +23833,33 @@ def ruler_graded_count(records, labels=None):
                if _dl_band(r.get('blind_grade_1'), labs) is not None and _dl_band(r.get('blind_grade_2'), labs) is not None)
 
 
+RULER_ANCHOR_FIELDS = ('section', 'subtopic_id', 'qtype', 'ask_format', 'ask_type', 'figural_ask_type', 'stem_snippet',
+                       'inferential_steps', 'steps', 'concept', 'named_concepts', 'reagents_seen', 'class',
+                       'representations', 'distractor_mechanisms', 'decisions', 'mip', 'organic')
+RULER_ANCHORS_PER_SUBTOPIC = 3
+RULER_ANCHORS_PER_BAND = 150
+
+
+def ruler_anchor_records(rows):
+    """v2.2 — the CONTENT of a band's anchors, stored IN the ruler (a ref alone reached no grader): every anchor's
+    comparison fields (RULER_ANCHOR_FIELDS) plus its ref, at most RULER_ANCHORS_PER_SUBTOPIC per subtopic and
+    RULER_ANCHORS_PER_BAND per band (subtopics interleaved, so every subtopic is represented). Never raises."""
+    by = {}
+    for r in (rows if isinstance(rows, (list, tuple)) else []):
+        if isinstance(r, dict):
+            by.setdefault(str(r.get('subtopic_id') or ''), []).append(r)
+    out, i = [], 0
+    while len(out) < RULER_ANCHORS_PER_BAND and i < RULER_ANCHORS_PER_SUBTOPIC:
+        for sid in sorted(by):
+            if i < len(by[sid]) and len(out) < RULER_ANCHORS_PER_BAND:
+                r = by[sid][i]
+                x = {k: r.get(k) for k in RULER_ANCHOR_FIELDS if r.get(k) not in (None, '', [])}
+                x['ref'] = f"{r.get('exam_code') or ''}{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"
+                out.append(x)
+        i += 1
+    return out
+
+
 def build_difficulty_ruler(records, labels, version, model_id, prompt_version, date, library=None, level=None,
                            manifest=None):
     """F-08.1 / F-08.3 — the exam's ruler from its verified past items graded by C_GRADERS fresh blind
@@ -23814,6 +23884,23 @@ def build_difficulty_ruler(records, labels, version, model_id, prompt_version, d
             qt = str(r.get('qtype') or 'mcq').lower()
             qtb.setdefault(qt, set()).add(g1)
     borrowed, basis_parts = {}, set()
+    # v2.2 (GAP-2026-11-12-RULER-ANCHORS): an exam whose past records carry NO blind grades yet (every profile
+    # written before 2026.11.10) had a ruler with ZERO anchors — graders and authors compared against nothing.
+    # Fallback: the band PYQExplain measured for each past record — the SAME scale the paper's difficulty schedule
+    # was built from — from every record whose content is not partial (no record-status gate: the anchor is a
+    # comparison example, not a target). Blind grades win as soon as any exist. Disclosed (basis).
+    explain_fb = False
+    if not any(anchors[b] for b in labs) and not any(graded[b] for b in labs):
+        for _pk, _qk, r in _op_iter_records(records):
+            b = _dl_band(r.get('band'), labs)
+            if b is None or str(r.get('content_confidence') or 'full').lower() == 'partial':
+                continue
+            x = dict(r)
+            x['_paper'], x['_q'] = _pk, _qk
+            anchors[b].append(x)
+            graded[b].append(x)
+            qtb.setdefault(str(r.get('qtype') or 'mcq').lower(), set()).add(b)
+        explain_fb = any(anchors[b] for b in labs)
     lib_recs = [x for x in ((library or {}).get('records') or []) if isinstance(x, dict)
                 and (level is None or x.get('level') == level)] if isinstance(library, dict) else []
     for b in labs:
@@ -23861,7 +23948,10 @@ def build_difficulty_ruler(records, labels, version, model_id, prompt_version, d
     tot = sum(len(v) for v in graded.values())
     past = {b: round(len(graded[b]) / tot, 4) if tot else 0.0 for b in labs}
     basis = 'exam' if basis_parts == {'exam'} else ('library_based' if 'exam' not in basis_parts else 'mixed')
-    return {'ruler_version': str(version), 'grader_prompt_version': str(prompt_version), 'model_id': str(model_id),
+    if explain_fb:
+        basis = 'pyq_explain_band' if basis == 'exam' else basis + '+pyq_explain_band'
+    return {'ruler_version': str(version), 'anchor_basis': 'pyq_explain_band' if explain_fb else 'blind_grades',
+            'anchor_records': {b: ruler_anchor_records(anchors[b]) for b in labs}, 'grader_prompt_version': str(prompt_version), 'model_id': str(model_id),
             'date': str(date), 'labels': list(labs),
             'anchors': {b: [f"{r.get('exam_code') or ''}{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"
                             for r in anchors[b]] for b in labs},
@@ -23882,6 +23972,8 @@ def ruler_needs_recalibration(ruler, agreement=None, model_id=None, paper_count=
         return True, 'no ruler'
     if not any(isinstance(v, list) and v for v in an.values()):
         return True, 'ruler has no anchors yet'
+    if not isinstance(r.get('anchor_records'), dict):
+        return True, 'ruler predates anchor content (release 2026.11.12)'
     if model_id is not None and str(model_id) != str(r.get('model_id')):
         return True, f"grader model changed ({r.get('model_id')} -> {model_id})"
     if isinstance(agreement, (int, float)) and agreement < C_RULER_AGREE:
@@ -26082,7 +26174,10 @@ LADDER_ENTRY_RUNG.update({'A-AXIS2': 'R3', 'A-ALLOC': 'R3', 'A-OPTPART': 'R2o', 
 BV_RULE = 'BV1'
 C_WRITE_ATTEMPTS = 2                 # the first write + at most one rewrite (owner 2026-11-11)
 C_TIEBREAK_GRADERS = 1               # a 2-grader split is settled by ONE more fresh grader
-BV_ROLES_GRADE = ('grader_1', 'grader_2')
+BV_ROLES_GRADE = ('grader_1', 'grader_2', 'grader_3')   # v2.2: three graders from the start — no tiebreak round
+BV_REVIEWERS = 3                     # v2.2: ONE fresh reviewer context per (batch, k) solves + grades + reads the
+                                     # figures of EVERY question of the batch (40 jobs -> 3); reviewer k carries
+                                     # grader_k, solver_k (k <= 2) and vision_<i>_k (k <= reads needed)
 # the measured COMPOSITION gates whose residual shortfall is DISCLOSED at Final Assembly, never re-authored there
 # (Create S13-2F, BV-5): allocation, format parity, MIP share, class mix, band mix by subject, and a within-paper
 # repeat / key leak that survived the in-batch rewrite. A-STEMFIG (a figure contradicting its stem) stays a repair.
@@ -26102,6 +26197,23 @@ BV_BRIEF_GRADER = (
     "\"computation_generic\": <true|false>, \"concept\": <a short label of the concept tested>}. Open and look at "
     "every figure file named in item.figure_files (they are in <JOB_DIR>). Reply with ONE "
     "line: \"GRADE DONE\" or \"GRADE FAILED <reason>\".")
+BV_BRIEF_REVIEWER = (
+    "You are a FRESH BLIND REVIEWER of exam questions. You did not write them and you are not told the level any of "
+    "them was written for. Read ONLY <JOB_DIR>/packet.json. It holds 'items' (each: 'q', 'item' — the question as a "
+    "candidate sees it, its figure files are in <JOB_DIR>: open and look at each — 'exemplars' — real past questions "
+    "of this exam grouped by difficulty band, the comparison scale for THIS item — and 'figures_to_read'), 'labels' "
+    "and 'band_guide' (what the exam's past questions of each band need). For EVERY item, on its own (never rank "
+    "the items against each other): (1) solve it as a candidate; (2) decide which band's exemplars it most "
+    "resembles in what a competent candidate must know and do — count the decisions its solution needs (recall of "
+    "an exam-level prerequisite is not a decision); (3) for each file in its 'figures_to_read', transcribe the "
+    "structure it shows as ONE SMILES with stereochemistry exactly as drawn. Do not open any other file. Write "
+    "<JOB_DIR>/result.json as {\"items\": {\"<q>\": {\"answer\": <option number 1-based, a list for "
+    "multiple-select, or the value>, \"confidence\": <high|medium|low>, \"assumptions\": [{\"about\": "
+    "<stereo|conditions|data|wording|other>, \"text\": <...>, \"changes_answer\": <true|false>}], \"band\": <one "
+    "of labels>, \"decisions\": <int>, \"rationale\": <one sentence naming the exemplar it matches>, \"class\": "
+    "<recall|conceptual|computation|derivational|figural|structural|other>, \"computation_generic\": <true|false>, "
+    "\"concept\": <short label>, \"figure_reads\": [{\"file\": <name>, \"smiles\": <SMILES>, \"stereo_mode\": "
+    "<abs|rel|rac|none>}]}}}. Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
 BV_BRIEF_VISION = (
     "You are a FRESH VISION READER. You never saw how this figure was made. Read ONLY <JOB_DIR>/packet.json: "
     "'figures' names ONE image file in <JOB_DIR> — open it and look at it. Transcribe the chemical structure it shows "
@@ -26333,12 +26445,12 @@ def bv_read_result(role, result, labels=None):
 
 
 def bv_anchors(bank, ruler, subtopic_id, qtype='mcq', labels=None, k=2):
-    """THE anchors of one item — the SAME dict goes into the author packet (bv_author_packet) and every grader
-    packet (bv_jobs), so the author writes against exactly what the graders compare with. Per band: the exam's
-    exemplar bank cascade (exemplars_for: subtopic -> topic -> section; content-carrying), else the exam ruler's
-    anchors closest to the item (same subtopic, then the same id prefix, then any), k rows per band, content
-    fields only (stem, options, figure content record). {} when neither exists (graders then use the band recipe
-    in words, S0-OP-5 C5). Never raises."""
+    """THE anchors of one item — the SAME dict goes into the author packet (bv_author_packet) and every reviewer
+    packet, so the author writes against exactly what the reviewers compare with. Per band: the exam's exemplar
+    bank cascade (exemplars_for), else the ruler's anchor CONTENT (ruler['anchor_records'], v2.2) closest to the
+    item — same subtopic, then same topic (first two id segments), then same section (first segment), then any;
+    the same qtype first within each level — k rows per band, content fields only. {} only when the exam has no
+    past record at all. Never raises."""
     labs = _dl_labels(labels)
     out = {}
     try:
@@ -26346,22 +26458,27 @@ def bv_anchors(bank, ruler, subtopic_id, qtype='mcq', labels=None, k=2):
     except Exception:                                   # noqa: BLE001
         ex = {'by_band': {}}
     sid = str(subtopic_id or '')
-    anch = (ruler or {}).get('anchors') if isinstance((ruler or {}).get('anchors'), dict) else {}
+    seg = sid.split('.')
+    ru = ruler if isinstance(ruler, dict) else {}
+    ar = ru.get('anchor_records') if isinstance(ru.get('anchor_records'), dict) else {}
+    legacy = ru.get('anchors') if isinstance(ru.get('anchors'), dict) else {}
+    qt = str(qtype or 'mcq').lower()
+
+    def _rank(r):
+        rs = str(r.get('subtopic_id') or '').split('.')
+        lvl = (0 if rs == seg else 1 if len(seg) >= 2 and rs[:2] == seg[:2] else 2 if seg and rs[:1] == seg[:1] else 3)
+        return (lvl, 0 if str(r.get('qtype') or 'mcq').lower() == qt else 1)
     for b in labs:
         rows = list((ex.get('by_band') or {}).get(b) or [])[:k]
         if not rows:
-            cand = [r for r in (anch.get(b) or []) if isinstance(r, dict)]
-            def _rank(r):
-                rs = str(r.get('subtopic_id') or '')
-                return (0 if rs == sid else 1 if sid and rs.split('.')[0] == sid.split('.')[0] else 2)
+            cand = [r for r in (ar.get(b) or []) if isinstance(r, dict)] or \
+                   [r for r in (legacy.get(b) or []) if isinstance(r, dict)]
             rows = sorted(cand, key=_rank)[:k]
-        keep = ('stem', 'stem_text', 'stem_snippet', 'options', 'option_texts', 'content_record', 'qtype',
-                'subtopic_id', 'ask_format', 'figure_content')
-        rows = [{f: r.get(f) for f in keep if r.get(f) is not None} for r in rows]
+            rows = [{f: r.get(f) for f in RULER_ANCHOR_FIELDS + ('stem', 'stem_text', 'options', 'option_texts', 'content_record')
+                     if r.get(f) not in (None, '', [])} for r in rows]
         if rows:
             out[b] = rows
     return out
-
 
 def bv_recipe_verdict(item, ruler, band, labels=None):
     """(ok, status) — the C4 recipe verdict of an item AT `band` (band_recipe_check_any over the ruler's
@@ -26375,7 +26492,7 @@ def bv_recipe_verdict(item, ruler, band, labels=None):
 
 
 def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', tolerance=None, results=None,
-             findings=None, vision_compare=None, figure_proof=None):
+             findings=None, vision_compare=None, figure_proof=None, asked=None):
     """ONE step of the in-batch verification of ONE item (S4-7 STEP A2). entry: its concept_map entry (must carry
     'subject' for the recipe); results: {role: {'result': <bv_read_result>, 'sha256', 'context'}} returned since
     the last step. Keeps entry['bv'] = {'attempt', 'content_sha', 'grades', 'packets', 'solvers', 'meta',
@@ -26503,12 +26620,16 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         return out0
     d = bv_decide(controls, tgt, labs, bvs['attempt'], kv)
     roles = []
+    _ask = asked if isinstance(asked, dict) else {}
     if d['action'] == 'grade':
         roles = [r for r in BV_ROLES_GRADE if r not in g] + need_solve
     elif d['action'] == 'tiebreak':
-        roles = ['grader_3'] + need_solve
+        roles = [r for r in BV_ROLES_GRADE if r not in g] + need_solve
     elif need_solve and d['action'] in ('pass', 'settle', 'rewrite'):
         roles, d = need_solve, {'action': 'grade', 'band': None, 'why': 'blind solvers outstanding'}
+    # a role already asked twice without a usable result is not asked again (S4-7 STEP A2 carries the question to
+    # S13-2L when nothing can be decided — never a loop)
+    roles = [r for r in roles if _qf_int(_ask.get(r), 0) < 2]
     out = {'action': d['action'], 'roles': roles, 'band': d.get('band'), 'why': d.get('why')}
     if d['action'] in ('pass', 'settle'):
         dlv = tgt if d['action'] == 'pass' else d['band']
@@ -26539,6 +26660,85 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         e['key_votes'] = dict(kv or {}, content_sha=sha)
     e['bv'] = bvs
     out['entry'] = e
+    return out
+
+
+def bv_band_guide(ruler, labels=None):
+    """What the exam's past questions of each band need, for the author and every reviewer — the SAME scale: per
+    band the decision range of the recipe (None while the recipe is dormant) and the median inferential steps of the
+    band's anchors (the count PYQExplain measured). Never raises."""
+    labs = _dl_labels(labels)
+    ru = ruler if isinstance(ruler, dict) else {}
+    rec = ru.get('recipe') if isinstance(ru.get('recipe'), dict) else {}
+    ar = ru.get('anchor_records') if isinstance(ru.get('anchor_records'), dict) else {}
+    out = {}
+    for b in labs:
+        st = sorted(_qf_int(r.get('inferential_steps'), 0) for r in (ar.get(b) or []) if isinstance(r, dict)
+                    and isinstance(r.get('inferential_steps'), int) and not isinstance(r.get('inferential_steps'), bool))
+        out[b] = {'decisions': (rec.get(b) or {}).get('decisions'), 'median_inferential_steps': st[len(st) // 2] if st else None,
+                  'n_anchors': len(ar.get(b) or [])}
+    return out
+
+
+def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None):
+    """v2.2 — the fresh reviewer jobs of ONE round of a batch: needs {q: [roles bv_apply still needs]} -> at most
+    BV_REVIEWERS jobs [{'role': 'reviewer_k', 'qs', 'packet', 'sha256', 'brief'}]; reviewer k gets every question
+    that still needs grader_k / solver_k / vision_<i>_k, with that question's allow-listed item, its own anchors
+    and the figure files reviewer k must transcribe. Never raises."""
+    out = []
+    for k in range(1, BV_REVIEWERS + 1):
+        rows = []
+        for q in sorted((needs or {}), key=lambda x: _qf_int(x, 0)):
+            rl = [str(r) for r in (needs.get(q) or [])]
+            if not any(r.endswith(f'_{k}') for r in rl):
+                continue
+            src = (entries or {}).get(q) if isinstance((entries or {}).get(q), dict) else {}
+            it = {f: src[f] for f in BV_GRADER_FIELDS if src.get(f) is not None}
+            fds = [f for f in (src.get('figure_dicts') or []) if isinstance(f, dict)]
+            reads = [fds[int(r.split('_')[1]) - 1].get('file') for r in rl if r.startswith('vision_') and r.endswith(f'_{k}')
+                     and r.split('_')[1].isdigit() and 0 < int(r.split('_')[1]) <= len(fds)]
+            rows.append({'q': str(q), 'item': it, 'exemplars': (anchors_by_q or {}).get(q) or {},
+                         'figures_to_read': [x for x in reads if x]})
+        if not rows:
+            continue
+        pk = {'items': rows, 'labels': list(_dl_labels(labels)), 'band_guide': band_guide or {}}
+        out.append({'role': f'reviewer_{k}', 'qs': [r['q'] for r in rows], 'packet': pk, 'sha256': _bv_sha(pk),
+                    'brief': BV_BRIEF_REVIEWER})
+    return out
+
+
+def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_by_q=None):
+    """v2.2 — one reviewer's result.json -> {q: {role: {'result', 'sha256', 'context': 'fresh'}}}: grader_k always,
+    solver_k for k <= 2 (the key law stays author + two blind solvers), vision_<i>_k per transcribed figure (matched
+    by file name). Only the questions the job carried (qs) are taken. Never raises."""
+    out = {}
+    items = (result or {}).get('items') if isinstance(result, dict) else None
+    if not isinstance(items, dict):
+        return out
+    allowed = {str(x) for x in (qs or items.keys())}
+    for q, rec in items.items():
+        q = str(q)
+        if q not in allowed or not isinstance(rec, dict):
+            continue
+        row = {}
+        g = bv_read_result('grader', rec, labels)
+        if g is not None:
+            row[f'grader_{k}'] = g
+        if k <= len(BV_ROLES_SOLVE):
+            sv = bv_read_result('solver', rec, labels)
+            if sv is not None:
+                row[f'solver_{k}'] = sv
+        fds = [f for f in ((figure_dicts_by_q or {}).get(q) or []) if isinstance(f, dict)]
+        for fr in (rec.get('figure_reads') or []) if isinstance(rec.get('figure_reads'), list) else []:
+            if not isinstance(fr, dict):
+                continue
+            nm = str(fr.get('file') or '').replace('\\', '/').rsplit('/', 1)[-1]
+            for i, fd in enumerate(fds, 1):
+                if str(fd.get('file') or '').replace('\\', '/').rsplit('/', 1)[-1] == nm and nm:
+                    vr = bv_read_result('vision_', fr, labels)
+                    if vr is not None:
+                        row[f'vision_{i}_{k}'] = vr
+        out[q] = {r: {'result': v, 'sha256': sha, 'context': 'fresh'} for r, v in row.items()}
     return out
 
 
@@ -26602,6 +26802,9 @@ for _n, _d in {
         'bv_read_result': lambda *a, **k: None,
         'bv_author_packet': lambda *a, **k: {},
         'bv_anchors': lambda *a, **k: {},
+        'bv_band_guide': lambda *a, **k: {},
+        'bv_reviewer_jobs': lambda *a, **k: [],
+        'bv_split_reviewer_result': lambda *a, **k: {},
         'bv_recipe_verdict': lambda *a, **k: (True, 'DORMANT'),
         'bv_apply': lambda e=None, *a, **k: {'entry': e if isinstance(e, dict) else {}, 'action': 'grade', 'roles': list(BV_ROLES_GRADE + BV_ROLES_SOLVE), 'band': None, 'why': 'invalid input'},
         'bv_batch_status': lambda *a, **k: {'settled': [], 'disclosed': [], 'key_chain': [], 'open': []},

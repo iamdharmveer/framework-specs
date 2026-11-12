@@ -879,6 +879,15 @@ Entry v1.44.0 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUES
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 ```
 
+Entry v1.46.0 moved at framework release 2026.11.12 (GAP-2026-11-12-RULER-ANCHORS).
+
+```
+# v1.46.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (paired with MockTestCreate v6.1, Blueprint
+#   v1.65.0, audit_canonical v2.41). NEW §LADDER-NF: the AMBER lines of a disclosed composition / format / class /
+#   band-per-subject / MIP / uniqueness / key-leak / figure shortfall (nf_disclosed) and the Blueprint's recorded
+#   allocation relaxations — printed verbatim, never a stop, never hidden. Entry v1.45.0 moved to SPEC_HISTORY.md.
+```
+
 ## Framework_MockDeliver.md
 
 Entries v1.12.2–v1.25.0 moved at framework release 2026.11.06 (EC-P42; v1.26.0 supersedes;
@@ -2176,6 +2185,29 @@ Entry v6.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK
 #   proofs; a label is written only as measured_exact (bc.dl_set_label_basis_strict); S13-2L / S13-2R end every
 #   ladder by replacement (reserve_refill -> refill_session -> bounded last_resort); NEW S13-2P parity floors;
 #   chair / Newman / sawhorse / Fischer / Haworth through the proven renderers. Entry v5.96 moved to SPEC_HISTORY.md.
+```
+
+Entry v6.1 moved at framework release 2026.11.12 (GAP-2026-11-12-RULER-ANCHORS).
+
+```
+# v6.1 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (owner decisions D-01..D-08 + amendments A-C; one
+#   release, paired with blueprint_core v2.1, analyse_engine v1.6, audit_canonical v2.41, final_assembly v1.17,
+#   figure_types v1.4, Blueprint v1.65.0, ScopedBlueprint v1.15.0, MockTestAnalyse v2.62.0, PYQExplain v2.32,
+#   DeliveryFooter v1.46.0). Measured on CSIR Chemical Sciences Mock 01/02 (152 Inorganic + Physical items, all keys
+#   correct): subject counts per Part drifted, Match / multi-statement formats absent, 65 % of Part C graded Easy
+#   (real ~5 %), stacked 'respectively' items faked difficulty, within-paper template repeats, one answer leak,
+#   PYQs reused with a step removed, metal figures with software charges. Root cause: every guarantee of v6.0
+#   was scoped to organic items or was advice. NEW S0-NF makes them hold for EVERY item of EVERY exam: refill
+#   never crosses a subject (F-01); a format plan per subject x Part, measured not self-reported (F-03); the
+#   recipe check runs for every item on a subject-agnostic decision vocabulary (F-04); MIP-credited decisions
+#   and control C9 (F-05); text clone guard + series registry for text items (F-06); within-paper uniqueness and
+#   key-leak checks (F-07); taxonomy bound by manifest_hash + crosswalk at start (F-08); figure convention and
+#   stem-figure consistency for every structure, computed data-figure kinds (F-09); class mix (F-10); the band
+#   counts of each Part distributed per subject from the subject's own PYQ mix (F-11). NEW S0-BV (GAP-2026-11-11-
+#   BATCH-VERIFICATION): every question is measured by fresh graders and solvers INSIDE ITS OWN BATCH (S4-7 STEP A2,
+#   before delivery); one write with the graders' anchors; a grader split -> a third grader; at most ONE rewrite,
+#   then delivered at its measured band (disclosed); Final Assembly never re-authors for difficulty; ROTATE
+#   replaces any stop for room. Nothing new can stop a run. Entry v6.0 moved to SPEC_HISTORY.md.
 ```
 
 ```
@@ -7948,4 +7980,16 @@ Entry v1.2.0 moved at framework release 2026.11.11 (GAP-2026-11-11-BATCH-VERIFIC
 #   survives INFRA_HEAL_MAX heals continues in a FRESH worker (<= 3 per stop site), then on the previous verified
 #   release with a P0 incident. The only halts are the three environment failures (Create S0-OP-10), each saving
 #   state and resuming. Entry v1.1.0 moved to SPEC_HISTORY.md.
+```
+
+Entry v1.3.0 moved at framework release 2026.11.12 (GAP-2026-11-12-HANDOVER-CHECKPOINT).
+
+```
+# v1.3.0 — 2026-11-11 — GAP-2026-11-11-BATCH-VERIFICATION (owner 2026-11-11; paired with Framework_MockTestCreate
+#   v6.1, blueprint_core v2.1 Cluster BV, bootstrap GRADE_REQUEST / ROTATE). Every question is measured by fresh
+#   blind graders and solvers INSIDE ITS OWN BATCH: NEW worker state GRADE_REQUEST and orchestrator message
+#   GRADE RETURNED (O2-3, O3-9) — the in-batch controls of O-GRADE now have a path (v1.2.0 named them but no
+#   worker could request them, so the first fresh measurement happened at Final Assembly). NEW state ROTATE: a
+#   worker short of room saves and is replaced by a fresh worker on the same message — never a HARD STOP for
+#   room. Entry v1.2.0 moved to SPEC_HISTORY.md.
 ```
