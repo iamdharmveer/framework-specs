@@ -529,6 +529,358 @@
    "preconditions": [
     "OWNER DECISIONS 2026-11-10: D-1 (a), C_REFILL_SESSIONS 5, difficulty integrity for every item of every exam, one release."
    ]
+  },
+  "LAW-NF-1": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-01); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Each mock receives its subject and topic counts per Part by nested controlled rounding (bc.nested_allocate); a refill never crosses a subject; the delivered paper equals its allocation (A-ALLOC).",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-2": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-02); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Every per-paper statistic counts papers (analyse_engine.paper_key), never (year, shift) pairs.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-3": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-03); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Format targets exist per subject x Part from the exam PYQ corpus, are planned into slots and are measured by the axis-2 ladder, never read from the author ask_format.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-4": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-04); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "The decision vocabulary and band recipe are subject-agnostic; a missing recipe range is dormant, never a pass (bc.band_recipe_check_any).",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-5": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-05); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Only the minimal identifying parts of a multi-part item count as decisions; the paper MIP=1 share per subject x Part stays within the PYQ share.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-6": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-06); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Every item (any subject) passes the text clone guard against the PYQ corpus (depth-preserving only) and the series registry.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-7": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-07); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "No two items of one paper share a fingerprint; no key value is printed as data in another item.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-8": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-08); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Blueprint, mock and registry are bound to one manifest_hash; joins use norm_label; a changed taxonomy is crosswalked automatically, never a stop; the literal manifest_version is never reused.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-9": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-09); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "Every structure figure with a metal or charged species follows the drawing convention and agrees with its stem; data figures are computed from parameters.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-10": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-10); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "The question-class mix per subject x Part follows the exam PYQ corpus, measured by the blind graders.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-NF-11": {
+   "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
+   "stated_in": "blueprint_core Cluster NF (F-11); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
+   "requires": "The band counts of each Part are distributed over subjects by each subject own PYQ band mix (bc.subject_band_split + bc.schedule_place_by_subject); the Part counts never change.",
+   "detect": "nonorganic_fidelity_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_PYQExplain.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_nf_self_test)",
+    "audit_canonical.py --self-test (v241 Cluster NF gates)",
+    "analyse_engine.py --self-test (F02_*)"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-11: D-01..D-08 (no hardcoding, generic, no hard stop, no manual review, blueprint is the single source of targets, measured never self-reported, dormant when input is empty, one release) + amendments A (band per subject), B (manifest_hash), C (PYQ grade calibration)."
+   ]
+  },
+  "LAW-BV-1": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "Every question is measured by two fresh blind graders and two fresh blind solvers INSIDE ITS OWN BATCH (Create S4-7 STEP A2 = fa.bv_batch_step, deciding each question with bc.bv_apply), before the batch is delivered; WORKER MODE requests them with GRADE_REQUEST (Orchestrate O3-9); the batch is delivered only when bc.bv_batch_status settles every question.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
+  },
+  "LAW-BV-2": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "Each slot is written ONCE (bc.k_candidates() = 1) by an author holding the same anchors the graders compare with (bc.bv_anchors -> bc.bv_author_packet) and the recipe ranges.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
+  },
+  "LAW-BV-3": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "A disagreement between the two graders is settled by ONE more fresh grader (bc.bv_decide 'tiebreak'); it is never a reason to rewrite. The label is written by bc.bv_set_label ('measured_exact' or 'measured_majority').",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
+  },
+  "LAW-BV-4": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band, the recipe fails, the key is disputed, or the question repeats / leaks within the paper; after it the question is delivered at its measured band and disclosed (difficulty_state.bv_disclosed).",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
+  },
+  "LAW-BV-5": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "Final Assembly never re-authors a question for difficulty or for a measured composition shortfall: S13-2G keeps every LB2 label, S13-2L opens no chain on a settled question (bc.bv_settled), and S13-2F discloses bc.NF_DISCLOSE_GATES findings in nf_disclosed (AMBER).",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
+  },
+  "LAW-BV-6": {
+   "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
+   "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
+   "requires": "Room is never a stop: a worker short of room saves and reports ROTATE (bootstrap WORKER_STATES); the orchestrator continues the same message in a fresh worker.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "bootstrap.py --self-test (GRADE_REQUEST / ROTATE)",
+    "audit_sync.py (BV-COVERAGE)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-11: every question verified in its own batch; one write; at most one rewrite; Final Assembly never re-authors for difficulty; never a hard stop."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

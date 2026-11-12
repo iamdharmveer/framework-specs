@@ -1,19 +1,8 @@
-# Framework_ScopedBlueprint v1.14.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
-# v1.14.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
-#   Blueprint v1.64.0, MockTestCreate v5.92, audit_canonical v2.37). Owner decisions D2 (a
-#   subject test is written to the MEASURED TIER MIX of its scope) and D6/D7, guard G3. S5-P:
-#   a new scoped series is measured under MIX RULE m2 (bc.dp_scope_mix pooled counts over the
-#   window, DL-21) with the optional --tier filter (DL-32; absent → the measured tier blend,
-#   printed), both RECORDED on difficulty_source (mix_rule, params.tier) and replayed by
-#   Create S3-2D / A-DIFFSRC — an older blueprint without mix_rule replays m1 unchanged; the
-#   DL-20 profile coverage line is printed; a RATIO mode is measured against the scope's
-#   guardrail (bc.dp_guardrail_bounds) and reported AMBER — never CONFIRM, never a stop
-#   (DL-35). S8-2d stamps shape_rule s1 on every shape target (G4); S8-2e (mirror of Blueprint
-#   §7-9) writes axis2_format_floor_per_paper (DL-34), level_targets (DL-36),
-#   hard_share_by_subtopic (DL-33) and hard_supply (DL-31) — informational / WARN-only
-#   consumers only. No new deliverable, end state or user action; the only new stop is the
-#   [HS:INPUT] on a --tier name that matches no exam_config section — reachable only by typing
-#   the new flag (an existing trigger never meets it).
+# Framework_ScopedBlueprint v1.15.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.15.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (paired with blueprint_core v2.1, Blueprint v1.65.0,
+#   MockTestCreate v6.1). NEW §4-NF: the nested controlled rounding of Blueprint §4-1c one level down (topics inside
+#   the scoped subject, subtopics inside the scoped topic — EC-38) and the §7-10 targets for the scoped subject
+#   (format, class, band, MIP = 1 share, recipe_by_subject, manifest_hash) written with the same field names. Entry v1.14.0 moved to SPEC_HISTORY.md.
 #
 # ═══════════════════════════════════════════════════════════════════════════
 # WHAT THIS IS (and is NOT)
@@ -839,6 +828,20 @@ checked (an unsupported OBSERVED type is simply never chosen by Step 7); a mixed
 passes if ≥1 member is supported; a TEXT-format subtopic is never checked; a legacy
 section_rules with no PYQ_IMAGE_ANALYSIS block checks nothing and stops nothing (EC-V18).
 
+### §4-NF — PER-TEST TOPIC BALANCE AND NF TARGETS (v1.15.0 — GAP-2026-11-11 F-01 / F-03 / F-05 / F-10 / F-11)
+
+```
+The scope's papers use the SAME engine calls and field names as Framework_Blueprint §4-1c / §7-10, one level
+down (EC-38):
+  * a SUBJECT-scoped test: bc.nested_allocate over the scope's subtopic quotas with subject_of = {sid: (scope
+    subject, topic)} — the subject level is trivially met, topics per test are exact, subtopics keep even
+    spread and the rare / ZP caps; a TOPIC-scoped test: subject_of = {sid: (topic, subtopic)} so subtopics per
+    test are exact. Relaxations are recorded in allocation_relaxations[] (AMBER), never a stop.
+  * format_target_per_mock, class_target_per_mock, subject_band_target_per_mock, mip1_share, recipe_by_subject
+    and manifest_hash are written exactly as Blueprint §7-10 writes them, restricted to the scope's PYQ records;
+    a field whose input is empty is written empty (D-07). Create S0-NF and the A-* gates read them unchanged.
+```
+
 ## §5 — DIFFICULTY (batch-local envelope-bounded ramp, OR fixed-uniform override)
 
 TWO MODES, selected by the trigger's --difficulty value (S1-1):
@@ -1582,7 +1585,7 @@ blueprint = {
     'hard_supply': HARD_SUPPLY,                     # v1.14.0 DL-31 advisory (guard S7)
     'level_model_inputs': LEVEL_MODEL_INPUTS,       # v1.14.0 DL-21 — Create S3 / A-LEVEL build the level model from THESE
     'schema_version': 2,                             # v1.13.0 — G10 readiness reads it
-    'producer': 'Framework_ScopedBlueprint v1.14.0',
+    'producer': 'Framework_ScopedBlueprint v1.15.0',
     'axis_schedule': {scope_label: axis_schedule},  # §6, keyed by the single section name
     # Zero-PYQ subtopics are covered by the §4 coverage floor (allocated every batch), NOT by
     # the mock's capped rotation — so the rotation list is empty. The KEY is still emitted for
@@ -1765,4 +1768,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.14.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.15.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

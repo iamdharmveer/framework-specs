@@ -1668,6 +1668,12 @@ def qindex_count_band(row, labels):
     r = row if isinstance(row, dict) else {}
     dc = r.get('difficulty_check') if isinstance(r.get('difficulty_check'), dict) else {}
     lab = r.get('difficulty')
+    labs0 = list(labels) if isinstance(labels, (list, tuple)) else []
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    if lb.get('kind') in ('last_resort', 'measured_majority'):
+        # 2026.11.11 (mirror of blueprint_core v2.1): a last-resort slot and a BV1 question settled after its one
+        # rewrite count at their SLOT (the deviation is the disclosed AMBER line, never a quota FAIL)
+        return lb.get('target') if isinstance(lb.get('target'), str) and lb.get('target') in labs0 else lab
     if dc.get('dl_rung') == 'DR3':
         labs = list(labels) if isinstance(labels, (list, tuple)) else []
         db = dc.get('dr3_basis') if isinstance(dc.get('dr3_basis'), dict) else {}

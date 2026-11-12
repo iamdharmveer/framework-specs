@@ -1,13 +1,8 @@
-# Framework_DeliveryFooter v1.45.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.45.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (paired with MockTestCreate
-#   v6.0, blueprint_core v2.0). NEW §LADDER-OP: "schedule as applied" (every normalisation of the request — an
-#   exact-sum request prints nothing), the LAST-RESORT line (AMBER-CLASS: requested vs delivered band + the P0
-#   incident id — the only difficulty deviation a v6.0 paper can carry), constant overrides, the ruler line
-#   (past distribution, printed apart from the requested schedule), reserve / refill information lines. The
-#   schedule-forced / held / majority / DISCLOSED lines are written only for papers produced before 2026.11.10.
-#   Entry v1.44.0 moved to SPEC_HISTORY.md.
-#   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
-#   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
+# Framework_DeliveryFooter v1.46.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.46.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (paired with MockTestCreate v6.1, Blueprint
+#   v1.65.0, audit_canonical v2.41). NEW §LADDER-NF: the AMBER lines of a disclosed composition / format / class /
+#   band-per-subject / MIP / uniqueness / key-leak / figure shortfall (nf_disclosed) and the Blueprint's recorded
+#   allocation relaxations — printed verbatim, never a stop, never hidden. Entry v1.45.0 moved to SPEC_HISTORY.md.
 ---
 
 ## §1 — FOOTER TYPES
@@ -1196,6 +1191,25 @@ Step 7 (Create S13-6) and MockDeliver 3f print, one per line, every line that ap
   • ℹ️ "Organic parity: formats <ok|short ...>; conventions <...>; items with >= 2 decisions <share>" (S13-2P).
 A paper produced by 2026.11.10 or later never prints a schedule-forced, held, band-swap, majority or DISCLOSED
 line: those terminals are retired (LAW-ORG-3); a paper delivered earlier keeps the lines it was delivered with.
+```
+
+## §LADDER-NF — NON-ORGANIC FIDELITY LINES (v1.46.0 — GAP-2026-11-11)
+
+```
+Printed with the §LADDER-OP lines, one line each, only when present (an exact paper prints nothing):
+  AMBER — Allocation relaxed: <mock> <Part> <subject / topic> <delta> (<why>)      blueprint allocation_relaxations
+  AMBER — Format parity: short <Part>/<subject>: <FORMAT> <n> ...                   nf_disclosed['A-AXIS2']
+  AMBER — Class mix: <Part>/<subject> short <class> <n> | generic computation <m> > <t>   nf_disclosed['A-CLASSMIX']
+  AMBER — Band mix by subject: <Part> <subject> <band> <measured>/<target> ...       nf_disclosed['A-SUBJBAND']
+  AMBER — One-part-decidable items: <Part>/<subject> MIP=1 <k> of <n> > <allowed>    nf_disclosed['A-OPTPART']
+  AMBER — Delivered vs allocated: <Part> <subject> <delivered> vs <allocated>        nf_disclosed['A-ALLOC']
+  AMBER — Repeated template / key leak / figure: Q<a>/Q<b> ...                        nf_disclosed['A-INTRADUP' | 'A-KEYLEAK' | 'A-STEMFIG']
+  AMBER — PYQ grade calibration: agreement <x> < <min>; stricter grade used for <k> record(s)   (Blueprint §7-10)
+  AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV)
+Each line is AMBER-CLASS (the paper is delivered; the shortfall is named). The registry record carries the same
+facts (question_index entry nf_disclosed), so MockDeliver reprints them verbatim. Source of the text:
+Create S13-2L, which writes every line above into difficulty_state.chain_footer['amber'] (nf_disclosed {gate: reason},
+bv_disclosed) — never paraphrased, never composed by this contract.
 ```
 
 ## §6 — NEXT-STEP REFERENCE TABLE

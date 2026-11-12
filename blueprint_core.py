@@ -154,7 +154,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '1.34'
+BLUEPRINT_CORE_VERSION = '2.1'
 
 __all__ = [
     "AllocationError",
@@ -657,6 +657,77 @@ __all__ = [
     "SC_TERMINALS_SC1",
     "sc_terminals",
     "OP_RELEASE",
+    # v2.1 — Cluster NF (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY)
+    "NF_VERSION",
+    "NF_RULE",
+    "GENERIC_DECISION_TAGS",
+    "ALL_DECISION_TAGS",
+    "NF_NEVER_DECISIONS",
+    "NF_PLANNED_FORMATS",
+    "NF_FORMAT_CONVERTERS",
+    "NF_DATA_FIGURE_KINDS",
+    "norm_label",
+    "manifest_hash",
+    "nf_subject_of",
+    "nf_resolve_subtopic_id",
+    "manifest_crosswalk",
+    "crosswalk_rekey",
+    "matrix_round",
+    "subject_matrix_round",
+    "nested_allocate",
+    "alloc_invariants",
+    "alloc_conformance",
+    "refill_order",
+    "nf_shares",
+    "nf_targets_per_mock",
+    "nf_measure_axis2",
+    "format_plan_slots",
+    "nf_parity",
+    "subject_band_split",
+    "schedule_place_by_subject",
+    "band_mix_check",
+    "nf_decision_count",
+    "build_recipe_by_subject",
+    "recipe_monotone",
+    "band_recipe_check_any",
+    "calibrate_pyq_grades",
+    "parse_option_parts",
+    "minimal_identifying_parts",
+    "mip_share_check",
+    "task_template",
+    "asked_quantity",
+    "text_item_fingerprint",
+    "same_template",
+    "text_clone_guard",
+    "nf_series_registry_add",
+    "nf_series_text_rows",
+    "intra_paper_duplicates",
+    "key_leak_check",
+    "stem_figure_claims",
+    "stem_figure_consistency",
+    "metal_figure_convention",
+    "curve_continuity",
+    "epr_lines",
+    "nmr_multiplet",
+    "mossbauer_lines",
+    "nf_parse_formula",
+    "ms_isotope_pattern",
+    "rate_plot_points",
+    "cv_trace",
+    "data_figure_points",
+    "nf_primary_class",
+    "nf_amber_lines",
+    "nf_subject_key",
+    "nf_pyq_rows",
+    "nf_mip1_share",
+    "nf_class_targets_per_mock",
+    "nf_compose_part_targets",
+    "nf_item_mip",
+    "BV_RULE", "C_WRITE_ATTEMPTS", "C_TIEBREAK_GRADERS", "BV_BRIEF_GRADER", "BV_BRIEF_SOLVER", "BV_MAX_ROUNDS",
+    "bv_majority_band", "band_majority", "bv_decide", "bv_set_label", "bv_verify_majority", "bv_settled",
+    "bv_jobs", "bv_read_result", "bv_author_packet", "bv_batch_status", "bv_anchors", "bv_recipe_verdict", "bv_apply", "NF_DISCLOSE_GATES",
+    "NF_RESIDUAL_FORMAT",
+    "NF_AXIS2_TO_ASK",
 ]
 
 
@@ -7643,6 +7714,387 @@ def _op_self_test(check):
     check('op_hostile_never_raises', _ok)
 
 
+
+def _nf_self_test(check):
+    # ── F-08 ──
+    check('nf_norm_label_quotes', norm_label('Bragg’s  law') == norm_label("bragg's law"))
+    man = {'manifest_version': '1.0', 'subtopics': {
+        'pc.s.a': {'display_name': 'Bragg’s law', 'section': 'P', 'topic': 'S'},
+        'pc.s.b': {'display_name': 'Crystal', 'section': 'P', 'topic': 'S'},
+        'pc.q.c': {'display_name': 'Hückel', 'section': 'P', 'topic': 'Q'},
+        'ic.m.d': {'display_name': 'Main group', 'section': 'I', 'topic': 'M'},
+        'ic.t.e': {'display_name': 'CFT', 'section': 'I', 'topic': 'T'},
+        'oc.r.f': {'display_name': 'Reactions', 'section': 'O', 'topic': 'R'}}}
+    check('nf_resolve_apostrophe_T16', nf_resolve_subtopic_id("Bragg's law", man) == ('pc.s.a', 'display_name'))
+    h1 = manifest_hash(man)
+    man2 = {'subtopics': dict(man['subtopics'], **{'pc.s.a': {'display_name': "Bragg's law", 'section': 'P', 'topic': 'S'}})}
+    check('nf_manifest_hash_quote_stable', h1 == manifest_hash(man2) and len(h1) == 64 and man['manifest_version'] == '1.0')
+    old = {'subtopics': {'x.old': {'display_name': 'CFT', 'section': 'I', 'topic': 'T'},
+                         'y.gone': {'display_name': 'Gone', 'section': 'I', 'topic': 'M'}}}
+    cw = manifest_crosswalk(old, man)
+    check('nf_crosswalk_T16_EC29', cw['x.old']['to'] == 'ic.t.e' and cw['y.gone']['to'] is None
+          and cw['y.gone']['topic'] == ('I', 'M'))
+    rk, un = crosswalk_rekey([{'subtopic_id': 'x.old'}, {'subtopic_id': 'y.gone'}], cw)
+    check('nf_crosswalk_rekey', rk[0]['subtopic_id'] == 'ic.t.e' and un == ['y.gone'])
+    # ── F-01 ──
+    T, rl = subject_matrix_round({'I': 147, 'P': 137, 'O': 117, 'G': 199}, 10, 60)
+    check('nf_subject_matrix_T01', all(sum(T[m].values()) == 60 for m in T)
+          and all(sum(T[m][s] for m in T) == q for s, q in {'I': 147, 'P': 137, 'O': 117, 'G': 199}.items())
+          and all(T[m]['I'] in (14, 15) and T[m]['P'] in (13, 14) for m in T) and not rl)
+    T1, _ = subject_matrix_round({'A': 3, 'B': 7}, 1, 10)
+    check('nf_subject_matrix_EC03', T1 == {1: {'A': 3, 'B': 7}})
+    T4, _ = subject_matrix_round({'A': 3, 'B': 37}, 10, 4)
+    check('nf_subject_matrix_EC04', all(T4[m]['A'] in (0, 1) for m in T4) and sum(T4[m]['A'] for m in T4) == 3)
+    Tf, rf = subject_matrix_round({'A': 20, 'B': 20}, 4, 10, fixed={1: {'A': 2, 'B': 8}})
+    check('nf_subject_matrix_EC08_fixed', Tf[1] == {'A': 2, 'B': 8} and sum(Tf[m]['A'] for m in Tf) == 20
+          and all(sum(Tf[m].values()) == 10 for m in Tf))
+    import random as _r
+    rnd = _r.Random(7)
+    q = {}
+    for s, pre in (('I', 'ic'), ('P', 'pc'), ('O', 'oc'), ('G', 'ga')):
+        for t in range(4):
+            for k in range(5):
+                q[f'{pre}.t{t}.s{k}'] = rnd.choice([0, 1, 2, 3, 5, 8, 13])
+    q = largest_remainder_apportion({k: v * 600 / sum(q.values()) for k, v in q.items()}, 600)
+    so = {sid: (sid.split('.')[0], sid.split('.')[1]) for sid in q}
+    res = nested_allocate(q, {}, 10, 60, subject_of=so)
+    A = res['subtopic_allocations']
+    check('nf_nested_allocate_T01', res['ok'] and all(sum(A[m].values()) == 60 for m in A)
+          and all(sum(A[m].get(sid, 0) for m in A) == n for sid, n in q.items())
+          and not alloc_invariants(A, res['subject_target_per_mock'], res['topic_target_per_mock'], {}, subject_of=so)
+          and all(max(A[m].get(sid, 0) for m in A) - min(A[m].get(sid, 0) for m in A) <= 1 for sid in q))
+    reg = {1: dict(A[1])}                                     # mock 1 delivered: its allocation must survive
+    res_r = nested_allocate(q, {}, 10, 60, fixed=reg, subject_of=so)
+    Ar = res_r['subtopic_allocations']
+    check('nf_nested_allocate_EC08_registered_kept', Ar[1] == reg[1]
+          and all(sum(Ar[m].values()) == 60 for m in Ar)
+          and all(sum(Ar[m].get(sid, 0) for m in Ar) == n for sid, n in q.items()))
+    regd = {1: {k: v for k, v in A[1].items()}}
+    kk = next(iter(regd[1]))
+    regd[1][kk] += 1                                          # a delivered mock that drifted by one
+    res_d = nested_allocate(q, {}, 10, 60, fixed=regd, subject_of=so)
+    check('nf_nested_allocate_EC08_drift_recorded_no_stop', res_d['subtopic_allocations'][1] == regd[1]
+          and isinstance(res_d['allocation_relaxations'], list))
+    q2 = {'ic.t.rare': 2, 'ic.t.big': 8, 'pc.s.a': 10}
+    so2 = {k: (k.split('.')[0], k.split('.')[1]) for k in q2}
+    r2 = nested_allocate(q2, {}, 4, 5, max_per_mock={'ic.t.rare': 0}, subject_of=so2)
+    check('nf_nested_allocate_T02_relax_no_stop', isinstance(r2, dict) and r2['allocation_relaxations'])
+    alloc = {'ic.m.d': 2, 'pc.s.a': 2}
+    dl = {'21': 'ic.m.d', '22': 'pc.s.a', '23': 'pc.s.a', '24': 'pc.s.b'}
+    ac = alloc_conformance(dl, alloc, man)
+    check('nf_alloc_conformance_T05', ac['status'] == 'FAIL' and ac['subject'] == {'I': (1, 2), 'P': (3, 2)}
+          and alloc_conformance(dl, {}, man)['status'] == 'DORMANT')
+    check('nf_refill_order_T04', refill_order('pc.s.a', man, ['ic.m.d', 'pc.q.c', 'pc.s.b', 'pc.s.a'])
+          == ['pc.s.a', 'pc.s.b', 'pc.q.c'])
+    # ── F-03 / F-10 ──
+    recs = [{'part': 'B', 'subject': 'I', 'ask_format': f} for f in ['match'] * 2 + ['statement'] * 4 + ['direct'] * 10]
+    sh = nf_shares(recs, 'ask_format')
+    stm = {m: {'B': {'I': 15}} for m in range(1, 11)}
+    ft = nf_targets_per_mock(sh, stm, residual='direct')
+    tm = sum(ft[m]['B']['I'].get('match', 0) for m in ft)
+    ts = sum(ft[m]['B']['I'].get('statement', 0) for m in ft)
+    check('nf_format_targets_T08', abs(tm - 0.125 * 150) <= 1 and abs(ts - 0.25 * 150) <= 1
+          and all(sum(ft[m]['B']['I'].values()) == 15 for m in ft))
+    sh2 = nf_shares([{'part': 'B', 'subject': 'I', 'ask_format': f} for f in ['match'] + ['direct'] * 59], 'ask_format')
+    ft2 = nf_targets_per_mock(sh2, {m: {'B': {'I': 15}} for m in range(1, 11)}, residual='direct')
+    check('nf_format_carry_EC13', sum(ft2[m]['B']['I'].get('match', 0) for m in ft2) in (2, 3)
+          and 0 < sum(1 for m in ft2 if ft2[m]['B']['I'].get('match')) < 10)
+    check('nf_format_EC16_unused_format_zero', 'sequence' not in ft2[1]['B']['I'])
+    mt = nf_measure_axis2({'stem_text': 'Which is the spin-only moment of the complex?', 'ask_format': 'match',
+                           'option_texts': ['1.73 BM', '2.83 BM', '3.87 BM', '4.90 BM']},
+                          classifier=lambda stem, opts: 'match' if 'list-i' in stem.lower() else 'direct')
+    check('nf_measured_format_T09', mt == 'direct' and nf_measure_axis2({'stem_text': 'x'}) is None)
+    man_f = {'subtopics': {'ic.m.d': {'section': 'I', 'topic': 'M', 'axis2_capability': ['MATCH', 'DIRECT']},
+                           'ic.t.e': {'section': 'I', 'topic': 'T', 'axis2_capability': ['STATEMENT', 'DIRECT']}}}
+    fp = format_plan_slots([{'q': 61, 'subtopic_id': 'ic.t.e'}, {'q': 62, 'subtopic_id': 'ic.m.d'}],
+                           {'match': 1, 'statement': 1, 'sequence': 1, 'direct': 5}, man_f)
+    check('nf_format_plan_EC14', fp['plan'] == {'62': 'match', '61': 'statement'} and fp['infeasible'] == {'sequence': 1})
+    fpl = format_plan_slots([{'q': 61, 'subtopic_id': 'ic.t.e', 'locked': True}], {'statement': 1}, man_f)
+    check('nf_format_plan_locked_slot_untouched', fpl['plan'] == {} and fpl['infeasible'] == {'statement': 1})
+    check('nf_parity', nf_parity({'match': 0}, {'match': 1, 'direct': 3})['short'] == {'match': 1}
+          and nf_parity({}, {})['status'] == 'PASS')
+    rows = [{'part': 'C', 'subject': 'I', 'class': 'C-COMPUTATIONAL', 'computation_generic': g} for g in [True] + [False] * 30]
+    ct = nf_class_targets_per_mock(rows, {1: {'C': {'I': 37}}})
+    check('nf_class_target_T19_shape', set(ct[1]['C']['I']) == {'C-COMPUTATIONAL', 'computation_generic'}
+          and ct[1]['C']['I']['C-COMPUTATIONAL'] == 37 and ct[1]['C']['I']['computation_generic'] in (1, 2)
+          and band_mix_check({'I': {'x': 12}}, {'I': {'x': 1}})['status'] == 'FAIL')
+    manp = {'subtopics': {'ic.a.b': {'section': 'Inorganic', 'topic': 'A'}}}
+    pr = nf_pyq_rows([{'section': 'Part C', 'subtopic_id': 'ic.a.b', 'ask_format': 'match', 'class': ['C-FACTUAL'],
+                       'blind_grade_1': 'Hard', 'blind_grade_2': 'Hard', 'mip': 1},
+                      {'section': 'Part C', 'subtopic_id': 'zz.q.r', 'ask_format': 'direct', 'mip': 2}], manp,
+                     ['Easy', 'Medium', 'Hard'])
+    check('nf_pyq_rows', pr[0]['subject'] == 'Inorganic' and pr[0]['band'] == 'Hard' and pr[0]['class'] == 'C-FACTUAL'
+          and pr[1]['subject'] == 'zz' and nf_mip1_share(pr) == {'Part C': {'Inorganic': 1.0, 'zz': 0.0}}
+          and nf_mip1_share([{'part': 'P', 'subject': 'S'}]) == {})
+    stc, ttc, rlc = nf_compose_part_targets({'Part B': {'subject_target_per_mock': {1: {'I': 2}}, 'topic_target_per_mock':
+                                             {1: {'I': {'t': 2}}}, 'allocation_relaxations': [{'level': 'topic'}]}})
+    check('nf_compose_part_targets', stc == {1: {'Part B': {'I': 2}}} and ttc == {1: {'Part B': {'I': {'t': 2}}}}
+          and rlc == [{'level': 'topic', 'part': 'Part B'}])
+    # ── F-11 ──
+    sp = subject_band_split({'I': 20, 'P': 19, 'O': 21}, {'Easy': 11, 'Medium': 41, 'Hard': 8},
+                            {'I': {'Easy': 0.1, 'Medium': 0.6, 'Hard': 0.3}, 'P': {'Easy': 0.3, 'Medium': 0.6, 'Hard': 0.1},
+                             'O': {'Easy': 0.15, 'Medium': 0.7, 'Hard': 0.15}})
+    S = sp['split']
+    check('nf_subject_band_split_F11', sp['ok'] and sum(S[s]['Easy'] for s in S) == 11 and sum(S['I'].values()) == 20
+          and S['I']['Easy'] < S['P']['Easy'] and S['I']['Hard'] > S['P']['Hard'])
+    pl = schedule_place_by_subject({'I': {'Easy': 1, 'Medium': 1, 'Hard': 0}, 'P': {'Easy': 0, 'Medium': 1, 'Hard': 1}},
+                                   {61: 'I', 62: 'I', 63: 'P', 64: 'P'}, {61: 'mcq', 62: 'mcq', 63: 'mcq', 64: 'mcq'},
+                                   ['Easy', 'Medium', 'Hard'])
+    check('nf_schedule_by_subject', sorted(pl[q] for q in (61, 62)) == ['Easy', 'Medium']
+          and sorted(pl[q] for q in (63, 64)) == ['Hard', 'Medium'])
+    pl2 = schedule_place_by_subject({'I': {'Easy': 1, 'Medium': 1, 'Hard': 0}},       # P absent, I mismatch-free
+                                    {61: 'I', 62: 'I', 63: 'P', 64: 'P'}, {61: 'mcq', 62: 'mcq', 63: 'mcq', 64: 'mcq'},
+                                    ['Easy', 'Medium', 'Hard'], part_counts={'Easy': 1, 'Medium': 2, 'Hard': 1})
+    pl3 = schedule_place_by_subject({'I': {'Easy': 3, 'Medium': 0, 'Hard': 0}},       # mismatch: 3 counts, 2 slots
+                                    {61: 'I', 62: 'I'}, {61: 'mcq', 62: 'mcq'}, ['Easy', 'Medium', 'Hard'],
+                                    part_counts={'Easy': 1, 'Medium': 1, 'Hard': 0})
+    check('nf_schedule_by_subject_fallback_exact', len(pl2) == 4 and sorted(pl2.values()) == ['Easy', 'Hard', 'Medium', 'Medium']
+          and sorted(pl2[q] for q in (61, 62)) == ['Easy', 'Medium'] and sorted(pl3.values()) == ['Easy', 'Medium'])
+    # ── F-04 ──
+    labs = ['Easy', 'Medium', 'Hard']
+    rr = []
+    for band, decs, n in (('Easy', ['specific_knowledge'], 4), ('Medium', ['concept_chain', 'specific_knowledge'], 4),
+                          ('Hard', ['concept_chain', 'exception_case', 'data_interpretation'], 4)):
+        rr += [{'subject': 'I', 'blind_grade_1': band, 'blind_grade_2': band, 'decisions': decs} for _ in range(n)]
+    rbs = build_recipe_by_subject(rr, labs, min_anchors=3)
+    check('nf_recipe_by_subject_T10', rbs['I']['Medium']['decisions'] == (2, 2) and rbs['I']['Hard']['decisions'] == (3, 3)
+          and recipe_monotone(rbs['I'], labs))
+    chk = band_recipe_check_any({'subject': 'I', 'decisions_author': ['specific_knowledge']}, rbs, 'Medium')
+    check('nf_band_recipe_any_T10', chk['status'] == 'FAIL'
+          and band_recipe_check_any({'subject': 'Z', 'decisions_author': ['x']}, rbs, 'Medium')['status'] == 'DORMANT')
+    check('nf_decision_never_counts', nf_decision_count(['plain_arithmetic', 'unit_conversion', 'derivation']) == 1
+          and nf_decision_count(['multi_entity_comparison', 'specific_knowledge'], mip=1) == 1)
+    cal = calibrate_pyq_grades([{'ref': 'p:1', 'blind_grade_1': 'Easy', 'blind_grade_2': 'Easy'},
+                                {'ref': 'p:2', 'blind_grade_1': 'Easy', 'blind_grade_2': 'Easy'}],
+                               {'p:1': 'Hard', 'p:2': 'Medium'}, labs)
+    check('nf_calibration_amendment_C', cal['agreement'] == 0.0 and cal['use'] == {'p:1': 'Hard', 'p:2': 'Medium'}
+          and cal['amber'] and calibrate_pyq_grades([], None, labs)['use'] == {})
+    # ── F-05 ──
+    q113 = ['T-shaped, pentagonal bipyramidal, see-saw', 'T-shaped, square pyramidal, see-saw',
+            'trigonal planar, capped octahedral, tetrahedral', 'trigonal planar, square pyramidal, see-saw']
+    check('nf_mip_T11_q113', minimal_identifying_parts(q113, 'A') == 1)
+    check('nf_mip_T11_q32', minimal_identifying_parts(['0, 0, 0', '3, 0, 0', '3, 3, 0', '3, 3, 3'], 'C') == 2)
+    check('nf_mip_key_1based_and_msq', minimal_identifying_parts(['0, 0, 0', '3, 0, 0', '3, 3, 0', '3, 3, 3'], 3) == 2
+          and minimal_identifying_parts(['0, 0, 0', '3, 0, 0', '3, 3, 0', '3, 3, 3'], '3') == 2
+          and minimal_identifying_parts(['0, 0, 0', '3, 0, 0'], [1, 2]) is None
+          and minimal_identifying_parts(['0, 0, 0', '3, 0, 0'], 9) is None)
+    check('nf_mip_statement', minimal_identifying_parts(['A and B only', 'A and C only', 'B and D only', 'A, C and D'], 'B')
+          in (1, 2) and parse_option_parts(['x', 'y']) is None)
+    check('nf_mip_match', minimal_identifying_parts(['A-iii, B-i, C-ii', 'A-iii, B-ii, C-i', 'A-i, B-iii, C-ii',
+                                                     'A-ii, B-i, C-iii'], 'A') == 2)
+    ms = mip_share_check([{'q': 1, 'mip': 1}, {'q': 2, 'mip': 1}, {'q': 3, 'mip': 2}, {'q': 4, 'mip': None}], 0.34)
+    _kl = [{'q': 1, 'stem_text': 'Which statements are correct? A. x B. y C. z', 'option_texts': ['A and B only', 'A and C only', 'B and C only', 'A, B and C'], 'key': 'B'},
+           {'q': 2, 'stem_text': 'Which statements are correct? A. p B. q C. r', 'option_texts': ['A and B only', 'A and C only', 'B and C only', 'A, B and C'], 'key': 'A'},
+           {'q': 3, 'stem_text': 'The shapes of ClF3 and SF4 are, respectively', 'option_texts': ['T-shaped and see-saw', 'linear and bent', 'square planar and tetrahedral', 'trigonal and octahedral'], 'key': 'A'},
+           {'q': 4, 'stem_text': 'ClF3 is T-shaped and see-saw SF4 is given; find the dipole order.', 'option_texts': ['ClF3', 'SF4', 'equal', 'zero'], 'key': 'A'},
+           {'q': 5, 'stem_text': 'Pick the pair.', 'option_texts': ['linear and bent', 'x', 'y', 'z'], 'key': 'B'}]
+    check('nf_keyleak_label_combo_exempt', key_leak_check(_kl) == [('3', '4', 't-shaped and see-saw')]
+          and _nf_label_combo('(i), (ii) and (iv) only') and _nf_label_combo('P-2, Q-1, R-4, S-3')
+          and _nf_label_combo('all of the above') and not _nf_label_combo('T-shaped and see-saw'))
+    _gen = {'q': 1, 'subtopic_id': 'o.x', 'organic': True, 'stem_text': 'The major product P of the reaction shown below is'}
+    _reg_g = nf_series_registry_add({}, 'M01', [_gen])
+    check('nf_textclone_structure_borne_exempt', text_clone_guard(dict(_gen, q=5), series=nf_series_text_rows(_reg_g))['status'] == 'PASS'
+          and text_clone_guard({'subtopic_id': 'i.x', 'stem_text': 'The major product P of the reaction shown below is'},
+                               series=nf_series_text_rows(nf_series_registry_add({}, 'M01', [{'q': 1, 'subtopic_id': 'i.x', 'stem_text': 'The major product P of the reaction shown below is'}])))['status'] == 'PASS')
+    check('nf_item_mip_only_multipart', nf_item_mip('Which pair of metals is correct?', ['Fe and Co', 'Ni and Cu', 'Fe and Ni', 'Co and Cu'], 1) is None
+          and nf_item_mip('The shapes of ClF3, IF7 and SF4 are, respectively', q113, 'A') == 1
+          and nf_item_mip('Which statements are correct?', ['A and B only', 'A and C only', 'B and D only', 'A, C and D'], 2, 'statement') in (1, 2))
+    check('nf_optpart_T12', ms['status'] == 'FAIL' and ms['exempt'] == 1 and ms['qs'] == ['2']
+          and nf_decision_count(['multi_entity_comparison'], mip=1) == 0)
+    # ── F-06 / F-07 ──
+    pyq = {'subtopic_id': 'ic.t.sm', 'ref': '28-Jul-2025:67', 'stem': 'Calculate the magnetic moment of a Ni2+ complex with lambda = -315 cm-1.',
+           'decisions': ['concept_chain', 'specific_knowledge'], 'given_in_stem': ['lambda']}
+    mk = {'subtopic_id': 'ic.t.sm', 'stem_text': 'Calculate the magnetic moment of a Ni2+ complex with lambda = -300 cm-1.',
+          'decisions_author': ['specific_knowledge'], 'given_in_stem': ['lambda', 'mu_eff = mu_so(1 - 4 lambda / 10Dq)']}
+    tc = text_clone_guard(mk, past=[pyq])
+    check('nf_text_clone_T13', tc['status'] == 'MUTATE')
+    deep = dict(mk, decisions_author=['concept_chain', 'specific_knowledge', 'exception_case'], given_in_stem=['lambda'])
+    check('nf_text_clone_EC24_deep', text_clone_guard(deep, past=[pyq])['status'] == 'PASS')
+    b1 = {'q': 81, 'subtopic_id': 'pc.s.a', 'stem_text': 'X-rays of wavelength 154 pm are diffracted by planes 200 pm apart. Calculate the Bragg angle for first order.'}
+    reg = nf_series_registry_add({}, 'M1', [b1])
+    b2 = {'q': 31, 'subtopic_id': 'pc.s.a', 'stem_text': 'X-rays of wavelength 154 pm are diffracted by planes 250 pm apart. Calculate the Bragg angle for first order.'}
+    check('nf_series_text_T14', text_clone_guard(b2, series=nf_series_text_rows(reg))['status'] == 'REPLACE'
+          and text_clone_guard(dict(b2, subtopic_id='pc.s.b'), series=nf_series_text_rows(reg))['status'] == 'PASS')
+    p49 = {'q': 49, 'stem_text': 'For x = 1, 2, 3, 4, 5 and y = 2.1, 3.9, 6.2, 8.1, 9.8 calculate the slope of the least squares line.'}
+    p88 = {'q': 88, 'stem_text': 'For x = 1, 2, 3, 4, 5 and y = 1.1, 2.0, 2.8, 4.2, 5.1 calculate the slope of the least squares line.'}
+    check('nf_intradup_T15', [(a, b) for a, b, _w in intra_paper_duplicates([p49, p88])] == [('49', '88')])
+    g1 = {'q': 23, 'subtopic_id': 'oc.r.a', 'stem_text': 'The major product P of the reaction shown below is'}
+    g2 = {'q': 32, 'subtopic_id': 'oc.r.a', 'stem_text': 'The major product P of the reaction shown below is'}
+    c1 = {'q': 53, 'subtopic_id': 'pc.q.am', 'concept': 'angular_momentum_magnitude', 'stem_text': 'The magnitude of the orbital angular momentum of a 3d electron is'}
+    c2 = {'q': 112, 'subtopic_id': 'pc.q.am', 'concept': 'angular_momentum_magnitude', 'stem_text': 'The magnitude of the spin angular momentum of a triplet is'}
+    check('nf_intradup_figure_stems_and_concept', intra_paper_duplicates([g1, g2]) == []
+          and [(a, b) for a, b, _w in intra_paper_duplicates([c1, c2])] == [('53', '112')])
+    q41 = {'q': 41, 'key_text': '390.7 S cm2 mol-1', 'stem_text': 'Find the limiting molar conductivity of acetic acid.'}
+    q96 = {'q': 96, 'stem_text': 'The limiting molar conductivity of acetic acid is 390.7 S cm2 mol-1. Find alpha.'}
+    lk = key_leak_check([q41, q96])
+    check('nf_keyleak_T15', [(a, b) for a, b, _v in lk] == [('41', '96')]
+          and key_leak_check([{'q': 1, 'key_text': '4'}, {'q': 2, 'stem_text': 'n = 4 unpaired'}]) == []
+          and key_leak_check([{'q': 1, 'key_text': '18'}, {'q': 2, 'stem_text': 'an 18 electron complex'}]) == []
+          and key_leak_check([{'q': 1, 'key_text': '1.013'}, {'q': 2, 'stem_text': 'the neutron mass is 1.008665 u'}]) == []
+          and key_leak_check([{'q': 1, 'key_text': '4.94'}, {'q': 2, 'option_texts': ['4.96 eV']}]) == []
+          and key_leak_check([{'q': 1, 'key_text': '8.314 J'}, {'q': 2, 'stem_text': 'R = 8.314 J'}],
+                             pyq_stems=['R = 8.314 J'] * 3 + ['x'] * 10) == [])
+    # ── F-09 ──
+    fs = {'atoms': [{'id': 'fe', 'el': 'Fe', 'x': 0, 'y': 0, 'label': 'Fe2-'}, {'id': 'n', 'el': 'N', 'x': 1, 'y': 0},
+                    {'id': 'o', 'el': 'O', 'x': 1.6, 'y': 0.8}], 'bonds': [['fe', 'n'], ['n', 'o']],
+          'angle_triples': [['fe', 'n', 'o']]}
+    sc = stem_figure_consistency('In the nitroprusside ion, Fe(+2) carries a linear Fe–N–O unit (176 °).', fs)
+    check('nf_stem_figure_T17', sc['status'] == 'FAIL' and any('linear' in x for x in sc['contradictions']))
+    mc = metal_figure_convention({'atoms': [{'id': 1, 'el': 'Fe', 'label': 'Fe4-'}, {'id': 2, 'el': 'Na', 'label': 'Na+', 'free_ion': True}],
+                                  'dative_arrows': True}, {'conventions': {}})
+    check('nf_metal_convention_T17_EC31_EC32', len(mc) == 2 and any('Fe' in x for x in mc)
+          and metal_figure_convention({'atoms': [], 'dative_arrows': True},
+                                      {'conventions': {'dative_arrow': {'share': 0.3}}}) == []
+          and len(metal_figure_convention({'atoms': [], 'dative_arrows': True}, None)) == 1)
+    xs = [i / 10 for i in range(-30, 31)]
+    smooth = [_nf_math.exp(-x * x) for x in xs]
+    kink = [(1 - abs(x) / 3) for x in xs]
+    check('nf_curve_continuity', curve_continuity(xs, smooth, [0.0]) == [] and curve_continuity(xs, kink, [0.0]) == [0.0])
+    check('nf_epr_T18', len(epr_lines([(1.5, 1, 60.0), (1.5, 4, 7.0)])) == 52)
+    ms_ = dict(ms_isotope_pattern('CH2Cl2'))
+    check('nf_ms_isotope', set(ms_) >= {84, 86, 88} and abs(ms_[86] - 0.64) < 0.03 and abs(ms_[88] - 0.10) < 0.02)
+    check('nf_mossbauer', len(mossbauer_lines(0.3, 1.2)) == 2 and len(mossbauer_lines(0.0, 0.0, 33.0)) == 6)
+    nm = nmr_multiplet([(2, 0.5, 7.0)])
+    check('nf_nmr_triplet', [round(h, 2) for _p, h in nm] == [0.5, 1.0, 0.5])
+    check('nf_data_kind_EC34', data_figure_points('TANABE_SUGANO', {})[0] is None
+          and data_figure_points('RATE_PLOT', {'order': 1})[0] is not None)
+    check('nf_stem_claims', any(c['kind'] == 'isomer' and c['value'] == 'trans' for c in stem_figure_claims('the trans isomer')))
+    check('nf_ladder_entries', ladder_entry('A-ALLOC') == 'R3' and ladder_entry('A-KEYLEAK') == 'R2s')
+
+
+def _bv_self_test(check):
+    L = ['Easy', 'Medium', 'Hard']
+    fr = lambda s: {'context': 'fresh', 'sha256': s}
+    pk2 = {'grader_1': fr('a'), 'grader_2': fr('b')}
+    pk3 = dict(pk2, grader_3=fr('c'))
+    check('bv_pass_two_agree', bv_decide({'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}, 'Hard', L)['action'] == 'pass')
+    check('bv_split_is_tiebreak_never_rewrite', bv_decide({'grader_1': 'Hard', 'grader_2': 'Medium', 'recipe': True}, 'Hard', L)['action'] == 'tiebreak')
+    check('bv_tiebreak_majority_pass', bv_decide({'grader_1': 'Hard', 'grader_2': 'Medium', 'grader_3': 'Hard', 'recipe': True}, 'Hard', L)['action'] == 'pass')
+    d = bv_decide({'grader_1': 'Medium', 'grader_2': 'Medium', 'recipe': True}, 'Hard', L)
+    check('bv_majority_other_band_rewrite_once', d['action'] == 'rewrite' and d['band'] == 'Medium')
+    d2 = bv_decide({'grader_1': 'Medium', 'grader_2': 'Medium', 'recipe': True}, 'Hard', L, attempt=2)
+    check('bv_after_rewrite_settle_measured', d2['action'] == 'settle' and d2['band'] == 'Medium')
+    check('bv_three_way_median_labels', band_majority({'grader_1': 'Easy', 'grader_2': 'Hard', 'grader_3': 'Medium', 'recipe': True}, 'Medium', L)[0]
+          and not band_majority({'grader_1': 'Easy', 'grader_2': 'Hard', 'recipe': True}, 'Hard', L)[0]
+          and bv_majority_band({'grader_1': 'Easy', 'grader_2': 'Hard'}, L) is None)
+    check('bv_three_way_split_middle', bv_majority_band({'grader_1': 'Easy', 'grader_2': 'Hard', 'grader_3': 'Medium'}, L) == 'Medium')
+    check('bv_key_dispute', bv_decide({}, 'Hard', L, 1, {'unanimous': False})['action'] == 'rewrite'
+          and bv_decide({}, 'Hard', L, 2, {'unanimous': False})['action'] == 'key_chain')
+    check('bv_grade_first', bv_decide({}, 'Hard', L)['action'] == 'grade')
+    e1, ok1, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}, pk2)
+    check('bv_label_exact', ok1 and verify_difficulty_label(e1, L, strict=True)[0]
+          and e1['difficulty_check']['label_basis']['kind'] == 'measured_exact')
+    e2, ok2, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Medium', 'grader_3': 'Hard', 'recipe': True}, pk3)
+    check('bv_label_majority_verifies', ok2 and verify_difficulty_label(e2, L, strict=True) == (True, 'Hard', 'measured_majority'))
+    _, okx, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Medium', 'grader_2': 'Medium', 'recipe': True}, pk2, attempt=1, delivered='Medium')
+    e3, ok3, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Medium', 'grader_2': 'Medium', 'recipe': True}, pk2, attempt=2, delivered='Medium')
+    check('bv_settle_only_after_rewrite', not okx and ok3 and e3['difficulty'] == 'Medium' and bv_settled(e3, L)
+          and e3['difficulty_check']['label_basis']['disclosed'] is True)
+    _, okn, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Medium', 'grader_3': 'Hard', 'recipe': True},
+                             {'grader_1': fr('a'), 'grader_2': fr('b'), 'grader_3': {'context': 'same', 'sha256': 'c'}})
+    check('bv_same_context_grade_refused', not okn)
+    _, okr, _ = bv_set_label({}, L, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Medium', 'grader_3': 'Hard', 'recipe': False}, pk3)
+    check('bv_recipe_required', not okr)
+    jobs = bv_jobs(7, {'stem_text': 's', 'option_texts': ['a', 'b'], 'difficulty': 'Hard', 'difficulty_obs': {'x': 1}},
+                   {'Hard': [{'stem': 'p', 'solution': 'hidden'}]}, L)
+    check('bv_jobs_blind', [j['role'] for j in jobs] == ['grader_1', 'grader_2', 'solver_1', 'solver_2']
+          and all(j['sha256'] for j in jobs) and 'hidden' not in str(jobs)
+          and 'difficulty_obs' not in str(jobs[0]['packet'].get('item')) and 'Hard' not in str(jobs[2]['packet']))
+    jl = bv_jobs(8, {'stem_text': 's', 'option_texts': ['a'], 'decisions_author': ['x'], 'bv': {'rewrite_brief': {'slot': 'Hard'}},
+                     'grades': {'grader_1': 'Hard'}, 'key_votes': {'author': 2}, 'nf_findings': ['f'], 'grader_meta': {}}, {}, L)
+    check('bv_jobs_allow_list', all(set(j['packet'].get('item', {})) <= set(BV_GRADER_FIELDS) for j in jl if j['role'].startswith('grader'))
+          and 'decisions_author' not in str(jl) and 'Hard' not in str([j['packet'].get('item') for j in jl])
+          and 'Hard' not in str([j['packet'] for j in jl if j['role'].startswith('solver')]) and "'author'" not in str(jl))
+    check('bv_read_result', bv_read_result('grader_1', {'band': 'hard', 'decisions': 3}, L)['band'] == 'Hard'
+          and bv_read_result('grader_1', {'band': 'X'}, L) is None and bv_read_result('solver_1', {'answer': 2})['answer'] == 2)
+    ap = bv_author_packet({'q': 3, 'band': 'Hard'}, {'Easy': [{'stem': 'e'}], 'Medium': [{'stem': 'm'}], 'Hard': [{'stem': 'h', 'solution': 'z'}]}, L)
+    check('bv_author_sees_grader_anchors', set(ap['anchors']) == {'Medium', 'Hard'} and 'z' not in str(ap))
+    cm = {'1': dict(e1, key_votes={'unanimous': True}), '2': dict(e3, key_votes={'unanimous': True}),
+          '3': {'difficulty': 'Hard'}, '4': {'bv_state': 'key_chain'}}
+    st = bv_batch_status(cm, [1, 2, 3, 4], {'1': 'Hard', '2': 'Hard', '3': 'Hard', '4': 'Easy'}, L)
+    check('bv_batch_status', st == {'settled': ['1', '2'], 'disclosed': ['2'], 'key_chain': ['4'], 'open': ['3']})
+    _ru_t = {'anchors': {'Hard': [{'subtopic_id': 'x.y', 'stem_snippet': 'other'}, {'subtopic_id': 'a.b', 'stem_snippet': 'same', 'blind_grade_1': 'Hard'}]}}
+    _an = bv_anchors({}, _ru_t, 'a.b', 'mcq', L, k=1)
+    check('bv_anchors_ruler_nearest_content_only', _an == {'Hard': [{'stem_snippet': 'same', 'subtopic_id': 'a.b'}]})
+    _fx = lambda b, a=1: {'result': {'band': b}, 'sha256': 'h' + str(a), 'context': 'fresh'}
+    _sx = lambda ans: {'result': {'answer': ans, 'assumptions': []}, 'sha256': 's', 'context': 'fresh'}
+    _it = {'stem_text': 'Q', 'option_texts': ['a', 'b', 'c', 'd'], 'subject': 'X'}
+    r1 = bv_apply(_it, 'Hard', L, {}, 2, results={})
+    check('bv_apply_first_jobs', r1['action'] == 'grade' and r1['roles'] == ['grader_1', 'grader_2', 'solver_1', 'solver_2'])
+    r2 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2),
+                                                          'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('bv_apply_split_tiebreak', r2['action'] == 'tiebreak' and r2['roles'] == ['grader_3'])
+    r3 = bv_apply(r2['entry'], 'Hard', L, {}, 2, results={'grader_3': _fx('Hard', 3)})
+    check('bv_apply_majority_settles_at_slot', r3['action'] == 'settled' and r3['band'] == 'Hard'
+          and verify_difficulty_label(r3['entry'], L, strict=True) == (True, 'Hard', 'measured_majority')
+          and r3['entry']['key_votes']['unanimous'] is True and r3['entry']['grades']['grader_3'] == 'Hard'
+          and bv_batch_status({'1': r3['entry']}, [1], {'1': 'Hard'}, L)['settled'] == ['1'])
+    m1 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Medium'), 'grader_2': _fx('Medium', 2),
+                                                          'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('bv_apply_rewrite_once', m1['action'] == 'rewrite' and m1['entry']['bv']['rewrite_brief']['measured'] == 'Medium')
+    m2 = bv_apply(dict(m1['entry'], stem_text='Q rewritten'), 'Hard', L, {}, 2, results={})
+    check('bv_apply_rewrite_starts_attempt_2', m2['action'] == 'grade' and m2['entry']['bv']['attempt'] == 2
+          and len(m2['entry']['bv']['history']) == 1)
+    m3 = bv_apply(m2['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Medium'), 'grader_2': _fx('Medium', 2),
+                                                          'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('bv_apply_settle_disclosed_after_rewrite', m3['action'] == 'settled' and m3['band'] == 'Medium'
+          and bv_batch_status({'1': m3['entry']}, [1], {'1': 'Hard'}, L) == {'settled': ['1'], 'disclosed': ['1'], 'key_chain': [], 'open': []})
+    k1 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Hard', 2),
+                                                          'solver_1': _sx(3), 'solver_2': _sx(2)})
+    m1b = bv_apply(m1['entry'], 'Hard', L, {}, 2, results={})
+    check('bv_apply_unchanged_rewrite_settles', m1b['action'] == 'settled' and m1b['band'] == 'Medium')
+    check('bv_apply_key_dispute_rewrite', k1['action'] == 'rewrite' and 'solver 1' in (k1['entry']['bv']['rewrite_brief']['key'] or ''))
+    a1 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Hard', 2),
+                  'solver_1': {'result': {'answer': 2, 'assumptions': [{'about': 'conditions', 'text': 't', 'changes_answer': True}]}, 'sha256': 's', 'context': 'fresh'},
+                  'solver_2': _sx(2)})
+    check('bv_apply_decisive_assumption_fails_key', a1['action'] == 'rewrite')
+    rr = {'recipe_by_subject': {'X': {'Hard': {'decisions': (3, 5)}}}}
+    check('bv_recipe_dormant_is_not_a_control', bv_recipe_verdict({'subject': 'Y'}, rr, 'Hard', L) == (True, 'DORMANT')
+          and bv_recipe_verdict({'subject': 'X', 'decisions': ['a']}, rr, 'Hard', L)[0] is False)
+    sm = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={'grader_1': {'result': {'band': 'Hard'}, 'sha256': 'x', 'context': 'same'},
+                  'grader_2': _fx('Hard', 2), 'solver_1': _sx(2), 'solver_2': _sx(2)})
+    check('bv_apply_same_context_never_labels', sm['action'] == 'unlabelled')
+    f1 = bv_apply(r1['entry'], 'Hard', L, {}, 2, results={}, findings=['repeats the template of Q3'])
+    f2 = bv_apply(dict(f1['entry'], stem_text='new'), 'Hard', L, {}, 2, results={}, findings=['still repeats'])
+    r4 = bv_apply(r3['entry'], 'Hard', L, {}, 2, results={}, findings=['late finding'])
+    _wiped = {k: v for k, v in r3['entry'].items() if k in ('stem_text', 'option_texts', 'subject')}
+    _wiped['bv'] = r3['entry']['bv']
+    r5 = bv_apply(_wiped, 'Hard', L, {}, 2, results={})
+    check('bv_relabels_a_wiped_entry_from_its_grades', r5['action'] == 'settled' and verify_difficulty_label(r5['entry'], L, strict=True)[0])
+    check('bv_settled_is_final', r4['action'] == 'settled' and r4['entry'] == r3['entry'])
+    check('bv_findings_are_the_one_rewrite', f1['action'] == 'rewrite' and f1['entry']['bv']['rewrite_brief']['findings']
+          and f2['action'] == 'grade' and f2['entry']['nf_findings'] == ['still repeats'])
+    _pg_cm = {'1': r3['entry'], '2': m3['entry']}
+    _pg = difficulty_paper_gate(dl_gate_items({'1': 'Hard', '2': 'Hard'}, _pg_cm, L), L)
+    check('bv_paper_gate_counts_bv_labels', _pg['status'] == 'PASS' and _pg['below'] == []
+          and [x['q'] for x in _pg['last_resort']] == ['2'] and _pg['unmeasured'] == [])
+    d1 = bv_apply({'stem_text': 'Q', 'option_texts': ['a', 'b']}, None, L, {}, 1, results={})
+    d2 = bv_apply(d1['entry'], None, L, {}, 1, results={'solver_1': _sx(1), 'solver_2': _sx(1)})
+    check('bv_no_difficulty_plan_checks_the_key_only', d1['roles'] == ['solver_1', 'solver_2'] and d2['action'] == 'settled'
+          and 'difficulty_check' not in d2['entry'] and bv_batch_status({'1': d2['entry']}, [1], {}, L)['settled'] == ['1'])
+    _fdx = {'file': '/x/q9_problem.png', 'smiles': 'CC', 'stereo_mode': 'none', 'kind': 'skeletal'}
+    _vit = dict(_it, organic=True, figure_dicts=[_fdx])
+    _cmpf = lambda a, b, m='abs': {'match': a == b}
+    _prf = lambda f: {'identity_ok': True, 'gates_ok': True, 'vision_ok': all(r.get('match') for r in f.get('vision_reads') or []), 'missing': []}
+    v1 = bv_apply(_vit, 'Hard', L, {}, 2, results={}, vision_compare=_cmpf, figure_proof=_prf)
+    _vx = lambda s_: {'result': {'smiles': s_}, 'sha256': 'v', 'context': 'fresh'}
+    v2 = bv_apply(v1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Hard', 2), 'solver_1': _sx(2),
+                  'solver_2': _sx(2), 'vision_1_1': _vx('CCO')}, vision_compare=_cmpf, figure_proof=_prf)
+    v3 = bv_apply(v1['entry'], 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Hard', 2), 'solver_1': _sx(2),
+                  'solver_2': _sx(2), 'vision_1_1': _vx('CC')}, vision_compare=_cmpf, figure_proof=_prf)
+    _vj = bv_jobs(9, _vit, {}, L, roles=['vision_1_1', 'grader_1'])
+    v4 = bv_apply(dict(v2['entry'], figure_dicts=[dict(_fdx, render_sha='redrawn')]), 'Hard', L, {}, 2, results={},
+                  vision_compare=_cmpf, figure_proof=_prf)
+    check('bv_redrawn_figure_is_attempt_2_and_read_again', v4['entry']['bv']['attempt'] == 2 and 'vision_1_1' in v4['roles'])
+    check('bv_vision_in_batch', 'vision_1_1' in v1['roles'] and v2['action'] == 'rewrite'
+          and 'read back as CCO' in str(v2['entry']['bv']['rewrite_brief']['findings'])
+          and v3['action'] == 'settled' and v3['entry']['figures'][0]['vision_ok'] is True
+          and _vj[0]['packet'] == {'figures': ['/x/q9_problem.png']} and "'CC'" not in str(_vj[0]['packet'])
+          and 'figure_dicts' not in str(_vj[1]['packet']))
+    check('bv_one_write_constants', C_K_CANDIDATES == 1 and C_K_AFTER_MISS == 1 and C_WRITE_ATTEMPTS == 2
+          and 'measured_majority' in LB2_KINDS)
+
+
 def self_test():
     passed = 0
     total = 0
@@ -11291,7 +11743,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '1.34')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.1')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -12618,6 +13070,10 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v2.0 — Cluster OP (GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY) ──────────
     _op_self_test(check)
+
+    # ── v2.1 — Cluster NF (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY) ──────────
+    _nf_self_test(check)
+    _bv_self_test(check)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
@@ -19675,7 +20131,7 @@ def difficulty_paper_gate(items, labels):
     # v2.0 (LAW-ORG-4): a last-resort slot is the one disclosed deviation (requested vs delivered); it is listed
     # and never counted 'below' (its replacement was proven exactly at the delivered band)
     last_resort = [{'q': i.get('q'), 'requested': i.get('original_band'), 'delivered': i.get('final_band')}
-                   for i in its if i.get('rung') == 'LAST_RESORT']
+                   for i in its if i.get('rung') in ('LAST_RESORT', 'SETTLED')]
     _lr = {str(x['q']) for x in last_resort}
     below = [i for i in below if str(i.get('q')) not in _lr]
     return {'status': 'PASS' if not below else 'REWORK', 'counts_final': cf, 'counts_original': co,
@@ -19949,8 +20405,11 @@ def dl_gate_items(target_plan, concept_map, labels):
         _lbm = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
         meas = (_dl_band(dc.get('review_measured'), labs) or _dl_band(dc.get('measured'), labs)
                 or _dl_band(_lbm.get('measured'), labs))
-        rung = dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS + LB_RUNGS + ('EXACT', 'LAST_RESORT') else None
-        if rung in ('DR3',) + LB_RUNGS + ('EXACT', 'LAST_RESORT'):
+        rung = (dc.get('dl_rung') if dc.get('dl_rung') in DL_REPAIR_RUNGS + LB_RUNGS + ('EXACT', 'LAST_RESORT', 'MAJORITY', 'SETTLED')
+                else None)
+        if rung in ('DR3',) + LB_RUNGS + ('EXACT', 'LAST_RESORT', 'MAJORITY', 'SETTLED'):
+            # v2.1 BV1: MAJORITY (a third grader settled a split) and SETTLED (delivered at its measured band after the
+            # one rewrite) are LB2 bases too — counted at their label; SETTLED is listed like a last resort
             # v2.0: an LB2 basis (measured_exact / last_resort) counts at its label — the label IS the band every
             # control agreed on (verify_difficulty_label strict); a last-resort slot is listed, never 'below'
             # v1.34: a band swap (SWAP) and a schedule-forced label (FORCED) count at their label —
@@ -21155,7 +21614,8 @@ def qindex_count_band(entry, labels):
     labs = _dl_labels(labels)
     e, dc, _obs, _lb, _qt = _lb_entry(entry)
     lab = e.get('difficulty')
-    if isinstance(_lb, dict) and _lb.get('kind') == 'last_resort':
+    if isinstance(_lb, dict) and _lb.get('kind') in ('last_resort', 'measured_majority'):
+        # v2.1 BV1: a question settled at its measured band after its one rewrite counts at its SLOT too (disclosed)
         # v2.0 (LAW-ORG-4): a last-resort slot counts at its SLOT in the schedule quota; the deviation is the
         # one disclosed AMBER line (requested vs delivered), never a quota FAIL
         return _dl_band(_lb.get('target'), labs) or lab
@@ -21877,7 +22337,7 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.10'                    # qindex_cert.framework_release stamped by final_assembly v1.16
+OP_RELEASE = '2026.11.11'                    # qindex_cert.framework_release stamped by final_assembly (v1.17: release 2026.11.11)
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -21890,8 +22350,8 @@ C_SMALL_KEY = 6
 C_GRADERS = 2
 C_ANCHOR_MIN = 8
 C_RULER_AGREE = 0.80
-C_K_CANDIDATES = 3
-C_K_AFTER_MISS = 5
+C_K_CANDIDATES = 1                           # v2.1 BV1 (owner 2026-11-11): ONE write per slot, with the graders' anchors
+C_K_AFTER_MISS = 1                           # a miss gets the ONE rewrite (C_WRITE_ATTEMPTS), never more candidates
 C_REFILL_SESSIONS = 5                        # owner 2026-11-10: raised from the GAP default 3
 C_REFILL_CANDIDATES = 10
 C_SOLVERS = 2
@@ -23330,7 +23790,8 @@ def ruler_graded_count(records, labels=None):
                if _dl_band(r.get('blind_grade_1'), labs) is not None and _dl_band(r.get('blind_grade_2'), labs) is not None)
 
 
-def build_difficulty_ruler(records, labels, version, model_id, prompt_version, date, library=None, level=None):
+def build_difficulty_ruler(records, labels, version, model_id, prompt_version, date, library=None, level=None,
+                           manifest=None):
     """F-08.1 / F-08.3 — the exam's ruler from its verified past items graded by C_GRADERS fresh blind
     graders (record fields blind_grade_1 / blind_grade_2). Anchors = records both graders put in the same
     band; a band with < C_ANCHOR_MIN anchors borrows the library level's anchors, then the neighbouring
@@ -23371,7 +23832,10 @@ def build_difficulty_ruler(records, labels, version, model_id, prompt_version, d
     recipe = {}
     for b in labs:
         rs = anchors[b]
-        dec = [max(1, len([d for d in (r.get('decisions') or []) if d in DECISION_TAGS])) for r in rs if r.get('organic')]
+        # v2.1 F-04 (GAP-2026-11-11): every item kind — organic AND non-organic anchors carry decisions; the
+        # credited count is MIP-aware (nf_decision_count). Records without decisions are not counted.
+        dec = [max(1, nf_decision_count(r.get('decisions'), r.get('mip'))) for r in rs
+               if isinstance(r.get('decisions'), list) and r.get('decisions')]
         fmts = sorted({r.get('ask_format') for r in rs if r.get('ask_format') in ASK_FORMATS})
         conv = sorted({t for r in rs for t in (r.get('representations') or []) if t in ORG_CONVENTION_TAGS})
         subs = substrate_recipe([dict(r, ruler_band=b) for r in rs])
@@ -23402,7 +23866,9 @@ def build_difficulty_ruler(records, labels, version, model_id, prompt_version, d
             'anchors': {b: [f"{r.get('exam_code') or ''}{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"
                             for r in anchors[b]] for b in labs},
             'basis': basis, 'borrowed': borrowed, 'recipe': recipe, 'past_distribution': past,
-            'qtype_bands': {k: sorted(v, key=labs.index) for k, v in qtb.items()}, 'rule': OP_RULE_CURRENT}
+            'qtype_bands': {k: sorted(v, key=labs.index) for k, v in qtb.items()}, 'rule': OP_RULE_CURRENT,
+            # v2.1 F-04 — the per-subject recipe (cascade subject -> exam -> library; dormant never passes)
+            'recipe_by_subject': build_recipe_by_subject(allrec, labs, manifest=manifest, library=library)}
 
 
 def ruler_needs_recalibration(ruler, agreement=None, model_id=None, paper_count=None, graded_count=None):
@@ -23643,7 +24109,7 @@ def schedule_frozen_check(state, labels_by_q):
 
 # ── G-10 — TERMINATE BY REPLACING (LAW-ORG-3/4/5/7) ─────────────────────────────────────
 SC_TERMINALS_V2 = SC_TERMINALS          # alias (GAP §8.1 name)
-LB2_KINDS = ('measured_exact', 'last_resort')
+LB2_KINDS = ('measured_exact', 'last_resort', 'measured_majority')
 LB_RULE_STRICT = 'LB2'
 
 
@@ -23787,7 +24253,9 @@ def verify_difficulty_label_strict(entry, labels):
                          blind grades + the recipe check all on the target; each grader's packet sha recorded
                          in label_basis.packets with context 'fresh');
       'last_resort'    — label == label_basis.delivered, band_exact(controls, delivered), the SC2 chain proven
-                         exhausted through refill_session, and an incident id recorded.
+                         exhausted through refill_session, and an incident id recorded;
+      'measured_majority' — v2.1 BV1: bv_verify_majority (a majority of >= 2 fresh graders + the recipe name the
+                         delivered band; a band other than the slot only after the one rewrite).
     Every other basis (obs, l2, none, dr3, review/swap, forced, held) is rejected. Never raises."""
     labs = _dl_labels(labels)
     e = entry if isinstance(entry, dict) else {}
@@ -23808,6 +24276,9 @@ def verify_difficulty_label_strict(entry, labels):
         ch = lb.get('chain') if isinstance(lb.get('chain'), dict) else {}
         ex = slot_chain_exhausted(ch, ch.get('kind')) and 'refill_session' in (ch.get('terminal_tried') or [])
         return bool(ok and fresh and ex and lab == dlv and lb.get('incident_id')), dlv, 'last_resort'
+    if kind == 'measured_majority':                       # v2.1 BV1 — the in-batch majority / settled label
+        okm, dlvm = bv_verify_majority(e, labs)
+        return okm, dlvm, 'measured_majority'
     return False, None, 'strict_reject:' + str(kind or dc.get('dl_rung') or 'none')
 
 
@@ -23821,6 +24292,8 @@ def dl_set_label_basis_strict(entry, kind, labels, target, controls, packets, ch
     dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else {}
     if kind not in LB2_KINDS:
         return (entry if isinstance(entry, dict) else {}), False, f'unknown LB2 kind {kind!r}'
+    if kind == 'measured_majority':                    # v2.1 BV1: written ONLY by bv_set_label (its own rule)
+        return (entry if isinstance(entry, dict) else {}), False, "kind 'measured_majority' is written by bv_set_label"
     tgt = _dl_band(target, labs)
     band = tgt if kind == 'measured_exact' else _dl_band(delivered, labs)
     ok, why = band_exact(controls, band, labs)
@@ -23926,6 +24399,2215 @@ LADDER_ENTRY_RUNG.update({'A-ORGPROOF': 'R1', 'G-ORGPROOF': 'R1'})
 
 # END CLUSTER OP
 # ══════════════════════════════════════════════════════════════════
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# CLUSTER NF — NON-ORGANIC MOCK FIDELITY (v2.1 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY)
+#   F-01 per-mock subject / topic balance (nested controlled rounding) + A-ALLOC conformance
+#   F-03 format plan for every subject (per subject x Part, measured with analyse_engine's axis-2 ladder)
+#   F-04 subject-agnostic decision vocabulary + per-subject band recipe (cascade topic -> subject -> exam -> library)
+#   F-05 minimal identifying parts (MIP) of a multi-part item + PYQ-share distribution
+#   F-06 text-item fingerprint, depth-preserving clone guard, series registry for text items
+#   F-07 within-paper uniqueness + cross-item key leak
+#   F-08 taxonomy binding (norm_label, manifest_hash — NOT the manifest's literal 'manifest_version')
+#   F-09 non-organic figure conventions, stem-figure claims, curve continuity, computed data-figure kinds
+#   F-10 question-class mix per subject x Part
+#   F-11 difficulty band mix per subject x Part (subject-aware schedule placement)  [amendment A]
+#   CAL  PYQ grade calibration: recipe monotonicity + optional expert sample, stricter grade wins [amendment C]
+# Every target is computed from the exam's own data at run time (D-01). Every function is pure, never
+# raises, and returns a DORMANT / empty result when its input is empty for an exam (D-07). Nothing here
+# halts a run (D-03): a shortfall is a repair request or a disclosed (AMBER) line.
+# ══════════════════════════════════════════════════════════════════════════════════════
+import hashlib as _nf_hashlib
+import itertools as _nf_it
+import math as _nf_math
+import re as _nf_re
+import unicodedata as _nf_ud
+
+NF_VERSION = '2.1'
+NF_RULE = 'GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY'
+C_NF_TEMPLATE_SIM = 0.80        # task_template token Jaccard at/above which two templates are "the same"
+C_NF_KEYLEAK_TOL = 0.005        # +-0.5 % numeric match for a key value printed elsewhere (F-07)
+C_NF_TRIVIAL_INT = 10           # |integer key| <= this is a trivial value (EC-26)
+C_NF_COMMON_SHARE = 0.05        # a value in >= 5 % of the exam's PYQ stems is a common constant (EC-27)
+C_NF_CALIB_AGREE = 0.80         # expert-sample agreement below this -> stricter grade wins (amendment C)
+C_NF_MANIFEST_FIELD = 'manifest_hash'   # amendment B: the manifest's literal 'manifest_version' ("1.0") is kept untouched
+NF_STATUS = ('PASS', 'FAIL', 'DORMANT')
+
+# ── F-04 — subject-agnostic decision vocabulary ──────────────────────────────────────────
+GENERIC_DECISION_TAGS = ('multi_entity_comparison', 'concept_chain', 'exception_case', 'data_interpretation',
+                         'derivation', 'quantitative_chain', 'specific_knowledge')
+NF_NEVER_DECISIONS = ('unit_conversion', 'plain_arithmetic', 'stacked_part', 'printed_formula_recall')
+ALL_DECISION_TAGS = tuple(DECISION_TAGS) + GENERIC_DECISION_TAGS
+
+# ── F-03 — formats the plan may target (analyse_engine axis-2 classes); DIRECT is the residual ──
+# The format vocabulary is figure_types.ASK_FORMATS — the measure PYQExplain writes on every PYQ record
+# (record['ask_format'] = figure_types.normalise_ask_format(stem, options)) and the auditor re-applies to every
+# delivered item: ONE ruler on both sides (D-06). 'direct' is the residual.
+NF_RESIDUAL_FORMAT = 'direct'
+NF_PLANNED_FORMATS = ('statement', 'match', 'sequence', 'combination', 'assertion_reason')
+NF_FORMAT_CONVERTERS = {
+    # target format -> the source content it may be built from; band and subtopic KEPT, every control re-run
+    'statement': 'several facts about one entity -> lettered statements + "and only" combinations (or Statement I / II)',
+    'combination': 'several items about one entity -> lettered items + combination options',
+    'match': 'a same-family set of entities with one attribute each -> List-I / List-II (3-column when the subject\'s PYQs show it)',
+    'sequence': 'a comparable set -> correct order / arrange (with or without reasons)',
+    'assertion_reason': 'a causal claim -> Assertion (A) / Reason (R) (only when the subject\'s PYQs use it)',
+}
+# manifest axis2_capability (analyse_engine vocabulary) -> the ask formats a subtopic has shown
+NF_AXIS2_TO_ASK = {'MATCH': ('match',), 'STATEMENT': ('statement', 'combination'), 'SEQUENCE': ('sequence',),
+                   'RANK': ('sequence',), 'ASSERTION_REASON': ('assertion_reason',)}
+
+# ── F-09 — computed data-figure kinds (generator present = True) ─────────────────────────
+NF_DATA_FIGURE_KINDS = {'EPR_SPECTRUM': True, 'MOSSBAUER_SPECTRUM': True, 'NMR_MULTIPLET': True,
+                        'MS_ISOTOPE_PATTERN': True, 'RATE_PLOT': True, 'CV_TRACE': True,
+                        'TANABE_SUGANO': False}   # no generator yet -> EC-34 (text form, same subtopic + band)
+
+
+def _nf_i(v, d=0):
+    if isinstance(v, bool):
+        return int(v)
+    try:
+        return int(v)
+    except (TypeError, ValueError, OverflowError):
+        try:
+            return int(float(v))
+        except (TypeError, ValueError, OverflowError):
+            return d
+
+
+def _nf_f(v):
+    try:
+        x = float(v)
+        return x if _nf_math.isfinite(x) else None
+    except (TypeError, ValueError):
+        return None
+
+
+# ══ F-08 — TAXONOMY BINDING ═══════════════════════════════════════════════════════════════
+_NF_QUOTES = {'’': "'", '‘': "'", 'ʼ': "'", '′': "'", '`': "'", '´': "'",
+              '“': '"', '”': '"'}
+_NF_DASHES = {'‐': '-', '‑': '-', '‒': '-', '–': '-', '—': '-', '―': '-', '−': '-'}
+
+
+def norm_label(s):
+    """F-08 — the ONE join normaliser: NFKC, quote folding, dash folding, whitespace collapse, case fold."""
+    t = _nf_ud.normalize('NFKC', str(s or ''))
+    t = ''.join(_NF_QUOTES.get(c, _NF_DASHES.get(c, c)) for c in t)
+    return ' '.join(t.split()).casefold()
+
+
+def _nf_subtopics(manifest):
+    m = manifest if isinstance(manifest, dict) else {}
+    st = m.get('subtopics') if isinstance(m.get('subtopics'), dict) else m
+    return {k: v for k, v in st.items() if isinstance(v, dict)} if isinstance(st, dict) else {}
+
+
+def manifest_hash(manifest):
+    """F-08 — sha256 of the sorted (subtopic_id, norm_label(display_name)) list. Written as 'manifest_hash'
+    (amendment B: never as 'manifest_version', which an exam manifest already carries as a literal)."""
+    rows = sorted((sid, norm_label(v.get('display_name') or sid)) for sid, v in _nf_subtopics(manifest).items())
+    return _nf_hashlib.sha256(repr(rows).encode('utf-8')).hexdigest()
+
+
+def nf_subject_of(sid, manifest):
+    v = _nf_subtopics(manifest).get(sid) or {}
+    return v.get('section'), v.get('topic')
+
+
+def nf_resolve_subtopic_id(label_or_id, manifest, section=None, topic=None):
+    """F-08 tags are ids — (id | None, how). id equality, then normalised display name (restricted by section /
+    topic when given), then None. Never raises."""
+    st = _nf_subtopics(manifest)
+    x = str(label_or_id or '').strip()
+    if x in st:
+        return x, 'id'
+    nx = norm_label(x)
+    hits = [sid for sid, v in st.items() if norm_label(v.get('display_name')) == nx
+            and (section is None or norm_label(v.get('section')) == norm_label(section))
+            and (topic is None or norm_label(v.get('topic')) == norm_label(topic))]
+    if len(hits) == 1:
+        return hits[0], 'display_name'
+    if hits:
+        return sorted(hits)[0], 'display_name(ambiguous)'
+    return None, 'unmapped'
+
+
+def manifest_crosswalk(old_manifest, new_manifest):
+    """F-08 / EC-28 / EC-29 — {old_id: {'to': new_id | None, 'topic': (section, topic) | None, 'how'}}.
+    Order: id equality, normalised display name (same section), parent topic (a split / removed id counts at
+    its topic). Never raises."""
+    old, new = _nf_subtopics(old_manifest), _nf_subtopics(new_manifest)
+    out = {}
+    for sid, v in old.items():
+        if sid in new:
+            out[sid] = {'to': sid, 'topic': (new[sid].get('section'), new[sid].get('topic')), 'how': 'id'}
+            continue
+        nid, how = nf_resolve_subtopic_id(v.get('display_name'), new_manifest, section=v.get('section'))
+        if nid:
+            out[sid] = {'to': nid, 'topic': (new[nid].get('section'), new[nid].get('topic')), 'how': how}
+            continue
+        tk = (norm_label(v.get('section')), norm_label(v.get('topic')))
+        tp = [(n.get('section'), n.get('topic')) for n in new.values()
+              if (norm_label(n.get('section')), norm_label(n.get('topic'))) == tk]
+        out[sid] = {'to': None, 'topic': tp[0] if tp else None, 'how': 'parent_topic' if tp else 'unmapped'}
+    return out
+
+
+def crosswalk_rekey(entries, crosswalk, key='subtopic_id'):
+    """F-08 — re-key registry / reserve / series rows through a crosswalk. Unmapped ids keep their old id and
+    are listed once. Returns (entries, unmapped_ids). Pure."""
+    cw = crosswalk if isinstance(crosswalk, dict) else {}
+    out, unm = [], set()
+    for e in (entries if isinstance(entries, list) else []):
+        if not isinstance(e, dict):
+            continue
+        e2 = dict(e)
+        sid = e2.get(key)
+        to = (cw.get(sid) or {}).get('to') if sid in cw else sid
+        if sid in cw and to:
+            e2[key] = to
+        elif sid in cw:
+            unm.add(sid)
+        out.append(e2)
+    return out, sorted(unm)
+
+
+# ══ F-01 — NESTED CONTROLLED ROUNDING ═════════════════════════════════════════════════════
+def _nf_flow_round(rows, cols, cap=None, expected=None):
+    """Integer matrix M (rows x cols) with exact row / column sums, M[i][j] in {floor(e), ceil(e)} of the
+    expected cell e (expected or rows_i * cols_j / total) whenever feasible, never above cap[i][j].
+    Floors first, then the +1 residuals by augmenting paths (cells ordered by fractional part, so the
+    rounding stays closest to expected). Returns (M, ok). Never raises."""
+    R, C = len(rows), len(cols)
+    tot = sum(rows)
+    if R == 0 or C == 0:
+        return [[0] * C for _ in range(R)], (sum(rows) == 0 and sum(cols) == 0)
+    ok = (tot == sum(cols))
+    E = [[(expected[i][j] if expected else (rows[i] * cols[j] / tot if tot else 0.0)) for j in range(C)] for i in range(R)]
+    CAP = [[(cap[i][j] if cap is not None and cap[i][j] is not None else 10 ** 9) for j in range(C)] for i in range(R)]
+    M = [[max(0, min(CAP[i][j], int(_nf_math.floor(E[i][j] + 1e-9)))) for j in range(C)] for i in range(R)]
+    # never exceed a margin with the floors
+    for i in range(R):
+        while sum(M[i]) > rows[i]:
+            j = max(range(C), key=lambda jj: M[i][jj])
+            M[i][j] -= 1
+    for j in range(C):
+        while sum(M[i][j] for i in range(R)) > cols[j]:
+            i = max(range(R), key=lambda ii: M[ii][j])
+            M[i][j] -= 1
+    rneed = [rows[i] - sum(M[i]) for i in range(R)]
+    cneed = [cols[j] - sum(M[i][j] for i in range(R)) for j in range(C)]
+
+    def frac(i, j):
+        return E[i][j] - _nf_math.floor(E[i][j] + 1e-9)
+
+    def room(i, j, unit_bound=True):
+        lim = CAP[i][j]
+        if unit_bound:
+            lim = min(lim, int(_nf_math.ceil(E[i][j] - 1e-9)) if E[i][j] > 0 else 0)
+        return M[i][j] < lim
+
+    for unit_bound in (True, False):          # first stay within ceil(expected); only then relax
+        progress = True
+        while progress and any(x > 0 for x in rneed):
+            progress = False
+            for i in sorted(range(R), key=lambda ii: -rneed[ii]):
+                if rneed[i] <= 0:
+                    continue
+                # BFS augmenting path row i -> some column with need, through cells with room / reducible cells
+                order = sorted(range(C), key=lambda jj: -frac(i, jj))
+                prev = {}
+                q = [('r', i)]
+                seen = {('r', i)}
+                found = None
+                while q and found is None:
+                    kind, x = q.pop(0)
+                    if kind == 'r':
+                        cand = order if x == i else sorted(range(C), key=lambda jj: -frac(x, jj))
+                        for j in cand:
+                            if ('c', j) not in seen and room(x, j, unit_bound):
+                                seen.add(('c', j))
+                                prev[('c', j)] = ('r', x)
+                                if cneed[j] > 0:
+                                    found = ('c', j)
+                                    break
+                                q.append(('c', j))
+                    else:
+                        for ii in range(R):
+                            if ('r', ii) not in seen and M[ii][x] > 0 and ii != i:
+                                seen.add(('r', ii))
+                                prev[('r', ii)] = ('c', x)
+                                q.append(('r', ii))
+                if found is None:
+                    continue
+                node = found
+                while node != ('r', i):
+                    p = prev[node]
+                    if node[0] == 'c':
+                        M[p[1]][node[1]] += 1
+                    else:
+                        M[node[1]][p[1]] -= 1
+                    node = p
+                rneed[i] -= 1
+                cneed[found[1]] -= 1
+                progress = True
+    ok = ok and all(x == 0 for x in rneed) and all(x == 0 for x in cneed)
+    return M, ok
+
+
+def matrix_round(row_totals, col_totals, cap=None, expected=None):
+    """Controlled rounding: {row: {col: n}} with exact margins. row_totals / col_totals are dicts (ordered).
+    Returns (matrix, ok). ok False only when the margins disagree or caps make it infeasible."""
+    rk, ck = list(row_totals), list(col_totals)
+    rows = [max(0, _nf_i(row_totals[k])) for k in rk]
+    cols = [max(0, _nf_i(col_totals[k])) for k in ck]
+    capm = [[(cap.get(r, {}).get(c) if isinstance(cap, dict) else None) for c in ck] for r in rk] if cap else None
+    expm = [[(_nf_f(((expected.get(r) or {}) if isinstance(expected, dict) else {}).get(c)) or 0.0) for c in ck]
+            for r in rk] if expected else None
+    M, ok = _nf_flow_round(rows, cols, capm, expm)
+    return {r: {c: M[i][j] for j, c in enumerate(ck)} for i, r in enumerate(rk)}, ok
+
+
+def subject_matrix_round(subject_totals, n_mocks, sec_qs, fixed=None):
+    """F-01 step 2 — {mock: {subject: n}}: each entry in {floor(Q_s/N), ceil(Q_s/N)}, row sums = sec_qs for
+    every mock, column sums = Q_s. Registered mocks (`fixed` {mock: {subject: n}}) keep their realised counts
+    (EC-08); only the open mocks are solved. Returns (targets, relaxations). Never raises."""
+    N = max(1, _nf_i(n_mocks, 1))
+    fixed = fixed if isinstance(fixed, dict) else {}
+    subs = [s for s in subject_totals]
+    rem = {s: _nf_i(subject_totals[s]) - sum(_nf_i((fixed.get(m) or {}).get(s)) for m in fixed) for s in subs}
+    open_m = [m for m in range(1, N + 1) if m not in fixed and str(m) not in fixed]
+    out = {m: {s: _nf_i((fixed.get(m) or fixed.get(str(m)) or {}).get(s)) for s in subs}
+           for m in range(1, N + 1) if m not in open_m}
+    relax = []
+    if not open_m:
+        return out, relax
+    rows = {m: _nf_i(sec_qs) for m in open_m}
+    cols = {s: max(0, rem[s]) for s in subs}
+    diff = sum(rows.values()) - sum(cols.values())
+    if diff != 0 and subs:                     # registered mocks drifted: close on the largest subject, recorded
+        s0 = max(subs, key=lambda s: cols[s])
+        cols[s0] = max(0, cols[s0] + diff)
+        relax.append({'level': 'subject', 'subject': s0, 'delta': diff, 'why': 'registered mocks drifted (EC-08)'})
+    M, ok = matrix_round(rows, cols)
+    if not ok:
+        relax.append({'level': 'subject', 'why': 'controlled rounding infeasible; nearest exact margins used'})
+    out.update(M)
+    return dict(sorted(out.items())), relax
+
+
+def nested_allocate(part_quotas, manifest, n_mocks, sec_qs, fixed=None, max_per_mock=None, subject_of=None):
+    """F-01 §4-1c — the per-mock subject, topic and subtopic allocation of ONE Part, all margins exact:
+      subjects per mock (subject_matrix_round) -> topics per (subject, mock) (matrix_round, topic series
+      totals) -> subtopics per (topic, mock) (matrix_round, subtopic quotas, cell cap = min(ceil(q/N),
+      max_per_mock[sid]) so even spread (INVARIANT 7) and the rare / ZP caps hold).
+    part_quotas: {subtopic_id: series quota (incl. ZP slots)}; subject_of: optional {sid: (subject, topic)}
+    (crosswalk regime / non-manifest ids). Relaxation order when a level is infeasible: topic +-1 in that mock,
+    then subject +-1 (EC-09) — each recorded. Returns {'subject_target_per_mock', 'topic_target_per_mock',
+    'subtopic_allocations', 'allocation_relaxations', 'ok'}. Never raises."""
+    N = max(1, _nf_i(n_mocks, 1))
+    q = {s: max(0, _nf_i(v)) for s, v in (part_quotas or {}).items()}
+    so = subject_of if isinstance(subject_of, dict) else {}
+    meta = {}
+    for sid in q:
+        subj, top = so.get(sid) or nf_subject_of(sid, manifest)
+        meta[sid] = (subj or 'UNMAPPED', top or 'UNMAPPED')
+    subj_tot, top_tot = {}, {}
+    for sid, n in q.items():
+        s, t = meta[sid]
+        subj_tot[s] = subj_tot.get(s, 0) + n
+        top_tot.setdefault(s, {})
+        top_tot[s][t] = top_tot[s].get(t, 0) + n
+    fx = fixed if isinstance(fixed, dict) else {}
+    fixed_subj = {m: {} for m in fx}
+    for m, alloc in fx.items():
+        for sid, n in (alloc or {}).items():
+            if sid in meta:
+                s = meta[sid][0]
+                fixed_subj[m][s] = fixed_subj[m].get(s, 0) + _nf_i(n)
+    S, relax = subject_matrix_round(subj_tot, N, sec_qs, fixed=fixed_subj)
+    T, A = {}, {m: {} for m in range(1, N + 1)}
+    allok = True
+    capd = max_per_mock if isinstance(max_per_mock, dict) else {}
+    # EC-08 — a REGISTERED mock keeps its realised subtopic allocation (and so its topic counts); only the open
+    # mocks are solved, against the series totals minus what the registered mocks already used.
+    fixed_m = {}
+    for m, alloc in fx.items():
+        mi = _nf_i(m, 0)
+        if 1 <= mi <= N:
+            fixed_m[mi] = {sid: _nf_i(n) for sid, n in (alloc or {}).items() if _nf_i(n) > 0}
+    open_ms = [m for m in range(1, N + 1) if m not in fixed_m]
+    used = {}
+    for m, alloc in fixed_m.items():
+        A[m] = dict(alloc)
+        for sid, n in alloc.items():
+            used[sid] = used.get(sid, 0) + n
+            if sid in meta:
+                s_, t_ = meta[sid]
+                T.setdefault(m, {}).setdefault(s_, {})
+                T[m][s_][t_] = T[m][s_].get(t_, 0) + n
+    q_open = {sid: max(0, n - used.get(sid, 0)) for sid, n in q.items()}
+    N_open = max(1, len(open_ms))
+    for s in subj_tot:
+        rows = {m: S[m].get(s, 0) for m in open_ms}
+        cols = {}
+        for sid, n in q_open.items():
+            if meta[sid][0] == s:
+                cols[meta[sid][1]] = cols.get(meta[sid][1], 0) + n
+        if not rows or not cols:
+            continue
+        if sum(rows.values()) != sum(cols.values()):
+            d = sum(rows.values()) - sum(cols.values())
+            t0 = max(cols, key=lambda t: cols[t])
+            cols[t0] = max(0, cols[t0] + d)
+            relax.append({'level': 'topic', 'subject': s, 'topic': t0, 'delta': d, 'why': 'subject total closed'})
+        TM, ok = matrix_round(rows, cols)
+        if not ok:
+            allok = False
+            relax.append({'level': 'topic', 'subject': s, 'why': 'topic rounding infeasible'})
+        for m in TM:
+            T.setdefault(m, {}).setdefault(s, {}).update(TM[m])
+        for t in cols:
+            sids = [sid for sid in q_open if meta[sid] == (s, t)]
+            trow = {m: TM[m][t] for m in TM}
+            tcol = {sid: q_open[sid] for sid in sids}
+            if sum(tcol.values()) != sum(trow.values()):
+                d = sum(trow.values()) - sum(tcol.values())
+                if sids:
+                    s0 = max(sids, key=lambda x: tcol[x])
+                    tcol[s0] = max(0, tcol[s0] + d)
+                    relax.append({'level': 'subtopic', 'subject': s, 'topic': t, 'subtopic': s0, 'delta': d,
+                                  'why': 'topic total closed on its largest subtopic'})
+            cap = {m: {sid: min(int(_nf_math.ceil(tcol[sid] / N_open)) if tcol[sid] else 0,
+                                _nf_i(capd.get(sid), 10 ** 6)) for sid in sids} for m in trow}
+            expv = {m: {sid: tcol[sid] / N_open for sid in sids} for m in trow}   # even spread: floor / ceil of q / N
+            SM, ok2 = matrix_round(trow, tcol, cap=cap, expected=expv)
+            if not ok2:                         # relax 1: drop the even-spread cap, keep the hard caps
+                cap2 = {m: {sid: _nf_i(capd.get(sid), 10 ** 6) for sid in sids} for m in trow}
+                SM, ok2 = matrix_round(trow, tcol, cap=cap2)
+                relax.append({'level': 'topic', 'subject': s, 'topic': t,
+                              'why': 'even spread relaxed inside the topic budget' if ok2 else
+                                     'topic budget cannot hold the rare / ZP caps (topic +-1 needed)'})
+                allok = allok and ok2
+            for m in SM:
+                for sid, n in SM[m].items():
+                    if n:
+                        A[m][sid] = A[m].get(sid, 0) + n
+    return {'subject_target_per_mock': {m: dict(S[m]) for m in S}, 'topic_target_per_mock': T,
+            'subtopic_allocations': A, 'allocation_relaxations': relax, 'ok': allok,
+            'rule': NF_RULE}
+
+
+def alloc_invariants(alloc, subject_target, topic_target, manifest, subject_of=None):
+    """INVARIANTS 9 / 10 — [] or failure strings: realised subject / topic per mock == targets."""
+    so = subject_of if isinstance(subject_of, dict) else {}
+    out = []
+    for m, a in (alloc or {}).items():
+        rs, rt = {}, {}
+        for sid, n in (a or {}).items():
+            s, t = so.get(sid) or nf_subject_of(sid, manifest)
+            rs[s] = rs.get(s, 0) + _nf_i(n)
+            rt.setdefault(s, {})
+            rt[s][t] = rt[s].get(t, 0) + _nf_i(n)
+        for s, n in ((subject_target or {}).get(m) or {}).items():
+            if rs.get(s, 0) != n:
+                out.append(f'INVARIANT 9: mock {m} subject {s} realised {rs.get(s, 0)} != target {n}')
+        for s, tt in ((topic_target or {}).get(m) or {}).items():
+            for t, n in tt.items():
+                if (rt.get(s) or {}).get(t, 0) != n:
+                    out.append(f'INVARIANT 10: mock {m} {s} / {t} realised {(rt.get(s) or {}).get(t, 0)} != target {n}')
+    return out
+
+
+def alloc_conformance(delivered, allocation, manifest, subject_of=None):
+    """A-ALLOC (F-01 / F-08) — delivered {q: subtopic_id} of ONE Part vs the blueprint allocation {sid: n}
+    of that Part for this mock. Compares subject, topic and subtopic counts. Returns {'status',
+    'subject': {s: (delivered, allocated)}, 'topic': {...}, 'subtopic': {...}, 'off_qs': [q placed on an
+    over-filled subtopic]}. DORMANT without an allocation. Never raises."""
+    if not isinstance(allocation, dict) or not allocation:
+        return {'status': 'DORMANT', 'why': 'no blueprint allocation for this Part'}
+    so = subject_of if isinstance(subject_of, dict) else {}
+    dl = delivered if isinstance(delivered, dict) else {}
+
+    def roll(d):
+        rs, rt, rsub = {}, {}, {}
+        for sid, n in d.items():
+            s, t = so.get(sid) or nf_subject_of(sid, manifest)
+            rs[s] = rs.get(s, 0) + n
+            rt[(s, t)] = rt.get((s, t), 0) + n
+            rsub[sid] = rsub.get(sid, 0) + n
+        return rs, rt, rsub
+    dcount = {}
+    for qn, sid in dl.items():
+        dcount[sid] = dcount.get(sid, 0) + 1
+    a_s, a_t, a_sub = roll({k: _nf_i(v) for k, v in allocation.items()})
+    d_s, d_t, d_sub = roll(dcount)
+    subj = {s: (d_s.get(s, 0), a_s.get(s, 0)) for s in set(a_s) | set(d_s) if d_s.get(s, 0) != a_s.get(s, 0)}
+    top = {f'{k[0]} / {k[1]}': (d_t.get(k, 0), a_t.get(k, 0)) for k in set(a_t) | set(d_t) if d_t.get(k, 0) != a_t.get(k, 0)}
+    sub = {k: (d_sub.get(k, 0), a_sub.get(k, 0)) for k in set(a_sub) | set(d_sub) if d_sub.get(k, 0) != a_sub.get(k, 0)}
+    over = {k for k, (d, a) in sub.items() if d > a}
+    seen, off = {}, []
+    for qn in sorted(dl, key=lambda x: _nf_i(x)):
+        sid = dl[qn]
+        seen[sid] = seen.get(sid, 0) + 1
+        if sid in over and seen[sid] > a_sub.get(sid, 0):
+            off.append(str(qn))
+    st = 'FAIL' if (subj or top) else 'PASS'
+    return {'status': st, 'subject': subj, 'topic': top, 'subtopic': sub, 'off_qs': off}
+
+
+def refill_order(slot_sid, manifest, candidates):
+    """F-01 Create rule / EC-10 — the subtopic ids a refill for this slot may use, in order: the slot's own id,
+    siblings of the same topic, then other topics of the same subject (a recorded topic relaxation). A
+    subtopic of ANOTHER subject is never returned. Never raises."""
+    s0, t0 = nf_subject_of(slot_sid, manifest)
+    c = [x for x in (candidates or []) if isinstance(x, str)]
+    own = [x for x in c if x == slot_sid]
+    sib = sorted(x for x in c if x != slot_sid and nf_subject_of(x, manifest) == (s0, t0))
+    same = sorted(x for x in c if x not in own and x not in sib and nf_subject_of(x, manifest)[0] == s0 and s0)
+    return own + sib + same
+
+
+# ══ F-03 / F-10 / F-11 — PER SUBJECT x PART TARGETS ══════════════════════════════════════
+def nf_shares(records, field, part_key='part', subject_key='subject', values=None):
+    """{part: {subject: {'n': N, 'shares': {value: share}}}} over PYQ records carrying `field` (a str or a
+    list — the first element counts). Never raises."""
+    out = {}
+    for r in (records if isinstance(records, list) else []):
+        if not isinstance(r, dict):
+            continue
+        v = r.get(field)
+        v = v[0] if isinstance(v, list) and v else v
+        if v in (None, '') or (values is not None and v not in values):
+            continue
+        p, s = r.get(part_key), r.get(subject_key)
+        if not p or not s:
+            continue
+        cell = out.setdefault(p, {}).setdefault(s, {'n': 0, 'c': {}})
+        cell['n'] += 1
+        cell['c'][v] = cell['c'].get(v, 0) + 1
+    for p in out:
+        for s in out[p]:
+            c = out[p][s]
+            c['shares'] = {k: round(n / c['n'], 4) for k, n in sorted(c['c'].items())}
+            del c['c']
+    return out
+
+
+def nf_targets_per_mock(shares, subject_target_per_mock, residual=None):
+    """F-03 step 2 / F-10 — {mock: {part: {subject: {value: n}}}}: series total per value = share x the
+    subject's series slots (largest remainder, so a value with share x slots < 1 per paper still appears in
+    the right fraction of mocks — EC-13), split over mocks by controlled rounding against each mock's slot
+    count. `residual` (e.g. 'DIRECT') absorbs the rest and is written as a target only when given.
+    subject_target_per_mock: {mock: {part: {subject: n}}}. Never raises."""
+    stm = subject_target_per_mock if isinstance(subject_target_per_mock, dict) else {}
+    out = {m: {} for m in stm}
+    parts = sorted({p for m in stm for p in (stm[m] or {})})
+    for p in parts:
+        for s in sorted({s for m in stm for s in ((stm[m] or {}).get(p) or {})}):
+            cell = ((shares or {}).get(p) or {}).get(s) or {}
+            sh = cell.get('shares') if isinstance(cell, dict) else None
+            if not sh:
+                continue
+            rows = {m: _nf_i(((stm[m] or {}).get(p) or {}).get(s)) for m in stm}
+            tot = sum(rows.values())
+            if tot <= 0:
+                continue
+            keep = {v: x for v, x in sh.items() if v != residual}
+            raw = {v: x * tot for v, x in keep.items()}
+            res_share = max(0.0, 1.0 - sum(keep.values()))
+            raw['__rest__'] = res_share * tot
+            cols = largest_remainder_apportion(raw, tot)
+            M, _ok = matrix_round(rows, cols)
+            for m in M:
+                d = {v: n for v, n in M[m].items() if v != '__rest__'}
+                if residual:
+                    d[residual] = M[m].get('__rest__', 0)
+                out[m].setdefault(p, {})[s] = d
+    return out
+
+
+def nf_subject_key(record, manifest):
+    """The subject of a record / item: its manifest section (via subtopic_id), else record['subject'], else the
+    subtopic id's first segment (the manifest id recipe's section prefix). Never raises."""
+    r = record if isinstance(record, dict) else {}
+    s = nf_subject_of(r.get('subtopic_id'), manifest)[0]
+    if s:
+        return s
+    if r.get('subject'):
+        return r.get('subject')
+    sid = str(r.get('subtopic_id') or '')
+    return sid.split('.')[0] if '.' in sid else 'UNMAPPED'
+
+
+def nf_pyq_rows(records, manifest, labels=None):
+    """§7-10 — one row per PYQ record (bc.pyq_target_pool output or raw records): {'part': record['section']
+    (the exam_config Part), 'subject': manifest section, 'subtopic_id', 'ask_format', 'class' (first tag),
+    'computation_generic', 'band' (the two blind graders' consensus, else None), 'mip', 'concept'}. Never raises."""
+    labs = _dl_labels(labels) if labels else None
+    out = []
+    for r in (records if isinstance(records, list) else []):
+        if not isinstance(r, dict):
+            continue
+        b = None
+        if labs:
+            g1, g2 = _dl_band(r.get('blind_grade_1'), labs), _dl_band(r.get('blind_grade_2'), labs)
+            b = g1 if (g1 is not None and g1 == g2) else None
+        out.append({'part': r.get('section') or r.get('part'), 'subject': nf_subject_key(r, manifest),
+                    'subtopic_id': r.get('subtopic_id'), 'ask_format': r.get('ask_format'),
+                    'class': nf_primary_class(r), 'computation_generic': r.get('computation_generic'),
+                    'band': b, 'mip': r.get('mip'), 'concept': r.get('concept')})
+    return out
+
+
+def nf_mip1_share(rows):
+    """§7-10 mip1_share — {part: {subject: share of MIP = 1 among rows with a numeric mip}} (rows without mip
+    are exempt; a cell with none is absent, so A-OPTPART stays DORMANT there)."""
+    acc = {}
+    for r in (rows or []):
+        if not isinstance(r, dict) or r.get('mip') in (None, '') or not r.get('part') or not r.get('subject'):
+            continue
+        c = acc.setdefault(r['part'], {}).setdefault(r['subject'], [0, 0])
+        c[1] += 1
+        c[0] += (_nf_i(r['mip']) == 1)
+    return {p: {s: round(a / n, 4) for s, (a, n) in d.items() if n} for p, d in acc.items()}
+
+
+def nf_class_targets_per_mock(rows, subject_target_per_mock):
+    """§7-10 / F-10 — {mock: {part: {subject: {class: n, 'computation_generic': n}}}} — the exact shape A-CLASSMIX
+    reads. Classes from the rows' 'class'; computation_generic = the count of rows flagged True. Never raises."""
+    cls = nf_targets_per_mock(nf_shares(rows, 'class'), subject_target_per_mock)
+    gen = nf_targets_per_mock(nf_shares([dict(r, cg=bool(r.get('computation_generic'))) for r in (rows or [])
+                                         if isinstance(r, dict) and r.get('computation_generic') is not None], 'cg',
+                                        values=(True, False)), subject_target_per_mock)
+    out = {}
+    for m in subject_target_per_mock or {}:
+        for p, subs in ((cls.get(m) or {}).items()):
+            for s, d in subs.items():
+                out.setdefault(m, {}).setdefault(p, {})[s] = {str(k): v for k, v in d.items()}
+        for p, subs in ((gen.get(m) or {}).items()):
+            for s, d in subs.items():
+                out.setdefault(m, {}).setdefault(p, {}).setdefault(s, {})['computation_generic'] = _nf_i(d.get(True))
+    return out
+
+
+def nf_compose_part_targets(per_part):
+    """§4-1c — {part: nested_allocate result} -> (subject_target_per_mock {mock: {part: {subject: n}}},
+    topic_target_per_mock {mock: {part: {subject: {topic: n}}}}, allocation_relaxations [.. with 'part']).
+    Never raises."""
+    st, tt, rl = {}, {}, []
+    for p, res in (per_part or {}).items():
+        if not isinstance(res, dict):
+            continue
+        for m, d in (res.get('subject_target_per_mock') or {}).items():
+            st.setdefault(m, {})[p] = dict(d)
+        for m, d in (res.get('topic_target_per_mock') or {}).items():
+            tt.setdefault(m, {})[p] = {s: dict(x) for s, x in d.items()}
+        rl += [dict(x, part=p) for x in (res.get('allocation_relaxations') or []) if isinstance(x, dict)]
+    return st, tt, rl
+
+
+def nf_measure_axis2(item, classifier=None):
+    """D-06 — the delivered item's ask format re-measured by `classifier` = figure_types.normalise_ask_format
+    (the SAME function PYQExplain used to write every PYQ record's ask_format; the caller passes it — the thin
+    core imports nothing outside the standard library), never the author's own ask_format. Returns the format,
+    or None when no classifier is given (dormant)."""
+    it = item if isinstance(item, dict) else {}
+    if not callable(classifier):
+        return None
+    try:
+        return classifier(it.get('stem_text') or it.get('stem') or '',
+                          list(it.get('option_texts') or it.get('options') or []))
+    except Exception:
+        return None
+
+
+def format_plan_slots(slots, targets, manifest):
+    """F-03 Create — assign each target format to specific slots of one subject x Part. slots: [{'q',
+    'subtopic_id', 'locked'?}]; targets {format: n}. A slot is preferred when its subtopic's PYQs show the
+    format (manifest axis2_capability), then its topic, then its subject. Returns {'plan': {q: format},
+    'infeasible': {format: missing}} (EC-14: recorded, never a defect). Never raises."""
+    st = _nf_subtopics(manifest)
+    free = [s for s in (slots or []) if isinstance(s, dict) and not s.get('locked')]
+    plan, infeas = {}, {}
+    topic_cap, subj_cap = {}, {}
+    def caps(v):
+        out_ = set()
+        for a in (v.get('axis2_capability') or []):
+            out_.update(NF_AXIS2_TO_ASK.get(str(a).upper(), ()))
+        return out_
+    for sid, v in st.items():
+        topic_cap.setdefault((v.get('section'), v.get('topic')), set()).update(caps(v))
+        subj_cap.setdefault(v.get('section'), set()).update(caps(v))
+    for f, n in sorted((targets or {}).items(), key=lambda kv: (-_nf_i(kv[1]), str(kv[0]))):
+        if f in (NF_RESIDUAL_FORMAT, 'DIRECT'):
+            continue
+        need = _nf_i(n)
+        for tier in (0, 1, 2):
+            for s in free:
+                if need <= 0:
+                    break
+                if str(s.get('q')) in plan:
+                    continue
+                v = st.get(s.get('subtopic_id')) or {}
+                ok = (f in caps(v)) if tier == 0 else \
+                     (f in topic_cap.get((v.get('section'), v.get('topic')), set())) if tier == 1 else \
+                     (f in subj_cap.get(v.get('section'), set()))
+                if ok:
+                    plan[str(s.get('q'))] = f
+                    need -= 1
+        if need > 0:
+            infeas[f] = need
+    return {'plan': plan, 'infeasible': infeas}
+
+
+def nf_parity(measured, targets, residual=NF_RESIDUAL_FORMAT):
+    """Per subject x Part parity — measured {value: n} vs targets {value: n} (the residual value is never a
+    floor); returns {'status', 'short'}."""
+    m = measured if isinstance(measured, dict) else {}
+    short = {k: _nf_i(n) - _nf_i(m.get(k)) for k, n in (targets or {}).items()
+             if k not in (residual, 'DIRECT') and _nf_i(m.get(k)) < _nf_i(n)}
+    return {'status': 'FAIL' if short else 'PASS', 'short': short}
+
+
+def subject_band_split(subject_counts, band_counts, subject_band_shares, labels=None):
+    """F-11 (amendment A) — {subject: {band: n}} for ONE Part of ONE mock: rows = the subject's slots in this
+    Part (F-01), columns = the Part's frozen band counts (S0-OP-3, unchanged), cells closest to the subject's
+    own PYQ band shares (iterative proportional fitting, then controlled rounding). Subjects without PYQ band
+    data take the Part's mix. The Part's band counts are never changed. Never raises."""
+    sc = {s: max(0, _nf_i(n)) for s, n in (subject_counts or {}).items()}
+    bc_ = {b: max(0, _nf_i(n)) for b, n in (band_counts or {}).items()}
+    if not sc or not bc_ or sum(sc.values()) != sum(bc_.values()):
+        return {'split': {}, 'ok': False, 'why': 'subject and band totals differ or are empty'}
+    tot = sum(bc_.values())
+    part_mix = {b: bc_[b] / tot for b in bc_}
+    E = {}
+    for s, n in sc.items():
+        sh = (subject_band_shares or {}).get(s) or {}
+        base = {b: float(sh.get(b, 0.0)) for b in bc_}
+        z = sum(base.values())
+        base = {b: (base[b] / z if z > 0 else part_mix[b]) for b in bc_}
+        base = {b: max(base[b], 1e-6) for b in bc_}
+        E[s] = {b: n * base[b] for b in bc_}
+    for _ in range(200):                      # IPF to both margins
+        for b in bc_:
+            col = sum(E[s][b] for s in sc)
+            f = bc_[b] / col if col > 0 else 0
+            for s in sc:
+                E[s][b] *= f
+        for s in sc:
+            row = sum(E[s].values())
+            f = sc[s] / row if row > 0 else 0
+            for b in bc_:
+                E[s][b] *= f
+    M, ok = matrix_round(sc, bc_, expected=E)
+    return {'split': M, 'ok': ok}
+
+
+def schedule_place_by_subject(split, subject_by_q, qtype_by_q, labels, ruler=None, seed=0, part_counts=None):
+    """F-11 — {q: band}: the existing schedule_place run INSIDE each subject's positions with that subject's
+    band counts (split from subject_band_split). A subject is placed per subject only when its count total
+    equals its number of positions; every other position (subject absent from the split, mismatch after a
+    refill, a placement error) is placed from the REST of part_counts (the Part's frozen counts minus what the
+    subjects took) — so with part_counts the Part's counts are always met exactly. Never raises."""
+    plan = {}
+    by_s = {}
+    for q, s in (subject_by_q or {}).items():
+        by_s.setdefault(s, []).append(q)
+    left = []
+    for s, qs in by_s.items():
+        counts = {b: max(0, _nf_i(n)) for b, n in ((split or {}).get(s) or {}).items()}
+        if not counts or sum(counts.values()) != len(qs):
+            left += qs
+            continue
+        sub = {q: (qtype_by_q or {}).get(q, 'mcq') for q in qs}
+        try:
+            got = schedule_place(counts, sub, labels, ruler=ruler, seed=seed)
+            back = {str(q): q for q in qs}
+            got = {back.get(str(k), k): v for k, v in (got or {}).items()}
+            if set(got) != set(qs):
+                raise ValueError('incomplete placement')
+            plan.update(got)
+        except Exception:
+            left += qs
+    if left and isinstance(part_counts, dict):
+        rest = {b: max(0, _nf_i(n)) for b, n in part_counts.items()}
+        for b in plan.values():
+            if b in rest:
+                rest[b] = max(0, rest[b] - 1)
+        if sum(rest.values()) == len(left):
+            try:
+                got = schedule_place(rest, {q: (qtype_by_q or {}).get(q, 'mcq') for q in left}, labels,
+                                     ruler=ruler, seed=seed)
+                back = {str(q): q for q in left}
+                plan.update({back.get(str(k), k): v for k, v in (got or {}).items()})
+            except Exception:
+                pass
+    return plan
+
+
+def band_mix_check(measured, targets):
+    """A-SUBJBAND — measured {subject: {band: n}} (two fresh blind graders) vs subject_band_target."""
+    out = {}
+    for s, t in (targets or {}).items():
+        m = (measured or {}).get(s) or {}
+        d = {b: (_nf_i(m.get(b)), _nf_i(n)) for b, n in t.items() if _nf_i(m.get(b)) != _nf_i(n)}
+        if d:
+            out[s] = d
+    return {'status': 'FAIL' if out else ('PASS' if targets else 'DORMANT'), 'diff': out}
+
+
+# ══ F-04 — PER-SUBJECT RECIPE, MIP-CREDITED DECISIONS ════════════════════════════════════
+def nf_decision_count(decisions, mip=None, n_parts=None):
+    """F-04 / F-05 — the credited decision count: only tags of ALL_DECISION_TAGS count, never a
+    NF_NEVER_DECISIONS tag; 'multi_entity_comparison' is credited only when the MIP (F-05) is >= 2 (one
+    decisive part of a stacked item is not a comparison). Duplicates count once."""
+    d = [x for x in (decisions if isinstance(decisions, list) else []) if isinstance(x, str)]
+    d = [x for x in dict.fromkeys(d) if x in ALL_DECISION_TAGS and x not in NF_NEVER_DECISIONS]
+    if 'multi_entity_comparison' in d and mip is not None and _nf_i(mip) < 2:
+        d.remove('multi_entity_comparison')
+    return len(d)
+
+
+def build_recipe_by_subject(records, labels, manifest=None, library=None, min_anchors=None):
+    """F-04 — {subject: {band: {'decisions': (lo, hi) | None, 'source': 'topic'|'subject'|'exam'|'library'|
+    'dormant', 'n': k}}} from anchors (records both blind graders put in the same band). Cascade per band:
+    the subject's own anchors -> the whole exam -> the library (EC-21). A band with no anchors anywhere is
+    'dormant' — never a pass by default (EC-22). Records need 'decisions' (any vocabulary) and a subject
+    ('subject' or manifest section via subtopic_id). Never raises."""
+    labs = _dl_labels(labels)
+    kmin = C_ANCHOR_MIN if min_anchors is None else min_anchors
+    anc = {}
+    for r in (records if isinstance(records, list) else []):
+        if not isinstance(r, dict):
+            continue
+        g1, g2 = _dl_band(r.get('blind_grade_1'), labs), _dl_band(r.get('blind_grade_2'), labs)
+        if g1 is None or g1 != g2 or not isinstance(r.get('decisions'), list):
+            continue
+        s = nf_subject_key(r, manifest)
+        n = max(1, nf_decision_count(r['decisions'], r.get('mip')))
+        anc.setdefault(s, {}).setdefault(g1, []).append(n)
+        anc.setdefault('__exam__', {}).setdefault(g1, []).append(n)
+    lib = {}
+    for x in ((library or {}).get('records') or []) if isinstance(library, dict) else []:
+        if isinstance(x, dict) and x.get('blind_grade_1') == x.get('blind_grade_2') and isinstance(x.get('decisions'), list):
+            b = _dl_band(x.get('blind_grade_1'), labs)
+            if b:
+                lib.setdefault(b, []).append(max(1, nf_decision_count(x['decisions'])))
+    out = {}
+    for s in [k for k in anc if k != '__exam__']:
+        out[s] = {}
+        for b in labs:
+            for src, pool in (('subject', anc[s].get(b) or []), ('exam', anc['__exam__'].get(b) or []),
+                              ('library', lib.get(b) or [])):
+                if len(pool) >= kmin:
+                    out[s][b] = {'decisions': (min(pool), max(pool)), 'source': src, 'n': len(pool)}
+                    break
+            else:
+                out[s][b] = {'decisions': None, 'source': 'dormant', 'n': 0}
+    return out
+
+
+def recipe_monotone(recipe_subject, labels):
+    """Amendment C — True when the subject's decision ranges rise (or hold) with the band (the graders
+    discriminate). A non-monotone subject borrows the exam-level recipe and prints AMBER."""
+    labs = _dl_labels(labels)
+    lows = [((recipe_subject or {}).get(b) or {}).get('decisions') for b in labs]
+    lows = [x[0] for x in lows if isinstance(x, (list, tuple))]
+    return all(a <= b for a, b in zip(lows, lows[1:]))
+
+
+def band_recipe_check_any(item, recipe_by_subject, band, labels=None):
+    """F-04 C4 for EVERY item — {'status': 'PASS'|'FAIL'|'DORMANT', 'why', 'credited'}: the item's MIP-credited
+    decision count (F-05) inside its subject's band range; organic items keep the organic checks
+    (band_recipe_check). A missing range is DORMANT, never a pass. item: {'subject', 'decisions_author' |
+    'decisions', 'mip', 'organic', ...}. Never raises."""
+    it = item if isinstance(item, dict) else {}
+    rs = (recipe_by_subject or {}).get(it.get('subject')) or {}
+    rb = rs.get(band) or {}
+    dec = it.get('decisions_author') if isinstance(it.get('decisions_author'), list) else it.get('decisions')
+    n = nf_decision_count(dec, it.get('mip'))
+    rng = rb.get('decisions')
+    why = []
+    if it.get('organic'):
+        ok, w = band_recipe_check(dict(it, decisions_author=dec), rb)
+        why += [x for x in w if not x.startswith('decisions ')]
+    if not isinstance(rng, (list, tuple)):
+        return {'status': 'DORMANT' if not why else 'FAIL', 'why': why + ['no decision range for this subject / band'],
+                'credited': n}
+    if not (rng[0] <= n <= rng[1]):
+        why.append(f'credited decisions {n} outside {tuple(rng)} ({rb.get("source")})')
+    return {'status': 'FAIL' if why else 'PASS', 'why': why, 'credited': n}
+
+
+def calibrate_pyq_grades(records, expert=None, labels=None, agree_min=None):
+    """Amendment C — {'agreement': x | None, 'use': {ref: band}, 'amber': [...]}. When an optional expert
+    sample ({ref: band}, file <EXAM>_expert_grades.json) exists and agreement with the blind-grade consensus
+    is below C_NF_CALIB_AGREE, every sampled record takes the STRICTER (harder) of the two grades and one
+    AMBER line is written; without a sample nothing changes. Never raises, never stops."""
+    labs = _dl_labels(labels)
+    amin = C_NF_CALIB_AGREE if agree_min is None else agree_min
+    ex = expert if isinstance(expert, dict) else {}
+    if not ex:
+        return {'agreement': None, 'use': {}, 'amber': []}
+    hit, n, use = 0, 0, {}
+    for r in (records if isinstance(records, list) else []):
+        if not isinstance(r, dict):
+            continue
+        ref = r.get('ref') or f"{r.get('_paper') or r.get('paper') or ''}:{r.get('_q') or r.get('q') or ''}"
+        e = _dl_band(ex.get(ref), labs)
+        g1, g2 = _dl_band(r.get('blind_grade_1'), labs), _dl_band(r.get('blind_grade_2'), labs)
+        if e is None or g1 is None or g2 is None:
+            continue
+        g = g1 if g1 == g2 else max(g1, g2, key=labs.index)
+        n += 1
+        hit += (g == e)
+        use[ref] = max(g, e, key=labs.index)
+    if not n:
+        return {'agreement': None, 'use': {}, 'amber': []}
+    ag = round(hit / n, 4)
+    if ag >= amin:
+        return {'agreement': ag, 'use': {}, 'amber': []}
+    return {'agreement': ag, 'use': use,
+            'amber': [f'PYQ grade calibration: blind-grade agreement with the expert sample {ag:.2f} < {amin}; '
+                      f'the stricter grade is used for {len(use)} record(s)']}
+
+
+# ══ F-05 — MINIMAL IDENTIFYING PARTS ══════════════════════════════════════════════════════
+_NF_ROMAN = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8}
+
+
+def parse_option_parts(option_texts, kind=None):
+    """F-05 — [tuple of part values] per option, or None when the options cannot be parsed into parts
+    (EC-18). kind: 'respectively' | 'statement_combination' | 'match_list' | 'order_ranking' | None (auto)."""
+    opts = [str(o or '').strip() for o in (option_texts or [])]
+    if len(opts) < 2:
+        return None
+    k = (kind or '').lower()
+    # match list: A-iii, B-i ... / A-(iii) / A→3
+    mpat = _nf_re.compile(r'\b([A-Ha-h]|[PQRS])\s*[-–:→>(]+\s*\(?\s*([ivx]+|\d+|[pqrs])\s*\)?', _nf_re.I)
+    if k in ('match_list', '') and all(len(mpat.findall(o)) >= 2 for o in opts):
+        rows = []
+        for o in opts:
+            d = {a.upper(): b.lower() for a, b in mpat.findall(o)}
+            rows.append(d)
+        keys = sorted(set().union(*rows))
+        return [tuple(r.get(x) for x in keys) for r in rows]
+    # statement combination: "A and C only", "A, B and D", "I and II", "B only"
+    spat = _nf_re.compile(r'\b(?:[A-E]|I{1,3}V?|IV|V)\b')
+    def stmts(o):
+        t = _nf_re.sub(r'\b(and|only|&|both|all|of|the|above|statements?)\b', ' ', o, flags=_nf_re.I)
+        t = t.replace(',', ' ')
+        toks = t.split()
+        return set(toks) if toks and all(spat.fullmatch(x) for x in toks) else None
+    if k in ('statement_combination', ''):
+        sets = [stmts(o) for o in opts]
+        if all(s for s in sets):
+            allst = sorted(set().union(*sets))
+            return [tuple(x in s for x in allst) for s in sets]
+    # order ranking: "A > B > C" / "A < B < C"
+    if k in ('order_ranking', '') and all(_nf_re.search(r'[<>]', o) for o in opts):
+        rows = []
+        for o in opts:
+            t = [x.strip() for x in _nf_re.split(r'[<>]', o)]
+            if '<' in o:
+                t = list(reversed(t))
+            rows.append(tuple(t))
+        if len({len(r) for r in rows}) == 1:
+            pairs = list(_nf_it.combinations(sorted(set(rows[0])), 2))
+            return [tuple((r.index(a) < r.index(b)) if a in r and b in r else None for a, b in pairs) for r in rows]
+    # respectively: values separated by commas / semicolons / 'and'
+    def split_vals(o):
+        t = _nf_re.split(r'\s*(?:,|;|\band\b)\s*', o)
+        return tuple(x.strip().lower() for x in t if x.strip())
+    vals = [split_vals(o) for o in opts]
+    if len({len(v) for v in vals}) == 1 and len(vals[0]) >= 2:
+        return vals
+    return None
+
+
+def minimal_identifying_parts(options, key, kind=None):
+    """F-05 — MIP: the smallest number of parts whose KEY values together match the key option and no
+    distractor. options: [part tuples] or [option texts]. key follows the sidecar 'answers' convention: an
+    int or digit string is the 1-BASED option position; a letter A..H the lettered option.
+    Returns int or None (unparseable / no key / MSQ list key)."""
+    rows = options if options and isinstance(options[0], tuple) else parse_option_parts(options, kind)
+    if not rows or isinstance(key, (list, tuple, dict)) or key is None or isinstance(key, bool):
+        return None
+    k = str(key).strip().upper()
+    ki = 'ABCDEFGH'.index(k) if (len(k) == 1 and k in 'ABCDEFGH') else (_nf_i(k, 0) - 1)
+    if not (0 <= ki < len(rows)):
+        return None
+    P = len(rows[ki])
+    for size in range(1, P + 1):
+        for S in _nf_it.combinations(range(P), size):
+            if all(any(r[j] != rows[ki][j] for j in S) for i, r in enumerate(rows) if i != ki):
+                return size
+    return None
+
+
+_NF_MULTIPART_KIND = {'statement': 'statement_combination', 'combination': 'statement_combination',
+                      'match': 'match_list', 'sequence': 'order_ranking'}
+
+
+def nf_item_mip(stem, options, key, ask_format=None):
+    """F-05 — the MIP of ONE item, or None when the item is NOT multi-part: a multi-part item is a 'respectively'
+    stem or an ask format of statement / combination / match / sequence (ask_format = the measured one,
+    figure_types.normalise_ask_format, on both the PYQ and the mock side). A plain 'which pair is correct'
+    item whose options happen to contain 'and' is never treated as parts. Never raises."""
+    st = str(stem or '').lower()
+    kind = 'respectively' if 'respectively' in st else _NF_MULTIPART_KIND.get(str(ask_format or '').lower())
+    if not kind:
+        return None
+    return minimal_identifying_parts(list(options or []), key, None if kind == 'respectively' else kind)
+
+
+def mip_share_check(items, pyq_share_mip1, counts_target=None):
+    """A-OPTPART — the paper's share of MIP = 1 among its multi-part items (one subject x Part) must not
+    exceed the exam's PYQ share. items: [{'q', 'mip'}] (mip None = unparseable, exempt and counted).
+    Returns {'status', 'mip1', 'n', 'allowed', 'exempt', 'qs'}. Never raises."""
+    its = [x for x in (items or []) if isinstance(x, dict)]
+    parsed = [x for x in its if x.get('mip') is not None]
+    exempt = len(its) - len(parsed)
+    m1 = [x for x in parsed if _nf_i(x.get('mip')) == 1]
+    if not parsed or pyq_share_mip1 is None:
+        return {'status': 'DORMANT', 'mip1': len(m1), 'n': len(parsed), 'allowed': None, 'exempt': exempt, 'qs': []}
+    allowed = _nf_i(counts_target) if counts_target is not None else int(_nf_math.floor(float(pyq_share_mip1) * len(parsed) + 0.5))
+    st = 'FAIL' if len(m1) > allowed else 'PASS'
+    extra = [str(x.get('q')) for x in m1][allowed:] if st == 'FAIL' else []
+    return {'status': st, 'mip1': len(m1), 'n': len(parsed), 'allowed': allowed, 'exempt': exempt, 'qs': extra}
+
+
+# ══ F-06 / F-07 — TEXT FINGERPRINT, CLONE GUARD, UNIQUENESS, KEY LEAK ═════════════════════
+_NF_NUM = r'[-+]?\d+(?:[.,]\d+)?(?:\s*[x×]\s*10\s*[\^]?\s*[-−]?\d+)?'
+_NF_FORMULA = r'\b(?:\[?(?:[A-Z][a-z]?\d*(?:\([A-Za-z0-9]+\)\d*)?){2,}\]?(?:[\d+\-−]+)?|[A-Z][a-z]?\d+[+\-−]*)\b'
+
+
+def task_template(stem, entities=None):
+    """F-06 — the stem with numbers, unit values, chemical formulas, named entities and proper nouns masked."""
+    t = _nf_ud.normalize('NFKC', str(stem or ''))
+    for e in sorted((entities or []), key=lambda x: -len(str(x))):
+        if e:
+            t = _nf_re.sub(_nf_re.escape(str(e)), ' ENT ', t, flags=_nf_re.I)
+    t = _nf_re.sub(_NF_FORMULA, ' FORM ', t)
+    t = _nf_re.sub(_NF_NUM, ' NUM ', t)
+    t = _nf_re.sub(r'(?<![.?!]\s)(?<!^)\b[A-Z][a-z]{2,}\b', ' NAME ', t)
+    t = _nf_re.sub(r'[^\w\s]', ' ', t)
+    return ' '.join(t.lower().split())
+
+
+def asked_quantity(stem):
+    """F-06 — the noun phrase asked for ('Bragg angle', 'spin-only moment'), lower-cased; '' if none."""
+    s = ' '.join(str(stem or '').split())
+    m = None
+    for pat in (r'(?:calculate|determine|find|estimate|compute|predict)\s+(?:the\s+)?([a-z][\w\s\-]{2,60}?)(?:\s+(?:of|for|in|at|is|are|when|if|from)\b|[.?,]|$)',
+                r'(?:what|which)\s+is\s+the\s+([a-z][\w\s\-]{2,60}?)(?:\s+(?:of|for|in|at|when|if)\b|[.?,]|$)',
+                r'the\s+([a-z][\w\s\-]{2,60}?)\s+(?:of|for)\s+[^.?]*\s+(?:is|are|will be)\b'):
+        m = _nf_re.search(pat, s, _nf_re.I)
+        if m:
+            break
+    return ' '.join(m.group(1).lower().split()) if m else ''
+
+
+def _nf_jacc(a, b):
+    A, B = set(str(a).split()), set(str(b).split())
+    return len(A & B) / len(A | B) if A | B else 0.0
+
+
+def text_item_fingerprint(item):
+    """F-06 — {'subtopic_id', 'task_template', 'asked', 'answer_kind', 'named_concepts', 'key'} for any item."""
+    it = item if isinstance(item, dict) else {}
+    nc = sorted({norm_label(x) for x in (it.get('named_concepts') or []) if x})
+    stem = it.get('stem_text') or it.get('stem') or ''
+    return {'subtopic_id': it.get('subtopic_id'), 'task_template': it.get('task_template') or task_template(stem, it.get('named_concepts')),
+            'asked': it.get('asked_quantity') or asked_quantity(stem), 'answer_kind': it.get('answer_kind'),
+            'named_concepts': nc, 'key': it.get('key'), 'ref': it.get('ref')}
+
+
+def same_template(fa, fb, sim=None):
+    """Two fingerprints share a template: equal or Jaccard >= C_NF_TEMPLATE_SIM, and the same asked quantity."""
+    s = C_NF_TEMPLATE_SIM if sim is None else sim
+    if not fa.get('task_template') or not fb.get('task_template'):
+        return False
+    tm = fa['task_template'] == fb['task_template'] or _nf_jacc(fa['task_template'], fb['task_template']) >= s
+    return bool(tm and (fa.get('asked') or '') == (fb.get('asked') or ''))
+
+
+def text_clone_guard(item, past=(), series=()):
+    """F-06 C2 for text items — {'status': 'PASS'|'MUTATE'|'REPLACE', 'matches', 'fingerprint'}.
+      past (PYQ records): same subtopic + same template = near-clone; allowed only when DEPTH-PRESERVING —
+        the item's credited decisions >= the PYQ's, and its given_in_stem supplies nothing the PYQ made the
+        solver supply (item.given_in_stem - pyq.given_in_stem is empty) — else MUTATE (EC-24).
+      series (earlier delivered mocks): same subtopic + same template = REPLACE; same template with another
+        subtopic is allowed (EC-25). Compared only for a DATA-BEARING, non-organic item (_nf_data_bearing): a
+        generic stem whose content is a drawn structure is guarded by the organic structure guards. Never raises."""
+    it = item if isinstance(item, dict) else {}
+    fp = text_item_fingerprint(it)
+    matches, status = [], 'PASS'
+    nd = nf_decision_count(it.get('decisions_author') or it.get('decisions'), it.get('mip'))
+    giv = {norm_label(x) for x in (it.get('given_in_stem') or [])}
+    if not _nf_data_bearing(fp, it):
+        return {'status': status, 'matches': matches, 'fingerprint': fp}     # structure-borne / organic: organic guards
+    for r in (series or []):
+        f2 = r if 'task_template' in r and 'asked' in r else text_item_fingerprint(r)
+        if f2.get('subtopic_id') == fp['subtopic_id'] and same_template(fp, f2):
+            matches.append(('series', f2.get('ref')))
+            status = 'REPLACE'
+    if status == 'REPLACE':
+        return {'status': status, 'matches': matches, 'fingerprint': fp}
+    for r in (past or []):
+        if not isinstance(r, dict):
+            continue
+        f2 = text_item_fingerprint(r)
+        if f2.get('subtopic_id') != fp['subtopic_id'] or not same_template(fp, f2):
+            continue
+        pd = nf_decision_count(r.get('decisions'), r.get('mip'))
+        pg = {norm_label(x) for x in (r.get('given_in_stem') or [])}
+        supplied = sorted(giv - pg)
+        deep = nd >= pd and not supplied
+        matches.append(('pyq', r.get('ref') or f2.get('ref'), 'depth-preserving' if deep else
+                        f'shallower (decisions {nd} vs {pd}; supplied {supplied})'))
+        if not deep:
+            status = 'MUTATE'
+    return {'status': status, 'matches': matches[:12], 'fingerprint': fp}
+
+
+def nf_series_registry_add(registry, paper_id, items):
+    """F-06 — the series registry with this paper's TEXT fingerprints added (every item, any subject) on top of
+    the organic rows written by series_registry_add. Pure."""
+    reg = series_registry_add(registry, paper_id, [x for x in (items or []) if isinstance(x, dict) and x.get('organic')])
+    tp = dict(reg.get('text_papers') or {})
+    rows = []
+    for it in (items or []):
+        if isinstance(it, dict):
+            f = text_item_fingerprint(it)
+            f['ref'] = f"series:{paper_id}:{it.get('q')}"
+            rows.append(f)
+    tp[str(paper_id)] = rows
+    reg['text_papers'] = tp
+    return reg
+
+
+def nf_series_text_rows(registry):
+    return [r for v in (((registry or {}).get('text_papers') or {}).values() if isinstance(registry, dict) else [])
+            for r in (v or []) if isinstance(r, dict)]
+
+
+def _nf_data_bearing(f, x):
+    """F-06 / F-07 — a TEXT fingerprint is compared only when the stem itself carries the content (a number, a
+    formula or a named entity was masked) and the item is not organic. A stem whose content lives in a structure
+    figure ('the major product P of the reaction shown below is') is compared by its structure (organic guards)."""
+    return (x or {}).get('organic') is not True and any(t in str((f or {}).get('task_template') or '').split()
+                                                         for t in ('num', 'form', 'ent'))
+
+
+def intra_paper_duplicates(items):
+    """F-07 A-INTRADUP — [(earlier_q, later_q, why)] for items of ONE paper sharing a text fingerprint (same
+    template + asked quantity) or an organic key structure. The later item is the one to replace."""
+    its = [x for x in (items or []) if isinstance(x, dict)]
+    fps = [(str(x.get('q')), text_item_fingerprint(x), x.get('key_smiles'), x) for x in its]
+
+    data_bearing = _nf_data_bearing
+    out = []
+    for i in range(len(fps)):
+        for j in range(i + 1, len(fps)):
+            qa, fa, ka, xa = fps[i]
+            qb, fb, kb, xb = fps[j]
+            same_sub = (not fa.get('subtopic_id') or not fb.get('subtopic_id') or fa['subtopic_id'] == fb['subtopic_id'])
+            if same_sub and data_bearing(fa, xa) and data_bearing(fb, xb) and same_template(fa, fb):
+                out.append((qa, qb, 'same template: ' + (fa.get('asked') or fa['task_template'][:40])))
+            elif same_sub and fa.get('subtopic_id') and xa.get('concept') and xa.get('concept') == xb.get('concept'):
+                out.append((qa, qb, f"same concept: {xa.get('concept')}"))      # concept returned by the blind graders
+            elif ka and kb and ka == kb:
+                out.append((qa, qb, 'same key structure'))
+    return out
+
+
+_NF_UNIT = r'(?:[a-zA-Zµμ°Å%][\w\-\^·/ ]{0,14})?'
+
+
+_NF_NOT_UNITS = frozenset(('and', 'or', 'to', 'of', 'is', 'are', 'at', 'in', 'for', 'with', 'the', 'a', 'an', 'than',
+                           'x', 'by', 'on', 'from', 'times', 'respectively'))
+
+
+def _nf_values(text):
+    """[(value, unit_token)] of numbers printed in a text (unit = the next word-ish token, lower-cased)."""
+    out = []
+    t = str(text or '').replace('−', '-').replace('×', 'x')
+    for m in _nf_re.finditer(r'([-+]?\d+(?:\.\d+)?)(?:\s*x\s*10\s*\^?\s*([-+]?\d+))?\s*([a-zA-Zµμ°Å%][\w\-\^/]{0,10})?', t):
+        v = _nf_f(m.group(1))
+        if v is None:
+            continue
+        if m.group(2):
+            v = v * (10 ** _nf_i(m.group(2)))
+        sig = len(m.group(1).lstrip('+-').replace('.', '').lstrip('0')) or 1
+        unit = (m.group(3) or '').lower()
+        if unit in _NF_NOT_UNITS:                # 'and', 'or', 'to' ... are words, not units
+            unit = ''
+        out.append((v, unit, sig))
+    return out
+
+
+_NF_LABEL_WORDS = frozenset('and or only both all none neither nor of the above below statements statement '
+                            'correct incorrect'.split())
+
+
+def _nf_label_combo(text):
+    """True when a key text is only option / statement labels joined by connectives (A and C only; (i), (ii) and
+    (iv); P-2, Q-1; all of the above) — a position code, never a quantity that can leak."""
+    toks = [t for t in _nf_re.split(r'[\s,;:()\[\]\-–>→]+', str(text or '').lower()) if t]
+    lab = _nf_re.compile(r'^(?:[a-h]|[pqrs]|[1-9]|i{1,3}|iv|v|vi{0,3}|ix|x)$')
+    return bool(toks) and all(t in _NF_LABEL_WORDS or lab.match(t) for t in toks)
+
+
+def key_leak_check(items, pyq_stems=None):
+    """F-07 A-KEYLEAK — [(key_q, leak_q, value)]: an item's key value printed as GIVEN data in another item's
+    stem or options. Numbers match within +-C_NF_KEYLEAK_TOL with the same unit token (or no unit on either
+    side); a text key (>= 2 words, not a label combination) matches another item's STEM after norm_label. Exempt: |integer| <= C_NF_TRIVIAL_INT, single common words, and
+    values printed in >= C_NF_COMMON_SHARE of the exam's PYQ stems (EC-26 / EC-27)."""
+    its = [x for x in (items or []) if isinstance(x, dict)]
+    stems = list(pyq_stems or [])
+    pv = [_nf_values(s) for s in stems]
+
+    def common(v):
+        if not stems:
+            return False
+        hit = sum(1 for vals in pv if any(abs(x - v) <= abs(v) * C_NF_KEYLEAK_TOL for x, _u, _s in vals))
+        return hit / len(stems) >= C_NF_COMMON_SHARE
+    out = []
+    for a in its:
+        kt = a.get('key_text')
+        if kt is None:
+            k = a.get('key')
+            opts = a.get('option_texts') or []
+            if isinstance(k, str) and len(k.strip()) == 1 and k.strip().upper() in 'ABCD' and opts:
+                idx = 'ABCD'.index(k.strip().upper())
+                kt = opts[idx] if idx < len(opts) else None
+            else:
+                kt = k
+        if kt is None:
+            continue
+        kvals = _nf_values(kt)
+        ktxt = norm_label(kt)
+        for b in its:
+            if b is a:
+                continue
+            given = ' '.join([str(b.get('stem_text') or b.get('stem') or '')] + [str(o) for o in (b.get('option_texts') or [])])
+            hit = None
+            for v, u, sg in kvals:
+                if float(v).is_integer() and (abs(v) <= C_NF_TRIVIAL_INT or not u):
+                    continue                     # EC-26: small integers, and any unitless integer, are trivial
+                if common(v):
+                    continue
+                for w, u2, _sg2 in _nf_values(given):
+                    # same quantity: the same unit; a unitless key only when it is specific (>= 4 significant
+                    # figures, e.g. 390.7) or both sides are unitless with >= 3 (4.94 vs 4.96 eV is a coincidence)
+                    # a unitless key meets a unit-bearing value only on IDENTICAL digits (390.7 = 390.7 S cm2 mol-1);
+                    # within the tolerance it must be unitless too (1.013 vs 1.008665 u is another quantity)
+                    near = abs(w - v) <= abs(v) * C_NF_KEYLEAK_TOL
+                    same_q = (u and u == u2 and near) or (not u and not u2 and sg >= 3 and near) \
+                        or (not u and u2 and sg >= 4 and abs(w - v) <= abs(v) * 1e-9)
+                    if same_q:
+                        hit = f'{v:g}{(" " + u) if u else ""}'
+                        break
+                if hit:
+                    break
+            # a TEXT key leaks only when another item's STEM states it (options are other items' own choices)
+            # and it is content, not a label combination ('A and C only', '(i), (ii) and (iv)', 'both P and Q')
+            if not hit and not kvals and len(ktxt.split()) >= 2 and not _nf_label_combo(ktxt) \
+                    and ktxt in norm_label(str(b.get('stem_text') or b.get('stem') or '')):
+                hit = ktxt
+            if hit:
+                out.append((str(a.get('q')), str(b.get('q')), hit))
+    return out
+
+
+# ══ F-09 — FIGURES FOR EVERY SUBJECT ══════════════════════════════════════════════════════
+NF_METALS = frozenset(('Sc Ti V Cr Mn Fe Co Ni Cu Zn Y Zr Nb Mo Tc Ru Rh Pd Ag Cd Hf Ta W Re Os Ir Pt Au Hg '
+                       'La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Th U Al Ga In Sn Pb Bi Li Na K Mg Ca').split())
+
+
+def stem_figure_claims(stem):
+    """F-09 — [{'kind', ...}] geometric / identity claims stated in a stem: linear / bent (+angle), cis /
+    trans, fac / mer, a named geometry, an oxidation state."""
+    s = str(stem or '')
+    low = s.lower()
+    out = []
+    for m in _nf_re.finditer(r'\b(linear|bent)\b(?:[^.]{0,40}?(\d{2,3}(?:\.\d+)?)\s*°)?', low):
+        out.append({'kind': 'angle', 'shape': m.group(1), 'angle': _nf_f(m.group(2))})
+    for w in ('cis', 'trans', 'fac', 'mer'):
+        if _nf_re.search(r'\b' + w + r'\b', low):
+            out.append({'kind': 'isomer', 'value': w})
+    for g in ('square planar', 'tetrahedral', 'octahedral', 'trigonal bipyramidal', 'square pyramidal', 't-shaped', 'see-saw'):
+        if g in low:
+            out.append({'kind': 'geometry', 'value': g})
+    for m in _nf_re.finditer(r'\b([A-Z][a-z]?)\s*\(\s*([+\-−]?\s*[IVX0-9]+)\s*\)', s):
+        if m.group(1) in NF_METALS:
+            out.append({'kind': 'oxidation_state', 'metal': m.group(1), 'value': m.group(2).replace(' ', '')})
+    return out
+
+
+def _nf_angle(a, b, c):
+    v1 = (a[0] - b[0], a[1] - b[1])
+    v2 = (c[0] - b[0], c[1] - b[1])
+    n1, n2 = _nf_math.hypot(*v1), _nf_math.hypot(*v2)
+    if not n1 or not n2:
+        return None
+    cs = max(-1.0, min(1.0, (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)))
+    return _nf_math.degrees(_nf_math.acos(cs))
+
+
+def stem_figure_consistency(stem, figure_spec, tol=15.0):
+    """F-09 — {'status': 'PASS'|'FAIL'|'DORMANT', 'contradictions', 'skipped'}: each stem claim checked on the
+    figure spec ({'atoms': [{'id', 'el', 'x', 'y', 'label'?}], 'bonds': [[a, b], ...], 'angle_triples'?:
+    [[a, b, c]], 'ligand_pairs'?: [[metal, l1, l2]]}). Angles come from the 2-D coordinates; a claim the
+    spec cannot show is skipped and recorded (EC-33). A contradiction = re-render, then replace."""
+    fs = figure_spec if isinstance(figure_spec, dict) else {}
+    atoms = {str(a.get('id')): a for a in (fs.get('atoms') or []) if isinstance(a, dict)}
+    claims = stem_figure_claims(stem)
+    if not claims or not atoms:
+        return {'status': 'DORMANT', 'contradictions': [], 'skipped': [c['kind'] for c in claims]}
+    bad, skip = [], []
+    xy = {k: (float(a.get('x', 0)), float(a.get('y', 0))) for k, a in atoms.items()}
+    for c in claims:
+        if c['kind'] == 'angle':
+            trip = fs.get('angle_triples') or []
+            if not trip:
+                skip.append('angle')
+                continue
+            for a, b, d in trip:
+                ang = _nf_angle(xy.get(str(a), (0, 0)), xy.get(str(b), (0, 0)), xy.get(str(d), (0, 0)))
+                if ang is None:
+                    continue
+                want = c.get('angle') or (180.0 if c['shape'] == 'linear' else None)
+                if c['shape'] == 'linear' and abs(ang - (want or 180.0)) > tol:
+                    bad.append(f'stem says linear ({want or 180:.0f}°), figure draws {ang:.0f}°')
+                if c['shape'] == 'bent' and ang > 180.0 - tol:
+                    bad.append(f'stem says bent, figure draws {ang:.0f}°')
+        elif c['kind'] == 'isomer' and c['value'] in ('cis', 'trans'):
+            pairs = fs.get('ligand_pairs') or []
+            if not pairs:
+                skip.append('isomer')
+                continue
+            for m, l1, l2 in pairs:
+                ang = _nf_angle(xy.get(str(l1), (0, 0)), xy.get(str(m), (0, 0)), xy.get(str(l2), (0, 0)))
+                if ang is None:
+                    continue
+                if c['value'] == 'trans' and ang < 180.0 - tol:
+                    bad.append(f'stem says trans, figure draws the pair at {ang:.0f}°')
+                if c['value'] == 'cis' and ang > 90.0 + tol:
+                    bad.append(f'stem says cis, figure draws the pair at {ang:.0f}°')
+        elif c['kind'] == 'oxidation_state':
+            for a in atoms.values():
+                if a.get('el') == c['metal'] and a.get('label') and _nf_re.search(r'\d*[+\-−]$', str(a['label'])):
+                    bad.append(f"metal label {a['label']!r} while the stem states {c['metal']}({c['value']})")
+        else:
+            skip.append(c['kind'])
+    return {'status': 'FAIL' if bad else 'PASS', 'contradictions': bad, 'skipped': skip}
+
+
+def metal_figure_convention(figure_spec, style_profile=None):
+    """F-09 — [violations] for a structure figure containing a metal or a charged species (organic or not):
+    no formal charge on a metal or on a CO / CN / NO ligand atom; dative arrows / ligand-atom charges only when
+    the exam's PYQ figures show them — FIGURE_STYLE_PROFILE['conventions'][tag]['share'] > 0 for the tags
+    'dative_arrow' / 'atom_charge_label' (a tag the profile does not carry = never seen = not drawn; EC-32).
+    EC-31: a free counter-ion keeps its charge — atoms flagged 'free_ion' are exempt."""
+    fs = figure_spec if isinstance(figure_spec, dict) else {}
+    sp0 = style_profile if isinstance(style_profile, dict) else {}
+    conv = sp0.get('conventions') if isinstance(sp0.get('conventions'), dict) else {}
+
+    def _share(tag):
+        c = conv.get(tag)
+        return float((c or {}).get('share') or 0) if isinstance(c, dict) else 0.0
+    sp = {'dative_arrow_share': _share('dative_arrow'), 'atom_charge_label_share': _share('atom_charge_label')}
+    out = []
+    atoms = [a for a in (fs.get('atoms') or []) if isinstance(a, dict)]
+    lig = set()
+    byid = {str(a.get('id')): a for a in atoms}
+    for b in (fs.get('bonds') or []):
+        try:
+            x, y = byid.get(str(b[0])), byid.get(str(b[1]))
+        except (TypeError, IndexError):
+            continue
+        if x and y and {x.get('el'), y.get('el')} in ({'C', 'O'}, {'C', 'N'}, {'N', 'O'}):
+            lig.update((str(x.get('id')), str(y.get('id'))))
+    for a in atoms:
+        if a.get('free_ion'):
+            continue
+        ch = a.get('charge')
+        lab = str(a.get('label') or '')
+        charged = (ch not in (None, 0, '0', '')) or bool(_nf_re.search(r'\d*[+\-−⁺⁻]$', lab))
+        if charged and a.get('el') in NF_METALS:
+            out.append(f"formal charge on metal {a.get('el')} ({lab or ch})")
+        elif charged and str(a.get('id')) in lig and float(sp.get('atom_charge_label_share') or 0) <= 0:
+            out.append(f"formal charge on ligand atom {a.get('el')} ({lab or ch})")
+    if fs.get('dative_arrows') and float(sp.get('dative_arrow_share') or 0) <= 0:
+        out.append('dative arrows drawn; the exam\'s PYQ figures never use them')
+    return out
+
+
+def curve_continuity(xs, ys, boundaries, tol=None):
+    """F-09 — [x_b] boundaries where a curve representing ONE function has a value or slope jump (kinks at
+    barrier edges). xs sorted ascending. tol defaults to 5 % of the curve's range."""
+    try:
+        xs, ys = list(map(float, xs)), list(map(float, ys))
+    except (TypeError, ValueError):
+        return []
+    if len(xs) < 5 or len(xs) != len(ys):
+        return []
+    rng = (max(ys) - min(ys)) or 1.0
+    t = (0.05 * rng) if tol is None else tol
+    bad = []
+    for xb in (boundaries or []):
+        i = min(range(len(xs)), key=lambda k: abs(xs[k] - float(xb)))
+        if i < 2 or i > len(xs) - 3:
+            continue
+        if i < 3 or i > len(xs) - 4:
+            continue
+        h = (xs[-1] - xs[0]) / (len(xs) - 1) or 1e-12
+        sl = (ys[i - 1] - ys[i - 2]) / h
+        sr = (ys[i + 2] - ys[i + 1]) / h
+        cl = (ys[i - 1] - 2 * ys[i - 2] + ys[i - 3]) / (h * h)     # curvature away from the boundary
+        cr = (ys[i + 3] - 2 * ys[i + 2] + ys[i + 1]) / (h * h)
+        resid = abs((sr - sl) - 0.5 * (cl + cr) * 3 * h)            # slope change not explained by curvature
+        jump = abs(ys[i + 1] - ys[i - 1])
+        span = (xs[-1] - xs[0]) or 1.0
+        if jump > t + abs(0.5 * (sl + sr)) * 2 * h * 1.5 or resid > 0.25 * (max(abs(sl), abs(sr)) + rng / span):
+            bad.append(xb)
+    return bad
+
+
+# ── computed data-figure generators (the picture always matches the key) ─────────────────
+def _nf_conv(pattern, n, spin, coupling):
+    """Couple n equivalent spin-I nuclei with constant A onto a {position: intensity} pattern."""
+    for _ in range(max(0, _nf_i(n))):
+        new = {}
+        m = [-spin + k for k in range(int(round(2 * spin)) + 1)]
+        for pos, h in pattern.items():
+            for mi in m:
+                p = round(pos + mi * coupling, 6)
+                new[p] = new.get(p, 0) + h
+        pattern = new
+    return pattern
+
+
+def epr_lines(nuclei, g=2.0):
+    """EPR_SPECTRUM — [(field_offset, intensity)] of the first-order hyperfine pattern. nuclei: [(spin I,
+    count, A)] (equivalent nuclei per entry). Cu (I = 3/2) + 4 Cl (I = 3/2) -> 4 x 13 = 52 lines (T-18)."""
+    pat = {0.0: 1}
+    for spec in (nuclei or []):
+        try:
+            I, n, A = float(spec[0]), _nf_i(spec[1]), float(spec[2])
+        except (TypeError, ValueError, IndexError):
+            continue
+        pat = _nf_conv(pat, n, I, A)
+    return sorted(pat.items())
+
+
+def nmr_multiplet(couplings, satellites=None):
+    """NMR_MULTIPLET — [(offset Hz, intensity)]: couplings [(count, I, J)]; satellites [(abundance, I, J)] add
+    the satellite pattern of a minor isotope (e.g. 195Pt 33.8 %, I = 1/2) scaled by abundance."""
+    pat = {0.0: 1.0}
+    for spec in (couplings or []):
+        try:
+            n, I, J = _nf_i(spec[0]), float(spec[1]), float(spec[2])
+        except (TypeError, ValueError, IndexError):
+            continue
+        pat = _nf_conv(pat, n, I, J)
+    out = dict(pat)
+    for spec in (satellites or []):
+        try:
+            ab, I, J = float(spec[0]), float(spec[1]), float(spec[2])
+        except (TypeError, ValueError, IndexError):
+            continue
+        sat = _nf_conv(dict(pat), 1, I, J)
+        k = int(round(2 * I)) + 1
+        for p, h in sat.items():
+            out[p] = out.get(p, 0) * (1 - ab) if p in pat else out.get(p, 0)
+            out[p] = out.get(p, 0) + h * ab / k
+        for p in pat:
+            out[p] = out.get(p, 0)
+    tot = max(out.values()) if out else 1
+    return sorted((p, round(h / tot, 4)) for p, h in out.items())
+
+
+def mossbauer_lines(delta, dEQ=0.0, field=None):
+    """MOSSBAUER_SPECTRUM (57Fe) — [(velocity mm/s, intensity)]: singlet, quadrupole doublet, or a magnetic
+    sextet (field in T; 3:2:1:1:2:3, ground / excited g-factors of 57Fe)."""
+    d, q = float(delta or 0), float(dEQ or 0)
+    if field:
+        B = float(field)
+        gg, ge = 0.1806, -0.1033          # mm/s per tesla (nuclear Zeeman, 57Fe: 0.119 / -0.068 mm s^-1 T^-1 x 1.52)
+        lines = []
+        for mg in (-0.5, 0.5):
+            for me in (-1.5, -0.5, 0.5, 1.5):
+                if abs(me - mg) <= 1:
+                    v = d + B * (ge * me - gg * mg) + (q / 2 if abs(me) == 1.5 else -q / 2)
+                    w = {(1.5, 0.5): 3, (-1.5, -0.5): 3, (0.5, 0.5): 2, (-0.5, -0.5): 2,
+                         (-0.5, 0.5): 1, (0.5, -0.5): 1}.get((me, mg), 1)
+                    lines.append((round(v, 4), w))
+        return sorted(lines)
+    if q:
+        return [(round(d - q / 2, 4), 1), (round(d + q / 2, 4), 1)]
+    return [(round(d, 4), 1)]
+
+
+NF_ISOTOPES = {
+    'H': [(1.00783, 0.99988), (2.01410, 0.00012)], 'C': [(12.0, 0.9893), (13.00335, 0.0107)],
+    'N': [(14.00307, 0.99636), (15.00011, 0.00364)], 'O': [(15.99491, 0.99757), (16.99913, 0.00038), (17.99916, 0.00205)],
+    'S': [(31.97207, 0.9499), (32.97146, 0.0075), (33.96787, 0.0425), (35.96708, 0.0001)],
+    'Cl': [(34.96885, 0.7576), (36.96590, 0.2424)], 'Br': [(78.91834, 0.5069), (80.91629, 0.4931)],
+    'B': [(10.01294, 0.199), (11.00931, 0.801)], 'Si': [(27.97693, 0.92223), (28.97649, 0.04685), (29.97377, 0.03092)],
+    'F': [(18.99840, 1.0)], 'P': [(30.97376, 1.0)], 'I': [(126.90447, 1.0)],
+    'Sn': [(115.9017, 0.1454), (116.9030, 0.0768), (117.9016, 0.2422), (118.9033, 0.0859), (119.9022, 0.3258),
+           (121.9034, 0.0463), (123.9053, 0.0579)],
+    'Hg': [(197.9668, 0.0997), (198.9683, 0.1687), (199.9683, 0.2310), (200.9703, 0.1318), (201.9706, 0.2986), (203.9735, 0.0687)],
+}
+
+
+def nf_parse_formula(formula):
+    """{element: count} of a simple formula (parentheses one level, e.g. 'C2H5Cl', 'CH2Br2', 'Fe(CO)5')."""
+    f = str(formula or '').replace(' ', '')
+    def expand(s):
+        out = {}
+        for el, n in _nf_re.findall(r'([A-Z][a-z]?)(\d*)', s):
+            out[el] = out.get(el, 0) + (_nf_i(n) if n else 1)
+        return out
+    tot = {}
+    for grp, mult in _nf_re.findall(r'\(([^()]+)\)(\d*)', f):
+        for el, n in expand(grp).items():
+            tot[el] = tot.get(el, 0) + n * (_nf_i(mult) if mult else 1)
+    for el, n in expand(_nf_re.sub(r'\([^()]+\)\d*', '', f)).items():
+        tot[el] = tot.get(el, 0) + n
+    return tot
+
+
+def ms_isotope_pattern(formula, min_rel=0.005):
+    """MS_ISOTOPE_PATTERN — [(nominal m/z, relative intensity)] (base peak = 1.0) from the formula's isotope
+    convolution (elements in NF_ISOTOPES; an unknown element -> []). CH2Cl2 -> 84:86:88 = 1 : 0.64 : 0.10."""
+    comp = nf_parse_formula(formula)
+    if not comp or any(el not in NF_ISOTOPES for el in comp):
+        return []
+    dist = {0: 1.0}
+    for el, n in comp.items():
+        iso = [(int(round(m)), a) for m, a in NF_ISOTOPES[el]]
+        for _ in range(n):
+            new = {}
+            for m0, p0 in dist.items():
+                for m1, a in iso:
+                    new[m0 + m1] = new.get(m0 + m1, 0) + p0 * a
+            dist = {k: v for k, v in new.items() if v > 1e-9}
+    top = max(dist.values())
+    return sorted((m, round(v / top, 4)) for m, v in dist.items() if v / top >= min_rel)
+
+
+def rate_plot_points(order, k, a0, t_max, n=12):
+    """RATE_PLOT — (x_label, y_label, [(t, y)]): order 0 -> [A] vs t, 1 -> ln[A] vs t, 2 -> 1/[A] vs t (a
+    straight line whose slope gives k)."""
+    o, k, a0 = _nf_i(order), float(k), float(a0)
+    pts = []
+    for i in range(n):
+        t = t_max * i / max(1, n - 1)
+        if o == 0:
+            a = max(a0 - k * t, 0.0)
+            pts.append((round(t, 6), round(a, 6)))
+        elif o == 1:
+            pts.append((round(t, 6), round(_nf_math.log(a0) - k * t, 6)))
+        else:
+            pts.append((round(t, 6), round(1 / a0 + k * t, 6)))
+    lab = {0: '[A]', 1: 'ln[A]', 2: '1/[A]'}.get(o, '1/[A]')
+    return 't', lab, pts
+
+
+def cv_trace(E0, n_e=1, scan=(-0.5, 0.5), points=200):
+    """CV_TRACE — reversible (Nernstian) couple: [(E, i)] forward then reverse, peak separation 0.059/n V at
+    298 K (the key quantity is E0 = mid-point and n from ΔEp)."""
+    lo, hi = float(scan[0]), float(scan[1])
+    f = 38.92 * _nf_i(n_e, 1)
+    dEp = 0.0592 / _nf_i(n_e, 1)
+    out = []
+    for i in range(points):
+        E = lo + (hi - lo) * i / (points - 1)
+        x = (E - (E0 + dEp / 2)) * f
+        out.append((round(E, 5), round(_nf_math.exp(-x * x / 8) * 1.0, 5)))
+    for i in range(points):
+        E = hi - (hi - lo) * i / (points - 1)
+        x = (E - (E0 - dEp / 2)) * f
+        out.append((round(E, 5), round(-_nf_math.exp(-x * x / 8) * 1.0, 5)))
+    return out
+
+
+def data_figure_points(kind, params):
+    """F-09 — the generator for a data-figure kind; (points, None) or (None, 'EC-34: generator missing') so the
+    caller re-authors the item to a text form of the same subtopic and band. Never raises."""
+    p = params if isinstance(params, dict) else {}
+    try:
+        if kind == 'EPR_SPECTRUM':
+            return epr_lines(p.get('nuclei')), None
+        if kind == 'MOSSBAUER_SPECTRUM':
+            return mossbauer_lines(p.get('delta'), p.get('dEQ', 0.0), p.get('field')), None
+        if kind == 'NMR_MULTIPLET':
+            return nmr_multiplet(p.get('couplings'), p.get('satellites')), None
+        if kind == 'MS_ISOTOPE_PATTERN':
+            r = ms_isotope_pattern(p.get('formula'))
+            return (r, None) if r else (None, 'EC-34: formula outside the isotope table')
+        if kind == 'RATE_PLOT':
+            return rate_plot_points(p.get('order', 1), p.get('k', 0.1), p.get('a0', 1.0), p.get('t_max', 10.0))[2], None
+        if kind == 'CV_TRACE':
+            return cv_trace(p.get('E0', 0.0), p.get('n', 1)), None
+    except Exception as e:
+        return None, f'EC-34: generator error {type(e).__name__}'
+    return None, 'EC-34: generator missing'
+
+
+# ── F-10 — question class helpers ────────────────────────────────────────────────────────
+def nf_primary_class(record):
+    c = (record or {}).get('class') if isinstance(record, dict) else None
+    return c[0] if isinstance(c, list) and c else (c if isinstance(c, str) else None)
+
+
+def nf_amber_lines(results):
+    """Framework_DeliveryFooter §2E — the AMBER lines of this cluster from {gate: result}."""
+    out = []
+    for g, r in sorted((results or {}).items()):
+        if isinstance(r, dict) and r.get('status') == 'FAIL':
+            out.append(f'AMBER — {g}: ' + ', '.join(f'{k} {v}' for k, v in sorted((r.get('short') or r.get('diff') or {}).items()))[:240])
+    return out
+
+
+# ── D-03 guard: every public Cluster NF function returns its documented safe / dormant result on malformed input
+#    instead of raising (a run is never stopped by this cluster). Well-formed input is unaffected; the self-tests
+#    check real results, so a defect still shows up as a failing check, never as a silent pass.
+import functools as _nf_ft
+
+
+def _nf_guard(name, default):
+    f = globals().get(name)
+    if not callable(f) or getattr(f, '_nf_guarded', False):
+        return
+
+    @_nf_ft.wraps(f)
+    def _w(*a, **k):
+        try:
+            return f(*a, **k)
+        except Exception:                                           # noqa: BLE001 — D-03
+            return default(*a, **k)
+    _w._nf_guarded = True
+    globals()[name] = _w
+
+
+_NF_DORMANT = {'status': 'DORMANT'}
+for _n, _d in {
+        'norm_label': lambda *a, **k: '',
+        'manifest_hash': lambda *a, **k: _nf_hashlib.sha256(b'[]').hexdigest(),
+        'nf_subject_of': lambda *a, **k: (None, None),
+        'nf_resolve_subtopic_id': lambda *a, **k: (None, 'unmapped'),
+        'manifest_crosswalk': lambda *a, **k: {},
+        'crosswalk_rekey': lambda *a, **k: ([], []),
+        'matrix_round': lambda *a, **k: ({}, False),
+        'subject_matrix_round': lambda *a, **k: ({}, [{'level': 'subject', 'why': 'invalid input'}]),
+        'nested_allocate': lambda *a, **k: {'subject_target_per_mock': {}, 'topic_target_per_mock': {},
+                                            'subtopic_allocations': {}, 'ok': False, 'rule': NF_RULE,
+                                            'allocation_relaxations': [{'level': 'part', 'why': 'invalid input'}]},
+        'alloc_invariants': lambda *a, **k: [],
+        'alloc_conformance': lambda *a, **k: dict(_NF_DORMANT, why='invalid input'),
+        'refill_order': lambda *a, **k: [],
+        'nf_shares': lambda *a, **k: {},
+        'nf_targets_per_mock': lambda *a, **k: {},
+        'nf_measure_axis2': lambda *a, **k: None,
+        'format_plan_slots': lambda *a, **k: {'plan': {}, 'infeasible': {}},
+        'nf_parity': lambda *a, **k: dict(_NF_DORMANT, short={}),
+        'subject_band_split': lambda *a, **k: {'split': {}, 'ok': False, 'why': 'invalid input'},
+        'schedule_place_by_subject': lambda *a, **k: {},
+        'band_mix_check': lambda *a, **k: dict(_NF_DORMANT, diff={}),
+        'nf_decision_count': lambda *a, **k: 0,
+        'build_recipe_by_subject': lambda *a, **k: {},
+        'recipe_monotone': lambda *a, **k: True,
+        'band_recipe_check_any': lambda *a, **k: dict(_NF_DORMANT, why=['invalid input'], credited=0),
+        'calibrate_pyq_grades': lambda *a, **k: {'agreement': None, 'use': {}, 'amber': []},
+        'parse_option_parts': lambda *a, **k: None,
+        'minimal_identifying_parts': lambda *a, **k: None,
+        'nf_item_mip': lambda *a, **k: None,
+        'mip_share_check': lambda *a, **k: dict(_NF_DORMANT, mip1=0, n=0, allowed=None, exempt=0, qs=[]),
+        'task_template': lambda *a, **k: '',
+        'asked_quantity': lambda *a, **k: '',
+        'text_item_fingerprint': lambda *a, **k: {'subtopic_id': None, 'task_template': '', 'asked': '',
+                                                  'answer_kind': None, 'named_concepts': [], 'key': None, 'ref': None},
+        'same_template': lambda *a, **k: False,
+        'text_clone_guard': lambda *a, **k: {'status': 'PASS', 'matches': [], 'fingerprint': {}, 'why': 'invalid input'},
+        'nf_series_registry_add': lambda *a, **k: (a[0] if a and isinstance(a[0], dict) else {}),
+        'nf_series_text_rows': lambda *a, **k: [],
+        'intra_paper_duplicates': lambda *a, **k: [],
+        'key_leak_check': lambda *a, **k: [],
+        'stem_figure_claims': lambda *a, **k: [],
+        'stem_figure_consistency': lambda *a, **k: dict(_NF_DORMANT, contradictions=[], skipped=[]),
+        'metal_figure_convention': lambda *a, **k: [],
+        'curve_continuity': lambda *a, **k: [],
+        'epr_lines': lambda *a, **k: [],
+        'nmr_multiplet': lambda *a, **k: [],
+        'mossbauer_lines': lambda *a, **k: [],
+        'nf_parse_formula': lambda *a, **k: {},
+        'ms_isotope_pattern': lambda *a, **k: [],
+        'rate_plot_points': lambda *a, **k: ('t', '', []),
+        'cv_trace': lambda *a, **k: [],
+        'data_figure_points': lambda *a, **k: (None, 'EC-34: invalid parameters'),
+        'nf_primary_class': lambda *a, **k: None,
+        'nf_amber_lines': lambda *a, **k: [],
+        'nf_subject_key': lambda *a, **k: 'UNMAPPED',
+        'nf_pyq_rows': lambda *a, **k: [],
+        'nf_mip1_share': lambda *a, **k: {},
+        'nf_class_targets_per_mock': lambda *a, **k: {},
+        'nf_compose_part_targets': lambda *a, **k: ({}, {}, []),
+}.items():
+    _nf_guard(_n, _d)
+del _n, _d
+
+
+LADDER_ENTRY_RUNG.update({'A-AXIS2': 'R3', 'A-ALLOC': 'R3', 'A-OPTPART': 'R2o', 'A-INTRADUP': 'R3', 'A-KEYLEAK': 'R2s',
+                          'A-CLASSMIX': 'R3', 'A-SUBJBAND': 'R3', 'A-STEMFIG': 'R1', 'G-METALCONV': 'R1'})
+
+
+
+# END CLUSTER NF
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+
+
+# ══ CLUSTER BV — BATCH VERIFICATION (GAP-2026-11-11-BATCH-VERIFICATION; every exam) ══════════════════════
+# Every item is measured by FRESH blind graders and solvers INSIDE ITS OWN BATCH, before the batch is delivered.
+# One write with the graders' own anchors in hand; a split between the two graders is settled by a third grader
+# (never a rewrite); at most ONE rewrite, only when the majority names another band; after it the item is delivered
+# at the band it measured, disclosed (AMBER). Final Assembly never re-authors an item for difficulty.
+BV_RULE = 'BV1'
+C_WRITE_ATTEMPTS = 2                 # the first write + at most one rewrite (owner 2026-11-11)
+C_TIEBREAK_GRADERS = 1               # a 2-grader split is settled by ONE more fresh grader
+BV_ROLES_GRADE = ('grader_1', 'grader_2')
+# the measured COMPOSITION gates whose residual shortfall is DISCLOSED at Final Assembly, never re-authored there
+# (Create S13-2F, BV-5): allocation, format parity, MIP share, class mix, band mix by subject, and a within-paper
+# repeat / key leak that survived the in-batch rewrite. A-STEMFIG (a figure contradicting its stem) stays a repair.
+NF_DISCLOSE_GATES = ('A-ALLOC', 'A-AXIS2', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND')
+BV_ROLES_SOLVE = ('solver_1', 'solver_2')
+BV_MAX_ROUNDS = 6                    # job rounds per batch: grading, tiebreak, regrade after the rewrite, its
+                                     # tiebreak, + 2 re-issues of jobs that returned nothing (then NO-MODEL)
+
+BV_BRIEF_GRADER = (
+    "You are a FRESH BLIND GRADER for one exam question. You did not write it and you are not told the level it "
+    "was written for. Read ONLY the file packet.json in <JOB_DIR>: 'item' (the question as a candidate sees it) and "
+    "'exemplars' (real past questions of this exam, grouped by difficulty band). Decide which band's exemplars the "
+    "item most resembles in what a competent candidate must know and do (count the decisions the solution needs; "
+    "recall of exam-level prerequisites is not a decision). Do not open any other file. Write <JOB_DIR>/result.json "
+    "as {\"band\": <one of packet.labels>, \"decisions\": <int>, \"rationale\": <one sentence naming the exemplar it "
+    "matches>, \"class\": <recall|conceptual|computation|derivational|figural|structural|other>, "
+    "\"computation_generic\": <true|false>, \"concept\": <a short label of the concept tested>}. Open and look at "
+    "every figure file named in item.figure_files (they are in <JOB_DIR>). Reply with ONE "
+    "line: \"GRADE DONE\" or \"GRADE FAILED <reason>\".")
+BV_BRIEF_VISION = (
+    "You are a FRESH VISION READER. You never saw how this figure was made. Read ONLY <JOB_DIR>/packet.json: "
+    "'figures' names ONE image file in <JOB_DIR> — open it and look at it. Transcribe the chemical structure it shows "
+    "as ONE SMILES string, with stereochemistry exactly as drawn (wedges, hashes, E/Z). Do not open any other file. "
+    "Write <JOB_DIR>/result.json as {\"smiles\": <the SMILES>, \"stereo_mode\": <abs|rel|rac|none>, \"notes\": <what "
+    "was hard to read, or empty>}. Reply with ONE line: \"VISION DONE\" or \"VISION FAILED <reason>\".")
+BV_BRIEF_SOLVER = (
+    "You are a FRESH BLIND SOLVER for one exam question. Read ONLY <JOB_DIR>/packet.json ('stem', 'options', "
+    "'figures' — open each figure file named there and look at it). Solve it as a candidate. Do not open any other "
+    "file. Write <JOB_DIR>/result.json as {\"answer\": <the option number 1-based, a list for multiple-select, or "
+    "the value for a numerical answer>, \"confidence\": <high|medium|low>, \"assumptions\": [{\"about\": <stereo|"
+    "conditions|data|wording|other>, \"text\": <the assumption the stem does not state>, \"changes_answer\": <true if "
+    "another reasonable reading gives another option>}]}. Reply with ONE line: \"SOLVE DONE\" or \"SOLVE FAILED "
+    "<reason>\".")
+
+
+BV_GRADER_FIELDS = ('stem_text', 'stem', 'option_texts', 'options', 'figure_files', 'qtype', 'subtopic_id', 'subject',
+                    'content_record', 'given_smiles', 'reagents', 'scheme_grammar', 'stated_formula', 'named_entities',
+                    'stimulus_text', 'list_columns')
+
+
+def _bv_graders(controls, labels):
+    labs = _dl_labels(labels)
+    c = controls if isinstance(controls, dict) else {}
+    return [b for b in (_dl_band(c.get(g), labs) for g in ('grader_1', 'grader_2', 'grader_3')) if b is not None]
+
+
+def bv_majority_band(controls, labels):
+    """THE measured band of the fresh graders: the band >= 2 of them name; with three graders naming three
+    different bands, the MIDDLE one (the median of three — every grader is equally weighted); two graders who
+    disagree measure nothing yet (None: a tiebreak is due); None with < 2 grades. Never raises."""
+    labs = _dl_labels(labels)
+    gs = _bv_graders(controls, labs)
+    if len(gs) < 2:
+        return None
+    for b in gs:
+        if gs.count(b) >= 2:
+            return b
+    if len(gs) >= 3:
+        return sorted(gs, key=labs.index)[len(gs) // 2]
+    return None
+
+
+def band_majority(controls, target, labels):
+    """(ok, why) — BV1: the recipe check passed at `target` AND a strict majority of the fresh graders (both of two,
+    two of three) name `target`. Never raises."""
+    labs = _dl_labels(labels)
+    c = controls if isinstance(controls, dict) else {}
+    t = _dl_band(target, labs)
+    if t is None:
+        return False, f'target {target!r} is not a band'
+    gs = _bv_graders(c, labs)
+    if len(gs) < 2:
+        return False, 'at least two blind grades are required'
+    if c.get('recipe') is not True:
+        return False, 'band recipe check did not pass'
+    if bv_majority_band(c, labs) != t:
+        return False, f'graders {gs} do not measure {t} (majority, or the median of three different bands)'
+    return True, 'ok'
+
+
+def bv_decide(controls, target, labels, attempt=1, key_votes=None):
+    """THE per-item decision of a batch (BV1). attempt = 1 for the first write, 2 after the one rewrite.
+    Returns {'action', 'band', 'why'}:
+      'grade'    — fewer than two fresh grades: grade it (first round);
+      'tiebreak' — the two graders disagree and no third grade exists: ONE more fresh grader (never a rewrite);
+      'pass'     — the majority (and the recipe) name the slot band: label it there;
+      'rewrite'  — the majority names another band (or the recipe fails, or the key is disputed) and the rewrite
+                   is still available: rewrite ONCE with the graders' rationales, then grade again;
+      'settle'   — the rewrite is spent: deliver at the band the majority measured ('band'), disclosed;
+      'key_chain'— the key is still disputed after the rewrite: never delivered as is — S13-2L's dispute chain.
+    Never raises."""
+    labs = _dl_labels(labels)
+    t = _dl_band(target, labs)
+    c = controls if isinstance(controls, dict) else {}
+    att = _qf_int(attempt, 1)
+    kv = key_votes if isinstance(key_votes, dict) else None
+    last = att >= C_WRITE_ATTEMPTS
+    if kv is not None and kv.get('unanimous') is False:
+        return {'action': 'key_chain' if last else 'rewrite', 'band': None,
+                'why': 'author and blind solvers do not give the same answer'}
+    gs = _bv_graders(c, labs)
+    if len(gs) < 2:
+        return {'action': 'grade', 'band': None, 'why': f'{len(gs)} fresh grade(s)'}
+    if len(gs) == 2 and gs[0] != gs[1]:
+        return {'action': 'tiebreak', 'band': None, 'why': f'graders split {gs[0]}/{gs[1]}'}
+    m = bv_majority_band(c, labs)
+    if t is not None and m == t and c.get('recipe') is True:
+        return {'action': 'pass', 'band': t, 'why': 'majority and recipe name the slot band'}
+    why = (f'majority {m} != slot {t}' if m != t else 'band recipe check did not pass at the slot band')
+    return {'action': 'settle' if last else 'rewrite', 'band': m, 'why': why}
+
+
+def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=None):
+    """THE writer of a BV1 label. Two graders + recipe on the slot -> 'measured_exact' (dl_set_label_basis_strict);
+    otherwise 'measured_majority': label := delivered (default the slot band) when band_majority(controls,
+    delivered) holds, every grade present was made in a FRESH context (packet sha256 recorded), and a delivered band
+    other than the slot is allowed only after the rewrite (attempt >= C_WRITE_ATTEMPTS). controls['recipe'] is the
+    recipe verdict AT THE DELIVERED BAND. Returns (entry, ok, why); not ok -> the entry unchanged. Pure."""
+    labs = _dl_labels(labels)
+    tgt = _dl_band(target, labs)
+    dlv = _dl_band(delivered, labs) if delivered is not None else tgt
+    c = dict(controls) if isinstance(controls, dict) else {}
+    src = entry if isinstance(entry, dict) else {}
+    if dlv is None or tgt is None:
+        return src, False, 'target / delivered band unknown'
+    if dlv == tgt and c.get('grader_3') is None:
+        return dl_set_label_basis_strict(src, 'measured_exact', labs, tgt, c, packets)
+    if dlv != tgt and _qf_int(attempt, 1) < C_WRITE_ATTEMPTS:
+        return src, False, 'a band other than the slot is delivered only after the one rewrite'
+    ok, why = band_majority(c, dlv, labs)
+    if not ok:
+        return src, False, why
+    pk = packets if isinstance(packets, dict) else {}
+    present = [g for g in ('grader_1', 'grader_2', 'grader_3') if c.get(g) is not None]
+    if not all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh' and pk[g].get('sha256') for g in present):
+        return src, False, 'every grade must come from a fresh context with its packet sha256'
+    e = dict(src)
+    dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else {}
+    dc.update({'dl_rung': 'MAJORITY' if dlv == tgt else 'SETTLED', 'decision': 'dl_measured_majority',
+               'final_band': dlv, 'lb_rule': LB_RULE_STRICT,
+               'label_basis': {'kind': 'measured_majority', 'target': tgt, 'delivered': dlv, 'controls': c,
+                               'packets': pk, 'attempts': _qf_int(attempt, 1), 'rule': LB_RULE_STRICT,
+                               'bv_rule': BV_RULE, 'disclosed': dlv != tgt}})
+    dc.pop('dr3_basis', None)
+    e['difficulty'] = dlv
+    e['difficulty_check'] = dc
+    return e, True, 'ok'
+
+
+def bv_verify_majority(entry, labels):
+    """(ok, delivered) for a 'measured_majority' basis (verify_difficulty_label_strict delegates here)."""
+    labs = _dl_labels(labels)
+    e = entry if isinstance(entry, dict) else {}
+    dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    tgt, dlv = _dl_band(lb.get('target'), labs), _dl_band(lb.get('delivered'), labs)
+    c = lb.get('controls') if isinstance(lb.get('controls'), dict) else {}
+    pk = lb.get('packets') if isinstance(lb.get('packets'), dict) else {}
+    present = [g for g in ('grader_1', 'grader_2', 'grader_3') if c.get(g) is not None]
+    fresh = len(present) >= 2 and all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh'
+                                      and pk[g].get('sha256') for g in present)
+    ok = band_majority(c, dlv, labs)[0] and fresh and e.get('difficulty') == dlv and dlv is not None
+    if ok and dlv != tgt:
+        ok = _qf_int(lb.get('attempts'), 1) >= C_WRITE_ATTEMPTS
+    return bool(ok), dlv
+
+
+def bv_settled(entry, labels=None):
+    """True when the item's label is a verified BV1 settlement (delivered at its measured band after the rewrite,
+    disclosed) — S13-2L never opens a difficulty chain on it."""
+    e = entry if isinstance(entry, dict) else {}
+    dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+    lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+    return lb.get('kind') == 'measured_majority' and bv_verify_majority(e, labels or ['Easy', 'Medium', 'Hard'])[0]
+
+
+def _bv_sha(obj):
+    return _qq_hashlib.sha256(_qq_json.dumps(obj, sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
+
+
+def bv_jobs(q, item_record, exemplars_by_band, labels, roles=None):
+    """The fresh-context jobs of ONE item: [{'q', 'role', 'packet', 'sha256', 'brief'}]. Graders get
+    build_judge_input(item, exemplars) (never the slot band, plan, solution or author counts); solvers get stem,
+    options and figure files only. roles default: two graders + two solvers. Never raises."""
+    src = item_record if isinstance(item_record, dict) else {}
+    # an ALLOW-LIST, never a strip-list: only what a candidate sees (and the content record a figure is drawn from)
+    # reaches a grader — never the band, the plan, the author's counts, the rewrite notes or another control's result
+    it = {k: src[k] for k in BV_GRADER_FIELDS if src.get(k) is not None}
+    out = []
+    for r in (roles or BV_ROLES_GRADE + BV_ROLES_SOLVE):
+        r = str(r)
+        if r.startswith('grader'):
+            pk = build_judge_input(it, exemplars_by_band or {}, labels)
+            sha = pk.get('sha256')
+            brief = BV_BRIEF_GRADER
+        elif r.startswith('vision_'):
+            fds = [f for f in (src.get('figure_dicts') or []) if isinstance(f, dict)]
+            try:
+                fi = int(r.split('_')[1]) - 1
+            except (ValueError, IndexError):
+                continue
+            if not (0 <= fi < len(fds)) or not fds[fi].get('file'):
+                continue
+            pk = {'figures': [fds[fi]['file']]}           # the image only — never its SMILES
+            sha = _bv_sha(pk)
+            brief = BV_BRIEF_VISION
+        elif r.startswith('solver'):
+            pk = {'stem': it.get('stem_text') or it.get('stem'), 'options': list(it.get('option_texts') or it.get('options') or []),
+                  'figures': list(it.get('figure_files') or []), 'qtype': it.get('qtype') or 'mcq'}
+            sha = _bv_sha(pk)
+            brief = BV_BRIEF_SOLVER
+        else:
+            continue
+        out.append({'q': str(q), 'role': r, 'packet': pk, 'sha256': sha, 'brief': brief})
+    return out
+
+
+def bv_read_result(role, result, labels=None):
+    """A fresh job's result.json normalised, or None when unusable. grader -> {'band', 'decisions', 'rationale',
+    'class', 'computation_generic', 'concept'}; solver -> {'answer', 'confidence', 'assumptions'}. Never raises."""
+    r = result if isinstance(result, dict) else {}
+    if str(role).startswith('grader'):
+        _lb = _dl_labels(labels)
+        b = _dl_band(r.get('band'), _lb) or next((x for x in _lb if str(x).lower() == str(r.get('band') or '').strip().lower()), None)
+        if b is None:
+            return None
+        return {'band': b, 'decisions': _qf_int(r.get('decisions'), 0), 'rationale': str(r.get('rationale') or '')[:400],
+                'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
+                'concept': r.get('concept')}
+    if str(role).startswith('vision_'):
+        if not str(r.get('smiles') or '').strip():
+            return None
+        return {'smiles': str(r['smiles']).strip(), 'stereo_mode': str(r.get('stereo_mode') or 'abs'),
+                'notes': str(r.get('notes') or '')[:200]}
+    if str(role).startswith('solver'):
+        if r.get('answer') is None:
+            return None
+        a = r.get('assumptions')
+        asm = []
+        for x in (a if isinstance(a, list) else []):
+            if isinstance(x, dict):
+                asm.append({'about': str(x.get('about') or 'other'), 'text': str(x.get('text') or '')[:300],
+                            'changes_answer': x.get('changes_answer') is True})
+            elif str(x).strip():
+                asm.append({'about': 'other', 'text': str(x)[:300], 'changes_answer': False})
+        return {'answer': r.get('answer'), 'confidence': str(r.get('confidence') or 'low'), 'assumptions': asm}
+    return None
+
+
+def bv_anchors(bank, ruler, subtopic_id, qtype='mcq', labels=None, k=2):
+    """THE anchors of one item — the SAME dict goes into the author packet (bv_author_packet) and every grader
+    packet (bv_jobs), so the author writes against exactly what the graders compare with. Per band: the exam's
+    exemplar bank cascade (exemplars_for: subtopic -> topic -> section; content-carrying), else the exam ruler's
+    anchors closest to the item (same subtopic, then the same id prefix, then any), k rows per band, content
+    fields only (stem, options, figure content record). {} when neither exists (graders then use the band recipe
+    in words, S0-OP-5 C5). Never raises."""
+    labs = _dl_labels(labels)
+    out = {}
+    try:
+        ex = exemplars_for(bank or {}, subtopic_id, qtype, labs, k=k) if bank else {'by_band': {}}
+    except Exception:                                   # noqa: BLE001
+        ex = {'by_band': {}}
+    sid = str(subtopic_id or '')
+    anch = (ruler or {}).get('anchors') if isinstance((ruler or {}).get('anchors'), dict) else {}
+    for b in labs:
+        rows = list((ex.get('by_band') or {}).get(b) or [])[:k]
+        if not rows:
+            cand = [r for r in (anch.get(b) or []) if isinstance(r, dict)]
+            def _rank(r):
+                rs = str(r.get('subtopic_id') or '')
+                return (0 if rs == sid else 1 if sid and rs.split('.')[0] == sid.split('.')[0] else 2)
+            rows = sorted(cand, key=_rank)[:k]
+        keep = ('stem', 'stem_text', 'stem_snippet', 'options', 'option_texts', 'content_record', 'qtype',
+                'subtopic_id', 'ask_format', 'figure_content')
+        rows = [{f: r.get(f) for f in keep if r.get(f) is not None} for r in rows]
+        if rows:
+            out[b] = rows
+    return out
+
+
+def bv_recipe_verdict(item, ruler, band, labels=None):
+    """(ok, status) — the C4 recipe verdict of an item AT `band` (band_recipe_check_any over the ruler's
+    recipe_by_subject). PASS -> True; FAIL -> False; DORMANT (no decision range for the subject / band anywhere —
+    an exam whose ruler has none) -> True with status 'DORMANT': the recipe is then not a control (D-07), the fresh
+    graders decide. Never raises."""
+    rbs = (ruler or {}).get('recipe_by_subject') if isinstance((ruler or {}).get('recipe_by_subject'), dict) else {}
+    r = band_recipe_check_any(item, rbs, band, labels)
+    st = (r or {}).get('status')
+    return (st in ('PASS', 'DORMANT')), (st or 'DORMANT')
+
+
+def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', tolerance=None, results=None,
+             findings=None, vision_compare=None, figure_proof=None):
+    """ONE step of the in-batch verification of ONE item (S4-7 STEP A2). entry: its concept_map entry (must carry
+    'subject' for the recipe); results: {role: {'result': <bv_read_result>, 'sha256', 'context'}} returned since
+    the last step. Keeps entry['bv'] = {'attempt', 'content_sha', 'grades', 'packets', 'solvers', 'meta',
+    'state', 'history'}; an item whose text changed since its grades (the one rewrite) starts attempt 2 with no
+    grades. findings: [reason] the item's within-paper checks found on its CURRENT text (it repeats an earlier
+    item's template, its key is printed in another item — S0-NF-6): on attempt 1 they ARE the rewrite (no grading
+    is spent on that text); on attempt 2 they are recorded (entry['nf_findings']) and disclosed. An ORGANIC item
+    carrying figure_dicts (the S0-OP-8 figure dicts the author recorded, each with its 'file') also gets fresh
+    vision reads (roles vision_<figure>_<read>: 2 when the answer depends on stereo, else 1); vision_compare
+    (figural_vision.readback_compare) and figure_proof (corpus_io.organic_figure_proof) are injected by the I/O
+    shell — the proofs become entry['figures']; a figure read back as another structure is redrawn as the ONE
+    rewrite. Without the injected functions the vision check is dormant (the S13-2L figure-proof chain covers it). Returns {'entry', 'action', 'roles' (jobs still needed), 'band', 'why'}; action as bv_decide, plus
+    'settled' when the label was written. Pure; never raises."""
+    labs = _dl_labels(labels)
+    e = dict(entry) if isinstance(entry, dict) else {}
+    import copy as _bv_copy
+    bvs = _bv_copy.deepcopy(e.get('bv')) if isinstance(e.get('bv'), dict) else {}   # pure: the input is never mutated
+    sha = op_content_sha(e)
+    _fdl = [(f.get('file'), f.get('render_sha')) for f in (e.get('figure_dicts') or []) if isinstance(f, dict)]
+    if _fdl:
+        # a REDRAWN figure keeps its file name: its render sha (the I/O shell hashes the image) makes it new text
+        sha = _bv_sha([sha, _fdl])
+    if bvs.get('content_sha') == sha and (bvs.get('state') == 'key_chain' or (
+            bvs.get('state') == 'settled' and verify_difficulty_label(e, labs, strict=True)[0])):
+        # a decided question is final for its batch (its label / its dispute stands); nothing is re-graded
+        return {'entry': e, 'action': 'settled' if bvs['state'] == 'settled' else 'key_chain', 'roles': [],
+                'band': e.get('difficulty') if bvs['state'] == 'settled' else None, 'why': 'decided earlier'}
+    if bvs.get('content_sha') != sha:
+        if bvs.get('content_sha') is not None:
+            bvs.setdefault('history', []).append({'attempt': bvs.get('attempt', 1), 'grades': bvs.get('grades'),
+                                                   'solvers': bvs.get('solvers'), 'vision': bvs.get('vision'),
+                                                   'state': bvs.get('state')})
+            bvs['attempt'] = min(C_WRITE_ATTEMPTS, _qf_int(bvs.get('attempt'), 1) + 1)
+        bvs.update({'content_sha': sha, 'grades': {}, 'packets': {}, 'solvers': {}, 'meta': {}, 'vision': {}, 'state': 'grading'})
+    elif bvs.get('state') == 'rewrite':
+        # the rewrite was due and the text did not change: the rewrite is spent — the item settles at what it
+        # measured (bounded; never a second rewrite, never a loop)
+        bvs['attempt'] = C_WRITE_ATTEMPTS
+    bvs.setdefault('attempt', 1)
+    for role, rec in ((results or {}).items() if isinstance(results, dict) else []):
+        rr = (rec or {}).get('result') if isinstance(rec, dict) else None
+        if not isinstance(rr, dict):
+            continue
+        pk = {'context': str((rec or {}).get('context') or 'same'), 'sha256': (rec or {}).get('sha256')}
+        if str(role).startswith('grader') and rr.get('band') in labs:
+            bvs['grades'][role] = rr['band']
+            bvs['packets'][role] = pk
+            bvs['meta'][role] = {k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')}
+        elif str(role).startswith('solver') and rr.get('answer') is not None:
+            bvs['solvers'][role] = dict(rr, packet=pk)
+        elif str(role).startswith('vision_') and rr.get('smiles'):
+            bvs.setdefault('vision', {})[role] = dict(rr, packet=pk)
+    g = bvs['grades']
+    tgt = _dl_band(target, labs)
+    rec_ok, rec_st = bv_recipe_verdict(e, ruler, tgt, labs)
+    controls = {k: g.get(k) for k in ('grader_1', 'grader_2', 'grader_3') if g.get(k)}
+    controls['recipe'] = rec_ok
+    sv = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE]
+    kv = None
+    if all(isinstance(x, dict) for x in sv):
+        ok_k, _w = key_unanimous(author_key, [x.get('answer') for x in sv], qtype, tolerance)
+        asm = solver_assumption_check(sv)
+        kv = {'author': author_key, 'solver_1': sv[0].get('answer'), 'solver_2': sv[1].get('answer'),
+              'unanimous': bool(ok_k and asm['status'] == 'PASS'), 'why': _w if not ok_k else '; '.join(asm['decisive'])}
+    need_solve = [r for r in BV_ROLES_SOLVE if r not in bvs['solvers']]
+    # FRESH VISION READS of an organic item's figures (S0-OP-8, in the batch)
+    fds = [f for f in (e.get('figure_dicts') or []) if isinstance(f, dict) and f.get('file')] if e.get('organic') else []
+    if fds and callable(vision_compare) and callable(figure_proof):
+        vis = bvs.setdefault('vision', {})
+        for i, fd in enumerate(fds, 1):
+            for k in range(1, (2 if fd.get('answer_depends_on_stereo') else 1) + 1):
+                if f'vision_{i}_{k}' not in vis:
+                    need_solve.append(f'vision_{i}_{k}')
+        if not any(r.startswith('vision_') for r in need_solve):
+            proofs, bad = [], []
+            for i, fd in enumerate(fds, 1):
+                reads = []
+                for k in range(1, (2 if fd.get('answer_depends_on_stereo') else 1) + 1):
+                    rd = vis.get(f'vision_{i}_{k}') or {}
+                    try:
+                        m = (vision_compare(fd.get('smiles'), rd.get('smiles'), fd.get('stereo_mode') or 'abs') or {}).get('match')
+                    except Exception:                       # noqa: BLE001
+                        m = None
+                    reads.append({'smiles': rd.get('smiles'), 'match': m})
+                try:
+                    pr = figure_proof(dict(fd, vision_reads=reads))
+                except Exception:                           # noqa: BLE001
+                    pr = {'identity_ok': False, 'vision_ok': False, 'gates_ok': False, 'missing': ['proof']}
+                proofs.append(pr)
+                if any(x.get('match') is False for x in reads):
+                    bad.append(f"figure {i} ({fd.get('file')}) was read back as {reads[-1].get('smiles')} — redraw it "
+                               f"(layout ladder / re-depiction), same structure")
+            e['figures'] = proofs
+            if bad:
+                findings = list(findings or []) + bad
+    fnd = [str(x) for x in (findings or []) if str(x).strip()]
+    if fnd and _qf_int(bvs['attempt'], 1) < C_WRITE_ATTEMPTS:
+        bvs['state'] = 'rewrite'
+        bvs['rewrite_brief'] = {'graders': {}, 'measured': None, 'slot': tgt, 'recipe': rec_st, 'key': None,
+                                'findings': fnd}
+        e['bv'] = bvs
+        return {'entry': e, 'action': 'rewrite', 'roles': [], 'band': None, 'why': '; '.join(fnd)}
+    if fnd:
+        e['nf_findings'] = fnd
+    if tgt is None:
+        # no difficulty plan for this paper (dormant, D-07): no band to measure — only the key is verified (the two
+        # blind solvers); no grader job is spent and no label is written (the paper's legacy label rule applies)
+        if need_solve:
+            out0 = {'action': 'grade', 'roles': need_solve, 'band': None, 'why': 'blind solvers outstanding (no difficulty plan)'}
+        elif kv and kv.get('unanimous') is False:
+            last = _qf_int(bvs['attempt'], 1) >= C_WRITE_ATTEMPTS
+            bvs['state'] = 'key_chain' if last else 'rewrite'
+            if last:
+                e['bv_state'] = 'key_chain'
+                e['key_votes'] = dict(kv, content_sha=sha)
+            else:
+                bvs['rewrite_brief'] = {'graders': {}, 'measured': None, 'slot': None, 'recipe': None, 'key': kv.get('why')}
+            out0 = {'action': 'key_chain' if last else 'rewrite', 'roles': [], 'band': None, 'why': 'key disputed'}
+        else:
+            e['key_votes'] = dict(kv or {}, content_sha=sha)
+            bvs['state'] = 'settled'
+            out0 = {'action': 'settled', 'roles': [], 'band': None, 'why': 'no difficulty plan: key verified'}
+        e['bv'] = bvs
+        out0['entry'] = e
+        return out0
+    d = bv_decide(controls, tgt, labs, bvs['attempt'], kv)
+    roles = []
+    if d['action'] == 'grade':
+        roles = [r for r in BV_ROLES_GRADE if r not in g] + need_solve
+    elif d['action'] == 'tiebreak':
+        roles = ['grader_3'] + need_solve
+    elif need_solve and d['action'] in ('pass', 'settle', 'rewrite'):
+        roles, d = need_solve, {'action': 'grade', 'band': None, 'why': 'blind solvers outstanding'}
+    out = {'action': d['action'], 'roles': roles, 'band': d.get('band'), 'why': d.get('why')}
+    if d['action'] in ('pass', 'settle'):
+        dlv = tgt if d['action'] == 'pass' else d['band']
+        rok, _rs = bv_recipe_verdict(e, ruler, dlv, labs)
+        ctl = dict(controls, recipe=rok)
+        e = op_record_controls(e, g.get('grader_1'), g.get('grader_2'), rok, bvs['packets'],
+                               {k: (bvs['meta'].get(k) or {}).get('decisions') for k in g}, kv)
+        if g.get('grader_3'):
+            e['grades']['grader_3'] = g['grader_3']
+        e['grader_meta'] = {k: v for k, v in bvs['meta'].items()}
+        e2, ok, why = bv_set_label(e, labs, tgt, ctl, bvs['packets'], bvs['attempt'], dlv)
+        if ok:
+            e = e2
+            bvs['state'] = 'settled'
+            out.update({'action': 'settled', 'band': dlv, 'why': ('at slot' if dlv == tgt else f'delivered at {dlv} '
+                                                                  f'(slot {tgt}) after the one rewrite')})
+        else:
+            bvs['state'] = 'unlabelled'
+            out.update({'action': 'unlabelled', 'why': why})
+    elif d['action'] == 'rewrite':
+        bvs['state'] = 'rewrite'
+        bvs['rewrite_brief'] = {'graders': {k: (bvs['meta'].get(k) or {}).get('rationale') for k in g},
+                                'measured': d.get('band'), 'slot': tgt, 'recipe': rec_st,
+                                'key': (kv or {}).get('why') if kv and not kv.get('unanimous') else None}
+    elif d['action'] == 'key_chain':
+        bvs['state'] = 'key_chain'
+        e['bv_state'] = 'key_chain'
+        e['key_votes'] = dict(kv or {}, content_sha=sha)
+    e['bv'] = bvs
+    out['entry'] = e
+    return out
+
+
+def bv_author_packet(slot, exemplars_by_band, labels, recipe=None):
+    """What the author holds BEFORE writing (one write): the slot band, the SAME exemplar content the graders will
+    compare against (the slot band and its neighbours), the recipe ranges for the band, and the self-checks to run
+    before submitting. slot: {'q', 'band', 'qtype', 'subtopic_id', 'subject', 'ask_format'}. Never raises."""
+    labs = _dl_labels(labels)
+    s = slot if isinstance(slot, dict) else {}
+    b = _dl_band(s.get('band'), labs)
+    i = labs.index(b) if b in labs else None
+    near = [labs[j] for j in (i - 1, i, i + 1) if i is not None and 0 <= j < len(labs)]
+    ex = {k: [{f: v for f, v in (r or {}).items() if f not in ('band_rationale', 'solution')} for r in rows][:2]
+          for k, rows in (exemplars_by_band or {}).items() if k in near}
+    return {'q': s.get('q'), 'band': b, 'qtype': s.get('qtype') or 'mcq', 'subtopic_id': s.get('subtopic_id'),
+            'ask_format': s.get('ask_format'), 'anchors': ex, 'recipe': recipe if isinstance(recipe, dict) else {},
+            'self_check': ['bc.band_recipe_check_any(item, EXAM_RULER["recipe_by_subject"], band) must be ok',
+                           'every option and the key fixed; one defensible answer',
+                           'the item resembles the slot band anchors more than the neighbours'],
+            'rule': BV_RULE}
+
+
+def bv_batch_status(concept_map, qs, target_plan, labels):
+    """{'settled': [q], 'disclosed': [q], 'key_chain': [q], 'open': [q]} for the items of one batch. A settled item
+    carries a verified LB2 label (measured_exact at its slot, or a verified BV1 measured_majority) and a unanimous
+    key; key_chain items are handed to S13-2L (their key is never delivered disputed). Never raises."""
+    labs = _dl_labels(labels)
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    tp = {str(k): v for k, v in (target_plan or {}).items()} if isinstance(target_plan, dict) else {}
+    out = {'settled': [], 'disclosed': [], 'key_chain': [], 'open': []}
+    for q in [str(x) for x in (qs or [])]:
+        e = cm.get(q) if isinstance(cm.get(q), dict) else {}
+        if e.get('bv_state') == 'key_chain':
+            out['key_chain'].append(q)
+            continue
+        kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
+        if _dl_band(tp.get(q), labs) is None:
+            # no difficulty plan (dormant): settled once the key is verified by the blind solvers
+            (out['settled'] if kv.get('unanimous') is True else out['open']).append(q)
+            continue
+        ok = verify_difficulty_label(e, labs, strict=True)[0]
+        at_slot = e.get('difficulty') == _dl_band(tp.get(q), labs)
+        if ok and kv.get('unanimous') is True and (at_slot or bv_settled(e, labs)):
+            out['settled'].append(q)
+            if not at_slot:
+                out['disclosed'].append(q)
+        else:
+            out['open'].append(q)
+    return out
+
+
+
+for _n, _d in {
+        'bv_majority_band': lambda *a, **k: None,
+        'band_majority': lambda *a, **k: (False, 'invalid input'),
+        'bv_decide': lambda *a, **k: {'action': 'grade', 'band': None, 'why': 'invalid input'},
+        'bv_set_label': lambda e=None, *a, **k: (e if isinstance(e, dict) else {}, False, 'invalid input'),
+        'bv_verify_majority': lambda *a, **k: (False, None),
+        'bv_settled': lambda *a, **k: False,
+        'bv_jobs': lambda *a, **k: [],
+        'bv_read_result': lambda *a, **k: None,
+        'bv_author_packet': lambda *a, **k: {},
+        'bv_anchors': lambda *a, **k: {},
+        'bv_recipe_verdict': lambda *a, **k: (True, 'DORMANT'),
+        'bv_apply': lambda e=None, *a, **k: {'entry': e if isinstance(e, dict) else {}, 'action': 'grade', 'roles': list(BV_ROLES_GRADE + BV_ROLES_SOLVE), 'band': None, 'why': 'invalid input'},
+        'bv_batch_status': lambda *a, **k: {'settled': [], 'disclosed': [], 'key_chain': [], 'open': []},
+}.items():
+    _nf_guard(_n, _d)
+del _n, _d
 
 
 if __name__ == '__main__':

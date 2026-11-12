@@ -638,6 +638,181 @@ def _downstream_replay(check):
         check(f'H-DOWN notes_core.recall_verify_difficulty Q{q} never raises (a Recall carries no basis -> obs rule)', isinstance(r, tuple) and len(r) == 3, r)
 
 
+def _bv_handshake(check, ROOT, run_fence, W):
+    """H-BV (release 2026.11.11, GAP-2026-11-11-BATCH-VERIFICATION): every question verified in its own batch, run
+    through the REAL Create fences and every downstream reader — author packet (S4-7 STEP A) -> STEP A2 (fresh grader
+    / solver jobs, decisions, one rewrite, settle) across two batches -> worker report GRADE_REQUEST / ROTATE (bootstrap)
+    -> S13-2L settled rule -> S13-2F disclosure gates -> final_assembly.commit_registry -> paper_pipeline S13-QINDEX
+    -> registry-row verifier -> auditor A-CONTENTLEVEL / A-QINDEX / NF disclosure -> paper gate -> MockDeliver 3f ->
+    footer text. Every assertion names the producer and the consumer it binds."""
+    import copy, io, contextlib
+    import blueprint_core as bc, paper_pipeline as pp, audit_canonical as ac, final_assembly as fa, bootstrap as bsm
+    L = ['Easy', 'Medium', 'Hard']
+    MTC = os.path.join(W, 'Framework_MockTestCreate.md')
+    txt = open(MTC, encoding='utf-8').read()
+    def blk(marker):
+        for _ln, body in fences(MTC, marker):
+            return body
+        raise AssertionError(f'fence {marker!r} not found')
+    EXAM, N = 'HBV', 1
+    HOME = ROOT + '/home/claude'
+    os.makedirs(HOME, exist_ok=True)
+    stems = {'1': 'Calculate the work done when 2.00 mol of an ideal gas expands isothermally at 300 K from 5.0 L to 20.0 L',
+             '2': 'Identify the point group of the molecule ClF3',
+             '3': 'The number of unpaired electrons in [Fe(CN)6]3- is',
+             '4': 'Calculate the work done when 1.50 mol of an ideal gas expands isothermally at 350 K from 4.0 L to 16.0 L'}
+    opts = {'1': ['-6.92 kJ', '-3.46 kJ', '+6.92 kJ', '-13.8 kJ'], '2': ['C2v', 'D3h', 'C3v', 'Td'],
+            '3': ['one', 'three', 'five', 'zero'], '4': ['-6.05 kJ', '-1.21 kJ', '+6.05 kJ', '-12.1 kJ']}
+    sid = {'1': 'PC.THERMO.work', '2': 'IN.SYM.pg', '3': 'IN.CFT.mag', '4': 'PC.THERMO.work'}
+    tgt = {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Hard'}
+    cm = {q: {'stem_text': stems[q], 'option_texts': opts[q], 'subtopic_id': sid[q], 'qtype': 'mcq', 'difficulty': tgt[q]}
+          for q in ('1', '2')}
+    kp, bsp = f'{HOME}/{EXAM}_M{N}_answer_key.json', f'{HOME}/{EXAM}_M{N}_batch_state.json'
+    json.dump({'concept_map': cm, 'answers': {'1': 1, '2': 1}}, open(kp, 'w'))
+    json.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}, {'batch_id': 2, 'q_start': 3, 'q_end': 4}],
+               'current_batch': 1, 'difficulty_labels': L, 'difficulty_plan_target': dict(tgt)}, open(bsp, 'w'))
+    G = {'EXAM': EXAM, 'N': N, 'EXAM_RULER': {'anchors': {b: [{'subtopic_id': 'PC.THERMO.work', 'stem_snippet': f'a real {b} item'}] for b in L}},
+         'manifest': {}, 'EXEMPLAR_BANK': {}}
+    # S4-7 STEP A author packet — the author holds the graders' anchors before writing
+    run_fence(blk('# ── S4-7 STEP A author packet (v6.1 BV1) ──'), G)
+    with contextlib.redirect_stdout(io.StringIO()):
+        ap = G['BV_AUTHOR_PACKET'](1, 'PC.THERMO.work')
+    check('H-BV S4-7 STEP A author packet carries the slot band and the anchors the graders will see',
+          ap.get('band') == 'Hard' and 'Hard' in (ap.get('anchors') or {}), ap)
+    # simulated FRESH contexts: graders read packet.json only; Q2 split -> third grader; Q4 repeats Q1 -> its one rewrite
+    grades = {'1': ['Hard', 'Hard'], '2': ['Medium', 'Easy', 'Medium'], '3': ['Medium', 'Medium'], '4': ['Medium', 'Medium', 'Medium']}
+    seen = {}
+    def answer_jobs():
+        bs = json.load(open(bsp))
+        lines = []
+        for jb in bs['bv']['jobs']:
+            pk = json.load(open(os.path.join(jb['dir'], 'packet.json')))
+            brief = open(os.path.join(jb['dir'], 'JOB_BRIEF.txt')).read()
+            blind = ('difficulty' not in json.dumps(pk.get('item', {})) and 'decisions_author' not in json.dumps(pk)
+                     and 'rewrite_brief' not in json.dumps(pk) and jb['dir'] in brief)
+            seen.setdefault('blind', []).append(blind)
+            if jb['role'].startswith('grader'):
+                g = grades[jb['q']]
+                k = seen.setdefault(('g', jb['q']), 0)
+                seen[('g', jb['q'])] = k + 1
+                res = {'band': g[min(k, len(g) - 1)], 'decisions': 2, 'rationale': 'matches exemplar', 'class': 'computation',
+                       'computation_generic': False, 'concept': 'c' + jb['q']}
+                lines.append(jb['dir'] + ' GRADE DONE')
+            else:
+                res = {'answer': json.load(open(kp))['answers'][jb['q']], 'confidence': 'high', 'assumptions': []}
+                lines.append(jb['dir'] + ' SOLVE DONE')
+            json.dump(res, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+        open(f'{HOME}/{EXAM}_M{N}_bv/returned.txt', 'a').write('\n'.join(lines) + '\n')
+    step = blk('# ── S4-7 STEP A2 (v6.1 BV1) ──')
+    def a2():
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_fence(step, G)
+        return G['BV_STEP']
+    r = a2()
+    check('H-BV STEP A2 round 1 writes fresh jobs (2 graders + 2 solvers per question) before any delivery',
+          r['status'] == 'jobs_out' and len(r['jobs']) == 8, r)
+    answer_jobs(); r = a2()
+    check('H-BV STEP A2: a grader split gets ONE more grader (tiebreak), never a rewrite', r['status'] == 'jobs_out'
+          and [d for d in r['jobs'] if d.endswith('grader_3')] and not r['rewrite'], r)
+    answer_jobs(); r = a2()
+    check('H-BV batch 1 DONE: both questions settled at their slot in ONE write', r['status'] == 'done' and r['settled'] == ['1', '2']
+          and r['disclosed'] == [] and r['open'] == [], r)
+    # bootstrap worker report: GRADE_REQUEST needs job folders; ROTATE carries the progress sha
+    check('H-BV bootstrap WORKER_STATES carry GRADE_REQUEST and ROTATE (Orchestrate O2-3 / O3-9)',
+          'GRADE_REQUEST' in bsm.WORKER_STATES and 'ROTATE' in bsm.WORKER_STATES and 'GRADE_REQUEST' in bsm.WORKER_STATES_NEED_PARTS)
+    # batch 2: Q4 repeats settled Q1 -> Q4 is the one rewritten (Q1 untouched); after the rewrite it measures Medium -> settled
+    bs = json.load(open(bsp)); bs['current_batch'] = 2; json.dump(bs, open(bsp, 'w'))
+    kd = json.load(open(kp))
+    for q in ('3', '4'):
+        kd['concept_map'][q] = {'stem_text': stems[q], 'option_texts': opts[q], 'subtopic_id': sid[q], 'qtype': 'mcq', 'difficulty': tgt[q]}
+    kd['answers'].update({'3': 1, '4': 1})
+    json.dump(kd, open(kp, 'w'))
+    r = a2()
+    check('H-BV batch 2: a question repeating an earlier settled question is ITS one rewrite (the earlier one untouched)',
+          r['rewrite'] == ['4'] and bc.verify_difficulty_label(json.load(open(kp))['concept_map']['1'], L, strict=True)[0], r)
+    kd = json.load(open(kp))      # the rewrite, exactly as write_q_to_sidecar does it: the entry is REPLACED
+    kd['concept_map']['4'] = {'stem_text': 'A gas obeys the van der Waals equation with a = 3.6 L2 bar mol-2; its Boyle temperature ratio to Tc is',
+                              'option_texts': ['27/8', '8/27', '3', '1/3'], 'subtopic_id': sid['4'], 'qtype': 'mcq', 'difficulty': 'Hard'}
+    json.dump(kd, open(kp, 'w'))
+    for _ in range(4):
+        r = a2()
+        if r['status'] != 'jobs_out':
+            break
+        answer_jobs()
+    kd = json.load(open(kp)); cm = kd['concept_map']; bs = json.load(open(bsp))
+    check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after its ONE rewrite (disclosed), never rewritten twice',
+          r['status'] == 'done' and r['settled'] == ['3', '4'] and r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
+          and bs['bv']['items']['4']['attempt'] == 2 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
+    check('H-BV every grader / solver packet was blind (no band, author counts or rewrite notes) and named its own folder',
+          seen.get('blind') and all(seen['blind']))
+    labs = {q: bc.verify_difficulty_label(cm[q], L, strict=True) for q in cm}
+    check('H-BV every label verifies STRICTLY (LB2: measured_exact / measured_majority)', all(v[0] for v in labs.values()), labs)
+    # S13-2L settled rule (the spec's _strict_ok) and S13-2G phase-3 advisory rule (bc.LB2_KINDS)
+    check('H-BV S13-2L opens no difficulty chain on a settled question (bc.bv_settled) and S13-2G keeps LB2 labels',
+          bc.bv_settled(cm['4'], L) and 'measured_majority' in bc.LB2_KINDS
+          and "bc.bv_settled(_cm_l.get(q), _labs_l)" in txt)
+    # S13-2F disclosure set is exactly what the auditor can FAIL for composition (A-STEMFIG stays a repair)
+    check('H-BV S13-2F NF_DISCLOSE_GATES are auditor gate ids (no dead id; A-STEMFIG is repaired, not disclosed)',
+          set(bc.NF_DISCLOSE_GATES) <= set(ac.NF_GATE_IDS) | {'A-AXIS2'} and 'A-STEMFIG' not in bc.NF_DISCLOSE_GATES)
+    # commit through the REAL final_assembly
+    BP = {'exam_code': EXAM, 'blueprint_version': 't', 'difficulty_labels': L,
+          'subtopic_list': [{'subtopic_id': s, 'section': s.split('.')[0], 'topic': s.split('.')[1]} for s in sorted(set(sid.values()))],
+          'difficulty_schedule': [{'mock': 1, 'simple': 0, 'medium': 2, 'hard': 2}],
+          'mocks': [{'mock': 1, 'sections': [{'section_name': 'Part A', 'q_range': [1, 4],
+                     'subtopic_allocations': [{'subtopic_id': s, 'q_count': list(sid.values()).count(s)} for s in sorted(set(sid.values()))]}]}],
+          'total_questions': 4}
+    reg0 = {'exam_code': EXAM, 'schema_version': '1.0', 'mocks_completed': [], 'papers_completed': [], 'question_hashes': [],
+            'stem_texts': [], 'semantic_tuples': [], 'semantic_usage': [], 'exhausted_subtopics': {}, 'question_index': [],
+            'image_phashes': [], 'image_sources_used': [], 'session_log': [], 'content_tracking': {k: [] for k in fa._REQUIRED_CT},
+            'section_names': [], 'rc_manifests': [], 'figural_manifests': [], 'di_manifests': []}
+    nfd = {'A-AXIS2': 'Format parity: short Part A/Physical: match 1'}
+    gate = bc.difficulty_paper_gate(bc.dl_gate_items(tgt, cm, L), L)
+    check('H-BV S13-2L paper gate: PASS, the settled question listed (requested vs delivered), nothing below',
+          gate['status'] == 'PASS' and [x['q'] for x in gate['last_resort']] == ['4'] and gate['below'] == [], gate)
+    ds = dict(bs.get('difficulty_state') or {}, paper_gate=dict(gate, target_plan=tgt, labels=L))
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            res = fa.commit_registry(copy.deepcopy(reg0), {}, BP, 1, paper_id='MOCK:M01', batches_completed=2,
+                                     axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                                     concept_map=copy.deepcopy(cm), difficulty_state=ds, nf_disclosed=nfd,
+                                     manifest_hash=bc.manifest_hash({}))
+        reg = res['registry']; entry = reg['question_index'][0]
+        rows = {str(x['q']): x for x in entry['questions']}
+    except Exception as x:
+        check('H-BV final_assembly commit', False, repr(x)); return
+    check('H-BV final_assembly commits the BV label, grades and key votes on every row, and nf_disclosed + manifest_hash on the entry',
+          all(rows[q].get('difficulty_check', {}).get('label_basis', {}).get('kind') in ('measured_exact', 'measured_majority') for q in rows)
+          and all((rows[q].get('key_votes') or {}).get('unanimous') is True for q in rows)
+          and entry.get('nf_disclosed') == nfd and entry.get('manifest_hash'), {q: sorted(r) for q, r in rows.items()})
+    check('H-BV registry difficulty_state carries bv_disclosed for MockDeliver / footer',
+          (entry.get('difficulty_state') or {}).get('bv_disclosed', {}).get('4', {}).get('delivered') == 'Medium')
+    for q, row in rows.items():
+        check(f'H-BV committed row Q{q}: strict check-8 verifier OK', bc.verify_difficulty_label(row, L, strict=True)[0])
+    okq, repq = pp.validate_question_index(reg, BP, mock_n=1)
+    check('H-BV paper_pipeline.validate_question_index (S13-QINDEX): check 6 exact — a settled row counts at its slot', okq, repq.get('fails'))
+    ac._reset(); ac.gate_contentlevel({'concept_map': cm})
+    check('H-BV auditor A-CONTENTLEVEL accepts every BV decision (no VOID_ITEM)',
+          [l for l, c, m in ac.RESULTS if c == 'A-CONTENTLEVEL'] and all(l != 'FAIL' for l, c, m in ac.RESULTS if c == 'A-CONTENTLEVEL'),
+          [(l, m[:120]) for l, c, m in ac.RESULTS if c == 'A-CONTENTLEVEL'])
+    ac._reset(); ac.gate_qindex({'registry': reg, 'blueprint': BP, '_mockN': 1})
+    _qx = [(l, m) for l, c, m in ac.RESULTS if c == 'A-QINDEX']
+    check('H-BV auditor A-QINDEX on the committed registry: ARMED (not dormant) and no FAIL (checks 6 and 8 on BV rows)',
+          _qx and all(l != 'FAIL' for l, m in _qx) and not any('dormant' in m for l, m in _qx), [(l, m[:200]) for l, m in _qx])
+    ac._reset(); ac._nf_verdict('A-AXIS2', 'Format parity: short', {'registry': reg, '_mockN': 1, 'nf_disclosed': entry['nf_disclosed']})
+    check('H-BV auditor: a disclosed composition gate is AMBER (WARN), never a FAIL', [l for l, c, m in ac.RESULTS if c == 'A-AXIS2'] == ['WARN'])
+    act, _rec = bc.certificate_uncertified_active({q: r.get('quality_status') for q, r in rows.items()}, entry.get('quality_readiness'),
+                                                  (entry.get('qindex_cert') or {}).get('producer_release'))
+    check('H-BV MockDeliver 3f: nothing uncertified (a settled question is a disclosure) -> deliverable', act == [], act)
+    fdt = open(os.path.join(W, 'Framework_DeliveryFooter.md'), encoding='utf-8').read()
+    check('H-BV footer: Create S13-2L writes the exact AMBER line the DeliveryFooter contract names',
+          'Difficulty after one rewrite: Q{_qb} delivered {_db.get(\'delivered\')} (slot {_db.get(\'requested\')})' in txt
+          and 'Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)' in fdt)
+    orc = open(os.path.join(W, 'Framework_MockTestOrchestrate.md'), encoding='utf-8').read()
+    check('H-BV Orchestrate: GRADE_REQUEST, GRADE RETURNED and ROTATE are handled (O2-3 / O2-5 / O3-9), and Create hands over to O3-9',
+          all(s in orc for s in ('- GRADE_REQUEST (v1.3.0)', '- ROTATE (v1.3.0)', '`GRADE RETURNED` goes to', '## O3-9'))
+          and 'Framework_MockTestOrchestrate O3-9' in txt)
+
+
 def self_test():
     import blueprint_core as bc, analyse_engine as ae, final_assembly as fa, paper_pipeline as pp, figure_types as ft
     import audit_canonical as ac
@@ -1235,6 +1410,8 @@ def self_test():
         _lb_swap_handshake(check, ROOT, run_fence, W)
         print('H-DOWN downstream replay of a v5.96 paper through every later reader (release 2026.11.09)')
         _downstream_replay(check)
+        print('H-BV every question verified in its own batch: author packet -> STEP A2 -> commit -> audit -> deliver (release 2026.11.11)')
+        _bv_handshake(check, ROOT, run_fence, W)
 
     finally:
         shutil.rmtree(ROOT, ignore_errors=True)
@@ -1248,7 +1425,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 186             # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 211   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

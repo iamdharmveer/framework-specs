@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.11.10",
+  "framework_version": "2026.11.11",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -87,6 +87,7 @@
       "paper_pipeline.py",
       "final_assembly.py",
       "corpus_io.py",
+      "figural_vision.py",
       "Framework_DeliveryFooter.md",
       "explain_engine.py",
       "t3_mathcomp.py",
@@ -101,6 +102,7 @@
       "paper_pipeline.py",
       "final_assembly.py",
       "corpus_io.py",
+      "figural_vision.py",
       "Framework_DeliveryFooter.md",
       "explain_engine.py",
       "t3_mathcomp.py",
@@ -212,18 +214,18 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "50687ff56f597910be05276466562e3dc2f579195f56cf9217ba26f042f194c3",
-      "version_header": "# Framework_Blueprint v1.64.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.64.0",
-      "lines": 7935,
-      "bytes": 441898
+      "sha256": "a4ef01aba71706d63cf6e114cda73fd600c0dd0f68e86b70874aeb1e474ad12d",
+      "version_header": "# Framework_Blueprint v1.65.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.65.0",
+      "lines": 8043,
+      "bytes": 450866
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "e2487711aa73ee9bafc35f0bd10373329d7038b21ad88abbbdb6b1d043f376e4",
-      "version_header": "# Framework_DeliveryFooter v1.45.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "140572cbbdbf20088d50e74b67634ac9f3c13529c69b9eb0b626443cc1a63c1d",
+      "version_header": "# Framework_DeliveryFooter v1.46.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 1372,
-      "bytes": 83017
+      "lines": 1386,
+      "bytes": 84254
     },
     "Framework_MockDeliver.md": {
       "sha256": "ebfa0c50967e0dec1a5221d7c42253f95162a026c0f2bfd8260612bc2d4ae13d",
@@ -240,18 +242,18 @@
       "bytes": 20553
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "574e12db4c1538740bd05df62de40334cbd5a13ad0df5b7b589b1eabfe75ff53",
-      "version_header": "# Framework_MockTestAnalyse v2.61.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.61.0",
-      "lines": 5388,
-      "bytes": 315242
+      "sha256": "9b7cfa77bf9b782de3e52126726c63f96f18d8e39d773a3ea7dc1809b0a394d8",
+      "version_header": "# Framework_MockTestAnalyse v2.62.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.62.0",
+      "lines": 5393,
+      "bytes": 315631
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "938c8a7d2c4f28447912483cd9ecdbdb7632e0f319d407047f1d34ca15348c89",
-      "version_header": "# Framework_MockTestCreate v6.0",
+      "sha256": "dd96c6cd773c3fe1cddd593bbf4e39210afc0d40fecf6546650414ad8112355a",
+      "version_header": "# Framework_MockTestCreate v6.1",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 13880,
-      "bytes": 934778
+      "lines": 14263,
+      "bytes": 968403
     },
     "Framework_MockTestExplain.md": {
       "sha256": "d823609d7beadea8ed3a263f71d25c5daff8000918b1b61fac6937a2804693cb",
@@ -261,11 +263,11 @@
       "bytes": 325739
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "46515edcb30011da0efc8098c191661637740a60e7fd54da69ced701ebe79283",
-      "version_header": "# Framework_MockTestOrchestrate v1.2.0",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.2.0",
-      "lines": 422,
-      "bytes": 32411
+      "sha256": "3ebe6ba9b68e10ef00a45ec5212be1ec376bbbc6b8b4f7ae3e827cd8b4af744d",
+      "version_header": "# Framework_MockTestOrchestrate v1.3.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.3.0",
+      "lines": 458,
+      "bytes": 35961
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -345,11 +347,11 @@
       "bytes": 77482
     },
     "Framework_PYQExplain.md": {
-      "sha256": "42173dd3ac6e8fef08a51b236fa4e4cea068d33e87445902a758b0dfb8f6b2c4",
-      "version_header": "# Framework_PYQExplain v2.31 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "98efbeaed970e62f782bdc908175924143bc49ad353fdb47e33bc7d3d18c899a",
+      "version_header": "# Framework_PYQExplain v2.32 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 3907,
-      "bytes": 288761
+      "lines": 3914,
+      "bytes": 289854
     },
     "Framework_PYQFormat.md": {
       "sha256": "6856f9b05b1fe7b934fe7ea98481c927916b14dc787f2b6c591de6248436e35d",
@@ -380,11 +382,11 @@
       "bytes": 126601
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "e4dde666e6e68ea3099fe02ba511942a3edeeaa93eb56e2e5ddebce8cd358910",
-      "version_header": "# Framework_ScopedBlueprint v1.14.0 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.14.0 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)",
-      "lines": 1768,
-      "bytes": 106706
+      "sha256": "f7f19dc4f37828447c97082b2a9c0e18793524894902e405bc9052e10a90dda2",
+      "version_header": "# Framework_ScopedBlueprint v1.15.0 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.15.0 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)",
+      "lines": 1771,
+      "bytes": 106880
     },
     "validate_framework_md.py": {
       "sha256": "354eab3cb40cbb14da96cecb449c5ab1ef05502f3e96bbffc8c96798f7437e30",
@@ -408,25 +410,25 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "c3fe2ca36fc3edf2ec57935930420f687a2858fd978192cf5b6594498e747e32",
+      "sha256": "dfa6c1f73120e5dc4a628225d2ac35a56b856e5671fdcb4cc5c8a2ff34ddf941",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 23935,
-      "bytes": 1422043
+      "lines": 26617,
+      "bytes": 1583389
     },
     "paper_pipeline.py": {
-      "sha256": "4f7c444c03181f898d52b6efe50d467a457d594f2aa1f946d0dd9bb6db13eb86",
+      "sha256": "25f74f92563048ba49414f241135882a42de9e85b9b185cb58c520a2e22b9fb4",
       "version_header": "\"\"\"",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 2863,
-      "bytes": 176783
+      "lines": 2869,
+      "bytes": 177322
     },
     "final_assembly.py": {
-      "sha256": "6ab4131693b2591e0876f7eab64d35b25e79d954a6acc54d902847690e951c06",
+      "sha256": "49a23d3a645a76100b19a3b52c62f5e92917793507cf8ee682cb6bc28c093ba4",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 2583,
-      "bytes": 170429
+      "lines": 2802,
+      "bytes": 186190
     },
     "corpus_io.py": {
       "sha256": "710dcbc105e5632bfe36d28f72ea71494eafd95c5fa5bd163ce405369e04c9d7",
@@ -471,11 +473,11 @@
       "bytes": 41224
     },
     "audit_canonical.py": {
-      "sha256": "67136fbbb039b741181f5a9e936c2ae5652c72b9ba5ddcf7dfdc61193d00201e",
+      "sha256": "0030102e80c8e9c6a4a43d548114f607da22f92b2204a4bd00adc22c347f787c",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 13567,
-      "bytes": 818330
+      "lines": 14069,
+      "bytes": 849723
     },
     "spec_source.py": {
       "sha256": "b33e1f70d0bc15befe5b04814edde9cae4fea681bcaaac30378f01f8c8e7efc2",
@@ -506,11 +508,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "08928ab0b3b2988515419c7127bcdfa76c28217e42b4429b50fa14b7f367ae7e",
+      "sha256": "78ffded4077edf3c1d8c9c929a3dbb10f241915217b9d43482c0aa7bf261edf8",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 10351,
-      "bytes": 602744
+      "lines": 10385,
+      "bytes": 605371
     },
     "transport_core.py": {
       "sha256": "5acc58b126ed9f9cf2c988ad4aea706ee228547f81c68dbe36b7e5668889d36e",
@@ -562,32 +564,32 @@
       "bytes": 8503
     },
     "figure_types.py": {
-      "sha256": "132f1a6e746336cca59c56efd7c86903c8825f6407b3832e0f22dbf33add84d9",
+      "sha256": "4adbd4fd2530dc4ad7cbefb71eec68ff8849212cd2aa065ee7c24b91c9ea2813",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"figure_types.py \u2014 figure-type registry. Run with --self-test or --preflight.\")",
-      "lines": 1251,
-      "bytes": 87370
+      "lines": 1324,
+      "bytes": 92076
     },
     "handshake_audit.py": {
-      "sha256": "55a2eb19e04aa8751c1578a6d40d35f018743292ff1ee2facd470f9fa819ec35",
+      "sha256": "4a72e3993c6681106cfe9ab71685a586e4d2b99ca4b2218843d4b68fc8a8ca1c",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(__doc__)",
-      "lines": 1257,
-      "bytes": 108337
+      "lines": 1434,
+      "bytes": 123014
     },
     "LAW_REGISTRY.json": {
-      "sha256": "c5e74399c7dff91ea0ccf577d6b29264c9e52ad614deca4901a012cdaafa7de6",
+      "sha256": "d07f1e6578bd4c72004d6388ce69268c2e81946bd4ec28350117c79fea316b9b",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 535,
-      "bytes": 51983
+      "lines": 887,
+      "bytes": 76957
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "758b7e205fe1eae72480c9b1dfcb6c8900ddb7cecde22b3b0cfd5fdd47bc78d5",
+      "sha256": "27325f82370578ee35dd292a94423b4cb86e91fb2837e20e47e27c021a51e3fa",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 8447,
-      "bytes": 237708
+      "lines": 8589,
+      "bytes": 242399
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -604,11 +606,11 @@
       "bytes": 6600
     },
     "STEP_CONTRACTS.json": {
-      "sha256": "c3fdb42f517be7384f761ca63cbe223b7e9eadfeb37a425cb2968483d8130341",
+      "sha256": "50405f2306cb40ae414d01fd54312f370937fe339006f5f8ded3143c6a4b2745",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 127,
-      "bytes": 7446
+      "bytes": 8172
     },
     "SESSION_BUDGET.json": {
       "sha256": "a644cb7bd2c27e3cfe2f74c1ce7cb53e729983a0444cda6920cf740edba76d70",
@@ -618,11 +620,11 @@
       "bytes": 2413
     },
     "SPEC_HISTORY.md": {
-      "sha256": "41b53f68959c01eb8744adc6a3af566341e42e5607f99e2cdb6898f54f5ed477",
+      "sha256": "c4709a017e70993278ab875015f770798d8f82273979bd550b1e98cf5c2f4004",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "```",
-      "lines": 7819,
-      "bytes": 592783
+      "lines": 7951,
+      "bytes": 602836
     },
     "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": {
       "sha256": "49f54bb81e320e2ef216bc78f2e28accd7d48182144ab65b565f82bda6b845bf",

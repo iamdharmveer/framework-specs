@@ -1,19 +1,9 @@
-# Framework_PYQExplain v2.31 — Universal PYQ Explanation Generator
-# v2.31 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-02 / G-04 / G-05 (paired with blueprint_core v2.0,
-#   figural_vision v3, MockTestCreate v6.0). §13A-3 Phase B writes the SCHEMA 3 record (organic flag by content,
-#   answer_kind + answer structure, option_kind, image_counts.stereo_marks, stereo_mode, measured convention tags,
-#   one ask-format vocabulary, family / decision tags, two fresh blind grades); §13A-4 Phase C fails CLOSED
-#   (fv.transcription_confidence 'unverified' when nothing was compared), stamps schema 3, checks completeness in
-#   code (bc.pyq_record_complete / pyq_record_status) and lists re-reads; NEW §13A-3B BACKFILL. Entry v2.30 moved
-#   to SPEC_HISTORY.md.
-#   Entries for superseded versions were moved there VERBATIM at framework
-#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
-#   v2.14 at 2026.08.21.2:
-#   an EXECUTING session paid for the whole EDITORIAL record before it could do
-#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
-#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
-#   was deleted. The entry for the CURRENT version stays above, because
-#   Z-VERSION requires the highest changelog entry to equal the header.
+# Framework_PYQExplain v2.32 — Universal PYQ Explanation Generator
+# v2.32 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-04 / F-05 / F-06 / F-10 (paired with blueprint_core
+#   v2.1, MockTestCreate v6.1, Blueprint v1.65.0). Phase B writes, for EVERY record (organic or not): decisions
+#   from bc.ALL_DECISION_TAGS (the subject-agnostic vocabulary — the organic tags stay), mip (minimal identifying
+#   parts, multi-part options only), given_in_stem (what the stem supplies) and, from the two fresh blind graders,
+#   class + computation_generic. §13A-3B BACKFILL re-reads schema-3 records that lack them once (bounded). Entry v2.31 moved to SPEC_HISTORY.md.
 
 # ════════════════════════════════════════════════════════════════════════
 # EXECUTION MODEL
@@ -2693,6 +2683,23 @@ for it in items:
   'full' stays 'partial' with missing_fields. Old records are never
   silently trusted for targets; every record stays in the clone guard. Delivered papers are not touched.
 
+  v2.32 — NON-ORGANIC RECORD FIELDS (GAP-2026-11-11; every subject, every exam). Phase B writes on EVERY record:
+    decisions       — tags from blueprint_core.ALL_DECISION_TAGS (organic tags + GENERIC_DECISION_TAGS:
+                      multi_entity_comparison, concept_chain, exception_case, data_interpretation, derivation,
+                      quantitative_chain, specific_knowledge); never unit conversion, plain arithmetic, a stacked
+                      part outside the MIP or recall of a printed formula (NF_NEVER_DECISIONS).
+    mip             — blueprint_core.nf_item_mip(stem, option texts, key, ask_format): the minimal identifying parts
+                      of a multi-part item ('respectively' stem, or ask_format statement / combination / match /
+                      sequence); absent for any other item or when the options cannot be parsed into parts.
+    given_in_stem   — the formulas, identities, values and intermediate results the stem SUPPLIES (the clone
+                      guard's depth comparison — a mock item may not supply what this PYQ made the solver infer).
+    class, computation_generic, concept — returned by the two fresh blind graders (extra output fields; their packet is
+                      unchanged): the question class (C-FACTUAL / C-COMPUTATIONAL / C-DERIVATIONAL / C-FIGURAL /
+                      C-STRUCTURAL / ...) and whether the governing relation is general arithmetic / stoichiometry
+                      rather than a relation of this subject's syllabus.
+  A schema-3 record without these fields is re-read ONCE by §13A-3B (Create S0-OP-0 lists it in OP_NEEDS_BACKFILL);
+  one that still cannot get them stays 'partial': out of the target pools, in the clone guard (EC-23).
+
   Phase B is prose by law. Do not implement it, do not wrap it in a ```python
   fence, and do not name a function for it. The urge to "implement" Phase B is
   the bug, not the fix.
@@ -3903,5 +3910,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.31
+# END OF Framework_PYQExplain v2.32
 # ════════════════════════════════════════════════════════════════════════

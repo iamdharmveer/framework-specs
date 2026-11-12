@@ -1,5 +1,127 @@
 # Changelog
 
+## 2026.11.11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY: every subject, every item — composition, format, difficulty and originality measured against the exam's own papers; + GAP-2026-11-11-BATCH-VERIFICATION: every question verified in its own batch
+
+### Part 2 — GAP-2026-11-11-BATCH-VERIFICATION (owner go-ahead 2026-11-11; same release)
+(blueprint_core v2.1 Cluster BV; bootstrap (GRADE_REQUEST, ROTATE); paper_pipeline (qindex_count_band mirror);
+audit_canonical v2.41 (BV labels); Framework_MockTestCreate v6.1 S0-BV + S4-7 STEP A2; Framework_MockTestOrchestrate
+v1.3.0; Framework_DeliveryFooter v1.46.0 §LADDER-NF; LAW_REGISTRY (+LAW-BV-1..6, detect batch_verification_rule);
+audit_sync (BV-COVERAGE); STEP_CONTRACTS (Orchestrate floor 1.3.0).)
+
+**Cause (evidence: CSIR NET Chemical Sciences, Organic test, 40 Q in 4 batches, release 2026.11.10).** Final Assembly
+found 29 of 40 questions to re-write (27 below their difficulty slot, Q4 / Q6 too close to past questions, Q10 / Q22
+figure re-draws) and then stopped with an invented "WORKER-CAPACITY" HARD STOP. RC-1: the controls S0-OP-5 requires
+(two fresh blind graders, two fresh blind solvers, fresh vision) need a fresh context; a worker cannot start one and
+the worker protocol had no message to request one (only REVIEW_REQUEST, at the end) — so no question was measured
+independently until Final Assembly. RC-2: two graders that disagreed failed a question that may have been right
+(band_exact — no vote), so good questions were rewritten. RC-3: the author wrote without the graders' anchors (the
+brief named exemplars, never their content) and wrote 3 candidates per slot. RC-4: Final Assembly had no rotation for
+room. Found in this build: the auditor's A-CONTENTLEVEL list, the paper gate and the check-6 count (engine AND
+paper_pipeline mirror — the mirror also lacked last_resort) did not know the new label kind; Create never wrote
+nf_disclosed / manifest_hash (Cluster NF disclosures could not reach the auditor or the footer); a grader packet
+built by strip-list would have carried the author's counts and the rewrite notes (now an allow-list).
+
+**What changed.** S0-BV / LAW-BV-1..6: every question is measured by fresh graders and solvers INSIDE ITS BATCH
+(S4-7 STEP A2 = final_assembly.bv_batch_step — the I/O shell; the thin core stays I/O-free — deciding each question with bc.bv_apply; WORKER MODE: GRADE_REQUEST / GRADE RETURNED, Orchestrate O3-9) and the batch is
+delivered only when every question is settled (bc.bv_batch_status, B-7). ONE write per slot (C_K_CANDIDATES 1) with
+the graders' own anchors (bc.bv_anchors -> bc.bv_author_packet). A grader split -> one more grader (majority, or the
+median of three; never a rewrite). At most ONE rewrite (C_WRITE_ATTEMPTS 2) — majority on another band, recipe fail,
+disputed key, or a within-paper repeat / key leak found in the batch — then delivered at its measured band, labelled
+'measured_majority' and disclosed (AMBER "Difficulty after one rewrite"). Final Assembly never re-authors for
+difficulty (S13-2G keeps LB2 labels; S13-2L bc.bv_settled) and discloses measured composition shortfalls
+(bc.NF_DISCLOSE_GATES -> nf_disclosed, AMBER). ROTATE replaces any stop for room. The fresh VISION read-back of
+every rendered organic figure (S0-OP-8) runs in the same batch round (roles vision_<figure>_<read>; a redraw is
+detected by the image's own sha); graders and solvers get the figures copied into their own job folder; a paper with
+no difficulty plan verifies the key only; routes.json routes figural_vision.py to MockCreate / TestCreate (S0-OP-8
+already required it there).
+
+**Tests.** blueprint_core self-test -> 1399 (BV fixtures: decide / tiebreak / majority / median / one rewrite /
+settle / key dispute / decisive assumption / same-context refused / allow-list packets / anchors / recipe dormant /
+findings / settled final / a wiped sidecar entry relabelled from its grades / no difficulty plan = key only / in-batch vision read-back / a redraw detected / paper gate / check-6 count); bootstrap 68 -> 70 (GRADE_REQUEST needs and shows job folders; ROTATE prints the progress sha);
+audit_canonical 633 (bc / pp count-band parity rows for measured_majority and last_resort); paper_pipeline 257; final_assembly 185 -> 187 (bv_batch_step end to end in a temp home, and idempotent).
+handshake_audit 186 -> 211 (+25 H-BV): the REAL Create fences (S4-7 STEP A author packet, STEP A2) run across two
+batches with fresh grader / solver jobs answered from their packets alone (every packet proven blind), then the REAL
+final_assembly commit, paper_pipeline S13-QINDEX, the strict row verifier, the auditor's A-CONTENTLEVEL / A-QINDEX
+(armed) / NF disclosure, the paper gate, MockDeliver 3f, the footer text and the Orchestrate / bootstrap hand-over —
+every producer -> consumer boundary of this change executed, none read.
+End-to-end: the STEP A2 block executed from the spec text against a 5-question batch with simulated fresh graders
+(pass, split -> tiebreak, rewrite -> settle, key dispute -> S13-2L, template repeat -> rewrite; the rewrite
+replaces the sidecar entry exactly as write_q_to_sidecar does) and across two batches (a batch-2 question repeating a
+settled batch-1 question is the one rewritten; the batch-1 label is untouched): every label verifies strictly, nothing
+is re-authored twice. Also found in this build: write_q_to_sidecar replaces the entry, so the verification state is
+kept in batch_state['bv']['items'] (the one-rewrite limit survives a rewrite).
+
+(blueprint_core v2.1 — Cluster NF; analyse_engine v1.6; audit_canonical v2.41; final_assembly v1.17; figure_types v1.4;
+audit_sync (nonorganic_fidelity_rule); Framework_MockTestCreate v6.1; Framework_Blueprint v1.65.0;
+Framework_ScopedBlueprint v1.15.0; Framework_MockTestAnalyse v2.62.0; Framework_PYQExplain v2.32;
+Framework_DeliveryFooter v1.46.0; LAW_REGISTRY.json (+LAW-NF-1..11); STEP_CONTRACTS.json (override floors raised for the
+six edited specs); MANIFEST / SPEC_MANIFEST / SPEC_SECTIONS / SHA256SUMS regenerated.)
+
+**Cause (evidence: CSIR NET Chemical Sciences Mock 01 / Mock 02, 152 Inorganic + Physical items, all keys correct;
+verified line-for-line on production 2026.11.10).** RC-01 the Blueprint balanced subtopics across the series but never
+subjects or topics inside one mock (Mock 02 Part B: 4 Inorganic / 31 Physical; real 14.7 / 13.7); RC-02 no gate compared
+the delivered paper with its allocation; RC-03 per-paper statistics divided by (year, shift) pairs — 3 unlabelled papers
+counted as 2 (x1.5); RC-04 format targets for non-organic items were a paper-wide WARN, never planned (0 Match / 0
+multi-statement in both mocks); RC-05 the recipe and decision vocabulary were organic-only, so the recipe check passed
+every non-organic item; RC-06 nothing measured how many parts of a "respectively" item decide the key; RC-07 / RC-08 the
+clone guard and series registry fingerprinted organic structures only — within-paper template repeats, one answer leak
+(M1 Q41 -> Q96), PYQs reused with a step removed; RC-09 the taxonomy was not version-bound; RC-10 figure proofs were
+organic-only (metal formal charges, a "linear" Fe-N-O drawn bent). Found in this review (amendments): A — the Part's band
+counts were placed by position only (bc.schedule_place is subject-blind), so Easy slots could pile onto one subject;
+B — the exam manifest already carries a literal "manifest_version": "1.0", so F-08 uses manifest_hash; C — the PYQ
+difficulty baseline for non-organic items is graded on the old rubric until the automatic back-fill runs.
+
+**Owner decisions (2026-11-11).** D-01 no hardcoding; D-02 generic; D-03 no hard stop (repair, then AMBER); D-04 no manual
+review; D-05 the blueprint is the single source of targets; D-06 measured, never self-reported; D-07 dormant when the input
+is empty; D-08 one release. Amendments A, B, C approved.
+
+**What changed.**
+- *F-01 composition.* Blueprint §4-1c bc.nested_allocate: subjects per mock -> topics -> subtopics by controlled rounding,
+  every margin exact, even spread and rare / ZP caps kept, relaxations recorded (AMBER), INVARIANTS 9-10, BV-11. Create
+  refills never cross a subject (bc.refill_order). A-ALLOC re-measures the delivered paper.
+- *F-02 paper count.* analyse_engine.paper_key (paper_id, else year+shift+source file) for every per-paper mean.
+- *F-03 formats.* format_target_per_mock per subject x Part from the PYQ records' ask_format (the measure PYQExplain
+  writes with figure_types.normalise_ask_format; fractional shares carried across the series); bc.format_plan_slots
+  assigns formats to slots; the delivered item is RE-MEASURED with the same function (bc.nf_measure_axis2); A-AXIS2 is
+  per subject x Part and measured. One vocabulary on both sides, no new import for Create or the auditor.
+- *F-04 difficulty for every item.* GENERIC_DECISION_TAGS; the ruler computes decision ranges for every anchor and a
+  per-subject recipe (bc.build_recipe_by_subject, cascade subject -> exam -> library); C4 = bc.band_recipe_check_any
+  (a missing range is DORMANT, never a pass); band operators for any subject.
+- *F-05 MIP.* bc.minimal_identifying_parts, measured per item by bc.nf_item_mip (multi-part items only: a 'respectively'
+  stem or ask format statement / combination / match / sequence; key = the sidecar's 1-based position or letter); only
+  MIP parts count as decisions; A-OPTPART keeps the MIP = 1 share at the exam's PYQ level.
+- *F-06 originality.* bc.text_item_fingerprint / text_clone_guard (depth-preserving near-clones only) and text rows in the
+  series registry for every item.
+- *F-07 uniqueness.* A-INTRADUP (same subtopic + template) and A-KEYLEAK (key value printed elsewhere; trivial values and
+  common PYQ constants exempt).
+- *F-08 taxonomy.* bc.norm_label at every join, manifest_hash stamped through blueprint / mock / registry, automatic
+  crosswalk (bc.manifest_crosswalk / crosswalk_rekey) — never a stop.
+- *F-09 figures.* bc.metal_figure_convention, bc.stem_figure_consistency, bc.curve_continuity for every structure / curve;
+  computed data-figure kinds (EPR, Mossbauer, NMR multiplet, MS isotope pattern, rate plot, CV trace) with
+  figure_types.render_data_figure; Tanabe-Sugano -> EC-34 text form. A-STEMFIG.
+- *F-10 class mix* and *F-11 band mix per subject* (bc.subject_band_split + bc.schedule_place_by_subject): A-CLASSMIX,
+  A-SUBJBAND.
+- *Amendment C.* bc.recipe_monotone (a non-discriminating subject borrows the exam recipe, AMBER) and
+  bc.calibrate_pyq_grades (optional <EXAM>_expert_grades.json; stricter grade wins below 0.80 agreement, AMBER).
+
+**Pre-release review (two full passes, every line).** Fixed before shipping: grader grades are band strings, so class /
+computation / concept now come from C5 grader_meta; registered mocks keep their realised allocation (never re-solved);
+class targets use one shape on both sides; explanation text is cut from stems before measuring; key-leak PYQ stems read
+from the profile; metal-figure convention reads the style profile's conventions; a unitless key matches a unit value only
+on identical digits; every public NF function is guarded (fuzz: 56 functions x 400 inputs, 0 raised); MIP keys are
+1-based; the format vocabulary is figure_types.ask_format (routes.json unchanged); the per-subject recipe keys use the
+manifest; F-11 is an executable Create block with a fallback; matrix_round tolerates missing expected cells; MIP is
+measured only on multi-part items; S3-12e's top-band swaps stay inside the subject of an F-11 Part. A text key leaks only into
+another item's stem and a label combination ('A and C only') never leaks. The text clone guard compares
+data-bearing non-organic stems only (a generic 'major product shown below' stem is guarded by its structure).
+
+**Tests.** blueprint_core self-test 1303 -> 1360 (NF fixtures: T-01, T-02, T-04, T-05, T-08..T-19, F-11, EC-03/04/08/
+13/14/18/24..27/29/31/32/34, review fixes); audit_canonical 618 -> 633 (A-ALLOC T-05, A-AXIS2 T-09, A-OPTPART T-12,
+A-INTRADUP / A-KEYLEAK T-15, A-CLASSMIX T-19, A-SUBJBAND, A-STEMFIG T-17, disclosure -> AMBER, dormancy, real-shape
+fixtures); analyse_engine 306 -> 309 (T-06, T-07, EC-12); figure_types 985 -> 988 (T-18 render, EC-34); final_assembly
+184 -> 185. Real-paper check (CSIR Mock 01 / 02): A-KEYLEAK flags exactly M1 Q41->Q96 and M2 Q52<->Q94, Q105->Q27/Q30;
+A-INTRADUP no false positives. T-03 / T-20 are live-run acceptance checks (next CSIR mock after release).
+
 ## 2026.11.10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY: every label is measured, never declared, in every exam
 (blueprint_core v2.0; corpus_io v1.21; figural_core v5.97; figural_vision v3; figure_types v1.3; final_assembly v1.16;
 audit_canonical v2.40; analyse_engine v1.5; audit_sync (organic_parity_rule, STOP-NEEDS-REPAIR); handshake_audit (186

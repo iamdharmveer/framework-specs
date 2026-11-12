@@ -1,18 +1,22 @@
-# Framework_MockTestCreate v6.0
-# v6.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY (owner
-#   decisions 2026-11-10: D-1 (a) bounded last resort, C_REFILL_SESSIONS 5; difficulty integrity for EVERY item of
-#   EVERY exam; one release; paired with blueprint_core v2.0, corpus_io v1.21, figural_core v5.97, figural_vision v3,
-#   figure_types v1.3, final_assembly v1.16, audit_canonical v2.40, analyse_engine v1.5, MockTestOrchestrate v1.2.0,
-#   PYQExplain v2.31, DeliveryFooter v1.45.0). Measured 2026-11-10 (CSIR NET Organic Test 1): requested 2/10/28,
-#   two blind graders found about 7/17/16 — labels were verified against the author's own counts (obs), a same-
-#   context rating that agreed by default when exemplars were thin, and ladders that ended FORCED / HELD.
-#   NOW: NEW S0-OP governs every paper — organic scope by content; PYQ records fail closed (schema 3, back-fill on
-#   first use); ONE calibrated ruler per exam from two fresh blind graders; the schedule is input (normalised once,
-#   placed exactly, frozen; the feasibility / plan / profile stops are repairs); every candidate passes stem stereo,
-#   clone guard, Easy floor, recipe, TWO FRESH BLIND GRADERS, decision contract, TWO FRESH BLIND SOLVERS and figure
-#   proofs; a label is written only as measured_exact (bc.dl_set_label_basis_strict); S13-2L / S13-2R end every
-#   ladder by replacement (reserve_refill -> refill_session -> bounded last_resort); NEW S13-2P parity floors;
-#   chair / Newman / sawhorse / Fischer / Haworth through the proven renderers. Entry v5.96 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.1
+# v6.1 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (owner decisions D-01..D-08 + amendments A-C; one
+#   release, paired with blueprint_core v2.1, analyse_engine v1.6, audit_canonical v2.41, final_assembly v1.17,
+#   figure_types v1.4, Blueprint v1.65.0, ScopedBlueprint v1.15.0, MockTestAnalyse v2.62.0, PYQExplain v2.32,
+#   DeliveryFooter v1.46.0). Measured on CSIR Chemical Sciences Mock 01/02 (152 Inorganic + Physical items, all keys
+#   correct): subject counts per Part drifted, Match / multi-statement formats absent, 65 % of Part C graded Easy
+#   (real ~5 %), stacked 'respectively' items faked difficulty, within-paper template repeats, one answer leak,
+#   PYQs reused with a step removed, metal figures with software charges. Root cause: every guarantee of v6.0
+#   was scoped to organic items or was advice. NEW S0-NF makes them hold for EVERY item of EVERY exam: refill
+#   never crosses a subject (F-01); a format plan per subject x Part, measured not self-reported (F-03); the
+#   recipe check runs for every item on a subject-agnostic decision vocabulary (F-04); MIP-credited decisions
+#   and control C9 (F-05); text clone guard + series registry for text items (F-06); within-paper uniqueness and
+#   key-leak checks (F-07); taxonomy bound by manifest_hash + crosswalk at start (F-08); figure convention and
+#   stem-figure consistency for every structure, computed data-figure kinds (F-09); class mix (F-10); the band
+#   counts of each Part distributed per subject from the subject's own PYQ mix (F-11). NEW S0-BV (GAP-2026-11-11-
+#   BATCH-VERIFICATION): every question is measured by fresh graders and solvers INSIDE ITS OWN BATCH (S4-7 STEP A2,
+#   before delivery); one write with the graders' anchors; a grader split -> a third grader; at most ONE rewrite,
+#   then delivered at its measured band (disclosed); Final Assembly never re-authors for difficulty; ROTATE
+#   replaces any stop for room. Nothing new can stop a run. Entry v6.0 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -251,9 +255,13 @@
 
 ### S0-OP-5 — THE CONTROLS OF EVERY ITEM (every exam; G-03, G-07, G-08, G-10, G-11, G-12)
 
-  Each slot is written as bc.k_candidates() candidates (3; 5 once a band has missed in this paper), each from
-  a different chain card or band operator. EVERY candidate goes through EVERY control; the first that passes
-  all of them becomes the item; every other fully-passing candidate goes to the reserve (S0-OP-7).
+  v6.1 (S0-BV, owner 2026-11-11): each slot is written ONCE (bc.k_candidates() = 1), by an author holding the
+  SAME anchors the graders will compare with (bc.bv_author_packet over bc.bv_anchors) and the recipe ranges, and
+  the controls run INSIDE THE BATCH (S4-7 STEP A2) — never first at Final Assembly. A split between the two
+  graders gets one more grader (never a rewrite); a question is rewritten at most ONCE (bc.C_WRITE_ATTEMPTS),
+  only when the majority names another band or the key is disputed; after it, it is delivered at the band it
+  measured, disclosed (bc.bv_set_label 'measured_majority'). (Superseded: "3 candidates; 5 once a band has
+  missed".)
   THE CANDIDATE RECORD — ONE dict per candidate; every control below receives that SAME dict and the winner
   becomes its concept_map entry (field names exactly): qtype, subtopic_id, organic, organic_reason,
   stem_text, option_texts (the S7-QUALITY names), figure_files, option_smiles {label: smiles} (structure options),
@@ -269,12 +277,15 @@
        series=bc.series_registry_rows(<registry series_registry>)): structure clone -> replace; reaction /
        task near-clone -> mutate (change the scaffold class, add a competing site or a controlling
        stereocentre, swap the chain) and re-run every control (LAW-ORG-10). A text item keeps the PYQ-distance
-       gates.
+       gates AND (v6.1, S0-NF-5) passes bc.text_clone_guard against the PYQ corpus and the series registry.
     C3 EASY FLOOR (organic Easy) — bc.easy_quality_floor: >= 1 decision on a drawn or named structure; the
        stem never names the reaction whose outcome it asks.
     C4 RECIPE — bc.band_recipe_check(item, recipe[band]) -> grades['recipe'] (decisions, ask format,
-       substrate inside the band's ranges).
-    C5 TWO FRESH BLIND GRADERS — each a FRESH context (a sub-agent, or an Orchestrate worker) that receives
+       substrate inside the band's ranges). v6.1: for EVERY item the verdict is
+       bc.band_recipe_check_any(item, EXAM_RULER['recipe_by_subject'], band) — MIP-credited decisions inside the
+       subject's range (S0-NF-3); DORMANT (no range anywhere) is recorded as dormant and is never a pass.
+    C5 TWO FRESH BLIND GRADERS (v6.1: in the item's own batch, S4-7 STEP A2; a split -> a THIRD fresh grader,
+       label by majority: bc.band_majority) — each a FRESH context (a sub-agent, or an Orchestrate worker) that receives
        ONLY bc.build_judge_input(item_record, <ruler anchors with content>) — never difficulty_plan, the
        band, difficulty_obs, the solution or the author's counts — and returns {band, decisions}. Its packet
        sha256 and context 'fresh' are recorded in grades['packets'][grader_n]. A grade produced in the
@@ -287,10 +298,14 @@
        answer, confidence and every assumption it made. bc.key_unanimous(author, [s1, s2], qtype, NAT
        tolerance) and bc.solver_assumption_check: a decisive assumption fails the candidate (LAW-ORG-7).
        Recorded as key_votes {author, solver_1, solver_2, unanimous}.
-    C8 FIGURE PROOFS (organic figures) — S0-OP-8.
+    C8 FIGURE PROOFS (organic figures) — S0-OP-8; every other structure / data figure — S0-NF-7.
+    C9 MINIMAL IDENTIFYING PARTS (v6.1, every multi-part item) — S0-NF-4.
+    C5 (v6.1) also records the graders' {class, computation_generic, concept} in concept_map[q]['grader_meta'] (S0-NF-8).
   The label is written ONLY by bc.dl_set_label_basis_strict(entry, 'measured_exact', labels, band,
   {grader_1, grader_2, recipe}, packets): ok only when both graders AND the recipe name the band
-  (bc.band_exact — no vote). A candidate that grades another band is never relabelled: it is a failed
+  (bc.band_exact — no vote); v6.1: or by bc.bv_set_label (S4-7 STEP A2) — 'measured_exact' when both graders
+  agree, 'measured_majority' when a third grader settled a split or the item was delivered at its measured band
+  after its one rewrite (verified by bc.verify_difficulty_label strict). A candidate that grades another band is never relabelled: it is a failed
   candidate (it may still enter the reserve at the band it graded EXACTLY at). Record on the concept_map entry
   (committed by final_assembly QINDEX_OP_FIELDS): organic, organic_reason, chain, decisions_author,
   decisions_grader, grades {grader_1, grader_2, recipe, packets, item_hash}, key_votes, clone_check,
@@ -300,8 +315,10 @@
   (bc.series_registry_add) and the reserve exclusion (bc.op_key_ids) always see the key).
   THE WRITER (v6.0): every control record is written by ONE call, OP_WRITE_CONTROLS(q, grader_1, grader_2,
   packets, key_votes, decisions_grader, figures, clone_check, stereo_gate) — defined at S3-2 (S0-OP-0 block), it
-  wraps bc.op_record_controls and computes the recipe verdict at the entry's label band. CHECK 3c calls it right
-  after write_q_to_sidecar (the candidate record fields above travel in quality={...}); the S13-2G delta round calls
+  wraps bc.op_record_controls and computes the recipe verdict at the entry's label band. v6.1: for a batch
+  question the controls are written by S4-7 STEP A2 (bc.bv_apply, which calls bc.op_record_controls with the
+  fresh results); CHECK 3c only writes the question and its sidecar entry (the candidate record fields above
+  travel in quality={...}) and never grades in the author's context; the S13-2G delta round calls
   it for every re-graded item in delta_qs (O-GRADE on the item's CURRENT text). Each record is bound to the
   item's own text (bc.op_content_sha); S13-2L reads it only while bc.op_controls_current holds, so a replaced item
   is never certified on its predecessor's grades, and a hand-written grade is not a grade.
@@ -311,6 +328,7 @@
 
 ### S0-OP-6 — BAND OPERATORS (F-10.2; DR2, refill, last-resort generation)
 
+  (v6.1: the operators for a NON-organic item are defined in S0-NF-3 — they replace "one inferential move".)
   To RAISE a band: add a decision (chemo-, regio- or facial selectivity), add a controlling stereocentre,
   ask for the starting material or for A and B, tighten the distractors to near-isomers. To LOWER: remove a
   decision, or ask the forward product of one step. Operators are drawn from the exam's recipe (S0-OP-2), so
@@ -347,7 +365,10 @@
   'answer_depends_on_stereo', 'vision_reads': [{'smiles', 'match': figural_vision.readback_compare(...)['match']}],
   and 'layout': corpus_io.organic_structure_layout(...) for a 2-D structure OR 'projection_proof': the second
   value of corpus_io.render_projection(kind, smiles, ...) for a chair / Newman / sawhorse / Fischer / Haworth};
-  its result is the item's figures[] entry. The FigureSpec carries spec['organic'] = True, spec['proof'] = that record
+  its result is the item's figures[] entry. v6.1 (S0-BV): the author records each figure dict WITHOUT vision_reads,
+  plus 'file' (the rendered image), in quality={'figure_dicts': [...]}; S4-7 STEP A2 runs the fresh vision reads in
+  the batch (roles vision_<figure>_<read>) and writes figures[] — a figure read back as another structure is redrawn
+  as the question's one rewrite. The FigureSpec carries spec['organic'] = True, spec['proof'] = that record
   and spec['geometry'] = draw.geometry, so figural_core G-ORGPROOF / G-FIGCOLLIDE (audit A-ORGPROOF /
   A-FIGCOLLIDE) re-check them. corpus_io.min_size_gate: stem >= 1.0 in, option >= 0.8 in wide. A figure that
   cannot be proven is never shipped: the item is replaced (S13-2L quality chain).
@@ -387,6 +408,203 @@
     DISCLOSED) — replaced by the SC2 endings (reserve_refill -> refill_session -> last_resort).
   * Label bases obs / l2 / none / dr3 / review (swap) / forced / held — never written for a new paper; the
     auditor rejects them on any paper produced at or after 2026.11.10 (A-QINDEX check 8, LB2-strict).
+
+## S0-NF — NON-ORGANIC FIDELITY (v6.1 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; binding on EVERY paper of EVERY exam, every subject)
+
+  S0-OP made difficulty and originality honest for organic items. S0-NF extends the same guarantees to every
+  item, organic or not, and adds paper COMPOSITION (subject / topic / format / class / band per subject). Owner
+  decisions (binding): D-01 every target is computed at run time from the exam's own PYQ corpus and carried by
+  the blueprint — no exam name, subject name or number appears in a rule; D-02 one code path for all exams;
+  D-03 nothing new may stop a run — a shortfall is repaired automatically and, if the bounded ladder does not
+  converge, the paper ships with an AMBER line; D-04 no manual review; D-05 Create never recomputes a target —
+  it reads the blueprint; D-06 every count used for a verdict is MEASURED by an independent pass, never taken
+  from the author's own record; D-07 a rule whose input is empty for an exam is DORMANT (one line). Precedence
+  when two targets cannot both be met for one slot (the higher wins, the lower is disclosed): Part counts and
+  qtype positions > band per slot > subject per Part > topic per subject > formats > question class > subtopic
+  even spread.
+
+### S0-NF-0 — TAXONOMY BINDING AT START (F-08)
+
+  At S3-2, after the blueprint and the manifest load: MH = bc.manifest_hash(manifest). If blueprint
+  ['manifest_hash'] exists and differs (EC-28), the allocation is crosswalked automatically —
+  cw = bc.manifest_crosswalk(<manifest the blueprint was built on, from the registry snapshot or the previous
+  manifest file>, manifest) (id equality, then normalised display name, then parent topic; a split old id counts
+  at its parent topic — EC-29), the crosswalk is printed and the run continues — never a stop. Every join uses
+  bc.norm_label (EC-30: quote / dash / case variants are equal). A delivered item's subtopic is a MANIFEST ID
+  (bc.nf_resolve_subtopic_id); the "Topic / Subtopic" lines printed in the docx come from the manifest display
+  names, never from author text. MH is written into batch_state, every concept_map entry (manifest_hash) and
+  the registry paper record (final_assembly commit_registry(manifest_hash=MH)). The exam manifest's own literal
+  'manifest_version' is never read or overwritten (amendment B).
+
+### S0-NF-1 — COMPOSITION: SUBJECT AND TOPIC PER SLOT (F-01)
+
+  The slot plan (S3-12b) places exactly the blueprint's per-mock subtopic allocation (Blueprint §4-1c already
+  makes subject and topic counts exact per mock). A replacement or refill for a slot — S13-2L quality chain,
+  reserve_refill, refill_session, last_resort — keeps the slot's subtopic_id; when that subtopic cannot yield a
+  passing candidate the next source is bc.refill_order(slot_sid, manifest, candidates): a sibling subtopic of
+  the same topic, then another topic of the SAME subject (recorded as a topic relaxation). A slot is NEVER filled
+  from another subject (EC-10). The auditor's A-ALLOC re-measures this on the delivered paper.
+
+### S0-NF-2 — FORMAT PLAN FOR EVERY SUBJECT (F-03; generalises S3-12d / S0-OP-9 for every subject)
+
+  For each subject x Part, FT = blueprint format_target_per_mock[mock][part][subject] ({ask_format: n}). S3-12d assigns each
+  target format to specific slots with bc.format_plan_slots(slots, FT, manifest) — a slot whose subtopic shows
+  the format in its PYQs (manifest axis2_capability) first, then its topic, then its subject; a format no slot
+  can take is recorded INFEASIBLE (EC-14), never a defect. The author brief carries the slot's format; an
+  author may convert content with bc.NF_FORMAT_CONVERTERS (several facts about one entity -> statement
+  combination; a same-family set -> match list; a comparable set -> order / ranking; a causal claim ->
+  assertion-reason only when the subject's PYQs use it), band and subtopic kept, every control again. A format
+  target that conflicts with the slot's band loses (EC-15 — band wins, the shortfall is disclosed). EC-16: an
+  exam whose PYQs never use a format has target 0 and the converter never fires.
+  MEASUREMENT (D-06): the delivered item's format is RE-MEASURED by bc.nf_measure_axis2(item,
+  figure_types.normalise_ask_format) — the SAME function PYQExplain used to write every PYQ record's ask_format,
+  so targets and measurements share one vocabulary (statement | match | sequence | combination |
+  assertion_reason; direct = the residual) — and written as concept_map[q].measured_axis2; the author's
+  ask_format is never counted. S13-2P (generic parity) compares measured vs FT with bc.nf_parity per subject x
+  Part; a shortfall converts an UNLOCKED slot of that subject x Part (band and subtopic kept), bounded by
+  bc.C_REFILL_SESSIONS; still short -> nf_disclosed['A-AXIS2'] and the footer line "Format parity: short ...".
+  The organic floors of S0-OP-9 are one case of this rule.
+
+### S0-NF-3 — DIFFICULTY FOR EVERY ITEM: VOCABULARY, RECIPE, OPERATORS (F-04)
+
+  Decisions are tagged from bc.ALL_DECISION_TAGS = the organic tags + bc.GENERIC_DECISION_TAGS:
+  multi_entity_comparison (>= 3 entities each evaluated AND they are MIP parts — S0-NF-4), concept_chain (the
+  result of one concept is the input of a second), exception_case (the general rule leads to a distractor; the
+  key needs the exception), data_interpretation (the key needs reading a figure, spectrum, plot or table of
+  values), derivation (a relation must be derived, not recalled), quantitative_chain (>= 2 dependent
+  computations, each with a different relation), specific_knowledge (a named fact outside the subject's core,
+  as the exam's anchors in that band show). NEVER a decision (bc.NF_NEVER_DECISIONS): unit conversion, plain
+  arithmetic, a stacked part outside the MIP, recall of a formula printed in the stem. The credited count is
+  bc.nf_decision_count(decisions, mip).
+  The recipe is per SUBJECT: blueprint['recipe_by_subject'] (D-05 — Blueprint §7-10, bc.build_recipe_by_subject
+  with the manifest: cascade subject -> exam -> library, EC-21; a band with no anchors anywhere is DORMANT and the
+  graders decide, EC-22 — never a pass by default); a blueprint without it uses EXAM_RULER['recipe_by_subject']
+  (the ruler is built with manifest=, so its subject keys are the manifest sections too). C4 uses
+  bc.band_recipe_check_any for every item, with item['subject'] = bc.nf_subject_key(item, manifest).
+  BAND OPERATORS for any subject: RAISE = add an entity to a comparison, chain a second concept, choose an
+  exception case, turn a given into data to read, tighten the distractors so the key needs more parts (higher
+  MIP). LOWER = the reverse. Every operated item is a new candidate: every control again.
+
+### S0-NF-4 — C9 MINIMAL IDENTIFYING PARTS (F-05)
+
+  Applies to items whose options are vectors of parts ('respectively', two_part, statement combination, match
+  list, order / ranking). C9 computes mip = bc.nf_item_mip(stem_text, option_texts, key, measured ask format) —
+  None for an item that is not multi-part; key 1-based or a letter, the sidecar 'answers' convention (rows parsed by
+  bc.parse_option_parts) and records concept_map[q].mip. Only the MIP parts count as decisions (S0-NF-3):
+  stacked parts beyond the MIP add no difficulty, so a 3-part item decidable from one part is credited one
+  decision and fails C4 in a band whose range needs more. The paper's share of MIP = 1 items per subject x Part
+  may not exceed blueprint mip1_share (A-OPTPART). Repair: regenerate the distractors so the key needs more
+  parts (band and stem kept), all controls again; bounded; AMBER if unresolved. Unparseable options (EC-18) and
+  MSQ / NAT (EC-20) are exempt and counted.
+
+### S0-NF-5 — ORIGINALITY FOR EVERY ITEM (F-06; extends C2 and S0-OP-7)
+
+  Every candidate records task_template (bc.task_template — numbers, unit values, formulas, entities and proper
+  nouns masked), asked_quantity (bc.asked_quantity), answer_kind, named_concepts and given_in_stem (the formulas,
+  identities, values and intermediate results the stem SUPPLIES). C2 adds bc.text_clone_guard(item,
+  past=<PYQ records>, series=bc.nf_series_text_rows(series_registry)):
+    * same subtopic + same template as a PYQ = a near-clone, allowed ONLY when depth-preserving — credited
+      decisions >= the PYQ's AND the stem supplies nothing the PYQ made the solver supply (EC-24); else MUTATE
+      (remove the supplied element or add a decision), every control again;
+    * same subtopic + same template as an item of an earlier delivered mock = REPLACE; the same template on a
+      different subtopic is allowed (EC-25).
+    Both comparisons run only for a DATA-BEARING, non-organic item (the stem itself states a value, formula or
+    named entity); a generic stem whose content is a drawn structure is guarded by the organic structure guards.
+  S13-4 adds every delivered item (any subject) with bc.nf_series_registry_add.
+
+### S0-NF-6 — WITHIN-PAPER UNIQUENESS AND KEY LEAK (F-07)
+
+  At S13-2 (before S13-2L): bc.intra_paper_duplicates(items) — no two items of one paper share a text
+  fingerprint (same subtopic, template and asked quantity — compared only for DATA-BEARING stems; an item whose
+  content is a drawn structure is compared by its structure), the same blind-grader `concept` tag in the same
+  subtopic, or an organic key structure; the LATER item is re-authored in the same slot (same subtopic, same
+  band). bc.key_leak_check(items, <PYQ stems>) — an item's key value may not appear as given data in another
+  item's stem or options: numbers within +-0.5 % AND the same quantity (the same unit; a unitless key only when it
+  has >= 4 significant figures, or >= 3 with no unit on either side); a text key of >= 2 words only in another
+  item's STEM, after normalisation, and never a label combination ('A and C only', '(i), (ii) and (iv)'); exempt: small
+  integers (|x| <= 10) and any unitless integer, single common words, values in >= 5 % of the exam's PYQ stems
+  (EC-26 / EC-27); the later item's dataset is changed. (Validated on CSIR Mock 01: exactly the Q41 -> Q96 leak.) NAT keys are checked too (EC-20). Bounded;
+  AMBER if unresolved (A-INTRADUP / A-KEYLEAK).
+
+### S0-NF-7 — FIGURES FOR EVERY SUBJECT (F-09; widens S0-OP-8)
+
+  Every structure figure that contains a metal or a charged species — organic or not — goes through
+  corpus_io.metal_charge_gate (G-METALCHARGE) and the fresh vision read-back (figural_vision.readback_compare),
+  and its FigureSpec is checked by bc.metal_figure_convention(spec, FIGURE_STYLE_PROFILE): coordination entity
+  in brackets with the overall charge outside; no formal charge on the metal or on a CO / CN / NO ligand atom;
+  ligands as plain bonds; dative arrows / ligand-atom charges only when the exam's PYQ figures show them
+  (FIGURE_STYLE_PROFILE['conventions']['dative_arrow' | 'atom_charge_label']['share'] > 0; a tag the profile does
+  not carry = never seen = not drawn — EC-32); a free counter-ion keeps its charge (EC-31). bc.stem_figure_consistency(stem, spec) checks every
+  geometric / identity claim of the stem (linear / bent with angle, cis / trans, oxidation state) against the
+  spec's 2-D coordinates; a claim the drawing cannot show is skipped and recorded (EC-33); a contradiction =
+  re-render, then replace — never shipped. concept_map[q].figures[i].spec carries the spec for A-STEMFIG.
+  A curve that represents one function (a wavefunction, a potential) must pass bc.curve_continuity at its region
+  boundaries; no mark outside the plot data (A-FIGINK). DATA FIGURES: where the exam's manifest
+  (figural_count_by_subtopic) and PYQ figure classes show them, a slot may be authored as a computed data figure
+  — bc.data_figure_points(kind, params) + figure_types.render_data_figure (EPR_SPECTRUM, MOSSBAUER_SPECTRUM,
+  NMR_MULTIPLET, MS_ISOTOPE_PATTERN, RATE_PLOT, CV_TRACE) — so the picture always matches the key; a kind
+  without a generator (TANABE_SUGANO) returns 'EC-34' and the item is re-authored to a text form of the same
+  subtopic and band (EC-34). Kinds the exam's PYQs never use stay dormant (D-07).
+
+### S0-NF-8 — QUESTION CLASS AND BAND PER SUBJECT (F-10, F-11)
+
+  CLASS: the author brief carries the slot's class from blueprint class_target_per_mock (recall /
+  computational / derivational / figural / structural ...). The two fresh blind graders (C5) also return
+  {class, computation_generic, concept} (extra output fields; their packet is unchanged); C5 writes them to
+  concept_map[q]['grader_meta'] = {'grader_1': {class, computation_generic, concept}, 'grader_2': {...}} — next
+  to grades (which keeps grader_1 / grader_2 = the band strings, unchanged). The measurement is independent
+  (D-06; a value counts when both graders agree); A-CLASSMIX compares measured with targets per subject x Part. A shortfall re-authors an
+  unlocked slot of that subject x Part into the short class (band and subtopic kept), bounded; AMBER if
+  unresolved. A class target that conflicts with a format target loses (EC-35).
+  BAND PER SUBJECT (amendment A): S0-OP-3 still normalises and freezes each Part's band COUNTS exactly as
+  before. Their PLACEMENT is now subject-aware: split = blueprint subject_band_target_per_mock[mock][part]
+  (bc.subject_band_split of the frozen counts by each subject's PYQ mix), and the frozen placement is
+  bc.schedule_place_by_subject(split, {q: subject of the slot}, qtype_by_q, labels, ruler) — schedule_place run
+  inside each subject's positions. A subject absent from the split keeps the whole-Part placement. The
+  per-subject placement is frozen with the schedule (bc.schedule_freeze) and read-only afterwards.
+  A-SUBJBAND re-measures the delivered bands (two blind graders) per subject.
+
+### S0-NF-9 — DISCLOSURE, RECORDS, MIGRATION (D-03, D-06; EC-37)
+
+  After the bounded repair of S0-NF-2 / -4 / -6 / -7 / -8 a gate still short is written to the sidecar AND the
+  registry record as nf_disclosed {gate: reason} (final_assembly commit_registry(nf_disclosed=...)); the
+  auditor then reports it as "AMBER — DISCLOSED" (never a stop) and Framework_DeliveryFooter §2E prints the
+  line. concept_map entries carry subject, part, mip, given_in_stem, measured_axis2, text_fingerprint,
+  stem_text, option_texts and manifest_hash (final_assembly QINDEX_NF_FIELDS). A resumed run keeps its frozen
+  plans; the S0-NF targets apply from the next paper (EC-37). A blueprint without the v1.65.0 fields: the
+  S0-NF composition / format / class / band rules are DORMANT for that paper (one line asking for
+  `MockBlueprint --refresh`); S0-NF-3 to -7 (item controls) run regardless.
+
+## S0-BV — BATCH VERIFICATION (v6.1 — GAP-2026-11-11-BATCH-VERIFICATION; owner 2026-11-11; binding on EVERY batch of EVERY exam)
+
+  WHY. Measured on a 40-question Organic paper (TestCreate, 4 batches of 10, release 2026.11.10): Final Assembly
+  found 29 of 40 questions to re-write (27 below their difficulty slot, two too close to past questions, two
+  figure re-draws) and then stopped for room. Cause: the controls S0-OP-5 requires (fresh graders, fresh solvers,
+  fresh vision) need a fresh context; a worker cannot start one and no worker message could request one — so no
+  item was measured independently until the end. Second cause: the author wrote without the graders' anchors,
+  and two graders who disagreed forced a rewrite of a question that may have been right.
+  THE LAW (LAW-BV-1..6):
+    BV-1 Every question is measured by two fresh blind graders and two fresh blind solvers (plus the fresh
+         vision read of S0-OP-8 for an organic figure) INSIDE ITS OWN BATCH — S4-7 STEP A2, before STEP B — and
+         the batch is never delivered before `STEP A2: DONE` (B-7). WORKER MODE requests them with GRADE_REQUEST
+         (Framework_MockTestOrchestrate O3-9).
+    BV-2 ONE write per slot, made with the graders' own anchors (bc.bv_anchors -> bc.bv_author_packet) and the
+         recipe ranges; the author runs bc.band_recipe_check_any before submitting.
+    BV-3 Two graders that disagree get ONE more fresh grader (bc.bv_decide 'tiebreak'); the majority decides.
+         A disagreement between graders is never a reason to rewrite.
+    BV-4 At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band,
+         the recipe fails at the slot, or the key is disputed (author + 2 blind solvers not unanimous, or a
+         decisive assumption). The rewrite carries the graders' reasons. After it the question is delivered at
+         the band it measured (bc.bv_set_label 'measured_majority'), one AMBER line per question
+         (difficulty_state.bv_disclosed; DeliveryFooter §LADDER-BV). Difficulty never blocks delivery.
+    BV-5 Final Assembly NEVER re-authors a question for difficulty: S13-2G phase 3 keeps every LB2 label
+         (measured_exact / measured_majority) and S13-2L opens no difficulty chain on a settled question
+         (bc.bv_settled). Final Assembly repairs only correctness: a key still disputed after the rewrite, a
+         reviewer's key disagreement, an unproven figure.
+    BV-6 Room is never a stop: a worker short of room saves its state and reports ROTATE; a fresh worker
+         continues the same message (Framework_MockTestOrchestrate O2-3). "WORKER-CAPACITY" is not a stop.
+  A paper begun under an earlier release keeps its recorded state; S0-BV applies to every batch written from
+  this release on (S4-12 migration).
 
 ## S1-0 — SESSION CLASS AND READ SET (v5.63 — decide at STEP 0, before any spec read)
 
@@ -461,8 +679,9 @@ Framework_MockTestOrchestrate.md O3-3 is the exact procedure.
 
 RUN MODE. MockCreate / TestCreate run ORCHESTRATED (Framework_MockTestOrchestrate.md, routed with this
 step). In WORKER MODE the session executing this spec is a worker sub-agent: every present_files call
-of this spec (S4-6, S4-7 STEP E, S13-8) is replaced by that spec's DELIVERY PROXY (O3-4), and S13-2G
-phase 2 by its review hand-over (O3-6); everything else in this spec applies unchanged. In DIRECT
+of this spec (S4-6, S4-7 STEP E, S13-8) is replaced by that spec's DELIVERY PROXY (O3-4), S13-2G
+phase 2 by its review hand-over (O3-6), and S4-7 STEP A2's fresh jobs by its grading hand-over (O3-9, v6.1);
+a worker short of room reports ROTATE (never a stop, S0-BV BV-6); everything else in this spec applies unchanged. In DIRECT
 MODE (no sub-agent tool) this spec runs as written, with READ METHOD and READ-RETENTION.
 
 INPUT STAGING. The /mnt/project and /mnt/user-data/uploads paths used throughout this spec are
@@ -1890,7 +2109,8 @@ action: the same paper, the same two files, the same "continue".
       EXAM_RULER = bc.build_difficulty_ruler(OP_PROFILE, _op_labels, version=f'{EXAM}-{_dt_op.date.today().isoformat()}',
                                              model_id=globals().get('GRADER_MODEL_ID') or 'session-model',
                                              prompt_version='S0-OP-5/v1', date=_dt_op.date.today().isoformat(),
-                                             library=OP_LIBRARY, level=OP_LEVEL[0])
+                                             library=OP_LIBRARY, level=OP_LEVEL[0],
+                                             manifest=globals().get('manifest'))     # v6.1: recipe keyed by manifest section
       EXAM_RULER['paper_count'] = len(OP_PROFILE.get('papers') or {})
       EXAM_RULER['graded_count'] = _op_graded
   print(f"S0-OP-2: ruler {EXAM_RULER['ruler_version']} ({EXAM_RULER['basis']}; {_op_why}); anchors "
@@ -3097,6 +3317,35 @@ action: the same paper, the same two files, the same "continue".
       # for a scoped paper whose blueprint is not [ExamCode]_blueprint.json.
       json.dump(dict(STIM_PROFILE, _paper={'mock_entry': mock_entry}),
                 open(STIM_PROFILE_PATH, 'w', encoding='utf-8'))
+  # v6.1 S0-NF-8 / F-11 (amendment A) — a FRESH paper only (no batch completed): each Part's band counts (frozen
+  # by S0-OP-3, UNCHANGED) are re-placed INSIDE each subject's positions by the blueprint's per-subject split, so
+  # the Easy slots cannot pile onto one subject. A Part without a split, or a subject whose positions do not
+  # match its counts, keeps the whole-Part placement (part_counts fallback). Never a stop.
+  _sbt = (bp.get('subject_band_target_per_mock') or {})
+  _sbt = _sbt.get(str(N)) or _sbt.get(N) or {}
+  F11_SUBJ_BY_Q = {}                                   # {q: subject} for every Part placed per subject (S3-12e reads it)
+  if _sbt and not bs_prev.get('batches_completed'):
+      import blueprint_core as bc
+      _man_nf = globals().get('manifest') or {}
+      for _sx in (globals().get('PLAN_SECTIONS') or sections or []):
+          _nm = _sx.get('name') if isinstance(_sx, dict) else None
+          _qr = _sx.get('q_range') if isinstance(_sx, dict) else None
+          if not _nm or not _qr or not _sbt.get(_nm):
+              continue
+          _qs_s = [q for q in range(_qr[0], _qr[1] + 1) if q in difficulty_plan]
+          _pc = {}
+          for q in _qs_s:
+              _pc[difficulty_plan[q]] = _pc.get(difficulty_plan[q], 0) + 1          # the frozen Part counts
+          _subj_by_q = {q: bc.nf_subject_key({'subtopic_id': subtopic_by_qnum.get(q)}, _man_nf) for q in _qs_s}
+          _rep = bc.schedule_place_by_subject(_sbt[_nm], _subj_by_q, {q: _qtype_by_q[q] for q in _qs_s},
+                                              difficulty_labels, ruler=globals().get('EXAM_RULER'), seed=N,
+                                              part_counts=_pc)
+          if set(_rep) == set(_qs_s) and all(sum(1 for q in _qs_s if _rep[q] == b) == n for b, n in _pc.items()):
+              difficulty_plan.update(_rep)
+              F11_SUBJ_BY_Q.update(_subj_by_q)
+              print(f"S3-12b F-11: {_nm} band counts {_pc} placed per subject.")
+          else:
+              print(f"S3-12b F-11: {_nm} per-subject placement not exact — whole-Part placement kept (AMBER, A-SUBJBAND).")
   # (paper_index is the S3-4 session integer: == N for a mock, the numeric
   # suffix of paper_id for a scoped paper — so a 20-paper series gets 20
   # different arrangements from ONE blueprint, deterministically, and
@@ -3308,11 +3557,15 @@ action: the same paper, the same two files, the same "continue".
               return range(_lo, _hi + 1)
           _sec_of_q = {q: str(_s.get('name', '')) for _s in _secs_12e if isinstance(_s, dict)
                        for q in _q_span(_s)}
+          # F-11: a Part whose bands were placed per subject keeps them — a swap stays inside (Part, subject)
+          for _q11, _sj11 in (globals().get('F11_SUBJ_BY_Q') or {}).items():
+              if _q11 in _sec_of_q:
+                  _sec_of_q[_q11] = _sec_of_q[_q11] + '|' + str(_sj11)
           difficulty_plan = bc.band_subtopic_plan(difficulty_plan, subtopic_by_qnum, _hs_bp,
                                                   _qtype_by_q, difficulty_labels, section_of_q=_sec_of_q)
           _moved = sum(1 for q in _plan_before if _plan_before[q] != difficulty_plan.get(q))
           print(f"S3-12e: top-band slots placed by measured subtopic share — {_moved} slot(s) moved; "
-                f"band counts unchanged in every section")
+                f"band counts unchanged in every section (and in every subject of an F-11 Part)")
       else:
           print("S3-12e: hard_share_by_subtopic absent from the blueprint — current band spread kept")
   AXIS2_FORMAT_FLOOR = dict((bp.get('axis2_format_floor_per_paper') or {}).get(str(N)) or {})
@@ -4243,7 +4496,8 @@ action: the same paper, the same two files, the same "continue".
        current_batch is incremented ONLY after present_files succeeds.
        This update is written to batch_state.json before the response ends.
 
-  B-7: present_files is FORBIDDEN until the batch passes gate checks:
+  B-7: present_files is FORBIDDEN until S4-7 STEP A2 printed `STEP A2: DONE` for the batch (v6.1 S0-BV —
+       every question measured by fresh graders and solvers in its own batch) and the batch passes gate checks:
        Layer 1 checklist all-pass, AND Layer 2 audit script exit 0 whenever
        the audit script is available (v5.77 — was OR; five checklist items
        have no auditor equivalent, so the auditor alone was strictly weaker
@@ -4316,6 +4570,26 @@ action: the same paper, the same two files, the same "continue".
 ## S4-7 — Per-batch delivery protocol (the 6 steps — execute in order)
 
   STEP A — GENERATE: Produce exactly q_count questions for current_batch.
+           v6.1 (S0-BV BV-2): BEFORE writing each question, print its author packet and write the question
+           ONCE against it — the same anchors its fresh graders will compare with, and the recipe range:
+           ```python
+           # ── S4-7 STEP A author packet (v6.1 BV1) ──
+           import json, blueprint_core as bc
+           def BV_AUTHOR_PACKET(q, subtopic_id, qtype='mcq', ask_format=None):
+               _bs_ap = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
+               _labs_ap = list(_bs_ap.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+               _band_ap = ((_bs_ap.get('difficulty_plan_target') or _bs_ap.get('difficulty_plan') or {}).get(str(q)))
+               _ru_ap = globals().get('EXAM_RULER') or {}
+               _sj_ap = bc.nf_subject_key({'subtopic_id': subtopic_id}, globals().get('manifest') or {})
+               _rc_ap = (((_ru_ap.get('recipe_by_subject') or {}).get(_sj_ap) or {}).get(_band_ap)
+                         or (_ru_ap.get('recipe') or {}).get(_band_ap) or {})
+               _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
+                                             'ask_format': ask_format},
+                                            bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
+                                            _labs_ap, _rc_ap)
+               print(json.dumps(_pk_ap, ensure_ascii=False, default=str)[:6000])
+               return _pk_ap
+           ```
            Write them to the cumulative docx (append to prior batches' Qs).
            Write each question's answer to the sidecar immediately (S11-2).
            Apply ALL generation rules (§7), format rules (§8, §10),
@@ -4545,6 +4819,40 @@ action: the same paper, the same two files, the same "continue".
              This dispatch is NOT optional. Every Q passes through it.
              Skipping it (using add_question_stem for all Qs regardless of format)
              is the root cause of the production figural defect.
+
+  STEP A2 — INDEPENDENT CHECK OF THE BATCH, BEFORE IT IS DELIVERED (v6.1 — S0-BV, GAP-2026-11-11-BATCH-
+           VERIFICATION; EVERY batch, EVERY exam). Every question of this batch is measured by FRESH blind
+           graders and solvers NOW — never first at Final Assembly. The block below is idempotent and
+           resume-safe (final_assembly.bv_batch_step, the I/O shell over Cluster BV): it collects every returned job, decides every question (bc.bv_apply: pass, tiebreak,
+           the ONE rewrite, settle) and writes the jobs still needed. Run it after STEP A, and again after
+           each GRADE RETURNED and after each rewrite, until it prints `STEP A2: DONE`:
+             JOBS OUT  -> WORKER MODE: report GRADE_REQUEST with --review-parts = the printed job folders and
+                          end the turn (Framework_MockTestOrchestrate O3-9); on `GRADE RETURNED` append its
+                          lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/returned.txt and run the block
+                          again. DIRECT MODE: start one fresh sub-agent per job folder (prompt = its
+                          JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>` to returned.txt, run
+                          the block again; no sub-agent tool -> NO-MODEL (S0-OP-10).
+             REWRITE q -> rewrite ONLY those questions, ONCE, in their slots (same subtopic, slot band, qtype),
+                          from concept_map[q]['bv']['rewrite_brief'] (the graders' own reasons, the measured band,
+                          a disputed key, a figure read back wrongly -> redraw it) and the SAME anchors
+                          (bc.bv_author_packet); replace the question block
+                          in the cumulative docx and its sidecar entry (write_q_to_sidecar); then the block again
+                          — the new text is graded as attempt 2 automatically.
+           A result is counted only from a job folder whose returned line starts with GRADE DONE / SOLVE DONE / VISION DONE
+           (context 'fresh'); a grade made in this session is never written to a result.json. A question still
+           short of two grades after bc.BV_MAX_ROUNDS rounds is NO-MODEL (saved, resumed). Never a stop
+           otherwise; at most ONE rewrite per question (bc.C_WRITE_ATTEMPTS).
+           ```python
+           # ── S4-7 STEP A2 (v6.1 BV1) ──
+           import final_assembly as fa
+           BV_STEP = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
+                                      bank=globals().get('EXEMPLAR_BANK'), op_profile=globals().get('OP_PROFILE'),
+                                      home='/home/claude')
+           ```
+           STEP E is FORBIDDEN until this block has printed `STEP A2: DONE` for the batch (B-7); a STEP B fix that
+           changes a question's text is followed by this block again (the changed text is measured, never assumed). Items listed as
+           key to S13-2L (a key still disputed after the rewrite) or unlabelled are carried to Final Assembly's
+           S13-2L chains — the batch is still delivered (never a stop); every other item is final.
 
   STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or):
            1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
@@ -4973,6 +5281,10 @@ action: the same paper, the same two files, the same "continue".
   in its state file, so the count continues) and run on to S13-2G, S13-3 .. S13-8 in this
   same response.
 
+  v6.1 (S0-BV) — BATCH IN VERIFICATION: batch_state['bv'] names the current batch with status 'jobs_out' or
+  'rewrite' -> the batch's questions are written; run S4-7 STEP A2 again (it collects every returned job and
+  re-issues any missing one), then continue S4-7 from where it printed (JOBS OUT / REWRITE / DONE). A
+  `GRADE RETURNED` message's lines are appended to returned.txt first (Framework_MockTestOrchestrate O3-9).
   v5.91 (GAP-2026-11-04 A6) — REVIEW STATES, all continued INTERNALLY. After step 1 below,
   read batch_state.get('state'):
     'REVIEW_RUNNING' -> the in-session review was interrupted. If
@@ -5813,6 +6125,8 @@ action: the same paper, the same two files, the same "continue".
         evidence the AUTHOR declares; measured on a delivered paper, 24 items
         declared 5-6 steps and labelled Hard were easier than the real exam's
         Medium items. Two checks anchor the label to the EXAM ITSELF:
+          v6.1 (S0-BV): those graders run in S4-7 STEP A2 for the whole batch, before it is delivered — CHECK 3c
+              writes the item and its record; it never grades.
           v6.0 (GAP-2026-11-10, S0-OP-5 — BINDING FOR EVERY ITEM OF EVERY EXAM): the rating below is now done
               by TWO FRESH BLIND GRADERS in fresh contexts (sub-agents or Orchestrate workers), each given
               ONLY the packet bc.build_judge_input builds, plus the recipe check and two fresh blind solvers;
@@ -11096,6 +11410,28 @@ if AUDIT_AVAILABLE:
     else:
         # v5.96 (OD-2026-11-09) — ONE routing decision for every survivor (bc.sweep_route): never a stop
         # for a quality or rule condition, never an UNRESOLVED stamp
+        # v6.1 (S0-BV BV-5 / S0-NF-9): a measured COMPOSITION shortfall (bc.NF_DISCLOSE_GATES — allocation, format
+        # parity, MIP share, class mix, band mix by subject, and a repeat / key leak that survived the in-batch
+        # rewrite) is DISCLOSED, never re-authored at Final Assembly: written once to the sidecar's nf_disclosed (the
+        # auditor then reports AMBER — DISCLOSED, Framework_DeliveryFooter §LADDER-NF) and the sweep runs again.
+        _nfd_new = {}
+        for _f in (_wl.get('item_findings') or []):
+            if _f.get('gate') in bc.NF_DISCLOSE_GATES:
+                _nfd_new.setdefault(_f['gate'], []).append(f"Q{_f.get('q')}")
+        for _fl in (_wl.get('fail_lines') or []):
+            if _fl.get('check') in bc.NF_DISCLOSE_GATES:
+                _nfd_new.setdefault(_fl['check'], []).append(str(_fl.get('message') or '')[:200])
+        _kd_nd = json.load(open(_key, encoding='utf-8'))
+        _nd = _kd_nd.setdefault('nf_disclosed', {})
+        _nfd_new = {g: v for g, v in _nfd_new.items() if g not in _nd}
+        if _nfd_new:
+            for _g, _v in _nfd_new.items():
+                _nd[_g] = '; '.join(dict.fromkeys(_v))[:400]
+            json.dump(_kd_nd, open(_key, 'w', encoding='utf-8'), indent=2)
+            json.dump(_st, open(_stp, 'w', encoding='utf-8'))   # the sweep counter is KEPT
+            raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}): {sorted(_nfd_new)} measured short — "
+                               f"DISCLOSED (AMBER, nothing is re-authored at Final Assembly); run a fresh sweep "
+                               f"(preview + this block) now.")
         _infra_fl = [fl for fl in (_wl.get('fail_lines') or []) if fl.get('check') in bc.INFRA_GATES]
         _stok = True
         if _infra_fl:                                 # a tool fault: is the tool itself broken?
@@ -11232,6 +11568,9 @@ if AUDIT_AVAILABLE:
       -> REVIEWED -> S13-2L (slot chains + DELTA reviews of every changed item, until every item is
          at its slot band and covered: REVIEW-COVERAGE-LAW) -> S13-3 -> S13-4 -> S13-REGCHECK
          -> S13-QINDEX -> S13-4b/4c -> S13-6 -> S13-7 -> S13-8 (the two files) -> S13-9 -> footer.
+  v6.1 (S0-BV BV-5): every question reaching this review was already measured in its batch, so phase 3 never
+  schedules a difficulty repair for it (its LB2 label is kept; the reviewer's band is recorded as advisory). The
+  review repairs only correctness findings (key disagreement, a second defensible option, low confidence).
   v5.96 DELTA ROUNDS. Rounds 1 and 2 review the WHOLE paper. Every later round is a DELTA round
   over batch_state['delta_qs'] only (items changed since their last review, adjudications,
   coverage gaps) plus batch_state['delta_panel'] (each such item to bc.REVIEW_PANEL_SIZE fresh
@@ -11703,6 +12042,37 @@ if AUDIT_AVAILABLE:
   json.dump(_bs2p, open(_bs2p_p, 'w', encoding='utf-8'), indent=2)   # read by S13-2L (§LADDER-OP line, resume-safe)
   ```
 
+  v6.1 (S0-NF-2 / -4 / -6) — the MEASURED composition record of every item of every subject, written before
+  S13-2L reads the paper. The A-* gates re-measure the same quantities on the delivered docx; this block is the
+  run's own view, used to open repairs before assembly. Never a stop.
+  ```python
+  # ── S13-2P NF measure (v6.1) ──
+  import json, blueprint_core as bc, figure_types as ft
+  _kpn_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  _kpn = json.load(open(_kpn_p, encoding='utf-8'))
+  _cmn = _kpn.get('concept_map') or {}
+  _ansn = _kpn.get('answers') or {}                                     # 1-based option position (sidecar convention)
+  _items_n = []
+  for _q, _e in _cmn.items():
+      if not isinstance(_e, dict):
+          continue
+      _opts = list(_e.get('option_texts') or [])
+      _e['measured_axis2'] = bc.nf_measure_axis2(_e, ft.normalise_ask_format)   # D-06: re-measured, never ask_format
+      _e['mip'] = bc.nf_item_mip(_e.get('stem_text'), _opts, _ansn.get(str(_q)), _e['measured_axis2'])   # None: not multi-part
+      _e['text_fingerprint'] = bc.text_item_fingerprint(dict(_e, q=_q))
+      _k = _ansn.get(str(_q))
+      _kt = (_opts[int(_k) - 1] if (_opts and str(_k).isdigit() and 1 <= int(_k) <= len(_opts)) else
+             (None if _opts or isinstance(_k, (list, dict)) or _k is None else str(_k)))
+      _items_n.append(dict(_e, q=_q, key_text=_kt,
+                           concept=((_e.get('grader_meta') or {}).get('grader_1') or {}).get('concept')))
+  NF_INTRADUP = bc.intra_paper_duplicates(_items_n)
+  NF_KEYLEAK = bc.key_leak_check(_items_n, [r.get('stem_snippet') for r in bc.pyq_guard_pool(OP_PROFILE)
+                                            if r.get('stem_snippet')] if 'OP_PROFILE' in globals() else [])
+  json.dump(_kpn, open(_kpn_p, 'w', encoding='utf-8'), indent=2)
+  print(f"S13-2P NF: within-paper repeats {[(a, b) for a, b, _w in NF_INTRADUP] or 'none'}; "
+        f"key leaks {[(a, b) for a, b, _v in NF_KEYLEAK] or 'none'} — each later item enters its quality chain (S13-2L)")
+  ```
+
 ## S13-2L — PAPER DIFFICULTY GATE + SLOT CHAINS (v6.0 — GAP-2026-11-10 G-10; LAW-ORG-3/4/5/7; owner 2026-11-10, every exam)
 
   Runs once S13-2G is REVIEWED, before S13-3 / S13-4, in the same response (and as the S4-12 entry
@@ -11719,8 +12089,8 @@ if AUDIT_AVAILABLE:
   A slot whose label does not verify (bc.verify_difficulty_label(..., strict=True)) — whether it measured
   BELOW or ABOVE its band — gets ONE bounded SLOT CHAIN (bc.slot_chain_*; rule SC2; batch_state['slot_chain'][q]):
     difficulty — rework DR1, rework DR2, replace (3), another ask shape (2), sibling subtopic (2 each, at
-      most 3 siblings), each attempt writing bc.k_candidates() candidates (3; 5 after a miss in this paper)
-      in parallel, each fully controlled (2 blind graders + recipe, 2 blind solvers, figure proofs, clone
+      most 3 siblings), each attempt writing bc.k_candidates() candidates (v6.1: 1 — S0-BV; reached only by a
+      question that S4-7 STEP A2 could not settle: a pre-v6.1 paper, or an unlabelled item), each fully controlled (2 blind graders + recipe, 2 blind solvers, figure proofs, clone
       guard, stem stereo gate); then the SC2 ENDINGS:
         reserve_refill — bc.reserve_take(EXACT band, qtype, subtopic -> topic) from {EXAM}_reserve.json
           (verified items that passed everything but were not chosen; a reserve item made under another
@@ -11811,7 +12181,10 @@ if AUDIT_AVAILABLE:
       _kv = (_cm_l.get(q) or {}).get('key_votes') or {}
       return _kv.get('unanimous') is True and bc.op_controls_current(_cm_l.get(q), _kv)
   def _strict_ok(q):
-      return bc.verify_difficulty_label(_cm_l.get(q), _labs_l, strict=True)[0] and _cm_l[q].get('difficulty') == _tgt_l.get(q)
+      # v6.1 (S0-BV BV-5): a question settled in its batch at the band it measured after its one rewrite is final —
+      # disclosed, never chained again
+      return bc.verify_difficulty_label(_cm_l.get(q), _labs_l, strict=True)[0] and (
+          _cm_l[q].get('difficulty') == _tgt_l.get(q) or bc.bv_settled(_cm_l.get(q), _labs_l))
   # work S13-2L scheduled earlier that S13-2R has not performed yet is CARRIED (a re-entry never takes a second reserve
   # item or spends a second refill session for the same slot)
   _delta, _switch, _changed = set(), set(), False
@@ -12088,7 +12461,13 @@ if AUDIT_AVAILABLE:
   _ds_l['chain_footer'] = dict(_ds_l['chain_footer'], info=_op_info + list(_ds_l['chain_footer'].get('info') or []),
                                amber=list(_ds_l['chain_footer'].get('amber') or []) + [
                                    f"Q{_qd}: a structure figure has no proof record after two replacements — disclosed"
-                                   for _qd in (_ds_l.get('figproof_disclosed') or [])])
+                                   for _qd in (_ds_l.get('figproof_disclosed') or [])] + [
+                                   # v6.1 S0-BV BV-4: a question delivered at the band it measured after its one rewrite
+                                   f"Difficulty after one rewrite: Q{_qb} delivered {_db.get('delivered')} (slot {_db.get('requested')})"
+                                   for _qb, _db in sorted((_ds_l.get('bv_disclosed') or {}).items(), key=lambda kv: int(kv[0]))
+                                   if isinstance(_db, dict)] + [
+                                   # v6.1 S0-NF-9: every disclosed composition gate (DeliveryFooter §LADDER-NF)
+                                   f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_l.get('nf_disclosed') or {}).items())])
   _ds_l['schedule'] = {'requested': _rq_l, 'applied': _sa_l}
   _ds_l['allocation_swaps'] = list(_bs_l.get('allocation_swaps') or [])
   if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy CHECK 3c writes from
@@ -12224,6 +12603,7 @@ if AUDIT_AVAILABLE:
   # v5.53: single explicit import for the extracted engine, alongside the existing os/json/glob.
   import os, json, glob
   import final_assembly as fa
+  import blueprint_core as bc                              # v6.1: manifest_hash for the commit (S0-NF-0)
 
   # Load registry from working dir (not /mnt/project/):
   registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
@@ -12321,7 +12701,9 @@ if AUDIT_AVAILABLE:
       answer_key=_akd,                      # v5.59 — key commitments (S13-4 / Explain §7-8)
       quality_readiness=_bs.get('quality_readiness'),   # v5.90 — S3-2e record -> A-READINESS / footer
       difficulty_state=_bs.get('difficulty_state'),     # v5.92 — Part D record -> MockDeliver 3f' lines
-      shape_infeasible=list((_bs.get('shape_plan') or {}).get('_infeasible') or []))   # v5.90 — S3-12d planner record -> A-SHAPEMIX
+      shape_infeasible=list((_bs.get('shape_plan') or {}).get('_infeasible') or []),   # v5.90 — S3-12d planner record -> A-SHAPEMIX
+      nf_disclosed=(_akd.get('nf_disclosed') if isinstance(_akd, dict) else None),     # v6.1 S0-NF-9 -> footer / MockDeliver
+      manifest_hash=bc.manifest_hash(globals().get('manifest') or {}))                 # v6.1 S0-NF-0 (F-08)
   except ValueError as _e_commit:
       # LAW F2.3: a figure record without object_type (or another per-question record
       # defect) raises inside commit_registry — an ITEM defect, repaired via the ladder.
@@ -12358,10 +12740,11 @@ if AUDIT_AVAILABLE:
   if os.path.exists(_rsv4_p):
       _reg4['reserve'] = json.load(open(_rsv4_p, encoding='utf-8'))
   _km4 = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')).get('concept_map') or {}
-  _reg4['series_registry'] = bc.series_registry_add(
+  # v6.1 (S0-NF-5): organic structure rows AND a text fingerprint for EVERY item of every subject
+  _reg4['series_registry'] = bc.nf_series_registry_add(
       json.load(open(_ser4_p, encoding='utf-8')) if os.path.exists(_ser4_p) else (_reg4.get('series_registry') or {'papers': {}}),
       globals()['paper_id'],
-      [dict(_e, q=_q) for _q, _e in _km4.items() if isinstance(_e, dict) and _e.get('organic') is True])
+      [dict(_e, q=_q) for _q, _e in _km4.items() if isinstance(_e, dict)])
   if not globals().get('_s13_preview'):                         # a preview commit never touches the series file
       json.dump(_reg4['series_registry'], open(_ser4_p, 'w', encoding='utf-8'), indent=2)   # the next paper sees it
   _ru4 = globals().get('EXAM_RULER') or _bs4.get('exam_ruler')  # resume-safe (S3-16 persisted it)
@@ -13797,7 +14180,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.0
+# END OF Framework_MockTestCreate v6.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

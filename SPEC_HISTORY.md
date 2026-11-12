@@ -31,6 +31,30 @@ Entries v1.48.0–v1.63.0 moved at framework release 2026.11.06 (EC-P42; v1.64.0
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_Blueprint.md.
 
+Entry v1.64.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v1.65.0 supersedes).
+
+```
+# v1.64.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   ScopedBlueprint v1.14.0, MockTestCreate v5.92, MockTestAnalyse v2.60.0, audit_canonical
+#   v2.37). §7 S7-0: difficulty_source records mix_rule 'm1' (the full-paper bc.dp_recommend
+#   rule, equal weight per sitting — guard G3: a reader replays the recorded rule, never a
+#   newer one) and prints the DL-20 profile coverage line (record_version-2 / level-vector
+#   coverage, informational). §7-9 (new, informational): the HARD-SUPPLY line
+#   (bc.hard_supply_record — how many in-tier, content-full Hard exemplars the window holds;
+#   advisory, never routed into difficulty_feasibility — guard S7), the per-subtopic
+#   complexity / closeness targets copied from section_rules QUALITY (DL-36) and the
+#   measured top-band share per subtopic (bc.hard_share_by_subtopic — Create S3-12e places
+#   the Hard slots preferentially on subtopics with a share > 0 through
+#   bc.band_subtopic_plan; counts unchanged; falls back to the current spread, DL-33); the
+#   ask-FORMAT floors per paper (axis2_format_floor_per_paper, DL-34 — read by the WARN-only
+#   A-AXIS2, never written into shape_target_per_paper); every §7-8 shape target stamped
+#   shape_rule 's1' (guard G4 — A-SHAPEMIX reads s1 targets only); and level_model_inputs
+#   (DL-21 — the scope / window / mix rule Create S3 and A-LEVEL both build the level model
+#   from). --refresh writes the §7-9 fields the same way as the §7-8 ones. The CONFIRM
+#   dialogue for typed overrides is unchanged; no new CONFIRM, deliverable, end state or
+#   user action.
+```
+
 ````
 # v1.63.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
 #   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0, ScopedBlueprint
@@ -438,6 +462,20 @@ Current-version entry remains in Framework_Blueprint.md.
 Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (EC-P42; v1.41.0 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
+
+Entry v1.45.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v1.46.0 supersedes).
+
+```
+# v1.45.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (paired with MockTestCreate
+#   v6.0, blueprint_core v2.0). NEW §LADDER-OP: "schedule as applied" (every normalisation of the request — an
+#   exact-sum request prints nothing), the LAST-RESORT line (AMBER-CLASS: requested vs delivered band + the P0
+#   incident id — the only difficulty deviation a v6.0 paper can carry), constant overrides, the ruler line
+#   (past distribution, printed apart from the requested schedule), reserve / refill information lines. The
+#   schedule-forced / held / majority / DISCLOSED lines are written only for papers produced before 2026.11.10.
+#   Entry v1.44.0 moved to SPEC_HISTORY.md.
+#   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
+#   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
+```
 
 ```
 # v1.40.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY Part D (owner decisions D3-R5 (a),
@@ -1143,6 +1181,27 @@ Entry v2.0.1 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFI
 Entries v2.51.0–v2.59.0 moved at framework release 2026.11.06 (EC-P42; v2.60.0 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_MockTestAnalyse.md.
+
+Entry v2.61.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v2.62.0 supersedes).
+
+```
+# v2.61.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (owner decisions 2026-11-07 D1 (b),
+#   Q1 (c) and 2026-11-08 (a); paired with analyse_engine v1.4, blueprint_core v1.33, MockTestCreate
+#   v5.94). NEW S11-1c — BLIND GRADING OF THE EXAM'S OWN PAST PAPERS, every exam, every subject:
+#   phase A (inside run_synthesise) writes one blind packet per joined past question of the profile
+#   window (bc.pyq_grade_packet — stem, options, drawn structures; never the band, counts,
+#   concepts or key) in parts of <= 30 kept by section; phase B (CLASS T, the model's own turn) has
+#   ONE FRESH grader sub-agent grade each part (same-session fallback, disclosed); phase C merges the
+#   grades (bc.pyq_grades_from_parts) and rewrites the exemplar bank with them. The bank now records
+#   the sha256 of the profile it was built from (_meta.profile_sha256) and carries the grades
+#   (pyq_grades) — Create S3 trusts both only for the SAME profile. An exemplar's band is its BLIND
+#   GRADE; without grades, an organic exemplar's band is its L2 decision-load band (the size-biased
+#   L1 level band is no longer used for organic items), others keep the level / stored band. Grades
+#   already made for this profile (this session, or an attached earlier bank) are reused, never
+#   re-graded; while grading is
+#   pending, phase C (not run_synthesise) makes the step's final delivery, after the graded bank.
+#   Nothing here stops; a failed grading leaves the bank ungraded and says so.
+```
 
 ````
 # v2.59.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (paired with
@@ -2099,6 +2158,25 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v6.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v6.1 supersedes).
+
+```
+# v6.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY (owner
+#   decisions 2026-11-10: D-1 (a) bounded last resort, C_REFILL_SESSIONS 5; difficulty integrity for EVERY item of
+#   EVERY exam; one release; paired with blueprint_core v2.0, corpus_io v1.21, figural_core v5.97, figural_vision v3,
+#   figure_types v1.3, final_assembly v1.16, audit_canonical v2.40, analyse_engine v1.5, MockTestOrchestrate v1.2.0,
+#   PYQExplain v2.31, DeliveryFooter v1.45.0). Measured 2026-11-10 (CSIR NET Organic Test 1): requested 2/10/28,
+#   two blind graders found about 7/17/16 — labels were verified against the author's own counts (obs), a same-
+#   context rating that agreed by default when exemplars were thin, and ladders that ended FORCED / HELD.
+#   NOW: NEW S0-OP governs every paper — organic scope by content; PYQ records fail closed (schema 3, back-fill on
+#   first use); ONE calibrated ruler per exam from two fresh blind graders; the schedule is input (normalised once,
+#   placed exactly, frozen; the feasibility / plan / profile stops are repairs); every candidate passes stem stereo,
+#   clone guard, Easy floor, recipe, TWO FRESH BLIND GRADERS, decision contract, TWO FRESH BLIND SOLVERS and figure
+#   proofs; a label is written only as measured_exact (bc.dl_set_label_basis_strict); S13-2L / S13-2R end every
+#   ladder by replacement (reserve_refill -> refill_session -> bounded last_resort); NEW S13-2P parity floors;
+#   chair / Newman / sawhorse / Fischer / Haworth through the proven renderers. Entry v5.96 moved to SPEC_HISTORY.md.
+```
 
 ```
 # v5.92 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
@@ -6522,6 +6600,26 @@ Entries v2.15–v2.27 moved at framework releases 2026.11.06 and 2026.11.07 (EC-
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_PYQExplain.md.
 
+Entry v2.31 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v2.32 supersedes).
+
+```
+# v2.31 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-02 / G-04 / G-05 (paired with blueprint_core v2.0,
+#   figural_vision v3, MockTestCreate v6.0). §13A-3 Phase B writes the SCHEMA 3 record (organic flag by content,
+#   answer_kind + answer structure, option_kind, image_counts.stereo_marks, stereo_mode, measured convention tags,
+#   one ask-format vocabulary, family / decision tags, two fresh blind grades); §13A-4 Phase C fails CLOSED
+#   (fv.transcription_confidence 'unverified' when nothing was compared), stamps schema 3, checks completeness in
+#   code (bc.pyq_record_complete / pyq_record_status) and lists re-reads; NEW §13A-3B BACKFILL. Entry v2.30 moved
+#   to SPEC_HISTORY.md.
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
+#   v2.14 at 2026.08.21.2:
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
+```
+
 ```
 # v2.27 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
 #   v1.32, audit_canonical v2.37, figure_types v1.3, figural_vision zoom_tiles,
@@ -7512,6 +7610,26 @@ Entries v1.8.0–v1.13.0 moved at framework release 2026.11.06 (EC-P42; v1.14.0 
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_ScopedBlueprint.md.
 
+Entry v1.14.0 moved at framework release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY; v1.15.0 supersedes).
+
+```
+# v1.14.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
+#   Blueprint v1.64.0, MockTestCreate v5.92, audit_canonical v2.37). Owner decisions D2 (a
+#   subject test is written to the MEASURED TIER MIX of its scope) and D6/D7, guard G3. S5-P:
+#   a new scoped series is measured under MIX RULE m2 (bc.dp_scope_mix pooled counts over the
+#   window, DL-21) with the optional --tier filter (DL-32; absent → the measured tier blend,
+#   printed), both RECORDED on difficulty_source (mix_rule, params.tier) and replayed by
+#   Create S3-2D / A-DIFFSRC — an older blueprint without mix_rule replays m1 unchanged; the
+#   DL-20 profile coverage line is printed; a RATIO mode is measured against the scope's
+#   guardrail (bc.dp_guardrail_bounds) and reported AMBER — never CONFIRM, never a stop
+#   (DL-35). S8-2d stamps shape_rule s1 on every shape target (G4); S8-2e (mirror of Blueprint
+#   §7-9) writes axis2_format_floor_per_paper (DL-34), level_targets (DL-36),
+#   hard_share_by_subtopic (DL-33) and hard_supply (DL-31) — informational / WARN-only
+#   consumers only. No new deliverable, end state or user action; the only new stop is the
+#   [HS:INPUT] on a --tier name that matches no exam_config section — reachable only by typing
+#   the new flag (an existing trigger never meets it).
+```
+
 ```
 # v1.13.0 — 2026-11-03 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY G05 + OD-10 (paired with
 #   blueprint_core v1.30, MockTestCreate v5.90, MockTestAnalyse v2.59.0). (1) S8-2d SHAPE
@@ -7816,4 +7934,18 @@ Entry v1.1.0 moved at framework release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUEST
 #   model; delta rounds use REVIEW_DIR .../delta<k>/part<n>. O3-8: an INFRA-HEAL is not a stop, and a worker
 #   never raises a stop the executed code does not raise (MTC MANDATE 0b). Entry v1.0.0 moved to
 #   SPEC_HISTORY.md.
+```
+
+Entry v1.2.0 moved at framework release 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION).
+
+```
+# v1.2.0 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (owner decisions 2026-11-10;
+#   paired with Framework_MockTestCreate v6.0, blueprint_core v2.0). NEW PART F (O6): fresh-context WORKERS for the
+#   controls that must never run in the author's context — O-GRADE (two fresh blind graders + two fresh blind
+#   solvers per candidate, packet only), O-VISION (fresh vision read-back of rendered figures), O-REFILL (refill
+#   sessions, <= C_REFILL_SESSIONS per paper), O-BACKFILL (PYQ schema-3 back-fill on first use), O-AUTHOR (the
+#   slim author brief, G-13). WORKDIR-LOST restarts the paper automatically (no user step); an INFRA fault that
+#   survives INFRA_HEAL_MAX heals continues in a FRESH worker (<= 3 per stop site), then on the previous verified
+#   release with a P0 incident. The only halts are the three environment failures (Create S0-OP-10), each saving
+#   state and resuming. Entry v1.1.0 moved to SPEC_HISTORY.md.
 ```

@@ -13,6 +13,10 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.17 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (release 2026.11.11). QINDEX_NF_FIELDS (subject, part, mip,
+    given_in_stem, measured_axis2, text_fingerprint, stem_text, option_texts, manifest_hash) carried when present;
+    the question_index entry records nf_disclosed {gate: reason} and manifest_hash.
+
     v1.16 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (release 2026.11.10). qindex_cert
     gains framework_release (bc.OP_RELEASE) — every audit of a paper at or after FRAMEWORK_RELEASE_STRICT judges its
     labels LB2-strict; QINDEX_OP_FIELDS carries the generated-item records (organic flag, chain, decisions,
@@ -398,6 +402,9 @@ QINDEX_OP_FIELDS = ('organic', 'organic_reason', 'chain', 'decisions_author', 'd
                     'key_votes', 'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
                     # the C2 item fields (S0-OP-5 CANDIDATE RECORD) — the series registry is seeded from them
                     'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template')
+# v1.17 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY): the per-item non-organic fidelity records
+QINDEX_NF_FIELDS = ('subject', 'part', 'mip', 'given_in_stem', 'measured_axis2', 'text_fingerprint', 'stem_text',
+                    'option_texts', 'manifest_hash')
 QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
                       'scheme_grammar', 'marked_sites', 'ladder',
                       'slot_chain')            # v1.15: a DISCLOSED item's exhausted chain (S13-4c re-derives it)
@@ -426,7 +433,7 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      axis1_snapshots=None, axis3_snapshots=None,
                      framework_repo_commit=None, spec_source_report=None,
                      timestamp=None, answer_key=None, quality_readiness=None, shape_infeasible=None,
-                     difficulty_state=None):
+                     difficulty_state=None, nf_disclosed=None, manifest_hash=None):
     """Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.48.0 QINDEX-FK
     enforcement; v5.52 idempotency — see module docstring deviation 4;
     v5.54 same-series dedupe + axis snapshot persistence — see the module
@@ -725,7 +732,10 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # v1.12 (GAP-2026-11-03): the quality verdicts, carried only when present.
             **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_V590_FIELDS if _k in concept_map[qn]},
             # v1.16 (GAP-2026-11-10): organic parity / difficulty integrity records
-            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_OP_FIELDS if _k in concept_map[qn]}}
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_OP_FIELDS if _k in concept_map[qn]},
+            # v1.17 (GAP-2026-11-11): non-organic fidelity records (subject / Part, MIP, given_in_stem, measured
+            # format, text fingerprint) — carried only when present
+            **{_k: copy.deepcopy(concept_map[qn][_k]) for _k in QINDEX_NF_FIELDS if _k in concept_map[qn]}}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(
@@ -773,7 +783,11 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                                   # state (level items, judge-dormant items, Hard misses): Step 11
                                   # reprints the AMBER disclosure lines from it. Absent -> nothing.
                                   **({"difficulty_state": copy.deepcopy(difficulty_state)}
-                                     if isinstance(difficulty_state, dict) else {})})
+                                     if isinstance(difficulty_state, dict) else {}),
+                                  # v1.17 (GAP-2026-11-11): the gates disclosed after the bounded repair (A-* reads
+                                  # them as AMBER) and the taxonomy the paper was built on (F-08). Absent -> nothing.
+                                  **({"nf_disclosed": dict(nf_disclosed)} if isinstance(nf_disclosed, dict) and nf_disclosed else {}),
+                                  **({"manifest_hash": str(manifest_hash)} if manifest_hash else {})})
 
     # ── Ledgers — idempotent (deviation 4) ───────────────────────────────────
     # v5.55 (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED): mocks_completed is the
@@ -1431,6 +1445,180 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
 
     fails = [name for name, ok in checks if not ok]
     return {'ok': not fails, 'checks': checks, 'fails': fails}
+
+
+
+# ══ v1.17 (GAP-2026-11-11-BATCH-VERIFICATION) — Create S4-7 STEP A2, the I/O shell over blueprint_core Cluster BV ══
+
+def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True):
+    """THE in-batch verification step of Create S4-7 STEP A2 (S0-BV), for the CURRENT batch of paper <exam> M<n>.
+    Idempotent and resume-safe: (1) collects every outstanding fresh job whose sub-agent returned GRADE DONE / SOLVE
+    DONE (lines in <home>/<exam>_M<n>_bv/returned.txt: '<job_dir> <reply line>'); (2) runs the within-paper checks
+    (bc.intra_paper_duplicates / bc.key_leak_check over every question up to this batch — a hit on a question of this batch
+    is its one rewrite); (3) decides every question of the batch (bc.bv_apply) and keeps the verification state in
+    batch_state['bv']['items'] (write_q_to_sidecar replaces a sidecar entry — the one-rewrite limit survives it);
+    (4) writes the fresh jobs still needed (job folder = packet.json + JOB_BRIEF.txt). Returns {'status':
+    'jobs_out'|'rewrite'|'done', 'jobs': [dirs], 'rewrite': [q], 'settled', 'disclosed', 'key_chain', 'open', 'lines'}
+    and prints the lines (echo). Raises RuntimeError NO-MODEL [HS:ENV] only when a question still lacks fresh
+    grades after bc.BV_MAX_ROUNDS job rounds (S0-OP-10: saved, resumed)."""
+    import json, os, shutil
+    _lines = []
+
+    def _say(x):
+        _lines.append(str(x))
+        if echo:
+            print(x)
+    _bsp_bv = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+    _kp_bv = os.path.join(home, f'{exam}_M{n}_answer_key.json')
+    _bs_bv = json.load(open(_bsp_bv, encoding='utf-8'))
+    _kd_bv = json.load(open(_kp_bv, encoding='utf-8'))
+    _cm_bv = _kd_bv.setdefault('concept_map', {})
+    _ans_bv = _kd_bv.get('answers') or {}
+    _labs_bv = list(_bs_bv.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    _bp_bv = (_bs_bv.get('batch_plan') or [])[int(_bs_bv.get('current_batch', 1)) - 1]
+    _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
+    _tgt_bv = {str(k): v for k, v in (_bs_bv.get('difficulty_plan_target') or _bs_bv.get('difficulty_plan') or {}).items()}
+    _ru_bv = ruler or {}
+    _man_bv = manifest or {}
+    _bank_bv = bank or {}
+    _root_bv = os.path.join(home, f'{exam}_M{n}_bv')
+    os.makedirs(_root_bv, exist_ok=True)
+    _st_bv = _bs_bv.setdefault('bv', {})
+    if _st_bv.get('batch') != _bp_bv['batch_id']:
+        _keep_items = dict(_st_bv.get('items') or {})          # every earlier batch's verification record
+        _st_bv.clear()
+        _st_bv.update({'batch': _bp_bv['batch_id'], 'round': 0, 'jobs': [], 'status': 'open', 'items': _keep_items})
+    _ret_bv = {}
+    if os.path.exists(os.path.join(_root_bv, 'returned.txt')):
+        for _ln in open(os.path.join(_root_bv, 'returned.txt'), encoding='utf-8'):
+            _pp = _ln.strip().split(' ', 1)
+            if len(_pp) == 2:
+                _ret_bv[_pp[0]] = _pp[1]
+    try:
+        import figural_vision as _fv_bv
+        import corpus_io as _ci_bv
+        _vcmp_bv, _vprf_bv = _fv_bv.readback_compare, _ci_bv.organic_figure_proof
+    except Exception:                                   # noqa: BLE001 — dormant: S13-2L's figure-proof chain covers it
+        _vcmp_bv, _vprf_bv = None, None
+    # 1. COLLECT every outstanding job whose fresh sub-agent returned DONE
+    _res_bv = {}
+    for _j in _st_bv.get('jobs') or []:
+        _rp = os.path.join(_j['dir'], 'result.json')
+        _ok_j = str(_ret_bv.get(_j['dir'], '')).startswith(('GRADE DONE', 'SOLVE DONE', 'VISION DONE'))
+        _r = None
+        if _ok_j and os.path.exists(_rp):
+            try:
+                _r = bc.bv_read_result(_j['role'], json.load(open(_rp, encoding='utf-8')), _labs_bv)
+            except (OSError, ValueError):
+                _r = None
+        if _r is not None:
+            _res_bv.setdefault(_j['q'], {})[_j['role']] = {'result': _r, 'sha256': _j['sha256'], 'context': 'fresh'}
+    # S0-NF-6 IN THE BATCH: a question of this batch that repeats an earlier question's template, or that
+    # takes part in an answer leak (the later of the two), is rewritten as its ONE rewrite (bc.bv_apply findings)
+    _all_bv = []
+    for _qa, _ea in _cm_bv.items():
+        if not isinstance(_ea, dict) or not str(_qa).isdigit() or int(_qa) > int(_bp_bv['q_end']):
+            continue
+        _oa = list(_ea.get('option_texts') or [])
+        _ka = _ans_bv.get(str(_qa))
+        _kt = (_oa[int(_ka) - 1] if (_oa and str(_ka).isdigit() and 1 <= int(_ka) <= len(_oa))
+               else (None if _oa or isinstance(_ka, (list, dict)) or _ka is None else str(_ka)))
+        _all_bv.append(dict(_ea, q=str(_qa), key_text=_kt,
+                            concept=((_ea.get('grader_meta') or {}).get('grader_1') or {}).get('concept')))
+    _all_bv.sort(key=lambda x: int(x['q']))
+    _fnd_bv = {}
+    for _a, _b, _w in bc.intra_paper_duplicates(_all_bv):
+        if str(_b) in _qs_bv:
+            _fnd_bv.setdefault(str(_b), []).append(f'repeats Q{_a} ({_w}) — write another task / dataset')
+    _pyq_bv = ([r.get('stem_snippet') for r in bc.pyq_guard_pool(op_profile)
+                if isinstance(r, dict) and r.get('stem_snippet')] if op_profile else [])
+    for _a, _b, _v in bc.key_leak_check(_all_bv, _pyq_bv):
+        _cand = [x for x in (str(_a), str(_b)) if x in _qs_bv]
+        if _cand:
+            _x = max(_cand, key=int)
+            _o = str(_b) if _x == str(_a) else str(_a)
+            _fnd_bv.setdefault(_x, []).append(f'answer leak with Q{_o} ({_v}) — change the data so the value is not given')
+    # 2. DECIDE every question of the batch (bc.bv_apply) and 3. WRITE the jobs still needed
+    _acts_bv, _new_jobs = {}, []
+    _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
+    for _q in _qs_bv:
+        _e = dict(_cm_bv[_q])
+        # the verification state lives in batch_state (write_q_to_sidecar REPLACES the sidecar entry on a
+        # rewrite — the attempt count must survive it, or a question could be rewritten more than once)
+        if isinstance((_st_bv.get('items') or {}).get(_q), dict):
+            _e['bv'] = _st_bv['items'][_q]
+        _e.setdefault('subject', bc.nf_subject_key(_e, _man_bv))
+        _e.setdefault('bc.manifest_hash', bc.manifest_hash(_man_bv))
+        _cr = _e.get('ca_range') if isinstance(_e.get('ca_range'), (list, tuple)) and len(_e.get('ca_range')) == 2 else None
+        _tol = (abs(float(_cr[1]) - float(_cr[0])) / 2.0) if _cr else None
+        # the I/O shell hashes every rendered organic figure (a redraw keeps its file name) and injects the fresh
+        # vision comparer and the proof writer (S0-OP-8) — the thin core never reads a file or imports RDKit
+        if isinstance(_e.get('figure_dicts'), list):
+            _e['figure_dicts'] = [dict(_fd, render_sha=(hashlib.sha256(open(str(_fd['file']), 'rb').read()).hexdigest()
+                                                        if _fd.get('file') and os.path.exists(str(_fd['file'])) else None))
+                                  if isinstance(_fd, dict) else _fd for _fd in _e['figure_dicts']]
+        _r = bc.bv_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'),
+                         _tol, results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q),
+                         vision_compare=_vcmp_bv, figure_proof=_vprf_bv)
+        _cm_bv[_q] = _r['entry']
+        _st_bv.setdefault('items', {})[_q] = _r['entry'].get('bv')
+        _acts_bv.setdefault(_r['action'], []).append(_q)
+        if _r['roles'] and _jr_bv < bc.BV_MAX_ROUNDS:
+            _anc = bc.bv_anchors(_bank_bv, _ru_bv, _e.get('subtopic_id'), str(_e.get('qtype') or 'mcq'), _labs_bv)
+            for _jb in bc.bv_jobs(_q, _cm_bv[_q], _anc, _labs_bv, roles=_r['roles']):
+                _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", f"r{_jr_bv + 1}", f"q{_q}_{_jb['role']}")
+                os.makedirs(_d, exist_ok=True)
+                _pk = dict(_jb['packet'])
+                # every fresh context sees the figures: they are COPIED into its own folder (it may read nothing else)
+                def _copy_figs(_lst):
+                    _out = []
+                    for _f in _lst or []:
+                        if os.path.exists(str(_f)):
+                            shutil.copy(str(_f), os.path.join(_d, os.path.basename(str(_f))))
+                            _out.append(os.path.join(_d, os.path.basename(str(_f))))
+                    return _out
+                if _jb['role'].startswith(('solver', 'vision_')):
+                    _pk['figures'] = _copy_figs(_pk.get('figures'))
+                elif isinstance(_pk.get('item'), dict) and _pk['item'].get('figure_files'):
+                    _pk['item'] = dict(_pk['item'], figure_files=_copy_figs(_pk['item']['figure_files']))
+                # the sha binds the packet AS WRITTEN (its figure paths point into the job's own folder)
+                _jb['sha256'] = hashlib.sha256(json.dumps(_pk, sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
+                json.dump(_pk, open(os.path.join(_d, 'packet.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+                open(os.path.join(_d, 'JOB_BRIEF.txt'), 'w', encoding='utf-8').write(_jb['brief'].replace('<JOB_DIR>', _d))
+                _new_jobs.append({'q': _q, 'role': _jb['role'], 'dir': _d, 'sha256': _jb['sha256']})
+        elif _r['roles']:
+            raise RuntimeError(f"NO-MODEL [HS:ENV] (S4-7 STEP A2): Q{_q} still lacks {_r['roles']} after "
+                               f"{bc.BV_MAX_ROUNDS} rounds of fresh jobs — the platform returned no fresh grader / solver. "
+                               "State is saved; type continue when sub-agents are available (S0-OP-10).")
+    for _j in _st_bv.get('jobs') or []:
+        _j['done'] = True                       # every job is collected once; a missing result is re-issued above
+    _st_bv['jobs'] = _new_jobs
+    if _new_jobs:
+        _st_bv['round'] = _jr_bv + 1
+    _ds_bv = _bs_bv.setdefault('difficulty_state', {})
+    _disc = _ds_bv.setdefault('bv_disclosed', {})
+    _bst = bc.bv_batch_status(_cm_bv, _qs_bv, _tgt_bv, _labs_bv)
+    for _q in _bst['disclosed']:
+        _disc[_q] = {'requested': _tgt_bv.get(_q), 'delivered': _cm_bv[_q].get('difficulty')}
+    _st_bv['status'] = 'jobs_out' if _new_jobs else ('rewrite' if _acts_bv.get('rewrite') else 'done')
+    _st_bv['open'] = _bst['open'] if not _new_jobs and not _acts_bv.get('rewrite') else []
+    _st_bv['key_chain'] = _bst['key_chain']
+    json.dump(_kd_bv, open(_kp_bv, 'w', encoding='utf-8'), indent=2)
+    json.dump(_bs_bv, open(_bsp_bv, 'w', encoding='utf-8'), indent=2)
+    _say(f"STEP A2 (job round {_st_bv['round']} of at most {bc.BV_MAX_ROUNDS}): " + '; '.join(f"{k} {v}" for k, v in sorted(_acts_bv.items())))
+    if _new_jobs:
+        _say("STEP A2: JOBS OUT " + ','.join(j['dir'] for j in _new_jobs))
+    elif _acts_bv.get('rewrite'):
+        _say(f"STEP A2: REWRITE {_acts_bv['rewrite']} — once each, from concept_map[q]['bv']['rewrite_brief'], then this block again")
+    else:
+        _say(f"STEP A2: DONE — settled {len(_bst['settled'])}/{len(_qs_bv)} "
+              f"(at slot {len(_bst['settled']) - len(_bst['disclosed'])}, disclosed {_bst['disclosed'] or 'none'}); "
+              f"key to S13-2L {_bst['key_chain'] or 'none'}; unlabelled {_st_bv['open'] or 'none'}")
+
+    return {'status': _st_bv['status'], 'jobs': [j['dir'] for j in _new_jobs], 'rewrite': list(_acts_bv.get('rewrite') or []),
+            'settled': _bst['settled'], 'disclosed': _bst['disclosed'], 'key_chain': _bst['key_chain'],
+            'open': _st_bv['open'], 'lines': _lines}
+
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -2521,8 +2709,39 @@ def self_test():
               {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}]}},
               {'questions': {'5': {'image_hashes': ['a', 'b'], 'object_type': 'reaction_scheme'}}})['status'] == 'FAIL'
           and paper_figure_proof_gate({'7': {'organic': True}}, _fm2)['status'] == 'PASS')
+    check('v117_nf_fields_carried', set(QINDEX_NF_FIELDS) >= {'mip', 'given_in_stem', 'text_fingerprint'}
+          and not (set(QINDEX_NF_FIELDS) & (set(QINDEX_OP_FIELDS) | set(QINDEX_V589_FIELDS))))
     check('v116_op_fields_carried', set(QINDEX_OP_FIELDS) >= {'organic', 'figures', 'key_votes', 'clone_check', 'grades'}
           and not (set(QINDEX_OP_FIELDS) & set(QINDEX_V589_FIELDS)) and bc.OP_RELEASE >= bc.FRAMEWORK_RELEASE_STRICT)
+    L = ['Easy', 'Medium', 'Hard']
+    import tempfile as _bv_tf, os as _bv_os, json as _bv_js
+    with _bv_tf.TemporaryDirectory() as _h:
+        _cmt = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2', '3', '4'], 'subtopic_id': 'A.b',
+                      'qtype': 'mcq'},
+                '2': {'stem_text': 'Name the point group of the second molecule', 'option_texts': ['C2v', 'D3h', 'Td', 'Oh'],
+                      'subtopic_id': 'C.d', 'qtype': 'mcq'}}
+        _bv_js.dump({'concept_map': _cmt, 'answers': {'1': 2, '2': 3}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Hard', '2': 'Easy'}}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        s1 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _ret = []
+        for _d in s1['jobs']:
+            _role = _d.rsplit('_', 2)[-2] + '_' + _d.rsplit('_', 1)[-1]
+            _q = _d.rsplit('/', 1)[-1].split('_')[0][1:]
+            _res = ({'band': {'1': 'Hard', '2': 'Easy'}[_q], 'decisions': 2} if _role.startswith('grader')
+                    else {'answer': {'1': 2, '2': 3}[_q], 'assumptions': []})
+            _bv_js.dump(_res, open(_bv_os.path.join(_d, 'result.json'), 'w'))
+            _ret.append(_d + (' GRADE DONE' if _role.startswith('grader') else ' SOLVE DONE'))
+        open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'w').write('\n'.join(_ret) + '\n')
+        s2 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _kdt = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+        check('bv_batch_step_end_to_end', s1['status'] == 'jobs_out' and len(s1['jobs']) == 8 and s2['status'] == 'done'
+              and s2['settled'] == ['1', '2'] and s2['open'] == [] and s2['jobs'] == []
+              and bc.verify_difficulty_label(_kdt['concept_map']['1'], L, strict=True) == (True, 'Hard', 'measured_exact')
+              and _kdt['concept_map']['2']['difficulty'] == 'Easy'
+              and all(_bv_os.path.exists(_bv_os.path.join(d, 'JOB_BRIEF.txt')) for d in s1['jobs']))
+        s3 = bv_batch_step('EX', 1, home=_h, echo=False)
+        check('bv_batch_step_idempotent_when_done', s3['status'] == 'done' and s3['jobs'] == [] and s3['settled'] == ['1', '2'])
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

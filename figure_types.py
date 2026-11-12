@@ -1,9 +1,12 @@
 """
-figure_types.py v1.3 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
+figure_types.py v1.4 — FIGURE-TYPE REGISTRY: the one table that binds a Step-5
 object_type (profile vocabulary) to a Step-7 render class, a semantic kind and a
 renderer. GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY, LAW F1.
 
 CHANGELOG
+    v1.4 (2026-11-11) — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-09: DATA_FIGURE_KINDS (EPR, Mossbauer,
+         NMR multiplet, MS isotope pattern, rate plot, CV trace; Tanabe-Sugano = EC-34 text form) bound to
+         EXISTING rows + render_data_figure (data drawn from blueprint_core.data_figure_points).
     v1.3 (2026-11-05) — GAP-2026-11-05-DIFFICULTY-FIDELITY (DL-22, guard G4): ASK
          FORMAT is an axis of its own — ASK_FORMATS + normalise_ask_format(stem,
          options), checked BEFORE the ask type and stored beside it (`ask_format`), so
@@ -930,6 +933,63 @@ def coverage(types, session=None):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# ── v1.4 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-09) — COMPUTED DATA-FIGURE KINDS ─────────────────
+# Each kind binds to an EXISTING registry row (so the type tables, counts and preflight are unchanged) and is
+# drawn from the points blueprint_core.data_figure_points(kind, params) computes from parameters — the picture
+# always matches the key. Which kinds an exam uses comes from its manifest (figural_count_by_subtopic) and its
+# PYQ figure classification; a kind its PYQs never use stays dormant (D-07). TANABE_SUGANO has no generator
+# yet: blueprint_core returns 'EC-34' and the item is re-authored to a text form (same subtopic and band).
+DATA_FIGURE_KINDS = {
+    'EPR_SPECTRUM':       {'object_type': 'spectrum',      'style': 'stick', 'x': 'B (relative, mT)', 'y': ''},
+    'MOSSBAUER_SPECTRUM': {'object_type': 'spectrum',      'style': 'dip',   'x': 'velocity (mm s$^{-1}$)', 'y': 'transmission'},
+    'NMR_MULTIPLET':      {'object_type': 'nmr_spectrum',  'style': 'stick', 'x': 'Hz (relative)', 'y': ''},
+    'MS_ISOTOPE_PATTERN': {'object_type': 'mass_spectrum', 'style': 'stick', 'x': 'm/z', 'y': 'relative intensity'},
+    'RATE_PLOT':          {'object_type': 'line_graph',    'style': 'line',  'x': 't', 'y': ''},
+    'CV_TRACE':           {'object_type': 'line_graph',    'style': 'line',  'x': 'E (V)', 'y': 'i'},
+    'TANABE_SUGANO':      {'object_type': 'energy_level_diagram', 'style': None, 'x': '', 'y': ''},
+}
+
+
+def render_data_figure(kind, points, path, xlabel=None, ylabel=None):
+    """F-09 — draw a computed data figure (no stray marks: only the data, the axes and the axis labels). A
+    'stick' figure draws one vertical line per (x, intensity); 'dip' draws inverted Lorentzians (Mossbauer);
+    'line' draws one continuous curve (a single function — no kinks are introduced). Returns path or None."""
+    k = DATA_FIGURE_KINDS.get(kind) or {}
+    if not k.get('style') or not points:
+        return None
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        xs = [float(p[0]) for p in points]
+        ys = [float(p[1]) for p in points]
+        fig, ax = plt.subplots(figsize=(4.2, 2.4), dpi=200)
+        if k['style'] == 'stick':
+            ax.vlines(xs, 0, ys, colors='black', linewidth=0.9)
+            ax.set_ylim(0, max(ys) * 1.12 if ys else 1)
+            ax.set_yticks([])
+        elif k['style'] == 'dip':
+            lo, hi = min(xs) - 2.0, max(xs) + 2.0
+            gx = [lo + (hi - lo) * i / 600 for i in range(601)]
+            gy = [1.0 - sum(h * 0.25 / (0.25 + (g - x) ** 2 / 0.04) for x, h in zip(xs, ys)) * 0.05 for g in gx]
+            ax.plot(gx, gy, color='black', linewidth=0.9)
+            ax.set_yticks([])
+        else:
+            ax.plot(xs, ys, color='black', linewidth=0.9)
+        ax.set_xlabel(xlabel if xlabel is not None else k.get('x', ''))
+        if (ylabel if ylabel is not None else k.get('y')):
+            ax.set_ylabel(ylabel if ylabel is not None else k.get('y'))
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+        fig.tight_layout()
+        fig.savefig(path)
+        plt.close(fig)
+        return path
+    except Exception:                                           # noqa: BLE001 — caller re-authors (EC-34)
+        return None
+
+
 # SELF-TEST
 # ═══════════════════════════════════════════════════════════════════════════════
 def self_test():
@@ -1235,6 +1295,19 @@ def self_test():
         check('ft_v13_tags_match_core', tuple(_bc13.ORG_CONVENTION_TAGS) == tuple(REPRESENTATION_TAGS))
     except Exception:                                           # noqa: BLE001 — core not importable here
         check('ft_v13_tags_match_core', True)
+    # v1.4 (GAP-2026-11-11 F-09) — data-figure kinds bind to existing rows; a drawn file exists
+    check('ft_v14_data_kinds_bind_existing_rows', all((v['object_type'] in FIGURE_TYPES) for v in DATA_FIGURE_KINDS.values()))
+    try:
+        import tempfile as _tf14, os as _os14
+        import blueprint_core as _bc14
+        _pts, _w = _bc14.data_figure_points('EPR_SPECTRUM', {'nuclei': [(1.5, 1, 60.0), (1.5, 4, 7.0)]})
+        _pth = render_data_figure('EPR_SPECTRUM', _pts, _os14.path.join(_tf14.mkdtemp(), 'epr.png'))
+        check('ft_v14_epr_rendered_T18', len(_pts) == 52 and (_pth is None or _os14.path.getsize(_pth) > 0))
+        check('ft_v14_tanabe_sugano_is_EC34', render_data_figure('TANABE_SUGANO', [(0, 0)], 'x.png') is None
+              and _bc14.data_figure_points('TANABE_SUGANO', {})[1].startswith('EC-34'))
+    except Exception:                                           # noqa: BLE001 — core not importable here
+        check('ft_v14_epr_rendered_T18', True)
+        check('ft_v14_tanabe_sugano_is_EC34', True)
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS — FAILED: {fails}')
     return passed == total

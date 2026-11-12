@@ -949,7 +949,9 @@ if _REG is not None:
                          'difficulty_layer_rule',
                          'label_basis_rule',
                          'review_coverage_rule',
-                         'organic_parity_rule'):
+                         'organic_parity_rule',
+                         'nonorganic_fidelity_rule',
+                         'batch_verification_rule'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -1060,6 +1062,22 @@ if _REG is not None:
                            if re.search(r'\b(?:bc|_bc_s3)\.(?:dl_set_label_basis_strict|clone_guard|stem_stereo_gate|'
                                         r'schedule_normalize|schedule_place|build_difficulty_ruler|pyq_record_complete|'
                                         r'organic_flag)\(|\bfa\.paper_parity_gate\(', _live_text(t))}
+        elif _rule == 'nonorganic_fidelity_rule':
+            # GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY LAW-NF-1..11. A spec performs a non-organic fidelity operation
+            # when its live text calls a Cluster NF engine entry point (bc. / blueprint_core. prefix).
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\b(?:bc|blueprint_core)\.(?:nested_allocate|subject_matrix_round|nf_targets_per_mock|'
+                                        r'subject_band_split|schedule_place_by_subject|band_recipe_check_any|'
+                                        r'minimal_identifying_parts|text_clone_guard|nf_series_registry_add|'
+                                        r'intra_paper_duplicates|key_leak_check|manifest_hash|manifest_crosswalk|'
+                                        r'format_plan_slots|stem_figure_consistency|metal_figure_convention)\(',
+                                        _live_text(t))}
+        elif _rule == 'batch_verification_rule':
+            # GAP-2026-11-11-BATCH-VERIFICATION LAW-BV-1..6. A spec performs a batch-verification operation when its
+            # live text calls a Cluster BV entry point (every question measured by fresh graders in its own batch).
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'\b(?:bc|blueprint_core)\.(?:bv_apply|bv_set_label|bv_jobs|bv_decide|'
+                                        r'bv_batch_status|bv_anchors|bv_author_packet)\(|\b(?:fa|final_assembly)\.bv_batch_step\(', _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.
@@ -1118,6 +1136,17 @@ for _f in (_LAWS_08B.get('REVIEW-COVERAGE-LAW') or {}).get('governs') or []:
             rec('REVIEW-COVERAGE', f"{_f}: governed by REVIEW-COVERAGE-LAW but its live text does not call "
                                    f"bc.review_coverage_missing( AND pass '--item-hashes' — a changed item could be "
                                    f"delivered with no review bound to its final text.")
+# BV-COVERAGE (2026.11.11, GAP-2026-11-11-BATCH-VERIFICATION): a spec governed by LAW-BV-1 measures every question
+# INSIDE its batch — its live text calls fa.bv_batch_step( (S4-7 STEP A2: fresh jobs, the bv_apply decision of every
+# question and the bv_batch_status settlement of the batch) and bc.bv_author_packet( (the author holds the graders'
+# anchors before the one write). Without them the first fresh measurement happens at Final
+# Assembly — the 29-of-40 rewrite of 2026-11-11.
+for _f in (_LAWS_08B.get('LAW-BV-1') or {}).get('governs') or []:
+    if _f in TXT:
+        _lvbv = _live_text(TXT[_f])
+        if 'fa.bv_batch_step(' not in _lvbv or 'bc.bv_author_packet(' not in _lvbv:
+            rec('BV-COVERAGE', f"{_f}: governed by LAW-BV-1 but its live text does not call fa.bv_batch_step( AND "
+                               f"bc.bv_author_packet( — questions would be measured first at Final Assembly.")
 if os.path.exists('audit_canonical.py') and os.path.exists('blueprint_core.py'):
     try:
         sys.path.insert(0, os.path.abspath('.'))

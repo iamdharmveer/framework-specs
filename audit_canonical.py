@@ -398,7 +398,9 @@ ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE
                  # v2.35 — GAP-2026-11-03 quality item gates (ladder entry per bc.LADDER_ENTRY_RUNG)
                  'A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
                  'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
-                 'A-SHAPEMIX', 'A-TEMPLATE')
+                 'A-SHAPEMIX', 'A-TEMPLATE',
+                 # v2.41 (GAP-2026-11-11) Cluster NF item gates
+                 'A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-STEMFIG')
 
 
 def _item(gate, q, finding, severity='VOID_ITEM'):
@@ -1000,6 +1002,7 @@ def load_sources(args):
         _key_data = json.load(open(args.key, encoding='utf-8'))
         src['concept_map'] = _key_data.get('concept_map', {})
         src['answers'] = _key_data.get('answers', {})
+        src['nf_disclosed'] = _key_data.get('nf_disclosed', {}) if isinstance(_key_data.get('nf_disclosed'), dict) else {}  # v2.41
         # GAP-2026-11-04 B5/B6: the paper's S3-2e quality_readiness record reaches the
         # PER-BATCH audit too (no registry entry exists before S13-4) — from the sidecar if
         # it carries one, else from the sibling batch_state the Create session keeps beside
@@ -4825,7 +4828,9 @@ def gate_item(blocks, src):
 # ═══════════════════════════════════════════════════════════════════════════════
 QQ_GATE_IDS = ('A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
                'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
-               'A-SHAPEMIX', 'A-TEMPLATE')
+               'A-SHAPEMIX', 'A-TEMPLATE',
+               # v2.41 (GAP-2026-11-11) Cluster NF gates
+               'A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND', 'A-STEMFIG')
 
 
 def _qq_bc():
@@ -4848,7 +4853,9 @@ _QQ_V590_FIELDS = ('ask_format', 'difficulty_obs', 'option_identities', 'entitie
                    # v2.40 (GAP-2026-11-10): final_assembly v1.16 QINDEX_OP_FIELDS — the registry-only final audit reads them
                    'organic', 'organic_reason', 'chain', 'decisions_author', 'decisions_grader', 'grades', 'key_votes',
                    'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
-                   'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template')
+                   'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template',
+                   # v2.41 (GAP-2026-11-11): final_assembly v1.17 QINDEX_NF_FIELDS
+                   'subject', 'part', 'mip', 'given_in_stem', 'measured_axis2', 'text_fingerprint', 'stem_text', 'option_texts', 'manifest_hash')
 
 
 def _qq_cm(src):
@@ -6027,6 +6034,413 @@ def gate_axis2(src):
     else:
         _ok('A-AXIS2', f'ask-format floors met ({len(floors)} format(s), {len(s2)} s2 shape(s)).')
 
+
+# ════════════════════════════════════════════════════════════════════════════════════════
+# v2.41 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (Cluster NF gates). Every gate is DORMANT when its
+# blueprint target / manifest / concept_map input is absent for this exam (D-07). A shortfall is a FAIL
+# that opens the item's repair route (bc.LADDER_ENTRY_RUNG); after the bounded ladder Create records the
+# gate in the sidecar / registry 'nf_disclosed' {gate: reason} and the FAIL becomes an AMBER — DISCLOSED
+# WARN (D-03: never a stop). Counts used for a verdict are MEASURED here, never read from the author's
+# own record (D-06).
+# ════════════════════════════════════════════════════════════════════════════════════════
+NF_GATE_IDS = ('A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND', 'A-STEMFIG')
+
+
+def _nf_disclosed(src):
+    d = dict(src.get('nf_disclosed') or {}) if isinstance(src.get('nf_disclosed'), dict) else {}
+    e = _qq_entry(src) or {}
+    if isinstance(e.get('nf_disclosed'), dict):
+        d.update(e['nf_disclosed'])
+    return d
+
+
+def _nf_verdict(code, msg, src):
+    why = _nf_disclosed(src).get(code)
+    if why:
+        _warn(code, f'AMBER — DISCLOSED after the bounded repair ({why}) — ' + msg)
+    else:
+        _fail(code, msg)
+
+
+def _nf_mock_entry(src):
+    bp = src.get('bp') or src.get('blueprint') or {}
+    mk = src.get('_mockN') or src.get('mock_n')
+    for m in (bp.get('mocks') or []):
+        if isinstance(m, dict) and str(m.get('mock')) == str(mk):
+            return m
+    return None
+
+
+def _nf_part_of(src):
+    """{q(str): section_name} from this mock's blueprint q_range rows, else concept_map 'part' / 'section'."""
+    out = {}
+    me = _nf_mock_entry(src) or {}
+    for sec in (me.get('sections') or []):
+        qr = sec.get('q_range') or [0, 0]
+        try:
+            for q in range(int(qr[0]), int(qr[1]) + 1):
+                out[str(q)] = sec.get('section_name')
+        except (TypeError, ValueError, IndexError):
+            continue
+    for q, e in _qq_cm(src).items():
+        if isinstance(e, dict) and str(q) not in out and (e.get('part') or e.get('section')):
+            out[str(q)] = e.get('part') or e.get('section')
+    return out
+
+
+def _nf_texts(src, blocks):
+    """{q: {'stem_text', 'option_texts'}} measured from the delivered docx blocks (fallback: concept_map)."""
+    out = {}
+    for b in (blocks or []):
+        try:
+            q = str(b.qnum)
+        except AttributeError:
+            continue
+        opts = []
+        for p in getattr(b, 'paras', []):
+            t = para_text(p)
+            if OPT_LABEL_RE.match(t):
+                opts.append(OPT_LABEL_RE.sub('', t, count=1).strip())
+        stem = re.split(r'\bCorrect\s+Answer\b|⬛|\bExplanation\s*:', block_stem_text(b) or '', maxsplit=1, flags=re.I)[0]
+        out[q] = {'stem_text': stem.strip(), 'option_texts': opts}     # never the key / explanation text
+    for q, e in _qq_cm(src).items():
+        if isinstance(e, dict) and str(q) not in out and (e.get('stem_text') or e.get('stem')):
+            out[str(q)] = {'stem_text': e.get('stem_text') or e.get('stem'), 'option_texts': list(e.get('option_texts') or [])}
+    return out
+
+
+def _nf_subject(src, sid):
+    """The SAME subject key the Blueprint writes targets under (bc.nf_subject_key: manifest section, else the id's
+    section prefix)."""
+    bc = _qq_bc()
+    return bc.nf_subject_key({'subtopic_id': sid}, src.get('manifest') or {})
+
+
+def _nf_grader_meta(e):
+    """{'class', 'computation_generic', 'concept'} measured by the two fresh blind graders — concept_map
+    [q]['grader_meta'] = {'grader_1': {...}, 'grader_2': {...}} (MockTestCreate S0-NF-8). A value counts when
+    both graders agree; with one grader present, that grader's value. {} when nothing was recorded."""
+    gm = e.get('grader_meta') if isinstance(e, dict) else None
+    if not isinstance(gm, dict):
+        return {}
+    g1 = gm.get('grader_1') if isinstance(gm.get('grader_1'), dict) else {}
+    g2 = gm.get('grader_2') if isinstance(gm.get('grader_2'), dict) else {}
+    out = {}
+    for k in ('class', 'computation_generic', 'concept'):
+        a, b = g1.get(k), g2.get(k)
+        if a is not None and b is not None:
+            if a == b:
+                out[k] = a
+        elif a is not None or b is not None:
+            out[k] = a if a is not None else b
+    return out
+
+
+def _nf_key_text(src, q, opts):
+    """The key option's delivered text (1-based sidecar key via _qq_key_index), else the key / NAT value itself."""
+    if opts:
+        k = _qq_key_index(src, q, len(opts))
+        if k is not None:
+            return opts[k]
+    v = (src.get('answers') or {}).get(str(q))
+    return None if isinstance(v, (list, dict)) or v is None or opts else str(v)
+
+
+def gate_alloc(src):
+    """A-ALLOC (F-01 / F-08) — delivered subtopic ids (concept_map, validated against the manifest) rolled up to
+    subject and topic per Part vs this mock's blueprint allocation. A subtopic id outside the manifest is
+    itself a finding (tags are ids)."""
+    bc = _qq_bc()
+    me = _nf_mock_entry(src)
+    cm = _qq_cm(src)
+    man = src.get('manifest') or {}
+    if not me or not cm or not (man.get('subtopics') if isinstance(man, dict) else None) or src.get('through_q'):
+        _ok('A-ALLOC', 'dormant — no blueprint allocation, concept_map or manifest (or partial-paper mode).')
+        return
+    part = _nf_part_of(src)
+    bad_ids = [q for q, e in cm.items() if isinstance(e, dict) and e.get('subtopic_id')
+               and e['subtopic_id'] not in man['subtopics']]
+    for q in bad_ids:
+        _item('A-ALLOC', q, f"A-ALLOC: subtopic {cm[q]['subtopic_id']!r} is not a manifest id (F-08 tags are ids) — re-tag through the crosswalk", 'VOID_ITEM')
+    msgs = []
+    for sec in (me.get('sections') or []):
+        name = sec.get('section_name')
+        alloc = {}
+        for sa in (sec.get('subtopic_allocations') or []):
+            if isinstance(sa, dict) and sa.get('subtopic_id'):
+                alloc[sa['subtopic_id']] = alloc.get(sa['subtopic_id'], 0) + int(sa.get('q_count') or 0)
+        dl = {q: e.get('subtopic_id') for q, e in cm.items()
+              if isinstance(e, dict) and part.get(str(q)) == name and e.get('subtopic_id')}
+        r = bc.alloc_conformance(dl, alloc, man)
+        if r.get('status') != 'FAIL':
+            continue
+        msgs.append(f"{name}: subject " + ', '.join(f'{s} {d} vs {a}' for s, (d, a) in sorted(r['subject'].items()))
+                    + ('; topic ' + ', '.join(f'{t} {d} vs {a}' for t, (d, a) in sorted(r['topic'].items())) if r['topic'] else ''))
+        for q in r.get('off_qs') or []:
+            _item('A-ALLOC', q, f'A-ALLOC: Q{q} sits on an over-filled subtopic; re-author it to the allocated subtopic of this Part', 'VOID_ITEM')
+    if msgs or bad_ids:
+        _nf_verdict('A-ALLOC', 'delivered vs allocated (delivered vs allocated): ' + _flist(msgs or ['non-manifest subtopic ids']), src)
+    else:
+        _ok('A-ALLOC', 'delivered subject / topic / subtopic counts equal the blueprint allocation in every Part.')
+
+
+def gate_axis2_nf(src, blocks):
+    """A-AXIS2 (F-03, v2.41) — per subject x Part: each delivered item's ask format RE-MEASURED with
+    figure_types.normalise_ask_format (the measure PYQExplain wrote on every PYQ record; bc.nf_measure_axis2)
+    vs blueprint format_target_per_mock[mock][part][subject]. Without the new field the legacy paper-wide WARN
+    gate runs instead (one release of overlap)."""
+    bc = _qq_bc()
+    bp = src.get('bp') or src.get('blueprint') or {}
+    mk = str(src.get('_mockN') or src.get('mock_n') or '')
+    ft = ((bp.get('format_target_per_mock') or {}).get(mk) or (bp.get('format_target_per_mock') or {}).get(int(mk) if mk.isdigit() else mk)) \
+        if isinstance(bp.get('format_target_per_mock'), dict) else None
+    if not ft:
+        return gate_axis2(src)
+    cm = _qq_cm(src)
+    if not cm or src.get('through_q'):
+        _ok('A-AXIS2', 'dormant — no concept_map or partial-paper mode.')
+        return
+    try:
+        import figure_types as _ft41                    # the SAME measure PYQExplain wrote on every PYQ (D-06)
+        _cls41 = _ft41.normalise_ask_format
+    except Exception:                                   # noqa: BLE001 — engine absent: the legacy WARN gate
+        return gate_axis2(src)
+    part, tx = _nf_part_of(src), _nf_texts(src, blocks)
+    meas = {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        f = bc.nf_measure_axis2(tx.get(str(q)) or e, _cls41)
+        if f is None:
+            continue
+        s = _nf_subject(src, e.get('subtopic_id'))
+        c = meas.setdefault(part.get(str(q)), {}).setdefault(s, {})
+        c[f] = c.get(f, 0) + 1
+    short = []
+    for p, subs in ft.items():
+        for s, tg in (subs or {}).items():
+            r = bc.nf_parity((meas.get(p) or {}).get(s) or {}, tg)
+            if r['status'] == 'FAIL':
+                short.append(f"{p}/{s}: " + ', '.join(f'{k} short {n}' for k, n in sorted(r['short'].items())))
+    if short:
+        _nf_verdict('A-AXIS2', 'Format parity: short (measured, per subject x Part): ' + _flist(short), src)
+    else:
+        _ok('A-AXIS2', 'measured formats meet every subject x Part target.')
+
+
+def _ft_af(stem, opts):
+    try:
+        import figure_types as _ft41
+        return _ft41.normalise_ask_format(stem, opts)
+    except Exception:                                   # noqa: BLE001
+        return 'direct'
+
+
+def gate_optpart(src, blocks):
+    """A-OPTPART (F-05) — per subject x Part, the share of multi-part items whose MIP = 1 must not exceed the
+    exam's PYQ share (blueprint mip1_share[part][subject]). MIP is recomputed here from the delivered stem,
+    options and key (bc.nf_item_mip — multi-part items only); unparseable options are exempt and counted."""
+    bc = _qq_bc()
+    bp = src.get('bp') or src.get('blueprint') or {}
+    shares = bp.get('mip1_share') if isinstance(bp.get('mip1_share'), dict) else None
+    cm = _qq_cm(src)
+    if not shares or not cm:
+        _ok('A-OPTPART', 'dormant — no PYQ MIP share in the blueprint or no concept_map.')
+        return
+    part, tx = _nf_part_of(src), _nf_texts(src, blocks)
+    cells = {}
+    for q, e in cm.items():
+        if not isinstance(e, dict) or str(e.get('qtype') or 'mcq').lower() != 'mcq':
+            continue
+        t = tx.get(str(q)) or {}
+        stem, opts = str(t.get('stem_text') or ''), list(t.get('option_texts') or [])
+        af = _ft_af(stem, opts)
+        if 'respectively' not in stem.lower() and af not in ('statement', 'combination', 'match', 'sequence'):
+            continue                                    # not a multi-part item (F-05)
+        ki = _qq_key_index(src, q, len(opts)) if opts else None
+        mip = bc.nf_item_mip(stem, opts, ki + 1, af) if ki is not None else None
+        cells.setdefault((part.get(str(q)), _nf_subject(src, e.get('subtopic_id'))), []).append({'q': q, 'mip': mip})
+    bad, exempt = [], 0
+    for (p, s), its in sorted(cells.items(), key=lambda kv: str(kv[0])):
+        r = bc.mip_share_check(its, ((shares.get(p) or {}).get(s)))
+        exempt += r.get('exempt', 0)
+        if r['status'] == 'FAIL':
+            bad.append(f"{p}/{s}: MIP=1 {r['mip1']} of {r['n']} > allowed {r['allowed']}")
+            for q in r['qs']:
+                _item('A-OPTPART', q, f'A-OPTPART: one part of Q{q} identifies the key — regenerate distractors so the key needs more parts (band and stem kept)', 'VOID_ITEM')
+    if bad:
+        _nf_verdict('A-OPTPART', 'one-part-decidable items above the exam\'s PYQ share: ' + _flist(bad)
+                    + (f' ({exempt} unparseable item(s) exempt)' if exempt else ''), src)
+    else:
+        _ok('A-OPTPART', f'MIP = 1 share within the PYQ share in every subject x Part ({exempt} unparseable exempt).')
+
+
+def gate_intradup(src, blocks):
+    """A-INTRADUP (F-07) — no two items of one paper share a text fingerprint (same template + asked quantity)
+    or an organic key structure. The LATER item is re-authored (same subtopic, same band)."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    tx = _nf_texts(src, blocks)
+    if not tx or not cm:
+        _ok('A-INTRADUP', 'dormant — no item text or concept_map.')
+        return
+    items = []
+    for q in sorted(tx, key=lambda x: int(x) if str(x).isdigit() else 0):
+        e = cm.get(q) or {}
+        items.append(dict(q=q, stem_text=tx[q].get('stem_text'), subtopic_id=e.get('subtopic_id'),
+                          organic=e.get('organic'), key_smiles=e.get('key_smiles'),
+                          concept=_nf_grader_meta(e).get('concept'), named_concepts=e.get('named_entities') or []))
+    pairs = bc.intra_paper_duplicates(items)
+    for a, b, why in pairs:
+        _item('A-INTRADUP', b, f'A-INTRADUP: Q{b} repeats Q{a} ({why}) — re-author Q{b} in the same slot', 'VOID_ITEM')
+    if pairs:
+        _nf_verdict('A-INTRADUP', 'within-paper repeats: ' + _flist([f'Q{a}/Q{b}' for a, b, _w in pairs]), src)
+    else:
+        _ok('A-INTRADUP', 'no two items share a template or a key structure.')
+
+
+def gate_keyleak(src, blocks):
+    """A-KEYLEAK (F-07) — an item's key value printed as given data in another item's stem or options. The
+    later item's dataset is changed. Trivial values and the exam's common PYQ constants are exempt."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    tx = _nf_texts(src, blocks)
+    if not tx or not cm:
+        _ok('A-KEYLEAK', 'dormant — no item text or concept_map.')
+        return
+    items = []
+    for q, t in tx.items():
+        opts = list(t.get('option_texts') or [])
+        items.append(dict(q=q, stem_text=t.get('stem_text'), option_texts=opts, key_text=_nf_key_text(src, q, opts)))
+    stems = [str(x) for x in (src.get('pyq_stems') or [])]
+    if not stems:                                       # EC-27 — the exam's own PYQ stems (difficulty profile snippets)
+        for _p in ((src.get('profile') or {}).get('papers') or {}).values():
+            for _r in ((_p or {}).get('questions') or {}).values():
+                if isinstance(_r, dict) and _r.get('stem_snippet'):
+                    stems.append(str(_r['stem_snippet']))
+    leaks = bc.key_leak_check(items, stems)
+    for a, b, v in leaks:
+        _item('A-KEYLEAK', b, f'A-KEYLEAK: Q{b} prints {v}, the key of Q{a} — change Q{b}\'s dataset', 'VOID_ITEM')
+    if leaks:
+        _nf_verdict('A-KEYLEAK', 'answer leaks across items: ' + _flist([f'Q{a} key in Q{b}' for a, b, _v in leaks]), src)
+    else:
+        _ok('A-KEYLEAK', 'no key value is printed in another item.')
+
+
+def gate_classmix(src):
+    """A-CLASSMIX (F-10) — per subject x Part, the class (C-FACTUAL / C-COMPUTATIONAL / ...) and the
+    computation_generic flag measured by the two fresh blind graders (concept_map[q].grader_meta, agreement
+    counted) vs blueprint class_target_per_mock. The author's own class is never counted."""
+    bc = _qq_bc()
+    bp = src.get('bp') or src.get('blueprint') or {}
+    mk = str(src.get('_mockN') or src.get('mock_n') or '')
+    ct = ((bp.get('class_target_per_mock') or {}).get(mk) or {}) if isinstance(bp.get('class_target_per_mock'), dict) else {}
+    cm = _qq_cm(src)
+    if not ct or not cm:
+        _ok('A-CLASSMIX', 'dormant — no class targets in the blueprint (run the PYQ back-fill) or no concept_map.')
+        return
+    part = _nf_part_of(src)
+    if not any(_nf_grader_meta(e) for e in cm.values() if isinstance(e, dict)):
+        _ok('A-CLASSMIX', 'dormant — no blind-grader class record (grader_meta) on this paper.')
+        return
+    meas = {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        g = _nf_grader_meta(e)
+        c, cg = g.get('class'), g.get('computation_generic')
+        cell = meas.setdefault(part.get(str(q)), {}).setdefault(_nf_subject(src, e.get('subtopic_id')), {})
+        if c:
+            cell[c] = cell.get(c, 0) + 1
+        if cg is True:
+            cell['computation_generic'] = cell.get('computation_generic', 0) + 1
+    over = []
+    for p, subs in ct.items():
+        for s, tg in (subs or {}).items():
+            m = (meas.get(p) or {}).get(s) or {}
+            r = bc.nf_parity(m, {k: v for k, v in tg.items() if k != 'computation_generic'})
+            gen_t = tg.get('computation_generic')
+            if r['status'] == 'FAIL':
+                over.append(f"{p}/{s}: short " + ', '.join(f'{k} {n}' for k, n in sorted(r['short'].items())))
+            if isinstance(gen_t, int) and m.get('computation_generic', 0) > gen_t:
+                over.append(f"{p}/{s}: generic computation {m['computation_generic']} > {gen_t}")
+    if over:
+        _nf_verdict('A-CLASSMIX', 'question-class mix off target (measured by the blind graders): ' + _flist(over), src)
+    else:
+        _ok('A-CLASSMIX', 'question-class mix meets every subject x Part target.')
+
+
+def gate_subjband(src):
+    """A-SUBJBAND (F-11, amendment A) — per subject x Part, the bands measured by the two fresh blind graders
+    vs blueprint subject_band_target_per_mock (the Part's band counts split by each subject's PYQ mix)."""
+    bc = _qq_bc()
+    bp = src.get('bp') or src.get('blueprint') or {}
+    mk = str(src.get('_mockN') or src.get('mock_n') or '')
+    tg = ((bp.get('subject_band_target_per_mock') or {}).get(mk) or {}) if isinstance(bp.get('subject_band_target_per_mock'), dict) else {}
+    cm = _qq_cm(src)
+    if not tg or not cm:
+        _ok('A-SUBJBAND', 'dormant — no per-subject band targets in the blueprint or no concept_map.')
+        return
+    part = _nf_part_of(src)
+    if not any(isinstance(e, dict) and isinstance(e.get('grades'), dict) and e['grades'].get('grader_1')
+               for e in cm.values()):
+        _ok('A-SUBJBAND', 'dormant — no blind grades recorded on this paper.')
+        return
+    meas = {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        g = e.get('grades') if isinstance(e.get('grades'), dict) else {}
+        b1, b2 = g.get('grader_1'), g.get('grader_2')
+        b1 = b1.get('band') if isinstance(b1, dict) else b1
+        b2 = b2.get('band') if isinstance(b2, dict) else b2
+        if not b1 or b1 != b2:
+            continue
+        cell = meas.setdefault(part.get(str(q)), {}).setdefault(_nf_subject(src, e.get('subtopic_id')), {})
+        cell[b1] = cell.get(b1, 0) + 1
+    diffs = []
+    for p, subs in tg.items():
+        r = bc.band_mix_check(meas.get(p) or {}, subs)
+        if r['status'] == 'FAIL':
+            diffs.append(f"{p}: " + '; '.join(f"{s} " + ', '.join(f'{b} {m}/{t}' for b, (m, t) in sorted(d.items()))
+                                             for s, d in sorted(r['diff'].items())))
+    if diffs:
+        _nf_verdict('A-SUBJBAND', 'band mix per subject off target (measured/target): ' + _flist(diffs), src)
+    else:
+        _ok('A-SUBJBAND', 'every subject carries its own PYQ band mix in every Part.')
+
+
+def gate_stemfig(src):
+    """A-STEMFIG (F-09) — every structure figure: stem-figure claims (linear / bent, cis / trans, oxidation state)
+    against the figure spec, and the drawing convention for metals / charged species (no metal formal charge,
+    no ligand charges, dative arrows only when the exam's PYQ figures use them). concept_map[q].figures[i]
+    must carry 'spec' (atoms with 2-D coordinates)."""
+    bc = _qq_bc()
+    cm = _qq_cm(src)
+    sp = ((src.get('style_profile') or {}).get('FIGURE_STYLE_PROFILE') or {}) if isinstance(src.get('style_profile'), dict) else {}
+    n, bad = 0, []
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        for f in (e.get('figures') or []):
+            spec = f.get('spec') if isinstance(f, dict) else None
+            if not isinstance(spec, dict):
+                continue
+            n += 1
+            sc = bc.stem_figure_consistency(e.get('stem_text') or '', spec)
+            conv = bc.metal_figure_convention(spec, sp)
+            why = list(sc.get('contradictions') or []) + conv
+            if why:
+                bad.append(f'Q{q}')
+                _item('A-STEMFIG', q, 'A-STEMFIG: ' + '; '.join(why) + ' — re-render, then replace', 'VOID_ITEM')
+    if not n:
+        _ok('A-STEMFIG', 'dormant — no figure spec recorded on this paper.')
+    elif bad:
+        _nf_verdict('A-STEMFIG', 'figure contradicts its stem or breaks the drawing convention: ' + _flist(bad), src)
+    else:
+        _ok('A-STEMFIG', f'{n} figure spec(s) agree with their stems and the drawing convention.')
+
+
 def _qq_concept_caps(src, n_items):
     """{concept_id: cap} measured from the difficulty profile's per-item `concept` tags:
     per paper, count each concept; cap = bc.template_cap(max count, n_items, mean items
@@ -6297,7 +6711,15 @@ def run_audit(args):
     _safe_gate('A-LEVEL', gate_level, src)                   # v2.37 WARN-only — independent level re-measure (S3)
     _safe_gate('A-FIGCOMPLEX', gate_figcomplex, src)         # v2.37 WARN-only — figure complexity vs PYQ p50
     _safe_gate('A-CLOSENESS', gate_closeness, src)           # v2.37 WARN-only — top-band option closeness
-    _safe_gate('A-AXIS2', gate_axis2, src)                   # v2.37 WARN-only — ask-format / s2 shape floors (G4)
+    _safe_gate('A-AXIS2', gate_axis2_nf, src, blocks)        # v2.41 per subject x Part, MEASURED (legacy WARN gate without targets)
+    # ── v2.41 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (Cluster NF; repair -> AMBER, never a stop) ──
+    _safe_gate('A-ALLOC', gate_alloc, src)                    # F-01 / F-08 delivered vs allocated
+    _safe_gate('A-OPTPART', gate_optpart, src, blocks)        # F-05 MIP = 1 share
+    _safe_gate('A-INTRADUP', gate_intradup, src, blocks)      # F-07 within-paper template repeats
+    _safe_gate('A-KEYLEAK', gate_keyleak, src, blocks)        # F-07 cross-item answer leak
+    _safe_gate('A-CLASSMIX', gate_classmix, src)              # F-10 question-class mix
+    _safe_gate('A-SUBJBAND', gate_subjband, src)              # F-11 band mix per subject
+    _safe_gate('A-STEMFIG', gate_stemfig, src)                # F-09 stem-figure + drawing convention
     _safe_gate('A-CERT', gate_cert, src, args)               # S13-4c — certified docx unchanged
     # ── v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decisions OD-1..OD-14) ──
     _safe_gate('A-READINESS', gate_readiness, src)            # advisory (OD-1) — DEGRADED list
@@ -6415,11 +6837,11 @@ def gate_contentlevel(src):
         dec = r.get('decision')
         why = None
         if dec not in ('agree', 'accept_measured', 'carried_below', 'dl_agree', 'dl_dr3', 'dl_swap', 'dl_forced', 'dl_held',
-                       'dl_measured_exact', 'dl_last_resort'):          # v2.40: the LB2 decisions
+                       'dl_measured_exact', 'dl_last_resort', 'dl_measured_majority'):   # v2.40 / v2.41 BV1: the LB2 decisions
             why = f'decision {dec!r} unresolved'
         elif r.get('ccp_status') == 'below' and dec not in ('accept_measured', 'carried_below', 'dl_agree', 'dl_dr3',
                                                             'dl_swap', 'dl_forced', 'dl_held',
-                                                            'dl_measured_exact', 'dl_last_resort'):
+                                                            'dl_measured_exact', 'dl_last_resort', 'dl_measured_majority'):
             why = 'content measured below its band and not repaired'
         elif lab is not None and r.get('final_band') not in (None, lab):
             why = f"label {lab!r} != final band {r.get('final_band')!r}"
@@ -6848,7 +7270,7 @@ def gate_qindex(src):
             return None
         _floor_bad = []
         _lb2r7 = lambda x: (isinstance(x.get('difficulty_check'), dict)
-                            and ((x['difficulty_check'].get('label_basis') or {}).get('kind') in ('measured_exact', 'last_resort')
+                            and ((x['difficulty_check'].get('label_basis') or {}).get('kind') in ('measured_exact', 'last_resort', 'measured_majority')
                                  or x['difficulty_check'].get('lb_rule') == 'LB2'
                                  or (x['difficulty_check'].get('label_basis') or {}).get('rule') == 'LB2'))
         for x in qs:
@@ -8956,7 +9378,9 @@ def self_test():
         _cb_rows = [{'difficulty': 'Easy'}, {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Hard'}},
                     {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'dr3_basis': {'target': 'Hard'}, 'scheduled': 'Easy'}},
                     {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3'}}, {'difficulty': 'Hard', 'difficulty_check': {'dl_rung': 'FORCED'}},
-                    {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Nope'}}, None, 7, {'difficulty_check': 'x'}]
+                    {'difficulty': 'Medium', 'difficulty_check': {'dl_rung': 'DR3', 'scheduled': 'Nope'}}, None, 7, {'difficulty_check': 'x'},
+                    {'difficulty': 'Medium', 'difficulty_check': {'label_basis': {'kind': 'measured_majority', 'target': 'Hard'}}},
+                    {'difficulty': 'Easy', 'difficulty_check': {'label_basis': {'kind': 'last_resort', 'target': 'Medium'}}}]
         import blueprint_core as _bc_cb
         check('v239-QINDEX-COUNT-BAND-PARITY-bc-equals-pp',
               all(_bc_cb.qindex_count_band(r, ['Easy', 'Medium', 'Hard']) == _pp_q.qindex_count_band(r, ['Easy', 'Medium', 'Hard'])
@@ -12969,7 +13393,8 @@ def self_test():
     check('v237-qq-gate-set-unchanged',
           QQ_GATE_IDS == ('A-OPTDISTINCT', 'A-MEDIAREUSE', 'A-ENTITYLEAK', 'A-STEMLEAK', 'A-STEMFORM',
                           'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
-                          'A-SHAPEMIX', 'A-TEMPLATE')
+                          'A-SHAPEMIX', 'A-TEMPLATE',
+                          'A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND', 'A-STEMFIG')
           and _bc37.QQ_GATE_CONTROL == {'A-TEMPLATE': 'G-TEMPLATE'})
     # A-DGATE: a w2 record with low coverage WARNS (verdict unchanged); a w1 record is silent
     _reset(); gate_dgate({'registry': {'difficulty_gate': {
@@ -13159,6 +13584,83 @@ def self_test():
           [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['WARN'] and 'format match' in _msg('A-AXIS2') and 's2 shape statement' in _msg('A-AXIS2'))
     _reset(); gate_axis2({'blueprint': {}, 'concept_map': _cmA, '_mockN': 1})
     check('v237-A-AXIS2-dormant-without-targets', [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['OK'])
+    # ── v2.41 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY: Cluster NF gates (T-05, T-09, T-12, T-15, T-17, T-19, F-11) ──
+    _manN = {'subtopics': {'ic.m.a': {'display_name': 'MG', 'section': 'Inorganic', 'topic': 'Main'},
+                           'pc.q.b': {'display_name': 'QM', 'section': 'Physical', 'topic': 'Quantum'}}}
+    _bpN = {'mocks': [{'mock': 2, 'sections': [{'section_name': 'Part B', 'q_range': [21, 24],
+             'subtopic_allocations': [{'subtopic_id': 'ic.m.a', 'q_count': 2}, {'subtopic_id': 'pc.q.b', 'q_count': 2}]}]}]}
+    _cmN = {'21': {'subtopic_id': 'ic.m.a'}, '22': {'subtopic_id': 'pc.q.b'}, '23': {'subtopic_id': 'pc.q.b'}, '24': {'subtopic_id': 'pc.q.b'}}
+    _reset(); gate_alloc({'blueprint': _bpN, 'concept_map': _cmN, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-ALLOC-T05-fails-naming-subject', [l for l, c, m in RESULTS if c == 'A-ALLOC'] == ['FAIL']
+          and 'Inorganic 1 vs 2' in _msg('A-ALLOC') and any(f['gate'] == 'A-ALLOC' and f['q'] == '24' for f in ITEM_FINDINGS))
+    _reset(); gate_alloc({'blueprint': _bpN, 'concept_map': _cmN, '_mockN': 2, 'manifest': _manN, 'nf_disclosed': {'A-ALLOC': 'subtopic supply exhausted'}})
+    check('v241-A-ALLOC-disclosed-is-AMBER-not-stop', [l for l, c, m in RESULTS if c == 'A-ALLOC'] == ['WARN'] and 'AMBER' in _msg('A-ALLOC'))
+    _reset(); gate_alloc({'blueprint': {}, 'concept_map': _cmN, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-ALLOC-dormant-D07', [l for l, c, m in RESULTS if c == 'A-ALLOC'] == ['OK'] and 'dormant' in _msg('A-ALLOC'))
+    _cmF = {'21': {'subtopic_id': 'ic.m.a', 'ask_format': 'match', 'stem_text': 'What is the oxidation state of Fe in the complex?',
+                   'option_texts': ['+1', '+2', '+3', '+4']}}
+    _bpF = dict(_bpN, format_target_per_mock={'2': {'Part B': {'Inorganic': {'match': 1, 'direct': 0}}}})
+    _reset(); gate_axis2_nf({'blueprint': _bpF, 'concept_map': _cmF, '_mockN': 2, 'manifest': _manN}, [])
+    check('v241-A-AXIS2-T09-measured-not-author-tag', [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['FAIL'] and 'match short 1' in _msg('A-AXIS2'))
+    _cmF2 = {'21': {'subtopic_id': 'ic.m.a', 'stem_text': 'Match List-I with List-II. List-I: A. [Fe(CN)6]4- B. [CoF6]3- List-II: (i) low spin (ii) high spin',
+                    'option_texts': ['A-(i), B-(ii)', 'A-(ii), B-(i)', 'A-(i), B-(i)', 'A-(ii), B-(ii)']}}
+    _reset(); gate_axis2_nf({'blueprint': _bpF, 'concept_map': _cmF2, '_mockN': 2, 'manifest': _manN}, [])
+    check('v241-A-AXIS2-conformant-passes', [l for l, c, m in RESULTS if c == 'A-AXIS2'] == ['OK'])
+    _cmO = {'61': {'subtopic_id': 'ic.m.a', 'stem_text': 'The shapes of ClF3, IF7 and SF4 are, respectively',
+                   'option_texts': ['T-shaped, pentagonal bipyramidal, see-saw', 'T-shaped, square pyramidal, see-saw',
+                                    'trigonal planar, capped octahedral, tetrahedral', 'trigonal planar, square pyramidal, see-saw']},
+            '62': {'subtopic_id': 'ic.m.a', 'stem_text': 'The numbers of bridging CO in A, B and C are, respectively',
+                   'option_texts': ['0, 0, 0', '3, 0, 0', '3, 3, 0', '3, 3, 3']}}
+    _bpO = dict(_bpN, mip1_share={'Part C': {'Inorganic': 0.0}}, mocks=[{'mock': 2, 'sections': [{'section_name': 'Part C', 'q_range': [61, 62]}]}])
+    _reset(); gate_optpart({'blueprint': _bpO, 'concept_map': _cmO, 'answers': {'61': 1, '62': 3}, '_mockN': 2, 'manifest': _manN}, [])
+    check('v241-A-OPTPART-T12-1based-sidecar-key', [l for l, c, m in RESULTS if c == 'A-OPTPART'] == ['FAIL']
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-OPTPART'] == ['61'])
+    _reset(); gate_optpart({'blueprint': dict(_bpO, mip1_share={'Part C': {'Inorganic': 0.5}}), 'concept_map': _cmO,
+                            'answers': {'61': 1, '62': 3}, '_mockN': 2, 'manifest': _manN}, [])
+    check('v241-A-OPTPART-within-share-passes', [l for l, c, m in RESULTS if c == 'A-OPTPART'] == ['OK'])
+    _cmD = {'49': {'subtopic_id': 'pc.q.b', 'stem_text': 'For x = 1, 2, 3, 4, 5 and y = 2.1, 3.9, 6.2, 8.1, 9.8 calculate the slope of the least squares line.'},
+            '88': {'subtopic_id': 'pc.q.b', 'stem_text': 'For x = 1, 2, 3, 4, 5 and y = 1.1, 2.0, 2.8, 4.2, 5.1 calculate the slope of the least squares line.'},
+            '41': {'subtopic_id': 'pc.q.b', 'stem_text': 'Find the limiting molar conductivity (in S cm2 mol-1) of acetic acid.',
+                   'option_texts': ['349.8', '390.7', '426.2', '91.0']},
+            '96': {'subtopic_id': 'pc.q.b', 'stem_text': 'The limiting molar conductivity of acetic acid is 390.7 S cm2 mol-1. Find the degree of dissociation.',
+                   'option_texts': ['0.012', '0.021', '0.12', '0.21']},
+            '53': {'subtopic_id': 'pc.q.b', 'stem_text': 'Orbital angular momentum magnitude of a 3d electron is',
+                   'grader_meta': {'grader_1': {'concept': 'am_magnitude'}, 'grader_2': {'concept': 'am_magnitude'}}},
+            '112': {'subtopic_id': 'pc.q.b', 'stem_text': 'Spin angular momentum magnitude of a triplet molecule is',
+                    'grader_meta': {'grader_1': {'concept': 'am_magnitude'}, 'grader_2': {'concept': 'am_magnitude'}}}}
+    _reset(); gate_intradup({'concept_map': _cmD}, [])
+    check('v241-A-INTRADUP-T15-template-and-grader-concept', [l for l, c, m in RESULTS if c == 'A-INTRADUP'] == ['FAIL']
+          and sorted(f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-INTRADUP') == ['112', '88'])
+    _reset(); gate_keyleak({'concept_map': _cmD, 'answers': {'41': 2, '96': 1}}, [])
+    check('v241-A-KEYLEAK-T15-1based-sidecar-key', [l for l, c, m in RESULTS if c == 'A-KEYLEAK'] == ['FAIL']
+          and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-KEYLEAK'] == ['96'])
+    _reset(); gate_keyleak({'concept_map': _cmD, 'answers': {'41': 1, '96': 1}}, [])
+    check('v241-A-KEYLEAK-other-key-clean', [l for l, c, m in RESULTS if c == 'A-KEYLEAK'] == ['OK'])
+    _cmC = {str(60 + i): {'subtopic_id': 'ic.m.a', 'grades': {'grader_1': 'Easy', 'grader_2': 'Easy', 'recipe': True},
+                          'grader_meta': {'grader_1': {'class': 'C-COMPUTATIONAL', 'computation_generic': True},
+                                          'grader_2': {'class': 'C-COMPUTATIONAL', 'computation_generic': True}}}
+            for i in range(1, 13)}
+    _bpC = {'class_target_per_mock': {'2': {'Part C': {'Inorganic': {'C-COMPUTATIONAL': 12, 'computation_generic': 1}}}},
+            'subject_band_target_per_mock': {'2': {'Part C': {'Inorganic': {'Easy': 2, 'Medium': 7, 'Hard': 3}}}},
+            'mocks': [{'mock': 2, 'sections': [{'section_name': 'Part C', 'q_range': [61, 72]}]}]}
+    _reset(); gate_classmix({'blueprint': _bpC, 'concept_map': _cmC, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-CLASSMIX-T19-real-grader-record', [l for l, c, m in RESULTS if c == 'A-CLASSMIX'] == ['FAIL']
+          and 'generic computation 12 > 1' in _msg('A-CLASSMIX'))
+    _reset(); gate_classmix({'blueprint': _bpC, 'concept_map': {k: {kk: vv for kk, vv in v.items() if kk != 'grader_meta'}
+                                                                 for k, v in _cmC.items()}, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-CLASSMIX-dormant-without-grader-meta', [l for l, c, m in RESULTS if c == 'A-CLASSMIX'] == ['OK']
+          and 'dormant' in _msg('A-CLASSMIX'))
+    _reset(); gate_subjband({'blueprint': _bpC, 'concept_map': _cmC, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-SUBJBAND-F11-string-grades', [l for l, c, m in RESULTS if c == 'A-SUBJBAND'] == ['FAIL'] and 'Easy 12/2' in _msg('A-SUBJBAND'))
+    _cmC2 = {str(60 + i): {'subtopic_id': 'ic.m.a', 'grades': {'grader_1': b, 'grader_2': b}}
+             for i, b in enumerate(['Easy'] * 2 + ['Medium'] * 7 + ['Hard'] * 3, start=1)}
+    _reset(); gate_subjband({'blueprint': _bpC, 'concept_map': _cmC2, '_mockN': 2, 'manifest': _manN})
+    check('v241-A-SUBJBAND-conformant-passes', [l for l, c, m in RESULTS if c == 'A-SUBJBAND'] == ['OK'])
+    _specS = {'atoms': [{'id': 'fe', 'el': 'Fe', 'x': 0, 'y': 0, 'label': 'Fe2-'}, {'id': 'n', 'el': 'N', 'x': 1, 'y': 0},
+                        {'id': 'o', 'el': 'O', 'x': 1.6, 'y': 0.8}], 'bonds': [['fe', 'n'], ['n', 'o']], 'angle_triples': [['fe', 'n', 'o']]}
+    _reset(); gate_stemfig({'concept_map': {'30': {'stem_text': 'The Fe–N–O unit is linear (176 °); Fe(+2).', 'figures': [{'spec': _specS}]}}})
+    check('v241-A-STEMFIG-T17', [l for l, c, m in RESULTS if c == 'A-STEMFIG'] == ['FAIL']
+          and any('linear' in f['finding'] and 'metal' in f['finding'] for f in ITEM_FINDINGS if f['gate'] == 'A-STEMFIG'))
     _reset(); gate_shapemix({'blueprint': _bpA, 'concept_map': _cmA, '_mockN': 1, 'registry': {}})
     check('v237-A-SHAPEMIX-ignores-s2',
           [l for l, c, m in RESULTS if c == 'A-SHAPEMIX'] == ['OK'] and 'statement' not in _msg('A-SHAPEMIX'))

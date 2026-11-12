@@ -1,23 +1,15 @@
-# Framework_Blueprint v1.64.0 — Universal Mock Test Blueprint Generator
-# v1.64.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core v1.32,
-#   ScopedBlueprint v1.14.0, MockTestCreate v5.92, MockTestAnalyse v2.60.0, audit_canonical
-#   v2.37). §7 S7-0: difficulty_source records mix_rule 'm1' (the full-paper bc.dp_recommend
-#   rule, equal weight per sitting — guard G3: a reader replays the recorded rule, never a
-#   newer one) and prints the DL-20 profile coverage line (record_version-2 / level-vector
-#   coverage, informational). §7-9 (new, informational): the HARD-SUPPLY line
-#   (bc.hard_supply_record — how many in-tier, content-full Hard exemplars the window holds;
-#   advisory, never routed into difficulty_feasibility — guard S7), the per-subtopic
-#   complexity / closeness targets copied from section_rules QUALITY (DL-36) and the
-#   measured top-band share per subtopic (bc.hard_share_by_subtopic — Create S3-12e places
-#   the Hard slots preferentially on subtopics with a share > 0 through
-#   bc.band_subtopic_plan; counts unchanged; falls back to the current spread, DL-33); the
-#   ask-FORMAT floors per paper (axis2_format_floor_per_paper, DL-34 — read by the WARN-only
-#   A-AXIS2, never written into shape_target_per_paper); every §7-8 shape target stamped
-#   shape_rule 's1' (guard G4 — A-SHAPEMIX reads s1 targets only); and level_model_inputs
-#   (DL-21 — the scope / window / mix rule Create S3 and A-LEVEL both build the level model
-#   from). --refresh writes the §7-9 fields the same way as the §7-8 ones. The CONFIRM
-#   dialogue for typed overrides is unchanged; no new CONFIRM, deliverable, end state or
-#   user action.
+# Framework_Blueprint v1.65.0 — Universal Mock Test Blueprint Generator
+# v1.65.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (owner decisions D-01..D-08 + amendments A-C; paired
+#   with blueprint_core v2.1, analyse_engine v1.6, audit_canonical v2.41, final_assembly v1.17, figure_types v1.4,
+#   MockTestCreate v6.1, ScopedBlueprint v1.15.0, MockTestAnalyse v2.62.0, PYQExplain v2.32, DeliveryFooter v1.46.0).
+#   Measured on CSIR Chemical Sciences Mock 01/02: subject counts per Part drifted (Mock 02 Part B 4 Inorganic / 31
+#   Physical; real 14.7 / 13.7) because §4 allocated per subtopic with no per-mock subject or topic invariant. NEW
+#   §4-1c nested controlled rounding (bc.nested_allocate: subjects per mock -> topics -> subtopics, all margins
+#   exact, even spread and rare / ZP caps kept, relaxations recorded, never a stop); INVARIANTS 9-10; NEW BV-11
+#   (§9-12b); NEW §7-10 NF targets per subject x Part from the exam's own PYQ corpus — format_target_per_mock
+#   (PYQ ask_format, re-measured on delivery), class_target_per_mock (F-10), subject_band_target_per_mock (F-11), mip1_share (F-05),
+#   recipe_by_subject (F-04); the paper count is paper_id-based (F-02); manifest_hash stamped (F-08, amendment B:
+#   the manifest's literal manifest_version is never reused). §14 S14-9 lists the new fields. No hardcoded target. Entry v1.64.0 moved to SPEC_HISTORY.md.
 # MINIMUM COMPANION VERSIONS (v1.41):
 #   corpus_io.py          >= v1.4   — S2-2 loads via load_taxonomy()
 #                                     and asserts assert_taxonomy_lock(). v1.2 adds
@@ -2313,6 +2305,39 @@ for S in pq_subs:
         )
 ```
 
+### S4-1c — PER-MOCK SUBJECT AND TOPIC BALANCE (v1.65.0 — GAP-2026-11-11 F-01; runs after §4-2 and §5, before §4-4)
+
+```
+WHY. §4-2 / §4-5 balance every SUBTOPIC across the series. Low-quota subtopics (quota < N) land in different
+mocks, so one mock's SUBJECT and TOPIC totals drift while the series total stays right (CSIR Mock 02 Part B:
+4 Inorganic, 31 Physical against a real 14.7 / 13.7). This step makes the per-mock subject and topic counts
+part of the allocation itself. Data source: the subtopic quotas §4-2 already computed (ZP slots included);
+subject = manifest `section`, topic = manifest `topic`. Crosswalk / syllabus-change regime (EC-07): the §5.2
+projected weights replace the quota sums; nothing else changes. No new statistic, no hardcoded number.
+
+For every Part p (exam_config section) — independently per Part (EC-06):
+  res = bc.nested_allocate(part_quotas = {subtopic_id: quota incl. ZP slots},
+                           manifest, N_mocks, sec_qs,
+                           fixed = {mock: realised allocation} for REGISTERED mocks (EC-08),
+                           max_per_mock = {sid: cap} from INVARIANT 4 (rare cap) and §5 (ZP: 1 per Part per mock),
+                           subject_of = crosswalk-regime map or None)
+  1. subjects per mock: controlled rounding, each entry in {floor(Q_s/N), ceil(Q_s/N)}, row sums = sec_qs,
+     column sums = Q_s (bc.subject_matrix_round). EC-03 N = 1 -> plain totals; EC-04 Q_s/N < 1 -> 0 or 1 per
+     mock with the series total exact; EC-01 / EC-02 a one-subject Part -> trivially met, topic level applies.
+  2. topics per (subject, mock): controlled rounding with the topic series totals (bc.matrix_round).
+  3. subtopics per (topic, mock): controlled rounding with the subtopic quotas, cell <= ceil(q/N) and <= the
+     rare / ZP cap — so INVARIANT 7 (even spread) and INVARIANT 4 / §5 hold INSIDE the topic budget.
+  4. relaxation order when a level is infeasible (EC-09): topic +-1 in that mock, then subject +-1 in that
+     mock — each recorded in allocation_relaxations[] and printed as one AMBER line in the blueprint delivery.
+     NEVER a stop (D-03).
+  res['subtopic_allocations'] REPLACES the per-mock subtopic counts §4-4 / §4-5 / §4-6 would otherwise place
+  (§4-4 rare pre-schedule and §4-5 coverage pre-pass still run as CHECKS on the result; a window coverage gap
+  is repaired by a topic-budget swap that keeps every margin, else recorded as above).
+  Written: subject_target_per_mock, topic_target_per_mock, allocation_relaxations (§14 S14-9).
+  ScopedBlueprint: the same rounding one level down (topics inside the scoped subject; subtopics inside the
+  scoped topic) — EC-38.
+```
+
 ### S4-8 — Algorithm invariants (must hold at all times)
 
 ```
@@ -2368,6 +2393,14 @@ INVARIANT 8 — Batch coverage (Option C):
     Phase 1 batch-coverage validation (§4-4) → rare subtopics covered
     Phase 0 batch-coverage pre-pass (§4-5) → nonrare subtopics covered
     BV-0A Check 4 (§9-0A) → every declared-uncovered subtopic has a tier-1/2 carrier
+
+INVARIANT 9 — Per-mock subject balance (v1.65.0, F-01):
+  For every mock m, Part p, subject s: realised_s,m == subject_target_per_mock[m][p][s], except the entries
+  recorded in allocation_relaxations[]. Checked by BV-11 (§9-12b) with bc.alloc_invariants.
+
+INVARIANT 10 — Per-mock topic balance (v1.65.0, F-01):
+  For every mock m, Part p, subject s, topic t: realised_t,m == topic_target_per_mock[m][p][s][t], except
+  recorded relaxations. Checked by BV-11.
 ```
 
 ## §5 — ZERO-PYQ ROTATION
@@ -3790,7 +3823,7 @@ for _mk_s1 in _shape_tg.values():                      # v1.64.0 (G4): every tar
         if isinstance(_tg_s1, dict):
             _tg_s1.setdefault('shape_rule', _bc_ask.SHAPE_RULE_LEGACY)
 blueprint['schema_version'] = 2                        # v1.63.0 — Create S3-2e readiness reads it
-blueprint['producer'] = 'Framework_Blueprint v1.64.0'
+blueprint['producer'] = 'Framework_Blueprint v1.65.0'
 
 # §7-9 (v1.64.0 — GAP-2026-11-05-DIFFICULTY-FIDELITY DL-31/33/34/36; guards G4, S7) —
 # LEVEL TARGETS, all INFORMATIONAL or WARN-only consumers; nothing here is routed into
@@ -3881,6 +3914,55 @@ axis_schedule does NOT:        hard-force any per-mock format count. Subtopic al
 Guarantee handling:            'pyq_covered' formats need NO allocation action — Option-C batch
                                coverage already ensures the capable subtopic appears every window.
                                'unsatisfiable' formats are accepted as absent; NEVER fabricated.
+```
+
+### S7-10 — NON-ORGANIC FIDELITY TARGETS PER SUBJECT x PART (v1.65.0 — GAP-2026-11-11 F-02 / F-03 / F-04 / F-05 / F-10 / F-11)
+
+```
+Every target below is computed at run time from the exam's OWN verified PYQ corpus over the recency window,
+carried by blueprint.json and read unchanged by Create and the auditor (D-01, D-05). An empty input makes the
+field empty and its gate DORMANT with one line (D-07). One row per PYQ record:
+  ROWS = bc.nf_pyq_rows(bc.pyq_target_pool(<difficulty profile>), manifest, <band labels>)
+  — part = record['section'] (the exam_config Part name, the same name as the mock's section_name), subject =
+  bc.nf_subject_key (manifest section of subtopic_id), ask_format (PYQExplain, figure_types.normalise_ask_format),
+  class (first tag), computation_generic, band (blind-grade consensus), mip, concept.
+  STM, TTM, RELAX = bc.nf_compose_part_targets({part: <§4-1c nested_allocate result of that Part>}) — the
+  subject_target_per_mock / topic_target_per_mock / allocation_relaxations fields of §14 S14-9.
+The per-paper divisor anywhere is the PAPER count (analyse_engine.paper_key — F-02).
+
+  format_target_per_mock[m][part][subject] = {ask_format: n}
+      bc.nf_targets_per_mock(bc.nf_shares(ROWS, 'ask_format'), STM, residual='direct')
+      — the vocabulary is figure_types.ASK_FORMATS (statement | match | sequence | combination |
+      assertion_reason; direct = residual), the measure the auditor re-applies to every delivered item.
+      — series total per format = share x the subject's series slots, split per mock by controlled rounding,
+      so a format with share x slots < 1 per paper still appears in the right fraction of mocks (EC-13; the
+      int() floor of v1.64.0 dropped it for ever). EC-16: an exam whose PYQs never use a format gets 0.
+      axis2_format_floor_per_paper (v1.64.0) is kept ONE release as the derived paper-wide sum, then retired.
+  class_target_per_mock[m][part][subject] = {class: n, 'computation_generic': n}   (F-10)
+      bc.nf_class_targets_per_mock(ROWS, STM) — classes = the records' `class` (first tag), computation_generic
+      = the count flagged True; EC-36: a profile without them -> empty + one line (the O-BACKFILL fills them).
+  subject_band_target_per_mock[m][part][subject] = {band: n}   (F-11, amendment A)
+      bc.subject_band_split(STM[m][part], the Part's band counts from §7 (UNCHANGED),
+      {s: cell['shares'] for s, cell in bc.nf_shares(ROWS, 'band')[part].items()}) — the Part's Easy / Medium / Hard counts are never changed;
+      they are only distributed so each subject carries its OWN past mix (the Easy slots can no longer pile
+      onto one subject while another takes the Hard ones).
+  mip1_share[part][subject] = share of the subject's multi-part PYQ items whose MIP = 1   (F-05)
+      bc.nf_mip1_share(ROWS) over records carrying mip (PYQExplain v2.32 / O-BACKFILL); records without it are
+      exempt, a cell with none is absent (A-OPTPART dormant there). The paper's MIP = 1 share may not exceed this.
+  recipe_by_subject = bc.build_recipe_by_subject(bc.pyq_target_pool(<difficulty profile>), <band labels>,
+      manifest=manifest)   (F-04 — keyed by manifest section; cascade subject -> exam -> library; a band with
+      no anchors anywhere is 'dormant', never a pass — EC-21 / EC-22).
+      Amendment C: a subject whose recipe is not monotone in the band (bc.recipe_monotone False — the graders
+      did not discriminate) borrows the exam-level recipe and prints one AMBER line; when the optional
+      <EXAM>_expert_grades.json sample exists, bc.calibrate_pyq_grades runs first and, if its agreement with the
+      blind grades is below C_NF_CALIB_AGREE, the STRICTER grade of each sampled record is used (AMBER line).
+  manifest_hash = bc.manifest_hash(manifest)   (F-08 — sha256 of the sorted (id, normalised display name)
+      list; written as manifest_hash, NEVER as manifest_version, which an exam manifest already carries as a
+      literal string).
+
+Print: "§7-10: format / class / band-by-subject targets for mocks a..b; MIP=1 shares; recipe by subject
+(<k> subjects, <d> dormant bands); manifest_hash <first 12>". --refresh writes these fields for UNREGISTERED
+mocks only (registered mocks keep their targets — the bp_refresh rule).
 ```
 
 ## §8 — BATCH EXECUTION
@@ -5241,6 +5323,16 @@ def bv_axis(blueprint, sections):
 BV-AXIS runs in B3 alongside BV-7/BV-8 (S8-5 final validation). It never blocks delivery on a
 format shortfall — only on a corrupt/missing schedule (a Blueprint bug, not an exam-data issue).
 
+### S9-12b — BV-11: per-mock subject / topic balance (v1.65.0 — GAP-2026-11-11 F-01; runs in B3)
+
+```
+For every mock m and Part p: bc.alloc_invariants(alloc, subject_target_per_mock, topic_target_per_mock,
+manifest) == [] apart from allocation_relaxations[]; bc.bv_unit_check / bc.bv_topic_check now run in EVERY
+regime (they were wired only to the crosswalk regime). A failure re-runs §4-1c for the unregistered mocks
+(bounded by the existing §9-10 failure protocol); unresolved -> AMBER line in the blueprint delivery, never a
+stop. Report line: "BV-11: subject / topic balance — <k> mock(s) exact, <r> recorded relaxation(s)".
+```
+
 ### S9-13 — Validation / test plan for v1.32 FIX A/D/E (DoD, non-blocking documentation)
 
 ```
@@ -6406,7 +6498,7 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "hard_supply"         : {...},                               // v1.64.0 §7-9 DL-31 (bc.hard_supply_record minus 'line'); advisory
   "level_model_inputs"  : {"subtopic_ids": [...], "gap_days": 180, "mix_rule": "m1", "tier": null, "measured_pct": null, "labels": [...]},  // v1.64.0 §7-9 (e) DL-21 — Create S3 / A-LEVEL build the level model from THESE
   "schema_version"      : 2,                                   // v1.63.0 — Create S3-2e readiness; absent = pre-release blueprint
-  "producer"            : "Framework_Blueprint v1.64.0",       // v1.63.0 — which spec version wrote this file
+  "producer"            : "Framework_Blueprint v1.65.0",       // v1.63.0 — which spec version wrote this file
   "difficulty_amendments": [{"mock": 1, "section": "Section A", "from": "Hard", "to": "Medium",
                             "reason": "measured_band"}],   // IN-RUN only — written by MockTestCreate
                                                            // v5.89 ladder R5 (band labels) and S3-2D
@@ -6884,6 +6976,22 @@ Indentation       : 2 spaces
 Key ordering      : as defined in S14-1 to S14-7.
                    Python 3.7+ preserves dict insertion order in json.dumps().
                    Consistent key order across all mocks aids human readability.
+```
+
+### S14-9 — Cluster NF fields (v1.65.0 — GAP-2026-11-11)
+
+```
+subject_target_per_mock       {mock: {part: {subject: int}}}                      §4-1c
+topic_target_per_mock         {mock: {part: {subject: {topic: int}}}}             §4-1c
+allocation_relaxations        [{level, mock?, subject, topic?, delta?, why}]      §4-1c (AMBER)
+format_target_per_mock        {mock: {part: {subject: {ask_format: int}}}}         §7-10 (A-AXIS2)
+class_target_per_mock         {mock: {part: {subject: {class | 'computation_generic': int}}}}  §7-10 (A-CLASSMIX)
+subject_band_target_per_mock  {mock: {part: {subject: {band: int}}}}              §7-10 (A-SUBJBAND)
+mip1_share                    {part: {subject: float}}                            §7-10 (A-OPTPART)
+recipe_by_subject             {subject: {band: {decisions: [lo, hi] | null, source, n}}}  §7-10 (C4)
+manifest_hash                 str (sha256)                                         §7-10 (F-08)
+Readers: MockTestCreate S0-NF, audit_canonical v2.41 Cluster NF gates. An older blueprint without these
+fields runs the v1.64.0 behaviour for its registered mocks; --refresh adds them for unregistered mocks.
 ```
 
 ## §15 — XLS SHEET STRUCTURES  ← LOCKED SPEC — PERMANENT RULES
@@ -7932,4 +8040,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.64.0
+# END OF Framework_Blueprint v1.65.0

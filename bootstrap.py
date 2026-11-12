@@ -266,8 +266,13 @@ ANCHOR_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"
 ANCHOR_LEN = 7
 ANCHOR_EVERY = 8
 RETENTION_WHEN = ("after-read", "before-batch", "after-batch", "before-final")
-WORKER_STATES = ("BATCH_DELIVERED", "FINAL_BATCH_BUILT", "REVIEW_REQUEST",
+# 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): GRADE_REQUEST — the worker hands the fresh blind grader /
+# solver jobs of the batch it is writing to the orchestrator (a worker cannot start sub-agents), BEFORE the
+# batch is delivered; ROTATE — the worker's room is short: its progress is on disk and a FRESH worker continues
+# the same message (never a stop).
+WORKER_STATES = ("BATCH_DELIVERED", "FINAL_BATCH_BUILT", "REVIEW_REQUEST", "GRADE_REQUEST", "ROTATE",
                  "PAPER_DELIVERED", "RETENTION_FAIL", "HARD_STOP")
+WORKER_STATES_NEED_PARTS = ("REVIEW_REQUEST", "GRADE_REQUEST")
 WORKER_STATES_NEED_BLOCK = ("BATCH_DELIVERED", "PAPER_DELIVERED", "HARD_STOP")
 # The orchestrator prints the chat block with --worker-report show. Raised at integration
 # (2026-11-06) from 400 / 30,000: the Final-Assembly response (S4-7 STEP D checklist + audit
@@ -364,14 +369,15 @@ RETENTION_FAIL and stop (the next worker restores the CHECKPOINT).
 {body}
 END EVERY TURN (O3-4): write MTC's chat prints of this turn to the CHAT BLOCK FILE, then run
   python3 bootstrap.py --worker-report write --exam <E> --paper <N> --state <STATE> --batch <K> --of <M> --files "<paths>" --chat-file {home}/<E>_M<N>_chat_block.md
-adding --review-parts "<dir1>,<dir2>" for REVIEW_REQUEST; --files "" when the turn has no
-present_files call. STATE is one of BATCH_DELIVERED, FINAL_BATCH_BUILT, REVIEW_REQUEST,
-PAPER_DELIVERED, RETENTION_FAIL, HARD_STOP. Your final message is the one line:
+adding --review-parts "<dir1>,<dir2>" for REVIEW_REQUEST and GRADE_REQUEST (the job folders); --files ""
+when the turn has no present_files call. STATE is one of BATCH_DELIVERED, FINAL_BATCH_BUILT,
+REVIEW_REQUEST, GRADE_REQUEST, ROTATE, PAPER_DELIVERED, RETENTION_FAIL, HARD_STOP. When your remaining
+room is short, save state and report ROTATE — never a HARD STOP for room. Your final message is the one line:
   WORKER DONE <STATE> batch K of M"""
 
 WORKER_FIRST = """THIS TURN (first worker of the run): read (O3-2), prove (a), then execute MTC for ONE
-response (O3-5): the session start, or one batch; a turn is cut only at FINAL_BATCH_BUILT and
-REVIEW_REQUEST. Prove (b) before authoring and (c) before S4-7 STEP E records the batch."""
+response (O3-5): the session start, or one batch; a turn is cut only at FINAL_BATCH_BUILT,
+REVIEW_REQUEST, GRADE_REQUEST and ROTATE. Prove (b) before authoring and (c) before S4-7 STEP E records the batch."""
 
 WORKER_CONTINUE = """THIS TURN (--continue: the paper is in progress on disk): read (O3-2) and prove (a) first.
 If {home}/<E>_M<N>_batch_state.json does not exist, write nothing and report HARD_STOP with the
@@ -971,8 +977,8 @@ def worker_report_write(a):
         return _refuse(f"chat file {a.chat_file!r} does not exist")
     block = open(a.chat_file, encoding="utf-8", newline="").read() if a.chat_file else ""
     parts_given = [d.strip() for d in (a.review_parts or "").split(",") if d.strip()]
-    if a.state == "REVIEW_REQUEST" and not parts_given:
-        return _refuse("state REVIEW_REQUEST needs --review-parts")
+    if a.state in WORKER_STATES_NEED_PARTS and not parts_given:
+        return _refuse(f"state {a.state} needs --review-parts")
     no_dir = [d for d in parts_given if not os.path.isdir(d)]
     if no_dir:
         return _refuse(f"review part folder(s) do not exist: {no_dir}")
@@ -987,6 +993,11 @@ def worker_report_write(a):
            "chat_block": block,
            "review_parts": parts_given,
            "tokens_note": a.tokens_note, "written": _now()}
+    if a.state == "ROTATE":
+        # 2026.11.11: the orchestrator never opens the BATCH STATE — bootstrap records its sha so two ROTATE
+        # reports with no progress between them are visible (O2-3: handled as RETENTION_FAIL, never a loop)
+        _bsp = os.path.join(home_dir(), f"{a.exam}_M{a.paper}_batch_state.json")
+        rep["progress_sha"] = sha256(_bsp) if os.path.isfile(_bsp) else "none"
     os.makedirs(home_dir(), exist_ok=True)
     with open(_report_path(a.exam, a.paper), "w", encoding="utf-8", newline="") as fh:
         json.dump(rep, fh, indent=2, ensure_ascii=False)
@@ -1020,6 +1031,10 @@ def worker_report_show(a):
         print(f"  {f['path']}  ({f['bytes']} B)")
     if rep["state"] == "REVIEW_REQUEST":
         print(f"REVIEW PARTS: {', '.join(rep['review_parts'])}")
+    if rep["state"] == "GRADE_REQUEST":
+        print(f"GRADE JOBS: {', '.join(rep['review_parts'])}")
+    if rep["state"] == "ROTATE":
+        print(f"PROGRESS: {rep.get('progress_sha', 'none')}")
     block = rep["chat_block"]
     if not block.endswith("\n"):
         block += "\n"
@@ -1834,14 +1849,26 @@ def self_test():
           rc == 2 and rc2 == 0 and rc3 == 2)
     rc_all = [run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch",
                   "0", "--of", "0", "--chat-file", chat, "--state", s_, "--files", "",
-                  *(["--review-parts", tmp] if s_ == "REVIEW_REQUEST" else []))[0]
+                  *(["--review-parts", tmp] if s_ in WORKER_STATES_NEED_PARTS else []))[0]
               for s_ in WORKER_STATES]
     rc_m = run(fx, "--worker-report", "write", "--state", "BATCH_DELIVERED", "--files", "",
                "--chat-file", chat)[0]
     rc_r = run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch", "5",
                "--of", "5", "--chat-file", chat, "--state", "REVIEW_REQUEST", "--files", "")[0]
-    check("worker-report refuses missing --exam/--paper/--batch/--of and a REVIEW_REQUEST "
-          "without review parts", rc_m == 2 and rc_r == 2)
+    rc_g = run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch", "2",
+               "--of", "5", "--chat-file", chat, "--state", "GRADE_REQUEST", "--files", "")[0]
+    check("worker-report refuses missing --exam/--paper/--batch/--of and a REVIEW_REQUEST / GRADE_REQUEST "
+          "without job folders", rc_m == 2 and rc_r == 2 and rc_g == 2)
+    rc_g2, _ = run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch", "2",
+                   "--of", "5", "--chat-file", chat, "--state", "GRADE_REQUEST", "--files", "",
+                   "--review-parts", tmp)
+    rc_gs, out_gs = run(fx, "--worker-report", "show", "--exam", "EXF", "--paper", "1")
+    check("worker-report GRADE_REQUEST shows its job folders",
+          rc_g2 == 0 and rc_gs == 0 and ("GRADE JOBS: " + tmp) in out_gs)
+    rc_rt, _ = run(fx, "--worker-report", "write", "--exam", "EXF", "--paper", "1", "--batch", "2",
+                   "--of", "5", "--chat-file", chat, "--state", "ROTATE", "--files", "")
+    rc_rs, out_rs = run(fx, "--worker-report", "show", "--exam", "EXF", "--paper", "1")
+    check("worker-report ROTATE prints the BATCH STATE progress sha", rc_rt == 0 and rc_rs == 0 and "PROGRESS: " in out_rs)
     check("worker-report accepts --files \"\" (no files) for every state",
           rc_all == [0] * len(WORKER_STATES))
     empty = os.path.join(tmp, "empty.txt")

@@ -1,91 +1,71 @@
-# DEPLOY NOTES — release 2026.11.10 (GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY — every label measured, every exam)
-Over verified production bbc6c14 (2026.11.09); commit once, push main, push main:production.
+# DEPLOY NOTES — release 2026.11.11 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY + GAP-2026-11-11-BATCH-VERIFICATION — every subject, every item measured against the exam's own papers, every question verified in its own batch)
+Over verified production b0db268 (2026.11.10); commit once, push main, push main:production.
 Upload EVERY file below in ONE commit, flat (no folders). A partial upload fails bootstrap for
 every exam (MANIFEST.json / SPEC_MANIFEST.json / SPEC_SECTIONS.json hash every engine and spec).
 
-UPLOAD LIST (26 files = every file that differs from production; none is new):
+UPLOAD LIST (27 files = every file that differs from production; none is new):
 CHANGELOG.md
 DEPLOY_NOTES.md
-Framework_DeliveryFooter.md             (v1.45.0 — §LADDER-OP: schedule as applied, last-resort AMBER line)
-Framework_MockTestCreate.md             (v6.0 — NEW S0-OP; S3 stops -> repairs; CHECK 3c fresh graders; S13-2L/2R SC2; S13-2P)
-Framework_MockTestOrchestrate.md        (v1.2.0 — O6 fresh-context workers; WORKDIR-LOST auto-restart)
-Framework_PYQExplain.md                 (v2.31 — schema 3 Phase B, fail-closed Phase C, §13A-3B BACKFILL)
-LAW_REGISTRY.json                       (+LAW-ORG-1..12; 5 laws amended)
+Framework_Blueprint.md                  (v1.65.0 — NEW §4-1c nested allocation, INVARIANTS 9-10, BV-11, §7-10 NF targets, S14-9)
+Framework_DeliveryFooter.md             (v1.46.0 — NEW §LADDER-NF AMBER lines)
+Framework_MockTestAnalyse.md            (v2.62.0 — §5-NF paper count + crosswalk / manifest_hash; stamps v2.62)
+Framework_MockTestCreate.md             (v6.1 — NEW S0-BV + S4-7 STEP A2 (every question verified in its batch); NEW S0-NF-0..9; C4 for every item; C9 MIP; S13-2P NF measure; S13-4 text series registry)
+Framework_MockTestOrchestrate.md        (v1.3.0 — GRADE_REQUEST / GRADE RETURNED (O3-9), ROTATE)
+Framework_PYQExplain.md                 (v2.32 — decisions / mip / given_in_stem / class / computation_generic / concept on every record)
+Framework_ScopedBlueprint.md            (v1.15.0 — §4-NF one level down)
+LAW_REGISTRY.json                       (+LAW-NF-1..11, +LAW-BV-1..6)
 MANIFEST.json
 SHA256SUMS.txt
-SKILL.md                                (Step 0: DR mirror + project cache failover)
 SPEC_HISTORY.md
 SPEC_MANIFEST.json
 SPEC_SECTIONS.json
-VERSION                                 (2026.11.10)
-analyse_engine.py                       (v1.5)
-audit_canonical.py                      (v2.40)
-audit_sync.py                           (organic_parity_rule, STOP-NEEDS-REPAIR)
-blueprint_core.py                       (v2.0 — Cluster OP)
-bootstrap.py                            (--make-cache)
-corpus_io.py                            (v1.21 — geometry gates, templates, figure proofs)
-figural_core.py                         (v5.97 — native geometry gate, G-ORGPROOF)
-figural_vision.py                       (v3 — fail closed, readback_compare)
-figure_types.py                         (v1.3 — proven projection renderers, 13 convention tags)
-final_assembly.py                       (v1.16 — framework_release stamp, parity / proof gates)
-handshake_audit.py                      (186 checks)
-mocktestframework_SKILL.md              (same Step 0 change as SKILL.md)
+STEP_CONTRACTS.json                     (override floors raised for the seven edited specs)
+VERSION                                 (2026.11.11)
+analyse_engine.py                       (v1.6 — paper_key; stamps v2.62)
+audit_canonical.py                      (v2.41 — A-ALLOC, A-AXIS2 per subject x Part measured, A-OPTPART, A-INTRADUP, A-KEYLEAK, A-CLASSMIX, A-SUBJBAND, A-STEMFIG)
+audit_sync.py                           (nonorganic_fidelity_rule, batch_verification_rule, BV-COVERAGE)
+blueprint_core.py                       (v2.1 — Cluster NF + Cluster BV)
+bootstrap.py                            (worker states GRADE_REQUEST, ROTATE)
+figure_types.py                         (v1.4 — DATA_FIGURE_KINDS + render_data_figure)
+final_assembly.py                       (v1.17 — QINDEX_NF_FIELDS, nf_disclosed, manifest_hash; bv_batch_step = S4-7 STEP A2)
+handshake_audit.py                      (+25 H-BV checks: the whole in-batch chain end to end, 211 checks)
+paper_pipeline.py                       (qindex_count_band mirror: a settled / last-resort row counts at its slot)
+routes.json                             (MockCreate / TestCreate also route figural_vision.py — the in-batch vision read-back)
 
-SKILL CHANGE: SKILL.md Step 0 changed. Re-install / re-sync the mock-test-framework skill in every Claude account
-that runs the framework (the synced skill copy is what a session executes first).
+SKILL CHANGE: none (SKILL.md / mocktestframework_SKILL.md unchanged — no re-sync needed).
 
-OPTIONAL (owner, any time; never required for a run):
-  * FRAMEWORK_MIRROR.txt in an exam project = one line, the HTTPS URL of a distinct mirror (mirror.yml pushes
-    production there when MIRROR_URL / MIRROR_PAT secrets are set). Without it Step 0 skips the mirror.
-  * framework_cache.zip in an exam project = `python3 bootstrap.py --make-cache framework_cache.zip` on a verified
-    clone; used only when GitHub and the mirror are both unreachable; bootstrap re-verifies every hash.
+AFTER DEPLOY (automatic — no user step): the first PYQExtract / MockTestAnalyse run re-synthesises the per-paper
+statistics (F-02); the first Create run back-fills the new PYQ record fields (O-BACKFILL); `MockBlueprint --refresh`
+writes the new targets for UNREGISTERED mocks only. Delivered papers are never re-certified.
+For CSIR NET Chemical Sciences run, in order: PYQExtract (--synthesise), MockBlueprint --refresh, then TestCreate.
+
+OPTIONAL (owner, any time; never required): <ExamCode>_expert_grades.json in an exam project = {"<paper>:<q>": "Easy|Medium|Hard"}
+for a sample of real items; when present the Blueprint checks the blind-grade calibration against it (amendment C).
 
 Verify after push (fresh clone of production):
   pip install matplotlib pillow numpy scipy fonttools rdkit python-docx scikit-image openpyxl --break-system-packages
   python3 gen_manifest.py && git diff --exit-code MANIFEST.json
   python3 build_spec_manifest.py --check && python3 spec_sections.py --check
   python3 check_triggers.py                -> TRIGGERS CONSISTENT
-  python3 bootstrap.py                     -> VERIFIED
-  python3 blueprint_core.py --self-test    -> SELF-TEST: 1303/1303 PASS
-  python3 audit_canonical.py --self-test   -> SELF-TEST: 618/618 PASS
-  python3 final_assembly.py --self-test    -> SELF-TEST: 184/184 PASS
-  python3 corpus_io.py --self-test         -> SELF-TEST: 594/594 PASS
-  python3 figural_core.py --self-test      -> SELF-TEST: 240/240 PASS
-  python3 figure_types.py --self-test      -> SELF-TEST: 985/985 PASS
-  python3 figural_vision.py --self-test    -> SELF-TEST: 53/53 PASS
-  python3 handshake_audit.py --self-test   -> HANDSHAKE AUDIT: 186 ok, 0 FAIL
+  python3 bootstrap.py                     -> VERIFIED (60/60)
+  python3 blueprint_core.py --self-test    -> SELF-TEST: 1399/1399 PASS
+  python3 audit_canonical.py --self-test   -> SELF-TEST: 633/633 PASS
+  python3 analyse_engine.py --self-test    -> 309 passed, 0 failed
+  python3 bootstrap.py --self-test         -> SELF-TEST: 70/70 PASS
+  python3 paper_pipeline.py --self-test    -> SELF-TEST: 257/257 PASS
+  python3 handshake_audit.py --self-test   -> HANDSHAKE AUDIT: 211 ok, 0 FAIL
+  python3 final_assembly.py --self-test    -> SELF-TEST: 187/187 PASS
+  python3 figure_types.py --self-test      -> SELF-TEST: 988/988 PASS
   python3 run_ci_gates.py --skip Install   -> every gate PASS
   (or let .github/workflows/validate.yml run on the push)
 
-WHAT THE OWNER SEES:
-  * The first TestCreate / MockCreate of each exam after this release first BACK-FILLS that exam's PYQ records to
-    schema 3 (re-reads the page images already in the project, two fresh blind grades per record) in automatic
-    worker sessions, then builds the exam's difficulty ruler. No user step; it takes longer once per exam.
-  * Every question label is set by two fresh blind graders + the band recipe agreeing on the band. A question that
-    grades easier or harder is rewritten or replaced — never relabelled, swapped, held or forced.
-  * Every key is checked by two fresh blind solvers; a disputed key is replaced, never certified by majority.
-  * If a slot still cannot reach its band after every repair, the reserve and 5 fresh refill sessions, it is filled
-    with a fully verified question at the nearest band, shown on ONE AMBER footer line ("last resort — requested
-    Hard, delivered Medium") and a P0 incident is recorded. The target rate is 0.
-  * Organic figures (bridged rings in perspective, chairs, Newman, Fischer, Haworth) are drawn and proven; a figure
-    that cannot be proven is never delivered.
-  * A requested schedule never stops a run; percentages / wrong sums are normalised and printed once.
+WHAT THE OWNER SEES: mocks whose subject / topic counts per Part match the real paper in EVERY mock, the real formats
+(match lists, multi-statement items) for every subject, difficulty measured for every item with a per-subject recipe,
+no repeated templates or answer leaks inside a paper, metal figures drawn the exam's way, and an AMBER line naming any
+shortfall the bounded repair could not close. Every batch is graded by fresh graders and solvers BEFORE it is
+delivered (one write per question, at most one rewrite); Final Assembly does not re-write questions for difficulty.
+Nothing new can stop a run.
 
-DISCLOSED LIMITS (this release):
-  * Exam-input and infrastructure stop sites OTHER than the difficulty path (a missing blueprint / manifest, an
-    exam-code mismatch, an undrawable figure type, a corrupt saved state) keep their existing stop text; the
-    orchestrator now retries INFRA faults in fresh workers and then on the previous verified release (O6-2).
-  * organic_library.json (the cross-exam library) is not shipped: thin-history exams use the built-in level recipes
-    (blueprint_core.LEVEL_DEFAULT_RECIPES) until a maintainer builds the library with blueprint_core.organic_library_build.
-  * Fresh blind graders / solvers / vision reads need sub-agents or Orchestrate workers; a surface with neither is the
-    NO-MODEL environment failure (state saved, resumes) — it never certifies on same-context grades.
-  * Cage compounds (prismane, cubane) cannot be drawn in 2-D without a crossing bond; G-BONDCROSS refuses them, so such
-    a slot is written with another structure (never drawn wrongly).
-  * The first TestCreate of each exam back-fills every PYQ record once (CSIR NET Chemical Sciences: 358 records); the
-    upgraded records are kept in registry.json['pyq_backfill'], so later papers never repeat it.
-  * An organic format / convention floor that no conversion can fill is disclosed on the footer ("Organic parity: FAIL —
-    short ..."), never hidden and never a stop.
-  * A structure figure that still has no proof record after two replacements is disclosed on an AMBER line (bounded).
-  * If the grading / review environment cannot produce independent results (graders never agree over 6 last-resort
-    rounds, or every review returns NOT_RUN), the run saves state and prints NO-MODEL — type continue once sub-agents /
-    Orchestrate workers are available.
+A PAPER PARKED BEFORE THIS RELEASE (e.g. the Organic test stopped at REVIEW_REPAIR): its batches were written without
+in-batch grading, so on "continue" it finishes the old way (its flagged repairs). To get the new behaviour, start
+that test again with TestCreate.
