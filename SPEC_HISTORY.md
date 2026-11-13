@@ -463,6 +463,13 @@ Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (E
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
+Entry v1.48.0 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v1.49.0 supersedes).
+
+```
+# v1.48.0 — 2026-11-13 — GAP-2026-11-13-DIFFICULTY-RUBRIC (paired with MockTestCreate v6.3): §LADDER-NF gains the
+#   AMBER line naming the questions whose band was judged, not counted (Create BV-10). Entry v1.47.0 moved to SPEC_HISTORY.md.
+```
+
 Entry v1.47.0 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v1.48.0 supersedes).
 
 ```
@@ -2175,6 +2182,22 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v6.3 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v6.4 supersedes).
+
+```
+# v6.3 — 2026-11-13 — GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ (paired with blueprint_core
+#   v2.3 Cluster BR, final_assembly v1.19, bootstrap --session-start, Framework_MockTestOrchestrate v1.5.0). Measured: every one
+#   of the 358 CSIR past records' bands is reproduced exactly by bc.difficulty_score (r2) from its counts — the
+#   scale the schedule was built from — but release 2026.11.12 measured a new question by asking reviewers which
+#   120-character past-question opening it 'resembles' (on 31 real past Organic questions of 28-Jul-2025 that judged
+#   band matched the recorded one 14 times; the counted band 22 times with the first rules, then with the
+#   tightened rules of this release — see CHANGELOG). NEW (S0-BV BV-10..12): reviewers list their moves and
+#   principles under the PYQ counting rules and the band is COMPUTED; the author writes to the slot band's measured
+#   profile (subtopic -> topic -> section -> exam); no fresh reviewer is never a stop (BV-11); §3 and the helper
+#   libraries are RUN by bootstrap.py --session-start from this verified file, not read (S1-0R PYTHON SESSION: ~102,000 tokens less
+#   per worker read). Entry v6.2 moved to SPEC_HISTORY.md.
+```
 
 Entry v6.2 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v6.3 supersedes).
 
@@ -7968,6 +7991,14 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.5.0 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v1.6.0 supersedes).
+
+```
+# v1.5.0 — 2026-11-13 — GAP-2026-11-13-RUN-NOT-READ (paired with Framework_MockTestCreate v6.3, bootstrap --session-start).
+#   No stop for a worker problem: when no worker model holds the specification, or a worker cannot be started
+#   twice in a row, the run switches to DIRECT MODE and continues from its saved state (O1-1, O2-3). Entry v1.4.0 moved to SPEC_HISTORY.md.
+```
 
 Entry v1.4.0 moved at framework release 2026.11.13 (GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ; v1.5.0 supersedes).
 

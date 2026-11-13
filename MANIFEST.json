@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.11.13",
+  "framework_version": "2026.11.14",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -221,11 +221,11 @@
       "bytes": 450866
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "bbb3feb3e4fe135c4c46b70ea7825af6bc84ef5096e8880b0a692f4a69635f46",
-      "version_header": "# Framework_DeliveryFooter v1.48.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "5259e67465c96f21729913ec65e37a075bd49cf8a5576b03ca260afcb8f829b6",
+      "version_header": "# Framework_DeliveryFooter v1.49.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 1386,
-      "bytes": 84305
+      "lines": 1387,
+      "bytes": 84451
     },
     "Framework_MockDeliver.md": {
       "sha256": "ebfa0c50967e0dec1a5221d7c42253f95162a026c0f2bfd8260612bc2d4ae13d",
@@ -249,11 +249,11 @@
       "bytes": 315631
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "43d7a6bf5e638721ed53ae0d816302f3f175f8affc93f020135c61b36917d61f",
-      "version_header": "# Framework_MockTestCreate v6.3",
+      "sha256": "7808b7b3f57e3dc519bed40e28e17bf8330fe448faf170beec030dc375bed239",
+      "version_header": "# Framework_MockTestCreate v6.4",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 14381,
-      "bytes": 980865
+      "lines": 14431,
+      "bytes": 985636
     },
     "Framework_MockTestExplain.md": {
       "sha256": "d823609d7beadea8ed3a263f71d25c5daff8000918b1b61fac6937a2804693cb",
@@ -263,11 +263,11 @@
       "bytes": 325739
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "29af7ab42e5aea74f04d74b5435615ec79bafec7e465588f43fd78136a4149dc",
-      "version_header": "# Framework_MockTestOrchestrate v1.5.0",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.5.0",
-      "lines": 485,
-      "bytes": 38728
+      "sha256": "ea8ee12d01f3f8b4b750da19e18a70a2889c884c9c86024522e7bc1550a586cf",
+      "version_header": "# Framework_MockTestOrchestrate v1.6.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.6.0",
+      "lines": 486,
+      "bytes": 38833
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -410,11 +410,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "9f8958ef5a830af14052e5360d58ba637e3ab8be6fb60e4d663a6377b1203a04",
+      "sha256": "f1f2985dd128a9c12edf5cbe072cd59204cc194651ef8f748709a49a13636824",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 27196,
-      "bytes": 1624178
+      "lines": 27318,
+      "bytes": 1633769
     },
     "paper_pipeline.py": {
       "sha256": "25f74f92563048ba49414f241135882a42de9e85b9b185cb58c520a2e22b9fb4",
@@ -424,11 +424,11 @@
       "bytes": 177322
     },
     "final_assembly.py": {
-      "sha256": "6e9fce85ec6bb6009d6b810c3689ab2f7c39a9cc4bc4d5cc10bdd3a1ef53d9db",
+      "sha256": "d1030b456c30dadfb28a3671b4d30eec7918fa270fb76a1cde7d2a56d4a04f03",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 2905,
-      "bytes": 193840
+      "lines": 3002,
+      "bytes": 201493
     },
     "corpus_io.py": {
       "sha256": "710dcbc105e5632bfe36d28f72ea71494eafd95c5fa5bd163ce405369e04c9d7",
@@ -571,25 +571,25 @@
       "bytes": 92076
     },
     "handshake_audit.py": {
-      "sha256": "4fba22fc5508c9253dffb0736ec8d80299dea8cc56a0eed99b951de77ccf9c9a",
+      "sha256": "b83db58939b21e79c4f6f02d7f424b76fe78510362fc3374bcd69f14c5d64150",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(__doc__)",
-      "lines": 1500,
-      "bytes": 128916
+      "lines": 1514,
+      "bytes": 129755
     },
     "LAW_REGISTRY.json": {
-      "sha256": "0ed621d9d366aa994bd7076b70257117c5a7ec7dbaac2895fced662926ed17f4",
+      "sha256": "7fd006850ece293e11c8e343d955fc6dffe0d029b6535ad707cff28079ee5249",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 1000,
-      "bytes": 85423
+      "lines": 1057,
+      "bytes": 89337
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "5db0380376649797bb775fb675566f0aff7cd9d5a58dee9656996b4887639fa7",
+      "sha256": "9cd05bf6727d305d77fd3c2bef86e278350dd172b1369dd23222035b4d41701d",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 8867,
-      "bytes": 247342
+      "lines": 8874,
+      "bytes": 247576
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -606,7 +606,7 @@
       "bytes": 6600
     },
     "STEP_CONTRACTS.json": {
-      "sha256": "06ec92852a6c7576624aee119bbdd6425408bc19643304f810a45c2387cf56e0",
+      "sha256": "c191cceef831400dd272fb6821275c33593f712b216ee415901da2798017c8d8",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 127,
@@ -620,11 +620,11 @@
       "bytes": 2413
     },
     "SPEC_HISTORY.md": {
-      "sha256": "97530598dd2bf59ae120ebee96de874bbd3e76d37157e644fdf4ae15b36b0849",
+      "sha256": "a19cdde9c69f97b71b095f1da3bb05501deab538fc3eb9970493971f3401c0aa",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "```",
-      "lines": 8031,
-      "bytes": 608917
+      "lines": 8062,
+      "bytes": 611257
     },
     "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": {
       "sha256": "49f54bb81e320e2ef216bc78f2e28accd7d48182144ab65b565f82bda6b845bf",

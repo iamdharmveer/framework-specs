@@ -154,7 +154,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '2.3'
+BLUEPRINT_CORE_VERSION = '2.4'
 
 __all__ = [
     "AllocationError",
@@ -729,7 +729,7 @@ __all__ = [
     "bv_reviewer_jobs", "bv_split_reviewer_result", "ruler_anchor_records", "RULER_ANCHOR_FIELDS",
     "BR_RULE", "BR_RECIPE_MIN", "BR_FACETS", "BR_FACET_HELP", "BR_CONCEPT_RULE", "BR_SPEED_RULE", "BR_NEGATIVE_RULE",
     "br_counting_rules", "br_obs", "br_score", "br_band", "br_build_recipe", "br_band_edges", "br_target", "br_target_text",
-    "br_gap", "br_median_obs", "BR_MOVES_RULE", "BR_PRINCIPLES_RULE",
+    "br_gap", "br_median_obs", "BR_MOVES_RULE", "BR_PRINCIPLES_RULE", "bv_author_view", "bv_short_exemplars",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
 ]
@@ -8193,6 +8193,48 @@ def _bv_self_test(check):
           and br_obs({'facets': ['C-FIGURAL'], 'moves': ['a', 'b', ' '], 'principles': ['P', 'p ', 'Q'], 'speed_hack': True,
                       'shortcut': ''}) == {'facets': ['C-FIGURAL'], 'inferential_steps': 2, 'concepts': 2,
                                            'speed_hack': False, 'negative': False})
+    # v2.4 Cluster BR2 — the edge re-count
+    _it2 = dict(_it, subtopic_id='oc.t.s')
+    _sv2 = {'solver_1': _sx(2), 'solver_2': _sx(2)}
+    _rA1 = bv_apply(_it2, 'Hard', L, {}, 2, results=dict(_sv2, grader_1=_cnt('Hard', 4, 2), grader_2=_cnt('Hard', 4, 2, 2),
+                                                          grader_3=_cnt('Medium', 4, 1, 3)))
+    check('br2_edge_split_is_recounted_not_decided', _rA1['action'] == 'recount' and _rA1['entry']['bv']['grades'] == {}
+          and set(_rA1['roles']) >= set(BV_ROLES_GRADE) and _rA1['entry']['bv']['recount']['median_score'] == 6)
+    _rA2 = bv_apply(_rA1['entry'], 'Hard', L, {}, 2, results={'grader_1': _cnt('Medium', 4, 1, 4), 'grader_2': _cnt('Medium', 3, 1, 5),
+                                                               'grader_3': _cnt('Medium', 4, 1, 6)})
+    check('br2_four_of_six_decide_against_the_first_round', _rA2['action'] == 'rewrite' and _rA2['band'] == 'Medium'
+          and _rA2['entry']['bv']['recount']['decided'] == 'Medium')
+    _rA3 = bv_apply(_rA1['entry'], 'Hard', L, {}, 2, results={'grader_1': _cnt('Hard', 4, 2, 4), 'grader_2': _cnt('Medium', 3, 1, 5),
+                                                               'grader_3': _cnt('Hard', 4, 2, 6)})
+    check('br2_first_round_kept_when_confirmed_and_label_verifies', _rA3['action'] == 'settled' and _rA3['band'] == 'Hard'
+          and verify_difficulty_label(_rA3['entry'], L, strict=True)[0] is True
+          and _rA3['entry']['bv']['grades']['grader_3'] == 'Medium')
+    _rAt = bv_apply(_rA1['entry'], 'Hard', L, {}, 2, results={'grader_1': _cnt('Medium', 4, 1, 4), 'grader_2': _cnt('Medium', 3, 1, 5),
+                                                               'grader_3': _cnt('Hard', 4, 2, 6)})
+    check('br2_a_three_three_tie_keeps_the_first_round', _rAt['action'] == 'settled' and _rAt['band'] == 'Hard'
+          and _rAt['entry']['bv']['recount']['decided'] == 'Hard'
+          and _rAt['entry']['bv']['recount']['votes'].count('Hard') == 3)
+    _rA4 = bv_apply(_rA1['entry'], 'Hard', L, {}, 2, results={'grader_1': _cnt('Medium', 4, 1, 4)},
+                    asked={'grader_1': 2, 'grader_2': 2, 'grader_3': 2})
+    check('br2_missing_recount_falls_back_to_the_first_round', _rA4['action'] == 'settled' and _rA4['band'] == 'Hard'
+          and _rA4['entry']['bv']['recount']['state'] == 'done')
+    _rA5 = bv_apply(_it2, 'Hard', L, {}, 2, results=dict(_sv2, grader_1=_cnt('Hard', 5, 3), grader_2=_cnt('Hard', 5, 3, 2),
+                                                          grader_3=_cnt('Medium', 2, 1, 3)))
+    check('br2_split_away_from_the_edge_is_decided_at_once', _rA5['action'] == 'settled' and _rA5['band'] == 'Hard')
+    _rA6 = bv_apply(_rA3['entry'], 'Hard', L, {}, 2, results={})
+    check('br2_once_per_text_never_a_loop', _rA6['action'] == 'settled')
+    check('br2_no_recount_when_disabled', bv_apply(_it2, 'Hard', L, {}, 2, allow_recount=False,
+          results=dict(_sv2, grader_1=_cnt('Hard', 4, 2), grader_2=_cnt('Hard', 4, 2, 2), grader_3=_cnt('Medium', 4, 1, 3)))['action'] == 'settled')
+    _apk2 = bv_author_packet({'q': 1, 'band': 'Hard', 'subtopic_id': 'oc.t.s'}, {'Hard': [{'stem_snippet': 'x', 'class': ['C-FIGURAL'],
+                              'inferential_steps': 4, 'reagents_seen': ['a'] * 50}]}, L, None, {'rubric_recipe': _brr})
+    _av = bv_author_view(_apk2)
+    check('bv_author_view_short_target_first_rules_once', list(_av)[:3] == ['q', 'band', 'target_text'] and 'counting_rules' not in _av
+          and 'reagents_seen' not in str(_av) and 'counting_rules' in bv_author_view(_apk2, True)
+          and len(_qq_json.dumps(_av)) < 2500 and _av['self_check'])
+    check('bv_short_exemplars_one_short_record_per_band', bv_short_exemplars({'Hard': [{'stem_snippet': 'a', 'reagents_seen': ['r']},
+                                                                                      {'stem_snippet': 'b'}]}, L)
+          == {'Hard': [{'stem_snippet': 'a'}]}
+          and len(bv_short_exemplars({'B': [{'x': 1}, {'x': 2}]}, ['A', 'B'])['B']) == 2)
     _rf2 = build_difficulty_ruler(_brp, L, 'v', 'm', 'p', 'd')
     check('br_ruler_carries_rubric_recipe', _rf2['rubric_recipe']['records_used'] == 9
           and ruler_needs_recalibration(dict(_rf2, rubric_recipe=None))[0] is True)
@@ -11848,7 +11890,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.3')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.4')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -22442,7 +22484,7 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.13'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
+OP_RELEASE = '2026.11.14'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -26564,7 +26606,7 @@ def bv_recipe_verdict(item, ruler, band, labels=None):
 
 
 def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', tolerance=None, results=None,
-             findings=None, vision_compare=None, figure_proof=None, asked=None):
+             findings=None, vision_compare=None, figure_proof=None, asked=None, allow_recount=True, max_asks=2):
     """ONE step of the in-batch verification of ONE item (S4-7 STEP A2). entry: its concept_map entry (must carry
     'subject' for the recipe); results: {role: {'result': <bv_read_result>, 'sha256', 'context'}} returned since
     the last step. Keeps entry['bv'] = {'attempt', 'content_sha', 'grades', 'packets', 'solvers', 'meta',
@@ -26699,9 +26741,49 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         e['bv'] = bvs
         out0['entry'] = e
         return out0
+    _ask = asked if isinstance(asked, dict) else {}
+    # v2.4 Cluster BR2 (GAP-2026-11-14-EDGE-RECOUNT) — a 2-1 split whose median rubric score sits ON a band edge is
+    # measured once more by three fresh reviewers before anything is decided; the band is then the one at least 4 of
+    # the 6 counts name, else the first round's majority. The label keeps the 3 grades of the round whose majority is
+    # the decided band (it always exists), so every label verifies as before. Once per text; never a loop.
+    _rc = bvs.get('recount') if isinstance(bvs.get('recount'), dict) else None
+    if _rc and _rc.get('state') == 'due':
+        _first = _rc.get('first') or {}
+        _fg = dict(_first.get('grades') or {})
+        _new_n = len(_bv_graders(controls, labs))
+        _can_ask = [r for r in BV_ROLES_GRADE if r not in g and _qf_int(_ask.get(r), 0) < _qf_int(max_asks, 2)]
+        if _new_n >= 3 or not _can_ask:
+            _x = bv_majority_band(_fg, labs)
+            _votes = _bv_graders(_fg, labs) + (_bv_graders(controls, labs) if _new_n >= 3 else [])
+            _dec = next((b for b in labs if _votes.count(b) >= 4), None) if _new_n >= 3 else None
+            if _dec is None or _dec == _x:
+                bvs['recount_grades'] = {'grades': dict(g), 'packets': dict(bvs['packets']), 'meta': dict(bvs['meta'])}
+                bvs['grades'] = dict(_fg)
+                bvs['packets'] = dict(_first.get('packets') or {})
+                bvs['meta'] = dict(_first.get('meta') or {})
+            else:
+                bvs['recount_grades'] = dict(_first)
+            _rc.update({'state': 'done', 'votes': _votes, 'decided': _dec or _x})
+            g = bvs['grades']
+            controls = {k: g.get(k) for k in ('grader_1', 'grader_2', 'grader_3') if g.get(k)}
+            controls['recipe'] = rec_ok
+    elif allow_recount and _rc is None and len(_bv_graders(controls, labs)) == 3 \
+            and len(set(_bv_graders(controls, labs))) == 2 and br_band_edges(labs) is not None:
+        _sc = sorted(s_ for s_ in ((bvs['meta'].get(k) or {}).get('score') for k in ('grader_1', 'grader_2', 'grader_3'))
+                     if isinstance(s_, int) and not isinstance(s_, bool))
+        if len(_sc) == 3 and _sc[1] in (DIFFICULTY_EASY_MAX, DIFFICULTY_EASY_MAX + 1,
+                                        DIFFICULTY_MEDIUM_MAX, DIFFICULTY_MEDIUM_MAX + 1):
+            bvs['recount'] = {'state': 'due', 'first': {'grades': dict(g), 'packets': dict(bvs['packets']),
+                                                        'meta': dict(bvs['meta'])}, 'median_score': _sc[1]}
+            bvs['grades'], bvs['packets'], bvs['meta'] = {}, {}, {}
+            bvs['state'] = 'recount'
+            e['bv'] = bvs
+            _roles_rc = [r for r in BV_ROLES_GRADE if _qf_int(_ask.get(r), 0) < _qf_int(max_asks, 2)]
+            return {'entry': e, 'action': 'recount', 'roles': _roles_rc + need_solve, 'band': None,
+                    'why': f'graders split {sorted(_bv_graders(_first_ctl(bvs), labs))} at the band edge (median score '
+                           f'{_sc[1]}): three more fresh counts decide'}
     d = bv_decide(controls, tgt, labs, bvs['attempt'], kv)
     roles = []
-    _ask = asked if isinstance(asked, dict) else {}
     if d['action'] == 'grade':
         roles = [r for r in BV_ROLES_GRADE if r not in g] + need_solve
     elif d['action'] == 'tiebreak':
@@ -26710,7 +26792,7 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         roles, d = need_solve, {'action': 'grade', 'band': None, 'why': 'blind solvers outstanding'}
     # a role already asked twice without a usable result is not asked again (S4-7 STEP A2 carries the question to
     # S13-2L when nothing can be decided — never a loop)
-    roles = [r for r in roles if _qf_int(_ask.get(r), 0) < 2]
+    roles = [r for r in roles if _qf_int(_ask.get(r), 0) < _qf_int(max_asks, 2)]
     out = {'action': d['action'], 'roles': roles, 'band': d.get('band'), 'why': d.get('why')}
     if d['action'] in ('pass', 'settle'):
         dlv = tgt if d['action'] == 'pass' else d['band']
@@ -27022,6 +27104,44 @@ def br_median_obs(observations):
             'negative': sum(1 for o in obs if o.get('negative')) * 2 > len(obs)}
 
 
+def _first_ctl(bvs):
+    rc = (bvs or {}).get('recount') if isinstance((bvs or {}).get('recount'), dict) else {}
+    return dict((rc.get('first') or {}).get('grades') or {})
+
+
+def bv_author_view(packet, with_rules=False):
+    """v2.4 — what the author is SHOWN for one slot (the packet itself is unchanged): the target first, then the
+    anchors as short records, the recipe when it is active and the self-checks; the counting rules only when
+    with_rules (once per batch — release 2026.11.13 printed them for every question and cut each packet at 6,000
+    characters, so the self-checks never showed). Pure."""
+    pk = packet if isinstance(packet, dict) else {}
+    keep = ('stem_snippet', 'class', 'inferential_steps', 'concept', 'ask_format', 'qtype')
+    an = {b: [{k: r.get(k) for k in keep if r.get(k) not in (None, '', [])} for r in (rows or [])[:2] if isinstance(r, dict)]
+          for b, rows in (pk.get('anchors') or {}).items()}
+    out = {'q': pk.get('q'), 'band': pk.get('band'), 'target_text': pk.get('target_text'), 'qtype': pk.get('qtype'),
+           'ask_format': pk.get('ask_format'), 'subtopic_id': pk.get('subtopic_id'), 'anchors': an,
+           'self_check': pk.get('self_check')}
+    rc = pk.get('recipe') if isinstance(pk.get('recipe'), dict) else {}
+    if any(v not in (None, [], {}, '') for v in rc.values()):
+        out['recipe'] = rc
+    if with_rules:
+        out['counting_rules'] = pk.get('counting_rules')
+    return out
+
+
+def bv_short_exemplars(exemplars_by_band, labels):
+    """v2.4 — a reviewer's comparison examples when the rubric decides the band: ONE short record per band (the
+    band is computed from the reviewer's counts; the examples only orient). An exam whose labels are not three
+    bands (the judged band decides there) keeps the full set. Pure."""
+    labs = _dl_labels(labels)
+    ex = exemplars_by_band if isinstance(exemplars_by_band, dict) else {}
+    if br_band_edges(labs) is None:
+        return ex
+    keep = ('stem_snippet', 'class', 'inferential_steps', 'concept', 'ask_format')
+    return {b: [{k: r.get(k) for k in keep if r.get(k) not in (None, '', [])} for r in (rows or [])[:1] if isinstance(r, dict)]
+            for b, rows in ex.items()}
+
+
 def bv_band_guide(ruler, labels=None):
     """What the exam's past questions of each band need, for the author and every reviewer — the SAME scale: per
     band the decision range of the recipe (None while the recipe is dormant) and the median inferential steps of the
@@ -27056,7 +27176,7 @@ def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None):
             fds = [f for f in (src.get('figure_dicts') or []) if isinstance(f, dict)]
             reads = [fds[int(r.split('_')[1]) - 1].get('file') for r in rl if r.startswith('vision_') and r.endswith(f'_{k}')
                      and r.split('_')[1].isdigit() and 0 < int(r.split('_')[1]) <= len(fds)]
-            rows.append({'q': str(q), 'item': it, 'exemplars': (anchors_by_q or {}).get(q) or {},
+            rows.append({'q': str(q), 'item': it, 'exemplars': bv_short_exemplars((anchors_by_q or {}).get(q) or {}, labels),
                          'figures_to_read': [x for x in reads if x]})
         if not rows:
             continue
@@ -27184,6 +27304,8 @@ for _n, _d in {
         'br_target_text': lambda *a, **k: None,
         'br_gap': lambda *a, **k: [],
         'br_median_obs': lambda *a, **k: None,
+        'bv_author_view': lambda *a, **k: {},
+        'bv_short_exemplars': lambda e=None, *a, **k: e if isinstance(e, dict) else {},
 }.items():
     _nf_guard(_n, _d)
 del _n, _d

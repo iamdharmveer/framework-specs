@@ -13,6 +13,10 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.20 — GAP-2026-11-14-CARRY + FINAL-COUNT (release 2026.11.14). bv_batch_step carries a question rewritten (or
+    held for its edge re-count) in its batch to the NEXT batch's first reviewer round (batch_state['bv_carry']; no
+    extra round inside a batch); final=True (Create S13-1B) measures every unsettled question before the review.
+
     v1.19 — GAP-2026-11-13-DIFFICULTY-RUBRIC (release 2026.11.13). No fresh reviewer is never a stop (S0-BV BV-11):
     the question is carried unlabelled; each reviewer's grade is the band blueprint_core v2.3 computes from its counts.
 
@@ -1458,7 +1462,8 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
 
 # ══ v1.17 (GAP-2026-11-11-BATCH-VERIFICATION) — Create S4-7 STEP A2, the I/O shell over blueprint_core Cluster BV ══
 
-def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True):
+def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True,
+                  final=False, defer=True):
     """THE in-batch verification step of Create S4-7 STEP A2 (S0-BV), for the CURRENT batch of paper <exam> M<n>.
     Idempotent and resume-safe: (1) collects every outstanding fresh job whose sub-agent returned REVIEW DONE (v1.18:
     one reviewer job per (round, k) solves, grades and reads the figures of every question of the batch; a per-role
@@ -1487,6 +1492,22 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _labs_bv = list(_bs_bv.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
     _bp_bv = (_bs_bv.get('batch_plan') or [])[int(_bs_bv.get('current_batch', 1)) - 1]
     _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
+    # v1.20 (2026.11.14, S0-BV BV-13): a question rewritten — or held for its edge re-count — in an earlier batch is
+    # CARRIED: it is measured by THIS batch's reviewers (no extra round in its own batch). FINAL (Create S13-1B): every
+    # question not yet settled, in one round of the same reviewers, before the review — nothing is deferred there.
+    _carry_bv = [str(q) for q in (_bs_bv.get('bv_carry') or []) if str(q) in _cm_bv]
+    if final:
+        _qall = sorted((q for q in _cm_bv if str(q).isdigit()), key=int)
+        _bp_bv = {'batch_id': 'final', 'q_start': int(_qall[0]) if _qall else 1, 'q_end': int(_qall[-1]) if _qall else 0}
+        _items_f = (_bs_bv.get('bv') or {}).get('items') or {}
+        _qs_bv = [q for q in _qall if q in set(_carry_bv)
+                  or (isinstance(_items_f.get(q), dict) and _items_f[q].get('state') not in ('settled', 'key_chain'))
+                  or (not isinstance(_items_f.get(q), dict) and (_bs_bv.get('difficulty_plan_target') or {}).get(q) is not None
+                      and not bc.verify_difficulty_label(_cm_bv.get(q), list(_bs_bv.get('difficulty_labels') or
+                                                                              ['Easy', 'Medium', 'Hard']), strict=True)[0])]
+        defer = False
+    else:
+        _qs_bv = _qs_bv + [q for q in _carry_bv if q not in _qs_bv]
     _tgt_bv = {str(k): v for k, v in (_bs_bv.get('difficulty_plan_target') or _bs_bv.get('difficulty_plan') or {}).items()}
     _ru_bv = ruler or {}
     _man_bv = manifest or {}
@@ -1563,7 +1584,7 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _o = str(_b) if _x == str(_a) else str(_a)
             _fnd_bv.setdefault(_x, []).append(f'answer leak with Q{_o} ({_v}) — change the data so the value is not given')
     # 2. DECIDE every question of the batch (bc.bv_apply) and 3. WRITE the jobs still needed
-    _acts_bv, _new_jobs, _needs_bv = {}, [], {}
+    _acts_bv, _new_jobs, _needs_bv, _defer_bv = {}, [], {}, set()
     _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
     for _q in _qs_bv:
         _e = dict(_cm_bv[_q])
@@ -1585,23 +1606,42 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _r = bc.bv_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'),
                          _tol, results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q),
                          vision_compare=_vcmp_bv, figure_proof=_vprf_bv,
-                         asked=(_st_bv.get('asked') or {}).get(_q))
+                         asked=(_st_bv.get('asked') or {}).get(_q),
+                         # v1.20: at FINAL nothing can be carried any more — a role is re-asked up to the round limit
+                         max_asks=(bc.BV_MAX_ROUNDS if final else 2))
         _cm_bv[_q] = _r['entry']
         _st_bv.setdefault('items', {})[_q] = _r['entry'].get('bv')
         _acts_bv.setdefault(_r['action'], []).append(_q)
-        if _r['roles']:
-            _needs_bv[_q] = list(_r['roles'])
         if _r['action'] == 'rewrite':
             # the rewritten text is new content: its reviewers have not been asked yet (the ask count is per content)
             (_st_bv.get('asked') or {}).pop(_q, None)
+            _st_bv.setdefault('defer_here', [])
+            if _q not in _st_bv['defer_here']:
+                _st_bv['defer_here'].append(_q)
+        if _r['action'] == 'recount':
+            _st_bv.setdefault('defer_here', [])
+            if _q not in _st_bv['defer_here']:
+                _st_bv['defer_here'].append(_q)
+        if _r['roles']:
+            _own_q = _q not in _carry_bv
+            if defer and (_q in (_st_bv.get('defer_here') or [])
+                          or (_own_q and int(((_r['entry'].get('bv') or {}).get('attempt') or 1)) >= 2)):
+                _defer_bv.add(_q)                      # BV-13: measured by the NEXT batch's reviewers
+            else:
+                _needs_bv[_q] = list(_r['roles'])
     # 3. WRITE the fresh jobs still needed: at most bc.BV_REVIEWERS reviewer jobs for the WHOLE batch (v1.18)
     if _needs_bv and _jr_bv >= bc.BV_MAX_ROUNDS:
         # v1.19 (2026.11.13, S0-BV BV-11): never a stop — the questions the platform returned no fresh reviewer for
-        # stay unlabelled in this batch (STEP A2 DONE lists them; S13-2L measures them at Final Assembly) and the
-        # batch goes on
-        _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | set(_needs_bv), key=int)
-        _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
-             f"carried unlabelled to S13-2L (no stop).")
+        # are carried (v1.20: to the next batch's reviewers; at FINAL they stay unlabelled for S13-2L) and the batch
+        # goes on
+        if final:
+            _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | set(_needs_bv), key=int)
+            _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
+                 f"carried unlabelled to S13-2L (no stop).")
+        else:
+            _defer_bv |= set(_needs_bv)
+            _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
+                 f"measured with the next batch (no stop).")
         _needs_bv = {}
     if _needs_bv:
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
@@ -1642,10 +1682,18 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _ds_bv = _bs_bv.setdefault('difficulty_state', {})
     _disc = _ds_bv.setdefault('bv_disclosed', {})
     _bst = bc.bv_batch_status(_cm_bv, _qs_bv, _tgt_bv, _labs_bv)
+    # BV-13: the carry list after this step — every question still waiting for its measurement, from any batch
+    _items_now = _st_bv.get('items') or {}
+    _pending_bv = sorted(({q for q in (set(_carry_bv) | _defer_bv)
+                           if (_items_now.get(q) or {}).get('state') not in ('settled', 'key_chain')}
+                          if not final else set()), key=int)
+    _bs_bv['bv_carry'] = _pending_bv
+    _bst['open'] = [q for q in _bst['open'] if q not in _pending_bv]
     for _q in _bst['disclosed']:
         _disc[_q] = {'requested': _tgt_bv.get(_q), 'delivered': _cm_bv[_q].get('difficulty')}
     _st_bv['status'] = 'jobs_out' if _new_jobs else ('rewrite' if _acts_bv.get('rewrite') else 'done')
     _st_bv['open'] = _bst['open'] if not _new_jobs and not _acts_bv.get('rewrite') else []
+    _st_bv['pending'] = _pending_bv
     _st_bv['key_chain'] = _bst['key_chain']
     json.dump(_kd_bv, open(_kp_bv, 'w', encoding='utf-8'), indent=2)
     json.dump(_bs_bv, open(_bsp_bv, 'w', encoding='utf-8'), indent=2)
@@ -1657,11 +1705,12 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     else:
         _say(f"STEP A2: DONE — settled {len(_bst['settled'])}/{len(_qs_bv)} "
               f"(at slot {len(_bst['settled']) - len(_bst['disclosed'])}, disclosed {_bst['disclosed'] or 'none'}); "
-              f"key to S13-2L {_bst['key_chain'] or 'none'}; unlabelled {_st_bv['open'] or 'none'}")
+              f"key to S13-2L {_bst['key_chain'] or 'none'}; unlabelled {_st_bv['open'] or 'none'}; "
+              f"level being re-checked with the next batch {_pending_bv or 'none'}")
 
     return {'status': _st_bv['status'], 'jobs': [j['dir'] for j in _new_jobs], 'rewrite': list(_acts_bv.get('rewrite') or []),
             'settled': _bst['settled'], 'disclosed': _bst['disclosed'], 'key_chain': _bst['key_chain'],
-            'open': _st_bv['open'], 'lines': _lines}
+            'open': _st_bv['open'], 'pending': _pending_bv, 'lines': _lines}
 
 
 
@@ -2815,8 +2864,48 @@ def self_test():
         _kdr['concept_map']['1']['stem_text'] = 'Find the dipole moment of molecule one after a ring flip and a reduction'
         _bv_js.dump(_kdr, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
         r3 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _bs3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
         check('bv_rewrite_clears_ask_count', len(r1['jobs']) == 3 and r2['status'] == 'rewrite' and r2['rewrite'] == ['1']
-              and '1' not in _asked_after_rw and r3['status'] == 'jobs_out' and len(r3['jobs']) == 3)
+              and '1' not in _asked_after_rw)
+        # v1.20 (BV-13): the rewritten text is NOT re-graded in its own batch — it is carried to the next batch's round
+        check('bv_rewrite_is_carried_to_the_next_round', r3['status'] == 'done' and r3['jobs'] == [] and r3['pending'] == ['1']
+              and _bs3['bv_carry'] == ['1'] and r3['open'] == [])
+        r4 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        check('bv_final_round_measures_the_carried_question_at_once', r4['status'] == 'jobs_out' and len(r4['jobs']) == 3
+              and r4['pending'] == [] and all('/bfinal/' in d for d in r4['jobs']))
+        _answer_all(r4['jobs'], 'Hard')
+        _kx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+        r5 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        check('bv_final_round_settles_and_clears_the_carry', r5['status'] == 'done' and r5['settled'] == ['1']
+              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv_carry'] == [])
+    # v1.20 (S0-BV BV-13) — a question carried from batch 1 rides in batch 2's FIRST reviewer round (no extra round)
+    with _bv_tf.TemporaryDirectory() as _h:
+        _cm2 = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'], 'subtopic_id': 'A.b', 'qtype': 'mcq'},
+                '2': {'stem_text': 'Name the point group of the second molecule here', 'option_texts': ['C2v', 'D3h'],
+                      'subtopic_id': 'C.d', 'qtype': 'mcq'}}
+        _bv_js.dump({'concept_map': _cm2, 'answers': {'1': 2, '2': 1}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}, {'batch_id': 2, 'q_start': 2, 'q_end': 2}],
+                     'current_batch': 2, 'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Easy'},
+                     'bv_carry': ['1']}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _b2 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _p2 = _bv_js.load(open(_bv_os.path.join(_b2['jobs'][0], 'packet.json')))
+        check('bv_carried_question_rides_in_the_next_batch_first_round', _b2['status'] == 'jobs_out' and len(_b2['jobs']) == 3
+              and [r['q'] for r in _p2['items']] == ['1', '2'])
+    # v1.20 — at FINAL a failed reviewer role is asked again up to the round limit (nothing can be carried any more)
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'],
+                                           'subtopic_id': 'A.b', 'qtype': 'mcq'}}, 'answers': {'1': 2}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Hard'}, 'bv_carry': ['1']}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _fs = []
+        for _i in range(3):
+            _fr = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+            _fs.append(_fr['status'])
+            if _fr['jobs']:
+                open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write(
+                    '\n'.join(d + ' REVIEW FAILED x' for d in _fr['jobs']) + '\n')
+        check('bv_final_reasks_a_failed_role_beyond_two', _fs == ['jobs_out', 'jobs_out', 'jobs_out'])
     # v1.19 (S0-BV BV-11) — no fresh reviewer at all is never a stop: after bc.BV_MAX_ROUNDS empty rounds the
     # question is carried unlabelled and the batch finishes
     with _bv_tf.TemporaryDirectory() as _h:
@@ -2843,7 +2932,15 @@ def self_test():
             _mx = bv_batch_step('EX', 1, home=_h, echo=False)
         except Exception as _ex:                                   # noqa: BLE001
             _mx = {'status': f'raised {_ex}'}
-        check('bv_max_rounds_carries_unlabelled', _mx['status'] == 'done' and _mx.get('open') == ['1']
+        check('bv_max_rounds_carries_to_the_next_batch', _mx['status'] == 'done' and _mx.get('pending') == ['1'])
+        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'asked': {}, 'status': 'jobs_out', 'jobs': []})
+        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        try:
+            _mf = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        except Exception as _ex:                                   # noqa: BLE001
+            _mf = {'status': f'raised {_ex}'}
+        check('bv_final_max_rounds_carries_unlabelled_never_a_stop', _mf['status'] == 'done' and _mf.get('open') == ['1']
               and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == ['1'])
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

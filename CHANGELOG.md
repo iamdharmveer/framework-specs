@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026.11.14 — GAP-2026-11-14-CARRY + EDGE-RECOUNT + FINAL-COUNT: no extra reviewer round in a batch, a second count on the band edge, one ruler at Final Assembly
+
+(blueprint_core v2.4 (bv_apply edge re-count; bv_author_view; bv_short_exemplars); final_assembly v1.20 (bv_batch_step
+carry + final round); bootstrap (a definition the session cannot rebuild is listed, never dropped); handshake_audit
+(+1 H-BV carry, S13-1B run from the spec); Framework_MockTestCreate v6.4 (S0-BV BV-13..15, S4-7 STEP A / A2 / D,
+S4-11, S4-12, S13-1B); Framework_MockTestOrchestrate v1.6.0 (O3-5, O3-9); Framework_DeliveryFooter v1.49.0
+(§LADDER-NF carry line); LAW_REGISTRY (+LAW-BV-13..15); STEP_CONTRACTS (floors Create 6.4, Orchestrate 1.6.0,
+DeliveryFooter 1.49.0).)
+
+**Evidence (release 2026.11.13, measured).** (1) Any rewrite in a batch started a second round of 3 fresh reviewers
+inside that batch: ~240,000 tokens (each fresh reviewer starts at ~72,000 tokens before reading) and ~5 minutes. (2) On
+the 31 real CSIR Organic questions, 8 of the 9 misses had a median score ON a band edge (Hard measured 5, Medium
+measured 6): the counting noise is about one point, and the reviewers agree with each other (68-81%) about as often
+as with PYQExplain (71%). Tested and NOT adopted: a third reviewer only on a split (same 22 / 31, no saving — the
+start-up cost of each reviewer dominates — and a slower extra round); accepting one point beyond the edge (it also
+accepts the WRONG neighbouring band 16 times in 31). (3) Final Assembly still measured an unsettled question with the
+judged "resembles" band (MockReview, the LOWEST band of the controls; the S13-2L slot chains) — the scale that put
+Hard at Medium. (4) The S4-7 author packet (~7,800 characters) was printed cut at 6,000: the counting rules arrived
+half cut and the self-checks never showed, for every question, and the rules (3,233 characters) were printed ten
+times per batch. (5) Reviewer packets carried two full past-question records per band per question (~17,000 tokens
+per reviewer) although the band is computed from the counts (the real-paper test used none). (6) A function made
+indirectly inside a block (exec, a factory) was not kept by the session and not reported.
+
+**What changed.** BV-13: a question rewritten (or whose text a gate fix changed) in its batch is carried
+(batch_state['bv_carry']) and measured in the NEXT batch's first reviewer round; the batch report and footer name it
+("Level being re-checked with the next batch"); the last batch's are measured in S13-1B. BV-14: a 2-1 split whose
+median rubric score sits on a band edge is held and counted by three more fresh reviewers (carried like BV-13); 4 of
+the 6 counts decide, else the first round's majority; the label keeps the three grades of the round whose majority is
+the decided band, so every label verifies exactly as before; once per text; a missing re-count falls back to the
+first round. S13-1B (Final Assembly, before S13-2): every unsettled question in one round of the same reviewers and
+rubric (final=True: nothing deferred); S4-12 resumes it. BV-15: the author is shown bc.bv_author_view (target first,
+never cut, rules once per batch); reviewers get one short example per band where the rubric decides (the full set
+where the judged band decides). STEP D: the chat shows Layer-1 / Layer-2 counts and every non-PASS line; the full
+gate report (every G-* line) and the audit output are written to [ExamCode]_M[N]_gate_report_b[N].txt — every check
+still runs. bootstrap: a module-level function defined inside an if / try block of a
+block (S3-13's _q_span — lost silently by 2026.11.13) is logged and rebuilt; a definition the session still cannot
+rebuild (an exec() inside a block) is listed on the next call. On the real CSIR inputs the session start now keeps
+every name.
+
+**Robustness (before delivery).** 600 random whole papers (1-23 questions, batch sizes 3/5/10, random reviewer
+failures 0-100 %, wrong solver answers, rewrites, edge splits) through STEP A2 and S13-1B: 0 invariant violations
+(no question rewritten twice, every batch terminates, carry empty after S13-1B, every settled label verifies, nothing
+open while reviewers work); a paper begun on 2026.11.13 mid-batch continues on this release; 12 planted bugs in the new
+code, all caught by the tests; 19,500 random-input calls to the new functions, 0 raised. Found and fixed by this pass:
+at FINAL a failed reviewer role was asked only twice although six rounds were allowed (10 % reviewer failure left 3 of
+209 questions unmeasured; now 0).
+
+**Tests.** blueprint_core 1417 -> 1427 (3-3 tie keeps the first round; edge split re-counted; 4 of 6 decide against the first round; first round
+kept and label verifies; missing re-count falls back; split away from the edge decided at once; once per text;
+disabled; author view; short exemplars); final_assembly 190 -> 196 (final re-asks a failed role beyond two; rewrite carried; final round measures and
+settles it; carried question rides in the next batch's first round; max rounds carries to the next batch; final
+max rounds carries unlabelled, never a stop); bootstrap 85 -> 87 (indirect definition listed; nested module-level definition survives); handshake 217 -> 218
+(batch 2 DONE without a second round, Q4 carried; S13-1B run from the spec settles it; the chain to commit, audit and
+delivery unchanged).
+
 ## 2026.11.13 — GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ: one ruler for past and new questions; code that is run, not read
 
 (blueprint_core v2.3 Cluster BR; final_assembly v1.19; bootstrap (--session-start / --run-block: the python session

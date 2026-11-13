@@ -799,9 +799,23 @@ def _bv_handshake(check, ROOT, run_fence, W):
         if r['status'] != 'jobs_out':
             break
         answer_jobs()
+    # 2026.11.14 (BV-13): the rewritten Q4 is NOT re-graded inside batch 2 — batch 2 is DONE with Q4 carried; the last
+    # batch's carried questions are measured by Create S13-1B (the FINAL COUNTING ROUND) before the review
+    check('H-BV 2026.11.14 BV-13: batch 2 DONE without a second reviewer round — the rewritten Q4 is carried',
+          r['status'] == 'done' and r['pending'] == ['4'] and r['settled'] == ['3'] and json.load(open(bsp))['bv_carry'] == ['4'], r)
+    fin = blk('# ── S13-1B FINAL COUNTING ROUND (v6.4 BV-14) ──')
+    def a2f():
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_fence(fin, G)
+        return G['BV_FINAL']
+    for _ in range(4):
+        r = a2f()
+        if r['status'] != 'jobs_out':
+            break
+        answer_jobs()
     kd = json.load(open(kp)); cm = kd['concept_map']; bs = json.load(open(bsp))
     check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after its ONE rewrite (disclosed), never rewritten twice',
-          r['status'] == 'done' and r['settled'] == ['3', '4'] and r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
+          r['status'] == 'done' and r['settled'] == ['4'] and r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
           and bs['bv']['items']['4']['attempt'] == 2 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
     check('H-BV every reviewer packet was blind (no band, author counts or rewrite notes), named its own folder, '
           'and carried past-question anchors for every band', seen.get('blind') and all(seen['blind'])
@@ -1491,7 +1505,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 217   # 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 218   # 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

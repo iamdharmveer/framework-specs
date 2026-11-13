@@ -1402,6 +1402,16 @@ def ns_save(ns, meta, exam, paper):
     """Persist `ns` (values pickled one by one; functions / classes as their logged source). Returns the names
     that could not be saved. Never raises."""
     values, modules, lost = {}, {}, []
+    # 2026.11.14: a function / class the definition log cannot rebuild (made by an exec() inside a block, a
+    # factory, ...) is LISTED as not saved — never dropped silently
+    _logged = set()
+    for _src in meta.get('defs') or []:
+        try:
+            for _nd in _ns_ast.parse(_src).body:
+                if isinstance(_nd, (_ns_ast.FunctionDef, _ns_ast.AsyncFunctionDef, _ns_ast.ClassDef)):
+                    _logged.add(_nd.name)
+        except SyntaxError:
+            pass
     for k, v in list(ns.items()):
         if k in _NS_SKIP:
             continue
@@ -1410,6 +1420,8 @@ def ns_save(ns, meta, exam, paper):
             continue
         if isinstance(v, (_ns_types.FunctionType, type)) and getattr(v, '__module__', None) == NS_NAME \
                 and getattr(v, '__name__', None) == k:
+            if k not in _logged:
+                lost.append(k)
             continue                                         # rebuilt from the logged source (an alias is pickled
             #                                                  by reference below; a lambda is listed as not saved)
         if isinstance(v, (_ns_types.BuiltinFunctionType, _ns_types.FunctionType, type)) and getattr(v, '__module__', None) \
@@ -1444,10 +1456,45 @@ def _ns_exec_block(src, label, ns, meta):
     try:
         exec(compile(src, label, 'exec'), ns)
     except SystemExit as ex:
+        _ns_log_nested_defs(src, label, ns, meta)
         return ('exit', ex.code)
     except Exception:                                         # noqa: BLE001
+        _ns_log_nested_defs(src, label, ns, meta)
         return ('error', _ns_traceback.format_exc())
+    _ns_log_nested_defs(src, label, ns, meta)
     return None
+
+
+def _ns_log_nested_defs(src, label, ns, meta):
+    """2026.11.14: a module-level function defined INSIDE an if / try / with / for block of a block (e.g. S3-13's
+    _q_span) is not a top-level statement, so _ns_defs_source missed it and the session lost it on the next call.
+    Its source is found by name and first line in the block's own AST and logged dedented, so a reload rebuilds it
+    (its globals are the session namespace, exactly as when the block ran)."""
+    try:
+        tree = _ns_ast.parse(src)
+    except SyntaxError:
+        return
+    top = {id(nd) for nd in tree.body}
+    nodes = {}
+    for nd in _ns_ast.walk(tree):
+        if isinstance(nd, (_ns_ast.FunctionDef, _ns_ast.AsyncFunctionDef, _ns_ast.ClassDef)) and id(nd) not in top:
+            nodes.setdefault(nd.name, []).append(nd)
+    for k, v in list(ns.items()):
+        if not isinstance(v, (_ns_types.FunctionType, type)) or getattr(v, '__module__', None) != NS_NAME:
+            continue
+        code = getattr(v, '__code__', None)
+        if code is not None and code.co_filename != label:
+            continue
+        for nd in nodes.get(getattr(v, '__name__', ''), []):
+            if code is not None and nd.lineno != code.co_firstlineno and not getattr(nd, 'decorator_list', None):
+                continue
+            seg = _ns_ast.get_source_segment(src, nd)
+            if seg:
+                first = src.split('\n')[nd.lineno - 1]
+                ind = len(first) - len(first.lstrip())
+                body = '\n'.join(ln[ind:] if ln[:ind].strip() == '' else ln for ln in (' ' * ind + seg).split('\n'))
+                meta.setdefault('defs', []).append(_ns_textwrap.dedent(body))
+                break
 
 
 def ns_session_start(exam, paper, level=None, subject=None, topic=None, resume=False, grader_model=None,
@@ -1564,6 +1611,17 @@ def ns_self_test():
         m7 = []
         ns7c, _ = ns_load('EX', 1, out=m7.append)
         check('alias_kept_lambda_listed', ns7c['ALIAS']('x', 'y') == 'x|y' and any("'LAM'" in m for m in m7))
+        open(blk, 'w').write('exec("def MADE(x):\\n    return x * 2")\n')
+        ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        m8b = []
+        ns8b, _ = ns_load('EX', 1, out=m8b.append)
+        check('indirect_definition_is_listed_never_silent', any("'MADE'" in m for m in m8b))
+        open(blk, 'w').write('if True:\n    def NESTED(x):\n        return x + 1\n')
+        ns_run_file(blk, 'EX', 1, out=lambda *a: None)
+        m8c = []
+        ns8c, _ = ns_load('EX', 1, out=m8c.append)
+        check('nested_module_level_definition_survives', callable(ns8c.get('NESTED')) and ns8c['NESTED'](1) == 2
+              and not any("'NESTED'" in m for m in m8c))
         check('session_start_again_keeps_state_idempotent', rc7 == 0 and sorted(ns7['LEDGER']) == ['k1']
               and ns7['RESUME'] is False and ns7['LEVEL'] == 'subject')
         open(os.path.join(d, 'EX_M1_session_ns.pkl'), 'wb').write(b'garbage')

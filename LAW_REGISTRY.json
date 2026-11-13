@@ -994,6 +994,63 @@
    "preconditions": [
     "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
    ]
+  },
+  "LAW-BV-13": {
+   "gap": "GAP-2026-11-14-CARRY",
+   "stated_in": "Framework_MockTestCreate.md v6.4 S0-BV BV-13, S4-7 STEP A2, S13-1B; final_assembly v1.20 bv_batch_step (bv_carry); Framework_MockTestOrchestrate.md v1.6.0 O3-9",
+   "requires": "A question rewritten (or whose text a gate fix changed) in its batch is measured by the NEXT batch's reviewers in their first round, never by an extra round inside its own batch; the batch report names it; the last batch's are measured by S13-1B.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-14": {
+   "gap": "GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT",
+   "stated_in": "Framework_MockTestCreate.md v6.4 S0-BV BV-14, S13-1B; blueprint_core v2.4 bv_apply (recount)",
+   "requires": "A 2-1 split whose median rubric score sits on a band edge gets three more fresh counts (4 of 6 decide, else the first round's majority; once per text); before the review S13-1B measures every unsettled question with the same reviewers and rubric, so Final Assembly never measures difficulty with the judged band where the rubric applies.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-15": {
+   "gap": "GAP-2026-11-14-CARRY",
+   "stated_in": "Framework_MockTestCreate.md v6.4 S0-BV BV-15, S4-7 STEP A; blueprint_core v2.4 bv_author_view / bv_short_exemplars",
+   "requires": "The author sees the short packet view (target first, never cut; counting rules once per batch); reviewers get one short example per band where the rubric decides, the full set where the judged band decides.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

@@ -1,7 +1,6 @@
-# Framework_MockTestOrchestrate v1.5.0
-# v1.5.0 — 2026-11-13 — GAP-2026-11-13-RUN-NOT-READ (paired with Framework_MockTestCreate v6.3, bootstrap --session-start).
-#   No stop for a worker problem: when no worker model holds the specification, or a worker cannot be started
-#   twice in a row, the run switches to DIRECT MODE and continues from its saved state (O1-1, O2-3). Entry v1.4.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.6.0
+# v1.6.0 — 2026-11-14 — GAP-2026-11-14-CARRY (paired with Framework_MockTestCreate v6.4): a rewritten question is
+#   measured by the next batch's reviewers (O3-9); Final Assembly starts with MTC S13-1B, the same GRADE_REQUEST. Entry v1.5.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -342,7 +341,7 @@ PASSAGE questions (S4-8b); the figural manifest is updated (STEP C); the BATCH S
 batch in batches_completed, has current_batch incremented and the ledgers refreshed (S4-8a). The
 registry holds no committed question_index entry for this paper and batch_state.state is not set. On
 `FINAL ASSEMBLY` goes to a fresh worker (O2-5), which reaches S13 through S4-12's FINAL ASSEMBLY
-INTERRUPTED BEFORE THE REVIEW rule (S13-2 / S13-2F onward); in DIRECT MODE the session proceeds into
+INTERRUPTED BEFORE THE REVIEW rule (v1.6.0: S13-1B, then S13-2 / S13-2F onward); in DIRECT MODE the session proceeds into
 S13 as S4-9 says.
 
 Before Final Assembly, a worker whose read was NON-FINAL performs MTC S1-0's one-way escalation:
@@ -388,8 +387,10 @@ majority decides, no tiebreak round) and transcribes the figures it is asked to 
 one, or a fresh `--continue` worker after S4-12's BATCH IN VERIFICATION branch) appends the lines to returned.txt
 and runs STEP A2 again: each `REVIEW DONE` result.json is split per question (blueprint_core.bv_split_reviewer_result)
 and blueprint_core.bv_apply decides: pass, ONE rewrite, or settle (a question whose third reviewer returned nothing
-and whose two graders split gets that reviewer again). A rewrite round asks the 3 reviewers again for the rewritten
-questions only (at most blueprint_core.BV_MAX_ROUNDS rounds per batch). A role asked twice without a usable result
+and whose two graders split gets that reviewer again). v1.6.0 (MTC BV-13/14): a rewritten question,
+or one held for its edge re-count, is measured by the NEXT batch's reviewers in their first round (the last
+batch's by MTC S13-1B at Final Assembly, with the same GRADE_REQUEST hand-over) — no extra round inside a batch
+(at most blueprint_core.BV_MAX_ROUNDS rounds per batch). A role asked twice without a usable result
 is not asked again (counted per text: a rewrite starts the count again); a question that still has fewer than two
 grades is carried to S13-2L (never a stop); v1.5.0 (MTC S0-BV BV-11): a question with no fresh result at all after
 BV_MAX_ROUNDS is carried unlabelled to S13-2L as well — never a stop. Only when STEP A2 prints DONE does the
@@ -482,4 +483,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.5.0
+# END OF Framework_MockTestOrchestrate v1.6.0

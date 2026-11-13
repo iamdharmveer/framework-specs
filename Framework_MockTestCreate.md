@@ -1,15 +1,14 @@
-# Framework_MockTestCreate v6.3
-# v6.3 — 2026-11-13 — GAP-2026-11-13-DIFFICULTY-RUBRIC + GAP-2026-11-13-RUN-NOT-READ (paired with blueprint_core
-#   v2.3 Cluster BR, final_assembly v1.19, bootstrap --session-start, Framework_MockTestOrchestrate v1.5.0). Measured: every one
-#   of the 358 CSIR past records' bands is reproduced exactly by bc.difficulty_score (r2) from its counts — the
-#   scale the schedule was built from — but release 2026.11.12 measured a new question by asking reviewers which
-#   120-character past-question opening it 'resembles' (on 31 real past Organic questions of 28-Jul-2025 that judged
-#   band matched the recorded one 14 times; the counted band 22 times with the first rules, then with the
-#   tightened rules of this release — see CHANGELOG). NEW (S0-BV BV-10..12): reviewers list their moves and
-#   principles under the PYQ counting rules and the band is COMPUTED; the author writes to the slot band's measured
-#   profile (subtopic -> topic -> section -> exam); no fresh reviewer is never a stop (BV-11); §3 and the helper
-#   libraries are RUN by bootstrap.py --session-start from this verified file, not read (S1-0R PYTHON SESSION: ~102,000 tokens less
-#   per worker read). Entry v6.2 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.4
+# v6.4 — 2026-11-14 — GAP-2026-11-14-CARRY + EDGE-RECOUNT + FINAL-COUNT (paired with blueprint_core v2.4, final_assembly
+#   v1.20, bootstrap, Framework_MockTestOrchestrate v1.6.0, Framework_DeliveryFooter v1.49.0). Measured on release
+#   2026.11.13: any rewrite cost a whole second round of 3 fresh reviewers inside its batch (~240,000 tokens, ~5 min);
+#   a 2-1 split on a band edge was decided on 3 noisy counts; Final Assembly still measured an unsettled question with
+#   the judged 'resembles' band (LOWEST of the controls) — the scale that put Hard at Medium; the author packet was cut
+#   at 6,000 characters (its self-checks never shown) and repeated the counting rules for every question. NEW (S0-BV
+#   BV-13..15): a rewritten question rides in the NEXT batch's reviewer round; an edge split gets 3 more counts (4 of
+#   6 decide); S13-1B measures everything still unsettled with the same reviewers and rubric before the review; the
+#   author sees a short view (rules once per batch); reviewers get one short example per band; the batch report shows
+#   counts and non-PASS lines (the full gate report is written to a file). Entry v6.3 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -608,7 +607,8 @@
          every written question and grade. Only a worker that FAILED retention has its work since the last make
          undone.
     BV-9 (v6.2) Speed: ONE round of at most 3 fresh reviewers per batch (each solves, grades and reads the figures
-         of every question; started together, Orchestrate O2-3), a second round only for rewritten questions.
+         of every question; started together, Orchestrate O2-3); v6.4: rewritten questions ride in the NEXT batch's
+         round (BV-13) — no second round inside a batch.
     BV-10 (v6.3 — GAP-2026-11-13-DIFFICULTY-RUBRIC) ONE RULER FOR PAST AND NEW QUESTIONS. Every past record of an
          exam was banded by bc.difficulty_score (rule r2) from its counts — class facets, inferential steps,
          distinct principles, speed hack, polarity, qtype (measured on CSIR NET Chemical Sciences: 358 of 358 bands
@@ -622,6 +622,17 @@
          (AMBER "Difficulty judged, not counted"). Exam-agnostic; no value is set per exam.
     BV-11 (v6.3) No reviewer is never a stop: a question with no fresh result after bc.BV_MAX_ROUNDS rounds stays
          unlabelled in its batch (STEP A2 DONE lists it) and S13-2L measures it at Final Assembly.
+    BV-13 (v6.4 — GAP-2026-11-14-CARRY) A question rewritten (or whose text a gate fix changed) in its batch is
+         measured by the NEXT batch's reviewers in their first round — never by an extra round inside its own batch
+         (an extra round costs three fresh reviewers: ~240,000 tokens and ~5 minutes). The batch report names it.
+    BV-14 (v6.4 — GAP-2026-11-14-EDGE-RECOUNT) A 2-1 split whose median rubric score sits on a band edge is not
+         decided: three more fresh reviewers count it (carried like BV-13); the band is the one at least 4 of the 6
+         counts name, else the first round's majority (bc.bv_apply). Once per text. S13-1B measures everything still
+         unsettled before the review, with the same reviewers and rubric — Final Assembly never measures difficulty
+         with the judged "resembles" band where the rubric applies.
+    BV-15 (v6.4) The author sees bc.bv_author_view (target first, never cut; the counting rules once per batch);
+         a reviewer sees ONE short example per band where the rubric decides (bc.bv_short_exemplars — tested on
+         31 real past questions with none at all), the full examples where the judged band decides.
     BV-12 (v6.3 — GAP-2026-11-13-RUN-NOT-READ) The session-start code (§3, S0-OP) and the helper libraries of
          §6-§11 are RUN from this verified file by `bootstrap.py --session-start`, not read (S1-0R PYTHON SESSION);
          every block runs in one namespace per paper kept on disk.
@@ -4671,7 +4682,10 @@ action: the same paper, the same two files, the same "continue".
                                              'ask_format': ask_format},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
                                             _labs_ap, _rc_ap, _ru_ap)
-               print(json.dumps(_pk_ap, ensure_ascii=False, default=str)[:6000])
+               # v6.4 (BV-15): the SHORT view, target first, never cut; the counting rules once per batch
+               _first_ap = globals().get('_BV_RULES_SHOWN') != _bs_ap.get('current_batch')
+               globals()['_BV_RULES_SHOWN'] = _bs_ap.get('current_batch')
+               print(json.dumps(bc.bv_author_view(_pk_ap, with_rules=_first_ap), ensure_ascii=False, default=str))
                return _pk_ap
            ```
            Write them to the cumulative docx (append to prior batches' Qs).
@@ -4943,6 +4957,11 @@ action: the same paper, the same two files, the same "continue".
            changes a question's text is followed by this block again (the changed text is measured, never assumed). Items listed as
            key to S13-2L (a key still disputed after the rewrite) or unlabelled are carried to Final Assembly's
            S13-2L chains — the batch is still delivered (never a stop); every other item is final.
+           v6.4 (S0-BV BV-13): a question REWRITTEN in this batch, a question whose text a STEP B fix changed, and a
+           question held for its edge re-count (BV-14) are NOT measured again inside this batch: DONE lists them as
+           "level being re-checked with the next batch" (batch_state['bv_carry']); the NEXT batch's reviewers measure
+           them in their first round; the last batch's are measured in S13-1B. The batch report names them in one line:
+           `Level being re-checked with the next batch: Q<a>, Q<b>` (DeliveryFooter §LADDER-NF).
 
   STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or):
            1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
@@ -5015,9 +5034,15 @@ action: the same paper, the same two files, the same "continue".
              K-BAL (option spread)       : PASS [show running %]
              K-PAT (max run=2)           : PASS
              MANDATE 0 (no chat content) : PASS (self-check)
-             [audit script STDOUT if available]
+             Layer 1: [n] gates checked — [FAIL / WARN lines verbatim, or "all PASS"] (full list: gate report file)
+             Layer 2: [the audit script's RESULT line] — [its FAIL / WARN lines verbatim, or "no FAIL / WARN"]
+             [v6.4 BV-13: "Level being re-checked with the next batch: Q<a>, Q<b>" when STEP A2 listed any]
            =========================
            ```
+           v6.4: the FULL Layer-1 checklist (every G-* line, S4-11 EMISSION LAW) and the audit script's FULL STDOUT
+           are written to /home/claude/[ExamCode]_M[N]_gate_report_b[N].txt (a WORK FILE, kept with the paper);
+           the chat carries only the counts and every line that is not PASS / OK — the checks themselves are
+           unchanged and every one of them still runs.
 
   STEP E — DELIVER + STOP LINE:
            Call present_files with cumulative docx.
@@ -5118,7 +5143,9 @@ action: the same paper, the same two files, the same "continue".
 
   EMISSION LAW (v5.77): the batch gate report PRINTS every item name below,
   programmatically from this list — never from recall. A report with fewer
-  than 44 G-* lines is ITSELF a gate failure. (The incident report omitted 5
+  than 44 G-* lines is ITSELF a gate failure. (v6.4: the report is the gate report FILE of STEP D,
+  /home/claude/[ExamCode]_M[N]_gate_report_b[N].txt — the 44+ line rule applies to that file; the chat shows the
+  count and every non-PASS line.) (The incident report omitted 5
   of 43 items; the only one of the five that inspects placement rather than
   allocation — G-CLUSTER — was exactly the one that would have caught the
   defect.)
@@ -5367,10 +5394,14 @@ action: the same paper, the same two files, the same "continue".
   v5.91 — FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW: batches_completed covers every batch
   of the plan, the registry has no committed question_index entry for this paper, and
   batch_state.state is absent or not one of the REVIEW states below -> do NOT print a continue
-  prompt and do NOT generate a batch: re-enter §13 at S13-2 / S13-2F (the sweep counter lives
+  prompt and do NOT generate a batch: re-enter §13 at S13-1B (v6.4; a no-op when every level is settled), then
+  S13-2 / S13-2F (the sweep counter lives
   in its state file, so the count continues) and run on to S13-2G, S13-3 .. S13-8 in this
   same response.
 
+  v6.4 (S0-BV BV-14) — FINAL COUNTING ROUND IN PROGRESS: batch_state['bv']['batch'] == 'final' with status
+  'jobs_out' or 'rewrite' -> run S13-1B again (a `GRADE RETURNED` message's lines are appended to returned.txt
+  first), then continue §13 from S13-2.
   v6.1 (S0-BV) — BATCH IN VERIFICATION: batch_state['bv'] names the current batch with status 'jobs_out' or
   'rewrite' -> the batch's questions are written; run S4-7 STEP A2 again (it collects every returned job and
   re-issues any missing one), then continue S4-7 from where it printed (JOBS OUT / REWRITE / DONE). A
@@ -5406,7 +5437,7 @@ action: the same paper, the same two files, the same "continue".
         S13-8 / S13-9, in this same response.
     'DELIVERED' -> the paper is finished (S13-9): say so; generate and deliver nothing.
   Any other value (or none) -> if every batch of the plan is authored and the S3-1-resolved
-  registry has no committed question_index entry for this paper: §13 from S13-2 / S13-2F (the
+  registry has no committed question_index entry for this paper: §13 from S13-1B, S13-2 / S13-2F (the
   FINAL ASSEMBLY INTERRUPTED rule above); otherwise the batch recovery below (its steps 5-6 — the continue prompt and STOP —
   apply ONLY to the batch recovery, never to a paper whose batches are all authored).
   ```python
@@ -11314,6 +11345,25 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
 ## S13-1 — Final Assembly trigger (unchanged)
 
+## S13-1B — FINAL COUNTING ROUND (v6.4 — S0-BV BV-14; before S13-2, every Final Assembly)
+
+  Every question whose level is not settled yet — carried from the last batch (BV-13), held for its edge re-count,
+  or with no fresh result in its batch (BV-11) — is measured here by the SAME fresh reviewers and the SAME rubric
+  as in the batches (S4-7 STEP A2, final=True: nothing is deferred, at most bc.BV_MAX_ROUNDS rounds, at most ONE
+  rewrite per question). JOBS OUT -> exactly as STEP A2 (WORKER MODE: retention `--when handover`, `--checkpoint
+  make`, GRADE_REQUEST; DIRECT MODE: the jobs in one message, or `REVIEW FAILED no sub-agent tool`); REWRITE -> the
+  S4-6 correction procedure on the question's block in the cumulative docx and its sidecar entry, then this block
+  again; DONE -> S13-2. After it no question reaches S13-2L's difficulty chains with a level the rubric could
+  measure: S13-2G phase 3 keeps every LB2 label, and S13-2L chains only what is still unlabelled (no fresh
+  reviewer at all) or a disputed key / unproven figure (correctness).
+  ```python
+  # ── S13-1B FINAL COUNTING ROUND (v6.4 BV-14) ──
+  import final_assembly as fa
+  BV_FINAL = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
+                              bank=globals().get('EXEMPLAR_BANK'), op_profile=globals().get('OP_PROFILE'),
+                              home='/home/claude', final=True)
+  ```
+
 ## S13-2 — Complete gate sweep (all 81 gates)
 
 ## S13-2F — PRE-COMMIT ITEM SWEEP + CERTIFICATE (v5.89 — GAP-2026-11-02 G1)
@@ -14298,7 +14348,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.3
+# END OF Framework_MockTestCreate v6.4
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
