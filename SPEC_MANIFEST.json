@@ -191,9 +191,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 14069,
-      "sha256": "0030102e80c8e9c6a4a43d548114f607da22f92b2204a4bd00adc22c347f787c",
-      "size_bytes": 849723,
+      "lines": 14087,
+      "sha256": "b9f20693af473bd81e4d8bf71837dc12727bc0e5380473d7c7660b08bc1a97d7",
+      "size_bytes": 851484,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -233,9 +233,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 27318,
-      "sha256": "f1f2985dd128a9c12edf5cbe072cd59204cc194651ef8f748709a49a13636824",
-      "size_bytes": 1633769,
+      "lines": 27335,
+      "sha256": "2ccb035e43095e2d9351807e49c276bc50d199d73632a7084319ae0790da910c",
+      "size_bytes": 1635476,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 3002,
-      "sha256": "d1030b456c30dadfb28a3671b4d30eec7918fa270fb76a1cde7d2a56d4a04f03",
-      "size_bytes": 201493,
+      "lines": 3011,
+      "sha256": "37ca6928b32bc6c0b0a2a932a6fb33ed490aabe532221f4a745b7630161ea9f3",
+      "size_bytes": 202150,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {

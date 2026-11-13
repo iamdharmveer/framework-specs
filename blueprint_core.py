@@ -7930,6 +7930,17 @@ def _nf_self_test(check):
     c2 = {'q': 112, 'subtopic_id': 'pc.q.am', 'concept': 'angular_momentum_magnitude', 'stem_text': 'The magnitude of the spin angular momentum of a triplet is'}
     check('nf_intradup_figure_stems_and_concept', intra_paper_duplicates([g1, g2]) == []
           and [(a, b) for a, b, _w in intra_paper_duplicates([c1, c2])] == [('53', '112')])
+    # GAP-2026-11-14-INTRADUP-LINKED-SET: members of one linked set (cloze / passage) share the set's stem by design;
+    # members of DIFFERENT sets, and an ungrouped item, are still compared (fails on the pre-fix engine)
+    _cz = 'In the following passage some words have been deleted. Select the most appropriate option to fill in blank'
+    s1 = {'q': 15, 'subtopic_id': 'e.cz', 'stimulus_group_id': 'e.cloze#1', 'stem_text': _cz + ' number 1.'}
+    s2 = {'q': 16, 'subtopic_id': 'e.cz', 'stimulus_group_id': 'e.cloze#1', 'stem_text': _cz + ' number 2.'}
+    s3 = {'q': 17, 'subtopic_id': 'e.cz', 'stimulus_group_id': 'e.cloze#1', 'stem_text': _cz + ' number 3.'}
+    s4 = {'q': 40, 'subtopic_id': 'e.cz', 'stimulus_group_id': 'e.cloze#2', 'stem_text': _cz + ' number 1.'}
+    s5 = {'q': 44, 'subtopic_id': 'e.cz', 'stimulus_group_id': '', 'stem_text': _cz + ' number 1.'}
+    _ls = sorted((a, b) for a, b, _w in intra_paper_duplicates([s1, s2, s3, s4, s5]))
+    check('nf_intradup_linked_set_exempt', intra_paper_duplicates([s1, s2, s3]) == []
+          and ('15', '16') not in _ls and ('15', '40') in _ls and ('40', '44') in _ls)
     q41 = {'q': 41, 'key_text': '390.7 S cm2 mol-1', 'stem_text': 'Find the limiting molar conductivity of acetic acid.'}
     q96 = {'q': 96, 'stem_text': 'The limiting molar conductivity of acetic acid is 390.7 S cm2 mol-1. Find alpha.'}
     lk = key_leak_check([q41, q96])
@@ -25704,7 +25715,10 @@ def _nf_data_bearing(f, x):
 
 def intra_paper_duplicates(items):
     """F-07 A-INTRADUP — [(earlier_q, later_q, why)] for items of ONE paper sharing a text fingerprint (same
-    template + asked quantity) or an organic key structure. The later item is the one to replace."""
+    template + asked quantity) or an organic key structure. The later item is the one to replace.
+    GAP-2026-11-14-INTRADUP-LINKED-SET: two members of ONE linked set (the same non-empty stimulus_group_id — a
+    cloze passage, a comprehension passage, a shared table) share their stimulus and its instruction BY DESIGN
+    (R-LINKED, SC-6), so their stems fingerprint alike; such a pair is never a within-paper repeat."""
     its = [x for x in (items or []) if isinstance(x, dict)]
     fps = [(str(x.get('q')), text_item_fingerprint(x), x.get('key_smiles'), x) for x in its]
 
@@ -25714,6 +25728,9 @@ def intra_paper_duplicates(items):
         for j in range(i + 1, len(fps)):
             qa, fa, ka, xa = fps[i]
             qb, fb, kb, xb = fps[j]
+            _ga, _gb = xa.get('stimulus_group_id'), xb.get('stimulus_group_id')
+            if _ga not in (None, '') and _ga == _gb:
+                continue                                            # one linked set: shared stimulus by design
             same_sub = (not fa.get('subtopic_id') or not fb.get('subtopic_id') or fa['subtopic_id'] == fb['subtopic_id'])
             if same_sub and data_bearing(fa, xa) and data_bearing(fb, xb) and same_template(fa, fb):
                 out.append((qa, qb, 'same template: ' + (fa.get('asked') or fa['task_template'][:40])))

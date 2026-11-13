@@ -6289,7 +6289,8 @@ def gate_intradup(src, blocks):
         e = cm.get(q) or {}
         items.append(dict(q=q, stem_text=tx[q].get('stem_text'), subtopic_id=e.get('subtopic_id'),
                           organic=e.get('organic'), key_smiles=e.get('key_smiles'),
-                          concept=_nf_grader_meta(e).get('concept'), named_concepts=e.get('named_entities') or []))
+                          concept=_nf_grader_meta(e).get('concept'), named_concepts=e.get('named_entities') or [],
+                          stimulus_group_id=e.get('stimulus_group_id')))   # one linked set is never a repeat
     pairs = bc.intra_paper_duplicates(items)
     for a, b, why in pairs:
         _item('A-INTRADUP', b, f'A-INTRADUP: Q{b} repeats Q{a} ({why}) — re-author Q{b} in the same slot', 'VOID_ITEM')
@@ -7287,7 +7288,7 @@ def gate_qindex(src):
             fails.append(
                 f"check 7 (structural floor): '{canon[0]}' label on MSQ/NAT "
                 f"position(s) {_flist(_floor_bad)} — the rubric floor makes "
-                f"that band unreachable there; the label is provably wrong "
+                f"that band unreachable there — the label is provably wrong "
                 f"whatever the question says. Fix the Step-7 band plan "
                 f"(bc.assign_difficulty_bands honours the floors) and re-run.")
         # Check 8 — OBS CONSISTENCY (evidence-bearing registries only). A
@@ -7344,7 +7345,7 @@ def gate_qindex(src):
                                   and str(_o8['level'].get('rule') or '').upper() == 'L1'
                                   else _bc.rubric_rule_of(_o8)) if hasattr(_bc, 'rubric_rule_of') else 'r1'
                         _obs_bad.append(f"Q{x.get('q')}(label={x.get('difficulty')}"
-                                        f"!=measured={_meas})[rule {_rule8}; basis {_basis8}]")
+                                        f"!=measured={_meas})[rule {_rule8}, basis {_basis8}]")
                 if _carried8:
                     _warn('A-QINDEX', f"check 8: Q{', Q'.join(_carried8[:12])} carried to S13-2L (no LB2 basis yet) — "
                                       f"S13-2L re-bases or replaces each before the paper continues")
@@ -7353,7 +7354,7 @@ def gate_qindex(src):
                         f"check 8 (obs consistency): label contradicts its own "
                         f"recorded derivation evidence on {_flist(_obs_bad)} — "
                         f"assess_difficulty(difficulty_obs) disagrees. The label "
-                        f"is a conclusion from evidence, not a slot name; fix "
+                        f"is a conclusion from evidence, not a slot name — fix "
                         f"the Step-7 capture or the question and regenerate.")
             except ImportError:
                 _warn('A-QINDEX',
@@ -8784,6 +8785,15 @@ def self_test():
     check('A-QINDEX-obs-mismatch-FAILS',
           [l for l, _, _ in _q_o1] == ['FAIL'] and 'check 8' in _q_o1[0][2]
           and 'Q1(label=Hard!=measured=Easy)' in _q_o1[0][2])
+    # GAP-2026-11-14-QINDEX-CHECK-SPLIT: Create S13-2F splits the A-QINDEX message on '; ' and drops the 'check 7' /
+    # 'check 8' parts it carries to S13-2L — each check's whole text must therefore be ONE '; ' piece. A '; ' inside
+    # the check text ('not a slot name; fix ...', '[rule r2; basis ...]', check 7's 'there; the label ...') left an
+    # orphan piece that kept a carried label as a blocking FAIL (SSC_CHSL_TIER2 M7, release 2026.11.14)
+    check('A-QINDEX-check8-splits-cleanly-on-semicolon',
+          any(_p.startswith('check 8') and 'Q1(label=Hard!=measured=Easy)' in _p and 'basis ' in _p
+              and _p.rstrip().endswith('regenerate.') for _p in str(_q_o1[0][2]).split('; ')))
+    check('A-QINDEX-check7-splits-cleanly-on-semicolon',
+          any(_p.startswith('check 7') and _p.rstrip().endswith('re-run.') for _p in str(_q_fl[0][2]).split('; ')))
     check('A-QINDEX-obs-match-certifies',
           [l for l, _, _ in _q_run7(
               [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy',
@@ -13631,6 +13641,14 @@ def self_test():
     _reset(); gate_intradup({'concept_map': _cmD}, [])
     check('v241-A-INTRADUP-T15-template-and-grader-concept', [l for l, c, m in RESULTS if c == 'A-INTRADUP'] == ['FAIL']
           and sorted(f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-INTRADUP') == ['112', '88'])
+    # GAP-2026-11-14-INTRADUP-LINKED-SET: the gate must hand stimulus_group_id to the engine — members of one cloze
+    # set share their stem by design and are never a repeat (fails when the gate drops the field: Q16/Q17 flagged)
+    _czA = 'In the following passage some words have been deleted. Select the most appropriate option to fill in blank'
+    _cmL = {str(q): {'subtopic_id': 'e.cz', 'stimulus_group_id': 'e.cloze#1', 'stem_text': _czA + f' number {i}.'}
+            for i, q in enumerate((15, 16, 17), 1)}
+    _reset(); gate_intradup({'concept_map': _cmL}, [])
+    check('gap-2026-11-14-A-INTRADUP-linked-set-exempt', [l for l, c, m in RESULTS if c == 'A-INTRADUP'] == ['OK']
+          and not [f for f in ITEM_FINDINGS if f['gate'] == 'A-INTRADUP'])
     _reset(); gate_keyleak({'concept_map': _cmD, 'answers': {'41': 2, '96': 1}}, [])
     check('v241-A-KEYLEAK-T15-1based-sidecar-key', [l for l, c, m in RESULTS if c == 'A-KEYLEAK'] == ['FAIL']
           and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-KEYLEAK'] == ['96'])

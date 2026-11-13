@@ -410,11 +410,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "f1f2985dd128a9c12edf5cbe072cd59204cc194651ef8f748709a49a13636824",
+      "sha256": "2ccb035e43095e2d9351807e49c276bc50d199d73632a7084319ae0790da910c",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 27318,
-      "bytes": 1633769
+      "lines": 27335,
+      "bytes": 1635476
     },
     "paper_pipeline.py": {
       "sha256": "25f74f92563048ba49414f241135882a42de9e85b9b185cb58c520a2e22b9fb4",
@@ -424,11 +424,11 @@
       "bytes": 177322
     },
     "final_assembly.py": {
-      "sha256": "d1030b456c30dadfb28a3671b4d30eec7918fa270fb76a1cde7d2a56d4a04f03",
+      "sha256": "37ca6928b32bc6c0b0a2a932a6fb33ed490aabe532221f4a745b7630161ea9f3",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 3002,
-      "bytes": 201493
+      "lines": 3011,
+      "bytes": 202150
     },
     "corpus_io.py": {
       "sha256": "710dcbc105e5632bfe36d28f72ea71494eafd95c5fa5bd163ce405369e04c9d7",
@@ -473,11 +473,11 @@
       "bytes": 41224
     },
     "audit_canonical.py": {
-      "sha256": "0030102e80c8e9c6a4a43d548114f607da22f92b2204a4bd00adc22c347f787c",
+      "sha256": "b9f20693af473bd81e4d8bf71837dc12727bc0e5380473d7c7660b08bc1a97d7",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 14069,
-      "bytes": 849723
+      "lines": 14087,
+      "bytes": 851484
     },
     "spec_source.py": {
       "sha256": "b33e1f70d0bc15befe5b04814edde9cae4fea681bcaaac30378f01f8c8e7efc2",

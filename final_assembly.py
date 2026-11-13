@@ -1490,8 +1490,13 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _cm_bv = _kd_bv.setdefault('concept_map', {})
     _ans_bv = _kd_bv.get('answers') or {}
     _labs_bv = list(_bs_bv.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
-    _bp_bv = (_bs_bv.get('batch_plan') or [])[int(_bs_bv.get('current_batch', 1)) - 1]
-    _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
+    # GAP-2026-11-14-FINAL-COUNT-INDEX: at Final Assembly S4-8a has already moved current_batch PAST the plan, so the
+    # batch row is read only for a batch round (final=True builds its own range below — it used to IndexError here)
+    if final:
+        _bp_bv, _qs_bv = {}, []
+    else:
+        _bp_bv = (_bs_bv.get('batch_plan') or [])[int(_bs_bv.get('current_batch', 1)) - 1]
+        _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
     # v1.20 (2026.11.14, S0-BV BV-13): a question rewritten — or held for its edge re-count — in an earlier batch is
     # CARRIED: it is measured by THIS batch's reviewers (no extra round in its own batch). FINAL (Create S13-1B): every
     # question not yet settled, in one round of the same reviewers, before the review — nothing is deferred there.
@@ -2870,6 +2875,10 @@ def self_test():
         # v1.20 (BV-13): the rewritten text is NOT re-graded in its own batch — it is carried to the next batch's round
         check('bv_rewrite_is_carried_to_the_next_round', r3['status'] == 'done' and r3['jobs'] == [] and r3['pending'] == ['1']
               and _bs3['bv_carry'] == ['1'] and r3['open'] == [])
+        # S4-8a has moved current_batch past the plan by the time Final Assembly runs (GAP-2026-11-14-FINAL-COUNT-INDEX)
+        _bs4 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bs4['current_batch'] = len(_bs4.get('batch_plan') or []) + 1
+        _bv_js.dump(_bs4, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
         r4 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
         check('bv_final_round_measures_the_carried_question_at_once', r4['status'] == 'jobs_out' and len(r4['jobs']) == 3
               and r4['pending'] == [] and all('/bfinal/' in d for d in r4['jobs']))
