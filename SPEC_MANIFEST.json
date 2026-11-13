@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1387,
-      "sha256": "5259e67465c96f21729913ec65e37a075bd49cf8a5576b03ca260afcb8f829b6",
-      "size_bytes": 84451,
-      "version_header": "# Framework_DeliveryFooter v1.49.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1389,
+      "sha256": "a502fd3b743ac74136a6291edea37703faf2f2160b80164c7cef473b8563fc4c",
+      "size_bytes": 84813,
+      "version_header": "# Framework_DeliveryFooter v1.50.0 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.28.0",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 14431,
-      "sha256": "7808b7b3f57e3dc519bed40e28e17bf8330fe448faf170beec030dc375bed239",
-      "size_bytes": 985636,
-      "version_header": "# Framework_MockTestCreate v6.4"
+      "lines": 14559,
+      "sha256": "6cb2ee70ef7c610f84ea7487520da2324499aa82f61f6889c9a061bb7e79857a",
+      "size_bytes": 999923,
+      "version_header": "# Framework_MockTestCreate v6.5"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -50,11 +50,11 @@
       "version_header": "# Framework_MockTestExplain v1.55.0"
     },
     "Framework_MockTestOrchestrate.md": {
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.6.0",
-      "lines": 486,
-      "sha256": "ea8ee12d01f3f8b4b750da19e18a70a2889c884c9c86024522e7bc1550a586cf",
-      "size_bytes": 38833,
-      "version_header": "# Framework_MockTestOrchestrate v1.6.0"
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.7.0",
+      "lines": 548,
+      "sha256": "ba50ea8ec38287e54e888842d53762c8e2655180f3effa99e2196ef0b1c29b90",
+      "size_bytes": 45265,
+      "version_header": "# Framework_MockTestOrchestrate v1.7.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.9.0",
@@ -177,9 +177,9 @@
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
-      "lines": 1057,
-      "sha256": "7fd006850ece293e11c8e343d955fc6dffe0d029b6535ad707cff28079ee5249",
-      "size_bytes": 89337,
+      "lines": 1110,
+      "sha256": "ed4c64ac67ee9f31480a4bfadfaff52c497b1097ab54bb1b7060d515ead4454d",
+      "size_bytes": 93762,
       "version_header": "{"
     },
     "audit_callgraph.py": {
@@ -191,9 +191,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 14087,
-      "sha256": "b9f20693af473bd81e4d8bf71837dc12727bc0e5380473d7c7660b08bc1a97d7",
-      "size_bytes": 851484,
+      "lines": 14088,
+      "sha256": "7d20ca2a82f334cde42c499876410d957f92fa247ee7070413d119a7fe9ffc79",
+      "size_bytes": 851565,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -233,9 +233,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 27335,
-      "sha256": "2ccb035e43095e2d9351807e49c276bc50d199d73632a7084319ae0790da910c",
-      "size_bytes": 1635476,
+      "lines": 27435,
+      "sha256": "43b916e5c69fa359ae5db119c2bb9f16a59d860bf12725ae619f424d3faab336",
+      "size_bytes": 1641414,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 3011,
-      "sha256": "37ca6928b32bc6c0b0a2a932a6fb33ed490aabe532221f4a745b7630161ea9f3",
-      "size_bytes": 202150,
+      "lines": 3120,
+      "sha256": "4ab91238d3a8a6a61227739a33cccd433ce1efada7f5d985aa41aee6fa389120",
+      "size_bytes": 210888,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {
@@ -317,9 +317,9 @@
     },
     "handshake_audit.py": {
       "end_sentinel": "    print(__doc__)",
-      "lines": 1514,
-      "sha256": "b83db58939b21e79c4f6f02d7f424b76fe78510362fc3374bcd69f14c5d64150",
-      "size_bytes": 129755,
+      "lines": 1522,
+      "sha256": "9e618e25dd62b50efa7020ea9c2aff288e8232debd29a63d27a513bc10797ee8",
+      "size_bytes": 130822,
       "version_header": "#!/usr/bin/env python3"
     },
     "manifest_to_taxonomy_xlsx.py": {

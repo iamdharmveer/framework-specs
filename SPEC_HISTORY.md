@@ -463,6 +463,13 @@ Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (E
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
+Entry v1.49.0 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v1.50.0 supersedes).
+
+```
+# v1.49.0 — 2026-11-14 — GAP-2026-11-14-CARRY (paired with MockTestCreate v6.4): §LADDER-NF gains the batch line
+#   naming the questions whose level is re-checked with the next batch (Create BV-13). Entry v1.48.0 moved to SPEC_HISTORY.md.
+```
+
 Entry v1.48.0 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v1.49.0 supersedes).
 
 ```
@@ -2182,6 +2189,21 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v6.4 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v6.5 supersedes).
+
+```
+# v6.4 — 2026-11-14 — GAP-2026-11-14-CARRY + EDGE-RECOUNT + FINAL-COUNT (paired with blueprint_core v2.4, final_assembly
+#   v1.20, bootstrap, Framework_MockTestOrchestrate v1.6.0, Framework_DeliveryFooter v1.49.0). Measured on release
+#   2026.11.13: any rewrite cost a whole second round of 3 fresh reviewers inside its batch (~240,000 tokens, ~5 min);
+#   a 2-1 split on a band edge was decided on 3 noisy counts; Final Assembly still measured an unsettled question with
+#   the judged 'resembles' band (LOWEST of the controls) — the scale that put Hard at Medium; the author packet was cut
+#   at 6,000 characters (its self-checks never shown) and repeated the counting rules for every question. NEW (S0-BV
+#   BV-13..15): a rewritten question rides in the NEXT batch's reviewer round; an edge split gets 3 more counts (4 of
+#   6 decide); S13-1B measures everything still unsettled with the same reviewers and rubric before the review; the
+#   author sees a short view (rules once per batch); reviewers get one short example per band; the batch report shows
+#   counts and non-PASS lines (the full gate report is written to a file). Entry v6.3 moved to SPEC_HISTORY.md.
+```
 
 Entry v6.3 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v6.4 supersedes).
 
@@ -7991,6 +8013,13 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.6.0 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v1.7.0 supersedes).
+
+```
+# v1.6.0 — 2026-11-14 — GAP-2026-11-14-CARRY (paired with Framework_MockTestCreate v6.4): a rewritten question is
+#   measured by the next batch's reviewers (O3-9); Final Assembly starts with MTC S13-1B, the same GRADE_REQUEST. Entry v1.5.0 moved to SPEC_HISTORY.md.
+```
 
 Entry v1.5.0 moved at framework release 2026.11.14 (GAP-2026-11-14-CARRY + GAP-2026-11-14-EDGE-RECOUNT + GAP-2026-11-14-FINAL-COUNT; v1.6.0 supersedes).
 

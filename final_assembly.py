@@ -13,6 +13,11 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.21 — GAP-2026-11-13-STEP7-SPEED (release 2026.11.15). bv_batch_step settles every question INSIDE ITS OWN BATCH
+    (defer=False: a rewrite, an edge re-count or a missing role gets its next round at once; the only carry is
+    INFRA-CARRY after bc.BV_MAX_ROUNDS); reviewer jobs split per SESSION_BUDGET.json review_qs_per_job; a re-ask goes to
+    a '_switch' folder (another model); paper_in_progress (Create S3-13 / S3-16 RESUME); bv_budget_value.
+
     v1.20 — GAP-2026-11-14-CARRY + FINAL-COUNT (release 2026.11.14). bv_batch_step carries a question rewritten (or
     held for its edge re-count) in its batch to the NEXT batch's first reviewer round (batch_state['bv_carry']; no
     extra round inside a batch); final=True (Create S13-1B) measures every unsettled question before the review.
@@ -1462,8 +1467,39 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
 
 # ══ v1.17 (GAP-2026-11-11-BATCH-VERIFICATION) — Create S4-7 STEP A2, the I/O shell over blueprint_core Cluster BV ══
 
+def paper_in_progress(home, exam, n):
+    """v2.5 (GAP-2026-11-13-STEP7-SPEED G-10): the saved batch_state of paper <exam> M<n> when that paper is IN PROGRESS —
+    the file exists, parses to a dict with a non-empty batch_plan and its state is not 'DELIVERED' — else None. A session
+    start that finds one runs in RESUME mode and regenerates nothing (Create S3-13 / S3-16; bootstrap ns_session_start
+    applies the same test, bootstrap.ns_paper_in_progress). In the I/O shell (final_assembly), never in the thin core."""
+    import json as _j, os as _o
+    p = _o.path.join(str(home), f'{exam}_M{int(n)}_batch_state.json')
+    try:
+        d = _j.load(open(p, encoding='utf-8'))
+    except (OSError, ValueError, TypeError):
+        return None
+    if not isinstance(d, dict) or not d.get('batch_plan') or str(d.get('state') or '') == 'DELIVERED':
+        return None
+    return d
+
+
+def bv_budget_value(key, default):
+    """v1.21 (GAP-2026-11-13-STEP7-SPEED): one SESSION_BUDGET.json value (the verified copy beside this engine, i.e.
+    /tmp/fw_effective), else default. A budget is never a constant in the engine (OR-4); never raises."""
+    import json, os
+    try:
+        v = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SESSION_BUDGET.json'),
+                           encoding='utf-8')).get(key)
+    except (OSError, ValueError):
+        v = None
+    return default if v is None else v
+
+
+BV_IN_BATCH_ASKS = 3     # v1.21: a reviewer role is asked at most 3 times in its batch (the 3rd on a switched model)
+
+
 def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True,
-                  final=False, defer=True):
+                  final=False, defer=False):
     """THE in-batch verification step of Create S4-7 STEP A2 (S0-BV), for the CURRENT batch of paper <exam> M<n>.
     Idempotent and resume-safe: (1) collects every outstanding fresh job whose sub-agent returned REVIEW DONE (v1.18:
     one reviewer job per (round, k) solves, grades and reads the figures of every question of the batch; a per-role
@@ -1475,7 +1511,14 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     (4) writes the fresh jobs still needed (job folder = packet.json + JOB_BRIEF.txt). Returns {'status':
     'jobs_out'|'rewrite'|'done', 'jobs': [dirs], 'rewrite': [q], 'settled', 'disclosed', 'key_chain', 'open', 'lines'}
     and prints the lines (echo). v1.19: never raises for a missing reviewer — a question still without fresh
-    results after bc.BV_MAX_ROUNDS job rounds is carried unlabelled to S13-2L (batch_state['bv']['unmeasured'])."""
+    results after bc.BV_MAX_ROUNDS job rounds is carried unlabelled to S13-2L (batch_state['bv']['unmeasured']).
+    v1.21 (GAP-2026-11-13-STEP7-SPEED G-06 / G-11): EVERY question is settled INSIDE ITS OWN BATCH — a rewrite, an
+    edge re-count or a missing role gets its next round at once, in the same batch, with only those questions in the
+    jobs (defer=True, the 2026.11.14 carry, is kept only for a caller that asks for it). The ONLY carry left is
+    INFRA-CARRY: a question with no fresh result after bc.BV_MAX_ROUNDS rounds rides in the next batch's first round
+    (disclosed; target 0). Reviewer k's questions are split into jobs of SESSION_BUDGET.json review_qs_per_job units
+    (bc.bv_job_chunks; a linked group is never split); a job that re-asks a role that returned nothing gets a folder
+    name ending in '_switch' (Orchestrate O3-9: a different model)."""
     import json, os, shutil
     _lines = []
 
@@ -1613,7 +1656,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                          vision_compare=_vcmp_bv, figure_proof=_vprf_bv,
                          asked=(_st_bv.get('asked') or {}).get(_q),
                          # v1.20: at FINAL nothing can be carried any more — a role is re-asked up to the round limit
-                         max_asks=(bc.BV_MAX_ROUNDS if final else 2))
+                         # v1.21: in a batch a role is asked at most BV_IN_BATCH_ASKS times (nothing is carried)
+                         max_asks=(bc.BV_MAX_ROUNDS if final else (2 if defer else BV_IN_BATCH_ASKS)))
         _cm_bv[_q] = _r['entry']
         _st_bv.setdefault('items', {})[_q] = _r['entry'].get('bv')
         _acts_bv.setdefault(_r['action'], []).append(_q)
@@ -1645,15 +1689,22 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                  f"carried unlabelled to S13-2L (no stop).")
         else:
             _defer_bv |= set(_needs_bv)
-            _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
-                 f"measured with the next batch (no stop).")
+            _st_bv['infra_carry'] = sorted(set(_st_bv.get('infra_carry') or []) | set(_needs_bv), key=int)
+            _say(f"STEP A2: INFRA-CARRY {sorted(_needs_bv, key=int)} — no fresh reviewer returned after {bc.BV_MAX_ROUNDS} "
+                 f"rounds (a platform fault, not a quality state); measured in the next batch's first round (no stop).")
         _needs_bv = {}
     if _needs_bv:
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
         _anc_bv = {q: bc.bv_anchors(_bank_bv, _ru_bv, (_cm_bv[q] or {}).get('subtopic_id'),
                                     str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv}
-        for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv):
-            _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", f"r{_jr_bv + 1}", _jb['role'])
+        _qpj = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)
+        for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj):
+            # v1.21 (G-15 / E22): a job that asks a role again after it returned nothing goes to a DIFFERENT model
+            _kk0 = _jb['role'].rsplit('_', 1)[-1]
+            _reask = any(int(((_st_bv.get('asked') or {}).get(_q3) or {}).get(_rl) or 0) >= 1
+                         for _q3 in _jb['qs'] for _rl in (_needs_bv.get(_q3) or []) if _rl.endswith('_' + _kk0))
+            _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", f"r{_jr_bv + 1}",
+                              _jb.get('name') or _jb['role']) + ('_switch' if _reask else '')
             os.makedirs(_d, exist_ok=True)
             _pk = json.loads(json.dumps(_jb['packet'], default=str))
 
@@ -1711,7 +1762,9 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _say(f"STEP A2: DONE — settled {len(_bst['settled'])}/{len(_qs_bv)} "
               f"(at slot {len(_bst['settled']) - len(_bst['disclosed'])}, disclosed {_bst['disclosed'] or 'none'}); "
               f"key to S13-2L {_bst['key_chain'] or 'none'}; unlabelled {_st_bv['open'] or 'none'}; "
-              f"level being re-checked with the next batch {_pending_bv or 'none'}")
+              + (f"level being re-checked with the next batch {_pending_bv or 'none'}" if defer else
+                 f"INFRA-CARRY {_pending_bv or 'none'}")
+              + (f"; S13-1B: {len(_qs_bv)} to measure" if final else ''))
 
     return {'status': _st_bv['status'], 'jobs': [j['dir'] for j in _new_jobs], 'rewrite': list(_acts_bv.get('rewrite') or []),
             'settled': _bst['settled'], 'disclosed': _bst['disclosed'], 'key_chain': _bst['key_chain'],
@@ -2872,21 +2925,40 @@ def self_test():
         _bs3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
         check('bv_rewrite_clears_ask_count', len(r1['jobs']) == 3 and r2['status'] == 'rewrite' and r2['rewrite'] == ['1']
               and '1' not in _asked_after_rw)
-        # v1.20 (BV-13): the rewritten text is NOT re-graded in its own batch — it is carried to the next batch's round
-        check('bv_rewrite_is_carried_to_the_next_round', r3['status'] == 'done' and r3['jobs'] == [] and r3['pending'] == ['1']
-              and _bs3['bv_carry'] == ['1'] and r3['open'] == [])
-        # S4-8a has moved current_batch past the plan by the time Final Assembly runs (GAP-2026-11-14-FINAL-COUNT-INDEX)
+        # v1.21 (G-06, t_carry_empty): the rewritten text is re-graded IN ITS OWN BATCH — its next round is issued at
+        # once with only that question; nothing is carried to the next batch or to Final Assembly
+        check('bv_rewrite_is_measured_in_its_own_batch', r3['status'] == 'jobs_out' and len(r3['jobs']) == 3
+              and all('/b1/r2/' in d for d in r3['jobs']) and r3['pending'] == [] and _bs3['bv_carry'] == [])
+        _answer_all(r3['jobs'], 'Hard')
+        r4 = bv_batch_step('EX', 1, home=_h, echo=False)
+        check('t_carry_empty_at_done', r4['status'] == 'done' and r4['settled'] == ['1'] and r4['pending'] == []
+              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv_carry'] == [])
+        # GAP-2026-11-14-FINAL-COUNT-INDEX (hotfix 48c6502, kept): by Final Assembly S4-8a has moved current_batch PAST
+        # the plan — the final round must not index batch_plan with it (the pre-fix engine raised IndexError here)
         _bs4 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
         _bs4['current_batch'] = len(_bs4.get('batch_plan') or []) + 1
         _bv_js.dump(_bs4, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        r4 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        check('bv_final_round_measures_the_carried_question_at_once', r4['status'] == 'jobs_out' and len(r4['jobs']) == 3
-              and r4['pending'] == [] and all('/bfinal/' in d for d in r4['jobs']))
-        _answer_all(r4['jobs'], 'Hard')
-        _kx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
         r5 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        check('bv_final_round_settles_and_clears_the_carry', r5['status'] == 'done' and r5['settled'] == ['1']
-              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv_carry'] == [])
+        check('bv_final_round_is_a_check_when_every_batch_settled', r5['status'] == 'done' and r5['jobs'] == []
+              and r5['settled'] == [] and 'S13-1B: 0 to measure' in r5['lines'][-1] and not _bv_os.path.isdir(_bv_os.path.join(_h, 'EX_M1_bv', 'bfinal')))
+        # the 2026.11.14 carry stays available to a caller that asks for it (defer=True) — never the spec's default
+        _bs3['bv_carry'] = []
+        check('bv_defer_is_opt_in_only', bv_batch_step.__defaults__[-1] is False)
+    # GAP-2026-11-14-FINAL-COUNT-INDEX x v1.21 INFRA-CARRY: the last batch's INFRA-CARRY question is measured by the final
+    # round (S13-1B) while current_batch is already past the plan — jobs go out at once, never an IndexError
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'],
+                                           'subtopic_id': 'A.b', 'qtype': 'mcq'}}, 'answers': {'1': 2}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 2, 'bv_carry': ['1'],
+                     'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard'}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        try:
+            _ri = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        except IndexError:
+            _ri = {'status': 'IndexError', 'jobs': []}
+        check('gap_2026_11_14_final_count_index_infra_carry', _ri['status'] == 'jobs_out' and len(_ri['jobs']) == 3
+              and all('/bfinal/' in d for d in _ri['jobs']))
     # v1.20 (S0-BV BV-13) — a question carried from batch 1 rides in batch 2's FIRST reviewer round (no extra round)
     with _bv_tf.TemporaryDirectory() as _h:
         _cm2 = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'], 'subtopic_id': 'A.b', 'qtype': 'mcq'},
@@ -2951,6 +3023,43 @@ def self_test():
             _mf = {'status': f'raised {_ex}'}
         check('bv_final_max_rounds_carries_unlabelled_never_a_stop', _mf['status'] == 'done' and _mf.get('open') == ['1']
               and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == ['1'])
+    # v1.21 (G-11, t_reviewer_jobs_split): 10 questions at 5 per job -> 6 jobs; every question in exactly 3 distinct
+    # reviewer contexts (k = 1..3); a linked group is never split; a re-ask goes to a '_switch' folder (another model)
+    with _bv_tf.TemporaryDirectory() as _h:
+        _cms = {str(q): {'stem_text': f'Compute quantity number {q} of the sample system here', 'option_texts': ['1', '2', '3', '4'],
+                         'subtopic_id': 'A.b', 'qtype': 'mcq'} for q in range(1, 11)}
+        for _q in ('4', '5', '6'):
+            _cms[_q]['stimulus_group_id'] = 'G1'
+        _bv_js.dump({'concept_map': _cms, 'answers': {str(q): 1 for q in range(1, 11)}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 10}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {str(q): 'Medium' for q in range(1, 11)}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _sj = bv_batch_step('EX', 1, home=_h, echo=False)
+        _jq = {}
+        for _d in _sj['jobs']:
+            for _r in _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))['items']:
+                _jq.setdefault(_r['q'], []).append(_d.rsplit('/', 1)[-1].split('_p')[0])
+        _grp = [[_r['q'] for _r in _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))['items']] for _d in _sj['jobs']]
+        check('t_reviewer_jobs_split', len(_sj['jobs']) == 3 * len(bc.bv_job_chunks([str(q) for q in range(1, 11)], _cms, 5))
+              and len(bc.bv_job_chunks([str(q) for q in range(1, 11)], {}, 5)) == 2
+              and all(sorted(v) == ['reviewer_1', 'reviewer_2', 'reviewer_3'] for v in _jq.values()) and len(_jq) == 10
+              and all(({'4', '5', '6'} <= set(g)) or not ({'4', '5', '6'} & set(g)) for g in _grp))
+        open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'w').write(
+            '\n'.join(d + ' REVIEW FAILED quota' for d in _sj['jobs']) + '\n')
+        _sw = bv_batch_step('EX', 1, home=_h, echo=False)
+        check('bv_reask_goes_to_a_switched_model', _sw['status'] == 'jobs_out' and _sw['jobs']
+              and all(d.endswith('_switch') for d in _sw['jobs']) and all('/b1/r2/' in d for d in _sw['jobs']))
+    # v1.21 (G-10): the in-progress test used by Create S3-13 / S3-16 (bootstrap.ns_paper_in_progress applies the same)
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'batch_plan': [{'batch_id': 1}]}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1}], 'state': 'DELIVERED'}, open(_bv_os.path.join(_h, 'EX_M2_batch_state.json'), 'w'))
+        _bv_js.dump({'batch_plan': []}, open(_bv_os.path.join(_h, 'EX_M3_batch_state.json'), 'w'))
+        open(_bv_os.path.join(_h, 'EX_M4_batch_state.json'), 'w').write('{bad')
+        check('t_paper_in_progress', isinstance(paper_in_progress(_h, 'EX', 1), dict)
+              and all(paper_in_progress(_h, 'EX', k) is None for k in (2, 3, 4, 5)))
+    check('bv_job_chunks_shapes', bc.bv_job_chunks(['1', '2'], {}, None) == [['1', '2']] and bc.bv_job_chunks([], {}, 5) == []
+          and bc.bv_job_chunks(['1', '2', '3'], {'1': {'figure_dicts': [{}]}}, 2) == [['1'], ['2', '3']])
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

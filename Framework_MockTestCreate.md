@@ -1,14 +1,14 @@
-# Framework_MockTestCreate v6.4
-# v6.4 — 2026-11-14 — GAP-2026-11-14-CARRY + EDGE-RECOUNT + FINAL-COUNT (paired with blueprint_core v2.4, final_assembly
-#   v1.20, bootstrap, Framework_MockTestOrchestrate v1.6.0, Framework_DeliveryFooter v1.49.0). Measured on release
-#   2026.11.13: any rewrite cost a whole second round of 3 fresh reviewers inside its batch (~240,000 tokens, ~5 min);
-#   a 2-1 split on a band edge was decided on 3 noisy counts; Final Assembly still measured an unsettled question with
-#   the judged 'resembles' band (LOWEST of the controls) — the scale that put Hard at Medium; the author packet was cut
-#   at 6,000 characters (its self-checks never shown) and repeated the counting rules for every question. NEW (S0-BV
-#   BV-13..15): a rewritten question rides in the NEXT batch's reviewer round; an edge split gets 3 more counts (4 of
-#   6 decide); S13-1B measures everything still unsettled with the same reviewers and rubric before the review; the
-#   author sees a short view (rules once per batch); reviewers get one short example per band; the batch report shows
-#   counts and non-PASS lines (the full gate report is written to a file). Entry v6.3 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v6.5
+# v6.5 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with blueprint_core v2.5, final_assembly v1.21, bootstrap,
+#   audit_canonical, Framework_MockTestOrchestrate v1.7.0). Measured on release 2026.11.14 (CSIR NET Chemical Sciences,
+#   TestCreate subject test, 40 questions): batches 20-38 min and Final Assembly over 60 min with 7 workers — each fresh
+#   worker re-read ~385,000 tokens in 84 calls, questions left unsettled in a batch were measured again at Final
+#   Assembly (up to 5 counting rounds), the round-2 review re-solved the whole paper, every reviewer solved the whole
+#   batch, a session start rewrote the batch state, and a formula-only spectroscopy item could never pass rule (c).
+#   NEW: every question is settled INSIDE ITS OWN BATCH (S0-BV BV-9 rewritten, BV-13 retired, BV-14 / BV-11 edited);
+#   the code a worker runs verbatim is a RUN-BLOCK, run by ID and not read (S1-0R); a session start on a paper in
+#   progress keeps its state (S3-13 / S3-16); S13-1B is a check; S13-2G round 2 is a delta round. Entry v6.4 moved to
+#   SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -606,9 +606,13 @@
          (`bootstrap.py --checkpoint make`, Framework_MockTestOrchestrate O3-3): the worker that continues keeps
          every written question and grade. Only a worker that FAILED retention has its work since the last make
          undone.
-    BV-9 (v6.2) Speed: ONE round of at most 3 fresh reviewers per batch (each solves, grades and reads the figures
-         of every question; started together, Orchestrate O2-3); v6.4: rewritten questions ride in the NEXT batch's
-         round (BV-13) — no second round inside a batch.
+    BV-9 (v6.2; v6.5 — GAP-2026-11-13-STEP7-SPEED G-06 / G-11) Speed AND settlement: round 1 grades every question of
+         the batch with three fresh reviewers (each question in exactly three distinct fresh contexts; reviewer k's
+         questions are split into jobs of SESSION_BUDGET.json review_qs_per_job, a linked group never split — all
+         started together, Orchestrate O2-3). A question that needs more — its one rewrite, an edge re-count
+         (BV-14), a role that returned nothing — gets its next round AT ONCE, IN THE SAME BATCH, with only those
+         questions in the jobs (at most bc.BV_MAX_ROUNDS rounds per batch). A batch is delivered only when every
+         question of it is settled: nothing is carried to the next batch or to Final Assembly (OR-5).
     BV-10 (v6.3 — GAP-2026-11-13-DIFFICULTY-RUBRIC) ONE RULER FOR PAST AND NEW QUESTIONS. Every past record of an
          exam was banded by bc.difficulty_score (rule r2) from its counts — class facets, inferential steps,
          distinct principles, speed hack, polarity, qtype (measured on CSIR NET Chemical Sciences: 358 of 358 bands
@@ -620,16 +624,20 @@
          bc.BR_RECIPE_MIN records; else the rubric's score range) and counts its own solution the same way. On an
          exam whose labels are not three bands the rubric does not apply: the judged band stands, disclosed
          (AMBER "Difficulty judged, not counted"). Exam-agnostic; no value is set per exam.
-    BV-11 (v6.3) No reviewer is never a stop: a question with no fresh result after bc.BV_MAX_ROUNDS rounds stays
-         unlabelled in its batch (STEP A2 DONE lists it) and S13-2L measures it at Final Assembly.
-    BV-13 (v6.4 — GAP-2026-11-14-CARRY) A question rewritten (or whose text a gate fix changed) in its batch is
-         measured by the NEXT batch's reviewers in their first round — never by an extra round inside its own batch
-         (an extra round costs three fresh reviewers: ~240,000 tokens and ~5 minutes). The batch report names it.
-    BV-14 (v6.4 — GAP-2026-11-14-EDGE-RECOUNT) A 2-1 split whose median rubric score sits on a band edge is not
-         decided: three more fresh reviewers count it (carried like BV-13); the band is the one at least 4 of the 6
-         counts name, else the first round's majority (bc.bv_apply). Once per text. S13-1B measures everything still
-         unsettled before the review, with the same reviewers and rubric — Final Assembly never measures difficulty
-         with the judged "resembles" band where the rubric applies.
+    BV-11 (v6.3; v6.5) No reviewer is never a stop. A job whose reviewer returned nothing is re-issued in the next
+         round of the same batch (a folder ending in `_switch` — Orchestrate O2-3: another model); a role is asked at
+         most 3 times. A question with no fresh result at all after bc.BV_MAX_ROUNDS rounds is an INFRASTRUCTURE
+         fault, not a quality state: INFRA-CARRY — it rides in the next batch's first round (the last batch's: S13-1B),
+         named in the batch report (DeliveryFooter: `INFRA-CARRY Q<n>`). This is the ONLY carry (target 0).
+    BV-13 (v6.4; RETIRED v6.5 — GAP-2026-11-13-STEP7-SPEED G-06) The carry of a rewritten question to the next batch is
+         retired: its regrade is the next round of its own batch (BV-9). A paper begun under 2026.11.14 with a
+         non-empty batch_state['bv_carry'] has those questions measured in the next batch's first round (S4-12
+         migration); the engine keeps the carry only for that.
+    BV-14 (v6.4 — GAP-2026-11-14-EDGE-RECOUNT; v6.5) A 2-1 split whose median rubric score sits on a band edge is not
+         decided: three more fresh reviewers count it in the next round of the SAME batch; the band is the one at least 4 of the 6
+         counts name, else the first round's majority (bc.bv_apply). Once per text. S13-1B (v6.5: a check) measures
+         only an INFRA-CARRY or migration leftover, with the same reviewers and rubric — Final Assembly never measures
+         difficulty with the judged "resembles" band where the rubric applies.
     BV-15 (v6.4) The author sees bc.bv_author_view (target first, never cut; the counting rules once per batch);
          a reviewer sees ONE short example per band where the rubric decides (bc.bv_short_exemplars — tested on
          31 real past questions with none at all), the full examples where the judged band decides.
@@ -729,10 +737,22 @@ O3-3 CHECKPOINT carries it):
     from the same verified file. Its output is the session start's output (every S3 print, every stop
     message, `FW-NS SESSION READY ...` at the end). A non-zero exit is that block's stop: act on its printed
     message exactly as if the block had run in the session.
+  * v6.5 (GAP-2026-11-13-STEP7-SPEED G-02) A RUN-BLOCK — a block whose first line is `# RUN-BLOCK <ID>` — is RUN BY ID,
+    never copied: `python3 bootstrap.py --run-section <ID> --exam <ExamCode> --paper <N>` runs it from this verified
+    file in the paper's namespace. Its body is NOT in the read: the read shows the marker line, its `# PARAMS:` line
+    (the names it takes from the session — give one with `--set NAME=<json>` or `--set-file NAME=<path to .json>`;
+    a missing one is reported and nothing runs) and its `# DEFINES:` line (the functions it defines, with their
+    signatures — call them in a --run-block file after running it), plus every rule around it. "Execute / run the
+    block below" means that command. Its output, stop lines and exit code are the block's, exactly as if it had run in
+    the session. `--set` values stay in the session like any assignment (set a flag back the same way). Only when a
+    RUN-BLOCK raised and the repair needs its code: `python3 bootstrap.py --show-section <ID>`.
   * EVERY OTHER BLOCK this spec tells you to run: write it (with your values filled in) to a file under
     /home/claude/fwrun/ and run `python3 bootstrap.py --run-block <file> --exam <ExamCode> --paper <N>`. Every name an
     earlier block or the session start bound (EXAM, bp, manifest, the ledgers, the plans, FONT_NAME, every
     helper function) is there; what you bind is kept for the next call and the next worker.
+  * v6.5 (G-10) A session start on a paper IN PROGRESS (its batch_state has a plan and is not DELIVERED) runs in RESUME
+    mode by itself (`FW-NS: existing paper found — RESUME mode`): the saved batch state, answer budget, figural_qs and
+    ledgers are kept, never regenerated (S3-13 / S3-16); `--resume` is not needed.
   * A name the session could not keep is printed on the next call (`FW-NS: not restored ...`); the block that
     needs it rebuilds it from the paper's files. Nothing is lost silently.
 
@@ -1190,6 +1210,9 @@ action: the same paper, the same two files, the same "continue".
 
   DECISION TREE (zero-halt except the one explicit NOT-SUPPORTED gate below):
   ```python
+  # RUN-BLOCK S7-NEW-C — not in the read; run it: python3 bootstrap.py --run-section S7-NEW-C --exam <E> --paper <N>
+  # PARAMS: none
+  # DEFINES: _fmt_portal_number(value, precision=None) — One bound/value -> a portal-safe string. precision=None -> minimal; _fmt_portal_range(lo, hi, precision=None); derive_nat_grading(value, ca_range=None, stem_precision=None) — Returns (grading_type, grading_value). grading_type is one of
   from decimal import Decimal, ROUND_HALF_UP
   import re
 
@@ -3819,7 +3842,14 @@ action: the same paper, the same two files, the same "continue".
                                       msq_positions=msq_positions,
                                       nat_positions=nat_positions)
   budget_path = f'/home/claude/{EXAM}_M{N}_answer_budget.json'
-  json.dump({'positions': answer_budget}, open(budget_path, 'w'))
+  # v6.5 (GAP-2026-11-13-STEP7-SPEED G-10): a session start on a paper IN PROGRESS (fa.paper_in_progress) keeps
+  # the budget the paper was written against — the questions already written sit on its positions.
+  import final_assembly as _fa_g10
+  if _fa_g10.paper_in_progress('/home/claude', EXAM, N) is not None and os.path.exists(budget_path):
+      answer_budget = json.load(open(budget_path, encoding='utf-8')).get('positions') or answer_budget
+      print(f"S3-13: paper in progress — answer budget kept from {budget_path} (RESUME, nothing regenerated).")
+  else:
+      json.dump({'positions': answer_budget}, open(budget_path, 'w'))
   # All SINGLE-answer questions read their correct-answer position from this budget.
   # Content generation fills the PRE-ASSIGNED slot with the correct answer.
   # v4.5: MULTI (MSQ) questions have budget[str(q)]==None — they SELF-ASSIGN the correct
@@ -4038,7 +4068,18 @@ action: the same paper, the same two files, the same "continue".
                                       # Empty {} when figural_present is False or no FIGURAL
                                       # subtopics exist in this mock.
   }
-  json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w'))
+  # v6.5 (G-10): a session start on a paper IN PROGRESS (fa.paper_in_progress: the file parses, has a batch_plan and
+  # is not DELIVERED) is STATE-PRESERVING — the saved batch_state (plan, bv record, carry list, figural_qs, ledgers)
+  # is kept byte-for-byte and only the names are rebound; the dict above is used for a FRESH paper only.
+  import final_assembly as _fa_g10
+  _bs_inprog = _fa_g10.paper_in_progress('/home/claude', EXAM, N)
+  if _bs_inprog is not None:
+      batch_state = _bs_inprog
+      batch_plan = list(_bs_inprog.get('batch_plan') or batch_plan)
+      print(f"S3-16: paper in progress — batch_state kept (batch {_bs_inprog.get('current_batch')} of "
+            f"{len(batch_plan)}; RESUME, nothing regenerated).")
+  else:
+      json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w'))
   ```
 
 ## S3-17 — Mandatory subtopic + alternation pre-check (v3.4 — manifest-driven)
@@ -4668,6 +4709,9 @@ action: the same paper, the same two files, the same "continue".
            moves and the principles): bc.br_band(counts, qtype, labels) must give the slot band. The reviewers
            count the same way and their counts decide the band:
            ```python
+           # RUN-BLOCK S4-7.1 — not in the read; run it: python3 bootstrap.py --run-section S4-7.1 --exam <E> --paper <N>
+           # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+           # DEFINES: BV_AUTHOR_PACKET(q, subtopic_id, qtype='mcq', ask_format=None)
            # ── S4-7 STEP A author packet (v6.1 BV1) ──
            import json, blueprint_core as bc
            def BV_AUTHOR_PACKET(q, subtopic_id, qtype='mcq', ask_format=None):
@@ -4947,6 +4991,8 @@ action: the same paper, the same two files, the same "continue".
            rewrite per question (bc.C_WRITE_ATTEMPTS). The REWRITE brief names the gap in counts
            (rewrite_brief 'gap', 'target', 'measured_counts').
            ```python
+           # RUN-BLOCK S4-7.2 — not in the read; run it: python3 bootstrap.py --run-section S4-7.2 --exam <E> --paper <N>
+           # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
            # ── S4-7 STEP A2 (v6.1 BV1) ──
            import final_assembly as fa
            BV_STEP = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
@@ -4957,11 +5003,11 @@ action: the same paper, the same two files, the same "continue".
            changes a question's text is followed by this block again (the changed text is measured, never assumed). Items listed as
            key to S13-2L (a key still disputed after the rewrite) or unlabelled are carried to Final Assembly's
            S13-2L chains — the batch is still delivered (never a stop); every other item is final.
-           v6.4 (S0-BV BV-13): a question REWRITTEN in this batch, a question whose text a STEP B fix changed, and a
-           question held for its edge re-count (BV-14) are NOT measured again inside this batch: DONE lists them as
-           "level being re-checked with the next batch" (batch_state['bv_carry']); the NEXT batch's reviewers measure
-           them in their first round; the last batch's are measured in S13-1B. The batch report names them in one line:
-           `Level being re-checked with the next batch: Q<a>, Q<b>` (DeliveryFooter §LADDER-NF).
+           v6.5 (S0-BV BV-9, G-06): a question REWRITTEN in this batch, a question whose text a STEP B fix changed, and a
+           question held for its edge re-count (BV-14) are measured AGAIN INSIDE THIS BATCH: the block issues their
+           next round at once (JOBS OUT with only those questions); DONE comes when every question of the batch is
+           settled. Only an INFRA-CARRY (BV-11) rides in the next batch; the batch report names it in one line:
+           `INFRA-CARRY: Q<a>, Q<b>` (DeliveryFooter §LADDER-NF; expected: never).
 
   STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or):
            1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
@@ -5036,7 +5082,7 @@ action: the same paper, the same two files, the same "continue".
              MANDATE 0 (no chat content) : PASS (self-check)
              Layer 1: [n] gates checked — [FAIL / WARN lines verbatim, or "all PASS"] (full list: gate report file)
              Layer 2: [the audit script's RESULT line] — [its FAIL / WARN lines verbatim, or "no FAIL / WARN"]
-             [v6.4 BV-13: "Level being re-checked with the next batch: Q<a>, Q<b>" when STEP A2 listed any]
+             [v6.5 BV-11: "INFRA-CARRY: Q<a>, Q<b>" when STEP A2 listed any]
            =========================
            ```
            v6.4: the FULL Layer-1 checklist (every G-* line, S4-11 EMISSION LAW) and the audit script's FULL STDOUT
@@ -5065,6 +5111,8 @@ action: the same paper, the same two files, the same "continue".
 
   S4-8a — batch_state.json update (every batch, after delivery):
     ```python
+    # RUN-BLOCK S4-8.1 — not in the read; run it: python3 bootstrap.py --run-section S4-8.1 --exam <E> --paper <N>
+    # PARAMS: EXAM, N, json, mock_presentation_ledger, mock_scenario_ledger (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
     bs = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json'))
     bs['batches_completed'].append(bs['current_batch'])
     bs['current_batch'] += 1
@@ -5089,6 +5137,8 @@ action: the same paper, the same two files, the same "continue".
 
   S4-8b — progress.json (only after a batch containing PASSAGE questions):
     ```python
+    # RUN-BLOCK S4-8.2 — not in the read; run it: python3 bootstrap.py --run-section S4-8.2 --exam <E> --paper <N>
+    # PARAMS: EXAM, N, cloze_linked_qs, json, os, passage_linked_qs (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
     progress_path = f'/home/claude/{EXAM}_M{N}_progress.json'
     progress = json.load(open(progress_path)) if os.path.exists(progress_path) else {}
     progress['passage_linked_qs'] = sorted(list(passage_linked_qs))
@@ -5431,8 +5481,8 @@ action: the same paper, the same two files, the same "continue".
     'REVIEW_REPAIR' -> the flagged items are being repaired; continue from §Q8b-LADDER on
         batch_state['review_defects'] (persisted by phase 3), SKIPPING every item already in
         batch_state['review_repaired'] (each repair appends its q there as soon as it is
-        written — see S13-2G), then S13-2F, then S13-2G phase 1 with the WHOLE paper (round 2;
-        the binding is per paper).
+        written — see S13-2G), then S13-2F, then S13-2G phase 1 over batch_state['delta_qs'] (round 2,
+        a DELTA round — v6.5; verdicts are bound per item hash).
     'REVIEWED' -> S13-2L (v5.96) / S13-3 / S13-4 / S13-REGCHECK / S13-QINDEX / S13-4b / S13-4c / S13-6 / S13-7 /
         S13-8 / S13-9, in this same response.
     'DELIVERED' -> the paper is finished (S13-9): say so; generate and deliver nothing.
@@ -5441,6 +5491,8 @@ action: the same paper, the same two files, the same "continue".
   FINAL ASSEMBLY INTERRUPTED rule above); otherwise the batch recovery below (its steps 5-6 — the continue prompt and STOP —
   apply ONLY to the batch recovery, never to a paper whose batches are all authored).
   ```python
+  # RUN-BLOCK S4-12.1 — not in the read; run it: python3 bootstrap.py --run-section S4-12.1 --exam <E> --paper <N>
+  # PARAMS: EXAM, N, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S4-12 legacy verdict lookup (v5.91 — GAP-2026-11-04 A7; used ONLY for 'AWAITING_REVIEW') ──
   import glob, json, os, hashlib, paper_pipeline as pp
   _docx12 = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
@@ -5468,6 +5520,8 @@ action: the same paper, the same two files, the same "continue".
   every DR3 label to its slot, opens the difficulty / dispute / quality chains, clears every UNRESOLVED
   stamp and uncertified_items, and retires the paper-level rework counter (bc.migrate_paper_state).
   ```python
+  # RUN-BLOCK S4-12.2 — not in the read; run it: python3 bootstrap.py --run-section S4-12.2 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S4-12 migration (v5.96) ──
   import json, os, blueprint_core as bc
   _bsm_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
@@ -5532,6 +5586,8 @@ action: the same paper, the same two files, the same "continue".
         entry's record_integrity), A-FIGTYPE-KIND reports it WARN (AMBER), §FOOTER-FT
         discloses it. Questions authored from here on carry object_type (S7-NEW-B).
         ```python
+        # RUN-BLOCK S4-12.3 — not in the read; run it: python3 bootstrap.py --run-section S4-12.3 --exam <E> --paper <N>
+        # PARAMS: EXAM (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
         import json, os
         _fmp = f'/home/claude/{EXAM}_fig_manifest.json'
         if os.path.exists(_fmp):
@@ -8650,6 +8706,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     underlined segment, and any future template that points at an underlined span.
 
     ```python
+    # RUN-BLOCK S10-2 — not in the read; run it: python3 bootstrap.py --run-section S10-2 --exam <E> --paper <N>
+    # PARAMS: none
+    # DEFINES: underline_required(stem_text, stem_format_variant=None)
     import re
     UNDERLINE_TRIGGER_RE = re.compile(
         r"(?i)underlin(?:e|ed)\s+(?:word|words|part|segment|phrase|portion|sentence)"
@@ -9012,6 +9071,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   If exam has any mathematical content → MUST use Python + python-docx.
 
   ```python
+  # RUN-BLOCK S10-4.1 — not in the read; run it: python3 bootstrap.py --run-section S10-4.1 --exam <E> --paper <N>
+  # PARAMS: none
+  # DEFINES: _esc(t); _r(t); _r_wrap(x); frac(n, d); sup(b, e); add_math(paragraph, omath_xml)
   from docx.oxml import parse_xml
   M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
   def _esc(t):
@@ -9186,6 +9248,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   the figural raster path.
 
   ```python
+  # RUN-BLOCK S10-4.2 — not in the read; run it: python3 bootstrap.py --run-section S10-4.2 --exam <E> --paper <N>
+  # PARAMS: FONT_NAME, FONT_SIZE_PT (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # DEFINES: _mm_mask(text); needs_omml(text, pattern=None) — Masked built-up-math detector. Default pattern = the widened; assert_not_math(label) — Guard called by the FIGURAL path (S10-7). A built-up expression must; emit_math_inline(paragraph, omath_xml) — Append one <m:oMath> block to an existing run-bearing paragraph,; add_math_stem(doc, qnum, segments, bold=True) — Build a Q.N-first stem (R14) that interleaves text and OMML.
   import re
   from docx.shared import Pt
   from docx.oxml import parse_xml
@@ -10189,6 +10254,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   GEOMETRY-GLYPH HELPER (returns lossless PNG bytes; one call per visual unit):
   ```python
+  # RUN-BLOCK S10-7 — not in the read; run it: python3 bootstrap.py --run-section S10-7 --exam <E> --paper <N>
+  # PARAMS: FIGURAL_DPI, FIG_MIN_STROKE_PT, FIG_OPT_DISPLAY_IN, FIG_PROBLEM_DISPLAY_IN, assert_not_math (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # DEFINES: render_figural_image(draw_fn, kind='option', *, name='', bg='transparent') — draw_fn(ax) draws ONE visual unit using geometry only (no stem/option text).; assert_uniform_options(option_pngs) — All option images MUST be the same native pixel size (Q4).
   import io
   import matplotlib
   matplotlib.use("Agg")
@@ -10660,6 +10728,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 ## S11-5 — K-INT verification (v5.4 — MSQ/NAT-aware)
 
   ```python
+  # RUN-BLOCK S11-5 — not in the read; run it: python3 bootstrap.py --run-section S11-5 --exam <E> --paper <N>
+  # PARAMS: answer_key_path, json, total_questions (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   kd  = json.load(open(answer_key_path))
   key = kd["answers"]
   cm  = kd.get("concept_map", {})
@@ -10779,6 +10849,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     members are present in this mock → Exit 1 (alternation violated), naming the
     group and the offending members via manifest display_name.
     ```python
+    # RUN-BLOCK S12-GATE.1 — not in the read; run it: python3 bootstrap.py --run-section S12-GATE.1 --exam <E> --paper <N>
+    # PARAMS: N, alloc_ids, manifest (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
     groups   = manifest.get('alternation_groups', {})
     mock_ids = set().union(*[set(m.keys()) for m in alloc_ids.values()]) if alloc_ids else set()
     for group, members in groups.items():
@@ -10808,6 +10880,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     G-ALLOC-SUBTOPIC uses — not merely the blueprint). For each group, if the number
     of members with ≥1 GENERATED question is < min → Exit 1.
     ```python
+    # RUN-BLOCK S12-GATE.2 — not in the read; run it: python3 bootstrap.py --run-section S12-GATE.2 --exam <E> --paper <N>
+    # PARAMS: N, counts, manifest (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
     groups = manifest.get('mandatory_groups', {})
     # counts[sid] = generated questions of that subtopic_id in this mock (from concept_map)
     for group, spec in groups.items():
@@ -10828,6 +10902,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     {id: k} and the same per-subtopic_id generated counts. If any id has < k
     GENERATED questions → Exit 1.
     ```python
+    # RUN-BLOCK S12-GATE.3 — not in the read; run it: python3 bootstrap.py --run-section S12-GATE.3 --exam <E> --paper <N>
+    # PARAMS: N, counts, manifest (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
     for mid, k in manifest.get('min_counts', {}).items():
         c = counts.get(mid, 0)
         if c < k:
@@ -11210,6 +11286,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     sidecar) and cannot false-positive on a genuine figure (which is named by the
     S10-8 convention).
     ```python
+    # RUN-BLOCK S12-GATE.4 — not in the read; run it: python3 bootstrap.py --run-section S12-GATE.4 --exam <E> --paper <N>
+    # PARAMS: none
+    # DEFINES: _blocks(doc); _img_names(block); g_math_raster(docx_path)
     import re
     from docx import Document
     from docx.oxml.ns import qn
@@ -11345,10 +11424,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
 ## S13-1 — Final Assembly trigger (unchanged)
 
-## S13-1B — FINAL COUNTING ROUND (v6.4 — S0-BV BV-14; before S13-2, every Final Assembly)
+## S13-1B — FINAL COUNTING ROUND (v6.4 — S0-BV BV-14; v6.5 a CHECK; before S13-2, every Final Assembly)
 
-  Every question whose level is not settled yet — carried from the last batch (BV-13), held for its edge re-count,
-  or with no fresh result in its batch (BV-11) — is measured here by the SAME fresh reviewers and the SAME rubric
+  v6.5 (GAP-2026-11-13-STEP7-SPEED G-06): every batch settles its own questions (BV-9), so this step is a CHECK — it
+  prints `S13-1B: 0 to measure` and goes on to S13-2 at once. It runs a round only for an INFRA-CARRY of the last batch
+  (BV-11) or a question a paper begun under an earlier release left unsettled (S4-12 migration).
+  Every question whose level is not settled yet — an INFRA-CARRY of the last batch, a migration leftover, held for its
+  edge re-count, or with no fresh result in its batch (BV-11) — is measured here by the SAME fresh reviewers and the SAME rubric
   as in the batches (S4-7 STEP A2, final=True: nothing is deferred, at most bc.BV_MAX_ROUNDS rounds, at most ONE
   rewrite per question). JOBS OUT -> exactly as STEP A2 (WORKER MODE: retention `--when handover`, `--checkpoint
   make`, GRADE_REQUEST; DIRECT MODE: the jobs in one message, or `REVIEW FAILED no sub-agent tool`); REWRITE -> the
@@ -11357,6 +11439,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   measure: S13-2G phase 3 keeps every LB2 label, and S13-2L chains only what is still unlabelled (no fresh
   reviewer at all) or a disputed key / unproven figure (correctness).
   ```python
+  # RUN-BLOCK S13-1B — not in the read; run it: python3 bootstrap.py --run-section S13-1B --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-1B FINAL COUNTING ROUND (v6.4 BV-14) ──
   import final_assembly as fa
   BV_FINAL = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
@@ -11425,6 +11509,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   costs a sweep.
 
 ```python
+# RUN-BLOCK S13-2F — not in the read; run it: python3 bootstrap.py --run-section S13-2F --exam <E> --paper <N>
+# PARAMS: AUDIT_AVAILABLE, AUDIT_ENV, BP_SRC_PATH, EXAM, N, bp, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+# DEFINES: _infra(site, msg)
 import json, os, subprocess
 import blueprint_core as bc
 import paper_pipeline as pp
@@ -11722,7 +11809,8 @@ if AUDIT_AVAILABLE:
       -> phase 3 (bind + key_agrees + defects)
          defects in round 1 -> REVIEW_REPAIR: repair each at §Q8b-LADDER R2 in the final docx
                                -> S13-2F (fresh certificate) -> phase 1..3 again (round 2,
-                               the WHOLE paper — the binding is per paper)
+                               v6.5: a DELTA round over the repaired items — every verdict is bound
+                               to its item hash)
          round 2 still disputed -> that slot's DISPUTE chain (v5.96, OD-2026-11-09: S13-2L
                                    schedules, S13-2R runs; never UNRESOLVED, never NOT CERTIFIED)
       -> REVIEWED -> S13-2L (slot chains + DELTA reviews of every changed item, until every item is
@@ -11731,7 +11819,9 @@ if AUDIT_AVAILABLE:
   v6.1 (S0-BV BV-5): every question reaching this review was already measured in its batch, so phase 3 never
   schedules a difficulty repair for it (its LB2 label is kept; the reviewer's band is recorded as advisory). The
   review repairs only correctness findings (key disagreement, a second defensible option, low confidence).
-  v5.96 DELTA ROUNDS. Rounds 1 and 2 review the WHOLE paper. Every later round is a DELTA round
+  v5.96 DELTA ROUNDS. v6.5 (GAP-2026-11-13-STEP7-SPEED G-07): round 1 reviews the WHOLE paper; round 2 (after the
+  round-1 repairs) and every later round is a DELTA round — an unchanged item keeps its round-1 verdict, bound to its
+  hash. Every later round is a DELTA round
   over batch_state['delta_qs'] only (items changed since their last review, adjudications,
   coverage gaps) plus batch_state['delta_panel'] (each such item to bc.REVIEW_PANEL_SIZE fresh
   reviewers). Every verdict is bound to the hash of the block it reviewed (the auditor's
@@ -11743,6 +11833,8 @@ if AUDIT_AVAILABLE:
 
   PHASE 1 — build the packet, internally:
   ```python
+  # RUN-BLOCK S13-2G.1 — not in the read; run it: python3 bootstrap.py --run-section S13-2G.1 --exam <E> --paper <N>
+  # PARAMS: AUDIT_ENV, EXAM, EXEMPLAR_BANK_PATH, N, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-2G phase 1 (executable) ───────────────────────────────────────────────
   import json, os, hashlib, shutil, subprocess, blueprint_core as bc, paper_pipeline as pp
   # batch_state is RELOADED from disk: this block also runs after an interrupted response
@@ -11760,8 +11852,8 @@ if AUDIT_AVAILABLE:
   _delta = [str(x) for x in (batch_state.get('delta_qs') or [])]          # empty -> the WHOLE paper
   _panel = [str(x) for x in (batch_state.get('delta_panel') or [])]
   _switch = {str(x) for x in (batch_state.get('delta_switch') or [])}     # adjudication: a different model
-  if int(batch_state.get('review_round', 0)) < 2:
-      _delta, _panel, _switch = [], [], set()                             # rounds 1-2: always the whole paper
+  if int(batch_state.get('review_round', 0)) < 1:
+      _delta, _panel, _switch = [], [], set()                             # v6.5: round 1 only reviews the whole paper
   _items = []
   for _qn in sorted((_kd.get('concept_map') or {}), key=int):
       if (_delta or _panel) and _qn not in _delta and _qn not in _panel:
@@ -11899,6 +11991,9 @@ if AUDIT_AVAILABLE:
 
   PHASE 3 — bind, repair or proceed (automatic, same response):
   ```python
+  # RUN-BLOCK S13-2G.2 — not in the read; run it: python3 bootstrap.py --run-section S13-2G.2 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # DEFINES: _fill_ka(rec)
   # ── S13-2G phase 3 (executable; also the S4-12 entry for an interrupted review) ──
   import json, os, blueprint_core as bc, paper_pipeline as pp
   batch_state = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
@@ -11906,7 +12001,7 @@ if AUDIT_AVAILABLE:
   _qf = json.load(open(os.path.join(REVIEW_DIR, 'queue.json'), encoding='utf-8'))
   _kd = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
   _md5 = batch_state.get('paper_md5')
-  # v5.96: the items THIS round queued (the whole paper in rounds 1-2; only the delta items afterwards) — an
+  # v5.96: the items THIS round queued (the whole paper in round 1 — v6.5; only the delta items afterwards) — an
   # item outside a delta round keeps its last review and is never stamped NOT_RUN
   _queued = set()
   for _pq in _qf.get('parts') or []:
@@ -12096,7 +12191,12 @@ if AUDIT_AVAILABLE:
       print(f"S13-2G: reviewer flagged {REVIEW_DEFECTS} — repairing NOW, in this response: each "
             f"through §Q8b-LADDER (entry bc.ladder_entry('review_disagreement') = R2; the reviewer's "
             "reason is the constraint), then S13-2F (a changed docx needs a fresh certificate), then "
-            "S13-2G phase 1 again — round 2 always carries the WHOLE paper.")
+            "S13-2G phase 1 again — round 2 is a DELTA round over the repaired items (v6.5).")
+      # v6.5 (GAP-2026-11-13-STEP7-SPEED G-07): every verdict is bound to the hash of the block it reviewed
+      # (REVIEW-COVERAGE-LAW), so round 2 reviews only what the repair changed; any other item the S13-2F re-sweep
+      # changes is a coverage gap S13-2L sends to a delta round (an unchanged item keeps its bound round-1 verdict)
+      batch_state['delta_qs'] = sorted({str(x) for x in REVIEW_DEFECTS}, key=int)
+      batch_state['delta_panel'], batch_state['delta_switch'] = [], []
       batch_state['state'] = 'REVIEW_REPAIR'
   else:
       # v5.96 (OD-2026-11-09, supersedes OD-9) — DISPUTE CHAINS. (v6.0: the review panel is retired — LAW-ORG-7.)
@@ -12161,7 +12261,7 @@ if AUDIT_AVAILABLE:
   REVIEW_REPAIR -> repair the items in batch_state['review_defects'] NOW (same response); after
   EACH item's repair is written, append its q to batch_state['review_repaired'] and save
   batch_state (an interrupted response then never repeats a repair — S4-12); then S13-2F
-  re-sweep, phase 1 again with the WHOLE paper (round 2), phase 2, phase 3.
+  re-sweep, phase 1 again over the repaired items (round 2, a DELTA round — v6.5), phase 2, phase 3.
   v5.94 — A DIFFICULTY REPAIR (q in batch_state['review_dl_repair']): re-author the item at its
   SLOT band (the target plan) through CHECK 3c — DR1 from the NEXT pattern source (an organic
   item: bc.l2_slot_source(..., skip = sources already tried); any other item: the next exemplar of
@@ -12179,6 +12279,8 @@ if AUDIT_AVAILABLE:
 
   Runs after S13-2G and before S13-2L on EVERY paper (no organic item -> PASS). Never a stop.
   ```python
+  # RUN-BLOCK S13-2P.1 — not in the read; run it: python3 bootstrap.py --run-section S13-2P.1 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-2P parity (v6.0) ──
   import json, os, final_assembly as fa, blueprint_core as bc
   _kp = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
@@ -12206,6 +12308,8 @@ if AUDIT_AVAILABLE:
   S13-2L reads the paper. The A-* gates re-measure the same quantities on the delivered docx; this block is the
   run's own view, used to open repairs before assembly. Never a stop.
   ```python
+  # RUN-BLOCK S13-2P.2 — not in the read; run it: python3 bootstrap.py --run-section S13-2P.2 --exam <E> --paper <N>
+  # PARAMS: EXAM, N, OP_PROFILE (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-2P NF measure (v6.1) ──
   import json, blueprint_core as bc, figure_types as ft
   _kpn_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
@@ -12278,6 +12382,9 @@ if AUDIT_AVAILABLE:
   Chains recorded under rule SC1 (a paper resumed from 2026.11.09) keep their recorded outcome; any OPEN SC1
   chain is migrated to SC2 here (its attempts are kept; its SC1 terminals are never run).
   ```python
+  # RUN-BLOCK S13-2L — not in the read; run it: python3 bootstrap.py --run-section S13-2L --exam <E> --paper <N>
+  # PARAMS: BP_SRC_PATH, EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # DEFINES: _siblings(sid); _fresh(q); _grades(q); _recipe_at(q, band); _exact_at(q, band); _unanimous(q); _strict_ok(q)
   # ── S13-2L (v6.0) ──
   import json, os, datetime as _dt_l, blueprint_core as bc
   _bsl_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
@@ -12706,6 +12813,8 @@ if AUDIT_AVAILABLE:
   After EACH entry is written, set its 'status' ('done' | 'unavailable' | 'unqualified') in
   batch_state['slot_chain_work'], save batch_state, then run (resume-safe; an entry is recorded once):
   ```python
+  # RUN-BLOCK S13-2R — not in the read; run it: python3 bootstrap.py --run-section S13-2R --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-2R record (v6.0) ──
   import json, os, blueprint_core as bc
   _bsr_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
@@ -12768,6 +12877,8 @@ if AUDIT_AVAILABLE:
   This closes Finding 0 of the Mock-10 root-cause gap analysis.
 
   ```python
+  # RUN-BLOCK S13-4 — not in the read; run it: python3 bootstrap.py --run-section S13-4 --exam <E> --paper <N>
+  # PARAMS: DECLARED_FLAGS, EXAM, N, axis2_window_counts, bp, pending_registry (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # v5.53: single explicit import for the extracted engine, alongside the existing os/json/glob.
   import os, json, glob
   import final_assembly as fa
@@ -12971,6 +13082,8 @@ if AUDIT_AVAILABLE:
   conditions, same wording, as before extraction.
 
   ```python
+  # RUN-BLOCK S13-REGCHECK — not in the read; run it: python3 bootstrap.py --run-section S13-REGCHECK --exam <E> --paper <N>
+  # PARAMS: EXAM, N, bp, fa, json, os, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
   # v4.7 (ND6 — MANDATORY): options_by_q needs the mock's concept_map + msq_meta. Same
@@ -13055,6 +13168,8 @@ if AUDIT_AVAILABLE:
   IIT_JAM_BIOTECHNOLOGY always declares one, so nothing changes for this exam.
 
   ```python
+  # RUN-BLOCK S13-QINDEX — not in the read; run it: python3 bootstrap.py --run-section S13-QINDEX --exam <E> --paper <N>
+  # PARAMS: EXAM, N, bp, registry (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   import json, os, blueprint_core as bc, final_assembly as fa
   _qi = fa.qindex_certify(registry, bp, N)
   # v5.96 (OD-2026-11-09): check 6 counts every row at its recorded basis (pp.qindex_count_band), so a
@@ -13099,6 +13214,8 @@ if AUDIT_AVAILABLE:
   Step 7 believed it produced.
 
   ```python
+  # RUN-BLOCK S13-4b — not in the read; run it: python3 bootstrap.py --run-section S13-4b --exam <E> --paper <N>
+  # PARAMS: EXAM, N, paper_id, pp (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   import os, json, hashlib
   _ak = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
   _cm = _ak.get('concept_map', {})
@@ -13175,6 +13292,9 @@ if AUDIT_AVAILABLE:
   Executed as:
 
   ```python
+  # RUN-BLOCK S13-4c — not in the read; run it: python3 bootstrap.py --run-section S13-4c --exam <E> --paper <N>
+  # PARAMS: AUDIT_AVAILABLE, AUDIT_ENV, BP_SRC_PATH, EXAM, N, STIM_ACTIVE, STIM_PROFILE_PATH, _docx, _out, re, subprocess (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # DEFINES: _infra4c(site, msg)
   _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
   import json, os, blueprint_core as bc
   _bs4c_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
@@ -13379,6 +13499,8 @@ if AUDIT_AVAILABLE:
   Each is disclosed by ONE informational footer line
   (Framework_DeliveryFooter §LADDER), never delivered:
   ```python
+  # RUN-BLOCK S13-6 — not in the read; run it: python3 bootstrap.py --run-section S13-6 --exam <E> --paper <N>
+  # PARAMS: BP_SRC_PATH, EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   import os
   import blueprint_core as bc
   _bp_name = os.path.basename(BP_SRC_PATH)
@@ -13479,6 +13601,8 @@ if AUDIT_AVAILABLE:
   landed in a real directory, so it can't be made pure like the other three).
 
   ```python
+  # RUN-BLOCK S13-7 — not in the read; run it: python3 bootstrap.py --run-section S13-7 --exam <E> --paper <N>
+  # PARAMS: EXAM, N, fa, paper_id, pp (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   import os, json
   out = '/mnt/user-data/outputs'
   # v5.28: paper_slug is ALWAYS pp.paper_slug(paper_id) — the single shared implementation
@@ -13537,6 +13661,8 @@ if AUDIT_AVAILABLE:
   else (v5.91 D3 a):
 
   ```python
+  # RUN-BLOCK S13-8 — not in the read; run it: python3 bootstrap.py --run-section S13-8 --exam <E> --paper <N>
+  # PARAMS: EXAM, REG_SRC, paper_id, registry (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   import os, json
   import paper_pipeline as pp
   # `registry` is the committed copy (_commit['registry'], S13-4); the fingerprint of
@@ -13580,6 +13706,8 @@ if AUDIT_AVAILABLE:
   resumes there through S4-12). Then mark the paper finished, so a later "continue" in this
   chat never re-enters §13 or looks for a batch (S4-6 / S4-12):
   ```python
+  # RUN-BLOCK S13-9 — not in the read; run it: python3 bootstrap.py --run-section S13-9 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   # ── S13-9 terminal state (v5.91 — GAP-2026-11-04; STEP_CONTRACTS allowed end state) ──
   import json
   _bs9 = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
@@ -14348,7 +14476,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.4
+# END OF Framework_MockTestCreate v6.5
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

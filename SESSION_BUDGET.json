@@ -12,6 +12,13 @@
   "read_cap_tokens": 485000,
   "worker_models": ["opus", "fable"],
   "max_batches_per_worker": 6,
+  "_speed": "GAP-2026-11-13-STEP7-SPEED (release 2026.11.15). Initial values, to be re-measured by the timed proof run and recorded in CHANGELOG.md (_change_rule). fa_work_unit_tokens: the measured Final Assembly sweep (~160,000, _measured) - the room a worker needs to run Final Assembly itself (Orchestrate O2-5). review_qs_per_job: questions (units) per fresh reviewer job (blueprint_core.bv_job_chunks). parallel_jobs_max: sub-agents the orchestrator starts in one wave. *_minutes_target: a window over its target writes one FRAMEWORK NOTE (bootstrap --timing-show) - never a stop. max_batches_per_worker is no longer a Step 7 rotation rule (Orchestrate O2-5 v1.7.0: room decides).",
+  "fa_work_unit_tokens": 160000,
+  "review_qs_per_job": 5,
+  "parallel_jobs_max": 6,
+  "batch_minutes_target": 10,
+  "fa_minutes_target": 10,
+  "before_batch_minutes_target": 10,
   "orchestrated": {
     "MockCreate": {"orchestrator_spec": "Framework_MockTestOrchestrate.md"},
     "TestCreate": {"orchestrator_spec": "Framework_MockTestOrchestrate.md"}

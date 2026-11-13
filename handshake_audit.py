@@ -52,7 +52,10 @@ def fences(path, marker=None):
             continue
         if s == '```':
             body = textwrap.dedent('\n'.join(cur[1]))
-            if marker is None or marker in body[:120]: out.append((cur[0], body))
+            # 2026.11.15 (GAP-2026-11-13-STEP7-SPEED G-02): a RUN-BLOCK's header lines (ID, PARAMS, DEFINES) come
+            # before the block's own first comment — the marker is looked for after them
+            _hd = '\n'.join(x for x in body.split('\n') if not x.lstrip().startswith(('# RUN-BLOCK', '# PARAMS:', '# DEFINES:')))
+            if marker is None or marker in _hd[:120]: out.append((cur[0], body))
             cur = None; continue
         cur[1].append(l)
     return out
@@ -799,23 +802,23 @@ def _bv_handshake(check, ROOT, run_fence, W):
         if r['status'] != 'jobs_out':
             break
         answer_jobs()
-    # 2026.11.14 (BV-13): the rewritten Q4 is NOT re-graded inside batch 2 — batch 2 is DONE with Q4 carried; the last
-    # batch's carried questions are measured by Create S13-1B (the FINAL COUNTING ROUND) before the review
-    check('H-BV 2026.11.14 BV-13: batch 2 DONE without a second reviewer round — the rewritten Q4 is carried',
-          r['status'] == 'done' and r['pending'] == ['4'] and r['settled'] == ['3'] and json.load(open(bsp))['bv_carry'] == ['4'], r)
+    # 2026.11.15 (GAP-2026-11-13-STEP7-SPEED G-06, BV-9): the rewritten Q4 is re-graded INSIDE batch 2 (its next round,
+    # Q4 alone) — batch 2 is DONE with every question settled and nothing carried; S13-1B is then a check (0 to measure)
+    bs = json.load(open(bsp)); kd = json.load(open(kp)); cm = kd['concept_map']
+    check('H-BV 2026.11.15 BV-9: batch 2 DONE with the rewritten Q4 measured in its own batch — nothing carried',
+          r['status'] == 'done' and r['pending'] == [] and r['settled'] == ['3', '4'] and bs['bv_carry'] == []
+          and bs['bv']['round'] == 2, r)
     fin = blk('# ── S13-1B FINAL COUNTING ROUND (v6.4 BV-14) ──')
     def a2f():
         with contextlib.redirect_stdout(io.StringIO()):
             run_fence(fin, G)
         return G['BV_FINAL']
-    for _ in range(4):
-        r = a2f()
-        if r['status'] != 'jobs_out':
-            break
-        answer_jobs()
-    kd = json.load(open(kp)); cm = kd['concept_map']; bs = json.load(open(bsp))
+    rf = a2f()
+    check('H-BV 2026.11.15 S13-1B is a CHECK when every batch settled: 0 to measure, no job, no folder',
+          rf['status'] == 'done' and rf['jobs'] == [] and 'S13-1B: 0 to measure' in rf['lines'][-1]
+          and not os.path.isdir(f'{HOME}/{EXAM}_M{N}_bv/bfinal'), rf)
     check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after its ONE rewrite (disclosed), never rewritten twice',
-          r['status'] == 'done' and r['settled'] == ['4'] and r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
+          r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
           and bs['bv']['items']['4']['attempt'] == 2 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
     check('H-BV every reviewer packet was blind (no band, author counts or rewrite notes), named its own folder, '
           'and carried past-question anchors for every band', seen.get('blind') and all(seen['blind'])
@@ -888,8 +891,9 @@ def _bv_handshake(check, ROOT, run_fence, W):
           'GRADE RETURNED    (followed by one line per job folder' in wp and '--checkpoint make|restore|drop' in wp
           and 'PLANNED HANDOVER' in wp)
     check('H-BV Orchestrate: GRADE_REQUEST, GRADE RETURNED and ROTATE are handled (O2-3 / O2-5 / O3-9), and Create hands over to O3-9',
-          all(s in orc for s in ('- GRADE_REQUEST (v1.3.0', '- ROTATE (v1.3.0)', '`GRADE RETURNED` goes to', '## O3-9',
-                                    '- PLANNED HANDOVER (v1.4.0', '## O2-9 — No framework question', 'ALL of them in ONE message'))
+          all(s in orc for s in ('- GRADE_REQUEST (v1.3.0', '- ROTATE (v1.3.0)', '`FINAL ASSEMBLY` — goes to the CURRENT worker', '## O3-9',
+                                    '- PLANNED HANDOVER (v1.4.0', '## O2-9 — No framework question', 'each wave in ONE message',
+                                    '## O2-10 — WARM STANDBY', 'A MODEL\'S LIMIT IS NOT A WORKER FAULT'))
           and 'Framework_MockTestOrchestrate O3-9' in txt)
 
 
@@ -1217,7 +1221,9 @@ def self_test():
         print('H6 in-session review handshake')
         json.dump({'state': 'BATCHES', 'batches_completed': [1], 'current_batch': 2, 'quality_readiness': RD, 'shape_plan': PLAN, 'uncertified_items': []}, open(bs_path, 'w'))
         ph = fences(cre, 'S13-2G phase')
-        check('H6 S13-2G has exactly two executable phases (1 and 3); phase 2 is CLASS T prose', len(ph) == 2 and 'phase 1' in ph[0][1][:80] and 'phase 3' in ph[1][1][:80], str([x[1][:60] for x in ph]))
+        def _nohead(b):          # 2026.11.15: a RUN-BLOCK's header lines come first (G-02)
+            return '\n'.join(x for x in b.split('\n') if not x.lstrip().startswith(('# RUN-BLOCK', '# PARAMS:', '# DEFINES:')))
+        check('H6 S13-2G has exactly two executable phases (1 and 3); phase 2 is CLASS T prose', len(ph) == 2 and 'phase 1' in _nohead(ph[0][1])[:80] and 'phase 3' in _nohead(ph[1][1])[:80], str([x[1][:60] for x in ph]))
         _cre_txt = open(cre, encoding='utf-8').read()
         _g2 = _cre_txt[_cre_txt.index('## S13-2G'):_cre_txt.index('## S13-3')]
         check('H6 S13-2G never hands the review to the user: no outputs path, no present_files of a packet, no new chat, no --resume step',
@@ -1264,11 +1270,13 @@ def self_test():
         kd = json.load(open(key_path)); bs = json.load(open(bs_path))
         check('H6 phase 3: key_agrees computed from sidecar answers (Q3 disagreement, MSQ Q2 agrees), state REVIEW_REPAIR, defects persisted',
               kd['concept_map']['1']['review']['key_agrees'] is True and kd['concept_map']['2']['review']['key_agrees'] is True and kd['concept_map']['3']['review']['key_agrees'] is False and bs['state'] == 'REVIEW_REPAIR' and bs['review_defects'] == ['3'], str((bs.get('state'), bs.get('review_defects'), kd['concept_map']['2']['review'].get('key_agrees'))))
-        # round 2 (T5): the whole paper again; the reviewer still disagrees on Q3 -> UNRESOLVED(A-REVIEW)
+        # round 2 (T5; 2026.11.15 G-07): a DELTA round over the repaired item only — every other item keeps its round-1
+        # verdict, bound to its hash; the reviewer still disagrees on Q3 -> its DISPUTE chain
         shutil.copy(f'{TMP}/cert.json', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json')
         g6b = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'EXEMPLAR_BANK_PATH': g4['EXEMPLAR_BANK_PATH'], 'AUDIT_ENV': _AENV}; run_fence(ph[0][1], g6b)
         RQ2 = json.load(open(os.path.join(g6b['REVIEW_DIR'], 'queue.json')))
-        check('H6 round 2 packet is a NEW round folder with the WHOLE paper', g6b['REVIEW_DIR'].endswith('round2') and sum(len(p_['qs']) for p_ in RQ2['parts']) == MQ)
+        check('H6 round 2 packet is a NEW round folder with ONLY the repaired item (delta, G-07)', g6b['REVIEW_DIR'].endswith('round2')
+              and sorted(q for p_ in RQ2['parts'] for q in p_['qs']) == [3] and MQ > 1)
         for i_, p_ in enumerate(RQ2['parts']):
             _review(p_['dir'], disagree_q=3)
         g9 = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id}; run_fence(ph[1][1], g9)
@@ -1505,7 +1513,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 218   # 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 219   # 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

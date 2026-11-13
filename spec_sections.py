@@ -228,6 +228,32 @@ def _banner_cut(lines, in_fence, start, end):
 
 
 ENGINE_MARK = '# ENGINE-RUN'
+# GAP-2026-11-13-STEP7-SPEED G-02: a block a worker runs verbatim by ID (bootstrap.py --run-section <ID>). Its marker
+# line and the header lines after it (PARAMS, DEFINES) stay in the read; its body is never served.
+RUN_MARK = '# RUN-BLOCK'
+RUN_HEAD = ('# PARAMS:', '# DEFINES:')
+
+
+def run_block_ranges(lines, in_fence=None):
+    """[[a, b]] — the BODY lines of every ```python block whose first body line carries RUN_MARK, after the marker
+    and its PARAMS / DEFINES header lines (GAP-2026-11-13-STEP7-SPEED G-02). 1-indexed, inclusive."""
+    out, i, n = [], 0, len(lines)
+    while i < n:
+        if lines[i].lstrip().startswith('```python'):
+            j = i + 1
+            while j < n and not lines[j].lstrip().startswith('```'):
+                j += 1
+            body = [k for k in range(i + 1, j) if lines[k].strip()]
+            if body and lines[body[0]].strip().startswith(RUN_MARK):
+                h = body[0]
+                while h + 1 < j and lines[h + 1].strip().startswith(RUN_HEAD):
+                    h += 1
+                if h + 1 <= j - 1:
+                    out.append([h + 2, j])            # 1-based: the line after the last header .. the last body line
+            i = j + 1
+            continue
+        i += 1
+    return out
 
 
 def engine_ranges(lines, in_fence):
@@ -353,6 +379,11 @@ def build(repo_dir='.'):
         eng_in_fo = sum(line_bytes[j - 1] for a, b in eng for j in range(a, b + 1)
                         if any(x <= j <= y for x, y in skip_ranges))
         red_bytes -= (eng_bytes - eng_in_fo)
+        rbr = run_block_ranges(lines, in_fence)
+        rb_bytes = sum(line_bytes[j - 1] for a, b in rbr for j in range(a, b + 1))
+        rb_in_fo = sum(line_bytes[j - 1] for a, b in rbr for j in range(a, b + 1)
+                       if any(x <= j <= y for x, y in skip_ranges))
+        red_bytes -= (rb_bytes - rb_in_fo)
         doc['files'][name] = {
             'sha256': sha256_file(path),
             'lines': total_lines,
@@ -371,7 +402,10 @@ def build(repo_dir='.'):
             # 2026.11.13: executed by bootstrap.py --session-start, never served by the read (both classes)
             'engine_ranges': eng,
             'engine_bytes': eng_bytes,
-            'final_read_bytes': total_bytes - eng_bytes,
+            # GAP-2026-11-13-STEP7-SPEED G-02: run by ID (bootstrap.py --run-section), never served by the read
+            'run_block_ranges': rbr,
+            'run_block_bytes': rb_bytes,
+            'final_read_bytes': total_bytes - eng_bytes - rb_bytes,
             'sections': spans,
         }
     return doc
@@ -387,7 +421,7 @@ def read_plan(doc, name, session_class):
     NON-FINAL = the complement of final_only_ranges over 1..lines, so the preamble and
     everything after a banner cut are read without being named."""
     info = doc['files'][name]
-    eng = info.get('engine_ranges') or []
+    eng = list(info.get('engine_ranges') or []) + list(info.get('run_block_ranges') or [])
     if session_class.upper() == 'FINAL' or not info['has_read_set']:
         return _minus([(1, info['lines'])], eng) if eng else [(1, info['lines'])]
     ranges, nxt = [], 1
@@ -435,6 +469,42 @@ def chunk_plan(doc, name, session_class, spec_dir='.'):
         raise ValueError(f'{name}: sha256 differs from SPEC_SECTIONS.json — the map is '
                          f'stale. Run gen_manifest.py (repo) or spec_source.py --resolve.')
     return chunk_ranges(path, read_plan(doc, name, session_class))
+
+
+def pack_chunks(path, chunks):
+    """GAP-2026-11-13-STEP7-SPEED G-02: chunks [(a, b), ...] (chunk_plan / chunk_ranges output, in order) packed into
+    read calls — each call a list of segments [(a, b), ...] whose served lines and bytes stay within
+    READ_CHUNK_MAX_LINES and READ_CHUNK_MAX_BYTES (the same caps). Cutting the code bodies out of the read must never
+    raise the number of read calls: segments separated by a cut are served in ONE call when they fit."""
+    _, line_bytes, _ = _spec_lines(path)
+    out, cur, nl, nb = [], [], 0, 0
+    for a, b in chunks:
+        l = sum(1 for j in range(a, b + 1) if line_bytes[j - 1])
+        by = sum(line_bytes[j - 1] for j in range(a, b + 1))
+        if cur and (nl + l > READ_CHUNK_MAX_LINES or nb + by > READ_CHUNK_MAX_BYTES):
+            out.append(cur)
+            cur, nl, nb = [], 0, 0
+        cur.append((a, b))
+        nl += l
+        nb += by
+    if cur:
+        out.append(cur)
+    return out
+
+
+CUT_NOTE = '        ⋯ (lines {a}-{b}: code run by bootstrap.py — ENGINE-RUN / RUN-BLOCK body, not served) ⋯\n'
+
+
+def chunk_text_segs(path, segs):
+    """The text of one packed read call: each segment verbatim (chunk_text); between two segments that are not
+    adjacent, one CUT_NOTE line naming the lines not served."""
+    out, prev = [], None
+    for a, b in segs:
+        if prev is not None and a > prev + 1:
+            out.append(CUT_NOTE.format(a=prev + 1, b=a - 1))
+        out.append(chunk_text(path, a, b))
+        prev = b
+    return ''.join(out)
 
 
 def chunk_text(path, start, end):
@@ -559,7 +629,7 @@ def self_test():
     def _covered_once(info, name):
         # 2026.11.13: ENGINE-RUN code lines are executed (bootstrap.py --session-start), never read — the third disjoint class
         read = _lineset(read_plan(doc, name, 'NON-FINAL'))
-        eng = _lineset(info.get('engine_ranges') or [])
+        eng = _lineset(info.get('engine_ranges') or []) | _lineset(info.get('run_block_ranges') or [])
         skip = _lineset(info['final_only_ranges']) - eng
         return (not (read & skip) and not (read & eng)
                 and (read | skip | eng) == set(range(1, info['lines'] + 1)))
@@ -567,8 +637,10 @@ def self_test():
           all(_covered_once(info, n) for n, info in doc['files'].items()))
     check('t_final_plan_is_the_whole_file_for_every_spec',
           all(_lineset(read_plan(doc, n, 'FINAL')) | _lineset(info.get('engine_ranges') or [])
+              | _lineset(info.get('run_block_ranges') or [])
               == set(range(1, info['lines'] + 1))
-              and not (_lineset(read_plan(doc, n, 'FINAL')) & _lineset(info.get('engine_ranges') or []))
+              and not (_lineset(read_plan(doc, n, 'FINAL')) & (_lineset(info.get('engine_ranges') or [])
+                                                              | _lineset(info.get('run_block_ranges') or [])))
               for n, info in doc['files'].items()))
     # 2026.11.13 (GAP-2026-11-13-RUN-NOT-READ): the engine ranges are exactly the bodies of the marked blocks,
     # each block's marker line stays in the read (it says where the code went), and nothing else is cut
@@ -581,6 +653,18 @@ def self_test():
                             None) == [[3, 3]]
           and engine_ranges(['```python', '# ENGINE-RUN only', '```'], None) == []
           and _minus([(1, 10)], [[3, 4], [8, 12]]) == [(1, 2), (5, 7)])
+    # GAP-2026-11-13-STEP7-SPEED G-02 (t_no_code_in_read_sets): every python block a Step 7 read serves is a
+    # model-agency block (CLASS J / template) — an ENGINE-RUN or RUN-BLOCK body is never served, its marker and
+    # PARAMS / DEFINES lines always are
+    _rbr = doc['files']['Framework_MockTestCreate.md'].get('run_block_ranges') or []
+    _rdf = _lineset(read_plan(doc, 'Framework_MockTestCreate.md', 'FINAL'))
+    check('t_no_code_in_read_sets',
+          len(_rbr) >= 30 and all(_ml[a - 2].strip().startswith(RUN_HEAD + (RUN_MARK,)) for a, b in _rbr)
+          and all(_ml[b].lstrip().startswith('```') for a, b in _rbr)
+          and not any(j in _rdf for a, b in _rbr for j in range(a, b + 1))
+          and all((a - 1) in _rdf for a, b in _rbr)
+          and run_block_ranges(['```python', '  # RUN-BLOCK X', '  # PARAMS: none', '  a = 1', '```']) == [[4, 4]]
+          and run_block_ranges(['```python', '# RUN-BLOCK Y', '# PARAMS: none', '```']) == [])
     def _plan_bytes(name):
         lb = _spec_lines(name)[1]
         return sum(sum(lb[a - 1:b]) for a, b in read_plan(doc, name, 'NON-FINAL'))

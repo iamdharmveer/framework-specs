@@ -5409,7 +5409,8 @@ def gate_distractor(blocks, src):
                 if r['state'] == 'FAIL':
                     bad.append(f"Q{q} (c2): {r['reason']}")
                 givens = rec.get('given_smiles') or []
-                r = bc.inventory_check(dist, givens, rec.get('reagents') or [], key_smiles=key, mechanisms=dmech)
+                r = bc.inventory_check(dist, givens, rec.get('reagents') or [], key_smiles=key, mechanisms=dmech,
+                                       stated_formula=rec.get('stated_formula'))
                 if r['state'] == 'FAIL':
                     bad.append(f"Q{q} (c): {r['reason']}")
                 if r.get('reviewer'):

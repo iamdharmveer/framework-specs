@@ -139,6 +139,10 @@ VERSION
       axis_safe_text_fallback, figural ask-type apportionment (fig_ask_series,
       assign_ask_type, fig_format_check).
     v1.28 (2026-11-01) — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY.
+    v2.5 (2026-11-15) — GAP-2026-11-13-STEP7-SPEED. inventory_check(stated_formula=) — a formula the stem states adds
+      its elements; nothing to compare with -> the element test is N/A, never FAIL (G-09); bv_job_chunks /
+      bv_reviewer_jobs(qs_per_job=) split reviewer k's questions into jobs, a linked group never split (G-11);
+      REVIEW_VOID_MIN_ITEMS — the dispute-rate test of reviewer health needs at least 4 items (G-07 delta rounds).
 
 THIN-CORE INVARIANT (enforced by validate_framework_md.py)
     This module is PURE. It performs no I/O, imports nothing exam-specific, and has
@@ -154,7 +158,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '2.4'
+BLUEPRINT_CORE_VERSION = '2.5'
 
 __all__ = [
     "AllocationError",
@@ -425,6 +429,7 @@ __all__ = [
     "element_set",
     "data_consistency_check",
     "inventory_check",
+    "formula_element_set",
     "mcs_ratio",
     "mechanism_formula_check",
     "distractor_record_check",
@@ -726,7 +731,7 @@ __all__ = [
     "BV_RULE", "C_WRITE_ATTEMPTS", "C_TIEBREAK_GRADERS", "BV_BRIEF_GRADER", "BV_BRIEF_SOLVER", "BV_MAX_ROUNDS",
     "bv_majority_band", "band_majority", "bv_decide", "bv_set_label", "bv_verify_majority", "bv_settled",
     "bv_jobs", "bv_read_result", "bv_author_packet", "bv_batch_status", "bv_anchors", "bv_recipe_verdict", "bv_apply", "NF_DISCLOSE_GATES", "BV_REVIEWERS", "BV_BRIEF_REVIEWER", "bv_band_guide",
-    "bv_reviewer_jobs", "bv_split_reviewer_result", "ruler_anchor_records", "RULER_ANCHOR_FIELDS",
+    "bv_job_chunks", "BV_REVIEW_QS_PER_JOB", "bv_reviewer_jobs", "bv_split_reviewer_result", "ruler_anchor_records", "RULER_ANCHOR_FIELDS",
     "BR_RULE", "BR_RECIPE_MIN", "BR_FACETS", "BR_FACET_HELP", "BR_CONCEPT_RULE", "BR_SPEED_RULE", "BR_NEGATIVE_RULE",
     "br_counting_rules", "br_obs", "br_score", "br_band", "br_build_recipe", "br_band_edges", "br_target", "br_target_text",
     "br_gap", "br_median_obs", "BR_MOVES_RULE", "BR_PRINCIPLES_RULE", "bv_author_view", "bv_short_exemplars",
@@ -7256,8 +7261,12 @@ def _lb_sc_edge2_self_test(check):
     # certification: the LAST TWO must agree (an earlier agreement never counts)
     check('edge2_certified_last_two', review_item_certified([ag, dis, ag], 'h') is False and review_item_certified([dis, ag, ag], 'h') is True)
     # reviewer health: a single complete agreeing record is not void; rate boundary with one record
+    check('v25_void_small_delta_part_dispute_stands', review_round_void({'1': dis}, 1) == (False, 'ok')
+          and review_round_void({str(i): dis for i in range(3)}, 3) == (False, 'ok')
+          and review_round_void({str(i): dis for i in range(4)}, 4)[0] is True and REVIEW_VOID_MIN_ITEMS == 4)
     check('edge2_void_single', review_round_void({'1': ag}, 1) == (False, 'ok')
-          and review_round_void({'1': dis}, 1, rate=0.6)[0] is True)
+          # v2.5 (G-07): one item is below REVIEW_VOID_MIN_ITEMS — its dispute is a finding, never a VOID round
+          and review_round_void({'1': dis}, 1, rate=0.6)[0] is False)
     # panel: size 1 and size 4 (strict majority of SIZE); an agreeing reviewer's own key is never an alternative
     check('edge2_panel_size1', review_panel_majority([dis, ag], size=1) == {'certified': False, 'agree': 0, 'n': 1, 'alt': None})
     check('edge2_panel_size4', review_panel_majority([ag, ag, dis, dis], size=4)['certified'] is False
@@ -11901,7 +11910,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.4')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.5')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -12896,6 +12905,16 @@ PYQ_IMAGE_ANALYSIS:
         check('qq_inventory_mcs', _inv['state'] in ('PASS', 'FAIL') and _inv['reviewer'] is False
               and inventory_check(['CCO'], ['CC=O'], ['unobtainium-X'])['reviewer'] is True
               and inventory_check(['CCBr'], ['CCO'], ['NaOH'])['state'] == 'FAIL')
+        # v2.5 G-09 (T-INV-01..03): a formula-only item (no drawn given, no reagent) whose options are isomers PASSES;
+        # an option with an element the formula does not have FAILS; nothing to compare with -> element test N/A
+        check('t_inv_01_formula_only_isomers_pass',
+              inventory_check(['CCCC=O', 'C=CCCO'], [], [], key_smiles='CCC(C)=O', stated_formula='C₄H₈O')['state'] == 'PASS'
+              and formula_element_set('C4 H8 O') == {'C', 'H', 'O'} and formula_element_set('') is None)
+        check('t_inv_02_foreign_element_fails',
+              inventory_check(['CCCCS'], [], [], key_smiles='CCC(C)=O', stated_formula='C4H8O')['state'] == 'FAIL')
+        check('t_inv_03_no_source_is_na_not_fail',
+              inventory_check(['CCCl'], [], [], key_smiles='CCBr')['state'] == 'PASS'
+              and 'not in givens' not in inventory_check(['CCCl'], [], [], key_smiles='CCBr')['reason'])
         _mf = mechanism_formula_check(['CC(C)(C)OC', 'CC(C)(OC)CO'], 'CC(C)(OC)CO', ['regioisomer', 'regioisomer'])
         check('qq_mechanism_formula_q11', _mf['state'] == 'FAIL' and _mf['findings'][0][0] == 0
               and mechanism_formula_check(['CC(C)(O)COC'], 'CC(C)(OC)CO', ['regioisomer'])['state'] == 'PASS'
@@ -19260,20 +19279,43 @@ def data_consistency_check(option_smiles, stated_formula=None, stated_dbe=None, 
     return qq_verdict('FAIL' if bad else 'PASS', str(bad) if bad else '', findings=bad)
 
 
+def formula_element_set(stated_formula):
+    """v2.5 (GAP-2026-11-13-STEP7-SPEED G-09): the element symbols of a formula the stem states, normalised exactly as
+    data_consistency_check normalises it (NFKC, sub/superscripts via _QQ_SUBSUP, spaces removed), plus H. None when no
+    formula is stated or it names no element."""
+    if not stated_formula:
+        return None
+    f = _qq_ud.normalize('NFKC', str(stated_formula)).translate(_QQ_SUBSUP).replace(' ', '')
+    es = set(_qq_re.findall(r'[A-Z][a-z]?', f))
+    if not es:
+        return None
+    es.add('H')
+    return es
+
+
 def inventory_check(option_smiles, given_smiles, reagent_names, key_smiles=None, mechanisms=None,
-                    reagent_lexicon=None, mcs_timeout_s=CLASS_SMARTS_TIMEOUT_S):
-    """R6.3 (c) [D]: option element SET ⊆ elements of givens ∪ reagents (resolved through
+                    reagent_lexicon=None, mcs_timeout_s=CLASS_SMARTS_TIMEOUT_S, stated_formula=None):
+    """R6.3 (c) [D]: option element SET ⊆ elements of givens ∪ reagents ∪ the stated formula (reagents resolved through
     REAGENT_LEXICON; an unresolved reagent contributes 'any element' and the item goes
     to the reviewer); unless the mechanism is alternative_pathway, MCS ratio >= 0.5
-    against the key or the given. Returns qq_verdict with 'reviewer' flag."""
+    against the key or the given. Returns qq_verdict with 'reviewer' flag.
+    v2.5 (G-09): a formula the stem states adds its elements; with no given, no resolved or unresolved reagent and no
+    stated formula there is nothing to compare the elements with, so the element sub-check is N/A (never FAIL); the
+    MCS sub-check is unchanged."""
     Chem = _qq_rdkit()
     if Chem is None:
         return qq_verdict('N/A', 'RDKit unavailable')
     allowed = set()
+    _have_src = False
     for g in given_smiles or []:
         es = element_set(g)
         if es:
             allowed |= es
+            _have_src = True
+    _fe = formula_element_set(stated_formula)
+    if _fe:
+        allowed |= _fe
+        _have_src = True
     any_element = False
     lex = reagent_lexicon or REAGENT_LEXICON
     for r in reagent_names or []:
@@ -19284,6 +19326,8 @@ def inventory_check(option_smiles, given_smiles, reagent_names, key_smiles=None,
         es = element_set(smi)
         if es:
             allowed |= es
+            _have_src = True
+    _elem_na = not _have_src and not any_element
     bad, reviewer = [], any_element
     mech = list(mechanisms or [])
     for i, smi in enumerate(option_smiles or []):
@@ -19291,7 +19335,7 @@ def inventory_check(option_smiles, given_smiles, reagent_names, key_smiles=None,
         if es is None:
             bad.append((i, 'unparseable'))
             continue
-        if not any_element and not es <= allowed:
+        if not any_element and not _elem_na and not es <= allowed:
             bad.append((i, f'elements {sorted(es - allowed)} not in givens ∪ reagents'))
         m_i = mech[i] if i < len(mech) else None
         if m_i != 'alternative_pathway' and (key_smiles or given_smiles):
@@ -21631,6 +21675,9 @@ def sc_terminals(chain):
 SC_NEEDS = {'replace': 'sources', 'shape': 'shapes', 'sibling': 'siblings'}
 
 REVIEW_VOID_RATE = 0.30                # D0: a part disputing more than this share is suspect
+REVIEW_VOID_MIN_ITEMS = 4   # v2.5 (GAP-2026-11-13-STEP7-SPEED G-07): the dispute-RATE test of reviewer health needs at
+                            # least this many items — in a small delta part one dispute is a finding, not a faulty
+                            # reviewer (its dispute stands and goes to the dispute chain, never cleared by one switch)
 REVIEW_VOID_CONFIRM = 0.50             # E15: the switched reviewer must clear >= this share
 REVIEW_PANEL_SIZE = 3
 S13_2F_MAX_SWEEPS = 6
@@ -22214,7 +22261,7 @@ def review_round_void(verdict_items, n_items, rate=REVIEW_VOID_RATE):
         return True, 'verdict file missing or incomplete'
     dis = [q for q, r in verdict_items.items() if not _rv_agrees(r)]
     n = max(1, len(verdict_items))
-    if len(dis) / float(n) > rate:
+    if len(verdict_items) >= REVIEW_VOID_MIN_ITEMS and len(dis) / float(n) > rate:
         return True, f'{len(dis)} of {n} items disputed (> {int(rate * 100)}%)'
     return False, 'ok'
 
@@ -22495,7 +22542,7 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.14'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
+OP_RELEASE = '2026.11.15'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -27176,15 +27223,69 @@ def bv_band_guide(ruler, labels=None):
     return out
 
 
-def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None):
-    """v2.2 — the fresh reviewer jobs of ONE round of a batch: needs {q: [roles bv_apply still needs]} -> at most
-    BV_REVIEWERS jobs [{'role': 'reviewer_k', 'qs', 'packet', 'sha256', 'brief'}]; reviewer k gets every question
+BV_REVIEW_QS_PER_JOB = 5             # v2.5 (G-11) default; the live value is SESSION_BUDGET.json review_qs_per_job
+
+
+def bv_job_chunks(qs, entries, per_job=None):
+    """v2.5 (GAP-2026-11-13-STEP7-SPEED G-11): split the questions one reviewer k must see into jobs of about
+    per_job UNITS each. A linked / passage group (same stimulus_group_id) is ONE unit and is never split across jobs;
+    a unit with figures counts 2 toward the size. per_job None / < 1 -> one job (the v2.2 shape). Order kept."""
+    try:
+        per = int(per_job) if per_job is not None else 0
+    except (TypeError, ValueError):
+        per = 0
+    qs = [str(q) for q in (qs or [])]
+    if per < 1:
+        return [qs] if qs else []
+    units, seen = [], {}
+    for q in qs:
+        e = (entries or {}).get(q) if isinstance((entries or {}).get(q), dict) else {}
+        g = e.get('stimulus_group_id')
+        if g not in (None, '') and str(g) in seen:
+            units[seen[str(g)]].append(q)
+            continue
+        if g not in (None, ''):
+            seen[str(g)] = len(units)
+        units.append([q])
+    out, cur, size = [], [], 0
+    for u in units:
+        w = sum(2 if ((entries or {}).get(x) or {}).get('figure_dicts') else 1 for x in u)
+        if cur and size + w > per:
+            out.append(cur)
+            cur, size = [], 0
+        cur = cur + u
+        size += w
+    if cur:
+        out.append(cur)
+    return out
+
+
+def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None, qs_per_job=None):
+    """v2.2 — the fresh reviewer jobs of ONE round of a batch: needs {q: [roles bv_apply still needs]} -> jobs
+    [{'role': 'reviewer_k', 'name', 'qs', 'packet', 'sha256', 'brief'}]; reviewer k gets every question
     that still needs grader_k / solver_k / vision_<i>_k, with that question's allow-listed item, its own anchors
-    and the figure files reviewer k must transcribe. Never raises."""
+    and the figure files reviewer k must transcribe. v2.5 (G-11): reviewer k's questions are split into jobs of
+    qs_per_job units (bv_job_chunks; a linked group is never split) so the jobs run side by side; every question is
+    still seen by exactly one fresh context per k (k = 1..BV_REVIEWERS — three distinct reviewers). 'name' is the job
+    folder name: 'reviewer_k' for the first part, 'reviewer_k_p<i>' for the next ones. Never raises."""
     out = []
+    _nd = {str(q): v for q, v in (needs or {}).items()} if isinstance(needs, dict) else {}
     for k in range(1, BV_REVIEWERS + 1):
+        _qk = [q for q in sorted(_nd, key=lambda x: _qf_int(x, 0))
+               if any(str(r).endswith(f'_{k}') for r in (_nd.get(q) or []))]
+        for _pi, _chunk in enumerate(bv_job_chunks(_qk, entries, qs_per_job), 1):
+            _j = _bv_reviewer_job(k, _chunk, _nd, entries, anchors_by_q, labels, band_guide)
+            if _j is not None:
+                _j['name'] = f'reviewer_{k}' if _pi == 1 else f'reviewer_{k}_p{_pi}'
+                out.append(_j)
+    return out
+
+
+def _bv_reviewer_job(k, qs, needs, entries, anchors_by_q, labels, band_guide=None):
+    """One reviewer-k job over the questions qs (v2.2 body of bv_reviewer_jobs). None when nothing to ask."""
+    if True:
         rows = []
-        for q in sorted((needs or {}), key=lambda x: _qf_int(x, 0)):
+        for q in qs:
             rl = [str(r) for r in (needs.get(q) or [])]
             if not any(r.endswith(f'_{k}') for r in rl):
                 continue
@@ -27196,12 +27297,11 @@ def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None):
             rows.append({'q': str(q), 'item': it, 'exemplars': bv_short_exemplars((anchors_by_q or {}).get(q) or {}, labels),
                          'figures_to_read': [x for x in reads if x]})
         if not rows:
-            continue
+            return None
         pk = {'items': rows, 'labels': list(_dl_labels(labels)), 'band_guide': band_guide or {},
               'counting_rules': br_counting_rules()}                  # v2.3 Cluster BR
-        out.append({'role': f'reviewer_{k}', 'qs': [r['q'] for r in rows], 'packet': pk, 'sha256': _bv_sha(pk),
-                    'brief': BV_BRIEF_REVIEWER})
-    return out
+        return {'role': f'reviewer_{k}', 'qs': [r['q'] for r in rows], 'packet': pk, 'sha256': _bv_sha(pk),
+                'brief': BV_BRIEF_REVIEWER}
 
 
 def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_by_q=None):

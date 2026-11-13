@@ -1,5 +1,66 @@
 # Changelog
 
+## 2026.11.15 — GAP-2026-11-13-STEP7-SPEED: every question settled in its own batch, no forced fresh worker, half the read calls
+
+(blueprint_core v2.5 (inventory_check stated_formula; bv_job_chunks / bv_reviewer_jobs qs_per_job; REVIEW_VOID_MIN_ITEMS);
+final_assembly v1.21 (bv_batch_step settles in the batch; INFRA-CARRY; '_switch' re-asks; paper_in_progress;
+bv_budget_value); audit_canonical (gate_distractor passes stated_formula); bootstrap (--run-section / --show-section /
+--set; automatic RESUME; packed read calls; WARM STANDBY --standby / --standby-ready / --standby-status /
+--promote-standby; --timing-log / --timing-show); spec_sections (run_block_ranges, pack_chunks, chunk_text_segs);
+handshake_audit (H6 delta round 2, H-BV in-batch settlement, S13-1B check; 219 checks); Framework_MockTestCreate v6.5
+(S0-BV BV-9 / BV-11 / BV-13 retired / BV-14; S1-0R RUN-BLOCKs; S3-13 / S3-16 RESUME; S4-7 STEP A2 / D; S13-1B check;
+S13-2G round 2 delta; 34 blocks marked RUN-BLOCK); Framework_MockTestOrchestrate v1.7.0 (O2-2, O2-3 waves / _switch /
+quota, O2-5 same worker by room, NEW O2-10 WARM STANDBY, NEW O2-11 timing, O3-5, O3-7, O3-9, O4-1);
+Framework_DeliveryFooter v1.50.0 (INFRA-CARRY line, FRAMEWORK NOTE timing line); SESSION_BUDGET (fa_work_unit_tokens,
+review_qs_per_job, parallel_jobs_max, *_minutes_target); LAW_REGISTRY (+LAW-BV-SETTLE, LAW-RUN-BLOCK, LAW-RESUME-AUTO;
+LAW-BV-13 retired); STEP_CONTRACTS (floors Create 6.5, Orchestrate 1.7.0, DeliveryFooter 1.50.0).)
+
+**Carried forward (hotfix 48c6502 on production, kept in full).** GAP-2026-11-14-INTRADUP-LINKED-SET
+(blueprint_core.intra_paper_duplicates, audit_canonical.gate_intradup: members of one linked set are never a
+within-paper repeat), GAP-2026-11-14-QINDEX-CHECK-SPLIT (audit_canonical A-QINDEX check 7 / check 8 texts carry no
+'; '), GAP-2026-11-14-FINAL-COUNT-INDEX (final_assembly.bv_batch_step final=True never indexes batch_plan with
+current_batch). This release is built on 48c6502; the FINAL-COUNT-INDEX fixture is rewritten for the v1.21 in-batch
+design (final round with current_batch past the plan: the S13-1B check, and an INFRA-CARRY question) and fails on the
+pre-fix engine; nf_intradup_linked_set_exempt, gap-2026-11-14-A-INTRADUP-linked-set-exempt and
+A-QINDEX-check7/8-splits-cleanly-on-semicolon are kept unchanged.
+
+**Evidence (release 2026.11.14, measured on CSIR NET Chemical Sciences, TestCreate P1 --level subject --scope
+"Organic Chemistry", 40 questions in 4 batches).** Before Batch 9 min; batches 38 / 20 / 24 / 30 min; Final Assembly
+over 60 min with 7 workers and 5 counting rounds (bfinal r1-r5). (1) Every fresh worker read ~385,000 tokens in 84
+calls (FINAL) before any work; Orchestrate O2-5 sent FINAL ASSEMBLY and every REVIEW RETURNED to a fresh worker by
+rule. (2) BV-13 / BV-14 carried rewritten and edge questions out of their batch, so Final Assembly measured them again
+(S13-1B) in fresh workers. (3) S13-2G round 2 re-solved the whole paper. (4) Every reviewer solved the whole batch. (5)
+A session start without --resume rebuilt batch_state.json and the answer budget from scratch (S3-13 / S3-16 wrote
+unconditionally; the worker prompt never added --resume). (6) A formula-only spectroscopy item (no drawn given, no
+reagent) could never pass rule (c): inventory_check's allowed-element set was empty (Q4, Q10). (7) 34 python blocks a
+worker runs verbatim (~66,000 tokens, mostly Final Assembly) were in the read only to be copied out, and every
+engine-block cut split the read into extra calls.
+
+**What changed.** (a) Every question is settled INSIDE ITS OWN BATCH (BV-9): a rewrite, an edge re-count or a role
+that returned nothing gets its next round at once, with only those questions; reviewer k's questions are split into
+jobs of review_qs_per_job (each question still in exactly three distinct fresh contexts; a linked group never split);
+a re-ask goes to a '_switch' folder (another model); the only carry is INFRA-CARRY (no fresh result after
+BV_MAX_ROUNDS; disclosed; target 0). S13-1B is a check ("0 to measure"). (b) Every orchestrator message goes to the
+CURRENT worker while it has the room (O2-5; condition 3 retired); a WARM STANDBY reads the route in the background
+while the user reads a batch, so a replacement worker's read never adds to a batch (O2-10). (c) RUN-BLOCKs: 34 blocks
+are run by ID (bootstrap --run-section) and not read; read segments are packed into calls. Measured with bootstrap
+--trigger TestCreate: FINAL read 885,751 B / ~385,111 tok / 84 calls -> 754,138 B / ~327,889 tok / 42 calls;
+NON-FINAL 750,877 B / ~326,470 tok / 82 calls -> 704,538 B / ~306,323 tok / 41 calls. (d) A session start on a paper in
+progress RESUMES by itself and keeps its state byte for byte (S3-13 / S3-16; bootstrap). (e) inventory_check adds the
+stated formula's elements; with no given, reagent or formula the element test is N/A, never FAIL. (f) S13-2G round 2
+is a delta round over the repaired items (every verdict is bound to its item hash); reviewer health (D0) applies its
+dispute-rate test only to parts of at least 4 items, so a single disputed item in a delta round goes to its dispute
+chain and is never cleared by one switched reviewer. (g) Timing: one event log per chat; a batch or Final Assembly
+over its target prints one FRAMEWORK NOTE (never a stop).
+
+**Not in this release (follow-up, decided by the timing log).** A separate writer role with its own small read
+(GAP doc G-04 / G-12 / G-13), a scripted Layer-1 checklist (G-03), the batch-level 8-field checklist binding that
+would remove the Final Assembly review round 1 (G-07 full) and the in-batch rung-2 ladder (G-08). Each changes how
+questions are written or reviewed for every exam; they ship only after the timed proof run shows they are needed.
+
+**Measure next (SESSION_BUDGET _change_rule).** The timed proof run records every window (bootstrap --timing-show);
+review_qs_per_job, parallel_jobs_max and fa_work_unit_tokens are initial values until then.
+
 ## 2026.11.14 — GAP-2026-11-14-CARRY + EDGE-RECOUNT + FINAL-COUNT: no extra reviewer round in a batch, a second count on the band edge, one ruler at Final Assembly
 
 (blueprint_core v2.4 (bv_apply edge re-count; bv_author_view; bv_short_exemplars); final_assembly v1.20 (bv_batch_step

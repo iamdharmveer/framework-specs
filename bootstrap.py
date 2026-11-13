@@ -432,8 +432,10 @@ READ (O3-2). For K = 1..N, one call each, in order:
   python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K
 (omit --progress while the BATCH STATE does not exist). Never read a spec any other way, never
 with a sed range above 300 lines, never open a tool-output file the harness diverted.
-PYTHON (MTC S1-0R): session start `python3 bootstrap.py --session-start --exam <E> --paper <N> <trigger options>`;
+PYTHON (MTC S1-0R): session start `python3 bootstrap.py --session-start --exam <E> --paper <N> <trigger options>` (a paper in
+progress RESUMES by itself); a `# RUN-BLOCK <ID>` block: `python3 bootstrap.py --run-section <ID> --exam <E> --paper <N>`;
 any other block: save it as /home/claude/fwrun/<x>.py, run `python3 bootstrap.py --run-block <file> --exam <E> --paper <N>`.
+TIMING (O3-4): `python3 bootstrap.py --timing-log read_start` before chunk 1 and `--timing-log read_end` after (a).
 RETENTION (O3-3). Prove the read from memory (never open .read_state):
   python3 bootstrap.py --retention "<nn>=<code> ..." --when <W>
 W = after-read (a), before-batch (b), after-batch (c), before-final (d; add --escalate for the
@@ -445,7 +447,8 @@ again (the checkpoint now holds the progress so far: the next worker's restore k
 reports. A FAIL at any point: report RETENTION_FAIL and stop (the next worker restores the CHECKPOINT: the work
 since the last make, made without the spec in context, is undone).
 {body}
-END EVERY TURN (O3-4): write MTC's chat prints of this turn to the CHAT BLOCK FILE, then run
+END EVERY TURN (O3-4): write MTC's chat prints of this turn to the CHAT BLOCK FILE (plus, in a turn that delivers, the
+lines `python3 bootstrap.py --timing-show --notes-once` prints, directly above the footer), then run
   python3 bootstrap.py --worker-report write --exam <E> --paper <N> --state <STATE> --batch <K> --of <M> --files "<paths>" --chat-file {home}/<E>_M<N>_chat_block.md
 adding --review-parts "<dir1>,<dir2>" for REVIEW_REQUEST and GRADE_REQUEST (the job folders); --files ""
 when the turn has no present_files call. STATE is one of BATCH_DELIVERED, FINAL_BATCH_BUILT,
@@ -502,7 +505,8 @@ def _plans(sec, specs, klass):
     ss, out = _spec_sections(), {}
     for f in specs:
         try:
-            out[f] = ss.chunk_plan(sec, f, klass)
+            # GAP-2026-11-13-STEP7-SPEED G-02: each entry is ONE read call — a list of segments packed within the caps
+            out[f] = ss.pack_chunks(f, ss.chunk_plan(sec, f, klass))
         except (KeyError, ValueError, OSError):
             out[f] = None
     return out
@@ -877,16 +881,18 @@ def _new_read(args, role):
                 continue
             rs = (_merged(info.get("final_only_ranges") or [])
                   if klass == "NON-FINAL" and info.get("has_read_set") else [])
-            plans[f] = ss.chunk_ranges(f, rs)
+            # G-02: code run by bootstrap (ENGINE-RUN / RUN-BLOCK bodies) is never served, escalation included
+            rs = ss._minus(rs, list(info.get("engine_ranges") or []) + list(info.get("run_block_ranges") or []))
+            plans[f] = ss.pack_chunks(f, ss.chunk_ranges(f, rs))
     else:
         plans = _plans(sec, specs, klass)
     stale = [f for f in specs if plans[f] is None]
     if stale:
         fail(f"SPEC_SECTIONS.json does not describe {stale} as they are on disk. Re-run "
              f"python3 bootstrap.py (and spec_source.py --resolve in an overlay).")
-    chunks = [{"file": f, "start": a, "end": b,
-               "sha256": hashlib.sha256(ss.chunk_text(f, a, b).encode("utf-8")).hexdigest()}
-              for f in specs for a, b in plans[f]]
+    chunks = [{"file": f, "start": sg[0][0], "end": sg[-1][1], "segs": [list(x) for x in sg],
+               "sha256": hashlib.sha256(ss.chunk_text_segs(f, sg).encode("utf-8")).hexdigest()}
+              for f in specs for sg in plans[f]]
     if not chunks:
         if args.escalate:
             print("ESCALATION: nothing to read — this session read everything.")
@@ -908,6 +914,15 @@ def _new_read(args, role):
     with open(_pointer(role, args.escalate), "w", encoding="utf-8") as fh:
         fh.write(st["read_id"])
     return st, None
+
+
+def _chunk_segs(c):
+    """The segments of a read chunk (G-02 packed chunks carry 'segs'; an older read state has start..end only)."""
+    return [tuple(x) for x in (c.get("segs") or [[c["start"], c["end"]]])]
+
+
+def _chunk_body(c):
+    return _spec_sections().chunk_text_segs(c["file"], _chunk_segs(c))
 
 
 def cmd_read(args):
@@ -935,7 +950,7 @@ def cmd_read(args):
     if k != expected and k not in st["served"]:
         print(f"WARNING READ ORDER: expected chunk {expected}")
     c = st["chunks"][k - 1]
-    body = _spec_sections().chunk_text(c["file"], c["start"], c["end"])
+    body = _chunk_body(c)
     if hashlib.sha256(body.encode("utf-8")).hexdigest() != c["sha256"]:
         fail(f"{c['file']} lines {c['start']}-{c['end']} changed since this read began. "
              f"Re-read from chunk 1: {_reread_cmd(st)}")
@@ -951,8 +966,7 @@ def cmd_read(args):
         st["served"].append(k)
     if k == n:
         st["finished"] = _now()
-        tot = sum(len(_spec_sections().chunk_text(x["file"], x["start"], x["end"])
-                      .encode("utf-8")) for x in st["chunks"])
+        tot = sum(len(_chunk_body(x).encode("utf-8")) for x in st["chunks"])
         role_flag = "" if role == "session" else f" --role {role}"
         esc_flag = " --escalate" if st["escalate"] else ""
         print(f"READ COMPLETE {st['read_id']}: {n} chunks, {tot} B. Now run:\n"
@@ -1002,10 +1016,11 @@ def cmd_read_receipts(args):
             continue
         spans = []
         for c in mine:
-            if spans and c["start"] == spans[-1][1] + 1:
-                spans[-1][1] = c["end"]
-            else:
-                spans.append([c["start"], c["end"]])
+            for a, b in _chunk_segs(c):
+                if spans and a == spans[-1][1] + 1:
+                    spans[-1][1] = b
+                else:
+                    spans.append([a, b])
         print(f"READ RECEIPT {f} lines {','.join(f'{a}-{b}' for a, b in spans)} chunks "
               f"{mine[0]['k']}-{mine[-1]['k']} sha256 {st['files'][f][:12]} read_id "
               f"{st['read_id']} retention {ret}")
@@ -1134,11 +1149,153 @@ def worker_report_show(a):
     return 0
 
 
-def worker_prompt(trigger_text, cont):
+WORKER_STANDBY = """THIS TURN (STANDBY — Orchestrate O2-10): read (O3-2) with `--role standby` added to every --read call, prove
+(a) with `--retention "<codes>" --role standby --when after-read`, run `python3 bootstrap.py --standby-ready`, reply
+the one line `STANDBY READY` and wait. Touch nothing else: no session start, no checkpoint, no file under {home}.
+When a message arrives: run `python3 bootstrap.py --promote-standby` (your read becomes the session read), prove (a)
+again (`--when after-read`), then handle the message as a --continue worker:"""
+
+
+def worker_prompt(trigger_text, cont, standby=False):
+    body = (WORKER_STANDBY.format(home=home_dir()) + "\n" + WORKER_CONTINUE.format(home=home_dir())
+            .replace("THIS TURN (--continue: the paper is in progress on disk): read (O3-2) and prove (a) first.\n", "")
+            if standby else WORKER_CONTINUE.format(home=home_dir()) if cont else WORKER_FIRST)
     print(WORKER_PROMPT.format(trigger_text=trigger_text, proj=project_dir(), up=uploads_dir(),
-                               home=home_dir(),
-                               body=(WORKER_CONTINUE.format(home=home_dir()) if cont
-                                     else WORKER_FIRST)))
+                               home=home_dir(), body=body))
+    return 0
+
+
+# ── WARM STANDBY (GAP-2026-11-13-STEP7-SPEED; Orchestrate O2-10) ────────────────────────────────────────────────
+# A replacement worker reads the route WHILE the user reads the batch just delivered, so its read never adds to a
+# batch's time. Its read is kept under the role 'standby' (its own pointer), so it can never replace the current
+# worker's session read; --promote-standby makes it the session read when the orchestrator hands it the message.
+STANDBY_FILE = "standby.json"
+
+
+def standby_ready(args):
+    st = _load_read("standby", False, None)
+    ok = bool(st) and len(set(st.get("served") or [])) >= len(st.get("chunks") or []) and bool(st.get("chunks")) \
+        and [c.get("result") for c in (st.get("checks") or [])][-1:] == ["PASS"]
+    if not ok:
+        print("STANDBY: NOT READY — the standby read is missing, incomplete or not proved (RETENTION: PASS).")
+        return 3
+    os.makedirs(READ_STATE_DIR, exist_ok=True)
+    with open(os.path.join(READ_STATE_DIR, STANDBY_FILE), "w", encoding="utf-8") as fh:
+        json.dump({"read_id": st["read_id"], "class": st.get("class"), "ready": _now()}, fh)
+    print(f"STANDBY READY {st['read_id']} ({st.get('class')} read)")
+    return 0
+
+
+def standby_status(args):
+    rec = _load_json(os.path.join(READ_STATE_DIR, STANDBY_FILE))
+    st = _load_read("standby", False, None)
+    if rec and st and st.get("read_id") == rec.get("read_id"):
+        print(f"STANDBY: READY {rec['read_id']} ({rec.get('class')} read, ready {rec.get('ready')})")
+        return 0
+    print("STANDBY: NONE")
+    return 1
+
+
+def promote_standby(args):
+    rec = _load_json(os.path.join(READ_STATE_DIR, STANDBY_FILE))
+    st = _load_read("standby", False, None)
+    if not (rec and st and st.get("read_id") == rec.get("read_id")):
+        print("STANDBY: nothing to promote — read the route as a --continue worker does (O3-2).")
+        return 2
+    st["role"] = "session"
+    _save_read(st)
+    with open(_pointer("session", False), "w", encoding="utf-8") as fh:
+        fh.write(st["read_id"])
+    for f in (_pointer("standby", False), os.path.join(READ_STATE_DIR, STANDBY_FILE)):
+        if os.path.exists(f):
+            os.remove(f)
+    print(f"STANDBY PROMOTED: {st['read_id']} is the session read ({st.get('class')}).")
+    return 0
+
+
+# ── TIMING (GAP-2026-11-13-STEP7-SPEED G-14) ────────────────────────────────────────────────────────────────────
+# One event log per paper, /home/claude/<E>_M<N>_timing.json, appended by the orchestrator (sub-agent start/return,
+# user continue, delivery) and by the worker (read, review rounds); --timing-show turns it into one line per batch
+# and names the slowest phase of a batch or Final Assembly over its SESSION_BUDGET.json target. Never a stop.
+TIMING_FILE = "fw_run_timing.json"     # one Step 7 run at a time per chat (Orchestrate O2-1)
+
+
+def _timing_path():
+    return os.path.join(home_dir(), TIMING_FILE)
+
+
+def timing_log(args):
+    p = _timing_path()
+    log = _load_json(p) or {"events": []}
+    ev = {"t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "event": args.timing_log}
+    if args.batch is not None:
+        ev["batch"] = args.batch
+    if args.tokens is not None:
+        ev["tokens"] = args.tokens
+    log.setdefault("events", []).append(ev)
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump(log, fh, indent=1)
+    print(f"TIMING logged: {ev['event']} {ev['t']}")
+    return 0
+
+
+TIMING_PHASES = (("read", "read_start", "read_end"), ("review", "jobs_start", "jobs_return"),
+                 ("worker_start", "worker_start", "worker_running"))
+
+
+def timing_summary(events, budget):
+    """[line] — per batch window (from one 'continue' / 'run_start' / 'final_assembly' event to the next
+    'delivered' event): total minutes and the minutes in each phase; a FRAMEWORK NOTE for a window over target."""
+    from datetime import datetime
+    def _t(e):
+        try:
+            return datetime.strptime(e["t"], "%Y-%m-%dT%H:%M:%SZ")
+        except (KeyError, ValueError, TypeError):
+            return None
+    out, start, label, open_ph, ph = [], None, None, {}, {}
+    for e in events or []:
+        t, ev = _t(e), str(e.get("event") or "")
+        if t is None:
+            continue
+        if ev in ("run_start", "continue", "final_assembly"):
+            start, label, open_ph, ph = t, ("Final Assembly" if ev == "final_assembly"
+                                            else "Before Batch" if ev == "run_start"
+                                            else f"batch {e.get('batch') or '?'}"), {}, {}
+            continue
+        for name, a, b in TIMING_PHASES:
+            if ev == a:
+                open_ph.setdefault(name, []).append(t)
+            elif ev == b and open_ph.get(name):
+                ph[name] = ph.get(name, 0.0) + (t - open_ph[name].pop()).total_seconds() / 60.0
+        if ev == "delivered" and start is not None:
+            tot = (t - start).total_seconds() / 60.0
+            parts = ", ".join(f"{k} {v:.1f}" for k, v in sorted(ph.items()))
+            out.append(f"TIMING {label}: total {tot:.1f} min" + (f" ({parts})" if parts else ""))
+            tgt = float(budget.get("fa_minutes_target" if label == "Final Assembly" else
+                                   "before_batch_minutes_target" if label == "Before Batch" else
+                                   "batch_minutes_target") or 0)
+            if tgt and tot > tgt:
+                slow = max(ph.items(), key=lambda kv: kv[1])[0] if ph else "writing and scripts"
+                out.append(f"FRAMEWORK NOTE: {label} took {tot:.0f} min (target {tgt:.0f}); slowest phase: {slow}.")
+            start = None
+    return out
+
+
+def timing_show(args):
+    log = _load_json(_timing_path()) or {"events": []}
+    evs = list(log.get("events") or [])
+    last = max([i for i, e in enumerate(evs) if e.get("event") == "run_start"], default=0)
+    lines = timing_summary(evs[last:], _session_budget())
+    if getattr(args, "notes_once", False):
+        # the worker puts each over-target note into ONE chat block (the next delivery), never twice
+        done = set(log.get("noted") or [])
+        new = [x for x in lines if x.startswith("FRAMEWORK NOTE") and x not in done]
+        log["noted"] = sorted(done | set(new))
+        with open(_timing_path(), "w", encoding="utf-8") as fh:
+            json.dump(log, fh, indent=1)
+        print("\n".join(new))
+        return 0
+    print("\n".join(lines) if lines else "TIMING: no complete window yet.")
     return 0
 
 
@@ -1308,6 +1465,133 @@ def ns_engine_blocks(spec_path=NS_SPEC_DEFAULT):
             cur = None
             continue
         cur[1].append(ln)
+    return out
+
+
+NS_RUN_MARK = '# RUN-BLOCK'          # GAP-2026-11-13-STEP7-SPEED G-02 (spec_sections.RUN_MARK)
+NS_RUN_HEAD = ('# PARAMS:', '# DEFINES:')
+
+
+def ns_run_blocks(spec_path=NS_SPEC_DEFAULT):
+    """{ID: (line, source, params)} — every ```python block whose first body line is `# RUN-BLOCK <ID> ...`, dedented
+    (header lines included: they are comments), in file order; params = the names its PARAMS line declares.
+    Pure (reads the file only)."""
+    with open(spec_path, encoding='utf-8') as fh:
+        lines = fh.read().split('\n')
+    out, cur = {}, None
+    for i, ln in enumerate(lines, 1):
+        s = ln.strip()
+        if cur is None:
+            if s.startswith('```python'):
+                cur = (i, [])
+            continue
+        if s.startswith('```'):
+            body = cur[1]
+            nb = [b.strip() for b in body if b.strip()]
+            if nb and nb[0].startswith(NS_RUN_MARK):
+                bid = nb[0][len(NS_RUN_MARK):].split()[0] if len(nb[0]) > len(NS_RUN_MARK) else ''
+                pl = next((b for b in nb[1:3] if b.startswith('# PARAMS:')), '# PARAMS: none')
+                pn = pl[len('# PARAMS:'):].split('(')[0].strip()
+                params = [] if pn in ('', 'none') else [x.strip() for x in pn.split(',') if x.strip()]
+                out[bid] = (cur[0], _ns_textwrap.dedent('\n'.join(body)), params)
+            cur = None
+            continue
+        cur[1].append(ln)
+    return out
+
+
+def _ns_spec_trusted(spec_path):
+    """The spec a --run-section runs from must be the verified one: its sha256 equals the MANIFEST.json entry, or the
+    file the current session read proved (an overlay that resolved a project copy)."""
+    try:
+        h = sha256(spec_path)
+    except OSError:
+        return False
+    man = (_load_json("MANIFEST.json") or {}).get("files") or {}
+    ent = man.get(os.path.basename(spec_path)) if isinstance(man, dict) else None
+    if isinstance(ent, dict) and ent.get("sha256") == h:
+        return True
+    st = _load_read("session", False, None) or {}
+    return (st.get("files") or {}).get(os.path.basename(spec_path)) == h
+
+
+def ns_run_section(bid, exam, paper, sets=None, spec_path=NS_SPEC_DEFAULT, out=print, trust=None):
+    """GAP-2026-11-13-STEP7-SPEED G-02 — run the RUN-BLOCK <bid> of the verified spec in the paper's namespace, with
+    the values `sets` {name: value} bound first. Every PARAMS name must be in the namespace or in sets: a missing one
+    is reported (exit 2) and nothing runs. Returns (rc, ns)."""
+    blocks = ns_run_blocks(spec_path)
+    if bid not in blocks:
+        out(f'FW-NS: no RUN-BLOCK {bid} in {os.path.basename(spec_path)} (known: {", ".join(sorted(blocks)) or "none"}).')
+        return 2, {}
+    if not (trust if trust is not None else _ns_spec_trusted(spec_path)):
+        out(f'FW-NS: {os.path.basename(spec_path)} is not the verified file (sha256 differs from MANIFEST.json and from '
+            f'the session read) — run Step 0 again; nothing was run.')
+        return 2, {}
+    line, src, params = blocks[bid]
+    ns, meta = ns_load(exam, paper, out=out)
+    ns.update({'EXAM': exam, 'N': int(paper)})          # the command's own exam and paper, as --session-start binds them
+    for k, v in (sets or {}).items():
+        ns[k] = v
+    for p in [p for p in params if p not in ns]:
+        try:                                    # a module a block uses without importing it (json, os, re, ...)
+            import importlib as _ns_il
+            if p.isidentifier() and p in sys.stdlib_module_names:
+                ns[p] = _ns_il.import_module(p)
+        except (ImportError, AttributeError):
+            pass
+    missing = [p for p in params if p not in ns]
+    if missing:
+        out(f'FW-NS: RUN-BLOCK {bid} needs {", ".join(missing)} — not in the paper\'s session. Run the step that binds '
+            f'it first, or give it with --set NAME=<json> / --set-file NAME=<path>. Nothing was run.')
+        return 2, ns
+    src = src.replace('"[ExamCode]"', repr(exam)).replace("'[ExamCode]'", repr(exam))
+    res = _ns_exec_block(src, f'<{os.path.basename(spec_path)}:{line} RUN-BLOCK {bid}>', ns, meta)
+    ns_save(ns, meta, exam, paper)
+    if res is None:
+        return 0, ns
+    if res[0] == 'exit':
+        if res[1] not in (None, 0):
+            out(str(res[1]))
+        return (res[1] if isinstance(res[1], int) else 1) or 0, ns
+    out(res[1])
+    out(f'FW-NS: RUN-BLOCK {bid} raised — the error above is the report (python3 bootstrap.py --show-section {bid} '
+        f'prints its code when a repair needs it).')
+    return 1, ns
+
+
+def ns_block_free_names(src):
+    """The names a block READS that it never binds and that are not builtins — what its PARAMS line declares."""
+    import builtins as _bi
+    tree = _ns_ast.parse(src)
+    bound, used = set(), set()
+    for nd in _ns_ast.walk(tree):
+        if isinstance(nd, _ns_ast.Name):
+            (bound if isinstance(nd.ctx, (_ns_ast.Store, _ns_ast.Del)) else used).add(nd.id)
+        elif isinstance(nd, (_ns_ast.FunctionDef, _ns_ast.AsyncFunctionDef, _ns_ast.ClassDef)):
+            bound.add(nd.name)
+        elif isinstance(nd, (_ns_ast.Import, _ns_ast.ImportFrom)):
+            for a in nd.names:
+                bound.add((a.asname or a.name).split('.')[0])
+        elif isinstance(nd, _ns_ast.arg):
+            bound.add(nd.arg)
+        elif isinstance(nd, _ns_ast.ExceptHandler) and nd.name:
+            bound.add(nd.name)
+    return sorted(used - bound - set(dir(_bi)))
+
+
+def ns_parse_sets(pairs, files):
+    """--set NAME=<json> (a bare word that is not JSON is taken as a string) and --set-file NAME=<path to .json>."""
+    out = {}
+    for p in pairs or []:
+        k, _, v = str(p).partition('=')
+        try:
+            out[k.strip()] = json.loads(v)
+        except ValueError:
+            out[k.strip()] = v
+    for p in files or []:
+        k, _, v = str(p).partition('=')
+        with open(v.strip(), encoding='utf-8') as fh:
+            out[k.strip()] = json.load(fh)
     return out
 
 
@@ -1497,9 +1781,26 @@ def _ns_log_nested_defs(src, label, ns, meta):
                 break
 
 
+def ns_paper_in_progress(exam, paper, home=None):
+    """GAP-2026-11-13-STEP7-SPEED G-10: True when /home/claude/<E>_M<N>_batch_state.json parses to a dict with a
+    non-empty batch_plan and its state is not DELIVERED (same test as final_assembly.paper_in_progress)."""
+    home = home or os.environ.get('FW_HOME') or '/home/claude'
+    try:
+        with open(os.path.join(home, f'{exam}_M{int(paper)}_batch_state.json'), encoding='utf-8') as fh:
+            d = json.load(fh)
+    except (OSError, ValueError, TypeError):
+        return False
+    return isinstance(d, dict) and bool(d.get('batch_plan')) and str(d.get('state') or '') != 'DELIVERED'
+
+
 def ns_session_start(exam, paper, level=None, subject=None, topic=None, resume=False, grader_model=None,
                   spec_path=NS_SPEC_DEFAULT, out=print):
-    """Run every ENGINE-RUN block of the spec, in file order, in the paper's namespace. Returns (rc, ns)."""
+    """Run every ENGINE-RUN block of the spec, in file order, in the paper's namespace. Returns (rc, ns).
+    GAP-2026-11-13-STEP7-SPEED G-10: a paper already in progress on disk runs in RESUME mode whatever the flag — the
+    worker prompt never had to add --resume, and a session start without it rewrote the batch state."""
+    if not resume and ns_paper_in_progress(exam, paper):
+        resume = True
+        out('FW-NS: existing paper found — RESUME mode (the saved paper state is kept; nothing is regenerated).')
     ns, meta = ns_load(exam, paper, out=out)
     # the definitions earlier blocks made stay (a helper a non-engine block defined is still there for the next
     # worker); the engine blocks' definitions are logged again after them, so the verified text wins
@@ -1628,6 +1929,37 @@ def ns_self_test():
         m8 = []
         ns8, _ = ns_load('EX', 1, out=m8.append)
         check('corrupt_session_is_reported_and_fresh', any('does not load' in m for m in m8) and 'LEDGER' not in ns8)
+        # GAP-2026-11-13-STEP7-SPEED G-10 (t_resume_autodetect): a paper in progress on disk -> RESUME whatever the flag;
+        # a DELIVERED paper or a file without a plan -> a fresh start (the same paper number may be written again)
+        _bs3 = os.path.join(d, 'EX_M3_batch_state.json')
+        json.dump({'batch_plan': [{'batch_id': 1}], 'current_batch': 2}, open(_bs3, 'w'))
+        _b3 = open(_bs3, 'rb').read()
+        m10 = []
+        rc10, ns10 = ns_session_start('EX', 3, spec_path=spec, out=m10.append)
+        json.dump({'batch_plan': [{'batch_id': 1}], 'state': 'DELIVERED'}, open(os.path.join(d, 'EX_M4_batch_state.json'), 'w'))
+        open(os.path.join(d, 'EX_M5_batch_state.json'), 'w').write('{not json')
+        rc11, ns11 = ns_session_start('EX', 4, spec_path=spec, out=lambda *a: None)
+        rc12, ns12 = ns_session_start('EX', 5, spec_path=spec, out=lambda *a: None)
+        check('t_resume_autodetect', rc10 == 0 and ns10['RESUME'] is True and any('RESUME mode' in m for m in m10)
+              and open(_bs3, 'rb').read() == _b3 and ns11['RESUME'] is False and ns12['RESUME'] is False)
+        # GAP-2026-11-13-STEP7-SPEED G-02 (RUN-BLOCK-INTEGRITY / handshake): a RUN-BLOCK runs by ID from the verified file,
+        # with its PARAMS from the session or --set; a missing PARAM runs nothing; its DEFINES survive for later blocks
+        _rs = os.path.join(d, 'R.md')
+        open(_rs, 'w', encoding='utf-8').write(
+            '# R\n\n  ```python\n  # RUN-BLOCK S9-1 — not in the read\n  # PARAMS: LIMIT, json\n  # DEFINES: twice(x)\n'
+            '  CODE = "[ExamCode]"\n  def twice(x):\n      return 2 * x\n  OUTR = json.dumps(twice(LIMIT))\n  ```\n')
+        m13 = []
+        rc13, _ = ns_run_section('S9-1', 'EX', 6, {}, spec_path=_rs, out=m13.append, trust=True)
+        rc14, ns14 = ns_run_section('S9-1', 'EX', 6, ns_parse_sets(['LIMIT=21'], []), spec_path=_rs,
+                                    out=lambda *a: None, trust=True)
+        open(blk, 'w').write('OUT3 = twice(5)\n')
+        rc15, ns15 = ns_run_file(blk, 'EX', 6, out=lambda *a: None)
+        rc16, _ = ns_run_section('S9-1', 'EX', 6, {}, spec_path=_rs, out=lambda *a: None, trust=False)
+        rc17, _ = ns_run_section('NOPE', 'EX', 6, {}, spec_path=_rs, out=lambda *a: None, trust=True)
+        check('t_run_section', rc13 == 2 and any('needs LIMIT' in m for m in m13) and rc14 == 0 and ns14['N'] == 6
+              and ns14['OUTR'] == '42' and ns14['CODE'] == 'EX' and rc15 == 0 and ns15['OUT3'] == 10
+              and rc16 == 2 and rc17 == 2 and ns_run_blocks(_rs)['S9-1'][2] == ['LIMIT', 'json']
+              and ns_parse_sets(['A=[1, 2]', 'B=word'], []) == {'A': [1, 2], 'B': 'word'})
         open(spec, 'w').write('# S\n```python\nx = 1\n```\n')
         rc9, _ = ns_session_start('EX', 2, spec_path=spec, out=lambda *a: None)
         check('no_engine_block_is_reported', rc9 == 2)
@@ -1646,7 +1978,15 @@ def main():
                     help="with --trigger: print a READ RECEIPT per routed spec (P1)")
     ap.add_argument("--read", type=int, default=None, metavar="K",
                     help="with --trigger: serve read chunk K (K=1 starts a new read)")
-    ap.add_argument("--role", choices=("session", "orchestrator"), default="session")
+    ap.add_argument("--role", choices=("session", "orchestrator", "standby"), default="session")
+    ap.add_argument("--standby", action="store_true", help="with --worker-prompt: the WARM STANDBY prompt (O2-10)")
+    ap.add_argument("--standby-ready", action="store_true")
+    ap.add_argument("--standby-status", action="store_true")
+    ap.add_argument("--promote-standby", action="store_true")
+    ap.add_argument("--timing-log", default=None, metavar="EVENT")
+    ap.add_argument("--timing-show", action="store_true")
+    ap.add_argument("--notes-once", action="store_true", help="with --timing-show: only new FRAMEWORK NOTE lines")
+    ap.add_argument("--tokens", type=int, default=None)
     ap.add_argument("--read-id", default=None)
     ap.add_argument("--escalate", action="store_true",
                     help="read / check the sections the NON-FINAL read skipped")
@@ -1685,6 +2025,12 @@ def main():
                     help="2026.11.13: run every ENGINE-RUN block of the verified spec in the paper's namespace")
     ap.add_argument("--run-block", default=None, metavar="FILE",
                     help="2026.11.13: run one block file in the paper's namespace (kept on disk)")
+    ap.add_argument("--run-section", default=None, metavar="ID",
+                    help="GAP-2026-11-13-STEP7-SPEED: run the RUN-BLOCK <ID> of the verified spec in the paper's namespace")
+    ap.add_argument("--show-section", default=None, metavar="ID",
+                    help="print the code of RUN-BLOCK <ID> (only when a repair of its failure needs the code)")
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="NAME=JSON")
+    ap.add_argument("--set-file", dest="set_files", action="append", default=[], metavar="NAME=PATH")
     ap.add_argument("--level", default=None)
     ap.add_argument("--subject", default=None)
     ap.add_argument("--topic", default=None)
@@ -1722,6 +2068,24 @@ def main():
         sys.exit(stage_status())
     if args.checkpoint:
         sys.exit(checkpoint_cmd(args))
+    if args.show_section:
+        _blk = ns_run_blocks(args.spec or NS_SPEC_DEFAULT).get(args.show_section)
+        if _blk is None:
+            print(f"FW-NS: no RUN-BLOCK {args.show_section}.")
+            sys.exit(2)
+        print(_blk[1])
+        sys.exit(0)
+    if args.run_section:
+        if not args.exam or not args.paper or not str(args.paper).isdigit():
+            print("FW-NS: --exam <ExamCode> and --paper <N> are required.")
+            sys.exit(2)
+        try:
+            _sets = ns_parse_sets(args.sets, args.set_files)
+        except (OSError, ValueError) as _e:
+            print(f"FW-NS: --set-file could not be read ({_e}); nothing was run.")
+            sys.exit(2)
+        sys.exit(ns_run_section(args.run_section, args.exam, int(args.paper), _sets,
+                                spec_path=args.spec or NS_SPEC_DEFAULT)[0])
     if args.session_start or args.run_block:
         if not args.exam or not args.paper or not str(args.paper).isdigit():
             print("FW-NS: --exam <ExamCode> and --paper <N> are required.")
@@ -1735,7 +2099,17 @@ def main():
     if args.worker_report == "show":
         sys.exit(worker_report_show(args))
     if args.worker_prompt:
-        sys.exit(worker_prompt(args.trigger_text, args.cont))
+        sys.exit(worker_prompt(args.trigger_text, args.cont, standby=args.standby))
+    if args.standby_ready:
+        sys.exit(standby_ready(args))
+    if args.standby_status:
+        sys.exit(standby_status(args))
+    if args.promote_standby:
+        sys.exit(promote_standby(args))
+    if args.timing_log:
+        sys.exit(timing_log(args))
+    if args.timing_show:
+        sys.exit(timing_show(args))
     if args.retention is not None:
         sys.exit(cmd_retention(args))
     if args.read_receipts:
@@ -1961,7 +2335,7 @@ def self_test():
 
     # D1 + D5: verify passes; surface notice when the project dir is absent; budget block
     rc, out = run(fx, "--trigger", "TestCreate")
-    final_n = sum(len(ss.chunk_plan(sec, f, "FINAL", fx)) for f in route)
+    final_n = sum(len(ss.pack_chunks(os.path.join(fx, f), ss.chunk_plan(sec, f, "FINAL", fx))) for f in route)
     check("verify passes on the fixture corpus", rc == 0 and "VERIFIED" in out)
     check("D1 surface notice when the project dir is absent",
           "SURFACE: project files are not mounted" in out and "--stage-inputs" in out)
@@ -2053,7 +2427,7 @@ def self_test():
     outs, rc, _ = read_all("--progress", bs_path)
     nf = state()
     lines = open(os.path.join(fx, "Framework_MockTestCreate.md"), encoding="utf-8").read().split("\n")
-    served = {(c["file"], j) for c in nf["chunks"] for j in range(c["start"], c["end"] + 1)}
+    served = {(c["file"], j) for c in nf["chunks"] for a, b in _chunk_segs(c) for j in range(a, b + 1)}
     plan = {(f, j) for f in route for a, b in ss.read_plan(sec, f, "NON-FINAL")
             for j in range(a, b + 1)}
     text = bodies(outs)
@@ -2064,7 +2438,7 @@ def self_test():
           and "## S13-2F" not in text and "## S13-2G" not in text and "footer law" in text)
     outs_e, rc, _ = read_all("--progress", bs_path, "--escalate")
     esc = state(esc=True)
-    eserved = {(c["file"], j) for c in esc["chunks"] for j in range(c["start"], c["end"] + 1)}
+    eserved = {(c["file"], j) for c in esc["chunks"] for a, b in _chunk_segs(c) for j in range(a, b + 1)}
     check("escalation serves exactly the complement, as its own read",
           rc == 0 and esc["read_id"] != nf["read_id"] and not (eserved & served)
           and eserved | served == {(f, j) for f in route for j in range(1, sec["files"][f]["lines"] + 1)}
@@ -2459,6 +2833,39 @@ def self_test():
     check("--continue prompt makes a fresh worker read, restore and apply S4-6",
           rc == 0 and "read (O3-2) and prove (a) first" in out and "RESTORE" in out
           and "S4-6" in out and len(out.splitlines()) < 64)   # 2026.11.13: +2 lines (PYTHON SESSION)
+    # GAP-2026-11-13-STEP7-SPEED (Orchestrate O2-10): the WARM STANDBY reads under its own role — the current
+    # worker's session read is untouched — and becomes the session read only when promoted
+    rc, out = run(fx, "--worker-prompt", "--trigger-text", "TestCreate EX M2", "--standby")
+    check("standby prompt: read as standby, ready, wait, promote, then act as a --continue worker",
+          rc == 0 and "--role standby" in out and "--standby-ready" in out and "--promote-standby" in out
+          and "RESTORE" in out and "read (O3-2) and prove (a) first" not in out and len(out.splitlines()) < 70)
+    _sess_before = state()["read_id"]
+    _so, _src, _sl = read_all("--role", "standby")
+    _sst = state("standby")
+    rc_nr = run(fx, "--standby-ready")[0]
+    rc_ret = run(fx, "--retention", codes(_sst), "--role", "standby", "--when", "after-read")[0]
+    rc_ready, out_ready = run(fx, "--standby-ready")
+    rc_stat, out_stat = run(fx, "--standby-status")
+    _sess_mid = state()["read_id"]
+    rc_pro, out_pro = run(fx, "--promote-standby")
+    rc_after, out_after = run(fx, "--retention", codes(_sst), "--when", "after-read")
+    rc_stat2, out_stat2 = run(fx, "--standby-status")
+    check("standby read never replaces the session read; promote makes it the session read",
+          _src == 0 and rc_nr == 3 and rc_ret == 0 and rc_ready == 0 and "STANDBY READY" in out_ready
+          and rc_stat == 0 and "STANDBY: READY" in out_stat and _sess_mid == _sess_before != _sst["read_id"]
+          and rc_pro == 0 and state()["read_id"] == _sst["read_id"] and rc_after == 0 and "RETENTION: PASS" in out_after
+          and rc_stat2 == 1 and run(fx, "--promote-standby")[0] == 2)
+    # G-14: the timing log turns events into one line per window and a FRAMEWORK NOTE over the target
+    _tl = timing_summary([{"t": "2026-11-13T10:00:00Z", "event": "continue", "batch": "2"},
+                          {"t": "2026-11-13T10:01:00Z", "event": "jobs_start"},
+                          {"t": "2026-11-13T10:04:00Z", "event": "jobs_return"},
+                          {"t": "2026-11-13T10:12:00Z", "event": "delivered"},
+                          {"t": "2026-11-13T10:12:00Z", "event": "final_assembly"},
+                          {"t": "2026-11-13T10:17:00Z", "event": "delivered"}],
+                         {"batch_minutes_target": 10, "fa_minutes_target": 10})
+    check("timing summary: per window, phases, note only over target",
+          _tl[0] == "TIMING batch 2: total 12.0 min (review 3.0)" and _tl[1].startswith("FRAMEWORK NOTE: batch 2 took 12 min")
+          and _tl[2] == "TIMING Final Assembly: total 5.0 min" and len(_tl) == 3)
 
     # E: an overlay with a project spec carries a regenerated map that verifies
     import spec_source
@@ -2522,6 +2929,16 @@ def self_test():
     rc_ns = subprocess.run([sys.executable, os.path.abspath(__file__), "--session-start", "--exam", "EX"],
                            capture_output=True, text=True).returncode
     check("NS --session-start without --paper is refused (exit 2)", rc_ns == 2)
+    # GAP-2026-11-13-STEP7-SPEED G-02 RUN-BLOCK-INTEGRITY: in the real Step 7 spec every RUN-BLOCK has a unique ID and
+    # a PARAMS line that names exactly the free names of its code (a spec edit cannot drift from what it declares)
+    _mtc_p = os.path.join(os.path.dirname(os.path.abspath(__file__)), NS_SPEC_DEFAULT)
+    if os.path.exists(_mtc_p):
+        _txt = open(_mtc_p, encoding="utf-8").read()
+        _ids = re.findall(r"^\s*# RUN-BLOCK (\S+)", _txt, re.M)
+        _rb = ns_run_blocks(_mtc_p)
+        _drift = [b for b, (_l, _src, _pa) in _rb.items() if sorted(_pa) != ns_block_free_names(_src)]
+        check("RUN-BLOCK-INTEGRITY: unique IDs, PARAMS = the code's free names",
+              len(_ids) == len(set(_ids)) == len(_rb) >= 30 and not _drift)
     print(f"SELF-TEST: {passed}/{passed + len(fails)} PASS")
     if fails:
         print("FAILED: " + "; ".join(fails))

@@ -1,6 +1,7 @@
-# Framework_DeliveryFooter v1.49.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.49.0 — 2026-11-14 — GAP-2026-11-14-CARRY (paired with MockTestCreate v6.4): §LADDER-NF gains the batch line
-#   naming the questions whose level is re-checked with the next batch (Create BV-13). Entry v1.48.0 moved to SPEC_HISTORY.md.
+# Framework_DeliveryFooter v1.50.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.50.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with MockTestCreate v6.5, MockTestOrchestrate v1.7.0):
+#   §LADDER-NF's carry line is retired (every question is settled in its own batch — Create BV-9); it names only an
+#   INFRA-CARRY (Create BV-11) and, over a time target, one FRAMEWORK NOTE line (Orchestrate O2-11). Entry v1.49.0 moved to SPEC_HISTORY.md.
 ---
 
 ## §1 — FOOTER TYPES
@@ -1206,7 +1207,8 @@ Printed with the §LADDER-OP lines, one line each, only when present (an exact p
   AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV)
   AMBER — Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)   EXAM_RULER.anchor_basis (Create BV-7)
   AMBER — Difficulty judged, not counted: Q<a>, Q<b> ...                            difficulty_check.measure (Create BV-10)
-  AMBER — Level being re-checked with the next batch: Q<a>, Q<b> ...               batch_state['bv_carry'] (Create BV-13; batch deliveries only)
+  AMBER — INFRA-CARRY: Q<a>, Q<b> ... (no fresh reviewer returned; measured next batch)   batch_state['bv']['infra_carry'] (Create BV-11; batch deliveries only; expected never)
+  FRAMEWORK NOTE: <batch K | Final Assembly> took <m> min (target <t>); slowest phase: <phase>   bootstrap --timing-show --notes-once (Orchestrate O2-11; informational, never AMBER, never a stop)
 Each line is AMBER-CLASS (the paper is delivered; the shortfall is named). The registry record carries the same
 facts (question_index entry nf_disclosed), so MockDeliver reprints them verbatim. Source of the text:
 Create S13-2L, which writes every line above into difficulty_state.chain_footer['amber'] (nf_disclosed {gate: reason},

@@ -997,8 +997,8 @@
   },
   "LAW-BV-13": {
    "gap": "GAP-2026-11-14-CARRY",
-   "stated_in": "Framework_MockTestCreate.md v6.4 S0-BV BV-13, S4-7 STEP A2, S13-1B; final_assembly v1.20 bv_batch_step (bv_carry); Framework_MockTestOrchestrate.md v1.6.0 O3-9",
-   "requires": "A question rewritten (or whose text a gate fix changed) in its batch is measured by the NEXT batch's reviewers in their first round, never by an extra round inside its own batch; the batch report names it; the last batch's are measured by S13-1B.",
+   "stated_in": "Framework_MockTestCreate.md v6.4 S0-BV BV-13, S4-7 STEP A2, S13-1B; final_assembly v1.20 bv_batch_step (bv_carry); Framework_MockTestOrchestrate.md v1.6.0 O3-9; retired by Framework_MockTestCreate.md v6.5 S0-BV BV-13",
+   "requires": "RETIRED 2026.11.15 (GAP-2026-11-13-STEP7-SPEED G-06): a rewritten question is measured in the next round of its OWN batch (LAW-BV-SETTLE); the carry is kept only to measure a paper begun under 2026.11.14 (S4-12 migration).",
    "detect": "batch_verification_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
    "governs": [
@@ -1050,6 +1050,59 @@
    ],
    "preconditions": [
     "OWNER 2026-11-12 (go-ahead): difficulty anchors with content; handover keeps the work; fewer, faster reviewer jobs; no framework question to the user mid-run."
+   ]
+  },
+  "LAW-BV-SETTLE": {
+   "gap": "GAP-2026-11-13-STEP7-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.5 S0-BV BV-9 / BV-11 / BV-14, S4-7 STEP A2, S13-1B; final_assembly v1.21 bv_batch_step; blueprint_core v2.5 bv_reviewer_jobs / bv_job_chunks; Framework_MockTestOrchestrate.md v1.7.0 O3-9",
+   "requires": "Every question is settled INSIDE ITS OWN BATCH: a rewrite, an edge re-count or a role that returned nothing gets its next round at once, in the same batch, with only those questions; reviewer k's questions are split into jobs of review_qs_per_job (a linked group never split; each question in exactly three distinct fresh contexts); a re-ask goes to another model; the only carry is INFRA-CARRY (no fresh result after BV_MAX_ROUNDS), disclosed; S13-1B is a check.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "blueprint_core.py --self-test (_bv_self_test)",
+    "final_assembly.py --self-test (bv_batch_step)",
+    "bootstrap.py --self-test (checkpoint)",
+    "handshake_audit.py --self-test (H-BV)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-13: each TestCreate/MockCreate batch and Final Assembly at most ~10 min without quality loss; questions verified to their difficulty inside each batch; never a hard stop; one release, uploaded manually (GAP-2026-11-13-STEP7-SPEED)."
+   ]
+  },
+  "LAW-RUN-BLOCK": {
+   "gap": "GAP-2026-11-13-STEP7-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.5 S1-0R PYTHON SESSION; bootstrap.py --run-section / --show-section; spec_sections.py run_block_ranges / pack_chunks",
+   "requires": "A block a worker runs verbatim is a RUN-BLOCK: run by ID from the verified file (bootstrap --run-section), its body never served by --read (only its ID, PARAMS and DEFINES lines); its PARAMS line names exactly its free names; read chunks are packed so a cut never raises the number of read calls.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "bootstrap.py --self-test (NS t_run_section, RUN-BLOCK-INTEGRITY)",
+    "spec_sections.py --self-test (t_no_code_in_read_sets)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-13: each TestCreate/MockCreate batch and Final Assembly at most ~10 min without quality loss; questions verified to their difficulty inside each batch; never a hard stop; one release, uploaded manually (GAP-2026-11-13-STEP7-SPEED)."
+   ]
+  },
+  "LAW-RESUME-AUTO": {
+   "gap": "GAP-2026-11-13-STEP7-SPEED",
+   "stated_in": "Framework_MockTestCreate.md v6.5 S1-0R, S3-13, S3-16; bootstrap.py ns_session_start; final_assembly v1.21 paper_in_progress; Framework_MockTestOrchestrate.md v1.7.0 O3-7",
+   "requires": "A session start on a paper in progress (batch_state with a plan, not DELIVERED) runs in RESUME mode by itself and keeps the saved batch state and answer budget byte for byte; a delivered paper or a malformed file starts fresh.",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "verified_by": [
+    "bootstrap.py --self-test (NS t_resume_autodetect)",
+    "final_assembly.py --self-test (t_paper_in_progress)"
+   ],
+   "preconditions": [
+    "OWNER 2026-11-13: each TestCreate/MockCreate batch and Final Assembly at most ~10 min without quality loss; questions verified to their difficulty inside each batch; never a hard stop; one release, uploaded manually (GAP-2026-11-13-STEP7-SPEED)."
    ]
   }
  },

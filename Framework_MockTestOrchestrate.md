@@ -1,12 +1,16 @@
-# Framework_MockTestOrchestrate v1.6.0
-# v1.6.0 — 2026-11-14 — GAP-2026-11-14-CARRY (paired with Framework_MockTestCreate v6.4): a rewritten question is
-#   measured by the next batch's reviewers (O3-9); Final Assembly starts with MTC S13-1B, the same GRADE_REQUEST. Entry v1.5.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.7.0
+# v1.7.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with Framework_MockTestCreate v6.5, blueprint_core v2.5,
+#   final_assembly v1.21, bootstrap): every message goes to the CURRENT worker while it has the room (O2-5: Final Assembly
+#   and a review hand-back no longer force a fresh worker); a WARM STANDBY reads while the user reads a batch (O2-10);
+#   every question is settled inside its own batch (O3-9; reviewer jobs split, a re-ask on another model); a quota error
+#   rules a model out at once (O2-3); timing is logged (O2-11). Entry v1.6.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
 The Step 7 route (Framework_MockTestCreate.md, Framework_MockReview.md, Framework_DeliveryFooter.md,
 this spec) is read before the first question is written; `audit_specs_ext` SPEC-CAPACITY computes its
-size from SESSION_BUDGET.json `bytes_per_token` (currently about 400,000 tokens for a FINAL read).
+size from SESSION_BUDGET.json `bytes_per_token` (currently about 325,000 tokens in about 42 read calls for a FINAL
+read: v1.7.0 — the code a worker runs by ID, MTC RUN-BLOCKs, is not read).
 SESSION_BUDGET.json `_measured` records what a session holds: a large model held the whole route and
 answered every read-back check; a context that keeps growing is summarised by the platform without
 notice (compaction), after which the session works from a summary of the specification, not from its
@@ -80,9 +84,10 @@ ORCHESTRATOR MESSAGES (closed set; each is sent exactly as written):
 - `GRADE RETURNED` followed by one line per job folder (O2-3, v1.3.0).
 - `USER MESSAGE: <the user's message, verbatim>` (O2-6).
 Model: the first entry of SESSION_BUDGET.json `worker_models` that the tool accepts and that O2-3 has
-not ruled out for this run; a tool with no model choice uses its default. One worker at a time, in the foreground when the tool offers it; wait
-until it finishes. A message to an existing worker is sent with the tool that resumes a sub-agent
-(for example one named SendMessage).
+not ruled out for this run; a tool with no model choice uses its default. One worker at a time does paper work, in
+the foreground when the tool offers it; wait until it finishes (v1.7.0: a WARM STANDBY may read in the background
+meanwhile — O2-10 — and reviewer jobs run side by side — O2-3). A message to an existing worker is sent with the tool
+that resumes a sub-agent (for example one named SendMessage).
 
 ## O2-3 — Acting on a worker report
 
@@ -96,7 +101,8 @@ in order). The first line bootstrap prints (`WORKER REPORT <E> M<N> — STATE <S
 must carry the same STATE, K and M as the worker's final line; a difference means the report on disk
 is an earlier turn's and is handled as a turn that ended without that line (below). Act on STATE:
 - BATCH_DELIVERED — when FILES TO DELIVER lists files, deliver them in ONE call of this chat's
-  file-delivery tool (present_files, or the name this surface gives it), in the listed order. Then
+  file-delivery tool (present_files, or the name this surface gives it), in the listed order; log `delivered` (O2-11)
+  and, when O2-10 calls for it, start the WARM STANDBY in the background. Then
   print the CHAT BLOCK verbatim as the last element of the response and END the response.
 - FINAL_BATCH_BUILT — when FILES TO DELIVER lists files, deliver them in ONE call. Print nothing and
   do not end the response: send `FINAL ASSEMBLY` at once (O2-5 picks the worker). This is MTC's one
@@ -110,13 +116,18 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   `<part_dir> <the reviewer's line>`.
 - PAPER_DELIVERED — deliver the listed files in ONE call, in the listed order; print the CHAT BLOCK
   verbatim; END. The run is complete.
-- GRADE_REQUEST (v1.3.0; v1.4.0) — the worker is writing a batch and needs its fresh blind reviewers (MTC S4-7
-  STEP A2: at most 3 job folders, each one reviewer that solves, grades and reads the figures of every question of
-  the batch). For each directory in GRADE JOBS start one sub-agent whose prompt is the content of
+- GRADE_REQUEST (v1.3.0; v1.4.0; v1.7.0) — the worker is writing a batch and needs its fresh blind reviewers (MTC S4-7
+  STEP A2: the job folders bootstrap lists — three reviewers, each question's in jobs of SESSION_BUDGET.json
+  `review_qs_per_job` questions, so every question is seen by three different fresh reviewers). For each directory in
+  GRADE JOBS start one sub-agent whose prompt is the content of
   `<job_dir>/JOB_BRIEF.txt` (print them all with ONE `cat`) and nothing else — never the paper, the plan or a band.
-  Start ALL of them in ONE message (one sub-agent call per job, every call in the same message) so they run at the
-  same time, and wait for all; only when the tool cannot run them together, one after another. Model as in O2-2
-  (a different model from the worker when the platform offers one). Each returns one line; an
+  Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
+  call per job, every call in the same message) so they run at the same time, and wait for all; only when the tool
+  cannot run them together, one after another. Run `python3 bootstrap.py --timing-log jobs_start` before the first
+  wave and `--timing-log jobs_return` after the last. Model as in O2-2
+  (a different model from the worker when the platform offers one); a folder whose name ends in `_switch` (v1.7.0: a
+  job that asks again a reviewer that returned nothing) gets the next model of `worker_models` after the one its
+  first try used. Each returns one line; an
   error or no answer counts as `JOB FAILED <error text>` (a reviewer replies `REVIEW DONE` or `REVIEW FAILED <reason>`; a
   per-role job of release 2026.11.11 replies GRADE / SOLVE / VISION DONE). Retry none: the worker decides. Then send
   `GRADE RETURNED` followed by one line per job: `<job_dir> <the sub-agent's line>` — to the SAME worker when
@@ -136,6 +147,12 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   retired worker was handling); print one line `STEP 7 MODE: DIRECT (no worker model holds the specification)` and
   carry on. Never a stop here.
 - HARD_STOP — deliver nothing; print the CHAT BLOCK verbatim; END.
+v1.7.0 (GAP-2026-11-13-STEP7-SPEED G-15) — A MODEL'S LIMIT IS NOT A WORKER FAULT. A sub-agent that cannot be started,
+or stops, with an error whose text names a usage, quota or rate limit rules that model out for the rest of the run, for
+every role (worker, standby, reviewer) at once: the next entry of `worker_models` is used. It never counts toward a
+DIRECT MODE switch while another model is left, and the message is re-sent as it was. When the tool refuses to start
+several sub-agents in one message, the wave size is halved (down to 1) for the rest of the run. No model left = the
+NO-MODEL environment failure of O6-1 (state saved; one plain line; resume on the user's next message).
 When the turn ends without that line, or `--worker-report show` exits non-zero: send the same worker
 once the sentence `Write your worker report now.` (a repair request, not an ORCHESTRATOR MESSAGE); if
 that fails, start a fresh worker (O2-2) with the ORCHESTRATOR MESSAGE the failed worker was handling;
@@ -153,21 +170,21 @@ Framework_DeliveryFooter.md is the law for footers; the worker composed the foot
 
 ## O2-5 — Reusing a worker or starting a fresh one (decided by numbers)
 
-`FINAL ASSEMBLY` and `REVIEW RETURNED` always go to a fresh worker (O2-2): Final Assembly, a repair
-round and the sweep after it need more room than a worker that has already written batches has left.
-`GRADE RETURNED` goes to the worker that requested it while conditions 1, 2 and 4 below hold (it holds the
-batch); otherwise to a fresh worker, which resumes the batch from disk (O3-9).
-`continue — delivery confirmed` and `USER MESSAGE: ...` are sent to the current worker only when ALL
-of these hold:
+v1.7.0 (GAP-2026-11-13-STEP7-SPEED G-01): EVERY ORCHESTRATOR MESSAGE — `continue — delivery confirmed`,
+`USER MESSAGE: ...`, `GRADE RETURNED`, `REVIEW RETURNED` and `FINAL ASSEMBLY` — goes to the CURRENT worker while ALL
+of these hold (a fresh worker is never required by the message itself: it costs a whole read):
 1. the tool can still resume it;
 2. W + R <= SESSION_BUDGET.json `rotate_tokens`, where W = the total tokens the platform last reported
-   for this worker and R = `work_unit_tokens`; when the platform reports no token count, this
-   condition is instead: it has completed at most 1 batch;
-3. it has completed fewer than `max_batches_per_worker` batches (a batch counts when one of its
-   reports shows a K higher than the K of the report before it);
+   for this worker and R = the room the message needs: `work_unit_tokens` for a batch or a correction (for the
+   continue that starts the plan's LAST batch, `work_unit_tokens` + `fa_work_unit_tokens`: Final Assembly follows in
+   the same response); `fa_work_unit_tokens` for `FINAL ASSEMBLY` and `REVIEW RETURNED`; `GRADE RETURNED` needs
+   none beyond the batch it holds (R = 0). When the platform reports no token count, this condition is instead: it
+   has completed at most 1 batch since its start;
+3. (retired v1.7.0 — `max_batches_per_worker` no longer replaces a Step 7 worker: room decides, condition 2);
 4. its last report is not RETENTION_FAIL or HARD_STOP.
-Otherwise start a fresh worker (O2-2) with the message: the paper's state is on disk and the worker
-resumes it (O3-7).
+Otherwise: for `continue — delivery confirmed` and `USER MESSAGE: ...`, the WARM STANDBY when
+`python3 bootstrap.py --standby-status` prints `STANDBY: READY` (O2-10); in every other case a fresh worker (O2-2)
+with the message: the paper's state is on disk and the worker resumes it (O3-7).
 
 ## O2-6 — The user's messages
 
@@ -224,6 +241,36 @@ The orchestrator never asks the user how to apply this spec, MTC or a worker's s
 conflict, the one that keeps the work already done (the files on disk, the CHECKPOINT as last made) applies, the
 run continues, and the conflict is written as one line to the CHAT BLOCK FILE of the next delivery
 ("FRAMEWORK NOTE: ..."). The user is asked only what MTC itself asks the user (the continue between batches).
+
+## O2-10 — WARM STANDBY (v1.7.0 — GAP-2026-11-13-STEP7-SPEED)
+
+A fresh worker reads the whole route before it can work (O3-2). When that read is needed, it is done WHILE THE USER
+READS the batch just delivered, never inside a batch's time:
+1. At BATCH_DELIVERED, before printing the CHAT BLOCK: when the current worker will fail O2-5 condition 2 for the NEXT
+   batch (W + R > `rotate_tokens`, R as O2-5 says for that batch — with `fa_work_unit_tokens` added when it is the
+   plan's last), and no standby of this run is waiting or reading, start ONE standby IN THE BACKGROUND (the tool's
+   background option — never wait for it): prompt = the verbatim output of
+   `python3 bootstrap.py --worker-prompt --standby --trigger-text "<TRIGGER>"`; model as in O2-2. Then deliver,
+   print the CHAT BLOCK and END exactly as O2-3 says. The standby reads under its own role (it never touches the
+   current worker's read or any paper file), proves its read, and replies `STANDBY READY`; that reply needs no action
+   and nothing is printed for it.
+2. On the next message O2-5 does not send to the current worker: `python3 bootstrap.py --standby-status`. `STANDBY:
+   READY` -> send the ORCHESTRATOR MESSAGE to the standby (the resume tool); it promotes its read and continues as a
+   `--continue` worker (O3-7); the previous worker is retired (never messaged again). Anything else -> a fresh worker
+   (O2-2), as before; a standby still reading is then never used and never messaged.
+3. A standby is never started for `FINAL ASSEMBLY` (it follows in the same response) and never in DIRECT MODE. It
+   never shortens a read, a retention proof or a control: it only moves a read that would happen anyway out of the
+   batch's time.
+
+## O2-11 — Timing (v1.7.0 — GAP-2026-11-13-STEP7-SPEED G-14)
+
+The orchestrator logs, with `python3 bootstrap.py --timing-log <event>` (one file per chat, never opened by hand):
+`run_start` right after O1-1 decided WORKER MODE; `continue` (with `--batch <K+1>`) on each continue trigger;
+`final_assembly` when it sends `FINAL ASSEMBLY`; `jobs_start` / `jobs_return` around reviewer waves (O2-3);
+`delivered` after each delivery call of BATCH_DELIVERED and PAPER_DELIVERED (and after the session-start chat block).
+Workers log `read_start` / `read_end`. `python3 bootstrap.py --timing-show` prints one line per batch and for Final
+Assembly; a window over its SESSION_BUDGET.json target becomes one FRAMEWORK NOTE in the next CHAT BLOCK (the worker
+adds it, O3-4). Never a stop, never a question to the user.
 
 ## O3-1 — PART B: WORKER LAW — ground rules
 
@@ -310,7 +357,9 @@ by `FINAL ASSEMBLY` or `REVIEW RETURNED`, which appends. The chat prints are:
   STEP F, S4-9, S13-9A);
 - a user message: what S4-6 prints for it, and the S4-12 step 5 resume summary when S4-12 runs
   steps 5-6 (O3-7);
-- a HARD STOP [HS:PROSE]: its full text (O3-8).
+- a HARD STOP [HS:PROSE]: its full text (O3-8);
+- v1.7.0 (O2-11): in a turn that delivers, the FRAMEWORK NOTE lines `python3 bootstrap.py --timing-show --notes-once`
+  prints (a batch or Final Assembly over its time target), directly above the footer — never question content.
 
 Then run
 `python3 bootstrap.py --worker-report write --exam <E> --paper <N> --state <STATE> --batch <K> --of <M> --files "<paths>" --chat-file /home/claude/<E>_M<N>_chat_block.md`
@@ -340,9 +389,10 @@ answer-key sidecar (written per question, S4-8a ORDERING); progress.json is writ
 PASSAGE questions (S4-8b); the figural manifest is updated (STEP C); the BATCH STATE lists the final
 batch in batches_completed, has current_batch incremented and the ledgers refreshed (S4-8a). The
 registry holds no committed question_index entry for this paper and batch_state.state is not set. On
-`FINAL ASSEMBLY` goes to a fresh worker (O2-5), which reaches S13 through S4-12's FINAL ASSEMBLY
-INTERRUPTED BEFORE THE REVIEW rule (v1.6.0: S13-1B, then S13-2 / S13-2F onward); in DIRECT MODE the session proceeds into
-S13 as S4-9 says.
+`FINAL ASSEMBLY` goes to the worker O2-5 picks — v1.7.0: the SAME worker that built the final batch when it has the
+room (O2-10 makes the worker of the last batch one that has) — which reaches S13 through S4-12's FINAL ASSEMBLY
+INTERRUPTED BEFORE THE REVIEW rule (S13-1B — a check when every batch settled — then S13-2 / S13-2F onward); in
+DIRECT MODE the session proceeds into S13 as S4-9 says.
 
 Before Final Assembly, a worker whose read was NON-FINAL performs MTC S1-0's one-way escalation:
 `python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K --escalate` for K = 1..N, then
@@ -387,13 +437,16 @@ majority decides, no tiebreak round) and transcribes the figures it is asked to 
 one, or a fresh `--continue` worker after S4-12's BATCH IN VERIFICATION branch) appends the lines to returned.txt
 and runs STEP A2 again: each `REVIEW DONE` result.json is split per question (blueprint_core.bv_split_reviewer_result)
 and blueprint_core.bv_apply decides: pass, ONE rewrite, or settle (a question whose third reviewer returned nothing
-and whose two graders split gets that reviewer again). v1.6.0 (MTC BV-13/14): a rewritten question,
-or one held for its edge re-count, is measured by the NEXT batch's reviewers in their first round (the last
-batch's by MTC S13-1B at Final Assembly, with the same GRADE_REQUEST hand-over) — no extra round inside a batch
-(at most blueprint_core.BV_MAX_ROUNDS rounds per batch). A role asked twice without a usable result
-is not asked again (counted per text: a rewrite starts the count again); a question that still has fewer than two
-grades is carried to S13-2L (never a stop); v1.5.0 (MTC S0-BV BV-11): a question with no fresh result at all after
-BV_MAX_ROUNDS is carried unlabelled to S13-2L as well — never a stop. Only when STEP A2 prints DONE does the
+and whose two graders split gets that reviewer again). v1.7.0 (MTC BV-9 / BV-13 retired, GAP-2026-11-13-STEP7-SPEED
+G-06): EVERY QUESTION IS SETTLED INSIDE ITS OWN BATCH — a rewritten question, one held for its edge re-count and one
+whose reviewer returned nothing get their next round AT ONCE, in the same batch, with only those questions in the jobs
+(at most blueprint_core.BV_MAX_ROUNDS rounds per batch); nothing is left for the next batch or for Final Assembly.
+The jobs are split per SESSION_BUDGET.json `review_qs_per_job` (a linked group is never split); a job that asks a
+reviewer again after it returned nothing has a folder name ending in `_switch` (O2-3: another model). A role is asked
+at most 3 times in its batch (counted per text: a rewrite starts the count again); a question that still has fewer
+than two grades is carried to S13-2L (never a stop). The ONLY carry left is INFRA-CARRY (MTC BV-11): a question with no
+fresh result at all after BV_MAX_ROUNDS rounds rides in the next batch's first round (the last batch's: MTC S13-1B),
+disclosed — a platform fault, never a quality state, never a stop. Only when STEP A2 prints DONE does the
 worker run STEP B and report BATCH_DELIVERED. In DIRECT MODE the session starts these jobs itself, all in one
 message, when it can start a sub-agent; when it cannot, it appends `<job_dir> REVIEW FAILED no sub-agent tool` for
 every folder and runs STEP A2 again (BV-11 carries the questions).
@@ -402,7 +455,9 @@ every folder and runs STEP A2 again (BV-11 carries the questions).
 
 After (a) passes, the worker runs `--checkpoint restore` (O3-3; a no-op when none exists; after a planned
 handover it restores exactly the saved progress). Then, in every case,
-it runs MTC's session start (S3-1 loads what S4-12 step 0 relies on) and S4-12. NEW IN THIS SPEC — S4-12's batch recovery ends with the resume summary
+it runs MTC's session start (S3-1 loads what S4-12 step 0 relies on) and S4-12. v1.7.0 (G-10): the session start finds
+the paper in progress by itself (RESUME mode — MTC S3-13 / S3-16, bootstrap ns_session_start): the saved batch state,
+answer budget and figure records are kept, never regenerated; no `--resume` option is needed. NEW IN THIS SPEC — S4-12's batch recovery ends with the resume summary
 and STOP (steps 5-6), which would ask the user again for a message already given. So a worker that
 holds an ORCHESTRATOR MESSAGE ends S4-12's batch recovery after step 4c and applies MTC S4-6 to its
 message: `continue — delivery confirmed` is a continue trigger (it satisfies S4-5 CHECK 4);
@@ -425,6 +480,12 @@ turn. A worker never reports HARD_STOP for a stop the executed block did not rai
 ```text
 key                      used by                    meaning
 bytes_per_token          bootstrap, SPEC-CAPACITY   spec bytes per token (currently 2.3)
+fa_work_unit_tokens      O2-5, O2-10                room Final Assembly needs in the worker that runs it (v1.7.0)
+review_qs_per_job        O2-3, O3-9                 questions per fresh reviewer job (v1.7.0)
+parallel_jobs_max        O2-3                       sub-agents started in one wave (v1.7.0)
+batch_minutes_target     O2-11                      a batch over it -> one FRAMEWORK NOTE (v1.7.0)
+fa_minutes_target        O2-11                      Final Assembly over it -> one FRAMEWORK NOTE (v1.7.0)
+before_batch_minutes_target O2-11                   the run's first window over it -> one FRAMEWORK NOTE (v1.7.0)
 read_chunk_max_lines     bootstrap --read           lines per read call (currently 300)
 read_chunk_max_bytes     bootstrap --read           bytes per read call (currently 28000)
 context_baseline_tokens  SPEC-CAPACITY              a sub-agent's context before any read
@@ -433,7 +494,7 @@ rotate_tokens            O2-5                       a worker is replaced before 
 work_unit_tokens         O2-5, SPEC-CAPACITY        room one batch or correction needs
 read_cap_tokens          SPEC-CAPACITY              rotate - baseline - work unit: the route cap
 worker_models            O2-2                       worker and reviewer model preference order
-max_batches_per_worker   O2-5                       batches before a worker is replaced
+max_batches_per_worker   (retired for Step 7)       v1.7.0: O2-5 condition 3 retired; kept for other uses
 orchestrated             bootstrap --trigger        triggers that run under this spec
 ```
 Values change only with a re-measurement recorded in CHANGELOG.md (SESSION_BUDGET.json `_change_rule`).
@@ -471,6 +532,7 @@ sha256 (blueprint_core.dl_set_label_basis_strict refuses a grade without them).
   listed record is done the orchestrator re-runs Create S0-OP-0 and S0-OP-2 (ruler rebuilt) before Q1.
 - O-AUTHOR — the author worker of an organic slot reads blueprint_core.author_brief (<= C_BRIEF_MAX_PAGES
   pages) plus the engine call list instead of the full Create spec (G-13); the orchestrator keeps the full spec.
+  (v1.7.0: not wired in this release — the worker authors; a separate writer role is a follow-up measured by O2-11.)
 A platform that can start neither a sub-agent nor a worker cannot produce a fresh control: that is the
 NO-MODEL environment failure — save state, print one plain instruction, resume when it returns; a same-context
 result is never recorded as 'fresh' and nothing is delivered uncertified.
@@ -483,4 +545,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.6.0
+# END OF Framework_MockTestOrchestrate v1.7.0
