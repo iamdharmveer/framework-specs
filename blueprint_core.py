@@ -13126,6 +13126,12 @@ PYQ_IMAGE_ANALYSIS:
           and review_key_agreement('2.50', 2.5) is True and review_key_agreement('2.6', 2.5, (2.4, 2.7)) is True
           and review_key_agreement(None, 2) is None and review_key_agreement('zz', 2) is None
           and review_key_agreement(3, 3) is True and review_key_agreement('option 4', 4) is True)
+    # v2.5.1 (GAP-2026-11-14-REVIEW-KEY-ANNOTATED): a position written with its value is that position (live:
+    # SSC_CGL_TIER1 P1 Q32 '1 (42.5 minutes)' counted as a key dispute); a comma inside the gloss is not a multi-select
+    check('qq_review_key_agreement_annotated', review_key_agreement('1 (42.5 minutes)', 1) is True
+          and review_key_agreement('1 (42,500 units)', 1) is True and review_key_agreement('(b) (40%)', 2) is True
+          and review_key_agreement('3 - the median', 3) is True and review_key_agreement('option 2: 18', 2) is True
+          and review_key_agreement('1 (42.5 minutes)', 2) is False and review_key_agreement('42.5', 42.5) is True)
     _rv, _rvp = review_verdict_file('EX', 'M1', 'md5x', {'2': {c: 'ok' for c in REVIEW_CHECKLIST}, '1': {'own_key': 'b'}})
     check('qq_review_verdict_file', list(_rv['items']) == ['1', '2'] and _rv['items']['1']['confidence'] == 'low'
           and _rv['items']['1']['verdict'] == 'FAIL' and _rv['items']['2']['verdict'] == 'PASS'
@@ -19935,6 +19941,13 @@ def _review_norm_key(value):
     if isinstance(value, (int, float)):
         return value if isinstance(value, int) or not float(value).is_integer() else int(value)
     t = str(value).strip().lower()
+    # v2.5.1 (GAP-2026-11-14-REVIEW-KEY-ANNOTATED): a position followed by its value or a gloss — '1 (42.5 minutes)',
+    # 'b) 40%', '3 - the median', 'option 2: 18' — is that position; the trailing text is never parsed (a comma in it
+    # used to read as a multi-select, and the whole token as unreadable, so an agreeing reviewer counted as a dispute)
+    _ann = __import__('re').match(r'^(?:option\s*)?\(?([1-8]|[a-h]|viii|vii|vi|iv|v|iii|ii|i)\)?\s*(?:\(.*\)|[-–—:]\s.*|[-–—:].+)$',
+                                  t)
+    if _ann:
+        return _review_norm_key(_ann.group(1))
     t = t.replace('option', '').replace('(', '').replace(')', '').strip().rstrip('.').strip()
     if ',' in t or ' and ' in t or '&' in t:
         parts = [x for x in __import__('re').split(r'[,&]|\band\b', t) if x.strip()]
