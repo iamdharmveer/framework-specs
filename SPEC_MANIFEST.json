@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 3174,
-      "sha256": "86502b81d01d3fc4ae6042a1fa87e394849135fc80e5c5288872843edfb6c679",
-      "size_bytes": 215526,
+      "lines": 3194,
+      "sha256": "cbc5b9a0ade033b84f9fbd8dd8f8c5bdef730cec971173e4dc50bdcb4b2b68f9",
+      "size_bytes": 217368,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {

@@ -1655,8 +1655,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                                               sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
             _rec_fq = _fq_bv.get(_q) if isinstance(_fq_bv.get(_q), dict) else None
             if _rec_fq is None:
-                # first sight at FINAL: a text measured before this release keeps the old global count
-                _fq_bv[_q] = {'sha': _csha, 'rounds': _jr_bv}
+                # first sight at FINAL (a paper begun before v1.22): the text's rounds so far are the most times any of
+                # its roles was asked (the ask count is kept per text and cleared on a rewrite / replacement); a text
+                # never asked starts at 0 — that is exactly the slot the global counter used to strand
+                _ak_fq = (_st_bv.get('asked') or {}).get(_q) or {}
+                _fq_bv[_q] = {'sha': _csha, 'rounds': max([int(_v or 0) for _v in _ak_fq.values()] or [0])}
             elif _rec_fq.get('sha') != _csha:
                 _fq_bv[_q] = {'sha': _csha, 'rounds': 0}
                 (_st_bv.get('asked') or {}).pop(_q, None)
@@ -1771,6 +1774,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             for _q4 in {q for _j4 in _new_jobs for q in _j4['qs']}:
                 _fq_bv.setdefault(_q4, {'sha': None, 'rounds': 0})
                 _fq_bv[_q4]['rounds'] = int(_fq_bv[_q4].get('rounds') or 0) + 1
+            _asked_now = {q for _j4 in _new_jobs for q in _j4['qs']}
+            _st_bv['unmeasured'] = [x for x in (_st_bv.get('unmeasured') or []) if x not in _asked_now]
     _ds_bv = _bs_bv.setdefault('difficulty_state', {})
     _disc = _ds_bv.setdefault('bv_disclosed', {})
     _bst = bc.bv_batch_status(_cm_bv, _qs_bv, _tgt_bv, _labs_bv)
@@ -3051,7 +3056,9 @@ def self_test():
             _mx = {'status': f'raised {_ex}'}
         check('bv_max_rounds_carries_to_the_next_batch', _mx['status'] == 'done' and _mx.get('pending') == ['1'])
         _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
-        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'asked': {}, 'status': 'jobs_out', 'jobs': []})
+        # v1.22: a text whose roles were really asked bc.BV_MAX_ROUNDS times (the rounds are per text now)
+        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'status': 'jobs_out', 'jobs': [],
+                           'asked': {'1': {'grader_1': bc.BV_MAX_ROUNDS, 'solver_1': bc.BV_MAX_ROUNDS}}})
         _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
         try:
             _mf = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
@@ -3077,6 +3084,19 @@ def self_test():
         check('bv_final_replacement_after_cap_is_measured', _mf2['status'] == 'done' and _mr['status'] == 'jobs_out'
               and len(_mr['jobs']) == 3 and '1' not in (_bsr.get('unmeasured') or [])
               and (_bsr.get('fq') or {}).get('1', {}).get('rounds') == 1)
+        # v1.22 migration: a paper stranded by the old global cap (final round 6 of 6, the slot carried unmeasured,
+        # never asked, no 'fq' record yet) is measured on its next S13-1B — the live SSC_CGL_TIER1 P1 state
+        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'status': 'done', 'jobs': [], 'asked': {},
+                           'unmeasured': ['1'], 'items': {'1': {'state': 'grading', 'attempt': 2}}})
+        _bsx['bv'].pop('fq', None)
+        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        try:
+            _mm = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        except Exception as _ex:                                   # noqa: BLE001
+            _mm = {'status': f'raised {_ex}', 'jobs': []}
+        check('bv_final_stranded_slot_migrates_and_is_measured', _mm['status'] == 'jobs_out' and len(_mm['jobs']) == 3
+              and '1' not in (_bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') or []))
     # v1.21 (G-11, t_reviewer_jobs_split): 10 questions at 5 per job -> 6 jobs; every question in exactly 3 distinct
     # reviewer contexts (k = 1..3); a linked group is never split; a re-ask goes to a '_switch' folder (another model)
     with _bv_tf.TemporaryDirectory() as _h:
