@@ -13,6 +13,12 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v1.22 — GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK. bv_batch_step(final=True) counts its bc.BV_MAX_ROUNDS round
+    budget PER QUESTION TEXT (batch_state['bv']['fq'][q] = {'sha', 'rounds'}; sha over bc.BV_GRADER_FIELDS), not one
+    counter for all of Final Assembly. A slot S13-2R replaces after S13-1B's rounds are spent is now measured (fresh
+    grades + blind key votes) instead of carried unmeasured — which sent the slot chain round forever (live:
+    SSC_CGL_TIER1 TOPIC Statistics & DI P1, Q32/Q34/Q36). A text already measured before v1.22 keeps the global count.
+
     v1.21 — GAP-2026-11-13-STEP7-SPEED (release 2026.11.15). bv_batch_step settles every question INSIDE ITS OWN BATCH
     (defer=False: a rewrite, an edge re-count or a missing role gets its next round at once; the only carry is
     INFRA-CARRY after bc.BV_MAX_ROUNDS); reviewer jobs split per SESSION_BUDGET.json review_qs_per_job; a re-ask goes to
@@ -1634,6 +1640,28 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     # 2. DECIDE every question of the batch (bc.bv_apply) and 3. WRITE the jobs still needed
     _acts_bv, _new_jobs, _needs_bv, _defer_bv = {}, [], {}, set()
     _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
+    # v1.22 (GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK): at FINAL the round budget is PER QUESTION TEXT, never one
+    # counter for the whole of Final Assembly. S13-2L / S13-2R replace a slot AFTER S13-1B has run its rounds and
+    # re-enter S13-1B to measure the new text; with one global counter at bc.BV_MAX_ROUNDS the new text could never be
+    # asked, stayed unmeasured, and the slot chain replaced it again — forever (the quality chain restarts at
+    # 'replace'). A text whose candidate-visible fields (bc.BV_GRADER_FIELDS) changed starts at round 0 with its
+    # ask counts cleared; a text that already had bc.BV_MAX_ROUNDS rounds is still carried unlabelled (BV-11).
+    _fq_bv = _st_bv.setdefault('fq', {}) if final else {}
+    if final:
+        for _q in _qs_bv:
+            _src_fq = _cm_bv.get(_q) if isinstance(_cm_bv.get(_q), dict) else {}
+            _csha = hashlib.sha256(json.dumps({f: _src_fq.get(f) for f in bc.BV_GRADER_FIELDS
+                                               if _src_fq.get(f) is not None},
+                                              sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
+            _rec_fq = _fq_bv.get(_q) if isinstance(_fq_bv.get(_q), dict) else None
+            if _rec_fq is None:
+                # first sight at FINAL: a text measured before this release keeps the old global count
+                _fq_bv[_q] = {'sha': _csha, 'rounds': _jr_bv}
+            elif _rec_fq.get('sha') != _csha:
+                _fq_bv[_q] = {'sha': _csha, 'rounds': 0}
+                (_st_bv.get('asked') or {}).pop(_q, None)
+                if _q in (_st_bv.get('unmeasured') or []):
+                    _st_bv['unmeasured'] = [x for x in _st_bv['unmeasured'] if x != _q]
     for _q in _qs_bv:
         _e = dict(_cm_bv[_q])
         # the verification state lives in batch_state (write_q_to_sidecar REPLACES the sidecar entry on a
@@ -1679,19 +1707,23 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             else:
                 _needs_bv[_q] = list(_r['roles'])
     # 3. WRITE the fresh jobs still needed: at most bc.BV_REVIEWERS reviewer jobs for the WHOLE batch (v1.18)
-    if _needs_bv and _jr_bv >= bc.BV_MAX_ROUNDS:
+    if final and _needs_bv:
+        # v1.22: the cap is per question text (see _fq_bv above) — only a text that has had its own
+        # bc.BV_MAX_ROUNDS rounds is carried unlabelled; a new text written after the cap is still asked
+        _cap_q = {q for q in _needs_bv if int((_fq_bv.get(q) or {}).get('rounds') or 0) >= bc.BV_MAX_ROUNDS}
+        if _cap_q:
+            _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | _cap_q, key=int)
+            _say(f"STEP A2: no fresh reviewer returned for {sorted(_cap_q, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
+                 f"carried unlabelled to S13-2L (no stop).")
+            _needs_bv = {q: v for q, v in _needs_bv.items() if q not in _cap_q}
+    if _needs_bv and _jr_bv >= bc.BV_MAX_ROUNDS and not final:
         # v1.19 (2026.11.13, S0-BV BV-11): never a stop — the questions the platform returned no fresh reviewer for
         # are carried (v1.20: to the next batch's reviewers; at FINAL they stay unlabelled for S13-2L) and the batch
-        # goes on
-        if final:
-            _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | set(_needs_bv), key=int)
-            _say(f"STEP A2: no fresh reviewer returned for {sorted(_needs_bv, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
-                 f"carried unlabelled to S13-2L (no stop).")
-        else:
-            _defer_bv |= set(_needs_bv)
-            _st_bv['infra_carry'] = sorted(set(_st_bv.get('infra_carry') or []) | set(_needs_bv), key=int)
-            _say(f"STEP A2: INFRA-CARRY {sorted(_needs_bv, key=int)} — no fresh reviewer returned after {bc.BV_MAX_ROUNDS} "
-                 f"rounds (a platform fault, not a quality state); measured in the next batch's first round (no stop).")
+        # goes on (the FINAL branch is the per-text cap above)
+        _defer_bv |= set(_needs_bv)
+        _st_bv['infra_carry'] = sorted(set(_st_bv.get('infra_carry') or []) | set(_needs_bv), key=int)
+        _say(f"STEP A2: INFRA-CARRY {sorted(_needs_bv, key=int)} — no fresh reviewer returned after {bc.BV_MAX_ROUNDS} "
+             f"rounds (a platform fault, not a quality state); measured in the next batch's first round (no stop).")
         _needs_bv = {}
     if _needs_bv:
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
@@ -1735,6 +1767,10 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _st_bv['jobs'] = _new_jobs
     if _new_jobs:
         _st_bv['round'] = _jr_bv + 1
+        if final:                               # v1.22: one more round for every text asked in it
+            for _q4 in {q for _j4 in _new_jobs for q in _j4['qs']}:
+                _fq_bv.setdefault(_q4, {'sha': None, 'rounds': 0})
+                _fq_bv[_q4]['rounds'] = int(_fq_bv[_q4].get('rounds') or 0) + 1
     _ds_bv = _bs_bv.setdefault('difficulty_state', {})
     _disc = _ds_bv.setdefault('bv_disclosed', {})
     _bst = bc.bv_batch_status(_cm_bv, _qs_bv, _tgt_bv, _labs_bv)
@@ -3023,6 +3059,24 @@ def self_test():
             _mf = {'status': f'raised {_ex}'}
         check('bv_final_max_rounds_carries_unlabelled_never_a_stop', _mf['status'] == 'done' and _mf.get('open') == ['1']
               and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == ['1'])
+        # v1.22 (GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK): S13-2R replaces the slot AFTER the final cap — the NEW text
+        # must get fresh reviewer jobs (its own round budget), not be carried unmeasured again; the old text stays capped
+        _mf2 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        _kx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+        _kx['concept_map']['1'] = {'stem_text': 'A replacement question on new data about the sample table', 'option_texts': ['3', '4'],
+                                   'subtopic_id': 'A.b', 'qtype': 'mcq'}
+        _bv_js.dump(_kx, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsx['bv']['items'].pop('1', None)                       # S13-2R clears the replaced slot's old record
+        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        try:
+            _mr = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        except Exception as _ex:                                   # noqa: BLE001
+            _mr = {'status': f'raised {_ex}', 'jobs': []}
+        _bsr = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv']
+        check('bv_final_replacement_after_cap_is_measured', _mf2['status'] == 'done' and _mr['status'] == 'jobs_out'
+              and len(_mr['jobs']) == 3 and '1' not in (_bsr.get('unmeasured') or [])
+              and (_bsr.get('fq') or {}).get('1', {}).get('rounds') == 1)
     # v1.21 (G-11, t_reviewer_jobs_split): 10 questions at 5 per job -> 6 jobs; every question in exactly 3 distinct
     # reviewer contexts (k = 1..3); a linked group is never split; a re-ask goes to a '_switch' folder (another model)
     with _bv_tf.TemporaryDirectory() as _h:
