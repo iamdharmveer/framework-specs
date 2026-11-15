@@ -1,9 +1,10 @@
-# Framework_MockReview v2.1.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
-# v2.1.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (D1 (b), D4; paired with MockTestCreate
-#   v5.94 S13-2G phase 3 DL1). The reviewer's band is BINDING when it cites an exemplar (Create takes
-#   the LOWEST independent band). NEW optional key `concepts_used`: concepts the reviewer's OWN solution
-#   used, SELECTED from the part's `concept_vocabulary` (organic papers; [] otherwise). Create scores
-#   the ruler on the lower of the author's and reviewer's lists. Isolation and checklist unchanged.
+# Framework_MockReview v2.2.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# v2.2.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0; OD-2026-11-14 R6): this brief
+#   is used ONLY by the LEGACY S13-2G path (a paper begun before Create v7.0). The independent review of a v7.0 paper
+#   runs IN EACH BATCH: the batch reviewer brief (blueprint_core.BV_BRIEF_REVIEWER) asks the checklist fields of S2-2
+#   (single_answer, leak_or_paraphrase, distractor_existence_and_class, consistency_and_names, selectivity_basis), and
+#   S2-2 stays the single wording source — audit_sync BC-CHECKLIST-SYNC keeps the two in step. Entry v2.1.0 moved to
+#   SPEC_HISTORY.md.
 #
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockReview.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
@@ -294,4 +295,4 @@
   [ ] 7. When queue.json carries a concept_vocabulary, every record carries concepts_used
          selected from it (or "other:<name>"), describing the reviewer's OWN solution (§2).
 
-# END OF Framework_MockReview v2.1.0
+# END OF Framework_MockReview v2.2.0

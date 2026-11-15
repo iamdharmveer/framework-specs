@@ -123,6 +123,38 @@ FINAL_ONLY_PREFIXES = {
     ),
 }
 
+# 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY P2b) — LEGACY TEXT. Text a release keeps only to READ a paper begun
+# on an earlier release: never executed on the current release, so never served by --read (either class). Each entry
+# is (top-level section title prefix, marker): the cut starts after the paragraph that contains the marker (that
+# paragraph — the section's current-release note — stays in the read) and runs to the end of the section (banner
+# cut). A RUN-BLOCK fence inside the cut keeps its marker / PARAMS lines in the read (they say how to run it);
+# bootstrap.py --show-section LEGACY:<section id> prints the cut text from the verified file.
+LEGACY_CUTS = {
+    'Framework_MockTestCreate.md': (
+        ('## S13-1B', 'The text below describes'),
+        ('## S13-2G', 'S4-12 settles it in its settlement batch first'),
+        ('## S13-2L', 'LEGACY (migration only) — the text and the RUN-BLOCK S13-2L below'),
+        ('## S13-2R', "Kept to read a paper's recorded chain state."),
+    ),
+}
+# P2d — FEATURE TEXT. A section a paper needs only when it has the feature. bootstrap.py --read drops it when the
+# paper's own state PROVES the feature is absent (bootstrap _absent_features); unknown -> served (the default is safe).
+FEATURE_SECTIONS = {
+    'Framework_MockTestCreate.md': {'figures': ('## S10-7',)},
+}
+# P2c — TRIGGER-SCOPED TEXT. In a shared spec, blocks that belong to OTHER steps: a read for one of `triggers` drops
+# the named blocks (a block opens at a '═' rule line directly followed by its title line and ends before the next
+# such opener, a '§' sub-section line or a fence). Every other trigger reads the file unchanged.
+TRIGGER_CUTS = {
+    'Framework_DeliveryFooter.md': {
+        'triggers': ('MockCreate', 'TestCreate'),
+        'section': '## §3',
+        'titles': ('STEP 1 —', 'STEP 2a —', 'STEP 2b —', 'STEP 2c —', 'STEP 3 —', 'STEP 4 —', 'STEP 5 —',
+                   'STEP 6 —', 'STEP 6S —', 'STEP 9 —', 'STEP 11 —', 'PYQ EXPLANATION TRACK', 'NOTES PIPELINE',
+                   'NB —', 'NC —', 'NA —', 'ND —'),
+    },
+}
+
 # The view tool truncates output above ~16,000 characters INCLUDING explicitly ranged
 # reads (measured in the container, 2026-08-16).
 VIEW_TRUNCATE_CHARS = 16000
@@ -296,6 +328,93 @@ def _minus(ranges, cut):
     return [(x, y) for x, y in out if x <= y]
 
 
+def _top_extents(spans, total_lines):
+    top = [sp for sp in spans if sp['title'].startswith('## ')]
+    return [(sp['title'], sp['start'], top[i + 1]['start'] - 1 if i + 1 < len(top) else total_lines)
+            for i, sp in enumerate(top)]
+
+
+def _fence_spans(lines, start, end):
+    """[[a, b]] 1-based: every ```python fence in [start, end] whose first body line is a RUN-BLOCK marker (the fence
+    lines included)."""
+    out, i = [], start - 1
+    while i < end:
+        if lines[i].lstrip().startswith('```python'):
+            j = i + 1
+            while j < len(lines) and not lines[j].lstrip().startswith('```'):
+                j += 1
+            body = [k for k in range(i + 1, j) if lines[k].strip()]
+            if body and lines[body[0]].strip().startswith(RUN_MARK):
+                out.append([i + 1, j + 1])
+            i = j + 1
+            continue
+        i += 1
+    return out
+
+
+def legacy_ranges(name, lines, in_fence, spans, total_lines):
+    """[{'id': 'LEGACY:<section id>', 'ranges': [[a, b]]}] for LEGACY_CUTS[name] (P2b). A marker that is not found
+    yields no cut (the default is to read). 1-based, inclusive."""
+    out = []
+    for prefix, marker in LEGACY_CUTS.get(name, ()):
+        for title, a, b in _top_extents(spans, total_lines):
+            if not _title_matches(title, prefix):
+                continue
+            b = _banner_cut(lines, in_fence, a, b) - 1
+            m = next((i for i in range(a, b + 1) if marker in lines[i - 1]), None)
+            if m is None:
+                break
+            k = m
+            while k <= b and lines[k - 1].strip():
+                k += 1                                        # the end of the marker's paragraph
+            if k >= b:
+                break
+            rs = _minus([(k + 1, b)], _fence_spans(lines, k + 1, b))
+            if rs:
+                out.append({'id': 'LEGACY:' + prefix[3:], 'ranges': [list(r) for r in rs]})
+            break
+    return out
+
+
+def feature_ranges(name, lines, in_fence, spans, total_lines):
+    """{feature: [[a, b]]} — the whole top-level sections FEATURE_SECTIONS[name] names (P2d), banner cut."""
+    out = {}
+    for feat, prefixes in FEATURE_SECTIONS.get(name, {}).items():
+        for title, a, b in _top_extents(spans, total_lines):
+            if any(_title_matches(title, p) for p in prefixes):
+                out.setdefault(feat, []).append([a, _banner_cut(lines, in_fence, a, b) - 1])
+    return out
+
+
+def trigger_ranges(name, lines, in_fence, spans, total_lines):
+    """{trigger: [[a, b]]} — TRIGGER_CUTS[name] blocks of other steps (P2c). 1-based, inclusive."""
+    cfg = TRIGGER_CUTS.get(name)
+    if not cfg:
+        return {}
+    ext = next(((a, b) for t, a, b in _top_extents(spans, total_lines) if _title_matches(t, cfg['section'])), None)
+    if not ext:
+        return {}
+    a0, b0 = ext
+    rule = lambda i: lines[i - 1].startswith('═══')          # noqa: E731
+
+    def _opener(i):
+        return (rule(i) and i + 2 <= b0 and bool(lines[i].strip()) and not rule(i + 1) and rule(i + 2))
+    opens = [i for i in range(a0, b0 + 1) if _opener(i)]
+    cuts = []
+    for i in opens:
+        title = lines[i].strip()
+        if not any(title.startswith(t) for t in cfg['titles']):
+            continue
+        j = i + 1
+        while j + 1 <= b0:
+            nxt = j + 1
+            if nxt in opens or lines[nxt - 1].startswith('§') or lines[nxt - 1].lstrip().startswith('```'):
+                break
+            j = nxt
+        cuts.append([i, j])
+    return {t: [list(c) for c in cuts] for t in cfg['triggers']} if cuts else {}
+
+
 def routed_md(repo_dir='.'):
     """Every .md routes.json routes, whatever it is named.
 
@@ -384,6 +503,14 @@ def build(repo_dir='.'):
         rb_in_fo = sum(line_bytes[j - 1] for a, b in rbr for j in range(a, b + 1)
                        if any(x <= j <= y for x, y in skip_ranges))
         red_bytes -= (rb_bytes - rb_in_fo)
+        # P2b: legacy text is never served (either class); a legacy line is never also engine / run-block code
+        lgc = legacy_ranges(name, lines, in_fence, spans, total_lines)
+        _lg_lines = {j for x in lgc for a, b in x['ranges'] for j in range(a, b + 1)}
+        _code = {j for a, b in list(eng) + list(rbr) for j in range(a, b + 1)}
+        _lg_only = _lg_lines - _code
+        lg_bytes = sum(line_bytes[j - 1] for j in _lg_only)
+        red_bytes -= sum(line_bytes[j - 1] for j in _lg_only
+                         if not any(x <= j <= y for x, y in skip_ranges))
         doc['files'][name] = {
             'sha256': sha256_file(path),
             'lines': total_lines,
@@ -405,7 +532,12 @@ def build(repo_dir='.'):
             # GAP-2026-11-13-STEP7-SPEED G-02: run by ID (bootstrap.py --run-section), never served by the read
             'run_block_ranges': rbr,
             'run_block_bytes': rb_bytes,
-            'final_read_bytes': total_bytes - eng_bytes - rb_bytes,
+            # 2026.11.17 P2b/P2c/P2d: legacy text (never served), trigger-scoped and feature-scoped cuts (conditional)
+            'legacy_ranges': lgc,
+            'legacy_bytes': lg_bytes,
+            'trigger_ranges': trigger_ranges(name, lines, in_fence, spans, total_lines),
+            'feature_ranges': feature_ranges(name, lines, in_fence, spans, total_lines),
+            'final_read_bytes': total_bytes - eng_bytes - rb_bytes - lg_bytes,
             'sections': spans,
         }
     return doc
@@ -416,12 +548,19 @@ def render(doc):
     return json.dumps(doc, indent=2, ensure_ascii=False) + '\n'
 
 
-def read_plan(doc, name, session_class):
+def read_plan(doc, name, session_class, trigger=None, drop_features=()):
     """The exact ranges to read. 'FINAL' is always the whole file, no exception.
     NON-FINAL = the complement of final_only_ranges over 1..lines, so the preamble and
-    everything after a banner cut are read without being named."""
+    everything after a banner cut are read without being named. 2026.11.17: legacy ranges are never served;
+    trigger (P2c) drops the blocks of other steps recorded for that trigger; drop_features (P2d) drops the sections
+    of a feature the paper proves it does not have. Both default to nothing (the whole plan)."""
     info = doc['files'][name]
     eng = list(info.get('engine_ranges') or []) + list(info.get('run_block_ranges') or [])
+    eng += [r for x in (info.get('legacy_ranges') or []) for r in x['ranges']]
+    if trigger:
+        eng += list((info.get('trigger_ranges') or {}).get(trigger) or [])
+    for _ft in drop_features or ():
+        eng += list((info.get('feature_ranges') or {}).get(_ft) or [])
     if session_class.upper() == 'FINAL' or not info['has_read_set']:
         return _minus([(1, info['lines'])], eng) if eng else [(1, info['lines'])]
     ranges, nxt = [], 1
@@ -459,7 +598,7 @@ def chunk_ranges(path, ranges):
     return [tuple(c) for c in chunks]
 
 
-def chunk_plan(doc, name, session_class, spec_dir='.'):
+def chunk_plan(doc, name, session_class, spec_dir='.', trigger=None, drop_features=()):
     """read_plan(doc, name, session_class) as read-call chunks (see chunk_ranges).
     Measures bytes on the spec file beside SPEC_SECTIONS.json and refuses a file whose
     sha256 is not the one the map was built from — a stale map would chunk the wrong
@@ -468,7 +607,7 @@ def chunk_plan(doc, name, session_class, spec_dir='.'):
     if sha256_file(path) != doc['files'][name]['sha256']:
         raise ValueError(f'{name}: sha256 differs from SPEC_SECTIONS.json — the map is '
                          f'stale. Run gen_manifest.py (repo) or spec_source.py --resolve.')
-    return chunk_ranges(path, read_plan(doc, name, session_class))
+    return chunk_ranges(path, read_plan(doc, name, session_class, trigger, drop_features))
 
 
 def pack_chunks(path, chunks):
@@ -629,19 +768,57 @@ def self_test():
     def _covered_once(info, name):
         # 2026.11.13: ENGINE-RUN code lines are executed (bootstrap.py --session-start), never read — the third disjoint class
         read = _lineset(read_plan(doc, name, 'NON-FINAL'))
-        eng = _lineset(info.get('engine_ranges') or []) | _lineset(info.get('run_block_ranges') or [])
+        eng = (_lineset(info.get('engine_ranges') or []) | _lineset(info.get('run_block_ranges') or [])
+               | _lineset([r for x in (info.get('legacy_ranges') or []) for r in x['ranges']]))
         skip = _lineset(info['final_only_ranges']) - eng
         return (not (read & skip) and not (read & eng)
                 and (read | skip | eng) == set(range(1, info['lines'] + 1)))
     check('t_read_coverage_every_line_exactly_once',
           all(_covered_once(info, n) for n, info in doc['files'].items()))
+    def _lg(info):
+        return _lineset([r for x in (info.get('legacy_ranges') or []) for r in x['ranges']])
     check('t_final_plan_is_the_whole_file_for_every_spec',
           all(_lineset(read_plan(doc, n, 'FINAL')) | _lineset(info.get('engine_ranges') or [])
-              | _lineset(info.get('run_block_ranges') or [])
+              | _lineset(info.get('run_block_ranges') or []) | _lg(info)
               == set(range(1, info['lines'] + 1))
               and not (_lineset(read_plan(doc, n, 'FINAL')) & (_lineset(info.get('engine_ranges') or [])
-                                                              | _lineset(info.get('run_block_ranges') or [])))
+                                                              | _lineset(info.get('run_block_ranges') or [])
+                                                              | _lg(info)))
               for n, info in doc['files'].items()))
+    # 2026.11.17 P2b/P2c/P2d — the three new cuts
+    _mi = doc['files']['Framework_MockTestCreate.md']
+    _ml17 = _spec_lines('Framework_MockTestCreate.md')[0]
+    _lgids = [x['id'] for x in _mi.get('legacy_ranges') or []]
+    check('t17_legacy_cuts_found_and_never_cut_live_text',
+          _lgids == ['LEGACY:S13-1B', 'LEGACY:S13-2G', 'LEGACY:S13-2L', 'LEGACY:S13-2R']
+          and not any(('RUN-BLOCK S13-2L.0' in _ml17[j - 1] or 'PAPER DIFFICULTY GATE' in _ml17[j - 1]
+                       or _ml17[j - 1].startswith('## '))
+                      for x in _mi['legacy_ranges'] for a, b in x['ranges'] for j in range(a, b + 1))
+          and all(any('RUN-BLOCK ' + sid in _ml17[j - 1] for j in _lineset(read_plan(doc, 'Framework_MockTestCreate.md',
+                                                                                    'FINAL')))
+                  for sid in ('S13-1B', 'S13-2L ')))
+    _ff = (_mi.get('feature_ranges') or {}).get('figures') or []
+    _rp_nf = _lineset(read_plan(doc, 'Framework_MockTestCreate.md', 'NON-FINAL'))
+    _rp_nf_nofig = _lineset(read_plan(doc, 'Framework_MockTestCreate.md', 'NON-FINAL', drop_features=('figures',)))
+    check('t17_feature_cut_is_exactly_S10_7_and_only_on_request',
+          len(_ff) == 1 and _ml17[_ff[0][0] - 1].startswith('## S10-7 ') and _ml17[_ff[0][1]].startswith('## S10-7C')
+          and _rp_nf - _rp_nf_nofig == _lineset(_ff) - (_lineset(_mi.get('run_block_ranges') or [])
+                                                          | _lineset(_mi.get('engine_ranges') or []))
+          and _rp_nf_nofig < _rp_nf)
+    _fi = doc['files']['Framework_DeliveryFooter.md']
+    _fl = _spec_lines('Framework_DeliveryFooter.md')[0]
+    _tr = (_fi.get('trigger_ranges') or {})
+    _cut = _lineset(_tr.get('TestCreate') or [])
+    _f_full = _lineset(read_plan(doc, 'Framework_DeliveryFooter.md', 'NON-FINAL'))
+    _f_tc = _lineset(read_plan(doc, 'Framework_DeliveryFooter.md', 'NON-FINAL', trigger='TestCreate'))
+    check('t17_footer_trigger_cut_keeps_step7_and_every_shared_rule',
+          set(_tr) == {'MockCreate', 'TestCreate'} and _tr['MockCreate'] == _tr['TestCreate']
+          and not any(_fl[j - 1].strip().startswith(('STEP 7 —', '§', '```', '## ')) for j in _cut)
+          and any(_fl[j - 1].strip().startswith('STEP 7 — MockCreate') for j in _f_tc)
+          and all(any(_fl[j - 1].startswith(p) for j in _f_tc) for p in ('§FOOTER-DG', '§FOOTER-FT', '§FOOTER-STYLE',
+                                                                          '§FOOTER-SYL', 'BADGE NOTE', '§2A'))
+          and _f_full - _f_tc == _cut
+          and _lineset(read_plan(doc, 'Framework_DeliveryFooter.md', 'NON-FINAL', trigger='MockExplain')) == _f_full)
     # 2026.11.13 (GAP-2026-11-13-RUN-NOT-READ): the engine ranges are exactly the bodies of the marked blocks,
     # each block's marker line stays in the read (it says where the code went), and nothing else is cut
     _eng = doc['files']['Framework_MockTestCreate.md'].get('engine_ranges') or []

@@ -284,7 +284,7 @@
   "REVIEW-COVERAGE-LAW": {
    "gap": "GAP-2026-11-08-UNCERTIFIED-DELIVERY",
    "stated_in": "blueprint_core v1.34 (item_hash, review_coverage_missing, review_item_certified, review_round_void, review_panel_majority); Framework_MockTestCreate.md v5.96 S13-2G (delta rounds), S13-2L; audit_canonical v2.39 --item-hashes, A-REVIEW-COVERAGE",
-   "requires": "Every delivered item carries a review record bound to the text actually delivered (an independent verdict; where none could run, the owner-accepted same-session fallback (D1 / D4) or a NOT_RUN stamp, both disclosed — a bound record is what makes every delta round terminate): the hash of each question block is computed by the auditor from the docx (--item-hashes, bc.item_hash — never declared), every verdict records it, and before S13-3 bc.review_coverage_missing must be empty — an item changed after its review (a ladder repair, a rework, a replacement) is re-reviewed in a DELTA round. A disputed item is CERTIFIED only when its two most recent independent verdicts on its current hash agree (bc.review_item_certified); a same-session fallback review is not independent. A reviewer disputing more than bc.REVIEW_VOID_RATE of a part is re-run by a switched reviewer before its disputes count (D0). AMENDED 2026.11.10 (LAW-ORG-7): panel, re-key and majority certification are retired for new papers; a disputed key is replaced, never certified by vote; the key must be unanimous (author + 2 fresh blind solvers).",
+   "requires": "Every delivered item carries a review record bound to the text actually delivered (an independent verdict; where none could run, the owner-accepted same-session fallback (D1 / D4) or a NOT_RUN stamp, both disclosed — a bound record is what makes every delta round terminate): the hash of each question block is computed by the auditor from the docx (--item-hashes, bc.item_hash — never declared), every verdict records it, and before S13-3 bc.review_coverage_missing must be empty — an item changed after its review (a ladder repair, a rework, a replacement) is re-reviewed in a DELTA round. A disputed item is CERTIFIED only when its two most recent independent verdicts on its current hash agree (bc.review_item_certified); a same-session fallback review is not independent. A reviewer disputing more than bc.REVIEW_VOID_RATE of a part is re-run by a switched reviewer before its disputes count (D0). AMENDED 2026.11.10 (LAW-ORG-7): panel, re-key and majority certification are retired for new papers; a disputed key is replaced, never certified by vote; the key must be unanimous (author + 2 fresh blind solvers). AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): the bound record is written by S4-7 STEP A3 (LAW-BC-7, reviewer 'batch'); S13-2G is legacy.",
    "detect": "review_coverage_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls bc.review_packet(, bc.review_item_certified( or bc.review_coverage_missing(.",
    "governs": [
@@ -340,7 +340,7 @@
   "LAW-ORG-3 NO-DELIVER-ANYWAY": {
    "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
    "stated_in": "bc.SC_TERMINALS, bc.slot_chain_next, Create S13-2L / S13-2R v6.0; Framework_MockTestCreate.md v6.0 S0-OP",
-   "requires": "No ladder may end by accepting a failing item: every SC2 ending is a replacement (reserve_refill, refill_session); the only exception is LAW-ORG-4. FORCED, HELD, band swap, paired upgrade, panel, re-key, majority and DISCLOSED are retired as writers.",
+   "requires": "No ladder may end by accepting a failing item: every SC2 ending is a replacement (reserve_refill, refill_session); the only exception is LAW-ORG-4. FORCED, HELD, band swap, paired upgrade, panel, re-key, majority and DISCLOSED are retired as writers. AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): exceptions — an in-batch re-key after adjudication (R1) and the R5b / BC_TERMINAL disclosure (R5, R9), each with its footer line.",
    "detect": "organic_parity_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
    "governs": [
@@ -360,7 +360,7 @@
   "LAW-ORG-4 BOUNDED-LAST-RESORT": {
    "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
    "stated_in": "Create S13-2L last_resort, bc.last_resort_incident, DeliveryFooter §LADDER-OP; Framework_MockTestCreate.md v6.0 S0-OP",
-   "requires": "After the reserve and C_REFILL_SESSIONS fresh refill sessions, a difficulty slot takes the nearest-band FULLY verified item, labelled at the band it measured, with one AMBER footer line and an automatic P0 incident; key, figures and originality are never relaxed.",
+   "requires": "After the reserve and C_REFILL_SESSIONS fresh refill sessions, a difficulty slot takes the nearest-band FULLY verified item, labelled at the band it measured, with one AMBER footer line and an automatic P0 incident; key, figures and originality are never relaxed. AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): LEGACY — never reached from a batch; kept to verify papers produced 2026.11.10-15.",
    "detect": "organic_parity_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
    "governs": [
@@ -418,7 +418,7 @@
   "LAW-ORG-7 UNANIMOUS-KEY": {
    "gap": "GAP-2026-11-10-ORGANIC-QUESTION-PARITY",
    "stated_in": "bc.key_unanimous, bc.solver_assumption_check, audit_canonical A-REVIEW v2.40; Framework_MockTestCreate.md v6.0 S0-OP",
-   "requires": "A key is valid only when the author and C_SOLVERS fresh blind solvers give the same answer (same set for MSQ, same value within tolerance for NAT); a decisive solver assumption fails the item; no majority.",
+   "requires": "A key is valid only when the author and C_SOLVERS fresh blind solvers give the same answer (same set for MSQ, same value within tolerance for NAT); a decisive solver assumption fails the item; no majority. AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): the author and THREE fresh blind solvers agree, or a fresh adjudicator decides (LAW-BC-4: 'adjudicated' / 'rekey'); a decisive assumption sends the question to adjudication; a key disclosed under R5b / BC_TERMINAL is AMBER (A-REVIEW v2.42).",
    "detect": "organic_parity_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls an S0-OP engine entry point: bc.dl_set_label_basis_strict(, bc.clone_guard(, bc.stem_stereo_gate(, bc.schedule_normalize(, bc.schedule_place(, bc.build_difficulty_ruler(, bc.pyq_record_complete(, bc.organic_flag( or fa.paper_parity_gate(.",
    "governs": [
@@ -831,7 +831,7 @@
   "LAW-BV-4": {
    "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
    "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
-   "requires": "At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band, the recipe fails, the key is disputed, or the question repeats / leaks within the paper; after it the question is delivered at its measured band and disclosed (difficulty_state.bv_disclosed).",
+   "requires": "At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band, the recipe fails, the key is disputed, or the question repeats / leaks within the paper; after it the question is delivered at its measured band and disclosed (difficulty_state.bv_disclosed). AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): SUPERSEDED by LAW-BC-2 (the ladder) for every paper produced by this release; kept to verify a migrating paper.",
    "detect": "batch_verification_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
    "governs": [
@@ -849,7 +849,7 @@
   "LAW-BV-5": {
    "gap": "GAP-2026-11-11-BATCH-VERIFICATION",
    "stated_in": "Framework_MockTestCreate.md v6.1 S0-BV / S4-7 STEP A2; Framework_MockTestOrchestrate.md v1.3.0 O2-3 / O3-9; blueprint_core Cluster BV",
-   "requires": "Final Assembly never re-authors a question for difficulty or for a measured composition shortfall: S13-2G keeps every LB2 label, S13-2L opens no chain on a settled question (bc.bv_settled), and S13-2F discloses bc.NF_DISCLOSE_GATES findings in nf_disclosed (AMBER).",
+   "requires": "Final Assembly never re-authors a question for difficulty or for a measured composition shortfall: S13-2G keeps every LB2 label, S13-2L opens no chain on a settled question (bc.bv_settled), and S13-2F discloses bc.NF_DISCLOSE_GATES findings in nf_disclosed (AMBER). AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): Final Assembly authors NOTHING (LAW-BC-8): the correctness repairs this law left to Final Assembly are settled in the batch (LAW-BC-2 / LAW-BC-4).",
    "detect": "batch_verification_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
    "governs": [
@@ -961,7 +961,7 @@
   "LAW-BV-11": {
    "gap": "GAP-2026-11-13-RUN-NOT-READ",
    "stated_in": "Framework_MockTestCreate.md v6.3 S0-BV BV-11; final_assembly v1.19 bv_batch_step",
-   "requires": "No fresh reviewer is never a stop in a batch: a question with no fresh result after bc.BV_MAX_ROUNDS rounds is carried unlabelled to S13-2L and the batch goes on.",
+   "requires": "No fresh reviewer is never a stop in a batch: a question with no fresh result after bc.BV_MAX_ROUNDS rounds is carried unlabelled to S13-2L and the batch goes on. AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): SUPERSEDED by LAW-BC-1 / LAW-BC-9: INFRA-CARRY is gone — NO-MODEL with saved state and a resume.",
    "detect": "batch_verification_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
    "governs": [
@@ -1055,7 +1055,7 @@
   "LAW-BV-SETTLE": {
    "gap": "GAP-2026-11-13-STEP7-SPEED",
    "stated_in": "Framework_MockTestCreate.md v6.5 S0-BV BV-9 / BV-11 / BV-14, S4-7 STEP A2, S13-1B; final_assembly v1.21 bv_batch_step; blueprint_core v2.5 bv_reviewer_jobs / bv_job_chunks; Framework_MockTestOrchestrate.md v1.7.0 O3-9",
-   "requires": "Every question is settled INSIDE ITS OWN BATCH: a rewrite, an edge re-count or a role that returned nothing gets its next round at once, in the same batch, with only those questions; reviewer k's questions are split into jobs of review_qs_per_job (a linked group never split; each question in exactly three distinct fresh contexts); a re-ask goes to another model; the only carry is INFRA-CARRY (no fresh result after BV_MAX_ROUNDS), disclosed; S13-1B is a check.",
+   "requires": "Every question is settled INSIDE ITS OWN BATCH: a rewrite, an edge re-count or a role that returned nothing gets its next round at once, in the same batch, with only those questions; reviewer k's questions are split into jobs of review_qs_per_job (a linked group never split; each question in exactly three distinct fresh contexts); a re-ask goes to another model; the only carry is INFRA-CARRY (no fresh result after BV_MAX_ROUNDS), disclosed; S13-1B is a check. AMENDED 2026.11.16 (OD-2026-11-14, GAP-2026-11-14-BATCH-COMPLETE): SUPERSEDED by LAW-BC-1 / LAW-BC-9: nothing is carried unlabelled to S13-2L.",
    "detect": "batch_verification_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster BV entry point (bc. / blueprint_core. prefix): bv_apply, bv_set_label, bv_jobs, bv_decide, bv_batch_status, bv_anchors or bv_author_packet; or final_assembly.bv_batch_step (fa. prefix), the I/O shell of S4-7 STEP A2.",
    "governs": [
@@ -1103,6 +1103,165 @@
    ],
    "preconditions": [
     "OWNER 2026-11-13: each TestCreate/MockCreate batch and Final Assembly at most ~10 min without quality loss; questions verified to their difficulty inside each batch; never a hard stop; one release, uploaded manually (GAP-2026-11-13-STEP7-SPEED)."
+   ]
+  },
+  "LAW-BC-1 SETTLED-IN-BATCH": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "A batch is delivered only when every question in it is settled or disclosed (bc.bc_batch_status); no question is key_chain, unlabelled, open, carried or unmeasured after STEP A2 prints DONE.",
+   "verified_by": [
+    "blueprint_core.py --self-test (_bc_self_test: bc_bounded_random_walk)",
+    "final_assembly.py --self-test (bv_no_reviewer_never_a_stop)",
+    "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-BC-2 THE-LADDER": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "Every unsettled question climbs ONE ladder inside its batch: rung 0 first write -> rung 1 FIX -> rung 2 REPLACE -> rung 3 FALLBACK (key / figure problems only) -> R5b -> BC_TERMINAL; a level miss settles at its measured band after rung 2; R10 figure-intrinsic families without an answer engine go from rung 2 to R5b; R11 a rung starts only when bc.bc_rounds_needed fits in the rounds left (bc.bc_next_rung). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY C2/C3): the rung-3 FALLBACK is a TEXT question by rule — the figural-slot ban does not apply to it, its figure record is removed (fa.bc_fallback_clear_figure at REWRITE; kept and put back by fa.bc_fallback_restore_figure when R5b restores an earlier figure version; an R10 family-engine item keeps its figure) and STEP A3 refuses a fallback that carries a picture. C4: a step that asks for text work (rewrite, permutation, restore, self-count fix) writes no job; the next step issues the whole round together.",
+   "verified_by": [
+    "blueprint_core.py --self-test (_bc_self_test: bc_K13*, bc_K14*, bc_K15*, bc_L3*, bc_R10*, bc_R11*)",
+    "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-BC-3 THREE-SOLVERS": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "Every reviewer is a solver (bc.BV_ROLES_SOLVE = solver_1..3, bc.C_SOLVERS = 3); the key decision uses the author and every returned reviewer answer.",
+   "verified_by": [
+    "blueprint_core.py --self-test (bc_first_round_roles, bv_split_reviewer_result)",
+    "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-BC-4 ADJUDICATION": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "Any disagreement about the answer goes to ONE fresh adjudicator before any rewrite (bc.bc_key_decision): author_correct -> 'adjudicated'; solver_correct supported by >= 2 of 3 solvers -> re-key ('rekey', the question kept; R12 option swap or a disclosed K-BAL deviation); anything else -> one rung up with the adjudicator's reason, missing condition and the solvers' moves.",
+   "verified_by": [
+    "blueprint_core.py --self-test (bc_K2*, bc_K3*, bc_K4*, bc_K6*, bc_K7_K9, bc_R12_kbal_kept)",
+    "audit_canonical.py --self-test (v242-bc-*)",
+    "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-BC-5 PROVEN-STRUCTURE-TEXT": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "Reviewer and adjudicator packets carry, beside each structure figure, the SMILES its identity proof certified (bc.bc_proven_structures); never for a file the reviewer reads back and never in a vision read-back.",
+   "verified_by": [
+    "blueprint_core.py --self-test (bv_reviewer_jobs_three_for_the_batch, bc_adjudicator_packet)",
+    "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-BC-6 GATES-FIRST": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "STEP B (Layer 1 + the per-batch auditor) is clean before a question's first review round and again after every text change, before that text is reviewed; on the last batch STEP B includes the whole-paper pre-commit sweep and a finding on an earlier question re-opens it inside the last batch (fa.bc_reopen). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY P3, owner go-ahead 2026-11-14): before a text's first review round its author's own counts (author_counts, G-SELFCOUNT) must give the slot band (bc.bc_selfcount) — a miss goes back to the author with no reviewer started, at most bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts still decide the band.",
+   "verified_by": [
+    "handshake_audit.py --self-test (H-BC)",
+    "audit_sync.py (BC-COVERAGE)",
+    "final_assembly.py --self-test (p3_selfcount_*)"
+   ]
+  },
+  "LAW-BC-7 BATCH-REVIEW-RECORD": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "STEP A3 (fa.bc_bind_batch) writes each question's review record (bc.bc_review_record, reviewer 'batch') bound to the auditor's item_hash of its block in the cumulative docx, refusing a question edited after its review; this record is the independent review of REVIEW-COVERAGE-LAW and A-REVIEW.",
+   "verified_by": [
+    "final_assembly.py --self-test",
+    "handshake_audit.py --self-test (H-BC)",
+    "audit_canonical.py --self-test (v242-bc-*)"
+   ]
+  },
+  "LAW-BC-8 DETERMINISTIC-FINAL-ASSEMBLY": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "Final Assembly starts no sub-agent, writes no question text and opens no chain: S13-1 ASSEMBLE (fa.assemble_final_docx byte copy; fa.bc_check_bound) -> S13-2F -> S13-2P -> S13-2L.0 -> S13-3 onward; an item finding there is an engine defect stamped ESCALATED with a P0 record, never a repair.",
+   "verified_by": [
+    "audit_sync.py (BC-COVERAGE)",
+    "handshake_audit.py --self-test (H-BC)",
+    "audit_canonical.py --self-test"
+   ]
+  },
+  "LAW-BC-9 INFRASTRUCTURE-IS-NOT-QUALITY": {
+   "gap": "GAP-2026-11-14-BATCH-COMPLETE",
+   "stated_in": "Framework_MockTestCreate.md v7.0 S0-BC / S4-7 / S13-1; Framework_MockTestOrchestrate.md v1.8.0 O2-3 / O3-9; blueprint_core v2.6 Cluster BC; final_assembly v1.22",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
+   ],
+   "requires": "A role that returns nothing is re-asked (a _switch folder: another model) up to bc.BC_ROLE_ASKS times per text; a question that still lacks the minimum results is NO-MODEL with state saved and a resume that asks again — never a carry, never a chain.",
+   "verified_by": [
+    "final_assembly.py --self-test (bv_no_reviewer_never_a_stop)",
+    "blueprint_core.py --self-test (bc_K10_no_model, bc_K12_no_model)",
+    "handshake_audit.py --self-test (H-BC)"
    ]
   }
  },

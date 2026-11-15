@@ -15,6 +15,15 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.42 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with blueprint_core v2.6, final_assembly v1.22,
+#   Framework_MockTestCreate v7.0; OD-2026-11-14 R1–R13). A-REVIEW strict branch: a key is valid when the author and
+#   THREE fresh solvers agree (certified_by 'unanimous'), or the in-batch decider settled it ('adjudicated' / 'rekey':
+#   key_votes.adjudicated and decided_key = the delivered key); 'disclosed' (R5b / terminal) is AMBER; a two-solver
+#   unanimous record passes only with key_votes.rule 'BV1' (migration) or no rule (a 2026.11.10-15 paper — verdicts of
+#   delivered papers unchanged). NEW A-FIGRECORD (Layer-2 twin of G-FIGRECORD; dormant before BATCH-COMPLETE).
+#   NEW --item-texts OUT (STEP A3 binder). A-AXIS1 counts a figure slot delivered as the rung-3 text fallback at its
+#   planned format (disclosed). A-QINDEX check 8 accepts a measured_majority label with recipe_note (via
+#   bc.verify_difficulty_label).
 # v2.40 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (paired with blueprint_core
 #   v2.0, figural_core v5.97, final_assembly v1.16, Framework_MockTestCreate v6.0). On a paper whose
 #   qindex_cert.framework_release >= 2026.11.10 (or any LB2 row): A-QINDEX check 8 runs on EVERY row and accepts ONLY
@@ -382,6 +391,49 @@ def _reset():
     DISCLOSED_ITEMS.clear()       # v2.39
 
 
+_FIGRECORD_STRUCT = re.compile(r'struct|reaction|scheme|molecule|chair|newman|fischer|haworth|sawhorse|conform|projection', re.I)
+
+
+def gate_figrecord(src):
+    """A-FIGRECORD (GAP-2026-11-14-BATCH-COMPLETE B-05; the Layer-2 twin of Create S4-11 G-FIGRECORD) — on a paper
+    produced under BATCH-COMPLETE (any key_votes / review record with rule 'BC1'), every ORGANIC question that places a
+    STRUCTURE picture (fig_manifest object_type, else its figure files) carries its figure_dicts record (file + smiles
+    per structure) — without it the blind read-back and the figure proof are dormant for that picture. Older papers:
+    dormant (their verdicts are unchanged)."""
+    cm = _qq_cm(src)
+    if not any(isinstance(e, dict) and (((e.get('key_votes') or {}).get('rule') == 'BC1')
+                                        or ((e.get('review') or {}).get('rule') == 'BC1')
+                                        or ((e.get('bv') or {}).get('rule') == 'BC1')) for e in cm.values()):
+        _ok('A-FIGRECORD', 'dormant — paper not produced under BATCH-COMPLETE (release 2026.11.16).')
+        return
+    fm = src.get('fig_manifest_sidecar') if isinstance(src.get('fig_manifest_sidecar'), dict) else {}
+    fq = fm.get('questions') if isinstance(fm.get('questions'), dict) else {}
+    _ot_all = src.get('figural_object_types') if isinstance(src.get('figural_object_types'), dict) else {}
+    n, bad = 0, []
+    for q, e in cm.items():
+        if not isinstance(e, dict) or e.get('organic') is not True:
+            continue
+        _ot = str(((fq.get(str(q)) or {}) if isinstance(fq.get(str(q)), dict) else {}).get('object_type') or
+                  _ot_all.get(str(q)) or e.get('object_type') or '')
+        pics = list(e.get('figure_files') or [])
+        if not pics or (_ot and not _FIGRECORD_STRUCT.search(_ot)):
+            continue
+        n += 1
+        fds = [f for f in (e.get('figure_dicts') or []) if isinstance(f, dict) and f.get('file') and f.get('smiles')]
+        if not fds:
+            bad.append(f'Q{q}')
+            _item('A-FIGRECORD', q, f'A-FIGRECORD: Q{q} places a structure picture without its figure_dicts record '
+                                    f'(file, smiles, stereo_mode, answer_depends_on_stereo) — record it (S0-OP-8)',
+                  'VOID_ITEM')
+    if bad:
+        _fail('A-FIGRECORD', 'structure picture(s) without a figure_dicts record: ' + _flist(bad)
+              + ' — record each when it is rendered (Create S4-7 STEP A / S4-11 G-FIGRECORD).')
+    elif n:
+        _ok('A-FIGRECORD', f'{n} organic structure question(s) carry their figure records.')
+    else:
+        _ok('A-FIGRECORD', 'no organic structure picture on this paper.')
+
+
 # v2.34 (GAP-2026-11-02 G1) — ITEM-QUALITY findings, one record per question, for
 # the S13-2F pre-commit sweep: [{'gate', 'q', 'finding', 'severity'}]. These gates
 # read only the docx, its FigureSpec sidecars, the concept_map/key and the
@@ -400,7 +452,9 @@ ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE
                  'A-DISTRACTOR', 'A-CONSIST', 'A-STEREODECL', 'A-ITEMRULE', 'A-REVIEW',
                  'A-SHAPEMIX', 'A-TEMPLATE',
                  # v2.41 (GAP-2026-11-11) Cluster NF item gates
-                 'A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-STEMFIG')
+                 'A-ALLOC', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-STEMFIG',
+                 # v2.42 (GAP-2026-11-14-BATCH-COMPLETE B-05) the Layer-2 twin of G-FIGRECORD
+                 'A-FIGRECORD')
 
 
 def _item(gate, q, finding, severity='VOID_ITEM'):
@@ -1740,6 +1794,17 @@ def gate_axis1(blocks, src):
             fig.add(int(_q))
         except (TypeError, ValueError):
             pass                      # a non-numeric qnum is unbucketable, not fatal
+    # v2.42 (GAP-2026-11-14-BATCH-COMPLETE, OD-2026-11-14 R5a): a FIGURE slot whose question ended as the rung-3 TEXT
+    # fallback (concept_map[q].bc_fallback.from_figure) is counted at its PLANNED format — the shortfall is the
+    # disclosed fallback (footer INFORMATIONAL line), never an Axis-1 defect
+    _fb_fig = set()
+    for _q, _e in ((src.get('concept_map') or {}).items() if isinstance(src.get('concept_map'), dict) else []):
+        if isinstance(_e, dict) and isinstance(_e.get('bc_fallback'), dict) and _e['bc_fallback'].get('from_figure'):
+            try:
+                _fb_fig.add(int(_q))
+            except (TypeError, ValueError):
+                pass
+    fig |= _fb_fig
     red_map = src.get('figural_reducible')
     red_map = red_map if isinstance(red_map, dict) else {}
     _so = src.get('figural_subtopics')
@@ -1834,6 +1899,8 @@ def gate_axis1(blocks, src):
     else:
         (_ok if not findings else _fail)('A-AXIS1',
             f'Axis-1 stimulus mix within budget across {audited} section(s).'
+            + (f' ({len(_fb_fig)} figure slot(s) delivered as the rung-3 text fallback counted at their planned '
+               f'format — disclosed in the footer)' if _fb_fig else '')
             if not findings else
             'Axis-1 stimulus mix breaches the blueprint budget — ' + ' | '.join(findings))
 
@@ -4921,6 +4988,13 @@ def _lb_reconcile_disclosed(src):
     disc = {str(q) for q, e in cm.items() if isinstance(e, dict)
             and str(e.get('quality_status') or '').startswith('DISCLOSED')
             and bc.slot_chain_exhausted(e.get('slot_chain'), (e.get('slot_chain') or {}).get('kind'))}
+    # v2.42 (GAP-2026-11-14-BATCH-COMPLETE LAW-BC-8): on a BATCH-COMPLETE paper an item finding first seen at Final
+    # Assembly is an engine defect — S13-2F stamps it 'ESCALATED(<gates>)' (with a P0 record) and it is delivered with
+    # an AMBER line, never repaired there. Only on a paper whose key votes carry rule 'BC1'.
+    esc = {str(q) for q, e in cm.items() if isinstance(e, dict)
+           and str(e.get('quality_status') or '').startswith('ESCALATED')
+           and (e.get('key_votes') or {}).get('rule') == 'BC1'}
+    disc |= esc
     if not disc:
         return
     by_gate = {}
@@ -4936,8 +5010,11 @@ def _lb_reconcile_disclosed(src):
                 qs |= gq
         if qs and qs <= disc:
             hit |= qs
-            RESULTS[i] = ('WARN', code, 'AMBER — DISCLOSED (OD-2026-11-09: every replacement route exhausted; '
-                          'delivered with this disclosure) items ' + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
+            _why = ('AMBER — ESCALATED (LAW-BC-8: first seen at Final Assembly — an engine defect, P0 recorded; '
+                    'delivered with this disclosure, never repaired there) items ') if qs <= esc else (
+                    'AMBER — DISCLOSED (OD-2026-11-09: every replacement route exhausted; '
+                    'delivered with this disclosure) items ')
+            RESULTS[i] = ('WARN', code, _why + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
                           + ' — ' + str(msg))
     DISCLOSED_ITEMS.update(hit)
 
@@ -5572,6 +5649,7 @@ def gate_review(src, args=None):
                      key=lambda x: int(x) if str(x).isdigit() else 0)
     bad_defect, not_run = [], {}
     bad_cov, by_majority = [], []
+    disclosed_r = []
     bc = _qq_bc()
     # v2.40 (GAP-2026-11-10 LAW-ORG-7 UNANIMOUS-KEY): on a paper produced at or after 2026.11.10 a key is valid only
     # when the author and C_SOLVERS blind solvers agree (concept_map[q].key_votes.unanimous). Panel / majority / re-key
@@ -5595,11 +5673,34 @@ def gate_review(src, args=None):
             continue
         if _strict_r:
             _kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
-            if str(rv.get('status') or '').upper() == 'NOT_RUN' or rv.get('certified_by') in ('panel', 'majority', 'rekey') \
-                    or _kv.get('unanimous') is not True:
+            _cbs = rv.get('certified_by')
+            # v2.42 (GAP-2026-11-14-BATCH-COMPLETE, OD-2026-11-14 R1 / R5 / R9; LAW-ORG-7 amended): a key is valid when
+            # the author and THREE fresh solvers agree ('unanimous'), or a fresh adjudicator decided it ('adjudicated',
+            # 'rekey' — key_votes.adjudicated True and decided_key = the delivered key), or it was DISCLOSED under R5b /
+            # the terminal (an AMBER line, never a FAIL). A two-solver 'unanimous' record is accepted only when written by
+            # the migration (key_votes.rule 'BV1'). 'panel', 'majority' and NOT_RUN stay item defects.
+            _dk = _kv.get('decided_key')
+            _dl = (src.get('answers') or {}).get(str(q))
+            if _dl is None:
+                _dl = next((e.get(_f) for _f in ('answer', 'correct_option', 'key') if e.get(_f) is not None), None)
+            # a registry-only audit (no --key sidecar) carries no delivered key: the decided key stands — S13-1.2
+            # (fa.bc_check_bound) proved delivered == decided before the commit
+            _same = (_dk is not None and (_dl is None or
+                     (bc.bc_same_answer(_dk, _dl, str(e.get('qtype') or 'mcq'))
+                      if hasattr(bc, 'bc_same_answer') else str(_dk).strip().upper() == str(_dl).strip().upper())))
+            _three = all(_kv.get(f'solver_{_k}') is not None for _k in (1, 2, 3))
+            if _cbs == 'disclosed' and _kv.get('certified_by') == 'disclosed' and _same:
+                disclosed_r.append(f'Q{q}')
+                continue
+            _valid = (str(rv.get('status') or '').upper() != 'NOT_RUN' and _cbs not in ('panel', 'majority') and (
+                (_cbs in (None, 'unanimous') and _kv.get('unanimous') is True and (_three or _kv.get('rule') == 'BV1'
+                                                                                 or _kv.get('rule') is None))
+                or (_cbs in ('adjudicated', 'rekey') and _kv.get('adjudicated') is True and _same)))
+            if not _valid:
                 bad_defect.append(f'Q{q}')
-                _item('A-REVIEW', q, f'A-REVIEW: Q{q} key is not unanimous (author + {getattr(bc, "C_SOLVERS", 2)} blind solvers'
-                                     f'; LAW-ORG-7) — replace the item', 'VOID_ITEM')
+                _item('A-REVIEW', q, f'A-REVIEW: Q{q} key is neither unanimous (author + {getattr(bc, "C_SOLVERS", 3)} '
+                                     f'fresh solvers) nor decided to the delivered key by the in-batch decider (LAW-ORG-7 / LAW-BC-4) — '
+                                     f'an engine defect at this stage (LAW-BC-8)', 'VOID_ITEM')
                 continue
         if str(rv.get('status') or '').upper() == 'NOT_RUN':
             not_run.setdefault(str(rv.get('reason') or 'no reason recorded'), []).append(str(q))
@@ -5636,8 +5737,11 @@ def gate_review(src, args=None):
     elif by_majority:
         _warn('A-REVIEW', 'AMBER — certified by majority of independent reviews after the dispute chain was exhausted '
                           '(OD-2026-11-09): ' + ', '.join(by_majority))
+    elif disclosed_r:
+        _warn('A-REVIEW', 'AMBER — key disclosed under R5b / the terminal (OD-2026-11-14 R5 / R9; named in the footer): '
+                          + ', '.join(disclosed_r))
     else:
-        _ok('A-REVIEW', f'{len(cm)} item(s) independently reviewed; every key agreed.')
+        _ok('A-REVIEW', f'{len(cm)} item(s) independently reviewed; every key agreed or was decided in its batch (LAW-BC-4).')
 
 
 def gate_qualitystatus(src, args=None):
@@ -6669,6 +6773,17 @@ def run_audit(args):
     if getattr(args, 'item_hashes', None):
         with open(args.item_hashes, 'w', encoding='utf-8') as fh:
             json.dump(src['_item_hashes'], fh, indent=1, sort_keys=True)
+    # v2.42 (GAP-2026-11-14-BATCH-COMPLETE STEP A3): the whitespace-normalised text of every block, so the binder can
+    # prove the docx and the sidecar describe the same question (stem and options in order)
+    if getattr(args, 'item_texts', None):
+        try:
+            _itx = {str(b.qnum): ' '.join(' '.join([para_text(p) for p in b.paras] + [c.text for t in b.tables
+                                                   for row in t.rows for c in row.cells]).split())
+                    for b in blocks if b.qnum is not None}
+        except Exception:                               # noqa: BLE001
+            _itx = {}
+        with open(args.item_texts, 'w', encoding='utf-8') as fh:
+            json.dump(_itx, fh, indent=1, sort_keys=True, ensure_ascii=False)
     _safe_gate('A-DOSSIER', gate_dossier, blocks, src, src.get('dossier'),
                src.get('dossier_why'))
     _safe_gate('A-STRUCTURE', gate_structure, blocks, src)
@@ -6722,6 +6837,7 @@ def run_audit(args):
     _safe_gate('A-CLASSMIX', gate_classmix, src)              # F-10 question-class mix
     _safe_gate('A-SUBJBAND', gate_subjband, src)              # F-11 band mix per subject
     _safe_gate('A-STEMFIG', gate_stemfig, src)                # F-09 stem-figure + drawing convention
+    _safe_gate('A-FIGRECORD', gate_figrecord, src)            # v2.41 BATCH-COMPLETE B-05 (G-FIGRECORD twin)
     _safe_gate('A-CERT', gate_cert, src, args)               # S13-4c — certified docx unchanged
     # ── v2.35 — GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY (owner decisions OD-1..OD-14) ──
     _safe_gate('A-READINESS', gate_readiness, src)            # advisory (OD-1) — DEGRADED list
@@ -13842,6 +13958,59 @@ def self_test():
     _s40nr['registry'] = {'question_index': [_QQ_E40]}
     _reset(); gate_review(_s40nr, _A35())
     check('v240-strict-review-not-run-is-item-defect', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1'])
+    # v2.42 (GAP-2026-11-14-BATCH-COMPLETE; OD-2026-11-14 R1 / R5 / R9): three-solver unanimous, adjudicated and re-keyed
+    # keys pass when decided_key = the delivered key; a disclosed key is AMBER; a re-key to another key than the one
+    # delivered, panel and majority stay item defects; a 2-solver unanimous record of 2026.11.10-15 (no rule) still passes
+    _QQ_E41 = dict(_QQ_ENTRY, qindex_cert=dict(_QQ_ENTRY['qindex_cert'], framework_release='2026.11.16'))
+    _kv3 = {'unanimous': True, 'solver_1': 2, 'solver_2': 2, 'solver_3': 2, 'rule': 'BC1', 'decided_key': 2}
+    _rvB = dict(_rvA, item_hash=None, reviewer='batch', rule='BC1')
+    _s41 = _src35(concept_map={'1': {'review': dict(_rvB, certified_by='unanimous'), 'key_votes': _kv3},
+                               '2': {'review': dict(_rvB, certified_by='rekey'),
+                                     'key_votes': {'unanimous': False, 'adjudicated': True, 'decided_key': 3,
+                                                   'certified_by': 'rekey', 'rule': 'BC1'}}},
+                  answers={'1': 2, '2': 3})
+    _s41['registry'] = {'question_index': [_QQ_E41]}
+    _reset(); gate_review(_s41, _A35())
+    check('v242-bc-unanimous-and-rekey-pass', _lv('A-REVIEW') == ['OK'])
+    _s41b = _src35(concept_map={'1': {'review': dict(_rvB, certified_by='adjudicated'),
+                                      'key_votes': {'adjudicated': True, 'decided_key': 2, 'rule': 'BC1'}},
+                                '2': {'review': dict(_rvB, certified_by='rekey'),
+                                      'key_votes': {'adjudicated': True, 'decided_key': 3, 'rule': 'BC1'}}},
+                   answers={'1': 2, '2': 4})
+    _s41b['registry'] = {'question_index': [_QQ_E41]}
+    _reset(); gate_review(_s41b, _A35())
+    check('v242-bc-rekey-must-equal-delivered-key', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['2'])
+    _s41r = _src35(concept_map={'1': {'review': dict(_rvB, certified_by='rekey'),
+                                      'key_votes': {'adjudicated': True, 'decided_key': 3, 'rule': 'BC1'}},
+                                '2': {'review': dict(_rvB, certified_by='adjudicated'),
+                                      'key_votes': {'adjudicated': True, 'decided_key': None, 'rule': 'BC1'}}})
+    _s41r['registry'] = {'question_index': [_QQ_E41]}
+    _reset(); gate_review(_s41r, _A35())
+    check('v242-bc-registry-only-trusts-the-decided-key', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['2'])
+    _s41c = _src35(concept_map={'1': {'review': dict(_rvB, certified_by='unanimous'), 'key_votes': _kv3},
+                                '2': {'review': dict(_rvB, certified_by='disclosed', confidence='low'),
+                                      'key_votes': {'adjudicated': True, 'decided_key': 3, 'certified_by': 'disclosed',
+                                                    'rule': 'BC1'}}},
+                   answers={'1': 2, '2': 3})
+    _s41c['registry'] = {'question_index': [_QQ_E41]}
+    _reset(); gate_review(_s41c, _A35())
+    check('v242-bc-disclosed-is-amber', _lv('A-REVIEW') == ['WARN'] and 'Q2' in str(RESULTS))
+    _s41d = _src35(concept_map={'1': {'review': dict(_rvB, certified_by='unanimous'),
+                                      'key_votes': dict(_kv3, solver_3=None)},
+                                '2': {'review': dict(_rvB, certified_by='panel'), 'key_votes': {'unanimous': True}}},
+                   answers={'1': 2, '2': 3})
+    _s41d['registry'] = {'question_index': [_QQ_E41]}
+    _reset(); gate_review(_s41d, _A35())
+    check('v242-bc-two-solver-bc1-and-panel-are-defects', _lv('A-REVIEW') == ['FAIL'] and _items('A-REVIEW') == ['1', '2'])
+    # A-FIGRECORD: dormant on an older paper; on a BC1 paper an organic structure picture needs figure_dicts
+    _reset(); gate_figrecord(_src35(concept_map={'1': {'organic': True, 'figure_files': ['a.png']}}))
+    check('v242-figrecord-dormant-pre-bc', _lv('A-FIGRECORD') == ['OK'])
+    _sfr = _src35(concept_map={'1': {'organic': True, 'figure_files': ['a.png'], 'key_votes': {'rule': 'BC1'}},
+                               '2': {'organic': True, 'figure_files': ['b.png'],
+                                     'figure_dicts': [{'file': 'b.png', 'smiles': 'CCO'}]},
+                               '3': {'organic': True, 'figure_files': ['c.png'], 'object_type': 'ir_spectrum'}})
+    _reset(); gate_figrecord(_sfr)
+    check('v242-figrecord-fails-missing-record', _lv('A-FIGRECORD') == ['FAIL'] and _items('A-FIGRECORD') == ['1'])
     _s17leg = _src35(concept_map={'1': {'review': {'key_agrees': True}}, '2': {'review': {'key_agrees': True}}})
     _s17leg['_item_hashes'] = {'1': _h1, '2': _h2}
     _reset(); gate_review(_s17leg, _A35())
@@ -13962,6 +14131,8 @@ def main():
     ap.add_argument('--mockN', type=int)
     ap.add_argument('--item-hashes', dest='item_hashes',
                     help='v2.39: write {q: bc.item_hash} of every delivered question block (REVIEW-COVERAGE-LAW).')
+    ap.add_argument('--item-texts', dest='item_texts',
+                    help='v2.42: write {q: block text} (whitespace-normalised) — Create S4-7 STEP A3 (bc_bind_batch).')
     ap.add_argument('--escalate-paper', dest='escalate_paper',
                     help='v2.39: comma list of paper-level gates S13-2F escalates to AMBER at its sweep cap.')
     ap.add_argument('--sweep', dest='sweep', type=int, help='v2.39: the S13-2F sweep number (with --escalate-paper).')

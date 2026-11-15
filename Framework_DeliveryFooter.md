@@ -1,7 +1,10 @@
-# Framework_DeliveryFooter v1.50.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.50.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with MockTestCreate v6.5, MockTestOrchestrate v1.7.0):
-#   §LADDER-NF's carry line is retired (every question is settled in its own batch — Create BV-9); it names only an
-#   INFRA-CARRY (Create BV-11) and, over a time target, one FRAMEWORK NOTE line (Orchestrate O2-11). Entry v1.49.0 moved to SPEC_HISTORY.md.
+# Framework_DeliveryFooter v1.51.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.51.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0, MockTestOrchestrate v1.8.0;
+#   OD-2026-11-14 R1–R13): NEW §LADDER-BC — the line each question earns when its batch settles it (re-key, R5b, terminal,
+#   text fallback, level off-slot / recipe note, two reviewers, K-BAL kept, R10, last-batch change), written by
+#   blueprint_core.bc_amber_lines and printed from difficulty_state.chain_footer (Create S13-2L.0). INFRA-CARRY, 'independent
+#   review: round k', majority, last-resort and dispute-chain lines are LEGACY (rendered only for a migrated paper).
+#   Entry v1.50.0 moved to SPEC_HISTORY.md.
 ---
 
 ## §1 — FOOTER TYPES
@@ -1204,15 +1207,40 @@ Printed with the §LADDER-OP lines, one line each, only when present (an exact p
   AMBER — Delivered vs allocated: <Part> <subject> <delivered> vs <allocated>        nf_disclosed['A-ALLOC']
   AMBER — Repeated template / key leak / figure: Q<a>/Q<b> ...                        nf_disclosed['A-INTRADUP' | 'A-KEYLEAK' | 'A-STEMFIG']
   AMBER — PYQ grade calibration: agreement <x> < <min>; stricter grade used for <k> record(s)   (Blueprint §7-10)
-  AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV)
+  AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV; LEGACY v1.51.0 — a v7.0 paper prints the §LADDER-BC line instead)
   AMBER — Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)   EXAM_RULER.anchor_basis (Create BV-7)
   AMBER — Difficulty judged, not counted: Q<a>, Q<b> ...                            difficulty_check.measure (Create BV-10)
-  AMBER — INFRA-CARRY: Q<a>, Q<b> ... (no fresh reviewer returned; measured next batch)   batch_state['bv']['infra_carry'] (Create BV-11; batch deliveries only; expected never)
+  AMBER — INFRA-CARRY: Q<a>, Q<b> ... (LEGACY v1.51.0 — a paper begun before Create v7.0 only; a v7.0 batch never carries)   batch_state['bv']['infra_carry'] (Create BV-11)
   FRAMEWORK NOTE: <batch K | Final Assembly> took <m> min (target <t>); slowest phase: <phase>   bootstrap --timing-show --notes-once (Orchestrate O2-11; informational, never AMBER, never a stop)
 Each line is AMBER-CLASS (the paper is delivered; the shortfall is named). The registry record carries the same
 facts (question_index entry nf_disclosed), so MockDeliver reprints them verbatim. Source of the text:
 Create S13-2L, which writes every line above into difficulty_state.chain_footer['amber'] (nf_disclosed {gate: reason},
 bv_disclosed) — never paraphrased, never composed by this contract.
+```
+
+## §LADDER-BC — BATCH-COMPLETE LINES (v1.51.0 — GAP-2026-11-14-BATCH-COMPLETE; Create S0-BC)
+
+```
+Printed with the §LADDER-OP / §LADDER-NF lines, one per question that earned it, in question order. Every line is
+written by blueprint_core.bc_amber_lines when the question's batch settles it (batch_state['bc_footer']), copied by
+Create S13-2L.0 into difficulty_state.chain_footer ('amber' for AMBER-CLASS, 'info' for INFORMATIONAL) and printed
+verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this contract:
+  ℹ️ Q<n>: answer key corrected after independent adjudication (was <x>)                     re-key (R1), key moved
+  ℹ️ Q<n>: answer key corrected after independent adjudication (options <a> and <b> exchanged; key position unchanged)
+                                                                                             re-key (R1 + R12 swap)
+  ⚠️ Q<n>: re-keyed answer kept at option <k> — the options could not be re-ordered (K-BAL deviation disclosed)   R12
+  ⚠️ Q<n>: key confirmed by adjudicator; 2 of 3 solvers agree (R5b)                          R5b
+  ⚠️ Q<n>: key adjudicated; solvers split (P0 recorded)                                       BC_TERMINAL (R9)
+  ℹ️ Q<n>: replaced by a text question (fallback)                                             rung 3 (R5a)
+  ⚠️ Q<n>: delivered at <band> (slot <band>)[, recipe not met at the delivered band]          level settled off-slot / B-02
+  ⚠️ Q<n>: 2 of 3 reviewers available                                                         minimum results (LAW-BC-4)
+  ⚠️ Q<n>: within-paper repeat / key leak disclosed after rung 2                              LAW-BC-2
+  ⚠️ Q<n>: figure family without an answer engine — went from rung 2 to R5b (R10)             R10
+  ℹ️ Q<n>: changed in the last batch — the earlier cumulative docx differs                    LAW-BC-6 re-open
+  ⚠️ Q<n>: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)    expected never
+  ⚠️ <gate>: AMBER — ESCALATED (LAW-BC-8 ...) items Q<a> ...                                  S13-2F escalation; expected never
+Removed from the normal path (rendered only for a paper begun before Create v7.0): INFRA-CARRY, "independent review:
+round k", majority certification, last-resort and dispute-chain lines.
 ```
 
 ## §6 — NEXT-STEP REFERENCE TABLE

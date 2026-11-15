@@ -42,6 +42,26 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.7 (2026-11-17) — carries production hotfix v2.5.1 (eaf40a9, GAP-2026-11-14-REVIEW-KEY-ANNOTATED) and applies it to
+      Cluster BC: bc_answer_norm reads '1 (42.5 minutes)' / '(b) (40%)' / 'option 2: 18' as that position, so an agreeing
+      reviewer never costs an adjudicator round; NEW bc_canon_key stores a re-key as the int position.
+      GAP-2026-11-14-SPEED-AND-FIDELITY (owner go-ahead 2026-11-14). P1: bv_job_chunks_n /
+      bv_round_job_caps (a review round's reviewer + adjudicator jobs fit in one wave; bv_reviewer_jobs takes
+      max_jobs_per_reviewer). P3: bc_author_obs / bc_selfcount (G-SELFCOUNT; BC_SELFCOUNT_TRIES). P4:
+      bc_author_offsets (BC_OFFSET_MIN_N, BC_OFFSET_CAP) and bv_author_packet(offsets=) — a self-check line and
+      'author_offset'; the packet also asks for author_counts.
+    v2.6 (2026-11-16) — GAP-2026-11-14-BATCH-COMPLETE (owner rulings OD-2026-11-14 R1–R13). NEW Cluster BC: every
+      question settled inside its batch through one bounded ladder (bc_apply / bc_next_rung: rung 1 FIX -> 2 REPLACE ->
+      3 FALLBACK -> R5b / BC_TERMINAL 'adjudicated_disclosed'); three solvers (C_SOLVERS = 3, BV_ROLES_SOLVE);
+      adjudicator (BV_BRIEF_ADJUDICATOR, bc_adjudicator_job, bc_key_decision: unanimous / adjudicated / rekey);
+      proven structure text in reviewer and adjudicator packets, never in a read-back (bc_proven_structures); the
+      MockReview checklist in the batch reviewer brief (bc_kpass, bc_findings_from_checklist); re-key keeps the
+      planned key position by an option swap when the options allow it (options_permutation_allowed / _equal), else the
+      K-BAL deviation is disclosed (R12); a figure-intrinsic family without an answer engine goes from rung 2 to R5b
+      (R10, BC_FAMILY_ANSWER_ENGINES); a rung starts only when its rounds fit (R11, BV_MAX_ROUNDS = 12); a label is
+      written at the measured band with recipe_note when the recipe fails there (B-02); bc_review_record (STEP A3),
+      bc_amber_lines (footer). BV1 (bv_apply / bv_decide / bv_jobs) kept for migration with BV1_ROLES_SOLVE.
+      Self-test _bc_self_test.
     v2.0 (2026-11-10) — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + GAP-2026-11-10-DIFFICULTY-INTEGRITY (owner
       decisions 2026-11-10: D-1 (a) bounded last resort with C_REFILL_SESSIONS = 5; difficulty integrity for
       EVERY item of EVERY exam; one release). NEW Cluster OP: content-based organic scope (is_organic_item;
@@ -158,7 +178,7 @@ THIN-CORE INVARIANT (enforced by validate_framework_md.py)
 import math
 import re
 
-BLUEPRINT_CORE_VERSION = '2.5'
+BLUEPRINT_CORE_VERSION = '2.6'
 
 __all__ = [
     "AllocationError",
@@ -735,6 +755,15 @@ __all__ = [
     "BR_RULE", "BR_RECIPE_MIN", "BR_FACETS", "BR_FACET_HELP", "BR_CONCEPT_RULE", "BR_SPEED_RULE", "BR_NEGATIVE_RULE",
     "br_counting_rules", "br_obs", "br_score", "br_band", "br_build_recipe", "br_band_edges", "br_target", "br_target_text",
     "br_gap", "br_median_obs", "BR_MOVES_RULE", "BR_PRINCIPLES_RULE", "bv_author_view", "bv_short_exemplars",
+    "BC_RULE", "BC_RUNGS", "BC_ROLE_ASKS", "BC_ROUNDS_PER_RUNG", "BC_LEVEL_SETTLE_RUNG", "BC_TERMINALS", "BC_TERMINAL",
+    "BC_FINDING_MIN", "BC_RESTORE_MIN_SUPPORT", "BC_FAMILY_ANSWER_ENGINES", "BC_CHECKLIST_FIELDS", "BC_STATES",
+    "BC_ADJ_VERDICTS", "BV_BRIEF_ADJUDICATOR", "bc_answer_norm", "bc_same_answer", "bc_support", "bc_checklist_flags",
+    "bc_kpass", "bc_findings_from_checklist", "options_permutation_allowed", "options_permutation_equal",
+    "bc_rounds_needed", "bc_next_rung", "bc_adjudicator_job", "bc_proven_structures", "bc_read_adjudication",
+    "bc_key_decision", "bc_version_record", "bc_r5b_pick", "bc_apply", "bc_batch_status", "bc_review_record",
+    "bc_amber_lines",
+    "bv_job_chunks_n", "bv_round_job_caps", "BC_SELFCOUNT_TRIES", "BC_OFFSET_MIN_N", "BC_OFFSET_CAP", "bc_author_obs",
+    "bc_selfcount", "bc_author_offsets", "bc_canon_key",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
 ]
@@ -7681,9 +7710,11 @@ def _op_self_test(check):
                                                                       'recipe': True}, pk, chain=slot_chain_new('9', 'difficulty'),
                                           delivered='Medium', incident_id='INC-x')
     check('op_G10_7_last_resort_needs_exhausted_chain', ok3 is False)
-    check('op_G10_6_unanimous_key', key_unanimous('B', ['b', 'B'])[0] is True and key_unanimous('B', ['B', 'C'])[0] is False
-          and key_unanimous('B', ['B'])[0] is False and key_unanimous('A,C', ['C A', 'a;c'], 'msq')[0] is True
-          and key_unanimous(2.0, [2.04, 1.97], 'nat', 0.05)[0] is True and key_unanimous('B', ['B', None])[0] is False)
+    # v2.6 (OD-2026-11-14 R2): C_SOLVERS = 3 — two solvers no longer make a unanimous key (min_solvers=2: BV1 only)
+    check('op_G10_6_unanimous_key', key_unanimous('B', ['b', 'B', 'b'])[0] is True and key_unanimous('B', ['B', 'C', 'B'])[0] is False
+          and key_unanimous('B', ['B', 'B'])[0] is False and key_unanimous('B', ['b', 'B'], min_solvers=2)[0] is True
+          and key_unanimous('A,C', ['C A', 'a;c', 'c,a'], 'msq')[0] is True
+          and key_unanimous(2.0, [2.04, 1.97, 2.0], 'nat', 0.05)[0] is True and key_unanimous('B', ['B', None, 'B'])[0] is False)
     item = {'difficulty': 'Hard', 'qtype': 'mcq', 'subtopic_id': 'oc.a.b', 'key_smiles': 'CCO', 'difficulty_check':
             {'label_basis': {'kind': 'measured_exact'}}, 'key_votes': {'unanimous': True}, 'figures': [
                 {'identity_ok': True, 'vision_ok': True, 'gates_ok': True}], 'clone_check': {'status': 'PASS'}}
@@ -8144,14 +8175,18 @@ def _bv_self_test(check):
     check('bv_reviewer_jobs_three_for_the_batch', [j['role'] for j in _rj] == ['reviewer_1', 'reviewer_2', 'reviewer_3']
           and _rj[0]['qs'] == ['1'] and _rj[2]['qs'] == ['1', '2'] and _rj[0]['packet']['items'][0]['figures_to_read'] == ['/w/q1_problem.png']
           and _rj[1]['packet']['items'][0]['figures_to_read'] == [] and "'Hard'" not in str([r['item'] for j in _rj for r in j['packet']['items']])
-          and 'decisions_author' not in str(_rj) and "'CC'" not in str(_rj) and all(j['sha256'] for j in _rj))
+          and 'decisions_author' not in str(_rj) and all(j['sha256'] for j in _rj)
+          # v2.6 R3: the proven SMILES ride beside the figure for reviewers 2 and 3 — never for reviewer 1, who reads
+          # that file back blind
+          and "'CC'" not in str(_rj[0]) and _rj[0]['packet']['items'][0]['proven_structures'] == []
+          and _rj[1]['packet']['items'][0]['proven_structures'] == [{'file': 'q1_problem.png', 'smiles': 'CC'}])
     _sp = bv_split_reviewer_result(1, {'items': {'1': {'band': 'hard', 'decisions': 3, 'answer': 2, 'assumptions': [],
                                                        'figure_reads': [{'file': 'q1_problem.png', 'smiles': 'CC'}]},
                                                  '9': {'band': 'Easy', 'answer': 1}}}, L, ['1'], 'sha', {'1': _ents['1']['figure_dicts']})
     _sp3 = bv_split_reviewer_result(3, {'items': {'1': {'band': 'Medium', 'answer': 2}}}, L, ['1'], 'sha', {})
     check('bv_split_reviewer_result', set(_sp) == {'1'} and set(_sp['1']) == {'grader_1', 'solver_1', 'vision_1_1'}
           and _sp['1']['grader_1']['result']['band'] == 'Hard' and _sp['1']['vision_1_1']['context'] == 'fresh'
-          and set(_sp3['1']) == {'grader_3'})
+          and set(_sp3['1']) == {'grader_3', 'solver_3'})
     _rA = bv_apply(_it, 'Hard', L, {}, 2, results={'grader_1': _fx('Hard'), 'grader_2': _fx('Medium', 2), 'solver_1': _sx(2),
                                                      'solver_2': _sx(2)}, asked={'grader_3': 2})
     check('bv_asked_twice_not_reasked', _rA['action'] == 'tiebreak' and _rA['roles'] == [])
@@ -8260,6 +8295,342 @@ def _bv_self_test(check):
           and ruler_needs_recalibration(dict(_rf2, rubric_recipe=None))[0] is True)
     check('bv_one_write_constants', C_K_CANDIDATES == 1 and C_K_AFTER_MISS == 1 and C_WRITE_ATTEMPTS == 2
           and 'measured_majority' in LB2_KINDS)
+
+
+def _bc_self_test(check):
+    """v2.6 Cluster BC (GAP-2026-11-14-BATCH-COMPLETE) — every row of GAP §8 that the thin core decides, driven through
+    bc_apply exactly as the I/O shell calls it (results in, decision out). No grade or vote is written by hand."""
+    L = ['Easy', 'Medium', 'Hard']
+    # v2.7 — the production hotfix (REVIEW-KEY-ANNOTATED) holds in Cluster BC: an annotated position is that position
+    check('bc_answer_annotated_is_the_position', bc_same_answer('1 (42.5 minutes)', 1) and bc_same_answer('(b) (40%)', 2)
+          and bc_same_answer('option 2: 18', 2) and bc_same_answer('b', '2') and not bc_same_answer('1 (42.5 minutes)', 2)
+          and bc_same_answer(['1', '3'], 'a, c', 'msq') and not bc_same_answer(['1', '3'], '1', 'msq')
+          and bc_same_answer('10.0', 10.04, 'nat', 0.05) and bc_answer_norm('zz') == 'ZZ' and bc_answer_norm('  ') is None
+          and bc_answer_norm(None) is None)
+    _kd_ann = bc_key_decision(1, [{'answer': '(b) (40%)', 'confidence': 'high'}, {'answer': 2, 'confidence': 'high'},
+                                   {'answer': 'option 2: 18', 'confidence': 'high'}],
+                              {'verdict': 'solver_correct', 'correct_answer': '(b) (40%)', 'single_answer': 'yes',
+                               'confidence': 'high', 'missing_condition': '', 'reason': 'r'})
+    _kd_agree = bc_key_decision(1, [{'answer': '1 (42.5 minutes)', 'confidence': 'high'}, {'answer': 1, 'confidence': 'high'},
+                                    {'answer': 'a', 'confidence': 'high'}], None)
+    check('bc_rekey_stored_as_position_and_annotated_agreement_is_unanimous',
+          _kd_ann['certified_by'] == 'rekey' and _kd_ann['decided_key'] == 2
+          and _kd_agree['state'] == 'settled' and _kd_agree['certified_by'] == 'unanimous')
+    check('bc_canon_key', bc_canon_key('(b) (40%)') == 2 and bc_canon_key('option 2: 18') == 2 and bc_canon_key(3) == 3
+          and bc_canon_key('a, c', 'msq') == [1, 3] and bc_canon_key(['3', '1'], 'msq') == [1, 3]
+          and bc_canon_key(10.5, 'nat') == 10.5 and bc_canon_key('zz') == 'zz' and bc_canon_key(None) is None)
+    # v2.7 P3 — G-SELFCOUNT: the author's own count against the slot band (never certifies; only saves rounds)
+    _hc = {'facets': ['C-COMPUTATIONAL'], 'moves': ['a', 'b', 'c', 'd'], 'principles': ['x', 'y']}
+    check('p3_selfcount_states', bc_selfcount({'author_counts': _hc}, 'Hard', L)['status'] == 'pass'
+          and bc_selfcount({'author_counts': _hc}, 'Easy', L)['status'] == 'fail'
+          and 'remove a reasoning move' in bc_selfcount({'author_counts': _hc}, 'Easy', L)['why']
+          and bc_selfcount({'author_counts': {'facets': ['C-FACTUAL'], 'moves': ['a'], 'principles': ['x']}}, 'Hard',
+                           L)['why'].startswith('your own count gives Easy')
+          and bc_selfcount({}, 'Hard', L)['status'] == 'missing'
+          and bc_selfcount({'author_counts': {'facets': ['NOPE'], 'moves': [], 'principles': []}}, 'Hard', L)['status'] == 'missing'
+          and bc_selfcount({'author_counts': _hc}, None, L)['status'] == 'dormant'
+          and bc_selfcount({'author_counts': _hc}, 'A', ['A', 'B'])['status'] == 'dormant'
+          and bc_selfcount({'author_counts': dict(_hc, moves=None), 'author_moves': ['a', 'b', 'c', 'd']}, 'Hard',
+                           L)['status'] == 'pass'
+          and bc_selfcount({'author_counts': _hc, 'qtype': 'nat'}, 'Hard', L)['score']
+          > bc_selfcount({'author_counts': _hc}, 'Hard', L)['score'])
+    # v2.7 P1 — one wave per round: reviewer jobs + adjudicator jobs <= parallel_jobs_max
+    _E1 = {str(q): ({'figure_dicts': [{'file': f'q{q}.png'}]} if q <= 5 else {}) for q in range(1, 11)}
+    _Q10 = [str(q) for q in range(1, 11)]
+    check('p1_today_chunking_kept_when_it_fits', bv_job_chunks_n(_Q10[5:], _E1, 5, 2) == [_Q10[5:]]
+          and bv_job_chunks_n(_Q10, _E1, 5, None) == bv_job_chunks(_Q10, _E1, 5))
+    _c2 = bv_job_chunks_n(_Q10, _E1, 5, 2)
+    check('p1_figure_batch_two_jobs_per_reviewer', len(bv_job_chunks(_Q10, _E1, 5)) == 4 and len(_c2) == 2
+          and sum(_c2, []) == _Q10)
+    check('p1_round_caps', bv_round_job_caps(6, 0) == 2 and bv_round_job_caps(6, 2) == 1 and bv_round_job_caps(6, 5) == 1
+          and bv_round_job_caps(12, 0) == 4 and bv_round_job_caps('x', None) == 2)
+    _EG = {str(q): {'stimulus_group_id': 'G1'} for q in range(1, 9)}
+    _EG.update({'9': {}, '10': {}})
+    _cg = bv_job_chunks_n(_Q10, _EG, 3, 2)
+    check('p1_linked_group_never_split', len(_cg) <= 2 and any(set(map(str, range(1, 9))) <= set(c) for c in _cg)
+          and sum(_cg, []) == _Q10)
+    _EU = {str(q): ({'figure_dicts': [{}]} if q % 3 == 0 else {}) for q in range(1, 30)}
+    for _mj in range(1, 8):
+        for _pj in (1, 2, 5):
+            _cu = bv_job_chunks_n([str(q) for q in range(1, 30)], _EU, _pj, _mj)
+            if len(_cu) > max(_mj, 1) or sum(_cu, []) != [str(q) for q in range(1, 30)]:
+                check(f'p1_never_more_than_max_jobs_{_mj}_{_pj}', False)
+    _need = {q: ['grader_1', 'solver_1', 'grader_2', 'solver_2', 'grader_3', 'solver_3'] for q in _Q10}
+    _jb = bv_reviewer_jobs(_need, _E1, {}, L, qs_per_job=5, max_jobs_per_reviewer=bv_round_job_caps(6, 0))
+    check('p1_reviewer_jobs_fit_one_wave', len(_jb) == 6
+          and all(sorted(sum([j['qs'] for j in _jb if j['role'] == f'reviewer_{k}'], []), key=int) == _Q10 for k in (1, 2, 3)))
+
+    def G(b, k):
+        return {'result': {'band': b}, 'sha256': f'g{k}{b}', 'context': 'fresh'}
+
+    def S(a, k, **kw):
+        r = {'answer': a, 'confidence': kw.pop('conf', 'high'), 'assumptions': kw.pop('asm', []),
+             'single_answer': kw.pop('single', 'yes'), 'leak_or_paraphrase': kw.pop('leak', 'none'),
+             'distractor_existence_and_class': kw.pop('dx', '1: real, wrong because x'),
+             'consistency_and_names': kw.pop('cons', 'ok'), 'selectivity_basis': kw.pop('sel', 'clean'),
+             'moves': kw.pop('moves', [f'step by solver {k}'])}
+        return {'result': r, 'sha256': f's{k}{a}', 'context': 'fresh'}
+
+    def A(verdict, ans=None, conf='high', single='yes', miss=''):
+        return {'adjudicator': {'result': {'verdict': verdict, 'correct_answer': ans, 'confidence': conf,
+                                           'single_answer': single, 'missing_condition': miss, 'reason': 'r'},
+                                'sha256': 'adj', 'context': 'fresh'}}
+
+    def R(bands=('Hard', 'Hard', 'Hard'), answers=(2, 2, 2), **kw):
+        out = {}
+        for k, b in enumerate(bands, 1):
+            if b:
+                out[f'grader_{k}'] = G(b, k)
+        for k, a in enumerate(answers, 1):
+            if a is not None:
+                out[f'solver_{k}'] = S(a, k, **({kk: v[k - 1] for kk, v in kw.items()} if kw else {}))
+        return out
+    it = {'stem_text': 'Which reagent gives the product?', 'option_texts': ['alpha', 'beta', 'gamma', 'delta'],
+          'subject': 'X', 'qtype': 'mcq'}
+
+    # K1 / L1 — all agree: one round, settled 'unanimous', labelled at the slot
+    r0 = bc_apply(dict(it), 'Hard', L, {}, 2)
+    check('bc_first_round_roles', r0['action'] == 'grade' and r0['roles'] == ['grader_1', 'grader_2', 'grader_3',
+                                                                             'solver_1', 'solver_2', 'solver_3'])
+    r1 = bc_apply(r0['entry'], 'Hard', L, {}, 2, results=R())
+    check('bc_K1_unanimous_settles', r1['action'] == 'settled' and r1['entry']['bv_state'] == 'settled'
+          and r1['entry']['key_votes']['unanimous'] is True and r1['entry']['key_votes']['solver_3'] == 2
+          and r1['entry']['difficulty'] == 'Hard' and verify_difficulty_label(r1['entry'], L, strict=True)[0])
+    check('bc_settled_is_final', bc_apply(r1['entry'], 'Hard', L, {}, 2)['action'] == 'settled')
+    # K2 / L6 / R12 — 3 solvers against the author -> adjudicator -> re-key; options swapped (content unchanged)
+    k2 = bc_apply(r0['entry'], 'Hard', L, {}, 2, results=R(answers=(3, 3, 3)))
+    check('bc_K2_adjudicator_first', k2['action'] == 'adjudicate' and k2['roles'] == ['adjudicator'])
+    k2b = bc_apply(k2['entry'], 'Hard', L, {}, 2, results=A('solver_correct', 3))
+    check('bc_K2_rekey_permutes', k2b['action'] == 'permute' and k2b['swap'] == [2, 3] and k2b['answer'] == 2)
+    _sw = dict(k2b['entry'], option_texts=['alpha', 'gamma', 'beta', 'delta'])
+    k2c = bc_apply(_sw, 'Hard', L, {}, 2)
+    check('bc_K2_permuted_settles_no_new_review', k2c['action'] == 'settled' and k2c['roles'] == []
+          and k2c['entry']['key_votes']['certified_by'] == 'rekey' and k2c['entry']['key_votes']['decided_key'] == 2
+          and k2c['entry']['key_votes']['solver_1'] == 2 and k2c['entry']['difficulty'] == 'Hard'
+          and 'answer' not in k2c and k2c['entry']['key_votes']['permuted'] == [2, 3])
+    check('bc_K2_permute_line', any('exchanged' in t for _c, t in bc_amber_lines('5', k2c['entry'])))
+    # re-key where the options refer to each other: the key moves, K-BAL deviation disclosed
+    itx = dict(it, option_texts=['alpha', 'beta', 'gamma', 'All of the above'])
+    k2x = bc_apply(bc_apply(bc_apply(dict(itx), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                            results=R(answers=(3, 3, 3)))['entry'], 'Hard', L, {}, 2, results=A('solver_correct', 3))
+    check('bc_R12_kbal_kept', k2x['action'] == 'disclosed' and k2x['answer'] == 3
+          and 'kbal_kept' in k2x['entry']['bv']['amber'] and k2x['entry']['key_votes']['rekeyed_from'] == 2)
+    # K3 — 2-1 with the author: the adjudicator confirms
+    k3 = bc_apply(bc_apply(r0['entry'], 'Hard', L, {}, 2, results=R(answers=(2, 2, 4)))['entry'], 'Hard', L, {}, 2,
+                  results=A('author_correct', 2))
+    check('bc_K3_adjudicated', k3['action'] == 'settled' and k3['entry']['key_votes']['certified_by'] == 'adjudicated')
+    # K4 — 2 solvers on another option: re-key only with >= 2 support
+    k4 = bc_apply(bc_apply(dict(itx), 'Hard', L, {}, 2, results=R(answers=(3, 3, 2)))['entry'], 'Hard', L, {}, 2,
+                  results=A('solver_correct', 3))
+    k4b = bc_apply(bc_apply(dict(it), 'Hard', L, {}, 2, results=R(answers=(3, 2, 2)))['entry'], 'Hard', L, {}, 2,
+                   results=A('solver_correct', 4))
+    check('bc_K4_rekey_needs_two_solvers', k4['entry']['key_votes']['certified_by'] == 'rekey'
+          and k4b['action'] == 'rewrite' and k4b['entry']['bv']['rung'] == 1
+          and 'fewer than 2 solvers' in str(k4b['entry']['bv']['climb_brief']['reasons']))
+    # K6 — every answer agrees but a decisive assumption: adjudicator; its missing condition is the rung-1 brief
+    _asm = [{'about': 'conditions', 'text': 'kinetic control assumed', 'changes_answer': True}]
+    k6 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(asm=(_asm, [], [])))
+    k6b = bc_apply(k6['entry'], 'Hard', L, {}, 2, results=A('question_defective', 2, miss='state kinetic control'))
+    check('bc_K6_assumption_to_adjudicator_then_fix', k6['action'] == 'adjudicate' and k6b['action'] == 'rewrite'
+          and k6b['entry']['bv']['climb_brief']['missing_condition'] == 'state kinetic control'
+          and k6b['entry']['bv']['climb_brief']['kind'] == 'fix'
+          and k6b['entry']['bv']['climb_brief']['solvers'][0]['moves'] == ['step by solver 1'])
+    # K7 — a second defensible option; K9 — adjudicator confidence low
+    k7 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(single=('no: option 3 also', 'yes', 'yes')))
+    k9 = bc_apply(k7['entry'], 'Hard', L, {}, 2, results=A('author_correct', 2, conf='low'))
+    check('bc_K7_K9', k7['action'] == 'adjudicate' and k9['action'] == 'rewrite')
+    # K10 — adjudicator asked 3 times: NO-MODEL (never a carry)
+    k10 = bc_apply(k7['entry'], 'Hard', L, {}, 2, asked={'adjudicator': 3})
+    check('bc_K10_no_model', k10['action'] == 'no_model' and k10['entry']['bv']['state'] == 'no_model')
+    # K11 — two reviewers after 3 asks, both = key: the adjudicator confirms, AMBER
+    k11 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(answers=(2, 2, None)), asked={'solver_3': 3})
+    k11b = bc_apply(k11['entry'], 'Hard', L, {}, 2, results=A('author_correct', 2), asked={'solver_3': 3})
+    check('bc_K11_two_reviewers', k11['action'] == 'adjudicate' and k11b['action'] == 'disclosed'
+          and 'two_reviewers' in k11b['entry']['bv']['amber'])
+    # K12 — one answer after 3 asks
+    k12 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(answers=(2, None, None)),
+                   asked={'solver_2': 3, 'solver_3': 3})
+    check('bc_K12_no_model', k12['action'] == 'no_model')
+    # K13 / K14 — dispute through rungs 1 and 2, rung 3 fails: the last confirmed version (rung 1) is restored
+    e = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(answers=(3, 4, 1)))['entry']
+    e = bc_apply(e, 'Hard', L, {}, 2, results=A('question_defective'))['entry']
+    check('bc_K13_rung1', e['bv']['rung'] == 1 and e['bv']['state'] == 'rewrite')
+    e1 = dict(e, stem_text='Which reagent gives the product (rung 1)?')
+    e = bc_apply(e1, 'Hard', L, {}, 2, results=R(answers=(2, 2, 3)))['entry']
+    e = bc_apply(e, 'Hard', L, {}, 2, results=A('author_correct', 2, conf='low'))['entry']
+    check('bc_K13_rung2', e['bv']['rung'] == 2 and e['bv']['versions'][-1]['confirmed'] is True
+          and e['bv']['versions'][-1]['support'] == 2)
+    e = bc_apply(dict(e, stem_text='A new question (rung 2)?'), 'Hard', L, {}, 2, results=R(answers=(1, 3, 4)))['entry']
+    e = bc_apply(e, 'Hard', L, {}, 2, results=A('question_defective'))['entry']
+    check('bc_K13_rung3_fallback', e['bv']['rung'] == 3 and e['bv']['climb_brief']['kind'] == 'fallback'
+          and 'no figure' in e['bv']['climb_brief']['constraints'])
+    e = bc_apply(dict(e, stem_text='A clear-cut text question (rung 3)?'), 'Hard', L, {}, 2,
+                 results=R(answers=(1, 3, 4)))['entry']
+    rs = bc_apply(e, 'Hard', L, {}, 2, results=A('question_defective'))
+    check('bc_K14_restore_r5b', rs['action'] == 'restore' and rs['restore']['rung'] == 1
+          and rs['restore']['entry']['stem_text'] == e1['stem_text'] and rs['restore']['answer'] == 2)
+    rs2 = bc_apply(dict(rs['entry'], **{k: v for k, v in rs['restore']['entry'].items() if k != 'bv'}), 'Hard', L, {}, 2)
+    check('bc_K14_restored_disclosed', rs2['action'] == 'disclosed' and 'r5b' in rs2['entry']['bv']['amber']
+          and rs2['entry']['key_votes']['certified_by'] == 'disclosed' and rs2['entry']['difficulty'] == 'Hard')
+    # K15 — no version meets R5b: BC_TERMINAL adjudicated_disclosed (default) / 'stop'
+    t = dict(it)
+    for _st in ('', ' r1', ' r2', ' r3'):
+        t = bc_apply(dict(t, stem_text='Q' + _st), 'Hard', L, {}, 2, results=R(answers=(1, 3, 4)))['entry']
+        last = bc_apply(t, 'Hard', L, {}, 2, results=A('question_defective', 4))
+        t = last['entry']
+    check('bc_K15_terminal', last['action'] == 'disclosed' and last['answer'] == 4
+          and 'terminal' in last['entry']['bv']['amber'] and last['entry']['bv']['terminal']['p0'] is True)
+    t2 = bc_apply(dict(t, bv=dict(t['bv'], state='grading', content_sha=None, rung=3)), 'Hard', L, {}, 2,
+                  results=R(answers=(1, 3, 4)), terminal='stop')
+    t3 = bc_apply(t2['entry'], 'Hard', L, {}, 2, results=A('question_defective', 4), terminal='stop')
+    check('bc_K15_terminal_stop', t3['action'] == 'stop')
+    # L3 — level miss: rung 1, rung 2, then settled at the measured band, disclosed; a level miss never takes rung 3
+    lv = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(bands=('Medium',) * 3))
+    lv = bc_apply(dict(lv['entry'], stem_text='l1'), 'Hard', L, {}, 2, results=R(bands=('Medium',) * 3))
+    lv2 = bc_apply(dict(lv['entry'], stem_text='l2'), 'Hard', L, {}, 2, results=R(bands=('Medium',) * 3))
+    check('bc_L3_level_settles_after_rung2', lv['entry']['bv']['rung'] == 2 and lv2['action'] == 'disclosed'
+          and lv2['entry']['difficulty'] == 'Medium' and 'level_off_slot' in lv2['entry']['bv']['amber']
+          and verify_difficulty_label(lv2['entry'], L, strict=True)[0] and lv2['entry']['bv']['rung'] == 2)
+    # L4 — the recipe fails at the measured band: still labelled, recipe_note (never 'unlabelled')
+    _c4 = {'grader_1': 'Medium', 'grader_2': 'Medium', 'grader_3': 'Medium', 'recipe': False}
+    _p4 = {g: {'context': 'fresh', 'sha256': 'x'} for g in ('grader_1', 'grader_2', 'grader_3')}
+    e4, ok4, _w4 = bv_set_label({'difficulty': 'Hard'}, L, 'Hard', _c4, _p4, 3, 'Medium', recipe_note='recipe not met')
+    e4n, ok4n, _ = bv_set_label({'difficulty': 'Hard'}, L, 'Hard', _c4, _p4, 3, 'Medium')
+    check('bc_L4_recipe_note_label', ok4 and not ok4n and e4['difficulty'] == 'Medium'
+          and e4['difficulty_check']['label_basis']['recipe_note'] == 'recipe not met'
+          and verify_difficulty_label(e4, L, strict=True)[0])
+    # R11 — a rung starts only when its rounds fit: level settles, a key problem goes to the terminal
+    r11 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(bands=('Medium',) * 3), rounds_left=1)
+    r11k = bc_apply(bc_apply(dict(it), 'Hard', L, {}, 2, results=R(answers=(1, 3, 4)), rounds_left=1)['entry'], 'Hard',
+                    L, {}, 2, results=A('question_defective', 4), rounds_left=1)
+    check('bc_R11_round_budget', r11['action'] == 'disclosed' and r11['entry']['difficulty'] == 'Medium'
+          and r11k['action'] == 'disclosed' and 'terminal' in r11k['entry']['bv']['amber'])
+    check('bc_R11_next_rung', bc_next_rung(0, ['key'], 1)['terminal'] is True
+          and bc_next_rung(1, ['figure'], 2)['next'] == 3 and bc_next_rung(1, ['figure'], 4)['next'] == 2
+          and bc_next_rung(2, ['level'], 9)['settle_level'] is True and bc_next_rung(3, ['key'], 9)['terminal'] is True
+          and bc_next_rung(0, ['level'], 9)['next'] == 1 and bc_next_rung(2, ['key'], 9)['next'] == 3)
+    # R10 — figure-intrinsic family without an answer engine: rung 2 -> R5b / terminal
+    check('bc_R10_intrinsic', bc_next_rung(2, ['key'], 9, figure_intrinsic=True)['terminal'] is True
+          and bc_next_rung(2, ['key'], 9, figure_intrinsic=True, family_engine=True)['next'] == 3
+          and bc_next_rung(1, ['key'], 9, figure_intrinsic=True)['next'] == 2)
+    fi = dict(it, bv={'rule': BC_RULE, 'rung': 2})
+    fi = bc_apply(fi, 'Hard', L, {}, 2, results=R(answers=(1, 3, 4)), figure_intrinsic=True)
+    fi2 = bc_apply(fi['entry'], 'Hard', L, {}, 2, results=A('question_defective', 4), figure_intrinsic=True)
+    check('bc_R10_flag', fi2['action'] == 'disclosed' and fi2['entry']['bv'].get('r10_skip') is True
+          and any('R10' in t for _c, t in bc_amber_lines('7', fi2['entry'])))
+    # F2 / F3 — a figure read back wrongly: rung 1 redraw, rung 2, rung 3 is a text question (no figure)
+    fd = [{'file': '/w/q3.png', 'smiles': 'C[C@H](O)CC', 'stereo_mode': 'abs', 'render_sha': 'r1'}]
+    org = dict(it, organic=True, figure_dicts=fd, figure_files=['/w/q3.png'])
+    _vc = lambda a, b, m='abs': {'match': a == b}
+    _pf = lambda d: {'identity_ok': True, 'vision_ok': all(x.get('match') for x in d.get('vision_reads') or []), 'gates_ok': True}
+    f0 = bc_apply(dict(org), 'Hard', L, {}, 2, vision_compare=_vc, figure_proof=_pf)
+    check('bc_F_vision_role', 'vision_1_1' in f0['roles'])
+    fres = dict(R(), vision_1_1={'result': {'smiles': 'C[C@@H](O)CC'}, 'sha256': 'v', 'context': 'fresh'})
+    f1 = bc_apply(f0['entry'], 'Hard', L, {}, 2, results=fres, vision_compare=_vc, figure_proof=_pf)
+    check('bc_F2_redraw_rung1', f1['action'] == 'rewrite' and f1['entry']['bv']['rung'] == 1
+          and 'read back' in str(f1['entry']['bv']['climb_brief']['reasons']))
+    f2e = dict(f1['entry'], figure_dicts=[dict(fd[0], render_sha='r2')])
+    f2 = bc_apply(f2e, 'Hard', L, {}, 2, results=fres, vision_compare=_vc, figure_proof=_pf)
+    f3e = dict(f2['entry'], figure_dicts=[dict(fd[0], render_sha='r3')], stem_text='new substrate')
+    f3 = bc_apply(f3e, 'Hard', L, {}, 2, results=fres, vision_compare=_vc, figure_proof=_pf)
+    check('bc_F3_rung3_text', f3['entry']['bv']['rung'] == 3 and f3['entry']['bv']['climb_brief']['kind'] == 'fallback')
+    f4e = {k: v for k, v in f3['entry'].items() if k not in ('figure_dicts', 'figure_files', 'figures')}
+    f4 = bc_apply(dict(f4e, organic=False, stem_text='text fallback'), 'Hard', L, {}, 2, results=R())
+    check('bc_F3_fallback_settles', f4['action'] == 'settled' and any('fallback' in t for _c, t in bc_amber_lines('3', f4['entry'])))
+    # P1 — a within-paper repeat on the first write climbs before any reviewer is spent
+    p1 = bc_apply(dict(it), 'Hard', L, {}, 2, findings=['repeats Q2 (template)'])
+    check('bc_P1_repeat_no_reviewers', p1['action'] == 'rewrite' and p1['roles'] == [] and p1['entry']['bv']['rung'] == 1)
+    # checklist findings count only when >= 2 of 3 reviewers name them
+    c1 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(leak=('stem names the product', 'none', 'none')))
+    c2 = bc_apply(dict(it), 'Hard', L, {}, 2, results=R(leak=('stem names the product', 'gives it away', 'none')))
+    check('bc_checklist_two_of_three', c1['action'] == 'settled' and c2['action'] == 'rewrite'
+          and 'leak' in str(c2['entry']['bv']['climb_brief']['reasons']))
+    # K18 — no difficulty plan: key-only, same ladder, no label
+    k18 = bc_apply(dict(it), None, L, {}, 2, results=R(bands=(None, None, None)))
+    check('bc_K18_key_only', k18['action'] == 'settled' and 'difficulty_check' not in k18['entry']
+          and bc_apply(dict(it), None, L, {}, 2)['roles'] == ['solver_1', 'solver_2', 'solver_3'])
+    # K17 — a NAT re-key: the key is the adjudicator's value, no option swap and no K-BAL line (NAT has no key position)
+    itn = {'stem_text': 'Compute the molar mass to one decimal', 'option_texts': [], 'subject': 'X', 'qtype': 'nat'}
+    kn = bc_apply(bc_apply(dict(itn), 'Hard', L, {}, 180.1, qtype='nat', tolerance=0.2,
+                           results=R(answers=(170.0, 170.1, 169.9)))['entry'], 'Hard', L, {}, 180.1, qtype='nat',
+                  tolerance=0.2, results=A('solver_correct', 170.0))
+    check('bc_K17_nat_rekey_no_kbal', kn['action'] == 'settled' and kn['answer'] == 170.0
+          and kn['entry']['key_votes']['certified_by'] == 'rekey' and 'kbal_kept' not in (kn['entry']['bv'].get('amber') or []))
+    # K16 / K17 — MSQ sets and NAT tolerance with three solvers
+    check('bc_K16_K17', bc_kpass('A,C', [{'answer': 'c a'}, {'answer': ['A', 'C']}, {'answer': 'a;c'}], 'msq')[0]
+          and bc_kpass(2.0, [{'answer': 2.04}, {'answer': 1.97}, {'answer': '2'}], 'nat', 0.05)[0]
+          and not bc_kpass(2.0, [{'answer': 2.2}, {'answer': 2.0}, {'answer': 2.0}], 'nat', 0.05)[0]
+          and not bc_kpass(2, [{'answer': 2}, {'answer': 2}], 'mcq')[0])
+    # R12 — when may options be re-ordered
+    check('bc_permutation_allowed', options_permutation_allowed(['alpha', 'beta', 'gamma', 'delta'])
+          and not options_permutation_allowed(['a', 'b', 'Both (1) and (2)', 'd'])
+          and not options_permutation_allowed(['a', 'b', 'c', 'None of the above'])
+          and not options_permutation_allowed(['2', '4', '6', '8']) and options_permutation_allowed(['6', '2', '8', '4'])
+          and not options_permutation_allowed(['a', 'b'], 'msq') and not options_permutation_allowed(['I and II', 'II', 'I', 'III'])
+          and options_permutation_equal(['a', 'b', 'c'], ['a', 'c', 'b'], [2, 3])
+          and not options_permutation_equal(['a', 'b', 'c'], ['a', 'c', 'x'], [2, 3]))
+    # R1 / R3 — the adjudicator packet: proven structure text, anonymised solvers, never the band
+    aj = bc_adjudicator_job(3, dict(org, difficulty='Hard', figures=[{'identity_ok': True}], author_moves=['m1']), 2,
+                            [S(3, 1)['result'], S(3, 2)['result']])
+    check('bc_adjudicator_packet', aj['packet']['proven_structures'] == [{'file': 'q3.png', 'smiles': 'C[C@H](O)CC'}]
+          and [r['solver'] for r in aj['packet']['solvers']] == ['A', 'B'] and "'Hard'" not in str(aj['packet'])
+          and aj['packet']['author'] == {'answer': 2, 'solution': ['m1']} and 'ADJUDICATE DONE' in aj['brief'])
+    # R5b — only a version with >= 2 of 3 solvers behind its confirmed key, and figures read back, may be restored
+    check('bc_R5b_pick_support_and_figures', bc_r5b_pick([{'confirmed': True, 'support': 1, 'figures_ok': True}]) is None
+          and bc_r5b_pick([{'confirmed': True, 'support': 3, 'figures_ok': False}]) is None
+          and bc_r5b_pick([{'confirmed': False, 'support': 3, 'figures_ok': True}]) is None
+          and bc_r5b_pick([{'rung': 0, 'confirmed': True, 'support': 2, 'figures_ok': True},
+                           {'rung': 1, 'confirmed': True, 'support': 1, 'figures_ok': True}])['rung'] == 0)
+    # LAW-BC-7 — the review record and the key votes the batch binds
+    rr = bc_review_record(r1['entry'], 'H1', 1)
+    rk = bc_review_record(k2c['entry'], 'H2', 2)
+    check('bc_review_record', rr['item_hash'] == 'H1' and rr['certified_by'] == 'unanimous' and rr['verdict'] == 'PASS'
+          and rr['single_answer'] == 'yes' and rr['solvers'] == [2, 2, 2] and rk['certified_by'] == 'rekey'
+          and bc_review_record(r0['entry'], 'H0') is None and bc_review_record(r1['entry'], '') is None)
+    # migration (S4-12): a BV1 entry in key_chain enters the ladder at rung 1, measured again
+    mg = bc_apply(dict(it, bv={'attempt': 2, 'state': 'key_chain', 'content_sha': 'old'}, bv_state='key_chain'), 'Hard',
+                  L, {}, 2)
+    check('bc_migration_bv1', mg['action'] == 'grade' and mg['entry']['bv']['rung'] == 1
+          and mg['entry']['bv']['migrated_from']['state'] == 'key_chain')
+    # bounded by construction: a random walk of results always ends settled / disclosed / no_model / stop
+    import random as _rnd
+    _rg = _rnd.Random(20261114)
+    ends = set()
+    for _trial in range(150):
+        en = dict(it, stem_text=f'q{_trial}')
+        _tg = _rg.choice(['Hard', 'Medium', None])
+        left = BV_MAX_ROUNDS
+        for _step in range(60):
+            rr_ = bc_apply(en, _tg, L, {}, 2, rounds_left=left)
+            en = rr_['entry']
+            act = rr_['action']
+            if act in ('settled', 'disclosed', 'no_model', 'stop'):
+                ends.add(act)
+                break
+            if act == 'grade':
+                res = R(bands=tuple(_rg.choice(L) for _ in range(3)), answers=tuple(_rg.choice([2, 2, 2, 3, None]) for _ in range(3)))
+                en = bc_apply(en, _tg, L, {}, 2, results=res, rounds_left=left - 1)['entry']
+                left -= 1
+            elif act == 'adjudicate':
+                en = bc_apply(en, _tg, L, {}, 2, results=A(_rg.choice(BC_ADJ_VERDICTS), _rg.choice([2, 3]),
+                              conf=_rg.choice(['high', 'low'])), rounds_left=left - 1)['entry']
+                left -= 1
+            elif act == 'rewrite':
+                en = dict(en, stem_text=en['stem_text'] + 'r')
+            elif act == 'recount':
+                en = bc_apply(en, _tg, L, {}, 2, results=R(bands=tuple(_rg.choice(L) for _ in range(3)),
+                              answers=(None, None, None)), rounds_left=left - 1)['entry']
+                left -= 1
+            elif act == 'permute':
+                ops = list(en['option_texts'])
+                a_, b_ = rr_['swap']
+                ops[a_ - 1], ops[b_ - 1] = ops[b_ - 1], ops[a_ - 1]
+                en = dict(en, option_texts=ops)
+            elif act == 'restore':
+                en = dict(en, **{k: v for k, v in rr_['restore']['entry'].items() if k != 'bv'})
+        else:
+            ends.add('UNBOUNDED')
+    check('bc_bounded_random_walk', 'UNBOUNDED' not in ends and ends <= {'settled', 'disclosed', 'no_model', 'stop'})
 
 
 def self_test():
@@ -11910,7 +12281,7 @@ PYQ_IMAGE_ANALYSIS:
 
     # ── v1.29 — GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY (Cluster QF) ──────────
     # Every fixture FAILS on the defect it guards (named in the check id or comment).
-    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.5')
+    check('qf_version_1_29', BLUEPRINT_CORE_VERSION == '2.6')
     # reviewer #1: a caller passing the closeness MEAN gets the same vector as one passing the record
     _cvf = {'heavy_atoms': 20, 'rings': 2}
     check('v132_level_vector_closeness_record_or_mean_identical',
@@ -13257,6 +13628,9 @@ PYQ_IMAGE_ANALYSIS:
     # ── v2.1 — Cluster NF (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY) ──────────
     _nf_self_test(check)
     _bv_self_test(check)
+
+    # ── v2.6 — Cluster BC (GAP-2026-11-14-BATCH-COMPLETE; OD-2026-11-14 R1–R13) ──────────
+    _bc_self_test(check)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
@@ -22572,7 +22946,7 @@ C_K_CANDIDATES = 1                           # v2.1 BV1 (owner 2026-11-11): ONE 
 C_K_AFTER_MISS = 1                           # a miss gets the ONE rewrite (C_WRITE_ATTEMPTS), never more candidates
 C_REFILL_SESSIONS = 5                        # owner 2026-11-10: raised from the GAP default 3
 C_REFILL_CANDIDATES = 10
-C_SOLVERS = 2
+C_SOLVERS = 3                                # OD-2026-11-14 R2: all three reviewers are solvers (was 2)
 C_LABEL_PAD = 0.15
 C_MIN_ATOM_SEP = 0.5
 C_REDEPICT_MAX = 24
@@ -24389,13 +24763,14 @@ def k_candidates(missed_before=False):
     return C_K_AFTER_MISS if missed_before else C_K_CANDIDATES
 
 
-def key_unanimous(author, solvers, qtype='mcq', tolerance=None):
+def key_unanimous(author, solvers, qtype='mcq', tolerance=None, min_solvers=None):
     """F-10.6 / LAW-ORG-7 — (ok, why): the author and C_SOLVERS blind solvers give the same answer (same SET
     for MSQ; same value within `tolerance` for NAT). A solver with no answer (timeout) is not unanimous.
     Never raises."""
     sv = list(solvers) if isinstance(solvers, (list, tuple)) else []
-    if len(sv) < C_SOLVERS:
-        return False, f'{len(sv)} blind solvers < {C_SOLVERS}'
+    _min = _qf_int(min_solvers, C_SOLVERS) if min_solvers is not None else C_SOLVERS
+    if len(sv) < _min:
+        return False, f'{len(sv)} blind solvers < {_min}'
     qt = str(qtype or 'mcq').lower()
 
     def norm(x):
@@ -26342,7 +26717,8 @@ del _n, _d
 
 
 LADDER_ENTRY_RUNG.update({'A-AXIS2': 'R3', 'A-ALLOC': 'R3', 'A-OPTPART': 'R2o', 'A-INTRADUP': 'R3', 'A-KEYLEAK': 'R2s',
-                          'A-CLASSMIX': 'R3', 'A-SUBJBAND': 'R3', 'A-STEMFIG': 'R1', 'G-METALCONV': 'R1'})
+                          'A-CLASSMIX': 'R3', 'A-SUBJBAND': 'R3', 'A-STEMFIG': 'R1', 'G-METALCONV': 'R1',
+                          'A-FIGRECORD': 'R1'})
 
 
 
@@ -26367,9 +26743,11 @@ BV_REVIEWERS = 3                     # v2.2: ONE fresh reviewer context per (bat
 # (Create S13-2F, BV-5): allocation, format parity, MIP share, class mix, band mix by subject, and a within-paper
 # repeat / key leak that survived the in-batch rewrite. A-STEMFIG (a figure contradicting its stem) stays a repair.
 NF_DISCLOSE_GATES = ('A-ALLOC', 'A-AXIS2', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND')
-BV_ROLES_SOLVE = ('solver_1', 'solver_2')
-BV_MAX_ROUNDS = 6                    # job rounds per batch: grading, tiebreak, regrade after the rewrite, its
-                                     # tiebreak, + 2 re-issues of jobs that returned nothing (then NO-MODEL)
+BV_ROLES_SOLVE = ('solver_1', 'solver_2', 'solver_3')   # OD-2026-11-14 R2 (GAP-2026-11-14-BATCH-COMPLETE): three solvers
+BV1_ROLES_SOLVE = ('solver_1', 'solver_2')   # the BV1 rule of 2026.11.11-15 (bv_apply / bv_jobs: migration only)
+BV_MAX_ROUNDS = 12                   # v2.6 (GAP-2026-11-14-BATCH-COMPLETE, R11): job rounds per batch. The ladder
+                                     # starts a rung only while bc_rounds_needed fits in what is left (bc_next_rung),
+                                     # so reaching the cap ends in R5b / the terminal — never a carry, never a crash.
 
 BV_BRIEF_GRADER = (
     "You are a FRESH BLIND GRADER for one exam question. You did not write it and you are not told the level it "
@@ -26385,7 +26763,9 @@ BV_BRIEF_GRADER = (
 BV_BRIEF_REVIEWER = (
     "You are a FRESH BLIND REVIEWER of exam questions. You did not write them and you are not told the level any of "
     "them was written for. Read ONLY <JOB_DIR>/packet.json. It holds 'items' (each: 'q', 'item' — the question as a "
-    "candidate sees it, its figure files are in <JOB_DIR>: open and look at each — 'exemplars' — real past questions "
+    "candidate sees it, its figure files are in <JOB_DIR>: open and look at each — 'proven_structures' — for a "
+    "structure figure, the SMILES that drawing was machine-proven to depict: use it to read configuration, never "
+    "guess wedges — 'exemplars' — real past questions "
     "of this exam grouped by difficulty band — and 'figures_to_read'), 'labels', 'band_guide' and 'counting_rules' "
     "(the exact rules the exam's past questions were counted with). For EVERY item, on its own (never rank the "
     "items against each other): (1) solve it fully as a candidate; (2) COUNT, for YOUR OWN solution and with "
@@ -26393,7 +26773,13 @@ BV_BRIEF_REVIEWER = (
     "'principles' (distinct), 'speed_hack' with its 'shortcut', and 'negative' — what the solution needed, never "
     "aim at a band; (3) also name "
     "the band whose exemplars it most resembles; (4) for each file in its 'figures_to_read', transcribe the "
-    "structure it shows as ONE SMILES with stereochemistry exactly as drawn. Do not open any other file. Write "
+    "structure it shows as ONE SMILES with stereochemistry exactly as drawn (read it from the image only); (5) check "
+    "the item (MockReview S2-2): 'single_answer' \"yes\" or \"no: <which other option is also defensible and why>\"; "
+    "'leak_or_paraphrase' \"none\" or what in the stem gives the answer away / which past question it paraphrases; "
+    "'distractor_existence_and_class' for each wrong option \"<label>: <real species/value of the same class, wrong "
+    "because ...>\" or \"<label>: NOT a credible distractor (<why>)\"; 'consistency_and_names' \"ok\" or the formula / "
+    "name / count / figure that disagrees; 'selectivity_basis' \"clean\" or \"contested: <reason>\". Do not open any "
+    "other file. Write "
     "<JOB_DIR>/result.json as {\"items\": {\"<q>\": {\"answer\": <option number 1-based, a list for "
     "multiple-select, or the value>, \"confidence\": <high|medium|low>, \"assumptions\": [{\"about\": "
     "<stereo|conditions|data|wording|other>, \"text\": <...>, \"changes_answer\": <true|false>}], \"facets\": "
@@ -26403,7 +26789,9 @@ BV_BRIEF_REVIEWER = (
     "of labels>, \"decisions\": <int>, \"rationale\": <one sentence: the moves you counted>, \"class\": "
     "<recall|conceptual|computation|derivational|figural|structural|other>, \"computation_generic\": <true|false>, "
     "\"concept\": <short label>, \"figure_reads\": [{\"file\": <name>, \"smiles\": <SMILES>, \"stereo_mode\": "
-    "<abs|rel|rac|none>}]}}}. Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
+    "<abs|rel|rac|none>}], \"single_answer\": <...>, \"leak_or_paraphrase\": <...>, "
+    "\"distractor_existence_and_class\": <...>, \"consistency_and_names\": <...>, \"selectivity_basis\": <...>}}}. "
+    "Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
 BV_BRIEF_VISION = (
     "You are a FRESH VISION READER. You never saw how this figure was made. Read ONLY <JOB_DIR>/packet.json: "
     "'figures' names ONE image file in <JOB_DIR> — open it and look at it. Transcribe the chemical structure it shows "
@@ -26497,7 +26885,7 @@ def bv_decide(controls, target, labels, attempt=1, key_votes=None):
     return {'action': 'settle' if last else 'rewrite', 'band': m, 'why': why}
 
 
-def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=None):
+def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=None, recipe_note=None):
     """THE writer of a BV1 label. Two graders + recipe on the slot -> 'measured_exact' (dl_set_label_basis_strict);
     otherwise 'measured_majority': label := delivered (default the slot band) when band_majority(controls,
     delivered) holds, every grade present was made in a FRESH context (packet sha256 recorded), and a delivered band
@@ -26515,6 +26903,11 @@ def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=
     if dlv != tgt and _qf_int(attempt, 1) < C_WRITE_ATTEMPTS:
         return src, False, 'a band other than the slot is delivered only after the one rewrite'
     ok, why = band_majority(c, dlv, labs)
+    if not ok and recipe_note and c.get('recipe') is not True and _qf_int(attempt, 1) >= C_WRITE_ATTEMPTS \
+            and len(_bv_graders(c, labs)) >= 2 and bv_majority_band(c, labs) == dlv:
+        # v2.6 B-02 (BATCH-COMPLETE): the graders measured `dlv` but the recipe fails there — the label is still
+        # written at the measured band with recipe_note (disclosed), never 'unlabelled'
+        ok, why = True, 'ok (recipe note)'
     if not ok:
         return src, False, why
     pk = packets if isinstance(packets, dict) else {}
@@ -26527,7 +26920,9 @@ def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=
                'final_band': dlv, 'lb_rule': LB_RULE_STRICT,
                'label_basis': {'kind': 'measured_majority', 'target': tgt, 'delivered': dlv, 'controls': c,
                                'packets': pk, 'attempts': _qf_int(attempt, 1), 'rule': LB_RULE_STRICT,
-                               'bv_rule': BV_RULE, 'disclosed': dlv != tgt}})
+                               'bv_rule': BV_RULE, 'disclosed': dlv != tgt or bool(recipe_note)}})
+    if recipe_note:
+        dc['label_basis']['recipe_note'] = str(recipe_note)
     dc.pop('dr3_basis', None)
     e['difficulty'] = dlv
     e['difficulty_check'] = dc
@@ -26546,7 +26941,12 @@ def bv_verify_majority(entry, labels):
     present = [g for g in ('grader_1', 'grader_2', 'grader_3') if c.get(g) is not None]
     fresh = len(present) >= 2 and all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh'
                                       and pk[g].get('sha256') for g in present)
-    ok = band_majority(c, dlv, labs)[0] and fresh and e.get('difficulty') == dlv and dlv is not None
+    _bm = band_majority(c, dlv, labs)[0]
+    if not _bm and lb.get('recipe_note') and c.get('recipe') is not True:
+        # v2.6 B-02: a label written at the measured band with recipe_note (after the ladder) verifies on the graders
+        _bm = len(_bv_graders(c, labs)) >= 2 and bv_majority_band(c, labs) == dlv \
+            and _qf_int(lb.get('attempts'), 1) >= C_WRITE_ATTEMPTS
+    ok = _bm and fresh and e.get('difficulty') == dlv and dlv is not None
     if ok and dlv != tgt:
         ok = _qf_int(lb.get('attempts'), 1) >= C_WRITE_ATTEMPTS
     return bool(ok), dlv
@@ -26574,7 +26974,7 @@ def bv_jobs(q, item_record, exemplars_by_band, labels, roles=None):
     # reaches a grader — never the band, the plan, the author's counts, the rewrite notes or another control's result
     it = {k: src[k] for k in BV_GRADER_FIELDS if src.get(k) is not None}
     out = []
-    for r in (roles or BV_ROLES_GRADE + BV_ROLES_SOLVE):
+    for r in (roles or BV_ROLES_GRADE + BV1_ROLES_SOLVE):
         r = str(r)
         if r.startswith('grader'):
             pk = build_judge_input(it, exemplars_by_band or {}, labels)
@@ -26631,7 +27031,14 @@ def bv_read_result(role, result, labels=None):
                             'changes_answer': x.get('changes_answer') is True})
             elif str(x).strip():
                 asm.append({'about': 'other', 'text': str(x)[:300], 'changes_answer': False})
-        return {'answer': r.get('answer'), 'confidence': str(r.get('confidence') or 'low'), 'assumptions': asm}
+        out = {'answer': r.get('answer'), 'confidence': str(r.get('confidence') or 'low'), 'assumptions': asm}
+        # v2.6 (BATCH-COMPLETE): the solver's own solution and the item checklist travel with its answer (R1, C-06)
+        if isinstance(r.get('moves'), list):
+            out['moves'] = [str(x)[:300] for x in r['moves'][:30]]
+        for _f in BC_CHECKLIST_FIELDS:
+            if r.get(_f) not in (None, ''):
+                out[_f] = str(r.get(_f))[:600]
+        return out
     return None
 
 
@@ -26750,14 +27157,14 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     rec_ok, rec_st = bv_recipe_verdict(e, ruler, tgt, labs)
     controls = {k: g.get(k) for k in ('grader_1', 'grader_2', 'grader_3') if g.get(k)}
     controls['recipe'] = rec_ok
-    sv = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE]
+    sv = [bvs['solvers'].get(r) for r in BV1_ROLES_SOLVE]
     kv = None
     if all(isinstance(x, dict) for x in sv):
-        ok_k, _w = key_unanimous(author_key, [x.get('answer') for x in sv], qtype, tolerance)
+        ok_k, _w = key_unanimous(author_key, [x.get('answer') for x in sv], qtype, tolerance, min_solvers=len(BV1_ROLES_SOLVE))
         asm = solver_assumption_check(sv)
         kv = {'author': author_key, 'solver_1': sv[0].get('answer'), 'solver_2': sv[1].get('answer'),
               'unanimous': bool(ok_k and asm['status'] == 'PASS'), 'why': _w if not ok_k else '; '.join(asm['decisive'])}
-    need_solve = [r for r in BV_ROLES_SOLVE if r not in bvs['solvers']]
+    need_solve = [r for r in BV1_ROLES_SOLVE if r not in bvs['solvers']]
     # FRESH VISION READS of an organic item's figures (S0-OP-8, in the batch)
     fds = [f for f in (e.get('figure_dicts') or []) if isinstance(f, dict) and f.get('file')] if e.get('organic') else []
     if fds and callable(vision_compare) and callable(figure_proof):
@@ -27273,20 +27680,67 @@ def bv_job_chunks(qs, entries, per_job=None):
     return out
 
 
-def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None, qs_per_job=None):
+def bv_job_chunks_n(qs, entries, per_job=None, max_jobs=None):
+    """v2.7 (GAP-2026-11-14-SPEED-AND-FIDELITY P1): reviewer k's questions in at most max_jobs jobs. When today's
+    chunking (bv_job_chunks with per_job) already fits, it is kept unchanged; otherwise the same units (a linked group is
+    ONE unit, never split; a figure question weighs 2) are cut into at most max_jobs contiguous, balanced jobs (each
+    closed job weighs at least ceil(total / max_jobs), so there are never more than max_jobs). max_jobs None / < 1 ->
+    bv_job_chunks unchanged. Order kept. Pure."""
+    base = bv_job_chunks(qs, entries, per_job)
+    try:
+        mj = int(max_jobs) if max_jobs is not None else 0
+    except (TypeError, ValueError):
+        mj = 0
+    if mj < 1 or len(base) <= mj:
+        return base
+    qs = [str(q) for q in (qs or [])]
+    units, seen = [], {}
+    for q in qs:
+        e = (entries or {}).get(q) if isinstance((entries or {}).get(q), dict) else {}
+        g = e.get('stimulus_group_id')
+        if g not in (None, '') and str(g) in seen:
+            units[seen[str(g)]].append(q)
+            continue
+        if g not in (None, ''):
+            seen[str(g)] = len(units)
+        units.append([q])
+    wts = [sum(2 if ((entries or {}).get(x) or {}).get('figure_dicts') else 1 for x in u) for u in units]
+    target = -(-sum(wts) // mj)
+    out, cur, size = [], [], 0
+    for u, w in zip(units, wts):
+        cur = cur + u
+        size += w
+        if size >= target:
+            out.append(cur)
+            cur, size = [], 0
+    if cur:
+        out.append(cur)
+    return out
+
+
+def bv_round_job_caps(parallel_jobs_max, n_adjudicators, n_reviewers=None):
+    """v2.7 P1: jobs each reviewer may use in one round so the whole round (reviewer jobs + adjudicator jobs) fits in
+    ONE wave of parallel_jobs_max: max(1, (parallel_jobs_max - n_adjudicators) // n_reviewers). A round with more
+    adjudicators than the wave can hold still gets one job per reviewer (the orchestrator then runs two waves). Pure."""
+    nr = max(1, _qf_int(n_reviewers if n_reviewers is not None else BV_REVIEWERS, BV_REVIEWERS))
+    return max(1, (_qf_int(parallel_jobs_max, 6) - max(0, _qf_int(n_adjudicators, 0))) // nr)
+
+
+def bv_reviewer_jobs(needs, entries, anchors_by_q, labels, band_guide=None, qs_per_job=None, max_jobs_per_reviewer=None):
     """v2.2 — the fresh reviewer jobs of ONE round of a batch: needs {q: [roles bv_apply still needs]} -> jobs
     [{'role': 'reviewer_k', 'name', 'qs', 'packet', 'sha256', 'brief'}]; reviewer k gets every question
     that still needs grader_k / solver_k / vision_<i>_k, with that question's allow-listed item, its own anchors
     and the figure files reviewer k must transcribe. v2.5 (G-11): reviewer k's questions are split into jobs of
     qs_per_job units (bv_job_chunks; a linked group is never split) so the jobs run side by side; every question is
     still seen by exactly one fresh context per k (k = 1..BV_REVIEWERS — three distinct reviewers). 'name' is the job
-    folder name: 'reviewer_k' for the first part, 'reviewer_k_p<i>' for the next ones. Never raises."""
+    folder name: 'reviewer_k' for the first part, 'reviewer_k_p<i>' for the next ones. v2.7 (P1): max_jobs_per_reviewer
+    (bv_round_job_caps) caps each reviewer's jobs so the round fits in one wave (bv_job_chunks_n). Never raises."""
     out = []
     _nd = {str(q): v for q, v in (needs or {}).items()} if isinstance(needs, dict) else {}
     for k in range(1, BV_REVIEWERS + 1):
         _qk = [q for q in sorted(_nd, key=lambda x: _qf_int(x, 0))
                if any(str(r).endswith(f'_{k}') for r in (_nd.get(q) or []))]
-        for _pi, _chunk in enumerate(bv_job_chunks(_qk, entries, qs_per_job), 1):
+        for _pi, _chunk in enumerate(bv_job_chunks_n(_qk, entries, qs_per_job, max_jobs_per_reviewer), 1):
             _j = _bv_reviewer_job(k, _chunk, _nd, entries, anchors_by_q, labels, band_guide)
             if _j is not None:
                 _j['name'] = f'reviewer_{k}' if _pi == 1 else f'reviewer_{k}_p{_pi}'
@@ -27307,8 +27761,12 @@ def _bv_reviewer_job(k, qs, needs, entries, anchors_by_q, labels, band_guide=Non
             fds = [f for f in (src.get('figure_dicts') or []) if isinstance(f, dict)]
             reads = [fds[int(r.split('_')[1]) - 1].get('file') for r in rl if r.startswith('vision_') and r.endswith(f'_{k}')
                      and r.split('_')[1].isdigit() and 0 < int(r.split('_')[1]) <= len(fds)]
+            _rd = {str(x).replace('\\', '/').rsplit('/', 1)[-1] for x in reads if x}
+            # v2.6 R3 (LAW-BC-5): the proven SMILES beside each structure figure — never for a file this reviewer
+            # transcribes (the read-back stays blind)
+            _pv = [p for p in bc_proven_structures(src) if p['file'] not in _rd]
             rows.append({'q': str(q), 'item': it, 'exemplars': bv_short_exemplars((anchors_by_q or {}).get(q) or {}, labels),
-                         'figures_to_read': [x for x in reads if x]})
+                         'figures_to_read': [x for x in reads if x], 'proven_structures': _pv})
         if not rows:
             return None
         pk = {'items': rows, 'labels': list(_dl_labels(labels)), 'band_guide': band_guide or {},
@@ -27319,7 +27777,8 @@ def _bv_reviewer_job(k, qs, needs, entries, anchors_by_q, labels, band_guide=Non
 
 def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_by_q=None):
     """v2.2 — one reviewer's result.json -> {q: {role: {'result', 'sha256', 'context': 'fresh'}}}: grader_k always,
-    solver_k for k <= 2 (the key law stays author + two blind solvers), vision_<i>_k per transcribed figure (matched
+    solver_k for every k <= len(BV_ROLES_SOLVE) (v2.6, R2: all three reviewers are solvers; the solver record carries
+    the reviewer's moves and checklist fields), vision_<i>_k per transcribed figure (matched
     by file name). Only the questions the job carried (qs) are taken. Never raises."""
     out = {}
     items = (result or {}).get('items') if isinstance(result, dict) else None
@@ -27352,7 +27811,93 @@ def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_
     return out
 
 
-def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None):
+BC_SELFCOUNT_TRIES = 2        # v2.7 P3: an author self-count miss is sent back at most this many times per rung, then reviewed
+BC_OFFSET_MIN_N = 3           # v2.7 P4: measured questions of one (subject, band) before an offset is shown
+BC_OFFSET_CAP = 2             # v2.7 P4: an offset is never more than this many moves / principles
+
+
+def bc_author_obs(entry):
+    """v2.7 (P3) — the author's own rubric observation of its question: entry['author_counts'] ({'facets', 'moves'
+    (list), 'principles' (list), 'speed_hack', 'shortcut', 'negative'}); 'moves' falls back to entry['author_moves'].
+    None when absent or incomplete (br_obs rules). Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    ac = e.get('author_counts')
+    if not isinstance(ac, dict):
+        return None
+    rec = dict(ac)
+    if not isinstance(rec.get('moves'), list) and isinstance(e.get('author_moves'), list):
+        rec['moves'] = list(e['author_moves'])
+    return br_obs(rec)
+
+
+def bc_selfcount(entry, slot_band, labels, qtype=None):
+    """v2.7 (P3, G-SELFCOUNT) — does the author's OWN count of its question give the slot band? {'status': 'pass' |
+    'fail' | 'missing' | 'dormant', 'band', 'score', 'why'}. dormant: no slot band, or labels that are not three bands
+    (the rubric does not apply — BV-10). missing: no complete author_counts. fail: the rubric band of the author's
+    counts is not the slot band (why = the gap in words). This only SAVES review rounds; the reviewers' counts still
+    decide the band (a passed self-count certifies nothing). Pure."""
+    labs = _dl_labels(labels)
+    b = _dl_band(slot_band, labs)
+    if b is None or br_band_edges(labs) is None:
+        return {'status': 'dormant', 'band': None, 'score': None, 'why': 'no slot band / rubric not applicable'}
+    e = entry if isinstance(entry, dict) else {}
+    qt = str(qtype or e.get('qtype') or 'mcq').lower()
+    o = bc_author_obs(e)
+    if o is None:
+        return {'status': 'missing', 'band': None, 'score': None,
+                'why': "record author_counts {facets, moves, principles, speed_hack, negative} in the sidecar"}
+    sc = br_score(o, qt)
+    ab = band_for_score(sc, labs) if sc is not None else None
+    if ab is None:
+        return {'status': 'missing', 'band': None, 'score': None, 'why': 'author_counts cannot be scored'}
+    if ab == b:
+        return {'status': 'pass', 'band': ab, 'score': sc, 'why': f'own count gives {ab} (score {sc})'}
+    lo, hi = (br_band_edges(labs).get(b) or [None, None])[:2]
+    need = (f'{lo}+' if hi is None else f'{lo}-{hi}')
+    way = ('add a real reasoning move or one more distinct principle' if (lo is not None and sc < lo)
+           else 'remove a reasoning move or a principle')
+    return {'status': 'fail', 'band': ab, 'score': sc,
+            'why': f'your own count gives {ab} (score {sc}); the slot is {b} ({need}) — {way}, then count again'}
+
+
+def bc_author_offsets(concept_map, items, targets, labels):
+    """v2.7 (P4) — how the author's own counts differ from the reviewers' on the questions already measured in this
+    paper, per (subject, slot band): {'<subject>|<band>': {'n', 'steps', 'concepts'}} — the median of (author count -
+    reviewers' median count), capped at +/- BC_OFFSET_CAP, shown only from BC_OFFSET_MIN_N questions. Guidance for the
+    next write only; it never touches a grade. Pure."""
+    labs = _dl_labels(labels)
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    it = items if isinstance(items, dict) else {}
+    tg = {str(k): v for k, v in (targets or {}).items()} if isinstance(targets, dict) else {}
+    acc = {}
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        b = _dl_band(tg.get(str(q)), labs)
+        bvs = it.get(str(q)) if isinstance(it.get(str(q)), dict) else (e.get('bv') if isinstance(e.get('bv'), dict) else {})
+        ao = bc_author_obs(e)
+        if b is None or ao is None or not isinstance(bvs, dict):
+            continue
+        if bvs.get('content_sha') and bvs.get('content_sha') != op_content_sha(e) and not e.get('figure_dicts'):
+            continue                                       # the reviewers judged another text
+        ro = br_median_obs([(m or {}).get('rubric') for m in (bvs.get('meta') or {}).values() if isinstance(m, dict)])
+        if not ro:
+            continue
+        acc.setdefault(f"{e.get('subject') or ''}|{b}", []).append(
+            (ao['inferential_steps'] - ro['inferential_steps'], ao['concepts'] - ro['concepts']))
+    out = {}
+    cap = int(BC_OFFSET_CAP)
+    for k, rows in acc.items():
+        if len(rows) < int(BC_OFFSET_MIN_N):
+            continue
+        st = sorted(r[0] for r in rows)
+        cc = sorted(r[1] for r in rows)
+        out[k] = {'n': len(rows), 'steps': max(-cap, min(cap, st[len(st) // 2])),
+                  'concepts': max(-cap, min(cap, cc[len(cc) // 2]))}
+    return out
+
+
+def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, offsets=None):
     """What the author holds BEFORE writing (one write): the slot band, the SAME exemplar content the graders will
     compare against (the slot band and its neighbours), the recipe ranges for the band, and the self-checks to run
     before submitting. slot: {'q', 'band', 'qtype', 'subtopic_id', 'subject', 'ask_format'}. Never raises."""
@@ -27373,8 +27918,28 @@ def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None):
                            'every option and the key fixed; one defensible answer',
                            'count your own solution with counting_rules: bc.br_band(counts, qtype, labels) must give '
                            'the slot band (when target.applies)',
-                           'the item resembles the slot band anchors more than the neighbours'],
+                           'the item resembles the slot band anchors more than the neighbours',
+                           'record your counts in the sidecar: quality={"author_counts": {"facets": [...], "moves": '
+                           '[...], "principles": [...], "speed_hack": bool, "negative": bool}} (G-SELFCOUNT)']
+            + _bc_offset_lines(offsets, s.get('subject'), b),
+            'author_offset': _bc_offset_for(offsets, s.get('subject'), b),
             'rule': BV_RULE}
+
+
+def _bc_offset_for(offsets, subject, band):
+    of = offsets if isinstance(offsets, dict) else {}
+    r = of.get(f"{subject or ''}|{band}")
+    return dict(r) if isinstance(r, dict) else None
+
+
+def _bc_offset_lines(offsets, subject, band):
+    """v2.7 (P4) — the self-check line that turns the measured author/reviewer difference into a writing aim. Pure."""
+    r = _bc_offset_for(offsets, subject, band)
+    if not r or (not r.get('steps') and not r.get('concepts')):
+        return []
+    return [f"on {r['n']} earlier {band} question(s) of this subject your own count ran "
+            f"{r['steps']:+d} move(s) / {r['concepts']:+d} principle(s) against the reviewers': write so that YOUR count "
+            f"is the target plus that difference (the reviewers' counts decide the band)"]
 
 
 def bv_batch_status(concept_map, qs, target_plan, labels):
@@ -27407,6 +27972,1015 @@ def bv_batch_status(concept_map, qs, target_plan, labels):
 
 
 
+
+# ══ CLUSTER BC — BATCH-COMPLETE (GAP-2026-11-14-BATCH-COMPLETE; OD-2026-11-14 R1–R13; every exam) ═════════════════
+# Every question is SETTLED inside its own batch — key decided, level labelled, figures proven, review record bound —
+# or DISCLOSED (R5b / the terminal), through ONE bounded ladder: rung 0 first write -> rung 1 FIX -> rung 2 REPLACE ->
+# rung 3 FALLBACK (key / figure problems only) -> terminal. Three reviewers count as solvers (R2); any disagreement
+# about the answer goes to ONE fresh adjudicator before any rewrite (R1); reviewers and the adjudicator see each
+# structure figure's PROVEN SMILES beside it (R3; the blind read-back never does). Final Assembly authors nothing
+# (R6). Nothing here names an exam, a subject or a number of questions.
+BC_RULE = 'BC1'
+BC_RUNGS = ('first', 'fix', 'replace', 'fallback')          # rung index 0..3
+BC_ROLE_ASKS = 3                     # a role (reviewer k / adjudicator) is asked at most 3 times per text (LAW-BC-9)
+BC_ROUNDS_PER_RUNG = 2               # a rung's text needs one review round + (when disputed) one adjudication round
+BC_LEVEL_SETTLE_RUNG = 2             # a level miss settles at its measured band after rung 2 (never rung 3)
+BC_TERMINALS = ('adjudicated_disclosed', 'stop')
+BC_TERMINAL = 'adjudicated_disclosed'   # OD-2026-11-14 R9 (owner 2026-11-14, Open question 2)
+BC_FINDING_MIN = 2                   # a checklist finding (leak, distractor, consistency) counts when >= 2 of 3 name it
+BC_RESTORE_MIN_SUPPORT = 2           # R5b: >= 2 of 3 solvers agree with the adjudicator-confirmed key
+# R10 (OD-2026-11-14): a figure family whose answer an engine COMPUTES gets a rung-3 item from that engine; a
+# figure-intrinsic family without one goes from rung 2 straight to R5b. {family: 'module.function'}; none today.
+BC_FAMILY_ANSWER_ENGINES = {}
+BC_CHECKLIST_FIELDS = ('single_answer', 'leak_or_paraphrase', 'distractor_existence_and_class', 'consistency_and_names',
+                       'selectivity_basis')
+BC_STATES = ('settled', 'disclosed')
+BC_ADJ_VERDICTS = ('author_correct', 'solver_correct', 'question_defective')
+
+BV_BRIEF_ADJUDICATOR = (
+    "You are a FRESH ADJUDICATOR for ONE exam question. You did not write it. Read ONLY <JOB_DIR>/packet.json: "
+    "'item' (the question as a candidate sees it; its figure files are in <JOB_DIR> — open and look at each; "
+    "'proven_structures' gives, for a structure figure, the SMILES that figure was machine-proven to depict), "
+    "'author' (the author's answer and solution) and 'solvers' (three independent solutions, Solver A/B/C: answer, "
+    "moves, assumptions). Solve the question yourself, then decide who is right. Do not open any other file. Write "
+    "<JOB_DIR>/result.json as {\"verdict\": \"author_correct\" | \"solver_correct\" | \"question_defective\", "
+    "\"correct_answer\": <option number 1-based, a list for multiple-select, or the value>, \"single_answer\": \"yes\" "
+    "| \"no: <which other option is also defensible and why>\", \"missing_condition\": <the condition the stem must "
+    "state for one answer to hold, or empty>, \"reason\": <one or two sentences>, \"confidence\": <high|medium|low>}. "
+    "'question_defective' = no option is right, two are defensible, or the stem cannot be solved as written. Reply "
+    "with ONE line: \"ADJUDICATE DONE\" or \"ADJUDICATE FAILED <reason>\".")
+
+
+def bc_answer_norm(x, qtype='mcq'):
+    """One answer normalised the way key_unanimous compares them (MSQ: a set; NAT: a float; else the upper-cased
+    string). None when absent / unreadable. Pure; never raises."""
+    if x is None:
+        return None
+    qt = str(qtype or 'mcq').lower()
+
+    def _pos(y):
+        # v2.7 (production hotfix GAP-2026-11-14-REVIEW-KEY-ANNOTATED, carried into Cluster BC): a position written
+        # with its value or label — '1 (42.5 minutes)', '(b) (40%)', 'option 2: 18', 'b' — IS that position, so an
+        # agreeing reviewer never counts as a dispute (an adjudicator round for nothing)
+        try:
+            r = _review_norm_key(y)
+        except Exception:                                   # noqa: BLE001
+            r = None
+        return str(r) if isinstance(r, int) and not isinstance(r, bool) else str(y).strip().upper()
+    if qt == 'msq':
+        if isinstance(x, str):
+            try:
+                _rk = _review_norm_key(x)
+            except Exception:                               # noqa: BLE001
+                _rk = None
+            x = _rk if isinstance(_rk, list) else re.split(r'[\s,;/]+', x.strip())
+        if not isinstance(x, (list, tuple, set, frozenset)):
+            x = [x]
+        s = frozenset(_pos(y) for y in x if str(y).strip())
+        return s or None
+    if qt == 'nat':
+        try:
+            return float(x)
+        except Exception:                                   # noqa: BLE001
+            return None
+    s = _pos(x) if str(x).strip() else ''
+    return s or None
+
+
+def bc_canon_key(x, qtype='mcq'):
+    """v2.7 — a key as the answer key stores it: an MCQ position written with a label or a value ('(b) (40%)', 'option
+    2: 18') -> its int position; an MSQ -> the sorted list of int positions; anything else (NAT, unreadable) unchanged.
+    Pure; never raises."""
+    qt = str(qtype or 'mcq').lower()
+    if qt == 'nat' or x is None:
+        return x
+    try:
+        r = _review_norm_key(x if not isinstance(x, (list, tuple, set, frozenset)) else ','.join(str(y) for y in x))
+    except Exception:                                       # noqa: BLE001
+        return x
+    if qt == 'msq':
+        r = [r] if isinstance(r, int) and not isinstance(r, bool) else r
+        return sorted(r) if isinstance(r, list) and r and all(isinstance(v, int) and not isinstance(v, bool) for v in r) else x
+    return r if isinstance(r, int) and not isinstance(r, bool) else x
+
+
+def bc_same_answer(a, b, qtype='mcq', tolerance=None):
+    """True when two answers are the same answer (set equality for MSQ, |a-b| <= tolerance for NAT). Pure."""
+    x, y = bc_answer_norm(a, qtype), bc_answer_norm(b, qtype)
+    if x is None or y is None:
+        return False
+    if str(qtype or 'mcq').lower() == 'nat':
+        tol = float(tolerance) if isinstance(tolerance, (int, float)) and not isinstance(tolerance, bool) else 0.0
+        return abs(x - y) <= tol
+    return x == y
+
+
+def bc_support(answer, solver_answers, qtype='mcq', tolerance=None):
+    """How many of the solver answers equal `answer`. Pure."""
+    return sum(1 for s in (solver_answers or []) if bc_same_answer(answer, s, qtype, tolerance))
+
+
+def _bc_neg(v, ok_words):
+    s = str(v if v is not None else '').strip().lower()
+    return bool(s) and not any(s == w or s.startswith(w + ' ') or s.startswith(w + ',') or s.startswith(w + ':')
+                               for w in ok_words)
+
+
+def bc_checklist_flags(rec):
+    """The defects one reviewer's checklist names (MockReview S2-2 verdict rules): {'second_answer', 'leak',
+    'distractor', 'consistency', 'contested', 'low_confidence'} -> bool. A blank field names nothing. Pure."""
+    r = rec if isinstance(rec, dict) else {}
+    sa = str(r.get('single_answer') or '').strip().lower()
+    dx = str(r.get('distractor_existence_and_class') or '')
+    return {'second_answer': sa.startswith('no'),
+            'leak': _bc_neg(r.get('leak_or_paraphrase'), ('none', 'no', 'n/a', 'nil')),
+            'distractor': 'not a credible distractor' in dx.lower(),
+            'consistency': _bc_neg(r.get('consistency_and_names'), ('ok', 'none', 'consistent')),
+            'contested': str(r.get('selectivity_basis') or '').strip().lower().startswith('contested'),
+            'low_confidence': str(r.get('confidence') or '').strip().lower() == 'low'}
+
+
+def bc_kpass(author_key, solvers, qtype='mcq', tolerance=None):
+    """K-PASS (GAP §6.4 2): three returned solver answers, every one = the author's key, no assumption that changes
+    the answer, every single_answer 'yes', no 'low' confidence, no 'contested' selectivity. (ok, why). Pure."""
+    sv = [s for s in (solvers or []) if isinstance(s, dict) and s.get('answer') is not None]
+    if len(sv) < 3:
+        return False, f'{len(sv)} of 3 solver answers'
+    if bc_answer_norm(author_key, qtype) is None:
+        return False, 'author key missing'
+    for i, s in enumerate(sv, 1):
+        if not bc_same_answer(author_key, s.get('answer'), qtype, tolerance):
+            return False, f'solver {i} answer {s.get("answer")} != author {author_key}'
+    asm = solver_assumption_check(sv)
+    if asm['status'] != 'PASS':
+        return False, 'decisive assumption: ' + '; '.join(asm['decisive'])
+    for i, s in enumerate(sv, 1):
+        f = bc_checklist_flags(s)
+        if f['second_answer']:
+            return False, f'solver {i}: a second defensible option ({str(s.get("single_answer"))[:80]})'
+        if f['low_confidence']:
+            return False, f'solver {i}: low confidence'
+        if f['contested']:
+            return False, f'solver {i}: selectivity contested'
+    return True, 'ok'
+
+
+def bc_findings_from_checklist(solvers):
+    """Item findings the reviewers' checklists name: a leak / paraphrase, a non-credible distractor, a name or
+    count inconsistency — each when at least BC_FINDING_MIN reviewers name it (one reviewer's note is not a
+    finding). [reason]. Pure."""
+    sv = [s for s in (solvers or []) if isinstance(s, dict)]
+    out = []
+    for flag, field, label in (('leak', 'leak_or_paraphrase', 'leak / paraphrase'),
+                               ('distractor', 'distractor_existence_and_class', 'distractor not credible'),
+                               ('consistency', 'consistency_and_names', 'name / count inconsistency')):
+        hits = [s for s in sv if bc_checklist_flags(s)[flag]]
+        if len(hits) >= BC_FINDING_MIN:
+            out.append(f'{label} named by {len(hits)} of {len(sv)} reviewers: '
+                       + ' | '.join(str(h.get(field) or '')[:160] for h in hits))
+    return out
+
+
+def options_permutation_allowed(option_texts, qtype='mcq'):
+    """R12 — may the options of this question be re-ordered without changing what it asks? False for MSQ / NAT /
+    no options, for an option that refers to another option (all / none of the above, both (1) and (2), 'only
+    A'), and for options that are an ordered numeric scale (re-ordering would break the exam's ascending
+    convention). Pure; never raises."""
+    qt = str(qtype or 'mcq').lower()
+    ops = option_texts if isinstance(option_texts, list) else []
+    if qt in ('msq', 'nat') or len(ops) < 2:
+        return False
+    ref = re.compile(r'(all|none|both|neither)\s+(of\s+the\s+above|of\s+these|the\s+above)|\bboth\b.*\band\b|'
+                     r'\(\s*[1-9a-dA-D]\s*\)\s*(and|or|&)\s*\(\s*[1-9a-dA-D]\s*\)|\boption\s*\(?[1-9a-dA-D]\)?|'
+                     r'\b(only|neither)\s+[A-D1-9]\b|\b[IVX]+\s+and\s+[IVX]+\b|\b[A-D]\s+and\s+[A-D]\b', re.I)
+    if any(ref.search(str(o or '')) for o in ops):
+        return False
+    nums = []
+    for o in ops:
+        m = re.fullmatch(r'\s*[-+]?\d+(?:\.\d+)?\s*[^\d\s]{0,6}\s*', str(o or ''))
+        if not m:
+            nums = None
+            break
+        nums.append(float(re.match(r'\s*([-+]?\d+(?:\.\d+)?)', str(o)).group(1)))
+    if nums is not None and (nums == sorted(nums) or nums == sorted(nums, reverse=True)):
+        return False
+    return True
+
+
+def options_permutation_equal(old_options, new_options, swap):
+    """True when new_options is old_options with the two 1-based positions in `swap` exchanged and nothing else
+    changed (whitespace-normalised). Pure."""
+    try:
+        a, b = int(swap[0]), int(swap[1])
+    except Exception:                                       # noqa: BLE001
+        return False
+    o = [' '.join(str(x or '').split()) for x in (old_options or [])]
+    n = [' '.join(str(x or '').split()) for x in (new_options or [])]
+    if len(o) != len(n) or not (1 <= a <= len(o) and 1 <= b <= len(o)) or a == b:
+        return False
+    x = list(o)
+    x[a - 1], x[b - 1] = x[b - 1], x[a - 1]
+    return x == n
+
+
+def _bc_swap_answer(ans, swap):
+    try:
+        a, b = int(swap[0]), int(swap[1])
+        v = int(str(ans).strip())
+    except Exception:                                       # noqa: BLE001
+        return ans
+    return b if v == a else a if v == b else v
+
+
+def bc_rounds_needed(rung):
+    """Rounds the text of `rung` needs to be decided: one review round and one adjudication round. Pure."""
+    return BC_ROUNDS_PER_RUNG
+
+
+def bc_next_rung(rung, problems, rounds_left, figure_intrinsic=False, family_engine=False):
+    """THE ladder step (LAW-BC-2, R10, R11). rung: the current rung (0..3); problems: the kinds still open on the
+    current text ('key', 'figure', 'finding', 'level', 'repeat'); rounds_left: job rounds the batch may still
+    issue. Returns {'next': 1..3 | None, 'terminal': bool, 'settle_level': bool, 'why'}:
+      - a level miss alone settles at its measured band once rung >= BC_LEVEL_SETTLE_RUNG (never rung 3);
+      - a within-paper repeat / key leak alone is disclosed once rung >= 2;
+      - a key / figure / checklist problem climbs to rung 3 (FALLBACK) after rung 2 — except a figure-intrinsic
+        family with no answer engine (R10): from rung 2 straight to the terminal;
+      - R11: a rung starts only when rounds_left >= bc_rounds_needed; a figure mismatch whose rung 2 AND rung 3
+        cannot both fit jumps to rung 3 when rung 3 fits; otherwise the terminal (never a crash, never a carry).
+    Pure; never raises."""
+    r = _qf_int(rung, 0)
+    ps = set(problems or [])
+    hard = ps & {'key', 'figure', 'finding'}
+    need = bc_rounds_needed(r + 1)
+    left = _qf_int(rounds_left, 0)
+    if not ps:
+        return {'next': None, 'terminal': False, 'settle_level': False, 'why': 'nothing open'}
+    if not hard:
+        # only level and / or a within-paper repeat
+        if r >= BC_LEVEL_SETTLE_RUNG:
+            return {'next': None, 'terminal': False, 'settle_level': 'level' in ps,
+                    'why': 'level / repeat after rung 2: settle at the measured band, disclosed'}
+        if left < need:
+            return {'next': None, 'terminal': False, 'settle_level': 'level' in ps,
+                    'why': f'{left} round(s) left < {need}: settle at the measured band, disclosed (R11)'}
+        return {'next': r + 1, 'terminal': False, 'settle_level': False, 'why': f'rung {r + 1} ({BC_RUNGS[r + 1]})'}
+    if r >= 3:
+        return {'next': None, 'terminal': True, 'settle_level': False, 'why': 'rung 3 spent: terminal (R5b)'}
+    if r == 2 and figure_intrinsic and not family_engine:
+        return {'next': None, 'terminal': True, 'settle_level': False,
+                'why': 'figure-intrinsic family without an answer engine: rung 2 -> R5b (R10)'}
+    nxt = r + 1
+    if 'figure' in ps and nxt < 3 and left < need + bc_rounds_needed(3) and left >= bc_rounds_needed(3) \
+            and not figure_intrinsic:
+        return {'next': 3, 'terminal': False, 'settle_level': False,
+                'why': f'figure mismatch with {left} round(s) left: straight to rung 3 (R11)'}
+    if left < need:
+        return {'next': None, 'terminal': True, 'settle_level': False,
+                'why': f'{left} round(s) left < {need}: terminal (R11)'}
+    return {'next': nxt, 'terminal': False, 'settle_level': False, 'why': f'rung {nxt} ({BC_RUNGS[nxt]})'}
+
+
+def bc_adjudicator_job(q, entry, author_key, solvers, labels=None):
+    """The ONE adjudicator job of a disputed question (R1): {'q', 'role': 'adjudicator', 'packet', 'sha256',
+    'brief'} — the question as a candidate sees it with its proven structure text, the author's key and recorded
+    solution, and each solver's answer / moves / assumptions, anonymised as Solver A/B/C. Never the band, the plan,
+    the difficulty or the author's notes. Never raises."""
+    src = entry if isinstance(entry, dict) else {}
+    it = {k: src[k] for k in BV_GRADER_FIELDS if src.get(k) is not None}
+    prov = bc_proven_structures(src)
+    _qr = src.get('quality') if isinstance(src.get('quality'), dict) else {}
+    _do = src.get('difficulty_obs') if isinstance(src.get('difficulty_obs'), dict) else {}
+    sol = src.get('author_moves') or _qr.get('author_moves') or _do.get('moves') or None
+    rows = []
+    for i, s in enumerate([x for x in (solvers or []) if isinstance(x, dict)]):
+        rows.append({'solver': 'ABC'[i] if i < 3 else str(i + 1), 'answer': s.get('answer'),
+                     'moves': list(s.get('moves') or [])[:20], 'assumptions': list(s.get('assumptions') or [])[:6]})
+    pk = {'item': it, 'proven_structures': prov,
+          'author': {'answer': author_key, 'solution': list(sol) if isinstance(sol, (list, tuple)) else (sol or
+                     'the author recorded no solution')},
+          'solvers': rows}
+    return {'q': str(q), 'role': 'adjudicator', 'packet': pk, 'sha256': _bv_sha(pk), 'brief': BV_BRIEF_ADJUDICATOR}
+
+
+def bc_proven_structures(entry):
+    """R3 — [{'file', 'smiles'}] for every structure figure of the item whose identity proof holds (the SMILES the
+    drawing was proven to depict). [] for a non-structure figure. Pure; never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    fds = [f for f in (e.get('figure_dicts') or []) if isinstance(f, dict) and f.get('file') and f.get('smiles')]
+    prf = [p for p in (e.get('figures') or []) if isinstance(p, dict)]
+    out = []
+    for i, fd in enumerate(fds):
+        ok = (prf[i].get('identity_ok') is True) if i < len(prf) else (fd.get('identity_ok') is not False)
+        if ok:
+            out.append({'file': str(fd['file']).replace('\\', '/').rsplit('/', 1)[-1], 'smiles': str(fd['smiles'])})
+    return out
+
+
+def bc_read_adjudication(result):
+    """An adjudicator's result.json normalised, or None when unusable. Pure."""
+    r = result if isinstance(result, dict) else {}
+    v = str(r.get('verdict') or '').strip().lower()
+    if v not in BC_ADJ_VERDICTS:
+        return None
+    return {'verdict': v, 'correct_answer': r.get('correct_answer'),
+            'single_answer': str(r.get('single_answer') or 'yes').strip()[:300],
+            'missing_condition': str(r.get('missing_condition') or '').strip()[:400],
+            'reason': str(r.get('reason') or '')[:500],
+            'confidence': str(r.get('confidence') or 'low').strip().lower()}
+
+
+def bc_key_decision(author_key, solvers, adjudication, qtype='mcq', tolerance=None, asks_exhausted=False):
+    """THE key decision of one text (GAP §6.4 2, R1, R2). solvers: the returned reviewer solver records (with
+    their checklist fields); adjudication: bc_read_adjudication or None. Returns {'state', 'certified_by',
+    'decided_key', 'why', 'two_reviewers'} with state:
+      'need_solvers'  — fewer than 3 answers and the asks are not exhausted;
+      'need_adjudicator';
+      'settled'       — certified 'unanimous' | 'adjudicated' | 'rekey' (decided_key = the key to deliver);
+      'climb'         — the question goes one rung up (why = the adjudicator's reason / missing condition);
+      'no_model'      — fewer than 2 answers after the asks (LAW-BC-9).
+    Pure; never raises."""
+    sv = [s for s in (solvers or []) if isinstance(s, dict) and s.get('answer') is not None]
+    answers = [s.get('answer') for s in sv]
+    two = len(sv) == 2
+    if len(sv) < 3 and not asks_exhausted:
+        return {'state': 'need_solvers', 'certified_by': None, 'decided_key': None, 'two_reviewers': False,
+                'why': f'{len(sv)} of 3 solver answers'}
+    if len(sv) < 2:
+        return {'state': 'no_model', 'certified_by': None, 'decided_key': None, 'two_reviewers': False,
+                'why': f'{len(sv)} solver answer(s) after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+    ok, why = bc_kpass(author_key, sv, qtype, tolerance)
+    if ok:
+        return {'state': 'settled', 'certified_by': 'unanimous', 'decided_key': author_key, 'two_reviewers': False,
+                'why': 'author and three solvers agree'}
+    adj = adjudication if isinstance(adjudication, dict) else None
+    if adj is None:
+        return {'state': 'need_adjudicator', 'certified_by': None, 'decided_key': None, 'two_reviewers': two,
+                'why': why}
+    clean = (not str(adj.get('single_answer') or 'yes').lower().startswith('no')
+             and adj.get('confidence') != 'low' and not adj.get('missing_condition'))
+    if adj['verdict'] == 'author_correct' and clean:
+        return {'state': 'settled', 'certified_by': 'adjudicated', 'decided_key': author_key, 'two_reviewers': two,
+                'why': 'adjudicator confirmed the author key: ' + adj.get('reason', '')[:200]}
+    if adj['verdict'] == 'solver_correct' and clean and bc_answer_norm(adj.get('correct_answer'), qtype) is not None \
+            and not bc_same_answer(adj.get('correct_answer'), author_key, qtype, tolerance) \
+            and bc_support(adj.get('correct_answer'), answers, qtype, tolerance) >= BC_RESTORE_MIN_SUPPORT:
+        return {'state': 'settled', 'certified_by': 'rekey', 'decided_key': bc_canon_key(adj.get('correct_answer'), qtype),
+                'two_reviewers': two, 'why': 're-key after adjudication: ' + adj.get('reason', '')[:200]}
+    if adj['verdict'] == 'solver_correct' and clean and bc_same_answer(adj.get('correct_answer'), author_key, qtype,
+                                                                        tolerance):
+        return {'state': 'settled', 'certified_by': 'adjudicated', 'decided_key': author_key, 'two_reviewers': two,
+                'why': 'adjudicator named the author key'}
+    rs = [adj.get('reason', '')]
+    if adj.get('missing_condition'):
+        rs.append('state in the stem: ' + adj['missing_condition'])
+    if str(adj.get('single_answer') or '').lower().startswith('no'):
+        rs.append('second defensible option: ' + adj['single_answer'])
+    if adj.get('confidence') == 'low':
+        rs.append('adjudicator confidence low')
+    if adj['verdict'] == 'solver_correct' and bc_support(adj.get('correct_answer'), answers, qtype, tolerance) < 2:
+        rs.append(f"corrected answer {adj.get('correct_answer')} has fewer than {BC_RESTORE_MIN_SUPPORT} solvers")
+    return {'state': 'climb', 'certified_by': None, 'decided_key': None, 'two_reviewers': two,
+            'why': '; '.join(x for x in rs if x)[:600]}
+
+
+def bc_version_record(rung, sha, entry, author_key, key_dec, solvers, adjudication, figures_ok, qtype='mcq',
+                      tolerance=None, grades=None, packets=None, meta=None):
+    """One reviewed text of a question, kept for R5b: whether its key was confirmed (unanimous / adjudicated /
+    re-keyed — the adjudicator's key) and how many solvers support that key. Pure."""
+    kd = key_dec if isinstance(key_dec, dict) else {}
+    adj = adjudication if isinstance(adjudication, dict) else {}
+    answers = [s.get('answer') for s in (solvers or []) if isinstance(s, dict) and s.get('answer') is not None]
+    if kd.get('state') == 'settled':
+        conf_key, confirmed = kd.get('decided_key'), True
+    elif adj.get('verdict') == 'author_correct':
+        conf_key, confirmed = author_key, True
+    elif adj.get('verdict') == 'solver_correct' and adj.get('correct_answer') is not None:
+        conf_key, confirmed = adj.get('correct_answer'), True
+    else:
+        conf_key, confirmed = None, False
+    snap = {k: v for k, v in (entry or {}).items() if k not in ('bv', 'review', 'review_history')}
+    return {'rung': _qf_int(rung, 0), 'content_sha': sha, 'entry': snap, 'author_key': author_key,
+            'confirmed': bool(confirmed), 'confirmed_key': conf_key,
+            'support': bc_support(conf_key, answers, qtype, tolerance) if confirmed else 0,
+            'figures_ok': figures_ok is not False, 'adjudication': adj or None,
+            'solvers': answers, 'grades': dict(grades or {}), 'packets': dict(packets or {}), 'meta': dict(meta or {})}
+
+
+def bc_r5b_pick(versions):
+    """R5b — the LAST reviewed version whose key the adjudicator (or the unanimous solvers) confirmed, with at
+    least BC_RESTORE_MIN_SUPPORT solvers agreeing and its figures read back correctly; None when there is none.
+    Pure."""
+    for v in reversed([x for x in (versions or []) if isinstance(x, dict)]):
+        if v.get('confirmed') and _qf_int(v.get('support'), 0) >= BC_RESTORE_MIN_SUPPORT and v.get('figures_ok'):
+            return v
+    return None
+
+
+def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', tolerance=None, results=None,
+             findings=None, vision_compare=None, figure_proof=None, asked=None, allow_recount=True,
+             max_asks=BC_ROLE_ASKS, rounds_left=None, figure_intrinsic=False, family_engine=False,
+             terminal=None):
+    """ONE step of the BATCH-COMPLETE decision of ONE question (S4-7 STEP A2; GAP §6.4). Same inputs as bv_apply
+    plus rounds_left (job rounds the batch may still issue), figure_intrinsic / family_engine (R10, injected by the
+    I/O shell) and terminal (BC_TERMINAL). entry['bv'] keeps {'rule': 'BC1', 'rung', 'attempt' (= rung + 1, for the
+    label writer), 'content_sha', 'grades', 'packets', 'meta', 'solvers', 'vision', 'adj', 'key', 'versions',
+    'state', 'climb_brief', 'history'}. Returns {'entry', 'action', 'roles', 'band', 'why', 'answer'?, 'swap'?,
+    'restore'?} with action:
+      'grade'     — fresh reviewer roles outstanding (roles = grader_k / solver_k / vision_<i>_k);
+      'adjudicate'— roles = ['adjudicator'];
+      'recount'   — the edge re-count (BV-14), roles = the three graders;
+      'rewrite'   — climb one rung: the worker writes the rung's text from bv['climb_brief'] (rung 1 FIX, 2 REPLACE,
+                    3 FALLBACK) — the next step measures it;
+      'permute'   — R12: swap the two options in 'swap' (content unchanged) so the re-keyed answer keeps the planned
+                    key position; no new review;
+      'restore'   — R5b: put back the version in 'restore' (its sidecar entry and key) — no new review;
+      'settled'   — key settled, level labelled, figures proven, nothing open;
+      'disclosed' — settled with an AMBER line (level off-slot / recipe note, R5b, terminal, repeat at rung 2,
+                    two reviewers, K-BAL kept after a re-key);
+      'no_model'  — LAW-BC-9: a needed role returned nothing BC_ROLE_ASKS times (state saved; resume re-asks);
+      'stop'      — BC_TERMINAL 'stop' reached (owner option; not the default).
+    Pure; never raises."""
+    import copy as _bc_copy
+    labs = _dl_labels(labels)
+    term = terminal if terminal in BC_TERMINALS else BC_TERMINAL
+    e = dict(entry) if isinstance(entry, dict) else {}
+    bvs = _bc_copy.deepcopy(e.get('bv')) if isinstance(e.get('bv'), dict) else {}
+    qt = str(qtype or 'mcq').lower()
+    left = _qf_int(rounds_left, BV_MAX_ROUNDS) if rounds_left is not None else BV_MAX_ROUNDS
+    sha = op_content_sha(e)
+    _fdl = [(f.get('file'), f.get('render_sha')) for f in (e.get('figure_dicts') or []) if isinstance(f, dict)]
+    if _fdl:
+        sha = _bv_sha([sha, _fdl])
+    # migration from BV1 (S4-12): attempt 1 -> rung 0; attempt 2 -> rung 1 spent; key_chain -> adjudication
+    if bvs and bvs.get('rule') != BC_RULE:
+        _att = _qf_int(bvs.get('attempt'), 1)
+        bvs['rule'] = BC_RULE
+        bvs['rung'] = 0 if _att <= 1 else 1
+        bvs['migrated_from'] = {'rule': 'BV1', 'attempt': _att, 'state': bvs.get('state')}
+        if bvs.get('state') in ('key_chain', 'unlabelled', 'open'):
+            bvs['state'] = 'grading'
+        bvs.setdefault('versions', [])
+        bvs.setdefault('adj', None)
+    bvs.setdefault('rule', BC_RULE)
+    bvs.setdefault('rung', 0)
+    bvs.setdefault('versions', [])
+    if bvs.get('content_sha') == sha and bvs.get('state') in BC_STATES and e.get('bv_state') in BC_STATES:
+        return {'entry': e, 'action': bvs['state'], 'roles': [], 'band': e.get('difficulty'), 'why': 'decided earlier'}
+    # ── a new text since the last step ──
+    if bvs.get('content_sha') is not None and bvs.get('content_sha') != sha:
+        if bvs.get('state') == 'permute' and options_permutation_equal(
+                (bvs.get('permute') or {}).get('old_options'), e.get('option_texts'), (bvs.get('permute') or {}).get('swap')):
+            # R12: the same question with two options exchanged — every measurement stands; answers re-mapped
+            _sw = bvs['permute']['swap']
+            for _r, _s in (bvs.get('solvers') or {}).items():
+                if isinstance(_s, dict):
+                    _s['answer'] = _bc_swap_answer(_s.get('answer'), _sw)
+            bvs['content_sha'] = sha
+            bvs['key'] = dict(bvs.get('key') or {}, decided_key=bvs['permute'].get('answer'), permuted=_sw)
+            bvs['state'] = 'settling'
+        elif bvs.get('state') == 'restore' and (bvs.get('restore') or {}).get('content_sha') == sha:
+            _v = bvs['restore']
+            bvs.update({'content_sha': sha, 'grades': dict(_v.get('grades') or {}), 'packets': dict(_v.get('packets') or {}),
+                        'meta': dict(_v.get('meta') or {}), 'state': 'settling', 'rung': _qf_int(_v.get('rung'), 0),
+                        'key': {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': _v.get('confirmed_key'),
+                                'why': 'R5b: last version with an adjudicator-confirmed key and >= 2 of 3 solvers',
+                                'r5b': True}})
+            bvs['restored'] = True
+        else:
+            bvs.setdefault('history', []).append({'rung': bvs.get('rung'), 'content_sha': bvs.get('content_sha'),
+                                                  'grades': bvs.get('grades'), 'solvers': {k: (v or {}).get('answer')
+                                                  for k, v in (bvs.get('solvers') or {}).items()},
+                                                  'adj': bvs.get('adj'), 'state': bvs.get('state')})
+            bvs.update({'content_sha': sha, 'grades': {}, 'packets': {}, 'solvers': {}, 'meta': {}, 'vision': {},
+                        'adj': None, 'key': None, 'recount': None, 'state': 'grading'})
+            bvs.pop('recount_grades', None)
+    elif bvs.get('content_sha') is None:
+        bvs.update({'content_sha': sha, 'grades': {}, 'packets': {}, 'solvers': {}, 'meta': {}, 'vision': {},
+                    'adj': None, 'key': None, 'state': 'grading'})
+    elif bvs.get('state') in ('rewrite', 'permute', 'restore'):
+        # the worker was asked to change the text and did not: the same text is decided again (bounded — the
+        # ladder below moves on from the recorded rung; never a loop)
+        bvs['state'] = 'grading'
+    bvs['attempt'] = _qf_int(bvs.get('rung'), 0) + 1
+    rung = _qf_int(bvs.get('rung'), 0)
+    # ── ingest the results returned since the last step ──
+    for role, rec in ((results or {}).items() if isinstance(results, dict) else []):
+        rr = (rec or {}).get('result') if isinstance(rec, dict) else None
+        if not isinstance(rr, dict):
+            continue
+        pk = {'context': str((rec or {}).get('context') or 'same'), 'sha256': (rec or {}).get('sha256')}
+        if str(role).startswith('grader'):
+            _rb, _rs, _ro = br_band(rr.get('rubric'), qt, labs) if isinstance(rr.get('rubric'), dict) else (None, None, None)
+            _band = _rb or (rr.get('band') if rr.get('band') in labs else None)
+            if _band is None:
+                continue
+            bvs['grades'][role] = _band
+            bvs['packets'][role] = pk
+            bvs['meta'][role] = dict({k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')},
+                                     measure='rubric_r2' if _rb else 'judged', score=_rs, rubric=_ro,
+                                     band_judged=rr.get('band') if rr.get('band') in labs else None)
+        elif str(role).startswith('solver') and rr.get('answer') is not None:
+            bvs['solvers'][role] = dict(rr, packet=pk)
+        elif str(role).startswith('vision_') and rr.get('smiles'):
+            bvs.setdefault('vision', {})[role] = dict(rr, packet=pk)
+        elif str(role) == 'adjudicator':
+            _ad = bc_read_adjudication(rr)
+            if _ad is not None:
+                bvs['adj'] = dict(_ad, packet=pk)
+    _ask = asked if isinstance(asked, dict) else {}
+    _mx = _qf_int(max_asks, BC_ROLE_ASKS)
+
+    def _can(r):
+        return _qf_int(_ask.get(r), 0) < _mx
+    g = bvs['grades']
+    tgt = _dl_band(target, labs)
+    rec_ok, rec_st = bv_recipe_verdict(e, ruler, tgt, labs)
+    controls = {k: g.get(k) for k in BV_ROLES_GRADE if g.get(k)}
+    controls['recipe'] = rec_ok
+    solvers = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE if isinstance(bvs['solvers'].get(r), dict)]
+    need = [r for r in BV_ROLES_SOLVE if r not in bvs['solvers'] and _can(r)]
+    if tgt is not None:
+        need = [r for r in BV_ROLES_GRADE if r not in g and _can(r)] + need
+    solve_exhausted = all(r in bvs['solvers'] or not _can(r) for r in BV_ROLES_SOLVE)
+    # ── figures: fresh blind read-backs of an organic item's structures (S0-OP-8) ──
+    fig_bad = []
+    fds = [f for f in (e.get('figure_dicts') or []) if isinstance(f, dict) and f.get('file')] if e.get('organic') else []
+    if fds and callable(vision_compare) and callable(figure_proof):
+        vis = bvs.setdefault('vision', {})
+        vneed = [f'vision_{i}_{k}' for i, fd in enumerate(fds, 1)
+                 for k in range(1, (2 if fd.get('answer_depends_on_stereo') else 1) + 1) if f'vision_{i}_{k}' not in vis]
+        need += [r for r in vneed if _can(r)]
+        if not vneed:
+            proofs = []
+            for i, fd in enumerate(fds, 1):
+                reads = []
+                for k in range(1, (2 if fd.get('answer_depends_on_stereo') else 1) + 1):
+                    rd = vis.get(f'vision_{i}_{k}') or {}
+                    try:
+                        m = (vision_compare(fd.get('smiles'), rd.get('smiles'), fd.get('stereo_mode') or 'abs') or {}).get('match')
+                    except Exception:                       # noqa: BLE001
+                        m = None
+                    reads.append({'smiles': rd.get('smiles'), 'match': m})
+                try:
+                    pr = figure_proof(dict(fd, vision_reads=reads))
+                except Exception:                           # noqa: BLE001
+                    pr = {'identity_ok': False, 'vision_ok': False, 'gates_ok': False, 'missing': ['proof']}
+                proofs.append(pr)
+                if any(x.get('match') is False for x in reads):
+                    fig_bad.append(f"figure {i} ({fd.get('file')}) was read back as {reads[-1].get('smiles')} — redraw it "
+                                   f"(layout ladder / re-depiction), same structure")
+            e['figures'] = proofs
+        elif any(not _can(r) for r in vneed):
+            if not [r for r in vneed if _can(r)]:
+                e['bv'] = bvs
+                bvs['state'] = 'no_model'
+                return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
+                        'why': f'no figure read-back after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+    # ── findings on the CURRENT text that need no reviewer: within-paper repeat / key leak (S0-NF-6) ──
+    _fall = [str(x) for x in (findings or []) if str(x).strip()]
+    # a 'GATE:' finding (the last batch's whole-paper sweep re-opened this question, LAW-BC-6) is a HARD finding;
+    # every other injected finding is a within-paper repeat / key leak (S0-NF-6)
+    gate_f = [x for x in _fall if x.startswith('GATE:')]
+    repeats = [x for x in _fall if not x.startswith('GATE:')]
+    if repeats and not gate_f and rung < 2 and not g and not solvers and left >= bc_rounds_needed(rung + 1):
+        # the finding IS the next rung's brief; no reviewer is spent on this text
+        return _bc_climb(e, bvs, rung, ['repeat'], repeats, None, None, qt, tgt, left, figure_intrinsic,
+                         family_engine, sha, author_key, tolerance, term, labs, ruler)
+    # ── wait for every reviewer role still outstanding (they run in ONE round) ──
+    if need:
+        bvs['state'] = 'grading'
+        e['bv'] = bvs
+        return {'entry': e, 'action': 'grade', 'roles': need, 'band': None, 'why': f'{len(need)} fresh role(s) outstanding'}
+    if tgt is not None and (len(_bv_graders(controls, labs)) < 2 or bv_majority_band(controls, labs) is None) \
+            and not (isinstance(bvs.get('recount'), dict) and bvs['recount'].get('state') == 'due'):
+        e['bv'] = bvs
+        bvs['state'] = 'no_model'
+        return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
+                'why': f'{len(_bv_graders(controls, labs))} grade(s) after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+    # ── the edge re-count (BV-14), unchanged rules ──
+    if tgt is not None:
+        _rc = bvs.get('recount') if isinstance(bvs.get('recount'), dict) else None
+        if _rc and _rc.get('state') == 'due':
+            _first = _rc.get('first') or {}
+            _fg = dict(_first.get('grades') or {})
+            _new_n = len(_bv_graders(controls, labs))
+            _x = bv_majority_band(_fg, labs)
+            _votes = _bv_graders(_fg, labs) + (_bv_graders(controls, labs) if _new_n >= 3 else [])
+            _dec = next((b for b in labs if _votes.count(b) >= 4), None) if _new_n >= 3 else None
+            if _dec is None or _dec == _x:
+                bvs['recount_grades'] = {'grades': dict(g), 'packets': dict(bvs['packets']), 'meta': dict(bvs['meta'])}
+                bvs['grades'] = dict(_fg)
+                bvs['packets'] = dict(_first.get('packets') or {})
+                bvs['meta'] = dict(_first.get('meta') or {})
+            else:
+                bvs['recount_grades'] = dict(_first)
+            _rc.update({'state': 'done', 'votes': _votes, 'decided': _dec or _x})
+            g = bvs['grades']
+            controls = {k: g.get(k) for k in BV_ROLES_GRADE if g.get(k)}
+            controls['recipe'] = rec_ok
+        elif allow_recount and _rc is None and len(_bv_graders(controls, labs)) == 3 \
+                and len(set(_bv_graders(controls, labs))) == 2 and br_band_edges(labs) is not None and left >= 1:
+            _sc = sorted(s_ for s_ in ((bvs['meta'].get(k) or {}).get('score') for k in BV_ROLES_GRADE)
+                         if isinstance(s_, int) and not isinstance(s_, bool))
+            if len(_sc) == 3 and _sc[1] in (DIFFICULTY_EASY_MAX, DIFFICULTY_EASY_MAX + 1,
+                                            DIFFICULTY_MEDIUM_MAX, DIFFICULTY_MEDIUM_MAX + 1):
+                bvs['recount'] = {'state': 'due', 'first': {'grades': dict(g), 'packets': dict(bvs['packets']),
+                                                            'meta': dict(bvs['meta'])}, 'median_score': _sc[1]}
+                bvs['grades'], bvs['packets'], bvs['meta'] = {}, {}, {}
+                bvs['state'] = 'recount'
+                e['bv'] = bvs
+                # a re-count asks graders only: the asks of this text start again for them
+                return {'entry': e, 'action': 'recount', 'roles': list(BV_ROLES_GRADE), 'band': None,
+                        'why': f'graders split at the band edge (median score {_sc[1]}): three more fresh counts decide',
+                        'reset_asks': list(BV_ROLES_GRADE)}
+    # ── the key (R1, R2) — unless already settled for this text (re-key / permutation / restore) ──
+    kd = bvs.get('key') if isinstance(bvs.get('key'), dict) and bvs['key'].get('state') == 'settled' else None
+    if kd is None:
+        kd = bc_key_decision(author_key, solvers, (bvs.get('adj') if isinstance(bvs.get('adj'), dict) else None), qt,
+                             tolerance, asks_exhausted=solve_exhausted)
+        if kd['state'] == 'need_adjudicator':
+            if _can('adjudicator') and left >= 1:
+                bvs['state'] = 'adjudicate'
+                bvs['adj_why'] = kd['why']
+                e['bv'] = bvs
+                return {'entry': e, 'action': 'adjudicate', 'roles': ['adjudicator'], 'band': None, 'why': kd['why']}
+            if left >= 1:
+                e['bv'] = bvs
+                bvs['state'] = 'no_model'
+                return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
+                        'why': f'no adjudicator result after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+            kd = {'state': 'climb', 'why': 'no round left for the adjudicator (R11)', 'certified_by': None,
+                  'decided_key': None, 'two_reviewers': False}
+        if kd['state'] == 'no_model':
+            e['bv'] = bvs
+            bvs['state'] = 'no_model'
+            return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None, 'why': kd['why']}
+        if kd['state'] == 'settled':
+            bvs['key'] = dict(kd)
+    key_open = kd.get('state') != 'settled'
+    # ── checklist findings named by >= 2 of 3 reviewers; figure mismatches ──
+    chk = bc_findings_from_checklist(solvers) + gate_f
+    # ── the level (unchanged rules) ──
+    m = bv_majority_band(controls, labs) if tgt is not None else None
+    level_ok = tgt is None or (m == tgt and rec_ok)
+    problems, brief_parts = [], []
+    if key_open:
+        problems.append('key')
+        brief_parts.append('KEY: ' + str(kd.get('why') or ''))
+    if fig_bad:
+        problems.append('figure')
+        brief_parts += fig_bad
+    if chk:
+        problems.append('finding')
+        brief_parts += chk
+    if repeats:
+        problems.append('repeat')
+        brief_parts += repeats
+    if not level_ok:
+        problems.append('level')
+        brief_parts.append(f'LEVEL: majority {m} != slot {tgt}' if m != tgt else 'LEVEL: band recipe check did not pass at the slot band')
+    # the version this text represents (R5b candidates)
+    _vrec = bc_version_record(rung, sha, e, author_key, kd if not key_open else None, solvers,
+                              bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'])
+    _vs = [v for v in bvs['versions'] if isinstance(v, dict) and v.get('content_sha') != sha]
+    bvs['versions'] = _vs + [_vrec]
+    # ── the rungs (LAW-BC-2) ──
+    hard = [p for p in problems if p in ('key', 'figure', 'finding')]
+    if hard or (problems and not (set(problems) <= {'level', 'repeat'} and rung >= BC_LEVEL_SETTLE_RUNG)):
+        step = bc_next_rung(rung, problems, left, figure_intrinsic, family_engine)
+        if step['next'] is not None:
+            return _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figure_intrinsic,
+                             family_engine, sha, author_key, tolerance, term, labs, ruler)
+        if step['terminal']:
+            if 'R10' in str(step.get('why')):
+                bvs['r10_skip'] = True
+            return _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt, step['why'], fig_bad)
+        # settle_level (level / repeat alone, after rung 2 or with no round left) falls through
+    # ── settle: key decided, label written (at the slot, or at the measured band disclosed) ──
+    return _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, rec_ok, problems, repeats)
+
+
+def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figure_intrinsic, family_engine, sha,
+              author_key, tolerance, term, labs, ruler):
+    st = step or bc_next_rung(rung, problems, left, figure_intrinsic, family_engine)
+    if st.get('next') is None:
+        if st.get('terminal'):
+            return _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt, st['why'], [])
+        return _bc_settle(e, bvs, sha, kd or {'state': 'climb'}, author_key, qt, tolerance, labs, ruler, tgt,
+                          bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
+                          True, problems, [])
+    nxt = int(st['next'])
+    sv = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE if isinstance(bvs['solvers'].get(r), dict)]
+    _mobs = br_median_obs([(bvs['meta'].get(k) or {}).get('rubric') for k in bvs['grades']])
+    _tg = br_target(ruler, e.get('subtopic_id'), tgt, labs) if tgt is not None else None
+    adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else {}
+    bvs['climb_brief'] = {
+        'rung': nxt, 'kind': BC_RUNGS[nxt], 'problems': list(problems), 'reasons': list(brief_parts),
+        'slot': tgt, 'measured': bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
+        'graders': {k: (bvs['meta'].get(k) or {}).get('rationale') for k in bvs['grades']},
+        'measured_counts': _mobs, 'target': br_target_text(_tg) if _tg else None,
+        'gap': br_gap(_mobs, _tg, qt) if _tg else [],
+        # C-04: the solvers' own solutions, and the adjudicator's reason and missing condition
+        'solvers': [{'answer': s.get('answer'), 'moves': list(s.get('moves') or [])[:20],
+                     'assumptions': list(s.get('assumptions') or [])[:6]} for s in sv],
+        'adjudicator': {k: adj.get(k) for k in ('verdict', 'correct_answer', 'reason', 'missing_condition',
+                                                 'single_answer', 'confidence')} if adj else None,
+        'missing_condition': adj.get('missing_condition') or None,
+        'constraints': {1: 'FIX the same question: state the missing condition in the stem, correct the stem or options, '
+                           'redraw a misread figure, or re-target the counts — same slot, same substrate allowed',
+                        2: 'REPLACE: a new question, same slot (subtopic, band, qtype, ask format, key position, stimulus '
+                           'group), a new substrate / task; it must pass the clone, series and within-paper guards',
+                        3: 'FALLBACK: a clear-cut TEXT question on the same subtopic, slot band and qtype — text options, '
+                           'no figure, no step that depends on reading 3D configuration' +
+                           (' (R10: this figure family has an answer engine — build the rung-3 item with it)'
+                            if family_engine else '')}[nxt],
+        'why': st.get('why')}
+    bvs['rung'] = nxt
+    bvs['attempt'] = nxt + 1
+    bvs['state'] = 'rewrite'
+    e['bv'] = bvs
+    e.pop('bv_state', None)
+    return {'entry': e, 'action': 'rewrite', 'roles': [], 'band': None,
+            'why': f"rung {nxt} {BC_RUNGS[nxt]}: " + '; '.join(str(x) for x in brief_parts)[:400]}
+
+
+def _bc_label(e, bvs, labs, ruler, tgt, dlv, disclosed_note=None):
+    """Write the level label at `dlv` (the slot, or the measured band after rung 2). B-02: when the recipe fails at
+    the delivered band the label is still written, with recipe_note (disclosed) — never 'unlabelled'."""
+    g = bvs['grades']
+    rok, _rs = bv_recipe_verdict(e, ruler, dlv, labs)
+    ctl = {k: g.get(k) for k in BV_ROLES_GRADE if g.get(k)}
+    ctl['recipe'] = rok
+    e = op_record_controls(e, g.get('grader_1'), g.get('grader_2'), rok, bvs['packets'],
+                           {k: (bvs['meta'].get(k) or {}).get('decisions') for k in g}, None)
+    if g.get('grader_3'):
+        e['grades']['grader_3'] = g['grader_3']
+    e['grader_meta'] = {k: v for k, v in bvs['meta'].items()}
+    att = max(_qf_int(bvs.get('attempt'), 1), C_WRITE_ATTEMPTS if dlv != tgt else 1)
+    e2, ok, why = bv_set_label(e, labs, tgt, ctl, bvs['packets'], att, dlv)
+    note = None
+    if not ok and bv_majority_band(ctl, labs) == dlv and rok is not True:
+        note = 'recipe not met at the delivered band'
+        e2, ok, why = bv_set_label(e, labs, tgt, ctl, bvs['packets'], max(att, C_WRITE_ATTEMPTS), dlv, recipe_note=note)
+    if ok:
+        e = e2
+        _ms = sorted({(bvs['meta'].get(k) or {}).get('measure') or 'judged' for k in g})
+        _dc = dict(e.get('difficulty_check')) if isinstance(e.get('difficulty_check'), dict) else None
+        if _dc is not None:
+            _dc['measure'] = _ms[0] if len(_ms) == 1 else 'mixed'
+            _dc['rubric_scores'] = {k: (bvs['meta'].get(k) or {}).get('score') for k in g}
+            e['difficulty_check'] = _dc
+    return e, ok, why, note
+
+
+def _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, rec_ok, problems, repeats):
+    kd = kd if isinstance(kd, dict) else {}
+    amber = []
+    if kd.get('state') != 'settled':
+        # only reached through settle_level with the key open — impossible by construction (a key problem is hard)
+        return _bc_terminal(e, bvs, sha, author_key, qt, tolerance, BC_TERMINAL, labs, ruler, tgt,
+                            'key still open at settle', [])
+    dk = kd.get('decided_key')
+    swap = None
+    if kd.get('certified_by') == 'rekey' and qt == 'mcq' and not bc_same_answer(dk, author_key, qt, tolerance) \
+            and not (bvs.get('key') or {}).get('permuted') and not (bvs.get('key') or {}).get('kbal_kept'):
+        ops = e.get('option_texts') if isinstance(e.get('option_texts'), list) else []
+        try:
+            a, b = int(str(author_key).strip()), int(str(dk).strip())
+        except Exception:                                   # noqa: BLE001
+            a = b = None
+        _figs = bool(e.get('figure_files') or e.get('figure_dicts') or e.get('option_smiles'))
+        if a and b and not _figs and options_permutation_allowed(ops, qt) and 1 <= a <= len(ops) and 1 <= b <= len(ops):
+            # R12: swap the corrected answer's option into the planned key position; the question is unchanged
+            swap = [a, b]
+            bvs['permute'] = {'swap': swap, 'old_options': list(ops), 'answer': a}
+            bvs['state'] = 'permute'
+            bvs['key'] = dict(kd)
+            e['bv'] = bvs
+            return {'entry': e, 'action': 'permute', 'roles': [], 'band': None, 'swap': swap,
+                    'answer': a, 'why': f're-key {author_key} -> {dk}: swap options {a} and {b} so the key stays at '
+                                         f'its planned position {a} (content unchanged, no new review)'}
+        bvs['key'] = dict(kd, kbal_kept=True)
+        amber.append('kbal_kept')
+    # the label
+    band = None
+    if tgt is not None:
+        dlv = tgt if (m == tgt and rec_ok) else (m or tgt)
+        e, ok, why, note = _bc_label(e, bvs, labs, ruler, tgt, dlv)
+        if not ok:
+            # the label writer refused (no fresh packet, < 2 grades): an environment failure, never a carry
+            bvs['state'] = 'no_model'
+            e['bv'] = bvs
+            return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None, 'why': f'label refused: {why} (LAW-BC-9)'}
+        band = dlv
+        if dlv != tgt:
+            amber.append('level_off_slot')
+        if note:
+            amber.append('recipe_note')
+    if repeats:
+        e['nf_findings'] = list(repeats)
+        amber.append('repeat')
+    if kd.get('two_reviewers'):
+        amber.append('two_reviewers')
+    if (bvs.get('key') or {}).get('r5b'):
+        amber.append('r5b')
+    if bvs.get('terminal'):
+        amber.append('terminal')
+    if _qf_int(bvs.get('rung'), 0) == 3:
+        amber.append('fallback')
+        # R5a: the slot's planned format is recorded so the Axis-1 count (A-AXIS1) treats it as disclosed, not a defect
+        e['bc_fallback'] = {'rung': 3, 'from_figure': any(bool((v.get('entry') or {}).get('figure_files'))
+                                                          for v in (bvs.get('versions') or []) if isinstance(v, dict))}
+    kv = _bc_key_votes(bvs, author_key, dk, sha)
+    e['key_votes'] = kv
+    bvs['amber'] = sorted(set(amber))
+    disclosed = bool(set(amber) - {'fallback'})
+    bvs['state'] = 'disclosed' if disclosed else 'settled'
+    e['bv_state'] = bvs['state']
+    e['bv'] = bvs
+    out = {'entry': e, 'action': bvs['state'], 'roles': [], 'band': band,
+           'why': ('certified ' + str(kd.get('certified_by'))) + (f"; AMBER {sorted(set(amber))}" if amber else '')}
+    if kd.get('certified_by') in ('rekey', 'disclosed') and not bc_same_answer(dk, author_key, qt, tolerance):
+        out['answer'] = dk
+    return out
+
+
+def _bc_key_votes(bvs, author_key, decided, sha):
+    sv = bvs.get('solvers') or {}
+    kd = bvs.get('key') or {}
+    adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else None
+    return {'author': author_key, 'solver_1': (sv.get('solver_1') or {}).get('answer'),
+            'solver_2': (sv.get('solver_2') or {}).get('answer'), 'solver_3': (sv.get('solver_3') or {}).get('answer'),
+            'unanimous': kd.get('certified_by') == 'unanimous', 'adjudicated': adj is not None,
+            'rekeyed_from': author_key if (kd.get('certified_by') in ('rekey', 'disclosed') and decided is not None
+                                           and str(decided).strip().upper() != str(author_key).strip().upper()) else None,
+            'permuted': kd.get('permuted'),
+            'decided_key': decided, 'certified_by': kd.get('certified_by'), 'rule': BC_RULE, 'content_sha': sha,
+            'why': str(kd.get('why') or '')[:300]}
+
+
+def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt, why, fig_bad):
+    """R5b, then BC_TERMINAL (R9): the batch always ends."""
+    pick = bc_r5b_pick(bvs.get('versions'))
+    if pick is not None and pick.get('content_sha') != sha:
+        bvs['restore'] = pick
+        bvs['state'] = 'restore'
+        e['bv'] = bvs
+        return {'entry': e, 'action': 'restore', 'roles': [], 'band': None, 'restore': {
+                    'rung': pick.get('rung'), 'content_sha': pick.get('content_sha'), 'entry': pick.get('entry'),
+                    'answer': pick.get('confirmed_key')},
+                'why': f"R5b: restore the rung-{pick.get('rung')} version (key confirmed, {pick.get('support')} of 3 "
+                       f"solvers) — {why}"}
+    if pick is not None:
+        bvs['key'] = {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': pick.get('confirmed_key'),
+                      'why': 'R5b: this version — key confirmed, >= 2 of 3 solvers', 'r5b': True}
+        return _bc_settle(e, bvs, sha, bvs['key'], author_key, qt, tolerance, labs, ruler, tgt,
+                          bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
+                          True, ['key'], [])
+    if term == 'stop':
+        bvs['state'] = 'stop'
+        e['bv'] = bvs
+        return {'entry': e, 'action': 'stop', 'roles': [], 'band': None,
+                'why': f'BC_TERMINAL stop: no version meets R5b — {why}'}
+    adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else {}
+    dk = adj.get('correct_answer') if bc_answer_norm(adj.get('correct_answer'), qt) is not None else author_key
+    bvs['terminal'] = {'why': why, 'p0': True, 'figure_unconfirmed': bool(fig_bad)}
+    bvs['key'] = {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': dk,
+                  'why': "BC_TERMINAL adjudicated_disclosed: key adjudicated; solvers split", 'terminal': True}
+    return _bc_settle(e, bvs, sha, bvs['key'], author_key, qt, tolerance, labs, ruler, tgt,
+                      bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
+                      True, ['key'], [])
+
+
+def bc_batch_status(concept_map, qs, items=None):
+    """{'settled': [q], 'disclosed': [q], 'other': [q]} for the questions of one batch under BC1 (LAW-BC-1: after
+    DONE 'other' is empty). Pure."""
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    out = {'settled': [], 'disclosed': [], 'other': []}
+    for q in [str(x) for x in (qs or [])]:
+        st = (cm.get(q) or {}).get('bv_state') if isinstance(cm.get(q), dict) else None
+        if st == 'settled':
+            out['settled'].append(q)
+        elif st == 'disclosed':
+            out['settled'].append(q)
+            out['disclosed'].append(q)
+        else:
+            out['other'].append(q)
+    return out
+
+
+def bc_review_record(entry, item_hash, round_no=None):
+    """STEP A3 (LAW-BC-7, GAP §6.5) — the independent-review record the batch writes for one question, bound to the
+    auditor's item_hash of its block in the cumulative docx. The checklist fields are the majority of the three
+    reviewers' values on the final text (no majority: the adjudicator's value where it has one, else the most
+    severe). None when the question is not settled / disclosed. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    bvs = e.get('bv') if isinstance(e.get('bv'), dict) else {}
+    st = bvs.get('state')
+    if st not in BC_STATES or not item_hash:
+        return None
+    kd = bvs.get('key') if isinstance(bvs.get('key'), dict) else {}
+    sv = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE if isinstance((bvs.get('solvers') or {}).get(r), dict)]
+    adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else None
+
+    def _maj(field, severe):
+        vals = [str(s.get(field)) for s in sv if s.get(field) not in (None, '')]
+        for v in vals:
+            if vals.count(v) >= 2:
+                return v
+        if adj and field == 'single_answer' and adj.get('single_answer'):
+            return adj['single_answer']
+        bad = [v for v in vals if severe(v)]
+        return bad[0] if bad else (vals[0] if vals else None)
+    rec = {'item_hash': item_hash, 'reviewer': 'batch', 'rule': BC_RULE,
+           'certified_by': kd.get('certified_by'),
+           'key_agrees': True, 'own_key': kd.get('decided_key'),
+           'confidence': (adj or {}).get('confidence') if kd.get('certified_by') in ('adjudicated', 'rekey')
+           else _maj('confidence', lambda v: v.lower() == 'low'),
+           'single_answer': _maj('single_answer', lambda v: v.lower().startswith('no')),
+           'leak_or_paraphrase': _maj('leak_or_paraphrase', lambda v: _bc_neg(v, ('none', 'no', 'n/a', 'nil'))),
+           'distractor_existence_and_class': _maj('distractor_existence_and_class',
+                                                  lambda v: 'not a credible distractor' in v.lower()),
+           'consistency_and_names': _maj('consistency_and_names', lambda v: _bc_neg(v, ('ok', 'none', 'consistent'))),
+           'selectivity_basis': _maj('selectivity_basis', lambda v: v.lower().startswith('contested')),
+           'difficulty_band_with_exemplar': e.get('difficulty'),
+           'verdict': 'PASS' if st == 'settled' else 'DISCLOSED', 'round': round_no, 'rung': _qf_int(bvs.get('rung'), 0),
+           'solvers': [s.get('answer') for s in sv],
+           'adjudicator': {'verdict': adj.get('verdict'), 'confidence': adj.get('confidence')} if adj else None,
+           'amber': list(bvs.get('amber') or []), 'content_sha': bvs.get('content_sha')}
+    if kd.get('certified_by') in ('adjudicated', 'rekey', 'disclosed'):
+        # the adjudicator decided the key: a solver's 'low' or 'contested' on the disputed text is the dispute itself
+        rec['selectivity_basis'] = rec['selectivity_basis'] if st == 'disclosed' or not str(
+            rec['selectivity_basis'] or '').lower().startswith('contested') else 'clean (adjudicated)'
+        if st == 'settled' and str(rec.get('confidence') or '').lower() == 'low':
+            rec['confidence'] = 'medium'
+    return rec
+
+
+def bc_amber_lines(q, entry):
+    """The DeliveryFooter lines (GAP §6.8 + R12 / R10 / last-batch lines) one settled / disclosed question carries.
+    Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    bvs = e.get('bv') if isinstance(e.get('bv'), dict) else {}
+    kd = bvs.get('key') if isinstance(bvs.get('key'), dict) else {}
+    kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
+    am = set(bvs.get('amber') or [])
+    out = []
+    if kd.get('certified_by') == 'rekey' and kd.get('permuted'):
+        out.append(('INFORMATIONAL', f"Q{q}: answer key corrected after independent adjudication (options "
+                                     f"{kd['permuted'][0]} and {kd['permuted'][1]} exchanged; key position unchanged)"))
+    elif kd.get('certified_by') == 'rekey':
+        out.append(('INFORMATIONAL', f"Q{q}: answer key corrected after independent adjudication (was {kv.get('rekeyed_from')})"))
+    if 'kbal_kept' in am:
+        out.append(('AMBER', f"Q{q}: re-keyed answer kept at option {kv.get('decided_key')} — the options could not be "
+                             f"re-ordered (K-BAL deviation disclosed)"))
+    if 'r5b' in am:
+        out.append(('AMBER', f"Q{q}: key confirmed by adjudicator; 2 of 3 solvers agree (R5b)"))
+    if 'terminal' in am:
+        out.append(('AMBER', f"Q{q}: key adjudicated; solvers split (P0 recorded)"))
+    if 'fallback' in am or _qf_int(bvs.get('rung'), 0) == 3:
+        out.append(('INFORMATIONAL', f"Q{q}: replaced by a text question (fallback)"))
+    if 'level_off_slot' in am or 'recipe_note' in am:
+        lb = ((e.get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(e.get('difficulty_check'), dict) else {}
+        out.append(('AMBER', f"Q{q}: delivered at {e.get('difficulty')} (slot {lb.get('target')})"
+                             + (', recipe not met at the delivered band' if 'recipe_note' in am else '')))
+    if 'two_reviewers' in am:
+        out.append(('AMBER', f"Q{q}: 2 of 3 reviewers available"))
+    if 'repeat' in am:
+        out.append(('AMBER', f"Q{q}: within-paper repeat / key leak disclosed after rung 2"))
+    if bvs.get('reopened_in_last_batch'):
+        out.append(('INFORMATIONAL', f"Q{q}: changed in the last batch — the earlier cumulative docx differs"))
+    if bvs.get('r10_skip'):
+        out.append(('AMBER', f"Q{q}: figure family without an answer engine — went from rung 2 to R5b (R10)"))
+    return out
+
+
+for _n, _d in {
+        'bc_answer_norm': lambda *a, **k: None,
+        'bc_same_answer': lambda *a, **k: False,
+        'bc_support': lambda *a, **k: 0,
+        'bc_checklist_flags': lambda *a, **k: {'second_answer': False, 'leak': False, 'distractor': False,
+                                               'consistency': False, 'contested': False, 'low_confidence': True},
+        'bc_kpass': lambda *a, **k: (False, 'invalid input'),
+        'bc_findings_from_checklist': lambda *a, **k: [],
+        'options_permutation_allowed': lambda *a, **k: False,
+        'options_permutation_equal': lambda *a, **k: False,
+        'bc_next_rung': lambda *a, **k: {'next': None, 'terminal': True, 'settle_level': False, 'why': 'invalid input'},
+        'bc_adjudicator_job': lambda q=None, *a, **k: {'q': str(q), 'role': 'adjudicator', 'packet': {}, 'sha256': None,
+                                                       'brief': BV_BRIEF_ADJUDICATOR},
+        'bc_proven_structures': lambda *a, **k: [],
+        'bc_read_adjudication': lambda *a, **k: None,
+        'bc_key_decision': lambda *a, **k: {'state': 'need_adjudicator', 'certified_by': None, 'decided_key': None,
+                                            'two_reviewers': False, 'why': 'invalid input'},
+        'bc_r5b_pick': lambda *a, **k: None,
+        'bc_batch_status': lambda *a, **k: {'settled': [], 'disclosed': [], 'other': []},
+        'bc_review_record': lambda *a, **k: None,
+        'bc_amber_lines': lambda *a, **k: [],
+}.items():
+    _nf_guard(_n, _d)
+del _n, _d
+
+
 for _n, _d in {
         'bv_majority_band': lambda *a, **k: None,
         'band_majority': lambda *a, **k: (False, 'invalid input'),
@@ -27422,7 +28996,7 @@ for _n, _d in {
         'bv_reviewer_jobs': lambda *a, **k: [],
         'bv_split_reviewer_result': lambda *a, **k: {},
         'bv_recipe_verdict': lambda *a, **k: (True, 'DORMANT'),
-        'bv_apply': lambda e=None, *a, **k: {'entry': e if isinstance(e, dict) else {}, 'action': 'grade', 'roles': list(BV_ROLES_GRADE + BV_ROLES_SOLVE), 'band': None, 'why': 'invalid input'},
+        'bv_apply': lambda e=None, *a, **k: {'entry': e if isinstance(e, dict) else {}, 'action': 'grade', 'roles': list(BV_ROLES_GRADE + BV1_ROLES_SOLVE), 'band': None, 'why': 'invalid input'},
         'bv_batch_status': lambda *a, **k: {'settled': [], 'disclosed': [], 'key_chain': [], 'open': []},
         'br_obs': lambda *a, **k: None,
         'br_score': lambda *a, **k: None,

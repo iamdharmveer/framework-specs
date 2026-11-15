@@ -78,7 +78,6 @@
   "MockCreate": [
     "Framework_MockTestCreate.md",
     "Framework_MockTestOrchestrate.md",
-    "Framework_MockReview.md",
     "blueprint_core.py",
     "figural_core.py",
     "paper_pipeline.py",
@@ -93,7 +92,6 @@
   "TestCreate": [
     "Framework_MockTestCreate.md",
     "Framework_MockTestOrchestrate.md",
-    "Framework_MockReview.md",
     "blueprint_core.py",
     "figural_core.py",
     "paper_pipeline.py",

@@ -423,7 +423,7 @@ the trigger. The messages (closed set, sent exactly as written):
   continue — delivery confirmed
   FINAL ASSEMBLY
   REVIEW RETURNED   (followed by one line per part: <part_dir> <the reviewer's line>)
-  GRADE RETURNED    (followed by one line per job folder: <job_dir> <the reviewer's line>)
+  GRADE RETURNED    (followed by one line per job folder: <job_dir> <the reviewer's or adjudicator's line>)
   USER MESSAGE: <the user's message, verbatim>
 In every worker `continue — delivery confirmed` IS the user's continue trigger (MTC S4-6, S4-5
 CHECK 4) and `USER MESSAGE: <m>` is the user's message <m> for S4-6 (O3-1).
@@ -469,7 +469,7 @@ this prompt exactly as O3-7 says: for `continue — delivery confirmed` and `USE
 S4-12's batch recovery ends after step 4c (no resume summary, no STOP) and MTC S4-6 is applied to
 the message; `FINAL ASSEMBLY` enters S13 by S4-12's FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW
 rule; `REVIEW RETURNED` is O3-6 step 2 inside S4-12's REVIEW_RUNNING branch; `GRADE RETURNED` is S4-12's
-BATCH IN VERIFICATION branch (append its lines to returned.txt, run S4-7 STEP A2 again; O3-9). Prove (b) and
+BATCH IN VERIFICATION branch (append its lines — reviewer and `_adj` — to returned.txt, run S4-7 STEP A2 again; O3-9). Prove (b) and
 (c) as in O3-3; a worker continuing a batch in verification runs `--checkpoint make` right after (a)."""
 
 
@@ -499,14 +499,84 @@ def _routed_specs(trigger):
     return [f for f in (M.get("routes") or {}).get(trigger) or [] if f.endswith(".md")]
 
 
-def _plans(sec, specs, klass):
+def show_legacy_section(lid, spec_path):
+    """2026.11.17 (P2b): print the LEGACY text a read does not serve (SPEC_SECTIONS legacy_ranges[id]) from the
+    verified spec. 0 printed / 2 unknown id or stale map."""
+    sec = _load_json("SPEC_SECTIONS.json") or {}
+    name = os.path.basename(spec_path)
+    info = (sec.get("files") or {}).get(name) or {}
+    if not os.path.exists(spec_path) or sha256(spec_path) != info.get("sha256"):
+        print(f"FW-NS: SPEC_SECTIONS.json does not describe {name} as it is on disk — run python3 bootstrap.py first.")
+        return 2
+    ent = next((x for x in info.get("legacy_ranges") or [] if x.get("id") == lid), None)
+    if ent is None:
+        print(f"FW-NS: no legacy text {lid} in {name} (known: "
+              f"{[x.get('id') for x in info.get('legacy_ranges') or []]}).")
+        return 2
+    lines = open(spec_path, encoding="utf-8").read().split("\n")
+    for a, b in ent["ranges"]:
+        print(f"=== {lid} · {name} lines {a}-{b} (legacy — read only to interpret a paper begun on an earlier release) ===")
+        print("\n".join(lines[a - 1:b]))
+    return 0
+
+
+# 2026.11.17 (P2c) — triggers whose read drops the other steps' blocks of a shared spec (SPEC_SECTIONS trigger_ranges)
+# and (P2d) the paper-state features a Step 7 read may drop when the paper's own state proves them absent.
+FEATURE_TRIGGERS = ("MockCreate", "TestCreate")
+
+
+def _absent_features(trigger, progress_path):
+    """P2d: the features this paper PROVES it does not have, from its own saved state; () when anything is unknown
+    (no state yet, unreadable, no plan) — the default is to read. 'figures': batch_state has a batch_plan, its
+    figural_qs is an empty dict, it has no organic slot (l2_sources empty), and no question in the answer key beside
+    it carries a figure (figure_files / figure_dicts / figures), AND batch_state records figures_possible False (Create
+    S3-16: neither a figural blueprint nor an organic exam — a paper begun on an earlier release has no such record and
+    is served everything)."""
+    if trigger not in FEATURE_TRIGGERS or not progress_path or not os.path.exists(progress_path):
+        return ()
+    try:
+        bs = json.load(open(progress_path, encoding="utf-8"))
+    except (OSError, ValueError):
+        return ()
+    if not isinstance(bs, dict) or not bs.get("batch_plan"):
+        return ()
+    if bs.get("figures_possible") is not False:        # Create S3-16 records it (figural blueprint / organic exam)
+        return ()
+    if not (isinstance(bs.get("figural_qs"), dict) and not bs["figural_qs"]):
+        return ()
+    if bs.get("l2_sources"):
+        return ()
+    _bn = os.path.basename(progress_path)
+    _m = re.match(r"(.+)_M\d+_batch_state\.json$", _bn)
+    if _m:
+        fmp = os.path.join(os.path.dirname(progress_path) or ".", f"{_m.group(1)}_fig_manifest.json")
+        if os.path.exists(fmp):
+            try:
+                if (json.load(open(fmp, encoding="utf-8")).get("questions") or {}):
+                    return ()
+            except (OSError, ValueError, AttributeError):
+                return ()
+    kp = progress_path.replace("_batch_state.json", "_answer_key.json")
+    if kp != progress_path and os.path.exists(kp):
+        try:
+            cm = (json.load(open(kp, encoding="utf-8")).get("concept_map") or {})
+        except (OSError, ValueError, AttributeError):
+            return ()
+        if not isinstance(cm, dict) or any(isinstance(e, dict) and (e.get("figure_files") or e.get("figure_dicts")
+                                                                    or e.get("figures")) for e in cm.values()):
+            return ()
+    return ("figures",)
+
+
+def _plans(sec, specs, klass, trigger=None, drop_features=()):
     """{spec: [(start, end), ...]} read chunks for `klass`, or None for a spec the map
-    does not describe (absent, or its sha differs: a stale map is never chunked)."""
+    does not describe (absent, or its sha differs: a stale map is never chunked). 2026.11.17: trigger (P2c) and
+    drop_features (P2d) narrow the plan as spec_sections.read_plan describes; both default to nothing."""
     ss, out = _spec_sections(), {}
     for f in specs:
         try:
             # GAP-2026-11-13-STEP7-SPEED G-02: each entry is ONE read call — a list of segments packed within the caps
-            out[f] = ss.pack_chunks(f, ss.chunk_plan(sec, f, klass))
+            out[f] = ss.pack_chunks(f, ss.chunk_plan(sec, f, klass, '.', trigger, drop_features))
         except (KeyError, ValueError, OSError):
             out[f] = None
     return out
@@ -882,10 +952,15 @@ def _new_read(args, role):
             rs = (_merged(info.get("final_only_ranges") or [])
                   if klass == "NON-FINAL" and info.get("has_read_set") else [])
             # G-02: code run by bootstrap (ENGINE-RUN / RUN-BLOCK bodies) is never served, escalation included
-            rs = ss._minus(rs, list(info.get("engine_ranges") or []) + list(info.get("run_block_ranges") or []))
+            rs = ss._minus(rs, list(info.get("engine_ranges") or []) + list(info.get("run_block_ranges") or [])
+                           + [r for x in (info.get("legacy_ranges") or []) for r in x["ranges"]])
             plans[f] = ss.pack_chunks(f, ss.chunk_ranges(f, rs))
     else:
-        plans = _plans(sec, specs, klass)
+        _drop = _absent_features(args.trigger, args.progress)
+        if _drop:
+            print(f"READ: this paper has no {', '.join(_drop)} (its saved state proves it) — the "
+                  f"{', '.join(_drop)} sections are not served (P2d).")
+        plans = _plans(sec, specs, klass, args.trigger, _drop)
     stale = [f for f in specs if plans[f] is None]
     if stale:
         fail(f"SPEC_SECTIONS.json does not describe {stale} as they are on disk. Re-run "
@@ -2069,6 +2144,8 @@ def main():
     if args.checkpoint:
         sys.exit(checkpoint_cmd(args))
     if args.show_section:
+        if str(args.show_section).startswith('LEGACY:'):
+            sys.exit(show_legacy_section(args.show_section, args.spec or NS_SPEC_DEFAULT))
         _blk = ns_run_blocks(args.spec or NS_SPEC_DEFAULT).get(args.show_section)
         if _blk is None:
             print(f"FW-NS: no RUN-BLOCK {args.show_section}.")
@@ -2457,6 +2534,45 @@ def self_test():
     rc, out = run(fx, "--trigger", "TestCreate", "--read", "1", "--escalate")
     check("escalation from a FINAL session reads nothing",
           rc == 0 and "ESCALATION: nothing to read" in out)
+
+    # 2026.11.17 (P2d): a feature section is dropped only when the paper's own state PROVES the feature absent
+    _af = os.path.join(tmp, "af")
+    os.makedirs(_af)
+    _afb = os.path.join(_af, "EX_M1_batch_state.json")
+    _afk = os.path.join(_af, "EX_M1_answer_key.json")
+
+    def _afw(bs_, cm_=None, fm_=None):
+        json.dump(bs_, open(_afb, "w", encoding="utf-8"))
+        if cm_ is None:
+            if os.path.exists(_afk):
+                os.remove(_afk)
+        else:
+            json.dump({"concept_map": cm_}, open(_afk, "w", encoding="utf-8"))
+        _fmp = os.path.join(_af, "EX_fig_manifest.json")
+        if fm_ is None:
+            if os.path.exists(_fmp):
+                os.remove(_fmp)
+        else:
+            json.dump(fm_, open(_fmp, "w", encoding="utf-8"))
+        return _absent_features("TestCreate", _afb)
+    _plan1 = [{"batch_id": 1}]
+    _nf = {"batch_plan": _plan1, "figural_qs": {}, "figures_possible": False}
+    check("P2d figures dropped only on proof (no plan / unknown / any figure trace -> served)",
+          _afw(dict(_nf, l2_sources={}), {"1": {"stem_text": "x"}}) == ("figures",)
+          and _afw(dict(_nf)) == ("figures",)
+          and _afw({"batch_plan": _plan1, "figural_qs": {}}) == ()
+          and _afw(dict(_nf, figures_possible=True)) == ()
+          and _afw({"figural_qs": {}, "figures_possible": False}) == ()
+          and _afw({"batch_plan": _plan1, "figures_possible": False}) == ()
+          and _afw(dict(_nf, figural_qs={"3": {}})) == ()
+          and _afw(dict(_nf, l2_sources={"4": "x"})) == ()
+          and _afw(dict(_nf), {"2": {"figure_files": ["a.png"]}}) == ()
+          and _afw(dict(_nf), None, {"questions": {"9": {}}}) == ()
+          and _afw(dict(_nf), None, {"questions": {}}) == ("figures",)
+          and _absent_features("PYQScan", _afb) == () and _absent_features("TestCreate", None) == ()
+          and _absent_features("TestCreate", os.path.join(_af, "missing.json")) == ())
+    open(_afb, "w").write("{not json")
+    check("P2d an unreadable state serves everything", _absent_features("MockCreate", _afb) == ())
 
     # orchestrator role: only the orchestrator spec, whole
     outs, rc, _ = read_all("--role", "orchestrator")

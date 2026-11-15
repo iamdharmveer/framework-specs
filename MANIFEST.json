@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.11.15",
+  "framework_version": "2026.11.17",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -81,7 +81,6 @@
     "MockCreate": [
       "Framework_MockTestCreate.md",
       "Framework_MockTestOrchestrate.md",
-      "Framework_MockReview.md",
       "blueprint_core.py",
       "figural_core.py",
       "paper_pipeline.py",
@@ -96,7 +95,6 @@
     "TestCreate": [
       "Framework_MockTestCreate.md",
       "Framework_MockTestOrchestrate.md",
-      "Framework_MockReview.md",
       "blueprint_core.py",
       "figural_core.py",
       "paper_pipeline.py",
@@ -221,11 +219,11 @@
       "bytes": 450866
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "a502fd3b743ac74136a6291edea37703faf2f2160b80164c7cef473b8563fc4c",
-      "version_header": "# Framework_DeliveryFooter v1.50.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "e44b13e0c3baaa59ed0607848616ab2ab14560da41210a83393acb8ee7773c34",
+      "version_header": "# Framework_DeliveryFooter v1.51.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 1389,
-      "bytes": 84813
+      "lines": 1417,
+      "bytes": 87519
     },
     "Framework_MockDeliver.md": {
       "sha256": "ebfa0c50967e0dec1a5221d7c42253f95162a026c0f2bfd8260612bc2d4ae13d",
@@ -235,11 +233,11 @@
       "bytes": 108451
     },
     "Framework_MockReview.md": {
-      "sha256": "5715b7d2cc33eb835cec23c6b5eecbb2ef0ba6c4fcf28b98328c1aa6a05786f6",
-      "version_header": "# Framework_MockReview v2.1.0 \u2014 Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G",
-      "end_sentinel": "# END OF Framework_MockReview v2.1.0",
-      "lines": 297,
-      "bytes": 20553
+      "sha256": "b1ade2e0e3024c403d6877907f5f8bd84114daf3267f30912635216b8a5bcc8c",
+      "version_header": "# Framework_MockReview v2.2.0 \u2014 Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G",
+      "end_sentinel": "# END OF Framework_MockReview v2.2.0",
+      "lines": 298,
+      "bytes": 20653
     },
     "Framework_MockTestAnalyse.md": {
       "sha256": "9b7cfa77bf9b782de3e52126726c63f96f18d8e39d773a3ea7dc1809b0a394d8",
@@ -249,11 +247,11 @@
       "bytes": 315631
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "6cb2ee70ef7c610f84ea7487520da2324499aa82f61f6889c9a061bb7e79857a",
-      "version_header": "# Framework_MockTestCreate v6.5",
+      "sha256": "2b04e1cf2a1af181e9dee90fb93b9b96edd7bd97f2db53bfaba12ee8b645fa8b",
+      "version_header": "# Framework_MockTestCreate v7.1",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 14559,
-      "bytes": 999923
+      "lines": 14952,
+      "bytes": 1038146
     },
     "Framework_MockTestExplain.md": {
       "sha256": "d823609d7beadea8ed3a263f71d25c5daff8000918b1b61fac6937a2804693cb",
@@ -263,11 +261,11 @@
       "bytes": 325739
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "ba50ea8ec38287e54e888842d53762c8e2655180f3effa99e2196ef0b1c29b90",
-      "version_header": "# Framework_MockTestOrchestrate v1.7.0",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.7.0",
-      "lines": 548,
-      "bytes": 45265
+      "sha256": "e2898c7c7dab5690c2b3bae096c77a3b5c752662aacf15bf4fe8fe24f8b096ea",
+      "version_header": "# Framework_MockTestOrchestrate v1.9.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.9.0",
+      "lines": 564,
+      "bytes": 46842
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -410,11 +408,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "67f240f6f4539d2371e0dcb823aa16c1e4ba45b5dd0aa884a992ee4e731c3c7a",
+      "sha256": "9cba62779704eb5697708d3ad70b2e4ab1e9dd40f28cc538c41bdb1528c74206",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 27448,
-      "bytes": 1642686
+      "lines": 29022,
+      "bytes": 1749112
     },
     "paper_pipeline.py": {
       "sha256": "25f74f92563048ba49414f241135882a42de9e85b9b185cb58c520a2e22b9fb4",
@@ -424,11 +422,11 @@
       "bytes": 177322
     },
     "final_assembly.py": {
-      "sha256": "cbc5b9a0ade033b84f9fbd8dd8f8c5bdef730cec971173e4dc50bdcb4b2b68f9",
+      "sha256": "1e1c1f7146708ca7f40c1c9140b14402883185ce65ce5657ad0e25a9c20d8c60",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 3194,
-      "bytes": 217368
+      "lines": 3949,
+      "bytes": 267898
     },
     "corpus_io.py": {
       "sha256": "710dcbc105e5632bfe36d28f72ea71494eafd95c5fa5bd163ce405369e04c9d7",
@@ -473,11 +471,11 @@
       "bytes": 41224
     },
     "audit_canonical.py": {
-      "sha256": "7d20ca2a82f334cde42c499876410d957f92fa247ee7070413d119a7fe9ffc79",
+      "sha256": "09842b6ad8b1c6017b9073e392c494488f053527d55a6dd5eaf5f75cab7ab121",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 14088,
-      "bytes": 851565
+      "lines": 14259,
+      "bytes": 864825
     },
     "spec_source.py": {
       "sha256": "b33e1f70d0bc15befe5b04814edde9cae4fea681bcaaac30378f01f8c8e7efc2",
@@ -571,25 +569,25 @@
       "bytes": 92076
     },
     "handshake_audit.py": {
-      "sha256": "9e618e25dd62b50efa7020ea9c2aff288e8232debd29a63d27a513bc10797ee8",
+      "sha256": "b37838c0ab67ece40303829e96d005b09f42cb1da711e46018845b2c598f5fc1",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(__doc__)",
-      "lines": 1522,
-      "bytes": 130822
+      "lines": 1901,
+      "bytes": 160797
     },
     "LAW_REGISTRY.json": {
-      "sha256": "ed4c64ac67ee9f31480a4bfadfaff52c497b1097ab54bb1b7060d515ead4454d",
+      "sha256": "dd1d8800276b4f0dfbba30451dd9ac5649a6afe795f245280926de86910a964b",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 1110,
-      "bytes": 93762
+      "lines": 1269,
+      "bytes": 110524
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "fd3d8ed08ca8a817bfa6c0d6a8226098008b3c169a6a4cb5b7e3459fc778fef0",
+      "sha256": "57941d2d3ad092715710d7faa188b7659e4762e68d0755d2f46f1d068603a433",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 9077,
-      "bytes": 251326
+      "lines": 9408,
+      "bytes": 258230
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -606,25 +604,25 @@
       "bytes": 6600
     },
     "STEP_CONTRACTS.json": {
-      "sha256": "153d3938ca1b151394b6a8adef926e6ed5d78a68c4f7094a5ec14ca77854a5f2",
+      "sha256": "89f5802390c697052a98ef077a60590dacf53b9cd41e058b8190d44765da1e31",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 127,
-      "bytes": 8172
+      "bytes": 9060
     },
     "SESSION_BUDGET.json": {
-      "sha256": "687b3d72b42a724c31897f6c65b7fccbcc9c7789865d9d1c5a0e81d3ccef6764",
+      "sha256": "f65889539a56d9245eb88698c3f1c00e817227b7504eefb014343f60c1059a41",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 31,
-      "bytes": 3280
+      "bytes": 3660
     },
     "SPEC_HISTORY.md": {
-      "sha256": "3560032fb4ef84839fb875bd65fca7052aec780f8878c51dc67b99b842fdacfe",
+      "sha256": "902498048635641ab8c1de2a11865018d22c119376a46bc8dcfa0962b4da9acd",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "```",
-      "lines": 8091,
-      "bytes": 613282
+      "lines": 8164,
+      "bytes": 618732
     },
     "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": {
       "sha256": "49f54bb81e320e2ef216bc78f2e28accd7d48182144ab65b565f82bda6b845bf",

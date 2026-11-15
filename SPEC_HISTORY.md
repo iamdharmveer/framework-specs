@@ -463,6 +463,14 @@ Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (E
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
+Entry v1.50.0 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v1.51.0 supersedes).
+
+```
+# v1.50.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with MockTestCreate v6.5, MockTestOrchestrate v1.7.0):
+#   §LADDER-NF's carry line is retired (every question is settled in its own batch — Create BV-9); it names only an
+#   INFRA-CARRY (Create BV-11) and, over a time target, one FRAMEWORK NOTE line (Orchestrate O2-11). Entry v1.49.0 moved to SPEC_HISTORY.md.
+```
+
 Entry v1.49.0 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v1.50.0 supersedes).
 
 ```
@@ -1174,6 +1182,16 @@ Entry v1.27.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-C
 Entries v1.0.0–v2.0.0 moved at framework release 2026.11.06 (EC-P42; v2.0.1 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_MockReview.md.
+
+Entry v2.1.0 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v2.2.0 supersedes).
+
+```
+# v2.1.0 — 2026-11-08 — GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER (D1 (b), D4; paired with MockTestCreate
+#   v5.94 S13-2G phase 3 DL1). The reviewer's band is BINDING when it cites an exemplar (Create takes
+#   the LOWEST independent band). NEW optional key `concepts_used`: concepts the reviewer's OWN solution
+#   used, SELECTED from the part's `concept_vocabulary` (organic papers; [] otherwise). Create scores
+#   the ruler on the lower of the author's and reviewer's lists. Isolation and checklist unchanged.
+```
 
 ```
 # v2.0.0 — 2026-11-04 — GAP-2026-11-04-STEP7-CONTRACT-RESTORE (owner decisions D0 — OD-5
@@ -2189,6 +2207,39 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v7.0 moved at framework release 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY; v7.1 supersedes).
+
+```
+# v7.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with blueprint_core v2.6, final_assembly v1.22, bootstrap,
+#   audit_canonical v2.42, Framework_MockTestOrchestrate v1.8.0, Framework_DeliveryFooter v1.51.0, Framework_MockReview
+#   v2.2.0; owner rulings OD-2026-11-14 R1–R13). Measured on release 2026.11.15 (CSIR NET Chemical Sciences, TestCreate
+#   subject test, 40 questions): Final Assembly over 60 minutes and still running — its repair chains could never pass an
+#   attempt (nothing there regraded or re-voted a changed question), the reserve was never filled, the refill worker
+#   could not start, and the chain's designed end was a NO-MODEL stop; 12 keys were disputed, 10 of them on drawn-stereo
+#   product questions. NEW: every question is SETTLED inside its own batch (S0-BC LAW-BC-1..9): three reviewers count as
+#   solvers, a fresh adjudicator decides any disagreement (re-key allowed), solvers see each structure figure's proven
+#   SMILES, one bounded ladder (rung 1 FIX -> 2 REPLACE -> 3 FALLBACK -> R5b / terminal) with a round budget (R11), the
+#   gates run before the reviewers (STEP B before STEP A2), the batch binds the independent-review record (STEP A3), and
+#   Final Assembly is deterministic: a byte copy, the sweep, measured disclosures, the commit and the two files — it
+#   starts no sub-agent. S13-1B / S13-2G / S13-2L slot chains / S13-2R are LEGACY (migration only). Entry v6.5 moved to
+#   SPEC_HISTORY.md.
+```
+
+Entry v6.5 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v7.0 supersedes).
+
+```
+# v6.5 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with blueprint_core v2.5, final_assembly v1.21, bootstrap,
+#   audit_canonical, Framework_MockTestOrchestrate v1.7.0). Measured on release 2026.11.14 (CSIR NET Chemical Sciences,
+#   TestCreate subject test, 40 questions): batches 20-38 min and Final Assembly over 60 min with 7 workers — each fresh
+#   worker re-read ~385,000 tokens in 84 calls, questions left unsettled in a batch were measured again at Final
+#   Assembly (up to 5 counting rounds), the round-2 review re-solved the whole paper, every reviewer solved the whole
+#   batch, a session start rewrote the batch state, and a formula-only spectroscopy item could never pass rule (c).
+#   NEW: every question is settled INSIDE ITS OWN BATCH (S0-BV BV-9 rewritten, BV-13 retired, BV-14 / BV-11 edited);
+#   the code a worker runs verbatim is a RUN-BLOCK, run by ID and not read (S1-0R); a session start on a paper in
+#   progress keeps its state (S3-13 / S3-16); S13-1B is a check; S13-2G round 2 is a delta round. Entry v6.4 moved to
+#   SPEC_HISTORY.md.
+```
 
 Entry v6.4 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v6.5 supersedes).
 
@@ -8013,6 +8064,28 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.8.0 moved at framework release 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY; v1.9.0 supersedes).
+
+```
+# v1.8.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with Framework_MockTestCreate v7.0, blueprint_core v2.6,
+#   final_assembly v1.22, bootstrap; OD-2026-11-14 R1–R13): GRADE_REQUEST also carries ADJUDICATOR folders (`<q>_adj`,
+#   a model different from the worker; reply ADJUDICATE DONE / FAILED — O2-3, O3-9); every question is settled or
+#   disclosed inside its batch (the ladder, re-key, R5b) — INFRA-CARRY is gone: a role that returns nothing 3 times is
+#   NO-MODEL with state saved (LAW-BC-9); Final Assembly is deterministic and goes to the last batch's worker — no
+#   REVIEW_REQUEST and no GRADE_REQUEST after the last batch (O3-5); O3-6 and O-REFILL are legacy. Entry v1.7.0 moved to
+#   SPEC_HISTORY.md.
+```
+
+Entry v1.7.0 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v1.8.0 supersedes).
+
+```
+# v1.7.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with Framework_MockTestCreate v6.5, blueprint_core v2.5,
+#   final_assembly v1.21, bootstrap): every message goes to the CURRENT worker while it has the room (O2-5: Final Assembly
+#   and a review hand-back no longer force a fresh worker); a WARM STANDBY reads while the user reads a batch (O2-10);
+#   every question is settled inside its own batch (O3-9; reviewer jobs split, a re-ask on another model); a quota error
+#   rules a model out at once (O2-3); timing is logged (O2-11). Entry v1.6.0 moved to SPEC_HISTORY.md.
+```
 
 Entry v1.6.0 moved at framework release 2026.11.15 (GAP-2026-11-13-STEP7-SPEED; v1.7.0 supersedes).
 

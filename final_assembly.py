@@ -13,11 +13,27 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
-    v1.22 — GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK. bv_batch_step(final=True) counts its bc.BV_MAX_ROUNDS round
-    budget PER QUESTION TEXT (batch_state['bv']['fq'][q] = {'sha', 'rounds'}; sha over bc.BV_GRADER_FIELDS), not one
-    counter for all of Final Assembly. A slot S13-2R replaces after S13-1B's rounds are spent is now measured (fresh
-    grades + blind key votes) instead of carried unmeasured — which sent the slot chain round forever (live:
-    SSC_CGL_TIER1 TOPIC Statistics & DI P1, Q32/Q34/Q36). A text already measured before v1.22 keeps the global count.
+    PRODUCTION HOTFIXES v1.22 / v1.22.1 (eaf40a9, GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK — a per-text round budget at
+    S13-1B) are superseded by S0-BC: S13-1B / S13-2L chains / S13-2R never run on the normal path, and a paper stranded
+    by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
+    bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
+
+    v1.23 — GAP-2026-11-14-SPEED-AND-FIDELITY (release 2026.11.17; owner go-ahead 2026-11-14). bv_batch_step sizes
+    each round's reviewer jobs so they and the round's adjudicator jobs fit in ONE wave (P1, bc.bv_round_job_caps);
+    before a text's first review round the author's own counts must give the slot band (P3, bc.bc_selfcount — a miss is
+    sent back with no job written, at most bc.BC_SELFCOUNT_TRIES times per rung); difficulty_state.author_offset is
+    written every step (P4, bc.bc_author_offsets). NEW bc_fallback_clear_figure (C3): the rung-3 TEXT fallback loses
+    its fig_manifest record at REWRITE (kept; NEW bc_fallback_restore_figure puts it back when R5b restores an earlier
+    figure version; an R10 family-engine item keeps its figure); bc_bind_batch refuses a fallback that carries a picture
+    and clears a leftover record. C4: a step that asks for text work (rewrite / permute / restore / self-count) writes no
+    job — the next step issues the whole round together (before 1.23 a rewrite asked beside JOBS OUT could be skipped).
+
+    v1.22 — GAP-2026-11-14-BATCH-COMPLETE (release 2026.11.16; OD-2026-11-14 R1–R13). bv_batch_step drives
+    blueprint_core.bc_apply: every question of the batch is settled or disclosed IN its batch — adjudicator jobs
+    ('<q>_adj' folders), re-key / option swap / R5b restore actions, a round budget (R11), NO-MODEL with saved state
+    instead of INFRA-CARRY (LAW-BC-9); earlier unsettled questions (migration, bc_reopen) join the batch; final=True is the
+    settlement batch 'S' of a migrating paper. NEW bc_bind_batch (STEP A3), assemble_final_docx + bc_check_bound (S13-1),
+    bc_reopen, bc_figure_intrinsic. QINDEX_OP_FIELDS carry bc_fallback.
 
     v1.21 — GAP-2026-11-13-STEP7-SPEED (release 2026.11.15). bv_batch_step settles every question INSIDE ITS OWN BATCH
     (defer=False: a rewrite, an edge re-count or a missing role gets its next round at once; the only carry is
@@ -424,7 +440,9 @@ def _entry_number(e):
 QINDEX_OP_FIELDS = ('organic', 'organic_reason', 'chain', 'decisions_author', 'decisions_grader', 'grades',
                     'key_votes', 'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
                     # the C2 item fields (S0-OP-5 CANDIDATE RECORD) — the series registry is seeded from them
-                    'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template')
+                    'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template',
+                    # v1.22 (GAP-2026-11-14-BATCH-COMPLETE): the rung-3 fallback record (A-AXIS1 reads it)
+                    'bc_fallback')
 # v1.17 (GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY): the per-item non-organic fidelity records
 QINDEX_NF_FIELDS = ('subject', 'part', 'mip', 'given_in_stem', 'measured_axis2', 'text_fingerprint', 'stem_text',
                     'option_texts', 'manifest_hash')
@@ -1501,30 +1519,87 @@ def bv_budget_value(key, default):
     return default if v is None else v
 
 
-BV_IN_BATCH_ASKS = 3     # v1.21: a reviewer role is asked at most 3 times in its batch (the 3rd on a switched model)
+BV_IN_BATCH_ASKS = 3     # v1.21: a reviewer role is asked at most 3 times in its batch (the 3rd on a switched model);
+                         # v1.22 = bc.BC_ROLE_ASKS (LAW-BC-9) — kept as a name for the 2026.11.15 callers
+BC_INTRINSIC_RENDERERS = ('glyph_path',)   # v1.22 R10: a figure drawn by these renderers IS the question (no text form)
+
+
+def bc_figure_intrinsic(batch_state, q):
+    """v1.22 (R10) — (intrinsic, family_engine) for question q: True when its recorded figure type is drawn by a
+    renderer in BC_INTRINSIC_RENDERERS (figure_types registry — reasoning / geometry glyph families: the figure IS the
+    question, so no rung-3 text fallback exists); family_engine when bc.BC_FAMILY_ANSWER_ENGINES names an engine for
+    that family. Never raises (no record -> (False, False))."""
+    try:
+        import figure_types as _ft
+        ot = (((batch_state or {}).get('figural_qs') or {}).get(str(q)) or {}).get('object_type')
+        if not ot:
+            return False, False
+        row = _ft.lookup(ot) or {}
+        intr = str(row.get('renderer') or '') in BC_INTRINSIC_RENDERERS
+        fam = row.get('family') or row.get('type')
+        return bool(intr), bool(intr and (fam in bc.BC_FAMILY_ANSWER_ENGINES or row.get('type') in bc.BC_FAMILY_ANSWER_ENGINES))
+    except Exception:                                   # noqa: BLE001
+        return False, False
+
+
+def _bc_entry_sha(entry):
+    """The question's CURRENT text binding exactly as bc.bc_apply computes it (op_content_sha + the render sha of every
+    recorded figure)."""
+    e = entry if isinstance(entry, dict) else {}
+    sha = bc.op_content_sha(e)
+    _fdl = [(f.get('file'), f.get('render_sha')) for f in (e.get('figure_dicts') or []) if isinstance(f, dict)]
+    return bc._bv_sha([sha, _fdl]) if _fdl else sha
+
+
+def _bc_render_shas(entry):
+    import os as _o
+    e = dict(entry) if isinstance(entry, dict) else {}
+    if isinstance(e.get('figure_dicts'), list):
+        e['figure_dicts'] = [dict(_fd, render_sha=(hashlib.sha256(open(str(_fd['file']), 'rb').read()).hexdigest()
+                                                   if _fd.get('file') and _o.path.exists(str(_fd['file'])) else None))
+                             if isinstance(_fd, dict) else _fd for _fd in e['figure_dicts']]
+    return e
+
+
+def bc_reopen(exam, n, qs, reason, home='/home/claude'):
+    """v1.22 (GAP §6.6 step 2, P2) — the LAST batch's whole-paper sweep named a question of an EARLIER batch: re-open it
+    inside the current batch. It joins this batch's work and climbs one rung there with `reason` as its brief (a gate
+    finding), with reviewers — never repaired at Final Assembly. Returns the re-opened questions. Never raises."""
+    import json, os
+    try:
+        p = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+        bs = json.load(open(p, encoding='utf-8'))
+        st = bs.setdefault('bv', {})
+        ro = st.setdefault('reopen', {})
+        out = []
+        for q in [str(x) for x in (qs or [])]:
+            ro.setdefault(q, [])
+            if str(reason) not in ro[q]:
+                ro[q].append(str(reason))
+            out.append(q)
+        json.dump(bs, open(p, 'w', encoding='utf-8'), indent=2)
+        return out
+    except (OSError, ValueError):
+        return []
 
 
 def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True,
-                  final=False, defer=False):
-    """THE in-batch verification step of Create S4-7 STEP A2 (S0-BV), for the CURRENT batch of paper <exam> M<n>.
-    Idempotent and resume-safe: (1) collects every outstanding fresh job whose sub-agent returned REVIEW DONE (v1.18:
-    one reviewer job per (round, k) solves, grades and reads the figures of every question of the batch; a per-role
-    job of release 2026.11.11 — GRADE / SOLVE / VISION DONE — is still collected) (lines in
-    <home>/<exam>_M<n>_bv/returned.txt: '<job_dir> <reply line>'); (2) runs the within-paper checks
-    (bc.intra_paper_duplicates / bc.key_leak_check over every question up to this batch — a hit on a question of this batch
-    is its one rewrite); (3) decides every question of the batch (bc.bv_apply) and keeps the verification state in
-    batch_state['bv']['items'] (write_q_to_sidecar replaces a sidecar entry — the one-rewrite limit survives it);
-    (4) writes the fresh jobs still needed (job folder = packet.json + JOB_BRIEF.txt). Returns {'status':
-    'jobs_out'|'rewrite'|'done', 'jobs': [dirs], 'rewrite': [q], 'settled', 'disclosed', 'key_chain', 'open', 'lines'}
-    and prints the lines (echo). v1.19: never raises for a missing reviewer — a question still without fresh
-    results after bc.BV_MAX_ROUNDS job rounds is carried unlabelled to S13-2L (batch_state['bv']['unmeasured']).
-    v1.21 (GAP-2026-11-13-STEP7-SPEED G-06 / G-11): EVERY question is settled INSIDE ITS OWN BATCH — a rewrite, an
-    edge re-count or a missing role gets its next round at once, in the same batch, with only those questions in the
-    jobs (defer=True, the 2026.11.14 carry, is kept only for a caller that asks for it). The ONLY carry left is
-    INFRA-CARRY: a question with no fresh result after bc.BV_MAX_ROUNDS rounds rides in the next batch's first round
-    (disclosed; target 0). Reviewer k's questions are split into jobs of SESSION_BUDGET.json review_qs_per_job units
-    (bc.bv_job_chunks; a linked group is never split); a job that re-asks a role that returned nothing gets a folder
-    name ending in '_switch' (Orchestrate O3-9: a different model)."""
+                  final=False, defer=False, terminal=None):
+    """THE in-batch step of Create S4-7 STEP A2 (S0-BC, GAP-2026-11-14-BATCH-COMPLETE), for the CURRENT batch of paper
+    <exam> M<n>. v1.22: every question of the batch is SETTLED or DISCLOSED here (LAW-BC-1) through one bounded ladder
+    (bc.bc_apply): three reviewers count as solvers, a disputed answer goes to ONE fresh adjudicator (job folder
+    '<q>_adj'), a re-key keeps the question, rung 1 FIX -> rung 2 REPLACE -> rung 3 FALLBACK -> R5b / the terminal.
+    Idempotent and resume-safe: (1) collects every outstanding job whose sub-agent returned REVIEW DONE / ADJUDICATE
+    DONE (lines in <home>/<exam>_M<n>_bv/returned.txt: '<job_dir> <reply line>'); (2) runs the within-paper checks
+    (bc.intra_paper_duplicates / bc.key_leak_check over every question up to this batch); (3) decides every question
+    (bc.bc_apply) and keeps the state in batch_state['bv']['items']; (4) writes the jobs still needed (reviewer jobs
+    split per SESSION_BUDGET.json review_qs_per_job; one adjudicator job per disputed question; a re-ask goes to a
+    '_switch' folder — another model). A question of an EARLIER batch that is not settled (a paper begun on an earlier
+    release — key_chain, unlabelled, carried — or one bc_reopen named) joins this batch's work. Nothing is carried:
+    INFRA-CARRY, unmeasured and key_chain do not exist after DONE. final=True: the SETTLEMENT BATCH 'S' of a migrating
+    paper (S4-12) — every question of the paper not yet settled. Returns {'status': 'jobs_out' | 'rewrite' | 'no_model'
+    | 'stop' | 'done', 'jobs', 'rewrite', 'permute', 'restore', 'settled', 'disclosed', 'no_model', 'key_chain' ([]),
+    'open' ([]), 'pending' ([]), 'lines'} and prints the lines (echo)."""
     import json, os, shutil
     _lines = []
 
@@ -1537,42 +1612,57 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _bs_bv = json.load(open(_bsp_bv, encoding='utf-8'))
     _kd_bv = json.load(open(_kp_bv, encoding='utf-8'))
     _cm_bv = _kd_bv.setdefault('concept_map', {})
-    _ans_bv = _kd_bv.get('answers') or {}
+    _ans_bv = _kd_bv.setdefault('answers', {})
     _labs_bv = list(_bs_bv.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
-    # GAP-2026-11-14-FINAL-COUNT-INDEX: at Final Assembly S4-8a has already moved current_batch PAST the plan, so the
-    # batch row is read only for a batch round (final=True builds its own range below — it used to IndexError here)
-    if final:
-        _bp_bv, _qs_bv = {}, []
-    else:
-        _bp_bv = (_bs_bv.get('batch_plan') or [])[int(_bs_bv.get('current_batch', 1)) - 1]
-        _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
-    # v1.20 (2026.11.14, S0-BV BV-13): a question rewritten — or held for its edge re-count — in an earlier batch is
-    # CARRIED: it is measured by THIS batch's reviewers (no extra round in its own batch). FINAL (Create S13-1B): every
-    # question not yet settled, in one round of the same reviewers, before the review — nothing is deferred there.
-    _carry_bv = [str(q) for q in (_bs_bv.get('bv_carry') or []) if str(q) in _cm_bv]
+    _term = terminal if terminal in bc.BC_TERMINALS else bc.BC_TERMINAL
+    _st_bv = _bs_bv.setdefault('bv', {})
+    _items0 = _st_bv.get('items') or {}
+
+    def _open_q(q):
+        """A question that still needs work: not settled / disclosed under BC1 on its current text; under BV1 (an
+        earlier release) a question in key_chain / unlabelled / open / a pending attempt, or with no unanimous key."""
+        e = _cm_bv.get(q) if isinstance(_cm_bv.get(q), dict) else None
+        if e is None:
+            return False
+        it0 = _items0.get(q) if isinstance(_items0.get(q), dict) else {}
+        if it0.get('rule') == bc.BC_RULE:
+            return not (it0.get('state') in bc.BC_STATES and e.get('bv_state') in bc.BC_STATES
+                        and it0.get('content_sha') == _bc_entry_sha(_bc_render_shas(e)))
+        if e.get('bv_state') in ('key_chain', 'unlabelled', 'open'):
+            return True
+        kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
+        if kv.get('content_sha') and kv.get('content_sha') != bc.op_content_sha(e):
+            return True                                 # rewritten after its key votes (a legacy chain): measured again
+        if it0:
+            return it0.get('state') != 'settled'
+        return kv.get('unanimous') is not True
+    _plan = _bs_bv.get('batch_plan') or []
     if final:
         _qall = sorted((q for q in _cm_bv if str(q).isdigit()), key=int)
-        _bp_bv = {'batch_id': 'final', 'q_start': int(_qall[0]) if _qall else 1, 'q_end': int(_qall[-1]) if _qall else 0}
-        _items_f = (_bs_bv.get('bv') or {}).get('items') or {}
-        _qs_bv = [q for q in _qall if q in set(_carry_bv)
-                  or (isinstance(_items_f.get(q), dict) and _items_f[q].get('state') not in ('settled', 'key_chain'))
-                  or (not isinstance(_items_f.get(q), dict) and (_bs_bv.get('difficulty_plan_target') or {}).get(q) is not None
-                      and not bc.verify_difficulty_label(_cm_bv.get(q), list(_bs_bv.get('difficulty_labels') or
-                                                                              ['Easy', 'Medium', 'Hard']), strict=True)[0])]
-        defer = False
+        _bp_bv = {'batch_id': 'S', 'q_start': int(_qall[0]) if _qall else 1, 'q_end': int(_qall[-1]) if _qall else 0}
+        _qs_bv = [q for q in _qall if _open_q(q)]
     else:
-        _qs_bv = _qs_bv + [q for q in _carry_bv if q not in _qs_bv]
+        _bp_bv = _plan[int(_bs_bv.get('current_batch', 1)) - 1]
+        _qs_bv = [str(q) for q in range(int(_bp_bv['q_start']), int(_bp_bv['q_end']) + 1) if str(q) in _cm_bv]
+        # migration (S4-12) and the last batch's re-open rule (P2): an earlier question that is not settled joins this
+        # batch's work; it is named in the batch report
+        _early = [q for q in sorted((q for q in _cm_bv if str(q).isdigit() and int(q) < int(_bp_bv['q_start'])), key=int)
+                  if q in (_st_bv.get('reopen') or {}) or q in set(str(x) for x in (_bs_bv.get('bv_carry') or []))
+                  or (q in _items0 and _open_q(q)) or ((_cm_bv.get(q) or {}).get('bv_state') in ('key_chain', 'unlabelled', 'open'))]
+        _qs_bv = _early + [q for q in _qs_bv if q not in _early]
     _tgt_bv = {str(k): v for k, v in (_bs_bv.get('difficulty_plan_target') or _bs_bv.get('difficulty_plan') or {}).items()}
     _ru_bv = ruler or {}
     _man_bv = manifest or {}
     _bank_bv = bank or {}
     _root_bv = os.path.join(home, f'{exam}_M{n}_bv')
     os.makedirs(_root_bv, exist_ok=True)
-    _st_bv = _bs_bv.setdefault('bv', {})
     if _st_bv.get('batch') != _bp_bv['batch_id']:
-        _keep_items = dict(_st_bv.get('items') or {})          # every earlier batch's verification record
+        _keep_items = dict(_st_bv.get('items') or {})          # every earlier batch's record
+        _keep_reopen = dict(_st_bv.get('reopen') or {})
         _st_bv.clear()
-        _st_bv.update({'batch': _bp_bv['batch_id'], 'round': 0, 'jobs': [], 'status': 'open', 'items': _keep_items})
+        _st_bv.update({'batch': _bp_bv['batch_id'], 'round': 0, 'jobs': [], 'status': 'open', 'items': _keep_items,
+                       'rule': bc.BC_RULE, 'reopen': _keep_reopen})
+    _st_bv['rule'] = bc.BC_RULE
     _ret_bv = {}
     if os.path.exists(os.path.join(_root_bv, 'returned.txt')):
         for _ln in open(os.path.join(_root_bv, 'returned.txt'), encoding='utf-8'):
@@ -1583,25 +1673,35 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         import figural_vision as _fv_bv
         import corpus_io as _ci_bv
         _vcmp_bv, _vprf_bv = _fv_bv.readback_compare, _ci_bv.organic_figure_proof
-    except Exception:                                   # noqa: BLE001 — dormant: S13-2L's figure-proof chain covers it
+    except Exception:                                   # noqa: BLE001 — dormant: G-FIGRECORD / S3-17c cover it
         _vcmp_bv, _vprf_bv = None, None
     # 1. COLLECT every outstanding job whose fresh sub-agent returned DONE
     _res_bv = {}
     for _j in _st_bv.get('jobs') or []:
         _rp = os.path.join(_j['dir'], 'result.json')
         _line = str(_ret_bv.get(_j['dir'], ''))
-        if str(_j.get('role', '')).startswith('reviewer_'):
-            # v1.18 (2026.11.12): ONE reviewer job per (round, k) for every question of the batch
+        _role_j = str(_j.get('role', ''))
+        if _role_j.startswith('reviewer_'):
             if _line.startswith('REVIEW DONE') and os.path.exists(_rp):
                 try:
                     _rv = json.load(open(_rp, encoding='utf-8'))
                 except (OSError, ValueError):
                     _rv = None
-                _k = int(str(_j['role']).rsplit('_', 1)[-1])
+                _k = int(_role_j.rsplit('_', 1)[-1])
                 _split = bc.bv_split_reviewer_result(_k, _rv, _labs_bv, _j.get('qs'), _j['sha256'],
                                                      {q: (_cm_bv.get(q) or {}).get('figure_dicts') for q in (_j.get('qs') or [])})
                 for _q2, _rr in _split.items():
                     _res_bv.setdefault(_q2, {}).update(_rr)
+            continue
+        if _role_j == 'adjudicator':
+            if _line.startswith('ADJUDICATE DONE') and os.path.exists(_rp):
+                try:
+                    _ra = json.load(open(_rp, encoding='utf-8'))
+                except (OSError, ValueError):
+                    _ra = None
+                if isinstance(_ra, dict) and bc.bc_read_adjudication(_ra) is not None:
+                    _res_bv.setdefault(str(_j['q']), {})['adjudicator'] = {'result': _ra, 'sha256': _j['sha256'],
+                                                                         'context': 'fresh'}
             continue
         _ok_j = _line.startswith(('GRADE DONE', 'SOLVE DONE', 'VISION DONE'))   # a per-role job of release 2026.11.11
         _r = None
@@ -1612,11 +1712,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                 _r = None
         if _r is not None:
             _res_bv.setdefault(_j['q'], {})[_j['role']] = {'result': _r, 'sha256': _j['sha256'], 'context': 'fresh'}
-    # S0-NF-6 IN THE BATCH: a question of this batch that repeats an earlier question's template, or that
-    # takes part in an answer leak (the later of the two), is rewritten as its ONE rewrite (bc.bv_apply findings)
+    # S0-NF-6 IN THE BATCH: a repeat of an earlier question's template / an answer leak (the later of the two)
     _all_bv = []
+    _qmax = max([int(_bp_bv['q_end'])] + [int(q) for q in _qs_bv])
     for _qa, _ea in _cm_bv.items():
-        if not isinstance(_ea, dict) or not str(_qa).isdigit() or int(_qa) > int(_bp_bv['q_end']):
+        if not isinstance(_ea, dict) or not str(_qa).isdigit() or int(_qa) > _qmax:
             continue
         _oa = list(_ea.get('option_texts') or [])
         _ka = _ans_bv.get(str(_qa))
@@ -1637,179 +1737,534 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _x = max(_cand, key=int)
             _o = str(_b) if _x == str(_a) else str(_a)
             _fnd_bv.setdefault(_x, []).append(f'answer leak with Q{_o} ({_v}) — change the data so the value is not given')
-    # 2. DECIDE every question of the batch (bc.bv_apply) and 3. WRITE the jobs still needed
-    _acts_bv, _new_jobs, _needs_bv, _defer_bv = {}, [], {}, set()
+    # a re-opened earlier question (P2): its gate finding is a hard finding for the ladder
+    for _q, _rs in (_st_bv.get('reopen') or {}).items():
+        if _q in _qs_bv:
+            _fnd_bv.setdefault(_q, []).extend('GATE: ' + str(x) for x in _rs)
+    # 2. DECIDE every question (bc.bc_apply) and 3. WRITE the jobs still needed
+    _acts_bv, _new_jobs, _needs_bv, _adj_q = {}, [], {}, []
+    _perm, _rest, _nm = {}, {}, {}
+    _sc_back, _sc_missing = {}, []                      # v1.23 P3: author self-count misses / missing counts
     _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
-    # v1.22 (GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK): at FINAL the round budget is PER QUESTION TEXT, never one
-    # counter for the whole of Final Assembly. S13-2L / S13-2R replace a slot AFTER S13-1B has run its rounds and
-    # re-enter S13-1B to measure the new text; with one global counter at bc.BV_MAX_ROUNDS the new text could never be
-    # asked, stayed unmeasured, and the slot chain replaced it again — forever (the quality chain restarts at
-    # 'replace'). A text whose candidate-visible fields (bc.BV_GRADER_FIELDS) changed starts at round 0 with its
-    # ask counts cleared; a text that already had bc.BV_MAX_ROUNDS rounds is still carried unlabelled (BV-11).
-    _fq_bv = _st_bv.setdefault('fq', {}) if final else {}
-    if final:
-        for _q in _qs_bv:
-            _src_fq = _cm_bv.get(_q) if isinstance(_cm_bv.get(_q), dict) else {}
-            _csha = hashlib.sha256(json.dumps({f: _src_fq.get(f) for f in bc.BV_GRADER_FIELDS
-                                               if _src_fq.get(f) is not None},
-                                              sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
-            _rec_fq = _fq_bv.get(_q) if isinstance(_fq_bv.get(_q), dict) else None
-            if _rec_fq is None:
-                # first sight at FINAL (a paper begun before v1.22): the text's rounds so far are the most times any of
-                # its roles was asked (the ask count is kept per text and cleared on a rewrite / replacement); a text
-                # never asked starts at 0 — that is exactly the slot the global counter used to strand
-                _ak_fq = (_st_bv.get('asked') or {}).get(_q) or {}
-                _fq_bv[_q] = {'sha': _csha, 'rounds': max([int(_v or 0) for _v in _ak_fq.values()] or [0])}
-            elif _rec_fq.get('sha') != _csha:
-                _fq_bv[_q] = {'sha': _csha, 'rounds': 0}
-                (_st_bv.get('asked') or {}).pop(_q, None)
-                if _q in (_st_bv.get('unmeasured') or []):
-                    _st_bv['unmeasured'] = [x for x in _st_bv['unmeasured'] if x != _q]
+    _left = max(0, int(bc.BV_MAX_ROUNDS) - _jr_bv)
+    _asked_all = _st_bv.setdefault('asked', {})
+    # LAW-BC-9 RESUME: the step after a NO-MODEL re-asks the missing results even when the quality round budget is spent
+    # (an infrastructure round is not a quality round — it never starts a rung: bc_apply still sees rounds_left); without
+    # this a NO-MODEL at the cap could never be resumed (found by the 600-paper property fuzz, invariant I8)
+    _resume_infra = str(_st_bv.get('status') or '') == 'no_model'
+
+    def _decide(_q, _e, _mx):
+        _cr = _e.get('ca_range') if isinstance(_e.get('ca_range'), (list, tuple)) and len(_e.get('ca_range')) == 2 else None
+        try:
+            _tol = (abs(float(_cr[1]) - float(_cr[0])) / 2.0) if _cr else None
+        except (TypeError, ValueError):
+            _tol = None
+        _fi, _fe = bc_figure_intrinsic(_bs_bv, _q)
+        return bc.bc_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'), _tol,
+                           results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q), vision_compare=_vcmp_bv,
+                           figure_proof=_vprf_bv, asked=_asked_all.get(_q), max_asks=_mx, rounds_left=_left,
+                           figure_intrinsic=_fi, family_engine=_fe, terminal=_term)
     for _q in _qs_bv:
         _e = dict(_cm_bv[_q])
-        # the verification state lives in batch_state (write_q_to_sidecar REPLACES the sidecar entry on a
-        # rewrite — the attempt count must survive it, or a question could be rewritten more than once)
         if isinstance((_st_bv.get('items') or {}).get(_q), dict):
             _e['bv'] = _st_bv['items'][_q]
         _e.setdefault('subject', bc.nf_subject_key(_e, _man_bv))
         _e.setdefault('manifest_hash', bc.manifest_hash(_man_bv))
         _e.pop('bc.manifest_hash', None)                # a key mis-written by release 2026.11.11
-        _cr = _e.get('ca_range') if isinstance(_e.get('ca_range'), (list, tuple)) and len(_e.get('ca_range')) == 2 else None
-        _tol = (abs(float(_cr[1]) - float(_cr[0])) / 2.0) if _cr else None
-        # the I/O shell hashes every rendered organic figure (a redraw keeps its file name) and injects the fresh
-        # vision comparer and the proof writer (S0-OP-8) — the thin core never reads a file or imports RDKit
-        if isinstance(_e.get('figure_dicts'), list):
-            _e['figure_dicts'] = [dict(_fd, render_sha=(hashlib.sha256(open(str(_fd['file']), 'rb').read()).hexdigest()
-                                                        if _fd.get('file') and os.path.exists(str(_fd['file'])) else None))
-                                  if isinstance(_fd, dict) else _fd for _fd in _e['figure_dicts']]
-        _r = bc.bv_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'),
-                         _tol, results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q),
-                         vision_compare=_vcmp_bv, figure_proof=_vprf_bv,
-                         asked=(_st_bv.get('asked') or {}).get(_q),
-                         # v1.20: at FINAL nothing can be carried any more — a role is re-asked up to the round limit
-                         # v1.21: in a batch a role is asked at most BV_IN_BATCH_ASKS times (nothing is carried)
-                         max_asks=(bc.BV_MAX_ROUNDS if final else (2 if defer else BV_IN_BATCH_ASKS)))
+        if _q in (_st_bv.get('reopen') or {}) and (_e.get('bv') or {}).get('state') in bc.BC_STATES:
+            # re-opened: decided again on its current text with the gate finding as a hard finding
+            _e['bv'] = dict(_e['bv'], state='grading', reopened_in_last_batch=True)
+            _e.pop('bv_state', None)
+        _e = _bc_render_shas(_e)
+        _r = _decide(_q, _e, bc.BC_ROLE_ASKS)
+        if _r['action'] == 'grade' and _left < 1 and not _resume_infra:
+            # R11 at the round cap: decide with the results that exist (minimum results / R5b / terminal / NO-MODEL)
+            _r = _decide(_q, _r['entry'], 0)
+        if _r['action'] == 'adjudicate' and _left < 1:
+            _r = _decide(_q, _r['entry'], 0)
+        if _r['action'] == 'grade' and not _asked_all.get(_q) and not _res_bv.get(_q):
+            # v1.23 P3 (G-SELFCOUNT): before the FIRST reviewer round of a text, the author's own count must give the
+            # slot band — a miss goes back to the author (no reviewer is paid), at most bc.BC_SELFCOUNT_TRIES times per
+            # rung, then the text is reviewed anyway (never a loop, never a stop); missing counts are only reported
+            _sc = bc.bc_selfcount(_r['entry'], _tgt_bv.get(_q), _labs_bv)
+            _rk = str((_r['entry'].get('bv') or {}).get('rung') or 0)
+            _scs = _st_bv.setdefault('selfcount', {}).setdefault(_q, {})
+            if _sc['status'] == 'fail' and int(_scs.get(_rk) or 0) < int(bc.BC_SELFCOUNT_TRIES):
+                _scs[_rk] = int(_scs.get(_rk) or 0) + 1
+                _sc_back[_q] = dict(_sc, try_no=_scs[_rk])
+            elif _sc['status'] == 'missing':
+                _sc_missing.append(_q)
         _cm_bv[_q] = _r['entry']
         _st_bv.setdefault('items', {})[_q] = _r['entry'].get('bv')
         _acts_bv.setdefault(_r['action'], []).append(_q)
-        if _r['action'] == 'rewrite':
-            # the rewritten text is new content: its reviewers have not been asked yet (the ask count is per content)
-            (_st_bv.get('asked') or {}).pop(_q, None)
-            _st_bv.setdefault('defer_here', [])
-            if _q not in _st_bv['defer_here']:
-                _st_bv['defer_here'].append(_q)
-        if _r['action'] == 'recount':
-            _st_bv.setdefault('defer_here', [])
-            if _q not in _st_bv['defer_here']:
-                _st_bv['defer_here'].append(_q)
-        if _r['roles']:
-            _own_q = _q not in _carry_bv
-            if defer and (_q in (_st_bv.get('defer_here') or [])
-                          or (_own_q and int(((_r['entry'].get('bv') or {}).get('attempt') or 1)) >= 2)):
-                _defer_bv.add(_q)                      # BV-13: measured by the NEXT batch's reviewers
-            else:
-                _needs_bv[_q] = list(_r['roles'])
-    # 3. WRITE the fresh jobs still needed: at most bc.BV_REVIEWERS reviewer jobs for the WHOLE batch (v1.18)
-    if final and _needs_bv:
-        # v1.22: the cap is per question text (see _fq_bv above) — only a text that has had its own
-        # bc.BV_MAX_ROUNDS rounds is carried unlabelled; a new text written after the cap is still asked
-        _cap_q = {q for q in _needs_bv if int((_fq_bv.get(q) or {}).get('rounds') or 0) >= bc.BV_MAX_ROUNDS}
-        if _cap_q:
-            _st_bv['unmeasured'] = sorted(set(_st_bv.get('unmeasured') or []) | _cap_q, key=int)
-            _say(f"STEP A2: no fresh reviewer returned for {sorted(_cap_q, key=int)} after {bc.BV_MAX_ROUNDS} rounds — "
-                 f"carried unlabelled to S13-2L (no stop).")
-            _needs_bv = {q: v for q, v in _needs_bv.items() if q not in _cap_q}
-    if _needs_bv and _jr_bv >= bc.BV_MAX_ROUNDS and not final:
-        # v1.19 (2026.11.13, S0-BV BV-11): never a stop — the questions the platform returned no fresh reviewer for
-        # are carried (v1.20: to the next batch's reviewers; at FINAL they stay unlabelled for S13-2L) and the batch
-        # goes on (the FINAL branch is the per-text cap above)
-        _defer_bv |= set(_needs_bv)
-        _st_bv['infra_carry'] = sorted(set(_st_bv.get('infra_carry') or []) | set(_needs_bv), key=int)
-        _say(f"STEP A2: INFRA-CARRY {sorted(_needs_bv, key=int)} — no fresh reviewer returned after {bc.BV_MAX_ROUNDS} "
-             f"rounds (a platform fault, not a quality state); measured in the next batch's first round (no stop).")
-        _needs_bv = {}
+        if _r['action'] in ('settled', 'disclosed') and _q in (_st_bv.get('reopen') or {}):
+            _st_bv['reopen'].pop(_q, None)
+        if _r['action'] in ('rewrite', 'permute', 'restore'):
+            _asked_all.pop(_q, None)                    # the next text is new content: its roles have not been asked
+        if _r['action'] == 'rewrite' and ((_r['entry'].get('bv') or {}).get('climb_brief') or {}).get('kind') == 'fallback' \
+                and not bc_figure_intrinsic(_bs_bv, _q)[1]:
+            # C3: the rung-3 text question has no figure record (an R10 family-engine item is a figure: kept)
+            if bc_fallback_clear_figure(exam, n, _q, home, bs=_bs_bv):
+                _say(f"STEP A2: Q{_q} goes to the rung-3 TEXT fallback — its figure record was removed (fig_manifest).")
+        if _r['action'] == 'restore' and isinstance(_r.get('restore'), dict) and (
+                ((_r['restore'].get('entry') or {}).get('figure_files')) or ((_r['restore'].get('entry') or {}).get('figure_dicts'))):
+            # C3: R5b puts back an earlier FIGURE version — its figure record comes back with it
+            if bc_fallback_restore_figure(exam, n, _q, home, bs=_bs_bv):
+                _say(f"STEP A2: Q{_q} — the restored version has a figure: its figure record was put back (fig_manifest).")
+        if _r.get('reset_asks'):
+            _ak0 = _asked_all.setdefault(_q, {})
+            for _rl in _r['reset_asks']:
+                _ak0.pop(_rl, None)
+        if _r.get('answer') is not None and _r['action'] in ('settled', 'disclosed'):
+            # a re-key that keeps its position, R5b or the terminal: the delivered key changes (the docx never shows it)
+            _ans_bv[_q] = _r['answer']
+        if _r['action'] == 'permute':
+            _perm[_q] = {'swap': _r['swap'], 'answer': _r['answer']}
+        if _r['action'] == 'restore':
+            _rp_f = os.path.join(_root_bv, f'restore_q{_q}.json')
+            json.dump(_r['restore'], open(_rp_f, 'w', encoding='utf-8'), indent=1, default=str, ensure_ascii=False)
+            _rest[_q] = _rp_f
+        if _r['action'] == 'no_model':
+            _nm[_q] = _r.get('why')
+            _asked_all.pop(_q, None)                    # LAW-BC-9: the resume re-asks from a clean count
+        if _r['action'] == 'adjudicate':
+            _adj_q.append(_q)
+        elif _r['roles']:
+            _needs_bv[_q] = list(_r['roles'])
+        if _r['action'] in ('disclosed',) and 'terminal' in ((_r['entry'].get('bv') or {}).get('amber') or []):
+            _p0 = _bs_bv.setdefault('p0_incidents', [])
+            if not any(x.get('q') == _q and x.get('kind') == 'bc_terminal' for x in _p0 if isinstance(x, dict)):
+                _p0.append({'q': _q, 'kind': 'bc_terminal', 'why': (_r['entry'].get('bv') or {}).get('terminal'),
+                            'rule': 'LAW-BC-2 / BC_TERMINAL adjudicated_disclosed'})
+    for _q in _sc_back:
+        _acts_bv.setdefault('selfcount', []).append(_q)
+        if _q in (_acts_bv.get('grade') or []):
+            _acts_bv['grade'].remove(_q)
+    if _sc_back or _acts_bv.get('rewrite') or _perm or _rest:
+        # v1.23 (P3, C4): the TEXT WORK comes first — a step that asks for a rewrite, a permutation, a restore or a
+        # self-count fix writes no job (no round is spent); the next run of this block issues every job of the round
+        # together (the rewritten texts' reviewers with the others' adjudicators — one wave). Before 1.23 a rewrite
+        # asked in a step that also wrote jobs was printed only as JOBS OUT, so the worker handed the jobs over, the
+        # text was never rewritten and the ladder moved on from the same text (a rung lost — found by the fuzz).
+        _needs_bv, _adj_q = {}, []
+    # the round folder: a quality round r<k>; a LAW-BC-9 resume beyond the budget r<k>i<j> (never reuses a folder)
+    _rlabel = (f"r{_jr_bv}i{int(_st_bv.get('infra_rounds') or 0) + 1}" if (_left < 1 and _resume_infra)
+               else f"r{_jr_bv + 1}")
+    # 3. WRITE the fresh jobs: reviewer jobs (k = 1..3, split per review_qs_per_job) and one adjudicator per question
+    def _copy_into(_d, _f):
+        if _f and os.path.exists(str(_f)):
+            _dst = os.path.join(_d, os.path.basename(str(_f)))
+            shutil.copy(str(_f), _dst)
+            return _dst
+        return None
     if _needs_bv:
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
         _anc_bv = {q: bc.bv_anchors(_bank_bv, _ru_bv, (_cm_bv[q] or {}).get('subtopic_id'),
                                     str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv}
         _qpj = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)
-        for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj):
-            # v1.21 (G-15 / E22): a job that asks a role again after it returned nothing goes to a DIFFERENT model
+        # v1.23 (P1): the round's reviewer jobs + adjudicator jobs fit in ONE wave of parallel_jobs_max
+        _mjr = bc.bv_round_job_caps(bv_budget_value('parallel_jobs_max', 6), len(_adj_q))
+        for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj,
+                                       max_jobs_per_reviewer=_mjr):
             _kk0 = _jb['role'].rsplit('_', 1)[-1]
-            _reask = any(int(((_st_bv.get('asked') or {}).get(_q3) or {}).get(_rl) or 0) >= 1
+            _reask = any(int((_asked_all.get(_q3) or {}).get(_rl) or 0) >= 1
                          for _q3 in _jb['qs'] for _rl in (_needs_bv.get(_q3) or []) if _rl.endswith('_' + _kk0))
-            _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", f"r{_jr_bv + 1}",
+            _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", _rlabel,
                               _jb.get('name') or _jb['role']) + ('_switch' if _reask else '')
             os.makedirs(_d, exist_ok=True)
             _pk = json.loads(json.dumps(_jb['packet'], default=str))
-
-            def _copy1(_f):
-                if _f and os.path.exists(str(_f)):
-                    _dst = os.path.join(_d, os.path.basename(str(_f)))
-                    shutil.copy(str(_f), _dst)
-                    return _dst
-                return None
-            # every fresh context sees the figures: they are COPIED into its own folder (it may read nothing else)
             for _row in _pk['items']:
                 if isinstance(_row.get('item'), dict) and _row['item'].get('figure_files'):
-                    _row['item']['figure_files'] = [x for x in (_copy1(f) for f in _row['item']['figure_files']) if x]
-                _row['figures_to_read'] = [x for x in (_copy1(f) for f in (_row.get('figures_to_read') or [])) if x]
-            # the sha binds the packet AS WRITTEN (its figure paths point into the job's own folder)
+                    _row['item']['figure_files'] = [x for x in (_copy_into(_d, f) for f in _row['item']['figure_files']) if x]
+                _row['figures_to_read'] = [x for x in (_copy_into(_d, f) for f in (_row.get('figures_to_read') or [])) if x]
             _sha = hashlib.sha256(json.dumps(_pk, sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
             json.dump(_pk, open(os.path.join(_d, 'packet.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
             open(os.path.join(_d, 'JOB_BRIEF.txt'), 'w', encoding='utf-8').write(_jb['brief'].replace('<JOB_DIR>', _d))
             _new_jobs.append({'role': _jb['role'], 'qs': _jb['qs'], 'dir': _d, 'sha256': _sha})
-            _kk = _jb['role'].rsplit('_', 1)[-1]
             for _q3 in _jb['qs']:
                 for _rl in _needs_bv.get(_q3) or []:
-                    if _rl.endswith('_' + _kk):
-                        _ak = _st_bv.setdefault('asked', {}).setdefault(_q3, {})
+                    if _rl.endswith('_' + _kk0):
+                        _ak = _asked_all.setdefault(_q3, {})
                         _ak[_rl] = int(_ak.get(_rl) or 0) + 1
+    for _q in _adj_q:
+        _bvq = _st_bv['items'].get(_q) or {}
+        _sv = [(_bvq.get('solvers') or {}).get(r) for r in bc.BV_ROLES_SOLVE if isinstance((_bvq.get('solvers') or {}).get(r), dict)]
+        _aj = bc.bc_adjudicator_job(_q, _cm_bv[_q], _ans_bv.get(_q), _sv, _labs_bv)
+        _reask = int((_asked_all.get(_q) or {}).get('adjudicator') or 0) >= 1
+        _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", _rlabel, f'q{_q}_adj') + ('_switch' if _reask else '')
+        os.makedirs(_d, exist_ok=True)
+        _pk = json.loads(json.dumps(_aj['packet'], default=str))
+        if _pk.get('item', {}).get('figure_files'):
+            _pk['item']['figure_files'] = [x for x in (_copy_into(_d, f) for f in _pk['item']['figure_files']) if x]
+        _sha = hashlib.sha256(json.dumps(_pk, sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
+        json.dump(_pk, open(os.path.join(_d, 'packet.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        open(os.path.join(_d, 'JOB_BRIEF.txt'), 'w', encoding='utf-8').write(_aj['brief'].replace('<JOB_DIR>', _d))
+        _new_jobs.append({'role': 'adjudicator', 'q': _q, 'qs': [_q], 'dir': _d, 'sha256': _sha})
+        _ak = _asked_all.setdefault(_q, {})
+        _ak['adjudicator'] = int(_ak.get('adjudicator') or 0) + 1
     for _j in _st_bv.get('jobs') or []:
-        _j['done'] = True                       # every job is collected once; a missing result is re-issued above
+        _j['done'] = True
     _st_bv['jobs'] = _new_jobs
-    if _new_jobs:
+    _infra_round = bool(_new_jobs) and _left < 1 and _resume_infra
+    if _new_jobs and not _infra_round:
         _st_bv['round'] = _jr_bv + 1
-        if final:                               # v1.22: one more round for every text asked in it
-            for _q4 in {q for _j4 in _new_jobs for q in _j4['qs']}:
-                _fq_bv.setdefault(_q4, {'sha': None, 'rounds': 0})
-                _fq_bv[_q4]['rounds'] = int(_fq_bv[_q4].get('rounds') or 0) + 1
-            _asked_now = {q for _j4 in _new_jobs for q in _j4['qs']}
-            _st_bv['unmeasured'] = [x for x in (_st_bv.get('unmeasured') or []) if x not in _asked_now]
+    elif _infra_round:
+        _st_bv['infra_rounds'] = int(_st_bv.get('infra_rounds') or 0) + 1   # LAW-BC-9 re-asks beyond the quality budget
+    if not _infra_round and _jr_bv + (1 if _new_jobs else 0) > int(bc.BV_MAX_ROUNDS):
+        # impossible by construction (R11 decides at the cap); an engine defect is recorded, never a carry
+        _bs_bv.setdefault('p0_incidents', []).append({'kind': 'bc_round_cap', 'round': _jr_bv + 1,
+                                                      'rule': 'LAW-BC-2 round budget'})
     _ds_bv = _bs_bv.setdefault('difficulty_state', {})
     _disc = _ds_bv.setdefault('bv_disclosed', {})
-    _bst = bc.bv_batch_status(_cm_bv, _qs_bv, _tgt_bv, _labs_bv)
-    # BV-13: the carry list after this step — every question still waiting for its measurement, from any batch
-    _items_now = _st_bv.get('items') or {}
-    _pending_bv = sorted(({q for q in (set(_carry_bv) | _defer_bv)
-                           if (_items_now.get(q) or {}).get('state') not in ('settled', 'key_chain')}
-                          if not final else set()), key=int)
-    _bs_bv['bv_carry'] = _pending_bv
-    _bst['open'] = [q for q in _bst['open'] if q not in _pending_bv]
-    for _q in _bst['disclosed']:
-        _disc[_q] = {'requested': _tgt_bv.get(_q), 'delivered': _cm_bv[_q].get('difficulty')}
-    _st_bv['status'] = 'jobs_out' if _new_jobs else ('rewrite' if _acts_bv.get('rewrite') else 'done')
-    _st_bv['open'] = _bst['open'] if not _new_jobs and not _acts_bv.get('rewrite') else []
-    _st_bv['pending'] = _pending_bv
-    _st_bv['key_chain'] = _bst['key_chain']
+    _bst = bc.bc_batch_status(_cm_bv, _qs_bv)
+    _foot = _bs_bv.setdefault('bc_footer', {})
+    for _q in _bst['settled']:
+        _foot[_q] = bc.bc_amber_lines(_q, _cm_bv[_q])
+        _lb = ((_cm_bv[_q].get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(_cm_bv[_q].get('difficulty_check'), dict) else {}
+        if _lb.get('disclosed') and _tgt_bv.get(_q) is not None:
+            _disc[_q] = {'requested': _tgt_bv.get(_q), 'delivered': _cm_bv[_q].get('difficulty')}
+            if _lb.get('recipe_note'):
+                _disc[_q]['recipe_note'] = _lb.get('recipe_note')
+    _bs_bv['bv_carry'] = []                            # LAW-BC-1: nothing is carried (a 2026.11.14 carry was migrated)
+    _st_bv['infra_carry'] = []
+    _st_bv['unmeasured'] = []
+    _rw = list(_acts_bv.get('rewrite') or [])
+    if _new_jobs:
+        _status = 'jobs_out'
+    elif _rw or _perm or _rest or _sc_back:
+        _status = 'rewrite'
+    elif _acts_bv.get('stop'):
+        _status = 'stop'
+    elif _nm:
+        _status = 'no_model'
+    else:
+        _status = 'done'
+    if _status == 'done' and _bst['other']:
+        # LAW-BC-1 — impossible by construction; never delivered in this state
+        _status = 'no_model'
+        _nm.update({q: 'not settled at DONE (engine defect, P0)' for q in _bst['other']})
+        _bs_bv.setdefault('p0_incidents', []).append({'kind': 'bc_not_settled_at_done', 'qs': list(_bst['other'])})
+    if final and _status == 'done':
+        # LEGACY MIGRATION (S4-12): every question is settled by the settlement batch — an open S13-2L chain of the
+        # earlier release is closed, never run
+        for _qc, _ch in list((_bs_bv.get('slot_chain') or {}).items()):
+            if isinstance(_ch, dict) and not _ch.get('done'):
+                _ch.update({'done': True, 'outcome': 'migrated'})
+        _bs_bv['slot_chain_work'] = []
+    _st_bv['status'] = _status
+    _st_bv['selfcount_missing'] = sorted(set(_sc_missing), key=int)
+    # P4: the author/reviewer count offset per (subject, band), from every question measured so far (resume-safe)
+    _bs_bv.setdefault('difficulty_state', {})['author_offset'] = bc.bc_author_offsets(
+        _cm_bv, _st_bv.get('items') or {}, _tgt_bv, _labs_bv)
+    _st_bv['open'] = []
+    _st_bv['pending'] = []
+    _st_bv['key_chain'] = []
+    _st_bv['permute'] = _perm
+    _st_bv['restore'] = _rest
+    _st_bv['no_model'] = _nm
     json.dump(_kd_bv, open(_kp_bv, 'w', encoding='utf-8'), indent=2)
     json.dump(_bs_bv, open(_bsp_bv, 'w', encoding='utf-8'), indent=2)
-    _say(f"STEP A2 (job round {_st_bv['round']} of at most {bc.BV_MAX_ROUNDS}): " + '; '.join(f"{k} {v}" for k, v in sorted(_acts_bv.items())))
-    if _new_jobs:
+    _early_s = [q for q in _qs_bv if int(q) < int(_bp_bv['q_start'])] if not final else []
+    _say(f"STEP A2 (job round {_st_bv['round']} of at most {bc.BV_MAX_ROUNDS}): "
+         + '; '.join(f"{k} {v}" for k, v in sorted(_acts_bv.items()) if v)
+         + (f"; earlier questions in this batch {_early_s}" if _early_s else '')
+         + (f"; author_counts not recorded for {sorted(set(_sc_missing), key=int)} (G-SELFCOUNT, STEP B)"
+            if _sc_missing else ''))
+    if _status == 'jobs_out':
         _say("STEP A2: JOBS OUT " + ','.join(j['dir'] for j in _new_jobs))
-    elif _acts_bv.get('rewrite'):
-        _say(f"STEP A2: REWRITE {_acts_bv['rewrite']} — once each, from concept_map[q]['bv']['rewrite_brief'], then this block again")
+    elif _status == 'rewrite':
+        for _q, _sc in sorted(_sc_back.items(), key=lambda x: int(x[0])):
+            _say(f"STEP A2: SELF-COUNT Q{_q} (try {_sc['try_no']} of {bc.BC_SELFCOUNT_TRIES}) — {_sc['why']}: fix the "
+                 f"question (or its author_counts, if they were miscounted), then STEP B for it, then this block again "
+                 f"(no reviewer was started)")
+        if _rw:
+            _say(f"STEP A2: REWRITE {_rw} — each from concept_map[q]['bv']['climb_brief'] (rung 1 FIX / 2 REPLACE / "
+                 f"3 FALLBACK), then STEP B for the new text, then this block again")
+        for _q, _p in sorted(_perm.items(), key=lambda x: int(x[0])):
+            _say(f"STEP A2: PERMUTE Q{_q} — exchange options {_p['swap'][0]} and {_p['swap'][1]} in the docx block and the "
+                 f"sidecar (content unchanged, key = {_p['answer']}), then this block again (no new review)")
+        for _q, _p in sorted(_rest.items(), key=lambda x: int(x[0])):
+            _say(f"STEP A2: RESTORE Q{_q} — put back the version in {_p} (its sidecar entry and key; re-render its block), "
+                 f"then this block again (no new review; R5b)")
+    elif _status == 'stop':
+        _say(f"STEP A2: STOP (BC_TERMINAL 'stop') — {_acts_bv.get('stop')}: no version meets R5b; state saved.")
+    elif _status == 'no_model':
+        _say(f"NO-MODEL [HS:ENV] — no fresh result for {sorted(_nm, key=int)} after {bc.BC_ROLE_ASKS} asks "
+             f"({'; '.join(f'Q{q}: {w}' for q, w in sorted(_nm.items(), key=lambda x: int(x[0])))}). State saved; the next "
+             f"message re-runs this block and asks again (LAW-BC-9 — never a carry).")
     else:
-        _say(f"STEP A2: DONE — settled {len(_bst['settled'])}/{len(_qs_bv)} "
-              f"(at slot {len(_bst['settled']) - len(_bst['disclosed'])}, disclosed {_bst['disclosed'] or 'none'}); "
-              f"key to S13-2L {_bst['key_chain'] or 'none'}; unlabelled {_st_bv['open'] or 'none'}; "
-              + (f"level being re-checked with the next batch {_pending_bv or 'none'}" if defer else
-                 f"INFRA-CARRY {_pending_bv or 'none'}")
-              + (f"; S13-1B: {len(_qs_bv)} to measure" if final else ''))
+        _say(f"STEP A2: DONE — settled {len(_bst['settled'])}/{len(_qs_bv)} (disclosed {_bst['disclosed'] or 'none'}); "
+             f"next: STEP A3 (bind the review records)")
+    return {'status': _status, 'jobs': [j['dir'] for j in _new_jobs], 'rewrite': _rw, 'permute': _perm,
+            'restore': _rest, 'settled': _bst['settled'], 'disclosed': _bst['disclosed'], 'no_model': _nm,
+            'key_chain': [], 'open': [], 'pending': [], 'lines': _lines}
 
-    return {'status': _st_bv['status'], 'jobs': [j['dir'] for j in _new_jobs], 'rewrite': list(_acts_bv.get('rewrite') or []),
-            'settled': _bst['settled'], 'disclosed': _bst['disclosed'], 'key_chain': _bst['key_chain'],
-            'open': _st_bv['open'], 'pending': _pending_bv, 'lines': _lines}
+
+def _bc_norm_tokens(x):
+    import unicodedata as _ud
+    return _re.findall(r'[a-z0-9]+', _ud.normalize('NFKC', str(x or '')).lower())
+
+
+def _bc_block_contains(block_text, entry):
+    """True when the delivered block and the sidecar describe the same question (STEP A3 R2 guard). Tolerant of
+    rendering (NFKC, case, punctuation, math / subscript runs): at least 80% of the stem's word tokens appear in the
+    block; for a TEXT-option question every option's tokens appear in the block IN ORDER (a re-key swap done in one
+    place only is caught). Drawn options (figure files / option structures) carry no text in the docx — only the stem
+    is checked for them. An entry with no stem text cannot be checked: True. Never a false refusal on formatting."""
+    e = entry if isinstance(entry, dict) else {}
+    bt = _bc_norm_tokens(block_text)
+    st = _bc_norm_tokens(e.get('stem_text'))
+    if not st:
+        return True
+    bset = set(bt)
+    if sum(1 for t in st if t in bset) < 0.8 * len(st):
+        return False
+    if e.get('figure_files') or e.get('figure_dicts') or e.get('option_smiles'):
+        return True
+    ops = e.get('option_texts') if isinstance(e.get('option_texts'), list) else []
+    seq = ' ' + ' '.join(bt) + ' '
+    pos = 0
+    for o in ops:
+        ot = _bc_norm_tokens(o)
+        if not ot:
+            continue
+        needle = ' ' + ' '.join(ot) + ' '
+        nxt = seq.find(needle, pos)
+        if nxt < 0:
+            return False
+        pos = nxt + 1
+    return True
+
+
+def bc_fallback_clear_figure(exam, n, q, home='/home/claude', bs=None):
+    """v1.23 (GAP-2026-11-14-SPEED-AND-FIDELITY C3) — the rung-3 FALLBACK of S0-BC LAW-BC-2 is a TEXT question: remove
+    question q from the paper's figure record (<home>/<exam>_fig_manifest.json questions[q]) so the per-batch auditor
+    does not count the slot as a figure question with no picture (A-FIGCOMP 'figural:0img'). The slot's planned format
+    is kept by concept_map[q].bc_fallback.from_figure (A-AXIS1 counts it as the disclosed fallback). Idempotent; records
+    the removal in batch_state['bv']['fallback_cleared']. Returns True when a record was removed. Never raises."""
+    import json, os
+    q = str(q)
+    removed = False
+    fmp = os.path.join(home, f'{exam}_fig_manifest.json')
+    try:
+        fm = json.load(open(fmp, encoding='utf-8')) if os.path.exists(fmp) else None
+    except (OSError, ValueError):
+        fm = None
+    rec = None
+    if isinstance(fm, dict) and isinstance(fm.get('questions'), dict) and q in fm['questions']:
+        rec = fm['questions'].pop(q, None)
+        try:
+            json.dump(fm, open(fmp, 'w', encoding='utf-8'), indent=2)
+            removed = True
+        except OSError:
+            return False
+
+    def _keep(_bs):
+        _bv = _bs.setdefault('bv', {})
+        fc = _bv.setdefault('fallback_cleared', [])
+        if q not in fc:
+            fc.append(q)
+        if rec is not None:                      # kept so an R5b restore of the earlier figure version puts it back
+            _bv.setdefault('fallback_fig_records', {})[q] = rec
+    if isinstance(bs, dict):                  # the caller holds batch_state in memory and writes it itself
+        _keep(bs)
+        return removed
+    bsp = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+    try:
+        bs = json.load(open(bsp, encoding='utf-8'))
+        _keep(bs)
+        json.dump(bs, open(bsp, 'w', encoding='utf-8'), indent=2)
+    except (OSError, ValueError, AttributeError):
+        pass
+    return removed
+
+
+def bc_fallback_restore_figure(exam, n, q, home='/home/claude', bs=None):
+    """v1.23 (C3) — an R5b RESTORE put back an earlier FIGURE version of a question whose figure record the rung-3
+    fallback removed: re-insert the kept record (batch_state['bv']['fallback_fig_records'][q]) into
+    <home>/<exam>_fig_manifest.json. Idempotent; True when a record was put back. Never raises."""
+    import json, os
+    q = str(q)
+    own = not isinstance(bs, dict)
+    bsp = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+    try:
+        if own:
+            bs = json.load(open(bsp, encoding='utf-8'))
+        rec = ((bs.get('bv') or {}).get('fallback_fig_records') or {}).get(q)
+    except (OSError, ValueError, AttributeError):
+        return False
+    if not isinstance(rec, dict):
+        return False
+    fmp = os.path.join(home, f'{exam}_fig_manifest.json')
+    try:
+        fm = json.load(open(fmp, encoding='utf-8')) if os.path.exists(fmp) else {'questions': {}}
+        if not isinstance(fm, dict) or not isinstance(fm.get('questions'), dict):
+            return False
+        if q in fm['questions']:
+            return False
+        fm['questions'][q] = rec
+        json.dump(fm, open(fmp, 'w', encoding='utf-8'), indent=2)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _qf_rung(bvs):
+    try:
+        return int((bvs or {}).get('rung') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/claude', echo=True, upto=None):
+    """v1.22 STEP A3 (LAW-BC-7) — bind every settled / disclosed question up to this batch to the auditor's item_hash
+    of its block in the cumulative docx: concept_map[q]['review'] = bc.bc_review_record (reviewer 'batch') and one
+    review_history entry; key_votes are already bound to the question's content by bc_apply. REFUSES (names the
+    question, binds nothing for it) when: the question is not settled / disclosed; its current text is not the text
+    its reviewers judged (it was edited after review without re-review — R2); its block is missing from the item
+    hashes; or (with item_texts_path) the block does not show the sidecar's stem and options in order. M-BIND: a question
+    settled under BV1 (an earlier release) gets a two-solver 'unanimous' record with key_votes.rule 'BV1'. Returns
+    {'status': 'bound' | 'refused', 'bound': [q], 'refused': {q: why}, 'lines'}. Never raises on a refusal."""
+    import json, os
+    _lines = []
+
+    def _say(x):
+        _lines.append(str(x))
+        if echo:
+            print(x)
+    bsp = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+    kp = os.path.join(home, f'{exam}_M{n}_answer_key.json')
+    bs = json.load(open(bsp, encoding='utf-8'))
+    kd = json.load(open(kp, encoding='utf-8'))
+    cm = kd.setdefault('concept_map', {})
+    labs = list(bs.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    try:
+        hashes = {str(k): v for k, v in json.load(open(item_hashes_path, encoding='utf-8')).items()}
+    except (OSError, ValueError, TypeError, AttributeError):
+        hashes = {}
+    texts = {}
+    if item_texts_path:
+        try:
+            texts = {str(k): v for k, v in json.load(open(item_texts_path, encoding='utf-8')).items()}
+        except (OSError, ValueError, TypeError, AttributeError):
+            texts = {}
+    items = (bs.get('bv') or {}).get('items') or {}
+    plan = bs.get('batch_plan') or []
+    if upto is None:
+        try:
+            upto = int(plan[min(len(plan), int(bs.get('current_batch', 1))) - 1]['q_end'])
+        except (IndexError, KeyError, ValueError, TypeError):
+            upto = max([int(q) for q in cm if str(q).isdigit()] or [0])
+    bound, refused = [], {}
+    rnd = (bs.get('bv') or {}).get('round')
+    for q in sorted((q for q in cm if str(q).isdigit() and int(q) <= int(upto)), key=int):
+        e = cm[q] if isinstance(cm[q], dict) else {}
+        bvs = items.get(q) if isinstance(items.get(q), dict) else e.get('bv')
+        h = hashes.get(q)
+        if not h:
+            refused[q] = 'no item_hash for its block (the auditor did not find it in the docx)'
+            continue
+        if texts and q in texts and not _bc_block_contains(texts[q], e):
+            refused[q] = 'the docx block does not show the sidecar stem / options in order (edited in one place only)'
+            continue
+        if isinstance(bvs, dict) and bvs.get('rule') == bc.BC_RULE:
+            if bvs.get('state') not in bc.BC_STATES or e.get('bv_state') not in bc.BC_STATES:
+                refused[q] = f"not settled (state {bvs.get('state')}) — STEP A2 is not DONE for it"
+                continue
+            if bvs.get('content_sha') != _bc_entry_sha(_bc_render_shas(e)):
+                refused[q] = 'its text changed after its review (R2) — run STEP A2 again so the new text is reviewed'
+                continue
+            if _qf_rung(bvs) == 3 and not bc_figure_intrinsic(bs, q)[1]:
+                # C3: the rung-3 FALLBACK is a TEXT question (LAW-BC-2) — a picture on it is a defect; a figure record
+                # left behind by the replaced question is removed here (no text change, no new review)
+                if e.get('figure_files') or e.get('figure_dicts'):
+                    refused[q] = ('it is the rung-3 TEXT fallback but carries a figure — write it with text options and '
+                                  'no figure (S4-7 STEP A2 REWRITE), then STEP B and STEP A2 again')
+                    continue
+                if bc_fallback_clear_figure(exam, n, q, home):
+                    _say(f"STEP A3: Q{q} is the rung-3 TEXT fallback — its leftover figure record was removed "
+                         f"(fig_manifest; A-AXIS1 counts the slot as the disclosed fallback).")
+            _old = e.get('review') if isinstance(e.get('review'), dict) else {}
+            if _old.get('rule') == bc.BC_RULE and _old.get('item_hash') and _old.get('item_hash') != h \
+                    and _old.get('content_sha') == bvs.get('content_sha'):
+                # measured on the incident paper: a block's hash does not change when later batches are appended, so a
+                # new hash on an unchanged text means the docx block alone was edited (e.g. a picture swapped) — R2
+                refused[q] = 'its docx block changed after it was bound while its text did not (edited outside the ladder)'
+                continue
+            rec = bc.bc_review_record(dict(e, bv=bvs), h, rnd)
+            if rec is None:
+                refused[q] = 'no review record could be built'
+                continue
+        else:
+            # M-BIND (GAP §9.1): settled under BV1 — two solvers, unanimous, label verified
+            kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
+            rv0 = e.get('review') if isinstance(e.get('review'), dict) else {}
+            if rv0.get('item_hash') == h:
+                bound.append(q)                         # an S13-2G record bound to this text stays as it is
+                continue
+            if kv.get('unanimous') is not True or (kv.get('content_sha') and kv.get('content_sha') != bc.op_content_sha(e)) \
+                    or (e.get('difficulty_check') and not bc.verify_difficulty_label(e, labs, strict=True)[0]):
+                refused[q] = 'settled under an earlier release without a unanimous key / verified label — STEP A2 migrates it'
+                continue
+            e['key_votes'] = dict(kv, rule='BV1')
+            rec = {'item_hash': h, 'reviewer': 'batch', 'rule': 'BV1', 'certified_by': 'unanimous', 'key_agrees': True,
+                   'own_key': kd.get('answers', {}).get(q), 'confidence': 'medium', 'single_answer': 'yes',
+                   'leak_or_paraphrase': 'none', 'distractor_existence_and_class': '', 'consistency_and_names': 'ok',
+                   'selectivity_basis': 'clean', 'verdict': 'PASS', 'round': None, 'rung': None, 'migrated': True}
+        e['review'] = rec
+        e.setdefault('review_history', []).append(dict(rec))
+        cm[q] = e
+        bound.append(q)
+    json.dump(kd, open(kp, 'w', encoding='utf-8'), indent=2)
+    if refused:
+        _say(f"STEP A3: REFUSED — {len(refused)} question(s) not bound: "
+             + '; '.join(f'Q{q}: {w}' for q, w in sorted(refused.items(), key=lambda x: int(x[0])))
+             + ' — fix as named, then STEP A3 again (STEP E is forbidden until this prints BOUND).')
+    else:
+        _say(f"STEP A3: BOUND — {len(bound)} question(s) carry a batch review record bound to their delivered block.")
+    return {'status': 'refused' if refused else 'bound', 'bound': bound, 'refused': refused, 'lines': _lines}
+
+
+def assemble_final_docx(src_docx, dst_docx):
+    """v1.22 Create S13-1 ASSEMBLE (GAP §6.6 step 1, E-03): copy the last cumulative docx BYTE FOR BYTE to the final
+    name — no re-render, no renumbering, no reformatting — and prove it (sha256 of both). Returns {'ok', 'sha256',
+    'why'}. Never raises."""
+    import os, shutil
+    try:
+        if os.path.abspath(src_docx) != os.path.abspath(dst_docx):
+            shutil.copyfile(src_docx, dst_docx)
+        a = hashlib.sha256(open(src_docx, 'rb').read()).hexdigest()
+        b = hashlib.sha256(open(dst_docx, 'rb').read()).hexdigest()
+        return {'ok': a == b, 'sha256': b, 'why': 'byte copy' if a == b else 'copy differs from the cumulative docx'}
+    except OSError as ex:
+        return {'ok': False, 'sha256': None, 'why': f'{type(ex).__name__}: {ex}'}
+
+
+def bc_check_bound(exam, n, item_hashes_path, home='/home/claude'):
+    """v1.22 Create S13-1 — every question's batch-bound review.item_hash equals the hash the auditor computes from the
+    FINAL docx. Returns {'ok', 'mismatch': [q], 'missing': [q]}. A mismatch is an INFRA fault (re-copy; still different
+    -> P0) — never a re-review. Never raises."""
+    import json, os
+    try:
+        kd = json.load(open(os.path.join(home, f'{exam}_M{n}_answer_key.json'), encoding='utf-8'))
+        hs = {str(k): v for k, v in json.load(open(item_hashes_path, encoding='utf-8')).items()}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {'ok': False, 'mismatch': [], 'missing': ['(unreadable)']}
+    cm = kd.get('concept_map') or {}
+    ans = kd.get('answers') or {}
+    mis, miss, keyx = [], [], []
+    for q in sorted((q for q in cm if str(q).isdigit()), key=int):
+        rv = (cm[q] or {}).get('review') if isinstance(cm[q], dict) else None
+        if not isinstance(rv, dict) or not rv.get('item_hash'):
+            miss.append(q)
+        elif hs.get(q) != rv.get('item_hash'):
+            mis.append(q)
+        kv = (cm[q] or {}).get('key_votes') if isinstance(cm[q], dict) else None
+        _qt = str((cm[q] or {}).get('qtype') or 'mcq') if isinstance(cm[q], dict) else 'mcq'
+        if isinstance(kv, dict) and kv.get('rule') == bc.BC_RULE and kv.get('decided_key') is not None \
+                and not bc.bc_same_answer(kv.get('decided_key'), ans.get(q), _qt, 1e-9):
+            keyx.append(q)                              # the committed key must be the decided key (GAP §7.4)
+    return {'ok': not mis and not miss and not keyx, 'mismatch': mis, 'missing': miss, 'key_mismatch': keyx}
 
 
 
@@ -2937,6 +3392,73 @@ def self_test():
               and all(_bv_os.path.exists(_bv_os.path.join(d, 'JOB_BRIEF.txt')) for d in s1['jobs']))
         s3 = bv_batch_step('EX', 1, home=_h, echo=False)
         check('bv_batch_step_idempotent_when_done', s3['status'] == 'done' and s3['jobs'] == [] and s3['settled'] == ['1', '2'])
+    # v1.23 (C3) — the rung-3 TEXT fallback has no figure record; a picture on it is refused at STEP A3
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'questions': {'4': {'object_type': 'chemical_structure'}, '5': {'object_type': 'spectrum'}}},
+                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 5}], 'current_batch': 1},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _c1 = bc_fallback_clear_figure('EX', 1, 4, home=_h)
+        _c2 = bc_fallback_clear_figure('EX', 1, '4', home=_h)
+        _fmx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))
+        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _mem = {}
+        _c3 = bc_fallback_clear_figure('EX', 1, '5', home=_h, bs=_mem)
+        _bsx2 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        check('c3_fallback_clear_figure', _c1 is True and _c2 is False and list(_fmx['questions']) == ['5']
+              and _bsx['bv']['fallback_cleared'] == ['4'] and _c3 is True and _mem['bv']['fallback_cleared'] == ['5']
+              and _bsx2['bv']['fallback_cleared'] == ['4']
+              and bc_fallback_clear_figure('EX', 1, '9', home=_bv_os.path.join(_h, 'missing')) is False)
+        # STEP A3: a settled rung-3 question with a picture is refused; without one it binds and its record is cleared
+        _bv_js.dump({'questions': {'1': {'object_type': 'chemical_structure'}, '2': {'object_type': 'chemical_structure'}}},
+                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _sv3 = {r: {'answer': 2, 'confidence': 'high', 'single_answer': 'yes', 'leak_or_paraphrase': 'none',
+                    'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok', 'selectivity_basis': 'clean'}
+                for r in bc.BV_ROLES_SOLVE}
+        _ents = {}
+        for _qq, _ff in (('1', []), ('2', ['/x/q2.png'])):
+            _e3 = {'stem_text': f'Text fallback question {_qq} about acidity order', 'option_texts': ['a', 'b', 'c', 'd'],
+                   'qtype': 'mcq', 'figure_files': _ff}
+            _e3 = _bc_render_shas(_e3)
+            _e3['bv'] = {'rule': bc.BC_RULE, 'state': 'settled', 'rung': 3, 'solvers': _sv3,
+                         'key': {'certified_by': 'unanimous', 'decided_key': 2},
+                         'content_sha': _bc_entry_sha(_bc_render_shas(_e3))}
+            _e3['bv_state'] = 'settled'
+            _ents[_qq] = _e3
+        _bv_js.dump({'concept_map': _ents, 'answers': {'1': 2, '2': 2}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1,
+                     'bv': {'items': {q: v['bv'] for q, v in _ents.items()}}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({'1': 'h1', '2': 'h2'}, open(_bv_os.path.join(_h, 'ih.json'), 'w'))
+        _bb = bc_bind_batch('EX', 1, _bv_os.path.join(_h, 'ih.json'), home=_h, echo=False)
+        _fmy = _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))
+        check('c3_bind_refuses_picture_on_fallback_and_clears_record', _bb['bound'] == ['1']
+              and 'rung-3 TEXT fallback' in _bb['refused'].get('2', '') and list(_fmy['questions']) == ['2']
+              and any('leftover figure record was removed' in x for x in _bb['lines']))
+        # an R10 family-engine rung-3 item IS a figure: never refused, its record never cleared
+        _bv_js.dump({'questions': {'2': {'object_type': 'dice'}}}, open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _orig_fi = globals()['bc_figure_intrinsic']
+        globals()['bc_figure_intrinsic'] = lambda _b, _q: (True, True)
+        try:
+            _bb2 = bc_bind_batch('EX', 1, _bv_os.path.join(_h, 'ih.json'), home=_h, echo=False)
+        finally:
+            globals()['bc_figure_intrinsic'] = _orig_fi
+        check('c3_family_engine_item_keeps_its_figure', sorted(_bb2['bound'], key=int) == ['1', '2']
+              and list(_bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions']) == ['2'])
+        # the kept record comes back when R5b restores an earlier figure version
+        _bv_js.dump({'questions': {'3': {'object_type': 'chemical_structure', 'image_hashes': ['h3']}}},
+                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _memr = {}
+        _cl = bc_fallback_clear_figure('EX', 1, '3', home=_h, bs=_memr)
+        _after_clear = list(_bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions'])
+        _rb1 = bc_fallback_restore_figure('EX', 1, '3', home=_h, bs=_memr)
+        _rb2 = bc_fallback_restore_figure('EX', 1, '3', home=_h, bs=_memr)
+        _fmr = _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))
+        check('c3_restore_puts_the_figure_record_back', _cl and _after_clear == [] and _rb1 is True and _rb2 is False
+              and _fmr['questions'] == {'3': {'object_type': 'chemical_structure', 'image_hashes': ['h3']}}
+              and _memr['bv']['fallback_fig_records']['3']['image_hashes'] == ['h3']
+              and bc_fallback_restore_figure('EX', 1, '8', home=_h, bs=_memr) is False)
     # v1.18 — the ask count is per content: a rewrite clears it, so the regrade of the new text can be re-asked
     with _bv_tf.TemporaryDirectory() as _h:
         _cmt = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2', '3', '4'],
@@ -2980,11 +3502,44 @@ def self_test():
         _bs4['current_batch'] = len(_bs4.get('batch_plan') or []) + 1
         _bv_js.dump(_bs4, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
         r5 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        # v1.22 (BATCH-COMPLETE): the settlement batch 'S' of a migrating paper has nothing to do on a settled paper
         check('bv_final_round_is_a_check_when_every_batch_settled', r5['status'] == 'done' and r5['jobs'] == []
-              and r5['settled'] == [] and 'S13-1B: 0 to measure' in r5['lines'][-1] and not _bv_os.path.isdir(_bv_os.path.join(_h, 'EX_M1_bv', 'bfinal')))
-        # the 2026.11.14 carry stays available to a caller that asks for it (defer=True) — never the spec's default
-        _bs3['bv_carry'] = []
-        check('bv_defer_is_opt_in_only', bv_batch_step.__defaults__[-1] is False)
+              and r5['settled'] == [] and 'DONE' in r5['lines'][-1] and not _bv_os.path.isdir(_bv_os.path.join(_h, 'EX_M1_bv', 'bS')))
+        # v1.22 STEP A3 guard (measured on the CSIR NET Chemical Sciences incident paper, 40 real blocks: 40 matched, 40
+        # unrelated stems refused): tolerant of rendering, drawn options checked on the stem only, text options in order
+        _blk_t = 'Q.6 The number of optically active stereoisomers possible for the constitution shown is 1. 0 2. 1 3. 2 4. 4'
+        _blk_f = 'Q.1 Identify the major product P of the following two-step sequence. 1. 2. 3. 4.'
+        _blk_o = 'Q.2 Which reagent reduces the ketone 1. NaBH4 2. KMnO4 3. PCC 4. O3'
+        check('bc_block_contains_tolerant_and_ordered',
+              _bc_block_contains(_blk_t, {'stem_text': 'The number of optically-active stereoisomers possible for the '
+                                                       'constitution shown is', 'option_texts': ['0', '1', '2', '4']})
+              and _bc_block_contains(_blk_f, {'stem_text': 'Identify the major product P of the following two-step sequence.',
+                                              'option_texts': ['CC(O)C', 'CCO', 'C=C', 'CC'], 'figure_files': ['q1.png']})
+              and not _bc_block_contains(_blk_f, {'stem_text': 'Calculate the boiling point elevation of a sucrose solution',
+                                                  'figure_files': ['q1.png']})
+              and _bc_block_contains(_blk_o, {'stem_text': 'Which reagent reduces the ketone',
+                                              'option_texts': ['NaBH4', 'KMnO4', 'PCC', 'O3']})
+              and not _bc_block_contains(_blk_o, {'stem_text': 'Which reagent reduces the ketone',
+                                                  'option_texts': ['KMnO4', 'NaBH4', 'PCC', 'O3']})
+              and _bc_block_contains('anything', {'stem_text': ''}))
+        # v1.22 S13-1 ASSEMBLE: the final docx is PROVEN a byte copy — a copy that differs is never reported ok
+        import shutil as _bv_sh
+        _src_a, _dst_a = _bv_os.path.join(_h, 'cum.docx'), _bv_os.path.join(_h, 'final.docx')
+        open(_src_a, 'wb').write(b'PK cumulative')
+        _ok_copy = assemble_final_docx(_src_a, _dst_a)
+        _real_cf = _bv_sh.copyfile
+        try:
+            _bv_sh.copyfile = lambda a, b: open(b, 'wb').write(b'PK re-rendered')
+            _bad_copy = assemble_final_docx(_src_a, _dst_a)
+        finally:
+            _bv_sh.copyfile = _real_cf
+        check('assemble_final_docx_proves_the_byte_copy', _ok_copy['ok'] and not _bad_copy['ok']
+              and 'differs' in _bad_copy['why'] and not assemble_final_docx(_bv_os.path.join(_h, 'missing.docx'), _dst_a)['ok'])
+        # v1.22: 'defer' (the 2026.11.14 carry) is accepted for old callers and ignored — nothing is ever carried
+        import inspect as _bv_insp
+        _sig = _bv_insp.signature(bv_batch_step).parameters
+        check('bv_defer_is_opt_in_only', _sig['defer'].default is False and _sig['final'].default is False
+              and _sig['terminal'].default is None)
     # GAP-2026-11-14-FINAL-COUNT-INDEX x v1.21 INFRA-CARRY: the last batch's INFRA-CARRY question is measured by the final
     # round (S13-1B) while current_batch is already past the plan — jobs go out at once, never an IndexError
     with _bv_tf.TemporaryDirectory() as _h:
@@ -2999,7 +3554,7 @@ def self_test():
         except IndexError:
             _ri = {'status': 'IndexError', 'jobs': []}
         check('gap_2026_11_14_final_count_index_infra_carry', _ri['status'] == 'jobs_out' and len(_ri['jobs']) == 3
-              and all('/bfinal/' in d for d in _ri['jobs']))
+              and all('/bS/' in d for d in _ri['jobs']))
     # v1.20 (S0-BV BV-13) — a question carried from batch 1 rides in batch 2's FIRST reviewer round (no extra round)
     with _bv_tf.TemporaryDirectory() as _h:
         _cm2 = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'], 'subtopic_id': 'A.b', 'qtype': 'mcq'},
@@ -3028,75 +3583,61 @@ def self_test():
                 open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write(
                     '\n'.join(d + ' REVIEW FAILED x' for d in _fr['jobs']) + '\n')
         check('bv_final_reasks_a_failed_role_beyond_two', _fs == ['jobs_out', 'jobs_out', 'jobs_out'])
-    # v1.19 (S0-BV BV-11) — no fresh reviewer at all is never a stop: after bc.BV_MAX_ROUNDS empty rounds the
-    # question is carried unlabelled and the batch finishes
+    # v1.22 (LAW-BC-9): a reviewer that returns nothing is re-asked (the 2nd and 3rd ask on a switched model); after
+    # bc.BC_ROLE_ASKS asks the batch reports NO-MODEL with its state saved — never a carry, never an exception — and
+    # the next run (the resume) asks again from a clean count
     with _bv_tf.TemporaryDirectory() as _h:
         _bv_js.dump({'concept_map': {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2'],
                                            'subtopic_id': 'A.b', 'qtype': 'mcq'}}, 'answers': {'1': 2}},
                     open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
         _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1, 'difficulty_labels': L,
                      'difficulty_plan_target': {'1': 'Hard'}}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        _seen, _raised, _last = [], None, None
+        _seen, _raised, _last, _dirs = [], None, None, []
         try:
-            for _i in range(bc.BV_MAX_ROUNDS + 2):
+            for _i in range(bc.BC_ROLE_ASKS + 2):
                 _last = bv_batch_step('EX', 1, home=_h, echo=False)
                 _seen.append(_last['status'])
-                if _last['status'] == 'done':
+                _dirs.append(list(_last['jobs']))
+                if _last['jobs']:
+                    open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write(
+                        '\n'.join(d + ' REVIEW FAILED x' for d in _last['jobs']) + '\n')
+                if _last['status'] != 'jobs_out':
                     break
         except Exception as _ex:                                   # noqa: BLE001
             _raised = _ex
-        check('bv_no_reviewer_never_a_stop', _raised is None and _last is not None and _last['status'] == 'done'
-              and _last['open'] == ['1'] and 1 <= _seen.count('jobs_out') <= bc.BV_MAX_ROUNDS)
+        _bsn = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        check('bv_no_reviewer_never_a_stop', _raised is None and _last is not None and _last['status'] == 'no_model'
+              and _seen.count('jobs_out') == bc.BC_ROLE_ASKS and _last['pending'] == [] and _bsn['bv_carry'] == []
+              and not any('_switch' in d for d in _dirs[0]) and all(d.endswith('_switch') for d in _dirs[1] + _dirs[2])
+              and 'NO-MODEL [HS:ENV]' in _last['lines'][-1] and '1' in _last['no_model'])
+        _res = bv_batch_step('EX', 1, home=_h, echo=False)
+        check('bv_max_rounds_carries_to_the_next_batch', _res['status'] == 'jobs_out' and _res['pending'] == []
+              and len(_res['jobs']) == 3)
+        # at the round cap the question is decided with what exists (R11) — NO-MODEL here (no result at all), not a carry
         _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
         _bsx['bv'].update({'round': bc.BV_MAX_ROUNDS, 'asked': {}, 'status': 'jobs_out', 'jobs': []})
         _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
         try:
-            _mx = bv_batch_step('EX', 1, home=_h, echo=False)
+            _mf = bv_batch_step('EX', 1, home=_h, echo=False)
         except Exception as _ex:                                   # noqa: BLE001
-            _mx = {'status': f'raised {_ex}'}
-        check('bv_max_rounds_carries_to_the_next_batch', _mx['status'] == 'done' and _mx.get('pending') == ['1'])
-        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
-        # v1.22: a text whose roles were really asked bc.BV_MAX_ROUNDS times (the rounds are per text now)
-        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'status': 'jobs_out', 'jobs': [],
-                           'asked': {'1': {'grader_1': bc.BV_MAX_ROUNDS, 'solver_1': bc.BV_MAX_ROUNDS}}})
-        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        try:
-            _mf = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        except Exception as _ex:                                   # noqa: BLE001
-            _mf = {'status': f'raised {_ex}'}
-        check('bv_final_max_rounds_carries_unlabelled_never_a_stop', _mf['status'] == 'done' and _mf.get('open') == ['1']
-              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == ['1'])
-        # v1.22 (GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK): S13-2R replaces the slot AFTER the final cap — the NEW text
-        # must get fresh reviewer jobs (its own round budget), not be carried unmeasured again; the old text stays capped
-        _mf2 = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        _kx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
-        _kx['concept_map']['1'] = {'stem_text': 'A replacement question on new data about the sample table', 'option_texts': ['3', '4'],
-                                   'subtopic_id': 'A.b', 'qtype': 'mcq'}
-        _bv_js.dump(_kx, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
-        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
-        _bsx['bv']['items'].pop('1', None)                       # S13-2R clears the replaced slot's old record
-        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        try:
-            _mr = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        except Exception as _ex:                                   # noqa: BLE001
-            _mr = {'status': f'raised {_ex}', 'jobs': []}
-        _bsr = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv']
-        check('bv_final_replacement_after_cap_is_measured', _mf2['status'] == 'done' and _mr['status'] == 'jobs_out'
-              and len(_mr['jobs']) == 3 and '1' not in (_bsr.get('unmeasured') or [])
-              and (_bsr.get('fq') or {}).get('1', {}).get('rounds') == 1)
-        # v1.22 migration: a paper stranded by the old global cap (final round 6 of 6, the slot carried unmeasured,
-        # never asked, no 'fq' record yet) is measured on its next S13-1B — the live SSC_CGL_TIER1 P1 state
-        _bsx = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
-        _bsx['bv'].update({'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'status': 'done', 'jobs': [], 'asked': {},
-                           'unmeasured': ['1'], 'items': {'1': {'state': 'grading', 'attempt': 2}}})
-        _bsx['bv'].pop('fq', None)
-        _bv_js.dump(_bsx, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        try:
-            _mm = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
-        except Exception as _ex:                                   # noqa: BLE001
-            _mm = {'status': f'raised {_ex}', 'jobs': []}
-        check('bv_final_stranded_slot_migrates_and_is_measured', _mm['status'] == 'jobs_out' and len(_mm['jobs']) == 3
-              and '1' not in (_bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') or []))
+            _mf = {'status': f'raised {_ex}', 'jobs': ['x']}
+        check('bv_no_model_is_the_role_asks_not_an_engine_defect', 'after 3 asks' in _last['lines'][-1]
+              and not any(isinstance(_x, dict) and _x.get('kind') == 'bc_not_settled_at_done' for _x in (_bsn.get('p0_incidents') or [])))
+        check('bv_final_max_rounds_carries_unlabelled_never_a_stop', _mf['status'] == 'no_model' and _mf['jobs'] == []
+              and _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv'].get('unmeasured') == [])
+        # LAW-BC-9 RESUME at the cap (600-paper fuzz, invariant I8): the next step re-asks in an infrastructure round
+        # (folder r<k>i<j>, the quality budget untouched) and the batch completes — a NO-MODEL is never a dead end
+        _rz = bv_batch_step('EX', 1, home=_h, echo=False)
+        for _d in _rz['jobs']:
+            _pkz = _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))
+            _bv_js.dump({'items': {r['q']: {'band': 'Hard', 'decisions': 2, 'rationale': 'r', 'answer': 2,
+                                            'confidence': 'high', 'assumptions': []} for r in _pkz['items']}},
+                        open(_bv_os.path.join(_d, 'result.json'), 'w'))
+        open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(d + ' REVIEW DONE' for d in _rz['jobs']) + '\n')
+        _rz2 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _bsz = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        check('bv_no_model_at_the_cap_resumes_and_completes', _rz['status'] == 'jobs_out' and all('/r' + str(bc.BV_MAX_ROUNDS) + 'i1/' in d for d in _rz['jobs'])
+              and _rz2['status'] == 'done' and _bsz['bv']['round'] == bc.BV_MAX_ROUNDS and _bsz['bv'].get('infra_rounds') == 1)
     # v1.21 (G-11, t_reviewer_jobs_split): 10 questions at 5 per job -> 6 jobs; every question in exactly 3 distinct
     # reviewer contexts (k = 1..3); a linked group is never split; a re-ask goes to a '_switch' folder (another model)
     with _bv_tf.TemporaryDirectory() as _h:
@@ -3115,7 +3656,10 @@ def self_test():
             for _r in _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))['items']:
                 _jq.setdefault(_r['q'], []).append(_d.rsplit('/', 1)[-1].split('_p')[0])
         _grp = [[_r['q'] for _r in _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))['items']] for _d in _sj['jobs']]
-        check('t_reviewer_jobs_split', len(_sj['jobs']) == 3 * len(bc.bv_job_chunks([str(q) for q in range(1, 11)], _cms, 5))
+        # v1.23 (P1): the 3 chunks today's split makes (9 jobs) are rebalanced to 2 per reviewer — one wave of 6
+        check('t_reviewer_jobs_split', len(_sj['jobs']) == 3 * len(bc.bv_job_chunks_n([str(q) for q in range(1, 11)], _cms, 5,
+                                                                                   bc.bv_round_job_caps(6, 0)))
+              and len(_sj['jobs']) == 6 and len(bc.bv_job_chunks([str(q) for q in range(1, 11)], _cms, 5)) == 3
               and len(bc.bv_job_chunks([str(q) for q in range(1, 11)], {}, 5)) == 2
               and all(sorted(v) == ['reviewer_1', 'reviewer_2', 'reviewer_3'] for v in _jq.values()) and len(_jq) == 10
               and all(({'4', '5', '6'} <= set(g)) or not ({'4', '5', '6'} & set(g)) for g in _grp))
@@ -3124,6 +3668,217 @@ def self_test():
         _sw = bv_batch_step('EX', 1, home=_h, echo=False)
         check('bv_reask_goes_to_a_switched_model', _sw['status'] == 'jobs_out' and _sw['jobs']
               and all(d.endswith('_switch') for d in _sw['jobs']) and all('/b1/r2/' in d for d in _sw['jobs']))
+    # v1.23 (P3) G-SELFCOUNT: a self-count miss goes back to the author before any reviewer is paid — at most
+    # bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; missing counts are only reported
+    _HARD = {'facets': ['C-COMPUTATIONAL'], 'moves': ['m1', 'm2', 'm3', 'm4'], 'principles': ['p1', 'p2']}
+    _EASY = {'facets': ['C-FACTUAL'], 'moves': ['m1'], 'principles': ['p1']}
+    for _fix in (False, True):
+        with _bv_tf.TemporaryDirectory() as _h:
+            _cmc = {'1': {'stem_text': 'Compute the first quantity of the sample', 'option_texts': ['1', '2', '3', '4'],
+                          'subtopic_id': 'A.b', 'qtype': 'mcq', 'author_counts': _HARD},
+                    '2': {'stem_text': 'Compute the second quantity of the sample', 'option_texts': ['1', '2', '3', '4'],
+                          'subtopic_id': 'A.b', 'qtype': 'mcq', 'author_counts': _EASY},
+                    '3': {'stem_text': 'Compute the third quantity of the sample', 'option_texts': ['1', '2', '3', '4'],
+                          'subtopic_id': 'A.b', 'qtype': 'mcq'}}
+            _bv_js.dump({'concept_map': _cmc, 'answers': {'1': 1, '2': 1, '3': 1}},
+                        open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+            _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 3}], 'current_batch': 1,
+                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard', '3': 'Hard'}},
+                        open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+            _c1 = bv_batch_step('EX', 1, home=_h, echo=False)
+            _bsc = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+            _first = (_c1['status'] == 'rewrite' and _c1['jobs'] == [] and _bsc['bv']['round'] == 0
+                      and any('SELF-COUNT Q2 (try 1 of 2)' in x for x in _c1['lines'])
+                      and any("author_counts not recorded for ['3']" in x for x in _c1['lines'])
+                      and not any('SELF-COUNT Q1' in x or 'SELF-COUNT Q3' in x for x in _c1['lines']))
+            if _fix:
+                _kdc = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+                _kdc['concept_map']['2']['author_counts'] = _HARD
+                _bv_js.dump(_kdc, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+                _c2 = bv_batch_step('EX', 1, home=_h, echo=False)
+                check('p3_selfcount_fixed_then_reviewed_in_round_1', _first and _c2['status'] == 'jobs_out'
+                      and all('/b1/r1/' in d for d in _c2['jobs'])
+                      and {r['q'] for d in _c2['jobs'] for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']}
+                      == {'1', '2', '3'}
+                      and not any('author_counts' in str(r['item']) for d in _c2['jobs']
+                                  for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']))
+            else:
+                _c2 = bv_batch_step('EX', 1, home=_h, echo=False)
+                _c3 = bv_batch_step('EX', 1, home=_h, echo=False)
+                check('p3_selfcount_two_tries_then_reviewed_never_a_loop', _first and _c2['status'] == 'rewrite'
+                      and any('SELF-COUNT Q2 (try 2 of 2)' in x for x in _c2['lines'])
+                      and _c3['status'] == 'jobs_out' and all('/b1/r1/' in d for d in _c3['jobs'])
+                      and '2' in {r['q'] for d in _c3['jobs']
+                                  for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']})
+    # v1.23 (C3): driven through job folders to rung 3 — the fallback REWRITE removes the slot's fig_manifest record
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Compute the yield of the reaction here',
+                                           'option_texts': ['1', '2', '3', '4'], 'subtopic_id': 'A.b', 'qtype': 'mcq'}},
+                     'answers': {'1': 1}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
+                     'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Medium'}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({'questions': {'1': {'object_type': 'chemical_structure'}, '7': {'object_type': 'x'}}},
+                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _seen3, _rec_at3, _line3 = False, None, False
+        for _st3 in range(30):
+            _r3 = bv_batch_step('EX', 1, home=_h, echo=False)
+            _b3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+            _k3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+            _cb3 = ((_b3['bv']['items'].get('1') or {}).get('climb_brief') or {}).get('kind')
+            if _r3['status'] == 'rewrite' and _cb3 == 'fallback' and not _seen3:
+                _seen3 = True
+                _rec_at3 = list(_bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions'])
+                _line3 = any('rung-3 TEXT fallback' in x for x in _r3['lines'])
+            if _r3['status'] == 'done':
+                break
+            if _r3['status'] == 'jobs_out':
+                _ln3 = []
+                for _jb in _b3['bv']['jobs']:
+                    if _jb['role'] == 'adjudicator':
+                        _bv_js.dump({'verdict': 'question_defective', 'correct_answer': None, 'single_answer': 'no: two',
+                                     'missing_condition': '', 'reason': 'r', 'confidence': 'high'},
+                                    open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                        _ln3.append(_jb['dir'] + ' ADJUDICATE DONE')
+                        continue
+                    _pk3 = _bv_js.load(open(_bv_os.path.join(_jb['dir'], 'packet.json')))
+                    _bv_js.dump({'items': {_x['q']: {'band': 'Medium', 'answer': 2 if _jb['role'].endswith('1') else 3,
+                                                     'confidence': 'high', 'assumptions': [], 'single_answer': 'no: 2',
+                                                     'leak_or_paraphrase': 'none',
+                                                     'distractor_existence_and_class': 'ok',
+                                                     'consistency_and_names': 'ok', 'selectivity_basis': 'clean',
+                                                     'moves': ['m']} for _x in _pk3['items']}},
+                                open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                    _ln3.append(_jb['dir'] + ' REVIEW DONE')
+                open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln3) + '\n')
+            elif _r3['status'] == 'rewrite':
+                for _q3 in _r3['rewrite']:
+                    _k3['concept_map'][_q3]['stem_text'] += ' x'
+                _bv_js.dump(_k3, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        check('c3_fallback_rewrite_removes_the_figure_record', _seen3 and _rec_at3 == ['7'] and _line3
+              and _r3['status'] == 'done'
+              and _b3['bv'].get('fallback_cleared') == ['1'])
+    # production hotfixes v1.22 / v1.22.1 (GAP-2026-11-14-FINAL-ROUND-CAP-DEADLOCK) under S0-BC: the live stranded state
+    # (final round at the cap, the slot carried unmeasured, never asked, an open slot chain) is measured by the
+    # settlement batch 'S' — its own round count, never the old global one
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'A replacement question on new data about the sample table',
+                                           'option_texts': ['3', '4'], 'subtopic_id': 'A.b', 'qtype': 'mcq'}},
+                     'answers': {'1': 1}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Medium'}, 'slot_chain': {'1': {'done': False}},
+                     'bv': {'batch': 'final', 'round': bc.BV_MAX_ROUNDS, 'status': 'done', 'jobs': [], 'asked': {},
+                            'unmeasured': ['1'], 'items': {'1': {'state': 'grading', 'attempt': 2}}}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _mm = bv_batch_step('EX', 1, home=_h, echo=False, final=True)
+        _bmm = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv']
+        check('bv_final_stranded_slot_migrates_and_is_measured', _mm['status'] == 'jobs_out' and len(_mm['jobs']) == 3
+              and not _bmm.get('unmeasured') and _bmm['batch'] == 'S' and _bmm['round'] == 1)
+    # v1.23 (C4): a step that asks for a rewrite writes no job; after the rewrite ONE round carries the other question's
+    # adjudicator and the rewritten question's reviewers together
+    with _bv_tf.TemporaryDirectory() as _h:
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Compute the yield of the first reaction here',
+                                           'option_texts': ['1', '2', '3', '4'], 'subtopic_id': 'A.b', 'qtype': 'mcq'},
+                                     '2': {'stem_text': 'Compute the yield of the second reaction here',
+                                           'option_texts': ['1', '2', '3', '4'], 'subtopic_id': 'A.b', 'qtype': 'mcq'}},
+                     'answers': {'1': 1, '2': 1}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Medium', '2': 'Hard'}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _r41 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _ln4 = []
+        for _d in _r41['jobs']:
+            _it4 = {}
+            for _x in _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))['items']:
+                _it4[_x['q']] = dict({'band': 'Medium', 'answer': 2} if _x['q'] == '1' else {'band': 'Easy', 'answer': 1},
+                                     confidence='high', assumptions=[], single_answer='yes', leak_or_paraphrase='none',
+                                     distractor_existence_and_class='ok', consistency_and_names='ok',
+                                     selectivity_basis='clean', moves=['m'], decisions=1, rationale='r')
+            _bv_js.dump({'items': _it4}, open(_bv_os.path.join(_d, 'result.json'), 'w'))
+            _ln4.append(_d + ' REVIEW DONE')
+        open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln4) + '\n')
+        _r42 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _k4 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+        _k4['concept_map']['2']['stem_text'] = 'Compute the yield of the second reaction after two coupled equilibria here'
+        _bv_js.dump(_k4, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _r43 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _names4 = sorted(_d.rsplit('/', 1)[-1] for _d in _r43['jobs'])
+        check('c4_rewrite_step_writes_no_job_then_one_round', _r42['status'] == 'rewrite' and _r42['jobs'] == []
+              and _r42['rewrite'] == ['2'] and _r43['status'] == 'jobs_out'
+              and all('/b1/r2/' in _d for _d in _r43['jobs'])
+              and _names4 == ['q1_adj', 'reviewer_1', 'reviewer_2', 'reviewer_3'])
+    # v1.23 (C3): rung 3 fails, R5b restores the earlier FIGURE version — its figure record comes back with it
+    with _bv_tf.TemporaryDirectory() as _h:
+        open(_bv_os.path.join(_h, 'q1.png'), 'wb').write(b'png')
+        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Identify the major product of the reaction shown',
+                                           'option_texts': ['A', 'B', 'C', 'D'], 'subtopic_id': 'A.b', 'qtype': 'mcq',
+                                           'figure_files': [_bv_os.path.join(_h, 'q1.png')]}}, 'answers': {'1': 1}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
+                     'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Medium'}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({'questions': {'1': {'object_type': 'chemical_structure'}}},
+                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+        _seq5 = []
+        for _st5 in range(40):
+            _r5 = bv_batch_step('EX', 1, home=_h, echo=False)
+            _b5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+            _k5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+            _rg5 = (_b5['bv']['items'].get('1') or {}).get('rung', 0)
+            _seq5.append((_r5['status'], _rg5, '1' in _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions'],
+                          bool(_r5['restore'])))
+            if _r5['status'] == 'done':
+                break
+            if _r5['status'] == 'jobs_out':
+                _ln5 = []
+                for _jb in _b5['bv']['jobs']:
+                    if _jb['role'] == 'adjudicator':
+                        _v5 = ({'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes'} if _rg5 < 3 else
+                               {'verdict': 'question_defective', 'correct_answer': None, 'single_answer': 'no: x'})
+                        _v5.update({'missing_condition': '', 'reason': 'r', 'confidence': 'high'})
+                        _bv_js.dump(_v5, open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                        _ln5.append(_jb['dir'] + ' ADJUDICATE DONE')
+                        continue
+                    _kk5 = int(_jb['role'].split('_')[1])
+                    _a5 = ([1, 1, 3] if _rg5 < 3 else [2, 3, 4])[_kk5 - 1]
+                    _bv_js.dump({'items': {_x['q']: {'band': 'Medium', 'answer': _a5, 'confidence': 'high', 'assumptions': [],
+                                                     'single_answer': 'yes',
+                                                     'leak_or_paraphrase': 'leaks' if (_rg5 < 3 and _kk5 < 3) else 'none',
+                                                     'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok',
+                                                     'selectivity_basis': 'clean', 'moves': ['m']}
+                                           for _x in _bv_js.load(open(_bv_os.path.join(_jb['dir'], 'packet.json')))['items']}},
+                                open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                    _ln5.append(_jb['dir'] + ' REVIEW DONE')
+                open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln5) + '\n')
+            elif _r5['status'] == 'rewrite':
+                for _q5 in _r5['rewrite']:
+                    _k5['concept_map'][_q5]['stem_text'] += ' v' + str(_rg5)
+                    if _rg5 == 3:
+                        _k5['concept_map'][_q5].pop('figure_files', None)
+                for _q5, _p5 in _r5['restore'].items():
+                    _rs5 = _bv_js.load(open(_p5))
+                    _k5['concept_map'][_q5] = dict(_rs5['entry'])
+                    _k5['answers'][_q5] = _rs5['answer']
+                _bv_js.dump(_k5, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        check('c3_restore_brings_back_the_figure_record',
+              any(st == 'rewrite' and rg == 3 and not fig for st, rg, fig, _rs in _seq5)
+              and any(_rs and fig for st, rg, fig, _rs in _seq5)
+              and _seq5[-1][0] == 'done' and _seq5[-1][2] is True)
+    # v1.23 (P4): the author/reviewer offset per (subject, band), written to difficulty_state, shown in the packet
+    _meta = {f'grader_{k}': {'rubric': {'facets': ['C-COMPUTATIONAL'], 'inferential_steps': 1, 'concepts': 2,
+                                        'speed_hack': False, 'negative': False}} for k in (1, 2, 3)}
+    _cmo = {str(q): {'stem_text': f's{q}', 'option_texts': ['a', 'b'], 'subject': 'org', 'author_counts': _HARD}
+            for q in range(1, 5)}
+    _ito = {str(q): {'meta': _meta} for q in range(1, 5)}
+    _off = bc.bc_author_offsets(_cmo, _ito, {str(q): 'Hard' for q in range(1, 5)}, L)
+    _off2 = bc.bc_author_offsets({k: v for k, v in _cmo.items() if k in ('1', '2')}, _ito, {'1': 'Hard', '2': 'Hard'}, L)
+    _apk = bc.bv_author_packet({'q': '9', 'band': 'Hard', 'subject': 'org', 'subtopic_id': 'A.b'}, {}, L, offsets=_off)
+    check('p4_offset_measured_capped_and_shown', _off == {'org|Hard': {'n': 4, 'steps': 2, 'concepts': 0}}
+          and _off2 == {} and _apk['author_offset'] == {'n': 4, 'steps': 2, 'concepts': 0}
+          and any('+2 move(s)' in x for x in _apk['self_check'])
+          and not any('move(s)' in x for x in bc.bv_author_packet({'q': '9', 'band': 'Hard', 'subject': 'inorg'}, {}, L,
+                                                                     offsets=_off)['self_check']))
     # v1.21 (G-10): the in-progress test used by Create S3-13 / S3-16 (bootstrap.ns_paper_in_progress applies the same)
     with _bv_tf.TemporaryDirectory() as _h:
         _bv_js.dump({'batch_plan': [{'batch_id': 1}]}, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))

@@ -521,6 +521,25 @@ def _self_test():
     check("LAW-COVERAGE derives the LABEL-BASIS-LAW performing set from the corpus",
           rc == 1 and 'LAW-COVERAGE' in out and 'LABEL-BASIS-LAW' in out and 'Framework_PYQCount.md' in out)
 
+    # ── 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY P5) — STOP-REPAIR-COVERAGE ──
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\nraise SystemExit("HARD STOP [HS:INFRA] (S13-9 fixture): the record is gone.")\n```\n'))
+    check("STOP-REPAIR-COVERAGE fires on an INFRA stop after Q1 that names no repair",
+          rc == 1 and 'STOP-REPAIR-COVERAGE' in out and 'S13-9 fixture' in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\nraise SystemExit("HARD STOP [HS:INFRA] (S13-9 fixture): the record is gone — "\n'
+        '                 "re-run S13-4, then this block.")\n```\n'))
+    check("STOP-REPAIR-COVERAGE accepts an INFRA stop that names its repair",
+          'STOP-REPAIR-COVERAGE' not in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\n_act, st, n = bc.infra_heal_step(st, "S13-9")\nraise SystemExit("HARD STOP [HS:INFRA] (S13-9 fixture): gone.")\n```\n'))
+    check("STOP-REPAIR-COVERAGE accepts an INFRA stop behind bc.infra_heal_step",
+          'STOP-REPAIR-COVERAGE' not in out)
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        '\n```python\nraise SystemExit("HARD STOP [HS:INPUT] (S7 fixture): upload the file again")\n```\n'))
+    check("STOP-REPAIR-COVERAGE fires on an INPUT stop after Q1",
+          rc == 1 and 'STOP-REPAIR-COVERAGE' in out and 'HS:INPUT] after the first question' in out)
+
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -1147,6 +1166,136 @@ for _f in (_LAWS_08B.get('LAW-BV-1') or {}).get('governs') or []:
         if 'fa.bv_batch_step(' not in _lvbv or 'bc.bv_author_packet(' not in _lvbv:
             rec('BV-COVERAGE', f"{_f}: governed by LAW-BV-1 but its live text does not call fa.bv_batch_step( AND "
                                f"bc.bv_author_packet( — questions would be measured first at Final Assembly.")
+# BC-COVERAGE (2026.11.16, GAP-2026-11-14-BATCH-COMPLETE; LAW-BC-1..9): a spec governed by LAW-BC-1 settles every
+# question INSIDE its batch and keeps Final Assembly deterministic. Its live text must (a) run STEP B before STEP A2
+# (LAW-BC-6), (b) bind the batch review records (fa.bc_bind_batch(, LAW-BC-7), (c) assemble the final docx by a byte copy
+# (fa.assemble_final_docx( and fa.bc_check_bound(, LAW-BC-8), (d) escalate — never repair — an item finding first seen at
+# Final Assembly (the S13-2F ESCALATED branch), and (e) keep the normal Final Assembly path (S13-1, S13-2L.0) free of any
+# hand-over that starts a sub-agent (GRADE_REQUEST / REVIEW_REQUEST) or any call that writes question text.
+def _bc_section(t, sid):
+    m = re.search(r'^## ' + re.escape(sid) + r' .*$', t, re.M)
+    if not m:
+        return ''
+    n = re.search(r'^## ', t[m.end():], re.M)
+    return t[m.start(): m.end() + (n.start() if n else len(t) - m.end())]
+for _f in (_LAWS_08B.get('LAW-BC-1 SETTLED-IN-BATCH') or {}).get('governs') or []:
+    if _f not in TXT:
+        continue
+    _lvbc = _live_text(TXT[_f])
+    # sections are cut from the RAW text (a heading is a '#' line, which _live_text blanks), then made live
+    _s47 = _live_text(_bc_section(TXT[_f], 'S4-7'))
+    _iB, _iA2, _iA3 = _s47.find('  STEP B — GATE CHECK'), _s47.find('  STEP A2 — SETTLE'), _s47.find('  STEP A3 — BIND')
+    if not (0 <= _iB < _iA2 < _iA3):
+        rec('BC-COVERAGE', f"{_f}: S4-7 must run STEP B, then STEP A2 (SETTLE), then STEP A3 (BIND), in that order "
+                           f"(LAW-BC-6 / LAW-BC-7) — found B@{_iB}, A2@{_iA2}, A3@{_iA3}.")
+    for _need, _law in (('fa.bc_bind_batch(', 'LAW-BC-7'), ('fa.assemble_final_docx(', 'LAW-BC-8'),
+                        ('fa.bc_check_bound(', 'LAW-BC-8'), ('fa.bv_batch_step(', 'LAW-BC-1')):
+        if _need not in _lvbc:
+            rec('BC-COVERAGE', f"{_f}: live text does not call {_need} ({_law}).")
+    _s2f = _live_text(_bc_section(TXT[_f], 'S13-2F'))
+    if "'ESCALATED('" not in _s2f or 'bc.BC_RULE' not in _s2f:
+        rec('BC-COVERAGE', f"{_f}: S13-2F has no LAW-BC-8 branch (an item finding first seen at Final Assembly must be "
+                           f"stamped ESCALATED with a P0 record, never repaired there).")
+    for _sid in ('S13-1', 'S13-2L'):
+        _sec = _live_text(_bc_section(TXT[_f], _sid))
+        if _sid == 'S13-2L':
+            _sec = _sec.split('LEGACY (migration only) — the text and the RUN-BLOCK S13-2L below')[0]
+        for _bad in ('GRADE_REQUEST', 'REVIEW_REQUEST', 'bv_batch_step(', 'write_q_to_sidecar(', 'slot_chain_next('):
+            if _bad in _sec:
+                rec('BC-COVERAGE', f"{_f}: the normal Final Assembly section {_sid} contains {_bad!r} — Final Assembly "
+                                   f"starts no sub-agent and writes no question text (LAW-BC-8).")
+    for _sid in ('S13-1B', 'S13-2G', 'S13-2R'):
+        _sec = _bc_section(TXT[_f], _sid)
+        if _sec and 'LEGACY (migration only' not in _sec.split('\n', 1)[0]:
+            rec('BC-COVERAGE', f"{_f}: {_sid} is legacy under LAW-BC-8 — its heading must say 'LEGACY (migration only'.")
+# BC-CHECKLIST-SYNC (2026.11.16): the batch reviewer brief asks the MockReview S2-2 checklist fields (C-06) — every field
+# of blueprint_core.BC_CHECKLIST_FIELDS is defined in Framework_MockReview.md S2-2 AND asked in BV_BRIEF_REVIEWER, so
+# the in-batch review and the legacy S13-2G review can never drift apart.
+if os.path.exists('blueprint_core.py') and os.path.exists('Framework_MockReview.md'):
+    try:
+        sys.path.insert(0, os.path.abspath('.'))
+        import importlib as _ilbc
+        _bcbc = _ilbc.import_module('blueprint_core')
+        _mr = open('Framework_MockReview.md', encoding='utf-8').read()
+        _s22 = _bc_section(_mr, 'S2-2')
+        for _fld in getattr(_bcbc, 'BC_CHECKLIST_FIELDS', ()):
+            if _fld not in _s22:
+                rec('BC-CHECKLIST-SYNC', f"checklist field {_fld!r} is not defined in Framework_MockReview.md S2-2.")
+            if f"'{_fld}'" not in getattr(_bcbc, 'BV_BRIEF_REVIEWER', '') and f'\"{_fld}\"' not in getattr(_bcbc, 'BV_BRIEF_REVIEWER', ''):
+                rec('BC-CHECKLIST-SYNC', f"checklist field {_fld!r} is not asked in blueprint_core.BV_BRIEF_REVIEWER.")
+        if not getattr(_bcbc, 'BC_CHECKLIST_FIELDS', ()):
+            rec('BC-CHECKLIST-SYNC', 'blueprint_core.BC_CHECKLIST_FIELDS is missing or empty.')
+    except Exception as _ebc:                                   # noqa: BLE001
+        rec('BC-CHECKLIST-SYNC', f"could not verify the reviewer checklist ({type(_ebc).__name__}: {_ebc}).")
+# TEST-NO-HANDWRITE (2026.11.16, GAP F-01): inside handshake_audit.py's H-BC block, grades, key votes and review records
+# reach the paper ONLY through result.json files in the job folders fa.bv_batch_step created — a test that writes them
+# by hand proves nothing about production (the 2026.11.15 tests did, so Final Assembly's dead end stayed green).
+if os.path.exists('handshake_audit.py'):
+    _hs = open('handshake_audit.py', encoding='utf-8').read()
+    _a_hs, _b_hs = _hs.find('# ── H-BC BEGIN'), _hs.find('# ── H-BC END')
+    if not (0 <= _a_hs < _b_hs):
+        rec('TEST-NO-HANDWRITE', "handshake_audit.py has no '# ── H-BC BEGIN' ... '# ── H-BC END' block (the BATCH-COMPLETE "
+                                 "end-to-end tests).")
+    else:
+        _blk = _live_text(_hs[_a_hs:_b_hs])
+        for _bad, _why in (('op_record_controls(', 'writes grades by hand'),
+                           ("['key_votes'] =", 'writes key votes by hand'), ("key_votes={", 'writes key votes by hand'),
+                           ("['review'] =", 'writes a review record by hand'), ("['grades'] =", 'writes grades by hand'),
+                           ('bc_apply(', 'calls the decision directly instead of through fa.bv_batch_step')):
+            if _bad in _blk:
+                rec('TEST-NO-HANDWRITE', f"handshake_audit.py H-BC block {_why} ({_bad!r}) — results must reach the paper "
+                                         f"only through job folders and returned.txt.")
+# STOP-REPAIR-COVERAGE (2026.11.17, GAP-2026-11-14-SPEED-AND-FIDELITY P5): after the first question is written (every
+# line from the first '## S4-' heading on) a spec governed by LAW-BC-1 may stop only on a tool fault it names the
+# repair for. Every HARD STOP [HS:INFRA] statement in a code block either goes through the self-heal wrapper
+# (bc.infra_heal_step / an _infra*( call) or its message names the repair (re-run / restore / rebuild / re-copy /
+# refresh / regenerate / repair / fix / re-author / reinstall / replace / re-render / delete / run <this|the|step ...>);
+# a HARD STOP [HS:INPUT] after Q1 is forbidden (an exam input is checked before the first question, S3).
+_STOP_REPAIR_RE = re.compile(r"(re-?run|\brun (this|the|step|RUN-BLOCK|S\d|it|every|each)|restore|rebuild|re-?copy|refresh|"
+                             r"regenerate|repair|\bfix\b|re-?author|reinstall|replace|re-?render|delete)", re.I)
+
+
+def stop_repair_findings(text, name='spec'):
+    """[(line, why)] for every stop after Q1 that names no automatic repair (STOP-REPAIR-COVERAGE). Pure."""
+    L = text.split('\n')
+    try:
+        s4 = next(i for i, l in enumerate(L) if l.startswith('## S4-'))
+    except StopIteration:
+        return []
+    out, incode = [], False
+    for i, l in enumerate(L):
+        if l.strip().startswith('```'):
+            incode = not incode
+            continue
+        if i < s4 or not incode or 'HARD STOP [HS:' not in l or l.lstrip().startswith('#'):
+            continue
+        tag = re.search(r'\[HS:(\w+)\]', l).group(1)
+        if tag == 'INPUT':
+            out.append((i + 1, 'HARD STOP [HS:INPUT] after the first question (inputs are checked in S3)'))
+            continue
+        if tag != 'INFRA':
+            continue
+        depth, j, txt = 0, i, ''
+        while j < len(L) and j - i <= 16:
+            txt += L[j] + '\n'
+            depth += L[j].count('(') - L[j].count(')')
+            nxt = L[j + 1].strip() if j + 1 < len(L) else ''
+            if depth <= 0 and not nxt.startswith(('+', 'f"', '"', "f'", "'")):
+                break
+            j += 1
+        above = '\n'.join(L[max(s4, i - 12):i])
+        healed = bool(re.search(r'\b_infra\w*\(', L[i]) or re.search(r'\b_infra\w*\(', L[i - 1] if i else '')
+                      or 'infra_heal_step(' in above)
+        if not healed and not _STOP_REPAIR_RE.search(txt):
+            out.append((i + 1, 'HARD STOP [HS:INFRA] names no repair: ' + ' '.join(txt.split())[:120]))
+    return out
+
+
+for _f in (_LAWS_08B.get('LAW-BC-1 SETTLED-IN-BATCH') or {}).get('governs') or []:
+    if _f in TXT:
+        for _ln, _why in stop_repair_findings(TXT[_f], _f):
+            rec('STOP-REPAIR-COVERAGE', f"{_f}:{_ln}: {_why} — name the automatic repair (or route it through "
+                                        f"bc.infra_heal_step).")
 if os.path.exists('audit_canonical.py') and os.path.exists('blueprint_core.py'):
     try:
         sys.path.insert(0, os.path.abspath('.'))

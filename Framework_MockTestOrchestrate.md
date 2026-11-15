@@ -1,15 +1,15 @@
-# Framework_MockTestOrchestrate v1.7.0
-# v1.7.0 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with Framework_MockTestCreate v6.5, blueprint_core v2.5,
-#   final_assembly v1.21, bootstrap): every message goes to the CURRENT worker while it has the room (O2-5: Final Assembly
-#   and a review hand-back no longer force a fresh worker); a WARM STANDBY reads while the user reads a batch (O2-10);
-#   every question is settled inside its own batch (O3-9; reviewer jobs split, a re-ask on another model); a quota error
-#   rules a model out at once (O2-3); timing is logged (O2-11). Entry v1.6.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.9.0
+# v1.9.0 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with Framework_MockTestCreate v7.1, blueprint_core
+#   v2.7, final_assembly v1.23, bootstrap): the engine sizes a review round's reviewer jobs so that they and the round's
+#   adjudicator jobs fit in ONE wave of parallel_jobs_max (O2-3; bc.bv_round_job_caps) — a figure-heavy round no longer
+#   runs as two waves; Framework_MockReview.md is no longer on the Step 7 route (O0-1). Entry v1.8.0 moved to
+#   SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
-The Step 7 route (Framework_MockTestCreate.md, Framework_MockReview.md, Framework_DeliveryFooter.md,
-this spec) is read before the first question is written; `audit_specs_ext` SPEC-CAPACITY computes its
-size from SESSION_BUDGET.json `bytes_per_token` (currently about 325,000 tokens in about 42 read calls for a FINAL
+The Step 7 route (Framework_MockTestCreate.md, Framework_DeliveryFooter.md, this spec; v1.9.0: Framework_MockReview.md
+is no longer routed — its legacy S13-2G review never runs on this release) is read before the first question is written; `audit_specs_ext` SPEC-CAPACITY computes its
+size from SESSION_BUDGET.json `bytes_per_token` (v1.9.0: about 312,000 tokens in about 40 read calls for a FINAL
 read: v1.7.0 — the code a worker runs by ID, MTC RUN-BLOCKs, is not read).
 SESSION_BUDGET.json `_measured` records what a session holds: a large model held the whole route and
 answered every read-back check; a context that keeps growing is summarised by the platform without
@@ -107,7 +107,8 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
 - FINAL_BATCH_BUILT — when FILES TO DELIVER lists files, deliver them in ONE call. Print nothing and
   do not end the response: send `FINAL ASSEMBLY` at once (O2-5 picks the worker). This is MTC's one
   auto-advance (S4-9); the user sees one response.
-- REVIEW_REQUEST — for each directory in REVIEW PARTS start one reviewer sub-agent whose prompt is the
+- REVIEW_REQUEST — (v1.8.0: LEGACY — sent only for a paper migrating from an earlier release; a v7.0 paper never sends
+  it) for each directory in REVIEW PARTS start one reviewer sub-agent whose prompt is the
   content of `<part_dir>/REVIEWER_BRIEF.txt` (print it with `cat`; the only file under /home/claude
   the orchestrator opens) and nothing else. Start several at once when the tool allows it, otherwise
   one after another; foreground; model as in O2-2. Each reviewer returns one line; a reviewer that
@@ -118,7 +119,9 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   verbatim; END. The run is complete.
 - GRADE_REQUEST (v1.3.0; v1.4.0; v1.7.0) — the worker is writing a batch and needs its fresh blind reviewers (MTC S4-7
   STEP A2: the job folders bootstrap lists — three reviewers, each question's in jobs of SESSION_BUDGET.json
-  `review_qs_per_job` questions, so every question is seen by three different fresh reviewers). For each directory in
+  `review_qs_per_job` questions, so every question is seen by three different fresh reviewers; v1.9.0: the engine
+  sizes the jobs so that a round's reviewer jobs and adjudicator jobs together fit in ONE wave of `parallel_jobs_max` —
+  bc.bv_round_job_caps). For each directory in
   GRADE JOBS start one sub-agent whose prompt is the content of
   `<job_dir>/JOB_BRIEF.txt` (print them all with ONE `cat`) and nothing else — never the paper, the plan or a band.
   Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
@@ -129,7 +132,10 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   job that asks again a reviewer that returned nothing) gets the next model of `worker_models` after the one its
   first try used. Each returns one line; an
   error or no answer counts as `JOB FAILED <error text>` (a reviewer replies `REVIEW DONE` or `REVIEW FAILED <reason>`; a
-  per-role job of release 2026.11.11 replies GRADE / SOLVE / VISION DONE). Retry none: the worker decides. Then send
+  per-role job of release 2026.11.11 replies GRADE / SOLVE / VISION DONE). v1.8.0 (Create S0-BC LAW-BC-4): a folder whose
+  name ends in `_adj` (or `_adj_switch`) is an ADJUDICATOR — its prompt is its `JOB_BRIEF.txt` exactly like a reviewer,
+  it runs in the same waves, it gets a model DIFFERENT from the worker's when the platform offers one, and it replies
+  `ADJUDICATE DONE` or `ADJUDICATE FAILED <reason>`. Retry none: the worker decides. Then send
   `GRADE RETURNED` followed by one line per job: `<job_dir> <the sub-agent's line>` — to the SAME worker when
   O2-5 allows it, otherwise to a fresh worker (the batch's state is on disk). Print nothing; do not end the
   response: the batch is not delivered until the worker reports BATCH_DELIVERED.
@@ -177,7 +183,8 @@ of these hold (a fresh worker is never required by the message itself: it costs 
 2. W + R <= SESSION_BUDGET.json `rotate_tokens`, where W = the total tokens the platform last reported
    for this worker and R = the room the message needs: `work_unit_tokens` for a batch or a correction (for the
    continue that starts the plan's LAST batch, `work_unit_tokens` + `fa_work_unit_tokens`: Final Assembly follows in
-   the same response); `fa_work_unit_tokens` for `FINAL ASSEMBLY` and `REVIEW RETURNED`; `GRADE RETURNED` needs
+   the same response); `fa_work_unit_tokens` for `FINAL ASSEMBLY` and `REVIEW RETURNED` (v1.8.0: the deterministic
+   Final Assembly of Create v7.0 — byte copy, sweep, commit, two files; no sub-agent); `GRADE RETURNED` needs
    none beyond the batch it holds (R = 0). When the platform reports no token count, this condition is instead: it
    has completed at most 1 batch since its start;
 3. (retired v1.7.0 — `max_batches_per_worker` no longer replaces a Step 7 worker: room decides, condition 2);
@@ -391,14 +398,17 @@ batch in batches_completed, has current_batch incremented and the ledgers refres
 registry holds no committed question_index entry for this paper and batch_state.state is not set. On
 `FINAL ASSEMBLY` goes to the worker O2-5 picks — v1.7.0: the SAME worker that built the final batch when it has the
 room (O2-10 makes the worker of the last batch one that has) — which reaches S13 through S4-12's FINAL ASSEMBLY
-INTERRUPTED BEFORE THE REVIEW rule (S13-1B — a check when every batch settled — then S13-2 / S13-2F onward); in
-DIRECT MODE the session proceeds into S13 as S4-9 says.
+INTERRUPTED rule; in DIRECT MODE the session proceeds into S13 as S4-9 says. v1.8.0 (Create S0-BC LAW-BC-8): the
+Final Assembly path is S13-1 ASSEMBLE -> S13-2F -> S13-2P -> S13-2L.0 PAPER DIFFICULTY GATE -> S13-3 onward; it sends
+NO REVIEW_REQUEST and NO GRADE_REQUEST and starts no sub-agent, so a Final Assembly turn ends only in PAPER_DELIVERED
+(or ROTATE / HARD_STOP). A paper migrating from an earlier release first runs its settlement batch (Create S4-12),
+which may send GRADE_REQUEST like any batch.
 
 Before Final Assembly, a worker whose read was NON-FINAL performs MTC S1-0's one-way escalation:
 `python3 bootstrap.py --trigger <T> --progress <BATCH STATE> --read K --escalate` for K = 1..N, then
 `python3 bootstrap.py --retention "<nn>=<code> ..." --escalate --when before-final`.
 
-## O3-6 — Independent review hand-over (MTC S13-2G phase 2, WORKER MODE)
+## O3-6 — Independent review hand-over (MTC S13-2G phase 2, WORKER MODE) — LEGACY (v1.8.0: migration only)
 
 When S13-2G phase 1 has written REVIEW_DIR/queue.json (a worker cannot start sub-agents):
 1. For each part to review (at first: every part in queue.json), write `<dir>/REVIEWER_BRIEF.txt`
@@ -423,33 +433,34 @@ model than the round's other reviewers — the next of SESSION_BUDGET.json worke
 only, a fresh context. Every other folder is reviewed as before. Delta rounds use REVIEW_DIR names
 .../delta<k>/part<n>[_switch|_panel]; nothing else differs.
 
-## O3-9 — In-batch grading hand-over (MTC S4-7 STEP A2, WORKER MODE; v1.3.0, v1.4.0)
+## O3-9 — In-batch grading hand-over (MTC S4-7 STEP A2, WORKER MODE; v1.3.0, v1.4.0; v1.8.0 BATCH-COMPLETE)
 
-A worker cannot start sub-agents, so the fresh blind reviewers of the batch it is writing go to the orchestrator.
-MTC S4-7 STEP A2 (final_assembly.bv_batch_step) writes at most blueprint_core.BV_REVIEWERS (3) job folders per
-round, one per reviewer (blueprint_core.bv_reviewer_jobs), each with packet.json and JOB_BRIEF.txt: every question
-of the batch that reviewer must see, with that question's own anchors (real past questions of the exam per band)
-and the band guide, and nothing that names a slot band, the plan, the solution or the author's counts. Reviewer k
-solves every question (k <= 2 are the two blind solvers of the key), grades it (three graders from the start: the
-majority decides, no tiebreak round) and transcribes the figures it is asked to read. The worker proves retention
-(`--when handover`), refreshes the CHECKPOINT (O3-3 PLANNED HANDOVER) and reports GRADE_REQUEST with
-`--review-parts` = those folders (bootstrap prints them as GRADE JOBS). On `GRADE RETURNED` the worker (the same
-one, or a fresh `--continue` worker after S4-12's BATCH IN VERIFICATION branch) appends the lines to returned.txt
-and runs STEP A2 again: each `REVIEW DONE` result.json is split per question (blueprint_core.bv_split_reviewer_result)
-and blueprint_core.bv_apply decides: pass, ONE rewrite, or settle (a question whose third reviewer returned nothing
-and whose two graders split gets that reviewer again). v1.7.0 (MTC BV-9 / BV-13 retired, GAP-2026-11-13-STEP7-SPEED
-G-06): EVERY QUESTION IS SETTLED INSIDE ITS OWN BATCH — a rewritten question, one held for its edge re-count and one
-whose reviewer returned nothing get their next round AT ONCE, in the same batch, with only those questions in the jobs
-(at most blueprint_core.BV_MAX_ROUNDS rounds per batch); nothing is left for the next batch or for Final Assembly.
-The jobs are split per SESSION_BUDGET.json `review_qs_per_job` (a linked group is never split); a job that asks a
-reviewer again after it returned nothing has a folder name ending in `_switch` (O2-3: another model). A role is asked
-at most 3 times in its batch (counted per text: a rewrite starts the count again); a question that still has fewer
-than two grades is carried to S13-2L (never a stop). The ONLY carry left is INFRA-CARRY (MTC BV-11): a question with no
-fresh result at all after BV_MAX_ROUNDS rounds rides in the next batch's first round (the last batch's: MTC S13-1B),
-disclosed — a platform fault, never a quality state, never a stop. Only when STEP A2 prints DONE does the
-worker run STEP B and report BATCH_DELIVERED. In DIRECT MODE the session starts these jobs itself, all in one
-message, when it can start a sub-agent; when it cannot, it appends `<job_dir> REVIEW FAILED no sub-agent tool` for
-every folder and runs STEP A2 again (BV-11 carries the questions).
+A worker cannot start sub-agents, so the fresh reviewers and adjudicators of the batch it is writing go to the
+orchestrator. MTC S4-7 STEP A2 (final_assembly.bv_batch_step over blueprint_core.bc_apply) writes the job folders of
+one round, each with packet.json and JOB_BRIEF.txt:
+- REVIEWER folders (`.../reviewer_k[_p<i>]`, k = 1..3; blueprint_core.bv_reviewer_jobs): every question that reviewer
+  must see, with its own anchors and the band guide, the proven SMILES beside each structure figure it does not read
+  back (MTC LAW-BC-5), and nothing that names a slot band, the plan, the solution or the author's counts. Reviewer k
+  SOLVES every question (v1.8.0: all three are solvers of the key — MTC LAW-BC-3), counts and grades it, runs the item
+  checklist (single answer, leak / paraphrase, distractors, consistency, selectivity) and transcribes the figures it
+  is asked to read.
+- ADJUDICATOR folders (`.../q<n>_adj`; blueprint_core.bc_adjudicator_job, v1.8.0 — MTC LAW-BC-4): one per question
+  whose answer is disputed — the question as a candidate sees it with its proven structure text, the author's key and
+  solution, and the three solvers' answers and moves (Solver A/B/C).
+The worker proves retention (`--when handover`), refreshes the CHECKPOINT (O3-3 PLANNED HANDOVER) and reports
+GRADE_REQUEST with `--review-parts` = those folders (bootstrap prints them as GRADE JOBS). On `GRADE RETURNED` the
+worker (the same one, or a fresh `--continue` worker after S4-12's BATCH IN VERIFICATION branch) appends the lines to
+returned.txt and runs STEP A2 again: each `REVIEW DONE` result is split per question, each `ADJUDICATE DONE` result is
+read, and blueprint_core.bc_apply decides every question: settled (unanimous / adjudicated / re-keyed), or one rung up
+the ladder (FIX -> REPLACE -> FALLBACK), or R5b / the terminal (MTC LAW-BC-2). A job that asks a role again after it
+returned nothing has a folder name ending in `_switch` (O2-3: another model); a role is asked at most
+blueprint_core.BC_ROLE_ASKS (3) times per text. A question that still lacks the minimum results is NOT carried: STEP
+A2 prints `NO-MODEL [HS:ENV]`, saves state and the worker reports its turn (MTC LAW-BC-9); the next message runs STEP
+A2 again, which asks again. Only when STEP A2 prints DONE and STEP A3 prints BOUND does the worker report
+BATCH_DELIVERED (STEP B already ran before the first round — MTC LAW-BC-6). Nothing is left for the next batch or for
+Final Assembly. In DIRECT MODE the session starts these jobs itself, all in one message, when it can start a
+sub-agent; when it cannot, it appends `<job_dir> REVIEW FAILED no sub-agent tool` (an `_adj` folder: `ADJUDICATE
+FAILED no sub-agent tool`) for every folder and runs STEP A2 again (LAW-BC-9 then reports NO-MODEL).
 
 ## O3-7 — A worker that starts from disk (`--continue`)
 
@@ -516,7 +527,11 @@ A control that must be INDEPENDENT of the author is never run in the author's co
 in DIRECT MODE, a sub-agent the session starts) runs it in a FRESH context that receives ONLY the packet the
 engine builds, and returns ONLY the fields named here. Each result records context 'fresh' and the packet's
 sha256 (blueprint_core.dl_set_label_basis_strict refuses a grade without them).
-- O-GRADE — per item, INSIDE ITS BATCH (v1.3.0: requested with GRADE_REQUEST, O3-9): two blind GRADERS (packet = blueprint_core.build_judge_input(item, <ruler anchors
+- (v1.8.0) O-ADJUDICATE — per disputed item, INSIDE ITS BATCH (requested with GRADE_REQUEST, O3-9; folder `<q>_adj`):
+  ONE fresh adjudicator on a different model when offered (packet = blueprint_core.bc_adjudicator_job) ->
+  {verdict, correct_answer, single_answer, missing_condition, reason, confidence} (MTC LAW-BC-4).
+- O-GRADE — per item, INSIDE ITS BATCH (v1.3.0: requested with GRADE_REQUEST, O3-9; v1.8.0: three reviewers, each a
+  grader AND a solver — MTC LAW-BC-3): two blind GRADERS (packet = blueprint_core.build_judge_input(item, <ruler anchors
   with content>); never the band, plan, obs, solution or the author's counts) -> {band, decisions, rationale};
   two blind SOLVERS (packet = stem + options only) -> {answer, confidence, assumptions[]}. Graders and solvers
   are four separate fresh contexts; a switched model is used when the platform offers one. v1.3.0: a split
@@ -524,7 +539,8 @@ sha256 (blueprint_core.dl_set_label_basis_strict refuses a grade without them).
 - O-VISION — per rendered organic figure: a fresh vision pass that never saw the SMILES transcribes the image
   -> {smiles, stereo_mode}; 2 independent reads when the answer depends on stereo, else 1
   (figural_vision.readback_compare decides the match).
-- O-REFILL — Create S13-2R 'refill_session' / 'last_resort_generate': a fresh worker resumes from saved state
+- O-REFILL — (v1.8.0: LEGACY — never reached on the normal path; the in-batch ladder replaces the chains) Create
+  S13-2R 'refill_session' / 'last_resort_generate': a fresh worker resumes from saved state
   and writes the entry's K candidates for the open slot only (composer + library on), each through O-GRADE and
   O-VISION; at most blueprint_core.C_REFILL_SESSIONS refill sessions per paper (batch_state counter).
 - O-BACKFILL — Create S0-OP-0: PYQExplain §13A-3B on the records listed, in fresh workers; each upgraded record
@@ -545,4 +561,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.7.0
+# END OF Framework_MockTestOrchestrate v1.9.0

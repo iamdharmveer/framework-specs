@@ -797,29 +797,41 @@ def _bv_handshake(check, ROOT, run_fence, W):
     kd['concept_map']['4'] = {'stem_text': 'A gas obeys the van der Waals equation with a = 3.6 L2 bar mol-2; its Boyle temperature ratio to Tc is',
                               'option_texts': ['27/8', '8/27', '3', '1/3'], 'subtopic_id': sid['4'], 'qtype': 'mcq', 'difficulty': 'Hard'}
     json.dump(kd, open(kp, 'w'))
-    for _ in range(4):
+    # 2026.11.16 (BATCH-COMPLETE LAW-BC-2): a level miss climbs rung 1 (the fix above) and rung 2 (a REPLACE) inside its
+    # batch, then settles at its measured band — the worker writes each rung's text exactly as write_q_to_sidecar does
+    _rung2 = {'stem_text': 'For a van der Waals gas with b = 0.040 L mol-1, the excluded volume per molecule is closest to',
+              'option_texts': ['6.6e-26 L', '1.7e-26 L', '2.7e-26 L', '4.0e-26 L'], 'subtopic_id': sid['4'], 'qtype': 'mcq',
+              'difficulty': 'Hard'}
+    _rewrites = 0
+    for _ in range(8):
         r = a2()
-        if r['status'] != 'jobs_out':
-            break
-        answer_jobs()
-    # 2026.11.15 (GAP-2026-11-13-STEP7-SPEED G-06, BV-9): the rewritten Q4 is re-graded INSIDE batch 2 (its next round,
-    # Q4 alone) — batch 2 is DONE with every question settled and nothing carried; S13-1B is then a check (0 to measure)
+        if r['status'] == 'jobs_out':
+            answer_jobs()
+            continue
+        if r['status'] == 'rewrite' and r['rewrite'] == ['4'] and _rewrites == 0:
+            kd = json.load(open(kp)); kd['concept_map']['4'] = dict(_rung2); json.dump(kd, open(kp, 'w'))
+            _rewrites += 1
+            continue
+        break
     bs = json.load(open(bsp)); kd = json.load(open(kp)); cm = kd['concept_map']
-    check('H-BV 2026.11.15 BV-9: batch 2 DONE with the rewritten Q4 measured in its own batch — nothing carried',
+    check('H-BV 2026.11.16 LAW-BC-1/2: batch 2 DONE with Q4 taken through rung 1 and rung 2 in its own batch — nothing carried',
           r['status'] == 'done' and r['pending'] == [] and r['settled'] == ['3', '4'] and bs['bv_carry'] == []
-          and bs['bv']['round'] == 2, r)
+          # 2026.11.17 (C4): the step that asks for a rewrite writes no job, so Q3's first round and Q4's re-review
+          # go out together — 2 rounds where 2026.11.16 needed 3
+          and bs['bv']['round'] == 2 and _rewrites == 1 and bs['bv']['items']['4']['rung'] == 2,
+          (r, bs['bv']['round'], _rewrites, bs['bv']['items']['4'].get('rung')))
     fin = blk('# ── S13-1B FINAL COUNTING ROUND (v6.4 BV-14) ──')
     def a2f():
         with contextlib.redirect_stdout(io.StringIO()):
             run_fence(fin, G)
         return G['BV_FINAL']
     rf = a2f()
-    check('H-BV 2026.11.15 S13-1B is a CHECK when every batch settled: 0 to measure, no job, no folder',
-          rf['status'] == 'done' and rf['jobs'] == [] and 'S13-1B: 0 to measure' in rf['lines'][-1]
-          and not os.path.isdir(f'{HOME}/{EXAM}_M{N}_bv/bfinal'), rf)
-    check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after its ONE rewrite (disclosed), never rewritten twice',
+    check('H-BV 2026.11.16 S13-1B (LEGACY: the settlement batch) has nothing to do when every batch settled: no job, no folder',
+          rf['status'] == 'done' and rf['jobs'] == [] and 'DONE' in rf['lines'][-1]
+          and not os.path.isdir(f'{HOME}/{EXAM}_M{N}_bv/bS'), rf)
+    check('H-BV batch 2 DONE: Q3 at slot; Q4 delivered at its measured band after rung 2 (disclosed), never rung 3 for a level miss',
           r['disclosed'] == ['4'] and cm['4']['difficulty'] == 'Medium'
-          and bs['bv']['items']['4']['attempt'] == 2 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
+          and bs['bv']['items']['4']['attempt'] == 3 and bs['difficulty_state']['bv_disclosed']['4'] == {'requested': 'Hard', 'delivered': 'Medium'}, r)
     check('H-BV every reviewer packet was blind (no band, author counts or rewrite notes), named its own folder, '
           'and carried past-question anchors for every band', seen.get('blind') and all(seen['blind'])
           and seen.get('anchored') and all(seen['anchored']))
@@ -895,6 +907,371 @@ def _bv_handshake(check, ROOT, run_fence, W):
                                     '- PLANNED HANDOVER (v1.4.0', '## O2-9 — No framework question', 'each wave in ONE message',
                                     '## O2-10 — WARM STANDBY', 'A MODEL\'S LIMIT IS NOT A WORKER FAULT'))
           and 'Framework_MockTestOrchestrate O3-9' in txt)
+
+
+
+# ── H-BC BEGIN ── (GAP-2026-11-14-BATCH-COMPLETE §10.2; audit_sync TEST-NO-HANDWRITE guards this block: every grade, key
+# vote, verdict and review record reaches the paper ONLY through result.json files in the job folders fa.bv_batch_step
+# created and REVIEW DONE / ADJUDICATE DONE lines in returned.txt — never written by hand)
+def _bc_handshake(check, ROOT, W):
+    """H-BC (release 2026.11.16): every question SETTLED inside its batch, run through the REAL I/O shell
+    (final_assembly.bv_batch_step -> blueprint_core.bc_apply), the STEP A3 binder, the S13-1 byte copy, the auditor's
+    A-REVIEW / A-FIGRECORD / ESCALATED rules and the commit. Sub-agents are simulated by writing their result.json."""
+    import io, contextlib
+    import blueprint_core as bc, final_assembly as fa, audit_canonical as ac
+    L = ['Easy', 'Medium', 'Hard']
+    base = os.path.join(ROOT, 'hbc')
+
+    def paper(name, cm, answers, target, plan, current=1, extra=None):
+        home = os.path.join(base, name)
+        os.makedirs(home, exist_ok=True)
+        json.dump({'concept_map': cm, 'answers': answers}, open(os.path.join(home, 'HBC_M1_answer_key.json'), 'w'))
+        bs = {'batch_plan': plan, 'current_batch': current, 'difficulty_labels': L, 'difficulty_plan_target': target}
+        bs.update(extra or {})
+        json.dump(bs, open(os.path.join(home, 'HBC_M1_batch_state.json'), 'w'))
+        return home
+
+    def ld(home, which):
+        return json.load(open(os.path.join(home, f'HBC_M1_{which}.json')))
+
+    def sv(home, which, d):
+        json.dump(d, open(os.path.join(home, f'HBC_M1_{which}.json'), 'w'))
+
+    def step(home, **kw):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return fa.bv_batch_step('HBC', 1, home=home, echo=False, **kw)
+
+    def answer(home, rev=None, adj=None, fail=()):
+        """The fresh sub-agents of the round: rev(q, k, packet_row) -> reviewer item dict; adj(q, packet) -> verdict."""
+        bs = ld(home, 'batch_state')
+        lines = []
+        for jb in bs['bv']['jobs']:
+            pk = json.load(open(os.path.join(jb['dir'], 'packet.json')))
+            if jb['role'] == 'adjudicator':
+                if 'adj' in fail:
+                    lines.append(jb['dir'] + ' ADJUDICATE FAILED x'); continue
+                json.dump(adj(jb['q'], pk), open(os.path.join(jb['dir'], 'result.json'), 'w'))
+                lines.append(jb['dir'] + ' ADJUDICATE DONE')
+                continue
+            k = int(jb['role'].rsplit('_', 1)[-1])
+            if k in fail:
+                lines.append(jb['dir'] + ' REVIEW FAILED x'); continue
+            json.dump({'items': {r['q']: rev(r['q'], k, r) for r in pk['items']}},
+                      open(os.path.join(jb['dir'], 'result.json'), 'w'))
+            lines.append(jb['dir'] + ' REVIEW DONE')
+        open(os.path.join(home, 'HBC_M1_bv', 'returned.txt'), 'a').write('\n'.join(lines) + '\n')
+        return bs['bv']['jobs']
+
+    def R(band, ans, **kw):
+        cnt = {'Easy': (['C-FACTUAL'], 1, 1), 'Medium': (['C-COMPUTATIONAL'], 2, 1), 'Hard': (['C-COMPUTATIONAL'], 4, 2)}[band]
+        d = {'band': band, 'facets': cnt[0], 'moves': [f'move {i}' for i in range(cnt[1])],
+             'principles': [f'p{i}' for i in range(cnt[2])], 'speed_hack': False, 'shortcut': '', 'negative': False,
+             'decisions': 2, 'rationale': 'counted', 'class': 'computation', 'computation_generic': False, 'concept': 'c',
+             'answer': ans, 'confidence': 'high', 'assumptions': [], 'single_answer': 'yes',
+             'leak_or_paraphrase': 'none', 'distractor_existence_and_class': '1: real species, wrong because x',
+             'consistency_and_names': 'ok', 'selectivity_basis': 'clean'}
+        d.update(kw)
+        return d
+
+    def Q(stem, opts, sid='S.T.u', **kw):
+        e = {'stem_text': stem, 'option_texts': opts, 'subtopic_id': sid, 'qtype': 'mcq'}
+        e.update(kw)
+        return e
+
+    plan1 = [{'batch_id': 1, 'q_start': 1, 'q_end': 2}]
+    # H-BC-1 (K1, L1): all agree -> settled in one round; STEP A3 binds every question; A-REVIEW final OK
+    h = paper('k1', {'1': Q('Compute the enthalpy change of reaction one at 298 K', ['-10 kJ', '-20 kJ', '-30 kJ', '-40 kJ']),
+                     '2': Q('Name the point group of the second molecule in the scheme', ['C2v', 'D3h', 'Td', 'Oh'])},
+              {'1': 2, '2': 1}, {'1': 'Hard', '2': 'Medium'}, plan1)
+    r1 = step(h)
+    answer(h, rev=lambda q, k, row: R({'1': 'Hard', '2': 'Medium'}[q], {'1': 2, '2': 1}[q]))
+    r2 = step(h)
+    kd = ld(h, 'answer_key'); cm = kd['concept_map']
+    check('H-BC-1 three reviewer jobs, ONE round, every question settled unanimous (three solver answers)',
+          r1['status'] == 'jobs_out' and len(r1['jobs']) == 3 and r2['status'] == 'done' and r2['settled'] == ['1', '2']
+          and cm['1']['key_votes']['certified_by'] == 'unanimous' and cm['1']['key_votes']['solver_3'] == 2
+          and bc.verify_difficulty_label(cm['2'], L, strict=True)[0], r2)
+    hashes = {q: bc.item_hash([f'Q.{q}', cm[q]['stem_text']] + cm[q]['option_texts']) for q in cm}
+    texts = {q: f"Q.{q} {cm[q]['stem_text']} " + ' '.join(f'{i}. {o}' for i, o in enumerate(cm[q]['option_texts'], 1)) for q in cm}
+    json.dump(hashes, open(os.path.join(h, 'h.json'), 'w')); json.dump(texts, open(os.path.join(h, 't.json'), 'w'))
+    with contextlib.redirect_stdout(io.StringIO()):
+        b1 = fa.bc_bind_batch('HBC', 1, os.path.join(h, 'h.json'), os.path.join(h, 't.json'), home=h, echo=False)
+    cm = ld(h, 'answer_key')['concept_map']
+    check('H-BC-1 STEP A3 binds a batch review record (reviewer batch, unanimous) to every block hash',
+          b1['status'] == 'bound' and b1['bound'] == ['1', '2'] and cm['1']['review']['item_hash'] == hashes['1']
+          and cm['1']['review']['reviewer'] == 'batch' and cm['2']['review']['verdict'] == 'PASS', b1)
+    src = {'concept_map': cm, 'answers': {'1': 2, '2': 1}, '_item_hashes': hashes, '_mockN': 1, 'registry': {'question_index': [
+        {'mock': 1, 'paper_id': 'MOCK:M01', 'qindex_cert': {'producer_release': '2026.11.16', 'framework_release': '2026.11.16'},
+         'questions': [{'q': 1}, {'q': 2}]}]}}
+    ac._reset(); ac.gate_review(src)
+    check('H-BC-1 auditor A-REVIEW final phase OK on the batch-bound records (no S13-2G)',
+          [l for l, c, m in ac.RESULTS if c == 'A-REVIEW'] == ['OK'], [(l, m[:160]) for l, c, m in ac.RESULTS if c == 'A-REVIEW'])
+    # H-BC-16b (R2): the docx block alone changed after binding (a picture swapped, the text untouched) -> refused
+    json.dump(dict(hashes, **{'1': 'docx-only-edit'}), open(os.path.join(h, 'h_edit.json'), 'w'))
+    with contextlib.redirect_stdout(io.StringIO()):
+        b1e = fa.bc_bind_batch('HBC', 1, os.path.join(h, 'h_edit.json'), None, home=h, echo=False)
+    check('H-BC-16b STEP A3 refuses a block changed in the docx alone after it was bound (its text unchanged)',
+          b1e['status'] == 'refused' and list(b1e['refused']) == ['1'] and 'docx block changed' in b1e['refused']['1'], b1e)
+    # H-BC-16 (R2): a question edited after its review is refused by STEP A3
+    kd = ld(h, 'answer_key'); kd['concept_map']['2']['stem_text'] += ' (edited)'; sv(h, 'answer_key', kd)
+    with contextlib.redirect_stdout(io.StringIO()):
+        b2 = fa.bc_bind_batch('HBC', 1, os.path.join(h, 'h.json'), None, home=h, echo=False)
+    check('H-BC-16 STEP A3 refuses a question whose text changed after its review (names it; binds the rest)',
+          b2['status'] == 'refused' and list(b2['refused']) == ['2'] and 'changed after its review' in b2['refused']['2'], b2)
+    # H-BC-2 (K2, L6, R12): 3 solvers against the author -> adjudicator job -> re-key; options swapped; grades kept
+    h = paper('k2', {'1': Q('Which reagent converts the ketone to the alcohol here', ['NaBH4', 'KMnO4', 'PCC', 'O3'])},
+              {'1': 2}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    step(h); answer(h, rev=lambda q, k, row: R('Hard', 1))
+    ra = step(h)
+    _adj_dirs = [d for d in ra['jobs'] if d.endswith('_adj')]
+    _apk = json.load(open(os.path.join(_adj_dirs[0], 'packet.json'))) if _adj_dirs else {}
+    check('H-BC-2 a disputed key gets ONE adjudicator job (folder q<n>_adj) with the three anonymised solvers and no band',
+          ra['status'] == 'jobs_out' and len(_adj_dirs) == 1 and [s['solver'] for s in _apk.get('solvers', [])] == ['A', 'B', 'C']
+          and "'Hard'" not in json.dumps(_apk) and 'ADJUDICATE DONE' in open(os.path.join(_adj_dirs[0], 'JOB_BRIEF.txt')).read(), ra)
+    answer(h, adj=lambda q, pk: {'verdict': 'solver_correct', 'correct_answer': 1, 'single_answer': 'yes',
+                                 'missing_condition': '', 'reason': 'NaBH4 reduces the ketone', 'confidence': 'high'})
+    rp = step(h)
+    check('H-BC-2 re-key keeps the planned key position: PERMUTE options 2 and 1 (content unchanged, no new review)',
+          rp['status'] == 'rewrite' and rp['permute'] == {'1': {'swap': [2, 1], 'answer': 2}} and rp['jobs'] == [], rp)
+    kd = ld(h, 'answer_key'); o = kd['concept_map']['1']['option_texts']; o[0], o[1] = o[1], o[0]; sv(h, 'answer_key', kd)
+    rs = step(h)
+    kd = ld(h, 'answer_key'); e = kd['concept_map']['1']
+    check('H-BC-2 after the swap: settled rekey, key = planned position 2 (now NaBH4), grades kept, no new round',
+          rs['status'] == 'done' and rs['jobs'] == [] and e['key_votes']['certified_by'] == 'rekey'
+          and kd['answers']['1'] == 2 and e['option_texts'][1] == 'NaBH4' and e['difficulty'] == 'Hard'
+          and ld(h, 'batch_state')['bv']['round'] == 2, rs)
+    # H-BC-3 (K3): a 2-1 split with the author -> adjudicator author_correct -> settled 'adjudicated'
+    h = paper('k3', {'1': Q('Predict the major product of the E2 elimination of 2-bromobutane', ['1-butene', '2-butene', 'butane', 'butanol'])},
+              {'1': 2}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    step(h); answer(h, rev=lambda q, k, row: R('Medium', 1 if k == 3 else 2)); step(h)
+    answer(h, adj=lambda q, pk: {'verdict': 'author_correct', 'correct_answer': 2, 'single_answer': 'yes',
+                                 'missing_condition': '', 'reason': 'Zaitsev', 'confidence': 'high'})
+    r3 = step(h)
+    check('H-BC-3 K3: adjudicator confirms the author -> settled adjudicated',
+          r3['status'] == 'done' and ld(h, 'answer_key')['concept_map']['1']['key_votes']['certified_by'] == 'adjudicated', r3)
+    # H-BC-4 (K6): all answers agree but a decisive assumption -> adjudicator states the missing condition -> rung 1
+    h = paper('k6', {'1': Q('The product of the reaction of the enolate with the alkyl halide is', ['A', 'B', 'C', 'D'])},
+              {'1': 3}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    step(h)
+    answer(h, rev=lambda q, k, row: R('Hard', 3, assumptions=[{'about': 'conditions', 'text': 'kinetic enolate assumed',
+                                                               'changes_answer': k == 1}]))
+    step(h)
+    answer(h, adj=lambda q, pk: {'verdict': 'question_defective', 'correct_answer': 3, 'single_answer': 'yes',
+                                 'missing_condition': 'state LDA at -78 C (kinetic control)', 'reason': 'two enolates possible',
+                                 'confidence': 'high'})
+    r4 = step(h)
+    _cb = ld(h, 'batch_state')['bv']['items']['1'].get('climb_brief') or {}
+    check('H-BC-4 K6: a decisive assumption -> adjudicator -> REWRITE rung 1 FIX whose brief carries the missing condition '
+          'and the solvers\' own moves', r4['status'] == 'rewrite' and r4['rewrite'] == ['1'] and _cb.get('kind') == 'fix'
+          and _cb.get('missing_condition') == 'state LDA at -78 C (kinetic control)'
+          and (_cb.get('solvers') or [{}])[0].get('moves'), _cb)
+    # H-BC-5 (K7): a second defensible option named by a reviewer -> adjudicator confirms -> rung 1
+    h = paper('k7', {'1': Q('Which statement about the SN1 reaction of the tertiary halide is true', ['w', 'x', 'y', 'z'])},
+              {'1': 1}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    step(h); answer(h, rev=lambda q, k, row: R('Medium', 1, single_answer='no: option 3 is also true' if k == 2 else 'yes'))
+    r5a = step(h)
+    answer(h, adj=lambda q, pk: {'verdict': 'question_defective', 'correct_answer': 1, 'single_answer': 'no: 3 also',
+                                 'missing_condition': '', 'reason': 'two true statements', 'confidence': 'high'})
+    r5 = step(h)
+    check('H-BC-5 K7: second defensible option -> adjudicator -> rung 1', r5a['status'] == 'jobs_out'
+          and r5['rewrite'] == ['1'] and ld(h, 'batch_state')['bv']['items']['1']['rung'] == 1, r5)
+    # H-BC-7 / H-BC-8 (K13, K14): dispute through rungs 1 and 2, rung 3 also disputed -> the confirmed rung-1 version is
+    # RESTORED (R5b), no new review, AMBER line
+    h = paper('k13', {'1': Q('Identify the major product P of the epoxidation and reduction sequence', ['a', 'b', 'c', 'd'])},
+              {'1': 1}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    rung_text = {0: 'Identify the major product P of the epoxidation and reduction sequence',
+                 1: 'Identify the major product P of the epoxidation and reduction sequence at -20 C with L-(+)-DET',
+                 2: 'Identify the starting material of the given two-step sequence',
+                 3: 'Which reagent reduces an epoxide regioselectively at the less hindered carbon'}
+    ans_by_rung = {0: (2, 3, 4), 1: (1, 1, 2), 2: (2, 3, 4), 3: (2, 3, 4)}
+    verdict_by_rung = {0: 'question_defective', 1: 'author_correct', 2: 'question_defective', 3: 'question_defective'}
+    conf_by_rung = {0: 'high', 1: 'low', 2: 'high', 3: 'high'}
+    rung = 0
+    restore = None
+    for _guard in range(16):
+        r = step(h)
+        if r['status'] == 'jobs_out':
+            rr = rung
+            answer(h, rev=lambda q, k, row: R('Hard', ans_by_rung[rr][k - 1]),
+                   adj=lambda q, pk: {'verdict': verdict_by_rung[rr], 'correct_answer': 1, 'single_answer': 'yes',
+                                      'missing_condition': '', 'reason': 'r', 'confidence': conf_by_rung[rr]})
+            continue
+        if r['status'] == 'rewrite' and r['rewrite'] == ['1']:
+            rung = ld(h, 'batch_state')['bv']['items']['1']['rung']
+            kd = ld(h, 'answer_key'); kd['concept_map']['1']['stem_text'] = rung_text[rung]; sv(h, 'answer_key', kd)
+            continue
+        if r['status'] == 'rewrite' and r['restore']:
+            restore = json.load(open(r['restore']['1']))
+            kd = ld(h, 'answer_key')
+            kd['concept_map']['1'] = {k_: v_ for k_, v_ in restore['entry'].items()}
+            kd['answers']['1'] = restore['answer']
+            sv(h, 'answer_key', kd)
+            continue
+        break
+    kd = ld(h, 'answer_key'); e = kd['concept_map']['1']; bsx = ld(h, 'batch_state')
+    check('H-BC-7 the ladder: rung 1 FIX, rung 2 REPLACE, rung 3 FALLBACK — each text reviewed in the SAME batch',
+          rung == 3 and bsx['bv']['round'] <= bc.BV_MAX_ROUNDS and r['status'] == 'done', (rung, r))
+    check('H-BC-8 R5b: the last version with an adjudicator-confirmed key and >= 2 of 3 solvers (rung 1) is restored, '
+          'disclosed AMBER, never re-reviewed', restore is not None and restore['rung'] == 1
+          and e['stem_text'] == rung_text[1] and e['key_votes']['certified_by'] == 'disclosed'
+          and any('R5b' in t for _c, t in bsx['bc_footer']['1']), (restore and restore.get('rung'), bsx.get('bc_footer')))
+    # H-BC-9 (K10-K12, R6): a reviewer that returns nothing 3 times -> NO-MODEL (state saved, never a carry); resume asks again
+    h = paper('k12', {'1': Q('Compute the pH of the 0.01 M acetic acid solution given its Ka', ['3.4', '2.0', '4.7', '7.0'])},
+              {'1': 1}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    sts = []
+    for _ in range(5):
+        r = step(h); sts.append(r['status'])
+        if r['status'] != 'jobs_out':
+            break
+        answer(h, rev=lambda q, k, row: R('Medium', 1), fail=(1, 2, 3))
+    bsx = ld(h, 'batch_state')
+    check('H-BC-9 LAW-BC-9: no reviewer after 3 asks (2nd and 3rd on a switched model) -> NO-MODEL with saved state, '
+          'nothing carried', sts == ['jobs_out'] * 3 + ['no_model'] and bsx['bv_carry'] == [] and bsx['bv']['status'] == 'no_model'
+          and '1' in r['no_model'], sts)
+    r = step(h)
+    answer(h, rev=lambda q, k, row: R('Medium', 1), fail=(3,))
+    for _ in range(8):
+        r = step(h)
+        if r['status'] != 'jobs_out':
+            break
+        answer(h, rev=lambda q, k, row: R('Medium', 1), fail=(3,),
+               adj=lambda q, pk: {'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes',
+                                  'missing_condition': '', 'reason': 'ok', 'confidence': 'high'})
+    bsx = ld(h, 'batch_state')
+    check('H-BC-9 the resume asks again; with 2 of 3 reviewers the adjudicator settles the key, AMBER "2 of 3 reviewers"',
+          r['status'] == 'done' and any('2 of 3 reviewers' in t for _c, t in bsx['bc_footer']['1']), (r, bsx.get('bc_footer')))
+    # H-BC-12 (F6, R3): proven SMILES ride in reviewer and adjudicator packets, never for a figure the reviewer reads back
+    fig = os.path.join(base, 'q1_problem.png')
+    os.makedirs(base, exist_ok=True)
+    open(fig, 'wb').write(b'\x89PNG\r\n\x1a\nfake')
+    h = paper('f6', {'1': Q('Identify the product drawn in the scheme', ['a', 'b', 'c', 'd'], organic=True,
+                            figure_files=[fig], figure_dicts=[{'file': fig, 'smiles': 'C[C@H](O)CC', 'stereo_mode': 'abs',
+                                                               'answer_depends_on_stereo': True}])},
+              {'1': 1}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
+    rf = step(h)
+    pks = {d.rsplit('/', 1)[-1]: json.load(open(os.path.join(d, 'packet.json'))) for d in rf['jobs']}
+    row = {k_: v_['items'][0] for k_, v_ in pks.items()}
+    check('H-BC-12 LAW-BC-5: reviewers 1-2 read the figure back blind (no proven SMILES); reviewer 3 gets the proven SMILES',
+          set(row) == {'reviewer_1', 'reviewer_2', 'reviewer_3'} and row['reviewer_1']['figures_to_read']
+          and 'C[C@H](O)CC' not in json.dumps(pks['reviewer_1']) and 'C[C@H](O)CC' not in json.dumps(pks['reviewer_2'])
+          and row['reviewer_3']['proven_structures'] == [{'file': 'q1_problem.png', 'smiles': 'C[C@H](O)CC'}],
+          {k_: (v_.get('figures_to_read'), v_.get('proven_structures')) for k_, v_ in row.items()})
+    # H-BC-13 (P2): the last batch's whole-paper sweep names an EARLIER question -> re-opened INSIDE the last batch
+    h = paper('p2', {'1': Q('Compute the work done in the reversible isothermal expansion here', ['1', '2', '3', '4']),
+                     '2': Q('Find the entropy change of the isothermal mixing of two gases', ['a', 'b', 'c', 'd'])},
+              {'1': 1, '2': 2}, {'1': 'Medium', '2': 'Medium'},
+              [{'batch_id': 1, 'q_start': 1, 'q_end': 1}, {'batch_id': 2, 'q_start': 2, 'q_end': 2}])
+    step(h); answer(h, rev=lambda q, k, row: R('Medium', {'1': 1, '2': 2}[q])); step(h)
+    bs = ld(h, 'batch_state'); bs['current_batch'] = 2; sv(h, 'batch_state', bs)
+    step(h); answer(h, rev=lambda q, k, row: R('Medium', {'1': 1, '2': 2}[q])); rl = step(h)
+    with contextlib.redirect_stdout(io.StringIO()):
+        fa.bc_reopen('HBC', 1, ['1'], 'A-STEMLEAK: the stem names the product', home=h)
+    rr = step(h)
+    _it1 = ld(h, 'batch_state')['bv']['items']['1']
+    check('H-BC-13 LAW-BC-6: an earlier question named by the last batch\'s sweep is re-opened in the last batch and climbs '
+          'there (rung 1, with reviewers next), never repaired at Final Assembly',
+          rl['status'] == 'done' and rr['status'] == 'rewrite' and rr['rewrite'] == ['1'] and _it1['rung'] == 1
+          and 'GATE: A-STEMLEAK' in json.dumps(_it1.get('climb_brief')), rr)
+    # H-BC-18 (migration): a 2026.11.15 paper paused between batches with a key_chain question in batch 1 — it joins
+    # batch 2 and enters the ladder (adjudication on its current text)
+    # the legacy state is produced by the 2026.11.15 engine itself (bc.bv_apply, rule BV1): attempt 2, the two blind
+    # solvers against the author -> key_chain (exactly what that release left for S13-2L)
+    _q1 = Q('Identify the major product of the Diels-Alder reaction shown', ['a', 'b', 'c', 'd'], subject='X', bv={'attempt': 2})
+    _gx = lambda b, k: {'result': {'band': b}, 'sha256': f'g{k}', 'context': 'fresh'}
+    _sx = lambda a, k: {'result': {'answer': a, 'confidence': 'high', 'assumptions': []}, 'sha256': f's{k}', 'context': 'fresh'}
+    _leg = bc.bv_apply(_q1, 'Hard', L, {}, 1, results={'grader_1': _gx('Hard', 1), 'grader_2': _gx('Hard', 2),
+                                                       'grader_3': _gx('Hard', 3), 'solver_1': _sx(2, 1), 'solver_2': _sx(2, 2)})
+    _legacy_entry = _leg['entry']
+    h = paper('mig', {'1': {k_: v_ for k_, v_ in _legacy_entry.items() if k_ != 'bv'},
+                      '2': Q('Compute the bond order of the dioxygen cation', ['2.5', '2', '1.5', '3'])},
+              {'1': 1, '2': 1}, {'1': 'Hard', '2': 'Medium'},
+              [{'batch_id': 1, 'q_start': 1, 'q_end': 1}, {'batch_id': 2, 'q_start': 2, 'q_end': 2}], current=2,
+              extra={'bv': {'batch': 1, 'round': 2, 'jobs': [], 'items': {'1': _legacy_entry['bv']}}})
+    check('H-BC-18 fixture: the 2026.11.15 engine itself left Q1 in key_chain (no hand-built state)',
+          _leg['action'] == 'key_chain' and _legacy_entry.get('bv_state') == 'key_chain', _leg['action'])
+    rm = step(h)
+    _pkm = {d.rsplit('/', 1)[-1]: [x['q'] for x in json.load(open(os.path.join(d, 'packet.json'))).get('items', [])]
+            for d in rm['jobs']}
+    check('H-BC-18 migration: a key_chain question of an earlier batch joins the next batch\'s work with rung 1 spent — '
+          'its measured grades and two solver answers are kept, only the third solver is asked (then adjudication) — named '
+          'in the report', rm['status'] == 'jobs_out' and _pkm.get('reviewer_3') == ['1', '2']
+          and _pkm.get('reviewer_1') == ['2'] and ld(h, 'batch_state')['bv']['items']['1']['rung'] == 1
+          and 'earlier questions in this batch' in rm['lines'][0], (rm['lines'], _pkm))
+    # H-BC-18b (migration): a 2026.11.15 paper whose old Final Assembly chain rewrote a question (its key votes no longer
+    # describe its text) and left a chain open — the SETTLEMENT BATCH measures that question again and closes the chain
+    _q2 = Q('Compute the spin-only magnetic moment of the complex ion', ['1.73 BM', '2.83 BM', '3.87 BM', '4.90 BM'],
+            subject='X', bv={'attempt': 1})
+    _leg2 = bc.bv_apply(_q2, 'Medium', L, {}, 1, results={'grader_1': _gx('Medium', 1), 'grader_2': _gx('Medium', 2),
+                                                          'grader_3': _gx('Medium', 3), 'solver_1': _sx(1, 1), 'solver_2': _sx(1, 2)})
+    _e2 = {k_: v_ for k_, v_ in _leg2['entry'].items() if k_ != 'bv'}
+    _e2['stem_text'] = 'Compute the spin-only magnetic moment of the high-spin d6 complex ion'   # the old chain's rewrite
+    h = paper('mig2', {'1': _e2}, {'1': 1}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], current=2,
+              extra={'bv': {'batch': 1, 'round': 1, 'jobs': [], 'items': {'1': _leg2['entry']['bv']}},
+                     'slot_chain': {'1': {'kind': 'quality', 'done': False, 'attempts': []}}})
+    for _ in range(4):
+        rmf = step(h, final=True)
+        if rmf['status'] != 'jobs_out':
+            break
+        answer(h, rev=lambda q, k, row: R('Medium', 1))
+    _bsm = ld(h, 'batch_state')
+    check('H-BC-18b settlement batch: a legacy question rewritten after its key votes is reviewed again (BC1), and every '
+          'open legacy chain is closed as migrated', _leg2['action'] == 'settled' and rmf['status'] == 'done'
+          and _bsm['bv']['items']['1'].get('rule') == bc.BC_RULE and _bsm['slot_chain']['1']['outcome'] == 'migrated'
+          and _bsm['slot_chain']['1']['done'] is True, (rmf, _bsm.get('slot_chain')))
+    # H-BC-15 (6.6, LAW-BC-8): Final Assembly from a settled paper — byte copy, bound hashes equal, zero job folders
+    h = os.path.join(base, 'k1')
+    out = os.path.join(base, 'out'); os.makedirs(out, exist_ok=True)
+    cum = os.path.join(out, 'HBC_SUBJ_X_01_Q1to2.docx'); open(cum, 'wb').write(b'PK\x03\x04 cumulative docx bytes')
+    kd = ld(h, 'answer_key'); kd['concept_map']['2']['stem_text'] = kd['concept_map']['2']['stem_text'].replace(' (edited)', '')
+    sv(h, 'answer_key', kd)
+    jobs_before = sorted(os.listdir(os.path.join(h, 'HBC_M1_bv', 'b1')))
+    asm = fa.assemble_final_docx(cum, os.path.join(out, 'HBC_SUBJ_X_01_Create.docx'))
+    with contextlib.redirect_stdout(io.StringIO()):
+        fa.bc_bind_batch('HBC', 1, os.path.join(h, 'h.json'), None, home=h, echo=False)
+    chk = fa.bc_check_bound('HBC', 1, os.path.join(h, 'h.json'), home=h)
+    json.dump(dict(hashes, **{'2': 'different'}), open(os.path.join(h, 'h2.json'), 'w'))
+    chk2 = fa.bc_check_bound('HBC', 1, os.path.join(h, 'h2.json'), home=h)
+    _kdk = ld(h, 'answer_key'); _kdk['answers']['1'] = 4; sv(h, 'answer_key', _kdk)
+    chk3 = fa.bc_check_bound('HBC', 1, os.path.join(h, 'h.json'), home=h)
+    _kdk['answers']['1'] = 2; sv(h, 'answer_key', _kdk)
+    check('H-BC-15 S13-1 ASSEMBLE: a byte copy (sha equal), every review bound to the final hash, a changed block is an '
+          'INFRA mismatch (never a re-review), and Final Assembly created no job folder',
+          asm['ok'] and open(cum, 'rb').read() == open(os.path.join(out, 'HBC_SUBJ_X_01_Create.docx'), 'rb').read()
+          and chk['ok'] and chk2['mismatch'] == ['2'] and chk3['key_mismatch'] == ['1'] and not chk3['ok']
+          and sorted(os.listdir(os.path.join(h, 'HBC_M1_bv', 'b1'))) == jobs_before, (asm, chk, chk2, chk3))
+    # H-BC-17 (R9, LAW-BC-8): an item finding first seen at Final Assembly is stamped ESCALATED -> AMBER, never repaired
+    cm17 = ld(h, 'answer_key')['concept_map']
+    cm17['1']['quality_status'] = 'ESCALATED(A-STEMLEAK)'
+    ac._reset()
+    ac._item('A-STEMLEAK', '1', 'A-STEMLEAK: the stem names the product', 'VOID_ITEM')
+    ac._fail('A-STEMLEAK', 'stem leak on Q1')
+    ac._lb_reconcile_disclosed({'concept_map': cm17, 'registry': {}})
+    check('H-BC-17 LAW-BC-8: an ESCALATED item on a BATCH-COMPLETE paper turns its FAIL into AMBER (P0 recorded by S13-2F)',
+          [l for l, c, m in ac.RESULTS if c == 'A-STEMLEAK'] == ['WARN'] and '1' in ac.DISCLOSED_ITEMS
+          and 'ESCALATED' in [m for l, c, m in ac.RESULTS if c == 'A-STEMLEAK'][0], ac.RESULTS[-2:])
+    # H-BC-20 (K16-K18, L8): an exam with no difficulty plan, MSQ and NAT — the same flow settles every question
+    h = paper('k18', {'1': Q('Select every aromatic compound among the four listed', ['benzene', 'cyclohexene', 'pyridine', 'hexane'],
+                             qtype='msq'),
+                      '2': Q('Compute the molar mass of glucose to one decimal place', [], qtype='nat', ca_range=[179.9, 180.3])},
+              {'1': ['1', '3'], '2': 180.1}, {}, plan1)
+    step(h)
+    answer(h, rev=lambda q, k, row: R('Medium', {'1': '3, 1' if k == 2 else [1, 3], '2': [180.1, 180.2, 180.0][k - 1]}[q]))
+    r20 = step(h)
+    check('H-BC-20 no difficulty plan, MSQ and NAT (tolerance) through the same flow: settled, no label written',
+          r20['status'] == 'done' and r20['settled'] == ['1', '2']
+          and 'difficulty_check' not in ld(h, 'answer_key')['concept_map']['2'], r20)
+    # H-BC-11 (F4): a structure picture without its figure_dicts record fails A-FIGRECORD on a BATCH-COMPLETE paper
+    ac._reset(); ac.gate_figrecord({'concept_map': {'1': {'organic': True, 'figure_files': ['x.png'], 'key_votes': {'rule': 'BC1'}}}})
+    check('H-BC-11 A-FIGRECORD (Layer-2 twin of G-FIGRECORD) fails a structure picture without its record',
+          [l for l, c, m in ac.RESULTS if c == 'A-FIGRECORD'] == ['FAIL'])
+    # spec / engine / orchestration agree on the new path
+    mtc = open(os.path.join(W, 'Framework_MockTestCreate.md'), encoding='utf-8').read()
+    orc = open(os.path.join(W, 'Framework_MockTestOrchestrate.md'), encoding='utf-8').read()
+    check('H-BC spec: S0-BC laws, STEP A3 binder, S13-1 byte copy and S13-2L.0 gate are wired; Orchestrate handles _adj',
+          '## S0-BC — BATCH-COMPLETE' in mtc and 'fa.bc_bind_batch(' in mtc and 'fa.assemble_final_docx(' in mtc
+          and 'RUN-BLOCK S13-2L.0' in mtc and '`_adj`' in orc and 'ADJUDICATE DONE' in orc
+          and bc.BV_ROLES_SOLVE == ('solver_1', 'solver_2', 'solver_3') and bc.BC_TERMINAL == 'adjudicated_disclosed')
+# ── H-BC END ──
 
 
 def self_test():
@@ -1500,6 +1877,8 @@ def self_test():
         _downstream_replay(check)
         print('H-BV every question verified in its own batch: author packet -> STEP A2 -> commit -> audit -> deliver (release 2026.11.11)')
         _bv_handshake(check, ROOT, run_fence, W)
+        print('H-BC every question SETTLED in its batch: ladder, adjudication, re-key, R5b, NO-MODEL, STEP A3, byte-copy Final Assembly (release 2026.11.16)')
+        _bc_handshake(check, ROOT, W)
 
     finally:
         shutil.rmtree(ROOT, ignore_errors=True)
@@ -1513,7 +1892,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 219   # 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 244   # 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

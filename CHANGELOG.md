@@ -1,5 +1,122 @@
 # Changelog
 
+## 2026.11.17 — GAP-2026-11-14-SPEED-AND-FIDELITY: fewer tokens, one wave per review round, the author checks its own level first, no stop without its repair
+
+(blueprint_core v2.7 (P1 bv_job_chunks_n / bv_round_job_caps, bv_reviewer_jobs max_jobs_per_reviewer; P3 bc_author_obs /
+bc_selfcount, BC_SELFCOUNT_TRIES = 2; P4 bc_author_offsets, BC_OFFSET_MIN_N = 3, BC_OFFSET_CAP = 2, bv_author_packet
+offsets= and the author_counts self-check); final_assembly v1.23 (bv_batch_step: one-wave rounds, SELF-COUNT before the
+first review round of a text, difficulty_state.author_offset; NEW bc_fallback_clear_figure; bc_bind_batch refuses a
+rung-3 fallback that carries a picture); spec_sections (LEGACY_CUTS, FEATURE_SECTIONS, TRIGGER_CUTS; legacy_ranges /
+trigger_ranges / feature_ranges in SPEC_SECTIONS.json; read_plan(trigger=, drop_features=)); bootstrap (trigger-scoped
+reads, _absent_features, --show-section LEGACY:<id>); audit_sync (NEW STOP-REPAIR-COVERAGE); routes.json
+(Framework_MockReview.md off the MockCreate / TestCreate routes); Framework_MockTestCreate v7.1 (C1 AWAITING_REVIEW in
+the LEGACY MIGRATION list; C2 the rung-3 fallback is exempt from the figural-slot ban; C3 its figure record is removed;
+S4-11 G-SELFCOUNT (62 items, 59 must-PASS); STEP A records author_counts; STEP A2 SELF-COUNT; S3-16
+figures_possible; S13-1 re-copies once by itself; two INFRA stops name their repair; legacy paragraphs point to
+--show-section); Framework_MockTestOrchestrate v1.9.0 (O2-3 one wave per round; O0-1 route without MockReview);
+LAW_REGISTRY (LAW-BC-2 and LAW-BC-6 amended); STEP_CONTRACTS (floors Create 7.1, Orchestrate 1.9.0; deliverables, end
+states and user actions unchanged).)
+
+**Built on production eaf40a9** (2026.11.15 + three hotfixes; release 2026.11.16 below was never deployed and ships in
+this same upload). Carried: blueprint_core v2.5.1 REVIEW-KEY-ANNOTATED (an annotated position is that position) —
+applied to Cluster BC too (bc_answer_norm, NEW bc_canon_key), so an agreeing reviewer never costs an adjudicator round
+and a re-key is stored as its int position; final_assembly v1.22 / v1.22.1 FINAL-ROUND-CAP-DEADLOCK — superseded by
+S0-BC (no S13-1B / chain on the normal path) and proven on the live stranded state: the settlement batch measures it
+(self-test bv_final_stranded_slot_migrates_and_is_measured).
+
+**Owner go-ahead.** 2026-11-14: C1-C3 and P1-P5 as recommended in GAP-2026-11-14-SPEED-AND-FIDELITY; P1b (one
+adjudicator job for several disputed questions) and D6 (a lone low confidence as K-PASS) wait for the timed run.
+
+**Measured on the base (release 2026.11.16).** A fresh worker read 316,724 tokens (NON-FINAL) / 339,524 (FINAL) on
+TestCreate; one reviewer / adjudicator start costs ~72,000 tokens; a 10-question round with 5 figure questions at
+review_qs_per_job 5 made 12 jobs = 2 serial waves of 6.
+
+**What changes (measured on this tree).**
+- Reads (TestCreate): NON-FINAL 293,972 tokens (-22,752), FINAL 312,240 (-27,284); on a paper whose state proves it has
+  no figure (figures_possible False, nothing drawn): 270,734 / 289,002 (-45,990 / -50,522). Cut: Framework_MockReview.md
+  (not routed), the legacy text of S13-1B / S13-2G / S13-2L slot chains / S13-2R (`bootstrap.py --show-section
+  LEGACY:<id>` prints it), the other steps' blocks of DeliveryFooter §3 (MockCreate / TestCreate only — every other
+  trigger reads the footer unchanged), and S10-7 under P2d. S0-BV stays in the read (BV-2/3/6/7/8/10/12/14/15 are live).
+- P1: a round's reviewer jobs + adjudicator jobs fit in ONE wave of parallel_jobs_max (the 12-job round above is 6 jobs,
+  1 wave); a round with more than 3 adjudicators still takes two waves (P1b, deferred).
+- P3: a question whose author_counts do not give the slot band is sent back before any reviewer starts (no round spent),
+  at most 2 times per rung; missing counts are reported (G-SELFCOUNT in STEP B), never a loop and never a stop.
+- P4: difficulty_state.author_offset per (subject, band) from 3 measured questions, capped at +/-2 — guidance only.
+- P5: STOP-REPAIR-COVERAGE — after the first '## S4-' heading every HARD STOP [HS:INFRA] names its repair or goes through
+  bc.infra_heal_step, and no HARD STOP [HS:INPUT] exists; two stops gained their repair text (R-STIMGROUP, S13-8) and
+  S13-1 re-copies once before it stops. A missing exam input before Q1 still stops (it cannot be invented).
+- C1-C3 correct three gaps of 2026.11.16 (see the GAP §2). C3 is engine-backed: the rung-3 TEXT fallback's
+  fig_manifest record is removed at REWRITE and put back if R5b restores the earlier figure version (an R10
+  family-engine item keeps its figure); STEP A3 refuses a fallback that carries a picture.
+- C4 (found by this release's fuzz, fixed): in 2026.11.16 a REWRITE asked in the same STEP A2 run as JOBS OUT was printed
+  only as JOBS OUT, so the worker handed the jobs over, the text was never rewritten and the ladder moved on from the
+  unchanged text (a rung lost — a level miss could settle off its slot without its rewrite). Now a run that asks for
+  text work writes no job; the next run issues the whole round together (H-BV: the same batch now needs 2 rounds, was 3).
+
+**Verification (on the eaf40a9-based tree).** run_ci_gates.py 23/23 steps PASS; blueprint_core 1485/1485,
+final_assembly 217/217, spec_sections 39/39, handshake 244/244, bootstrap and audit_sync self-tests PASS; property fuzz
+on the merged engine 600 papers / 6,428 questions, 0 violations (invariants I1-I12); planted defects 24/24 killed (P1 x3,
+P3 x5, P4 x2, C3 x6, C4 x1, P2 x5, annotated key x2); every other trigger's read byte-identical (23 triggers x 2 session classes);
+the incident paper's 40 item hashes unchanged.
+
+## 2026.11.16 — GAP-2026-11-14-BATCH-COMPLETE: every question settled in its own batch; a deterministic Final Assembly that always finishes
+
+(blueprint_core v2.6 (NEW Cluster BC: bc_apply, bc_next_rung, bc_key_decision, bc_adjudicator_job, bc_proven_structures,
+bc_kpass, bc_findings_from_checklist, options_permutation_allowed / _equal, bc_r5b_pick, bc_review_record,
+bc_amber_lines; C_SOLVERS = 3, BV_ROLES_SOLVE = 3 solvers, BV_MAX_ROUNDS = 12, BC_ROLE_ASKS, BC_TERMINAL; reviewer brief
+with proven structure text and the MockReview checklist; bv_set_label recipe_note; BV1 kept for migration with
+BV1_ROLES_SOLVE); final_assembly v1.22 (bv_batch_step over bc_apply: adjudicator jobs, PERMUTE / RESTORE, R11 round
+budget, NO-MODEL instead of INFRA-CARRY, earlier unsettled questions join the batch, settlement batch 'S'; NEW
+bc_bind_batch, assemble_final_docx, bc_check_bound, bc_reopen, bc_figure_intrinsic; QINDEX_OP_FIELDS + bc_fallback);
+audit_canonical v2.42 (A-REVIEW accepts unanimous-3 / adjudicated / rekey, disclosed = AMBER; NEW A-FIGRECORD; NEW
+--item-texts; A-AXIS1 counts a rung-3 fallback at its planned format; ESCALATED items AMBER); audit_sync (BC-COVERAGE,
+BC-CHECKLIST-SYNC, TEST-NO-HANDWRITE); bootstrap (worker prompt names adjudicator lines); handshake_audit (+25 H-BC through
+job folders only; H-BV for the new ladder; 244 checks); Framework_MockTestCreate v7.0 (NEW S0-BC LAW-BC-1..9; S4-7 order
+A -> B -> A2 -> A3 -> C..F, STEP A2 rewritten, NEW STEP A3 RUN-BLOCK S4-7.3; S4-11 G-FIGRECORD; S4-12 LEGACY MIGRATION;
+S13-1 ASSEMBLE RUN-BLOCKs S13-1 / S13-1.2; S13-2F LAW-BC-8 escalation; S13-2L.0 PAPER DIFFICULTY GATE; S13-1B / S13-2G /
+S13-2L chains / S13-2R LEGACY); Framework_MockTestOrchestrate v1.8.0 (O2-3 `_adj` folders, O3-5, O3-9, O6-1
+O-ADJUDICATE; O3-6 / O-REFILL legacy); Framework_DeliveryFooter v1.51.0 (NEW §LADDER-BC); Framework_MockReview v2.2.0
+(legacy path only; S2-2 is the wording source); LAW_REGISTRY (+LAW-BC-1..9; LAW-ORG-3 / 4 / 7, LAW-BV-4 / 5 / 11 /
+SETTLE and REVIEW-COVERAGE-LAW amended); STEP_CONTRACTS (floors Create 7.0, Orchestrate 1.8.0, DeliveryFooter 1.51.0,
+MockReview 2.2.0; deliverables, end states and user actions unchanged); SESSION_BUDGET (fa_work_unit_tokens 60,000,
+initial).)
+
+**Owner rulings.** OD-2026-11-14 R1–R13: R1 adjudication and re-key in the batch; R2 all three reviewers are solvers;
+R3 proven structure text for reviewers and the adjudicator (never for a read-back); R4 the merged ladder (fix -> replace
+-> fallback); R5 fallback, then disclosure; R6 Final Assembly deterministic (S13-1B, S13-2G, S13-2L chains, S13-2R leave
+the normal path); R7 gates before reviewers; R8 R5b may apply to a figure question once rung 3 has failed; R9
+BC_TERMINAL = 'adjudicated_disclosed' (AMBER + P0); R10 a figure-intrinsic family with no answer engine goes from rung 2
+to R5b; R11 a rung starts only when its rounds fit (the cap can never crash a batch); R12 a re-key that cannot keep its
+key position by an option swap is delivered with a disclosed K-BAL deviation; R13 a figure-reasoning exam joins the
+release gate.
+
+**Evidence (release 2026.11.15, CSIR NET Chemical Sciences, TestCreate P1 --level subject --scope "Organic
+Chemistry", 40 questions in 4 batches).** Before Batch 1: 5-7 min; each batch 20-30 min; Final Assembly over 60 min and
+still running with at least 5 fresh workers, 2 whole-paper review rounds and ~30 sub-agents. Root cause (confirmed in
+spec, engine and tests at 9ba3cb7): Final Assembly's repair chains could not pass an attempt — nothing there regraded or
+re-voted a changed question (OP_WRITE_CONTROLS was never called), the reserve was never filled (reserve_add had no
+production caller), the refill worker had no orchestrator state, and the chain ended in NO-MODEL; CI stayed green
+because the tests wrote grades and votes by hand. 12 keys were disputed — 10 on drawn-stereo product questions — with
+reviewer 3's answer discarded and no adjudication. Verified on the incident paper itself (40 blocks, 112 images): the
+auditor computes 40 distinct item hashes and the block texts; the STEP A3 guard matched 40 of 40 real blocks and refused
+40 of 40 unrelated stems.
+
+**Verification before delivery.** Full CI battery green; blueprint_core / final_assembly / audit_canonical self-tests
+and handshake_audit (244 checks) green; property fuzz through the real I/O shell — 1,200 random papers (13,074
+questions; reviewer failure 0-60 %, solver error 0-50 %, random adjudicator verdicts, authors keying the wrong option):
+0 invariant violations (it found one defect — a NO-MODEL at the round cap could never resume — fixed: LAW-BC-9
+infrastructure rounds); 15 planted defects in the new code (2 solvers counted, re-key without support, proven SMILES to a
+read-back, adjudicator skipped, level miss to rung 3, R10 / R11 ignored, R5b with 1 solver, unverified permutation,
+binding an edited question, a re-rendered final docx, a silent NO-MODEL, adjudicator ignored, 1-reviewer findings,
+A-REVIEW accepting a wrong re-key): 15 killed. Real-file check on the incident paper: block hashes of Q1-Q10 are
+identical in the 10-question and the 40-question docx (a batch-bound record survives the later batches).
+
+**Timed proof run — REQUIRED after deploy (GAP §10.3), before minute targets are published.** (1) CSIR NET Chemical
+Sciences TestCreate P1 --level subject --scope "Organic Chemistry" (40 Q); (2) SSC CGL Tier 1, one subject paper (no
+organic content); (3) one exam with figure-reasoning questions (R13). Pass: zero carries, zero chains, zero sub-agents
+and one worker in Final Assembly; every question settled or disclosed with a footer line; both deliverables. Record
+`bootstrap.py --timing-show` and the measured minutes in SESSION_BUDGET.json and here.
+
 ## 2026.11.15 — GAP-2026-11-13-STEP7-SPEED: every question settled in its own batch, no forced fresh worker, half the read calls
 
 (blueprint_core v2.5 (inventory_check stated_formula; bv_job_chunks / bv_reviewer_jobs qs_per_job; REVIEW_VOID_MIN_ITEMS);

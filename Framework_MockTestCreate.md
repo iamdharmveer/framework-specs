@@ -1,14 +1,17 @@
-# Framework_MockTestCreate v6.5
-# v6.5 — 2026-11-15 — GAP-2026-11-13-STEP7-SPEED (paired with blueprint_core v2.5, final_assembly v1.21, bootstrap,
-#   audit_canonical, Framework_MockTestOrchestrate v1.7.0). Measured on release 2026.11.14 (CSIR NET Chemical Sciences,
-#   TestCreate subject test, 40 questions): batches 20-38 min and Final Assembly over 60 min with 7 workers — each fresh
-#   worker re-read ~385,000 tokens in 84 calls, questions left unsettled in a batch were measured again at Final
-#   Assembly (up to 5 counting rounds), the round-2 review re-solved the whole paper, every reviewer solved the whole
-#   batch, a session start rewrote the batch state, and a formula-only spectroscopy item could never pass rule (c).
-#   NEW: every question is settled INSIDE ITS OWN BATCH (S0-BV BV-9 rewritten, BV-13 retired, BV-14 / BV-11 edited);
-#   the code a worker runs verbatim is a RUN-BLOCK, run by ID and not read (S1-0R); a session start on a paper in
-#   progress keeps its state (S3-13 / S3-16); S13-1B is a check; S13-2G round 2 is a delta round. Entry v6.4 moved to
-#   SPEC_HISTORY.md.
+# Framework_MockTestCreate v7.1
+# v7.1 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with blueprint_core v2.7, final_assembly v1.23, bootstrap,
+#   spec_sections, audit_sync, Framework_MockTestOrchestrate v1.9.0; owner go-ahead 2026-11-14 on C1-C3 and P1-P5).
+#   Fewer tokens, fewer review rounds, no stop without its repair: a review round's jobs fit in ONE wave (P1,
+#   bc.bv_round_job_caps); the read no longer serves legacy text (S13-1B / S13-2G / S13-2L slot chains / S13-2R —
+#   bootstrap --show-section LEGACY:<id>), other steps' footer blocks, or S10-7 on a paper that proves it has no figure
+#   (P2); Framework_MockReview.md is no longer routed (P2a); before a text's first review round the author's OWN counts
+#   must give the slot band (G-SELFCOUNT, STEP A2 SELF-COUNT, at most 2 tries per rung — P3) and the author packet shows
+#   how the author's counts ran against the reviewers' (P4); every HARD STOP [HS:INFRA] after Q1 names its repair (P5,
+#   STOP-REPAIR-COVERAGE; S13-1 re-copies once by itself). Corrections to 2026.11.16: AWAITING_REVIEW is in the LEGACY
+#   MIGRATION list (C1); the rung-3 TEXT fallback is exempt from the figural-slot ban (C2) and loses its figure record
+#   (C3, fa.bc_fallback_clear_figure — put back if R5b restores the figure version; STEP A3 refuses a fallback with a
+#   picture); a STEP A2 run that asks for text work writes no job, so a rewrite can no longer be skipped (C4). Entry
+#   v7.0 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -169,7 +172,8 @@
   exam override only through exam_config['constants'], every override printed in the footer.
   EXECUTION ORDER: the S0-OP-0 / S0-OP-2 / S0-OP-7 code runs at S3, immediately after S3-2 has loaded the
   blueprint, exam_config and difficulty_labels and BEFORE the S3 difficulty plan (which reads EXAM_RULER);
-  S0-OP-5 runs inside CHECK 3c for every candidate; S13-2P (S0-OP-9) runs after S13-2G and before S13-2L;
+  S0-OP-5 runs inside CHECK 3c for every candidate; S13-2P (S0-OP-9) runs after S13-2F (v7.0; S13-2G on a legacy
+  paper) and before S13-2L;
   S13-4OP (S0-OP-7) runs inside S13-4 right after `registry = _commit['registry']` (before the registry is written).
 
 ### S0-OP-0 — MIGRATION ON FIRST USE (automatic; GAP §9)
@@ -311,8 +315,9 @@
   wraps bc.op_record_controls and computes the recipe verdict at the entry's label band. v6.1: for a batch
   question the controls are written by S4-7 STEP A2 (bc.bv_apply, which calls bc.op_record_controls with the
   fresh results); CHECK 3c only writes the question and its sidecar entry (the candidate record fields above
-  travel in quality={...}) and never grades in the author's context; the S13-2G delta round calls
-  it for every re-graded item in delta_qs (O-GRADE on the item's CURRENT text). Each record is bound to the
+  travel in quality={...}) and never grades in the author's context. v7.0 (GAP-2026-11-14-BATCH-COMPLETE A-01): a
+  control record is written ONLY inside the batch (bc.bc_apply through fa.bv_batch_step); Final Assembly never writes
+  one, and OP_WRITE_CONTROLS is kept only for a paper migrating from an earlier release. Each record is bound to the
   item's own text (bc.op_content_sha); S13-2L reads it only while bc.op_controls_current holds, so a replaced item
   is never certified on its predecessor's grades, and a hand-written grade is not a grade.
   A surface that can start neither a sub-agent nor an Orchestrate worker cannot produce a fresh grade: that is
@@ -364,7 +369,8 @@
   as the question's one rewrite. The FigureSpec carries spec['organic'] = True, spec['proof'] = that record
   and spec['geometry'] = draw.geometry, so figural_core G-ORGPROOF / G-FIGCOLLIDE (audit A-ORGPROOF /
   A-FIGCOLLIDE) re-check them. corpus_io.min_size_gate: stem >= 1.0 in, option >= 0.8 in wide. A figure that
-  cannot be proven is never shipped: the item is replaced (S13-2L quality chain).
+  cannot be proven is never shipped: v7.0 (S0-BC LAW-BC-2) it climbs the ladder IN ITS BATCH — rung 1 redraw, rung 2
+  replace, rung 3 a text question with no figure (the S13-2L quality chain is legacy).
 
 ### S0-OP-9 — PARITY AT ASSEMBLY (LAW-ORG-11; runs as S13-2P before S13-2L)
 
@@ -375,12 +381,12 @@
   starting_material — bc.FORMAT_CONVERTERS), every control again. At assembly S13-2P MEASURES and records; no
   automatic re-authoring is scheduled for a format shortfall (band counts always win over format floors): a floor
   still short is DISCLOSED — the footer line "Organic parity: FAIL — short ..." (difficulty_state.chain_footer['info'],
-  written by S13-2L) — never hidden and never a stop. A figure-proof miss opens that item's quality chain (S13-2L
-  step 2b re-checks the proofs on every pass; after two replacements still without a structure proof record the slot
-  is disclosed on an AMBER line — bounded). A last-resort slot is final: its item passed every control when chosen.
+  written by S13-2L) — never hidden and never a stop. v7.0 (S0-BC): a figure-proof miss is settled in its batch (the
+  ladder); one first seen at assembly is an engine defect (LAW-BC-8: AMBER-ESCALATED + P0), never a chain. A
+  last-resort slot (legacy) is final: its item passed every control when chosen.
   The §LADDER-OP lines (requested / applied schedule, exam ruler, schedule notes, constant overrides, organic parity) are
-  written ONCE by S13-2L into difficulty_state.chain_footer['info'] (committed by S13-4); Create S13-6 and MockDeliver
-  3f''' print them verbatim with the chain footer.
+  written ONCE by S13-2L (v7.0: RUN-BLOCK S13-2L.0, with every question's batch footer line) into
+  difficulty_state.chain_footer (committed by S13-4); Create S13-6 and MockDeliver 3f''' print them verbatim.
 
 ### S0-OP-10 — THE ONLY STOPS (G-14, LAW-ORG-12)
 
@@ -398,7 +404,9 @@
     C5 (two fresh blind graders). CHECK 3c (b0) L2 'binding' band as a label basis — replaced by C4 + C5 (the
     L2 load is a grader input). The rubric bands of difficulty_authoring_profile — authoring hints only.
   * S13-2L / S13-2R v5.96 endings (band swap, paired upgrade, schedule-forced, panel, re-key, majority,
-    DISCLOSED) — replaced by the SC2 endings (reserve_refill -> refill_session -> last_resort).
+    DISCLOSED) — replaced by the SC2 endings (reserve_refill -> refill_session -> last_resort). v7.0 (S0-BC): the SC2
+    chains themselves are LEGACY — the in-batch ladder (LAW-BC-2) replaces them; the reserve is no longer read on the
+    normal path (it is still loaded and committed so the series registry and old papers stay intact).
   * Label bases obs / l2 / none / dr3 / review (swap) / forced / held — never written for a new paper; the
     auditor rejects them on any paper produced at or after 2026.11.10 (A-QINDEX check 8, LB2-strict).
 
@@ -586,6 +594,9 @@
     BV-3 Three fresh graders grade every question from the start (v6.2; bc.BV_ROLES_GRADE); the majority — or the
          median of three different bands — decides; a third grader is re-asked only when its result is missing and
          the two others disagree. A disagreement between graders is never a reason to rewrite.
+    (v7.0 — S0-BC: BV-4, BV-5, BV-9's last sentence and BV-11 are SUPERSEDED by LAW-BC-1 / 2 / 8 / 9 below; BV-1's
+     "two blind solvers" is three (LAW-BC-3); BV-2, BV-3, BV-6, BV-7, BV-8, BV-10, BV-12, BV-14, BV-15 stand. The text
+     below is kept to verify a paper begun on an earlier release — S4-12 migration.)
     BV-4 At most ONE rewrite per question (bc.C_WRITE_ATTEMPTS = 2), only when the majority names another band,
          the recipe fails at the slot, or the key is disputed (author + 2 blind solvers not unanimous, or a
          decisive assumption). The rewrite carries the graders' reasons. After it the question is delivered at
@@ -609,7 +620,8 @@
     BV-9 (v6.2; v6.5 — GAP-2026-11-13-STEP7-SPEED G-06 / G-11) Speed AND settlement: round 1 grades every question of
          the batch with three fresh reviewers (each question in exactly three distinct fresh contexts; reviewer k's
          questions are split into jobs of SESSION_BUDGET.json review_qs_per_job, a linked group never split — all
-         started together, Orchestrate O2-3). A question that needs more — its one rewrite, an edge re-count
+         started together, Orchestrate O2-3; v7.1 P1: never more jobs per reviewer than bc.bv_round_job_caps allows, so
+         the round's reviewer and adjudicator jobs fit in ONE wave of parallel_jobs_max — bc.bv_job_chunks_n). A question that needs more — its one rewrite, an edge re-count
          (BV-14), a role that returned nothing — gets its next round AT ONCE, IN THE SAME BATCH, with only those
          questions in the jobs (at most bc.BV_MAX_ROUNDS rounds per batch). A batch is delivered only when every
          question of it is settled: nothing is carried to the next batch or to Final Assembly (OR-5).
@@ -646,6 +658,96 @@
          every block runs in one namespace per paper kept on disk.
   A paper begun under an earlier release keeps its recorded state; S0-BV applies to every batch written from
   this release on (S4-12 migration).
+
+## S0-BC — BATCH-COMPLETE (v7.0 — GAP-2026-11-14-BATCH-COMPLETE; owner rulings OD-2026-11-14 R1–R13; binding on EVERY batch of EVERY exam, TestCreate and MockCreate)
+
+  WHY. Measured on release 2026.11.15 (CSIR NET Chemical Sciences, TestCreate, Organic Chemistry, 40 questions): Final
+  Assembly ran over 60 minutes with at least 5 fresh workers and never finished. A disputed key, an unlabelled
+  question, a missing reviewer result and an unproven figure left their batch for Final Assembly's repair chains, and
+  no repair attempt there could pass: nothing in Final Assembly regraded or re-voted a changed question, the reserve
+  was never filled, the refill worker could not be started, and the chain ended in a NO-MODEL stop. 12 keys were
+  disputed (10 on drawn-stereo product questions) because reviewer 3's answer was discarded, nobody adjudicated, and
+  solvers had to decode wedges. THE LAW (LAW-BC-1..9; LAW_REGISTRY.json):
+    LAW-BC-1 SETTLED IN BATCH. A batch is delivered only when every question in it is `settled` or `disclosed`
+         (bc.bc_batch_status). No question is `key_chain`, `unlabelled`, `open`, carried or unmeasured after STEP A2
+         prints `STEP A2: DONE`.
+    LAW-BC-2 THE LADDER. Every unsettled question climbs ONE ladder inside its batch (bc.bc_apply / bc.bc_next_rung):
+         rung 0 first write -> rung 1 FIX (the same question repaired: state the missing condition, correct the stem or
+         options, redraw a misread figure, re-target the counts) -> rung 2 REPLACE (a new question, same slot: subtopic,
+         band, qtype, ask format, key position, stimulus group; clone / series / within-paper guards) -> rung 3 FALLBACK
+         (key or figure problems only: a clear-cut TEXT question, same subtopic, slot band and qtype, text options, no
+         figure, no step that depends on reading 3D configuration; v7.1: the figural-slot ban does not apply to it and
+         its figure record is removed — fa.bc_fallback_clear_figure at REWRITE, checked again at STEP A3, put back by
+         fa.bc_fallback_restore_figure if R5b restores the earlier figure version; an R10 family-engine item keeps its
+         figure) -> terminal.
+         A level miss alone settles at its
+         measured band after rung 2 (disclosed) and never takes rung 3; a within-paper repeat / key leak alone is
+         disclosed after rung 2. Each rung's new text is checked by three fresh reviewers in the next round of the SAME
+         batch. Linked groups: a member climbs inside its group; when two or more members of one group reach rung 2
+         the whole group is replaced together. TERMINAL (R5b): deliver the last reviewed version whose key the
+         adjudicator (or three unanimous solvers) confirmed with at least 2 of 3 solvers agreeing and whose figures
+         read back correctly — restored by the worker when it is an earlier version (STEP A2 RESTORE) — with one AMBER
+         line. No such version: bc.BC_TERMINAL = 'adjudicated_disclosed' (R9) — the current text with the
+         adjudicator's key, AMBER "key adjudicated; solvers split" and an automatic P0 record. The batch always ends.
+         R10: a FIGURE-INTRINSIC question (its figure type drawn by a glyph renderer — figure series, matrix, dice,
+         mirror / water image, paper folding, cube net, embedded figure: the figure IS the question) has no text form;
+         its rung 3 is a new item from the family's answer engine when bc.BC_FAMILY_ANSWER_ENGINES names one, else it
+         goes from rung 2 straight to R5b (AMBER). R8: R5b applies to a figure question once rung 3 has failed (or at
+         once under R10).
+         R11 ROUND BUDGET. A batch issues at most bc.BV_MAX_ROUNDS job rounds. A rung starts only while
+         bc.bc_rounds_needed (one review round + one adjudication round) still fits in what is left; otherwise a level
+         miss settles at its measured band and a key / figure / checklist problem goes to the terminal. A figure
+         mismatch whose rung 2 and rung 3 cannot both fit goes straight to rung 3 when rung 3 fits. At the cap a
+         question is decided with the results that exist (minimum results, R5b, terminal, or LAW-BC-9) — the cap can
+         never crash a batch or carry a question.
+    LAW-BC-3 THREE SOLVERS (R2). Every reviewer is a solver (bc.BV_ROLES_SOLVE = solver_1..3, bc.C_SOLVERS = 3); the key
+         decision uses the author and every returned reviewer answer.
+    LAW-BC-4 ADJUDICATION (R1). Any disagreement about the answer — a solver who differs, a decisive assumption, a
+         second defensible option, a 'low' confidence, a 'contested' selectivity — goes to ONE fresh adjudicator (job
+         folder `<q>_adj`, a model different from the worker when offered) BEFORE any rewrite. It sees the question as a
+         candidate sees it with its proven structure text, the author's key and solution (concept_map[q].author_moves),
+         and each solver's answer, moves and assumptions (Solver A/B/C) — never the band, the plan or the difficulty.
+         Its verdict (bc.bc_key_decision): `author_correct` (single answer, confidence not low) -> key settled
+         'adjudicated'; `solver_correct` with an answer at least 2 of 3 solvers gave -> RE-KEY, the question is kept
+         ('rekey'); anything else (question_defective, a second defensible option, a missing condition, low
+         confidence, a corrected answer fewer than 2 solvers support) -> one rung up, the brief carrying the
+         adjudicator's reason, the missing condition (rung 1 states it in the stem) and every solver's moves. R12 —
+         a re-key keeps the planned key position: when the options do not refer to each other, are not an ordered scale,
+         and carry no figures (bc.options_permutation_allowed), the worker exchanges the two options (STEP A2 PERMUTE —
+         content unchanged, no new review); otherwise the corrected key is delivered where it is and the K-BAL
+         deviation is disclosed (AMBER).
+         MINIMUM RESULTS: with only 2 reviewer answers after bc.BC_ROLE_ASKS asks, the key settles only through the
+         adjudicator (AMBER "2 of 3 reviewers available"); fewer than 2 -> LAW-BC-9.
+    LAW-BC-5 PROVEN STRUCTURE TEXT (R3). Reviewer and adjudicator packets carry, beside each structure figure, the
+         SMILES its identity proof certified (bc.bc_proven_structures; packet field `proven_structures`). A reviewer never
+         receives it for a file in its own `figures_to_read`, and a vision read-back never receives it — the blind
+         read-back stays blind. The delivered paper is unchanged.
+    LAW-BC-6 GATES FIRST (R7). STEP B (Layer 1 + the per-batch auditor) is clean BEFORE a question's first review round
+         and again after every text change, before that text is reviewed. On the plan's LAST batch STEP B includes the
+         whole-paper pre-commit sweep (S13-2F, --phase precommit); a finding there that names a question of an EARLIER
+         batch re-opens that question inside the last batch (fa.bc_reopen — it climbs the ladder there, with reviewers).
+         v7.1 (P3): before a text's first review round the author's OWN counts (author_counts) must give the slot band
+         (bc.bc_selfcount, G-SELFCOUNT) — a miss is sent back with no reviewer started (STEP A2 SELF-COUNT), at most
+         bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts decide the band.
+    LAW-BC-7 BATCH REVIEW RECORD. STEP A3 (fa.bc_bind_batch) writes each question's `review` record (reviewer 'batch',
+         certified_by unanimous | adjudicated | rekey | disclosed, the checklist fields of the three reviewers) bound to
+         the auditor's item_hash of its block in the cumulative docx; key_votes (author, solver_1..3, adjudicated,
+         decided_key, rule 'BC1') are bound to its content by bc.bc_apply. This record IS the independent review of
+         REVIEW-COVERAGE-LAW and A-REVIEW. A question whose text changed after its review is refused (re-run STEP A2).
+    LAW-BC-8 DETERMINISTIC FINAL ASSEMBLY (R6). Final Assembly starts no sub-agent, writes no question text and opens no
+         chain: S13-1 ASSEMBLE (byte copy) -> S13-2F (confirmation sweep) -> S13-2P -> the paper difficulty gate ->
+         S13-3 onward. A finding there that would need new text is an ENGINE DEFECT: disclosed AMBER-ESCALATED with a
+         P0 record, never a repair. S13-1B, S13-2G, S13-2L slot chains and S13-2R are LEGACY — reachable only for a
+         paper begun on an earlier release, through its settlement batch (S4-12).
+    LAW-BC-9 INFRASTRUCTURE IS NOT QUALITY. A reviewer, adjudicator or vision role that returns nothing is re-asked
+         (a `_switch` folder: another model) up to bc.BC_ROLE_ASKS times per text. A question that still lacks the
+         minimum results is an environment failure: `NO-MODEL [HS:ENV]` — state saved, one plain line, the turn ends;
+         the next message re-runs STEP A2, which asks again from a clean count. A re-ask after a NO-MODEL is an
+         INFRASTRUCTURE round: it may run after the quality budget (bc.BV_MAX_ROUNDS) is spent (folder r<k>i<j>,
+         batch_state['bv']['infra_rounds']), it only re-asks missing results and never starts a rung. Never a carry,
+         never a chain, never a dead end.
+  Every rule here is exam-agnostic: no exam, subject or number of questions is named anywhere in it. Constants live in
+  blueprint_core (BC_*); budgets in SESSION_BUDGET.json.
 
 ## S1-0 — SESSION CLASS AND READ SET (v5.63 — decide at STEP 0, before any spec read)
 
@@ -721,7 +823,8 @@ Framework_MockTestOrchestrate.md O3-3 is the exact procedure.
 RUN MODE. MockCreate / TestCreate run ORCHESTRATED (Framework_MockTestOrchestrate.md, routed with this
 step). In WORKER MODE the session executing this spec is a worker sub-agent: every present_files call
 of this spec (S4-6, S4-7 STEP E, S13-8) is replaced by that spec's DELIVERY PROXY (O3-4), S13-2G
-phase 2 by its review hand-over (O3-6), and S4-7 STEP A2's fresh jobs by its grading hand-over (O3-9, v6.1);
+phase 2 by its review hand-over (O3-6 — v7.0: legacy only), and S4-7 STEP A2's fresh jobs — reviewer AND adjudicator
+(`_adj`) folders — by its grading hand-over (O3-9, v6.1; v7.0 S0-BC);
 a worker short of room reports ROTATE (never a stop, S0-BV BV-6); everything else in this spec applies unchanged. In DIRECT
 MODE (no sub-agent tool) this spec runs as written, with READ METHOD and READ-RETENTION.
 
@@ -4059,6 +4162,10 @@ action: the same paper, the same two files, the same "continue".
       'op_overrides': list((globals().get('OP_CONST') or {}).get('overrides') or []),   # §LADDER-OP line (S13-2L)
       'bp_project_sha': dict(BP_PROJECT_SHA),   # v5.89: which project blueprint this paper
                                                 # started from (S3-1 keep-amended rule)
+      # v7.1 (P2d): can this paper carry ANY figure? A figural blueprint or an organic exam (structure pictures) says
+      # yes; only an explicit False lets bootstrap --read leave S10-7 out of a worker's read (unknown -> served).
+      'figures_possible': bool(globals().get('figural_present')) or bool(
+          (globals().get('OP_SCOPE') or {'exam_organic': True}).get('exam_organic', True)),
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
                                       # Populated at S3-18 from the figural manifest scan.
                                       # At generation time: set rendered=true after
@@ -4700,6 +4807,10 @@ action: the same paper, the same two files, the same "continue".
 
 ## S4-7 — Per-batch delivery protocol (the 6 steps — execute in order)
 
+  v7.0 (S0-BC, GAP-2026-11-14-BATCH-COMPLETE): THE ORDER IS  A -> B -> A2 -> A3 -> C -> D -> E -> F.  The gates (STEP B)
+  run BEFORE the first reviewer round (LAW-BC-6) and again for every text the ladder writes, before it is reviewed;
+  STEP A3 binds the batch's review records before anything is delivered (LAW-BC-7).
+
   STEP A — GENERATE: Produce exactly q_count questions for current_batch.
            v6.1 (S0-BV BV-2): BEFORE writing each question, print its author packet and write the question
            ONCE against it — the same anchors its fresh graders will compare with, and the recipe range.
@@ -4723,9 +4834,10 @@ action: the same paper, the same two files, the same "continue".
                _rc_ap = (((_ru_ap.get('recipe_by_subject') or {}).get(_sj_ap) or {}).get(_band_ap)
                          or (_ru_ap.get('recipe') or {}).get(_band_ap) or {})
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
-                                             'ask_format': ask_format},
+                                             'ask_format': ask_format, 'subject': _sj_ap},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
-                                            _labs_ap, _rc_ap, _ru_ap)
+                                            _labs_ap, _rc_ap, _ru_ap,
+                                            offsets=(_bs_ap.get('difficulty_state') or {}).get('author_offset'))
                # v6.4 (BV-15): the SHORT view, target first, never cut; the counting rules once per batch
                _first_ap = globals().get('_BV_RULES_SHOWN') != _bs_ap.get('current_batch')
                globals()['_BV_RULES_SHOWN'] = _bs_ap.get('current_batch')
@@ -4734,6 +4846,17 @@ action: the same paper, the same two files, the same "continue".
            ```
            Write them to the cumulative docx (append to prior batches' Qs).
            Write each question's answer to the sidecar immediately (S11-2).
+           v7.0 (S0-BC): with each question also record, in its sidecar entry (quality={...}): author_moves — the
+           moves of YOUR OWN solution, one line per inferential step (the list you counted with counting_rules; the
+           adjudicator reads it, LAW-BC-4); v7.1 (P3, G-SELFCOUNT): author_counts — {'facets': [...], 'moves': [the
+           same list], 'principles': [...], 'speed_hack': bool, 'negative': bool}, exactly what you counted (STEP A2
+           checks that bc.br_band of it gives the slot band BEFORE any reviewer starts; a miss prints `SELF-COUNT Q<n>`
+           and you rewrite to the slot band — or correct a miscount — then STEP B and STEP A2 again; after
+           bc.BC_SELFCOUNT_TRIES tries the text is reviewed anyway). v7.1 (P4): the packet's self_check names how your
+           own counts ran against the reviewers' on earlier questions of the same subject and band
+           (difficulty_state.author_offset — guidance only); and for an ORGANIC structure picture its figure_dicts when it is rendered
+           (file, smiles, stereo_mode, answer_depends_on_stereo — S0-OP-8). A structure picture without its record
+           FAILS G-FIGRECORD (S4-11) in STEP B.
            Apply ALL generation rules (§7), format rules (§8, §10),
            dedup (§6), self-containment (§9).
 
@@ -4880,7 +5003,12 @@ action: the same paper, the same two files, the same "continue".
                  FigureSpec class beside it (LAW F2.1).
                → Verify via view tool (9-item visual checklist, §10-S10-7)
                Text stem with add_question_stem() alone is BANNED for a GRANTED figural
-               slot. (v5.37: this ban applies to a question the Axis-1 budget granted —
+               slot — EXCEPT the rung-3 FALLBACK of S0-BC LAW-BC-2 (S4-7 STEP A2 REWRITE, climb_brief kind
+               'fallback'), which is a TEXT question by rule: no figure, no figure record (v7.1 — the engine
+               removes the slot's fig_manifest record, fa.bc_fallback_clear_figure; A-AXIS1 counts the slot as
+               the disclosed fallback). The one exception to the exception: an R10 FIGURE-INTRINSIC question whose
+               family has an answer engine (bc.BC_FAMILY_ANSWER_ENGINES) builds its rung-3 item WITH that engine —
+               a figure, whose record is kept. (v5.37: this ban applies to a question the Axis-1 budget granted —
                it is what stops a granted figure degrading into a text placeholder. It
                does NOT apply to a DENIED question, whose text rendering via OPTION B is
                the correct and mandated outcome. Before v5.37 no question could be
@@ -4962,54 +5090,14 @@ action: the same paper, the same two files, the same "continue".
              Skipping it (using add_question_stem for all Qs regardless of format)
              is the root cause of the production figural defect.
 
-  STEP A2 — INDEPENDENT CHECK OF THE BATCH, BEFORE IT IS DELIVERED (v6.1 — S0-BV, GAP-2026-11-11-BATCH-
-           VERIFICATION; EVERY batch, EVERY exam). Every question of this batch is measured by FRESH blind
-           graders and solvers NOW — never first at Final Assembly. The block below is idempotent and
-           resume-safe (final_assembly.bv_batch_step, the I/O shell over Cluster BV): it collects every returned job, decides every question (bc.bv_apply: pass, tiebreak,
-           the ONE rewrite, settle) and writes the jobs still needed. Run it after STEP A, and again after
-           each GRADE RETURNED and after each rewrite, until it prints `STEP A2: DONE`:
-             JOBS OUT  -> (v6.2: at most 3 reviewer folders) WORKER MODE: prove retention `--when handover`, run
-                          `bootstrap.py --checkpoint make` (BV-8), report GRADE_REQUEST with --review-parts = the
-                          printed job folders and end the turn (Framework_MockTestOrchestrate O3-9); on
-                          `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/returned.txt
-                          and run the block again. DIRECT MODE: start one fresh sub-agent per job folder, ALL in one
-                          message (prompt = its JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>` to
-                          returned.txt, run the block again; no sub-agent tool -> append `<job_dir> REVIEW FAILED no
-                          sub-agent tool` for every folder and run the block again (v6.3 BV-11: never a stop).
-             REWRITE q -> rewrite ONLY those questions, ONCE, in their slots (same subtopic, slot band, qtype),
-                          from concept_map[q]['bv']['rewrite_brief'] (the graders' own reasons, the measured band,
-                          a disputed key, a figure read back wrongly -> redraw it) and the SAME anchors
-                          (bc.bv_author_packet); replace the question block
-                          in the cumulative docx and its sidecar entry (write_q_to_sidecar); then the block again
-                          — the new text is graded as attempt 2 automatically.
-           A result is counted only from a job folder whose returned line starts with REVIEW DONE (or, for a job of
-           release 2026.11.11, GRADE / SOLVE / VISION DONE)
-           (context 'fresh'); a grade made in this session is never written to a result.json. v6.3 (BV-10): a
-           reviewer's grade is the band the PYQ rubric computes from ITS counts (bc.br_band), the judged band only
-           when the counts are missing or the exam does not use three bands. v6.3 (BV-11): a question with no fresh
-           result after bc.BV_MAX_ROUNDS rounds is carried unlabelled to S13-2L — never a stop; at most ONE
-           rewrite per question (bc.C_WRITE_ATTEMPTS). The REWRITE brief names the gap in counts
-           (rewrite_brief 'gap', 'target', 'measured_counts').
-           ```python
-           # RUN-BLOCK S4-7.2 — not in the read; run it: python3 bootstrap.py --run-section S4-7.2 --exam <E> --paper <N>
-           # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
-           # ── S4-7 STEP A2 (v6.1 BV1) ──
-           import final_assembly as fa
-           BV_STEP = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
-                                      bank=globals().get('EXEMPLAR_BANK'), op_profile=globals().get('OP_PROFILE'),
-                                      home='/home/claude')
-           ```
-           STEP E is FORBIDDEN until this block has printed `STEP A2: DONE` for the batch (B-7); a STEP B fix that
-           changes a question's text is followed by this block again (the changed text is measured, never assumed). Items listed as
-           key to S13-2L (a key still disputed after the rewrite) or unlabelled are carried to Final Assembly's
-           S13-2L chains — the batch is still delivered (never a stop); every other item is final.
-           v6.5 (S0-BV BV-9, G-06): a question REWRITTEN in this batch, a question whose text a STEP B fix changed, and a
-           question held for its edge re-count (BV-14) are measured AGAIN INSIDE THIS BATCH: the block issues their
-           next round at once (JOBS OUT with only those questions); DONE comes when every question of the batch is
-           settled. Only an INFRA-CARRY (BV-11) rides in the next batch; the batch report names it in one line:
-           `INFRA-CARRY: Q<a>, Q<b>` (DeliveryFooter §LADDER-NF; expected: never).
-
-  STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or):
+  STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or; v7.0 LAW-BC-6: runs BEFORE STEP A2 — make
+           the batch clean before its first reviewer round, and again for every text the ladder writes (rung 1-3,
+           PERMUTE, RESTORE) before that text is reviewed; a gate fix never costs a review round). LAST BATCH (v7.0):
+           also run the whole-paper pre-commit sweep — the auditor exactly as S13-2F calls it (--phase precommit, no
+           --through-q, on the cumulative docx); a composition shortfall is disclosed (bc.NF_DISCLOSE_GATES); a finding
+           that names a question of an EARLIER batch re-opens it INSIDE this batch:
+             import final_assembly as fa; fa.bc_reopen(EXAM, N, [<q>], '<gate>: <finding>')
+           then STEP A2 again — the question climbs the ladder here, with reviewers, so nothing reaches Final Assembly.
            1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
               (G-CLUSTER, G-ALTGROUP, G-GROUPMANDATE, G-MINCOUNT,
               G-ALLOC-SUBTOPIC) have NO auditor equivalent, so an
@@ -5060,6 +5148,90 @@ action: the same paper, the same two files, the same "continue".
               BOTH. Iterate to clean.
            present_files is FORBIDDEN until BOTH layers are clean (B-7).
 
+  STEP A2 — SETTLE EVERY QUESTION OF THE BATCH, BEFORE IT IS DELIVERED (v7.0 — S0-BC, GAP-2026-11-14-BATCH-COMPLETE;
+           EVERY batch, EVERY exam). Every question of this batch is checked by THREE fresh reviewers (each solves,
+           counts, grades, reads its figures and runs the item checklist) and, when the answer is disputed, by ONE fresh
+           adjudicator — NOW, never at Final Assembly. The block below is idempotent and resume-safe
+           (final_assembly.bv_batch_step over bc.bc_apply): it collects every returned job, decides every question
+           (K-PASS / adjudication / re-key / the ladder / settle) and writes the jobs still needed. Run it after STEP B,
+           and again after each GRADE RETURNED and after each text the ladder writes, until it prints `STEP A2: DONE`:
+             JOBS OUT  -> reviewer folders (`.../reviewer_k[_p<i>]`) and adjudicator folders (`.../q<n>_adj`); a folder
+                          ending in `_switch` re-asks a role that returned nothing (another model). WORKER MODE: prove
+                          retention `--when handover`, run `bootstrap.py --checkpoint make` (BV-8), report GRADE_REQUEST
+                          with --review-parts = the printed job folders and end the turn (Framework_MockTestOrchestrate
+                          O3-9); on `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/
+                          returned.txt and run the block again. DIRECT MODE: start one fresh sub-agent per job folder, ALL
+                          in one message (prompt = its JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>`
+                          to returned.txt, run the block again; no sub-agent tool -> append `<job_dir> REVIEW FAILED no
+                          sub-agent tool` (an `_adj` folder: `ADJUDICATE FAILED no sub-agent tool`) for every folder and
+                          run the block again — LAW-BC-9 then reports NO-MODEL.
+             REWRITE q -> the question climbs ONE rung (LAW-BC-2): write the rung's text from
+                          concept_map[q]['bv']['climb_brief'] — 'kind' fix (the same question repaired: state the
+                          'missing_condition' in the stem, correct the stem / options, redraw a misread figure, re-target
+                          the counts from 'gap' / 'target'), replace (a new question, same slot, new substrate / task) or
+                          fallback (a clear-cut TEXT question, same subtopic, slot band and qtype, text options, no
+                          figure, no step that depends on reading 3D configuration — the figural-slot ban of STEP A does not apply to it; the
+                          engine has already removed its fig_manifest record: add none and draw nothing; an R10
+                          family-engine item is the exception — its climb_brief says so and it keeps its figure); 'reasons',
+                          'solvers' (their own moves) and 'adjudicator' say why. Use the SAME anchors (bc.bv_author_packet); replace the
+                          question block in the cumulative docx and its sidecar entry (write_q_to_sidecar); then STEP B
+                          for that text, then this block again — the new text is reviewed automatically.
+             SELF-COUNT q -> (v7.1 P3) the author's own count (author_counts) does not give the slot band; no reviewer
+                          was started for the batch: rewrite q to the slot band (or correct a miscount of author_counts),
+                          replace its block and sidecar entry, STEP B for it, then this block again. At most
+                          bc.BC_SELFCOUNT_TRIES times per rung — then the text is reviewed as it stands (never a loop).
+             PERMUTE q -> (R12, a re-key) exchange the two named options in the question's docx block AND its sidecar
+                          entry (option_texts and every per-option field), keep the key at the planned position the line
+                          names; then this block again (the engine verifies it is the same question; no new review).
+             RESTORE q -> (R5b) put back the earlier version in the named restore_q<n>.json: its sidecar entry (write_q_to_
+                          sidecar with its fields and its 'answer') and its block in the cumulative docx; then this block
+                          again (the engine verifies its text; no new review). v7.1 (C3): when that version has a figure
+                          the engine has already put its fig_manifest record back (fa.bc_fallback_restore_figure).
+             v7.1 (C4) TEXT WORK FIRST: a run that prints SELF-COUNT / REWRITE / PERMUTE / RESTORE writes NO job — do
+                          every text change it names (then STEP B for the changed texts), then run this block again: it
+                          issues every job of the round together (the changed texts' reviewers with any other question's
+                          adjudicator — one wave). Before v7.1 a rewrite asked in a run that also printed JOBS OUT could
+                          be skipped and the ladder moved on from the unchanged text.
+             NO-MODEL  -> (LAW-BC-9) print the line, save state, end the turn; the next message runs this block again
+                          (it asks again from a clean count). Never a carry.
+           A result is counted only from a job folder whose returned line starts with REVIEW DONE / ADJUDICATE DONE (or,
+           for a job of release 2026.11.11, GRADE / SOLVE / VISION DONE) (context 'fresh'); a grade, an answer or a
+           verdict made in this session is never written to a result.json. A reviewer's grade is the band the PYQ rubric
+           computes from ITS counts (bc.br_band, BV-10). A re-key / R5b / terminal key is written to the answer key by the
+           block itself (the docx never shows the key). The footer lines each question earns are kept in
+           batch_state['bc_footer'] (bc.bc_amber_lines).
+           ```python
+           # RUN-BLOCK S4-7.2 — not in the read; run it: python3 bootstrap.py --run-section S4-7.2 --exam <E> --paper <N>
+           # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+           # ── S4-7 STEP A2 (v6.1 BV1) ──
+           import final_assembly as fa
+           BV_STEP = fa.bv_batch_step(EXAM, N, ruler=globals().get('EXAM_RULER'), manifest=globals().get('manifest'),
+                                      bank=globals().get('EXEMPLAR_BANK'), op_profile=globals().get('OP_PROFILE'),
+                                      home='/home/claude')
+           ```
+           STEP A3 and STEP E are FORBIDDEN until this block has printed `STEP A2: DONE` for the batch (B-7). At DONE every
+           question of the batch is `settled` or `disclosed` (LAW-BC-1) — nothing is carried to the next batch or to
+           Final Assembly. A question of an EARLIER batch that is not settled (a paper begun on an earlier release, or
+           one fa.bc_reopen named on the last batch) joins this batch's work and is named in the batch report.
+
+  STEP A3 — BIND THE BATCH'S REVIEW RECORDS (v7.0 — S0-BC LAW-BC-7). Run the auditor on the cumulative docx with
+           `--item-hashes /home/claude/[ExamCode]_M[N]_item_hashes.json --item-texts /home/claude/[ExamCode]_M[N]_item_texts.json`
+           added to the STEP B command (AUDIT_AVAILABLE false: `PYTHONPATH=/tmp/fw python3 /tmp/fw/audit_canonical.py
+           <cumulative>.docx --key /home/claude/[ExamCode]_M[N]_answer_key.json --mockN [N]` with the same two flags),
+           then the block below. It binds every settled question up to this batch to the hash of its block
+           (fa.bc_bind_batch); it REFUSES — and names — a question that is not settled, whose text changed after its
+           review (R2: run STEP A2 again so the new text is reviewed), whose block is missing, or whose block does not
+           show the sidecar's stem and options in order (fix the one place that was not edited). STEP E is FORBIDDEN
+           until it prints `STEP A3: BOUND`.
+           ```python
+           # RUN-BLOCK S4-7.3 — not in the read; run it: python3 bootstrap.py --run-section S4-7.3 --exam <E> --paper <N>
+           # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+           # ── S4-7 STEP A3 (v7.0 LAW-BC-7) ──
+           import final_assembly as fa
+           BC_BIND = fa.bc_bind_batch(EXAM, N, f'/home/claude/{EXAM}_M{N}_item_hashes.json',
+                                      f'/home/claude/{EXAM}_M{N}_item_texts.json', home='/home/claude')
+           ```
+
   STEP C — PERSIST STATE:
            If this batch contained PASSAGE questions: write progress.json (S4-8b).
            Update figural manifest if figural Qs present.
@@ -5082,7 +5254,10 @@ action: the same paper, the same two files, the same "continue".
              MANDATE 0 (no chat content) : PASS (self-check)
              Layer 1: [n] gates checked — [FAIL / WARN lines verbatim, or "all PASS"] (full list: gate report file)
              Layer 2: [the audit script's RESULT line] — [its FAIL / WARN lines verbatim, or "no FAIL / WARN"]
-             [v6.5 BV-11: "INFRA-CARRY: Q<a>, Q<b>" when STEP A2 listed any]
+             STEP A2: settled [n] / disclosed [list] — adjudicated [list], re-keyed [list], rung 1 / 2 / 3 [lists],
+                      R5b [list], earlier questions settled here [list] (v7.0; each disclosed question's footer line
+                      is in batch_state['bc_footer'])
+             STEP A3: BOUND [n] (v7.0)
            =========================
            ```
            v6.4: the FULL Layer-1 checklist (every G-* line, S4-11 EMISSION LAW) and the audit script's FULL STDOUT
@@ -5230,10 +5405,25 @@ action: the same paper, the same two files, the same "continue".
                   ('amber' / T3_STATS) route to the F1 AMBER footer, not FAIL.
                   HARD FAIL — re-emit the named stem/option via render_mock_text
                   with ⟦MATH:…⟧ (chemistry examples: S10-4 rule 3a).
-  [ ] G-KBAL:     Each option 1/2/3/4 is 20-30% of Qs so far.
+  [ ] G-KBAL:     Each option 1/2/3/4 is 20-30% of Qs so far. (v7.0, R12: a question whose
+                  re-keyed answer could not keep its planned position — its batch footer line says
+                  so (bc_footer 'kbal_kept') — counts at its PLANNED position here; the deviation is
+                  disclosed, never repaired by moving the key.)
   [ ] G-KPAT:     No run of 3+ identical consecutive answers.
   [ ] G-CONT:     No question content visible in this chat response. (MANDATE 0)
   [ ] G-KEY:      answer_key.json has an entry for every Q in this batch.
+  [ ] G-FIGRECORD: (v7.0 — S0-BC B-05) every ORGANIC structure picture of this batch has its
+                  figure_dicts record in the sidecar entry (file, smiles, stereo_mode,
+                  answer_depends_on_stereo — S0-OP-8). Without it the blind read-back and the
+                  figure proof are dormant for that picture: FAIL — fixed by recording it (no
+                  text change). Layer-2 twin: A-FIGRECORD.
+  [ ] G-SELFCOUNT: (v7.1 — GAP-2026-11-14-SPEED-AND-FIDELITY P3) every question of this batch written on this
+                  release records the author's OWN counts in its sidecar entry, quality={'author_counts': {'facets',
+                  'moves', 'principles', 'speed_hack', 'negative'}} (counted with counting_rules, as the reviewers
+                  count). FAIL: record them (a sidecar write, no text change). The band itself is checked by STEP A2
+                  (bc.bc_selfcount) before the first reviewer round — a miss goes back to the author at most
+                  bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts
+                  decide the band. Dormant when the slot has no band or the labels are not three bands.
   [ ] G-FIGSEM:   (v5.59) every rendered figural Q in this batch carries a validated
                   semantic object per role; STRUCTURE roles rendered via
                   corpus_io.structure_draw_fn, REACTION roles via corpus_io.render_scheme
@@ -5422,10 +5612,10 @@ action: the same paper, the same two files, the same "continue".
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-57 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
-  All 60 items are RUN; items 58-60 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  Items 1-59 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 62 items are RUN; items 60-62 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
-  (v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
+  (v7.1: G-SELFCOUNT joins the must-PASS set. v7.0: G-FIGRECORD joins the must-PASS set. v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
   at the end. v5.90 — GAP-2026-11-03 G11 / OD-1: the eleven QUALITY items above are
   must-PASS ITEM gates — each has an objective per-item verdict and a ladder rung — while
   the distribution checks G-STYLE / G-PYQ-DIST stay advisory; "must PASS" means the item
@@ -5441,20 +5631,40 @@ action: the same paper, the same two files, the same "continue".
   "continue" (S4-6) ALSO enters this recovery when every batch is authored but the paper is
   not yet committed — an interrupted Final Assembly response resumes here; the user never
   types anything else and never attaches a review file.
+  v7.0 (S0-BC) — LEGACY MIGRATION (runs FIRST, once, at the first session start on this release; GAP-2026-11-14-BATCH-
+  COMPLETE §9). A paper begun on an earlier release continues without rewriting a settled question:
+    - between batches: continue normally — the next batch runs the S0-BC flow; any earlier question in key_chain,
+      unlabelled, open, a pending attempt or carried (bv_carry / infra_carry) JOINS that batch's work automatically
+      (fa.bv_batch_step: key_chain -> adjudication on its current text; the others -> a fresh review round) and the
+      batch report names it; STEP A3 binds the earlier settled questions (M-BIND: a two-solver unanimous record, rule
+      'BV1');
+    - mid-batch (STEP A2 running): run STEP A2 — attempt 1 maps to rung 0, attempt 2 to rung 1 spent; outstanding job
+      folders are collected as today;
+    - every batch delivered, Final Assembly not started OR started (states REVIEW_RUNNING, REVIEW_REPAIR, REVIEWED,
+      AWAITING_REVIEW (a paper parked by release 2026.11.03 — no verdict file is looked for and none is asked for),
+      an open slot_chain / slot_chain_work, a final counting round): run the SETTLEMENT BATCH before Final Assembly —
+      `fa.bv_batch_step(EXAM, N, ..., final=True)` (RUN-BLOCK S13-1B runs exactly that call; batch id 'S') with the full
+      batch flow (STEP B, the ladder, adjudication, STEP A3 with upto = the last question) — at its DONE the engine closes
+      every open chain with outcome 'migrated' — then set batch_state.state to absent and run the v7.0 Final Assembly
+      from S13-1;
+    - PAPER_DELIVERED / 'DELIVERED': nothing changes.
+  The REVIEW STATES (AWAITING_REVIEW included), RUN-BLOCK S4-12.1 and the S13-1B / S13-2G / S13-2L chain text below are
+  LEGACY: on this release they are NEVER run — the settlement batch replaces them; they are kept so a paper's recorded
+  state can be read.
   v5.91 — FINAL ASSEMBLY INTERRUPTED BEFORE THE REVIEW: batches_completed covers every batch
   of the plan, the registry has no committed question_index entry for this paper, and
   batch_state.state is absent or not one of the REVIEW states below -> do NOT print a continue
-  prompt and do NOT generate a batch: re-enter §13 at S13-1B (v6.4; a no-op when every level is settled), then
-  S13-2 / S13-2F (the sweep counter lives
-  in its state file, so the count continues) and run on to S13-2G, S13-3 .. S13-8 in this
-  same response.
+  prompt and do NOT generate a batch: v7.0 — re-enter §13 at S13-1 (ASSEMBLE is a byte copy, safe to repeat), then
+  S13-2F (the sweep counter lives in its state file, so the count continues), S13-2P, S13-2L.0, S13-3 .. S13-8 in this
+  same response (a paper begun on an earlier release first runs its settlement batch — LEGACY MIGRATION above).
 
   v6.4 (S0-BV BV-14) — FINAL COUNTING ROUND IN PROGRESS: batch_state['bv']['batch'] == 'final' with status
   'jobs_out' or 'rewrite' -> run S13-1B again (a `GRADE RETURNED` message's lines are appended to returned.txt
   first), then continue §13 from S13-2.
-  v6.1 (S0-BV) — BATCH IN VERIFICATION: batch_state['bv'] names the current batch with status 'jobs_out' or
-  'rewrite' -> the batch's questions are written; run S4-7 STEP A2 again (it collects every returned job and
-  re-issues any missing one), then continue S4-7 from where it printed (JOBS OUT / REWRITE / DONE). A
+  v6.1 (S0-BV; v7.0 S0-BC) — BATCH IN VERIFICATION: batch_state['bv'] names the current batch with status 'jobs_out',
+  'rewrite' or 'no_model' -> the batch's questions are written; run S4-7 STEP A2 again (it collects every returned job —
+  reviewer and `_adj` — keeps each question's rung, and re-issues any missing one), then continue S4-7 from where it
+  printed (JOBS OUT / SELF-COUNT / REWRITE / PERMUTE / RESTORE / NO-MODEL / DONE -> STEP A3). A
   `GRADE RETURNED` message's lines are appended to returned.txt first (Framework_MockTestOrchestrate O3-9).
   v5.91 (GAP-2026-11-04 A6) — REVIEW STATES, all continued INTERNALLY. After step 1 below,
   read batch_state.get('state'):
@@ -7512,7 +7722,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       import hashlib
       gid = stim_group_of(qnum)
       if gid is None:
-          raise SystemExit(f"HARD STOP [HS:INFRA] (R-STIMGROUP): Q.{qnum} is not in a set.")
+          raise SystemExit(f"HARD STOP [HS:INFRA] (R-STIMGROUP): Q.{qnum} is not in a set — re-run the "
+                           f"S3-12b RESUME block (it restores batch_state['stimulus_groups'] from the plan), "
+                           f"then write Q.{qnum} again.")
       _bsp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
       _bs = json.load(open(_bsp, encoding='utf-8'))
       _g = _bs['stimulus_groups'][gid]
@@ -8006,7 +8218,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   INDEPENDENT REVIEW (OD-5) is NOT here: it runs INSIDE this run after the S13-2F sweep — a
   fresh reviewer per packet part (Framework_MockReview, the internal brief) — and its
-  verdicts are bound to the paper automatically (S13-2G, v5.91). Never a user step.
+  verdicts are bound to the paper automatically (S13-2G, v5.91). Never a user step. (v7.0: LEGACY — the independent
+  review runs inside each batch, S4-7 STEP A2, and is bound by STEP A3; v7.1: Framework_MockReview.md is not routed.)
 
 ## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)
 
@@ -11422,9 +11635,71 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 # §13 — FINAL ASSEMBLY (v2.0 — REGISTRY INIT FIX)
 # ════════════════════════════════════════════════════════════════════════
 
-## S13-1 — Final Assembly trigger (unchanged)
+## S13-1 — Final Assembly trigger + ASSEMBLE (v7.0 — S0-BC LAW-BC-8; GAP-2026-11-14-BATCH-COMPLETE E-03)
 
-## S13-1B — FINAL COUNTING ROUND (v6.4 — S0-BV BV-14; v6.5 a CHECK; before S13-2, every Final Assembly)
+  THE NORMAL PATH (every paper produced under v7.0): S13-1 ASSEMBLE -> S13-2F (a confirmation sweep — STEP B of the
+  last batch already ran it, so item findings are expected to be zero) -> S13-2P -> S13-2L PAPER DIFFICULTY GATE (the gate
+  record only) -> S13-3 -> S13-4 -> S13-REGCHECK -> S13-QINDEX -> S13-4b / 4c -> S13-6 -> S13-7 -> S13-8 -> S13-9 ->
+  S13-9A. Final Assembly starts NO sub-agent, writes no question text and opens no chain (LAW-BC-8). S13-1B, S13-2G,
+  S13-2L SLOT CHAINS and S13-2R are LEGACY: they are reached only by a paper begun on an earlier release, and such a
+  paper first settles every open question in its SETTLEMENT BATCH (S4-12 LEGACY MIGRATION), so on this release they
+  run nothing.
+  ASSEMBLE: the final paper IS the last cumulative docx, copied BYTE FOR BYTE to
+  /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Create.docx — no re-render, no renumbering, no reformatting (every
+  review record is bound to the hash of its block; a re-render would void them all). The block below makes the copy
+  and proves it; after the FIRST S13-2F sweep (which writes [ExamCode]_M[N]_item_hashes.json from the final docx) run
+  RUN-BLOCK S13-1.2: every batch-bound review.item_hash must equal the final docx's hash. A mismatch is an INFRA fault
+  — copy again (this block) and re-run; still different -> P0, the paper is not delivered until the copy is fixed;
+  never a re-review.
+  ```python
+  # RUN-BLOCK S13-1 — not in the read; run it: python3 bootstrap.py --run-section S13-1 --exam <E> --paper <N>
+  # PARAMS: EXAM, N, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # ── S13-1 ASSEMBLE (v7.0 LAW-BC-8) ──
+  import glob, json, os, re
+  import final_assembly as fa
+  import paper_pipeline as pp
+  _slug_a = pp.paper_slug(paper_id)
+  _kd_a = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  _last_a = max([int(q) for q in (_kd_a.get('concept_map') or {}) if str(q).isdigit()] or [0])
+  _cand_a = []
+  for _dir_a in ('/mnt/user-data/outputs', '/home/claude'):
+      _cand_a += glob.glob(os.path.join(_dir_a, f'{EXAM}_{_slug_a}_Q1to*.docx'))
+  _cand_a = [p for p in _cand_a if re.search(r'_Q1to(\d+)\.docx$', p) and int(re.search(r'_Q1to(\d+)\.docx$', p).group(1)) == _last_a]
+  if not _cand_a:
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-1): no cumulative docx {EXAM}_{_slug_a}_Q1to{_last_a}.docx in outputs "
+                       f"or /home/claude — the last batch's STEP E delivers it; restore it, then run this block again.")
+  _src_a = _cand_a[0]
+  BC_ASSEMBLE = fa.assemble_final_docx(_src_a, f'/mnt/user-data/outputs/{EXAM}_{_slug_a}_Create.docx')
+  if not BC_ASSEMBLE['ok']:                                  # v7.1 P5 self-heal: one automatic re-copy
+      BC_ASSEMBLE = fa.assemble_final_docx(_src_a, f'/mnt/user-data/outputs/{EXAM}_{_slug_a}_Create.docx')
+  if not BC_ASSEMBLE['ok']:
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-1): {BC_ASSEMBLE['why']} (after one automatic re-copy) — "
+                       f"run this block again.")
+  print(f"S13-1: ASSEMBLED {os.path.basename(_src_a)} -> {EXAM}_{_slug_a}_Create.docx (byte copy, sha256 "
+        f"{BC_ASSEMBLE['sha256'][:12]}).")
+  ```
+  ```python
+  # RUN-BLOCK S13-1.2 — not in the read; run it: python3 bootstrap.py --run-section S13-1.2 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # ── S13-1 bound-hash check (after the first S13-2F sweep) ──
+  import final_assembly as fa
+  BC_BOUND = fa.bc_check_bound(EXAM, N, f'/home/claude/{EXAM}_M{N}_item_hashes.json')
+  if not BC_BOUND['ok']:
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-1.2): review records not bound to the final docx — mismatch "
+                       f"{BC_BOUND['mismatch']}, missing {BC_BOUND['missing']}, delivered key != decided key "
+                       f"{BC_BOUND.get('key_mismatch')}: run RUN-BLOCK S13-1 again (a byte copy), then S13-2F and this "
+                       f"block; still different -> P0 (never a re-review).")
+  print("S13-1.2: every review record is bound to its block in the final docx.")
+  ```
+
+## S13-1B — FINAL COUNTING ROUND (v6.4 — S0-BV BV-14; v6.5 a CHECK; before S13-2, every Final Assembly) — LEGACY (migration only, v7.0)
+
+  v7.0 (S0-BC LAW-BC-8) — LEGACY: a paper produced on this release never runs this step (every question was settled
+  in its batch). For a paper begun on an earlier release this RUN-BLOCK IS the SETTLEMENT BATCH (S4-12 LEGACY
+  MIGRATION): fa.bv_batch_step(final=True) runs the full S0-BC flow (batch id 'S') over every question of the paper
+  that is not settled — STEP B, the ladder, adjudication, JOBS OUT / REWRITE / PERMUTE / RESTORE exactly as S4-7 STEP
+  A2 — then STEP A3 with upto = the last question; then the v7.0 Final Assembly from S13-1. The text below describes
+  the earlier release (v7.1: not served by the read — `python3 bootstrap.py --show-section LEGACY:S13-1B` prints it).
 
   v6.5 (GAP-2026-11-13-STEP7-SPEED G-06): every batch settles its own questions (BV-9), so this step is a CHECK — it
   prints `S13-1B: 0 to measure` and goes on to S13-2 at once. It runs a round only for an INFRA-CARRY of the last batch
@@ -11649,7 +11924,7 @@ if AUDIT_AVAILABLE:
         # proven exhausted, S13-2L), which keeps its stamp and is listed as an amber note
         _kd = json.load(open(_key, encoding='utf-8'))
         for _qn, _e in (_kd.get('concept_map') or {}).items():
-            if not str(_e.get('quality_status', '')).startswith('DISCLOSED'):
+            if not str(_e.get('quality_status', '')).startswith(('DISCLOSED', 'ESCALATED')):   # v7.0: LAW-BC-8 stamps stay
                 _e['quality_status'] = 'CERTIFIED'
         json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
         print(f"S13-2F: CERTIFIED after sweep {_st['sweep']} ({len(AMBER_NOTES)} amber note(s)"
@@ -11684,6 +11959,31 @@ if AUDIT_AVAILABLE:
         if _infra_fl:                                 # a tool fault: is the tool itself broken?
             _stok = subprocess.run(['python3', f'/home/claude/{EXAM}_mock_test_audit.py', '--self-test'],
                                    capture_output=True, text=True, env=AUDIT_ENV).returncode == 0
+        # v7.0 (S0-BC LAW-BC-8): on a BATCH-COMPLETE paper every question was settled in its batch, so an item finding
+        # that reaches this sweep is an ENGINE DEFECT — stamped ESCALATED(<gates>) with a P0 record and delivered with an
+        # AMBER line (auditor _lb_reconcile_disclosed); nothing is re-authored, re-reviewed or chained at Final Assembly
+        _bs_bc = json.load(open(_bsp, encoding='utf-8'))
+        if (_bs_bc.get('bv') or {}).get('rule') == bc.BC_RULE and not (_infra_fl and not _stok):
+            _esc = {}
+            for _f in (_wl.get('item_findings') or []):
+                if _f.get('q') is not None and _f.get('gate') not in bc.NF_DISCLOSE_GATES:
+                    _esc.setdefault(str(_f['q']), set()).add(str(_f['gate']))
+            _kd_e = json.load(open(_key, encoding='utf-8'))
+            _esc = {q: g for q, g in _esc.items()
+                    if not str(((_kd_e.get('concept_map') or {}).get(q) or {}).get('quality_status', '')).startswith('ESCALATED')}
+            if _esc:
+                for _qe, _ge in sorted(_esc.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
+                    _ee = _kd_e.setdefault('concept_map', {}).setdefault(_qe, {})
+                    _ee['quality_status'] = 'ESCALATED(' + ','.join(sorted(_ge)) + ')'
+                    _bs_bc.setdefault('p0_incidents', []).append({'q': _qe, 'kind': 'bc_final_assembly_finding',
+                                                                  'gates': sorted(_ge), 'rule': 'LAW-BC-8'})
+                json.dump(_kd_e, open(_key, 'w', encoding='utf-8'), indent=2)
+                json.dump(_bs_bc, open(_bsp, 'w', encoding='utf-8'), indent=2)
+                json.dump(_st, open(_stp, 'w', encoding='utf-8'))   # the sweep counter is KEPT
+                raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}, LAW-BC-8): item finding(s) on "
+                                   f"{sorted(_esc, key=lambda x: int(x) if x.isdigit() else 0)} first seen at Final "
+                                   f"Assembly — ESCALATED (AMBER, P0 recorded; an engine defect, never repaired here); "
+                                   f"run a fresh sweep (preview + this block) now.")
         # v6.0 (LAW-ORG-5): a label that does not verify strictly is S13-2L's work — the item is marked 'carried' and
         # its difficulty chain decides (rework / replace / refill / last resort); the RL relabel rung is never used
         _lbl_qs = sorted({str(f.get('q')) for f in (_wl.get('item_findings') or [])
@@ -11780,7 +12080,14 @@ if AUDIT_AVAILABLE:
                            f"(S7-NEW-A) — 'amber' needs nothing; then run the next sweep (preview + this block).")
 ```
 
-## S13-2G — INDEPENDENT REVIEW, IN-SESSION (v5.91 — GAP-2026-11-04 A1-A7; owner decisions OD-5 restated (D0), D1, D2, D4)
+## S13-2G — INDEPENDENT REVIEW, IN-SESSION (v5.91 — GAP-2026-11-04 A1-A7; owner decisions OD-5 restated (D0), D1, D2, D4) — LEGACY (migration only, v7.0)
+
+  v7.0 (S0-BC, OD-2026-11-14 R6) — LEGACY: the independent review of every question now happens IN ITS BATCH (three
+  fresh reviewers + the MockReview checklist + an adjudicator when the answer is disputed) and its record is bound by
+  S4-7 STEP A3 (LAW-BC-7). The normal path goes S13-1 -> S13-2F -> S13-2P -> S13-2L PAPER DIFFICULTY GATE -> S13-3; no
+  REVIEW_REQUEST is ever sent after the last batch. The text below is kept to read the recorded state of a paper begun
+  on an earlier release (S4-12 settles it in its settlement batch first). v7.1: not served by the read —
+  `python3 bootstrap.py --show-section LEGACY:S13-2G` prints it.
 
   WHY (v5.90, unchanged). Every verification of the incident paper — answer, difficulty
   rating, "is a second option defensible" — ran in the author's own context and agreed with
@@ -12277,7 +12584,10 @@ if AUDIT_AVAILABLE:
 
 ## S13-2P — ORGANIC PARITY + FIGURE PROOFS AT ASSEMBLY (v6.0 — §S0-OP-9; LAW-ORG-11, LAW-ORG-8)
 
-  Runs after S13-2G and before S13-2L on EVERY paper (no organic item -> PASS). Never a stop.
+  Runs after S13-2F (v7.0 normal path; S13-2G on a legacy paper) and before S13-2L on EVERY paper (no organic item ->
+  PASS). Never a stop. v7.0 (LAW-BC-1 / LAW-BC-8): every figure proof was settled in its batch, so FIGPROOF FAIL here is
+  impossible by construction — if it happens it is an engine defect: disclosed AMBER-ESCALATED with a P0 record
+  (batch_state['p0_incidents']), never a repair.
   ```python
   # RUN-BLOCK S13-2P.1 — not in the read; run it: python3 bootstrap.py --run-section S13-2P.1 --exam <E> --paper <N>
   # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
@@ -12334,10 +12644,86 @@ if AUDIT_AVAILABLE:
                                             if r.get('stem_snippet')] if 'OP_PROFILE' in globals() else [])
   json.dump(_kpn, open(_kpn_p, 'w', encoding='utf-8'), indent=2)
   print(f"S13-2P NF: within-paper repeats {[(a, b) for a, b, _w in NF_INTRADUP] or 'none'}; "
-        f"key leaks {[(a, b) for a, b, _v in NF_KEYLEAK] or 'none'} — each later item enters its quality chain (S13-2L)")
+        f"key leaks {[(a, b) for a, b, _v in NF_KEYLEAK] or 'none'} — v7.0: each was decided in its batch (rung 1-2, "
+        f"then disclosed); a pair first seen here is LAW-BC-8 (S13-2F escalates it)")
   ```
 
 ## S13-2L — PAPER DIFFICULTY GATE + SLOT CHAINS (v6.0 — GAP-2026-11-10 G-10; LAW-ORG-3/4/5/7; owner 2026-11-10, every exam)
+
+  v7.0 (S0-BC LAW-BC-8) — SPLIT. NORMAL PATH: the PAPER DIFFICULTY GATE only — RUN-BLOCK S13-2L.0 below writes the gate
+  record (batch_state['difficulty_state']['paper_gate'], the same builder A-DIFFGATE uses) and the footer record
+  (chain_footer: the requested / applied schedule, ruler, parity, every composition disclosure and every question's
+  batch footer line from batch_state['bc_footer']) and schedules NOTHING — no chain, no reserve, no refill, no last
+  resort, no sub-agent. A label that does not verify here is an engine defect: AMBER-ESCALATED + P0, never a chain.
+  SLOT CHAINS (the RUN-BLOCK S13-2L after it, and S13-2R) are LEGACY — migration only.
+  ```python
+  # RUN-BLOCK S13-2L.0 — not in the read; run it: python3 bootstrap.py --run-section S13-2L.0 --exam <E> --paper <N>
+  # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # ── S13-2L.0 PAPER DIFFICULTY GATE (v7.0 normal path — no chain is ever scheduled) ──
+  import json, blueprint_core as bc
+  _bsg_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _kg_p = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  _bs_g = json.load(open(_bsg_p, encoding='utf-8'))
+  _kd_g = json.load(open(_kg_p, encoding='utf-8'))
+  _cm_g = _kd_g.get('concept_map') or {}
+  _labs_g = list(_bs_g.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+  _tgt_g = {str(k): v for k, v in (_bs_g.get('difficulty_plan_target') or _bs_g.get('difficulty_schedule_original') or {}).items()}
+  _ds_g = _bs_g.setdefault('difficulty_state', {})
+  G_PAPER = bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_g, _cm_g, _labs_g), _labs_g) if _tgt_g else {'status': 'DORMANT'}
+  if _tgt_g:
+      _ds_g['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original', 'rework_qs',
+                                                              'accepted_dr3', 'unmeasured', 'forced', 'swapped', 'rule',
+                                                              'last_resort')},
+                                 target_plan=dict(_tgt_g), labels=list(_labs_g))   # A-DIFFGATE re-counts from these
+  _bad_g = [q for q in sorted(_tgt_g, key=int) if not bc.verify_difficulty_label(_cm_g.get(q), _labs_g, strict=True)[0]]
+  for _qg in _bad_g:                                            # LAW-BC-8: impossible by construction — never a chain
+      _bs_g.setdefault('p0_incidents', []).append({'q': _qg, 'kind': 'bc_label_at_final_assembly', 'rule': 'LAW-BC-8'})
+  _rq_g = _bs_g.get('schedule_requested') or {}
+  _sa_g = _bs_g.get('schedule_applied') or {}
+  _ru_g = _bs_g.get('exam_ruler') or globals().get('EXAM_RULER') or {}
+  _info_g, _amber_g = [], []
+  if _rq_g:
+      _info_g.append('Requested difficulty: ' + ' / '.join(f'{_b} {_n}' for _b, _n in _rq_g.items()))
+  if (_sa_g.get('counts') or {}) and dict(_sa_g['counts']) != dict(_rq_g):
+      _info_g.append('Applied difficulty: ' + ' / '.join(f'{_b} {_n}' for _b, _n in _sa_g['counts'].items()))
+  if _ru_g.get('ruler_version'):
+      _info_g.append(f"Exam ruler {_ru_g.get('ruler_version')} ({_ru_g.get('basis')}): past distribution "
+                     f"{_ru_g.get('past_distribution')}")
+  _info_g += [f'Schedule as applied: {_n}' for _n in (_sa_g.get('notes') or [])]
+  if _bs_g.get('op_overrides'):
+      _info_g.append('Constant overrides: ' + ', '.join(_bs_g['op_overrides']))
+  _pa_g = _ds_g.get('parity') if isinstance(_ds_g.get('parity'), dict) else None
+  if _pa_g and _pa_g.get('status'):
+      _info_g.append(f"Organic parity: {_pa_g['status']} — items with >= 2 decisions {float(_pa_g.get('chain_share') or 0):.0%}"
+                     + (f"; short {_pa_g['short']}" if _pa_g.get('short') else ''))
+  for _qf, _lines_f in sorted((_bs_g.get('bc_footer') or {}).items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+      for _cls_f, _txt_f in (_lines_f or []):                  # S0-BC: every question's batch footer line (bc.bc_amber_lines)
+          (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
+  _amber_g += [f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_g.get('nf_disclosed') or {}).items())]
+  if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band':
+      _amber_g.append("Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)")
+  _jq_g = sorted((_q for _q, _e in _cm_g.items() if isinstance(_e, dict)
+                  and ((_e.get('difficulty_check') or {}).get('measure') in ('judged', 'mixed'))),
+                 key=lambda x: int(x) if str(x).isdigit() else 0)
+  if _jq_g:
+      _amber_g.append(f"Difficulty judged, not counted: Q{', Q'.join(_jq_g)}")
+  _amber_g += [f"Q{_qg}: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)" for _qg in _bad_g]
+  _amber_g += [f"P0: {_pi.get('kind')} Q{_pi.get('q')}" for _pi in (_bs_g.get('p0_incidents') or [])
+               if isinstance(_pi, dict) and _pi.get('kind') == 'bc_terminal']
+  _ds_g['chain_footer'] = {'info': _info_g, 'amber': _amber_g}
+  _ds_g['schedule'] = {'requested': _rq_g, 'applied': _sa_g}
+  _ds_g['allocation_swaps'] = list(_bs_g.get('allocation_swaps') or [])
+  if isinstance(globals().get('DIFFICULTY_STATE'), dict):      # the in-memory copy
+      globals()['DIFFICULTY_STATE'].update({k: _ds_g[k] for k in ('paper_gate', 'chain_footer', 'incidents') if k in _ds_g})
+  json.dump(_bs_g, open(_bsg_p, 'w', encoding='utf-8'), indent=2)
+  print(f"S13-2L.0: paper difficulty gate {G_PAPER.get('status')} — delivered {G_PAPER.get('counts_final')} against "
+        f"requested {G_PAPER.get('counts_original')}; {len(_amber_g)} AMBER / {len(_info_g)} informational footer line(s); "
+        f"no chain scheduled (LAW-BC-8){'; engine defect P0 on ' + str(_bad_g) if _bad_g else ''}. Continuing to S13-3.")
+  ```
+
+  LEGACY (migration only) — the text and the RUN-BLOCK S13-2L below run only for a paper whose recorded state requires
+  them (S4-12); on this release a migrating paper settles every question in its settlement batch first, so they
+  schedule nothing. v7.1: not served by the read — `python3 bootstrap.py --show-section LEGACY:S13-2L` prints it.
 
   Runs once S13-2G is REVIEWED, before S13-3 / S13-4, in the same response (and as the S4-12 entry
   whenever batch_state['slot_chain'] holds an open chain or batch_state['slot_chain_work'] is not
@@ -12769,7 +13155,12 @@ if AUDIT_AVAILABLE:
         f"or last_resort; every chain closed and every item covered. Continuing to S13-3 / S13-4.")
   ```
 
-## S13-2R — SLOT CHAIN RUNNER (v6.0 — the actions S13-2L schedules; GAP-2026-11-10 G-10)
+## S13-2R — SLOT CHAIN RUNNER (v6.0 — the actions S13-2L schedules; GAP-2026-11-10 G-10) — LEGACY (migration only, v7.0)
+
+  v7.0 (S0-BC LAW-BC-8) — LEGACY: on this release no chain is ever opened (the ladder runs inside the batch), so this
+  runner has no work; the reserve, refill_session and last_resort_generate actions are never reached on the normal
+  path. Kept to read a paper's recorded chain state. v7.1: not served by the read —
+  `python3 bootstrap.py --show-section LEGACY:S13-2R` prints it.
 
   For each entry of batch_state['slot_chain_work'] (in q order), perform its action IN THE FINAL DOCX
   through the S4-6 correction procedure (edit only that question's block, re-render its figures, update its
@@ -13679,7 +14070,8 @@ if AUDIT_AVAILABLE:
                        registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True)
   if not _hs['registry_delivered']:
       raise SystemExit('HARD STOP [HS:INFRA] (S13-8): registry unchanged after Final Assembly — '
-                       'commit_registry did not run; nothing is delivered.')
+                       'commit_registry did not run; nothing is delivered. Re-run S13-4 in FULL, then '
+                       'S13-REGCHECK .. S13-8.')
   # v5.91: judged on THIS paper's delivery scope (fa.delivery_scope) — another step's or
   # paper's earlier output in the same chat is history, never part of this delivery.
   import final_assembly as fa
@@ -13895,7 +14287,8 @@ WORKER MODE: the footer goes into the worker's chat block (Framework_MockTestOrc
 
   DELIVERY (v3.5 — closed contract):
   □ The closed set delivered: EXACTLY final .docx + registry.json — two files (S13-6, R-DELIVER; v5.73 — the audit dossier is internal; v5.91 — no extras, D3 a)  **
-  □ Step 7 ended in the SAME response as the last batch with the two files: the independent review ran IN-SESSION (S13-2G), no review packet / verdict file reached outputs, nothing was asked of the user (v5.91, STEP-CONTRACT-LAW)  **
+  □ Step 7 ended in the SAME response as the last batch with the two files: the independent review ran IN EACH BATCH (v7.0 S0-BC; S13-2G only for a legacy paper), no review packet / verdict file reached outputs, nothing was asked of the user (v5.91, STEP-CONTRACT-LAW)  **
+  □ v7.0 (S0-BC): no question in a non-settled state after any batch (LAW-BC-1); every question's review record bound to its delivered block (STEP A3 / S13-1.2, LAW-BC-7); Final Assembly started no sub-agent and wrote no question text (LAW-BC-8)  **
   □ registry.json staged in /mnt/user-data/outputs and present_files'd (S13-8)  **
   □ NO standalone answer-key file in any format delivered (R-DELIVER)  **
   □ NO internal sidecar (answer_key/fig/batch_state/progress/audit_dossier) delivered  **
@@ -14476,7 +14869,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v6.5
+# END OF Framework_MockTestCreate v7.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
