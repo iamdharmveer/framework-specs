@@ -1186,10 +1186,11 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "Reviewer and adjudicator packets carry, beside each structure figure, the SMILES its identity proof certified (bc.bc_proven_structures); never for a file the reviewer reads back and never in a vision read-back.",
+   "requires": "Reviewer and adjudicator packets carry, beside each structure figure, the SMILES its identity proof certified (bc.bc_proven_structures); never for a file the reviewer reads back and never in a vision read-back. AMENDED 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass): a packet carries everything the candidate sees — a stimulus-set member's registered stimulus (fa.bc_stimulus_fill, from batch_state['stimulus_groups']) and a match item's list_columns (S7-QUALITY); a List-I / 'shown' stem whose packet would lack them goes back to the author before any reviewer starts (STEP A2 PRE-REVIEW).",
    "verified_by": [
     "blueprint_core.py --self-test (bv_reviewer_jobs_three_for_the_batch, bc_adjudicator_packet)",
-    "handshake_audit.py --self-test (H-BC)"
+    "handshake_audit.py --self-test (H-BC)",
+    "final_assembly.py --self-test (v124_set_member_packet_carries_its_stimulus, v124_stimulus_fill)"
    ]
   },
   "LAW-BC-6 GATES-FIRST": {

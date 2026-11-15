@@ -1,10 +1,7 @@
-# Framework_DeliveryFooter v1.51.0 — Universal Delivery Footer (F1/F2) Contract
-# v1.51.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0, MockTestOrchestrate v1.8.0;
-#   OD-2026-11-14 R1–R13): NEW §LADDER-BC — the line each question earns when its batch settles it (re-key, R5b, terminal,
-#   text fallback, level off-slot / recipe note, two reviewers, K-BAL kept, R10, last-batch change), written by
-#   blueprint_core.bc_amber_lines and printed from difficulty_state.chain_footer (Create S13-2L.0). INFRA-CARRY, 'independent
-#   review: round k', majority, last-resort and dispute-chain lines are LEGACY (rendered only for a migrated paper).
-#   Entry v1.50.0 moved to SPEC_HISTORY.md.
+# Framework_DeliveryFooter v1.51.1 — Universal Delivery Footer (F1/F2) Contract
+# v1.51.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS (paired with MockTestCreate v7.3.1): §LADDER-BC names the line
+#   Create S13-2L.0 prints for a figure proof that fails at Final Assembly (S13-2P's P0 record; expected never) — the
+#   catalogue is complete again. No other change. Entry v1.51.0 moved to SPEC_HISTORY.md.
 ---
 
 ## §1 — FOOTER TYPES
@@ -1238,6 +1235,7 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
   ⚠️ Q<n>: figure family without an answer engine — went from rung 2 to R5b (R10)             R10
   ℹ️ Q<n>: changed in the last batch — the earlier cumulative docx differs                    LAW-BC-6 re-open
   ⚠️ Q<n>: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)    expected never
+  ⚠️ Q<n>: figure proof failed at Final Assembly (<proofs>) — engine defect (LAW-BC-8, P0 recorded)   S13-2P (v1.51.1); expected never
   ⚠️ <gate>: AMBER — ESCALATED (LAW-BC-8 ...) items Q<a> ...                                  S13-2F escalation; expected never
 Removed from the normal path (rendered only for a paper begun before Create v7.0): INFRA-CARRY, "independent review:
 round k", majority certification, last-resort and dispute-chain lines.

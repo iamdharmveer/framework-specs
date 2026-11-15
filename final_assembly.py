@@ -18,6 +18,11 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.24.1 — GAP-2026-11-15-RUN-ANALYSIS second pass (release 2026.11.20). NEW bc_stimulus_fill: a stimulus-set
+    member's reviewers and adjudicator read the set's registered stimulus; the pre-review 'shown' cue needs a picture
+    noun; pre-review skips a text that already has reviewer results (NEW bc_text_has_results); only offsets a paper
+    measured itself seed the next paper.
+
     v1.24 — GAP-2026-11-15-RUN-ANALYSIS (release 2026.11.19; owner go-ahead 2026-11-15). bv_batch_step: STEP A2
     PRE-REVIEW (NEW bc_prereview_gaps — figure proof, List-I / 'shown' packet gaps, the auditor's item and AMBER findings
     from <exam>_M<n>_batch_findings.json) holds the jobs and sends the gaps back, at most bc.BC_PREREVIEW_TRIES per rung;
@@ -1789,6 +1794,7 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _e['bv'] = dict(_e['bv'], state='grading', reopened_in_last_batch=True)
             _e.pop('bv_state', None)
         _e = _bc_render_shas(_e)
+        _e = bc_stimulus_fill(_e, _q, _bs_bv)           # v1.24: a set member's reviewers read the set's stimulus
         _r = _decide(_q, _e, bc.BC_ROLE_ASKS)
         if _r['action'] == 'grade' and _left < 1 and not _resume_infra:
             # R11 at the round cap: decide with the results that exist (minimum results / R5b / terminal / NO-MODEL)
@@ -2123,8 +2129,14 @@ def bc_prereview_gaps(entry, q, findings_doc=None):
     global _BC_LIST_REF, _BC_SHOWN_REF
     if _BC_LIST_REF is None:
         _BC_LIST_REF = _re.compile(r'\b(list|column)[\s-]*(i{1,2}|1|2)\b', _re.I)
-        _BC_SHOWN_REF = _re.compile(r'\b(shown|depicted|drawn below|given below|structure below|figure (?:shown|below|given))\b',
-                                    _re.I)
+        # a picture noun with a showing verb ('the compound shown', 'the graph drawn below') or 'the figure / diagram
+        # below / above', 'the following figure' — never 'statements given below' or 'it has been shown that'
+        _BC_SHOWN_REF = _re.compile(
+            r'\b(?:(?:figure|structure|reaction|scheme|graph|plot|diagram|compound|molecule|spectrum|spectra|circuit|'
+            r'curve|image|picture|mechanism|apparatus|map|chart|pedigree|gel|blot|cladogram|tree)s?\s+'
+            r'(?:shown|depicted|drawn|illustrated)'
+            r'|(?:figure|diagram|graph|plot|scheme|chart)s?\s+(?:below|above)'
+            r'|following\s+(?:figure|diagram|graph|plot|scheme|chart|structure)s?)\b', _re.I)
     e = entry if isinstance(entry, dict) else {}
     out = []
     if e.get('organic') is True:
@@ -2144,7 +2156,8 @@ def bc_prereview_gaps(entry, q, findings_doc=None):
     if _BC_LIST_REF.search(stem) and not e.get('list_columns'):
         out.append("the stem refers to List-I / List-II but list_columns is not recorded — the reviewers would see no "
                    "lists: record list_columns in the sidecar entry")
-    if _BC_SHOWN_REF.search(stem) and not (e.get('figure_files') or e.get('list_columns') or e.get('stimulus_text')):
+    if _BC_SHOWN_REF.search(stem) and not any(e.get(k) for k in ('figure_files', 'figure_dicts', 'list_columns',
+                                                                 'stimulus_text', 'content_record', 'given_smiles')):
         out.append("the stem refers to something shown but the entry carries no figure_files — the reviewers would see "
                    "no picture: record figure_files")
     doc = findings_doc if isinstance(findings_doc, dict) else {}
@@ -2155,6 +2168,25 @@ def bc_prereview_gaps(entry, q, findings_doc=None):
         if isinstance(r, dict) and str(r.get('q')) == str(q) and r.get('gate') in BC_PREREVIEW_AMBER_GATES:
             out.append(f"{r.get('gate')} (AMBER): {str(r.get('finding'))[:200]}")
     return out
+
+
+def bc_stimulus_fill(entry, q, bs):
+    """v1.24 (GAP-2026-11-15-RUN-ANALYSIS D2) — a member of a stimulus set (passage / data / cloze — Create S7 R-LINKED,
+    batch_state['stimulus_groups'][gid] = {'qnums', 'stimulus'}) is printed under its set's stimulus, which its own
+    stem_text does not repeat: the reviewers and the adjudicator must read it too. Returns a copy of entry with
+    'stimulus_text' = the registered stimulus when the entry has none; an existing value is never replaced. The text
+    binding (op_content_sha / item_hash) does not include it, so no review record changes. Never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    if e.get('stimulus_text'):
+        return e
+    try:
+        qi = int(q)
+        for g in ((bs or {}).get('stimulus_groups') or {}).values():
+            if isinstance(g, dict) and g.get('stimulus') and qi in {int(x) for x in (g.get('qnums') or [])}:
+                return dict(e, stimulus_text=str(g['stimulus']))
+    except (TypeError, ValueError, AttributeError):
+        pass
+    return e
 
 
 def bc_text_has_results(entry):
@@ -2186,7 +2218,11 @@ def bc_registry_author_offsets(registry_path, paper_id=None):
             continue
         ao = ((qe.get('difficulty_state') or {}).get('author_offset')) if isinstance(qe.get('difficulty_state'), dict) else None
         if isinstance(ao, dict) and ao:
-            out.append({k: v for k, v in ao.items() if isinstance(v, dict) and not str(k).startswith('_')})
+            # only what that paper MEASURED itself — an offset it carried from an even earlier paper ('from') is skipped,
+            # so a newer measurement is never shadowed by an old one handed down
+            _own = {k: v for k, v in ao.items() if isinstance(v, dict) and not str(k).startswith('_') and not v.get('from')}
+            if _own:
+                out.append(_own)
     return out
 
 
@@ -3875,7 +3911,8 @@ def self_test():
             _bv_js.dump({'concept_map': _cmp, 'answers': {'1': 1, '2': 1}},
                         open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
             _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1,
-                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard'}},
+                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard'},
+                         'stimulus_groups': {'g1': {'qnums': [2], 'stimulus': 'SHARED PASSAGE TEXT'}}},
                         open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
             _bv_js.dump({'item_findings': [{'q': '2', 'gate': 'G-STEM', 'finding': 'stem cue gives the answer'}],
                          'amber_findings': []}, open(_bv_os.path.join(_h, 'EX_M1_batch_findings.json'), 'w'))
@@ -3891,6 +3928,11 @@ def self_test():
                 _bv_js.dump({'item_findings': [], 'amber_findings': []},
                             open(_bv_os.path.join(_h, 'EX_M1_batch_findings.json'), 'w'))
                 _p2 = bv_batch_step('EX', 1, home=_h, echo=False)
+                _rows_p = [r for d in _p2['jobs'] for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']]
+                check('v124_set_member_packet_carries_its_stimulus',
+                      _rows_p and all(r['item'].get('stimulus_text') == 'SHARED PASSAGE TEXT' for r in _rows_p if r['q'] == '2')
+                      and any(r['q'] == '2' for r in _rows_p)
+                      and all('stimulus_text' not in r['item'] for r in _rows_p if r['q'] == '1'))
                 check('v124_prereview_fixed_then_reviewed', _firstp and _p2['status'] == 'jobs_out' and _p2['jobs']
                       and all('/b1/r1/' in d for d in _p2['jobs'])
                       and not any('PRE-REVIEW' in x for x in _p2['lines']))
@@ -4102,6 +4144,22 @@ def self_test():
     _g_bad = bc_prereview_gaps({'organic': True, 'stem_text': 'x', 'figure_files': ['f9.png'],
                                 'figure_dicts': [{'file': 'f9.png', 'kind': 'chair_conformation', 'smiles': 'C1CCCCC1'}]},
                                '4', None)
+    _bs_sf = {'stimulus_groups': {'g1': {'qnums': [4, 5], 'stimulus': 'PASSAGE TEXT'}, 'g2': {'qnums': [6], 'stimulus': None}}}
+    check('v124_stimulus_fill', bc_stimulus_fill({'stem_text': 'x'}, '4', _bs_sf).get('stimulus_text') == 'PASSAGE TEXT'
+          and bc_stimulus_fill({'stem_text': 'x', 'stimulus_text': 'own'}, '4', _bs_sf)['stimulus_text'] == 'own'
+          and 'stimulus_text' not in bc_stimulus_fill({'stem_text': 'x'}, '6', _bs_sf)
+          and 'stimulus_text' not in bc_stimulus_fill({'stem_text': 'x'}, '7', _bs_sf)
+          and bc_stimulus_fill({'stem_text': 'x'}, 'Q?', _bs_sf) == {'stem_text': 'x'}
+          and bc_stimulus_fill(None, '4', None) == {}
+          and bc.op_content_sha(bc_stimulus_fill({'stem_text': 'x'}, '4', _bs_sf)) == bc.op_content_sha({'stem_text': 'x'}))
+    check('v124_shown_cue_is_narrow', all(bc_prereview_gaps({'stem_text': t}, '1') == [] for t in (
+              'Consider the statements given below and choose the correct option.',
+              'It has been shown that the rate doubles; find the order.',
+              'Which figure of merit is largest?', 'The structure of benzene has how many pi electrons?'))
+          and all(len(bc_prereview_gaps({'stem_text': t}, '1')) == 1 for t in (
+              'The compound shown undergoes ozonolysis.', 'In the graph drawn below, find the slope.',
+              'Study the following figure and answer.', 'The pedigree shown is for a rare trait.'))
+          and bc_prereview_gaps({'stem_text': 'The compound shown undergoes ozonolysis.', 'given_smiles': 'C=C'}, '1') == [])
     _e_rs = {'stem_text': 'Plain stem here', 'option_texts': ['1', '2'], 'bv': {'grades': {'grader_1': {}}}}
     check('v124_text_has_results', bc_text_has_results(_e_rs) is True and bc_text_has_results({'bv': {}}) is False
           and bc_text_has_results(None) is False
@@ -4120,10 +4178,14 @@ def self_test():
             {'paper_id': 'M1', 'difficulty_state': {'author_offset': {'org|Hard': {'n': 4, 'steps': 2, 'concepts': 0},
                                                                       '_note': 'x'}}},
             {'paper_id': 'M2', 'difficulty_state': {'author_offset': {'org|Hard': {'n': 3, 'steps': 1, 'concepts': 0}}}},
-            {'paper_id': 'M0'}, 'junk']}, open(_rp, 'w'))
+            {'paper_id': 'M0'}, 'junk',
+            {'paper_id': 'M3', 'difficulty_state': {'author_offset': {'org|Hard': {'n': 9, 'steps': -2, 'concepts': 0,
+                                                                                   'from': 'earlier paper'}}}}]},
+                    open(_rp, 'w'))
         check('v124_registry_offsets', bc_registry_author_offsets(_rp, 'M2')
               == [{'org|Hard': {'n': 4, 'steps': 2, 'concepts': 0}}]
-              and len(bc_registry_author_offsets(_rp)) == 2)
+              and len(bc_registry_author_offsets(_rp)) == 2
+              and bc.bc_author_offsets({}, {}, {}, L, seed=bc_registry_author_offsets(_rp, 'M4'))['org|Hard']['steps'] == 1)
         open(_rp, 'w').write('{bad')
         check('v124_registry_offsets_bad_file', bc_registry_author_offsets(_rp, 'M2') == [])
         _base = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)

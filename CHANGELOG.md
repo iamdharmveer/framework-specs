@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026.11.20 — GAP-2026-11-15-RUN-ANALYSIS, second pass: auto-continue start-up fix, full reviewer packets, narrower pre-review
+
+(over release 2026.11.19, the bundle being deployed. final_assembly v1.24.1 (NEW bc_stimulus_fill; a narrower 'shown'
+cue; bc_text_has_results; only measured earlier-paper offsets seed); bootstrap (--auto-continue accepted; any repeated
+window opener ignored); Framework_MockTestCreate v7.3.1; Framework_MockTestOrchestrate v1.10.1; Framework_DeliveryFooter
+v1.51.1; LAW_REGISTRY (LAW-BC-5 amended); STEP_CONTRACTS (floors Create 7.3.1, Orchestrate 1.10.1).)
+
+**Owner instruction 2026-11-15.** One more line-by-line pass over every line, rule and instruction of 2026.11.19,
+checked twice, every step in sync. Every changed line was re-read, and every changed RUN-BLOCK was EXECUTED against a
+fixture (S4-7.1, S13-2P.1, S13-2L.0). Found and fixed:
+- `--auto-continue` in the trigger would have STOPPED the run: the worker passes "the trigger's options" to
+  `bootstrap.py --session-start`, which refused the unknown flag. bootstrap now accepts it (and ignores it), and S1-0R
+  says to leave it out. The Batch Stop Law (B-5, O2-6) now names the opt-in exception instead of contradicting it.
+- Reviewer packets could lack what the candidate sees: a stimulus-set member's passage / data, and a match item's
+  lists, live outside stem_text. The engine now gives every set member's reviewers and adjudicator the registered
+  stimulus (fa.bc_stimulus_fill; the text binding is unchanged). S7-QUALITY and STEP A now ask for list_columns (the
+  columns given to add_match_table). LAW-BC-5 amended.
+- The 'shown' pre-review cue was too wide: "statements given below" and "it has been shown that" would have sent
+  text questions back for nothing. It now needs a picture noun ("the compound shown", "the following figure").
+- Pre-review would have sent back a question that joined from an earlier batch with its grades kept. It now checks
+  only a text no reviewer has measured (fa.bc_text_has_results).
+- S13-2P's figure-proof P0 was recorded but never printed. S13-2L.0 now prints it, and DeliveryFooter v1.51.1
+  §LADDER-BC lists the line.
+- An author offset carried from an older paper could shadow a newer measurement. Only measured offsets now seed.
+- The timing log ignores any repeated opener of the same window, not only Final Assembly's.
+- The orchestrator records `--lean-agents` BEFORE the first worker, because the first round's job size depends on it.
+  The early warm standby carries on with the report it was started from, instead of ending the response.
+
+**Verified.** Self-tests: blueprint_core 1490/1490, final_assembly 229/229, audit_canonical 644/644, bootstrap 99/99,
+handshake 244/244. Mutations: every new check catches its deliberate bug except one documentation-only spec line,
+which was verified by executing its RUN-BLOCK. Fuzz: 120 random papers with 0 violations. The bundle was applied to
+2026.11.19 and verified 60/60. Full CI was run twice, 22/22 each time.
+
 ## 2026.11.19 — GAP-2026-11-15-RUN-ANALYSIS: fix before review, one figure-proof rule, lean reviewers, honest timing
 
 (blueprint_core v2.9 (bc_apply settles a figure only on its whole proof; BC_PREREVIEW_TRIES = 2; bc_author_offsets

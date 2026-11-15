@@ -463,6 +463,17 @@ Entries v1.27–v1.40.0 moved at framework releases 2026.11.06 and 2026.11.07 (E
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — this file rides on every route, so every header byte is paid by every session).
 Current-version entry remains in Framework_DeliveryFooter.md.
 
+Entry v1.51.0 moved at framework release 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass; v1.51.1 supersedes).
+
+```
+# v1.51.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0, MockTestOrchestrate v1.8.0;
+#   OD-2026-11-14 R1–R13): NEW §LADDER-BC — the line each question earns when its batch settles it (re-key, R5b, terminal,
+#   text fallback, level off-slot / recipe note, two reviewers, K-BAL kept, R10, last-batch change), written by
+#   blueprint_core.bc_amber_lines and printed from difficulty_state.chain_footer (Create S13-2L.0). INFRA-CARRY, 'independent
+#   review: round k', majority, last-resort and dispute-chain lines are LEGACY (rendered only for a migrated paper).
+#   Entry v1.50.0 moved to SPEC_HISTORY.md.
+```
+
 Entry v1.50.0 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v1.51.0 supersedes).
 
 ```
@@ -2207,6 +2218,20 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
+
+Entry v7.3 moved at framework release 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass; v7.3.1 supersedes).
+
+```
+# v7.3 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with blueprint_core v2.9, final_assembly v1.24,
+#   audit_canonical v2.43, bootstrap, Framework_MockTestOrchestrate v1.10.0; owner go-ahead 2026-11-15 on D1-D7, S1-S6).
+#   From the timed TestCreate run of 2026-11-15: STEP A2 PRE-REVIEW sends a figure that fails its proof, a List-I /
+#   'shown' stem the reviewers could not see, and the per-batch auditor's item and AMBER findings back to the author
+#   BEFORE any reviewer is paid (at most bc.BC_PREREVIEW_TRIES per rung, never a loop); the batch figure proof is the
+#   S13-2P rule (the engine computes the 2-D layout); STEP B writes --item-findings and re-checks only what changed;
+#   STEP A records the full figure record and shows the planned ask type; author offsets start from earlier papers;
+#   S13-2P writes its P0 record; an optional --auto-continue trigger flag. No gate or reviewer was removed.
+#   Entry v7.2 moved to SPEC_HISTORY.md.
+```
 
 Entry v7.2 moved at framework release 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS; v7.3 supersedes).
 
@@ -8094,6 +8119,17 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.10.0 moved at framework release 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass; v1.10.1 supersedes).
+
+```
+# v1.10.0 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with Framework_MockTestCreate v7.3, final_assembly v1.24,
+#   bootstrap): lean reviewer / adjudicator sub-agents (mtc-reviewer, mtc-adjudicator — Read + Write only, installed
+#   by bootstrap --install-agents, recorded with --lean-agents yes|no; without them reviewer jobs carry
+#   review_qs_per_job_fallback questions — owner decision 2026-11-15); one-line job prompts; the warm standby starts
+#   earlier; the optional BATCH_DELIVERED auto-continue; the timing log closes a window still open when the next starts.
+#   Entry v1.9.0 moved to SPEC_HISTORY.md.
+```
 
 Entry v1.9.0 moved at framework release 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS; v1.10.0 supersedes).
 

@@ -1,13 +1,11 @@
-# Framework_MockTestCreate v7.3
-# v7.3 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with blueprint_core v2.9, final_assembly v1.24,
-#   audit_canonical v2.43, bootstrap, Framework_MockTestOrchestrate v1.10.0; owner go-ahead 2026-11-15 on D1-D7, S1-S6).
-#   From the timed TestCreate run of 2026-11-15: STEP A2 PRE-REVIEW sends a figure that fails its proof, a List-I /
-#   'shown' stem the reviewers could not see, and the per-batch auditor's item and AMBER findings back to the author
-#   BEFORE any reviewer is paid (at most bc.BC_PREREVIEW_TRIES per rung, never a loop); the batch figure proof is the
-#   S13-2P rule (the engine computes the 2-D layout); STEP B writes --item-findings and re-checks only what changed;
-#   STEP A records the full figure record and shows the planned ask type; author offsets start from earlier papers;
-#   S13-2P writes its P0 record; an optional --auto-continue trigger flag. No gate or reviewer was removed.
-#   Entry v7.2 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v7.3.1
+# v7.3.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with final_assembly v1.24.1, bootstrap,
+#   Framework_MockTestOrchestrate v1.10.1, Framework_DeliveryFooter v1.51.1; over release 2026.11.19). S1-0R: leave
+#   --auto-continue out of --session-start (bootstrap also accepts it — before, it refused it and the run stopped);
+#   B-5 names the opt-in exception; S7-QUALITY / STEP A: list_columns for a match item (the reviewers read the lists
+#   only from the sidecar; a set member's stimulus is added by the engine — fa.bc_stimulus_fill); STEP A2 PRE-REVIEW
+#   checks only a text no reviewer has measured; S13-2L.0 prints S13-2P's figure-proof P0. Entry v7.3 moved to
+#   SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -835,7 +833,8 @@ O3-3 CHECKPOINT carries it):
   * SESSION START (S3, at the start of EVERY session — a fresh worker, a resume, a handover):
     `python3 bootstrap.py --session-start --exam <ExamCode> --paper <N> [--level <mock|subject|topic>]
     [--subject "<scope subject>"] [--topic "<scope topic>"] [--resume] [--grader-model <model id>]`
-    (the options are the trigger's, S3-2). It runs, in file order, EVERY block whose first line is
+    (the options are the trigger's, S3-2; v7.3.1: --auto-continue is the orchestrator's — leave it out here, bootstrap
+    ignores it if passed). It runs, in file order, EVERY block whose first line is
     `# ENGINE-RUN` — all of §3 (and the S0-OP blocks inside S3-2) and the helper libraries of §6-§11. Those
     blocks are NOT in the read: the read shows their marker line and every rule around them; the code runs
     from the same verified file. Its output is the session start's output (every S3 print, every stop
@@ -4735,6 +4734,9 @@ action: the same paper, the same two files, the same "continue".
   B-5: The next batch begins ONLY when the user's NEW message is a continue
        trigger ("continue" / "go" / "next", case-insensitive).
        Claude NEVER self-issues a continue. Claude NEVER assumes continue.
+       v7.3.1: the one exception is a run whose trigger the USER typed with --auto-continue — then the
+       ORCHESTRATOR (never the worker) sends `continue — delivery confirmed` after each delivered batch
+       (Framework_MockTestOrchestrate O2-3); for the worker that message IS the continue trigger, as always.
 
   B-6: batches_completed is updated (append current_batch's batch_id) and
        current_batch is incremented ONLY after present_files succeeds.
@@ -4865,7 +4867,8 @@ action: the same paper, the same two files, the same "continue".
            not on its edge (Hard: score 7+, Medium: 4, Easy: 1 or less on the three-band rubric) — a question written on
            an edge is the one most often measured one band off; v7.3 (D5): the packet names the slot's PLANNED ASK
            TYPE ('shape', batch_state['shape_plan'][q] — S3-12d): write that ask type (a different one is an item
-           defect, R3); and for an ORGANIC structure picture its figure_dicts when it is rendered
+           defect, R3); v7.3.1: for a match_the_following item, list_columns = the columns given to add_match_table
+           (S7-QUALITY — the reviewers read the lists only from there); and for an ORGANIC structure picture its figure_dicts when it is rendered
            (file, smiles, stereo_mode, answer_depends_on_stereo, and v7.3 — the S0-OP-8 record in full — kind (the
            convention tag, e.g. 'skeletal' / 'chair_conformation'), role ('stem' | 'option'), width_in, and
            projection_proof for a chair / Newman / sawhorse / Fischer / Haworth; the 2-D 'layout' proof is computed by
@@ -5212,7 +5215,7 @@ action: the same paper, the same two files, the same "continue".
                           [ExamCode]_M[N]_batch_findings.json). Fix exactly what the line names (re-render at the
                           paper's tokens, record list_columns / figure_files, correct the SMILES), STEP B for that
                           question, then this block again. At most bc.BC_PREREVIEW_TRIES times per rung, then the text
-                          is reviewed as it stands (never a loop). Only a text no reviewer has measured yet is checked
+                          is reviewed as it stands (never a loop). v7.3.1: only a text no reviewer has measured yet is checked
                           (a question that joins with its grades kept is not sent back — fa.bc_text_has_results).
              SELF-COUNT q -> (v7.1 P3) the author's own count (author_counts) does not give the slot band; no reviewer
                           was started for the batch: rewrite q to the slot band (or correct a miscount of author_counts),
@@ -8184,6 +8187,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           ([] for picture options) and the figure file names placed under
                           the item — the S13-2G review packet is built from these (the
                           reviewer reads the docx too; these make the queue self-contained).
+    list_columns          (v7.3.1 — GAP-2026-11-15-RUN-ANALYSIS D2) a match_the_following item ONLY: the SAME
+                          `columns` given to add_match_table, as [[header, [item, ...]], ...] — the lists live in a
+                          Word table, not in stem_text, and the fresh reviewers and adjudicator read only the sidecar
+                          entry. Missing on a List-I / List-II stem -> STEP A2 PRE-REVIEW sends it back. None otherwise.
+                          (A stimulus set's passage / data text needs no key: the engine gives every member's reviewers
+                          its registered stimulus — fa.bc_stimulus_fill.)
     concept               the taxonomy concept id of the tested idea (G08 concept counts).
     pattern_key           the stem pattern authored to (mechanic|form|polarity|answer_type|
                           option_shape, section_rules PATTERN_KEYS) — G-STEMFORM.
@@ -12768,6 +12777,9 @@ if AUDIT_AVAILABLE:
   _amber_g += [f"Q{_qg}: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)" for _qg in _bad_g]
   _amber_g += [f"P0: {_pi.get('kind')} Q{_pi.get('q')}" for _pi in (_bs_g.get('p0_incidents') or [])
                if isinstance(_pi, dict) and _pi.get('kind') == 'bc_terminal']
+  _amber_g += [f"Q{_pi.get('q')}: figure proof failed at Final Assembly ({', '.join(map(str, _pi.get('missing') or []))}) "
+               f"— engine defect (LAW-BC-8, P0 recorded)" for _pi in (_bs_g.get('p0_incidents') or [])
+               if isinstance(_pi, dict) and _pi.get('kind') == 'figproof_at_assembly']   # v7.3.1: S13-2P's P0, disclosed
   _ds_g['chain_footer'] = {'info': _info_g, 'amber': _amber_g}
   _ds_g['schedule'] = {'requested': _rq_g, 'applied': _sa_g}
   _ds_g['allocation_swaps'] = list(_bs_g.get('allocation_swaps') or [])
@@ -14704,7 +14716,7 @@ WORKER MODE: the footer goes into the worker's chat block (Framework_MockTestOrc
   □ No batch spanned two sections (S4-1)  **
   □ Q-range read from batch_state.json, never from memory (B-2)  **
   □ Pre-batch self-check (S4-5) performed before each batch  **
-  □ Only the user's "continue" started each next batch (B-5)  **
+  □ Only the user's "continue" (or, with --auto-continue, the orchestrator's) started each next batch (B-5)  **
   □ Final batch auto-ran Final Assembly, no continue prompt (S4-9)  **
   □ batch_state.json updated after each delivery (S4-8a)  **
   □ Manual gate checklist completed per batch (if no audit.py) (S4-11)  *
@@ -14927,7 +14939,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v7.3
+# END OF Framework_MockTestCreate v7.3.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

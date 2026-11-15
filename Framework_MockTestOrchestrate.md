@@ -1,10 +1,8 @@
-# Framework_MockTestOrchestrate v1.10.0
-# v1.10.0 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with Framework_MockTestCreate v7.3, final_assembly v1.24,
-#   bootstrap): lean reviewer / adjudicator sub-agents (mtc-reviewer, mtc-adjudicator — Read + Write only, installed
-#   by bootstrap --install-agents, recorded with --lean-agents yes|no; without them reviewer jobs carry
-#   review_qs_per_job_fallback questions — owner decision 2026-11-15); one-line job prompts; the warm standby starts
-#   earlier; the optional BATCH_DELIVERED auto-continue; the timing log closes a window still open when the next starts.
-#   Entry v1.9.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.10.1
+# v1.10.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with Framework_MockTestCreate v7.3.1,
+#   bootstrap): O2-1 runs --install-agents and records --lean-agents BEFORE the first worker (the first round's job size
+#   depends on it); O2-10 an early standby carries on with the report it was started from; O2-6 names the
+#   --auto-continue exception to the Batch Stop Law. Entry v1.10.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -66,7 +64,11 @@ Framework_MockTestCreate.md, Framework_MockReview.md or Framework_DeliveryFooter
 paper, a sidecar, the registry, the BATCH STATE, a review folder or a verdict file; never authors,
 repairs or checks a question; never prints question content (MTC MANDATE 0 binds the whole run).
 Before the first worker, in this order: Step 0 passed in this chat; STAGING COMPLETE was printed when
-bootstrap printed SURFACE; this spec was read in full and its retention check printed `RETENTION: PASS`.
+bootstrap printed SURFACE; this spec was read in full and its retention check printed `RETENTION: PASS`;
+v1.10.1: `python3 bootstrap.py --install-agents` was run, then `python3 bootstrap.py --lean-agents yes` if this chat's
+sub-agent tool lists the agent types `mtc-reviewer` and `mtc-adjudicator`, else `--lean-agents no` (O2-3 — recorded
+BEFORE the first worker, because the worker's engine sizes the first round's reviewer jobs from it; definitions
+written during a chat usually appear only in a later chat, so `no` on the first run is normal, never a stop).
 
 ## O2-2 — Starting a worker
 
@@ -106,7 +108,7 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   and, when O2-10 calls for it, start the WARM STANDBY in the background. Then
   print the CHAT BLOCK verbatim as the last element of the response and END the response. v1.10.0 — AUTO-CONTINUE
   (opt-in): when the trigger the user typed carries `--auto-continue`, do NOT end the response: after the CHAT BLOCK
-  print `AUTO-CONTINUE — Batch [K+1] starts now (type anything to pause).` and handle it exactly as a continue
+  print `AUTO-CONTINUE — the next batch starts now (type anything to pause).` and handle it exactly as a continue
   trigger (O2-6: send `continue — delivery confirmed`, O2-5 picks the worker). Every batch is still delivered with
   its files and chat block first; every gate, reviewer, adjudicator and rung is unchanged. Without the flag nothing
   changes (MTC MANDATE 1). Any user message received meanwhile is answered first and pauses the run until a continue
@@ -132,10 +134,10 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   GRADE JOBS start one sub-agent whose prompt is EXACTLY this one line (v1.10.0 — the brief is no longer pasted):
   `Read <job_dir>/JOB_BRIEF.txt and do exactly what it says; reply with its one result line only.` — nothing else,
   never the paper, the plan or a band. v1.10.0 LEAN SUB-AGENTS: when this chat's sub-agent tool offers the agent
-  types `mtc-reviewer` and `mtc-adjudicator` (installed by `python3 bootstrap.py --install-agents`, Step 0; Read +
+  types `mtc-reviewer` and `mtc-adjudicator` (installed by `python3 bootstrap.py --install-agents`, O2-1; Read +
   Write tools only, a minimal prompt), start reviewer folders as `mtc-reviewer` and `_adj` folders as
-  `mtc-adjudicator`, and record it once per run with `python3 bootstrap.py --lean-agents yes`; when it does not offer
-  them, use the general-purpose type and record `python3 bootstrap.py --lean-agents no` (the worker's engine then
+  `mtc-adjudicator` (recorded `--lean-agents yes` before the first worker, O2-1); when it does not offer
+  them, use the general-purpose type (recorded `--lean-agents no`, O2-1 — the worker's engine then
   writes reviewer jobs of SESSION_BUDGET.json `review_qs_per_job_fallback` questions — owner decision 2026-11-15).
   Never a stop either way.
   Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
@@ -222,7 +224,9 @@ The accepted continue triggers are MTC S4-6's, compared case-insensitively after
 - A continue trigger when the last worker report is HARD_STOP: O2-8.
 - Any other message, a continue trigger in any other situation included: send
   `USER MESSAGE: <the message, verbatim>` (O2-5). The worker applies MTC S4-6 to it.
-The orchestrator never starts a batch without a continue trigger (Batch Stop Law, MTC S4-4 B-5).
+The orchestrator never starts a batch without a continue trigger (Batch Stop Law, MTC S4-4 B-5) — v1.10.1: the one
+exception is a run whose trigger carries `--auto-continue` (O2-3, BATCH_DELIVERED), where the orchestrator itself
+sends `continue — delivery confirmed` after each delivered batch.
 It prints only: the O1-1 mode line; at most one progress line while a worker runs; a CHAT BLOCK
 verbatim; the O2-4 line; the O2-6 sentence; its own HARD STOP [HS:PROSE] lines. Nothing follows a
 printed CHAT BLOCK.
@@ -274,8 +278,10 @@ READS the batch just delivered, never inside a batch's time:
    batch (W + R > `rotate_tokens`, R as O2-5 says for that batch — with `fa_work_unit_tokens` added when it is the
    plan's last), and no standby of this run is waiting or reading, start ONE standby IN THE BACKGROUND (the tool's
    background option — never wait for it): prompt = the verbatim output of
-   `python3 bootstrap.py --worker-prompt --standby --trigger-text "<TRIGGER>"`; model as in O2-2. Then deliver,
-   print the CHAT BLOCK and END exactly as O2-3 says. The standby reads under its own role (it never touches the
+   `python3 bootstrap.py --worker-prompt --standby --trigger-text "<TRIGGER>"`; model as in O2-2. Then go on with the
+   report that was being handled (v1.10.1), exactly as O2-3 says: at BATCH_DELIVERED deliver, print the CHAT BLOCK and END; after
+   a session start report or a GRADE_REQUEST, carry on with it at once (the standby never delays a job wave and is not
+   one of its `parallel_jobs_max` jobs). The standby reads under its own role (it never touches the
    current worker's read or any paper file), proves its read, and replies `STANDBY READY`; that reply needs no action
    and nothing is printed for it.
 2. On the next message O2-5 does not send to the current worker: `python3 bootstrap.py --standby-status`. `STANDBY:
@@ -581,4 +587,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.10.0
+# END OF Framework_MockTestOrchestrate v1.10.1

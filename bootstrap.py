@@ -1386,8 +1386,8 @@ def timing_summary(events, budget):
         if ev in ("run_start", "continue", "final_assembly"):
             _lab = ("Final Assembly" if ev == "final_assembly" else "Before Batch" if ev == "run_start"
                     else f"batch {e.get('batch') or '?'}")
-            if start is not None and _lab == label and ev == "final_assembly":
-                continue                    # 2026.11.19 (D4): the same opener logged twice (orchestrator + worker)
+            if start is not None and _lab == label:
+                continue                    # 2026.11.19 (D4): the same window opened twice (a repeated log line)
             if start is not None:
                 # 2026.11.19 (D4): a window still open when the next one starts (the last batch runs straight into Final
                 # Assembly, with no 'delivered' between) is CLOSED here, so its minutes are reported, not lost
@@ -2123,6 +2123,9 @@ def main():
     ap.add_argument("--standby-status", action="store_true")
     ap.add_argument("--install-agents", action="store_true")
     ap.add_argument("--lean-agents", default=None, metavar="yes|no")
+    # 2026.11.19: the trigger's optional --auto-continue (Create S2-1) is the ORCHESTRATOR's flag; a worker that passes
+    # "the trigger's options" to --session-start must not be refused for it — accepted and ignored here
+    ap.add_argument("--auto-continue", action="store_true")
     ap.add_argument("--promote-standby", action="store_true")
     ap.add_argument("--timing-log", default=None, metavar="EVENT")
     ap.add_argument("--timing-show", action="store_true")
@@ -3057,10 +3060,20 @@ def self_test():
     _tl4 = timing_summary([{"t": "2026-11-13T10:00:00Z", "event": "continue", "batch": "4"},
                            {"t": "2026-11-13T10:06:00Z", "event": "final_assembly"},
                            {"t": "2026-11-13T10:08:00Z", "event": "final_assembly"},
+                           {"t": "2026-11-13T10:09:00Z", "event": "jobs_start"},
+                           {"t": "2026-11-13T10:11:00Z", "event": "jobs_return"},
                            {"t": "2026-11-13T10:15:00Z", "event": "delivered"}],
                           {"batch_minutes_target": 10, "fa_minutes_target": 10})
     check("timing summary: an open window is closed by the next opener; a duplicate opener is ignored",
-          _tl4 == ["TIMING batch 4: total 6.0 min", "TIMING Final Assembly: total 9.0 min"])
+          _tl4 == ["TIMING batch 4: total 6.0 min", "TIMING Final Assembly: total 9.0 min (review 2.0)"]
+          and timing_summary([{"t": "2026-11-13T10:00:00Z", "event": "continue", "batch": "2"},
+                              {"t": "2026-11-13T10:03:00Z", "event": "continue", "batch": "2"},
+                              {"t": "2026-11-13T10:05:00Z", "event": "delivered"}], {}) == ["TIMING batch 2: total 5.0 min"])
+    # 2026.11.19: the trigger's --auto-continue is accepted (and ignored) by the worker's command line
+    _ac1, _ao1 = run(fx, "--timing-show")
+    _ac2, _ao2 = run(fx, "--timing-show", "--auto-continue")
+    check("--auto-continue accepted on the worker command line (never an argparse refusal)",
+          _ac1 == _ac2 and "unrecognized arguments" not in _ao2)
     # 2026.11.19 (S3): lean sub-agent definitions and the per-run record
     _ag = os.path.join(tmp, "agents_out")
     _agl = []
