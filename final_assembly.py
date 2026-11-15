@@ -18,6 +18,13 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.24 — GAP-2026-11-15-RUN-ANALYSIS (release 2026.11.19; owner go-ahead 2026-11-15). bv_batch_step: STEP A2
+    PRE-REVIEW (NEW bc_prereview_gaps — figure proof, List-I / 'shown' packet gaps, the auditor's item and AMBER findings
+    from <exam>_M<n>_batch_findings.json) holds the jobs and sends the gaps back, at most bc.BC_PREREVIEW_TRIES per rung;
+    the batch figure proof is the S13-2P rule (NEW bc_figure_with_layout computes the 2-D layout); author offsets start
+    from earlier papers (NEW bc_registry_author_offsets); reviewer jobs use review_qs_per_job_fallback when the run
+    recorded no lean sub-agents (NEW bv_review_qs_per_job).
+
     v1.23 — GAP-2026-11-14-SPEED-AND-FIDELITY (release 2026.11.17; owner go-ahead 2026-11-14). bv_batch_step sizes
     each round's reviewer jobs so they and the round's adjudicator jobs fit in ONE wave (P1, bc.bv_round_job_caps);
     before a text's first review round the author's own counts must give the slot band (P3, bc.bc_selfcount — a miss is
@@ -1672,7 +1679,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     try:
         import figural_vision as _fv_bv
         import corpus_io as _ci_bv
-        _vcmp_bv, _vprf_bv = _fv_bv.readback_compare, _ci_bv.organic_figure_proof
+        _vcmp_bv = _fv_bv.readback_compare
+        _vprf_bv = lambda _fd: _ci_bv.organic_figure_proof(bc_figure_with_layout(_fd))   # v1.24 D1: same rule as S13-2P
     except Exception:                                   # noqa: BLE001 — dormant: G-FIGRECORD / S3-17c cover it
         _vcmp_bv, _vprf_bv = None, None
     # 1. COLLECT every outstanding job whose fresh sub-agent returned DONE
@@ -1745,6 +1753,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _acts_bv, _new_jobs, _needs_bv, _adj_q = {}, [], {}, []
     _perm, _rest, _nm = {}, {}, {}
     _sc_back, _sc_missing = {}, []                      # v1.23 P3: author self-count misses / missing counts
+    _pre_back = {}                                      # v1.24 D1-D3: pre-review gaps
+    try:                                                # STEP B wrote the per-batch auditor's item findings here
+        _pre_doc = json.load(open(os.path.join(home, f'{exam}_M{n}_batch_findings.json'), encoding='utf-8'))
+    except (OSError, ValueError):
+        _pre_doc = None
     _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
     _left = max(0, int(bc.BV_MAX_ROUNDS) - _jr_bv)
     _asked_all = _st_bv.setdefault('asked', {})
@@ -1794,6 +1807,16 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                 _sc_back[_q] = dict(_sc, try_no=_scs[_rk])
             elif _sc['status'] == 'missing':
                 _sc_missing.append(_q)
+            # v1.24 (GAP-2026-11-15-RUN-ANALYSIS D1-D3): PRE-REVIEW — the figure proof (identity + gates, computed by
+            # the engine), the packet the reviewers will get (lists / figure present) and the per-batch auditor's item
+            # findings for this text; a gap goes back to the author with no reviewer started, at most
+            # bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed as it stands (never a loop)
+            if _q not in _sc_back and not bc_text_has_results(_r['entry']):
+                _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc)
+                _pgs = _st_bv.setdefault('prereview', {}).setdefault(_q, {})
+                if _pg and int(_pgs.get(_rk) or 0) < int(bc.BC_PREREVIEW_TRIES):
+                    _pgs[_rk] = int(_pgs.get(_rk) or 0) + 1
+                    _pre_back[_q] = {'gaps': _pg, 'try_no': _pgs[_rk]}
         _cm_bv[_q] = _r['entry']
         _st_bv.setdefault('items', {})[_q] = _r['entry'].get('bv')
         _acts_bv.setdefault(_r['action'], []).append(_q)
@@ -1840,7 +1863,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _acts_bv.setdefault('selfcount', []).append(_q)
         if _q in (_acts_bv.get('grade') or []):
             _acts_bv['grade'].remove(_q)
-    if _sc_back or _acts_bv.get('rewrite') or _perm or _rest:
+    for _q in _pre_back:
+        _acts_bv.setdefault('prereview', []).append(_q)
+        if _q in (_acts_bv.get('grade') or []):
+            _acts_bv['grade'].remove(_q)
+    if _sc_back or _pre_back or _acts_bv.get('rewrite') or _perm or _rest:
         # v1.23 (P3, C4): the TEXT WORK comes first — a step that asks for a rewrite, a permutation, a restore or a
         # self-count fix writes no job (no round is spent); the next run of this block issues every job of the round
         # together (the rewritten texts' reviewers with the others' adjudicators — one wave). Before 1.23 a rewrite
@@ -1861,7 +1888,7 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
         _anc_bv = {q: bc.bv_anchors(_bank_bv, _ru_bv, (_cm_bv[q] or {}).get('subtopic_id'),
                                     str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv}
-        _qpj = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)
+        _qpj = bv_review_qs_per_job(home)
         # v1.23 (P1): the round's reviewer jobs + adjudicator jobs fit in ONE wave of parallel_jobs_max
         _mjr = bc.bv_round_job_caps(bv_budget_value('parallel_jobs_max', 6), len(_adj_q))
         for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj,
@@ -1931,7 +1958,7 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _rw = list(_acts_bv.get('rewrite') or [])
     if _new_jobs:
         _status = 'jobs_out'
-    elif _rw or _perm or _rest or _sc_back:
+    elif _rw or _perm or _rest or _sc_back or _pre_back:
         _status = 'rewrite'
     elif _acts_bv.get('stop'):
         _status = 'stop'
@@ -1955,7 +1982,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _st_bv['selfcount_missing'] = sorted(set(_sc_missing), key=int)
     # P4: the author/reviewer count offset per (subject, band), from every question measured so far (resume-safe)
     _bs_bv.setdefault('difficulty_state', {})['author_offset'] = bc.bc_author_offsets(
-        _cm_bv, _st_bv.get('items') or {}, _tgt_bv, _labs_bv)
+        _cm_bv, _st_bv.get('items') or {}, _tgt_bv, _labs_bv,
+        seed=bc_registry_author_offsets(os.path.join(home, f'{exam}_registry.json'), _bs_bv.get('paper_id')))
     _st_bv['open'] = []
     _st_bv['pending'] = []
     _st_bv['key_chain'] = []
@@ -1973,6 +2001,10 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     if _status == 'jobs_out':
         _say("STEP A2: JOBS OUT " + ','.join(j['dir'] for j in _new_jobs))
     elif _status == 'rewrite':
+        for _q, _pb in sorted(_pre_back.items(), key=lambda x: int(x[0])):
+            _say(f"STEP A2: PRE-REVIEW Q{_q} (try {_pb['try_no']} of {bc.BC_PREREVIEW_TRIES}) — "
+                 + '; '.join(_pb['gaps'])[:900] + " — fix it (re-render / record / correct), then STEP B for it "
+                 "(it rewrites the findings file), then this block again (no reviewer was started)")
         for _q, _sc in sorted(_sc_back.items(), key=lambda x: int(x[0])):
             _say(f"STEP A2: SELF-COUNT Q{_q} (try {_sc['try_no']} of {bc.BC_SELFCOUNT_TRIES}) — {_sc['why']}: fix the "
                  f"question (or its author_counts, if they were miscounted), then STEP B for it, then this block again "
@@ -2034,6 +2066,128 @@ def _bc_block_contains(block_text, entry):
             return False
         pos = nxt + 1
     return True
+
+
+def bv_review_qs_per_job(home='/home/claude'):
+    """v1.24 (owner decision 2026-11-15) — questions per reviewer job: SESSION_BUDGET.json review_qs_per_job, or
+    review_qs_per_job_fallback when this run's orchestrator recorded that lean sub-agents are NOT available
+    (<home>/fw_lean_agents.json {'available': false} — bootstrap --lean-agents no): with ~65k of start-up per sub-agent,
+    fewer, larger jobs halve the start-up tokens. Unknown -> review_qs_per_job. Never raises."""
+    import json, os
+    base = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)
+    try:
+        rec = json.load(open(os.path.join(home, 'fw_lean_agents.json'), encoding='utf-8'))
+    except (OSError, ValueError):
+        return base
+    if isinstance(rec, dict) and rec.get('available') is False:
+        return bv_budget_value('review_qs_per_job_fallback', base)
+    return base
+
+
+def bc_figure_with_layout(fd):
+    """v1.24 (GAP-2026-11-15-RUN-ANALYSIS D1) — one organic figure dict with its 2-D layout proof: when the author did
+    not record 'layout' (or 'projection_proof' for a chair / Newman / sawhorse / Fischer / Haworth), the engine computes
+    corpus_io.organic_structure_layout(smiles, stereo_mode) itself, so corpus_io.organic_figure_proof applies EXACTLY
+    the rule S13-2P applies (identity_ok, vision_ok, gates_ok). A projection kind without its projection_proof stays
+    unproven (it must be recorded). Never raises; returns a new dict."""
+    f = dict(fd) if isinstance(fd, dict) else {}
+    if isinstance(f.get('layout'), dict) or isinstance(f.get('projection_proof'), dict):
+        return f
+    try:
+        import corpus_io as _ci
+        if str(f.get('kind') or '') in getattr(_ci, 'ORG_PROJECTION_KINDS', ()):
+            return f
+        if f.get('smiles'):
+            _lay = _ci.organic_structure_layout(f.get('smiles'), f.get('stereo_mode') or 'abs')
+            f['layout'] = {k: _lay.get(k) for k in ('identity_ok', 'gates_ok', 'findings', 'layout_attempt', 'smiles')}
+    except Exception:                                   # noqa: BLE001 — unproven, reported by the caller
+        pass
+    return f
+
+
+_BC_LIST_REF = None
+_BC_SHOWN_REF = None
+BC_PREREVIEW_AMBER_GATES = ('A-FIGLABELPX', 'A-FIGLABEL', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE', 'A-FIGOVERPRINT',
+                            'A-OPTDISTINCT')
+
+
+def bc_prereview_gaps(entry, q, findings_doc=None):
+    """v1.24 (GAP-2026-11-15-RUN-ANALYSIS D1-D3) — what must be fixed in question q BEFORE its reviewers are paid:
+    (1) an organic structure figure whose proof fails identity / gates (computed by bc_figure_with_layout — the
+        S13-2P rule); (2) a packet the reviewers could not solve: the stem refers to List-I / List-II / Column-I but
+        list_columns is not recorded, or to a figure 'shown' with no figure_files, list_columns or stimulus_text;
+    (3) the per-batch auditor's item findings for q (findings_doc = the --item-findings JSON STEP B wrote): every
+        item finding, and the AMBER findings of BC_PREREVIEW_AMBER_GATES (small labels, collisions, stereo-ambiguous
+        option pairs). [] when nothing is found. Never raises."""
+    import re as _re
+    global _BC_LIST_REF, _BC_SHOWN_REF
+    if _BC_LIST_REF is None:
+        _BC_LIST_REF = _re.compile(r'\b(list|column)[\s-]*(i{1,2}|1|2)\b', _re.I)
+        _BC_SHOWN_REF = _re.compile(r'\b(shown|depicted|drawn below|given below|structure below|figure (?:shown|below|given))\b',
+                                    _re.I)
+    e = entry if isinstance(entry, dict) else {}
+    out = []
+    if e.get('organic') is True:
+        try:
+            import corpus_io as _ci
+            for i, fd in enumerate([f for f in (e.get('figure_dicts') or []) if isinstance(f, dict)], 1):
+                pr = _ci.organic_figure_proof(dict(bc_figure_with_layout(fd), vision_reads=[{'match': True}] * 2))
+                miss = [k for k in ('identity_ok', 'gates_ok') if not pr.get(k)]
+                if miss:
+                    why = ', '.join(f'{a}: {b}' for a, b in ((bc_figure_with_layout(fd).get('layout') or {}).get('findings')
+                                                           or [])[:3]) or 'no layout / projection proof'
+                    out.append(f"figure {i} ({fd.get('file')}) not proven ({'/'.join(miss)}: {why}) — correct the SMILES "
+                               f"or stereo_mode, or redraw")
+        except Exception:                               # noqa: BLE001 — engine unavailable: the batch proof decides
+            pass
+    stem = ' '.join(str(e.get(k) or '') for k in ('stem_text', 'stem'))
+    if _BC_LIST_REF.search(stem) and not e.get('list_columns'):
+        out.append("the stem refers to List-I / List-II but list_columns is not recorded — the reviewers would see no "
+                   "lists: record list_columns in the sidecar entry")
+    if _BC_SHOWN_REF.search(stem) and not (e.get('figure_files') or e.get('list_columns') or e.get('stimulus_text')):
+        out.append("the stem refers to something shown but the entry carries no figure_files — the reviewers would see "
+                   "no picture: record figure_files")
+    doc = findings_doc if isinstance(findings_doc, dict) else {}
+    for r in (doc.get('item_findings') or []):
+        if isinstance(r, dict) and str(r.get('q')) == str(q):
+            out.append(f"{r.get('gate')}: {str(r.get('finding'))[:200]}")
+    for r in (doc.get('amber_findings') or []):
+        if isinstance(r, dict) and str(r.get('q')) == str(q) and r.get('gate') in BC_PREREVIEW_AMBER_GATES:
+            out.append(f"{r.get('gate')} (AMBER): {str(r.get('finding'))[:200]}")
+    return out
+
+
+def bc_text_has_results(entry):
+    """v1.24 — True when the entry's CURRENT text already carries reviewer results (bv 'grades' / 'solvers' / 'meta'
+    recorded for this content_sha — e.g. a question migrated from an earlier release with its grades kept). Pre-review
+    is for a text no reviewer has seen; such a text is never sent back by it. Never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    bvs = e.get('bv') if isinstance(e.get('bv'), dict) else {}
+    if not any(bvs.get(k) for k in ('grades', 'solvers', 'meta')):
+        return False
+    try:
+        return not bvs.get('content_sha') or bvs.get('content_sha') == bc.op_content_sha(e)
+    except Exception:                                   # noqa: BLE001
+        return True
+
+
+def bc_registry_author_offsets(registry_path, paper_id=None):
+    """v1.24 (D6) — the author/reviewer count offsets earlier papers of this exam recorded (registry question_index[].
+    difficulty_state.author_offset), newest paper first, this paper excluded: [{key: {'n', 'steps', 'concepts'}}].
+    [] when there is none. Never raises."""
+    import json, os
+    try:
+        reg = json.load(open(registry_path, encoding='utf-8')) if os.path.exists(registry_path) else {}
+    except (OSError, ValueError):
+        return []
+    out = []
+    for qe in reversed(list((reg or {}).get('question_index') or [])):
+        if not isinstance(qe, dict) or (paper_id and qe.get('paper_id') == paper_id):
+            continue
+        ao = ((qe.get('difficulty_state') or {}).get('author_offset')) if isinstance(qe.get('difficulty_state'), dict) else None
+        if isinstance(ao, dict) and ao:
+            out.append({k: v for k, v in ao.items() if isinstance(v, dict) and not str(k).startswith('_')})
+    return out
 
 
 def bc_fallback_clear_figure(exam, n, q, home='/home/claude', bs=None):
@@ -3710,6 +3864,44 @@ def self_test():
                       and _c3['status'] == 'jobs_out' and all('/b1/r1/' in d for d in _c3['jobs'])
                       and '2' in {r['q'] for d in _c3['jobs']
                                   for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']})
+    # v1.24 (D1-D3) STEP A2 PRE-REVIEW: a packet gap / auditor finding goes back to the author before any reviewer is
+    # paid — at most bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed anyway (never a loop)
+    for _fixp in (False, True):
+        with _bv_tf.TemporaryDirectory() as _h:
+            _cmp = {'1': {'stem_text': 'Match List-I with List-II for the sample', 'option_texts': ['1', '2', '3', '4'],
+                          'subtopic_id': 'A.b', 'qtype': 'mcq', 'author_counts': _HARD},
+                    '2': {'stem_text': 'Compute the second quantity of the sample', 'option_texts': ['1', '2', '3', '4'],
+                          'subtopic_id': 'A.b', 'qtype': 'mcq', 'author_counts': _HARD}}
+            _bv_js.dump({'concept_map': _cmp, 'answers': {'1': 1, '2': 1}},
+                        open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+            _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1,
+                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard'}},
+                        open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+            _bv_js.dump({'item_findings': [{'q': '2', 'gate': 'G-STEM', 'finding': 'stem cue gives the answer'}],
+                         'amber_findings': []}, open(_bv_os.path.join(_h, 'EX_M1_batch_findings.json'), 'w'))
+            _p1 = bv_batch_step('EX', 1, home=_h, echo=False)
+            _firstp = (_p1['status'] == 'rewrite' and _p1['jobs'] == []
+                       and any('PRE-REVIEW Q1 (try 1 of 2)' in x and 'list_columns' in x for x in _p1['lines'])
+                       and any('PRE-REVIEW Q2 (try 1 of 2)' in x and 'G-STEM' in x for x in _p1['lines'])
+                       and not _bv_os.path.isdir(_bv_os.path.join(_h, 'EX_M1_bv', 'b1', 'r1')))
+            if _fixp:
+                _kdp = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+                _kdp['concept_map']['1']['list_columns'] = [['a', 'b', 'c', 'd'], ['p', 'q', 'r', 's']]
+                _bv_js.dump(_kdp, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+                _bv_js.dump({'item_findings': [], 'amber_findings': []},
+                            open(_bv_os.path.join(_h, 'EX_M1_batch_findings.json'), 'w'))
+                _p2 = bv_batch_step('EX', 1, home=_h, echo=False)
+                check('v124_prereview_fixed_then_reviewed', _firstp and _p2['status'] == 'jobs_out' and _p2['jobs']
+                      and all('/b1/r1/' in d for d in _p2['jobs'])
+                      and not any('PRE-REVIEW' in x for x in _p2['lines']))
+            else:
+                _p2 = bv_batch_step('EX', 1, home=_h, echo=False)
+                _p3 = bv_batch_step('EX', 1, home=_h, echo=False)
+                check('v124_prereview_two_tries_then_reviewed_never_a_loop', _firstp and _p2['status'] == 'rewrite'
+                      and any('PRE-REVIEW Q1 (try 2 of 2)' in x for x in _p2['lines'])
+                      and _p3['status'] == 'jobs_out' and all('/b1/r1/' in d for d in _p3['jobs'])
+                      and {r['q'] for d in _p3['jobs'] for r in _bv_js.load(open(_bv_os.path.join(d, 'packet.json')))['items']}
+                      == {'1', '2'})
     # v1.23 (C3): driven through job folders to rung 3 — the fallback REWRITE removes the slot's fig_manifest record
     with _bv_tf.TemporaryDirectory() as _h:
         _bv_js.dump({'concept_map': {'1': {'stem_text': 'Compute the yield of the reaction here',
@@ -3889,6 +4081,61 @@ def self_test():
               and all(paper_in_progress(_h, 'EX', k) is None for k in (2, 3, 4, 5)))
     check('bv_job_chunks_shapes', bc.bv_job_chunks(['1', '2'], {}, None) == [['1', '2']] and bc.bv_job_chunks([], {}, 5) == []
           and bc.bv_job_chunks(['1', '2', '3'], {'1': {'figure_dicts': [{}]}}, 2) == [['1'], ['2', '3']])
+    # v1.24 (GAP-2026-11-15-RUN-ANALYSIS D1-D3, D6, S3): pre-review gaps, layout proof, earlier-paper offsets, lean fallback
+    _fl = bc_figure_with_layout({'file': 'f1.png', 'smiles': 'C[C@H](O)CC', 'stereo_mode': 'abs'})
+    _fp = bc_figure_with_layout({'file': 'f2.png', 'kind': 'newman_projection', 'smiles': 'CC'})
+    check('v124_figure_with_layout', isinstance(_fl.get('layout'), dict) and _fl['layout'].get('identity_ok') is True
+          and 'layout' not in _fp and bc_figure_with_layout({'layout': {'x': 1}}) == {'layout': {'x': 1}}
+          and bc_figure_with_layout(None) == {})
+    _fdoc = {'item_findings': [{'q': '4', 'gate': 'G-STEM', 'finding': 'stem too short'},
+                               {'q': '5', 'gate': 'G-STEM', 'finding': 'other q'}],
+             'amber_findings': [{'q': '4', 'gate': 'A-FIGLABELPX', 'finding': 'label 6 px'},
+                                {'q': '4', 'gate': 'A-SOMETHINGELSE', 'finding': 'not a pre-review gate'}]}
+    _g_ok = bc_prereview_gaps({'organic': True, 'stem_text': 'Identify the product of the reaction shown.',
+                               'figure_files': ['f1.png'],
+                               'figure_dicts': [{'file': 'f1.png', 'smiles': 'C[C@H](O)CC', 'stereo_mode': 'abs'}]},
+                              '4', None)
+    _g_list = bc_prereview_gaps({'stem_text': 'Match List-I with List-II.'}, '4', None)
+    _g_shown = bc_prereview_gaps({'stem_text': 'The compound shown below is treated with HBr.'}, '4', None)
+    _g_fig = bc_prereview_gaps({'stem_text': 'Which figure of merit is largest?'}, '4', None)
+    _g_doc = bc_prereview_gaps({'stem_text': 'Plain stem.'}, '4', _fdoc)
+    _g_bad = bc_prereview_gaps({'organic': True, 'stem_text': 'x', 'figure_files': ['f9.png'],
+                                'figure_dicts': [{'file': 'f9.png', 'kind': 'chair_conformation', 'smiles': 'C1CCCCC1'}]},
+                               '4', None)
+    _e_rs = {'stem_text': 'Plain stem here', 'option_texts': ['1', '2'], 'bv': {'grades': {'grader_1': {}}}}
+    check('v124_text_has_results', bc_text_has_results(_e_rs) is True and bc_text_has_results({'bv': {}}) is False
+          and bc_text_has_results(None) is False
+          and bc_text_has_results(dict(_e_rs, bv={'grades': {'g': {}}, 'content_sha': 'other-text'})) is False
+          and bc_text_has_results(dict(_e_rs, bv={'grades': {'g': {}}, 'content_sha': bc.op_content_sha(_e_rs)})) is True)
+    check('v124_prereview_gaps', _g_ok == [] and len(_g_list) == 1 and 'list_columns' in _g_list[0]
+          and len(_g_shown) == 1 and 'figure_files' in _g_shown[0] and _g_fig == []
+          and _g_doc == ['G-STEM: stem too short', 'A-FIGLABELPX (AMBER): label 6 px']
+          and len(_g_bad) == 1 and 'not proven' in _g_bad[0]
+          and bc_prereview_gaps(None, '4', 'junk') == []
+          and bc_prereview_gaps({'stem_text': 'Match List-I with List-II.', 'list_columns': [['a'], ['b']]}, '4') == [])
+    with _bv_tf.TemporaryDirectory() as _h:
+        _rp = _bv_os.path.join(_h, 'EX_registry.json')
+        check('v124_registry_offsets_absent', bc_registry_author_offsets(_rp, 'M2') == [])
+        _bv_js.dump({'question_index': [
+            {'paper_id': 'M1', 'difficulty_state': {'author_offset': {'org|Hard': {'n': 4, 'steps': 2, 'concepts': 0},
+                                                                      '_note': 'x'}}},
+            {'paper_id': 'M2', 'difficulty_state': {'author_offset': {'org|Hard': {'n': 3, 'steps': 1, 'concepts': 0}}}},
+            {'paper_id': 'M0'}, 'junk']}, open(_rp, 'w'))
+        check('v124_registry_offsets', bc_registry_author_offsets(_rp, 'M2')
+              == [{'org|Hard': {'n': 4, 'steps': 2, 'concepts': 0}}]
+              and len(bc_registry_author_offsets(_rp)) == 2)
+        open(_rp, 'w').write('{bad')
+        check('v124_registry_offsets_bad_file', bc_registry_author_offsets(_rp, 'M2') == [])
+        _base = bv_budget_value('review_qs_per_job', bc.BV_REVIEW_QS_PER_JOB)
+        _fb = bv_budget_value('review_qs_per_job_fallback', _base)
+        _r1 = bv_review_qs_per_job(_h)
+        _bv_js.dump({'available': True}, open(_bv_os.path.join(_h, 'fw_lean_agents.json'), 'w'))
+        _r2 = bv_review_qs_per_job(_h)
+        _bv_js.dump({'available': False}, open(_bv_os.path.join(_h, 'fw_lean_agents.json'), 'w'))
+        _r3 = bv_review_qs_per_job(_h)
+        open(_bv_os.path.join(_h, 'fw_lean_agents.json'), 'w').write('{bad')
+        _r4 = bv_review_qs_per_job(_h)
+        check('v124_lean_fallback_job_size', _r1 == _r2 == _r4 == _base and _r3 == _fb and _fb >= _base)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

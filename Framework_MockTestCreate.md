@@ -1,17 +1,13 @@
-# Framework_MockTestCreate v7.1
-# v7.1 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with blueprint_core v2.7, final_assembly v1.23, bootstrap,
-#   spec_sections, audit_sync, Framework_MockTestOrchestrate v1.9.0; owner go-ahead 2026-11-14 on C1-C3 and P1-P5).
-#   Fewer tokens, fewer review rounds, no stop without its repair: a review round's jobs fit in ONE wave (P1,
-#   bc.bv_round_job_caps); the read no longer serves legacy text (S13-1B / S13-2G / S13-2L slot chains / S13-2R —
-#   bootstrap --show-section LEGACY:<id>), other steps' footer blocks, or S10-7 on a paper that proves it has no figure
-#   (P2); Framework_MockReview.md is no longer routed (P2a); before a text's first review round the author's OWN counts
-#   must give the slot band (G-SELFCOUNT, STEP A2 SELF-COUNT, at most 2 tries per rung — P3) and the author packet shows
-#   how the author's counts ran against the reviewers' (P4); every HARD STOP [HS:INFRA] after Q1 names its repair (P5,
-#   STOP-REPAIR-COVERAGE; S13-1 re-copies once by itself). Corrections to 2026.11.16: AWAITING_REVIEW is in the LEGACY
-#   MIGRATION list (C1); the rung-3 TEXT fallback is exempt from the figural-slot ban (C2) and loses its figure record
-#   (C3, fa.bc_fallback_clear_figure — put back if R5b restores the figure version; STEP A3 refuses a fallback with a
-#   picture); a STEP A2 run that asks for text work writes no job, so a rewrite can no longer be skipped (C4). Entry
-#   v7.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v7.3
+# v7.3 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with blueprint_core v2.9, final_assembly v1.24,
+#   audit_canonical v2.43, bootstrap, Framework_MockTestOrchestrate v1.10.0; owner go-ahead 2026-11-15 on D1-D7, S1-S6).
+#   From the timed TestCreate run of 2026-11-15: STEP A2 PRE-REVIEW sends a figure that fails its proof, a List-I /
+#   'shown' stem the reviewers could not see, and the per-batch auditor's item and AMBER findings back to the author
+#   BEFORE any reviewer is paid (at most bc.BC_PREREVIEW_TRIES per rung, never a loop); the batch figure proof is the
+#   S13-2P rule (the engine computes the 2-D layout); STEP B writes --item-findings and re-checks only what changed;
+#   STEP A records the full figure record and shows the planned ask type; author offsets start from earlier papers;
+#   S13-2P writes its P0 record; an optional --auto-continue trigger flag. No gate or reviewer was removed.
+#   Entry v7.2 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -142,6 +138,11 @@
 #   The LAST batch triggers Final Assembly automatically after gate checks.
 #   No "continue" needed for Final Assembly — it runs in same response.
 #   But all batches BEFORE the last still require explicit "continue".
+#
+# AUTO-CONTINUE EXCEPTION (v7.3, opt-in): a trigger carrying --auto-continue lets the ORCHESTRATOR send the
+#   continue itself after each delivered batch (Framework_MockTestOrchestrate O2-3). The worker's own law is
+#   unchanged: it still ends its turn after every batch (STEP F); only the orchestrator, never the worker,
+#   starts the next batch. Without the flag, everything above holds.
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE 2 — GENERATION TECHNOLOGY (retained from v2.0 GAP-05)
@@ -928,8 +929,11 @@ action: the same paper, the same two files, the same "continue".
 
 ## S2-1 — Trigger formats
 
-  PRIMARY: TestCreate P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
+  PRIMARY: TestCreate P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>] [--auto-continue]
   STATUS:  TestCreate status
+  --auto-continue (v7.3, opt-in, owner 2026-11-15): every batch is delivered exactly as without it (files + chat
+    block), then the next batch starts without waiting for "continue" (Framework_MockTestOrchestrate O2-3). Quality,
+    gates, reviewers and the ladder are unchanged; any user message pauses the run. Default (no flag): MANDATE 1.
   RESUME:  TestCreate P[N] resume   (v3.0 — see S4-12)
 
   ALIAS (v5.28 — mock-only, working alias, unchanged behaviour):
@@ -2215,6 +2219,8 @@ action: the same paper, the same two files, the same "continue".
   OP_CONST = bc.op_constants(OP_EXAM_CONFIG)
   for _ck in OP_CONST['overrides']:                            # an override is APPLIED, not only printed (§6.2)
       setattr(bc, _ck.split('=')[0], OP_CONST[_ck.split('=')[0]])
+  if OP_CONST.get('refused'):                                  # v7.1: an owner-ruled floor (bc.OP_CONSTANT_FLOORS)
+      print(f"S0-OP-0: exam constant override(s) refused — {OP_CONST['refused']}; the owner-ruled value is used.")
   OP_SCOPE = bc.organic_scope(OP_PROFILE)                      # LAW-ORG-1 — by content
   OP_TARGET_POOL = bc.pyq_target_pool(OP_PROFILE)              # 'full' + schema 3 only (LAW-ORG-2)
   OP_GUARD_POOL = bc.pyq_guard_pool(OP_PROFILE)                # every record (clone guard)
@@ -4831,10 +4837,11 @@ action: the same paper, the same two files, the same "continue".
                _band_ap = ((_bs_ap.get('difficulty_plan_target') or _bs_ap.get('difficulty_plan') or {}).get(str(q)))
                _ru_ap = globals().get('EXAM_RULER') or {}
                _sj_ap = bc.nf_subject_key({'subtopic_id': subtopic_id}, globals().get('manifest') or {})
+               _shape_ap = (_bs_ap.get('shape_plan') or {}).get(str(q))          # v7.3 D5: the slot's planned ask type
                _rc_ap = (((_ru_ap.get('recipe_by_subject') or {}).get(_sj_ap) or {}).get(_band_ap)
                          or (_ru_ap.get('recipe') or {}).get(_band_ap) or {})
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
-                                             'ask_format': ask_format, 'subject': _sj_ap},
+                                             'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
                                             _labs_ap, _rc_ap, _ru_ap,
                                             offsets=(_bs_ap.get('difficulty_state') or {}).get('author_offset'))
@@ -4854,9 +4861,17 @@ action: the same paper, the same two files, the same "continue".
            and you rewrite to the slot band — or correct a miscount — then STEP B and STEP A2 again; after
            bc.BC_SELFCOUNT_TRIES tries the text is reviewed anyway). v7.1 (P4): the packet's self_check names how your
            own counts ran against the reviewers' on earlier questions of the same subject and band
-           (difficulty_state.author_offset — guidance only); and for an ORGANIC structure picture its figure_dicts when it is rendered
-           (file, smiles, stereo_mode, answer_depends_on_stereo — S0-OP-8). A structure picture without its record
-           FAILS G-FIGRECORD (S4-11) in STEP B.
+           (difficulty_state.author_offset — guidance only); v7.2: and tells you to aim ONE POINT INSIDE the slot band,
+           not on its edge (Hard: score 7+, Medium: 4, Easy: 1 or less on the three-band rubric) — a question written on
+           an edge is the one most often measured one band off; v7.3 (D5): the packet names the slot's PLANNED ASK
+           TYPE ('shape', batch_state['shape_plan'][q] — S3-12d): write that ask type (a different one is an item
+           defect, R3); and for an ORGANIC structure picture its figure_dicts when it is rendered
+           (file, smiles, stereo_mode, answer_depends_on_stereo, and v7.3 — the S0-OP-8 record in full — kind (the
+           convention tag, e.g. 'skeletal' / 'chair_conformation'), role ('stem' | 'option'), width_in, and
+           projection_proof for a chair / Newman / sawhorse / Fischer / Haworth; the 2-D 'layout' proof is computed by
+           the engine from the SMILES when it is not recorded — fa.bc_figure_with_layout). A structure picture without
+           its record FAILS G-FIGRECORD (S4-11) in STEP B; one whose proof fails identity / gates is sent back by STEP
+           A2 (PRE-REVIEW) before any reviewer sees it.
            Apply ALL generation rules (§7), format rules (§8, §10),
            dedup (§6), self-containment (§9).
 
@@ -5123,8 +5138,11 @@ action: the same paper, the same two files, the same "continue".
                   --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --fig-manifest /home/claude/[ExamCode]_fig_manifest.json \
-                  --mockN [N] --batch [B] --through-q [last Q in the docx]
+                  --mockN [N] --batch [B] --through-q [last Q in the docx] \
+                  --item-findings /home/claude/[ExamCode]_M[N]_batch_findings.json
               ```
+              --item-findings (v7.3, D3): the per-question item findings and the figure / option AMBER findings of
+              this run, read by STEP A2 (PRE-REVIEW) so a question goes to its reviewers only once they are fixed.
               --fig-manifest (v5.88, auditor v2.33 — edge case E19): the paper is not
               committed until S13-4, so on a batch run the auditor reads the figure
               record from the Step-7 sidecar (object_types, subtopic_ids,
@@ -5146,6 +5164,12 @@ action: the same paper, the same two files, the same "continue".
               Final Assembly re-sweep — a complete paper is audited whole.
            3. If any fixable WARN/FAIL in EITHER layer: fix it, re-run
               BOTH. Iterate to clean.
+           4. v7.3 INCREMENTAL RE-CHECK (GAP-2026-11-15-RUN-ANALYSIS S1): after a ladder text change (REWRITE, PERMUTE,
+              RESTORE, SELF-COUNT, PRE-REVIEW), Layer 1 re-runs ONLY the item gates of the questions whose text or
+              figure changed, plus the batch-level gates (G-KBAL, G-KPAT, G-KEY, G-CLUSTER, G-ALLOC-SUBTOPIC,
+              G-MINCOUNT, G-GROUPMANDATE, G-ALTGROUP, G-CONT); Layer 2 (the auditor, seconds) always re-runs whole
+              with the same command, so every cross-question gate is still measured. A question whose text did not
+              change keeps the verdicts it already passed — re-checking it changes nothing.
            present_files is FORBIDDEN until BOTH layers are clean (B-7).
 
   STEP A2 — SETTLE EVERY QUESTION OF THE BATCH, BEFORE IT IS DELIVERED (v7.0 — S0-BC, GAP-2026-11-14-BATCH-COMPLETE;
@@ -5161,7 +5185,8 @@ action: the same paper, the same two files, the same "continue".
                           with --review-parts = the printed job folders and end the turn (Framework_MockTestOrchestrate
                           O3-9); on `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/
                           returned.txt and run the block again. DIRECT MODE: start one fresh sub-agent per job folder, ALL
-                          in one message (prompt = its JOB_BRIEF.txt, nothing else), append `<job_dir> <its reply line>`
+                          in one message (prompt = the one line `Read <job_dir>/JOB_BRIEF.txt and do exactly what it
+                          says; reply with its one result line only.`), append `<job_dir> <its reply line>`
                           to returned.txt, run the block again; no sub-agent tool -> append `<job_dir> REVIEW FAILED no
                           sub-agent tool` (an `_adj` folder: `ADJUDICATE FAILED no sub-agent tool`) for every folder and
                           run the block again — LAW-BC-9 then reports NO-MODEL.
@@ -5174,11 +5199,25 @@ action: the same paper, the same two files, the same "continue".
                           engine has already removed its fig_manifest record: add none and draw nothing; an R10
                           family-engine item is the exception — its climb_brief says so and it keeps its figure); 'reasons',
                           'solvers' (their own moves) and 'adjudicator' say why. Use the SAME anchors (bc.bv_author_packet); replace the
-                          question block in the cumulative docx and its sidecar entry (write_q_to_sidecar); then STEP B
-                          for that text, then this block again — the new text is reviewed automatically.
+                          question block in the cumulative docx and its sidecar entry (write_q_to_sidecar — it REPLACES the
+                          entry, so pass the NEW text's quality record again: author_moves, author_counts and, for an
+                          organic structure picture, figure_dicts); then STEP B for that text, then this block again — the
+                          new text is reviewed automatically.
+             PRE-REVIEW q -> (v7.3 — GAP-2026-11-15-RUN-ANALYSIS D1-D3) something the reviewers would trip on, found
+                          before any reviewer is paid: an organic structure figure whose proof fails identity / gates
+                          (the engine computes the layout proof from the recorded SMILES — the S13-2P rule), a packet
+                          the reviewers could not solve (the stem names List-I / List-II but list_columns is not
+                          recorded; the stem says "shown" but no figure_files), or a per-batch auditor item finding /
+                          figure-label or stereo-ambiguous-option AMBER for that question (STEP B's
+                          [ExamCode]_M[N]_batch_findings.json). Fix exactly what the line names (re-render at the
+                          paper's tokens, record list_columns / figure_files, correct the SMILES), STEP B for that
+                          question, then this block again. At most bc.BC_PREREVIEW_TRIES times per rung, then the text
+                          is reviewed as it stands (never a loop). Only a text no reviewer has measured yet is checked
+                          (a question that joins with its grades kept is not sent back — fa.bc_text_has_results).
              SELF-COUNT q -> (v7.1 P3) the author's own count (author_counts) does not give the slot band; no reviewer
                           was started for the batch: rewrite q to the slot band (or correct a miscount of author_counts),
-                          replace its block and sidecar entry, STEP B for it, then this block again. At most
+                          replace its block and sidecar entry (with its new author_moves and author_counts), STEP B for it,
+                          then this block again. At most
                           bc.BC_SELFCOUNT_TRIES times per rung — then the text is reviewed as it stands (never a loop).
              PERMUTE q -> (R12, a re-key) exchange the two named options in the question's docx block AND its sidecar
                           entry (option_texts and every per-option field), keep the key at the planned position the line
@@ -5187,11 +5226,13 @@ action: the same paper, the same two files, the same "continue".
                           sidecar with its fields and its 'answer') and its block in the cumulative docx; then this block
                           again (the engine verifies its text; no new review). v7.1 (C3): when that version has a figure
                           the engine has already put its fig_manifest record back (fa.bc_fallback_restore_figure).
-             v7.1 (C4) TEXT WORK FIRST: a run that prints SELF-COUNT / REWRITE / PERMUTE / RESTORE writes NO job — do
+             v7.1 (C4) TEXT WORK FIRST: a run that prints PRE-REVIEW / SELF-COUNT / REWRITE / PERMUTE / RESTORE writes NO job — do
                           every text change it names (then STEP B for the changed texts), then run this block again: it
                           issues every job of the round together (the changed texts' reviewers with any other question's
                           adjudicator — one wave). Before v7.1 a rewrite asked in a run that also printed JOBS OUT could
                           be skipped and the ladder moved on from the unchanged text.
+             STOP      -> (only when bc.BC_TERMINAL is 'stop' — never on this release: the terminal is
+                          'adjudicated_disclosed', R9) no version meets R5b: state saved; print the line and wait for the owner.
              NO-MODEL  -> (LAW-BC-9) print the line, save state, end the turn; the next message runs this block again
                           (it asks again from a clean count). Never a carry.
            A result is counted only from a job folder whose returned line starts with REVIEW DONE / ADJUDICATE DONE (or,
@@ -5221,8 +5262,13 @@ action: the same paper, the same two files, the same "continue".
            then the block below. It binds every settled question up to this batch to the hash of its block
            (fa.bc_bind_batch); it REFUSES — and names — a question that is not settled, whose text changed after its
            review (R2: run STEP A2 again so the new text is reviewed), whose block is missing, or whose block does not
-           show the sidecar's stem and options in order (fix the one place that was not edited). STEP E is FORBIDDEN
-           until it prints `STEP A3: BOUND`.
+           show the sidecar's stem and options in order (fix the one place that was not edited); v7.1 — also one whose
+           docx block changed after it was bound while its text did not (an edit outside the ladder: put the bound
+           block back, or rewrite through STEP A2), a rung-3 TEXT fallback that carries a picture (write it without a
+           figure, then STEP B and STEP A2), a question settled under an earlier release without a unanimous key or a
+           verified label (STEP A2 migrates it), and one for which no review record could be built (run STEP A2
+           again). Every refusal (`STEP A3: REFUSED ...`) names its question and its repair. STEP E is FORBIDDEN until it prints
+           `STEP A3: BOUND`.
            ```python
            # RUN-BLOCK S4-7.3 — not in the read; run it: python3 bootstrap.py --run-section S4-7.3 --exam <E> --paper <N>
            # PARAMS: EXAM, N (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
@@ -5414,7 +5460,8 @@ action: the same paper, the same two files, the same "continue".
   [ ] G-KEY:      answer_key.json has an entry for every Q in this batch.
   [ ] G-FIGRECORD: (v7.0 — S0-BC B-05) every ORGANIC structure picture of this batch has its
                   figure_dicts record in the sidecar entry (file, smiles, stereo_mode,
-                  answer_depends_on_stereo — S0-OP-8). Without it the blind read-back and the
+                  answer_depends_on_stereo, kind, role, width_in; projection_proof for a
+                  projection kind — S0-OP-8; v7.3: the 2-D layout proof is computed by the engine). Without it the blind read-back and the
                   figure proof are dormant for that picture: FAIL — fixed by recording it (no
                   text change). Layer-2 twin: A-FIGRECORD.
   [ ] G-SELFCOUNT: (v7.1 — GAP-2026-11-14-SPEED-AND-FIDELITY P3) every question of this batch written on this
@@ -5664,7 +5711,7 @@ action: the same paper, the same two files, the same "continue".
   v6.1 (S0-BV; v7.0 S0-BC) — BATCH IN VERIFICATION: batch_state['bv'] names the current batch with status 'jobs_out',
   'rewrite' or 'no_model' -> the batch's questions are written; run S4-7 STEP A2 again (it collects every returned job —
   reviewer and `_adj` — keeps each question's rung, and re-issues any missing one), then continue S4-7 from where it
-  printed (JOBS OUT / SELF-COUNT / REWRITE / PERMUTE / RESTORE / NO-MODEL / DONE -> STEP A3). A
+  printed (JOBS OUT / PRE-REVIEW / SELF-COUNT / REWRITE / PERMUTE / RESTORE / NO-MODEL / DONE -> STEP A3). A
   `GRADE RETURNED` message's lines are appended to returned.txt first (Framework_MockTestOrchestrate O3-9).
   v5.91 (GAP-2026-11-04 A6) — REVIEW STATES, all continued INTERNALLY. After step 1 below,
   read batch_state.get('state'):
@@ -12611,6 +12658,17 @@ if AUDIT_AVAILABLE:
   _bs2p_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _bs2p = json.load(open(_bs2p_p, encoding='utf-8'))
   _bs2p.setdefault('difficulty_state', {})['parity'] = {k: PARITY.get(k) for k in ('status', 'chain_share', 'short')}
+  if FIGPROOF['status'] == 'FAIL':
+      # v7.3 (GAP-2026-11-15-RUN-ANALYSIS D1) — what this section promises: an engine defect, AMBER-ESCALATED with a P0
+      # record (the batch proof uses the same rule since v7.3, so this should never fire), never a repair
+      _p0_2p = _bs2p.setdefault('p0_incidents', [])
+      for _q2p, _m2p in sorted(FIGPROOF['missing'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+          if not any(isinstance(x, dict) and x.get('q') == _q2p and x.get('kind') == 'figproof_at_assembly' for x in _p0_2p):
+              _p0_2p.append({'q': _q2p, 'kind': 'figproof_at_assembly', 'missing': list(_m2p),
+                             'rule': 'LAW-BC-8 / LAW-ORG-8 — settled in batch, failed at S13-2P'})
+      _bs2p.setdefault('escalated_paper', {}).setdefault('figproof', sorted(FIGPROOF['missing'], key=str))
+      print(f"S13-2P: FIGURE PROOF ESCALATED (P0) for {sorted(FIGPROOF['missing'], key=str)} — disclosed AMBER, "
+            f"never repaired at Final Assembly (LAW-BC-8).")
   json.dump(_bs2p, open(_bs2p_p, 'w', encoding='utf-8'), indent=2)   # read by S13-2L (§LADDER-OP line, resume-safe)
   ```
 
@@ -14869,7 +14927,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v7.1
+# END OF Framework_MockTestCreate v7.3
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

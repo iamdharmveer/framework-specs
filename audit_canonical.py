@@ -15,6 +15,9 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.43 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS D3: --item-findings also writes 'amber_findings' (per-question
+#   AMBER findings of the figure gates — A-FIGLABELPX, A-FIGLABEL, ... — and the A-OPTDISTINCT stereo-ambiguous pair
+#   warning) so Create S4-7 STEP A2 can send them back to the author before any reviewer is paid. Verdicts unchanged.
 # v2.42 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with blueprint_core v2.6, final_assembly v1.22,
 #   Framework_MockTestCreate v7.0; OD-2026-11-14 R1–R13). A-REVIEW strict branch: a key is valid when the author and
 #   THREE fresh solvers agree (certified_by 'unanimous'), or the in-batch decider settled it ('adjudicated' / 'rekey':
@@ -387,6 +390,7 @@ def _fail(c, m): RESULTS.append(('FAIL', c, m))
 def _reset():
     RESULTS.clear()
     ITEM_FINDINGS.clear()
+    AMBER_ITEM_FINDINGS.clear()   # v2.43
     UNCERTIFIED_ITEMS.clear()     # v2.35
     DISCLOSED_ITEMS.clear()       # v2.39
 
@@ -440,6 +444,15 @@ def gate_figrecord(src):
 # difficulty profile — never the registry — so they are deterministic on identical
 # inputs and a certificate over them is meaningful.
 ITEM_FINDINGS = []
+# v2.43 (GAP-2026-11-15-RUN-ANALYSIS D3): AMBER per-question findings of the figure gates and the option-distinctness
+# reviewer warning, written beside item_findings (key 'amber_findings') so Create S4-7 STEP A2 can send them back to
+# the author BEFORE any reviewer is paid. They stay AMBER here (never a FAIL, never an exit code).
+AMBER_ITEM_FINDINGS = []
+
+
+def _amber_item(gate, q, finding):
+    AMBER_ITEM_FINDINGS.append({'gate': gate, 'q': (str(q) if q is not None else None), 'finding': str(finding),
+                                'severity': 'AMBER'})
 UNCERTIFIED_ITEMS = set()   # v2.35 (OD-9): items whose findings survived R5; filled by gate_qualitystatus
 DISCLOSED_ITEMS = set()     # v2.39 (OD-2026-11-09): exhausted-chain items delivered with an AMBER disclosure
 ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE', 'A-ORGPROOF',
@@ -3218,6 +3231,8 @@ def gate_images(blocks, src, media_map):
                     for _sev_k in ('VOID_ITEM', 'BLOCKING'):
                         for _f in _t[_sev_k]:
                             _item(fc.audit_gate_id(_f), _qq, _f, _sev_k)
+                    for _f in _t['AMBER']:
+                        _amber_item(fc.audit_gate_id(_f), _qq, _f)
                 _seen += 1
                 if _leg:
                     _legacy_n += 1
@@ -3267,6 +3282,8 @@ def gate_images(blocks, src, media_map):
                     for _sev_k in ('VOID_ITEM', 'BLOCKING'):
                         for _f in _st[_sev_k]:
                             _item(fc.audit_gate_id(_f), _q, _f, _sev_k)
+                    for _f in _st['AMBER']:
+                        _amber_item(fc.audit_gate_id(_f), _q, _f)
 
         _by_gate = {}
         for _sev, _findings in (('BLOCKING', _block), ('VOID_ITEM', _void),
@@ -5184,6 +5201,7 @@ def gate_optdistinct(blocks, src):
                     bad.append(f"Q{q}: {r['reason']}")
                 for w in r.get('warns') or []:
                     bad_warn.append(f"Q{q} options {w['pair'][0] + 1}/{w['pair'][1] + 1}: {w['reason']}")
+                    _amber_item('A-OPTDISTINCT', q, f"options {w['pair'][0] + 1}/{w['pair'][1] + 1}: {w['reason']}")
             continue
         texts = [t for _tok, _full, t in _label_paras(b)]
         if texts and all(texts):
@@ -7215,6 +7233,7 @@ def write_item_outputs(args):
     written ONLY when no item finding remains and no FAIL line exists."""
     out = {'phase': getattr(args, 'phase', 'final'), 'docx': args.docx,
            'item_findings': list(ITEM_FINDINGS),
+           'amber_findings': list(AMBER_ITEM_FINDINGS),       # v2.43 (D3): read by Create S4-7 STEP A2 (pre-review)
            # every FAIL line, so the S13-2F worklist also names non-item defects
            # (A-ANSKEY, A-SECHDR, A-QNFIRST, A-OPTREF, ...) for their ladder rule
            'fail_lines': [{'check': c, 'message': str(m)} for lvl, c, m in RESULTS
@@ -12887,10 +12906,14 @@ def self_test():
     _cp = os.path.join(_ct, 'cert.json')
     _ca = argparse.Namespace(docx=_cd, phase='precommit', item_findings=os.path.join(_ct, 'i.json'),
                              write_certificate=_cp, certificate=None)
-    _reset(); _item('A-FIGMARK', '1', 'G-FIGMARK: x')
+    _reset(); _item('A-FIGMARK', '1', 'G-FIGMARK: x'); _amber_item('A-FIGLABELPX', 3, 'label 6 px')
     check('A-CERT-not-written-while-item-findings-remain',
           write_item_outputs(_ca) is False and not os.path.exists(_cp)
-          and json.load(open(_ca.item_findings))['item_findings'][0]['q'] == '1')
+          and json.load(open(_ca.item_findings))['item_findings'][0]['q'] == '1'
+          and [(r['gate'], r['q']) for r in json.load(open(_ca.item_findings)).get('amber_findings')]
+          == [('A-FIGLABELPX', '3')])
+    _reset()
+    check('A-amber-findings-cleared-by-reset', AMBER_ITEM_FINDINGS == [])
     _reset(); RESULTS.append(('WARN', 'A-FIGCVD', 'AMBER — DEGRADED, NOT VOID — x'))
     check('A-CERT-written-when-clean-with-amber-notes',
           write_item_outputs(_ca) is True

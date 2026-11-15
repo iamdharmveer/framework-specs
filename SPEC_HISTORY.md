@@ -2208,6 +2208,36 @@ Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 sup
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.
 
+Entry v7.2 moved at framework release 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS; v7.3 supersedes).
+
+```
+# v7.2 — 2026-11-18 — GAP-2026-11-15-SYNC-AND-MARGIN (paired with blueprint_core v2.8, audit_sync; over release
+#   2026.11.17). Line-by-line sync check of engine output against worker instructions: STEP A3 names every refusal it
+#   can print (`STEP A3: REFUSED ...` — an edit outside the ladder, a fallback with a picture, an earlier-release
+#   question without a unanimous key, no review record), STEP A2 documents the STOP status (unreachable: R9), and the
+#   new CI rule ENGINE-STATUS-SYNC fails any printed status the spec does not explain. The author packet asks for a
+#   count one point inside the slot band (P3 guidance). An exam constant below an owner ruling (C_SOLVERS < 3) is
+#   refused and printed (S0-OP-0). Entry v7.1 moved to SPEC_HISTORY.md.
+```
+
+Entry v7.1 moved at framework release 2026.11.18 (GAP-2026-11-15-SYNC-AND-MARGIN; v7.2 supersedes).
+
+```
+# v7.1 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with blueprint_core v2.7, final_assembly v1.23, bootstrap,
+#   spec_sections, audit_sync, Framework_MockTestOrchestrate v1.9.0; owner go-ahead 2026-11-14 on C1-C3 and P1-P5).
+#   Fewer tokens, fewer review rounds, no stop without its repair: a review round's jobs fit in ONE wave (P1,
+#   bc.bv_round_job_caps); the read no longer serves legacy text (S13-1B / S13-2G / S13-2L slot chains / S13-2R —
+#   bootstrap --show-section LEGACY:<id>), other steps' footer blocks, or S10-7 on a paper that proves it has no figure
+#   (P2); Framework_MockReview.md is no longer routed (P2a); before a text's first review round the author's OWN counts
+#   must give the slot band (G-SELFCOUNT, STEP A2 SELF-COUNT, at most 2 tries per rung — P3) and the author packet shows
+#   how the author's counts ran against the reviewers' (P4); every HARD STOP [HS:INFRA] after Q1 names its repair (P5,
+#   STOP-REPAIR-COVERAGE; S13-1 re-copies once by itself). Corrections to 2026.11.16: AWAITING_REVIEW is in the LEGACY
+#   MIGRATION list (C1); the rung-3 TEXT fallback is exempt from the figural-slot ban (C2) and loses its figure record
+#   (C3, fa.bc_fallback_clear_figure — put back if R5b restores the figure version; STEP A3 refuses a fallback with a
+#   picture); a STEP A2 run that asks for text work writes no job, so a rewrite can no longer be skipped (C4). Entry
+#   v7.0 moved to SPEC_HISTORY.md.
+```
+
 Entry v7.0 moved at framework release 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY; v7.1 supersedes).
 
 ```
@@ -8064,6 +8094,16 @@ TRANSITION_DECLARATION_FIELDS = (
 ## Framework_MockTestOrchestrate.md
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
+
+Entry v1.9.0 moved at framework release 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS; v1.10.0 supersedes).
+
+```
+# v1.9.0 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with Framework_MockTestCreate v7.1, blueprint_core
+#   v2.7, final_assembly v1.23, bootstrap): the engine sizes a review round's reviewer jobs so that they and the round's
+#   adjudicator jobs fit in ONE wave of parallel_jobs_max (O2-3; bc.bv_round_job_caps) — a figure-heavy round no longer
+#   runs as two waves; Framework_MockReview.md is no longer on the Step 7 route (O0-1). Entry v1.8.0 moved to
+#   SPEC_HISTORY.md.
+```
 
 Entry v1.8.0 moved at framework release 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY; v1.9.0 supersedes).
 

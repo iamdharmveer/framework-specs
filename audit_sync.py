@@ -540,6 +540,11 @@ def _self_test():
     check("STOP-REPAIR-COVERAGE fires on an INPUT stop after Q1",
           rc == 1 and 'STOP-REPAIR-COVERAGE' in out and 'HS:INPUT] after the first question' in out)
 
+    # ── 2026.11.17 — ENGINE-STATUS-SYNC ──
+    rc, out = mutated(lambda r: append(r, 'final_assembly.py', '\n_FIXTURE_LINE = "STEP A2: VANISH Q1"\n'))
+    check("ENGINE-STATUS-SYNC fires on a printed status the spec never explains",
+          rc == 1 and 'ENGINE-STATUS-SYNC' in out and 'VANISH' in out)
+
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -1296,6 +1301,31 @@ for _f in (_LAWS_08B.get('LAW-BC-1 SETTLED-IN-BATCH') or {}).get('governs') or [
         for _ln, _why in stop_repair_findings(TXT[_f], _f):
             rec('STOP-REPAIR-COVERAGE', f"{_f}:{_ln}: {_why} — name the automatic repair (or route it through "
                                         f"bc.infra_heal_step).")
+# ENGINE-STATUS-SYNC (2026.11.17, GAP-2026-11-14-SPEED-AND-FIDELITY): every status word final_assembly prints on a
+# 'STEP A2: <WORD>' / 'STEP A3: <WORD>' line is explained in the spec section the worker acts on (Create S4-7, from
+# STEP A2 to STEP C). A status the engine prints but the spec never explains is how 2026.11.16 lost rewrites (C4: a
+# REWRITE printed only as JOBS OUT).
+_ESS_RE = re.compile(r"""STEP (A[23]): ([A-Z][A-Z]+(?:-[A-Z]+)*(?: OUT)?)""")
+
+
+def engine_status_findings(engine_text, spec_text):
+    """[why] for every printed STEP A2 / A3 status word the Create S4-7 text does not explain. Pure."""
+    words = sorted({(st, w) for st, w in _ESS_RE.findall(engine_text)})
+    i, j = spec_text.find('  STEP A2 — SETTLE'), spec_text.find('  STEP C — PERSIST')
+    region = spec_text[i:j] if 0 <= i < j else ''
+    out = []
+    if not region:
+        return ['Framework_MockTestCreate.md S4-7 has no STEP A2 ... STEP C region']
+    for st, w in words:
+        if not (f'STEP {st}: {w}' in region or re.search(r'\n\s+' + re.escape(w) + r'\s+(?:q\s+)?->', region)):
+            out.append(f"final_assembly prints 'STEP {st}: {w}' but Create S4-7 never explains it")
+    return out
+
+
+if os.path.exists('final_assembly.py') and 'Framework_MockTestCreate.md' in TXT:
+    for _w in engine_status_findings(open('final_assembly.py', encoding='utf-8').read(),
+                                     TXT['Framework_MockTestCreate.md']):
+        rec('ENGINE-STATUS-SYNC', _w + ' — add it to the STEP A2 / A3 instructions.')
 if os.path.exists('audit_canonical.py') and os.path.exists('blueprint_core.py'):
     try:
         sys.path.insert(0, os.path.abspath('.'))

@@ -1,5 +1,78 @@
 # Changelog
 
+## 2026.11.19 — GAP-2026-11-15-RUN-ANALYSIS: fix before review, one figure-proof rule, lean reviewers, honest timing
+
+(blueprint_core v2.9 (bc_apply settles a figure only on its whole proof; BC_PREREVIEW_TRIES = 2; bc_author_offsets
+seed=; the author packet carries the planned ask type and says when there are no anchors); final_assembly v1.24
+(bv_batch_step STEP A2 PRE-REVIEW — NEW bc_prereview_gaps, bc_figure_with_layout, bc_registry_author_offsets,
+bv_review_qs_per_job); audit_canonical v2.43 (--item-findings writes amber_findings); bootstrap (--install-agents,
+--lean-agents; the timing log closes a window still open when the next starts); SESSION_BUDGET.json
+(review_qs_per_job_fallback = 10); Framework_MockTestCreate v7.3; Framework_MockTestOrchestrate v1.10.0;
+LAW_REGISTRY (LAW-BC-2, LAW-BC-6 amended); STEP_CONTRACTS (floors Create 7.3, Orchestrate 1.10.0).) This release
+includes everything in 2026.11.18 and replaces its bundle.
+
+**Owner go-ahead 2026-11-15** on D1-D7 and S1-S6 from the timed TestCreate run of 2026-11-15 (RC - CHEMISTRY,
+Organic P1): "build all"; reviewer jobs of 10 questions when lean sub-agents are not available. Quality of questions,
+options, figures and difficulty is non-negotiable: no gate, reviewer or rubric was removed or loosened.
+
+**Found in the run (root cause confirmed in code).**
+- D1: the batch settled a figure on its read-back alone, while S13-2P also needs identity and gates, so figures were
+  settled in batch and failed at Final Assembly. bc_apply now uses the whole proof and the engine computes the 2-D
+  layout (bc_figure_with_layout), which is exactly the S13-2P rule. S13-2P now writes the P0 record its text promised.
+- D2: reviewers were paid to review packets they could not solve (a List-I / List-II stem with no list_columns; a
+  "shown" stem with no figure). STEP A2 PRE-REVIEW sends these back before any reviewer starts.
+- D3: the per-batch auditor's AMBER warnings (small labels, collisions, stereo-ambiguous options) were not written per
+  question, so they reached Final Assembly. They are now in amber_findings and pre-review sends them back.
+  Pre-review is bounded: at most 2 tries per rung, then the question is reviewed as it stands. It is never a loop.
+- D4: the timing summary lost the last batch: it ran straight into Final Assembly with no 'delivered' between. The open
+  window is now closed by the next opener, and a duplicate 'final_assembly' is ignored.
+- D5: the planned ask type (shape_plan) never reached the writer. It is now in the packet as planned_ask_type.
+- D6: author offsets restarted at zero every paper. They now start from the newest earlier paper and are marked as such.
+- D7: STEP B re-ran every item gate after one change. It now re-checks only the changed questions and the paper-level
+  counts; the auditor still runs whole.
+
+**Speed and tokens.**
+- S3: each general-purpose sub-agent started with about 65k tokens before reading its job, measured at 116 sub-agents
+  per paper. New lean mtc-reviewer / mtc-adjudicator agents have Read + Write only and a short prompt. Without them,
+  jobs are 10 questions (review_qs_per_job_fallback).
+- One-line job prompts; the warm standby starts earlier.
+- `--auto-continue` (optional, off unless typed) starts the next batch without waiting for "continue". The paper is
+  still delivered after every batch.
+
+**Verified.** Self-tests: blueprint_core, final_assembly, audit_canonical and bootstrap all pass. 23 new mutations,
+all killed. Fuzz, validate_framework_md, mock_sync_audit, audit_sync and handshake were run. Full CI was run twice in
+two chunks.
+
+## 2026.11.18 — GAP-2026-11-15-SYNC-AND-MARGIN: every engine status explained to the worker, owner-ruled constants protected, write inside the band
+
+(blueprint_core v2.8 (OP_CONSTANT_FLOORS — op_constants refuses an exam override below an owner ruling and lists it in
+'refused'; _bc_margin_lines in the author packet); audit_sync (NEW ENGINE-STATUS-SYNC); Framework_MockTestCreate v7.2
+(STEP A3 names every refusal it prints; STEP A2 documents STOP; STEP A asks for a count one point inside the band;
+S0-OP-0 prints a refused override); LAW_REGISTRY (LAW-BC-3 amended); STEP_CONTRACTS (floor Create 7.2).)
+
+**Owner instruction 2026-11-15.** Check every line, rule and instruction twice; every step in sync; fewer tokens, more
+speed, exact difficulty; release over 2026.11.17 (the eaf40a9-based bundle being deployed).
+
+**Found by the line-by-line sync check (pass 1: engine output vs worker instruction; pass 2: Step 7 outputs vs Steps
+9 / 11, the footer and the orchestrator).**
+- STEP A3 could print four refusals the spec never named (an edit outside the ladder, a rung-3 fallback with a picture,
+  an earlier-release question without a unanimous key, no review record) and its status word `STEP A3: REFUSED` was
+  never named; the new CI rule ENGINE-STATUS-SYNC found the second one on its first run. Both fixed.
+- STEP A2's STOP status (only when BC_TERMINAL is 'stop' — unreachable on this release) is now documented.
+- REWRITE / SELF-COUNT said to replace the sidecar entry but not to pass the new text's quality record again;
+  write_q_to_sidecar REPLACES the entry, so a rewritten question lost author_counts and G-SELFCOUNT went idle for every
+  rung. Both instructions now name author_moves, author_counts and figure_dicts.
+- An exam's config could set C_SOLVERS = 2 through op_constants, silently below owner ruling R2 (three solvers); it is
+  now refused and printed (OP_CONSTANT_FLOORS).
+- Checked and in sync (no change needed): every fa. / bc. / bootstrap reference in every spec exists; the worker states
+  of bootstrap and the orchestrator agree; Step 11's certification reads only UNRESOLVED stamps (an ESCALATED item is
+  delivered with its AMBER line, never refused); the §LADDER-BC lines reach Step 11 through
+  difficulty_state.chain_footer.
+
+**Difficulty.** The author packet now asks for a count ONE POINT INSIDE the slot band (Hard 7+, Medium 4, Easy 1 or less)
+— a question written on a band edge is the one most often measured one band off. Guidance only; G-SELFCOUNT still
+checks the band itself and the reviewers decide.
+
 ## 2026.11.17 — GAP-2026-11-14-SPEED-AND-FIDELITY: fewer tokens, one wave per review round, the author checks its own level first, no stop without its repair
 
 (blueprint_core v2.7 (P1 bv_job_chunks_n / bv_round_job_caps, bv_reviewer_jobs max_jobs_per_reviewer; P3 bc_author_obs /

@@ -1314,6 +1314,57 @@ def timing_log(args):
     return 0
 
 
+# ── LEAN SUB-AGENTS (2026.11.19 — GAP-2026-11-15-RUN-ANALYSIS S3) ──────────────────────────────────────────────────
+# A Step 7 reviewer / adjudicator only reads its job folder and writes result.json. A general-purpose sub-agent starts
+# with ~65k tokens of harness prompt and tool definitions before it reads a byte (measured: 116 sub-agents, ~7.5M
+# tokens per 40-question paper). These definitions give it Read + Write only and a short prompt. The orchestrator uses
+# them when its sub-agent tool lists them, the general-purpose type otherwise (Orchestrate O2-3) — never a stop.
+LEAN_AGENT_DEFS = {
+    "mtc-reviewer": ("A fresh, blind reviewer of exam questions for the mock-test framework (Step 7 STEP A2 job "
+                     "folders). Use only for a JOB_BRIEF.txt the orchestrator names.",
+                     "You are a FRESH, INDEPENDENT reviewer. Your prompt names one JOB_BRIEF.txt. Read it, then read "
+                     "every file it names inside its own job folder (packet.json and the figure images), and do exactly "
+                     "what it says. Never open any other folder, never guess a value you were not given, and write only "
+                     "the result.json the brief asks for. Reply with the brief's ONE result line and nothing else."),
+    "mtc-adjudicator": ("A fresh adjudicator of one disputed exam question for the mock-test framework (Step 7 "
+                        "STEP A2 '_adj' job folders). Use only for a JOB_BRIEF.txt the orchestrator names.",
+                        "You are a FRESH, INDEPENDENT adjudicator. Your prompt names one JOB_BRIEF.txt. Read it, then read "
+                        "every file it names inside its own job folder, and decide exactly as it says, from the question "
+                        "as a candidate sees it and the solutions given. Never open any other folder and write only the "
+                        "result.json the brief asks for. Reply with the brief's ONE result line and nothing else."),
+}
+LEAN_AGENTS_FILE = "fw_lean_agents.json"
+
+
+def install_agents(target_dir=None, out=print):
+    """Write the lean sub-agent definitions (LEAN_AGENT_DEFS) as <target>/<name>.md (default ~/.claude/agents).
+    Returns 0; a write error is printed and returns 0 too (the orchestrator then uses the general-purpose type)."""
+    d = target_dir or os.path.join(os.path.expanduser("~"), ".claude", "agents")
+    try:
+        os.makedirs(d, exist_ok=True)
+        for name, (desc, body) in LEAN_AGENT_DEFS.items():
+            with open(os.path.join(d, f"{name}.md"), "w", encoding="utf-8") as fh:
+                fh.write(f"---\nname: {name}\ndescription: {desc}\ntools: Read, Write\n---\n\n{body}\n")
+        out(f"AGENTS: {', '.join(sorted(LEAN_AGENT_DEFS))} written to {d} (Read + Write only). The orchestrator uses "
+            f"them when its sub-agent tool lists them (Orchestrate O2-3).")
+    except OSError as ex:
+        out(f"AGENTS: could not write {d} ({ex}) — the general-purpose sub-agent type is used (no stop).")
+    return 0
+
+
+def lean_agents_record(value, out=print):
+    """--lean-agents yes|no: what this run's orchestrator found (Orchestrate O2-3). The engine reads it to size reviewer
+    jobs (final_assembly.bv_review_qs_per_job). Returns 0 / 2 on a bad value."""
+    v = str(value or "").strip().lower()
+    if v not in ("yes", "no"):
+        out("AGENTS: --lean-agents takes yes or no.")
+        return 2
+    with open(os.path.join(home_dir(), LEAN_AGENTS_FILE), "w", encoding="utf-8") as fh:
+        json.dump({"available": v == "yes", "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, fh)
+    out(f"AGENTS: lean sub-agents {'available' if v == 'yes' else 'NOT available'} — recorded.")
+    return 0
+
+
 TIMING_PHASES = (("read", "read_start", "read_end"), ("review", "jobs_start", "jobs_return"),
                  ("worker_start", "worker_start", "worker_running"))
 
@@ -1333,9 +1384,15 @@ def timing_summary(events, budget):
         if t is None:
             continue
         if ev in ("run_start", "continue", "final_assembly"):
-            start, label, open_ph, ph = t, ("Final Assembly" if ev == "final_assembly"
-                                            else "Before Batch" if ev == "run_start"
-                                            else f"batch {e.get('batch') or '?'}"), {}, {}
+            _lab = ("Final Assembly" if ev == "final_assembly" else "Before Batch" if ev == "run_start"
+                    else f"batch {e.get('batch') or '?'}")
+            if start is not None and _lab == label and ev == "final_assembly":
+                continue                    # 2026.11.19 (D4): the same opener logged twice (orchestrator + worker)
+            if start is not None:
+                # 2026.11.19 (D4): a window still open when the next one starts (the last batch runs straight into Final
+                # Assembly, with no 'delivered' between) is CLOSED here, so its minutes are reported, not lost
+                out.extend(_timing_close(label, start, t, ph, budget))
+            start, label, open_ph, ph = t, _lab, {}, {}
             continue
         for name, a, b in TIMING_PHASES:
             if ev == a:
@@ -1343,16 +1400,23 @@ def timing_summary(events, budget):
             elif ev == b and open_ph.get(name):
                 ph[name] = ph.get(name, 0.0) + (t - open_ph[name].pop()).total_seconds() / 60.0
         if ev == "delivered" and start is not None:
-            tot = (t - start).total_seconds() / 60.0
-            parts = ", ".join(f"{k} {v:.1f}" for k, v in sorted(ph.items()))
-            out.append(f"TIMING {label}: total {tot:.1f} min" + (f" ({parts})" if parts else ""))
-            tgt = float(budget.get("fa_minutes_target" if label == "Final Assembly" else
-                                   "before_batch_minutes_target" if label == "Before Batch" else
-                                   "batch_minutes_target") or 0)
-            if tgt and tot > tgt:
-                slow = max(ph.items(), key=lambda kv: kv[1])[0] if ph else "writing and scripts"
-                out.append(f"FRAMEWORK NOTE: {label} took {tot:.0f} min (target {tgt:.0f}); slowest phase: {slow}.")
+            out.extend(_timing_close(label, start, t, ph, budget))
             start = None
+    return out
+
+
+def _timing_close(label, start, t, ph, budget):
+    """The TIMING line (and the FRAMEWORK NOTE over target) of one window that ends at t."""
+    out = []
+    tot = (t - start).total_seconds() / 60.0
+    parts = ", ".join(f"{k} {v:.1f}" for k, v in sorted(ph.items()))
+    out.append(f"TIMING {label}: total {tot:.1f} min" + (f" ({parts})" if parts else ""))
+    tgt = float(budget.get("fa_minutes_target" if label == "Final Assembly" else
+                           "before_batch_minutes_target" if label == "Before Batch" else
+                           "batch_minutes_target") or 0)
+    if tgt and tot > tgt:
+        slow = max(ph.items(), key=lambda kv: kv[1])[0] if ph else "writing and scripts"
+        out.append(f"FRAMEWORK NOTE: {label} took {tot:.0f} min (target {tgt:.0f}); slowest phase: {slow}.")
     return out
 
 
@@ -2057,6 +2121,8 @@ def main():
     ap.add_argument("--standby", action="store_true", help="with --worker-prompt: the WARM STANDBY prompt (O2-10)")
     ap.add_argument("--standby-ready", action="store_true")
     ap.add_argument("--standby-status", action="store_true")
+    ap.add_argument("--install-agents", action="store_true")
+    ap.add_argument("--lean-agents", default=None, metavar="yes|no")
     ap.add_argument("--promote-standby", action="store_true")
     ap.add_argument("--timing-log", default=None, metavar="EVENT")
     ap.add_argument("--timing-show", action="store_true")
@@ -2181,6 +2247,10 @@ def main():
         sys.exit(standby_ready(args))
     if args.standby_status:
         sys.exit(standby_status(args))
+    if args.install_agents:
+        sys.exit(install_agents())
+    if args.lean_agents is not None:
+        sys.exit(lean_agents_record(args.lean_agents))
     if args.promote_standby:
         sys.exit(promote_standby(args))
     if args.timing_log:
@@ -2982,6 +3052,38 @@ def self_test():
     check("timing summary: per window, phases, note only over target",
           _tl[0] == "TIMING batch 2: total 12.0 min (review 3.0)" and _tl[1].startswith("FRAMEWORK NOTE: batch 2 took 12 min")
           and _tl[2] == "TIMING Final Assembly: total 5.0 min" and len(_tl) == 3)
+    # 2026.11.19 (D4): the last batch runs straight into Final Assembly (no 'delivered' between) -> that batch is closed,
+    # not lost; a second 'final_assembly' opener in the same window is ignored
+    _tl4 = timing_summary([{"t": "2026-11-13T10:00:00Z", "event": "continue", "batch": "4"},
+                           {"t": "2026-11-13T10:06:00Z", "event": "final_assembly"},
+                           {"t": "2026-11-13T10:08:00Z", "event": "final_assembly"},
+                           {"t": "2026-11-13T10:15:00Z", "event": "delivered"}],
+                          {"batch_minutes_target": 10, "fa_minutes_target": 10})
+    check("timing summary: an open window is closed by the next opener; a duplicate opener is ignored",
+          _tl4 == ["TIMING batch 4: total 6.0 min", "TIMING Final Assembly: total 9.0 min"])
+    # 2026.11.19 (S3): lean sub-agent definitions and the per-run record
+    _ag = os.path.join(tmp, "agents_out")
+    _agl = []
+    rc_ag = install_agents(_ag, out=_agl.append)
+    _rv = open(os.path.join(_ag, "mtc-reviewer.md"), encoding="utf-8").read()
+    check("install-agents: both definitions, Read + Write only, front matter first",
+          rc_ag == 0 and sorted(os.listdir(_ag)) == ["mtc-adjudicator.md", "mtc-reviewer.md"]
+          and _rv.startswith("---\nname: mtc-reviewer\n") and "\ntools: Read, Write\n---\n" in _rv
+          and "ONE result line" in _rv and _agl and _agl[0].startswith("AGENTS:"))
+    _home_old = os.environ.get("FW_HOME")
+    os.environ["FW_HOME"] = tmp
+    try:
+        _lo = []
+        rc_bad = lean_agents_record("maybe", out=_lo.append)
+        rc_no = lean_agents_record("No", out=_lo.append)
+        _rec = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
+        check("lean-agents: yes|no recorded, anything else refused",
+              rc_bad == 2 and rc_no == 0 and _rec.get("available") is False)
+    finally:
+        if _home_old is None:
+            os.environ.pop("FW_HOME", None)
+        else:
+            os.environ["FW_HOME"] = _home_old
 
     # E: an overlay with a project spec carries a regenerated map that verifies
     import spec_source

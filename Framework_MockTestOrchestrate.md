@@ -1,9 +1,10 @@
-# Framework_MockTestOrchestrate v1.9.0
-# v1.9.0 — 2026-11-17 — GAP-2026-11-14-SPEED-AND-FIDELITY (paired with Framework_MockTestCreate v7.1, blueprint_core
-#   v2.7, final_assembly v1.23, bootstrap): the engine sizes a review round's reviewer jobs so that they and the round's
-#   adjudicator jobs fit in ONE wave of parallel_jobs_max (O2-3; bc.bv_round_job_caps) — a figure-heavy round no longer
-#   runs as two waves; Framework_MockReview.md is no longer on the Step 7 route (O0-1). Entry v1.8.0 moved to
-#   SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.10.0
+# v1.10.0 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS (paired with Framework_MockTestCreate v7.3, final_assembly v1.24,
+#   bootstrap): lean reviewer / adjudicator sub-agents (mtc-reviewer, mtc-adjudicator — Read + Write only, installed
+#   by bootstrap --install-agents, recorded with --lean-agents yes|no; without them reviewer jobs carry
+#   review_qs_per_job_fallback questions — owner decision 2026-11-15); one-line job prompts; the warm standby starts
+#   earlier; the optional BATCH_DELIVERED auto-continue; the timing log closes a window still open when the next starts.
+#   Entry v1.9.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -103,7 +104,13 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
 - BATCH_DELIVERED — when FILES TO DELIVER lists files, deliver them in ONE call of this chat's
   file-delivery tool (present_files, or the name this surface gives it), in the listed order; log `delivered` (O2-11)
   and, when O2-10 calls for it, start the WARM STANDBY in the background. Then
-  print the CHAT BLOCK verbatim as the last element of the response and END the response.
+  print the CHAT BLOCK verbatim as the last element of the response and END the response. v1.10.0 — AUTO-CONTINUE
+  (opt-in): when the trigger the user typed carries `--auto-continue`, do NOT end the response: after the CHAT BLOCK
+  print `AUTO-CONTINUE — Batch [K+1] starts now (type anything to pause).` and handle it exactly as a continue
+  trigger (O2-6: send `continue — delivery confirmed`, O2-5 picks the worker). Every batch is still delivered with
+  its files and chat block first; every gate, reviewer, adjudicator and rung is unchanged. Without the flag nothing
+  changes (MTC MANDATE 1). Any user message received meanwhile is answered first and pauses the run until a continue
+  trigger. DIRECT MODE ignores the flag.
 - FINAL_BATCH_BUILT — when FILES TO DELIVER lists files, deliver them in ONE call. Print nothing and
   do not end the response: send `FINAL ASSEMBLY` at once (O2-5 picks the worker). This is MTC's one
   auto-advance (S4-9); the user sees one response.
@@ -122,18 +129,26 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   `review_qs_per_job` questions, so every question is seen by three different fresh reviewers; v1.9.0: the engine
   sizes the jobs so that a round's reviewer jobs and adjudicator jobs together fit in ONE wave of `parallel_jobs_max` —
   bc.bv_round_job_caps). For each directory in
-  GRADE JOBS start one sub-agent whose prompt is the content of
-  `<job_dir>/JOB_BRIEF.txt` (print them all with ONE `cat`) and nothing else — never the paper, the plan or a band.
+  GRADE JOBS start one sub-agent whose prompt is EXACTLY this one line (v1.10.0 — the brief is no longer pasted):
+  `Read <job_dir>/JOB_BRIEF.txt and do exactly what it says; reply with its one result line only.` — nothing else,
+  never the paper, the plan or a band. v1.10.0 LEAN SUB-AGENTS: when this chat's sub-agent tool offers the agent
+  types `mtc-reviewer` and `mtc-adjudicator` (installed by `python3 bootstrap.py --install-agents`, Step 0; Read +
+  Write tools only, a minimal prompt), start reviewer folders as `mtc-reviewer` and `_adj` folders as
+  `mtc-adjudicator`, and record it once per run with `python3 bootstrap.py --lean-agents yes`; when it does not offer
+  them, use the general-purpose type and record `python3 bootstrap.py --lean-agents no` (the worker's engine then
+  writes reviewer jobs of SESSION_BUDGET.json `review_qs_per_job_fallback` questions — owner decision 2026-11-15).
+  Never a stop either way.
   Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
   call per job, every call in the same message) so they run at the same time, and wait for all; only when the tool
   cannot run them together, one after another. Run `python3 bootstrap.py --timing-log jobs_start` before the first
   wave and `--timing-log jobs_return` after the last. Model as in O2-2
   (a different model from the worker when the platform offers one); a folder whose name ends in `_switch` (v1.7.0: a
   job that asks again a reviewer that returned nothing) gets the next model of `worker_models` after the one its
-  first try used. Each returns one line; an
+  first try used — v1.10.0: after the LAST entry it wraps around to the first entry that is not the model whose try
+  returned nothing (with two models: always the other one). Each returns one line; an
   error or no answer counts as `JOB FAILED <error text>` (a reviewer replies `REVIEW DONE` or `REVIEW FAILED <reason>`; a
   per-role job of release 2026.11.11 replies GRADE / SOLVE / VISION DONE). v1.8.0 (Create S0-BC LAW-BC-4): a folder whose
-  name ends in `_adj` (or `_adj_switch`) is an ADJUDICATOR — its prompt is its `JOB_BRIEF.txt` exactly like a reviewer,
+  name ends in `_adj` (or `_adj_switch`) is an ADJUDICATOR — its prompt is the same one line naming its `JOB_BRIEF.txt`,
   it runs in the same waves, it gets a model DIFFERENT from the worker's when the platform offers one, and it replies
   `ADJUDICATE DONE` or `ADJUDICATE FAILED <reason>`. Retry none: the worker decides. Then send
   `GRADE RETURNED` followed by one line per job: `<job_dir> <the sub-agent's line>` — to the SAME worker when
@@ -253,7 +268,9 @@ run continues, and the conflict is written as one line to the CHAT BLOCK FILE of
 
 A fresh worker reads the whole route before it can work (O3-2). When that read is needed, it is done WHILE THE USER
 READS the batch just delivered, never inside a batch's time:
-1. At BATCH_DELIVERED, before printing the CHAT BLOCK: when the current worker will fail O2-5 condition 2 for the NEXT
+1. v1.10.0: the standby is started as EARLY as the need is known — after the session start report and after every
+   GRADE_REQUEST, as well as at BATCH_DELIVERED (whichever comes first), by the same test below — so its read runs
+   while the current batch is being reviewed, not only while the user reads. At each of those points: when the current worker will fail O2-5 condition 2 for the NEXT
    batch (W + R > `rotate_tokens`, R as O2-5 says for that batch — with `fa_work_unit_tokens` added when it is the
    plan's last), and no standby of this run is waiting or reading, start ONE standby IN THE BACKGROUND (the tool's
    background option — never wait for it): prompt = the verbatim output of
@@ -263,8 +280,10 @@ READS the batch just delivered, never inside a batch's time:
    and nothing is printed for it.
 2. On the next message O2-5 does not send to the current worker: `python3 bootstrap.py --standby-status`. `STANDBY:
    READY` -> send the ORCHESTRATOR MESSAGE to the standby (the resume tool); it promotes its read and continues as a
-   `--continue` worker (O3-7); the previous worker is retired (never messaged again). Anything else -> a fresh worker
-   (O2-2), as before; a standby still reading is then never used and never messaged.
+   `--continue` worker (O3-7); the previous worker is retired (never messaged again). v1.10.0: `STANDBY: READING` ->
+   wait for it (poll `--standby-status` every 15 s) up to 90 s, then use it if READY; only after that a fresh worker
+   (O2-2) — a standby that is mid-read is a read already paid for. Anything else -> a fresh worker (O2-2), as
+   before; a standby still reading after the wait is then never used and never messaged.
 3. A standby is never started for `FINAL ASSEMBLY` (it follows in the same response) and never in DIRECT MODE. It
    never shortens a read, a retention proof or a control: it only moves a read that would happen anyway out of the
    batch's time.
@@ -493,6 +512,7 @@ key                      used by                    meaning
 bytes_per_token          bootstrap, SPEC-CAPACITY   spec bytes per token (currently 2.3)
 fa_work_unit_tokens      O2-5, O2-10                room Final Assembly needs in the worker that runs it (v1.7.0)
 review_qs_per_job        O2-3, O3-9                 questions per fresh reviewer job (v1.7.0)
+review_qs_per_job_fallback O2-3                     questions per reviewer job when lean sub-agents are not available (v1.10.0)
 parallel_jobs_max        O2-3                       sub-agents started in one wave (v1.7.0)
 batch_minutes_target     O2-11                      a batch over it -> one FRAMEWORK NOTE (v1.7.0)
 fa_minutes_target        O2-11                      Final Assembly over it -> one FRAMEWORK NOTE (v1.7.0)
@@ -561,4 +581,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.9.0
+# END OF Framework_MockTestOrchestrate v1.10.0

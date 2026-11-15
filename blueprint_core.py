@@ -42,6 +42,13 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.9 (2026-11-19) — GAP-2026-11-15-RUN-ANALYSIS: bc_apply settles a figure only on its WHOLE proof (identity +
+      gates, the S13-2P rule); BC_PREREVIEW_TRIES; bc_author_offsets(seed=) starts from earlier papers ('from':
+      'earlier paper'); the author packet carries the slot's planned ask type ('shape') and says when there are no
+      anchors.
+    v2.8 (2026-11-18) — GAP-2026-11-15-SYNC-AND-MARGIN: OP_CONSTANT_FLOORS (an exam override below an owner ruling —
+      C_SOLVERS < 3 — is refused and listed in op_constants()['refused']); _bc_margin_lines (the author packet asks for
+      a count one point inside the slot band).
     v2.7 (2026-11-17) — carries production hotfix v2.5.1 (eaf40a9, GAP-2026-11-14-REVIEW-KEY-ANNOTATED) and applies it to
       Cluster BC: bc_answer_norm reads '1 (42.5 minutes)' / '(b) (40%)' / 'option 2: 18' as that position, so an agreeing
       reviewer never costs an adjudicator round; NEW bc_canon_key stores a re-key as the int position.
@@ -763,7 +770,7 @@ __all__ = [
     "bc_key_decision", "bc_version_record", "bc_r5b_pick", "bc_apply", "bc_batch_status", "bc_review_record",
     "bc_amber_lines",
     "bv_job_chunks_n", "bv_round_job_caps", "BC_SELFCOUNT_TRIES", "BC_OFFSET_MIN_N", "BC_OFFSET_CAP", "bc_author_obs",
-    "bc_selfcount", "bc_author_offsets", "bc_canon_key",
+    "bc_selfcount", "bc_author_offsets", "bc_canon_key", "OP_CONSTANT_FLOORS", "BC_PREREVIEW_TRIES",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
 ]
@@ -7747,6 +7754,11 @@ def _op_self_test(check):
     co = op_constants({'constants': {'K_CANDIDATES': 4, 'C_NEAR_SIM': 0.75, 'C_SOLVERS': 2.5, 'bogus': 1}})
     check('op_constants_overrides_printed', co['C_K_CANDIDATES'] == 4 and co['C_NEAR_SIM'] == 0.75
           and co['C_SOLVERS'] == C_SOLVERS and co['overrides'] == ['C_K_CANDIDATES=4', 'C_NEAR_SIM=0.75'])
+    _co2 = op_constants({'constants': {'C_SOLVERS': 2}})
+    _co4 = op_constants({'constants': {'C_SOLVERS': 4}})
+    check('op_constants_owner_floor', _co2['C_SOLVERS'] == 3 and _co2['overrides'] == []
+          and _co2['refused'] == ['C_SOLVERS=2 (below the owner-ruled 3)'] and _co4['C_SOLVERS'] == 4
+          and _co4['overrides'] == ['C_SOLVERS=4'] and op_constants({})['refused'] == [])
     # hostile input never raises
     _ok = True
     for h in (None, 1, 'x', [], {}, {'papers': 3}, [None, 3]):
@@ -8334,6 +8346,17 @@ def _bc_self_test(check):
                            L)['status'] == 'pass'
           and bc_selfcount({'author_counts': _hc, 'qtype': 'nat'}, 'Hard', L)['score']
           > bc_selfcount({'author_counts': _hc}, 'Hard', L)['score'])
+    _pk8 = bv_author_packet({'q': '3', 'band': 'Hard', 'shape': 'identify_product'}, {}, L)
+    _vw8 = bv_author_view(_pk8)
+    check('bc_packet_planned_shape_and_empty_anchors', _pk8['shape'] == 'identify_product'
+          and _vw8['planned_ask_type'] == 'identify_product' and _vw8['anchors'].startswith('none for this exam')
+          and bv_author_packet({'q': '3', 'band': 'Hard', 'shape': '_infeasible'}, {}, L)['shape'] is None
+          and 'planned_ask_type' not in bv_author_view(bv_author_packet({'q': '3', 'band': 'Hard'}, {}, L)))
+    check('bc_margin_lines', any('score 7 or more' in x for x in _bc_margin_lines('Hard', L))
+          and any('score 1 or less' in x for x in _bc_margin_lines('Easy', L))
+          and any('score 4' in x for x in _bc_margin_lines('Medium', L))
+          and _bc_margin_lines('Hard', ['A', 'B']) == [] and _bc_margin_lines(None, L) == []
+          and any('inside the Hard band' in x for x in bv_author_packet({'q': '1', 'band': 'Hard'}, {}, L)['self_check']))
     # v2.7 P1 — one wave per round: reviewer jobs + adjudicator jobs <= parallel_jobs_max
     _E1 = {str(q): ({'figure_dicts': [{'file': f'q{q}.png'}]} if q <= 5 else {}) for q in range(1, 11)}
     _Q10 = [str(q) for q in range(1, 11)]
@@ -8537,6 +8560,23 @@ def _bc_self_test(check):
     f4e = {k: v for k, v in f3['entry'].items() if k not in ('figure_dicts', 'figure_files', 'figures')}
     f4 = bc_apply(dict(f4e, organic=False, stem_text='text fallback'), 'Hard', L, {}, 2, results=R())
     check('bc_F3_fallback_settles', f4['action'] == 'settled' and any('fallback' in t for _c, t in bc_amber_lines('3', f4['entry'])))
+    # v2.9 (D1): a figure read back RIGHT but whose proof fails identity / gates does not settle (the S13-2P rule)
+    _pf_bad = lambda d: {'identity_ok': True, 'vision_ok': True, 'gates_ok': False, 'missing': ['gates']}
+    fok = dict(R(), vision_1_1={'result': {'smiles': 'C[C@H](O)CC'}, 'sha256': 'v', 'context': 'fresh'})
+    fs1 = bc_apply(dict(org), 'Hard', L, {}, 2, results=fok, vision_compare=_vc, figure_proof=_pf_bad)
+    fs2 = bc_apply(dict(org), 'Hard', L, {}, 2, results=fok, vision_compare=_vc, figure_proof=_pf)
+    check('bc_figure_proof_settle_rule', fs1['action'] == 'rewrite'
+          and 'is not proven (gates)' in str(fs1['entry']['bv']['climb_brief']['reasons'])
+          and fs2['action'] == 'settled')
+    # v2.9 (D6): earlier-paper offsets seed a (subject, band) this paper has not measured often enough
+    _sd = [{'org|Hard': {'n': 5, 'steps': 9, 'concepts': -1}, 'org|Easy': {'n': 1, 'steps': 1, 'concepts': 0}},
+           {'org|Hard': {'n': 7, 'steps': 1, 'concepts': 0}}]
+    _so = bc_author_offsets({}, {}, {}, L, seed=_sd)
+    check('bc_author_offsets_seeded_from_earlier_paper',
+          _so == {'org|Hard': {'n': 5, 'steps': int(BC_OFFSET_CAP), 'concepts': -1, 'from': 'earlier paper'}}
+          and bc_author_offsets({}, {}, {}, L, seed='junk') == {}
+          and any('earlier paper' in x for x in bv_author_packet({'q': '9', 'band': 'Hard', 'subject': 'org'}, {}, L,
+                                                                   offsets=_so)['self_check']))
     # P1 — a within-paper repeat on the first write climbs before any reviewer is spent
     p1 = bc_apply(dict(it), 'Hard', L, {}, 2, findings=['repeats Q2 (template)'])
     check('bc_P1_repeat_no_reviewers', p1['action'] == 'rewrite' and p1['roles'] == [] and p1['entry']['bv']['rung'] == 1)
@@ -22966,6 +23006,9 @@ OP_CONSTANTS = ('C_PYQ_REREAD_MAX', 'C_MIN_ORG_PYQ', 'C_CONV_MIN_SHARE', 'C_FORM
                 'C_MIN_OPTION_WIDTH_IN', 'C_VISION_READS_STEREO', 'C_VISION_READS', 'C_BRIEF_MAX_PAGES',
                 'C_ORG_SUBTOPIC_SHARE', 'C_LAST_RESORT_ROUNDS')
 OP_CONSTANT_DEFAULTS = {k: globals()[k] for k in OP_CONSTANTS}
+# v2.7 — a constant an OWNER RULING fixes may be raised by an exam's config, never lowered below the ruling:
+# C_SOLVERS = 3 is OD-2026-11-14 R2 (three solvers). A lower override is refused and listed in 'refused'.
+OP_CONSTANT_FLOORS = {'C_SOLVERS': 3}
 
 
 def op_constants_reset():
@@ -22983,7 +23026,7 @@ def op_constants(exam_config=None):
     'overrides' so the delivery footer prints it (GAP §6.2). Never raises."""
     g = globals()
     out = {k: g[k] for k in OP_CONSTANTS}
-    ov = []
+    ov, rf = [], []
     cfg = exam_config.get('constants') if isinstance(exam_config, dict) else None
     for k, v in (cfg.items() if isinstance(cfg, dict) else []):
         kk = str(k).replace('-', '_')
@@ -22992,9 +23035,13 @@ def op_constants(exam_config=None):
         if kk in out and isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
             if isinstance(out[kk], int) and not float(v).is_integer():
                 continue
+            if kk in OP_CONSTANT_FLOORS and v < OP_CONSTANT_FLOORS[kk]:
+                rf.append(f'{kk}={v} (below the owner-ruled {OP_CONSTANT_FLOORS[kk]})')
+                continue
             out[kk] = type(out[kk])(v)
             ov.append(f'{kk}={out[kk]}')
     out['overrides'] = sorted(ov)
+    out['refused'] = sorted(rf)
     return out
 
 
@@ -27605,6 +27652,10 @@ def bv_author_view(packet, with_rules=False):
     out = {'q': pk.get('q'), 'band': pk.get('band'), 'target_text': pk.get('target_text'), 'qtype': pk.get('qtype'),
            'ask_format': pk.get('ask_format'), 'subtopic_id': pk.get('subtopic_id'), 'anchors': an,
            'self_check': pk.get('self_check')}
+    if pk.get('shape'):
+        out['planned_ask_type'] = pk['shape']           # v2.9 (D5): write THIS ask type (a different one is an R3 defect)
+    if not any(an.values()):
+        out['anchors'] = 'none for this exam (no exemplar bank / ruler anchors) — the rubric counts decide'
     rc = pk.get('recipe') if isinstance(pk.get('recipe'), dict) else {}
     if any(v not in (None, [], {}, '') for v in rc.values()):
         out['recipe'] = rc
@@ -27811,6 +27862,8 @@ def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_
     return out
 
 
+BC_PREREVIEW_TRIES = 2        # v2.9 D1-D3: a pre-review gap (figure proof, packet, auditor item finding) goes back at most
+                              # this many times per rung, then the text is reviewed as it stands
 BC_SELFCOUNT_TRIES = 2        # v2.7 P3: an author self-count miss is sent back at most this many times per rung, then reviewed
 BC_OFFSET_MIN_N = 3           # v2.7 P4: measured questions of one (subject, band) before an offset is shown
 BC_OFFSET_CAP = 2             # v2.7 P4: an offset is never more than this many moves / principles
@@ -27860,7 +27913,7 @@ def bc_selfcount(entry, slot_band, labels, qtype=None):
             'why': f'your own count gives {ab} (score {sc}); the slot is {b} ({need}) — {way}, then count again'}
 
 
-def bc_author_offsets(concept_map, items, targets, labels):
+def bc_author_offsets(concept_map, items, targets, labels, seed=None):
     """v2.7 (P4) — how the author's own counts differ from the reviewers' on the questions already measured in this
     paper, per (subject, slot band): {'<subject>|<band>': {'n', 'steps', 'concepts'}} — the median of (author count -
     reviewers' median count), capped at +/- BC_OFFSET_CAP, shown only from BC_OFFSET_MIN_N questions. Guidance for the
@@ -27894,6 +27947,14 @@ def bc_author_offsets(concept_map, items, targets, labels):
         cc = sorted(r[1] for r in rows)
         out[k] = {'n': len(rows), 'steps': max(-cap, min(cap, st[len(st) // 2])),
                   'concepts': max(-cap, min(cap, cc[len(cc) // 2]))}
+    # v2.9 (D6): a (subject, band) this paper has not measured often enough yet starts from the newest EARLIER paper of
+    # the exam that did (registry difficulty_state.author_offset, newest first) — marked 'from': 'earlier paper'
+    for prev in (seed if isinstance(seed, list) else []):
+        for k, r in (prev.items() if isinstance(prev, dict) else []):
+            if k in out or not isinstance(r, dict) or _qf_int(r.get('n'), 0) < int(BC_OFFSET_MIN_N):
+                continue
+            out[k] = {'n': _qf_int(r.get('n'), 0), 'steps': max(-cap, min(cap, _qf_int(r.get('steps'), 0))),
+                      'concepts': max(-cap, min(cap, _qf_int(r.get('concepts'), 0))), 'from': 'earlier paper'}
     return out
 
 
@@ -27910,7 +27971,10 @@ def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, o
     ex = {k: [{f: v for f, v in (r or {}).items() if f not in ('band_rationale', 'solution')} for r in rows][:2]
           for k, rows in (exemplars_by_band or {}).items() if k in near}
     return {'q': s.get('q'), 'band': b, 'qtype': s.get('qtype') or 'mcq', 'subtopic_id': s.get('subtopic_id'),
-            'ask_format': s.get('ask_format'), 'anchors': ex, 'recipe': recipe if isinstance(recipe, dict) else {},
+            'ask_format': s.get('ask_format'),
+            # v2.9 (D5): the slot's PLANNED ask type (batch_state['shape_plan'][q], S3-12d) — None when the plan is dormant
+            'shape': s.get('shape') if s.get('shape') not in ('', '_infeasible') else None,
+            'anchors': ex, 'recipe': recipe if isinstance(recipe, dict) else {},
             # v2.3 Cluster BR — the slot band as the exam's past questions measured it, and the rules the reviewers
             # will count this question with
             'target': _bp_tg, 'target_text': br_target_text(_bp_tg), 'counting_rules': br_counting_rules(),
@@ -27921,9 +27985,27 @@ def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, o
                            'the item resembles the slot band anchors more than the neighbours',
                            'record your counts in the sidecar: quality={"author_counts": {"facets": [...], "moves": '
                            '[...], "principles": [...], "speed_hack": bool, "negative": bool}} (G-SELFCOUNT)']
-            + _bc_offset_lines(offsets, s.get('subject'), b),
+            + _bc_margin_lines(b, labs) + _bc_offset_lines(offsets, s.get('subject'), b),
             'author_offset': _bc_offset_for(offsets, s.get('subject'), b),
             'rule': BV_RULE}
+
+
+def _bc_margin_lines(band, labels):
+    """v2.7 — aim INSIDE the band, not on its edge: three reviewers' median count lands within a point of the author's
+    more often than on it, so a question written exactly at an edge is the one most often measured one band off.
+    Guidance only (the reviewers' counts decide). [] when the rubric does not apply. Pure."""
+    edges = br_band_edges(labels)
+    labs = _dl_labels(labels)
+    if not edges or band not in edges:
+        return []
+    lo, hi = edges[band][:2]
+    if band == labs[0]:
+        aim = f'score {max(0, hi - 1)} or less' if hi else None
+    elif hi is None:
+        aim = f'score {lo + 1} or more'
+    else:
+        aim = f'score {(lo + hi + 1) // 2}' + ('' if hi - lo < 3 else f' (anywhere in {lo + 1}-{hi - 1})')
+    return [f'aim one point inside the {band} band, not on its edge: your own count should give {aim}'] if aim else []
 
 
 def _bc_offset_for(offsets, subject, band):
@@ -27937,7 +28019,8 @@ def _bc_offset_lines(offsets, subject, band):
     r = _bc_offset_for(offsets, subject, band)
     if not r or (not r.get('steps') and not r.get('concepts')):
         return []
-    return [f"on {r['n']} earlier {band} question(s) of this subject your own count ran "
+    _src = ' of an earlier paper' if r.get('from') else ''
+    return [f"on {r['n']} earlier {band} question(s){_src} of this subject your own count ran "
             f"{r['steps']:+d} move(s) / {r['concepts']:+d} principle(s) against the reviewers': write so that YOUR count "
             f"is the target plus that difference (the reviewers' counts decide the band)"]
 
@@ -28529,6 +28612,11 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
                 if any(x.get('match') is False for x in reads):
                     fig_bad.append(f"figure {i} ({fd.get('file')}) was read back as {reads[-1].get('smiles')} — redraw it "
                                    f"(layout ladder / re-depiction), same structure")
+                elif not (pr.get('identity_ok') and pr.get('gates_ok')):
+                    # v2.9 (GAP-2026-11-15-RUN-ANALYSIS D1): settle needs the WHOLE proof — the rule S13-2P applies
+                    fig_bad.append(f"figure {i} ({fd.get('file')}) is not proven "
+                                   f"({', '.join(pr.get('missing') or ['identity / gates'])}) — correct its SMILES / "
+                                   f"stereo_mode or redraw it, same structure")
             e['figures'] = proofs
         elif any(not _can(r) for r in vneed):
             if not [r for r in vneed if _can(r)]:
