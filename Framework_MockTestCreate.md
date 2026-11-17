@@ -1,4 +1,11 @@
-# Framework_MockTestCreate v8.0
+# Framework_MockTestCreate v8.1
+# v8.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (release 2026.11.22; paired with blueprint_core, MockReview
+#   v2.3.1, DeliveryFooter v1.52.1). Live CSIR batch 1 on v8.0: every question reached the rung-3 TEXT fallback and
+#   lost its figure. Under modes 'ladder' / 'counted' (STEP A2): a reviewer defect code acts only when
+#   bc.R3_CODE_QUORUM (2) reviewers name it, at its own severity; a solver split whose key the adjudicator confirmed
+#   is never a rewrite (bc.R3_SPLIT_FIX_RUNGS = 0 — one solver of three missing a Hard question is how it
+#   measures); a finding alone never climbs past rung bc.R3_FINDING_MAX_RUNG (2) — it settles disclosed (AMBER
+#   'finding_open') and keeps its figure. Key, figure-proof and GATE problems keep the full ladder. Mode 'br1' unchanged.
 # v8.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; release 2026.11.21; paired with
 #   blueprint_core Cluster R3, final_assembly v1.25.0, analyse_engine, corpus_io, MockReview v2.3.0, MockTestAnalyse
 #   v2.63.0, DeliveryFooter v1.52.0). Difficulty is MEASURED by placing each question among the exam's own past
@@ -5247,9 +5254,13 @@ action: the same paper, the same two files, the same "continue".
            placement whose anchors are ordered wrongly is VOID and grades the band below the slot) or task 'count'
            (mode 'counted', or no anchor set: rule r2.1 — decision depth, bc.R3_DECISION_RULE); no band-labelled
            exemplar is shown. Every reviewer returns ENUMERATED DEFECT CODES (bc.R3_DEFECT_CODES, MockReview S2-2R):
-           ANY ONE blocking code from ANY ONE reviewer is a finding (rung ladder) — never outvoted; approximate-method
-           collisions, give-away options and, for a top-band slot, one-fact settles / depth < 2 are computed from the
-           solver fields; a key settled only by adjudication is rewritten while rung < bc.R3_SPLIT_FIX_RUNGS. The
+           a blocking code named by bc.R3_CODE_QUORUM (2) reviewers is a finding (rung ladder; v8.1 — one report alone
+           is recorded, never a rewrite; a reviewer cannot promote a minor code); approximate-method collisions,
+           give-away options and, for a top-band slot, one-fact settles / depth < 2 are computed from the solver
+           fields; a solver split whose key the adjudicator confirmed is NOT rewritten (bc.R3_SPLIT_FIX_RUNGS = 0).
+           v8.1: from rung bc.R3_FINDING_MAX_RUNG (2) a finding alone (no key, figure-proof or GATE problem) settles
+           disclosed — AMBER "reviewer finding still open after rung 2" — and never reaches the rung-3 TEXT fallback,
+           so its figure is kept. The
            self-count (SELF-COUNT) does not run; PRE-REVIEW also sends back the deterministic gates (bc.qg_item_gates)
            and, on the ladder, a top-band content floor miss. Every path below is the existing bounded ladder: no new
            stop, no new loop. Run it after STEP B,
@@ -15023,7 +15034,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.0
+# END OF Framework_MockTestCreate v8.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

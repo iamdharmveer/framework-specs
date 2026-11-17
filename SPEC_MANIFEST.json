@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1431,
-      "sha256": "0ddaccd99a62406dd4c5ce4c4159c97153ab9f51241da16d2537babc1bb3b88a",
-      "size_bytes": 88895,
-      "version_header": "# Framework_DeliveryFooter v1.52.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1434,
+      "sha256": "ed083283782a46b37cbd8856e554fc6882240a31e2abe4201b466b22caa224bb",
+      "size_bytes": 89251,
+      "version_header": "# Framework_DeliveryFooter v1.52.1 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.28.0",
@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.28.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockReview.md": {
-      "end_sentinel": "# END OF Framework_MockReview v2.3.0",
+      "end_sentinel": "# END OF Framework_MockReview v2.3.1",
       "lines": 300,
-      "sha256": "0ce6891dd544a387f92aceecc3a2e557ff68302dc092111dc0dd3e45480a2f0c",
-      "size_bytes": 20703,
-      "version_header": "# Framework_MockReview v2.3.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G"
+      "sha256": "565fc651d19eb4f70293810c30df0a0ce758d627a3c6e6ab33bff26c5554423a",
+      "size_bytes": 20746,
+      "version_header": "# Framework_MockReview v2.3.1 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.63.0",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 15106,
-      "sha256": "2f72ff13d6e5bfc2ab3a538f3996450cb572a74a91a2f9accdacc8efb5e14e2b",
-      "size_bytes": 1054227,
-      "version_header": "# Framework_MockTestCreate v8.0"
+      "lines": 15117,
+      "sha256": "a470db9f5adf9623b54da3ad0393fa8e2ccc6d80d49d1a55ca3d2e7ffe7479e8",
+      "size_bytes": 1055411,
+      "version_header": "# Framework_MockTestCreate v8.1"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -233,9 +233,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 30927,
-      "sha256": "d7449ccf0bb934bc31f8dfecc2e68976e034f571dc2257fd4a0975c5d831a321",
-      "size_bytes": 1865663,
+      "lines": 30991,
+      "sha256": "3285214f19592ef2d1d60c199d878bcf52a87b4ab25516ea5ebca99c0abb6fd5",
+      "size_bytes": 1870901,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 4482,
-      "sha256": "a4d6bff40de5cc41f95b779c075da46bf898bd5940ca466a50c34619ba4e01c7",
-      "size_bytes": 306861,
+      "lines": 4491,
+      "sha256": "ccbd17aa702f1d5631c1d492ba93e1d5d890afca779b5969dbce0a14f06ed196",
+      "size_bytes": 307904,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {
@@ -317,9 +317,9 @@
     },
     "handshake_audit.py": {
       "end_sentinel": "    print(__doc__)",
-      "lines": 2120,
-      "sha256": "d2b91f6b6ecef976d657c141bc702983d69a1d987af32108df54663a5f6b7c85",
-      "size_bytes": 179213,
+      "lines": 2121,
+      "sha256": "871cb5a8d373cf6a14c302ff4beb0965187e4e43002f43ca75ed8ecd88450ac1",
+      "size_bytes": 179301,
       "version_header": "#!/usr/bin/env python3"
     },
     "manifest_to_taxonomy_xlsx.py": {

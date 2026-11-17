@@ -1052,18 +1052,19 @@ def _bc_handshake(check, ROOT, W):
     r3 = step(h)
     check('H-BC-3 K3: adjudicator confirms the author -> settled adjudicated',
           r3['status'] == 'done' and ld(h, 'answer_key')['concept_map']['1']['key_votes']['certified_by'] == 'adjudicated', r3)
-    # H-BC-3R (Cluster R3, 2026.11.21): the same 2-1 split in mode 'counted' is a finding (D-AMBIGUOUS, the solvers split)
-    # — the question goes up ONE rung with the dissent as a constraint instead of settling (bounded by the rungs)
+    # H-BC-3R (Cluster R3; release 2026.11.22 — GAP-2026-11-17-FALLBACK-CASCADE): the same 2-1 split in mode 'counted',
+    # the adjudicator confirming the key, SETTLES as is — one solver of three missing a question is how a Hard question
+    # measures; 2026.11.21 rewrote it (D-AMBIGUOUS) and the live batch climbed every such question to the text fallback
     h = paper('k3r', {'1': Q('Predict the major product of the E2 elimination of 2-bromobutane', ['1-butene', '2-butene', 'butane', 'butanol'])},
               {'1': 2}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], extra={'difficulty_mode': 'counted'})
     step(h); answer(h, rev=lambda q, k, row: R('Medium', 1 if k == 3 else 2)); step(h)
     answer(h, adj=lambda q, pk: {'verdict': 'author_correct', 'correct_answer': 2, 'single_answer': 'yes',
                                  'missing_condition': '', 'reason': 'Zaitsev', 'confidence': 'high'})
     r3r = step(h)
-    check('H-BC-3R r3: a solver split settled by the adjudicator is rewritten once (D-AMBIGUOUS), never settled as is',
-          r3r['status'] == 'rewrite' and r3r['rewrite'] == ['1']
-          and any('D-AMBIGUOUS' in str(x) for x in ((ld(h, 'batch_state')['bv']['items']['1'].get('climb_brief') or {})
-                                                     .get('reasons') or [])), r3r)
+    _e3r = ld(h, 'answer_key')['concept_map']['1']
+    check('H-BC-3R r3: a solver split settled by the adjudicator is settled as is (adjudicated, rung 0), never rewritten',
+          r3r['status'] == 'done' and r3r['rewrite'] == [] and _e3r['key_votes']['certified_by'] == 'adjudicated'
+          and (_e3r.get('bv') or {}).get('rung', 0) == 0, r3r)
     # H-BC-4 (K6): all answers agree but a decisive assumption -> adjudicator states the missing condition -> rung 1
     h = paper('k6', {'1': Q('The product of the reaction of the enolate with the alkyl halide is', ['A', 'B', 'C', 'D'])},
               {'1': 3}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])

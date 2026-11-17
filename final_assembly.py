@@ -4197,63 +4197,72 @@ def self_test():
               and _r42['rewrite'] == ['2'] and _r43['status'] == 'jobs_out'
               and all('/b1/r2/' in _d for _d in _r43['jobs'])
               and _names4 == ['q1_adj', 'reviewer_1', 'reviewer_2', 'reviewer_3'])
-    # v1.23 (C3): rung 3 fails, R5b restores the earlier FIGURE version — its figure record comes back with it
-    with _bv_tf.TemporaryDirectory() as _h:
-        open(_bv_os.path.join(_h, 'q1.png'), 'wb').write(b'png')
-        _bv_js.dump({'concept_map': {'1': {'stem_text': 'Identify the major product of the reaction shown',
-                                           'option_texts': ['A', 'B', 'C', 'D'], 'subtopic_id': 'A.b', 'qtype': 'mcq',
-                                           'figure_files': [_bv_os.path.join(_h, 'q1.png')]}}, 'answers': {'1': 1}},
-                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
-        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
-                     'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Medium'}},
-                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
-        _bv_js.dump({'questions': {'1': {'object_type': 'chemical_structure'}}},
-                    open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
-        _seq5 = []
-        for _st5 in range(40):
-            _r5 = bv_batch_step('EX', 1, home=_h, echo=False)
-            _b5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
-            _k5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
-            _rg5 = (_b5['bv']['items'].get('1') or {}).get('rung', 0)
-            _seq5.append((_r5['status'], _rg5, '1' in _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions'],
-                          bool(_r5['restore'])))
-            if _r5['status'] == 'done':
-                break
-            if _r5['status'] == 'jobs_out':
-                _ln5 = []
-                for _jb in _b5['bv']['jobs']:
-                    if _jb['role'] == 'adjudicator':
-                        _v5 = ({'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes'} if _rg5 < 3 else
-                               {'verdict': 'question_defective', 'correct_answer': None, 'single_answer': 'no: x'})
-                        _v5.update({'missing_condition': '', 'reason': 'r', 'confidence': 'high'})
-                        _bv_js.dump(_v5, open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
-                        _ln5.append(_jb['dir'] + ' ADJUDICATE DONE')
-                        continue
-                    _kk5 = int(_jb['role'].split('_')[1])
-                    _a5 = ([1, 1, 3] if _rg5 < 3 else [2, 3, 4])[_kk5 - 1]
-                    _bv_js.dump({'items': {_x['q']: {'band': 'Medium', 'answer': _a5, 'confidence': 'high', 'assumptions': [],
-                                                     'single_answer': 'yes',
-                                                     'leak_or_paraphrase': 'leaks' if (_rg5 < 3 and _kk5 < 3) else 'none',
-                                                     'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok',
-                                                     'selectivity_basis': 'clean', 'moves': ['m']}
-                                           for _x in _bv_js.load(open(_bv_os.path.join(_jb['dir'], 'packet.json')))['items']}},
-                                open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
-                    _ln5.append(_jb['dir'] + ' REVIEW DONE')
-                open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln5) + '\n')
-            elif _r5['status'] == 'rewrite':
-                for _q5 in _r5['rewrite']:
-                    _k5['concept_map'][_q5]['stem_text'] += ' v' + str(_rg5)
-                    if _rg5 == 3:
-                        _k5['concept_map'][_q5].pop('figure_files', None)
-                for _q5, _p5 in _r5['restore'].items():
-                    _rs5 = _bv_js.load(open(_p5))
-                    _k5['concept_map'][_q5] = dict(_rs5['entry'])
-                    _k5['answers'][_q5] = _rs5['answer']
-                _bv_js.dump(_k5, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
-        check('c3_restore_brings_back_the_figure_record',
-              any(st == 'rewrite' and rg == 3 and not fig for st, rg, fig, _rs in _seq5)
-              and any(_rs and fig for st, rg, fig, _rs in _seq5)
-              and _seq5[-1][0] == 'done' and _seq5[-1][2] is True)
+    # v1.23 (C3): rung 3 fails, R5b restores the earlier FIGURE version — its figure record comes back with it.
+    # Release 2026.11.22: that climb is mode 'br1' only — under the new modes a finding alone stops at rung 2 and
+    # the question keeps its figure (bc.R3_FINDING_MAX_RUNG); the same scenario is run in both modes
+    for _mode5 in (bc.R3_MODE_LEGACY, bc.R3_MODE_COUNTED):
+        with _bv_tf.TemporaryDirectory() as _h:
+            open(_bv_os.path.join(_h, 'q1.png'), 'wb').write(b'png')
+            _bv_js.dump({'concept_map': {'1': {'stem_text': 'Identify the major product of the reaction shown',
+                                               'option_texts': ['A', 'B', 'C', 'D'], 'subtopic_id': 'A.b', 'qtype': 'mcq',
+                                               'figure_files': [_bv_os.path.join(_h, 'q1.png')]}}, 'answers': {'1': 1}},
+                        open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+            _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
+                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Medium'}, 'difficulty_mode': _mode5},
+                        open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+            _bv_js.dump({'questions': {'1': {'object_type': 'chemical_structure'}}},
+                        open(_bv_os.path.join(_h, 'EX_fig_manifest.json'), 'w'))
+            _seq5 = []
+            for _st5 in range(40):
+                _r5 = bv_batch_step('EX', 1, home=_h, echo=False)
+                _b5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+                _k5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+                _rg5 = (_b5['bv']['items'].get('1') or {}).get('rung', 0)
+                _seq5.append((_r5['status'], _rg5, '1' in _bv_js.load(open(_bv_os.path.join(_h, 'EX_fig_manifest.json')))['questions'],
+                              bool(_r5['restore'])))
+                if _r5['status'] == 'done':
+                    break
+                if _r5['status'] == 'jobs_out':
+                    _ln5 = []
+                    for _jb in _b5['bv']['jobs']:
+                        if _jb['role'] == 'adjudicator':
+                            _v5 = ({'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes'} if _rg5 < 3 else
+                                   {'verdict': 'question_defective', 'correct_answer': None, 'single_answer': 'no: x'})
+                            _v5.update({'missing_condition': '', 'reason': 'r', 'confidence': 'high'})
+                            _bv_js.dump(_v5, open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                            _ln5.append(_jb['dir'] + ' ADJUDICATE DONE')
+                            continue
+                        _kk5 = int(_jb['role'].split('_')[1])
+                        _a5 = ([1, 1, 3] if _rg5 < 3 else [2, 3, 4])[_kk5 - 1]
+                        _bv_js.dump({'items': {_x['q']: {'band': 'Medium', 'answer': _a5, 'confidence': 'high', 'assumptions': [],
+                                                         'single_answer': 'yes',
+                                                         'leak_or_paraphrase': 'leaks' if (_rg5 < 3 and _kk5 < 3) else 'none',
+                                                         'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok',
+                                                         'selectivity_basis': 'clean', 'moves': ['m']}
+                                               for _x in _bv_js.load(open(_bv_os.path.join(_jb['dir'], 'packet.json')))['items']}},
+                                    open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                        _ln5.append(_jb['dir'] + ' REVIEW DONE')
+                    open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln5) + '\n')
+                elif _r5['status'] == 'rewrite':
+                    for _q5 in _r5['rewrite']:
+                        _k5['concept_map'][_q5]['stem_text'] += ' v' + str(_rg5)
+                        if _rg5 == 3:
+                            _k5['concept_map'][_q5].pop('figure_files', None)
+                    for _q5, _p5 in _r5['restore'].items():
+                        _rs5 = _bv_js.load(open(_p5))
+                        _k5['concept_map'][_q5] = dict(_rs5['entry'])
+                        _k5['answers'][_q5] = _rs5['answer']
+                    _bv_js.dump(_k5, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+            if _mode5 == bc.R3_MODE_LEGACY:
+                check('c3_restore_brings_back_the_figure_record',
+                      any(st == 'rewrite' and rg == 3 and not fig for st, rg, fig, _rs in _seq5)
+                      and any(_rs and fig for st, rg, fig, _rs in _seq5)
+                      and _seq5[-1][0] == 'done' and _seq5[-1][2] is True)
+            else:
+                _cm5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))['concept_map']['1']
+                check('r3_finding_never_reaches_text_fallback_figure_kept', _seq5[-1][0] == 'done'
+                      and max(rg for _x, rg, _f, _r in _seq5) == 2 and all(fig for _x, _r, fig, _rr in _seq5)
+                      and bool(_cm5.get('figure_files')) and 'finding_open' in (_cm5.get('bv') or {}).get('amber', []))
     # v1.23 (P4): the author/reviewer offset per (subject, band), written to difficulty_state, shown in the packet
     _meta = {f'grader_{k}': {'rubric': {'facets': ['C-COMPUTATIONAL'], 'inferential_steps': 1, 'concepts': 2,
                                         'speed_hack': False, 'negative': False}} for k in (1, 2, 3)}

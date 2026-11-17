@@ -8420,6 +8420,37 @@ def _bc_self_test(check):
           and r1['entry']['key_votes']['unanimous'] is True and r1['entry']['key_votes']['solver_3'] == 2
           and r1['entry']['difficulty'] == 'Hard' and verify_difficulty_label(r1['entry'], L, strict=True)[0])
     check('bc_settled_is_final', bc_apply(r1['entry'], 'Hard', L, {}, 2)['action'] == 'settled')
+    # release 2026.11.22 (new modes): a reviewer FINDING alone stops at rung R3_FINDING_MAX_RUNG — settled disclosed
+    # 'finding_open', the figure kept; one reviewer's code alone is no finding; a KEY problem still climbs to rung 3
+    def _RD(codes_by_solver, answers=(2, 2, 2)):
+        out = R(answers=answers)
+        for k, cs in enumerate(codes_by_solver, 1):
+            out[f'solver_{k}']['result']['defects'] = [{'code': c, 'where': 'stem', 'evidence': 'e'} for c in cs]
+        return out
+    _fit = dict(it, difficulty_mode='counted', figure_files=['q1_f1.png'])
+    _st, _acts = bc_apply(dict(_fit), 'Hard', L, {}, 2), []
+    for _i in range(8):
+        if _st['action'] == 'grade':
+            _st = bc_apply(_st['entry'], 'Hard', L, {}, 2, results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
+        elif _st['action'] == 'rewrite':
+            _acts.append(_st['entry']['bv']['rung'])
+            _st = bc_apply(dict(_st['entry'], stem_text=_st['entry']['stem_text'] + f' v{_i}'), 'Hard', L, {}, 2)
+        else:
+            break
+    check('r3_finding_stops_at_rung_2', _st['action'] == 'disclosed' and _acts == [1, 2]
+          and _st['entry']['bv']['rung'] == 2 and 'finding_open' in _st['entry']['bv']['amber']
+          and 'fallback' not in _st['entry']['bv']['amber'] and _st['entry'].get('figure_files') == ['q1_f1.png']
+          and any('reviewer finding still open' in x[1] for x in bc_amber_lines('1', _st['entry'])))
+    _one = bc_apply(bc_apply(dict(_fit), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                    results=_RD([['D-AMBIGUOUS'], [], []]))
+    check('r3_one_report_no_rewrite', _one['action'] == 'settled')
+    _leg = bc_apply(bc_apply(dict(it), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                    results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
+    _g2 = dict(_st['entry']); _g2['bv'] = dict(_g2['bv'], state='grading')
+    _gst = bc_apply(dict(_fit, bv=dict((_st['entry'].get('bv') or {}), state='grading', rung=2)), 'Hard', L, {}, 2,
+                    results=_RD([[], [], []]), findings=['GATE: G-NUMERIC-RESOLVE: the computed key does not match'])
+    check('r3_gate_finding_keeps_full_ladder', _gst['action'] == 'rewrite' and _gst['entry']['bv']['rung'] == 3)
+    check('r3_finding_rule_new_modes_only', _leg['action'] == 'settled' and 'finding_open' not in (_leg['entry']['bv'].get('amber') or []))
     # K2 / L6 / R12 — 3 solvers against the author -> adjudicator -> re-key; options swapped (content unchanged)
     k2 = bc_apply(r0['entry'], 'Hard', L, {}, 2, results=R(answers=(3, 3, 3)))
     check('bc_K2_adjudicator_first', k2['action'] == 'adjudicate' and k2['roles'] == ['adjudicator'])
@@ -8723,13 +8754,22 @@ def _r3_self_test(check):
           and qg_compute(_cp, ['2.69', '5.38', '1.00', '9.99'], 3, _st)['findings'] != []
           and qg_compute(None, [], 1, '') == {'applies': False, 'findings': []})
     _s1 = {'defects': [{'code': 'D-DEAD-ROW', 'evidence': 'D-IV in all'}]}
-    check('r3_one_blocking_report_acts', len(r3_findings([_s1, {'defects': []}, {}], 1)) == 1
-          and r3_findings([{'defects': [{'code': 'D-NOTATION'}, {'code': 'BOGUS'}]}], 1) == [])
+    # release 2026.11.22: one report is recorded, never a rewrite; two reviewers naming the code act; a reviewer
+    # cannot promote a minor code
+    _s2 = {'defects': [{'code': 'D-DEAD-ROW', 'where': 'row D', 'evidence': 'D-I in all'}]}
+    _sm = {'defects': [{'code': 'D-NOTATION', 'severity': 'blocking'}]}
+    check('r3_code_quorum', r3_findings([_s1, {'defects': []}, {}], 1) == []
+          and len(r3_findings([_s1, _s2, {}], 1)) == 1 and 'reviewers 1, 2' in r3_findings([_s1, _s2, {}], 1)[0]
+          and r3_findings([_sm, _sm, _sm], 1) == []
+          and r3_findings([{'defects': [{'code': 'D-NOTATION'}, {'code': 'BOGUS'}]}], 1) == []
+          and len(r3_findings([{'defects': [{'code': 'D-DISTRACTOR-WEAK'}]}] * 2, 1, top_band=True)) == 1
+          and r3_findings([{'defects': [{'code': 'D-DISTRACTOR-WEAK'}]}] * 2, 1, top_band=False) == [])
     check('r3_computed_findings', any('D-APPROX-COLLISION' in x for x in r3_findings(
         [{'answer': 2, 'approx_answer': 3}, {'answer': 2, 'approx_answer': 3}], 2, option_count=4))
           and any('D-GIVEAWAY' in x for x in r3_findings([{'eliminated_at_sight': [1, 3, 4]}] * 2, 2, option_count=4)))
     _sp = [{'answer': 1}, {'answer': 2}, {'answer': 1}]
-    check('r3_split_bounded', r3_split_finding({'state': 'settled', 'certified_by': 'adjudicated'}, 0, _sp) != []
+    check('r3_split_never_rewrites', R3_SPLIT_FIX_RUNGS == 0
+          and r3_split_finding({'state': 'settled', 'certified_by': 'adjudicated'}, 0, _sp) == []
           and r3_split_finding({'state': 'settled', 'certified_by': 'adjudicated'}, R3_SPLIT_FIX_RUNGS, _sp) == []
           and r3_split_finding({'state': 'settled', 'certified_by': 'rekey'}, 0, [{'answer': 2}] * 3) == []
           and r3_split_finding({'state': 'settled', 'certified_by': 'unanimous'}, 0, _sp) == [])
@@ -28768,7 +28808,7 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
                 return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
                         'why': f'no figure read-back after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
     # ── findings on the CURRENT text that need no reviewer: within-paper repeat / key leak (S0-NF-6) ──
-    _fall = [str(x) for x in (findings or []) if str(x).strip()]
+    _fall = [str(x) for x in (findings if isinstance(findings, (list, tuple)) else []) if str(x).strip()]   # never raises
     # a 'GATE:' finding (the last batch's whole-paper sweep re-opened this question, LAW-BC-6) is a HARD finding;
     # every other injected finding is a within-paper repeat / key leak (S0-NF-6)
     gate_f = [x for x in _fall if x.startswith('GATE:')]
@@ -28881,6 +28921,15 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
                               bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'])
     _vs = [v for v in bvs['versions'] if isinstance(v, dict) and v.get('content_sha') != sha]
     bvs['versions'] = _vs + [_vrec]
+    # ── release 2026.11.22: under the new modes a reviewer / computed FINDING alone (no key problem, no figure-proof
+    # problem, no deterministic GATE failure) never climbs past rung R3_FINDING_MAX_RUNG — the question settles there,
+    # disclosed AMBER 'finding_open', and keeps its figure. A GATE finding (e.g. a computed key that does not resolve)
+    # keeps the full ladder: an objective defect is never delivered ──
+    bvs.pop('finding_open', None)
+    if r3_entry_mode(e) != R3_MODE_LEGACY and 'finding' in problems and not ({'key', 'figure'} & set(problems)) \
+            and not gate_f and rung >= R3_FINDING_MAX_RUNG:
+        bvs['finding_open'] = [str(x)[:200] for x in brief_parts if not str(x).startswith('LEVEL:')][:6]
+        problems = [p for p in problems if p != 'finding']
     # ── the rungs (LAW-BC-2) ──
     hard = [p for p in problems if p in ('key', 'figure', 'finding')]
     if hard or (problems and not (set(problems) <= {'level', 'repeat'} and rung >= BC_LEVEL_SETTLE_RUNG)):
@@ -29029,6 +29078,8 @@ def _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, 
         amber.append('r5b')
     if bvs.get('terminal'):
         amber.append('terminal')
+    if bvs.get('finding_open'):
+        amber.append('finding_open')
     if _qf_int(bvs.get('rung'), 0) == 3:
         amber.append('fallback')
         # R5a: the slot's planned format is recorded so the Axis-1 count (A-AXIS1) treats it as disclosed, not a defect
@@ -29189,6 +29240,8 @@ def bc_amber_lines(q, entry):
                              + (', recipe not met at the delivered band' if 'recipe_note' in am else '')))
     if 'two_reviewers' in am:
         out.append(('AMBER', f"Q{q}: 2 of 3 reviewers available"))
+    if 'finding_open' in am:
+        out.append(('AMBER', f"Q{q}: reviewer finding still open after rung 2 — question kept, not replaced by text"))
     if 'repeat' in am:
         out.append(('AMBER', f"Q{q}: within-paper repeat / key leak disclosed after rung 2"))
     if bvs.get('reopened_in_last_batch'):
@@ -29310,7 +29363,12 @@ LD_FLOOR_PCTL = 25                 # content floor = this percentile of the scop
 LD_FLOOR_MIN_ITEMS = 3             # items a level needs before its floor is used (= BR_RECIPE_MIN)
 LD_SEED = 20261121
 FIGURE_SHARE_FLOOR = 0.5           # paper figure share >= this x the scope's PYQ figure share
-R3_SPLIT_FIX_RUNGS = 2             # a key settled only by adjudication climbs while rung < this (then settles)
+R3_SPLIT_FIX_RUNGS = 0             # 2026.11.22: 0 — a solver split whose key the adjudicator confirmed is how a Hard
+                                   # question measures (one solver of three missing it); it is never a rewrite
+R3_CODE_QUORUM = 2                 # 2026.11.22: a reviewer defect code acts when this many reviewers name it
+R3_FINDING_MAX_RUNG = 2            # 2026.11.22: from this rung a reviewer / gate FINDING alone settles disclosed
+                                   # (AMBER 'finding_open') — it never reaches the rung-3 TEXT fallback that drops
+                                   # the figure; a key or figure-proof problem keeps the full ladder
 
 LD_LEVERS = {
     'H1': 'Coupled decisions: at least two decisions where each needs the one before, and each has an option that '
@@ -29344,7 +29402,8 @@ R21_PRINCIPLES_RULE = ("List in 'principles' each DISTINCT named principle, law,
                        "chain NEEDED (a principle used only to check an already-excluded option is not listed; two "
                        "uses of one principle are one entry).")
 
-# §7.2 — enumerated review defects. Severity: 'blocking' acts on ONE report; 'minor' is recorded.
+# §7.2 — enumerated review defects. Severity: 'blocking' acts when R3_CODE_QUORUM reviewers name the code (release
+# 2026.11.22; 2026.11.21 acted on ONE report); 'minor' is recorded.
 R3_DEFECT_CODES = {
     'D-SECOND-ANSWER': 'blocking', 'D-KEY-WRONG': 'blocking', 'D-RULE-SCOPE': 'blocking', 'D-AMBIGUOUS': 'blocking',
     'D-DATA-INCONSISTENT': 'blocking', 'D-FIG-STEM-MISMATCH': 'blocking', 'D-FIG-CONTRADICTS-ASK': 'blocking',
@@ -30165,24 +30224,29 @@ def r3_solver_fields(rec):
 
 
 def r3_findings(solvers, author_key=None, qtype='mcq', tolerance=None, top_band=False, option_count=None):
-    """THE item findings of the structured review (§7.3): every BLOCKING code from ANY ONE reviewer (one report
-    acts — never outvoted; D-DISTRACTOR-WEAK is blocking for a top-band slot), plus the COMPUTED findings —
+    """THE item findings of the structured review (§7.3): every BLOCKING code that R3_CODE_QUORUM reviewers name
+    (its own severity; D-DISTRACTOR-WEAK is blocking for a top-band slot), plus the COMPUTED findings —
     D-APPROX-COLLISION when the approximate answer of 2+ solvers equals a distractor, D-GIVEAWAY when 2+ solvers
     drop the same option at sight and that leaves one option, D-RULE-SCOPE when any solver says the rule it used is
     out of scope, and (top band only) the anti-padding pre-check items: settled by one fact (2+ solvers), depth < 2
     (median of solvers), more than one option dropped at sight. [reason strings, each starting with the code].
     Pure."""
     sv = [s for s in (solvers or []) if isinstance(s, dict)]
-    out, seen = [], set()
+    out = []
+    # release 2026.11.22: a code acts when R3_CODE_QUORUM reviewers name it (its OWN severity — a reviewer cannot
+    # promote a minor code); one reviewer's report alone is recorded, never a rewrite (2026.11.21 acted on one report
+    # and climbed sound Hard questions to the rung-3 text fallback)
+    by_code = {}
     for k, s in enumerate(sv, 1):
         for d in r3_defects(s):
-            blocking = d['severity'] == 'blocking' or (top_band and d['code'] in R3_TOP_BAND_BLOCKING)
-            if blocking:
-                key = (d['code'], d['where'])
-                if key in seen:
-                    continue
-                seen.add(key)
-                out.append(f"{d['code']} (reviewer {k}{', ' + d['where'] if d['where'] else ''}): {d['evidence']}")
+            if R3_DEFECT_CODES.get(d['code']) == 'blocking' or (top_band and d['code'] in R3_TOP_BAND_BLOCKING):
+                by_code.setdefault(d['code'], {}).setdefault(k, d)
+    for code in sorted(by_code):
+        rv = by_code[code]
+        if len(rv) >= R3_CODE_QUORUM:
+            k, d = sorted(rv.items())[0]
+            out.append(f"{code} (reviewers {', '.join(str(x) for x in sorted(rv))}"
+                       f"{', ' + d['where'] if d['where'] else ''}): {d['evidence']}")
     fx = [r3_solver_fields(s) for s in sv]
     ak = bc_answer_norm(author_key, qtype) if author_key is not None else None
     # option-based computations apply to a single-answer question WITH options only (X-11 numerical answer: no options;
@@ -30749,8 +30813,8 @@ R3_DEFECTS_TEXT = ("'defects': a list, one entry per problem you find, each {\"c
                    "restates a past question (name it); D-EASIER-THAN-SOURCE it mirrors a named past question but asks "
                    "less; D-STEM-FORM not a complete exam sentence; D-NOTATION non-standard symbols or units; "
                    "D-FIG-RENDER a drawn line runs through a label, labels overlap or are unreadable, or the stem "
-                   "figure is drawn at a different scale or weight from the option figures. ONE "
-                   "report is enough: do not write 'none' and then describe a problem — put every problem here.")
+                   "figure is drawn at a different scale or weight from the option figures. List "
+                   "every problem: do not write 'none' and then describe a problem — put every problem here.")
 R3_SOLVER_FIELDS_TEXT = ("\"approx_answer\": <the option a common shortcut or approximation gives, or null>, "
                          "\"eliminated_at_sight\": [<option numbers you dropped without working>], "
                          "\"settled_by_one_fact\": <true if one fact read from the options isolates the key>, "

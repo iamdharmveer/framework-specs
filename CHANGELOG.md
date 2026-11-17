@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026.11.22 — GAP-2026-11-17-FALLBACK-CASCADE: a sound Hard question is never rewritten into a text fallback (OD-2026-11-17)
+
+(over release 2026.11.21. blueprint_core (R3_SPLIT_FIX_RUNGS 2 -> 0; NEW R3_CODE_QUORUM, R3_FINDING_MAX_RUNG;
+r3_findings, bc_apply, _bc_settle, bc_amber_lines, R3_DEFECTS_TEXT); Framework_MockTestCreate v8.1;
+Framework_MockReview v2.3.1; Framework_DeliveryFooter v1.52.1; STEP_CONTRACTS (floors Create 8.1, MockReview 2.3.1,
+DeliveryFooter 1.52.1).)
+
+**Evidence (live CSIR Organic batch 1, 2026-11-17, on 2026.11.21).** All ten questions were sent up the rung ladder to
+the rung-3 TEXT fallback, which removes the figure; the delivered batch had no structure drawing and eight Hard slots
+came out Medium. Q1-Q9 carried "key confirmed by the adjudicator, 2 of 3 solvers agree". Cause (2026.11.21): (1) a
+solver split was rewritten while rung < 2 even when the adjudicator confirmed the key — but one solver of three
+missing a question is how a Hard question measures; (2) ONE reviewer's blocking code acted, and a reviewer could
+promote a minor code to blocking — with three reviewers some code is almost always named; (3) a finding at rung 2
+climbed to rung 3, the TEXT fallback, which drops the figure and writes an easier question. Reproduced on a 10-question
+figure batch (tests/test_batch1_repro.py, 8 seeds): 2026.11.21 sent 50 of 80 questions to the text fallback.
+
+**What changed (modes 'ladder' and 'counted' only; mode 'br1' is unchanged).**
+- A solver split whose key the adjudicator confirmed is never a rewrite (R3_SPLIT_FIX_RUNGS = 0). Disclosed as before
+  ("key confirmed by adjudicator; 2 of 3 solvers agree").
+- A reviewer defect code acts only when R3_CODE_QUORUM (2) reviewers name it, at the code's own severity (a reviewer
+  cannot promote a minor code). Computed findings (approximate-method collision, give-away, rule scope, top-band
+  pre-checks) and the deterministic gates are unchanged.
+- From rung R3_FINDING_MAX_RUNG (2) a reviewer / computed finding alone — no key problem, no figure-proof problem, no
+  deterministic GATE failure — settles disclosed (AMBER "reviewer finding still open after rung 2 — question kept, not
+  replaced by text"). It never reaches the rung-3 text fallback, so the question keeps its figure. A key problem, a
+  figure-proof problem or a GATE failure (e.g. a computed key that does not resolve) keeps the full ladder.
+- Same reproduction on this release: 0 of 80 to the text fallback, every figure kept, every question at its slot band,
+  4 rewrites instead of 30, a third of the steps.
+
+**No new stop, no new loop.** Every change removes a climb or ends a chain earlier; the rung ladder, round budget and
+terminal are unchanged.
+
 ## 2026.11.21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK: one yardstick, structured review, gates before review (OD-2026-11-16)
 
 (over release 2026.11.20. blueprint_core Cluster R3 (NEW: r3_mode, ld_* ladder / placement, qg_* deterministic gates,

@@ -1242,6 +1242,13 @@ Entry v2.0.1 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFI
 #   S2-2 stays the single wording source — audit_sync BC-CHECKLIST-SYNC keeps the two in step. Entry v2.1.0 moved to
 #   SPEC_HISTORY.md.
 
+Entry v2.3.0 moved at framework release 2026.11.22 (GAP-2026-11-17-FALLBACK-CASCADE; v2.3.1 supersedes).
+
+```
+# v2.3.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; with MockTestCreate v8.0): S2-2R —
+#   enumerated defect codes of the in-batch reviewer; one blocking code from one reviewer acts.
+```
+
 ## Framework_MockTestAnalyse.md
 
 Entries v2.51.0–v2.59.0 moved at framework release 2026.11.06 (EC-P42; v2.60.0 supersedes;

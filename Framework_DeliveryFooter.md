@@ -1,4 +1,6 @@
-# Framework_DeliveryFooter v1.52.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.52.1 — Universal Delivery Footer (F1/F2) Contract
+# v1.52.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (with MockTestCreate v8.1): one more chain line — a
+#   reviewer finding still open after rung 2 (the question is kept, never replaced by text). Disclosure only.
 # v1.52.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; paired with MockTestCreate v8.0): §2R names
 #   the difficulty-mode, count-rule, paper-rule, void-placement and figure-share lines Create S13-2L.0 prints
 #   (final_assembly.bv_r3_report). Disclosure only — no line here stops a paper.
@@ -1247,6 +1249,7 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
   ℹ️ Q<n>: replaced by a text question (fallback)                                             rung 3 (R5a)
   ⚠️ Q<n>: delivered at <band> (slot <band>)[, recipe not met at the delivered band]          level settled off-slot / B-02
   ⚠️ Q<n>: 2 of 3 reviewers available                                                         minimum results (LAW-BC-4)
+  ⚠️ Q<n>: reviewer finding still open after rung 2 — question kept, not replaced by text      R3_FINDING_MAX_RUNG (v1.52.1)
   ⚠️ Q<n>: within-paper repeat / key leak disclosed after rung 2                              LAW-BC-2
   ⚠️ Q<n>: figure family without an answer engine — went from rung 2 to R5b (R10)             R10
   ℹ️ Q<n>: changed in the last batch — the earlier cumulative docx differs                    LAW-BC-6 re-open
