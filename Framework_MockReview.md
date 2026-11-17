@@ -1,10 +1,6 @@
-# Framework_MockReview v2.2.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
-# v2.2.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0; OD-2026-11-14 R6): this brief
-#   is used ONLY by the LEGACY S13-2G path (a paper begun before Create v7.0). The independent review of a v7.0 paper
-#   runs IN EACH BATCH: the batch reviewer brief (blueprint_core.BV_BRIEF_REVIEWER) asks the checklist fields of S2-2
-#   (single_answer, leak_or_paraphrase, distractor_existence_and_class, consistency_and_names, selectivity_basis), and
-#   S2-2 stays the single wording source — audit_sync BC-CHECKLIST-SYNC keeps the two in step. Entry v2.1.0 moved to
-#   SPEC_HISTORY.md.
+# Framework_MockReview v2.3.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# v2.3.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; with MockTestCreate v8.0): S2-2R —
+#   enumerated defect codes of the in-batch reviewer; one blocking code from one reviewer acts.
 #
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockReview.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
@@ -231,6 +227,12 @@
 
 # §3 — ASSEMBLE, SELF-CHECK, DELIVER (DETERMINISTIC)
 
+## S2-2R — ENUMERATED DEFECT CODES (v2.3.0 — Cluster R3; papers in difficulty mode 'ladder' or 'counted')
+
+  The in-batch reviewer of a v8.0 paper (bc.BV_BRIEF_REVIEWER_R3) reports problems ONLY as 'defects' {code, severity,
+  where, evidence} from bc.R3_DEFECT_CODES (the single source) plus the solver fields; ONE blocking code from ONE
+  reviewer acts (bc.r3_findings). The S2-2 fields above stay in force for mode 'br1' and the legacy S13-2G path.
+
 ## S3-1 — Build and bind-check the verdict file
 
   ```python
@@ -295,4 +297,4 @@
   [ ] 7. When queue.json carries a concept_vocabulary, every record carries concepts_used
          selected from it (or "other:<name>"), describing the reviewer's OWN solution (§2).
 
-# END OF Framework_MockReview v2.2.0
+# END OF Framework_MockReview v2.3.0

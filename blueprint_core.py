@@ -8673,6 +8673,137 @@ def _bc_self_test(check):
     check('bc_bounded_random_walk', 'UNBOUNDED' not in ends and ends <= {'settled', 'disclosed', 'no_model', 'stop'})
 
 
+def _ld_synthetic_ladder(labels=('Easy', 'Medium', 'Hard'), n=100, seed=7, noise=0.6, scope='s'):
+    """TEST HELPER (self-tests only): a ladder of a synthetic scope whose past questions have a known latent
+    difficulty, ranked by simulated rankers with Gaussian noise. Returns (ladder, truth {id: latent}). Pure."""
+    import random as _rr
+    rng = _rr.Random(seed)
+    py, tr = [], {}
+    for i in range(int(n)):
+        d = rng.gauss(0, 1)
+        tr[f'{scope}:{i}'] = d
+        py.append({'id': f'{scope}:{i}', 'scope': scope, 'subtopic_id': f'{scope}.t{i % 4}.u{i % 7}',
+                   'marks': 4 if d > -0.2 else 2, 'text': f'past question {i}', 'content': {'heavy_atoms': int(12 + 4 * d)},
+                   'decisions': ['concept_chain'] if d > 0.5 else ['specific_knowledge']})
+    plan, _of = ld_plan_scopes(py)
+    jobs = ld_ranking_jobs({k: ld_packets(v, seed=seed) for k, v in plan.items()}, {p['id']: p['text'] for p in py},
+                           seed=seed)
+    orders, byr = {}, {}
+    for jb in jobs:
+        res = {'rankings': {p['pid']: sorted(jb['map'][p['pid']], key=lambda lb, m=jb['map'][p['pid']]:
+                                             tr[m[lb]] + rng.gauss(0, noise)) for p in jb['packet']['packets']}}
+        for o, role in ld_read_rankings(res, jb):
+            sc = next((k for k, v in plan.items() if o[0] in v), scope)
+            orders.setdefault(sc, []).append(o)
+            byr.setdefault(sc, {}).setdefault(role, []).append(o)
+    return ld_build(py, orders, list(labels), orderings_by_ranker=byr, seed=seed), tr
+
+def _r3_self_test(check):
+    """Cluster R3 self-tests (called from self_test). Every gate, rule and the ladder / placement path, on fixtures
+    taken from the Test 01 papers (dead row, numeric spacing, stem form) and a synthetic exam with known difficulty."""
+    import random as _rr
+    L3 = ['Easy', 'Medium', 'Hard']
+    check('r3_deadrow', qg_dead_rows(['A-III, B-I, C-II, D-IV', 'A-II, B-I, C-III, D-IV', 'A-III, B-II, C-I, D-IV',
+                                      'A-I, B-III, C-II, D-IV']) == ['D'] and qg_dead_rows(['A-1, B-2', 'A-2, B-1']) == [])
+    check('r3_number_parse', qg_parse_number('1.4 × 10⁻⁵') == 1.4e-05 and qg_parse_number('0.37 cm³ mol⁻¹') == 0.37
+          and qg_parse_number('O₂²⁻') is None and qg_parse_number('4012 and nido') is None
+          and qg_parse_number('1-butene') is None and qg_parse_number('Fe³⁺') is None)
+    check('r3_spacing', qg_option_spacing(['2', '2.5', '3', '1']) == [] and qg_option_spacing(['3.28', '3.3', '2.69', '11.5']) == [(1, 2)])
+    _ops = ['NH₃ > PH₃ > NF₃ > PF₃', 'NF₃ > NH₃ > PF₃ > PH₃', 'NH₃ > NF₃ > PF₃ > PH₃', 'NH₃ > NF₃ > PH₃ > PF₃']
+    check('r3_extremes', qg_extremes(_ops, 2) is True and qg_extremes(_ops, 1) is False and qg_extremes(['a'], 1) is None)
+    check('r3_stemform', qg_stem_form('Data. A: x is y. B: z. Correct:', 'combination') != []
+          and qg_stem_form('A: x. B: y. The correct statements are', 'statement') == [])
+    check('r3_eval_sandbox', abs(r3_eval('2*R*298/F', CONSTANTS_V1)[0] - 2 * 8.314 * 298 / 96485) < 1e-12
+          and all(r3_eval(b, CONSTANTS_V1)[0] is None for b in ("__import__('os')", '().__class__', '2**10**10',
+                                                                 'lambda: 1', '[x for x in range(9)]', '1/0')))
+    _cp = {'values': {'E': 0.4, 'Er': 0.241, 's': 0.0591}, 'key': '(E-Er)/s', 'rel_tol': 0.01,
+           'distractors': {'2': {'expr': '2*(E-Er)/s'}}}
+    _st = 'EMF 0.400 V; reference 0.241 V; 2.303RT/F = 0.0591 V.'
+    check('r3_compute', qg_compute(_cp, ['2.69', '5.38', '1.00', '9.99'], 1, _st)['findings'] == []
+          and qg_compute(_cp, ['2.69', '5.38', '1.00', '9.99'], 3, _st)['findings'] != []
+          and qg_compute(None, [], 1, '') == {'applies': False, 'findings': []})
+    _s1 = {'defects': [{'code': 'D-DEAD-ROW', 'evidence': 'D-IV in all'}]}
+    check('r3_one_blocking_report_acts', len(r3_findings([_s1, {'defects': []}, {}], 1)) == 1
+          and r3_findings([{'defects': [{'code': 'D-NOTATION'}, {'code': 'BOGUS'}]}], 1) == [])
+    check('r3_computed_findings', any('D-APPROX-COLLISION' in x for x in r3_findings(
+        [{'answer': 2, 'approx_answer': 3}, {'answer': 2, 'approx_answer': 3}], 2, option_count=4))
+          and any('D-GIVEAWAY' in x for x in r3_findings([{'eliminated_at_sight': [1, 3, 4]}] * 2, 2, option_count=4)))
+    _sp = [{'answer': 1}, {'answer': 2}, {'answer': 1}]
+    check('r3_split_bounded', r3_split_finding({'state': 'settled', 'certified_by': 'adjudicated'}, 0, _sp) != []
+          and r3_split_finding({'state': 'settled', 'certified_by': 'adjudicated'}, R3_SPLIT_FIX_RUNGS, _sp) == []
+          and r3_split_finding({'state': 'settled', 'certified_by': 'rekey'}, 0, [{'answer': 2}] * 3) == []
+          and r3_split_finding({'state': 'settled', 'certified_by': 'unanimous'}, 0, _sp) == [])
+    check('r3_count_rule', r3_count_rule({str(i): ('Hard' if i <= 30 else 'Medium') for i in range(1, 41)},
+                                         {'Easy': 2, 'Medium': 10, 'Hard': 28}, L3)['ok']
+          and not r3_count_rule({str(i): ('Hard' if i <= 27 else 'Medium') for i in range(1, 41)},
+                                {'Easy': 2, 'Medium': 10, 'Hard': 28}, L3)['ok'])
+    check('r3_cuts', ld_band_cuts(L3) == [0.4, 0.75] and ld_band_cuts(['a', 'b']) == [0.5] and ld_band_cuts(['a']) == []
+          and ld_band_cuts(L3, None, [0.5, 0.7]) == [0.5, 0.75])
+    # synthetic exam: the ladder recovers the truth; placement separates hard, padded and random rankers
+    _rng = _rr.Random(7)
+    _py, _tr = [], {}
+    for _i in range(100):
+        _d = _rng.gauss(0, 1)
+        _tr[f's:{_i}'] = _d
+        _py.append({'id': f's:{_i}', 'scope': 's', 'subtopic_id': f's.t{_i % 4}.u{_i % 7}', 'marks': 4 if _d > -0.2 else 2,
+                    'text': f'q{_i}', 'content': {'heavy_atoms': int(12 + 4 * _d)}, 'decisions': ['concept_chain']})
+    _plan, _of = ld_plan_scopes(_py)
+    _jobs = ld_ranking_jobs({k: ld_packets(v, seed=1) for k, v in _plan.items()}, {p['id']: p['text'] for p in _py}, seed=1)
+    _ord, _byr = [], {}
+    for _jb in _jobs:
+        _res = {'rankings': {_p['pid']: sorted(_jb['map'][_p['pid']], key=lambda lb, m=_jb['map'][_p['pid']]:
+                                               _tr[m[lb]] + _rng.gauss(0, 0.6)) for _p in _jb['packet']['packets']}}
+        for _o, _role in ld_read_rankings(_res, _jb):
+            _ord.append(_o)
+            _byr.setdefault(_role, []).append(_o)
+    _lad = ld_build(_py, {'s': _ord}, L3, orderings_by_ranker={'s': _byr}, seed=1)
+    _rho = _ld_spearman(_lad['scopes']['s']['positions'], _tr)
+    check('r3_ladder_valid_and_recovers_truth', validate_ladder(_lad) == [] and _lad['status'] == 'ok'
+          and _rho is not None and _rho >= 0.85)
+    check('r3_mode', r3_mode({}, _lad) == R3_MODE_LADDER and r3_mode({}, None) == R3_MODE_COUNTED
+          and r3_mode({}, _lad, {'difficulty_mode': 'br1'}) == R3_MODE_LEGACY
+          and r3_mode({'difficulty_mode': 'counted'}, _lad) == R3_MODE_COUNTED)
+    _hard = _pad = _void_h = _void_r = _n = 0
+    for _t in range(60):
+        _a = ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=_t)
+        if not _a:
+            continue
+        _n += 1
+        _tk = ld_placement_task(_a, 'NEW', salt=_t)
+        _pos = lambda lb, pi: pi if _tk['map'][lb] == 'ITEM' else _tk['meta'][_tk['map'][lb]]['p']
+        _pl = ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.93) + _rng.gauss(0, 0.05)), _tk)
+        _void_h += not _pl['valid']
+        _hard += ld_band_from_placement(_pl, _tk, L3) == 'Hard'
+        _pad += ld_band_from_placement(ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.63)
+                                                                + _rng.gauss(0, 0.05)), _tk), _tk, L3) == 'Hard'
+        _rd = list(_tk['map'])
+        _rng.shuffle(_rd)
+        _void_r += not ld_read_placement(_rd, _tk)['valid']
+    check('r3_placement_separates', _n == 60 and _hard >= 0.85 * (_n - _void_h) and _pad <= 0.05 * _n
+          and _void_h <= 0.15 * _n and _void_r >= 0.8 * _n)
+    _tk0 = ld_placement_task(ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=1), 'NEW', salt=1)
+    check('r3_void_grades_band_below', (r3_grade_from_review({'ranking': ['A']}, _tk0, L3) or {}).get('band') == 'Medium')
+    _ap = r3_author_packet({'q': 1, 'band': 'Hard', 'subject': 's', 'subtopic_id': 's.t1.u1'}, _lad, L3, R3_MODE_LADDER)
+    _apt = _qq_json.dumps(_ap)
+    check('r3_author_packet_no_numbers_no_anchors', _ap.get('levers') and 'score' not in _apt.lower()
+          and 'aim one point' not in _apt and not any(a in _apt for a in _lad['scopes']['s']['grading']))
+    _rr3 = {'recipe_by_subject': {'X': {'Hard': {'decisions': (3, 5)}}}}
+    check('r3_recipe_not_a_control_in_new_modes',
+          bv_recipe_verdict({'subject': 'X', 'decisions': ['a']}, _rr3, 'Hard', L3)[0] is False
+          and bv_recipe_verdict({'subject': 'X', 'decisions': ['a'], 'difficulty_mode': R3_MODE_LADDER}, _rr3, 'Hard', L3)
+          == (True, 'DORMANT')
+          and bv_recipe_verdict({'subject': 'X', 'decisions': ['a'], 'difficulty_mode': R3_MODE_COUNTED}, _rr3, 'Hard', L3)
+          == (True, 'DORMANT'))
+    check('r3_nat_and_msq_no_option_findings',
+          r3_findings([{'approx_answer': 3.1}, {'approx_answer': 3.1}], 2.69, 'nat') == []
+          and r3_findings([{'eliminated_at_sight': [1, 2, 3]}] * 2, [1, 2], 'msq', option_count=4) == []
+          and qg_compute({'values': {'a': 2.0}, 'key': 'a*2'}, [], 4.0, 'a = 2.0')['findings'] == []
+          and qg_compute({'values': {'a': 2.0}, 'key': 'a*3'}, [], 4.0, 'a = 2.0')['findings'] != [])
+    check('r3_fingerprint', ld_fingerprint(_lad) == ld_fingerprint(dict(_lad)) and ld_fingerprint(None) is None
+          and ld_fingerprint(dict(_lad, cuts=[0.5, 0.8])) != ld_fingerprint(_lad))
+    check('r3_hostile_input_never_raises', ld_fit(None) == {} and ld_build(None, None, None)['status'] == 'amber'
+          and qg_item_gates(None) == [] and r3_findings(None) == [] and ld_anchor_set(None, None, None, None) is None)
+
 def self_test():
     passed = 0
     total = 0
@@ -13672,6 +13803,7 @@ PYQ_IMAGE_ANALYSIS:
     # ── v2.6 — Cluster BC (GAP-2026-11-14-BATCH-COMPLETE; OD-2026-11-14 R1–R13) ──────────
     _bc_self_test(check)
 
+    _r3_self_test(check)                     # Cluster R3 (release 2026.11.21)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -27085,6 +27217,9 @@ def bv_read_result(role, result, labels=None):
         for _f in BC_CHECKLIST_FIELDS:
             if r.get(_f) not in (None, ''):
                 out[_f] = str(r.get(_f))[:600]
+        if isinstance(r.get('defects'), list):          # Cluster R3: enumerated codes + structured solver fields
+            out['defects'] = r3_defects(r)
+        out.update(r3_solver_fields(r))
         return out
     return None
 
@@ -27130,6 +27265,10 @@ def bv_recipe_verdict(item, ruler, band, labels=None):
     recipe_by_subject). PASS -> True; FAIL -> False; DORMANT (no decision range for the subject / band anywhere —
     an exam whose ruler has none) -> True with status 'DORMANT': the recipe is then not a control (D-07), the fresh
     graders decide. Never raises."""
+    if r3_entry_mode(item) != R3_MODE_LEGACY:
+        # r3 / r2.1 (GAP-2026-11-16 RC-D6): the count recipe is circular (built from the rubric's own bands) — not a
+        # control in the new modes; the placement / the top-band content floor replace it
+        return True, 'DORMANT'
     rbs = (ruler or {}).get('recipe_by_subject') if isinstance((ruler or {}).get('recipe_by_subject'), dict) else {}
     r = band_recipe_check_any(item, rbs, band, labels)
     st = (r or {}).get('status')
@@ -27193,8 +27332,9 @@ def bv_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             bvs['grades'][role] = _band
             bvs['packets'][role] = pk
             bvs['meta'][role] = dict({k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')},
-                                     measure='rubric_r2' if _rb else 'judged', score=_rs, rubric=_ro,
-                                     band_judged=rr.get('band') if rr.get('band') in labs else None)
+                                     measure=rr.get('measure') or ('rubric_r2' if _rb else 'judged'), score=_rs, rubric=_ro,
+                                     band_judged=rr.get('band') if rr.get('band') in labs else None,
+                                     **({'placement': rr['placement']} if isinstance(rr.get('placement'), dict) else {}))
         elif str(role).startswith('solver') and rr.get('answer') is not None:
             bvs['solvers'][role] = dict(rr, packet=pk)
         elif str(role).startswith('vision_') and rr.get('smiles'):
@@ -27826,7 +27966,7 @@ def _bv_reviewer_job(k, qs, needs, entries, anchors_by_q, labels, band_guide=Non
                 'brief': BV_BRIEF_REVIEWER}
 
 
-def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_by_q=None):
+def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_by_q=None, tasks_by_q=None):
     """v2.2 — one reviewer's result.json -> {q: {role: {'result', 'sha256', 'context': 'fresh'}}}: grader_k always,
     solver_k for every k <= len(BV_ROLES_SOLVE) (v2.6, R2: all three reviewers are solvers; the solver record carries
     the reviewer's moves and checklist fields), vision_<i>_k per transcribed figure (matched
@@ -27841,7 +27981,9 @@ def bv_split_reviewer_result(k, result, labels, qs=None, sha=None, figure_dicts_
         if q not in allowed or not isinstance(rec, dict):
             continue
         row = {}
-        g = bv_read_result('grader', rec, labels)
+        # Cluster R3: an r3 job (tasks_by_q given) grades by placement ('rank') or by the r2.1 counts ('count')
+        g = (r3_grade_from_review(rec, (tasks_by_q or {}).get(q), labels) if isinstance(tasks_by_q, dict)
+             else bv_read_result('grader', rec, labels))
         if g is not None:
             row[f'grader_{k}'] = g
         if k <= len(BV_ROLES_SOLVE):
@@ -28560,8 +28702,9 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             bvs['grades'][role] = _band
             bvs['packets'][role] = pk
             bvs['meta'][role] = dict({k: rr.get(k) for k in ('class', 'computation_generic', 'concept', 'decisions', 'rationale')},
-                                     measure='rubric_r2' if _rb else 'judged', score=_rs, rubric=_ro,
-                                     band_judged=rr.get('band') if rr.get('band') in labs else None)
+                                     measure=rr.get('measure') or ('rubric_r2' if _rb else 'judged'), score=_rs, rubric=_ro,
+                                     band_judged=rr.get('band') if rr.get('band') in labs else None,
+                                     **({'placement': rr['placement']} if isinstance(rr.get('placement'), dict) else {}))
         elif str(role).startswith('solver') and rr.get('answer') is not None:
             bvs['solvers'][role] = dict(rr, packet=pk)
         elif str(role).startswith('vision_') and rr.get('smiles'):
@@ -28708,6 +28851,12 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     key_open = kd.get('state') != 'settled'
     # ── checklist findings named by >= 2 of 3 reviewers; figure mismatches ──
     chk = bc_findings_from_checklist(solvers) + gate_f
+    if r3_entry_mode(e) != R3_MODE_LEGACY:
+        # Cluster R3 (§7.3): any ONE reviewer's blocking code acts; computed solver findings; a key settled only by
+        # adjudication is rewritten while rung < R3_SPLIT_FIX_RUNGS (bounded by the rungs — never a loop)
+        chk = chk + r3_findings(solvers, author_key, qt, tolerance, top_band=bool(labs) and tgt == labs[-1],
+                                option_count=len(e.get('option_texts') or []) or None) + r3_split_finding(kd, rung, solvers, qt,
+                                                                                                    tolerance)
     # ── the level (unchanged rules) ──
     m = bv_majority_band(controls, labs) if tgt is not None else None
     level_ok = tgt is None or (m == tgt and rec_ok)
@@ -28817,6 +28966,12 @@ def _bc_label(e, bvs, labs, ruler, tgt, dlv, disclosed_note=None):
         if _dc is not None:
             _dc['measure'] = _ms[0] if len(_ms) == 1 else 'mixed'
             _dc['rubric_scores'] = {k: (bvs['meta'].get(k) or {}).get('score') for k in g}
+            _pl = {k: ((bvs['meta'].get(k) or {}).get('placement') or {}).get('p_new') for k in g
+                   if isinstance((bvs['meta'].get(k) or {}).get('placement'), dict)}
+            if _pl:                                     # Cluster R3: each valid placement and their median
+                _pv = sorted(v for v in _pl.values() if isinstance(v, (int, float)))
+                _dc['placements'] = _pl
+                _dc['p_new'] = (_pv[len(_pv) // 2] if len(_pv) % 2 else round((_pv[len(_pv) // 2 - 1] + _pv[len(_pv) // 2]) / 2.0, 4)) if _pv else None
             e['difficulty_check'] = _dc
     return e, ok, why, note
 
@@ -29098,6 +29253,1668 @@ for _n, _d in {
         'br_median_obs': lambda *a, **k: None,
         'bv_author_view': lambda *a, **k: {},
         'bv_short_exemplars': lambda e=None, *a, **k: e if isinstance(e, dict) else {},
+}.items():
+    _nf_guard(_n, _d)
+del _n, _d
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# ── Cluster R3 (GAP-2026-11-16-DIFFICULTY-YARDSTICK; release 2026.11.21) — ONE YARDSTICK, STRUCTURED REVIEW ──
+# Measured on three 40-question subject papers (Test 01, release 2026.11.15): 86 questions certified Hard by the
+# count rubric, 3 Hard on an expert read; 22 reviewer notes beginning "none (" named a real defect and were read
+# as clean. Causes: the band was a COUNT of what a solution writes (padding raises it), the writer was given the
+# count to aim at, and review findings were free text read by their first word. This cluster replaces the measure,
+# not the counting: a question's band is its PLACEMENT among the exam's own past questions (a LADDER fitted from
+# blind rankings — Bradley-Terry), judged by the three reviewers that already run, against anchors the writer never
+# sees, with an in-packet calibration test. Review findings are ENUMERATED CODES; any single blocking code acts.
+# Deterministic gates run before any reviewer. Exam-neutral: no exam, subject, section or band name appears below;
+# every function takes the exam's own label list. Every function is pure and never raises (guarded at the end).
+# NO NEW STOP: every path below ends in a value, a rewrite through the existing bounded ladder, or a disclosure.
+# NO NEW LOOP: every iteration below is over a finite input or capped by a named constant.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+import math as _r3_math
+import random as _r3_random
+import re as _r3_re
+
+R3_RELEASE = '2026.11.21'
+R3_MODE_LADDER = 'ladder'          # band = placement on the exam's ladder (rule r3)
+R3_MODE_COUNTED = 'counted'        # no usable ladder: rule r2.1 (r2 arithmetic, decision-depth counting), disclosed
+R3_MODE_LEGACY = 'br1'             # explicit owner opt-out only (blueprint difficulty_mode: 'br1'): release 2026.11.20
+R3_MODES = (R3_MODE_LADDER, R3_MODE_COUNTED, R3_MODE_LEGACY)
+RUBRIC_RULE_R21 = 'r2.1'
+RUBRIC_RULE_R3 = 'r3'
+
+# Owner constants (GAP-2026-11-16 §11.3). An exam may only TIGHTEN them (ld_constants).
+LD_DEFAULT_BAND_CUTS = {2: (0.50,), 3: (0.40, 0.75), 4: (0.25, 0.50, 0.75), 5: (0.20, 0.40, 0.60, 0.80)}
+LD_SCHEMA = 1
+LD_PACKET_SIZE = 6                 # PYQs per ranking packet
+LD_PACKETS_PER_PYQ = 2             # packets each PYQ appears in
+LD_RANKERS_PER_PACKET = 2          # fresh rankers per packet
+LD_PACKETS_PER_JOB = 10            # ranking packets per job (one fresh job start-up ~72k tokens dominates its cost)
+LD_MIN_POOL = 40                   # scored PYQs a scope needs for its own ladder (else the exam-wide ladder)
+LD_ANCHORS = 5                     # anchors per placement: 2 below the cut, 2 at the band median, 1 far below
+LD_BELOW_WINDOW = 0.05             # 'below the cut' anchors sit in [cut - window, cut) — CLOSE to the cut: the item
+                                   # must beat real questions sitting right at the band's boundary
+LD_FAR_BELOW = 0.20                # the sanity anchor sits below this position
+LD_WINDOW_WIDEN_STEP = 0.05        # a thin window is widened by this ...
+LD_WINDOW_WIDEN_MAX = 3            # ... at most this many times (bounded)
+LD_CALIBRATION_GAP = 0.10          # an anchor pair is tested only when its positions differ by at least this (GAP §10 AT-3 fallback: 0.15 left a random ranker undetected 40% of the time once the below-cut anchors sit at the cut)
+LD_MAX_DISCORDANT = 1              # wrongly ordered tested pairs allowed before a placement is void
+LD_FIT_ITERS = 500                 # Bradley-Terry MM iterations (hard cap)
+LD_FIT_TOL = 1e-9
+LD_PRIOR = 0.5                     # virtual win and loss against the pool average (keeps every strength finite)
+LD_RELIABILITY_MIN = 0.5           # Spearman between the two rankers' separate fits (else the ladder is AMBER)
+LD_PART_MIN = 5                    # items a marks tier needs before the tier-order check applies
+LD_REFIT_SHARE = 0.30              # new PYQs above this share of the pool: full refit (else the ladder is reused)
+LD_FLOOR_PCTL = 25                 # content floor = this percentile of the scope's real top-band items
+LD_FLOOR_MIN_ITEMS = 3             # items a level needs before its floor is used (= BR_RECIPE_MIN)
+LD_SEED = 20261121
+FIGURE_SHARE_FLOOR = 0.5           # paper figure share >= this x the scope's PYQ figure share
+R3_SPLIT_FIX_RUNGS = 2             # a key settled only by adjudication climbs while rung < this (then settles)
+
+LD_LEVERS = {
+    'H1': 'Coupled decisions: at least two decisions where each needs the one before, and each has an option that '
+          'fails only that decision',
+    'H2': 'Rare knowledge: a needed concept that this exam tests rarely',
+    'H3': 'Unfamiliar setting: a species, substrate, data set or scenario that is not one of the common ones',
+    'H4': 'Hidden intermediate: an intermediate result the stem neither gives nor names',
+    'H5': 'Trap resistance: no option can be dropped by one surface check',
+    'H6': 'Translation: a figure, table, graph or spectrum must be turned into a value or structure first',
+    'H7': 'Method choice: two methods a candidate could apply give different options; the data decide which applies',
+}
+LD_DECISION_LEVERS = {               # record decision tags (ALL_DECISION_TAGS) -> the levers they evidence
+    'concept_chain': ('H1', 'H4'), 'quantitative_chain': ('H1', 'H4'), 'derivation': ('H1', 'H4'),
+    'data_interpretation': ('H6',), 'exception_case': ('H2', 'H7'), 'specific_knowledge': ('H2',),
+    'multi_entity_comparison': ('H5',),
+}
+
+# §6.4 — the minimum-decision rule, quoted verbatim by every spec that counts under r2.1 / r3.
+R3_DECISION_RULE = (
+    "DECISION DEPTH is the length of the longest chain of reasoning moves in which each move needs the result of "
+    "the move before it, along the shortest route a strong candidate can take to the key with these options in "
+    "front of them. BREADTH is the smallest number of independent sub-judgements (rows, statements, species, "
+    "options) a candidate must make to isolate the key. Checking an option that is already excluded adds nothing. "
+    "Restating, reading values off a figure, recalling one textbook fact and naming the answer are not moves. Two "
+    "uses of one principle are one principle.")
+R21_MOVES_RULE = ("Write in 'moves' ONLY the decisions of your DECISION DEPTH chain (" + R3_DECISION_RULE + ") — one "
+                  "line per decision that needs the decision before it. Independent rows, statements or species are "
+                  "BREADTH, not moves: put their count in 'breadth'. Eliminating an option is never a move. The "
+                  "number of moves is the number of lines.")
+R21_PRINCIPLES_RULE = ("List in 'principles' each DISTINCT named principle, law, formula or definition the depth "
+                       "chain NEEDED (a principle used only to check an already-excluded option is not listed; two "
+                       "uses of one principle are one entry).")
+
+# §7.2 — enumerated review defects. Severity: 'blocking' acts on ONE report; 'minor' is recorded.
+R3_DEFECT_CODES = {
+    'D-SECOND-ANSWER': 'blocking', 'D-KEY-WRONG': 'blocking', 'D-RULE-SCOPE': 'blocking', 'D-AMBIGUOUS': 'blocking',
+    'D-DATA-INCONSISTENT': 'blocking', 'D-FIG-STEM-MISMATCH': 'blocking', 'D-FIG-CONTRADICTS-ASK': 'blocking',
+    'D-DEAD-ROW': 'blocking', 'D-GIVEAWAY': 'blocking', 'D-DISTRACTOR-WEAK': 'minor', 'D-APPROX-COLLISION': 'blocking',
+    'D-LEAK': 'blocking', 'D-PARAPHRASE': 'blocking', 'D-EASIER-THAN-SOURCE': 'blocking', 'D-STEM-FORM': 'blocking',
+    'D-NOTATION': 'minor', 'D-FIG-RENDER': 'blocking',
+}
+R3_TOP_BAND_BLOCKING = ('D-DISTRACTOR-WEAK',)     # minor elsewhere, blocking for a top-band slot
+R3_CHECKLIST_OF_CODE = {                          # which legacy checklist flag a code also raises
+    'D-SECOND-ANSWER': 'second_answer', 'D-AMBIGUOUS': 'second_answer', 'D-LEAK': 'leak', 'D-PARAPHRASE': 'leak',
+    'D-DISTRACTOR-WEAK': 'distractor', 'D-GIVEAWAY': 'distractor', 'D-DEAD-ROW': 'distractor',
+    'D-DATA-INCONSISTENT': 'consistency', 'D-FIG-STEM-MISMATCH': 'consistency', 'D-NOTATION': 'consistency',
+}
+
+# Versioned constants table for computed keys (G-NUMERIC-RESOLVE). A paper that prints its own table uses it.
+CONSTANTS_V1 = {'R': 8.314, 'F': 96485.0, 'h': 6.626e-34, 'hbar': 1.0546e-34, 'c': 2.998e8, 'k_B': 1.381e-23,
+                'N_A': 6.022e23, 'e': 1.602e-19, 'm_e': 9.109e-31, 'm_p': 1.6726e-27, 'eps0': 8.854e-12,
+                'pi': _r3_math.pi, 'g': 9.81, 'atm': 101325.0, 'bar': 1.0e5, 'amu': 1.6605e-27,
+                'ln10': _r3_math.log(10.0)}
+CONSTANTS_TABLE_ID = 'CONSTANTS_v1'
+R3_COMPUTE_FUNCS = {'sqrt': _r3_math.sqrt, 'log': _r3_math.log, 'log10': _r3_math.log10, 'exp': _r3_math.exp,
+                    'sin': _r3_math.sin, 'cos': _r3_math.cos, 'tan': _r3_math.tan, 'abs': abs,
+                    'ln': _r3_math.log, 'min': min, 'max': max, 'round': round}
+R3_COMPUTE_MAX_LEN = 400           # characters per expression
+R3_COMPUTE_MAX_POW = 400           # |exponent| allowed in a power (no runaway numbers)
+
+
+# ── mode ────────────────────────────────────────────────────────────────────────────────────────────────────────
+def r3_mode(batch_state=None, ladder=None, blueprint=None):
+    """THE difficulty mode of one Step 7 paper. An explicit owner opt-out (blueprint 'difficulty_mode': 'br1')
+    keeps release 2026.11.20 behaviour; a mode already frozen in batch_state wins (resume-safe, never recomputed);
+    otherwise 'ladder' when the exam has a usable ladder (validate_ladder clean and status 'ok'), else 'counted'.
+    Never 'stop'. Pure."""
+    bp = blueprint if isinstance(blueprint, dict) else {}
+    if str(bp.get('difficulty_mode') or '').strip().lower() == R3_MODE_LEGACY:
+        return R3_MODE_LEGACY
+    bs = batch_state if isinstance(batch_state, dict) else {}
+    fz = str(bs.get('difficulty_mode') or '').strip().lower()
+    if fz in R3_MODES:
+        return fz
+    if isinstance(ladder, dict) and not validate_ladder(ladder) and ladder.get('status') == 'ok':
+        return R3_MODE_LADDER
+    return R3_MODE_COUNTED
+
+
+def r3_entry_mode(entry):
+    """The mode a concept_map entry was decided under ('difficulty_mode', written by the batch step), else
+    R3_MODE_LEGACY (an entry of an earlier release). Pure."""
+    m = str((entry or {}).get('difficulty_mode') or '').strip().lower() if isinstance(entry, dict) else ''
+    return m if m in R3_MODES else R3_MODE_LEGACY
+
+
+def r3_mode_note(mode, ladder=None):
+    """The one footer / disclosure line for a mode, or None for the ladder with full data. Pure."""
+    if mode == R3_MODE_COUNTED:
+        return ('DIFFICULTY (AMBER): this exam has no usable difficulty ladder yet — bands were measured with the '
+                'decision-depth count rule r2.1, not by comparison with the exam\'s own past questions. Re-run Step 5 '
+                '(MockTestAnalyse) once to build the ladder.')
+    if mode == R3_MODE_LEGACY:
+        return 'DIFFICULTY: owner opt-out (difficulty_mode br1) — release 2026.11.20 count rubric used.'
+    lad = ladder if isinstance(ladder, dict) else {}
+    amb = sorted(s for s, v in (lad.get('scopes') or {}).items() if isinstance(v, dict) and v.get('widened'))
+    if amb:
+        return (f"DIFFICULTY (AMBER): scope(s) {amb} have fewer than {LD_MIN_POOL} scored past questions — placed on "
+                f"the exam-wide ladder.")
+    return None
+
+
+# ── ladder: cuts, scopes, packets ───────────────────────────────────────────────────────────────────────────────
+def ld_band_cuts(labels, official_shares=None, raise_to=None):
+    """Cut points (ascending, len(labels)-1) of the ladder for an exam's label list (easiest first). Source: the
+    exam's official band shares when given ({label: share}), else LD_DEFAULT_BAND_CUTS by band count; raise_to
+    (an exam's stricter cuts) may only RAISE a cut. [] when the vocabulary has fewer than 2 or more than 5 bands —
+    the caller then uses mode 'counted'. Pure."""
+    labs = _dl_labels(labels)
+    n = len(labs)
+    if n < 2:
+        return []
+    cuts = None
+    sh = official_shares if isinstance(official_shares, dict) else None
+    if sh:
+        try:
+            vals = [float(sh.get(b)) for b in labs]
+            tot = sum(vals)
+            if tot > 0 and all(v >= 0 for v in vals):
+                acc, cuts = 0.0, []
+                for v in vals[:-1]:
+                    acc += v / tot
+                    cuts.append(round(min(max(acc, 0.0), 1.0), 4))
+        except (TypeError, ValueError):
+            cuts = None
+    if cuts is None:
+        base = LD_DEFAULT_BAND_CUTS.get(n)
+        if base is None:
+            return []
+        cuts = list(base)
+    if isinstance(raise_to, (list, tuple)) and len(raise_to) == len(cuts):
+        for i, v in enumerate(raise_to):
+            try:
+                cuts[i] = max(cuts[i], min(float(v), 1.0))
+            except (TypeError, ValueError):
+                pass
+    out = []
+    for c in cuts:                                    # strictly ascending, inside (0, 1)
+        c = min(max(float(c), 0.001), 0.999)
+        out.append(max(c, out[-1] + 0.001) if out else c)
+    return [round(c, 4) for c in out]
+
+
+def ld_band_of(p, cuts, labels):
+    """The label whose ladder interval [cut_lo, cut_hi) holds position p, or None. Pure."""
+    labs = _dl_labels(labels)
+    try:
+        p = float(p)
+    except (TypeError, ValueError):
+        return None
+    if not labs or len(cuts or []) != len(labs) - 1 or p != p:
+        return None
+    i = 0
+    for c in cuts:
+        if p >= c:
+            i += 1
+    return labs[min(i, len(labs) - 1)]
+
+
+def ld_plan_scopes(pyqs, min_pool=None):
+    """{scope: [pyq ids]}: one scope per subject with at least min_pool scored PYQs; every smaller subject's PYQs go
+    to the exam-wide scope '*' (AMBER, X-1). An exam whose every subject is small has the one scope '*'. Also
+    returns {subject: scope}. Pure."""
+    mp = _qf_int(min_pool, LD_MIN_POOL) if min_pool is not None else LD_MIN_POOL
+    by = {}
+    for r in (pyqs or []) if isinstance(pyqs, (list, tuple)) else []:
+        if isinstance(r, dict) and r.get('id') is not None:
+            by.setdefault(str(r.get('scope') or '*'), []).append(str(r['id']))
+    scopes, of = {}, {}
+    small = []
+    for s in sorted(by):
+        if len(by[s]) >= mp and s != '*':
+            scopes[s] = sorted(set(by[s]))
+            of[s] = s
+        else:
+            small.append(s)
+    if small:
+        pool = sorted({i for s in small for i in by[s]})
+        if scopes and len(pool) < LD_PACKET_SIZE:
+            # too few to rank on their own: they are ranked inside the largest scope's packets (AMBER for them)
+            big = max(scopes, key=lambda k: len(scopes[k]))
+            scopes[big] = sorted(set(scopes[big]) | set(pool))
+            for s in small:
+                of[s] = big
+        else:
+            scopes['*'] = pool
+            for s in small:
+                of[s] = '*'
+    return scopes, of
+
+
+def ld_packets(ids, seed=None, size=None, per_pyq=None):
+    """Ranking packets over one scope's PYQ ids: per_pyq rounds; each round a seeded shuffle cut into packets of
+    `size`; a short last packet is filled with other ids of the same round (never a duplicate inside a packet).
+    A scope with fewer than 2 ids gives []. Deterministic for a seed. Pure."""
+    xs = sorted({str(i) for i in (ids or [])})
+    sz = max(2, _qf_int(size, LD_PACKET_SIZE)) if size is not None else LD_PACKET_SIZE
+    rounds = max(1, _qf_int(per_pyq, LD_PACKETS_PER_PYQ)) if per_pyq is not None else LD_PACKETS_PER_PYQ
+    if len(xs) < 2:
+        return []
+    sz = min(sz, len(xs))
+    out = []
+    for r in range(rounds):
+        rng = _r3_random.Random(f'{seed if seed is not None else LD_SEED}:{r}:{len(xs)}')
+        order = list(xs)
+        rng.shuffle(order)
+        for i in range(0, len(order), sz):
+            pk = order[i:i + sz]
+            if len(pk) < sz:
+                fill = [x for x in order if x not in pk][:sz - len(pk)]
+                pk = pk + fill
+            if len(pk) >= 2:
+                out.append(pk)
+    return out
+
+
+LD_BRIEF_RANKER = (
+    "You are a FRESH BLIND RANKER of past exam questions. Read ONLY <JOB_DIR>/packet.json: 'packets', each holding "
+    "'pid' and 'items' (each: 'label' and the question 'text' as a candidate sees it; a figure is described in the "
+    "text). For EACH packet, on its own, rank its items from EASIEST to HARDEST for a well-prepared candidate of this "
+    "exam answering within the exam's time. Judge what the candidate must know and decide, never the length of the "
+    "text or the amount of arithmetic; a question that only looks long is not hard. Do not solve for a key you "
+    "report, do not open any other file. Write <JOB_DIR>/result.json as {\"rankings\": {\"<pid>\": [<every label of "
+    "that packet, easiest first>]}}. Reply with ONE line: \"RANK DONE\" or \"RANK FAILED <reason>\".")
+
+
+def ld_ranking_jobs(packets_by_scope, text_by_id, per_job=None, rankers=None, seed=None):
+    """Step 5 ranking jobs: every packet goes to `rankers` fresh rankers; packets are batched per_job to a job. Items
+    are shown under opaque labels A, B, C ... (a PYQ id never reaches a ranker). Returns [{'role': 'ranker_<k>',
+    'name', 'packet', 'map': {pid: {label: pyq id}}, 'sha256', 'brief'}]. Pure."""
+    pj = max(1, _qf_int(per_job, LD_PACKETS_PER_JOB)) if per_job is not None else LD_PACKETS_PER_JOB
+    nk = max(1, _qf_int(rankers, LD_RANKERS_PER_PACKET)) if rankers is not None else LD_RANKERS_PER_PACKET
+    tx = text_by_id if isinstance(text_by_id, dict) else {}
+    flat = []
+    for sc in sorted((packets_by_scope or {}) if isinstance(packets_by_scope, dict) else {}):
+        for i, pk in enumerate(packets_by_scope[sc] or []):
+            flat.append((f'{sc}#{i + 1}', [str(x) for x in pk]))
+    jobs = []
+    for k in range(1, nk + 1):
+        for j in range(0, len(flat), pj):
+            chunk = flat[j:j + pj]
+            pkts, mp = [], {}
+            for pid, ids in chunk:
+                rng = _r3_random.Random(f'{seed if seed is not None else LD_SEED}:{k}:{pid}')
+                order = list(ids)
+                rng.shuffle(order)
+                labels = [chr(65 + i) for i in range(len(order))]
+                mp[pid] = dict(zip(labels, order))
+                pkts.append({'pid': pid, 'items': [{'label': lb, 'text': str(tx.get(i) or '')[:2400]}
+                                                   for lb, i in zip(labels, order)]})
+            pk = {'packets': pkts}
+            jobs.append({'role': f'ranker_{k}', 'name': f'ranker_{k}_p{j // pj + 1}', 'packet': pk, 'map': mp,
+                         'sha256': _bv_sha(pk), 'brief': LD_BRIEF_RANKER})
+    return jobs
+
+
+def ld_read_rankings(result, job):
+    """[(ordered pyq ids easiest first, ranker role)] from one ranking job's result.json; a packet whose ranking
+    is not a permutation of its labels is skipped (never guessed). Pure."""
+    res = result if isinstance(result, dict) else {}
+    rk = res.get('rankings') if isinstance(res.get('rankings'), dict) else {}
+    mp = (job or {}).get('map') if isinstance((job or {}).get('map'), dict) else {}
+    out = []
+    for pid, lab_map in mp.items():
+        order = rk.get(pid)
+        if not isinstance(order, list) or not isinstance(lab_map, dict):
+            continue
+        order = [str(x).strip().upper() for x in order]
+        if sorted(order) != sorted(lab_map) or len(set(order)) != len(order):
+            continue
+        out.append(([lab_map[x] for x in order], str((job or {}).get('role') or '')))
+    return out
+
+
+def _ld_spearman(a, b):
+    """Spearman rho of two {id: value} maps over their common ids (average ranks for ties); None below 3 ids."""
+    ks = sorted(set(a or {}) & set(b or {}))
+    if len(ks) < 3:
+        return None
+
+    def _ranks(vals):
+        order = sorted(range(len(vals)), key=lambda i: vals[i])
+        r = [0.0] * len(vals)
+        i = 0
+        while i < len(order):
+            j = i
+            while j + 1 < len(order) and vals[order[j + 1]] == vals[order[i]]:
+                j += 1
+            for t in range(i, j + 1):
+                r[order[t]] = (i + j) / 2.0
+            i = j + 1
+        return r
+    ra, rb = _ranks([float(a[k]) for k in ks]), _ranks([float(b[k]) for k in ks])
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    num = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+    den = _r3_math.sqrt(sum((x - ma) ** 2 for x in ra) * sum((y - mb) ** 2 for y in rb))
+    return round(num / den, 4) if den > 0 else None
+
+
+def ld_fit(orderings, ids=None, iters=None):
+    """Bradley-Terry fit (MM algorithm, LD_PRIOR virtual games against the pool average so every strength is
+    finite) of rankings [[ids easiest first], ...] -> {id: position in [0, 1]} (rank percentile, 0 easiest; ties
+    share their average rank). Iterations capped at LD_FIT_ITERS. {} when fewer than 2 ids. Pure."""
+    obs = [[str(x) for x in o] for o in (orderings or []) if isinstance(o, (list, tuple)) and len(o) >= 2]
+    pool = sorted({str(x) for x in (ids or [])} | {x for o in obs for x in o})
+    if len(pool) < 2:
+        return {}
+    idx = {x: i for i, x in enumerate(pool)}
+    n = len(pool)
+    wins = [0.0] * n
+    games = {}
+    for o in obs:
+        for a in range(len(o)):
+            for b in range(a + 1, len(o)):
+                lo, hi = idx.get(o[a]), idx.get(o[b])
+                if lo is None or hi is None or lo == hi:
+                    continue
+                wins[hi] += 1.0                         # the harder item beats the easier one
+                key = (min(lo, hi), max(lo, hi))
+                games[key] = games.get(key, 0.0) + 1.0
+    adj = [[] for _ in range(n)]
+    for (a, b), g in games.items():
+        adj[a].append((b, g))
+        adj[b].append((a, g))
+    s = [1.0] * n
+    cap = _qf_int(iters, LD_FIT_ITERS) if iters is not None else LD_FIT_ITERS
+    for _ in range(max(1, min(cap, LD_FIT_ITERS))):
+        mean_s = sum(s) / n
+        new = []
+        for i in range(n):
+            den = 2.0 * LD_PRIOR / (s[i] + mean_s)
+            for j, g in adj[i]:
+                den += g / (s[i] + s[j])
+            new.append((wins[i] + LD_PRIOR) / den if den > 0 else s[i])
+        gm = _r3_math.exp(sum(_r3_math.log(max(v, 1e-300)) for v in new) / n)
+        new = [v / gm for v in new]
+        delta = max(abs(_r3_math.log(max(x, 1e-300)) - _r3_math.log(max(y, 1e-300))) for x, y in zip(new, s))
+        s = new
+        if delta < LD_FIT_TOL:
+            break
+    order = sorted(range(n), key=lambda i: s[i])
+    pos = [0.0] * n
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and abs(s[order[j + 1]] - s[order[i]]) <= 1e-12 * max(1.0, s[order[i]]):
+            j += 1
+        for t in range(i, j + 1):
+            pos[order[t]] = ((i + j) / 2.0) / (n - 1)
+        i = j + 1
+    return {pool[i]: round(pos[i], 4) for i in range(n)}
+
+
+def ld_sanity(positions, pyqs, orderings_by_ranker=None):
+    """The ladder's sanity checks (X-35): (1) TIER ORDER — where the scope's PYQs carry at least two marks tiers of
+    LD_PART_MIN+ items, the median position of each higher-mark tier must exceed the lower tier's; (2) RELIABILITY
+    — the Spearman rho between fits made from each ranker's orderings alone must be >= LD_RELIABILITY_MIN (only
+    when two rankers exist). {'ok', 'checks': [{'check', 'ok', 'value'}]}. A check that cannot apply is reported
+    'n/a' and passes. Pure."""
+    pos = positions if isinstance(positions, dict) else {}
+    checks = []
+    tiers = {}
+    for r in (pyqs or []) if isinstance(pyqs, (list, tuple)) else []:
+        if isinstance(r, dict) and str(r.get('id')) in pos:
+            try:
+                m = float(r.get('marks'))
+            except (TypeError, ValueError):
+                continue
+            tiers.setdefault(m, []).append(pos[str(r['id'])])
+    tiers = {m: sorted(v) for m, v in tiers.items() if len(v) >= LD_PART_MIN}
+    if len(tiers) >= 2:
+        meds = [(m, v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2.0)
+                for m, v in sorted(tiers.items())]
+        ok = all(meds[i + 1][1] > meds[i][1] for i in range(len(meds) - 1))
+        checks.append({'check': 'tier_order', 'ok': ok, 'value': {str(m): round(md, 4) for m, md in meds}})
+    else:
+        checks.append({'check': 'tier_order', 'ok': True, 'value': 'n/a'})
+    obr = orderings_by_ranker if isinstance(orderings_by_ranker, dict) else {}
+    rk = sorted(k for k, v in obr.items() if v)
+    if len(rk) >= 2:
+        f1, f2 = ld_fit(obr[rk[0]]), ld_fit(obr[rk[1]])
+        rho = _ld_spearman(f1, f2)
+        checks.append({'check': 'reliability', 'ok': rho is not None and rho >= LD_RELIABILITY_MIN, 'value': rho})
+    else:
+        checks.append({'check': 'reliability', 'ok': True, 'value': 'n/a'})
+    return {'ok': all(c['ok'] for c in checks), 'checks': checks}
+
+
+def _ld_pctl(vals, pct):
+    xs = sorted(float(v) for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool))
+    if not xs:
+        return None
+    k = (len(xs) - 1) * (float(pct) / 100.0)
+    lo, hi = int(_r3_math.floor(k)), int(_r3_math.ceil(k))
+    return round(xs[lo] + (xs[hi] - xs[lo]) * (k - lo), 4)
+
+
+def _ld_levels(subtopic_id):
+    sid = str(subtopic_id or '')
+    parts = [x for x in sid.split('.') if x]
+    out = [sid] if sid else []
+    for n in range(len(parts) - 1, 0, -1):
+        out.append('.'.join(parts[:n]))
+    out.append('')
+    seen = []
+    for x in out:
+        if x not in seen:
+            seen.append(x)
+    return seen
+
+
+def ld_floors(ids, positions, pyqs, top_cut):
+    """Per-level content floors of the top band: for each measure a PYQ carries in 'content' (numeric), the
+    LD_FLOOR_PCTL percentile over the scope's top-band PYQs (position >= top_cut), at every level (subtopic, its
+    prefixes, '' = scope) holding >= LD_FLOOR_MIN_ITEMS such PYQs. {level: {measure: value}}. Pure."""
+    pos = positions if isinstance(positions, dict) else {}
+    idset = {str(i) for i in (ids or [])}
+    rows = [r for r in (pyqs or []) if isinstance(r, dict) and str(r.get('id')) in idset
+            and str(r.get('id')) in pos and isinstance(top_cut, (int, float)) and pos[str(r['id'])] >= top_cut]
+    by = {}
+    for r in rows:
+        cv = r.get('content') if isinstance(r.get('content'), dict) else {}
+        for lv in _ld_levels(r.get('subtopic_id')):
+            for m, v in cv.items():
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    by.setdefault(lv, {}).setdefault(str(m), []).append(v)
+    out = {}
+    for lv, ms in by.items():
+        f = {m: _ld_pctl(v, LD_FLOOR_PCTL) for m, v in ms.items() if len(v) >= LD_FLOOR_MIN_ITEMS}
+        if f:
+            out[lv] = f
+    return out
+
+
+def ld_card(record):
+    """An ARCHETYPE CARD from one top-band PYQ record: abstract features only — ask format, decision tags and the
+    levers they evidence, distractor mechanisms, representations, whether a figure / data is used, the concept
+    family. NEVER stem text, data, structures, numbers or the key (paraphrase rule D6). Pure."""
+    r = record if isinstance(record, dict) else {}
+    dec = [str(x) for x in (r.get('decisions') or []) if isinstance(x, str)]
+    levers = sorted({lv for d in dec for lv in LD_DECISION_LEVERS.get(d, ())})
+    if r.get('has_figure'):
+        levers = sorted(set(levers) | {'H6'})
+    return {'ask_format': r.get('ask_format'), 'decisions': dec, 'levers': levers,
+            'distractor_mechanisms': [str(x) for x in (r.get('distractor_mechanisms') or [])][:6],
+            'representations': [str(x) for x in (r.get('representations') or [])][:6],
+            'has_figure': bool(r.get('has_figure')), 'concept_family': r.get('family') or r.get('concept'),
+            'subtopic_id': r.get('subtopic_id')}
+
+
+def ld_build(pyqs, orderings, labels, official_shares=None, raise_cuts=None, seed=None, version=None,
+             orderings_by_ranker=None, scope_of=None, refits=0):
+    """THE LADDER of an exam (Step 5). pyqs: [{'id', 'scope', 'subtopic_id', 'ask_format', 'marks', 'text',
+    'has_figure', 'content' {measure: number}, 'decisions', 'distractor_mechanisms', 'representations', 'family'}];
+    orderings: {scope: [[ids easiest first]]} (ld_read_rankings, grouped by the planned scope);
+    orderings_by_ranker: {scope: {role: [[...]]}} for the reliability check. Returns the ladder document:
+    {'schema', 'release', 'version', 'labels', 'cuts', 'status' ('ok' | 'amber'), 'scope_of', 'scopes': {scope:
+    {'n', 'widened', 'positions', 'writing', 'grading', 'split', 'r_median', 'floors', 'sanity'}}, 'anchors': {id:
+    {'text', 'subtopic_id', 'ask_format', 'scope', 'p', 'has_figure'}}, 'cards': {scope: [card]}, 'figure_share':
+    {scope: share}, 'pyq_sha'}. status 'amber' when a scope's sanity fails (the paper then runs mode 'counted',
+    disclosed) — never a stop. Pure."""
+    labs = _dl_labels(labels)
+    cuts = ld_band_cuts(labs, official_shares, raise_cuts)
+    rows = [r for r in (pyqs or []) if isinstance(r, dict) and r.get('id') is not None]
+    by_id = {str(r['id']): r for r in rows}
+    od = orderings if isinstance(orderings, dict) else {}
+    obr = orderings_by_ranker if isinstance(orderings_by_ranker, dict) else {}
+    plan, of = ld_plan_scopes(rows)
+    if isinstance(scope_of, dict) and scope_of:
+        of = dict(scope_of)
+    doc = {'schema': LD_SCHEMA, 'release': R3_RELEASE, 'version': version, 'labels': labs, 'cuts': cuts,
+           'status': 'ok', 'scope_of': of, 'scopes': {}, 'anchors': {}, 'cards': {}, 'figure_share': {},
+           'refits': _qf_int(refits, 0),
+           'pyq_sha': _bv_sha(sorted([str(r['id']), str(r.get('text') or '')] for r in rows))}
+    if not cuts:
+        doc['status'] = 'amber'
+        doc['why'] = f'{len(labs)} band label(s): the ladder needs 2 to 5'
+        return doc
+    for sc, ids in sorted(plan.items()):
+        pos = ld_fit(od.get(sc) or [], ids)
+        if len(pos) < 2:
+            doc['scopes'][sc] = {'n': len(ids), 'widened': sc == '*', 'positions': {}, 'status': 'amber',
+                                 'why': 'no usable rankings'}
+            doc['status'] = 'amber'
+            continue
+        san = ld_sanity(pos, [by_id[i] for i in ids if i in by_id], obr.get(sc))
+        bands = {i: ld_band_of(p, cuts, labs) for i, p in pos.items()}
+        # stratified, seeded split into writing / grading pools (no item in both)
+        writing, grading = [], []
+        groups = {}
+        for i in sorted(pos):
+            groups.setdefault((bands[i], str((by_id.get(i) or {}).get('subtopic_id') or '')), []).append(i)
+        small = sum(1 for b in labs if sum(1 for i in pos if bands[i] == b) < 2 * LD_ANCHORS)
+        split = small == 0
+        for gk in sorted(groups):
+            g = list(groups[gk])
+            _r3_random.Random(f'{seed if seed is not None else LD_SEED}:{sc}:{gk}').shuffle(g)
+            for t, i in enumerate(g):
+                (grading if t % 2 == 0 else writing).append(i)
+        if not split:                                   # X-3: too small to split — reviewers use the whole pool,
+            grading, writing = sorted(pos), []          # the writer gets cards only
+        r_med = {}
+        for b in labs:
+            v = sorted(p for i, p in pos.items() if bands[i] == b)
+            if v:
+                r_med[b] = v[len(v) // 2] if len(v) % 2 else round((v[len(v) // 2 - 1] + v[len(v) // 2]) / 2.0, 4)
+        top_cut = cuts[-1]
+        floors = ld_floors(ids, pos, rows, top_cut)
+        st = 'ok' if san['ok'] else 'amber'
+        if st != 'ok':
+            doc['status'] = 'amber'
+        doc['scopes'][sc] = {'n': len(ids), 'widened': sc == '*',
+                             'positions': pos, 'writing': sorted(writing), 'grading': sorted(grading), 'split': split,
+                             'r_median': r_med, 'floors': floors, 'sanity': san, 'status': st}
+        for i in grading:
+            r = by_id.get(i) or {}
+            doc['anchors'][i] = {'text': str(r.get('text') or '')[:2400], 'subtopic_id': r.get('subtopic_id'),
+                                 'ask_format': r.get('ask_format'), 'scope': sc, 'p': pos[i],
+                                 'has_figure': bool(r.get('has_figure'))}
+        doc['cards'][sc] = [dict(ld_card(by_id.get(i) or {}), pyq=None)
+                            for i in sorted(writing if split else pos) if pos[i] >= top_cut]
+        nf = [bool((by_id.get(i) or {}).get('has_figure')) for i in ids]
+        doc['figure_share'][sc] = round(sum(nf) / len(nf), 4) if nf else 0.0
+    return doc
+
+
+def ld_fingerprint(ladder):
+    """A short fingerprint of what a ladder MEASURES (labels, cuts, every scope's positions) — stored in batch_state
+    when a paper starts, compared at every batch, so a ladder that changed mid-paper is disclosed. None when not a
+    ladder. Pure."""
+    if not isinstance(ladder, dict):
+        return None
+    sc = ladder.get('scopes') if isinstance(ladder.get('scopes'), dict) else {}
+    return _bv_sha([ladder.get('labels'), ladder.get('cuts'),
+                    sorted((k, sorted((v.get('positions') or {}).items())) for k, v in sc.items() if isinstance(v, dict))])[:16]
+
+
+def validate_ladder(doc):
+    """[] when a ladder document is structurally usable by Step 7, else a list of problems. Never raises."""
+    p = []
+    if not isinstance(doc, dict):
+        return ['ladder is not an object']
+    if doc.get('schema') != LD_SCHEMA:
+        p.append(f"schema {doc.get('schema')} != {LD_SCHEMA}")
+    labs = _dl_labels(doc.get('labels'))
+    cuts = doc.get('cuts')
+    if not labs or not isinstance(cuts, list) or len(cuts) != len(labs) - 1:
+        p.append('labels / cuts inconsistent')
+    if not isinstance(doc.get('scopes'), dict) or not doc.get('scopes'):
+        p.append('no scopes')
+    if not isinstance(doc.get('anchors'), dict):
+        p.append('no anchors')
+    for sc, v in (doc.get('scopes') or {}).items() if isinstance(doc.get('scopes'), dict) else []:
+        if not isinstance(v, dict) or not isinstance(v.get('positions'), dict):
+            p.append(f'scope {sc}: no positions')
+    return p
+
+
+def ld_needs_refit(ladder, pyq_ids):
+    """(refit, why): True when the ladder is absent / unusable, or the PYQs not on it exceed LD_REFIT_SHARE of the
+    pool (X-7). New PYQs below that share are reported, not refitted. Pure."""
+    if not isinstance(ladder, dict) or validate_ladder(ladder):
+        return True, 'no usable ladder'
+    on = {i for v in (ladder.get('scopes') or {}).values() if isinstance(v, dict) for i in (v.get('positions') or {})}
+    ids = {str(i) for i in (pyq_ids or [])}
+    new = ids - on
+    if ids and len(new) / max(1, len(ids)) > LD_REFIT_SHARE:
+        return True, f'{len(new)} of {len(ids)} past questions are not on the ladder (> {LD_REFIT_SHARE:.0%})'
+    return False, (f'{len(new)} new past question(s) not yet on the ladder' if new else 'current')
+
+
+# ── placement (Step 7) ──────────────────────────────────────────────────────────────────────────────────────────
+def ld_scope_for(ladder, subject, subtopic_id=None):
+    """The ladder scope of an item: by its subject name, else by its subtopic id's first segment (Step 5 scopes by
+    that segment; Step 7 may name the subject by the manifest section), else '*', else the only scope. None when
+    none. Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    sc = lad.get('scopes') if isinstance(lad.get('scopes'), dict) else {}
+    of = lad.get('scope_of') if isinstance(lad.get('scope_of'), dict) else {}
+    seg = str(subtopic_id or '').split('.')[0]
+    for key in (str(subject or ''), seg):
+        if not key:
+            continue
+        s = of.get(key) or (key if key in sc else None)
+        if s in sc:
+            return s
+    if '*' in sc:
+        return '*'
+    return next(iter(sorted(sc)), None) if len(sc) == 1 else None
+
+
+def _ld_pref(aid, anchors, sid, af, salt):
+    a = anchors.get(aid) or {}
+    seg, rs = str(sid or '').split('.'), str(a.get('subtopic_id') or '').split('.')
+    lvl = 0 if rs == seg else 1 if len(seg) >= 2 and rs[:2] == seg[:2] else 2 if seg and rs[:1] == seg[:1] else 3
+    return (lvl, 0 if af and a.get('ask_format') == af else 1, _bv_sha([salt, aid])[:12])
+
+
+def ld_anchor_set(ladder, scope, band, labels, subtopic_id=None, ask_format=None, salt=None):
+    """The 5 anchors that place one item written for `band` (§6.3 step 2), from the GRADING pool of the scope:
+    2 'below' (just below the band's cut; for the lowest band, just below the next band's cut), 2 'median' (nearest
+    the median of the band — for the lowest band, of the band above), 1 'far' (position < LD_FAR_BELOW). Same
+    subtopic preferred, then topic, section, any; then same ask format; ties by a seeded hash. A thin window is
+    widened by LD_WINDOW_WIDEN_STEP at most LD_WINDOW_WIDEN_MAX times. Returns {'anchors': [{'aid', 'p', 'group',
+    'text', 'has_figure'}], 'band', 'cut', 'probe'} or None (no placement possible — the item is measured with
+    rule r2.1, disclosed). Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    labs = _dl_labels(labels or lad.get('labels'))
+    cuts = lad.get('cuts') if isinstance(lad.get('cuts'), list) else []
+    scd = (lad.get('scopes') or {}).get(scope) if isinstance(lad.get('scopes'), dict) else None
+    anchors = lad.get('anchors') if isinstance(lad.get('anchors'), dict) else {}
+    if band not in labs or not scd or len(cuts) != len(labs) - 1:
+        return None
+    b = labs.index(band)
+    probe = b if b > 0 else 1                         # the cut that is tested
+    if probe >= len(labs):
+        return None
+    cut = float(cuts[probe - 1])
+    pool = [i for i in (scd.get('grading') or []) if i in anchors and isinstance(anchors[i].get('p'), (int, float))]
+    pick = lambda xs, n: sorted(xs, key=lambda i: _ld_pref(i, anchors, subtopic_id, ask_format, salt))[:n]
+    below = []
+    for w in range(LD_WINDOW_WIDEN_MAX + 1):
+        win = LD_BELOW_WINDOW + w * LD_WINDOW_WIDEN_STEP
+        _cand = [i for i in pool if cut - win <= anchors[i]['p'] < cut]
+        # nearest the cut first (0.01 buckets), then subtopic / format preference
+        below = sorted(_cand, key=lambda i: (round((cut - anchors[i]['p']) * 100), _ld_pref(i, anchors, subtopic_id,
+                                                                                          ask_format, salt)))[:2]
+        if len(below) == 2:
+            break
+    med_band = labs[probe]
+    rm = ((scd.get('r_median') or {}).get(med_band))
+    hi = float(cuts[probe]) if probe < len(cuts) else 1.0001
+    in_band = [i for i in pool if cut <= anchors[i]['p'] < hi and i not in below]
+    median = sorted(in_band, key=lambda i: (abs(anchors[i]['p'] - (rm if isinstance(rm, (int, float)) else cut)),
+                                             _ld_pref(i, anchors, subtopic_id, ask_format, salt)))[:2]
+    far_cut = min(LD_FAR_BELOW, cut - LD_CALIBRATION_GAP)
+    far = pick([i for i in pool if anchors[i]['p'] < far_cut and i not in below and i not in median], 1)
+    if len(below) < 2 or len(median) < 1 or len(far) < 1:
+        return None
+    rows = [(i, 'below') for i in below] + [(i, 'median') for i in median] + [(i, 'far') for i in far]
+    return {'band': band, 'probe': labs[probe], 'cut': cut,
+            'anchors': [{'aid': i, 'p': anchors[i]['p'], 'group': g, 'text': anchors[i].get('text') or '',
+                         'has_figure': bool(anchors[i].get('has_figure'))} for i, g in rows]}
+
+
+def ld_placement_task(anchor_set, item_text, salt=None):
+    """The ranking list one reviewer gets for one item: the anchors and the item, under opaque labels, in a seeded
+    shuffle, all rendered as plain text in the same template. Returns {'rank_items': [{'label', 'text'}], 'map':
+    {label: aid | 'ITEM'}, 'meta': {aid: {'p', 'group'}}, 'band', 'probe'} or None. Pure."""
+    a = anchor_set if isinstance(anchor_set, dict) else None
+    if not a or not a.get('anchors'):
+        return None
+    rows = [(x['aid'], str(x.get('text') or '')) for x in a['anchors']] + [('ITEM', str(item_text or ''))]
+    _r3_random.Random(f'{salt}:{len(rows)}').shuffle(rows)
+    labels = [chr(65 + i) for i in range(len(rows))]
+    return {'rank_items': [{'label': lb, 'text': t[:2400]} for lb, (_, t) in zip(labels, rows)],
+            'map': {lb: aid for lb, (aid, _) in zip(labels, rows)},
+            'meta': {x['aid']: {'p': x['p'], 'group': x['group']} for x in a['anchors']},
+            'band': a.get('band'), 'probe': a.get('probe')}
+
+
+def ld_read_placement(ranking, task):
+    """One reviewer's placement of one item. ranking: the labels easiest first. Returns {'valid', 'tested',
+    'discordant', 'above_below', 'above_median', 'p_new', 'why'}: valid when the ranking is a permutation of the
+    task's labels and at most LD_MAX_DISCORDANT tested anchor pairs (positions >= LD_CALIBRATION_GAP apart) are
+    ordered wrongly. Pure."""
+    t = task if isinstance(task, dict) else {}
+    mp = t.get('map') if isinstance(t.get('map'), dict) else {}
+    meta = t.get('meta') if isinstance(t.get('meta'), dict) else {}
+    bad = {'valid': False, 'tested': 0, 'discordant': 0, 'above_below': False, 'above_median': False, 'p_new': None}
+    if not isinstance(ranking, list) or not mp:
+        return dict(bad, why='no ranking')
+    order = [str(x).strip().upper() for x in ranking]
+    if sorted(order) != sorted(mp) or len(set(order)) != len(order):
+        return dict(bad, why='ranking is not a permutation of the packet labels')
+    seq = [mp[x] for x in order]
+    an = [x for x in seq if x != 'ITEM' and x in meta]
+    tested = disc = 0
+    for i in range(len(an)):
+        for j in range(i + 1, len(an)):
+            pi, pj = float(meta[an[i]]['p']), float(meta[an[j]]['p'])
+            if abs(pi - pj) >= LD_CALIBRATION_GAP:
+                tested += 1
+                if pi > pj:                             # ranked easier but sits higher on the ladder
+                    disc += 1
+    k = seq.index('ITEM')
+    below_ids = [x for x in an if meta[x]['group'] == 'below']
+    med_ids = [x for x in an if meta[x]['group'] == 'median']
+    above_below = bool(below_ids) and all(seq.index(x) < k for x in below_ids)
+    above_median = bool(med_ids) and all(seq.index(x) < k for x in med_ids)
+    lo = float(meta[seq[k - 1]]['p']) if k > 0 and seq[k - 1] in meta else 0.0
+    hi = float(meta[seq[k + 1]]['p']) if k + 1 < len(seq) and seq[k + 1] in meta else 1.0
+    valid = disc <= LD_MAX_DISCORDANT
+    return {'valid': valid, 'tested': tested, 'discordant': disc, 'above_below': above_below,
+            'above_median': above_median, 'p_new': round((lo + hi) / 2.0, 4),
+            'why': 'ok' if valid else f'{disc} of {tested} tested anchor pairs ordered wrongly (void)'}
+
+
+def ld_band_from_placement(placement, task, labels):
+    """The band one valid placement measures (§6.2 rule 1 read from the ranking): for a slot band above the lowest,
+    the slot band when the item is ranked above BOTH 'below' anchors, else the band below it; for the lowest band,
+    the band above when the item is ranked above both 'median' anchors of that band, else the lowest band. None
+    for a void placement. Pure."""
+    labs = _dl_labels(labels)
+    pl = placement if isinstance(placement, dict) else {}
+    t = task if isinstance(task, dict) else {}
+    band = t.get('band')
+    if not pl.get('valid') or band not in labs:
+        return None
+    b = labs.index(band)
+    if b > 0:
+        return band if pl.get('above_below') else labs[b - 1]
+    return labs[1] if (len(labs) > 1 and pl.get('above_median') and pl.get('above_below')) else labs[0]
+
+
+# ── writer packet (r3 / r2.1) ───────────────────────────────────────────────────────────────────────────────────
+def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, floors=None):
+    """The writer's packet under modes 'ladder' and 'counted' (§6.7): the slot band IN WORDS, the archetype cards of
+    the slot's scope (abstract features only), the levers H1-H7, up to 3 WRITING-POOL examples (never a grading
+    anchor), and the content floor for a top-band slot. NEVER a score, count target, band edge, 'aim inside the
+    band' line, reviewer offset or self-count. Pure."""
+    s = slot if isinstance(slot, dict) else {}
+    labs = _dl_labels(labels) or (_dl_labels(ladder.get('labels')) if isinstance(ladder, dict) else [])
+    band = s.get('band')
+    top = bool(labs) and band == labs[-1]
+    lad = ladder if isinstance(ladder, dict) else {}
+    sc = ld_scope_for(lad, s.get('subject'), s.get('subtopic_id')) if lad else None
+    cards = [c for c in ((lad.get('cards') or {}).get(sc) or []) if isinstance(c, dict)] if sc else []
+    sid = str(s.get('subtopic_id') or '')
+    cards = sorted(cards, key=lambda c: _ld_pref('x', {'x': c}, sid, s.get('ask_format'), s.get('q')))[:3]
+    words = {0: 'the easiest part of this exam', len(labs) - 1: "at least as hard as this exam's hardest questions"}
+    i = labs.index(band) if band in labs else None
+    lvl = words.get(i, 'as hard as this exam\'s middle questions') if i is not None else None
+    lines = []
+    if top:
+        lines.append('Make it hard with at least one real lever below (never by adding rows, statements, species or '
+                     'named principles that do not feed one another; length and arithmetic are not difficulty).')
+    out = {'q': s.get('q'), 'band': band, 'level_in_words': lvl, 'mode': mode or R3_MODE_LADDER,
+           'subtopic_id': s.get('subtopic_id'), 'qtype': s.get('qtype'), 'ask_format': s.get('ask_format'),
+           'shape': s.get('shape'), 'levers': dict(LD_LEVERS) if (top or i) else {},
+           'archetype_cards': cards if top else [], 'examples': [x for x in (examples or [])][:3],
+           'content_floor': floors if (top and isinstance(floors, dict) and floors) else None,
+           'decision_rule': R3_DECISION_RULE, 'guidance': lines, 'rule': RUBRIC_RULE_R3 if mode != R3_MODE_COUNTED
+           else RUBRIC_RULE_R21}
+    return out
+
+
+def ld_floor_for(ladder, scope, subtopic_id):
+    """The content floor that applies to a top-band item: the narrowest level (subtopic, prefixes, scope) the
+    ladder holds a floor for. {} when none (no floor applies — X-9). Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    fl = (((lad.get('scopes') or {}).get(scope) or {}).get('floors') or {}) if scope else {}
+    for lv in _ld_levels(subtopic_id):
+        if isinstance(fl.get(lv), dict) and fl[lv]:
+            return dict(fl[lv])
+    return {}
+
+
+R3_CONTENT_MEASURES = ('heavy_atoms', 'rings', 'ring_system_ord', 'stereo_specified', 'steps')
+
+
+def r3_content_measures(record):
+    """The numeric content measures (bc.content_vector, R3_CONTENT_MEASURES) of what the STEM shows — a past
+    record's 'problem'-role content_objects, or a new item's stem figures (figure_dicts role 'stem' or no role) and
+    given_smiles. {} when the item draws nothing or RDKit is unavailable (no floor applies — X-9). Never raises."""
+    r = record if isinstance(record, dict) else {}
+    objs = []
+    for ob in (r.get('content_objects') or []) if isinstance(r.get('content_objects'), list) else []:
+        if isinstance(ob, dict) and str(ob.get('role') or 'problem').split(':')[0] in ('problem', 'stem', 'given') \
+                and ob.get('canonical'):
+            objs.append({'kind': str(ob.get('kind') or 'STRUCTURE').upper(), 'canonical': ob['canonical']})
+    for fd in (r.get('figure_dicts') or []) if isinstance(r.get('figure_dicts'), list) else []:
+        if isinstance(fd, dict) and fd.get('smiles') and str(fd.get('role') or 'stem') == 'stem':
+            objs.append({'kind': 'REACTION' if '>' in str(fd['smiles']) else 'STRUCTURE', 'canonical': fd['smiles']})
+    gs = r.get('given_smiles') if r.get('given_smiles') is not None else (r.get('content_record') or {}).get('given_smiles') \
+        if isinstance(r.get('content_record'), dict) else None
+    for smi in (gs if isinstance(gs, list) else [gs] if isinstance(gs, str) else []):
+        if isinstance(smi, str) and smi.strip():
+            objs.append({'kind': 'REACTION' if '>' in smi else 'STRUCTURE', 'canonical': smi})
+    if not objs:
+        return {}
+    try:
+        cv = content_vector(objs)
+    except Exception:                                   # noqa: BLE001
+        cv = None
+    if not isinstance(cv, dict):
+        return {}
+    return {k: cv[k] for k in R3_CONTENT_MEASURES if isinstance(cv.get(k), (int, float)) and not isinstance(cv.get(k), bool)}
+
+
+def r3_floor_gaps(item_content, floor):
+    """The content measures of a top-band item below its floor: ['<measure> <value> < floor <f>']. A measure the
+    item does not carry, or the floor does not hold, gives nothing. Pure."""
+    ic = item_content if isinstance(item_content, dict) else {}
+    out = []
+    for m, f in sorted((floor or {}).items()) if isinstance(floor, dict) else []:
+        v = ic.get(m)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and isinstance(f, (int, float)) and v < f:
+            out.append(f'{m} {v} < floor {f}')
+    return out
+
+
+# ── structured review: defect codes, solver fields ──────────────────────────────────────────────────────────────
+def r3_defects(rec):
+    """The normalised defect list of one reviewer / solver record: [{'code', 'severity', 'where', 'evidence'}] for
+    every entry whose code is in R3_DEFECT_CODES (an unknown code is dropped, never guessed); severity is the
+    code's own unless the reviewer marked a minor code blocking. Pure."""
+    r = rec if isinstance(rec, dict) else {}
+    out = []
+    for d in (r.get('defects') or []) if isinstance(r.get('defects'), list) else []:
+        if not isinstance(d, dict):
+            continue
+        c = str(d.get('code') or '').strip().upper()
+        if c not in R3_DEFECT_CODES:
+            continue
+        sev = R3_DEFECT_CODES[c]
+        if str(d.get('severity') or '').strip().lower() == 'blocking':
+            sev = 'blocking'
+        out.append({'code': c, 'severity': sev, 'where': str(d.get('where') or '')[:80],
+                    'evidence': str(d.get('evidence') or '')[:300]})
+    return out
+
+
+def r3_solver_fields(rec):
+    """The structured solver fields (§7.2) of one record, normalised: approx_answer, eliminated_at_sight (list of
+    option numbers), settled_by_one_fact (bool), rule_scope ('in_scope' | 'out_of_scope' | 'n/a'), depth, breadth,
+    decisive_fact ({'entities': [...], 'property'}). Absent fields are absent. Pure."""
+    r = rec if isinstance(rec, dict) else {}
+    out = {}
+    if 'approx_answer' in r and r.get('approx_answer') not in ('', None):
+        out['approx_answer'] = r.get('approx_answer')
+    ea = r.get('eliminated_at_sight')
+    if isinstance(ea, list):
+        out['eliminated_at_sight'] = sorted({_qf_int(x, 0) for x in ea if _qf_int(x, 0) > 0})
+    if isinstance(r.get('settled_by_one_fact'), bool):
+        out['settled_by_one_fact'] = r['settled_by_one_fact']
+    rs = str(r.get('rule_scope') or '').strip().lower()
+    if rs in ('in_scope', 'out_of_scope', 'n/a'):
+        out['rule_scope'] = rs
+    for k in ('depth', 'breadth'):
+        if r.get(k) is not None and not isinstance(r.get(k), bool):
+            v = _qf_int(r.get(k), -1)
+            if 0 <= v <= 30:
+                out[k] = v
+    df = r.get('decisive_fact')
+    if isinstance(df, dict):
+        ents = sorted({' '.join(str(x).lower().split()) for x in (df.get('entities') or []) if str(x).strip()})
+        prop = ' '.join(str(df.get('property') or '').lower().split())
+        if ents and prop:
+            out['decisive_fact'] = {'entities': ents[:8], 'property': prop[:80]}
+    return out
+
+
+def r3_findings(solvers, author_key=None, qtype='mcq', tolerance=None, top_band=False, option_count=None):
+    """THE item findings of the structured review (§7.3): every BLOCKING code from ANY ONE reviewer (one report
+    acts — never outvoted; D-DISTRACTOR-WEAK is blocking for a top-band slot), plus the COMPUTED findings —
+    D-APPROX-COLLISION when the approximate answer of 2+ solvers equals a distractor, D-GIVEAWAY when 2+ solvers
+    drop the same option at sight and that leaves one option, D-RULE-SCOPE when any solver says the rule it used is
+    out of scope, and (top band only) the anti-padding pre-check items: settled by one fact (2+ solvers), depth < 2
+    (median of solvers), more than one option dropped at sight. [reason strings, each starting with the code].
+    Pure."""
+    sv = [s for s in (solvers or []) if isinstance(s, dict)]
+    out, seen = [], set()
+    for k, s in enumerate(sv, 1):
+        for d in r3_defects(s):
+            blocking = d['severity'] == 'blocking' or (top_band and d['code'] in R3_TOP_BAND_BLOCKING)
+            if blocking:
+                key = (d['code'], d['where'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(f"{d['code']} (reviewer {k}{', ' + d['where'] if d['where'] else ''}): {d['evidence']}")
+    fx = [r3_solver_fields(s) for s in sv]
+    ak = bc_answer_norm(author_key, qtype) if author_key is not None else None
+    # option-based computations apply to a single-answer question WITH options only (X-11 numerical answer: no options;
+    # X-12 multiple-select: several keys — per-option judgements there are the reviewers' codes)
+    mcq = str(qtype or 'mcq').lower() == 'mcq' and isinstance(option_count, int) and option_count >= 2
+    appx = [f.get('approx_answer') for f in fx if f.get('approx_answer') is not None] if mcq else []
+    for a in sorted({str(x) for x in appx}):
+        hits = sum(1 for x in appx if str(x) == a)
+        if hits >= 2 and ak is not None and not bc_same_answer(a, author_key, qtype, tolerance) \
+                and bc_answer_norm(a, qtype) is not None:
+            out.append(f'D-APPROX-COLLISION (computed): the common approximate method gives option {a} '
+                       f'({hits} solvers) — name the method in the stem or move that distractor')
+    elim = {}
+    for f in fx:
+        for o in f.get('eliminated_at_sight') or []:
+            elim[o] = elim.get(o, 0) + 1
+    dropped = sorted(o for o, c in elim.items() if c >= 2) if mcq else []
+    if dropped and len(dropped) >= option_count - 1:
+        out.append(f'D-GIVEAWAY (computed): options {dropped} are dropped at sight by 2+ solvers — one option is left')
+    if any(f.get('rule_scope') == 'out_of_scope' for f in fx) and not any('D-RULE-SCOPE' in x for x in out):
+        out.append('D-RULE-SCOPE (computed): a solver reports the key rests on a rule applied outside its scope')
+    if top_band:
+        if sum(1 for f in fx if f.get('settled_by_one_fact') is True) >= 2:
+            out.append('PRECHECK (top band): one fact read from the options isolates the key (2+ solvers)')
+        ds = sorted(f['depth'] for f in fx if isinstance(f.get('depth'), int))
+        if len(ds) >= 2 and ds[len(ds) // 2] < 2:
+            out.append(f'PRECHECK (top band): decision depth {ds[len(ds) // 2]} < 2 (median of solvers)')
+        if len(dropped) > 1:
+            out.append(f'PRECHECK (top band): {len(dropped)} options dropped at sight by 2+ solvers (at most 1)')
+    return out
+
+
+def r3_split_finding(kd, rung, solvers=None, qtype='mcq', tolerance=None):
+    """§7.3 rule 1 under the new modes: when the SOLVERS DISAGREE AMONG THEMSELVES and the key was settled only by the
+    adjudicator ('adjudicated' or 'rekey'), the question is ambiguous or trap-prone — it is a finding while the
+    question is below rung R3_SPLIT_FIX_RUNGS, so the next text is written with the dissent as a constraint; from
+    that rung on the adjudicated key settles as in release 2026.11.20 (bounded; never a loop). A re-key that ALL
+    solvers agree on (the author's key was wrong, the question is sound) is not a split. [] or [reason]. Pure."""
+    k = kd if isinstance(kd, dict) else {}
+    ans = [x.get('answer') for x in (solvers or []) if isinstance(x, dict) and x.get('answer') is not None]
+    split = len(ans) >= 2 and any(not bc_same_answer(ans[0], a, qtype, tolerance) for a in ans[1:])
+    if split and k.get('state') == 'settled' and k.get('certified_by') in ('adjudicated', 'rekey') \
+            and _qf_int(rung, 0) < R3_SPLIT_FIX_RUNGS:
+        return ['D-AMBIGUOUS (computed): the solvers split on the key (' + ', '.join(str(a) for a in ans) + '; '
+                + str(k.get('why') or '')[:160] + ') — rewrite so the question has exactly one reading']
+    return []
+
+
+# ── deterministic gates (no LLM) ────────────────────────────────────────────────────────────────────────────────
+_QG_PAIR_RE = _r3_re.compile(r'\(?\s*([A-Za-z]|[ivxlcIVXLC]+|\d+)\s*\)?\s*[-–—:→]\s*\(?\s*([A-Za-z]+|[ivxlcIVXLC]+|\d+)'
+                             r'\s*\)?')
+
+
+def qg_match_rows(option_text):
+    """'A-III, B-I, C-II' -> {'A': 'III', ...}; None when the option is not a row mapping. Pure."""
+    s = str(option_text or '').strip()
+    parts = [p.strip() for p in _r3_re.split(r'[;,]', s) if p.strip()]
+    d = {}
+    for p in parts:
+        m = _QG_PAIR_RE.fullmatch(p)
+        if not m:
+            return None
+        k = m.group(1).upper()
+        if k in d:
+            return None
+        d[k] = m.group(2).upper()
+    return d if len(d) >= 2 else None
+
+
+def qg_dead_rows(option_texts):
+    """G-DEADROW: the rows of a match / mapping ask whose value is the same in EVERY option. [] when the options
+    are not all row mappings over the same rows. Pure."""
+    ops = [o for o in (option_texts or []) if str(o or '').strip()] if isinstance(option_texts, (list, tuple)) else []
+    if len(ops) < 2 or len(ops) != len(option_texts or []):
+        return []
+    rows = [qg_match_rows(o) for o in ops]
+    if any(r is None for r in rows) or any(set(r) != set(rows[0]) for r in rows):
+        return []
+    return sorted(k for k in rows[0] if len({r[k] for r in rows}) == 1)
+
+
+def qg_order_seq(option_text):
+    """'X > Y > Z' -> ['X', 'Y', 'Z'] (one ordering, 3+ members, one direction); None otherwise. Pure."""
+    s = str(option_text or '').strip()
+    if not s or (('>' in s) == ('<' in s)) or _r3_re.search(r'\band\b|;', s):
+        return None
+    xs = [t.strip() for t in _r3_re.split(r'\s*[<>]\s*', s) if t.strip()]
+    return xs if len(xs) >= 3 else None
+
+
+def qg_extremes(option_texts, key=None):
+    """G-EXTREMES: in an ordering ask, True when the key's first AND last members together identify it (no other
+    option shares both) — a candidate needs only the two extremes. None when it does not apply (not an ordering,
+    or no key). Pure."""
+    ops = list(option_texts or []) if isinstance(option_texts, (list, tuple)) else []
+    seqs = [qg_order_seq(o) for o in ops]
+    k = _qf_int(key, 0)
+    if len(ops) < 2 or any(s is None for s in seqs) or not (1 <= k <= len(ops)):
+        return None
+    ends = [(s[0], s[-1]) for s in seqs]
+    return sum(1 for e in ends if e == ends[k - 1]) == 1
+
+
+_QG_NUM_RE = _r3_re.compile(r'[-−–]?\d+(?:\.\d+)?(?:\s*[×x\*]\s*10\s*(?:\^|\*\*)?\s*[-−–⁻]?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]+)?')
+_QG_SUP = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹⁻', '0123456789-')
+
+
+def qg_parse_number(text):
+    """The single quantity an option text holds — a decimal, optionally 'a × 10ⁿ', optionally followed by a short
+    unit (unit exponents such as cm⁻¹ are part of the unit) — or None when the text is a formula, an ion, a list,
+    a multi-part option, a locant ('1-butene') or holds several numbers. Pure."""
+    raw = str(text or '')
+    if not raw.strip() or _r3_re.search(r'[\[\](){},;<>+=₀-₉]|\band\b', raw):
+        return None
+    for _m in _r3_re.finditer('[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+', raw):
+        _prev = raw[:_m.start()].rstrip()
+        if '⁺' in _m.group(0) or not (_prev.endswith('10') or (_prev and (_prev[-1].isalpha() or _prev[-1] in 'µμÅΩ°'))):
+            return None                                 # a charge / ion, not a unit exponent or a power of ten
+    s = raw.replace('−', '-').replace('–', '-')
+    s = _r3_re.sub(r'\s*[×x\*]\s*10\s*(?:\^|\*\*)?\s*([⁻-]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+|-?\d+)',
+                   lambda m: 'e' + m.group(1).translate(_QG_SUP), s)
+    s = _r3_re.sub('[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]', '', s)            # unit exponents belong to the unit
+    ms = list(_r3_re.finditer(r'-?\d+(?:\.\d+)?(?:e-?\d+)?', s))
+    if len(ms) != 1:
+        return None
+    m = ms[0]
+    after = s[m.end():]
+    if after[:1] == '-' and after[1:2].isalpha():
+        return None                                     # a locant ('1-butene'), not a quantity
+    if m.start() > 0 and s[m.start() - 1].isalpha() and s[m.start() - 1] != 'e':
+        return None                                     # part of a name or formula ('C2', 'sp3')
+    rest = s[:m.start()] + ' ' + after
+    if len(_r3_re.findall(r'[A-Za-z]', rest)) > 12:
+        return None                                     # words around the number: not a numeric option
+    try:
+        mant, _, ex = m.group(0).partition('e')
+        if ex and abs(int(ex)) > R3_COMPUTE_MAX_POW:
+            return None
+        return float(mant) * (10.0 ** int(ex) if ex else 1.0)
+    except (ValueError, OverflowError):
+        return None
+
+
+def qg_sig(text):
+    """Significant figures written in a numeric option, or None. Pure."""
+    s = str(text or '').translate(_QG_SUP)
+    m = _r3_re.search(r'\d+(?:\.\d+)?', s)
+    if not m:
+        return None
+    digits = m.group(0).replace('.', '').lstrip('0')
+    return max(1, len(digits))
+
+
+def qg_option_spacing(option_texts, rel_tol=None):
+    """G-OPTION-SPACING: numeric options that cannot be told apart at the precision they are written to (two
+    options equal after rounding to the coarser one's significant figures, or within rel_tol). [(i, j)] 1-based.
+    [] when the options are not all single numbers. Pure."""
+    ops = list(option_texts or []) if isinstance(option_texts, (list, tuple)) else []
+    vals = [qg_parse_number(o) for o in ops]
+    if len(ops) < 2 or any(v is None for v in vals):
+        return []
+    sig = [qg_sig(o) or 3 for o in ops]
+    out = []
+    for i in range(len(vals)):
+        for j in range(i + 1, len(vals)):
+            a, b = vals[i], vals[j]
+            n = min(sig[i], sig[j])
+            same = a == b or (n >= 2 and _qg_round_sig(a, n) == _qg_round_sig(b, n))
+            close = rel_tol is not None and abs(a - b) <= float(rel_tol) * max(abs(a), abs(b), 1e-300)
+            if same or close:
+                out.append((i + 1, j + 1))
+    return out
+
+
+def _qg_round_sig(x, n):
+    """x rounded HALF-UP to n significant figures (Decimal; never banker's rounding). Pure."""
+    import decimal as _dc
+    try:
+        d = _dc.Decimal(repr(float(x)))
+        if d == 0:
+            return 0.0
+        q = _dc.Decimal(1).scaleb(d.adjusted() - int(n) + 1)
+        return float(d.quantize(q, rounding=_dc.ROUND_HALF_UP))
+    except (ArithmeticError, ValueError, TypeError):
+        return None
+
+
+class _R3Unsafe(Exception):
+    pass
+
+
+def r3_eval(expr, names=None):
+    """Evaluate ONE arithmetic expression in a sandbox: numbers, + - * / ** %, unary -, parentheses, the names in
+    `names` (values) and the functions in R3_COMPUTE_FUNCS. No attribute access, subscripts, comprehensions, loops,
+    lambdas or imports exist in the grammar, so evaluation always terminates; a power's exponent is capped at
+    R3_COMPUTE_MAX_POW. Returns (value, None) or (None, reason). Pure."""
+    import ast as _ast
+    s = str(expr or '').strip().replace('×', '*').replace('^', '**').replace('−', '-')
+    if not s or len(s) > R3_COMPUTE_MAX_LEN:
+        return None, 'empty or too long'
+    nm = dict(names or {})
+    try:
+        tree = _ast.parse(s, mode='eval')
+    except SyntaxError:
+        return None, 'not an arithmetic expression'
+
+    def ev(n):
+        if isinstance(n, _ast.Expression):
+            return ev(n.body)
+        if isinstance(n, _ast.Constant) and isinstance(n.value, (int, float)) and not isinstance(n.value, bool):
+            return float(n.value)
+        if isinstance(n, _ast.Name):
+            if n.id in nm and isinstance(nm[n.id], (int, float)) and not isinstance(nm[n.id], bool):
+                return float(nm[n.id])
+            raise _R3Unsafe(f'unknown name {n.id}')
+        if isinstance(n, _ast.UnaryOp) and isinstance(n.op, (_ast.USub, _ast.UAdd)):
+            v = ev(n.operand)
+            return -v if isinstance(n.op, _ast.USub) else v
+        if isinstance(n, _ast.BinOp) and isinstance(n.op, (_ast.Add, _ast.Sub, _ast.Mult, _ast.Div, _ast.Pow, _ast.Mod)):
+            a, b = ev(n.left), ev(n.right)
+            if isinstance(n.op, _ast.Add):
+                return a + b
+            if isinstance(n.op, _ast.Sub):
+                return a - b
+            if isinstance(n.op, _ast.Mult):
+                return a * b
+            if isinstance(n.op, _ast.Div):
+                return a / b
+            if isinstance(n.op, _ast.Mod):
+                return a % b
+            if abs(b) > R3_COMPUTE_MAX_POW:
+                raise _R3Unsafe('exponent too large')
+            return a ** b
+        if isinstance(n, _ast.Call) and isinstance(n.func, _ast.Name) and n.func.id in R3_COMPUTE_FUNCS \
+                and not n.keywords and 1 <= len(n.args) <= 3:
+            return float(R3_COMPUTE_FUNCS[n.func.id](*[ev(x) for x in n.args]))
+        raise _R3Unsafe(f'{type(n).__name__} is not allowed')
+    try:
+        v = ev(tree)
+    except _R3Unsafe as x:
+        return None, str(x)
+    except (ZeroDivisionError, OverflowError, ValueError, TypeError) as x:
+        return None, f'{type(x).__name__}'
+    if isinstance(v, complex) or v != v or v in (float('inf'), float('-inf')):
+        return None, 'not a finite real number'
+    return v, None
+
+
+def qg_compute(compute, option_texts, key, stem_text='', constants=None):
+    """G-NUMERIC-RESOLVE (§7.6): the writer's compute block {'values': {name: number printed in the stem}, 'key':
+    expr, 'distractors': {option no.: {'expr', 'slip'}}, 'approx': expr | None, 'rel_tol': float}. Blocking
+    findings: an expression that does not evaluate; a value not printed in the stem; the key expression not equal
+    to the keyed option at its precision; a distractor expression equal to the key; the approximate method landing
+    on a distractor while the stem names no method (the caller adds that only when the stem names none). Returns
+    {'applies', 'findings': [...]}; applies False when compute is None / not a dict (the solvers decide as today).
+    Pure."""
+    c = compute if isinstance(compute, dict) else None
+    ops = list(option_texts or []) if isinstance(option_texts, (list, tuple)) else []
+    if c is None:
+        return {'applies': False, 'findings': []}
+    f = []
+    names = dict(CONSTANTS_V1)
+    names.update({k: v for k, v in (constants or {}).items() if isinstance(v, (int, float))} if isinstance(constants, dict) else {})
+    stem = str(stem_text or '').translate(_QG_SUP)
+    stem_nums = []
+    for m in _QG_NUM_RE.findall(stem):
+        v = qg_parse_number(m)
+        if v is not None:
+            stem_nums.append(v)
+    for k, v in (c.get('values') or {}).items() if isinstance(c.get('values'), dict) else []:
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            f.append(f'G-NUMERIC-RESOLVE: value {k} is not a number')
+            continue
+        if not any(abs(v - s) <= 1e-9 * max(1.0, abs(v)) for s in stem_nums):
+            f.append(f'G-NUMERIC-RESOLVE: value {k} = {v} is not printed in the stem')
+        names[str(k)] = float(v)
+    try:
+        rel = float(c.get('rel_tol')) if c.get('rel_tol') is not None else None
+    except (TypeError, ValueError):
+        rel = None
+    kv, why = r3_eval(c.get('key'), names)
+    k = _qf_int(key, 0)
+    if kv is None:
+        f.append(f'G-NUMERIC-RESOLVE: key expression does not evaluate ({why})')
+    elif not ops:
+        # a numerical-answer question (X-11): the key IS the value
+        try:
+            kn = float(key)
+        except (TypeError, ValueError):
+            kn = None
+        tol = rel if rel is not None else 0.005
+        if kn is None or abs(kv - kn) > tol * max(abs(kn), 1e-300) * 1.0000001:
+            f.append(f'G-NUMERIC-RESOLVE: key expression gives {kv:.4g}, the key is {key}')
+    elif 1 <= k <= len(ops):
+        ov = qg_parse_number(ops[k - 1])
+        sg = qg_sig(ops[k - 1]) or 3
+        tol = rel if rel is not None else 0.5 * 10 ** (1 - sg)
+        if ov is None or abs(kv - ov) > tol * max(abs(ov), 1e-300) * 1.0000001:
+            f.append(f'G-NUMERIC-RESOLVE: key expression gives {kv:.4g}, option {k} reads {ops[k - 1]}')
+        for dn, dd in (c.get('distractors') or {}).items() if isinstance(c.get('distractors'), dict) else []:
+            dv, dw = r3_eval((dd or {}).get('expr') if isinstance(dd, dict) else dd, names)
+            if dv is None:
+                f.append(f'G-NUMERIC-RESOLVE: distractor {dn} expression does not evaluate ({dw})')
+            elif abs(dv - kv) <= tol * max(abs(kv), 1e-300):
+                f.append(f'G-NUMERIC-RESOLVE: distractor {dn} expression equals the key at the stated precision')
+        if c.get('approx'):
+            av, aw = r3_eval(c.get('approx'), names)
+            if av is not None:
+                for i, o in enumerate(ops, 1):
+                    ov2 = qg_parse_number(o)
+                    if i != k and ov2 is not None and abs(av - ov2) <= tol * max(abs(ov2), 1e-300):
+                        f.append(f'D-APPROX-COLLISION (computed): the approximate method gives option {i} — name the '
+                                 f'method in the stem or move that distractor')
+    return {'applies': True, 'findings': f}
+
+
+_QG_INLINE_STMT_RE = _r3_re.compile(r'(?:^|[\s.;])(?:\(?([A-Da-d]|[IVX]{1,3}|[1-4])\)?\s*[:.)])\s+\S')
+
+
+def qg_stem_form(stem_text, ask_format=None, data_block_lines=None, min_ask_words=3):
+    """G-STEMFORM: in a statement / combination ask, the ask clause — the text after the last statement — has fewer
+    than min_ask_words words (e.g. 'Correct:'): not a complete exam sentence. [finding]. Statements written inline
+    are split onto their own lines by the renderer, so they are not a finding. Pure."""
+    s = str(stem_text or '')
+    af = str(ask_format or '').lower()
+    out = []
+    if af in ('statement', 'statements', 'combination', 'assertion_reason', 'multi_statement'):
+        # (statements written inline are split onto their own lines by the renderer — not a stem defect)
+        tail = s.split('\n')[-1]
+        mk = list(_QG_INLINE_STMT_RE.finditer(tail))
+        if mk:
+            last = tail[mk[-1].end():]
+            cut = _r3_re.split(r'(?<=[.;])\s+', last)
+            tail = cut[-1] if len(cut) > 1 else ''
+        words = [w for w in _r3_re.split(r'\s+', tail.strip()) if w]
+        if tail.strip() and len(words) < int(min_ask_words):
+            out.append(f"G-STEMFORM: the ask '{tail.strip()[:40]}' is not a complete exam sentence")
+    return out
+
+
+_QG_FIGREF_RE = _r3_re.compile(r"\b(?:point|curve|line|peak|region|level|term|state|band|plot|graph)\s+"
+                               r"([A-Z][A-Za-z0-9′'₀-₉]*)\b|\b(the (?:ideal|dashed|dotted|straight) line)\b", _r3_re.I)
+
+
+def qg_stem_fig_refs(stem_text, figure_labels):
+    """G-STEMFIGREF: every figure element the stem names ('point A', 'curve B', 'the dashed line', ...) must be
+    among the labels the figure record carries (figure_labels — the labels / legend entries drawn, the same
+    notation). [finding]. Applies only to an item with a figure record that lists its labels. Pure."""
+    labs = [str(x).strip() for x in (figure_labels or []) if str(x).strip()] if isinstance(figure_labels, (list, tuple)) else None
+    if not labs:
+        return []
+    low = {x.lower() for x in labs}
+    out = []
+    for m in _QG_FIGREF_RE.finditer(str(stem_text or '')):
+        name = (m.group(1) or m.group(2) or '').strip()
+        if name and name.lower() not in low and not any(name.lower() in x for x in low):
+            out.append(f"G-STEMFIGREF: the stem names '{name}', which the figure does not show in that notation")
+    return sorted(set(out))
+
+
+_QG_ALT_ID_RE = _r3_re.compile(r'\b(?:class schematic|series\s*:\s*series\s*\d+|fig(?:ure)?_[0-9a-f]{6,}|q\d+_f\d+|'
+                               r'[a-z]+_[a-z_]+_v\d+|[0-9a-f]{16,})\b', _r3_re.I)
+
+
+def qg_alt_text(alt):
+    """G-ALTTEXT: alt text must be a reader sentence — no internal ids, schematic class names or chart-library
+    series names. [finding]. Pure."""
+    s = str(alt or '')
+    m = _QG_ALT_ID_RE.search(s)
+    return [f"G-ALTTEXT: alt text carries an internal id '{m.group(0)}'"] if m else []
+
+
+def qg_fact_overlap(items):
+    """G-INTRAPAPER-FACT: pairs of items testing the same fact — the same decisive entity set and the same property
+    (from the solvers' decisive_fact, else the item's named_entities with its concept), regardless of subtopic or
+    concept wording. items: [{'q', 'decisive_fact'?, 'named_entities'?, 'concept'?}]. [(earlier q, later q,
+    why)]. Pure."""
+    rows = []
+    for it in (items or []) if isinstance(items, (list, tuple)) else []:
+        if not isinstance(it, dict):
+            continue
+        df = it.get('decisive_fact') if isinstance(it.get('decisive_fact'), dict) else None
+        if df and df.get('entities') and df.get('property'):
+            ents = tuple(sorted({' '.join(str(x).lower().split()) for x in df['entities']}))
+            prop = ' '.join(str(df['property']).lower().split())
+        else:
+            ne = [str(x) for x in (it.get('named_entities') or []) if str(x).strip()]
+            if len(ne) < 1 or not it.get('concept'):
+                continue
+            ents = tuple(sorted({' '.join(x.lower().split()) for x in ne}))
+            prop = ' '.join(str(it.get('concept')).lower().replace('_', ' ').split())
+        rows.append((_qf_int(it.get('q'), 0), ents, prop))
+    rows.sort()
+    out = []
+    for i in range(len(rows)):
+        for j in range(i + 1, len(rows)):
+            a, b = rows[i], rows[j]
+            if a[1] and a[1] == b[1] and a[2] == b[2]:
+                out.append((a[0], b[0], f"same fact: {', '.join(a[1])[:80]} / {a[2][:60]}"))
+    return out
+
+
+def qg_figure_share(items_by_subject, pyq_share_by_subject):
+    """G-FIGURE-SHARE: per subject, the paper's share of figure-bearing items must be at least FIGURE_SHARE_FLOOR x
+    the scope's past-question share. items_by_subject: {subject: [bool has_figure]}; pyq_share_by_subject:
+    {subject: share 0-1}. [finding] (AMBER line — the schedule decides figure slots; this reports a shortfall).
+    Pure."""
+    out = []
+    for s, flags in sorted((items_by_subject or {}).items()) if isinstance(items_by_subject, dict) else []:
+        fl = [bool(x) for x in (flags or [])]
+        ps = (pyq_share_by_subject or {}).get(s) if isinstance(pyq_share_by_subject, dict) else None
+        if not fl or not isinstance(ps, (int, float)) or ps <= 0:
+            continue
+        have = sum(fl) / len(fl)
+        need = FIGURE_SHARE_FLOOR * float(ps)
+        if have + 1e-9 < need:
+            out.append(f'G-FIGURE-SHARE: {s} has {sum(fl)} of {len(fl)} items with a figure ({have:.0%}); the exam '
+                       f'uses figures in {ps:.0%} of its past questions (floor {need:.0%})')
+    return out
+
+
+R3_HARD_GATES = ('G-DEADROW', 'G-NUMERIC-RESOLVE', 'G-OPTION-SPACING', 'D-APPROX-COLLISION')   # still failing after the pre-review tries -> a hard finding (rung ladder);
+                                          # every other gate finding is disclosed AMBER, never a rung
+
+
+def r3_hard_gate(finding):
+    """True when a pre-review gate finding is one of R3_HARD_GATES (it then enters the bounded rung ladder once the
+    pre-review tries are spent); every other finding is disclosed AMBER. Pure."""
+    s = str(finding or '')
+    return any(s.startswith(g) for g in R3_HARD_GATES)
+
+
+def qg_item_gates(entry, key=None, top_band=False):
+    """The deterministic per-item gates of the pre-review (§7.7 step 1), on one concept_map entry: G-DEADROW,
+    G-EXTREMES (blocking for a top-band slot only — the exam's own ordering asks decide the rest), G-OPTION-SPACING,
+    G-NUMERIC-RESOLVE (when the entry carries 'compute'), G-STEMFORM, G-STEMFIGREF (when the figure record lists its
+    labels), G-ALTTEXT (every figure dict's alt). [finding strings]. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    ops = list(e.get('option_texts') or []) if isinstance(e.get('option_texts'), (list, tuple)) else []
+    out = []
+    dr = qg_dead_rows(ops)
+    if dr:
+        out.append(f"G-DEADROW: row(s) {dr} have the same value in every option — every row must discriminate")
+    if top_band and qg_extremes(ops, key) is True:
+        out.append('G-EXTREMES: the first and last members alone identify the key — change the distractors so the '
+                   'middle of the order must be decided')
+    for i, j in qg_option_spacing(ops, (e.get('compute') or {}).get('rel_tol') if isinstance(e.get('compute'), dict) else None):
+        out.append(f'G-OPTION-SPACING: options {i} and {j} cannot be told apart at the precision written')
+    cp = qg_compute(e.get('compute'), ops, key, e.get('stem_text'), e.get('constants'))
+    out += cp['findings']
+    out += qg_stem_form(e.get('stem_text'), e.get('ask_format'), e.get('data_block_lines'))
+    labs = []
+    for fd in (e.get('figure_dicts') or []) if isinstance(e.get('figure_dicts'), list) else []:
+        if isinstance(fd, dict):
+            labs += [str(x) for x in (fd.get('labels') or []) if str(x).strip()]
+            out += qg_alt_text(fd.get('alt') or fd.get('alt_text'))
+    out += qg_stem_fig_refs(e.get('stem_text'), labs or None)
+    out += qg_ask_stereo(e.get('stem_text'), e)
+    return out
+
+
+_QG_COUNT_STEREO_RE = _r3_re.compile(r'\b(?:number of|how many|total)\b[^.?]{0,60}\bstereo-?isomers?\b|'
+                                     r'\bstereo-?isomers?\b[^.?]{0,40}\b(?:possible|are there|exist)', _r3_re.I)
+
+
+def qg_ask_stereo(stem_text, entry):
+    """G-ASKSTEREO: a stem that asks to COUNT stereoisomers while its drawing already fixes stereo elements
+    (r3_content_measures stereo_specified > 0) — the drawing contradicts what the ask varies. [finding] (soft:
+    disclosed, and the reviewers' D-FIG-CONTRADICTS-ASK code acts). Pure."""
+    if not _QG_COUNT_STEREO_RE.search(str(stem_text or '')):
+        return []
+    n = (r3_content_measures(entry) or {}).get('stereo_specified')
+    return [f'G-ASKSTEREO: the stem asks for a stereoisomer count but the drawing fixes {n} stereo element(s) — '
+            f'draw the structure without stereo marks'] if isinstance(n, (int, float)) and n > 0 else []
+
+
+# ── paper-level rules ───────────────────────────────────────────────────────────────────────────────────────────
+def r3_count_rule(delivered, requested, labels):
+    """§6.2 rule 3 — counts are cumulative minimums from the HARDEST band: at least n_top in the top band, at least
+    n_top + n_next in the two hardest, and so on. delivered {q: band}; requested {band: count}. Returns {'ok',
+    'rows': [{'bands', 'need', 'have', 'ok'}]}. An extra harder question in place of an easier one is allowed.
+    Pure."""
+    labs = _dl_labels(labels)
+    d = [b for b in (delivered or {}).values()] if isinstance(delivered, dict) else []
+    rq = requested if isinstance(requested, dict) else {}
+    rows, need, have_set = [], 0, []
+    for b in reversed(labs):
+        need += _qf_int(rq.get(b), 0)
+        have_set.append(b)
+        have = sum(1 for x in d if x in have_set)
+        rows.append({'bands': list(have_set), 'need': need, 'have': have, 'ok': have >= need})
+    return {'ok': all(r['ok'] for r in rows), 'rows': rows}
+
+
+def r3_paper_rule(p_new_by_q, delivered, ladder, scope_by_q, labels):
+    """§6.2 rule 2 — for every band with at least 3 delivered questions in a scope, the median placement of those
+    questions must be at least the median position of the scope's real questions of that band (r_median). Returns
+    {'ok', 'rows': [{'scope', 'band', 'n', 'median_new', 'median_real', 'ok'}]}; a row with no placements or no
+    real median is 'n/a' (ok). Pure."""
+    labs = _dl_labels(labels)
+    lad = ladder if isinstance(ladder, dict) else {}
+    groups = {}
+    for q, b in (delivered or {}).items() if isinstance(delivered, dict) else []:
+        p = (p_new_by_q or {}).get(q) if isinstance(p_new_by_q, dict) else None
+        sc = (scope_by_q or {}).get(q) if isinstance(scope_by_q, dict) else None
+        if b in labs and isinstance(p, (int, float)) and sc:
+            groups.setdefault((sc, b), []).append(float(p))
+    rows = []
+    for (sc, b), ps in sorted(groups.items()):
+        if len(ps) < 3:
+            continue
+        ps.sort()
+        med = ps[len(ps) // 2] if len(ps) % 2 else (ps[len(ps) // 2 - 1] + ps[len(ps) // 2]) / 2.0
+        rm = (((lad.get('scopes') or {}).get(sc) or {}).get('r_median') or {}).get(b)
+        ok = (not isinstance(rm, (int, float))) or med + 1e-9 >= float(rm)
+        rows.append({'scope': sc, 'band': b, 'n': len(ps), 'median_new': round(med, 4),
+                     'median_real': rm, 'ok': ok})
+    return {'ok': all(r['ok'] for r in rows), 'rows': rows}
+
+
+def r3_footer_lines(mode, ladder=None, count_rule=None, paper_rule=None, void_rate=None, figure_share=None):
+    """The delivery-footer lines of the difficulty and review rules (Framework_DeliveryFooter §2R). AMBER / RED
+    lines name what was not met — never a stop. Pure."""
+    out = []
+    n = r3_mode_note(mode, ladder)
+    if n:
+        out.append(n)
+    cr = count_rule if isinstance(count_rule, dict) else None
+    if cr and cr.get('rows'):
+        bad = [r for r in cr['rows'] if not r.get('ok')]
+        if bad:
+            out.append('DIFFICULTY (RED): requested counts not met — ' + '; '.join(
+                f"{'+'.join(r['bands'])}: {r['have']} of at least {r['need']}" for r in bad))
+        else:
+            out.append('DIFFICULTY: requested counts met or exceeded (' + '; '.join(
+                f"{'+'.join(r['bands'])} {r['have']}/{r['need']}" for r in cr['rows']) + ')')
+    pr = paper_rule if isinstance(paper_rule, dict) else None
+    if pr and pr.get('rows'):
+        bad = [r for r in pr['rows'] if not r.get('ok')]
+        if bad:
+            out.append('DIFFICULTY (RED): band below the real exam — ' + '; '.join(
+                f"{r['scope']} {r['band']}: median {r['median_new']} < real {r['median_real']}" for r in bad))
+    if isinstance(void_rate, (int, float)):
+        out.append(f'PLACEMENT: {void_rate:.0%} of reviewer placements were void (calibration failed) — each graded '
+                   f'one band below its slot')
+    for x in (figure_share or []):
+        out.append(str(x) + ' (AMBER)')
+    return out
+
+
+# ── reviewer brief and job rows (modes 'ladder' / 'counted') ────────────────────────────────────────────────────
+R3_DEFECTS_TEXT = ("'defects': a list, one entry per problem you find, each {\"code\": <one of " +
+                   ', '.join(sorted(R3_DEFECT_CODES)) + ">, \"severity\": <blocking|minor>, \"where\": <stem | option "
+                   "<n> | row <x> | figure <file>>, \"evidence\": <one sentence>} — [] when you find none. Codes: "
+                   "D-SECOND-ANSWER another option is also defensible; D-KEY-WRONG the key is not the best answer; "
+                   "D-RULE-SCOPE the key rests on a rule applied outside its documented scope (name both); "
+                   "D-AMBIGUOUS a reasonable reading changes the answer; D-DATA-INCONSISTENT data, formula, name, "
+                   "count or units disagree; D-FIG-STEM-MISMATCH the stem names figure content that is missing or in "
+                   "other notation; D-FIG-CONTRADICTS-ASK the drawing fixes what the question asks to vary or count; "
+                   "D-DEAD-ROW a row has the same value in every option; D-GIVEAWAY one surface check (ordering "
+                   "extremes, kind of thing, unit, length) leaves one option; D-DISTRACTOR-WEAK an option is not the "
+                   "result of any real mistake; D-APPROX-COLLISION a common approximate method lands on a distractor "
+                   "and the stem does not name the method; D-LEAK the stem gives the answer away; D-PARAPHRASE it "
+                   "restates a past question (name it); D-EASIER-THAN-SOURCE it mirrors a named past question but asks "
+                   "less; D-STEM-FORM not a complete exam sentence; D-NOTATION non-standard symbols or units; "
+                   "D-FIG-RENDER a drawn line runs through a label, labels overlap or are unreadable, or the stem "
+                   "figure is drawn at a different scale or weight from the option figures. ONE "
+                   "report is enough: do not write 'none' and then describe a problem — put every problem here.")
+R3_SOLVER_FIELDS_TEXT = ("\"approx_answer\": <the option a common shortcut or approximation gives, or null>, "
+                         "\"eliminated_at_sight\": [<option numbers you dropped without working>], "
+                         "\"settled_by_one_fact\": <true if one fact read from the options isolates the key>, "
+                         "\"rule_scope\": <in_scope|out_of_scope|n/a — does the rule your key rests on apply to this "
+                         "substrate / system>, \"depth\": <decision depth>, \"breadth\": <breadth>, \"decisive_fact\": "
+                         "{\"entities\": [<the species / quantities the key turns on>], \"property\": <the property "
+                         "asked>}")
+BV_BRIEF_REVIEWER_R3 = (
+    "You are a FRESH BLIND REVIEWER of exam questions. You did not write them and you are not told the level any of "
+    "them was written for. Read ONLY <JOB_DIR>/packet.json: 'items' (each: 'q', 'item' — the question as a candidate "
+    "sees it; its figure files are in <JOB_DIR>: open and look at each — 'proven_structures', 'figures_to_read', "
+    "'task' and, when task is 'rank', 'rank_items'), 'labels', 'decision_rule' and, for items whose task is 'count', "
+    "'counting_rules'. For EVERY item, on its own: (1) solve it fully as a candidate; (2) when task is 'rank': "
+    "rank_items holds SIX questions under labels A-F, one of them this item and five real past questions of this "
+    "exam; rank all six from EASIEST to HARDEST for a well-prepared candidate within the exam's time — judge what the "
+    "candidate must know and decide, never length or arithmetic — and write the labels in 'ranking'; when task is "
+    "'count': write 'facets', 'moves', 'principles', 'speed_hack', 'shortcut', 'negative' with counting_rules "
+    "exactly; (3) for each file in 'figures_to_read' transcribe the structure as ONE SMILES exactly as drawn; (4) "
+    "review the item: " + R3_DEFECTS_TEXT + " (5) the solver fields. Measure with " + "'decision_rule'" + ". Do not "
+    "open any other file. Write <JOB_DIR>/result.json as {\"items\": {\"<q>\": {\"answer\": <option number 1-based, "
+    "a list for multiple-select, or the value>, \"confidence\": <high|medium|low>, \"assumptions\": [{\"about\": "
+    "<stereo|conditions|data|wording|other>, \"text\": <...>, \"changes_answer\": <true|false>}], \"ranking\": "
+    "[<labels easiest first> — task rank only], \"facets\"/\"moves\"/\"principles\"/\"speed_hack\"/\"shortcut\"/"
+    "\"negative\": <task count only>, \"band\": <one of labels — the band you judge>, \"class\": <recall|conceptual|"
+    "computation|derivational|figural|structural|other>, \"concept\": <short label>, \"figure_reads\": [{\"file\", "
+    "\"smiles\", \"stereo_mode\"}], \"defects\": [...], " + R3_SOLVER_FIELDS_TEXT + ", \"single_answer\": <\"yes\" | "
+    "\"no: <which other option>\">}}}. Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
+
+
+def r3_counting_rules():
+    """The r2.1 counting rules (mode 'counted' and a 'count' task): the r2 facet / speed / negative rules with the
+    decision-depth moves rule and the needed-principles rule. Pure."""
+    base = dict(br_counting_rules())
+    base['moves'] = R21_MOVES_RULE
+    base['principles'] = R21_PRINCIPLES_RULE
+    base['decision_rule'] = R3_DECISION_RULE
+    base['rule'] = RUBRIC_RULE_R21
+    return base
+
+
+def r3_item_text(entry):
+    """The plain-text rendering of an item for a ranking list (the same template as an anchor): stem, list columns,
+    options numbered (1)..(n), figure descriptions. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    parts = [str(e.get('stimulus_text') or '').strip(), str(e.get('stem_text') or e.get('stem') or '').strip()]
+    lc = e.get('list_columns')
+    if isinstance(lc, list):
+        for i, col in enumerate(lc):
+            if isinstance(col, list):
+                parts.append(f'List-{"I" * (i + 1)}: ' + '; '.join(str(x) for x in col))
+    for fd in (e.get('figure_dicts') or []) if isinstance(e.get('figure_dicts'), list) else []:
+        if isinstance(fd, dict) and (fd.get('description') or fd.get('smiles')):
+            parts.append('[figure: ' + str(fd.get('description') or fd.get('smiles'))[:300] + ']')
+    ops = e.get('option_texts') or e.get('options') or []
+    if isinstance(ops, list) and ops:
+        parts.append(' '.join(f'({i}) {str(o)[:200]}' for i, o in enumerate(ops, 1)))
+    return '\n'.join(p for p in parts if p)
+
+
+def r3_reviewer_rows(rows, tasks_by_q):
+    """Turn the release-2026.11.20 reviewer rows into r3 rows: an item with a placement task gets task 'rank' and
+    its rank_items (and loses the band-labelled exemplars); every other item gets task 'count'. Pure."""
+    out = []
+    for r in (rows or []) if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        x = {k: v for k, v in r.items() if k != 'exemplars'}
+        t = (tasks_by_q or {}).get(str(r.get('q'))) if isinstance(tasks_by_q, dict) else None
+        if isinstance(t, dict) and t.get('rank_items'):
+            x['task'] = 'rank'
+            x['rank_items'] = t['rank_items']
+        else:
+            x['task'] = 'count'
+        out.append(x)
+    return out
+
+
+def r3_grade_from_review(rec, task, labels):
+    """The grader record of one r3 review (bv_read_result 'grader' shape) or None: under a 'rank' task the band is
+    ld_band_from_placement; a VOID placement grades the band below the slot (measure 'placement_void' — never
+    credited with the slot band, never a missing result); under a 'count' task the r2.1 counts (br_obs) decide as
+    in release 2026.11.20. Pure."""
+    r = rec if isinstance(rec, dict) else {}
+    labs = _dl_labels(labels)
+    if isinstance(task, dict) and task.get('map'):
+        pl = ld_read_placement(r.get('ranking'), task)
+        b = ld_band_from_placement(pl, task, labs)
+        if b is None:
+            # a VOID placement (calibration failed / no ranking): the item is NOT credited with its slot band — this
+            # grade is the band below the slot (the lowest band stays lowest). Never None: a void must not become a
+            # missing result (that would be a NO-MODEL wait — a stop by another name). The footer reports the rate.
+            _sb = task.get('band')
+            b = labs[max(0, labs.index(_sb) - 1)] if _sb in labs else None
+            if b is None:
+                return None
+            return {'band': b, 'decisions': _qf_int(r.get('depth'), 0), 'rationale': str(pl.get('why'))[:200],
+                    'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
+                    'concept': r.get('concept'), 'rubric': None, 'measure': 'placement_void', 'placement': pl}
+        return {'band': b, 'decisions': _qf_int(r.get('depth'), 0), 'rationale': str(pl.get('why'))[:200],
+                'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
+                'concept': r.get('concept'), 'rubric': None, 'measure': 'placement_r3', 'placement': pl}
+    g = bv_read_result('grader', r, labs)
+    if g is not None:
+        g['measure_rule'] = RUBRIC_RULE_R21
+    return g
+
+
+for _n, _d in {
+        'r3_mode': lambda *a, **k: R3_MODE_COUNTED,
+        'r3_entry_mode': lambda *a, **k: R3_MODE_LEGACY,
+        'r3_mode_note': lambda *a, **k: None,
+        'ld_band_cuts': lambda *a, **k: [],
+        'ld_band_of': lambda *a, **k: None,
+        'ld_plan_scopes': lambda *a, **k: ({}, {}),
+        'ld_packets': lambda *a, **k: [],
+        'ld_ranking_jobs': lambda *a, **k: [],
+        'ld_read_rankings': lambda *a, **k: [],
+        'ld_fit': lambda *a, **k: {},
+        'ld_sanity': lambda *a, **k: {'ok': False, 'checks': [{'check': 'error', 'ok': False, 'value': None}]},
+        'ld_floors': lambda *a, **k: {},
+        'ld_card': lambda *a, **k: {},
+        'ld_build': lambda *a, **k: {'schema': LD_SCHEMA, 'status': 'amber', 'why': 'invalid input', 'scopes': {},
+                                      'anchors': {}, 'labels': [], 'cuts': []},
+        'validate_ladder': lambda *a, **k: ['invalid input'],
+        'ld_fingerprint': lambda *a, **k: None,
+        'ld_needs_refit': lambda *a, **k: (True, 'invalid input'),
+        'ld_scope_for': lambda *a, **k: None,
+        'ld_anchor_set': lambda *a, **k: None,
+        'ld_placement_task': lambda *a, **k: None,
+        'ld_read_placement': lambda *a, **k: {'valid': False, 'tested': 0, 'discordant': 0, 'above_below': False,
+                                              'above_median': False, 'p_new': None, 'why': 'invalid input'},
+        'ld_band_from_placement': lambda *a, **k: None,
+        'r3_author_packet': lambda *a, **k: {},
+        'ld_floor_for': lambda *a, **k: {},
+        'r3_floor_gaps': lambda *a, **k: [],
+        'r3_content_measures': lambda *a, **k: {},
+        'r3_defects': lambda *a, **k: [],
+        'r3_solver_fields': lambda *a, **k: {},
+        'r3_findings': lambda *a, **k: [],
+        'r3_split_finding': lambda *a, **k: [],
+        'qg_match_rows': lambda *a, **k: None,
+        'qg_dead_rows': lambda *a, **k: [],
+        'qg_order_seq': lambda *a, **k: None,
+        'qg_extremes': lambda *a, **k: None,
+        'qg_parse_number': lambda *a, **k: None,
+        'qg_sig': lambda *a, **k: None,
+        'qg_option_spacing': lambda *a, **k: [],
+        'r3_eval': lambda *a, **k: (None, 'invalid input'),
+        'qg_compute': lambda *a, **k: {'applies': False, 'findings': []},
+        'qg_stem_form': lambda *a, **k: [],
+        'qg_stem_fig_refs': lambda *a, **k: [],
+        'qg_alt_text': lambda *a, **k: [],
+        'qg_fact_overlap': lambda *a, **k: [],
+        'qg_figure_share': lambda *a, **k: [],
+        'qg_item_gates': lambda *a, **k: [],
+        'qg_ask_stereo': lambda *a, **k: [],
+        'r3_hard_gate': lambda *a, **k: False,
+        'r3_count_rule': lambda *a, **k: {'ok': False, 'rows': []},
+        'r3_paper_rule': lambda *a, **k: {'ok': True, 'rows': []},
+        'r3_footer_lines': lambda *a, **k: [],
+        'r3_counting_rules': lambda *a, **k: {},
+        'r3_item_text': lambda *a, **k: '',
+        'r3_reviewer_rows': lambda *a, **k: [],
+        'r3_grade_from_review': lambda *a, **k: None,
 }.items():
     _nf_guard(_n, _d)
 del _n, _d

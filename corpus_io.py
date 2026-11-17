@@ -9778,7 +9778,9 @@ def render_ts_chair(step, ring, caption, section='DEDUCTION', dpi=CHS_FIGURE_DPI
 # ══════════════════════════════════════════════════════════════════════════════════════
 ORG_LABEL_PAD = 0.15             # x median bond length (C_LABEL_PAD; blueprint_core is the owner of the default)
 ORG_MIN_ATOM_SEP = 0.5           # x median bond length (C_MIN_ATOM_SEP)
-ORG_LABEL_HALF = 0.28            # half-size of an atom-label box, x median bond length
+ORG_LABEL_HALF = 0.28            # half-size of an atom-label box, x median bond length (one character)
+ORG_LABEL_CHAR_W = 0.40          # G-LABELSIZE (release 2026.11.21): each further character widens the box by this x
+                                 # the one-character half-width (an 'OH' / 'NH2' label is wider than an 'O')
 ORG_REDEPICT_MAX = 24            # C_REDEPICT_MAX
 ORG_TEMPLATE_MIN_BOND_RATIO = 0.5    # a PERSPECTIVE template foreshortens by design (bridge vs back edge)
 ORG_MIN_STEM_WIDTH_IN = 1.0      # C_MIN_STEM_WIDTH_IN
@@ -9810,6 +9812,19 @@ def _org_label_atoms(mol):
                 or a.GetDegree() == 0:
             out.append(a.GetIdx())
     return out
+
+
+def _org_label_text(atom):
+    """The text an atom label prints: symbol, implicit / explicit H count, charge sign (G-LABELSIZE). Never raises."""
+    try:
+        t = atom.GetSymbol()
+        h = atom.GetTotalNumHs()
+        t += ('H' + (str(h) if h > 1 else '')) if h else ''
+        q = atom.GetFormalCharge()
+        t += ('+' if q > 0 else '-') * min(abs(q), 1) + (str(abs(q)) if abs(q) > 1 else '')
+        return t
+    except Exception:                                         # noqa: BLE001
+        return 'X'
 
 
 def _org_seg_cross(p1, p2, p3, p4):
@@ -9845,7 +9860,10 @@ def mol_geometry_gates(mol, label_pad=None, min_sep=None):
                 if _org_seg_cross(xy[a1], xy[a2], xy[b1], xy[b2]):
                     fnd.append(('G-BONDCROSS', f'bond {a1}-{a2} crosses bond {b1}-{b2}'))
         labs = _org_label_atoms(mol)
-        boxes = {k: [xy[k][0] - half - pad, xy[k][1] - half - pad, xy[k][0] + half + pad, xy[k][1] + half + pad]
+        # G-LABELSIZE (release 2026.11.21): the box is as wide as the label's text (one character = ORG_LABEL_HALF)
+        _hw = {k: half * (1.0 + ORG_LABEL_CHAR_W * max(0, len(_org_label_text(mol.GetAtomWithIdx(k))) - 1))
+               for k in labs}
+        boxes = {k: [xy[k][0] - _hw[k] - pad, xy[k][1] - half - pad, xy[k][0] + _hw[k] + pad, xy[k][1] + half + pad]
                  for k in labs}
         for (a1, a2) in bonds:
             p, q = xy[a1], xy[a2]

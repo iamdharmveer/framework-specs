@@ -1235,6 +1235,12 @@ Entry v2.0.1 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFI
 #   level_note). Reviewer isolation is unchanged — the packet carries no band, no
 #   difficulty_obs and no level record (handshake H6).
 ```
+# v2.2.0 — 2026-11-16 — GAP-2026-11-14-BATCH-COMPLETE (paired with MockTestCreate v7.0; OD-2026-11-14 R6): this brief
+#   is used ONLY by the LEGACY S13-2G path (a paper begun before Create v7.0). The independent review of a v7.0 paper
+#   runs IN EACH BATCH: the batch reviewer brief (blueprint_core.BV_BRIEF_REVIEWER) asks the checklist fields of S2-2
+#   (single_answer, leak_or_paraphrase, distractor_existence_and_class, consistency_and_names, selectivity_basis), and
+#   S2-2 stays the single wording source — audit_sync BC-CHECKLIST-SYNC keeps the two in step. Entry v2.1.0 moved to
+#   SPEC_HISTORY.md.
 
 ## Framework_MockTestAnalyse.md
 

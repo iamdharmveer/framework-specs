@@ -1595,8 +1595,100 @@ def bc_reopen(exam, n, qs, reason, home='/home/claude'):
         return []
 
 
+def bv_load_ladder(exam, home='/home/claude', fresh_first=False):
+    """Cluster R3: the exam's difficulty ladder ([ExamCode]_difficulty_ladder.json, written by Step 5). A paper in
+    progress reads the session's STAGED copy first (the ladder is frozen per paper); a NEW paper (fresh_first) reads
+    the attachments, then the project files, then the staged copy — a re-built ladder that was attached wins over a
+    stale staged one. None when absent or unreadable (the paper then runs mode 'counted', disclosed). Never raises."""
+    import json, os
+    _home = [os.path.join(home, f'{exam}_difficulty_ladder.json')]
+    _fresh = [f'/mnt/user-data/uploads/{exam}_difficulty_ladder.json', f'/mnt/project/{exam}_difficulty_ladder.json']
+    for _p in (_fresh + _home if fresh_first else _home + _fresh):
+        try:
+            if os.path.exists(_p):
+                _d = json.load(open(_p, encoding='utf-8'))
+                if isinstance(_d, dict):
+                    return _d
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def bv_difficulty_mode(batch_state, ladder=None):
+    """Cluster R3: THE difficulty mode of a paper, frozen in batch_state['difficulty_mode'] the first time it is
+    asked. A paper whose batch_state already holds review records but no mode was begun on an earlier release and
+    stays on that release's rule ('br1') — a paper never changes rule mid-way. Mutates batch_state; never raises."""
+    bs = batch_state if isinstance(batch_state, dict) else {}
+    if str(bs.get('difficulty_mode') or '') not in bc.R3_MODES:
+        begun = bool(((bs.get('bv') or {}).get('items')) if isinstance(bs.get('bv'), dict) else False)
+        bs['difficulty_mode'] = bc.R3_MODE_LEGACY if begun else bc.r3_mode({}, ladder,
+                                                                           {'difficulty_mode': bs.get('blueprint_difficulty_mode')})
+    return bs['difficulty_mode']
+
+
+def bv_r3_gaps(entry, key, top_band, ladder=None, mode=None):
+    """Cluster R3 pre-review gaps of one text (§7.7 steps 1 and 3): the deterministic item gates
+    (bc.qg_item_gates) and, for a top-band slot on the ladder, the content floor (bc.ld_floor_for /
+    bc.r3_floor_gaps against the entry's content_record). [gap strings]. Never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    out = list(bc.qg_item_gates(e, key, top_band))
+    if top_band and mode == bc.R3_MODE_LADDER and isinstance(ladder, dict):
+        _sc = bc.ld_scope_for(ladder, e.get('subject'), e.get('subtopic_id'))
+        _fl = bc.ld_floor_for(ladder, _sc, e.get('subtopic_id'))
+        if _fl:
+            out += [f'CONTENT FLOOR (top band): {x} — use a larger / more constrained setting'
+                    for x in bc.r3_floor_gaps(bc.r3_content_measures(e), _fl)]
+    return out
+
+
+def bv_r3_report(batch_state, concept_map, ladder=None):
+    """Cluster R3 paper report for the footer (S13-2L.0): the mode note, the count rule (cumulative minimums from
+    the top), the paper rule (median placement per band vs the real exam) and the void-placement rate. Returns
+    {'info': [...], 'amber': [...], 'count_rule', 'paper_rule'}; writes nothing. Never raises."""
+    bs = batch_state if isinstance(batch_state, dict) else {}
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    labs = list(bs.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    mode = str(bs.get('difficulty_mode') or bc.R3_MODE_LEGACY)
+    if mode == bc.R3_MODE_LEGACY:
+        return {'info': [], 'amber': [], 'count_rule': None, 'paper_rule': None}
+    req = bs.get('schedule_requested') or {}
+    if not req:
+        _tg = bs.get('difficulty_plan_target') or bs.get('difficulty_plan') or {}
+        for _b in _tg.values():
+            req[_b] = req.get(_b, 0) + 1
+    dlv = {str(q): e.get('difficulty') for q, e in cm.items() if isinstance(e, dict) and str(q).isdigit()}
+    cr = bc.r3_count_rule(dlv, req, labs) if req else None
+    pnew, scope = {}, {}
+    void = tot = 0
+    for q, e in cm.items():
+        if not isinstance(e, dict):
+            continue
+        dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+        if isinstance(dc.get('p_new'), (int, float)):
+            pnew[str(q)] = dc['p_new']
+            scope[str(q)] = bc.ld_scope_for(ladder, e.get('subject'), e.get('subtopic_id')) if isinstance(ladder, dict) else None
+        for _m in ((e.get('grader_meta') or {}).values() if isinstance(e.get('grader_meta'), dict) else []):
+            if isinstance(_m, dict) and isinstance(_m.get('placement'), dict):
+                tot += 1
+                void += 0 if _m['placement'].get('valid') else 1
+    pr = bc.r3_paper_rule(pnew, dlv, ladder, scope, labs) if mode == bc.R3_MODE_LADDER else None
+    fs = []
+    if isinstance(ladder, dict) and isinstance(ladder.get('figure_share'), dict):
+        _byf = {}
+        for q, e in cm.items():
+            if isinstance(e, dict) and str(q).isdigit():
+                _s = bc.ld_scope_for(ladder, e.get('subject'), e.get('subtopic_id'))
+                if _s:
+                    _byf.setdefault(_s, []).append(bool(e.get('figure_files') or e.get('figure_dicts')))
+        fs = bc.qg_figure_share(_byf, ladder.get('figure_share'))
+    lines = bc.r3_footer_lines(mode, ladder, cr, pr, (void / tot) if tot else None, fs) + \
+        [str(x) for x in (bs.get('r3_notes') or [])]
+    amber = [x for x in lines if '(AMBER)' in x or '(RED)' in x]
+    return {'info': [x for x in lines if x not in amber], 'amber': amber, 'count_rule': cr, 'paper_rule': pr}
+
+
 def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True,
-                  final=False, defer=False, terminal=None):
+                  final=False, defer=False, terminal=None, ladder=None):
     """THE in-batch step of Create S4-7 STEP A2 (S0-BC, GAP-2026-11-14-BATCH-COMPLETE), for the CURRENT batch of paper
     <exam> M<n>. v1.22: every question of the batch is SETTLED or DISCLOSED here (LAW-BC-1) through one bounded ladder
     (bc.bc_apply): three reviewers count as solvers, a disputed answer goes to ONE fresh adjudicator (job folder
@@ -1629,6 +1721,19 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _term = terminal if terminal in bc.BC_TERMINALS else bc.BC_TERMINAL
     _st_bv = _bs_bv.setdefault('bv', {})
     _items0 = _st_bv.get('items') or {}
+    # Cluster R3 (release 2026.11.21): the paper's difficulty mode, frozen once (bv_difficulty_mode)
+    _lad_bv = ladder if isinstance(ladder, dict) else bv_load_ladder(exam, home)
+    _mode_bv = bv_difficulty_mode(_bs_bv, _lad_bv)
+    _r3_bv = _mode_bv != bc.R3_MODE_LEGACY
+    if _mode_bv == bc.R3_MODE_LADDER and _bs_bv.get('ladder_fingerprint') \
+            and bc.ld_fingerprint(_lad_bv) != _bs_bv.get('ladder_fingerprint'):
+        # the ladder the paper started on is not the one loaded now (a lost staged copy, a re-built file attached):
+        # the paper continues on the loaded one and the footer says so — never a stop
+        _nt = (f"DIFFICULTY (AMBER): the difficulty ladder changed during this paper (started on "
+               f"{_bs_bv.get('ladder_fingerprint')}, batch {_bs_bv.get('current_batch')} used "
+               f"{bc.ld_fingerprint(_lad_bv) or 'none'}) — later questions were placed on the ladder loaded then.")
+        if _nt not in (_bs_bv.get('r3_notes') or []):
+            _bs_bv.setdefault('r3_notes', []).append(_nt)
 
     def _open_q(q):
         """A question that still needs work: not settled / disclosed under BC1 on its current text; under BV1 (an
@@ -1702,7 +1807,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                     _rv = None
                 _k = int(_role_j.rsplit('_', 1)[-1])
                 _split = bc.bv_split_reviewer_result(_k, _rv, _labs_bv, _j.get('qs'), _j['sha256'],
-                                                     {q: (_cm_bv.get(q) or {}).get('figure_dicts') for q in (_j.get('qs') or [])})
+                                                     {q: (_cm_bv.get(q) or {}).get('figure_dicts') for q in (_j.get('qs') or [])},
+                                                     tasks_by_q=(_j.get('tasks') or {}) if _j.get('r3') else None)
                 for _q2, _rr in _split.items():
                     _res_bv.setdefault(_q2, {}).update(_rr)
             continue
@@ -1742,6 +1848,18 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     for _a, _b, _w in bc.intra_paper_duplicates(_all_bv):
         if str(_b) in _qs_bv:
             _fnd_bv.setdefault(str(_b), []).append(f'repeats Q{_a} ({_w}) — write another task / dataset')
+    if _r3_bv:
+        # G-INTRAPAPER-FACT (Cluster R3): the same tested fact, whatever the subtopic or concept wording
+        _facts = []
+        for _x in _all_bv:
+            _bvx = (_st_bv.get('items') or {}).get(_x['q']) or {}
+            _df = next((_s.get('decisive_fact') for _s in ((_bvx.get('solvers') or {}).values()
+                                                            if isinstance(_bvx.get('solvers'), dict) else [])
+                        if isinstance(_s, dict) and _s.get('decisive_fact')), None)
+            _facts.append(dict(_x, decisive_fact=_df))
+        for _a, _b, _w in bc.qg_fact_overlap(_facts):
+            if str(_b) in _qs_bv:
+                _fnd_bv.setdefault(str(_b), []).append(f'repeats the fact tested by Q{_a} ({_w}) — test another fact')
     _pyq_bv = ([r.get('stem_snippet') for r in bc.pyq_guard_pool(op_profile)
                 if isinstance(r, dict) and r.get('stem_snippet')] if op_profile else [])
     for _a, _b, _v in bc.key_leak_check(_all_bv, _pyq_bv):
@@ -1786,6 +1904,15 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _e = dict(_cm_bv[_q])
         if isinstance((_st_bv.get('items') or {}).get(_q), dict):
             _e['bv'] = _st_bv['items'][_q]
+        if _r3_bv:
+            _e['difficulty_mode'] = _mode_bv
+            # a HARD gate still failing after the pre-review tries of this rung enters the rung ladder (bounded)
+            _rk0 = str(((_e.get('bv') or {}).get('rung')) or 0)
+            if int((((_st_bv.get('prereview') or {}).get(_q) or {}).get(_rk0)) or 0) >= int(bc.BC_PREREVIEW_TRIES):
+                _top0 = bool(_labs_bv) and _tgt_bv.get(_q) == _labs_bv[-1]
+                for _hx in [x for x in bc.qg_item_gates(_e, _ans_bv.get(_q), _top0) if bc.r3_hard_gate(x)]:
+                    if 'GATE: ' + _hx not in (_fnd_bv.get(_q) or []):
+                        _fnd_bv.setdefault(_q, []).append('GATE: ' + _hx)
         _e.setdefault('subject', bc.nf_subject_key(_e, _man_bv))
         _e.setdefault('manifest_hash', bc.manifest_hash(_man_bv))
         _e.pop('bc.manifest_hash', None)                # a key mis-written by release 2026.11.11
@@ -1805,7 +1932,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             # v1.23 P3 (G-SELFCOUNT): before the FIRST reviewer round of a text, the author's own count must give the
             # slot band — a miss goes back to the author (no reviewer is paid), at most bc.BC_SELFCOUNT_TRIES times per
             # rung, then the text is reviewed anyway (never a loop, never a stop); missing counts are only reported
-            _sc = bc.bc_selfcount(_r['entry'], _tgt_bv.get(_q), _labs_bv)
+            _sc = (bc.bc_selfcount(_r['entry'], _tgt_bv.get(_q), _labs_bv) if not _r3_bv
+                   else {'status': 'n/a', 'why': 'Cluster R3: the writer is never measured against a count'})
             _rk = str((_r['entry'].get('bv') or {}).get('rung') or 0)
             _scs = _st_bv.setdefault('selfcount', {}).setdefault(_q, {})
             if _sc['status'] == 'fail' and int(_scs.get(_rk) or 0) < int(bc.BC_SELFCOUNT_TRIES):
@@ -1818,7 +1946,9 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             # findings for this text; a gap goes back to the author with no reviewer started, at most
             # bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed as it stands (never a loop)
             if _q not in _sc_back and not bc_text_has_results(_r['entry']):
-                _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc)
+                _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc) + (
+                    bv_r3_gaps(_r['entry'], _ans_bv.get(_q), bool(_labs_bv) and _tgt_bv.get(_q) == _labs_bv[-1],
+                               _lad_bv, _mode_bv) if _r3_bv else [])
                 _pgs = _st_bv.setdefault('prereview', {}).setdefault(_q, {})
                 if _pg and int(_pgs.get(_rk) or 0) < int(bc.BC_PREREVIEW_TRIES):
                     _pgs[_rk] = int(_pgs.get(_rk) or 0) + 1
@@ -1891,15 +2021,36 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             return _dst
         return None
     if _needs_bv:
-        _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv)
+        _bg_bv = bc.bv_band_guide(_ru_bv, _labs_bv) if not _r3_bv else {}
         _anc_bv = {q: bc.bv_anchors(_bank_bv, _ru_bv, (_cm_bv[q] or {}).get('subtopic_id'),
-                                    str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv}
+                                    str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv} if not _r3_bv else {}
+        _tasks_bv = {}
+        if _mode_bv == bc.R3_MODE_LADDER and isinstance(_lad_bv, dict):
+            # Cluster R3 §6.3: each item's placement task — 5 grading-pool anchors around its band's cut, shuffled
+            # with the item under opaque labels; an item with no anchor set is measured with the r2.1 counts
+            for _q4 in _needs_bv:
+                if not any(str(_r4).startswith('grader_') for _r4 in (_needs_bv.get(_q4) or [])) or _tgt_bv.get(_q4) is None:
+                    continue
+                _e4 = _cm_bv.get(_q4) or {}
+                _salt4 = f"{exam}:{n}:{_q4}:{bc.op_content_sha(_e4)[:12]}"
+                _as4 = bc.ld_anchor_set(_lad_bv, bc.ld_scope_for(_lad_bv, _e4.get('subject') or bc.nf_subject_key(_e4, _man_bv),
+                                                                 _e4.get('subtopic_id')),
+                                        _tgt_bv.get(_q4), _labs_bv, _e4.get('subtopic_id'), _e4.get('ask_format'), salt=_salt4)
+                _tk4 = bc.ld_placement_task(_as4, bc.r3_item_text(_e4), salt=_salt4)
+                if _tk4:
+                    _tasks_bv[_q4] = _tk4
         _qpj = bv_review_qs_per_job(home)
         # v1.23 (P1): the round's reviewer jobs + adjudicator jobs fit in ONE wave of parallel_jobs_max
         _mjr = bc.bv_round_job_caps(bv_budget_value('parallel_jobs_max', 6), len(_adj_q))
         for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj,
                                        max_jobs_per_reviewer=_mjr):
             _kk0 = _jb['role'].rsplit('_', 1)[-1]
+            if _r3_bv:
+                # Cluster R3: rank / count task per item, enumerated defect codes, no band-labelled exemplars
+                _jb['packet'] = dict({k: v for k, v in _jb['packet'].items() if k != 'band_guide'},
+                                     items=bc.r3_reviewer_rows(_jb['packet']['items'], _tasks_bv),
+                                     counting_rules=bc.r3_counting_rules(), decision_rule=bc.R3_DECISION_RULE)
+                _jb['brief'] = bc.BV_BRIEF_REVIEWER_R3
             _reask = any(int((_asked_all.get(_q3) or {}).get(_rl) or 0) >= 1
                          for _q3 in _jb['qs'] for _rl in (_needs_bv.get(_q3) or []) if _rl.endswith('_' + _kk0))
             _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", _rlabel,
@@ -1913,7 +2064,10 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _sha = hashlib.sha256(json.dumps(_pk, sort_keys=True, default=str, ensure_ascii=False).encode('utf-8')).hexdigest()
             json.dump(_pk, open(os.path.join(_d, 'packet.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
             open(os.path.join(_d, 'JOB_BRIEF.txt'), 'w', encoding='utf-8').write(_jb['brief'].replace('<JOB_DIR>', _d))
-            _new_jobs.append({'role': _jb['role'], 'qs': _jb['qs'], 'dir': _d, 'sha256': _sha})
+            _new_jobs.append(dict({'role': _jb['role'], 'qs': _jb['qs'], 'dir': _d, 'sha256': _sha},
+                                  **({'r3': True, 'tasks': {q: {k: _tasks_bv[q].get(k) for k in ('map', 'meta', 'band', 'probe')}
+                                                            for q in _jb['qs'] if q in _tasks_bv}}
+                                     if _r3_bv else {})))
             for _q3 in _jb['qs']:
                 for _rl in _needs_bv.get(_q3) or []:
                     if _rl.endswith('_' + _kk0):
@@ -3873,7 +4027,8 @@ def self_test():
             _bv_js.dump({'concept_map': _cmc, 'answers': {'1': 1, '2': 1, '3': 1}},
                         open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
             _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 3}], 'current_batch': 1,
-                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard', '3': 'Hard'}},
+                         'difficulty_labels': L, 'difficulty_plan_target': {'1': 'Hard', '2': 'Hard', '3': 'Hard'},
+                         'difficulty_mode': bc.R3_MODE_LEGACY},       # release 2026.11.20 rule: the self-count applies
                         open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
             _c1 = bv_batch_step('EX', 1, home=_h, echo=False)
             _bsc = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
@@ -4198,6 +4353,75 @@ def self_test():
         open(_bv_os.path.join(_h, 'fw_lean_agents.json'), 'w').write('{bad')
         _r4 = bv_review_qs_per_job(_h)
         check('v124_lean_fallback_job_size', _r1 == _r2 == _r4 == _base and _r3 == _fb and _fb >= _base)
+    # v1.25.0 Cluster R3 (GAP-2026-11-16): the whole STEP A2 path in mode 'ladder' through job folders — a hard item
+    # settles Hard by placement, a padded one is measured below Hard, a dead row goes back before review, and a
+    # hostile reviewer (void placements + a blocking code every time) still ends DONE within the round budget
+    _lad_r3, _ = bc._ld_synthetic_ladder(L)
+    _rr3 = __import__('random').Random(4)
+    _true3 = {'1': 0.93, '2': 0.62, '3': 0.93}
+    for _hostile in (False, True):
+        with _bv_tf.TemporaryDirectory() as _h:
+            _cm3 = {q: {'stem_text': f'Question {q} about the scope', 'option_texts': ['w', 'x', 'y', 'z'],
+                        'subtopic_id': 's.t1.u1', 'qtype': 'mcq', 'subject': 's', 'ask_format': 'direct'} for q in ('1', '2')}
+            if not _hostile:
+                _cm3['3'] = {'stem_text': 'Match List-I with List-II.', 'subtopic_id': 's.t1.u1', 'qtype': 'mcq',
+                             'subject': 's', 'option_texts': ['A-III, B-I, C-II, D-IV', 'A-II, B-I, C-III, D-IV',
+                                                              'A-III, B-II, C-I, D-IV', 'A-I, B-III, C-II, D-IV']}
+            _bv_js.dump({'concept_map': _cm3, 'answers': {q: 1 for q in _cm3}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+            _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': len(_cm3)}], 'current_batch': 1,
+                         'difficulty_labels': L, 'difficulty_plan_target': {q: 'Hard' for q in _cm3}},
+                        open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+            _bv_js.dump(_lad_r3, open(_bv_os.path.join(_h, 'EX_difficulty_ladder.json'), 'w'))
+            _hist3, _r3s = [], None
+            for _stp in range(80):
+                _r3s = bv_batch_step('EX', 1, home=_h, echo=False)
+                _hist3.append(_r3s['status'])
+                if _r3s['status'] != 'jobs_out' and _r3s['status'] != 'rewrite':
+                    break
+                if _r3s['status'] == 'rewrite':
+                    _k3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))
+                    for _q3 in set(_r3s['rewrite']) | {x.split('PRE-REVIEW Q')[1].split(' ')[0] for x in _r3s['lines'] if 'PRE-REVIEW Q' in x}:
+                        _k3['concept_map'][_q3]['stem_text'] += f' r{_stp}'
+                    _bv_js.dump(_k3, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+                    continue
+                _b3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+                _ln3 = []
+                for _jb in _b3['bv']['jobs']:
+                    if _jb['role'] == 'adjudicator':
+                        _bv_js.dump({'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes',
+                                     'missing_condition': '', 'reason': 'r', 'confidence': 'high'},
+                                    open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                        _ln3.append(_jb['dir'] + ' ADJUDICATE DONE')
+                        continue
+                    _out3 = {'items': {}}
+                    for _row in _bv_js.load(open(_bv_os.path.join(_jb['dir'], 'packet.json')))['items']:
+                        _q3 = _row['q']
+                        _rec3 = {'answer': 1, 'confidence': 'high', 'assumptions': [], 'single_answer': 'yes',
+                                 'defects': [], 'depth': 3}
+                        _tk3 = (_jb.get('tasks') or {}).get(_q3)
+                        if _hostile:
+                            _rec3.update(ranking=['A'], defects=[{'code': 'D-AMBIGUOUS', 'evidence': 'always'}])
+                        elif _tk3:
+                            _rec3['ranking'] = sorted(_tk3['map'], key=lambda lb, t=_tk3, q=_q3: (
+                                _true3[q] if t['map'][lb] == 'ITEM' else t['meta'][t['map'][lb]]['p']) + _rr3.gauss(0, 0.03))
+                        _out3['items'][_q3] = _rec3
+                    _bv_js.dump(_out3, open(_bv_os.path.join(_jb['dir'], 'result.json'), 'w'))
+                    _ln3.append(_jb['dir'] + ' REVIEW DONE')
+                open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'a').write('\n'.join(_ln3) + '\n')
+            _c3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))['concept_map']
+            _s3 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+            if _hostile:
+                check('r3_hostile_reviewer_ends_done_within_budget', _r3s['status'] == 'done'
+                      and _s3['bv']['round'] <= bc.BV_MAX_ROUNDS and _c3['1'].get('difficulty') != 'Hard')
+            else:
+                check('r3_ladder_flow_hard_padded_deadrow', _r3s['status'] == 'done' and _s3['difficulty_mode'] == 'ladder'
+                      and _c3['1'].get('difficulty') == 'Hard'
+                      and (_c3['1'].get('difficulty_check') or {}).get('measure') == 'placement_r3'
+                      and _c3['2'].get('difficulty') in ('Easy', 'Medium')
+                      and (_c3['3'].get('bv_state') == 'disclosed' or int(_s3['bv']['items']['3'].get('rung') or 0) >= 1))
+                _rep3 = bv_r3_report(_s3, _c3, _lad_r3)
+                check('r3_report_count_rule', isinstance(_rep3.get('count_rule'), dict) and _rep3['count_rule']['ok'] is False
+                      and any('RED' in x for x in _rep3['amber']))
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

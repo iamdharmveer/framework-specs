@@ -1,4 +1,12 @@
-# Framework_MockTestCreate v7.3.1
+# Framework_MockTestCreate v8.0
+# v8.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; release 2026.11.21; paired with
+#   blueprint_core Cluster R3, final_assembly v1.25.0, analyse_engine, corpus_io, MockReview v2.3.0, MockTestAnalyse
+#   v2.63.0, DeliveryFooter v1.52.0). Difficulty is MEASURED by placing each question among the exam's own past
+#   questions (the ladder, Step 5 S11-1d) — mode 'ladder'; without a ladder, rule r2.1 (decision depth) — mode
+#   'counted', disclosed. The writer never sees a count target, offset or self-count (STEP A). Reviewers return
+#   enumerated defect codes; one blocking code acts (STEP A2). Deterministic gates before any reviewer (PRE-REVIEW).
+#   Count rule = cumulative minimums from the top; footer §2R (S13-2L.0). Mode frozen per paper; a paper begun on an
+#   earlier release stays 'br1'. No new stop, no new loop: every new path is the existing bounded ladder.
 # v7.3.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with final_assembly v1.24.1, bootstrap,
 #   Framework_MockTestOrchestrate v1.10.1, Framework_DeliveryFooter v1.51.1; over release 2026.11.19). S1-0R: leave
 #   --auto-continue out of --session-start (bootstrap also accepts it — before, it refused it and the run stopped);
@@ -2731,6 +2739,19 @@ action: the same paper, the same two files, the same "continue".
       _rd_in['exemplar_bank.json'] = json.load(open(EXEMPLAR_BANK_PATH, encoding='utf-8')) if EXEMPLAR_BANK_PATH else None
   except Exception:
       _rd_in['exemplar_bank.json'] = {}
+  # v8.0 Cluster R3 (GAP-2026-11-16-DIFFICULTY-YARDSTICK): the exam's DIFFICULTY LADDER — a DELIVERED RUN FILE of
+  # Step 5 (MockTestAnalyse S11-1d), attached beside the registry like the exemplar bank (OD-11). Absent or
+  # unusable -> the paper runs difficulty mode 'counted' (rule r2.1), disclosed AMBER — never a stop.
+  # FROZEN PER PAPER: a paper in progress reads its staged copy first; a new paper reads the attached / project file
+  # first (a re-built ladder wins over a stale staged copy) and stages it.
+  import final_assembly as _fa_ld
+  _ld_inprog = _fa_ld.paper_in_progress('/home/claude', EXAM, globals().get('N')) if globals().get('N') is not None else None
+  LADDER = _fa_ld.bv_load_ladder(EXAM, fresh_first=_ld_inprog is None)
+  if isinstance(LADDER, dict) and _ld_inprog is None:
+      json.dump(LADDER, open(f'/home/claude/{EXAM}_difficulty_ladder.json', 'w', encoding='utf-8'),
+                ensure_ascii=False, separators=(',', ':'))      # staged for STEP A2 (fa.bv_batch_step)
+  print("S3-2e: difficulty ladder " + (f"loaded — {len(LADDER.get('scopes') or {})} scope(s), status {LADDER.get('status')}"
+        if isinstance(LADDER, dict) else "absent — difficulty is measured with rule r2.1 (AMBER); run Step 5 once to build it"))
   _sr_path = f'/mnt/project/{EXAM}_section_rules.md'
   _rd_in['section_rules.md'] = open(_sr_path, encoding='utf-8').read() if os.path.exists(_sr_path) else None
   SECTION_RULES_TEXT = _rd_in['section_rules.md'] or ''        # read by S3-12d / S7-QUALITY / S13-2F
@@ -4154,6 +4175,12 @@ action: the same paper, the same two files, the same "continue".
       # in-run amendment — committed with difficulty_state (S13-4) so A-PYQBENCH prints
       # original vs final (DL-51). Every paper with a plan; {} when the plan is dormant.
       'difficulty_labels': list(difficulty_labels),   # v5.92: read by S13-2G phase 3 (resume-safe)
+      # v8.0 Cluster R3: the paper's difficulty mode, FROZEN here (fa.bv_difficulty_mode reads it; a resume never
+      # recomputes it): 'ladder' with a usable ladder, else 'counted'; 'br1' only by the blueprint's explicit opt-out
+      'difficulty_mode': __import__('blueprint_core').r3_mode({}, globals().get('LADDER'), globals().get('bp')),
+      'ladder_fingerprint': __import__('blueprint_core').ld_fingerprint(globals().get('LADDER')),
+      'blueprint_difficulty_mode': (globals().get('bp') or {}).get('difficulty_mode')
+                                   if isinstance(globals().get('bp'), dict) else None,
       # v5.94 (GAP-2026-11-07): the TARGET plan S13-2L counts the paper against (v6.0: frozen,
       # never changed) and each organic slot's pattern source (S3-15L).
       'difficulty_plan_target': (dict(DIFFICULTY_PLAN_TARGET) if globals().get('DIFFICULTY_PLAN_TARGET') else None),
@@ -4820,6 +4847,26 @@ action: the same paper, the same two files, the same "continue".
   STEP A3 binds the batch's review records before anything is delivered (LAW-BC-7).
 
   STEP A — GENERATE: Produce exactly q_count questions for current_batch.
+           v8.0 (Cluster R3, GAP-2026-11-16-DIFFICULTY-YARDSTICK) — READ THIS FIRST. batch_state['difficulty_mode']
+           decides what follows. In modes 'ladder' and 'counted' (every new paper unless the blueprint opts out with
+           difficulty_mode 'br1'): BV_AUTHOR_PACKET prints the slot's level IN WORDS, the levers H1-H7, the archetype
+           cards of the exam's hardest past questions (abstract features — never their text) and, for a top-band slot,
+           the content floor. There is NO count target, NO 'aim inside the band', NO offset and NO self-count: the
+           v6.3 / v7.1 (P3, P4) / v7.2 instructions below apply ONLY in mode 'br1'. Do not record author_counts.
+           Make a top-band question hard with at least one real lever (coupled decisions, a hidden intermediate,
+           data to translate, method choice, trap-resistant options) — never by adding rows, statements, species or
+           named principles that do not feed one another; three fresh reviewers place it among real past questions
+           of this exam that you never see, so length and arithmetic do not count. Every row of a match / mapping
+           ask must discriminate (G-DEADROW); an ordering's key must not follow from its two extremes in a top-band
+           slot (G-EXTREMES); numerical options must differ beyond their written precision (G-OPTION-SPACING). For a
+           question whose key or options are numbers, pass in its S7-QUALITY record (write_q_to_sidecar(...,
+           quality={..., 'compute': ...}) — every quality key is copied onto the concept_map entry) 'compute': {'values': {name: a
+           number printed in the stem}, 'key': <expression>, 'distractors': {<option no.>: {'expr', 'slip'}},
+           'approx': <the common shortcut's expression or null>, 'rel_tol': <optional>} — names from
+           bc.CONSTANTS_V1 may be used; STEP A2 evaluates it (G-NUMERIC-RESOLVE) before any reviewer starts. The
+           ask clause is a complete exam sentence (G-STEMFORM). A failing gate is sent back to you before any review
+           (PRE-REVIEW, at most bc.BC_PREREVIEW_TRIES times per rung); G-DEADROW, G-NUMERIC-RESOLVE, G-OPTION-SPACING
+           and an approximate-method collision still failing after that go up the bounded rung ladder.
            v6.1 (S0-BV BV-2): BEFORE writing each question, print its author packet and write the question
            ONCE against it — the same anchors its fresh graders will compare with, and the recipe range.
            v6.3 (S0-BV BV-10): the packet's 'target_text' is the slot band as THIS exam's past questions of the
@@ -4842,6 +4889,18 @@ action: the same paper, the same two files, the same "continue".
                _shape_ap = (_bs_ap.get('shape_plan') or {}).get(str(q))          # v7.3 D5: the slot's planned ask type
                _rc_ap = (((_ru_ap.get('recipe_by_subject') or {}).get(_sj_ap) or {}).get(_band_ap)
                          or (_ru_ap.get('recipe') or {}).get(_band_ap) or {})
+               _mode_ap = str(_bs_ap.get('difficulty_mode') or bc.R3_MODE_LEGACY)
+               if _mode_ap != bc.R3_MODE_LEGACY:
+                   # v8.0 Cluster R3: level in words, levers, archetype cards, content floor — no counts, no anchors
+                   import final_assembly as _fa_ap
+                   _lad_ap = globals().get('LADDER') or _fa_ap.bv_load_ladder(EXAM)
+                   _sc_ap = bc.ld_scope_for(_lad_ap, _sj_ap, subtopic_id) if isinstance(_lad_ap, dict) else None
+                   _pk_ap = bc.r3_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
+                                                 'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
+                                                _lad_ap, _labs_ap, _mode_ap,
+                                                floors=bc.ld_floor_for(_lad_ap, _sc_ap, subtopic_id) if _sc_ap else None)
+                   print(json.dumps(_pk_ap, ensure_ascii=False, default=str))
+                   return _pk_ap
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
                                              'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
@@ -5180,7 +5239,20 @@ action: the same paper, the same two files, the same "continue".
            counts, grades, reads its figures and runs the item checklist) and, when the answer is disputed, by ONE fresh
            adjudicator — NOW, never at Final Assembly. The block below is idempotent and resume-safe
            (final_assembly.bv_batch_step over bc.bc_apply): it collects every returned job, decides every question
-           (K-PASS / adjudication / re-key / the ladder / settle) and writes the jobs still needed. Run it after STEP B,
+           (K-PASS / adjudication / re-key / the ladder / settle) and writes the jobs still needed.
+           v8.0 (Cluster R3) — in difficulty modes 'ladder' and 'counted' (batch_state['difficulty_mode']): each
+           reviewer gets, per question, task 'rank' (mode 'ladder': SIX questions under opaque labels — this one and
+           five real past questions of the exam around the slot band's cut, from the ladder's GRADING pool the writer
+           never sees — ranked easiest to hardest; the band is read from the ranking, bc.ld_band_from_placement; a
+           placement whose anchors are ordered wrongly is VOID and grades the band below the slot) or task 'count'
+           (mode 'counted', or no anchor set: rule r2.1 — decision depth, bc.R3_DECISION_RULE); no band-labelled
+           exemplar is shown. Every reviewer returns ENUMERATED DEFECT CODES (bc.R3_DEFECT_CODES, MockReview S2-2R):
+           ANY ONE blocking code from ANY ONE reviewer is a finding (rung ladder) — never outvoted; approximate-method
+           collisions, give-away options and, for a top-band slot, one-fact settles / depth < 2 are computed from the
+           solver fields; a key settled only by adjudication is rewritten while rung < bc.R3_SPLIT_FIX_RUNGS. The
+           self-count (SELF-COUNT) does not run; PRE-REVIEW also sends back the deterministic gates (bc.qg_item_gates)
+           and, on the ladder, a top-band content floor miss. Every path below is the existing bounded ladder: no new
+           stop, no new loop. Run it after STEP B,
            and again after each GRADE RETURNED and after each text the ladder writes, until it prints `STEP A2: DONE`:
              JOBS OUT  -> reviewer folders (`.../reviewer_k[_p<i>]`) and adjudicator folders (`.../q<n>_adj`); a folder
                           ending in `_switch` re-asks a role that returned nothing (another model). WORKER MODE: prove
@@ -5201,7 +5273,7 @@ action: the same paper, the same two files, the same "continue".
                           figure, no step that depends on reading 3D configuration — the figural-slot ban of STEP A does not apply to it; the
                           engine has already removed its fig_manifest record: add none and draw nothing; an R10
                           family-engine item is the exception — its climb_brief says so and it keeps its figure); 'reasons',
-                          'solvers' (their own moves) and 'adjudicator' say why. Use the SAME anchors (bc.bv_author_packet); replace the
+                          'solvers' (their own moves) and 'adjudicator' say why. Use the SAME author packet (BV_AUTHOR_PACKET); replace the
                           question block in the cumulative docx and its sidecar entry (write_q_to_sidecar — it REPLACES the
                           entry, so pass the NEW text's quality record again: author_moves, author_counts and, for an
                           organic structure picture, figure_dicts); then STEP B for that text, then this block again — the
@@ -12770,6 +12842,7 @@ if AUDIT_AVAILABLE:
   if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band':
       _amber_g.append("Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)")
   _jq_g = sorted((_q for _q, _e in _cm_g.items() if isinstance(_e, dict)
+                  and str(_bs_g.get('difficulty_mode') or 'br1') == 'br1'      # v8.0: r3 discloses its own lines
                   and ((_e.get('difficulty_check') or {}).get('measure') in ('judged', 'mixed'))),
                  key=lambda x: int(x) if str(x).isdigit() else 0)
   if _jq_g:
@@ -12780,6 +12853,14 @@ if AUDIT_AVAILABLE:
   _amber_g += [f"Q{_pi.get('q')}: figure proof failed at Final Assembly ({', '.join(map(str, _pi.get('missing') or []))}) "
                f"— engine defect (LAW-BC-8, P0 recorded)" for _pi in (_bs_g.get('p0_incidents') or [])
                if isinstance(_pi, dict) and _pi.get('kind') == 'figproof_at_assembly']   # v7.3.1: S13-2P's P0, disclosed
+  # v8.0 Cluster R3: mode note, count rule (cumulative minimums from the top), paper rule (median placement per band
+  # vs the real exam), void-placement rate, figure share — AMBER / RED lines name what was not met; never a stop
+  import final_assembly as _fa_r3
+  _r3rep_g = _fa_r3.bv_r3_report(_bs_g, _cm_g, globals().get('LADDER') or _fa_r3.bv_load_ladder(EXAM))
+  _info_g += _r3rep_g['info']
+  _amber_g += _r3rep_g['amber']
+  _ds_g['r3'] = {'mode': _bs_g.get('difficulty_mode'), 'count_rule': _r3rep_g.get('count_rule'),
+                 'paper_rule': _r3rep_g.get('paper_rule')}
   _ds_g['chain_footer'] = {'info': _info_g, 'amber': _amber_g}
   _ds_g['schedule'] = {'requested': _rq_g, 'applied': _sa_g}
   _ds_g['allocation_swaps'] = list(_bs_g.get('allocation_swaps') or [])
@@ -12787,7 +12868,10 @@ if AUDIT_AVAILABLE:
       globals()['DIFFICULTY_STATE'].update({k: _ds_g[k] for k in ('paper_gate', 'chain_footer', 'incidents') if k in _ds_g})
   json.dump(_bs_g, open(_bsg_p, 'w', encoding='utf-8'), indent=2)
   print(f"S13-2L.0: paper difficulty gate {G_PAPER.get('status')} — delivered {G_PAPER.get('counts_final')} against "
-        f"requested {G_PAPER.get('counts_original')}; {len(_amber_g)} AMBER / {len(_info_g)} informational footer line(s); "
+        f"requested {G_PAPER.get('counts_original')}"
+        + (f"; count rule (v8.0, met or higher): {'MET' if (_r3rep_g.get('count_rule') or {}).get('ok') else 'NOT MET — RED line'}"
+           if _r3rep_g.get('count_rule') else '')
+        + f"; {len(_amber_g)} AMBER / {len(_info_g)} informational footer line(s); "
         f"no chain scheduled (LAW-BC-8){'; engine defect P0 on ' + str(_bad_g) if _bad_g else ''}. Continuing to S13-3.")
   ```
 
@@ -14939,7 +15023,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v7.3.1
+# END OF Framework_MockTestCreate v8.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

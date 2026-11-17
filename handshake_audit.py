@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 HANDSHAKE AUDIT — release 2026.11.03 (GAP-2026-11-03-QUESTION-AND-OPTION-QUALITY).
+Release 2026.11.21 (GAP-2026-11-16-DIFFICULTY-YARDSTICK) adds H-R3: the ladder chain, Step 5 to the auditor.
 Release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER) adds H-DL: the difficulty layer as
 one chain on three synthetic exams (_dl_handshake, below).
 
@@ -673,7 +674,8 @@ def _bv_handshake(check, ROOT, run_fence, W):
     kp, bsp = f'{HOME}/{EXAM}_M{N}_answer_key.json', f'{HOME}/{EXAM}_M{N}_batch_state.json'
     json.dump({'concept_map': cm, 'answers': {'1': 1, '2': 1}}, open(kp, 'w'))
     json.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}, {'batch_id': 2, 'q_start': 3, 'q_end': 4}],
-               'current_batch': 1, 'difficulty_labels': L, 'difficulty_plan_target': dict(tgt)}, open(bsp, 'w'))
+               'current_batch': 1, 'difficulty_labels': L, 'difficulty_plan_target': dict(tgt),
+               'difficulty_mode': 'br1'}, open(bsp, 'w'))     # 2026.11.21: H-BV tests the BV/BR1 path (mode 'br1')
     # v2026.11.12: the ruler is built by the REAL engine from past records SHAPED LIKE A PRODUCTION PROFILE — no
     # blind grades, only the PYQExplain band (CSIR's 358 records): its anchors must carry CONTENT for every band
     prof = {'papers': {'P1': {'questions': {
@@ -926,8 +928,9 @@ def _bc_handshake(check, ROOT, W):
         home = os.path.join(base, name)
         os.makedirs(home, exist_ok=True)
         json.dump({'concept_map': cm, 'answers': answers}, open(os.path.join(home, 'HBC_M1_answer_key.json'), 'w'))
-        bs = {'batch_plan': plan, 'current_batch': current, 'difficulty_labels': L, 'difficulty_plan_target': target}
-        bs.update(extra or {})
+        bs = {'batch_plan': plan, 'current_batch': current, 'difficulty_labels': L, 'difficulty_plan_target': target,
+              'difficulty_mode': 'br1'}            # 2026.11.21: the H-BC scenarios test the BC1 ladder in mode 'br1';
+        bs.update(extra or {})                     # Cluster R3 scenarios pass extra={'difficulty_mode': ...}
         json.dump(bs, open(os.path.join(home, 'HBC_M1_batch_state.json'), 'w'))
         return home
 
@@ -1049,6 +1052,18 @@ def _bc_handshake(check, ROOT, W):
     r3 = step(h)
     check('H-BC-3 K3: adjudicator confirms the author -> settled adjudicated',
           r3['status'] == 'done' and ld(h, 'answer_key')['concept_map']['1']['key_votes']['certified_by'] == 'adjudicated', r3)
+    # H-BC-3R (Cluster R3, 2026.11.21): the same 2-1 split in mode 'counted' is a finding (D-AMBIGUOUS, the solvers split)
+    # — the question goes up ONE rung with the dissent as a constraint instead of settling (bounded by the rungs)
+    h = paper('k3r', {'1': Q('Predict the major product of the E2 elimination of 2-bromobutane', ['1-butene', '2-butene', 'butane', 'butanol'])},
+              {'1': 2}, {'1': 'Medium'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], extra={'difficulty_mode': 'counted'})
+    step(h); answer(h, rev=lambda q, k, row: R('Medium', 1 if k == 3 else 2)); step(h)
+    answer(h, adj=lambda q, pk: {'verdict': 'author_correct', 'correct_answer': 2, 'single_answer': 'yes',
+                                 'missing_condition': '', 'reason': 'Zaitsev', 'confidence': 'high'})
+    r3r = step(h)
+    check('H-BC-3R r3: a solver split settled by the adjudicator is rewritten once (D-AMBIGUOUS), never settled as is',
+          r3r['status'] == 'rewrite' and r3r['rewrite'] == ['1']
+          and any('D-AMBIGUOUS' in str(x) for x in ((ld(h, 'batch_state')['bv']['items']['1'].get('climb_brief') or {})
+                                                     .get('reasons') or [])), r3r)
     # H-BC-4 (K6): all answers agree but a decisive assumption -> adjudicator states the missing condition -> rung 1
     h = paper('k6', {'1': Q('The product of the reaction of the enolate with the alkyl halide is', ['A', 'B', 'C', 'D'])},
               {'1': 3}, {'1': 'Hard'}, [{'batch_id': 1, 'q_start': 1, 'q_end': 1}])
@@ -1273,6 +1288,208 @@ def _bc_handshake(check, ROOT, W):
           and bc.BV_ROLES_SOLVE == ('solver_1', 'solver_2', 'solver_3') and bc.BC_TERMINAL == 'adjudicated_disclosed')
 # ── H-BC END ──
 
+
+# ── H-R3 BEGIN ── (release 2026.11.21, GAP-2026-11-16-DIFFICULTY-YARDSTICK; like H-BC, every grade and review record
+# reaches the paper ONLY through result.json files in the job folders fa.bv_batch_step created and REVIEW DONE /
+# ADJUDICATE DONE lines in returned.txt — never written by hand)
+def _r3_handshake(check, ROOT, run_fence, W):
+    """H-R3: the difficulty yardstick as ONE chain. Step 5 engine (analyse_engine.ladder_row / ladder_prepare /
+    ladder_merge, rankings through the job folders) -> [Exam]_difficulty_ladder.json -> SESSION_BUDGET staging ->
+    Create S3-2 mode freeze (bc.r3_mode) -> S4-7 STEP A author packet fence (ladder mode) -> STEP A2 fence (rank
+    tasks, defect codes, PRE-REVIEW gates, one writer fix) -> RUN-BLOCK S13-2L.0 (footer lines) ->
+    final_assembly.commit_registry -> paper_pipeline S13-QINDEX -> auditor A-CONTENTLEVEL / A-QINDEX / A-CLASSMIX ->
+    DeliveryFooter §2R wording. Every assertion names the producer and the consumer it binds."""
+    import copy, io, contextlib, fnmatch, random
+    import blueprint_core as bc, analyse_engine as ae, final_assembly as fa, paper_pipeline as pp, audit_canonical as ac
+    L = ['Easy', 'Medium', 'Hard']
+    MTC = os.path.join(W, 'Framework_MockTestCreate.md')
+    def blk(marker):
+        for _ln, body in fences(MTC, marker):
+            return body
+        raise AssertionError(f'fence {marker!r} not found')
+    EXAM, N = 'HR3', 1
+    HOME = ROOT + '/home/claude'
+    os.makedirs(HOME, exist_ok=True)
+    rng = random.Random(21)
+    # ── Step 5: 120 past questions of one subject, latent difficulty known; the 4-mark part is harder on average ──
+    truth, rows = {}, []
+    for i in range(120):
+        d = rng.gauss(0, 1)
+        truth[f'P1:Q{i + 1}'] = d
+        rec = {'subtopic_id': f'oc.t{i % 3}.u{i % 5}', 'marks': 4 if d > -0.2 else 2, 'ask_format': 'direct',
+               'has_figure': i % 4 == 0, 'decisions': ['concept_chain'] if d > 0.5 else ['specific_knowledge'],
+               'content_objects': [{'role': 'problem', 'kind': 'STRUCTURE', 'canonical': 'C' * (4 + max(0, int(6 + 3 * d)))}]}
+        pk = {'key': f'P1:Q{i + 1}', 'stem': f'Past question {i + 1}: which product forms', 'options': ['a', 'b', 'c', 'd']}
+        rows.append(ae.ladder_row(pk, rec))
+    check('H-R3 Step 5 ladder rows: what a candidate sees plus abstract features — never a band, count or key',
+          len(rows) == 120 and all(r['text'] and not ({'band', 'score', 'key', 'answer'} & set(r)) for r in rows)
+          and sum(1 for r in rows if r['content']) == 120)
+    with contextlib.redirect_stdout(io.StringIO()):
+        st = ae.ladder_prepare(EXAM, rows, L, home=HOME)
+    q = json.load(open(f'{HOME}/{EXAM}_ladder/queue.json'))
+    for jb in q['jobs']:                                  # fresh rankers: read packet.json only, write result.json
+        pk = json.load(open(os.path.join(jb['dir'], 'packet.json')))
+        brief = open(os.path.join(jb['dir'], 'JOB_BRIEF.txt')).read()
+        assert jb['dir'] in brief and 'P1:Q' not in json.dumps(pk)
+        res = {'rankings': {p['pid']: [it['label'] for it in sorted(p['items'], key=lambda it, m=jb['map'][p['pid']]:
+                                                                       truth[m[it['label']]] + rng.gauss(0, 0.5))]
+                            for p in pk['packets']}}
+        json.dump(res, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+    mg = ae.ladder_merge(EXAM, home=HOME)
+    lad = json.load(open(mg['path']))
+    check('H-R3 Step 5 S11-1d: ranking jobs through job folders (no past-question id reaches a ranker) -> ladder OK',
+          st['status'] == 'pending' and st['jobs'] > 0 and mg['status'] == 'ok' and bc.validate_ladder(lad) == []
+          and mg['path'] == f'{HOME}/{EXAM}_difficulty_ladder.json', (st, mg.get('status'), mg.get('sanity')))
+    sb = json.load(open(os.path.join(W, 'SESSION_BUDGET.json')))
+    check('H-R3 SESSION_BUDGET stages the ladder run file for TestCreate and MockCreate (pattern matches the Step 5 name)',
+          all(any(fnmatch.fnmatch(f'{EXAM}_difficulty_ladder.json', p) for p in sb['project_inputs'][t])
+              for t in ('TestCreate', 'MockCreate')))
+    check('H-R3 fa.bv_load_ladder reads exactly the file Step 5 wrote', fa.bv_load_ladder(EXAM, HOME) == lad)
+    _lad2 = json.loads(json.dumps(lad)); _sc2 = next(iter(_lad2['scopes'].values())); _k2 = next(iter(_sc2['positions']))
+    _fp1 = bc.ld_fingerprint(json.loads(json.dumps(lad))); _sc2['positions'][_k2] = _sc2['positions'][_k2] + 0.5
+    check('H-R3 bc.ld_fingerprint: unchanged by a JSON round trip, changed when one ladder position moves (the per-paper '
+          'freeze of Create S3-2e / bv_batch_step)', _fp1 == bc.ld_fingerprint(lad) and _fp1 != bc.ld_fingerprint(_lad2)
+          and bc.ld_fingerprint(None) is None, (_fp1, bc.ld_fingerprint(_lad2)))
+    _mtc_txt = open(MTC, encoding='utf-8').read()
+    check('H-R3 Create S3-2e freezes the ladder per paper: a NEW paper loads the attached ladder first, a paper in '
+          'progress its staged copy; batch_state records the fingerprint', 'fresh_first=_ld_inprog is None' in _mtc_txt
+          and "'ladder_fingerprint'" in _mtc_txt and fa.bv_load_ladder(EXAM, HOME, fresh_first=False) == lad)
+    _rows2 = [dict(r, id=r['id'].replace('P1:', 'P2:')) for r in rows]
+    with contextlib.redirect_stdout(io.StringIO()):
+        _st2 = ae.ladder_prepare(EXAM + 'Z', _rows2, L, home=HOME)
+        _mg2 = ae.ladder_merge(EXAM + 'Z', home=HOME)
+    check('H-R3 Step 5 phase C with no ranking returned writes NO ladder (Step 7 then runs rule r2.1, disclosed)',
+          _st2['status'] == 'pending' and _mg2['status'] == 'none' and _mg2['path'] is None
+          and not os.path.exists(f'{HOME}/{EXAM}Z_difficulty_ladder.json'), (_st2, _mg2))
+    # ── Create: S3-2 mode freeze, then the author packet fence ──
+    tgt = {'1': 'Hard', '2': 'Hard', '3': 'Hard', '4': 'Easy'}
+    kp, bsp = f'{HOME}/{EXAM}_M{N}_answer_key.json', f'{HOME}/{EXAM}_M{N}_batch_state.json'
+    mode = bc.r3_mode({}, lad, {})
+    json.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 4}], 'current_batch': 1, 'difficulty_labels': L,
+               'difficulty_plan_target': dict(tgt), 'difficulty_mode': mode}, open(bsp, 'w'))
+    check('H-R3 Create S3-2 freezes difficulty_mode = ladder (bc.r3_mode) and fa.bv_difficulty_mode keeps it',
+          mode == 'ladder' and fa.bv_difficulty_mode(json.load(open(bsp)), None) == 'ladder')
+    G = {'EXAM': EXAM, 'N': N, 'LADDER': lad, 'EXAM_RULER': {}, 'manifest': {}, 'EXEMPLAR_BANK': {}}
+    run_fence(blk('# ── S4-7 STEP A author packet (v6.1 BV1) ──'), G)
+    with contextlib.redirect_stdout(io.StringIO()):
+        ap = G['BV_AUTHOR_PACKET'](1, 'oc.t1.u1')
+    _apt = json.dumps(ap)
+    check('H-R3 S4-7 STEP A (ladder mode): level in words, levers, archetype cards, content floor — no score, count '
+          'target, offset or grading anchor', ap.get('mode') == 'ladder' and ap.get('levers') and ap.get('archetype_cards')
+          and ap.get('content_floor') and 'score' not in _apt.lower() and 'aim one point' not in _apt
+          and not any(a in _apt for a in lad['scopes'][bc.ld_scope_for(lad, None, 'oc.t1.u1')]['grading']), ap)
+    # ── STEP A2: four questions; Q3 has a dead row and is fixed by the writer when sent back ──
+    dead = ['A-III, B-I, C-II, D-IV', 'A-II, B-I, C-III, D-IV', 'A-III, B-II, C-I, D-IV', 'A-I, B-III, C-II, D-IV']
+    fixed = ['A-III, B-I, C-II, D-IV', 'A-II, B-I, C-IV, D-III', 'A-III, B-II, C-I, D-IV', 'A-IV, B-III, C-II, D-I']
+    true_p = {'1': 0.93, '2': 0.60, '3': 0.95, '4': 0.20}
+    stems = {'1': 'Identify the major product when 2-bromo-2-methylbutane is heated with ethanolic potassium tert-butoxide',
+             '2': 'Which reagent converts benzaldehyde into cinnamic acid in one step under the conditions given',
+             '3': 'Match each named reaction in List-I with the key intermediate it proceeds through in List-II',
+             '4': 'The hybridisation of the carbonyl carbon atom in propanone is'}
+    opts = {'1': ['2-methylbut-1-ene', '2-methylbut-2-ene', '3-methylbut-1-ene', 'pentan-2-ol'],
+            '2': ['acetic anhydride and sodium acetate', 'malonic acid and pyridine', 'acetone and NaOH', 'HCN then hydrolysis'],
+            '3': dead, '4': ['sp3', 'sp2', 'sp', 'dsp2']}
+    cm = {q: {'stem_text': stems[q], 'subtopic_id': 'oc.t1.u1', 'qtype': 'mcq', 'ask_format': 'direct',
+              'difficulty': tgt[q], 'option_texts': list(opts[q])} for q in tgt}
+    json.dump({'concept_map': cm, 'answers': {q: 1 for q in tgt}}, open(kp, 'w'))
+    seen = {'blind': [], 'tasks': []}
+    def answer_jobs():
+        bs = json.load(open(bsp)); lines = []
+        for jb in bs['bv']['jobs']:
+            pk = json.load(open(os.path.join(jb['dir'], 'packet.json')))
+            if jb['role'] == 'adjudicator':
+                json.dump({'verdict': 'author_correct', 'correct_answer': 1, 'single_answer': 'yes', 'missing_condition': '',
+                           'reason': 'r', 'confidence': 'high'}, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+                lines.append(jb['dir'] + ' ADJUDICATE DONE'); continue
+            seen['blind'].append('difficulty' not in json.dumps([r.get('item') for r in pk['items']])
+                                 and 'exemplars' not in json.dumps(pk) and 'band_guide' not in pk)
+            out = {}
+            for r in pk['items']:
+                qq = r['q']; tk = (jb.get('tasks') or {}).get(qq)
+                seen['tasks'].append(r.get('task'))
+                rec = {'answer': 1, 'confidence': 'high', 'assumptions': [], 'single_answer': 'yes', 'defects': [],
+                       'depth': 3, 'breadth': 1, 'class': 'conceptual', 'concept': 'c' + qq,
+                       'decisive_fact': {'entities': [f'species {qq}'], 'property': 'major product'}}
+                if tk:
+                    rec['ranking'] = sorted(tk['map'], key=lambda lb, t=tk, x=qq: (true_p[x] if t['map'][lb] == 'ITEM'
+                                                                                   else t['meta'][t['map'][lb]]['p']) + rng.gauss(0, 0.03))
+                out[qq] = rec
+            json.dump({'items': out}, open(os.path.join(jb['dir'], 'result.json'), 'w'))
+            lines.append(jb['dir'] + ' REVIEW DONE')
+        open(f'{HOME}/{EXAM}_M{N}_bv/returned.txt', 'a').write('\n'.join(lines) + '\n')
+    step = blk('# ── S4-7 STEP A2 (v6.1 BV1) ──')
+    def a2():
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_fence(step, G)
+        return G['BV_STEP']
+    r = a2()
+    check('H-R3 STEP A2 PRE-REVIEW sends the dead-row question back to the writer before any reviewer is paid',
+          any('PRE-REVIEW Q3' in x and 'G-DEADROW' in x for x in r.get('lines') or []), r.get('lines'))
+    statuses, fixes = [r['status']], 0
+    for _ in range(40):
+        if r['status'] == 'done':
+            break
+        if r['status'] == 'jobs_out':
+            answer_jobs()
+        elif r['status'] == 'rewrite':
+            kd = json.load(open(kp))                      # the writer's fix, exactly as write_q_to_sidecar replaces it
+            for _rq in set(r.get('rewrite') or []) | {x.split('PRE-REVIEW Q')[1].split(' ')[0] for x in r.get('lines') or []
+                                                       if 'PRE-REVIEW Q' in x}:
+                if _rq == '3':
+                    kd['concept_map']['3']['option_texts'] = list(fixed); fixes += 1
+                else:
+                    kd['concept_map'][_rq]['stem_text'] += ' (revised)'
+            json.dump(kd, open(kp, 'w'))
+        r = a2(); statuses.append(r['status'])
+    kd = json.load(open(kp)); cm = kd['concept_map']; bs = json.load(open(bsp))
+    check('H-R3 STEP A2 DONE within the round budget; every reviewer packet blind (no band, no exemplar, no band guide) '
+          'and every placement a rank task', r['status'] == 'done' and bs['bv']['round'] <= bc.BV_MAX_ROUNDS
+          and seen['blind'] and all(seen['blind']) and seen['tasks'] and all(t == 'rank' for t in seen['tasks']), statuses)
+    check('H-R3 labels by placement: a hard question Hard, a padded one below Hard (shipped at its measured band), the '
+          'fixed dead-row question Hard, an easy slot Easy', cm['1']['difficulty'] == 'Hard' and cm['2']['difficulty'] != 'Hard'
+          and cm['3']['difficulty'] == 'Hard' and cm['4']['difficulty'] == 'Easy' and fixes >= 1
+          and all((cm[x].get('difficulty_check') or {}).get('measure') == 'placement_r3' for x in ('1', '3')),
+          {x: (cm[x].get('difficulty'), (cm[x].get('difficulty_check') or {}).get('measure')) for x in cm})
+    labs_ok = {x: bc.verify_difficulty_label(cm[x], L, strict=True) for x in cm}
+    check('H-R3 every placement label verifies STRICTLY (LB2 kinds)', all(v[0] for v in labs_ok.values()), labs_ok)
+    # ── RUN-BLOCK S13-2L.0: the footer lines (count rule RED: 2 Hard of 3 requested) ──
+    with contextlib.redirect_stdout(io.StringIO()):
+        run_fence(blk('# ── S13-2L.0 PAPER DIFFICULTY GATE'), {'EXAM': EXAM, 'N': N, 'LADDER': lad})
+    bs = json.load(open(bsp)); cf = (bs.get('difficulty_state') or {}).get('chain_footer') or {}
+    fdt = open(os.path.join(W, 'Framework_DeliveryFooter.md'), encoding='utf-8').read()
+    check('H-R3 S13-2L.0 writes the count-rule RED line and the placement line DeliveryFooter §2R names',
+          any(x.startswith('DIFFICULTY (RED): requested counts not met') for x in cf.get('amber') or [])
+          and any(x.startswith('PLACEMENT: ') for x in cf.get('info') or [])
+          and 'DIFFICULTY (RED): requested counts not met' in fdt and 'PLACEMENT: <n>% of reviewer placements were void' in fdt
+          and (bs['difficulty_state'].get('r3') or {}).get('mode') == 'ladder', cf)
+    # ── commit through the REAL final_assembly, then every downstream reader ──
+    BP = {'exam_code': EXAM, 'blueprint_version': 't', 'difficulty_labels': L,
+          'subtopic_list': [{'subtopic_id': 'oc.t1.u1', 'section': 'oc', 'topic': 't1'}],
+          'difficulty_schedule': [{'mock': 1, 'simple': 1, 'medium': 0, 'hard': 3}],
+          'mocks': [{'mock': 1, 'sections': [{'section_name': 'Part A', 'q_range': [1, 4],
+                     'subtopic_allocations': [{'subtopic_id': 'oc.t1.u1', 'q_count': 4}]}]}], 'total_questions': 4}
+    reg0 = {'exam_code': EXAM, 'schema_version': '1.0', 'mocks_completed': [], 'papers_completed': [], 'question_hashes': [],
+            'stem_texts': [], 'semantic_tuples': [], 'semantic_usage': [], 'exhausted_subtopics': {}, 'question_index': [],
+            'image_phashes': [], 'image_sources_used': [], 'session_log': [], 'content_tracking': {k: [] for k in fa._REQUIRED_CT},
+            'section_names': [], 'rc_manifests': [], 'figural_manifests': [], 'di_manifests': []}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            res = fa.commit_registry(copy.deepcopy(reg0), {}, BP, 1, paper_id='MOCK:M01', batches_completed=1,
+                                     axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                                     concept_map=copy.deepcopy(cm), difficulty_state=bs.get('difficulty_state') or {},
+                                     nf_disclosed={}, manifest_hash=bc.manifest_hash({}))
+        reg = res['registry']; rows_r = {str(x['q']): x for x in reg['question_index'][0]['questions']}
+    except Exception as x:
+        check('H-R3 final_assembly commit', False, repr(x)); return
+    check('H-R3 final_assembly commits every placement label; each committed row verifies strictly',
+          all(bc.verify_difficulty_label(rows_r[x], L, strict=True)[0] for x in rows_r) and len(rows_r) == 4,
+          {x: rows_r[x].get('difficulty') for x in rows_r})
+    okq, repq = pp.validate_question_index(reg, BP, mock_n=1)
+    check('H-R3 paper_pipeline.validate_question_index (S13-QINDEX) accepts the placement rows', okq, repq.get('fails'))
+    ac._reset(); ac.gate_contentlevel({'concept_map': cm}); ac.gate_qindex({'registry': reg, 'blueprint': BP, '_mockN': 1})
+    _fails = [(c, m[:160]) for l, c, m in ac.RESULTS if l == 'FAIL' and c in ('A-CONTENTLEVEL', 'A-QINDEX')]
+    check('H-R3 auditor A-CONTENTLEVEL and A-QINDEX: no FAIL on a ladder-mode paper', not _fails, _fails)
+# ── H-R3 END ──
 
 def self_test():
     import blueprint_core as bc, analyse_engine as ae, final_assembly as fa, paper_pipeline as pp, figure_types as ft
@@ -1879,6 +2096,8 @@ def self_test():
         _bv_handshake(check, ROOT, run_fence, W)
         print('H-BC every question SETTLED in its batch: ladder, adjudication, re-key, R5b, NO-MODEL, STEP A3, byte-copy Final Assembly (release 2026.11.16)')
         _bc_handshake(check, ROOT, W)
+        print('H-R3 difficulty yardstick: Step 5 ladder -> staging -> STEP A packet -> STEP A2 placement -> S13-2L.0 -> commit -> audit (release 2026.11.21)')
+        _r3_handshake(check, ROOT, run_fence, W)
 
     finally:
         shutil.rmtree(ROOT, ignore_errors=True)
@@ -1892,7 +2111,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 244   # 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 262   # 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

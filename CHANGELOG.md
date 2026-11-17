@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.11.21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK: one yardstick, structured review, gates before review (OD-2026-11-16)
+
+(over release 2026.11.20. blueprint_core Cluster R3 (NEW: r3_mode, ld_* ladder / placement, qg_* deterministic gates,
+r3_findings / r3_defects / r3_solver_fields, r3_author_packet, r3_count_rule / r3_paper_rule, BV_BRIEF_REVIEWER_R3,
+_r3_self_test; hooks in bv_read_result, bv_split_reviewer_result, bv_recipe_verdict, bc_apply, _bc_label);
+final_assembly v1.25.0 (NEW bv_load_ladder, bv_difficulty_mode, bv_r3_gaps, bv_r3_report; bv_batch_step ladder=);
+analyse_engine (NEW ladder_row, ladder_prepare, ladder_merge); corpus_io (G-LABELSIZE); Framework_MockTestCreate v8.0;
+Framework_MockReview v2.3.0; Framework_MockTestAnalyse v2.63.0; Framework_DeliveryFooter v1.52.0; SESSION_BUDGET
+(ladder run file staged); STEP_CONTRACTS (floors Create 8.0, MockReview 2.3.0, MockTestAnalyse 2.63.0, DeliveryFooter
+1.52.0).)
+
+**Evidence (Test 01, three 40-question subject papers made on 2026.11.15).** 86 questions certified Hard by the count
+rubric; 3 Hard on an expert read; 27 of the "Hard" ones Easy or Easy-to-Medium. 22 reviewer notes that began "none (" and
+then named a real defect were read as clean. On the real exam's own questions the count rubric calls 29 of 61
+Inorganic Part C (4-mark) questions Easy. Cause: the band was a COUNT of what a solution writes; the writer was given
+the count to aim at; findings were free text read by their first word; one reviewer's note was discarded by design.
+
+**What changed.**
+- Difficulty is MEASURED, not counted (mode 'ladder'). Step 5 ranks the exam's own past questions blind in packets of
+  6 (S11-1d) and fits a ladder (Bradley-Terry). Step 7's three existing reviewers place each new question among 5
+  real past questions it was never shown with (2 just below the band's cut, 2 at the band's median, 1 far below); the
+  band is read from the ranking. A reviewer who orders the anchors wrongly is VOID for that placement (the question
+  grades the band below the slot — never credited, never a wait). No new job, round or sub-agent in Step 7.
+- No ladder yet -> mode 'counted': rule r2.1 (decision depth: dependent decisions only; rows and statements are
+  breadth; eliminating an option is not a move), disclosed AMBER. A paper begun on an earlier release keeps 'br1'.
+- The writer never sees a score, count target, 'aim inside the band', offset or self-count. It gets the level in
+  words, levers H1-H7, archetype cards of the exam's hardest questions (features only) and the top-band content floor.
+- Reviewers return ENUMERATED DEFECT CODES (MockReview S2-2R); ONE blocking code from ONE reviewer acts. Approximate-
+  method collisions, give-away options and (top band) one-fact settles / depth < 2 are computed. A key settled only by
+  adjudication is rewritten while rung < 2.
+- Deterministic gates before any reviewer (PRE-REVIEW): G-DEADROW, G-EXTREMES (top band), G-OPTION-SPACING,
+  G-NUMERIC-RESOLVE (the writer's compute block, sandboxed), G-STEMFORM, G-STEMFIGREF, G-ALTTEXT, G-ASKSTEREO, the
+  top-band content floor; G-INTRAPAPER-FACT within the paper; G-FIGURE-SHARE and the count / paper rules in the footer.
+- Counts are cumulative minimums from the top ("met or higher"); a shortfall is a RED footer line; never relabelled.
+
+**No new stop, no new loop.** Every new path ends in a value, the existing bounded rung ladder (LAW-BC-2) or a
+disclosure. A hostile reviewer (void placement + a blocking code every time) ends DONE within BV_MAX_ROUNDS (tested).
+
+**Pre-deploy review fixes (same release).** Step 5 phase C: the deferral record's bookkeeping keys (grading_pending, ladder_pending) are no longer passed to deliver_final (would have raised TypeError); phase C writes no ladder file when no ranking came back. The ladder is FROZEN PER PAPER: a new paper loads the attached ladder first (a re-built one wins over a stale staged copy), a paper in progress keeps its staged copy, and batch_state records bc.ld_fingerprint — a change mid-paper is one AMBER footer line, never a switch. STEP A names the real channel for the compute block (the S7-QUALITY record). handshake_audit H-R3 (17 checks) binds the ladder chain end to end.
+
+**Verified.** blueprint_core 1511/1511, final_assembly 232/232, analyse_engine 309/309, corpus_io 594/594, handshake_audit 262/262. Gates on the
+360 real CSIR questions: 0 false findings (2 genuine dead rows in the real Jul-2026 paper, Q37 and Q44). Gates on Test
+01: Inorganic Q1 dead row, Physical Q17 'Correct:', Inorganic Q13 extremes. Placement simulation: a random ranker is
+voided 95% of the time; a padded question just under the cut is labelled Hard <= 5%. Seven deliberate bugs planted in
+the new code: all seven caught by the self-tests.
+
 ## 2026.11.20 — GAP-2026-11-15-RUN-ANALYSIS, second pass: auto-continue start-up fix, full reviewer packets, narrower pre-review
 
 (over release 2026.11.19, the bundle being deployed. final_assembly v1.24.1 (NEW bc_stimulus_fill; a narrower 'shown'

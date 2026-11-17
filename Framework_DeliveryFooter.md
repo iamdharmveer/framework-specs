@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.51.1 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.52.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.52.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; paired with MockTestCreate v8.0): §2R names
+#   the difficulty-mode, count-rule, paper-rule, void-placement and figure-share lines Create S13-2L.0 prints
+#   (final_assembly.bv_r3_report). Disclosure only — no line here stops a paper.
 # v1.51.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS (paired with MockTestCreate v7.3.1): §LADDER-BC names the line
 #   Create S13-2L.0 prints for a figure proof that fails at Final Assembly (S13-2P's P0 record; expected never) — the
 #   catalogue is complete again. No other change. Entry v1.51.0 moved to SPEC_HISTORY.md.
@@ -1214,6 +1217,19 @@ facts (question_index entry nf_disclosed), so MockDeliver reprints them verbatim
 Create S13-2L, which writes every line above into difficulty_state.chain_footer['amber'] (nf_disclosed {gate: reason},
 bv_disclosed) — never paraphrased, never composed by this contract.
 ```
+
+## §2R — DIFFICULTY YARDSTICK LINES (v1.52.0 — Cluster R3; Create S13-2L.0, final_assembly.bv_r3_report)
+
+  Printed for every paper whose batch_state['difficulty_mode'] is 'ladder' or 'counted' (none for 'br1'):
+  AMBER  DIFFICULTY (AMBER): this exam has no usable difficulty ladder yet — ... rule r2.1 ...   mode 'counted'
+  AMBER  DIFFICULTY (AMBER): scope(s) [...] have fewer than 40 scored past questions — ...      a widened ladder scope
+  INFO   DIFFICULTY: requested counts met or exceeded (Hard 28/28; Hard+Medium 38/38; ...)     count rule met
+  RED    DIFFICULTY (RED): requested counts not met — Hard: 26 of at least 28                  count rule (§6.2 r3)
+  RED    DIFFICULTY (RED): band below the real exam — <scope> <band>: median <p> < real <p>    paper rule
+  INFO   PLACEMENT: <n>% of reviewer placements were void (calibration failed) — each graded one band below its slot
+  AMBER  G-FIGURE-SHARE: <subject> has <k> of <n> items with a figure ... (AMBER)              figure share
+  Counts are CUMULATIVE MINIMUMS FROM THE TOP: a harder question in place of an easier one meets the request; a
+  shortfall at any level is RED. A label is always the measured band — never relabelled to meet a count.
 
 ## §LADDER-BC — BATCH-COMPLETE LINES (v1.51.0 — GAP-2026-11-14-BATCH-COMPLETE; Create S0-BC)
 
