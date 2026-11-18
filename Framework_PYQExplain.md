@@ -1,4 +1,6 @@
-# Framework_PYQExplain v2.32 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.33 — Universal PYQ Explanation Generator
+# v2.33 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24, A3): §13A-4 names the
+#   records whose option texts are incomplete (bc.pyq_record_complete 'option_text'); re-read by Phase B as before.
 # v2.32 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-04 / F-05 / F-06 / F-10 (paired with blueprint_core
 #   v2.1, MockTestCreate v6.1, Blueprint v1.65.0). Phase B writes, for EVERY record (organic or not): decisions
 #   from bc.ALL_DECISION_TAGS (the subject-agnostic vocabulary — the organic tags stay), mip (minimal identifying
@@ -2923,6 +2925,10 @@ if os.path.exists(_cop):
         _due = sorted(k for k, r in _content.items() if k != '_meta' and isinstance(r, dict) and r.get('reread_due'))
         print(f"§13A-4: transcription confidence set on {sum(1 for k in _content if k != '_meta')} content record(s); "
               f"{_n_partial} partial / unverified (kept; out of every target pool); re-read due (Phase B, zoom tiles): {_due}")
+        _ot = sorted(k for k, r in _content.items() if k != '_meta' and isinstance(r, dict)
+                     and 'option_text' in (r.get('missing_fields') or []))     # v2.33 (release 2026.11.24, A3)
+        if _ot:
+            print(f"§13A-4: option_text incomplete (an option with no content) on {len(_ot)} record(s) — re-read due: {_ot}")
     except (OSError, ValueError) as _e:
         print(f"§13A-4: content records not re-checked ({type(_e).__name__}: {_e}) — recorded, never a stop")
 fv.write_manifest(items, transcripts, report,
@@ -3910,5 +3916,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.32
+# END OF Framework_PYQExplain v2.33
 # ════════════════════════════════════════════════════════════════════════

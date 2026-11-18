@@ -5964,6 +5964,60 @@ def scheme_canonical(spec):
     return out
 
 
+_ELEMENT_SYMBOLS = frozenset("""H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As
+Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta
+W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr""".split())
+_FORMULA_PIECE_RE = re.compile(r'([A-Z][a-z]?)|(\()|(\))|(\d+)|([+\-])')
+_SUB_DIGITS = str.maketrans('0123456789', '₀₁₂₃₄₅₆₇₈₉')
+_ABBR_SUBS = {k: re.sub(r'<sub>(\d+)</sub>', lambda m: m.group(1).translate(_SUB_DIGITS), v)
+              for k, v in ABBREVIATION_DISPLAY.items() if '<sub>' in v and '<sup>' not in v}
+
+
+def _formula_token(tok):
+    """A token written as a chemical formula / group — element symbols (and the abbreviation table's groups Me, Et,
+    Ph, …), parentheses and counts — with its counts as Unicode subscripts; None when the token is not one. A
+    leading count (a coefficient, '2 equiv') is never touched."""
+    t = str(tok)
+    if not t or not re.search(r'[A-Za-z)]\d', t) or t[0].isdigit():
+        return None
+    pos, out, prev = 0, [], ''
+    for m in _FORMULA_PIECE_RE.finditer(t):
+        if m.start() != pos:
+            return None
+        sym, op, cl, num, sg = m.groups()
+        if sym is not None:
+            if sym not in _ELEMENT_SYMBOLS and sym not in ('Me', 'Et', 'Ph', 'Bu', 'Pr', 'Ac', 'Bn', 'Ts', 'Ms', 'Tf'):
+                return None
+            out.append(sym)
+        elif num is not None:
+            out.append(num.translate(_SUB_DIGITS) if prev in ('sym', 'cl') else num)
+        else:
+            out.append(m.group(0))
+        prev = 'sym' if sym is not None else 'cl' if cl is not None else 'num' if num is not None else 'op'
+        pos = m.end()
+    return ''.join(out) if pos == len(t) else None
+
+
+def formula_subscripts(text):
+    """C5 (release 2026.11.24): reaction-arrow, label and caption text as an exam prints it — every token that is an
+    abbreviation-table group with a count ('CO2Me' -> 'CO₂Me', 'SiMe3', 'NO2') or a chemical formula ('H2SO4',
+    'CH2Cl2', 'Pd(PPh3)4') gets its counts as subscripts; every other token is unchanged. Display only: the
+    reaction identity (scheme_canonical) reads the spec, never this text. Never raises."""
+    try:
+        s = str(text if text is not None else '')
+        parts = re.split(r'([\s,;/]+)', s)
+        for i, w in enumerate(parts):
+            if not w or re.fullmatch(r'[\s,;/]+', w):
+                continue
+            core = w.strip('.:')
+            new = _ABBR_SUBS.get(core) or _formula_token(core)
+            if new and new != core:
+                parts[i] = w.replace(core, new, 1)
+        return ''.join(parts)
+    except Exception:                                   # noqa: BLE001 — display text, never a stop
+        return str(text) if text is not None else ''
+
+
 def _scheme_native_items(rows, tiles):
     """Pair every spec item with the tile(s) render_scheme created for it, in the same
     order the legacy walk called structure_draw_fn (mol -> 1, reagent_mol -> 1, pair -> 2)."""
@@ -5979,8 +6033,8 @@ def _scheme_native_items(rows, tiles):
                 r.append({'kind': 'plus'})
             elif 'arrow' in it:
                 a = dict(it['arrow'] or {})
-                above = [str(t) for t in (a.get('above') or []) if t is not None and str(t).strip()]
-                below = [str(t) for t in (a.get('below') or []) if t is not None and str(t).strip()]
+                above = [formula_subscripts(t) for t in (a.get('above') or []) if t is not None and str(t).strip()]
+                below = [formula_subscripts(t) for t in (a.get('below') or []) if t is not None and str(t).strip()]
                 rm = next(it_tiles) if a.get('reagent_mol') else None
                 r.append({'kind': 'arrow', 'dir': a.get('dir', 'right'), 'above': above,
                           'below': below, 'reagent': rm})
@@ -5989,7 +6043,7 @@ def _scheme_native_items(rows, tiles):
             elif 'bracket' in it:
                 r.append({'kind': 'bracket', 'text': f'[ {it["bracket"]} ]'})
             elif 'text' in it:
-                r.append({'kind': 'text', 'text': str(it['text'])})
+                r.append({'kind': 'text', 'text': formula_subscripts(it['text'])})
             elif 'pair' in it:
                 r.append({'kind': 'pair', 'members': [(f'{lbl} =', next(it_tiles)) for lbl, _s in it['pair']]})
         out.append(r)
@@ -7874,6 +7928,7 @@ def _caption_panel(panel, caption, cap_px, text_colour='#191919'):
     if not caption:
         return panel
     fb, _ = _native_font('bold', cap_px[0]); fr, _ = _native_font('regular', cap_px[1])
+    caption = [formula_subscripts(t) if isinstance(t, str) else t for t in caption]   # C5: CO2Me -> CO₂Me (text only)
     im = panel.image
     dr = ImageDraw.Draw(im)
     widths = [dr.textlength(t, font=(fb if k == 0 else fr)) for k, t in enumerate(caption)]
@@ -7913,8 +7968,8 @@ def _arrow_tile(above, below, width_px, height_px, font_px, wrong=False, ink=Non
     f, _ = _native_font('regular', int(font_px * 0.85))
     c = Image.new('RGB', (width_px, height_px), 'white')
     dr = ImageDraw.Draw(c)
-    lines_a = [t for t in (above or []) if str(t).strip()]
-    lines_b = [t for t in (below or []) if str(t).strip()]
+    lines_a = [formula_subscripts(t) if isinstance(t, str) else t for t in (above or []) if str(t).strip()]
+    lines_b = [formula_subscripts(t) if isinstance(t, str) else t for t in (below or []) if str(t).strip()]
     if not down:
         y = height_px // 2
         dr.line((10, y, width_px - 18, y), fill=col, width=max(2, font_px // 9))
@@ -12476,6 +12531,12 @@ def self_test():
         check('v121_draw_records_geometry', isinstance(getattr(_sd, 'geometry', None), dict) and _sd.geometry['ok'])
     else:
         check('v121_dormant_without_rdkit', mol_geometry_gates(None)['ok'] is False)
+    # release 2026.11.24 (C5): reaction-arrow / caption text prints chemical counts as subscripts; other text unchanged
+    check('v124_formula_subscripts', formula_subscripts('CO2Me') == 'CO₂Me'
+          and formula_subscripts('H2SO4, CH2Cl2') == 'H₂SO₄, CH₂Cl₂' and formula_subscripts('Pd(PPh3)4') == 'Pd(PPh₃)₄'
+          and formula_subscripts('2 equiv') == '2 equiv' and formula_subscripts('Step 2') == 'Step 2'
+          and formula_subscripts('THF, reflux') == 'THF, reflux' and formula_subscripts(None) == ''
+          and _scheme_native_items([[{'arrow': {'above': ['CO2Me'], 'below': ['H2O']}}]], [])[0][0]['above'] == ['CO₂Me'])
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print('FAILED: ' + ', '.join(fails))

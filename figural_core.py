@@ -843,6 +843,11 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
         "small": round(fp["_small"], 3),
         "floor": fp["_floor"],
     }
+    # release 2026.11.24 (C3): the plotted data travel with the figure record, so a value the stem says is read from
+    # the figure is checked against what was drawn (blueprint_core.qg_compute, G-NUMERIC-RESOLVE). The writer copies
+    # spec['data'] (and an optional 'read_tol', the precision a candidate can read the plot to) into figure_dicts.
+    if isinstance(spec.get("series"), list) and spec["series"] and "data" not in spec:
+        spec["data"] = {"series": spec["series"]}
     return spec
 
 
@@ -4890,6 +4895,16 @@ def self_test():
     check("FZ_style_flags_non_dict_profile_defaults",
           _never(lambda: style_flags([1, 2])) == style_flags(None)
           and _never(lambda: style_flags({"evidence": [1]})) == style_flags(None))
+    # release 2026.11.24 (C3): a rendered data figure carries its plotted series as 'data'
+    try:
+        with tempfile.TemporaryDirectory() as _td:
+            _sp = make_figure_spec(1, "data_single", 3.0, series=[{"label": "A", "x": [1, 2, 3], "y": [2.0, 4.0, 6.0]}],
+                                   axes={"x": "t / s", "y": "c / M"})
+            _out = render_figure(lambda ax, s, pal: ax.plot(s[0]["x"], s[0]["y"]), _td + "/q1_f1.png", _sp)
+        _c3 = isinstance(_out.get("data"), dict) and _out["data"]["series"][0]["y"][1] == 4.0
+    except Exception as _e:                                 # noqa: BLE001
+        _c3 = "matplotlib" in str(_e) or "G-FIGDEP" in str(_e)
+    check("v124_figure_record_carries_plotted_data", _c3)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

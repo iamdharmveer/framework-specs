@@ -1,4 +1,6 @@
-# Framework_ScopedBlueprint v1.15.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.16.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.16.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24): FG-4 advisory line
+#   (bc.fg4_coverage_advisory) after the axis_schedule assert; figure_type_coverage.status untouched. No new stop.
 # v1.15.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (paired with blueprint_core v2.1, Blueprint v1.65.0,
 #   MockTestCreate v6.1). NEW §4-NF: the nested controlled rounding of Blueprint §4-1c one level down (topics inside
 #   the scoped subject, subtopics inside the scoped topic — EC-38) and the §7-10 targets for the scoped subject
@@ -1626,6 +1628,9 @@ for m in blueprint['mocks']:
     assert all(a['subtopic_id'] in MANIFEST_IDS for a in sec['subtopic_allocations'])
 # axis_schedule + zero_pyq_rotation keyed by the single section name
 assert set(blueprint['axis_schedule']) == {scope_label}
+# release 2026.11.24 (FG-4): a planned figure target with no figure type checked is an ADVISORY (status untouched)
+blueprint['figure_type_coverage']['advisories'] = list(blueprint['figure_type_coverage'].get('advisories') or []) + \
+    bc.fg4_coverage_advisory(blueprint['figure_type_coverage'], blueprint['axis_schedule'])
 assert set(blueprint['zero_pyq_rotation']) == {scope_label}
 # v1.11.0 (LAW F3.2) — the producer flags AGREE with the allocation they describe. A
 # blueprint that allocates a FIGURAL subtopic and says figural_present=False is the
@@ -1768,4 +1773,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.15.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.16.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

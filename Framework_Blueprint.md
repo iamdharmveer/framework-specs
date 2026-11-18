@@ -1,4 +1,7 @@
-# Framework_Blueprint v1.65.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.66.0 — Universal Mock Test Blueprint Generator
+# v1.66.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24): FG-4 — a section with a
+#   figure target and no figure type checked gets an ADVISORY line (bc.fg4_coverage_advisory); status untouched.
+#   hard_share_by_subtopic stays (legacy); Create now reads the top-band shares from the ladder (E2). No new stop.
 # v1.65.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (owner decisions D-01..D-08 + amendments A-C; paired
 #   with blueprint_core v2.1, analyse_engine v1.6, audit_canonical v2.41, final_assembly v1.17, figure_types v1.4,
 #   MockTestCreate v6.1, ScopedBlueprint v1.15.0, MockTestAnalyse v2.62.0, PYQExplain v2.32, DeliveryFooter v1.46.0).
@@ -3758,6 +3761,9 @@ for section in sections:
              f"within tolerance by Step 7's audit.py.")
 
 blueprint['axis_schedule'] = axis_schedule
+# release 2026.11.24 (FG-4): a planned figure target with no figure type checked is an ADVISORY (status untouched)
+blueprint['figure_type_coverage']['advisories'] = list(blueprint['figure_type_coverage'].get('advisories') or []) + \
+    bc.fg4_coverage_advisory(blueprint['figure_type_coverage'], axis_schedule)
 
 # v1.62.0 (GAP-2026-11-02 F8) — ASK-TYPE TARGETS per mock and section. A section's ask-type
 # share = sum over its subtopics of (subtopic r_avg x the subtopic's PYQ ask-type share),
@@ -8040,4 +8046,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.65.0
+# END OF Framework_Blueprint v1.66.0

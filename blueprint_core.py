@@ -4993,6 +4993,43 @@ def sorted_body_lookahead(doc):
     return paras, out
 
 
+def tables_by_paragraph(doc, cell_text=None):
+    """A2 (release 2026.11.24) — {paragraph index: [table text, ...]}: every body-level <w:tbl> is attached to the last
+    body <w:p> before it (the SAME walk and the SAME paragraph indices as sorted_body_lookahead), rendered row by row
+    as 'cell | cell' joined by '; ' (a horizontally merged cell is ONE <w:tc> in the XML, so it is read once).
+    cell_text(<w:p> element) renders one cell paragraph (the caller passes corpus_io.text_of with the OMML renderer,
+    so equation cells — character tables — survive); default: the paragraph's <w:t> text. {} when the body cannot be walked (today's behaviour). Never raises."""
+    out = {}
+    try:
+        body = doc.element.body
+        ns_tr, ns_tc = _W_NS + 'tr', _W_NS + 'tc'
+
+        def _ptext(p_el):
+            if callable(cell_text):
+                try:
+                    return str(cell_text(p_el) or '')
+                except Exception:                       # noqa: BLE001
+                    pass
+            return ''.join(t.text or '' for t in p_el.iter(_W_NS + 't'))
+        pi = -1
+        for child in body.iterchildren():
+            tag = getattr(child, 'tag', None)
+            if tag == W_P_TAG:
+                pi += 1
+            elif tag == W_TBL_TAG and pi >= 0:
+                rows = []
+                for tr in child.iterchildren(ns_tr):
+                    cells = [' '.join(x for x in (_ptext(p).strip() for p in tc.iter(W_P_TAG)) if x)
+                             for tc in tr.iterchildren(ns_tc)]
+                    if any(c for c in cells):
+                        rows.append(' | '.join(cells))
+                if rows:
+                    out.setdefault(pi, []).append('; '.join(rows))
+        return out
+    except Exception:                                   # noqa: BLE001 — today's behaviour
+        return {}
+
+
 # GAP-2026-08-15-BAREQ (R-8). Zero-width characters are NOT whitespace to Python:
 # str.strip() does not remove them and regex \s does not match them. So a stem
 # label carrying a ZWSP defeats entry 3 exactly as "Q.4" defeated entries 1 and 2
@@ -8431,7 +8468,7 @@ def _bc_self_test(check):
     _st, _acts = bc_apply(dict(_fit), 'Hard', L, {}, 2), []
     for _i in range(8):
         if _st['action'] == 'grade':
-            _st = bc_apply(_st['entry'], 'Hard', L, {}, 2, results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
+            _st = bc_apply(_st['entry'], 'Hard', L, {}, 2, results=_RD([['D-STEM-FORM'], ['D-STEM-FORM'], []]))
         elif _st['action'] == 'rewrite':
             _acts.append(_st['entry']['bv']['rung'])
             _st = bc_apply(dict(_st['entry'], stem_text=_st['entry']['stem_text'] + f' v{_i}'), 'Hard', L, {}, 2)
@@ -8443,7 +8480,17 @@ def _bc_self_test(check):
           and any('reviewer finding still open' in x[1] for x in bc_amber_lines('1', _st['entry'])))
     _one = bc_apply(bc_apply(dict(_fit), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
                     results=_RD([['D-AMBIGUOUS'], [], []]))
-    check('r3_one_report_no_rewrite', _one['action'] == 'settled')
+
+    def _AC(confirmed):
+        return {'adjudicator': {'result': {'verdict': 'author_correct', 'correct_answer': 2, 'confidence': 'high',
+                                           'single_answer': 'yes', 'missing_condition': '', 'reason': 'r',
+                                           'claims': [{'code': 'D-AMBIGUOUS', 'confirmed': confirmed, 'reason': 'seen'}]},
+                                'sha256': 'adjc', 'context': 'fresh'}}
+    _one_r = bc_apply(_one['entry'], 'Hard', L, {}, 2, results=_AC(False))
+    # release 2026.11.24 (C1): one reviewer's correctness code goes to the adjudicator; rejected -> no rewrite
+    check('r3_one_report_no_rewrite', _one['action'] == 'adjudicate'
+          and [c['code'] for c in _one['entry']['bv']['claims_pending']] == ['D-AMBIGUOUS']
+          and _one_r['action'] == 'settled' and _one_r['entry']['bv']['claims']['rejected'][0]['code'] == 'D-AMBIGUOUS')
     _leg = bc_apply(bc_apply(dict(it), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
                     results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
     _g2 = dict(_st['entry']); _g2['bv'] = dict(_g2['bv'], state='grading')
@@ -8451,6 +8498,119 @@ def _bc_self_test(check):
                     results=_RD([[], [], []]), findings=['GATE: G-NUMERIC-RESOLVE: the computed key does not match'])
     check('r3_gate_finding_keeps_full_ladder', _gst['action'] == 'rewrite' and _gst['entry']['bv']['rung'] == 3)
     check('r3_finding_rule_new_modes_only', _leg['action'] == 'settled' and 'finding_open' not in (_leg['entry']['bv'].get('amber') or []))
+
+    # ── release 2026.11.24 — C1 / C4 (owner OD-3) ──
+    _one_c = bc_apply(_one['entry'], 'Hard', L, {}, 2, results=_AC(True))
+    check('r31_confirmed_claim_is_a_correctness_finding', _one_c['action'] == 'rewrite'
+          and any('adjudicator confirmed' in x for x in _one_c['entry']['bv']['climb_brief']['reasons']))
+    _unv = bc_apply(bc_apply(dict(_fit), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                    results=_RD([['D-AMBIGUOUS'], [], []]), asked={'adjudicator': BC_ROLE_ASKS})
+    check('r31_claim_unverified_disclosed_never_waits', _unv['action'] == 'disclosed'
+          and 'claim_unverified' in _unv['entry']['bv']['amber'])
+    _aj31 = bc_adjudicator_job('1', dict(it), 2, [{'answer': 2}], L, claims=[{'code': 'D-LEAK', 'where': 'stem',
+                                                                              'evidence': 'e'}])
+    check('r31_adjudicator_packet_and_reader_carry_claims', _aj31['packet']['claims'][0]['code'] == 'D-LEAK'
+          and 'claims' in BV_BRIEF_ADJUDICATOR
+          and bc_read_adjudication({'verdict': 'author_correct', 'claims': [{'code': 'd-leak', 'confirmed': True}]})
+          ['claims'] == [{'code': 'D-LEAK', 'confirmed': True, 'reason': ''}]
+          and r3_claims([{'defects': [{'code': 'D-LEAK', 'evidence': 'x'}]}, {'defects': [{'code': 'D-LEAK'}]}]) == []
+          and r3_claims([{'defects': [{'code': 'D-NOTATION'}]}]) == [])
+    _st4, _acts4 = bc_apply(dict(_fit), 'Hard', L, {}, 2), []
+    for _i in range(12):
+        if _st4['action'] == 'grade':
+            _st4 = bc_apply(_st4['entry'], 'Hard', L, {}, 2, results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
+        elif _st4['action'] == 'rewrite':
+            _acts4.append(_st4['entry']['bv']['rung'])
+            _st4 = bc_apply(dict(_st4['entry'], stem_text=_st4['entry']['stem_text'] + f' w{_i}'), 'Hard', L, {}, 2)
+        else:
+            break
+    check('r31_correctness_quorum_keeps_full_ladder', _acts4 == [1, 2, 3]
+          and _st4['action'] in ('settled', 'disclosed', 'restore'))
+    # ── release 2026.11.24 — rule r3.1 on the BC path (B3 / B4 / B5 / OD-5) and the band swap (S1) ──
+    def _PL(valid=True, bw=2, bn=2, uw=0, un=0, p=0.8):
+        return {'valid': valid, 'below_wins': bw, 'below_n': bn, 'median_wins': 0, 'median_n': 2, 'upper_wins': uw,
+                'upper_n': un, 'p_new': p, 'cuts': [0.4, 0.75]}
+
+    def _GP(pl, k, slot):
+        b = slot if pl['valid'] and pl['below_wins'] == pl['below_n'] else L[max(0, L.index(slot) - 1)]
+        return {'result': {'band': b, 'measure': 'placement_r3' if pl['valid'] else 'placement_void', 'placement': pl},
+                'sha256': f'gp{k}', 'context': 'fresh'}
+
+    def _RP(pls, slot='Hard', answers=(2, 2, 2)):
+        out = {f'grader_{k}': _GP(pl, k, slot) for k, pl in enumerate(pls, 1)}
+        for k, a in enumerate(answers, 1):
+            out[f'solver_{k}'] = S(a, k)
+        return out
+    _itr = dict(it, difficulty_mode='ladder')
+    _p1 = bc_apply(bc_apply(dict(_itr), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                   results=_RP([_PL(bw=2), _PL(bw=1), _PL(bw=1)]))
+    _pl1 = ((_p1['entry'].get('difficulty_check') or {}).get('label_basis') or {}).get('controls', {}).get('pooled') or {}
+    check('r31_pooled_two_thirds_labels_slot', _p1['action'] == 'settled' and _p1['entry']['difficulty'] == 'Hard'
+          and verify_difficulty_label(_p1['entry'], L, strict=True) == (True, 'Hard', 'measured_majority')
+          and _pl1.get('wins') == 4 and _pl1.get('n') == 6 and _pl1.get('rule') == R31_RULE)
+    _tp = _qq_json.loads(_qq_json.dumps(_p1['entry']))
+    _tp['difficulty_check']['label_basis']['controls']['pooled']['wins'] = 3
+    check('r31_tampered_pooled_label_fails', not verify_difficulty_label(_tp, L, strict=True)[0])
+    _p2 = bc_apply(bc_apply(dict(_itr), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                   results=_RP([_PL(bw=1), _PL(bw=1), _PL(bw=1)]))
+    _cb2 = _p2['entry']['bv'].get('climb_brief') or {}
+    check('r31_level_miss_brief_has_comparisons_not_counts', _p2['action'] == 'rewrite' and _cb2.get('rung') == 1
+          and (_cb2.get('level') or {}).get('won') == 3 and 'measured_counts' not in _cb2
+          and 'lever' in str(_cb2.get('constraints')))
+    _p3 = bc_apply(bc_apply(dict(_itr), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                   results=_RP([_PL(valid=False), _PL(valid=False), _PL(bw=2)]))
+    check('r31_unmeasurable_remeasured_once', _p3['action'] == 'recount'
+          and _p3['entry']['bv']['recount']['kind'] == 'placement' and _p3['entry']['bv']['grades'] == {})
+    _gr = lambda d: {k: v for k, v in d.items() if k.startswith('grader')}
+    _p4 = bc_apply(_p3['entry'], 'Hard', L, {}, 2, results=_gr(_RP([_PL(bw=2), _PL(bw=1), _PL(valid=False)])))
+    _pl4 = ((_p4['entry'].get('difficulty_check') or {}).get('label_basis') or {}).get('controls', {}).get('pooled') or {}
+    check('r31_remeasure_pools_both_rounds', _p4['action'] == 'settled' and _p4['entry']['difficulty'] == 'Hard'
+          and _pl4.get('rounds') == 2 and _pl4.get('n') == 6 and verify_difficulty_label(_p4['entry'], L, strict=True)[0])
+    _p5 = bc_apply(_p3['entry'], 'Hard', L, {}, 2, results=_gr(_RP([_PL(valid=False)] * 3)))
+    check('r31_still_unmeasurable_band_below_disclosed_no_rewrite', _p5['action'] == 'disclosed'
+          and _p5['entry']['difficulty'] == 'Medium' and 'unmeasurable' in _p5['entry']['bv']['amber']
+          and int(_p5['entry']['bv'].get('rung') or 0) == 0 and verify_difficulty_label(_p5['entry'], L, strict=True)[0])
+    _p3b = bc_apply(bc_apply(dict(_itr), 'Hard', L, {}, 2)['entry'], 'Hard', L, {}, 2,
+                    results=_RP([_PL(valid=False), _PL(valid=False), _PL(bw=2)], answers=(3, 3, 3)))
+    check('r31_remeasure_and_adjudicator_one_round', _p3b['action'] == 'recount' and _p3b.get('also_adjudicate') is True)
+    _p6 = bc_apply(bc_apply(dict(_itr), 'Easy', L, {}, 2)['entry'], 'Easy', L, {}, 2,
+                   results=_RP([_PL(bw=2), _PL(bw=2), _PL(bw=1)], slot='Easy'))
+    _pl6 = ((_p6['entry'].get('difficulty_check') or {}).get('label_basis') or {}).get('controls', {}).get('pooled') or {}
+    check('r31_lowest_band_harder_is_level_ok_od5', _p6['action'] == 'settled' and _p6['entry']['difficulty'] == 'Easy'
+          and ld_upper_certified(_pl6.get('upper')) and verify_difficulty_label(_p6['entry'], L, strict=True)[0])
+    _p7 = bc_apply(bc_apply(dict(_itr), 'Medium', L, {}, 2)['entry'], 'Medium', L, {}, 2,
+                   results=_RP([_PL(uw=2, un=2), _PL(uw=2, un=2), _PL(uw=1, un=2)], slot='Medium'))
+    _p7u = bc_apply(bc_apply(dict(_itr), 'Medium', L, {}, 2)['entry'], 'Medium', L, {}, 2,
+                    results=_RP([_PL(uw=1, un=2), _PL(uw=1, un=2), _PL(uw=1, un=2)], slot='Medium'))
+    _sw = swap_plan({'1': {'difficulty': 'Medium'}, '2': _p7['entry'], '3': _p7u['entry'], '4': {'difficulty': 'Medium'}},
+                    {'1': 'Hard', '2': 'Medium', '3': 'Medium', '4': 'Hard'}, L)
+    _e2 = _sw['entries'].get('2') or {}
+    check('r31_swap_moves_one_certified_question_per_miss', _sw['swaps'] == [{'up': '2', 'from': 'Medium', 'to': 'Hard',
+                                                                              'pair': '1'}]
+          and _e2.get('difficulty') == 'Hard' and '3' not in _sw['entries']
+          and verify_difficulty_label(_e2, L, strict=True) == (True, 'Hard', 'measured_majority')
+          and verify_difficulty_label(_p7['entry'], L, strict=True)[0])
+    _e2t = _qq_json.loads(_qq_json.dumps(_e2))
+    _e2t['difficulty_check']['label_basis']['controls']['pooled']['upper']['wins'] = 3
+    check('r31_tampered_swap_fails', not verify_difficulty_label(_e2t, L, strict=True)[0]
+          and swap_plan({'1': {'difficulty': 'Hard'}, '2': _p7['entry']}, {'1': 'Hard', '2': 'Medium'}, L)['swaps'] == []
+          and swap_plan(None, None, None) == {'swaps': [], 'entries': {}})
+    L5 = ['V1', 'V2', 'V3', 'V4', 'V5']
+    _c5 = [0.2, 0.4, 0.6, 0.8]
+    check('r31_pooled_rule_any_band_count', ld_pooled_decide('V5', 2, 6, 0.5, _c5, L5) == 'V3'
+          and ld_pooled_decide('V5', 4, 6, 0.5, _c5, L5) == 'V5' and ld_pooled_decide('V5', 2, 6, 0.75, _c5, L5) == 'V4'
+          and ld_pooled_decide('V5', 3, 3, 0.9, _c5, L5) is None and ld_pooled_decide('V1', 0, 0, None, _c5, L5) == 'V1'
+          and ld_pool_need(6) == 4 and ld_pool_need(5) == 4 and ld_pool_need(4) == 3 and ld_pool_need(0) == 0)
+    check('r31_text_completeness', not ld_text_complete('At 100 Pa the number is closest to\n(1)  (2)  (3)  (4) ')
+          and ld_text_complete('Stem\n(1) 1.9×10^21 (2) 2.1×10^23 (3) 3.5×10^19 (4) 4.7×10^17')
+          and ld_text_complete('Which product?\n(1)  (2)  (3)  (4) \n(1) [structure: CC]\n(2) [structure: CCC]\n'
+                               '(3) [structure: CCCC]\n(4) [structure: CO]', True)
+          and not ld_text_complete('Which product?\n(1)  (2)  (3)  (4) \n[structure: CC]', True)
+          and not ld_text_complete('The circuits A and B\n(1) both (2) A only (3) B only (4) neither', True)
+          and ld_text_complete('Find x (in cm).') and ld_option_has_content('5') and ld_option_has_content('π')
+          and ld_option_has_content('√2') and ld_option_has_content('∞') and ld_option_has_content('क')
+          and not ld_option_has_content('( )') and not ld_option_has_content('—') and not ld_option_has_content('1. ')
+          and ld_anchor_complete({'text_complete': True, 'text': ''}) and not ld_anchor_complete({'complete': False}))
     # K2 / L6 / R12 — 3 solvers against the author -> adjudicator -> re-key; options swapped (content unchanged)
     k2 = bc_apply(r0['entry'], 'Hard', L, {}, 2, results=R(answers=(3, 3, 3)))
     check('bc_K2_adjudicator_first', k2['action'] == 'adjudicate' and k2['roles'] == ['adjudicator'])
@@ -8803,24 +8963,81 @@ def _r3_self_test(check):
     check('r3_mode', r3_mode({}, _lad) == R3_MODE_LADDER and r3_mode({}, None) == R3_MODE_COUNTED
           and r3_mode({}, _lad, {'difficulty_mode': 'br1'}) == R3_MODE_LEGACY
           and r3_mode({'difficulty_mode': 'counted'}, _lad) == R3_MODE_COUNTED)
+    # release 2026.11.24: rule r3.1 decides on THREE reviewers' pooled placements (each with its own rotated anchors);
+    # a random ranker is caught by the far anchor (>= 75% void), an honest one almost never (<= 15%)
     _hard = _pad = _void_h = _void_r = _n = 0
     for _t in range(60):
-        _a = ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=_t)
-        if not _a:
+        _ph, _pp = [], []
+        for _k in (1, 2, 3):
+            _a = ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=f'{_t}:{_k}')
+            if not _a:
+                break
+            _tk = ld_placement_task(_a, 'NEW', salt=f'{_t}:{_k}')
+            _pos = lambda lb, pi, tk=_tk: pi if tk['map'][lb] == 'ITEM' else tk['meta'][tk['map'][lb]]['p']
+            _pl = ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.93) + _rng.gauss(0, 0.05)), _tk)
+            _void_h += not _pl['valid']
+            _ph.append(_pl)
+            _pp.append(ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.63) + _rng.gauss(0, 0.05)), _tk))
+            _rd = list(_tk['map'])
+            _rng.shuffle(_rd)
+            _void_r += not ld_read_placement(_rd, _tk)['valid']
+        if len(_ph) < 3:
             continue
         _n += 1
-        _tk = ld_placement_task(_a, 'NEW', salt=_t)
-        _pos = lambda lb, pi: pi if _tk['map'][lb] == 'ITEM' else _tk['meta'][_tk['map'][lb]]['p']
-        _pl = ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.93) + _rng.gauss(0, 0.05)), _tk)
-        _void_h += not _pl['valid']
-        _hard += ld_band_from_placement(_pl, _tk, L3) == 'Hard'
-        _pad += ld_band_from_placement(ld_read_placement(sorted(_tk['map'], key=lambda lb: _pos(lb, 0.63)
-                                                                + _rng.gauss(0, 0.05)), _tk), _tk, L3) == 'Hard'
-        _rd = list(_tk['map'])
-        _rng.shuffle(_rd)
-        _void_r += not ld_read_placement(_rd, _tk)['valid']
-    check('r3_placement_separates', _n == 60 and _hard >= 0.85 * (_n - _void_h) and _pad <= 0.05 * _n
-          and _void_h <= 0.15 * _n and _void_r >= 0.8 * _n)
+        _hard += (ld_pooled_band(_ph, 'Hard', L3) or {}).get('band') == 'Hard'
+        _pad += (ld_pooled_band(_pp, 'Hard', L3) or {}).get('band') == 'Hard'
+    check('r3_placement_separates', _n == 60 and _hard >= 0.85 * _n and _pad <= 0.05 * _n
+          and _void_h <= 0.15 * 3 * _n and _void_r >= 0.75 * 3 * _n)
+    _bel = {tuple(sorted(x['aid'] for x in ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=f'rot:{_k}')['anchors']
+                         if x['group'] == 'below')) for _k in range(8)}
+    _lb = _qq_json.loads(_qq_json.dumps(_lad))
+    _near = sorted(_lb['scopes']['s']['grading'], key=lambda i: abs(_lb['anchors'][i]['p'] - 0.75))[0]
+    _lb['anchors'][_near]['text_complete'] = False          # a 2026.11.24 ladder says so itself
+    _seen = {x['aid'] for _k in range(20) for x in (ld_anchor_set(_lb, 's', 'Hard', L3, 's.t1.u1', None, salt=_k) or {})
+             .get('anchors', [])}
+    _lb['anchors'][_near].pop('text_complete')              # an older ladder: the text decides
+    _lb['anchors'][_near]['text'] = 'Stem\n(1)  (2)  (3)  (4) '
+    _seen |= {x['aid'] for _k in range(20) for x in (ld_anchor_set(_lb, 's', 'Hard', L3, 's.t1.u1', None, salt=_k) or {})
+              .get('anchors', [])}
+    _mid = ld_anchor_set(_lad, 's', 'Medium', L3, 's.t1.u1', None, salt=1, upper=True)
+    check('r31_anchors_rotate_complete_and_probe_up', len(_bel) >= 2 and _near not in _seen
+          and sum(1 for x in _mid['anchors'] if x['group'] == 'upper') == LD_UPPER_ANCHORS
+          and not any(x['group'] == 'upper' for x in ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=1,
+                                                                    upper=True)['anchors'])
+          and len(ld_placement_task(_mid, 'NEW', salt=1)['rank_items']) == 8)
+    # power and control on synthetic exams with 2, 3, 4 and 5 bands: an item at its band's median is certified
+    # >= 80%, an item at the median of the band below <= 6% (GAP v4.1 H-1)
+    _pc_ok = True
+    for _labsX in (['b1', 'b2'], ['b1', 'b2', 'b3'], ['b1', 'b2', 'b3', 'b4'], ['b1', 'b2', 'b3', 'b4', 'b5']):
+        _rx = _rr.Random(len(_labsX))
+        _pyx = [{'id': f'x:{_i}', 'scope': 'x', 'subtopic_id': 'x.t.u', 'text': f'q{_i}'} for _i in range(160)]
+        _tx = {r['id']: _rx.random() for r in _pyx}
+        _ox = [sorted(pk, key=lambda i: _tx[i] + _rx.gauss(0, 0.05)) for pk in ld_packets([r['id'] for r in _pyx], seed=2)]
+        _ox += [sorted(pk, key=lambda i: _tx[i] + _rx.gauss(0, 0.05)) for pk in ld_packets([r['id'] for r in _pyx], seed=3)]
+        _lx = ld_build(_pyx, {'x': _ox}, _labsX, seed=2)
+        _cx = _lx['cuts']
+        for _bi in range(1, len(_labsX)):
+            _lo_c = _cx[_bi - 1]
+            _hi_c = _cx[_bi] if _bi < len(_cx) else 1.0
+            _blo = _cx[_bi - 2] if _bi >= 2 else 0.0
+            for _true, _want_hi in (((_lo_c + _hi_c) / 2, True), ((_blo + _lo_c) / 2, False)):
+                _cert = _tot = 0
+                for _t in range(40):
+                    _pls = []
+                    for _k in (1, 2, 3):
+                        _a = ld_anchor_set(_lx, 'x', _labsX[_bi], _labsX, 'x.t.u', None, salt=f'{_t}:{_k}')
+                        if not _a:
+                            break
+                        _tk = ld_placement_task(_a, 'NEW', salt=f'{_t}:{_k}')
+                        _pls.append(ld_read_placement(sorted(_tk['map'], key=lambda lb, tk=_tk: (
+                            _true if tk['map'][lb] == 'ITEM' else tk['meta'][tk['map'][lb]]['p']) + _rx.gauss(0, 0.05)), _tk))
+                    if len(_pls) == 3:
+                        _tot += 1
+                        _cert += (ld_pooled_band(_pls, _labsX[_bi], _labsX) or {}).get('band') == _labsX[_bi]
+                _r = _cert / max(1, _tot)
+                if _tot < 30 or (_want_hi and _r < 0.80) or (not _want_hi and _r > 0.06):
+                    _pc_ok = False
+    check('r31_power_and_control_2_to_5_bands', _pc_ok)
     _tk0 = ld_placement_task(ld_anchor_set(_lad, 's', 'Hard', L3, 's.t1.u1', None, salt=1), 'NEW', salt=1)
     check('r3_void_grades_band_below', (r3_grade_from_review({'ranking': ['A']}, _tk0, L3) or {}).get('band') == 'Medium')
     _ap = r3_author_packet({'q': 1, 'band': 'Hard', 'subject': 's', 'subtopic_id': 's.t1.u1'}, _lad, L3, R3_MODE_LADDER)
@@ -8841,6 +9058,140 @@ def _r3_self_test(check):
           and qg_compute({'values': {'a': 2.0}, 'key': 'a*3'}, [], 4.0, 'a = 2.0')['findings'] != [])
     check('r3_fingerprint', ld_fingerprint(_lad) == ld_fingerprint(dict(_lad)) and ld_fingerprint(None) is None
           and ld_fingerprint(dict(_lad, cuts=[0.5, 0.8])) != ld_fingerprint(_lad))
+    # ── release 2026.11.24 — C2 / C3 / D1 / D2 / RP-1 / RP-2 / FG-1 / FG-5 ──
+    _numops = ['2.69', '5.38', '1.00', '9.99']
+    check('r31_compute_missing_flagged', any(x.startswith('G-COMPUTE-MISSING') for x in qg_item_gates(
+              {'stem_text': 'Find E.', 'option_texts': _numops}, 1))
+          and any(x.startswith('G-COMPUTE-MISSING') for x in qg_item_gates({'stem_text': 'Find E.', 'qtype': 'nat'}, 2.5))
+          and not any(x.startswith('G-COMPUTE-MISSING') for x in qg_item_gates(
+              {'stem_text': 'How many IR-active modes?', 'option_texts': ['1', '2', '3', '4']}, 2))
+          and not any(x.startswith('G-COMPUTE-MISSING') for x in qg_item_gates({'stem_text': 'How many?', 'qtype': 'nat'}, 4))
+          and not any(x.startswith('G-COMPUTE-MISSING') for x in qg_item_gates(
+              {'stem_text': 'Which is right?', 'option_texts': ['alpha', 'beta', 'gamma', 'delta']}, 1))
+          and not r3_hard_gate('G-COMPUTE-MISSING: x') and not r3_hard_gate('G-FIG-MISSING: x'))
+    _cpt = {'values': {'a': 38.43, 'b': {'value': 2.0, 'from': 'figure', 'ref': 'q1_f1.png', 'path': 'series/0/y'}},
+            'key': 'a/b'}
+    _fdt = [{'file': '/x/q1_f1.png', 'data': {'series': [{'x': 1, 'y': 2.0}]}, 'read_tol': 0.01}]
+    check('r31_compute_values_from_table_and_figure',
+          qg_compute(_cpt, ['19.2', '20.1', '18.3', '25.0'], 1, 'Using the data:', tables=['2θ; 38.43; 44.65'],
+                     figure_dicts=_fdt)['findings'] == []
+          and any('not the value at' in x for x in qg_compute(
+              dict(_cpt, values={'a': 38.43, 'b': {'value': 3.0, 'from': 'figure', 'ref': 'q1_f1.png',
+                                                   'path': 'series/0/y'}}), ['19.2', '20.1', '18.3', '25.0'], 1, 'x',
+              tables=['38.43'], figure_dicts=_fdt)['findings'])
+          and any('not printed in the stem or its table' in x for x in qg_compute(
+              _cpt, ['19.2', '20.1', '18.3', '25.0'], 1, 'x', tables=['44.65'], figure_dicts=_fdt)['findings']))
+    _af = {'ask_words_p10': 6, 'headline_share': 0.0}
+    check('r31_stem_form_measured_per_exam',
+          any('ask sentence' in x for x in qg_stem_form('A diatomic absorbs at 2143 cm-1. The bond order is', 'direct',
+                                                         ask_form=_af))
+          and qg_stem_form('A diatomic absorbs at 2143 cm-1. The bond order of the molecule is closest to', 'direct',
+                           ask_form=_af) == []
+          and any('headline' in x for x in qg_stem_form('HI photolysis: the quantum yield of the reaction is closest to',
+                                                         'direct', ask_form=_af))
+          and qg_stem_form('HI photolysis: the yield is', 'direct') == []
+          and ask_form_measure(['a b c'] * 5) is None and ask_form_measure(['短文'] * 20) is None
+          and (ask_form_measure(['Consider the reaction. The major product P of the reaction is'] * 12) or {})
+          .get('ask_words_p10') == 8)
+    _s2 = 'Given below are two statements.\nStatement I: X is a base.\nStatement II: Y is an acid.\nChoose the correct answer'
+    _s5 = 'Consider the following.\nA. one\nB. two\nC. three\nD. four\nE. five\nChoose the correct option'
+    _sf = statement_forms_measure([_s2, _s2, _s5, _s5, _s5, 'no list here'])
+    check('r31_statement_forms', qg_statement_count(_s2) == 2 and qg_statement_count(_s5) == 5
+          and qg_statement_lines(_s2)[0] == ('Statement', 'I', ':')
+          and _sf == {'n_dist': {'2': 0.4, '5': 0.6}, 'label_style': 'A.', 'n': 5}
+          and statement_n_plan(_sf['n_dist'], 5) == [2, 2, 5, 5, 5] and statement_n_plan({}, 3) == []
+          and any('2 statements written, 5 planned' in x for x in qg_stem_form(_s2, 'statement', n_statements=5))
+          and qg_stem_form(_s5, 'statement', n_statements=5) == []
+          and statement_forms_measure(['x']) is None
+          and _qg_inline_label('Given below are two statements: Statement I: x is y. Statement II: z is w.')
+          == 'Statement I:'
+          and parse_stem_form('=== SECTION: PC ===\nask_form: {"ask_words_p10": 6, "headline_share": 0.0}\n'
+                              'statement_forms: {"n_dist": {"2": 1.0}}')
+          == {'ask_form': {'PC': {'ask_words_p10': 6, 'headline_share': 0.0}}, 'statement_forms': {'PC': {'n_dist': {'2': 1.0}}}}
+          and parse_stem_form(None) == {'ask_form': {}, 'statement_forms': {}})
+    _sv = [{'stem_gives_step': True, 'same_skill_as': 3}, {'stem_gives_step': True, 'same_skill_as': '3'}, {}]
+    check('r31_giveaway_and_repeat_skill_computed', r3_solver_fields(_sv[0]) == {'stem_gives_step': True,
+                                                                                 'same_skill_as': '3'}
+          and any(x.startswith('D-GIVEAWAY (computed): the stem states') for x in r3_findings(_sv, 1))
+          and any(x.startswith('D-REPEAT-SKILL (computed)') and 'Q3' in x for x in r3_findings(_sv, 1))
+          and r3_findings([{'stem_gives_step': True, 'same_skill_as': 3}, {}, {}], 1) == []
+          and 'stem_gives_step' in R3_SOLVER_FIELDS_TEXT and 'same_skill_as' in R3_SOLVER_FIELDS_TEXT)
+    _sch = {'status': 'ok', 'axis1_target_per_mock': {'TEXT': 35, 'FIGURAL': 5}, 'axis1_target_series': [5, 5],
+            'axis1_observed_figural': [], 'axis1_figural_quota': {}}
+    _cap10 = [(str(q), f'pc.s{q % 4}') for q in range(1, 11)]
+    _fp = figure_grant_plan(_cap10, _sch, 15, 1, rates={'pc.s1': 0.5, 'pc.s2': 0.3}, reducible={})
+    _fp3 = figure_grant_plan(_cap10[:3], _sch, 15, 1)
+    check('r31_figure_plan_follows_target', len(_fp['granted']) == 5 and _fp['short'] == [] and _fp['target'] == 5
+          and _fp3['granted'] == ['1', '2', '3'] and _fp3['short'] == [{'q': None, 'reason': 'capacity', 'n': 2}]
+          and figure_grant_plan([], {}, 1, 1) == {'target': 0, 'granted': [], 'capable': 0, 'short': []}
+          and figure_grant_plan(_cap10, dict(_sch, axis1_target_series=[]), 15, 2)['target'] == 5
+          and len(figure_grant_plan(_cap10, dict(_sch, status='legacy'), 15, 1)['granted']) == 10)   # inert: as before
+    check('r31_granted_figure_must_be_drawn',
+          any(x.startswith('G-FIG-MISSING') for x in qg_item_gates({'stem_text': 'The phase diagram shows', 'option_texts':
+                                                                      ['a', 'b', 'c', 'd']}, 1, context={'figure_granted': True}))
+          and not any(x.startswith('G-FIG-MISSING') for x in qg_item_gates(
+              {'stem_text': 'x', 'figure_dicts': [{'file': 'q1.png'}]}, 1, context={'figure_granted': True}))
+          and not any(x.startswith('G-FIG-MISSING') for x in qg_item_gates({'stem_text': 'x'}, 1)))
+    # ── release 2026.11.24 — RG / F1 / A3 / A4 image budget / A5 refit ──
+    _lg = ld_grades(_lad, L3)
+    check('r31_grades_from_the_ladder', len(_lg) == 100 and set(_lg.values()) <= set(L3)
+          and all(_lg[i] == ld_band_of(p_, _lad['cuts'], L3) for i, p_ in _lad['scopes']['s']['positions'].items())
+          and ld_grades(dict(_lad, status='amber')) == {} and ld_grades(None) == {})
+    _exs = ld_examples_for(_lad, 's', 's.t1.u1', 'Hard', 3)
+    check('r31_writer_examples_writing_pool_only', 0 < len(_exs) <= 3 and all(isinstance(x.get('text'), str) for x in _exs)
+          and not (set(_lad.get('examples') or {}) & set(_lad['scopes']['s']['grading']))
+          and ld_examples_for(None, 's', 'x', 'Hard') == [])
+    _rec3 = {'organic': False, 'organic_reason': 'x', 'schema_version': PYQ_SCHEMA_VERSION, 'answer_kind': 'option'}
+    check('r31_empty_option_is_not_complete', 'option_text' in pyq_record_complete(dict(_rec3, options=['5', '', 'π', 'x']))
+          and 'option_text' not in pyq_record_complete(dict(_rec3, options=['5', 'π', 'क', '√2']))
+          and 'option_text' not in pyq_record_complete(dict(_rec3, options=['', '', '', ''],
+                                                            option_smiles={'1': 'C', '2': 'CC', '3': 'CCC', '4': 'CO'}))
+          and 'option_text' not in pyq_record_complete(dict(_rec3, options=['', '', '', ''],
+                                                            option_kind={str(i): 'image' for i in range(1, 5)}))
+          and 'option_text' in pyq_record_complete(dict(_rec3, options=['', '', '', ''], option_kind={'1': 'image'}))
+          and 'option_text' not in pyq_record_complete(_rec3))
+    _ids = [f'q{i}' for i in range(12)]
+    _jb = ld_ranking_jobs({'s': [_ids[:6], _ids[6:]]}, {i: i for i in _ids}, per_job=10, rankers=1,
+                          figures_by_id={i: [f'/x/{i}_a.png', f'/x/{i}_b.png'] for i in _ids}, max_images=12)
+    _jb2 = ld_ranking_jobs({'s': [_ids[:6], _ids[6:]]}, {i: i for i in _ids}, per_job=10, rankers=1,
+                           skip_pids={'s#1'})
+    check('r31_ranking_jobs_image_budget_and_reuse', len(_jb) == 2 and all(len(j['figures']) <= 12 for j in _jb)
+          and sum(len(p_['items']) for j in _jb for p_ in j['packet']['packets']) == 12
+          and _jb[0]['packet']['packets'][0]['items'][0]['figures'][0].endswith('_a.png')
+          and [p_['pid'] for j in _jb2 for p_ in j['packet']['packets']] == ['s#2'])
+    check('r31_refit_rules', ld_needs_refit(dict(_lad, release='2026.11.21'), list(_lad['anchors']))[0] is True
+          and ld_needs_refit(_lad, list(_lad['scopes']['s']['positions']))[0] is False
+          and ld_needs_refit(_lad, ['x'], rows=[{'id': 'x', 'text': 'changed'}])[0] is True)
+    # ── release 2026.11.24 — E1 / E2 / E4 / F1 / F3 ──
+    _ts = ld_top_share_by_subtopic(_lad, L3)
+    _rsh = ld_real_shares(_lad, L3)
+    check('r31_top_share_and_real_shares_from_the_ladder', bool(_ts) and all(0 <= v <= 100 for v in _ts.values())
+          and abs(_rsh['at_or_above']['Easy'] - 1.0) < 1e-9 and 0.15 <= _rsh['at_or_above']['Hard'] <= 0.35
+          and 0.45 <= _rsh['mean'] <= 0.55 and ld_top_share_by_subtopic(dict(_lad, status='amber')) == {}
+          and difficulty_vs_real({'Easy': 20, 'Medium': 15, 'Hard': 5}, _rsh, L3)[0]['band'] in ('Medium', 'Hard')
+          and difficulty_vs_real({'Easy': 2, 'Medium': 10, 'Hard': 28}, _rsh, L3) == [])
+    _apF = r3_author_packet({'q': 7, 'band': 'Hard', 'subject': 's', 'subtopic_id': 's.t1.u1'}, _lad, L3, R3_MODE_LADDER,
+                            used_in_subtopic=[{'q': '2', 'skill': 'eutectic reading'}])
+    check('r31_writer_packet_examples_menu_skills', 0 < len(_apF['examples']) <= 3 and isinstance(_apF['content_menu'], list)
+          and len(_apF['content_menu']) <= 12 and _apF['used_in_subtopic'][0]['q'] == '2'
+          and any('DIFFERENT' in g for g in _apF['guidance']) and any('concept_note' in g for g in _apF['guidance'])
+          and not any(a in _qq_json.dumps(_apF['examples']) for a in _lad['scopes']['s']['grading']))
+    _pl5 = {str(q): ('V5' if q <= 2 else 'V1') for q in range(1, 9)}
+    check('r31_band_plan_any_band_count', band_subtopic_plan(_pl5, {str(q): f's{q}' for q in range(1, 9)},
+                                                             {'s7': 50.0, 's8': 30.0}, {}, ['V1', 'V2', 'V3', 'V4', 'V5'])
+          != _pl5 and sorted(band_subtopic_plan(_pl5, {str(q): f's{q}' for q in range(1, 9)}, {'s7': 50.0}, {},
+                                                ['V1', 'V2', 'V3', 'V4', 'V5']).values()) == sorted(_pl5.values())
+          and mix_to_tuple({'a': 50, 'b': 50}, ['a', 'b']) == (50, 50) and mix_to_tuple({'a': 1}, ['a']) is None)
+    check('r31_new_amber_lines', any('not measurable' in t for _c, t in bc_amber_lines('3', {'difficulty': 'Medium',
+                                                                                         'bv': {'amber': ['unmeasurable']}}))
+          and any('no adjudicator verdict' in t for _c, t in bc_amber_lines('3', {'bv': {'amber': ['claim_unverified'],
+                                                                                        'claims': {'unverified': ['D-LEAK']}}}))
+          and any('delivered as text' in t for _c, t in bc_amber_lines('3', {'fig_short': {'reason': 'not_drawn'}})))
+    check('r31_fg4_advisory_only', fg4_coverage_advisory({'status': 'ok', 'checked': 0},
+                                                         {'PC': {'axis1_target_series': [2, 3]}, 'X': {}})
+          == ['figure types of PC not checked — 3 figure slot(s) per paper planned']
+          and fg4_coverage_advisory({'checked': 2}, {'PC': {'axis1_target_series': [2]}}) == []
+          and fg4_coverage_advisory(None, None) == [])
     check('r3_hostile_input_never_raises', ld_fit(None) == {} and ld_build(None, None, None)['status'] == 'amber'
           and qg_item_gates(None) == [] and r3_findings(None) == [] and ld_anchor_set(None, None, None, None) is None)
 
@@ -18026,7 +18377,7 @@ def band_subtopic_plan(plan, subtopic_by_q, hard_share_by_subtopic, qtype_by_q, 
     labs = _qf_labels(labels)
     if not isinstance(plan, dict):
         return {}
-    if len(labs) != 3 or not plan:
+    if not 2 <= len(labs) <= 5 or not plan:         # release 2026.11.24 (E4): any band count 2..5 (was 3 only)
         return dict(plan)
     top, bottom = labs[-1], labs[0]
     shares = {str(k): float(v) for k, v in (hard_share_by_subtopic or {}).items()
@@ -18058,7 +18409,8 @@ def band_subtopic_plan(plan, subtopic_by_q, hard_share_by_subtopic, qtype_by_q, 
             # the donor takes q's old band; a bottom-band take must respect the qtype floor
             old = out[q]
             ok = [d for d in donors if old != bottom or
-                  difficulty_min_band((qtype_by_q or {}).get(d, (qtype_by_q or {}).get(str(d), 'mcq')), labs) == bottom]
+                  difficulty_min_band((qtype_by_q or {}).get(d, (qtype_by_q or {}).get(str(d), 'mcq')), labs) in (bottom, None)]
+            # (release 2026.11.24, E4: a vocabulary the qtype floors do not define — None — has no floor to keep)
             if not ok:
                 continue
             d = ok[0]
@@ -20992,7 +21344,7 @@ PYQ_GRADE_STRIP = ('band', 'score', 'steps', 'inferential_steps', 'concepts', 'c
 PYQ_GRADE_HIDDEN_ROLES = ('answer', 'key', 'solution', 'derived', 'derived_product')
 
 
-def pyq_grade_packet(rec, paper_key, q, stem=None, options=None, figure_paths=None):
+def pyq_grade_packet(rec, paper_key, q, stem=None, options=None, figure_paths=None, tables=None):
     """The BLIND packet one past question is graded from: what a candidate sees (stem,
     options, drawn structures / scheme objects, figure files) and NOTHING the explanation
     derived (band, counts, concepts, key, closeness — PYQ_GRADE_STRIP; content objects whose role
@@ -21027,6 +21379,8 @@ def pyq_grade_packet(rec, paper_key, q, stem=None, options=None, figure_paths=No
         pk['reagents_printed'] = [str(x) for x in _qf_lines(r.get('reagents_seen'))]
     if _dl_list(figure_paths):
         pk['figures'] = [str(p) for p in _dl_list(figure_paths)]
+    if _dl_list(tables):                                # release 2026.11.24 (A2): the question's own tables
+        pk['tables'] = [str(t) for t in _dl_list(tables) if str(t).strip()]
     for k in PYQ_GRADE_STRIP:
         pk.pop(k, None)
     try:
@@ -23589,6 +23943,19 @@ def pyq_record_complete(rec):
     ak = r.get('answer_kind')
     if ak not in ANSWER_KINDS:
         miss.append('answer_kind')
+    # release 2026.11.24 (A3): when the record carries its option texts, every option must have content (a Unicode
+    # letter, digit or symbol — bc.ld_option_has_content) or be a structure / image option with its SMILES or image;
+    # an option-less answer kind (numerical) is not checked
+    _ops = r.get('options') if r.get('options') is not None else r.get('option_texts')
+    if isinstance(_ops, (list, dict)) and _ops and str(ak or '').lower() not in ('numerical', 'nat', 'value'):
+        _items = list(_ops.items()) if isinstance(_ops, dict) else [(str(i), o) for i, o in enumerate(_ops, 1)]
+        _osm = r.get('option_smiles') if isinstance(r.get('option_smiles'), dict) else {}
+        _okd = r.get('option_kind') if isinstance(r.get('option_kind'), dict) else {}
+        for _lab, _o in _items:
+            if not ld_option_has_content(_o) and not str(_osm.get(_lab) or _osm.get(str(_lab)) or '').strip() \
+                    and str(_okd.get(_lab) or _okd.get(str(_lab)) or '').lower() not in ('image', 'figure', 'diagram'):
+                miss.append('option_text')
+                break
     if not org:
         return sorted(set(miss))
     if not (isinstance(r.get('content_objects'), list) and r['content_objects']):
@@ -27117,12 +27484,17 @@ def bv_set_label(entry, labels, target, controls, packets, attempt=1, delivered=
     src = entry if isinstance(entry, dict) else {}
     if dlv is None or tgt is None:
         return src, False, 'target / delivered band unknown'
-    if dlv == tgt and c.get('grader_3') is None:
+    _pl = c.get('pooled') if isinstance(c.get('pooled'), dict) and c['pooled'].get('rule') == R31_RULE else None
+    if dlv == tgt and c.get('grader_3') is None and _pl is None:
         return dl_set_label_basis_strict(src, 'measured_exact', labs, tgt, c, packets)
     if dlv != tgt and _qf_int(attempt, 1) < C_WRITE_ATTEMPTS:
         return src, False, 'a band other than the slot is delivered only after the one rewrite'
-    ok, why = band_majority(c, dlv, labs)
-    if not ok and recipe_note and c.get('recipe') is not True and _qf_int(attempt, 1) >= C_WRITE_ATTEMPTS \
+    if _pl is not None:                                 # release 2026.11.24: rule r3.1 (pooled placements, B3)
+        ok = ld_pooled_verify(_pl, dlv, tgt, labs)
+        why = 'ok' if ok else f'rule r3.1 (pooled placements) does not give {dlv}'
+    else:
+        ok, why = band_majority(c, dlv, labs)
+    if not ok and _pl is None and recipe_note and c.get('recipe') is not True and _qf_int(attempt, 1) >= C_WRITE_ATTEMPTS \
             and len(_bv_graders(c, labs)) >= 2 and bv_majority_band(c, labs) == dlv:
         # v2.6 B-02 (BATCH-COMPLETE): the graders measured `dlv` but the recipe fails there — the label is still
         # written at the measured band with recipe_note (disclosed), never 'unlabelled'
@@ -27160,8 +27532,17 @@ def bv_verify_majority(entry, labels):
     present = [g for g in ('grader_1', 'grader_2', 'grader_3') if c.get(g) is not None]
     fresh = len(present) >= 2 and all(isinstance(pk.get(g), dict) and pk[g].get('context') == 'fresh'
                                       and pk[g].get('sha256') for g in present)
-    _bm = band_majority(c, dlv, labs)[0]
-    if not _bm and lb.get('recipe_note') and c.get('recipe') is not True:
+    _pl = c.get('pooled') if isinstance(c.get('pooled'), dict) and c['pooled'].get('rule') == R31_RULE else None
+    _sw = lb.get('swap') if isinstance(lb.get('swap'), dict) else None
+    if _sw is not None:
+        # release 2026.11.24 (S1): a swapped label — the question's own slot label verifies on rule r3.1, its upper
+        # probe recomputes as certified, and it moved exactly one band up
+        ok = (_pl is not None and tgt is not None and dlv is not None and _sw.get('slot') == tgt and _sw.get('to') == dlv
+              and labs.index(dlv) == labs.index(tgt) + 1 and ld_pooled_verify(_pl, tgt, tgt, labs)
+              and ld_upper_certified(_pl.get('upper')) and fresh and e.get('difficulty') == dlv)
+        return bool(ok), dlv
+    _bm = ld_pooled_verify(_pl, dlv, tgt, labs) if _pl is not None else band_majority(c, dlv, labs)[0]
+    if not _bm and _pl is None and lb.get('recipe_note') and c.get('recipe') is not True:
         # v2.6 B-02: a label written at the measured band with recipe_note (after the ladder) verifies on the graders
         _bm = len(_bv_graders(c, labs)) >= 2 and bv_majority_band(c, labs) == dlv \
             and _qf_int(lb.get('attempts'), 1) >= C_WRITE_ATTEMPTS
@@ -28272,8 +28653,11 @@ BV_BRIEF_ADJUDICATOR = (
     "\"correct_answer\": <option number 1-based, a list for multiple-select, or the value>, \"single_answer\": \"yes\" "
     "| \"no: <which other option is also defensible and why>\", \"missing_condition\": <the condition the stem must "
     "state for one answer to hold, or empty>, \"reason\": <one or two sentences>, \"confidence\": <high|medium|low>}. "
-    "'question_defective' = no option is right, two are defensible, or the stem cannot be solved as written. Reply "
-    "with ONE line: \"ADJUDICATE DONE\" or \"ADJUDICATE FAILED <reason>\".")
+    "'question_defective' = no option is right, two are defensible, or the stem cannot be solved as written. When "
+    "the packet has 'claims' (defects ONE reviewer reported: code, where, evidence), check each against the question "
+    "and also write \"claims\": [{\"code\": <the code>, \"confirmed\": true | false, \"reason\": <one sentence>}] — "
+    "confirm only a defect you can see yourself. Reply with ONE line: \"ADJUDICATE DONE\" or \"ADJUDICATE FAILED "
+    "<reason>\".")
 
 
 def bc_answer_norm(x, qtype='mcq'):
@@ -28505,7 +28889,7 @@ def bc_next_rung(rung, problems, rounds_left, figure_intrinsic=False, family_eng
     return {'next': nxt, 'terminal': False, 'settle_level': False, 'why': f'rung {nxt} ({BC_RUNGS[nxt]})'}
 
 
-def bc_adjudicator_job(q, entry, author_key, solvers, labels=None):
+def bc_adjudicator_job(q, entry, author_key, solvers, labels=None, claims=None):
     """The ONE adjudicator job of a disputed question (R1): {'q', 'role': 'adjudicator', 'packet', 'sha256',
     'brief'} — the question as a candidate sees it with its proven structure text, the author's key and recorded
     solution, and each solver's answer / moves / assumptions, anonymised as Solver A/B/C. Never the band, the plan,
@@ -28524,6 +28908,10 @@ def bc_adjudicator_job(q, entry, author_key, solvers, labels=None):
           'author': {'answer': author_key, 'solution': list(sol) if isinstance(sol, (list, tuple)) else (sol or
                      'the author recorded no solution')},
           'solvers': rows}
+    _cl = [{'code': str(c.get('code')), 'where': str(c.get('where') or ''), 'evidence': str(c.get('evidence') or '')}
+           for c in (claims or []) if isinstance(c, dict) and c.get('code')]
+    if _cl:                                             # release 2026.11.24 (C1): single-report claims, verified here
+        pk['claims'] = _cl
     return {'q': str(q), 'role': 'adjudicator', 'packet': pk, 'sha256': _bv_sha(pk), 'brief': BV_BRIEF_ADJUDICATOR}
 
 
@@ -28551,7 +28939,10 @@ def bc_read_adjudication(result):
             'single_answer': str(r.get('single_answer') or 'yes').strip()[:300],
             'missing_condition': str(r.get('missing_condition') or '').strip()[:400],
             'reason': str(r.get('reason') or '')[:500],
-            'confidence': str(r.get('confidence') or 'low').strip().lower()}
+            'confidence': str(r.get('confidence') or 'low').strip().lower(),
+            'claims': [{'code': str(c.get('code') or '').strip().upper(), 'confirmed': c.get('confirmed') is True,
+                        'reason': str(c.get('reason') or '')[:300]}
+                       for c in (r.get('claims') or []) if isinstance(c, dict) and c.get('code')]}
 
 
 def bc_key_decision(author_key, solvers, adjudication, qtype='mcq', tolerance=None, asks_exhausted=False):
@@ -28831,7 +29222,7 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     # ── the edge re-count (BV-14), unchanged rules ──
     if tgt is not None:
         _rc = bvs.get('recount') if isinstance(bvs.get('recount'), dict) else None
-        if _rc and _rc.get('state') == 'due':
+        if _rc and _rc.get('state') == 'due' and _rc.get('kind') != 'placement':
             _first = _rc.get('first') or {}
             _fg = dict(_first.get('grades') or {})
             _new_n = len(_bv_graders(controls, labs))
@@ -28864,6 +29255,33 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
                 return {'entry': e, 'action': 'recount', 'roles': list(BV_ROLES_GRADE), 'band': None,
                         'why': f'graders split at the band edge (median score {_sc[1]}): three more fresh counts decide',
                         'reset_asks': list(BV_ROLES_GRADE)}
+    # ── release 2026.11.24 (r3.1 B4): ONE re-measure, with new anchors, of a text whose valid placements are too few —
+    # never a demotion; the adjudicator a key dispute or a single-report claim needs runs in the SAME round ──
+    if tgt is not None:
+        _m31, _pl31 = bc_measured_band(bvs, labs, tgt)
+        _rc31 = bvs.get('recount') if isinstance(bvs.get('recount'), dict) else None
+        if _pl31 is not None and _rc31 and _rc31.get('kind') == 'placement' and _rc31.get('state') == 'due':
+            _rc31['state'] = 'done'
+        elif _pl31 is not None and not _pl31['measurable'] and _rc31 is None and allow_recount and left >= 1:
+            _cl0 = r3_claims(solvers) if r3_entry_mode(e) != R3_MODE_LEGACY else []
+            _kd0 = bc_key_decision(author_key, solvers, (bvs.get('adj') if isinstance(bvs.get('adj'), dict) else None),
+                                   qt, tolerance, asks_exhausted=solve_exhausted)
+            _adj0 = (bvs.get('adj') is None and _can('adjudicator')
+                     and (_kd0['state'] == 'need_adjudicator' or (bool(_cl0) and _kd0['state'] == 'settled')))
+            bvs['recount'] = {'state': 'due', 'kind': 'placement',
+                              'first': {'grades': dict(g), 'packets': dict(bvs['packets']), 'meta': dict(bvs['meta'])},
+                              'why': f"{_pl31['n']} valid comparison(s) < {LD_POOL_MIN_N}"}
+            bvs['grades'], bvs['packets'], bvs['meta'] = {}, {}, {}
+            bvs['state'] = 'recount'
+            if _adj0:
+                bvs['claims_pending'] = _cl0
+                bvs['adj_why'] = _kd0['why'] if _kd0['state'] == 'need_adjudicator' else 'single-reviewer correctness claim(s)'
+            e['bv'] = bvs
+            return {'entry': e, 'action': 'recount', 'roles': list(BV_ROLES_GRADE), 'band': None,
+                    'why': (f"placement not measurable ({_pl31['valid_n']} valid of {_pl31['valid_n'] + _pl31['void_n']} "
+                            f"reviewer placements, {_pl31['n']} comparisons): one re-measure with new anchors")
+                           + ('; the adjudicator runs in the same round' if _adj0 else ''),
+                    'reset_asks': list(BV_ROLES_GRADE), 'also_adjudicate': bool(_adj0)}
     # ── the key (R1, R2) — unless already settled for this text (re-key / permutation / restore) ──
     kd = bvs.get('key') if isinstance(bvs.get('key'), dict) and bvs['key'].get('state') == 'settled' else None
     if kd is None:
@@ -28873,6 +29291,8 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             if _can('adjudicator') and left >= 1:
                 bvs['state'] = 'adjudicate'
                 bvs['adj_why'] = kd['why']
+                # C1: the single-report correctness claims of this text go to the same adjudicator job
+                bvs['claims_pending'] = r3_claims(solvers) if r3_entry_mode(e) != R3_MODE_LEGACY else []
                 e['bv'] = bvs
                 return {'entry': e, 'action': 'adjudicate', 'roles': ['adjudicator'], 'band': None, 'why': kd['why']}
             if left >= 1:
@@ -28889,17 +29309,57 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         if kd['state'] == 'settled':
             bvs['key'] = dict(kd)
     key_open = kd.get('state') != 'settled'
-    # ── checklist findings named by >= 2 of 3 reviewers; figure mismatches ──
-    chk = bc_findings_from_checklist(solvers) + gate_f
+    # ── release 2026.11.24 (C1): a correctness code ONE reviewer names is a CLAIM the adjudicator confirms or rejects —
+    # asked once per text (the same job a key dispute uses); no answer after its asks = disclosed, never a wait ──
+    _claim_f = []
     if r3_entry_mode(e) != R3_MODE_LEGACY:
-        # Cluster R3 (§7.3): any ONE reviewer's blocking code acts; computed solver findings; a key settled only by
-        # adjudication is rewritten while rung < R3_SPLIT_FIX_RUNGS (bounded by the rungs — never a loop)
+        _cl = r3_claims(solvers)
+        _adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else None
+        if _cl and _adj is None and not key_open:
+            if _can('adjudicator') and left >= 1:
+                bvs['claims_pending'] = _cl
+                bvs['state'] = 'adjudicate'
+                bvs['adj_why'] = 'single-reviewer correctness claim(s): ' + ', '.join(c['code'] for c in _cl)
+                e['bv'] = bvs
+                return {'entry': e, 'action': 'adjudicate', 'roles': ['adjudicator'], 'band': None,
+                        'why': bvs['adj_why']}
+            bvs['claims'] = {'confirmed': [], 'rejected': [], 'unverified': [c['code'] for c in _cl]}
+        elif _cl:
+            _vd = {str(x.get('code')): x for x in (_adj.get('claims') or []) if isinstance(x, dict)}
+            _cf, _rj, _uv = [], [], []
+            for _c in _cl:
+                _v = _vd.get(_c['code'])
+                if _v is None:
+                    _uv.append(_c['code'])
+                elif _v.get('confirmed'):
+                    _cf.append(_c['code'])
+                    _claim_f.append(f"{_c['code']} (adjudicator confirmed reviewer {_c['reviewers'][0]}'s report"
+                                    f"{', ' + _c['where'] if _c['where'] else ''}): {_v.get('reason') or _c['evidence']}")
+                else:
+                    _rj.append({'code': _c['code'], 'reason': str(_v.get('reason') or '')[:200]})
+            bvs['claims'] = {'confirmed': _cf, 'rejected': _rj, 'unverified': _uv}
+        if _adj is not None and _adj.get('verdict') == 'question_defective' and kd.get('certified_by') == 'unanimous':
+            _claim_f.append('D-AMBIGUOUS (adjudicator): the question is defective — ' + str(_adj.get('reason') or '')[:200])
+    # ── checklist findings named by >= 2 of 3 reviewers; figure mismatches ──
+    chk = bc_findings_from_checklist(solvers) + gate_f + _claim_f
+    if r3_entry_mode(e) != R3_MODE_LEGACY:
+        # Cluster R3 (§7.3): a blocking code acts when R3_CODE_QUORUM reviewers name it (release 2026.11.22); computed
+        # solver findings; a key settled only by adjudication is rewritten while rung < R3_SPLIT_FIX_RUNGS (bounded by
+        # the rungs — never a loop)
         chk = chk + r3_findings(solvers, author_key, qt, tolerance, top_band=bool(labs) and tgt == labs[-1],
                                 option_count=len(e.get('option_texts') or []) or None) + r3_split_finding(kd, rung, solvers, qt,
                                                                                                     tolerance)
-    # ── the level (unchanged rules) ──
-    m = bv_majority_band(controls, labs) if tgt is not None else None
-    level_ok = tgt is None or (m == tgt and rec_ok)
+    # ── the level — release 2026.11.24: rule r3.1 (pooled, B3) when the text was placed; else the majority as before ──
+    m, _plv = bc_measured_band(bvs, labs, tgt) if tgt is not None else (None, None)
+    _unmeas = False
+    if _plv is not None:
+        bvs['pooled'] = _plv
+        if m is None:                                   # B4: still not measurable after its one re-measure (or none
+            m, _unmeas = _plv['band'], True             # was possible): the band below, disclosed — never a rewrite
+        level_ok = _unmeas or (m in labs and labs.index(m) >= labs.index(tgt) and rec_ok)
+    else:
+        bvs.pop('pooled', None)
+        level_ok = tgt is None or (m == tgt and rec_ok)
     problems, brief_parts = [], []
     if key_open:
         problems.append('key')
@@ -28915,7 +29375,11 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         brief_parts += repeats
     if not level_ok:
         problems.append('level')
-        brief_parts.append(f'LEVEL: majority {m} != slot {tgt}' if m != tgt else 'LEVEL: band recipe check did not pass at the slot band')
+        if _plv is not None:
+            brief_parts.append(f"LEVEL: the question beat {_plv['wins']} of {_plv['n']} real past questions sitting just "
+                               f"below the {tgt} line (it needs {ld_pool_need(_plv['n'])}) — measured {m}, slot {tgt}")
+        else:
+            brief_parts.append(f'LEVEL: majority {m} != slot {tgt}' if m != tgt else 'LEVEL: band recipe check did not pass at the slot band')
     # the version this text represents (R5b candidates)
     _vrec = bc_version_record(rung, sha, e, author_key, kd if not key_open else None, solvers,
                               bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'])
@@ -28926,8 +29390,12 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     # disclosed AMBER 'finding_open', and keeps its figure. A GATE finding (e.g. a computed key that does not resolve)
     # keeps the full ladder: an objective defect is never delivered ──
     bvs.pop('finding_open', None)
+    # release 2026.11.24 (C4, owner OD-3): a CORRECTNESS finding (a code in R3_VERIFY_CODES, named by the quorum or
+    # confirmed by the adjudicator) keeps the full bounded ladder like a GATE finding — a wrong question is never
+    # delivered as 'finding_open'
+    _vf = [x for x in chk if str(x).split(' ', 1)[0] in R3_VERIFY_CODES] if r3_entry_mode(e) != R3_MODE_LEGACY else []
     if r3_entry_mode(e) != R3_MODE_LEGACY and 'finding' in problems and not ({'key', 'figure'} & set(problems)) \
-            and not gate_f and rung >= R3_FINDING_MAX_RUNG:
+            and not gate_f and not _vf and rung >= R3_FINDING_MAX_RUNG:
         bvs['finding_open'] = [str(x)[:200] for x in brief_parts if not str(x).startswith('LEVEL:')][:6]
         problems = [p for p in problems if p != 'finding']
     # ── the rungs (LAW-BC-2) ──
@@ -28953,16 +29421,16 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
         if st.get('terminal'):
             return _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt, st['why'], [])
         return _bc_settle(e, bvs, sha, kd or {'state': 'climb'}, author_key, qt, tolerance, labs, ruler, tgt,
-                          bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
-                          True, problems, [])
+                          _bc_m(bvs, labs, tgt), True, problems, [])
     nxt = int(st['next'])
     sv = [bvs['solvers'].get(r) for r in BV_ROLES_SOLVE if isinstance(bvs['solvers'].get(r), dict)]
     _mobs = br_median_obs([(bvs['meta'].get(k) or {}).get('rubric') for k in bvs['grades']])
     _tg = br_target(ruler, e.get('subtopic_id'), tgt, labs) if tgt is not None else None
     adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else {}
+    _plc = bc_measured_band(bvs, labs, tgt)[1] if tgt is not None else None
     bvs['climb_brief'] = {
         'rung': nxt, 'kind': BC_RUNGS[nxt], 'problems': list(problems), 'reasons': list(brief_parts),
-        'slot': tgt, 'measured': bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
+        'slot': tgt, 'measured': _bc_m(bvs, labs, tgt),
         'graders': {k: (bvs['meta'].get(k) or {}).get('rationale') for k in bvs['grades']},
         'measured_counts': _mobs, 'target': br_target_text(_tg) if _tg else None,
         'gap': br_gap(_mobs, _tg, qt) if _tg else [],
@@ -28981,6 +29449,20 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
                            (' (R10: this figure family has an answer engine — build the rung-3 item with it)'
                             if family_engine else '')}[nxt],
         'why': st.get('why')}
+    if _plc is not None:
+        # release 2026.11.24 (B5): under the ladder the brief carries the comparison result and the levers — never
+        # count targets of the earlier rubric
+        for _k in ('measured_counts', 'target', 'gap'):
+            bvs['climb_brief'].pop(_k, None)
+        bvs['climb_brief']['level'] = {'comparisons': _plc.get('n'), 'won': _plc.get('wins'),
+                                       'needed': ld_pool_need(_plc.get('n')), 'measured': _plc.get('band'),
+                                       'levers': dict(LD_LEVERS)}
+        if nxt == 1 and 'level' in problems:
+            bvs['climb_brief']['constraints'] = (
+                'FIX the same question, same slot: make the deciding step harder with a lever (coupled decisions, a '
+                'hidden intermediate, a method choice, an unfamiliar setting, a figure / table that must be translated) '
+                '— never by length, extra rows, statements or arithmetic; also state any missing condition and correct '
+                'the stem, options or figure the reviewers named')
     bvs['rung'] = nxt
     bvs['attempt'] = nxt + 1
     bvs['state'] = 'rewrite'
@@ -28997,6 +29479,9 @@ def _bc_label(e, bvs, labs, ruler, tgt, dlv, disclosed_note=None):
     rok, _rs = bv_recipe_verdict(e, ruler, dlv, labs)
     ctl = {k: g.get(k) for k in BV_ROLES_GRADE if g.get(k)}
     ctl['recipe'] = rok
+    _pl = bvs.get('pooled')
+    if isinstance(_pl, dict) and _pl.get('rule') == R31_RULE and _pl.get('slot') == tgt:
+        ctl['pooled'] = dict(_pl)                       # release 2026.11.24: the label verifies on rule r3.1
     e = op_record_controls(e, g.get('grader_1'), g.get('grader_2'), rok, bvs['packets'],
                            {k: (bvs['meta'].get(k) or {}).get('decisions') for k in g}, None)
     if g.get('grader_3'):
@@ -29080,6 +29565,10 @@ def _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, 
         amber.append('terminal')
     if bvs.get('finding_open'):
         amber.append('finding_open')
+    if isinstance(bvs.get('pooled'), dict) and not bvs['pooled'].get('measurable') and tgt is not None and band != tgt:
+        amber.append('unmeasurable')                    # B4: too few valid comparisons after the one re-measure
+    if (bvs.get('claims') or {}).get('unverified'):
+        amber.append('claim_unverified')                # C1: the adjudicator gave no verdict for a claim
     if _qf_int(bvs.get('rung'), 0) == 3:
         amber.append('fallback')
         # R5a: the slot's planned format is recorded so the Axis-1 count (A-AXIS1) treats it as disclosed, not a defect
@@ -29129,8 +29618,7 @@ def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt,
         bvs['key'] = {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': pick.get('confirmed_key'),
                       'why': 'R5b: this version — key confirmed, >= 2 of 3 solvers', 'r5b': True}
         return _bc_settle(e, bvs, sha, bvs['key'], author_key, qt, tolerance, labs, ruler, tgt,
-                          bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
-                          True, ['key'], [])
+                          _bc_m(bvs, labs, tgt), True, ['key'], [])
     if term == 'stop':
         bvs['state'] = 'stop'
         e['bv'] = bvs
@@ -29142,8 +29630,7 @@ def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt,
     bvs['key'] = {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': dk,
                   'why': "BC_TERMINAL adjudicated_disclosed: key adjudicated; solvers split", 'terminal': True}
     return _bc_settle(e, bvs, sha, bvs['key'], author_key, qt, tolerance, labs, ruler, tgt,
-                      bv_majority_band({k: bvs['grades'].get(k) for k in BV_ROLES_GRADE if bvs['grades'].get(k)}, labs),
-                      True, ['key'], [])
+                      _bc_m(bvs, labs, tgt), True, ['key'], [])
 
 
 def bc_batch_status(concept_map, qs, items=None):
@@ -29238,6 +29725,15 @@ def bc_amber_lines(q, entry):
         lb = ((e.get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(e.get('difficulty_check'), dict) else {}
         out.append(('AMBER', f"Q{q}: delivered at {e.get('difficulty')} (slot {lb.get('target')})"
                              + (', recipe not met at the delivered band' if 'recipe_note' in am else '')))
+    if 'unmeasurable' in am:
+        out.append(('AMBER', f"Q{q}: level not measurable (too few valid comparisons after one re-measure, rule "
+                             f"r3.1) — delivered at {e.get('difficulty')}, one band below its slot"))
+    if 'claim_unverified' in am:
+        out.append(('AMBER', f"Q{q}: a reviewer's correctness report "
+                             f"({', '.join((bvs.get('claims') or {}).get('unverified') or [])}) got no adjudicator verdict"))
+    if isinstance(e.get('fig_short'), dict):
+        out.append(('AMBER', f"Q{q}: planned as a figure question (blueprint figure target), delivered as text — "
+                             f"{e['fig_short'].get('reason')}"))
     if 'two_reviewers' in am:
         out.append(('AMBER', f"Q{q}: 2 of 3 reviewers available"))
     if 'finding_open' in am:
@@ -29588,41 +30084,67 @@ def ld_packets(ids, seed=None, size=None, per_pyq=None):
 
 LD_BRIEF_RANKER = (
     "You are a FRESH BLIND RANKER of past exam questions. Read ONLY <JOB_DIR>/packet.json: 'packets', each holding "
-    "'pid' and 'items' (each: 'label' and the question 'text' as a candidate sees it; a figure is described in the "
-    "text). For EACH packet, on its own, rank its items from EASIEST to HARDEST for a well-prepared candidate of this "
+    "'pid' and 'items' (each: 'label', the question 'text' as a candidate sees it and, when it has one, 'figures' — "
+    "image files in <JOB_DIR>: open and look at each before you rank). For EACH packet, on its own, rank its items from EASIEST to HARDEST for a well-prepared candidate of this "
     "exam answering within the exam's time. Judge what the candidate must know and decide, never the length of the "
     "text or the amount of arithmetic; a question that only looks long is not hard. Do not solve for a key you "
-    "report, do not open any other file. Write <JOB_DIR>/result.json as {\"rankings\": {\"<pid>\": [<every label of "
-    "that packet, easiest first>]}}. Reply with ONE line: \"RANK DONE\" or \"RANK FAILED <reason>\".")
+    "report. Write <JOB_DIR>/result.json as {\"rankings\": {\"<pid>\": [<every label of "
+    "that packet, easiest first>]}}. Do not open any file not named in packet.json. Reply with ONE line: \"RANK DONE\" "
+    "or \"RANK FAILED <reason>\".")
 
 
-def ld_ranking_jobs(packets_by_scope, text_by_id, per_job=None, rankers=None, seed=None):
+def ld_ranking_jobs(packets_by_scope, text_by_id, per_job=None, rankers=None, seed=None, figures_by_id=None,
+                    max_images=None, skip_pids=None):
     """Step 5 ranking jobs: every packet goes to `rankers` fresh rankers; packets are batched per_job to a job. Items
-    are shown under opaque labels A, B, C ... (a PYQ id never reaches a ranker). Returns [{'role': 'ranker_<k>',
-    'name', 'packet', 'map': {pid: {label: pyq id}}, 'sha256', 'brief'}]. Pure."""
+    are shown under opaque labels A, B, C ... (a PYQ id never reaches a ranker). Release 2026.11.24: an item carries
+    its image files ('figures', base names — the caller copies them into the job folder; A4), a job CLOSES EARLY once
+    its packets carry max_images (LD_MAX_IMAGES_PER_JOB) image files — more, smaller jobs, never a dropped item — and
+    a packet whose pid is in skip_pids is not ranked again (A5: its stored orderings are reused). Returns [{'role':
+    'ranker_<k>', 'name', 'packet', 'map': {pid: {label: pyq id}}, 'figures': [paths], 'sha256', 'brief'}]. Pure."""
     pj = max(1, _qf_int(per_job, LD_PACKETS_PER_JOB)) if per_job is not None else LD_PACKETS_PER_JOB
     nk = max(1, _qf_int(rankers, LD_RANKERS_PER_PACKET)) if rankers is not None else LD_RANKERS_PER_PACKET
+    mi = max(1, _qf_int(max_images, LD_MAX_IMAGES_PER_JOB)) if max_images is not None else LD_MAX_IMAGES_PER_JOB
     tx = text_by_id if isinstance(text_by_id, dict) else {}
+    fx = figures_by_id if isinstance(figures_by_id, dict) else {}
+    sk = {str(x) for x in (skip_pids or [])}
     flat = []
     for sc in sorted((packets_by_scope or {}) if isinstance(packets_by_scope, dict) else {}):
         for i, pk in enumerate(packets_by_scope[sc] or []):
-            flat.append((f'{sc}#{i + 1}', [str(x) for x in pk]))
+            pid = f'{sc}#{i + 1}'
+            if pid not in sk:
+                flat.append((pid, [str(x) for x in pk]))
+    chunks, cur, cur_img = [], [], 0
+    for pid, ids in flat:                               # a job closes at per_job packets or at the image budget
+        n_img = sum(len([f for f in (fx.get(i) or []) if f]) for i in ids)
+        if cur and (len(cur) >= pj or cur_img + n_img > mi):
+            chunks.append(cur)
+            cur, cur_img = [], 0
+        cur.append((pid, ids))
+        cur_img += n_img
+    if cur:
+        chunks.append(cur)
     jobs = []
     for k in range(1, nk + 1):
-        for j in range(0, len(flat), pj):
-            chunk = flat[j:j + pj]
-            pkts, mp = [], {}
+        for j, chunk in enumerate(chunks):
+            pkts, mp, figs = [], {}, []
             for pid, ids in chunk:
                 rng = _r3_random.Random(f'{seed if seed is not None else LD_SEED}:{k}:{pid}')
                 order = list(ids)
                 rng.shuffle(order)
                 labels = [chr(65 + i) for i in range(len(order))]
                 mp[pid] = dict(zip(labels, order))
-                pkts.append({'pid': pid, 'items': [{'label': lb, 'text': str(tx.get(i) or '')[:2400]}
-                                                   for lb, i in zip(labels, order)]})
+                items = []
+                for lb, i in zip(labels, order):
+                    it = {'label': lb, 'text': str(tx.get(i) or '')[:LD_TEXT_CAP]}
+                    fl = [str(f) for f in (fx.get(i) or []) if f]
+                    if fl:
+                        it['figures'] = [f.replace('\\', '/').rsplit('/', 1)[-1] for f in fl]
+                        figs += fl
+                    items.append(it)
+                pkts.append({'pid': pid, 'items': items})
             pk = {'packets': pkts}
-            jobs.append({'role': f'ranker_{k}', 'name': f'ranker_{k}_p{j // pj + 1}', 'packet': pk, 'map': mp,
-                         'sha256': _bv_sha(pk), 'brief': LD_BRIEF_RANKER})
+            jobs.append({'role': f'ranker_{k}', 'name': f'ranker_{k}_p{j + 1}', 'packet': pk, 'map': mp,
+                         'figures': sorted(set(figs)), 'sha256': _bv_sha(pk), 'brief': LD_BRIEF_RANKER})
     return jobs
 
 
@@ -29783,7 +30305,7 @@ def _ld_levels(subtopic_id):
 
 def ld_floors(ids, positions, pyqs, top_cut):
     """Per-level content floors of the top band: for each measure a PYQ carries in 'content' (numeric), the
-    LD_FLOOR_PCTL percentile over the scope's top-band PYQs (position >= top_cut), at every level (subtopic, its
+    LD_FLOOR_PCTL_TOP percentile (release 2026.11.24, F2: the median; was LD_FLOOR_PCTL) over the scope's top-band PYQs (position >= top_cut), at every level (subtopic, its
     prefixes, '' = scope) holding >= LD_FLOOR_MIN_ITEMS such PYQs. {level: {measure: value}}. Pure."""
     pos = positions if isinstance(positions, dict) else {}
     idset = {str(i) for i in (ids or [])}
@@ -29798,7 +30320,7 @@ def ld_floors(ids, positions, pyqs, top_cut):
                     by.setdefault(lv, {}).setdefault(str(m), []).append(v)
     out = {}
     for lv, ms in by.items():
-        f = {m: _ld_pctl(v, LD_FLOOR_PCTL) for m, v in ms.items() if len(v) >= LD_FLOOR_MIN_ITEMS}
+        f = {m: _ld_pctl(v, LD_FLOOR_PCTL_TOP) for m, v in ms.items() if len(v) >= LD_FLOOR_MIN_ITEMS}   # F2
         if f:
             out[lv] = f
     return out
@@ -29821,7 +30343,7 @@ def ld_card(record):
 
 
 def ld_build(pyqs, orderings, labels, official_shares=None, raise_cuts=None, seed=None, version=None,
-             orderings_by_ranker=None, scope_of=None, refits=0):
+             orderings_by_ranker=None, scope_of=None, refits=0, packets=None, excluded=None):
     """THE LADDER of an exam (Step 5). pyqs: [{'id', 'scope', 'subtopic_id', 'ask_format', 'marks', 'text',
     'has_figure', 'content' {measure: number}, 'decisions', 'distractor_mechanisms', 'representations', 'family'}];
     orderings: {scope: [[ids easiest first]]} (ld_read_rankings, grouped by the planned scope);
@@ -29840,10 +30362,14 @@ def ld_build(pyqs, orderings, labels, official_shares=None, raise_cuts=None, see
     plan, of = ld_plan_scopes(rows)
     if isinstance(scope_of, dict) and scope_of:
         of = dict(scope_of)
-    doc = {'schema': LD_SCHEMA, 'release': R3_RELEASE, 'version': version, 'labels': labs, 'cuts': cuts,
+    doc = {'schema': LD_SCHEMA, 'release': R31_RELEASE, 'version': version, 'labels': labs, 'cuts': cuts,
            'status': 'ok', 'scope_of': of, 'scopes': {}, 'anchors': {}, 'cards': {}, 'figure_share': {},
            'refits': _qf_int(refits, 0),
-           'pyq_sha': _bv_sha(sorted([str(r['id']), str(r.get('text') or '')] for r in rows))}
+           'pyq_sha': _bv_sha(sorted([str(r['id']), str(r.get('text') or '')] for r in rows)),
+           # release 2026.11.24: the packets ranked with their member-text sha and orderings (A5 reuse), the rows left
+           # out as incomplete per scope (A4), and the writing-pool examples the writer sees (F1)
+           'packets': dict(packets) if isinstance(packets, dict) else {},
+           'excluded': dict(excluded) if isinstance(excluded, dict) else {}, 'examples': {}}
     if not cuts:
         doc['status'] = 'amber'
         doc['why'] = f'{len(labs)} band label(s): the ladder needs 2 to 5'
@@ -29883,12 +30409,22 @@ def ld_build(pyqs, orderings, labels, official_shares=None, raise_cuts=None, see
             doc['status'] = 'amber'
         doc['scopes'][sc] = {'n': len(ids), 'widened': sc == '*',
                              'positions': pos, 'writing': sorted(writing), 'grading': sorted(grading), 'split': split,
-                             'r_median': r_med, 'floors': floors, 'sanity': san, 'status': st}
+                             'r_median': r_med, 'floors': floors, 'sanity': san, 'status': st,
+                             # release 2026.11.24 (E2): every ranked question's subtopic
+                             'subtopic_of': {i: str((by_id.get(i) or {}).get('subtopic_id') or '') for i in pos}}
         for i in grading:
             r = by_id.get(i) or {}
-            doc['anchors'][i] = {'text': str(r.get('text') or '')[:2400], 'subtopic_id': r.get('subtopic_id'),
+            doc['anchors'][i] = {'text': str(r.get('text') or '')[:LD_TEXT_CAP], 'subtopic_id': r.get('subtopic_id'),
                                  'ask_format': r.get('ask_format'), 'scope': sc, 'p': pos[i],
-                                 'has_figure': bool(r.get('has_figure'))}
+                                 'has_figure': bool(r.get('has_figure')),
+                                 # release 2026.11.24 (A4/B1): only an anchor complete AS TEXT is shown at Step 7
+                                 'text_complete': bool(r['text_complete']) if isinstance(r.get('text_complete'), bool)
+                                 else ld_text_complete(r.get('text'), bool(r.get('has_figure')))}
+        for i in (writing if split else []):            # F1: the writer's examples — writing pool only, never grading
+            r = by_id.get(i) or {}
+            if r.get('text_complete') is not False and ld_text_complete(r.get('text'), bool(r.get('has_figure'))):
+                doc['examples'][i] = {'text': str(r.get('text') or '')[:LD_TEXT_CAP], 'subtopic_id': r.get('subtopic_id'),
+                                      'scope': sc, 'band': bands.get(i), 'p': pos[i], 'ask_format': r.get('ask_format')}
         doc['cards'][sc] = [dict(ld_card(by_id.get(i) or {}), pyq=None)
                             for i in sorted(writing if split else pos) if pos[i] >= top_cut]
         nf = [bool((by_id.get(i) or {}).get('has_figure')) for i in ids]
@@ -29928,11 +30464,20 @@ def validate_ladder(doc):
     return p
 
 
-def ld_needs_refit(ladder, pyq_ids):
-    """(refit, why): True when the ladder is absent / unusable, or the PYQs not on it exceed LD_REFIT_SHARE of the
-    pool (X-7). New PYQs below that share are reported, not refitted. Pure."""
+def ld_needs_refit(ladder, pyq_ids, rows=None):
+    """(refit, why): True when the ladder is absent / unusable, was built before release 2026.11.24 (its anchors were
+    not checked complete — A5/A6), its past-question TEXT changed (rows given: the same pyq_sha ld_build computes —
+    a re-read question re-ranks; the packets whose member texts did not change are reused, A5), or the PYQs not on it
+    exceed LD_REFIT_SHARE of the pool (X-7). New PYQs below that share are reported, not refitted. Pure."""
     if not isinstance(ladder, dict) or validate_ladder(ladder):
         return True, 'no usable ladder'
+    if str(ladder.get('release') or '') < R31_RELEASE:
+        return True, f"the ladder was built by release {ladder.get('release') or '?'} (before {R31_RELEASE}: its " \
+                     f"anchors were never checked complete) — ranked again"
+    if isinstance(rows, (list, tuple)) and rows:
+        _sha = _bv_sha(sorted([str(r.get('id')), str(r.get('text') or '')] for r in rows if isinstance(r, dict)))
+        if ladder.get('pyq_sha') and _sha != ladder.get('pyq_sha'):
+            return True, 'past-question text changed since the ladder was built — the changed packets are ranked again'
     on = {i for v in (ladder.get('scopes') or {}).values() if isinstance(v, dict) for i in (v.get('positions') or {})}
     ids = {str(i) for i in (pyq_ids or [])}
     new = ids - on
@@ -29968,14 +30513,18 @@ def _ld_pref(aid, anchors, sid, af, salt):
     return (lvl, 0 if af and a.get('ask_format') == af else 1, _bv_sha([salt, aid])[:12])
 
 
-def ld_anchor_set(ladder, scope, band, labels, subtopic_id=None, ask_format=None, salt=None):
-    """The 5 anchors that place one item written for `band` (§6.3 step 2), from the GRADING pool of the scope:
-    2 'below' (just below the band's cut; for the lowest band, just below the next band's cut), 2 'median' (nearest
-    the median of the band — for the lowest band, of the band above), 1 'far' (position < LD_FAR_BELOW). Same
-    subtopic preferred, then topic, section, any; then same ask format; ties by a seeded hash. A thin window is
-    widened by LD_WINDOW_WIDEN_STEP at most LD_WINDOW_WIDEN_MAX times. Returns {'anchors': [{'aid', 'p', 'group',
-    'text', 'has_figure'}], 'band', 'cut', 'probe'} or None (no placement possible — the item is measured with
-    rule r2.1, disclosed). Pure."""
+def ld_anchor_set(ladder, scope, band, labels, subtopic_id=None, ask_format=None, salt=None, upper=False):
+    """The anchors that place one item written for `band` (§6.3 step 2; release 2026.11.24 rule r3.1 B1), from the
+    GRADING pool of the scope, COMPLETE anchors only (ld_anchor_complete: never an anchor whose options, table or
+    figure a reviewer cannot read; complete AS TEXT, so no image file has to exist in the Step 7 session): 2 'below'
+    (just below the band's cut; for the lowest band, just below the next band's cut), 2 'median' (nearest the median
+    of the band — for the lowest band, of the band above), 1 'far' (position < LD_FAR_BELOW) and, with upper=True for
+    a band that is neither the lowest nor the top, LD_UPPER_ANCHORS 'upper' (just below the next band's cut — the S1
+    upper probe; none when fewer exist). Each group is a SEEDED DRAW (salt = question, reviewer, re-measure) from the
+    LD_DRAW_POOL eligible items nearest its target (same subtopic, then topic, section preferred), so the three
+    reviewers of one item see different anchors. A thin window is widened by LD_WINDOW_WIDEN_STEP at most
+    LD_WINDOW_WIDEN_MAX times. Returns {'anchors': [{'aid', 'p', 'group', 'text', 'has_figure'}], 'band', 'cut',
+    'probe', 'cuts'} or None (no placement possible — the item is measured with rule r2.1, disclosed). Pure."""
     lad = ladder if isinstance(ladder, dict) else {}
     labs = _dl_labels(labels or lad.get('labels'))
     cuts = lad.get('cuts') if isinstance(lad.get('cuts'), list) else []
@@ -29988,58 +30537,87 @@ def ld_anchor_set(ladder, scope, band, labels, subtopic_id=None, ask_format=None
     if probe >= len(labs):
         return None
     cut = float(cuts[probe - 1])
-    pool = [i for i in (scd.get('grading') or []) if i in anchors and isinstance(anchors[i].get('p'), (int, float))]
-    pick = lambda xs, n: sorted(xs, key=lambda i: _ld_pref(i, anchors, subtopic_id, ask_format, salt))[:n]
-    below = []
-    for w in range(LD_WINDOW_WIDEN_MAX + 1):
-        win = LD_BELOW_WINDOW + w * LD_WINDOW_WIDEN_STEP
-        _cand = [i for i in pool if cut - win <= anchors[i]['p'] < cut]
-        # nearest the cut first (0.01 buckets), then subtopic / format preference
-        below = sorted(_cand, key=lambda i: (round((cut - anchors[i]['p']) * 100), _ld_pref(i, anchors, subtopic_id,
-                                                                                          ask_format, salt)))[:2]
-        if len(below) == 2:
-            break
+    pool = [i for i in (scd.get('grading') or []) if i in anchors and isinstance(anchors[i].get('p'), (int, float))
+            and ld_anchor_complete(anchors[i])]
+    used = set()
+
+    def _draw(cands, near, n, tag):
+        # nearest the target first (0.01 buckets), then subtopic / format preference; a seeded draw of n out of the
+        # LD_DRAW_POOL nearest, kept in nearness order
+        xs = sorted((i for i in cands if i not in used),
+                    key=lambda i: (round(abs(near - anchors[i]['p']) * 100), _ld_pref(i, anchors, subtopic_id,
+                                                                                       ask_format, salt)))
+        top = xs[:max(n, LD_DRAW_POOL)]
+        pick = top if len(top) <= n else sorted(_r3_random.Random(f'{salt}:{tag}').sample(top, n), key=top.index)
+        used.update(pick)
+        return pick
+
+    def _window(c, n, tag):
+        # release 2026.11.24 (RL-1 'Hard means Hard'): the boundary anchors are the past questions NEAREST the cut on
+        # EITHER side (|p - cut| < window) — beating two thirds of them puts the item above the cut. Below-only anchors
+        # left a sparse ladder testing against questions far under the cut (measured on the CSIR Organic ladder: a
+        # 0.65 item certified Hard 30% of the time against anchors at 0.60 / 0.71)
+        got = []
+        for w in range(LD_WINDOW_WIDEN_MAX + 1):
+            win = LD_BELOW_WINDOW + w * LD_WINDOW_WIDEN_STEP
+            got = [i for i in pool if abs(anchors[i]['p'] - c) < win and i not in used]
+            if len(got) >= n:
+                break
+        return _draw(got, c, n, tag)
+    below = _window(cut, 2, 'below')
     med_band = labs[probe]
     rm = ((scd.get('r_median') or {}).get(med_band))
     hi = float(cuts[probe]) if probe < len(cuts) else 1.0001
-    in_band = [i for i in pool if cut <= anchors[i]['p'] < hi and i not in below]
-    median = sorted(in_band, key=lambda i: (abs(anchors[i]['p'] - (rm if isinstance(rm, (int, float)) else cut)),
-                                             _ld_pref(i, anchors, subtopic_id, ask_format, salt)))[:2]
+    median = _draw([i for i in pool if cut <= anchors[i]['p'] < hi], rm if isinstance(rm, (int, float)) else cut, 2,
+                   'median')
     far_cut = min(LD_FAR_BELOW, cut - LD_CALIBRATION_GAP)
-    far = pick([i for i in pool if anchors[i]['p'] < far_cut and i not in below and i not in median], 1)
+    far = _draw([i for i in pool if anchors[i]['p'] < far_cut], 0.0, 1, 'far')
     if len(below) < 2 or len(median) < 1 or len(far) < 1:
         return None
-    rows = [(i, 'below') for i in below] + [(i, 'median') for i in median] + [(i, 'far') for i in far]
-    return {'band': band, 'probe': labs[probe], 'cut': cut,
+    up = []
+    if upper and 0 < b < len(labs) - 1:
+        up = _window(float(cuts[b]), LD_UPPER_ANCHORS, 'upper')
+        if len(up) < LD_UPPER_ANCHORS:                # an incomplete upper probe certifies nothing: none is shown
+            up = []
+    rows = [(i, 'below') for i in below] + [(i, 'median') for i in median] + [(i, 'far') for i in far] + \
+        [(i, 'upper') for i in up]
+    return {'band': band, 'probe': labs[probe], 'cut': cut, 'cuts': [float(c) for c in cuts],
             'anchors': [{'aid': i, 'p': anchors[i]['p'], 'group': g, 'text': anchors[i].get('text') or '',
                          'has_figure': bool(anchors[i].get('has_figure'))} for i, g in rows]}
 
 
 def ld_placement_task(anchor_set, item_text, salt=None):
     """The ranking list one reviewer gets for one item: the anchors and the item, under opaque labels, in a seeded
-    shuffle, all rendered as plain text in the same template. Returns {'rank_items': [{'label', 'text'}], 'map':
-    {label: aid | 'ITEM'}, 'meta': {aid: {'p', 'group'}}, 'band', 'probe'} or None. Pure."""
+    shuffle, all rendered as plain text in the same template (each cut at LD_TEXT_CAP). Returns {'rank_items':
+    [{'label', 'text'}], 'map': {label: aid | 'ITEM'}, 'meta': {aid: {'p', 'group'}}, 'band', 'probe', 'cuts'} or
+    None. Pure."""
     a = anchor_set if isinstance(anchor_set, dict) else None
     if not a or not a.get('anchors'):
         return None
     rows = [(x['aid'], str(x.get('text') or '')) for x in a['anchors']] + [('ITEM', str(item_text or ''))]
     _r3_random.Random(f'{salt}:{len(rows)}').shuffle(rows)
     labels = [chr(65 + i) for i in range(len(rows))]
-    return {'rank_items': [{'label': lb, 'text': t[:2400]} for lb, (_, t) in zip(labels, rows)],
+    return {'rank_items': [{'label': lb, 'text': t[:LD_TEXT_CAP]} for lb, (_, t) in zip(labels, rows)],
             'map': {lb: aid for lb, (aid, _) in zip(labels, rows)},
             'meta': {x['aid']: {'p': x['p'], 'group': x['group']} for x in a['anchors']},
-            'band': a.get('band'), 'probe': a.get('probe')}
+            'band': a.get('band'), 'probe': a.get('probe'),
+            'cuts': [float(c) for c in (a.get('cuts') or []) if isinstance(c, (int, float))]}
 
 
 def ld_read_placement(ranking, task):
-    """One reviewer's placement of one item. ranking: the labels easiest first. Returns {'valid', 'tested',
-    'discordant', 'above_below', 'above_median', 'p_new', 'why'}: valid when the ranking is a permutation of the
-    task's labels and at most LD_MAX_DISCORDANT tested anchor pairs (positions >= LD_CALIBRATION_GAP apart) are
-    ordered wrongly. Pure."""
+    """One reviewer's placement of one item (release 2026.11.24 rule r3.1, B2). ranking: the labels easiest first.
+    VALID when the ranking is a permutation of the task's labels and every 'far' anchor is ranked easier than every
+    other anchor (the item itself may sit anywhere); a task without a far anchor (none is written) keeps the pair test
+    of release 2026.11.21 (at most LD_MAX_DISCORDANT tested pairs >= LD_CALIBRATION_GAP apart ordered wrongly).
+    Returns {'valid', 'rule' ('far' | 'pairs'), 'tested', 'discordant', 'above_below', 'above_median', 'below_wins',
+    'below_n', 'median_wins', 'median_n', 'upper_wins', 'upper_n', 'p_new', 'cuts', 'why'}; '<group>_wins' = that
+    group's anchors ranked EASIER than the item. Pure."""
     t = task if isinstance(task, dict) else {}
     mp = t.get('map') if isinstance(t.get('map'), dict) else {}
     meta = t.get('meta') if isinstance(t.get('meta'), dict) else {}
-    bad = {'valid': False, 'tested': 0, 'discordant': 0, 'above_below': False, 'above_median': False, 'p_new': None}
+    bad = {'valid': False, 'rule': 'far', 'tested': 0, 'discordant': 0, 'above_below': False, 'above_median': False,
+           'below_wins': 0, 'below_n': 0, 'median_wins': 0, 'median_n': 0, 'upper_wins': 0, 'upper_n': 0,
+           'p_new': None, 'cuts': list(t.get('cuts') or [])}
     if not isinstance(ranking, list) or not mp:
         return dict(bad, why='no ranking')
     order = [str(x).strip().upper() for x in ranking]
@@ -30056,16 +30634,26 @@ def ld_read_placement(ranking, task):
                 if pi > pj:                             # ranked easier but sits higher on the ladder
                     disc += 1
     k = seq.index('ITEM')
-    below_ids = [x for x in an if meta[x]['group'] == 'below']
-    med_ids = [x for x in an if meta[x]['group'] == 'median']
-    above_below = bool(below_ids) and all(seq.index(x) < k for x in below_ids)
-    above_median = bool(med_ids) and all(seq.index(x) < k for x in med_ids)
+    grp = {g: [x for x in an if meta[x].get('group') == g] for g in ('below', 'median', 'far', 'upper')}
+    others = [x for x in an if meta[x].get('group') != 'far']
+    if grp['far']:
+        rule = 'far'
+        valid = all(seq.index(f) < seq.index(o) for f in grp['far'] for o in others)
+    else:
+        rule = 'pairs'
+        valid = disc <= LD_MAX_DISCORDANT
+    wins = {g: sum(1 for x in grp[g] if seq.index(x) < k) for g in ('below', 'median', 'upper')}
+    above_below = bool(grp['below']) and wins['below'] == len(grp['below'])
+    above_median = bool(grp['median']) and wins['median'] == len(grp['median'])
     lo = float(meta[seq[k - 1]]['p']) if k > 0 and seq[k - 1] in meta else 0.0
     hi = float(meta[seq[k + 1]]['p']) if k + 1 < len(seq) and seq[k + 1] in meta else 1.0
-    valid = disc <= LD_MAX_DISCORDANT
-    return {'valid': valid, 'tested': tested, 'discordant': disc, 'above_below': above_below,
-            'above_median': above_median, 'p_new': round((lo + hi) / 2.0, 4),
-            'why': 'ok' if valid else f'{disc} of {tested} tested anchor pairs ordered wrongly (void)'}
+    why = 'ok' if valid else ('the far (easiest) past question was not ranked easiest (void)' if rule == 'far'
+                              else f'{disc} of {tested} tested anchor pairs ordered wrongly (void)')
+    return {'valid': valid, 'rule': rule, 'tested': tested, 'discordant': disc, 'above_below': above_below,
+            'above_median': above_median, 'below_wins': wins['below'], 'below_n': len(grp['below']),
+            'median_wins': wins['median'], 'median_n': len(grp['median']), 'upper_wins': wins['upper'],
+            'upper_n': len(grp['upper']), 'p_new': round((lo + hi) / 2.0, 4), 'cuts': list(t.get('cuts') or []),
+            'why': why}
 
 
 def ld_band_from_placement(placement, task, labels):
@@ -30086,11 +30674,16 @@ def ld_band_from_placement(placement, task, labels):
 
 
 # ── writer packet (r3 / r2.1) ───────────────────────────────────────────────────────────────────────────────────
-def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, floors=None):
+def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, floors=None, used_in_subtopic=None,
+                     menu=None):
     """The writer's packet under modes 'ladder' and 'counted' (§6.7): the slot band IN WORDS, the archetype cards of
     the slot's scope (abstract features only), the levers H1-H7, up to 3 WRITING-POOL examples (never a grading
-    anchor), and the content floor for a top-band slot. NEVER a score, count target, band edge, 'aim inside the
-    band' line, reviewer offset or self-count. Pure."""
+    anchor; release 2026.11.24 F1: taken from the ladder — ld_examples_for — when the caller passes none), the
+    content floor for a top-band slot (F2: the median of the real top-band items), the top-band CONTENT MENU (F3:
+    the scope's most frequent concept families, decisions and representations of its real top-band questions,
+    at most 12) and the deciding skills already used in this subtopic in this paper (RP-1: 'test a different deciding
+    skill'; record your own one-line skill as 'concept_note'). NEVER a score, count target, band edge, 'aim inside
+    the band' line, reviewer offset or self-count. Pure."""
     s = slot if isinstance(slot, dict) else {}
     labs = _dl_labels(labels) or (_dl_labels(ladder.get('labels')) if isinstance(ladder, dict) else [])
     band = s.get('band')
@@ -30107,11 +30700,19 @@ def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, f
     if top:
         lines.append('Make it hard with at least one real lever below (never by adding rows, statements, species or '
                      'named principles that do not feed one another; length and arithmetic are not difficulty).')
+    ex = list(examples or []) if examples is not None else (ld_examples_for(lad, sc, sid, band, 3) if sc and band else [])
+    mn = list(menu or []) if menu is not None else (ld_content_menu(lad, sc) if (top and sc) else [])
+    used = [x for x in (used_in_subtopic or []) if isinstance(x, dict) and x.get('skill')][:RP_PRIOR_MAX]
+    if used:
+        lines.append('This paper already tests these deciding skills of this subtopic — test a DIFFERENT one: '
+                     + '; '.join(f"Q{x.get('q')}: {x['skill']}" for x in used))
+    lines.append("Record 'concept_note': one line naming the deciding skill this question tests.")
     out = {'q': s.get('q'), 'band': band, 'level_in_words': lvl, 'mode': mode or R3_MODE_LADDER,
            'subtopic_id': s.get('subtopic_id'), 'qtype': s.get('qtype'), 'ask_format': s.get('ask_format'),
            'shape': s.get('shape'), 'levers': dict(LD_LEVERS) if (top or i) else {},
-           'archetype_cards': cards if top else [], 'examples': [x for x in (examples or [])][:3],
+           'archetype_cards': cards if top else [], 'examples': ex[:3],
            'content_floor': floors if (top and isinstance(floors, dict) and floors) else None,
+           'content_menu': mn[:12] if top else [], 'used_in_subtopic': used,
            'decision_rule': R3_DECISION_RULE, 'guidance': lines, 'rule': RUBRIC_RULE_R3 if mode != R3_MODE_COUNTED
            else RUBRIC_RULE_R21}
     return out
@@ -30220,6 +30821,11 @@ def r3_solver_fields(rec):
         prop = ' '.join(str(df.get('property') or '').lower().split())
         if ents and prop:
             out['decisive_fact'] = {'entities': ents[:8], 'property': prop[:80]}
+    if isinstance(r.get('stem_gives_step'), bool):          # release 2026.11.24 (D2)
+        out['stem_gives_step'] = r['stem_gives_step']
+    sk = r.get('same_skill_as')                             # release 2026.11.24 (RP-1)
+    if sk not in (None, '', False) and _qf_int(sk, 0) > 0:
+        out['same_skill_as'] = str(_qf_int(sk, 0))
     return out
 
 
@@ -30266,6 +30872,19 @@ def r3_findings(solvers, author_key=None, qtype='mcq', tolerance=None, top_band=
     dropped = sorted(o for o, c in elim.items() if c >= 2) if mcq else []
     if dropped and len(dropped) >= option_count - 1:
         out.append(f'D-GIVEAWAY (computed): options {dropped} are dropped at sight by 2+ solvers — one option is left')
+    # release 2026.11.24 (D2): 2+ solvers say the stem, an arrow label or a figure label states the deciding step
+    if sum(1 for f in fx if f.get('stem_gives_step') is True) >= 2:
+        out.append('D-GIVEAWAY (computed): the stem states the step, principle or intermediate that decides the key '
+                   '(2+ solvers) — let the candidate infer it')
+    # release 2026.11.24 (RP-1): 2+ solvers find the same earlier question of this subtopic decided by the same skill
+    _sk = {}
+    for f in fx:
+        if f.get('same_skill_as'):
+            _sk[f['same_skill_as']] = _sk.get(f['same_skill_as'], 0) + 1
+    for _q, _n in sorted(_sk.items()):
+        if _n >= 2:
+            out.append(f'D-REPEAT-SKILL (computed): decided by the same skill as Q{_q} of this paper ({_n} solvers) — '
+                       f'test a different deciding skill of this subtopic')
     if any(f.get('rule_scope') == 'out_of_scope' for f in fx) and not any('D-RULE-SCOPE' in x for x in out):
         out.append('D-RULE-SCOPE (computed): a solver reports the key rests on a rule applied outside its scope')
     if top_band:
@@ -30495,14 +31114,17 @@ def r3_eval(expr, names=None):
     return v, None
 
 
-def qg_compute(compute, option_texts, key, stem_text='', constants=None):
-    """G-NUMERIC-RESOLVE (§7.6): the writer's compute block {'values': {name: number printed in the stem}, 'key':
-    expr, 'distractors': {option no.: {'expr', 'slip'}}, 'approx': expr | None, 'rel_tol': float}. Blocking
-    findings: an expression that does not evaluate; a value not printed in the stem; the key expression not equal
-    to the keyed option at its precision; a distractor expression equal to the key; the approximate method landing
-    on a distractor while the stem names no method (the caller adds that only when the stem names none). Returns
-    {'applies', 'findings': [...]}; applies False when compute is None / not a dict (the solvers decide as today).
-    Pure."""
+def qg_compute(compute, option_texts, key, stem_text='', constants=None, tables=None, figure_dicts=None):
+    """G-NUMERIC-RESOLVE (§7.6): the writer's compute block {'values': {name: number | source}, 'key': expr,
+    'distractors': {option no.: {'expr', 'slip'}}, 'approx': expr | None, 'rel_tol': float}. Release 2026.11.24 (C3):
+    a value is a number printed in the stem or in the question's printed tables (`tables`: rows / lines as text), or a
+    SOURCE {'value', 'from': 'stem' | 'table' | 'figure', 'ref': <figure file / index>, 'path': <key path into the
+    figure record's 'data'>} — a figure value must equal the value at that path of the figure record the renderer
+    drew from (within the figure's read_tol, else rel_tol, else 1e-9). Blocking findings: an expression that does not
+    evaluate; a value not found where it is said to be; the key expression not equal to the keyed option at its
+    precision; a distractor expression equal to the key; the approximate method landing on a distractor while the stem
+    names no method. Returns {'applies', 'findings': [...]}; applies False when compute is None / not a dict (the
+    solvers decide as today; G-COMPUTE-MISSING in qg_item_gates names a numerical item without one). Pure."""
     c = compute if isinstance(compute, dict) else None
     ops = list(option_texts or []) if isinstance(option_texts, (list, tuple)) else []
     if c is None:
@@ -30510,19 +31132,67 @@ def qg_compute(compute, option_texts, key, stem_text='', constants=None):
     f = []
     names = dict(CONSTANTS_V1)
     names.update({k: v for k, v in (constants or {}).items() if isinstance(v, (int, float))} if isinstance(constants, dict) else {})
-    stem = str(stem_text or '').translate(_QG_SUP)
-    stem_nums = []
-    for m in _QG_NUM_RE.findall(stem):
-        v = qg_parse_number(m)
-        if v is not None:
-            stem_nums.append(v)
+
+    def _nums(txt):
+        out = []
+        for m in _QG_NUM_RE.findall(str(txt or '').translate(_QG_SUP)):
+            v = qg_parse_number(m)
+            if v is not None:
+                out.append(v)
+        return out
+    stem_nums = _nums(stem_text)
+    tab_txt = '\n'.join(str(x) for x in (tables or []) if x is not None) if isinstance(tables, (list, tuple)) else ''
+    tab_nums = _nums(tab_txt)
+    fds = [x for x in (figure_dicts or []) if isinstance(x, dict)] if isinstance(figure_dicts, (list, tuple)) else []
+    _rel = c.get('rel_tol')
+
+    def _close(v, xs, tol=1e-9):
+        return any(abs(v - s) <= tol * max(1.0, abs(v)) for s in xs)
+
+    def _fig_value(src):
+        ref = src.get('ref')
+        fd = None
+        for i, x in enumerate(fds):
+            nm = str(x.get('file') or '').replace('\\', '/').rsplit('/', 1)[-1]
+            if ref is not None and (str(ref) == nm or str(ref) == str(i) or str(ref) == str(x.get('file'))):
+                fd = x
+                break
+        if fd is None and len(fds) == 1 and ref is None:
+            fd = fds[0]
+        if fd is None or not isinstance(fd.get('data'), (dict, list)):
+            return None, None
+        cur = fd['data']
+        for part in [x for x in str(src.get('path') or '').replace('.', '/').split('/') if x != '']:
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            elif isinstance(cur, list) and part.lstrip('-').isdigit() and -len(cur) <= int(part) < len(cur):
+                cur = cur[int(part)]
+            else:
+                return None, fd
+        if isinstance(cur, (int, float)) and not isinstance(cur, bool):
+            return float(cur), fd
+        return None, fd
     for k, v in (c.get('values') or {}).items() if isinstance(c.get('values'), dict) else []:
-        if not isinstance(v, (int, float)) or isinstance(v, bool):
+        src = v if isinstance(v, dict) else None
+        val = src.get('value') if src is not None else v
+        if not isinstance(val, (int, float)) or isinstance(val, bool):
             f.append(f'G-NUMERIC-RESOLVE: value {k} is not a number')
             continue
-        if not any(abs(v - s) <= 1e-9 * max(1.0, abs(v)) for s in stem_nums):
-            f.append(f'G-NUMERIC-RESOLVE: value {k} = {v} is not printed in the stem')
-        names[str(k)] = float(v)
+        frm = str((src or {}).get('from') or 'stem').strip().lower()
+        if frm == 'figure':
+            fv, fd = _fig_value(src)
+            try:
+                tol = float((fd or {}).get('read_tol')) if (fd or {}).get('read_tol') is not None else (
+                    float(_rel) if _rel is not None else 1e-9)
+            except (TypeError, ValueError):
+                tol = 1e-9
+            if fv is None or abs(float(val) - fv) > tol * max(1.0, abs(fv)) * 1.0000001:
+                f.append(f'G-NUMERIC-RESOLVE: value {k} = {val} is not the value at {src.get("path")!r} of figure '
+                         f'{src.get("ref")!r} — value not found where the stem says it is')
+        elif not (_close(float(val), stem_nums) or _close(float(val), tab_nums)):
+            f.append(f'G-NUMERIC-RESOLVE: value {k} = {val} is not printed in the stem' +
+                     (' or its table' if tab_txt else ''))
+        names[str(k)] = float(val)
     try:
         rel = float(c.get('rel_tol')) if c.get('rel_tol') is not None else None
     except (TypeError, ValueError):
@@ -30566,15 +31236,19 @@ def qg_compute(compute, option_texts, key, stem_text='', constants=None):
 _QG_INLINE_STMT_RE = _r3_re.compile(r'(?:^|[\s.;])(?:\(?([A-Da-d]|[IVX]{1,3}|[1-4])\)?\s*[:.)])\s+\S')
 
 
-def qg_stem_form(stem_text, ask_format=None, data_block_lines=None, min_ask_words=3):
-    """G-STEMFORM: in a statement / combination ask, the ask clause — the text after the last statement — has fewer
-    than min_ask_words words (e.g. 'Correct:'): not a complete exam sentence. [finding]. Statements written inline
-    are split onto their own lines by the renderer, so they are not a finding. Pure."""
+def qg_stem_form(stem_text, ask_format=None, data_block_lines=None, min_ask_words=3, ask_form=None, n_statements=None):
+    """G-STEMFORM: (1) in a statement / combination ask, the ask clause — the text after the last statement — has fewer
+    than min_ask_words words (e.g. 'Correct:'): not a complete exam sentence (statements written inline are split onto
+    their own lines by the renderer, so they are not a finding). Release 2026.11.24, measured per exam by Step 5
+    (ask_form = section_rules {'ask_words_p10', 'headline_share'}; None = dormant): (2) D1 — the final ask sentence has
+    fewer whitespace words than this exam's 10th percentile; (3) D1 — the stem opens with a headline (qg_is_headline)
+    while fewer than D1_HEADLINE_SHARE_MAX of the exam's past stems do; (4) RP-2 — a statement-set stem
+    whose enumerated statements are not the planned n_statements. [finding]. Pure."""
     s = str(stem_text or '')
     af = str(ask_format or '').lower()
     out = []
-    if af in ('statement', 'statements', 'combination', 'assertion_reason', 'multi_statement'):
-        # (statements written inline are split onto their own lines by the renderer — not a stem defect)
+    stmt = af in ('statement', 'statements', 'combination', 'assertion_reason', 'multi_statement')
+    if stmt:
         tail = s.split('\n')[-1]
         mk = list(_QG_INLINE_STMT_RE.finditer(tail))
         if mk:
@@ -30584,6 +31258,22 @@ def qg_stem_form(stem_text, ask_format=None, data_block_lines=None, min_ask_word
         words = [w for w in _r3_re.split(r'\s+', tail.strip()) if w]
         if tail.strip() and len(words) < int(min_ask_words):
             out.append(f"G-STEMFORM: the ask '{tail.strip()[:40]}' is not a complete exam sentence")
+    af_m = ask_form if isinstance(ask_form, dict) else {}
+    p10 = af_m.get('ask_words_p10')
+    if isinstance(p10, (int, float)) and not isinstance(p10, bool) and p10 > 0 and s.strip() and not stmt:
+        ask = qg_ask_sentence(s)
+        nw = len([w for w in ask.split() if w])
+        if ask and nw < p10:
+            out.append(f"G-STEMFORM: the ask sentence '{ask[:50]}' has {nw} words — this exam's questions ask in at "
+                       f"least {int(p10)} (write the full sentence)")
+    hs = af_m.get('headline_share')
+    if isinstance(hs, (int, float)) and not isinstance(hs, bool) and hs < D1_HEADLINE_SHARE_MAX and qg_is_headline(s):
+        out.append("G-STEMFORM: the stem opens with a headline ('<topic>: …') — this exam writes full sentences")
+    if stmt and isinstance(n_statements, int) and not isinstance(n_statements, bool) and n_statements >= 2:
+        got = qg_statement_count(s)
+        if got and got != n_statements:
+            out.append(f'G-STEMFORM: {got} statements written, {n_statements} planned for this slot (the exam\'s own '
+                       f'statement-set form)')
     return out
 
 
@@ -30679,12 +31369,28 @@ def r3_hard_gate(finding):
     return any(s.startswith(g) for g in R3_HARD_GATES)
 
 
-def qg_item_gates(entry, key=None, top_band=False):
+def qg_is_computed_value(x):
+    """C2 — True when x is a COMPUTED value: written with a decimal point or a power of ten, or larger than a count
+    (|x| > 20). A small whole number (unpaired electrons, IR-active modes, isomers) is a count and is never asked to
+    carry a compute block. Pure."""
+    v = qg_parse_number(x)
+    if v is None:
+        return False
+    return abs(v - round(v)) > 1e-9 or abs(v) > 20 or bool(_r3_re.search(r'[.]\d|[×x\*]\s*10|[eE][-+]?\d', str(x)))
+
+
+def qg_item_gates(entry, key=None, top_band=False, context=None):
     """The deterministic per-item gates of the pre-review (§7.7 step 1), on one concept_map entry: G-DEADROW,
     G-EXTREMES (blocking for a top-band slot only — the exam's own ordering asks decide the rest), G-OPTION-SPACING,
-    G-NUMERIC-RESOLVE (when the entry carries 'compute'), G-STEMFORM, G-STEMFIGREF (when the figure record lists its
-    labels), G-ALTTEXT (every figure dict's alt). [finding strings]. Pure."""
+    G-NUMERIC-RESOLVE (when the entry carries 'compute'; values from the stem, its tables or the figure data — C3),
+    G-COMPUTE-MISSING (release 2026.11.24, C2: a numerical item — numerical answer, or 3+ options that parse as
+    numbers — with no compute block), G-STEMFORM (with the exam's measured ask form and the slot's planned
+    n_statements from `context`), G-STEMFIGREF (when the figure record lists its labels), G-ALTTEXT (every figure
+    dict's alt), G-FIG-MISSING (release 2026.11.24, FG-5: context 'figure_granted' — the paper's figure plan granted
+    this slot a figure — and the entry draws none). context: {'figure_granted', 'ask_form', 'n_statements'} (absent =
+    those gates dormant). [finding strings]. None of the new findings is a hard gate. Pure."""
     e = entry if isinstance(entry, dict) else {}
+    ctx = context if isinstance(context, dict) else {}
     ops = list(e.get('option_texts') or []) if isinstance(e.get('option_texts'), (list, tuple)) else []
     out = []
     dr = qg_dead_rows(ops)
@@ -30695,9 +31401,26 @@ def qg_item_gates(entry, key=None, top_band=False):
                    'middle of the order must be decided')
     for i, j in qg_option_spacing(ops, (e.get('compute') or {}).get('rel_tol') if isinstance(e.get('compute'), dict) else None):
         out.append(f'G-OPTION-SPACING: options {i} and {j} cannot be told apart at the precision written')
-    cp = qg_compute(e.get('compute'), ops, key, e.get('stem_text'), e.get('constants'))
+    _tabs = [x for x in (e.get('tables') or e.get('data_block_lines') or []) if x is not None] \
+        if isinstance(e.get('tables') or e.get('data_block_lines'), list) else []
+    if isinstance(e.get('list_columns'), list):
+        _tabs += ['; '.join(str(y) for y in col) for col in e['list_columns'] if isinstance(col, list)]
+    cp = qg_compute(e.get('compute'), ops, key, e.get('stem_text'), e.get('constants'), tables=_tabs,
+                    figure_dicts=e.get('figure_dicts') if isinstance(e.get('figure_dicts'), list) else None)
     out += cp['findings']
-    out += qg_stem_form(e.get('stem_text'), e.get('ask_format'), e.get('data_block_lines'))
+    _qt = str(e.get('qtype') or e.get('answer_kind') or '').lower()
+    _nops = [o for o in ops if qg_parse_number(o) is not None]
+    if not cp['applies'] and ((_qt in ('nat', 'numerical', 'numeric') and qg_is_computed_value(key)) or
+                              (len(_nops) >= 3 and sum(1 for o in _nops if qg_is_computed_value(o)) >= 2)):
+        out.append('G-COMPUTE-MISSING: a numerical question carries no compute block — record compute {values, key, '
+                   'distractors, rel_tol} so its key and every distractor are recomputed (values from the stem, its '
+                   'table or the figure data)')
+    out += qg_stem_form(e.get('stem_text'), e.get('ask_format'), e.get('data_block_lines'), ask_form=ctx.get('ask_form'),
+                        n_statements=ctx.get('n_statements') if isinstance(ctx.get('n_statements'), int) else None)
+    if ctx.get('figure_granted') and not (e.get('figure_dicts') or e.get('figure_files')) \
+            and not isinstance(e.get('bc_fallback'), dict):
+        out.append('G-FIG-MISSING: the paper\'s figure plan granted this slot a figure (blueprint figure target) and the '
+                   'question draws none — draw the figure the question is built on (OPTION A)')
     labs = []
     for fd in (e.get('figure_dicts') or []) if isinstance(e.get('figure_dicts'), list) else []:
         if isinstance(fd, dict):
@@ -30790,8 +31513,9 @@ def r3_footer_lines(mode, ladder=None, count_rule=None, paper_rule=None, void_ra
             out.append('DIFFICULTY (RED): band below the real exam — ' + '; '.join(
                 f"{r['scope']} {r['band']}: median {r['median_new']} < real {r['median_real']}" for r in bad))
     if isinstance(void_rate, (int, float)):
-        out.append(f'PLACEMENT: {void_rate:.0%} of reviewer placements were void (calibration failed) — each graded '
-                   f'one band below its slot')
+        out.append(f'PLACEMENT: {void_rate:.0%} of reviewer placements were void (the easiest past question was not '
+                   f'ranked easiest) — excluded; a text with fewer than {LD_POOL_MIN_N} valid comparisons was re-measured '
+                   f'once (rule r3.1)')
     for x in (figure_share or []):
         out.append(str(x) + ' (AMBER)')
     return out
@@ -30821,15 +31545,17 @@ R3_SOLVER_FIELDS_TEXT = ("\"approx_answer\": <the option a common shortcut or ap
                          "\"rule_scope\": <in_scope|out_of_scope|n/a — does the rule your key rests on apply to this "
                          "substrate / system>, \"depth\": <decision depth>, \"breadth\": <breadth>, \"decisive_fact\": "
                          "{\"entities\": [<the species / quantities the key turns on>], \"property\": <the property "
-                         "asked>}")
+                         "asked>}, \"stem_gives_step\": <true if the stem, an arrow label or a figure label states the "
+                         "step, principle or intermediate you needed to find the key>, \"same_skill_as\": <the q of an "
+                         "item's 'prior_skills' entry whose deciding skill also decides this question, or null>")
 BV_BRIEF_REVIEWER_R3 = (
     "You are a FRESH BLIND REVIEWER of exam questions. You did not write them and you are not told the level any of "
     "them was written for. Read ONLY <JOB_DIR>/packet.json: 'items' (each: 'q', 'item' — the question as a candidate "
     "sees it; its figure files are in <JOB_DIR>: open and look at each — 'proven_structures', 'figures_to_read', "
     "'task' and, when task is 'rank', 'rank_items'), 'labels', 'decision_rule' and, for items whose task is 'count', "
     "'counting_rules'. For EVERY item, on its own: (1) solve it fully as a candidate; (2) when task is 'rank': "
-    "rank_items holds SIX questions under labels A-F, one of them this item and five real past questions of this "
-    "exam; rank all six from EASIEST to HARDEST for a well-prepared candidate within the exam's time — judge what the "
+    "rank_items holds this item and five or seven real past questions of this exam under labels A, B, C …; rank "
+    "them all from EASIEST to HARDEST for a well-prepared candidate within the exam's time — judge what the "
     "candidate must know and decide, never length or arithmetic — and write the labels in 'ranking'; when task is "
     "'count': write 'facets', 'moves', 'principles', 'speed_hack', 'shortcut', 'negative' with counting_rules "
     "exactly; (3) for each file in 'figures_to_read' transcribe the structure as ONE SMILES exactly as drawn; (4) "
@@ -30912,7 +31638,8 @@ def r3_grade_from_review(rec, task, labels):
                 return None
             return {'band': b, 'decisions': _qf_int(r.get('depth'), 0), 'rationale': str(pl.get('why'))[:200],
                     'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
-                    'concept': r.get('concept'), 'rubric': None, 'measure': 'placement_void', 'placement': pl}
+                    'concept': r.get('concept'), 'rubric': None, 'measure': 'placement_void', 'placement': pl,
+                    'void': True}
         return {'band': b, 'decisions': _qf_int(r.get('depth'), 0), 'rationale': str(pl.get('why'))[:200],
                 'class': r.get('class'), 'computation_generic': bool(r.get('computation_generic')),
                 'concept': r.get('concept'), 'rubric': None, 'measure': 'placement_r3', 'placement': pl}
@@ -30921,6 +31648,701 @@ def r3_grade_from_review(rec, task, labels):
         g['measure_rule'] = RUBRIC_RULE_R21
     return g
 
+
+# ── release 2026.11.24: Step 5 stem-form measures (D1, RP-2) and the deterministic figure plan (FG-1) ──────────────
+_QG_ENUM_LINE_RE = _r3_re.compile(r'^\s*(?:([^\W\d_][\w-]{0,24})\s+)?\(?([A-Ea-e]|[IVX]{1,4}|[ivx]{1,4}|[1-9])\)?\s*([.:)])\s+\S')
+_QG_HEADLINE_RE = _r3_re.compile(r'^\s*(?:\S+[ \t]+){0,2}\S+?:[ \t]+\S')
+
+
+def qg_ask_sentence(stem_text):
+    """The final ask sentence of a stem (D1): the last sentence of the last non-empty line that is not an enumerated
+    statement line. '' when none. Pure."""
+    lines = [x.strip() for x in str(stem_text or '').split('\n') if x.strip()]
+    lines = [x for x in lines if not _QG_ENUM_LINE_RE.match(x)] or lines
+    if not lines:
+        return ''
+    parts = [x.strip() for x in _r3_re.split(r'(?<=[.?!।])\s+', lines[-1]) if x.strip()]
+    return parts[-1] if parts else ''
+
+
+def qg_is_headline(stem_text):
+    """D1 — True when a stem OPENS with a headline: at most 3 whitespace tokens, a colon, and the question running on
+    in the same line ('HI photolysis: the yield is …'). A lead-in followed by a list on the next line ('Consider the
+    following statements:' + newline) is not a headline. Structural — no words. Pure."""
+    s = str(stem_text or '').strip().split('\n')[0] if str(stem_text or '').strip() else ''
+    return bool(s) and bool(_QG_HEADLINE_RE.match(s))
+
+
+def qg_statement_lines(stem_text):
+    """RP-2 — the enumerated statement lines of a stem, structurally: lines that start with an enumerator (A-E, Roman,
+    digits; bracketed or followed by . : ) — optionally after ONE label word that every such line repeats, e.g. the
+    exam's 'Statement I:'), forming one consecutive sequence from its first value. [(label, enumerator, punct)].
+    Pure."""
+    rows = []
+    for ln in str(stem_text or '').split('\n'):
+        m = _QG_ENUM_LINE_RE.match(ln)
+        if m:
+            rows.append((m.group(1) or '', m.group(2), m.group(3)))
+    if len(rows) < 2:
+        return []
+    lab = rows[0][0]
+    rows = [r for r in rows if r[0] == lab]
+    roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']
+
+    def _ord(tok):
+        t = str(tok)
+        if t.isdigit():
+            return int(t)
+        if t.upper() in roman and (len(t) > 1 or t.upper() in ('I', 'V')):
+            return roman.index(t.upper()) + 1
+        return ord(t.upper()) - 64 if len(t) == 1 and t.isalpha() else None
+    seq = [rows[0]]
+    for r in rows[1:]:
+        a, b = _ord(seq[-1][1]), _ord(r[1])
+        if a is not None and b == a + 1:
+            seq.append(r)
+        else:
+            break
+    return seq if len(seq) >= 2 and _ord(seq[0][1]) == 1 else []
+
+
+def qg_statement_count(stem_text):
+    """RP-2 — how many statements a stem enumerates: its enumerated lines (qg_statement_lines), else the inline
+    markers of one line (A: … B: …). 0 when none. Pure."""
+    n = len(qg_statement_lines(stem_text))
+    if n:
+        return n
+    ms = list(_QG_INLINE_STMT_RE.finditer(str(stem_text or '')))
+    return len(ms) if len(ms) >= 2 else 0
+
+
+def ask_form_measure(stems):
+    """D1 — Step 5's per-section measure of how this exam asks: {'ask_words_p10' (10th percentile of the whitespace
+    words of each past stem's final ask sentence), 'headline_share' (share of past stems that open with a headline),
+    'n'} — or None (dormant) with fewer than 10 stems or a script written without spaces (past stems average < 3
+    whitespace tokens). Pure."""
+    ss = [str(x) for x in (stems or []) if str(x or '').strip()]
+    if len(ss) < 10:
+        return None
+    toks = [len(x.split()) for x in ss]
+    if sum(toks) / len(toks) < 3:
+        return None
+    asks = [len(qg_ask_sentence(x).split()) for x in ss]
+    asks = [a for a in asks if a > 0]
+    if not asks:
+        return None
+    p10 = _ld_pctl(asks, 10)
+    return {'ask_words_p10': int(_r3_math.floor(p10)) if p10 is not None else None,
+            'headline_share': round(sum(1 for x in ss if qg_is_headline(x)) / len(ss), 4), 'n': len(ss)}
+
+
+_QG_INLINE_LABEL_RE = _r3_re.compile(r'([^\W\d_][\w-]{2,24})\s+\(?(I|A|1|a|i)\)?\s*([.:)])\s+\S')
+
+
+def _qg_inline_label(stem_text):
+    """The exam's own inline statement label ('Statement I:'): a word followed by a first enumerator and its
+    punctuation, the same word appearing again before a second statement. None when none. Pure."""
+    s = str(stem_text or '')
+    m = _QG_INLINE_LABEL_RE.search(s)
+    if not m or s.count(m.group(1) + ' ') < 2:
+        return None
+    return f'{m.group(1)} {m.group(2)}{m.group(3)}'
+
+
+def statement_forms_measure(stems):
+    """RP-2 — Step 5's per-section measure of the exam's statement-set forms over its past stems: {'n_dist': {n: share}
+    over stems that enumerate >= 2 statements, 'label_style': the most frequent '<label word> <first enumerator><punct>'
+    as the exam writes it (e.g. 'Statement I:' or 'A.'), 'n'} or None when fewer than 3 such stems. Pure."""
+    cnt, styles, tot = {}, {}, 0
+    for x in (stems or []):
+        rows = qg_statement_lines(x)
+        n = len(rows) if rows else qg_statement_count(x)
+        if n < 2:
+            continue
+        tot += 1
+        cnt[n] = cnt.get(n, 0) + 1
+        if rows:
+            lab, tok, pu = rows[0]
+            st = (lab + ' ' if lab else '') + tok + pu
+            styles[st] = styles.get(st, 0) + 1
+        else:
+            st = _qg_inline_label(x)
+            if st:
+                styles[st] = styles.get(st, 0) + 1
+    if tot < 3:
+        return None
+    return {'n_dist': {str(k): round(v / tot, 4) for k, v in sorted(cnt.items())},
+            'label_style': max(sorted(styles), key=lambda k: styles[k]) if styles else None, 'n': tot}
+
+
+def parse_stem_form(section_rules_text):
+    """D1 / RP-2 — the per-section stem-form measures Step 5 writes into section_rules (after each '=== SECTION: <name>
+    ===' header: 'ask_form: {json}' and 'statement_forms: {json}'): {'ask_form': {section: {...}}, 'statement_forms':
+    {section: {...}}}. A section_rules of an earlier release has none: {'ask_form': {}, 'statement_forms': {}}
+    (every control dormant). Pure."""
+    import json as _js31
+    out = {'ask_form': {}, 'statement_forms': {}}
+    sec = None
+    for ln in str(section_rules_text or '').split('\n'):
+        m = _r3_re.match(r'^=== SECTION: (.+?) ===\s*$', ln.strip())
+        if m:
+            sec = m.group(1)
+            continue
+        for key in ('ask_form', 'statement_forms'):
+            if sec is not None and ln.startswith(key + ': '):
+                try:
+                    v = _js31.loads(ln[len(key) + 2:])
+                except ValueError:
+                    v = None
+                if isinstance(v, dict):
+                    out[key][sec] = v
+    return out
+
+
+def statement_n_plan(n_dist, n_slots, offset=0):
+    """RP-2 — n_statements for each of a paper's statement-shape slots: largest-remainder apportionment of the exam's
+    n_dist over n_slots, rotated by `offset` (the paper number) so a rare form appears across a series. [n] of length
+    n_slots ([] when no measure). Pure."""
+    d = {}
+    for k, v in (n_dist or {}).items() if isinstance(n_dist, dict) else []:
+        try:
+            if int(k) >= 2 and float(v) > 0:
+                d[int(k)] = float(v)
+        except (TypeError, ValueError):
+            continue
+    m = _qf_int(n_slots, 0)
+    if not d or m <= 0:
+        return []
+    tot = sum(d.values())
+    raw = {k: m * v / tot for k, v in d.items()}
+    base = {k: int(_r3_math.floor(x)) for k, x in raw.items()}
+    rest = m - sum(base.values())
+    order = sorted(d, key=lambda k: (-(raw[k] - base[k]), k))
+    o = _qf_int(offset, 0) % len(order) if order else 0
+    order = order[o:] + order[:o]
+    for k in order[:rest]:
+        base[k] += 1
+    out = []
+    for k in sorted(base):
+        out += [k] * base[k]
+    return out
+
+
+def figure_grant_plan(capable_slots, section_sched, total_mocks, mock_n, rates=None, reducible=None, capacity=None):
+    """FG-1 (owner ruling RL-3: follow the blueprint's figure target) — THE deterministic figure plan of one section of
+    one paper, the same chain Create S3 ran by hand (bc.build_axis_tracker -> figural_quota_guard ->
+    schedule_figural_slots -> rank_figural_candidates -> axis_grant_figural), then FILLED to the paper's target from
+    the remaining capable slots in rank order (a schedule that strips slots never leaves the paper short).
+    capable_slots: [(qnum, subtopic_id)] of FIGURAL-format slots. Returns {'target', 'granted': [qnum str],
+    'capable', 'short': [{'q': None, 'reason': 'capacity', 'n'}]}. Pure."""
+    sch = section_sched if isinstance(section_sched, dict) else {}
+    slots = [(str(q), str(s)) for q, s in (capable_slots or []) if s]
+    red = reducible if isinstance(reducible, dict) else {}
+    ser = sch.get('axis1_target_series') or []
+    try:
+        t = int(ser[(_qf_int(mock_n, 1) - 1) % len(ser)]) if ser else int(round(float(
+            (sch.get('axis1_target_per_mock') or {}).get('FIGURAL', 0) or 0)))
+    except (TypeError, ValueError, ZeroDivisionError):
+        t = 0
+    if t <= 0 or not slots:
+        return {'target': max(t, 0), 'granted': [], 'capable': len(slots),
+                'short': [{'q': None, 'reason': 'capacity', 'n': t}] if t > 0 else []}
+    tr = build_axis_tracker(sch, 'axis1', counts={})
+    band = figural_band(t, sch.get('axis1_observed_figural'))
+    low = max(0, t - int(band))
+    quota = figural_quota_guard(sch.get('axis1_figural_quota') or {}, _qf_int(total_mocks, 1), low)
+    cap = capacity if isinstance(capacity, dict) else {}
+    if not cap:
+        for _q, s in slots:
+            cap[s] = cap.get(s, 0) + 1
+    sched = schedule_figural_slots(quota, ser, band, capacity=cap)
+    cands = list(slots)
+    this = sched[(_qf_int(mock_n, 1) - 1) % len(sched)] if any(sched) else None
+    if this is not None:
+        left = dict(this)
+        keep = []
+        for q, s in cands:
+            if left.get(s, 0) > 0:
+                left[s] -= 1
+                keep.append((q, s))
+        cands = keep
+    ordered = rank_figural_candidates(cands, rates=rates or {}, reducible=red)
+    granted = []
+    for q, s in ordered:
+        ok, _why = axis_grant_figural(tr, s, reducible=red.get(s, True))
+        if ok:
+            granted.append(q)
+    if len(granted) < t:                                  # FG-1 fill: the remaining capable slots, best-ranked first
+        for q, s in rank_figural_candidates(slots, rates=rates or {}, reducible=red):
+            if len(granted) >= t:
+                break
+            if q not in granted:
+                granted.append(q)
+    short = max(0, t - len(granted))
+    return {'target': t, 'granted': sorted(granted, key=lambda x: _qf_int(x, 0)), 'capable': len(slots),
+            'short': [{'q': None, 'reason': 'capacity', 'n': short}] if short else []}
+
+def rp_prior_skills(concept_map, q, limit=None):
+    """RP-1 — the one-line deciding skills ('concept_note', else 'concept') of the EARLIER questions of this paper on
+    the same subtopic as question q, nearest first, at most RP_PRIOR_MAX: [{'q', 'skill'}]. Pure."""
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    e = cm.get(str(q)) if isinstance(cm.get(str(q)), dict) else {}
+    sid = e.get('subtopic_id')
+    if not sid:
+        return []
+    out = []
+    for q2 in sorted((k for k in cm if str(k).isdigit() and int(k) < _qf_int(q, 0)), key=int, reverse=True):
+        e2 = cm.get(q2) if isinstance(cm.get(q2), dict) else {}
+        sk = str(e2.get('concept_note') or e2.get('concept') or '').strip()
+        if e2.get('subtopic_id') == sid and sk:
+            out.append({'q': str(q2), 'skill': sk[:160]})
+        if len(out) >= _qf_int(limit, RP_PRIOR_MAX):
+            break
+    return out
+
+
+def rp_attach_prior(rows, concept_map):
+    """RP-1 — the reviewer rows with 'prior_skills' added where the paper has earlier same-subtopic questions (the
+    reviewer's same_skill_as field reads them). Pure."""
+    out = []
+    for r in (rows or []) if isinstance(rows, list) else []:
+        if isinstance(r, dict):
+            pr = rp_prior_skills(concept_map, r.get('q'))
+            out.append(dict(r, prior_skills=pr) if pr else r)
+    return out
+
+def ld_packet_sha(ids, text_by_id):
+    """A5 — the sha of one ranking packet's members and their texts (order-free). Pure."""
+    tx = text_by_id if isinstance(text_by_id, dict) else {}
+    return _bv_sha(sorted([str(i), str(tx.get(str(i)) or '')] for i in (ids or [])))
+
+
+def ld_examples_for(ladder, scope, subtopic_id, band, k=3):
+    """F1 — up to k writing-pool examples (never a grading anchor) of `band` for a writer: the same subtopic first,
+    then its topic, then the scope; text only. [{'text', 'subtopic_id'}]. Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    ex = lad.get('examples') if isinstance(lad.get('examples'), dict) else {}
+    pool = [(i, x) for i, x in ex.items() if isinstance(x, dict) and x.get('scope') == scope and x.get('band') == band
+            and str(x.get('text') or '').strip()]
+    lv = _ld_levels(subtopic_id)
+
+    def _rank(ix):
+        i, x = ix
+        sid = str(x.get('subtopic_id') or '')
+        lvl = next((n for n, l in enumerate(lv) if l and (sid == l or sid.startswith(l + '.'))), len(lv))
+        return (lvl, _bv_sha([subtopic_id, i])[:12])
+    return [{'text': x['text'], 'subtopic_id': x.get('subtopic_id')} for i, x in sorted(pool, key=_rank)[:max(0, _qf_int(k, 3))]]
+
+
+def ld_grades(ladder, labels=None):
+    """RG (owner ruling RL-4) — the band of every ranked past question on a usable ladder: {'<paper>:Q<n>': band}
+    from each scope's positions and the ladder's cuts — the grades the retired count-based blind grading (S11-1c)
+    used to give, for the same readers (level model, Create S3-8L, Blueprint shares). {} when the ladder is not
+    usable (status 'ok'). Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    if validate_ladder(lad) or lad.get('status') != 'ok':
+        return {}
+    labs = _dl_labels(labels or lad.get('labels'))
+    cuts = lad.get('cuts') or []
+    out = {}
+    for sc, v in (lad.get('scopes') or {}).items():
+        for i, p_ in ((v or {}).get('positions') or {}).items() if isinstance(v, dict) else []:
+            b = ld_band_of(p_, cuts, labs)
+            if b is not None:
+                out[str(i)] = b
+    return out
+
+def ld_content_menu(ladder, scope, k=12):
+    """F3 — the top-band CONTENT MENU of a scope: the most frequent concept families, decision kinds and
+    representations of its real top-band questions (the ladder's archetype cards — abstract features, never text),
+    at most k entries, most frequent first. [str]. Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    cnt = {}
+    for c in ((lad.get('cards') or {}).get(scope) or []) if isinstance(lad.get('cards'), dict) else []:
+        if not isinstance(c, dict):
+            continue
+        for x in ([c.get('concept_family')] + list(c.get('decisions') or []) + list(c.get('representations') or [])):
+            if x not in (None, '') and isinstance(x, str):
+                cnt[x] = cnt.get(x, 0) + 1
+    return [x for x, _n in sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0]))][:max(0, _qf_int(k, 12))]
+
+
+def ld_top_share_by_subtopic(ladder, labels=None):
+    """E2 (release 2026.11.24) — the share (%) of each subtopic's ranked past questions that sit in the TOP band of the
+    ladder (position >= the top cut), for a subtopic with at least LD_FLOOR_MIN_ITEMS ranked questions — the same
+    ruler Step 7 places new questions on (the blueprint's hard_share_by_subtopic came from the count rubric and said
+    0% Hard for every Inorganic subtopic of CSIR Chemistry). {} when the ladder is not usable. Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    if validate_ladder(lad) or lad.get('status') != 'ok' or not lad.get('cuts'):
+        return {}
+    top = float(lad['cuts'][-1])
+    anc = lad.get('anchors') if isinstance(lad.get('anchors'), dict) else {}
+    exs = lad.get('examples') if isinstance(lad.get('examples'), dict) else {}
+    by = {}
+    for sc, v in (lad.get('scopes') or {}).items():
+        if not isinstance(v, dict):
+            continue
+        sof = v.get('subtopic_of') if isinstance(v.get('subtopic_of'), dict) else {}
+        for i, p_ in (v.get('positions') or {}).items():
+            sid = sof.get(i) or (anc.get(i) or {}).get('subtopic_id') or (exs.get(i) or {}).get('subtopic_id')
+            if sid and isinstance(p_, (int, float)):
+                by.setdefault(str(sid), []).append(float(p_))
+    return {s: round(100.0 * sum(1 for x in ps if x >= top) / len(ps), 1)
+            for s, ps in sorted(by.items()) if len(ps) >= LD_FLOOR_MIN_ITEMS}
+
+
+def ld_real_shares(ladder, labels=None, subtopic_ids=None):
+    """E1 / E3 (release 2026.11.24) — the real exam on its own ladder, over the subtopics a paper draws on (all when
+    None): {'at_or_above': {band: share of real questions at or above that band}, 'mean': mean position, 'n'} or None.
+    Pure."""
+    lad = ladder if isinstance(ladder, dict) else {}
+    if validate_ladder(lad) or lad.get('status') != 'ok':
+        return None
+    labs = _dl_labels(labels or lad.get('labels'))
+    cuts = lad.get('cuts') or []
+    want = {str(x) for x in subtopic_ids} if subtopic_ids else None
+    anc = lad.get('anchors') if isinstance(lad.get('anchors'), dict) else {}
+    ps = []
+    for v in (lad.get('scopes') or {}).values():
+        if not isinstance(v, dict):
+            continue
+        sof = v.get('subtopic_of') if isinstance(v.get('subtopic_of'), dict) else {}
+        for i, p_ in (v.get('positions') or {}).items():
+            sid = sof.get(i) or (anc.get(i) or {}).get('subtopic_id')
+            if isinstance(p_, (int, float)) and (want is None or str(sid) in want or str(sid).split('.')[0] in
+                                                {w.split('.')[0] for w in want}):
+                ps.append(float(p_))
+    if not ps or len(cuts) != len(labs) - 1:
+        return None
+    out = {}
+    for bi, b in enumerate(labs):
+        lo = 0.0 if bi == 0 else float(cuts[bi - 1])
+        out[b] = round(sum(1 for x in ps if x >= lo) / len(ps), 4)
+    return {'at_or_above': out, 'mean': round(sum(ps) / len(ps), 4), 'n': len(ps)}
+
+
+def difficulty_vs_real(requested_counts, real, labels):
+    """E1 (owner ruling RL-1b: the blueprint mix is FINAL — notice only) — the bands at which the requested mix is
+    EASIER than the real exam: [{'band', 'requested', 'real'}] (cumulative shares at or above each band). Pure."""
+    labs = _dl_labels(labels)
+    rq = {b: _qf_int((requested_counts or {}).get(b), 0) for b in labs} if isinstance(requested_counts, dict) else {}
+    tot = sum(rq.values())
+    rs = (real or {}).get('at_or_above') if isinstance(real, dict) else None
+    if not tot or not isinstance(rs, dict):
+        return []
+    out = []
+    for bi, b in enumerate(labs[1:], 1):
+        req = sum(rq[x] for x in labs[bi:]) / tot
+        if isinstance(rs.get(b), (int, float)) and req + 1e-9 < float(rs[b]):
+            out.append({'band': b, 'requested': round(req, 4), 'real': round(float(rs[b]), 4)})
+    return out
+
+
+def fg4_coverage_advisory(coverage, axis_schedule):
+    """FG-4 (release 2026.11.24) — the KIND-COVERAGE advisories for sections that plan figures while no figure type
+    was checked: ['figure types of <section> not checked — <n> figure slot(s) per paper planned']. ADVISORY TEXT ONLY —
+    the coverage 'status' and 'policy' are never changed (the ScopedBlueprint assert reads status). Pure."""
+    cv = coverage if isinstance(coverage, dict) else {}
+    if _qf_int(cv.get('checked'), 0) != 0:
+        return []
+    out = []
+    for sec, s in sorted((axis_schedule or {}).items()) if isinstance(axis_schedule, dict) else []:
+        if not isinstance(s, dict):
+            continue
+        ser = [x for x in (s.get('axis1_target_series') or []) if isinstance(x, (int, float))]
+        t = max(ser) if ser else (s.get('axis1_target_per_mock') or {}).get('FIGURAL', 0)
+        try:
+            t = int(round(float(t or 0)))
+        except (TypeError, ValueError):
+            t = 0
+        if t > 0:
+            out.append(f'figure types of {sec} not checked — {t} figure slot(s) per paper planned')
+    return out
+
+def mix_to_tuple(mix, labels):
+    """E4 — {label: pct} -> a tuple in the exam's label ORDER for 2 to 5 bands (mix_to_smh stays for the 3-band
+    callers). None (never a raise) for another band count or a missing label. Pure."""
+    labs = _qf_labels(labels)
+    if not 2 <= len(labs) <= 5 or not isinstance(mix, dict) or any(l not in mix for l in labs):
+        return None
+    return tuple(mix[l] for l in labs)
+
+# ── Cluster R3.1 (release 2026.11.24 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1) ─────────────────────────────
+# Fair placement (B1-B5), the paper-end band swap (S1), single-report correctness claims (C1/C4), corpus completeness
+# (A3/A4). Every function is pure and never raises (the guard table below); none adds a stop, a wait or a loop.
+R31_RELEASE = '2026.11.24'
+R31_RULE = 'r3.1'
+LD_POOL_MIN_N = 4                  # B3: valid boundary comparisons a pooled label needs (fewer: one re-measure, B4)
+LD_POOL_WIN_NUM, LD_POOL_WIN_DEN = 2, 3   # B3: the item must beat at least ceil(2/3 x n) of them
+LD_POOL_WIN_FRAC = LD_POOL_WIN_NUM / LD_POOL_WIN_DEN
+LD_DRAW_POOL = 4                   # B1: a group's anchors are drawn from this many nearest eligible items
+LD_UPPER_ANCHORS = 2               # S1: upper-probe anchors of a middle-band slot (none for the lowest / top band)
+LD_MAX_IMAGES_PER_JOB = 20         # A4: image files per Step 5 ranking job (a job closes early; no item is dropped)
+LD_TEXT_CAP = 2400                 # the ranking-text cap (named; the value of releases 2026.11.21-23)
+LD_FLOOR_PCTL_TOP = 50             # F2: the top band's content floor percentile (was LD_FLOOR_PCTL = 25)
+R3_VERIFY_CODES = ('D-KEY-WRONG', 'D-SECOND-ANSWER', 'D-AMBIGUOUS', 'D-DATA-INCONSISTENT', 'D-FIG-STEM-MISMATCH',
+                   'D-FIG-CONTRADICTS-ASK', 'D-LEAK', 'D-FIG-RENDER')   # C1 / C4: correctness defects
+E3_EQUAL_BAND = 0.03               # E3: 'equal' tolerance of a paper's mean position against the real exam's
+D1_HEADLINE_SHARE_MAX = 0.05       # D1: a 'headline:' stem is a finding when the exam's past share is below this
+RP_PRIOR_MAX = 3                   # RP-1: earlier same-subtopic skills shown to a reviewer
+_LD_OPT_LABEL_RE = _r3_re.compile(r'^\s*(?:\(\s*(?:[0-9]{1,2}|[A-Za-z]|[ivxIVX]{1,4})\s*\)|(?:[0-9]{1,2}|[A-Za-z]|'
+                                  r'[ivxIVX]{1,4})\s*[).:])\s*')
+_LD_OPTSPLIT_RE = _r3_re.compile(r'\((\d{1,2})\)\s?')
+_LD_STRUCT_OPT_RE = _r3_re.compile(r'^\((\d{1,2})\)\s*\[structure:')
+
+
+def ld_pool_need(n):
+    """The wins a pooled label needs from n valid boundary comparisons: ceil(LD_POOL_WIN_FRAC x n). Pure."""
+    n = _qf_int(n, 0)
+    return -(-LD_POOL_WIN_NUM * n // LD_POOL_WIN_DEN) if n > 0 else 0
+
+
+def ld_option_has_content(text):
+    """A3 — True when an option, its label removed, holds at least one Unicode letter, digit or symbol (categories L*,
+    N*, S*): '5', 'π', '√2', '∞' and any script count; '( )', '—' and '' do not. No word list. Pure."""
+    import unicodedata as _ud31
+    s = _LD_OPT_LABEL_RE.sub('', str(text or ''), count=1)
+    return any(_ud31.category(ch)[0] in 'LNS' for ch in s)
+
+
+def ld_text_complete(text, has_figure=False):
+    """THE completeness test of a ranking row from its rendered text alone (an anchor of a ladder built before
+    release 2026.11.24, which carries no completeness flag): every option of the '(1) …' line has content
+    (ld_option_has_content) or a numbered '(n) [structure: …]' line; a figure question needs a '[structure:',
+    '[figure:' or '[conditions:' line (its figure reached the text). A row with no option line (a numerical answer)
+    is complete on its options. Structural evidence only — no words. Pure."""
+    lines = [x.strip() for x in str(text or '').split('\n')]
+    struct_n = {int(m.group(1)) for m in (_LD_STRUCT_OPT_RE.match(x) for x in lines) if m}
+    opt = next((x for x in lines if x.startswith('(1)') and not _LD_STRUCT_OPT_RE.match(x)), None)
+    if opt is not None:
+        parts = _LD_OPTSPLIT_RE.split(opt)
+        for j in range(1, len(parts) - 1, 2):
+            if not ld_option_has_content(parts[j + 1]) and _qf_int(parts[j], 0) not in struct_n:
+                return False
+    if has_figure and not any(x.startswith(('[structure:', '[figure:', '[conditions:')) or _LD_STRUCT_OPT_RE.match(x)
+                              for x in lines):
+        return False
+    return True
+
+
+def ld_anchor_complete(anchor):
+    """B1 — may this ladder anchor be shown to a Step 7 reviewer? A ladder of release 2026.11.24+ says so itself
+    ('text_complete': complete AS TEXT — no image file needed in the Step 7 session); an older anchor is tested on
+    its text (ld_text_complete). Pure."""
+    a = anchor if isinstance(anchor, dict) else {}
+    if isinstance(a.get('text_complete'), bool):
+        return a['text_complete']
+    if a.get('complete') is False:
+        return False
+    return ld_text_complete(a.get('text'), bool(a.get('has_figure')))
+
+
+def ld_pooled_decide(slot, wins, n, p_hat, cuts, labels):
+    """THE band of rule r3.1 (B3) from its stored numbers — the one function the label writer and every verifier
+    use. The lowest band: the lowest band (an item harder than its slot keeps the slot label, OD-5). Above it: None
+    when n < LD_POOL_MIN_N (not measurable — B4); the slot band when wins >= ld_pool_need(n); else min(the band below
+    the slot, the band of p_hat on the ladder) — an item two or more bands too easy is labelled where it measured.
+    Pure."""
+    labs = _dl_labels(labels)
+    if slot not in labs:
+        return None
+    b = labs.index(slot)
+    if b == 0:
+        return labs[0]
+    n, w = _qf_int(n, 0), _qf_int(wins, 0)
+    if n < LD_POOL_MIN_N:
+        return None
+    if w >= ld_pool_need(n):
+        return slot
+    lo = b - 1
+    if isinstance(p_hat, (int, float)) and not isinstance(p_hat, bool) and isinstance(cuts, (list, tuple)) \
+            and len(cuts) == len(labs) - 1:
+        pb = ld_band_of(p_hat, [float(c) for c in cuts], labs)
+        if pb in labs:
+            lo = min(lo, labs.index(pb))
+    return labs[lo]
+
+
+def _ld_median(vals):
+    xs = sorted(float(v) for v in (vals or []) if isinstance(v, (int, float)) and not isinstance(v, bool))
+    if not xs:
+        return None
+    m = len(xs) // 2
+    return round(xs[m] if len(xs) % 2 else (xs[m - 1] + xs[m]) / 2.0, 4)
+
+
+def ld_pooled_band(placements, slot_band, labels, cuts=None):
+    """B3 — pool the VALID placements of one text (a void one is excluded, never graded). Returns {'rule': 'r3.1',
+    'slot', 'band', 'measurable', 'wins', 'n', 'p_hat', 'p_news', 'valid_n', 'void_n', 'upper', 'cuts'} or None (no
+    such slot band): 'band' is ld_pooled_decide's, or — not measurable — the band below the slot with 'measurable'
+    False (the caller re-measures once, B4, then delivers that band disclosed). 'upper' (S1): for the lowest band the
+    pooled 'below' comparisons (they sit just under the next band's cut), for a middle band the 'upper' probe;
+    'certified' when n >= LD_POOL_MIN_N and wins >= ld_pool_need(n) (a middle band also needs its own slot band);
+    None for the top band. Pure."""
+    labs = _dl_labels(labels)
+    if slot_band not in labs:
+        return None
+    b = labs.index(slot_band)
+    pls = [x for x in (placements or []) if isinstance(x, dict)]
+    val = [x for x in pls if x.get('valid')]
+
+    def _s(k):
+        return sum(_qf_int(x.get(k), 0) for x in val)
+    w, n = _s('below_wins'), _s('below_n')
+    pn = [x.get('p_new') for x in val if isinstance(x.get('p_new'), (int, float)) and not isinstance(x.get('p_new'), bool)]
+    ph = _ld_median(pn)
+    cs = [float(c) for c in cuts] if isinstance(cuts, (list, tuple)) and len(cuts) == len(labs) - 1 else None
+    if cs is None:
+        cs = next(([float(c) for c in x['cuts']] for x in pls if isinstance(x.get('cuts'), (list, tuple))
+                   and len(x['cuts']) == len(labs) - 1), None)
+    dec = ld_pooled_decide(slot_band, w, n, ph, cs, labs)
+    meas = dec is not None
+    band = dec if meas else labs[max(0, b - 1)]
+    up = None
+    if b == 0 and len(labs) > 1:
+        up = {'wins': w, 'n': n, 'certified': n >= LD_POOL_MIN_N and w >= ld_pool_need(n)}
+    elif 0 < b < len(labs) - 1:
+        uw, un = _s('upper_wins'), _s('upper_n')
+        up = {'wins': uw, 'n': un, 'certified': band == slot_band and un >= LD_POOL_MIN_N and uw >= ld_pool_need(un)}
+    return {'rule': R31_RULE, 'slot': slot_band, 'band': band, 'measurable': meas, 'wins': w, 'n': n, 'p_hat': ph,
+            'p_news': sorted(round(float(x), 4) for x in pn), 'valid_n': len(val), 'void_n': len(pls) - len(val),
+            'upper': up, 'cuts': cs}
+
+
+def ld_pooled_verify(pooled, delivered, slot, labels):
+    """True when a stored pooled record (B3) recomputes to its own band and that band is `delivered` for `slot` (a
+    record that was not measurable: the band below the slot). Pure."""
+    pr = pooled if isinstance(pooled, dict) else {}
+    labs = _dl_labels(labels)
+    if pr.get('rule') != R31_RULE or slot not in labs or pr.get('slot') != slot or delivered not in labs:
+        return False
+    dec = ld_pooled_decide(slot, pr.get('wins'), pr.get('n'), pr.get('p_hat'), pr.get('cuts'), labs)
+    exp = dec if dec is not None else labs[max(0, labs.index(slot) - 1)]
+    return bool(pr.get('measurable')) == (dec is not None) and pr.get('band') == exp == delivered
+
+
+def ld_upper_certified(upper):
+    """S1 — True when a stored 'upper' record recomputes as certified. Pure."""
+    u = upper if isinstance(upper, dict) else {}
+    n, w = _qf_int(u.get('n'), 0), _qf_int(u.get('wins'), 0)
+    return bool(u.get('certified')) and n >= LD_POOL_MIN_N and w >= ld_pool_need(n)
+
+
+def bc_measured_band(bvs, labels, target):
+    """THE measured band of one text on the BC path. Rule r3.1 (any grader record of the text carries a placement):
+    (band | None, pooled) from ld_pooled_band over the text's valid placements — both rounds once its one re-measure
+    (B4) is done; band None = not measurable yet. Otherwise (counted / legacy): (bv_majority_band of the graders,
+    None) exactly as before. Pure."""
+    labs = _dl_labels(labels)
+    st = bvs if isinstance(bvs, dict) else {}
+    g = st.get('grades') if isinstance(st.get('grades'), dict) else {}
+    meta = st.get('meta') if isinstance(st.get('meta'), dict) else {}
+    ctl = {k: g.get(k) for k in BV_ROLES_GRADE if g.get(k)}
+    tgt = _dl_band(target, labs)
+    pls = [meta[k]['placement'] for k in BV_ROLES_GRADE
+           if k in g and isinstance(meta.get(k), dict) and isinstance(meta[k].get('placement'), dict)]
+    if tgt is None or not pls:
+        return bv_majority_band(ctl, labs), None
+    rounds = 1
+    rc = st.get('recount') if isinstance(st.get('recount'), dict) else None
+    if rc and rc.get('kind') == 'placement' and rc.get('state') == 'done':
+        fm = (rc.get('first') or {}).get('meta') if isinstance(rc.get('first'), dict) else None
+        for k in BV_ROLES_GRADE:
+            pl = ((fm or {}).get(k) or {}).get('placement') if isinstance(fm, dict) else None
+            if isinstance(pl, dict):
+                pls.append(pl)
+        rounds = 2
+    pooled = ld_pooled_band(pls, tgt, labs)
+    if pooled is None:
+        return bv_majority_band(ctl, labs), None
+    pooled['rounds'] = rounds
+    return (pooled['band'] if pooled['measurable'] else None), pooled
+
+
+def _bc_m(bvs, labs, tgt):
+    """The band a settle / climb records (r3.1 pooled, else the majority); an unmeasurable pooled text gives the band
+    below its slot (B4). Writes bvs['pooled']. Pure on its inputs except that one key."""
+    m, pl = bc_measured_band(bvs, labs, tgt)
+    if pl is not None:
+        bvs['pooled'] = pl
+        return m if m is not None else pl.get('band')
+    return m
+
+
+def r3_claims(solvers):
+    """C1 — the correctness reports (codes in R3_VERIFY_CODES) that FEWER than R3_CODE_QUORUM reviewers name: each a
+    claim the adjudicator confirms or rejects — never silently recorded. A code the quorum names is already a finding
+    (r3_findings). [{'code', 'where', 'evidence', 'reviewers'}], by code. Pure."""
+    by = {}
+    for k, s in enumerate([x for x in (solvers or []) if isinstance(x, dict)], 1):
+        for d in r3_defects(s):
+            if d['code'] in R3_VERIFY_CODES:
+                by.setdefault(d['code'], {}).setdefault(k, d)
+    out = []
+    for c in sorted(by):
+        if 0 < len(by[c]) < R3_CODE_QUORUM:
+            k, d = sorted(by[c].items())[0]
+            out.append({'code': c, 'where': d['where'], 'evidence': d['evidence'], 'reviewers': sorted(by[c])})
+    return out
+
+
+def swap_plan(concept_map, targets, labels):
+    """S1 (owner ruling RL-1a) — the paper-end band swap. PURE: no reviewer, no job, no round. For each band b above
+    the lowest (the top first), the slots planned at b whose label is below b are short; up to that many questions
+    planned at the band directly below b take label b, when their own label is their slot band (verified), their
+    pooled 'upper' probe certified b (ld_upper_certified), their key is settled, their label is not disclosed and
+    they are not the rung-3 fallback, a terminal or an R5b restore — best first (upper win share, then p_hat, then
+    question number). A question moves at most once; the missed slot keeps its measured band. Returns {'swaps': [{'up',
+    'from', 'to', 'pair'}], 'entries': {q: new entry}} (the caller writes the entries back). Pure."""
+    import copy as _cp31
+    labs = _dl_labels(labels)
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    tg = {str(q): _dl_band(t, labs) for q, t in targets.items()} if isinstance(targets, dict) else {}
+    out, swaps, moved = {}, [], set()
+    for bi in range(len(labs) - 1, 0, -1):
+        b, lo = labs[bi], labs[bi - 1]
+        miss = []
+        for q, t in tg.items():
+            e = cm.get(q)
+            d = _dl_band(e.get('difficulty'), labs) if isinstance(e, dict) else None
+            if t == b and d is not None and labs.index(d) < bi:
+                miss.append(q)
+        miss.sort(key=lambda q: _qf_int(q, 0))
+        if not miss:
+            continue
+        cands = []
+        for q, t in tg.items():
+            e = cm.get(q)
+            if t != lo or q in moved or not isinstance(e, dict) or e.get('difficulty') != lo:
+                continue
+            bvs = e.get('bv') if isinstance(e.get('bv'), dict) else {}
+            dc = e.get('difficulty_check') if isinstance(e.get('difficulty_check'), dict) else {}
+            lb = dc.get('label_basis') if isinstance(dc.get('label_basis'), dict) else {}
+            ctl = lb.get('controls') if isinstance(lb.get('controls'), dict) else {}
+            pl = ctl.get('pooled') if isinstance(ctl.get('pooled'), dict) else None
+            if e.get('bv_state') not in ('settled', 'disclosed') or (bvs.get('key') or {}).get('state') != 'settled' \
+                    or lb.get('disclosed') or lb.get('swap') or pl is None or not ld_pooled_verify(pl, lo, lo, labs) \
+                    or not ld_upper_certified(pl.get('upper')) or _qf_int(bvs.get('rung'), 0) >= 3 \
+                    or set(bvs.get('amber') or []) & {'fallback', 'terminal', 'r5b'}:
+                continue
+            u = pl['upper']
+            cands.append((-(_qf_int(u.get('wins'), 0) / max(1, _qf_int(u.get('n'), 1))), -float(pl.get('p_hat') or 0.0),
+                          _qf_int(q, 0), q))
+        cands.sort()
+        for (_a, _b, _c, q), mq in zip(cands, miss):
+            e = _cp31.deepcopy(cm[q])
+            dc = dict(e.get('difficulty_check'))
+            lb = dict(dc.get('label_basis'))
+            lb.update({'delivered': b, 'disclosed': True,
+                       'swap': {'rule': 'S1', 'slot': lo, 'to': b, 'pair': mq,
+                                'upper': dict(((lb.get('controls') or {}).get('pooled') or {}).get('upper') or {})}})
+            dc.update({'label_basis': lb, 'final_band': b, 'dl_rung': 'SWAP'})
+            e['difficulty'] = b
+            e['difficulty_check'] = dc
+            out[q] = e
+            moved.add(q)
+            swaps.append({'up': q, 'from': lo, 'to': b, 'pair': mq})
+    return {'swaps': swaps, 'entries': out}
 
 for _n, _d in {
         'r3_mode': lambda *a, **k: R3_MODE_COUNTED,
@@ -30979,6 +32401,39 @@ for _n, _d in {
         'r3_item_text': lambda *a, **k: '',
         'r3_reviewer_rows': lambda *a, **k: [],
         'r3_grade_from_review': lambda *a, **k: None,
+        'ld_pool_need': lambda *a, **k: 0,
+        'ld_option_has_content': lambda *a, **k: True,
+        'ld_text_complete': lambda *a, **k: True,
+        'ld_anchor_complete': lambda *a, **k: True,
+        'ld_pooled_decide': lambda *a, **k: None,
+        'ld_pooled_band': lambda *a, **k: None,
+        'ld_pooled_verify': lambda *a, **k: False,
+        'ld_upper_certified': lambda *a, **k: False,
+        'bc_measured_band': lambda *a, **k: (None, None),
+        'r3_claims': lambda *a, **k: [],
+        'swap_plan': lambda *a, **k: {'swaps': [], 'entries': {}},
+        'qg_ask_sentence': lambda *a, **k: '',
+        'qg_is_headline': lambda *a, **k: False,
+        'qg_statement_lines': lambda *a, **k: [],
+        'qg_statement_count': lambda *a, **k: 0,
+        'ask_form_measure': lambda *a, **k: None,
+        'statement_forms_measure': lambda *a, **k: None,
+        'statement_n_plan': lambda *a, **k: [],
+        'parse_stem_form': lambda *a, **k: {'ask_form': {}, 'statement_forms': {}},
+        'qg_is_computed_value': lambda *a, **k: False,
+        '_qg_inline_label': lambda *a, **k: None,
+        'figure_grant_plan': lambda *a, **k: {'target': 0, 'granted': [], 'capable': 0, 'short': []},
+        'rp_prior_skills': lambda *a, **k: [],
+        'ld_packet_sha': lambda *a, **k: None,
+        'ld_examples_for': lambda *a, **k: [],
+        'ld_grades': lambda *a, **k: {},
+        'ld_content_menu': lambda *a, **k: [],
+        'ld_top_share_by_subtopic': lambda *a, **k: {},
+        'ld_real_shares': lambda *a, **k: None,
+        'difficulty_vs_real': lambda *a, **k: [],
+        'mix_to_tuple': lambda *a, **k: None,
+        'fg4_coverage_advisory': lambda *a, **k: [],
+        'rp_attach_prior': lambda rows=None, *a, **k: rows if isinstance(rows, list) else [],
 }.items():
     _nf_guard(_n, _d)
 del _n, _d

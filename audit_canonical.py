@@ -950,6 +950,9 @@ def load_sources(args):
     src['cloze_linked']   = set(rc.get('cloze_linked', []))   if rc else set()
     fig = _pick_paper_entry(reg.get('figural_manifests', []), _cur_pid, N)
     src['figural_qs'] = set(int(q) for q in fig.get('figural_qs', [])) if fig else set()
+    # v2.45 (release 2026.11.24, FG-2/FG-3): the paper's figure plan travels in its manifest record — the target per
+    # section and every recorded shortfall (capacity); a slot that settled without its figure carries fig_short
+    src['figure_plan'] = fig.get('plan') if fig and isinstance(fig.get('plan'), dict) else None
     # v2.24.1 — PRESENCE, NOT EMPTINESS. "no figural manifest for this mock" and "a
     # manifest saying zero figures" are OPPOSITE FACTS, and an empty set represents both.
     # A-AXIS1 must not read a missing record as a paper with no figures: that turns an
@@ -1846,6 +1849,25 @@ def gate_axis1(blocks, src):
             except (TypeError, ValueError):
                 pass
     fig |= _fb_fig
+    # v2.45 (release 2026.11.24, FG-3): a planned figure slot that settled without its figure for a RECORDED reason
+    # (concept_map[q].fig_short — G-FIG-MISSING after its pre-review tries) is counted at its planned format,
+    # disclosed in the footer; a slot that disappears with no record is still a FAIL
+    _fs_fig = set()
+    for _q, _e in ((src.get('concept_map') or {}).items() if isinstance(src.get('concept_map'), dict) else []):
+        if isinstance(_e, dict) and isinstance(_e.get('fig_short'), dict):
+            try:
+                _fs_fig.add(int(_q))
+            except (TypeError, ValueError):
+                pass
+    fig |= _fs_fig
+    _cap_short = {}
+    for _sn, _sp in ((src.get('figure_plan') or {}).items() if isinstance(src.get('figure_plan'), dict) else []):
+        for _sh in ((_sp or {}).get('short') or []) if isinstance(_sp, dict) else []:
+            if isinstance(_sh, dict) and _sh.get('reason') == 'capacity':
+                try:
+                    _cap_short[str(_sn)] = _cap_short.get(str(_sn), 0) + max(0, int(_sh.get('n') or 0))
+                except (TypeError, ValueError):
+                    pass
     red_map = src.get('figural_reducible')
     red_map = red_map if isinstance(red_map, dict) else {}
     _so = src.get('figural_subtopics')
@@ -1885,6 +1907,9 @@ def gate_axis1(blocks, src):
                   if red_map.get(str(sub_of.get(str(q), ''))) is False)
         _pn = _axis1_count_in(src.get('passage_linked'), lo, hi)
         observed = _axis1_observed(sec_qs, obs_fig, _pn, src.get('di_qs'), lo, hi)
+        if _cap_short.get(str(name)):
+            # FG-3: fewer FIGURAL-capable slots than the target, recorded by the plan — counted at the planned format
+            observed['FIGURAL'] = int(observed.get('FIGURAL', 0)) + _cap_short[str(name)]
         if bc is None:
             unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
             continue
@@ -1942,6 +1967,8 @@ def gate_axis1(blocks, src):
             f'Axis-1 stimulus mix within budget across {audited} section(s).'
             + (f' ({len(_fb_fig)} figure slot(s) delivered as the rung-3 text fallback counted at their planned '
                f'format — disclosed in the footer)' if _fb_fig else '')
+            + (f' ({len(_fs_fig) + sum(_cap_short.values())} planned figure slot(s) recorded as short (figure plan, '
+               f'FG-3) counted at their planned format — disclosed in the footer)' if (_fs_fig or _cap_short) else '')
             if not findings else
             'Axis-1 stimulus mix breaches the blueprint budget — ' + ' | '.join(findings))
 
@@ -11180,7 +11207,7 @@ def self_test():
     # No exam, section or format name here is load-bearing.
 
     def _axis_verdict(n_fig, target, sec_qs=60, irreducible_subs=None, enforcement='hard',
-                      di_qs=None, di_present=False):
+                      di_qs=None, di_present=False, fig_short_qs=None, plan=None):
         # ENGINE-AVAILABILITY IS PART OF THE CONTRACT, NOT AN OBSTACLE TO IT.
         # audit_mutation.py copies THIS file into a temp dir and runs it from that
         # dir, so blueprint_core is genuinely absent there. The gate's answer in that
@@ -11203,6 +11230,10 @@ def self_test():
         _s['passage_linked'] = set()
         _s['di_qs'] = set(di_qs or ())            # v2.25
         _s['di_manifest_present'] = di_present
+        if fig_short_qs:                          # v2.45 (FG-3): planned slots recorded as short
+            _s['concept_map'] = {str(q): {'fig_short': {'reason': 'not_drawn'}} for q in fig_short_qs}
+        if plan is not None:
+            _s['figure_plan'] = plan
         _reset()
         _safe_gate('A-AXIS1', gate_axis1, [], _s)
         return {c: l for l, c, _m in RESULTS}
@@ -11251,6 +11282,17 @@ def self_test():
     check('AXIS1-unexplained-excess-still-fails',
           _axis_verdict(26, {'TEXT': 56, 'FIGURAL': 4},
                         irreducible_subs=[1, 2, 3]).get('A-AXIS1') == _axv('FAIL'))
+
+    # (e2) v2.45 (release 2026.11.24, FG-3): a planned figure slot that settled without its figure for a RECORDED
+    #      reason (fig_short), or a capacity shortfall recorded by the figure plan, is counted at its planned format —
+    #      a fully recorded paper PASSES; an unrecorded shortfall still FAILS (the 0-of-5 Physical paper of 2026-11-17)
+    check('AXIS1-recorded-shortfall-counted-at-planned-format',
+          _axis_verdict(2, {'TEXT': 52, 'FIGURAL': 8}, fig_short_qs=[50, 51, 52, 53, 54, 55]).get('A-AXIS1') == _axv('OK')
+          and _axis_verdict(5, {'TEXT': 52, 'FIGURAL': 8},
+                            plan={'S1': {'short': [{'q': None, 'reason': 'capacity', 'n': 3}]}}).get('A-AXIS1') == _axv('OK')
+          and _axis_verdict(0, {'TEXT': 55, 'FIGURAL': 5}).get('A-AXIS1') == _axv('FAIL')
+          and _axis_verdict(2, {'TEXT': 52, 'FIGURAL': 8},
+                            plan={'S9': {'short': [{'q': None, 'reason': 'capacity', 'n': 6}]}}).get('A-AXIS1') == _axv('FAIL'))
 
     # (f) DORMANT ON A PRE-v1.23 BLUEPRINT. ~200 deployed exams carry no axis_schedule
     #     and must keep passing untouched until they are re-measured.

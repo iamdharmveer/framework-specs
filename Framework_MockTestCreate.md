@@ -1,4 +1,9 @@
-# Framework_MockTestCreate v8.2
+# Framework_MockTestCreate v8.3
+# v8.3 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24). S3-12e top-band shares from
+#   the ladder (E2); S3-16 freezes figure_plan (FG-1, RL-3), stem_form (D1/RP-2) and the E1 notice (fa.bv_s3_plans);
+#   S4-7.1 writer packet adds examples, content menu, skills already used (F1/F3/RP-1); S13-2L.0 one pure band swap
+#   (S1, RL-1a) and the figure manifest always carries the plan (FG-2). Placement rule r3.1 and claim verification
+#   live in the engine (blueprint_core). No new stop, no new round, no read growth.
 # v8.2 — 2026-11-17 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (release 2026.11.23; paired with audit_canonical v2.44,
 #   LAW-CERT-1). Live CSIR_NET_CHEMICAL_SCIENCES Organic paper (release 2026.11.22) stopped at S13-4c: S13-2F wrote a
 #   certificate with 6 findings on 6 ESCALATED (LAW-BC-8) items in disclosed_items, and A-CERT, which read only
@@ -3791,7 +3796,10 @@ action: the same paper, the same two files, the same "continue".
   #     (a soft target checked by the WARN-only A-AXIS2) — NEVER written into SHAPE_PLAN and
   #     never a stop. {} = dormant (printed).
   if difficulty_plan and not (bs_prev.get('subtopic_by_qnum') and bs_prev.get('batches_completed')):
-      _hs_bp = bp.get('hard_share_by_subtopic') if isinstance(bp.get('hard_share_by_subtopic'), dict) else {}
+      # v8.3 (release 2026.11.24, E2): the shares come from the exam's LADDER (the ruler Step 7 places questions on)
+      # when it is usable; the blueprint's count-rubric field only otherwise
+      _hs_bp = bc.ld_top_share_by_subtopic(globals().get('LADDER'), difficulty_labels) or (
+          bp.get('hard_share_by_subtopic') if isinstance(bp.get('hard_share_by_subtopic'), dict) else {})
       if _hs_bp:
           _plan_before = dict(difficulty_plan)
           # every swap stays INSIDE its section: the plan was built per section to the exact
@@ -4250,7 +4258,14 @@ action: the same paper, the same two files, the same "continue".
       print(f"S3-16: paper in progress — batch_state kept (batch {_bs_inprog.get('current_batch')} of "
             f"{len(batch_plan)}; RESUME, nothing regenerated).")
   else:
+      # v8.3 (release 2026.11.24): figure plan (FG-1), stem form (D1 / RP-2) and the E1 notice — frozen here
+      batch_state.update(_fa_g10.bv_s3_plans(EXAM, N, '/home/claude', batch_state, globals().get('LADDER'),
+                                             globals().get('SECTION_RULES_TEXT'), blueprint=globals().get('bp')))
       json.dump(batch_state, open(f'/home/claude/{EXAM}_M{N}_batch_state.json', 'w'))
+      print("S3-16: figure plan " + (', '.join(f"{_s} {len(_v.get('granted') or [])}/{_v.get('target')}" for _s, _v in
+                                              (batch_state.get('figure_plan') or {}).items()) or 'none (no figure target)')
+            + f"; stem form {'measured' if batch_state.get('stem_form') else 'dormant'}"
+            + ''.join(f"; {_n}" for _n in (batch_state.get('r3_notes') or []) if 'requested mix' in str(_n)))
   ```
 
 ## S3-17 — Mandatory subtopic + alternation pre-check (v3.4 — manifest-driven)
@@ -4927,10 +4942,15 @@ action: the same paper, the same two files, the same "continue".
                    import final_assembly as _fa_ap
                    _lad_ap = globals().get('LADDER') or _fa_ap.bv_load_ladder(EXAM)
                    _sc_ap = bc.ld_scope_for(_lad_ap, _sj_ap, subtopic_id) if isinstance(_lad_ap, dict) else None
+                   import os as _os_ap
+                   _kp_ap = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+                   _cm_ap = (json.load(open(_kp_ap, encoding='utf-8')).get('concept_map') or {}) if _os_ap.path.exists(_kp_ap) else {}
+                   _cm_ap = dict(_cm_ap, **{str(q): {'subtopic_id': subtopic_id}})
                    _pk_ap = bc.r3_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
                                                  'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
                                                 _lad_ap, _labs_ap, _mode_ap,
-                                                floors=bc.ld_floor_for(_lad_ap, _sc_ap, subtopic_id) if _sc_ap else None)
+                                                floors=bc.ld_floor_for(_lad_ap, _sc_ap, subtopic_id) if _sc_ap else None,
+                                                used_in_subtopic=bc.rp_prior_skills(_cm_ap, q))   # v8.3 RP-1
                    print(json.dumps(_pk_ap, ensure_ascii=False, default=str))
                    return _pk_ap
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
@@ -12859,6 +12879,23 @@ if AUDIT_AVAILABLE:
   _labs_g = list(_bs_g.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
   _tgt_g = {str(k): v for k, v in (_bs_g.get('difficulty_plan_target') or _bs_g.get('difficulty_schedule_original') or {}).items()}
   _ds_g = _bs_g.setdefault('difficulty_state', {})
+  # v8.3 (release 2026.11.24, S1 / owner ruling RL-1a): ONE pure band swap per paper — no reviewer, no job, no round;
+  # a short top slot takes a question of the band below whose 'upper' probe certified the higher band; disclosed
+  if _tgt_g and 'band_swaps' not in _ds_g and str(_bs_g.get('difficulty_mode') or '') != bc.R3_MODE_LEGACY:
+      _sw_g = bc.swap_plan(_cm_g, _tgt_g, _labs_g)
+      _cm_g.update(_sw_g.get('entries') or {})
+      _ds_g['band_swaps'] = list(_sw_g.get('swaps') or [])
+      if _ds_g['band_swaps']:
+          _kd_g['concept_map'] = _cm_g
+          json.dump(_kd_g, open(_kg_p, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+      print(f"S13-2L.0: band swap (S1) — {len(_ds_g['band_swaps'])} swap(s)")
+  _fp_g = _bs_g.get('figure_plan') if isinstance(_bs_g.get('figure_plan'), dict) else {}
+  if any(isinstance(_v, dict) and _v.get('target') for _v in _fp_g.values()):      # FG-2: the manifest always exists
+      import os as _os_g
+      _fmp_g = f'/home/claude/{EXAM}_fig_manifest.json'
+      _fm_g = json.load(open(_fmp_g, encoding='utf-8')) if _os_g.path.exists(_fmp_g) else {'questions': {}}
+      _fm_g['plan'] = _fp_g
+      json.dump(_fm_g, open(_fmp_g, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
   G_PAPER = bc.difficulty_paper_gate(bc.dl_gate_items(_tgt_g, _cm_g, _labs_g), _labs_g) if _tgt_g else {'status': 'DORMANT'}
   if _tgt_g:
       _ds_g['paper_gate'] = dict({k: G_PAPER.get(k) for k in ('status', 'counts_final', 'counts_original', 'rework_qs',
@@ -15188,7 +15225,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.2
+# END OF Framework_MockTestCreate v8.3
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

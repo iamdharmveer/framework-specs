@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026.11.24 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1: every slot at its planned band, correct questions, the figure target kept
+
+(over release 2026.11.23. blueprint_core (Cluster R3.1: pooled placement r3.1, two-sided boundary anchors, upper probe,
+swap_plan, claim verification, stem-form / statement / figure plans, ladder grades and shares; self-test 1550);
+final_assembly (per-reviewer anchor draws, claims to the adjudicator, bv_s3_plans, bv_figure_plan_fallback,
+bv_r31_lines; 238); audit_canonical (A-AXIS1 counts recorded figure shortfalls at their planned format; 675);
+corpus_io (formula subscripts; 595); figural_core (plotted data on the record; 241); analyse_engine (OMML options,
+tables, complete ladder rows, packet reuse, ask_form / statement_forms; 313); Framework_MockTestCreate v8.3;
+Framework_MockTestAnalyse v2.64.0; Framework_DeliveryFooter v1.53.0; Framework_Blueprint v1.66.0;
+Framework_ScopedBlueprint v1.16.0; Framework_PYQExplain v2.33; LAW_REGISTRY (NEW LAW-R31-1..3); STEP_CONTRACTS (floors).)
+
+**Evidence.** A TestCreate run on 2026.11.23 delivered questions easier than the real exam, with option / image errors
+and fewer figures than the blueprint asked for. Offline replay on the real CSIR Chemistry corpus: 132 blank options on
+one paper (formulas in OMML were dropped), tables never reached the ladder, 42% of Physical anchors had blank options;
+the figure plan granted 5 / 8 figures but the slots were written as text and the audit passed because no manifest was
+written; below-only anchors certified a 0.65 Organic item Hard 30% of the time.
+
+**What changed (owner rulings RL-1..RL-6).**
+- Placement r3.1: all reviewers' placements are pooled (need ceil(2n/3)); two-sided boundary anchors; a placement counts
+  only when its far anchor is ranked easiest; under 4 valid placements one re-measure, then one band below, disclosed.
+- Slot level (RL-1): a slot is delivered at its band or harder; a miss is covered by ONE pure swap at S13-2L.0 (a
+  question of the band below whose upper probe certified the higher band), then disclosed (RL-1a). An easier-than-real
+  requested mix is kept and a notice printed (RL-1b).
+- Correctness: a single reviewer's correctness claim goes to the adjudicator (never out-voted); correctness findings keep
+  the full rung ladder; computed option values must be sourced; giveaway and repeated-skill findings computed.
+- Figures (RL-3): the figure plan is frozen at S3-16 to the blueprint's target; a granted slot must draw or record why
+  not; the manifest is always written with the plan; the audit counts recorded shortfalls.
+- Corpus / ladder: options with formulas, tables, conditions and figure files reach the rankers; the ladder is refit once
+  (release < 2026.11.24) and unchanged packets are reused; grades come from the ladder (RL-4).
+- Writers get ladder examples, the top-band content menu and the skills already used in the subtopic (RL-5).
+- No new stop, no new round, no loop. Create worker read +242 tokens; RUN-BLOCK sections unchanged in the read.
+
 ## 2026.11.23 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT: a paper with an ESCALATED / DISCLOSED item finishes and is delivered (LAW-CERT-1)
 
 (over release 2026.11.22. audit_canonical v2.44 (cert_contract, gate_cert, gate_cert_late, certificate schema 3,

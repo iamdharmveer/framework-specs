@@ -1208,7 +1208,8 @@
    "verified_by": [
     "handshake_audit.py --self-test (H-BC)",
     "audit_sync.py (BC-COVERAGE)",
-    "final_assembly.py --self-test (p3_selfcount_*)", "final_assembly.py --self-test (v124_prereview_*)"
+    "final_assembly.py --self-test (p3_selfcount_*)",
+    "final_assembly.py --self-test (v124_prereview_*)"
    ]
   },
   "LAW-BC-7 BATCH-REVIEW-RECORD": {
@@ -1282,6 +1283,56 @@
     "audit_sync.py (CERT-CONTRACT)",
     "audit_canonical.py --self-test (CERTGAP-1..CERTGAP-30)",
     "handshake_audit.py --self-test (H5-CERT-DISCLOSED, H5-V7-SIDECAR)"
+   ]
+  },
+  "LAW-R31-1 POOLED-PLACEMENT-AND-SWAP": {
+   "gap": "GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS",
+   "stated_in": "Framework_MockTestCreate.md v8.3 S13-2L.0 / S3-12e; Framework_MockTestAnalyse.md v2.64.0 S11-1d; blueprint_core Cluster R3.1 (ld_pooled_band, swap_plan, ld_grades)",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS 2026-11-18 (GAP v4.1): RL-1 every slot is delivered at its planned band or harder (Hard means Hard); RL-1a a miss is swapped, then disclosed; RL-1b an easier-than-real mix is kept as given with a notice; RL-2 OD-2..OD-6 approved; RL-3 the blueprint's figure target is followed; RL-4 the S11-1c count grading is retired when the ladder is usable; RL-5 one deciding skill per subtopic per paper and the exam's statement formats. No new stop, no new round, no loop."
+   ],
+   "requires": "Rule r3.1: a question's band is decided by the POOLED placements of all its reviewers against two-sided boundary anchors (need = ceil(2n/3), n >= LD_POOL_MIN_N; below that one re-measure, then the band below, disclosed 'unmeasurable'); a placement counts only when its far anchor is ranked easiest. At S13-2L.0 ONE pure swap (bc.swap_plan: no reviewer, no job, no round) gives a short slot a question of the band below whose upper probe certified the higher band; every swap and every remaining miss is a footer line. With a usable ladder the past-question grades come from the ladder (bc.ld_grades) and the top-band subtopic shares from bc.ld_top_share_by_subtopic.",
+   "verified_by": [
+    "blueprint_core.py --self-test (r31_*)",
+    "final_assembly.py --self-test (r31_*, v124_slot_ledger_swap_and_figure_lines)"
+   ]
+  },
+  "LAW-R31-2 CORRECTNESS-CLAIM-VERIFIED": {
+   "gap": "GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS",
+   "stated_in": "Framework_MockTestCreate.md v8.3 (engine path); blueprint_core r3_claims / R3_VERIFY_CODES / bc_apply",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS 2026-11-18 (GAP v4.1): RL-1 every slot is delivered at its planned band or harder (Hard means Hard); RL-1a a miss is swapped, then disclosed; RL-1b an easier-than-real mix is kept as given with a notice; RL-2 OD-2..OD-6 approved; RL-3 the blueprint's figure target is followed; RL-4 the S11-1c count grading is retired when the ladder is usable; RL-5 one deciding skill per subtopic per paper and the exam's statement formats. No new stop, no new round, no loop."
+   ],
+   "requires": "A correctness claim made by ONE reviewer (a code in bc.R3_VERIFY_CODES) is never dropped by a majority: it goes to the adjudicator in the same round; an unanswered claim is disclosed 'claim_unverified'. Correctness findings keep the full rung ladder; computed option values must be sourced (G-COMPUTE-MISSING); the giveaway and repeated-skill findings (D-GIVEAWAY, D-REPEAT-SKILL) are computed from reviewer fields.",
+   "verified_by": [
+    "blueprint_core.py --self-test (r31_*, r3_one_report_no_rewrite)"
+   ]
+  },
+  "LAW-R31-3 FIGURE-TARGET-PLAN": {
+   "gap": "GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS",
+   "stated_in": "Framework_MockTestCreate.md v8.3 S3-16 / S13-2L.0; final_assembly bv_s3_plans / bv_figure_plan_fallback; audit_canonical A-AXIS1",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS 2026-11-18 (GAP v4.1): RL-1 every slot is delivered at its planned band or harder (Hard means Hard); RL-1a a miss is swapped, then disclosed; RL-1b an easier-than-real mix is kept as given with a notice; RL-2 OD-2..OD-6 approved; RL-3 the blueprint's figure target is followed; RL-4 the S11-1c count grading is retired when the ladder is usable; RL-5 one deciding skill per subtopic per paper and the exam's statement formats. No new stop, no new round, no loop."
+   ],
+   "requires": "The paper's figure plan (bc.figure_grant_plan, filled to the blueprint's figure target) is frozen in batch_state['figure_plan'] at S3-16 (engine fallback when absent); a granted slot must carry a figure before review (G-FIG-MISSING) or record fig_short; the figure manifest is always written with the plan when the target is > 0, and A-AXIS1 counts recorded shortfalls at their planned format. A section with a target and no figure type checked gets an advisory only (status untouched).",
+   "verified_by": [
+    "final_assembly.py --self-test (v124_figure_plan_fallback_and_granted_slot_must_draw, v124_s3_plans_figure_stem_form)",
+    "audit_canonical.py --self-test (AXIS1-recorded-shortfall-counted-at-planned-format)"
    ]
   }
  },

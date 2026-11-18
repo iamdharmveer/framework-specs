@@ -705,6 +705,8 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             # into "legacy" (it FAILS A-FIGTYPE-KIND instead).
             "record_schema": FIGURE_RECORD_SCHEMA,
             **({"record_integrity": _ri_in} if _ri_in else {}),
+            # release 2026.11.24 (FG-2): the paper's figure plan (target, granted, recorded shortfalls) — A-AXIS1 reads it
+            **({"plan": fig_manifest['plan']} if isinstance(fig_manifest.get('plan'), dict) else {}),
         })
         reg['figural_manifests'] = fg
 
@@ -1626,12 +1628,13 @@ def bv_difficulty_mode(batch_state, ladder=None):
     return bs['difficulty_mode']
 
 
-def bv_r3_gaps(entry, key, top_band, ladder=None, mode=None):
+def bv_r3_gaps(entry, key, top_band, ladder=None, mode=None, context=None):
     """Cluster R3 pre-review gaps of one text (§7.7 steps 1 and 3): the deterministic item gates
-    (bc.qg_item_gates) and, for a top-band slot on the ladder, the content floor (bc.ld_floor_for /
-    bc.r3_floor_gaps against the entry's content_record). [gap strings]. Never raises."""
+    (bc.qg_item_gates, with the release-2026.11.24 context — figure plan, ask form, planned statement count) and,
+    for a top-band slot on the ladder, the content floor (bc.ld_floor_for / bc.r3_floor_gaps against the entry's
+    content_record). [gap strings]. Never raises."""
     e = entry if isinstance(entry, dict) else {}
-    out = list(bc.qg_item_gates(e, key, top_band))
+    out = list(bc.qg_item_gates(e, key, top_band, context=context))
     if top_band and mode == bc.R3_MODE_LADDER and isinstance(ladder, dict):
         _sc = bc.ld_scope_for(ladder, e.get('subject'), e.get('subtopic_id'))
         _fl = bc.ld_floor_for(ladder, _sc, e.get('subtopic_id'))
@@ -1640,6 +1643,119 @@ def bv_r3_gaps(entry, key, top_band, ladder=None, mode=None):
                     for x in bc.r3_floor_gaps(bc.r3_content_measures(e), _fl)]
     return out
 
+
+def bv_figure_plan_fallback(exam, n, home, batch_state, blueprint=None):
+    """FG-1 safety net (release 2026.11.24): when Create S3 recorded no batch_state['figure_plan'], build it here
+    with bc.figure_grant_plan from the paper's blueprint (home, else /mnt/project) and batch_state['subtopic_by_qnum'],
+    per section ({section: plan}; a section with no FIGURAL target is left out). Ranking without measured rates
+    (subtopic order). {} when the blueprint or the slot map is unavailable. `blueprint` = the blueprint the paper was
+    built on (Create S3-16 passes it); without it, the first candidate whose paper-n allocation holds EVERY subtopic of
+    the paper's slot map (a scoped paper never takes the mock blueprint's target). Never raises."""
+    try:
+        import glob as _gl
+        import json
+        import os
+        bs = batch_state if isinstance(batch_state, dict) else {}
+        sbq = bs.get('subtopic_by_qnum') if isinstance(bs.get('subtopic_by_qnum'), dict) else {}
+        if not sbq:
+            return {}
+        _need = {str(s) for s in sbq.values() if s}
+
+        def _fits(b):
+            m = next((m for m in (b.get('mocks') or []) if isinstance(m, dict) and str(m.get('mock')) == str(n)), None)
+            have = {str(a.get('subtopic_id')) for s in ((m or {}).get('sections') or []) if isinstance(s, dict)
+                    for a in (s.get('subtopic_allocations') or []) if isinstance(a, dict)}
+            return bool(have) and _need <= have
+        bp = blueprint if isinstance(blueprint, dict) else None
+        if bp is None:
+            cands = sorted(set(_gl.glob(os.path.join(home, f'{exam}*_blueprint.json'))
+                               + _gl.glob(f'/mnt/project/{exam}*_blueprint.json')))
+            for c in cands:
+                try:
+                    _b = json.load(open(c, encoding='utf-8'))
+                except (OSError, ValueError):
+                    continue
+                if isinstance(_b, dict) and _fits(_b):
+                    bp = _b
+                    break
+        if not isinstance(bp, dict):
+            return {}
+        mk = next((m for m in (bp.get('mocks') or []) if isinstance(m, dict) and str(m.get('mock')) == str(n)), None)
+        sched = bp.get('axis_schedule') if isinstance(bp.get('axis_schedule'), dict) else {}
+        out = {}
+        for sec in (mk or {}).get('sections') or []:
+            if not isinstance(sec, dict):
+                continue
+            nm = sec.get('section_name') or sec.get('name')
+            ss = sched.get(nm)
+            figs = {a.get('subtopic_id') for a in (sec.get('subtopic_allocations') or [])
+                    if isinstance(a, dict) and a.get('format') == 'FIGURAL'}
+            qr = sec.get('q_range') if isinstance(sec.get('q_range'), (list, tuple)) and len(sec.get('q_range')) == 2 else None
+            cap = [(str(q), s) for q, s in sorted(sbq.items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0)
+                   if s in figs and (qr is None or int(qr[0]) <= int(q) <= int(qr[1]))]
+            if not isinstance(ss, dict):
+                continue
+            pl = bc.figure_grant_plan(cap, ss, bp.get('total_mocks') or 1, n)
+            if pl.get('target', 0) > 0:
+                out[str(nm)] = dict(pl, source='engine fallback (no Create S3 figure plan)')
+        return out
+    except Exception:                                   # noqa: BLE001 — a safety net never raises
+        return {}
+
+
+R31_STATEMENT_SHAPES = ('statement', 'statements', 'combination', 'statement_combination', 'multi_statement',
+                        'assertion_reason')
+
+
+def bv_s3_plans(exam, n, home, batch_state, ladder=None, section_rules_text=None, blueprint=None):
+    """Create S3-16 (release 2026.11.24) — the paper's per-slot plans, computed ONCE on a fresh paper and frozen in
+    batch_state: (1) 'figure_plan' (FG-1, owner ruling RL-3: the blueprint's figure target per section, filled from
+    the figure-capable slots in rank order — bv_figure_plan_fallback's chain); (2) 'stem_form' = {'ask_form':
+    {section: measure}, 'statement_forms': {...}, 'n_statements': {q: n}} (D1 / RP-2: Step 5's measures; n per
+    statement-shape slot by bc.statement_n_plan, rotated by the paper number); (3) 'r3_notes' += the E1 notice when
+    the requested band mix is easier than the real exam on its ladder (owner ruling RL-1b: the mix is FINAL — notice
+    only). Returns {key: value} for batch_state.update(); a key whose input is missing is left out (dormant). Never
+    raises."""
+    out = {}
+    bs = batch_state if isinstance(batch_state, dict) else {}
+    try:
+        fp = bv_figure_plan_fallback(exam, n, home, bs, blueprint)
+        # always recorded on a fresh paper ({} = no figure target): bv_batch_step falls back only when the key is absent
+        out['figure_plan'] = {k: dict(v, source='Create S3-16') for k, v in fp.items()}
+    except Exception:                                   # noqa: BLE001
+        pass
+    try:
+        sf = bc.parse_stem_form(section_rules_text or '')
+        sp = bs.get('shape_plan') if isinstance(bs.get('shape_plan'), dict) else {}
+        stq = sorted((q for q, v in sp.items() if q != '_infeasible' and str(v).lower() in R31_STATEMENT_SHAPES),
+                     key=lambda q: int(q) if str(q).isdigit() else 0)
+        nd = {}
+        for m in (sf.get('statement_forms') or {}).values():
+            for k, v in ((m or {}).get('n_dist') or {}).items() if isinstance(m, dict) else []:
+                if isinstance(v, (int, float)):
+                    nd[k] = nd.get(k, 0.0) + float(v)
+        ns = bc.statement_n_plan(nd, len(stq), offset=bc._qf_int(n, 1) - 1) if stq else []
+        if sf.get('ask_form') or sf.get('statement_forms') or ns:
+            out['stem_form'] = dict(sf, n_statements={q: k for q, k in zip(stq, ns)})
+    except Exception:                                   # noqa: BLE001
+        pass
+    try:
+        labs = list(bs.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+        dp = bs.get('difficulty_plan_target') or bs.get('difficulty_plan') or {}
+        sids = sorted({str(s) for s in (bs.get('subtopic_by_qnum') or {}).values() if s}) or None
+        real = bc.ld_real_shares(ladder, labs, sids)
+        easier = bc.difficulty_vs_real({b: sum(1 for v in dp.values() if v == b) for b in labs}, real, labs)
+        if easier:
+            note = ('DIFFICULTY: the requested mix is easier than the real exam on its own ladder — '
+                    + '; '.join(f"{e['band']} or harder {round(100 * e['requested'])}% requested vs "
+                                f"{round(100 * e['real'])}% real" for e in easier)
+                    + ' (blueprint mix kept as given — owner ruling RL-1b)')
+            out['r3_notes'] = [x for x in (bs.get('r3_notes') or []) if not str(x).startswith('DIFFICULTY: the requested mix')] + [note]
+        if real:
+            out['difficulty_state'] = dict(bs.get('difficulty_state') or {}, real_shares=real)
+    except Exception:                                   # noqa: BLE001
+        pass
+    return out
 
 def bv_r3_report(batch_state, concept_map, ladder=None):
     """Cluster R3 paper report for the footer (S13-2L.0): the mode note, the count rule (cumulative minimums from
@@ -1683,8 +1799,79 @@ def bv_r3_report(batch_state, concept_map, ladder=None):
         fs = bc.qg_figure_share(_byf, ladder.get('figure_share'))
     lines = bc.r3_footer_lines(mode, ladder, cr, pr, (void / tot) if tot else None, fs) + \
         [str(x) for x in (bs.get('r3_notes') or [])]
+    lines += bv_r31_lines(bs, cm, ladder, labs)
     amber = [x for x in lines if '(AMBER)' in x or '(RED)' in x]
     return {'info': [x for x in lines if x not in amber], 'amber': amber, 'count_rule': cr, 'paper_rule': pr}
+
+
+def bv_r31_lines(batch_state, concept_map, ladder=None, labels=None):
+    """Release 2026.11.24 footer lines (Framework_DeliveryFooter §2R): (1) the SLOT LEDGER per band — planned,
+    delivered at or above, swapped (S1), named misses (RL-1: every slot at its planned band, swapped, or named); (2) E3
+    — the paper's mean ladder position per scope against its real past questions' ('harder' / 'equal' within
+    bc.E3_EQUAL_BAND / 'easier' (AMBER)); (3) the FIGURE PLAN — planned against target per section and every recorded
+    shortfall (FG-3). Print only — never a stop. Never raises."""
+    try:
+        bs = batch_state if isinstance(batch_state, dict) else {}
+        cm = concept_map if isinstance(concept_map, dict) else {}
+        labs = list(labels or bs.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+        tg = {str(k): v for k, v in (bs.get('difficulty_plan_target') or bs.get('difficulty_plan') or {}).items()}
+        out = []
+        if tg:
+            rows, misses = [], []
+            _swl = [s for s in ((bs.get('difficulty_state') or {}).get('band_swaps') or []) if isinstance(s, dict)]
+            sw = {s.get('up') for s in _swl}
+            pairs = {str(s.get('pair')): s for s in _swl}
+            for b in labs:
+                qs = [q for q, t in tg.items() if t == b]
+                if not qs:
+                    continue
+                ok = [q for q in qs if (cm.get(q) or {}).get('difficulty') in labs
+                      and labs.index((cm.get(q) or {}).get('difficulty')) >= labs.index(b)]
+                up = [q for q, e in cm.items() if q in sw and isinstance(e, dict) and e.get('difficulty') == b]
+                rows.append(f"{b} {len(ok) + len(up)}/{len(qs)}" + (f" ({len(up)} swapped)" if up else ''))
+                misses += [f"Q{q} planned {b}, delivered {(cm.get(q) or {}).get('difficulty')}" for q in qs
+                           if q not in ok and q not in pairs]
+            out.append('DIFFICULTY SLOTS: ' + '; '.join(rows) + (' — every slot at or above its planned band'
+                                                               if not misses else ''))
+            for _pq, _s in sorted(pairs.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
+                out.append(f"DIFFICULTY: Q{_s.get('up')} (planned {_s.get('from')}) measured {_s.get('to')}; Q{_pq} "
+                           f"(planned {_s.get('to')}) delivered {(cm.get(_pq) or {}).get('difficulty')} — labels swapped (S1)")
+            if misses:
+                out.append('DIFFICULTY (AMBER): below the planned band — ' + '; '.join(sorted(misses, key=lambda x: int(
+                    x.split(' ')[0][1:]) if x.split(' ')[0][1:].isdigit() else 0)))
+        if isinstance(ladder, dict) and ladder.get('status') == 'ok':
+            by = {}
+            for q, e in cm.items():
+                dc = (e or {}).get('difficulty_check') if isinstance(e, dict) else None
+                if isinstance(dc, dict) and isinstance(dc.get('p_new'), (int, float)):
+                    by.setdefault(bc.ld_scope_for(ladder, e.get('subject'), e.get('subtopic_id')), []).append(float(dc['p_new']))
+            for sc, ps in sorted((k, v) for k, v in by.items() if k):
+                sids = [str(x) for x in ((ladder.get('scopes') or {}).get(sc) or {}).get('subtopic_of', {}).values()] or None
+                rl = bc.ld_real_shares(ladder, labs, sids)
+                if not rl:
+                    continue
+                mn = sum(ps) / len(ps)
+                d = mn - rl['mean']
+                word = 'equal' if abs(d) <= bc.E3_EQUAL_BAND else ('harder' if d > 0 else 'easier')
+                out.append(f"PAPER LEVEL {sc}: mean ladder position {mn:.2f} vs the real exam {rl['mean']:.2f} — {word}"
+                           + (' (AMBER)' if word == 'easier' else ''))
+        fp = bs.get('figure_plan') if isinstance(bs.get('figure_plan'), dict) else {}
+        for sec, pl in sorted(fp.items()):
+            if not isinstance(pl, dict) or not pl.get('target'):
+                continue
+            drawn = [q for q in (pl.get('granted') or []) if isinstance(cm.get(str(q)), dict)
+                     and (cm[str(q)].get('figure_dicts') or cm[str(q)].get('figure_files'))]
+            short = [f"Q{q} text ({(cm.get(str(q)) or {}).get('fig_short', {}).get('reason', 'no record')})"
+                     for q in (pl.get('granted') or []) if str(q) not in [str(x) for x in drawn]]
+            cap = sum(int(s.get('n') or 0) for s in (pl.get('short') or []) if isinstance(s, dict) and s.get('reason') == 'capacity')
+            line = f"FIGURES {sec}: target {pl.get('target')}, delivered {len(drawn)}"
+            if short or cap:
+                line += ' — ' + '; '.join(short + ([f'{cap} slot(s) short: fewer figure-capable slots than the target']
+                                                   if cap else [])) + ' (AMBER)'
+            out.append(line)
+        return out
+    except Exception as _e:                             # noqa: BLE001 — a footer line never stops a paper
+        return [f'DIFFICULTY: release 2026.11.24 footer lines unavailable ({type(_e).__name__})']
 
 
 def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None, home='/home/claude', echo=True,
@@ -1771,6 +1958,24 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _ru_bv = ruler or {}
     _man_bv = manifest or {}
     _bank_bv = bank or {}
+    # release 2026.11.24 — the per-question gate context: the paper's figure plan (FG-1 / FG-5, written by Create S3;
+    # built here from the blueprint when absent), the exam's measured ask form (D1) and the planned statement counts
+    # (RP-2), both written by Create S3 into batch_state['stem_form'] (absent = dormant)
+    _fp_bv = _bs_bv.get('figure_plan') if isinstance(_bs_bv.get('figure_plan'), dict) else {}
+    if 'figure_plan' not in _bs_bv:                     # a paper begun before 2026.11.24 (S3-16 records it, {} included)
+        _fp_bv = bv_figure_plan_fallback(exam, n, home, _bs_bv)
+        if _fp_bv:
+            _bs_bv['figure_plan'] = _fp_bv
+    _granted_bv = {str(q) for _sp in _fp_bv.values() if isinstance(_sp, dict) for q in (_sp.get('granted') or [])}
+    _sf_bv = _bs_bv.get('stem_form') if isinstance(_bs_bv.get('stem_form'), dict) else {}
+
+    def _gctx(_q, _e):
+        _afm = _sf_bv.get('ask_form') if isinstance(_sf_bv.get('ask_form'), dict) else {}
+        _nsm = _sf_bv.get('n_statements') if isinstance(_sf_bv.get('n_statements'), dict) else {}
+        _nst = _nsm.get(str(_q))
+        return {'figure_granted': str(_q) in _granted_bv,
+                'ask_form': _afm.get(str((_e or {}).get('section') or '')) or _afm.get('*'),
+                'n_statements': _nst if isinstance(_nst, int) and not isinstance(_nst, bool) else None}
     _root_bv = os.path.join(home, f'{exam}_M{n}_bv')
     os.makedirs(_root_bv, exist_ok=True)
     if _st_bv.get('batch') != _bp_bv['batch_id']:
@@ -1948,7 +2153,7 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             if _q not in _sc_back and not bc_text_has_results(_r['entry']):
                 _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc) + (
                     bv_r3_gaps(_r['entry'], _ans_bv.get(_q), bool(_labs_bv) and _tgt_bv.get(_q) == _labs_bv[-1],
-                               _lad_bv, _mode_bv) if _r3_bv else [])
+                               _lad_bv, _mode_bv, context=_gctx(_q, _r['entry'])) if _r3_bv else [])
                 _pgs = _st_bv.setdefault('prereview', {}).setdefault(_q, {})
                 if _pg and int(_pgs.get(_rk) or 0) < int(bc.BC_PREREVIEW_TRIES):
                     _pgs[_rk] = int(_pgs.get(_rk) or 0) + 1
@@ -1990,11 +2195,23 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _adj_q.append(_q)
         elif _r['roles']:
             _needs_bv[_q] = list(_r['roles'])
+            if _r.get('also_adjudicate'):
+                # release 2026.11.24 (B4 + C1): the one re-measure and the adjudicator run in the SAME round (one wave)
+                _adj_q.append(_q)
         if _r['action'] in ('disclosed',) and 'terminal' in ((_r['entry'].get('bv') or {}).get('amber') or []):
             _p0 = _bs_bv.setdefault('p0_incidents', [])
             if not any(x.get('q') == _q and x.get('kind') == 'bc_terminal' for x in _p0 if isinstance(x, dict)):
                 _p0.append({'q': _q, 'kind': 'bc_terminal', 'why': (_r['entry'].get('bv') or {}).get('terminal'),
                             'rule': 'LAW-BC-2 / BC_TERMINAL adjudicated_disclosed'})
+    # release 2026.11.24 (FG-3): a slot the figure plan granted that settled with no figure (G-FIG-MISSING after its
+    # pre-review tries) is RECORDED on its entry — the auditor (A-AXIS1) counts it at its planned format, disclosed
+    for _q in _qs_bv:
+        _ef = _cm_bv.get(_q) if isinstance(_cm_bv.get(_q), dict) else {}
+        if _q in _granted_bv and _ef.get('bv_state') in bc.BC_STATES and not (_ef.get('figure_dicts') or _ef.get('figure_files')) \
+                and not isinstance(_ef.get('bc_fallback'), dict):
+            _ef['fig_short'] = {'reason': 'not_drawn', 'rule': 'FG-3'}
+        elif isinstance(_ef.get('fig_short'), dict) and (_ef.get('figure_dicts') or _ef.get('figure_files')):
+            _ef.pop('fig_short', None)
     for _q in _sc_back:
         _acts_bv.setdefault('selfcount', []).append(_q)
         if _q in (_acts_bv.get('grade') or []):
@@ -2026,29 +2243,35 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                                     str((_cm_bv[q] or {}).get('qtype') or 'mcq'), _labs_bv) for q in _needs_bv} if not _r3_bv else {}
         _tasks_bv = {}
         if _mode_bv == bc.R3_MODE_LADDER and isinstance(_lad_bv, dict):
-            # Cluster R3 §6.3: each item's placement task — 5 grading-pool anchors around its band's cut, shuffled
-            # with the item under opaque labels; an item with no anchor set is measured with the r2.1 counts
+            # Cluster R3 §6.3 / release 2026.11.24 rule r3.1 (B1, S1): each item's placement task PER REVIEWER — its own
+            # seeded draw of complete anchors around its band's cut (plus the upper probe of a middle band), shuffled
+            # with the item under opaque labels; the one re-measure (B4) draws again; an item with no anchor set is
+            # measured with the r2.1 counts
             for _q4 in _needs_bv:
                 if not any(str(_r4).startswith('grader_') for _r4 in (_needs_bv.get(_q4) or [])) or _tgt_bv.get(_q4) is None:
                     continue
                 _e4 = _cm_bv.get(_q4) or {}
-                _salt4 = f"{exam}:{n}:{_q4}:{bc.op_content_sha(_e4)[:12]}"
-                _as4 = bc.ld_anchor_set(_lad_bv, bc.ld_scope_for(_lad_bv, _e4.get('subject') or bc.nf_subject_key(_e4, _man_bv),
-                                                                 _e4.get('subtopic_id')),
-                                        _tgt_bv.get(_q4), _labs_bv, _e4.get('subtopic_id'), _e4.get('ask_format'), salt=_salt4)
-                _tk4 = bc.ld_placement_task(_as4, bc.r3_item_text(_e4), salt=_salt4)
-                if _tk4:
-                    _tasks_bv[_q4] = _tk4
+                _rc4 = ((_e4.get('bv') or {}).get('recount')) if isinstance(_e4.get('bv'), dict) else None
+                _rm4 = ':rc' if isinstance(_rc4, dict) and _rc4.get('kind') == 'placement' else ''
+                _sc4 = bc.ld_scope_for(_lad_bv, _e4.get('subject') or bc.nf_subject_key(_e4, _man_bv), _e4.get('subtopic_id'))
+                for _k4 in range(1, len(bc.BV_ROLES_GRADE) + 1):
+                    _salt4 = f"{exam}:{n}:{_q4}:{bc.op_content_sha(_e4)[:12]}:k{_k4}{_rm4}"
+                    _as4 = bc.ld_anchor_set(_lad_bv, _sc4, _tgt_bv.get(_q4), _labs_bv, _e4.get('subtopic_id'),
+                                            _e4.get('ask_format'), salt=_salt4, upper=True)
+                    _tk4 = bc.ld_placement_task(_as4, bc.r3_item_text(_e4), salt=_salt4)
+                    if _tk4:
+                        _tasks_bv[(_q4, _k4)] = _tk4
         _qpj = bv_review_qs_per_job(home)
         # v1.23 (P1): the round's reviewer jobs + adjudicator jobs fit in ONE wave of parallel_jobs_max
         _mjr = bc.bv_round_job_caps(bv_budget_value('parallel_jobs_max', 6), len(_adj_q))
         for _jb in bc.bv_reviewer_jobs(_needs_bv, _cm_bv, _anc_bv, _labs_bv, _bg_bv, qs_per_job=_qpj,
                                        max_jobs_per_reviewer=_mjr):
             _kk0 = _jb['role'].rsplit('_', 1)[-1]
+            _tk_k = {q: t for (q, k), t in _tasks_bv.items() if str(k) == str(_kk0)}   # this reviewer's own tasks
             if _r3_bv:
                 # Cluster R3: rank / count task per item, enumerated defect codes, no band-labelled exemplars
                 _jb['packet'] = dict({k: v for k, v in _jb['packet'].items() if k != 'band_guide'},
-                                     items=bc.r3_reviewer_rows(_jb['packet']['items'], _tasks_bv),
+                                     items=bc.rp_attach_prior(bc.r3_reviewer_rows(_jb['packet']['items'], _tk_k), _cm_bv),
                                      counting_rules=bc.r3_counting_rules(), decision_rule=bc.R3_DECISION_RULE)
                 _jb['brief'] = bc.BV_BRIEF_REVIEWER_R3
             _reask = any(int((_asked_all.get(_q3) or {}).get(_rl) or 0) >= 1
@@ -2065,8 +2288,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             json.dump(_pk, open(os.path.join(_d, 'packet.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
             open(os.path.join(_d, 'JOB_BRIEF.txt'), 'w', encoding='utf-8').write(_jb['brief'].replace('<JOB_DIR>', _d))
             _new_jobs.append(dict({'role': _jb['role'], 'qs': _jb['qs'], 'dir': _d, 'sha256': _sha},
-                                  **({'r3': True, 'tasks': {q: {k: _tasks_bv[q].get(k) for k in ('map', 'meta', 'band', 'probe')}
-                                                            for q in _jb['qs'] if q in _tasks_bv}}
+                                  **({'r3': True, 'tasks': {q: {k: _tk_k[q].get(k) for k in ('map', 'meta', 'band', 'probe', 'cuts')}
+                                                            for q in _jb['qs'] if q in _tk_k}}
                                      if _r3_bv else {})))
             for _q3 in _jb['qs']:
                 for _rl in _needs_bv.get(_q3) or []:
@@ -2076,7 +2299,8 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     for _q in _adj_q:
         _bvq = _st_bv['items'].get(_q) or {}
         _sv = [(_bvq.get('solvers') or {}).get(r) for r in bc.BV_ROLES_SOLVE if isinstance((_bvq.get('solvers') or {}).get(r), dict)]
-        _aj = bc.bc_adjudicator_job(_q, _cm_bv[_q], _ans_bv.get(_q), _sv, _labs_bv)
+        _aj = bc.bc_adjudicator_job(_q, _cm_bv[_q], _ans_bv.get(_q), _sv, _labs_bv,
+                                    claims=_bvq.get('claims_pending'))   # release 2026.11.24 (C1)
         _reask = int((_asked_all.get(_q) or {}).get('adjudicator') or 0) >= 1
         _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", _rlabel, f'q{_q}_adj') + ('_switch' if _reask else '')
         os.makedirs(_d, exist_ok=True)
@@ -3706,6 +3930,55 @@ def self_test():
           and not (set(QINDEX_OP_FIELDS) & set(QINDEX_V589_FIELDS)) and bc.OP_RELEASE >= bc.FRAMEWORK_RELEASE_STRICT)
     L = ['Easy', 'Medium', 'Hard']
     import tempfile as _bv_tf, os as _bv_os, json as _bv_js
+    # release 2026.11.24 — FG-1 fallback plan, FG-5 pre-review, RP-1 prior skills to reviewers
+    with _bv_tf.TemporaryDirectory() as _h:
+        _cmf = {'1': {'stem_text': 'The phase diagram of the binary system shows the eutectic point clearly', 'option_texts':
+                      ['A only', 'B only', 'both', 'neither'], 'subtopic_id': 'pc.ph', 'qtype': 'mcq', 'concept_note': 'eutectic'},
+                '2': {'stem_text': 'Which statement about the lever rule for the same binary system holds', 'option_texts':
+                      ['w', 'x', 'y', 'z'], 'subtopic_id': 'pc.ph', 'qtype': 'mcq'}}
+        _bv_js.dump({'concept_map': _cmf, 'answers': {'1': 1, '2': 2}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1, 'difficulty_labels': L,
+                     'difficulty_plan_target': {'1': 'Medium', '2': 'Medium'}, 'subtopic_by_qnum': {'1': 'pc.ph', '2': 'pc.ph'}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({'total_mocks': 2, 'mocks': [{'mock': 1, 'sections': [{'section_name': 'PC', 'q_range': [1, 2],
+                     'subtopic_allocations': [{'subtopic_id': 'pc.ph', 'q_count': 2, 'format': 'FIGURAL'}]}]}],
+                     'axis_schedule': {'PC': {'status': 'ok', 'axis1_target_per_mock': {'TEXT': 1, 'FIGURAL': 1},
+                                              'axis1_target_series': [1, 1], 'axis1_observed_figural': []}}},
+                    open(_bv_os.path.join(_h, 'EX_blueprint.json'), 'w'))
+        _fp0 = bv_figure_plan_fallback('EX', 1, _h, _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'))))
+        _sf1 = bv_batch_step('EX', 1, home=_h, echo=False)
+        _bsf = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        check('v124_figure_plan_fallback_and_granted_slot_must_draw',
+              _fp0.get('PC', {}).get('granted') == ['1'] and _fp0['PC']['target'] == 1
+              and _bsf.get('figure_plan', {}).get('PC', {}).get('granted') == ['1']
+              and _sf1['status'] == 'rewrite' and any('G-FIG-MISSING' in x for x in _sf1['lines'])
+              and (_bsf['bv'].get('prereview') or {}).get('1') and not (_bsf['bv'].get('prereview') or {}).get('2')
+              and bv_figure_plan_fallback('EX', 1, '/nonexistent', {}) == {})
+        _cmL = {'1': {'difficulty': 'Medium'}, '2': {'difficulty': 'Hard'}, '3': {'difficulty': 'Medium'}, '4': {'difficulty': 'Easy'}}
+        _bsL = {'difficulty_plan_target': {'1': 'Hard', '2': 'Medium', '3': 'Hard', '4': 'Easy'},
+                'difficulty_state': {'band_swaps': [{'up': '2', 'from': 'Medium', 'to': 'Hard', 'pair': '1'}]},
+                'figure_plan': {'PC': {'target': 2, 'granted': ['4'], 'short': [{'q': None, 'reason': 'capacity', 'n': 1}]}}}
+        _ln = bv_r31_lines(_bsL, _cmL)
+        check('v124_slot_ledger_swap_and_figure_lines', _ln[0] == 'DIFFICULTY SLOTS: Easy 1/1; Medium 1/1; Hard 1/2 (1 swapped)'
+              and 'labels swapped (S1)' in _ln[1] and _ln[2] == 'DIFFICULTY (AMBER): below the planned band — Q3 planned Hard, '
+                                                                 'delivered Medium'
+              and _ln[3].startswith('FIGURES PC: target 2, delivered 0') and _ln[3].endswith('(AMBER)')
+              and bv_r31_lines(None, None) == [])
+        _bsS = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsS['shape_plan'] = {'1': 'statement', '2': 'direct', '3': 'statement_combination'}
+        _srS = ('=== SECTION: PC ===\nask_form: {"ask_words_p10": 6, "headline_share": 0.0}\n'
+                'statement_forms: {"n_dist": {"3": 0.5, "4": 0.5}, "label_style": "A."}\n')
+        _pS = bv_s3_plans('EX', 1, _h, _bsS, None, _srS)
+        check('v124_s3_plans_figure_stem_form', _pS.get('figure_plan', {}).get('PC', {}).get('granted') == ['1']
+              and _pS['stem_form']['ask_form']['PC']['ask_words_p10'] == 6
+              and sorted(_pS['stem_form']['n_statements']) == ['1', '3']
+              and sorted(_pS['stem_form']['n_statements'].values()) == [3, 4]
+              and 'r3_notes' not in _pS and bv_s3_plans(None, None, None, None) == {'figure_plan': {}}
+              and bv_s3_plans('EX', 1, _h, _bsS, None, '', blueprint={'mocks': []})['figure_plan'] == {}
+              and bv_figure_plan_fallback('EX', 1, _h, dict(_bsS, subtopic_by_qnum={'1': 'other.sub'})) == {})
+        check('v124_prior_skills_reach_reviewers', bc.rp_attach_prior([{'q': '2'}, {'q': '1'}], _cmf)
+              == [{'q': '2', 'prior_skills': [{'q': '1', 'skill': 'eutectic'}]}, {'q': '1'}]
+              and bc.rp_prior_skills(_cmf, '9') == [] and bc.rp_attach_prior(None, None) == [])
     with _bv_tf.TemporaryDirectory() as _h:
         _cmt = {'1': {'stem_text': 'Find the dipole moment of molecule one', 'option_texts': ['1', '2', '3', '4'], 'subtopic_id': 'A.b',
                       'qtype': 'mcq'},
@@ -4382,8 +4655,13 @@ def self_test():
                         open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
             _bv_js.dump(_lad_r3, open(_bv_os.path.join(_h, 'EX_difficulty_ladder.json'), 'w'))
             _hist3, _r3s = [], None
+            _anc3 = None                                # release 2026.11.24 (B1): each reviewer's own anchor draw
             for _stp in range(80):
                 _r3s = bv_batch_step('EX', 1, home=_h, echo=False)
+                if _anc3 is None and _r3s['status'] == 'jobs_out':
+                    _anc3 = {_jx['role']: tuple(sorted(((_jx.get('tasks') or {}).get('1') or {}).get('meta') or {}))
+                             for _jx in _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))['bv']['jobs']
+                             if str(_jx.get('role')).startswith('reviewer_')}
                 _hist3.append(_r3s['status'])
                 if _r3s['status'] != 'jobs_out' and _r3s['status'] != 'rewrite':
                     break
@@ -4423,6 +4701,8 @@ def self_test():
                 check('r3_hostile_reviewer_ends_done_within_budget', _r3s['status'] == 'done'
                       and _s3['bv']['round'] <= bc.BV_MAX_ROUNDS and _c3['1'].get('difficulty') != 'Hard')
             else:
+                check('r31_each_reviewer_gets_its_own_anchor_draw', isinstance(_anc3, dict) and len(_anc3) == 3
+                      and all(_anc3.values()) and len(set(_anc3.values())) >= 2)
                 check('r3_ladder_flow_hard_padded_deadrow', _r3s['status'] == 'done' and _s3['difficulty_mode'] == 'ladder'
                       and _c3['1'].get('difficulty') == 'Hard'
                       and (_c3['1'].get('difficulty_check') or {}).get('measure') == 'placement_r3'

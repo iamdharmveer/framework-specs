@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.52.1 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.53.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.53.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24; with MockTestCreate v8.3):
+#   §2R gains the slot ledger, the S1 band swap, the paper level vs the real exam (E3), the E1 notice and the figure
+#   plan lines (final_assembly.bv_r31_lines); §LADDER-BC gains three question lines. Disclosure only — no stop.
 # v1.52.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (with MockTestCreate v8.1): one more chain line — a
 #   reviewer finding still open after rung 2 (the question is kept, never replaced by text). Disclosure only.
 # v1.52.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; paired with MockTestCreate v8.0): §2R names
@@ -1230,6 +1233,17 @@ bv_disclosed) — never paraphrased, never composed by this contract.
   RED    DIFFICULTY (RED): band below the real exam — <scope> <band>: median <p> < real <p>    paper rule
   INFO   PLACEMENT: <n>% of reviewer placements were void (calibration failed) — each graded one band below its slot
   AMBER  G-FIGURE-SHARE: <subject> has <k> of <n> items with a figure ... (AMBER)              figure share
+  v1.53.0 (release 2026.11.24 — final_assembly.bv_r31_lines; owner rulings RL-1 / RL-1a / RL-1b / RL-3):
+  INFO   DIFFICULTY SLOTS: Easy 12/12; Medium 15/15; Hard 12/13 (1 swapped)[ — every slot at or above its planned band]
+  INFO   DIFFICULTY: Q<a> (planned Medium) measured Hard; Q<b> (planned Hard) delivered Medium — labels swapped (S1)
+  AMBER  DIFFICULTY (AMBER): below the planned band — Q<n> planned <band>, delivered <band>; ...   a slot neither met nor swapped
+  INFO   PAPER LEVEL <scope>: mean ladder position <p> vs the real exam <p> — harder | equal      E3 (|diff| <= E3_EQUAL_BAND)
+  AMBER  PAPER LEVEL <scope>: ... — easier (AMBER)                                                E3
+  INFO   DIFFICULTY: the requested mix is easier than the real exam on its own ladder — ... (blueprint mix kept as given
+         — owner ruling RL-1b)                                                                    E1 (frozen at Create S3-16)
+  INFO   FIGURES <section>: target <t>, delivered <d>                                             figure plan met
+  AMBER  FIGURES <section>: target <t>, delivered <d> — Q<n> text (<reason>); <k> slot(s) short: fewer figure-capable
+         slots than the target (AMBER)                                                            FG-3
   Counts are CUMULATIVE MINIMUMS FROM THE TOP: a harder question in place of an easier one meets the request; a
   shortfall at any level is RED. A label is always the measured band — never relabelled to meet a count.
 
@@ -1248,6 +1262,10 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
   ⚠️ Q<n>: key adjudicated; solvers split (P0 recorded)                                       BC_TERMINAL (R9)
   ℹ️ Q<n>: replaced by a text question (fallback)                                             rung 3 (R5a)
   ⚠️ Q<n>: delivered at <band> (slot <band>)[, recipe not met at the delivered band]          level settled off-slot / B-02
+  ⚠️ Q<n>: level not measurable (too few valid comparisons after one re-measure, rule r3.1) — delivered at <band>,
+     one band below its slot                                                                  B4 (v1.53.0)
+  ⚠️ Q<n>: a reviewer's correctness report (<codes>) got no adjudicator verdict                C1 (v1.53.0)
+  ⚠️ Q<n>: planned as a figure question (blueprint figure target), delivered as text — <reason>   FG-3 (v1.53.0)
   ⚠️ Q<n>: 2 of 3 reviewers available                                                         minimum results (LAW-BC-4)
   ⚠️ Q<n>: reviewer finding still open after rung 2 — question kept, not replaced by text      R3_FINDING_MAX_RUNG (v1.52.1)
   ⚠️ Q<n>: within-paper repeat / key leak disclosed after rung 2                              LAW-BC-2
