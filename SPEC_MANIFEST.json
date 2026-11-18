@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 15117,
-      "sha256": "a470db9f5adf9623b54da3ad0393fa8e2ccc6d80d49d1a55ca3d2e7ffe7479e8",
-      "size_bytes": 1055411,
-      "version_header": "# Framework_MockTestCreate v8.1"
+      "lines": 15271,
+      "sha256": "c55baf9a50c2f2f390cb9881076a73c1bb476e82e2942acfce0835abec2a096f",
+      "size_bytes": 1069944,
+      "version_header": "# Framework_MockTestCreate v8.2"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -177,9 +177,9 @@
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
-      "lines": 1270,
-      "sha256": "e7a9a4d96d34a1ccf65c637cb9de257b3aa961c12ed58c452dcddb11973fec8c",
-      "size_bytes": 112155,
+      "lines": 1289,
+      "sha256": "b1d11b7a9ca31d6c94514c4d0ca2a5aa07624578710bf6f6aff3f506cbae6d51",
+      "size_bytes": 114054,
       "version_header": "{"
     },
     "audit_callgraph.py": {
@@ -191,9 +191,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 14282,
-      "sha256": "6cbada3c38a0f439c4a13666ef9d6eea46cdcf954899d2b9068b3864b0b7139b",
-      "size_bytes": 866513,
+      "lines": 14699,
+      "sha256": "d1e51ba4578c617277af9ec80ab5a2e69cd2b405a1541bdee55188a9d3ab810a",
+      "size_bytes": 897491,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -226,9 +226,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 1421,
-      "sha256": "a14dd633c6eeaa7b5ddff5fac9de21d9ab3505a6f01e7c9b01be0e24fc88b129",
-      "size_bytes": 88429,
+      "lines": 1536,
+      "sha256": "8b46655cab3caee70224a5b2711db230931fc7f09da462696c70a035ac615245",
+      "size_bytes": 96436,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -317,9 +317,9 @@
     },
     "handshake_audit.py": {
       "end_sentinel": "    print(__doc__)",
-      "lines": 2121,
-      "sha256": "871cb5a8d373cf6a14c302ff4beb0965187e4e43002f43ca75ed8ecd88450ac1",
-      "size_bytes": 179301,
+      "lines": 2176,
+      "sha256": "64bad2809c7ec0b054f84c6ebd9fc91140302e17b8ccb2753f5d22c71a19ff67",
+      "size_bytes": 185303,
       "version_header": "#!/usr/bin/env python3"
     },
     "manifest_to_taxonomy_xlsx.py": {

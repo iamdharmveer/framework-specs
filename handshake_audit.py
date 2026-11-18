@@ -1747,7 +1747,62 @@ def self_test():
         fails_other = [l for l in r.stdout.split('\n') if l.startswith('[ FAIL]')]
         check('H5 precommit: whole auditor clean on the synthetic paper (certificate written)', os.path.exists(f'{TMP}/cert.json'), '\n'.join(fails_other)[:600])
         CERT = json.load(open(f'{TMP}/cert.json')) if os.path.exists(f'{TMP}/cert.json') else {}
-        check('H5 certificate schema 2 with uncertified_items / certified', CERT.get('schema') == 2 and 'uncertified_items' in CERT and CERT.get('certified') is True, str(CERT)[:200])
+        check('H5 certificate schema 3 (LAW-CERT-1) with uncertified_items / certified / accepted_findings / auditor', CERT.get('schema') == 3 and 'uncertified_items' in CERT
+              and CERT.get('certified') is True and isinstance(CERT.get('accepted_findings'), list) and str(CERT.get('auditor', '')).startswith('audit_canonical v2.'), str(CERT)[:200])
+        # ═══ H5-CERT-DISCLOSED (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): the REAL S13-2F call (precommit,
+        # --write-certificate) on a BATCH-COMPLETE paper whose Q3 is stamped ESCALATED(A-DISTRACTOR) (key_votes.rule BC1,
+        # LAW-BC-8) and really fails A-DISTRACTOR, then the REAL S13-4c call (final, --certificate) on the same docx.
+        # Release 2026.11.22 wrote this certificate and then FAILED A-CERT on it ("6 unresolved item finding(s)").
+        _kd_cd = json.load(open(key_path))
+        for _q, _e in _kd_cd['concept_map'].items():
+            _e['key_votes'] = dict(_e.get('key_votes') or {}, rule='BC1')
+        _kd_cd['concept_map']['3']['distractor_mechanisms'] = ['regioisomer']          # short record -> A-DISTRACTOR item finding
+        _kd_cd['concept_map']['3']['quality_status'] = 'ESCALATED(A-DISTRACTOR)'
+        _kcd = f'{TMP}/{EXAM}_M7_answer_key.json'; json.dump(_kd_cd, open(_kcd, 'w'))
+        def _aud_cd(phase, extra):
+            _c = [sys.executable, f'{W}/audit_canonical.py', docx, '--phase', phase, '--item-findings', f'{TMP}/if_cd_{phase}.json',
+                  '--blueprint', bp_path, '--rules', f'{PROJ}/{EXAM}_section_rules.md', '--registry', prev_path, '--mockN', str(N),
+                  '--key', _kcd, '--profile', prof_path] + extra
+            _r = subprocess.run(_c, capture_output=True, text=True)
+            return _r, [l for l in _r.stdout.split('\n') if l.startswith('[') and ']' in l]
+        _r_cd, _l_cd = _aud_cd('precommit', ['--write-certificate', f'{TMP}/cert_cd.json'])
+        _c_cd = json.load(open(f'{TMP}/cert_cd.json')) if os.path.exists(f'{TMP}/cert_cd.json') else {}
+        _if_cd = json.load(open(f'{TMP}/if_cd_precommit.json')) if os.path.exists(f'{TMP}/if_cd_precommit.json') else {}
+        check('H5-CERT-DISCLOSED S13-2F: A-DISTRACTOR fires on Q3 and is reconciled to AMBER — ESCALATED (not a FAIL line)',
+              any(f.get('q') == '3' and f.get('gate') == 'A-DISTRACTOR' for f in _if_cd.get('item_findings') or [])
+              and any('A-DISTRACTOR' in l and 'ESCALATED' in l and l.startswith('[ WARN]') for l in _l_cd), '\n'.join(l for l in _l_cd if 'DISTRACTOR' in l)[:300])
+        check('H5-CERT-DISCLOSED S13-2F: certificate written — schema 3, disclosed/escalated [3], certified, a matching escalated row',
+              _c_cd.get('schema') == 3 and _c_cd.get('disclosed_items') == ['3'] and _c_cd.get('escalated_items') == ['3']
+              and _c_cd.get('certified') is True and _c_cd.get('uncertified_items') == [] and _c_cd.get('findings', 0) >= 1
+              and all(r.get('q') == '3' and r.get('disposition') == 'escalated' for r in _c_cd.get('accepted_findings') or [{}]),
+              (str(_c_cd)[:300] or _r_cd.stdout[-600:]))
+        _r_cd4, _l_cd4 = _aud_cd('final', ['--certificate', f'{TMP}/cert_cd.json'])
+        _ac_cd = [l for l in _l_cd4 if ' A-CERT ' in l + ' ']
+        check('H5-CERT-DISCLOSED S13-4c: A-CERT ok — certified WITH DISCLOSURES, ESCALATED Q3 carried as AMBER; ONE A-CERT line',
+              len(_ac_cd) == 1 and _ac_cd[0].startswith('[  ok ]') and 'WITH DISCLOSURES' in _ac_cd[0] and 'ESCALATED' in _ac_cd[0], str(_ac_cd)[:300])
+        _c_bad = dict(_c_cd, certified=True, uncertified_items=['3'], disclosed_items=[], escalated_items=[],
+                      accepted_findings=[dict(r, disposition='uncertified') for r in _c_cd.get('accepted_findings') or []])
+        json.dump(_c_bad, open(f'{TMP}/cert_cd_bad.json', 'w'))
+        _r_cdb, _l_cdb = _aud_cd('final', ['--certificate', f'{TMP}/cert_cd_bad.json'])
+        check('H5-CERT-DISCLOSED S13-4c: a hand-edited certificate (items moved to uncertified, certified left true) FAILs CERT-CONTRACT, exit 1',
+              _r_cdb.returncode == 1 and any(l.startswith('[ FAIL]') and 'A-CERT' in l and 'CERT-CONTRACT' in l for l in _l_cdb),
+              str([l for l in _l_cdb if 'A-CERT' in l])[:300])
+        # ═══ H5-V7-SIDECAR (G4): a PER-BATCH audit (no registry entry) of a current paper whose sidecar has the real v7+
+        # shape — text_fingerprint / key_votes, NO top-level fingerprint — plus a batch_state with producer_release and
+        # quality_readiness: no line may call it a 'pre-2026.11.03 paper'; levels are unchanged (owner decision 2026-11-17).
+        _kd_v7 = json.load(open(_kcd))
+        for _q, _e in _kd_v7['concept_map'].items():
+            _e.pop('fingerprint', None); _e.pop('quality_status', None); _e['text_fingerprint'] = f'tf{_q}'
+        _k_v7 = f'{TMP}/{EXAM}_M6_answer_key.json'; json.dump(_kd_v7, open(_k_v7, 'w'))
+        json.dump({'producer_release': open(f'{W}/VERSION').read().strip(), 'quality_readiness': RD}, open(f'{TMP}/{EXAM}_M6_batch_state.json', 'w'))
+        _r_v7 = subprocess.run([sys.executable, f'{W}/audit_canonical.py', docx, '--blueprint', bp_path, '--rules', f'{PROJ}/{EXAM}_section_rules.md',
+                                '--mockN', '6', '--batch', '1', '--key', _k_v7, '--profile', prof_path, '--item-findings', f'{TMP}/if_v7.json'],
+                               capture_output=True, text=True)
+        _lines_v7 = [l for l in _r_v7.stdout.split('\n') if l.startswith('[')]
+        check('H5-V7-SIDECAR per-batch audit of a current paper: no "pre-2026.11.03" label; A-DISTRACTOR still WARN (level unchanged) with the in-batch label',
+              _lines_v7 and not [l for l in _lines_v7 if 'pre-2026.11.03' in l]
+              and any(l.startswith('[ WARN]') and 'A-DISTRACTOR' in l and 'PRE-REVIEW' in l for l in _lines_v7),
+              '\n'.join(l for l in _lines_v7 if 'pre-2026.11.03' in l or 'A-DISTRACTOR' in l)[:400])
         # ═══ H5-LEGACY (GAP-2026-11-04 T1): a project whose Step 5 predates the QUALITY
         # measurement (section_rules WITHOUT QUALITY / EXAM_QUALITY blocks — every existing
         # project) and a paper whose items all repeat ONE template: A-TEMPLATE is DORMANT,
@@ -2112,7 +2167,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 262   # 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 267   # 2026.11.23 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): H5 certificate schema 3; +4 H5-CERT-DISCLOSED (real S13-2F -> S13-4c on an ESCALATED item; hand-edit refused); +1 H5-V7-SIDECAR (per-batch label truth); 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

@@ -975,7 +975,8 @@ if _REG is not None:
                          'review_coverage_rule',
                          'organic_parity_rule',
                          'nonorganic_fidelity_rule',
-                         'batch_verification_rule'):
+                         'batch_verification_rule',
+                         'certificate_contract_rule'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -1102,6 +1103,11 @@ if _REG is not None:
             _performing = {f for f, t in TXT.items()
                            if re.search(r'\b(?:bc|blueprint_core)\.(?:bv_apply|bv_set_label|bv_jobs|bv_decide|'
                                         r'bv_batch_status|bv_anchors|bv_author_packet)\(|\b(?:fa|final_assembly)\.bv_batch_step\(', _live_text(t))}
+        elif _rule == 'certificate_contract_rule':
+            # GAP-2026-11-17-CERT-DISCLOSED-CONTRACT LAW-CERT-1. A spec performs a certificate operation when its live
+            # text makes the auditor WRITE (--write-certificate) or READ (--certificate) the S13-2F certificate.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r"['\"]--(?:write-)?certificate['\"]", _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.
@@ -1213,6 +1219,115 @@ for _f in (_LAWS_08B.get('LAW-BC-1 SETTLED-IN-BATCH') or {}).get('governs') or [
         _sec = _bc_section(TXT[_f], _sid)
         if _sec and 'LEGACY (migration only' not in _sec.split('\n', 1)[0]:
             rec('BC-COVERAGE', f"{_f}: {_sid} is legacy under LAW-BC-8 — its heading must say 'LEGACY (migration only'.")
+# CERT-CONTRACT (2026.11.23, GAP-2026-11-17-CERT-DISCLOSED-CONTRACT; LAW-CERT-1). The S13-2F certificate has ONE
+# definition (audit_canonical.cert_contract). Release 2026.11.22 shipped a writer (v2.39: disclosed_items; v2.42:
+# ESCALATED items in it) whose reader was never updated, and every paper with an ESCALATED item stopped at S13-4c. This
+# family makes that drift a build failure: (1) every quality_status prefix written or tested anywhere in the engines /
+# specs is in audit_canonical.QUALITY_STATUS_PREFIXES; (2) CERT_OUTCOME covers exactly those prefixes with a known
+# outcome; (3) every key of the certificate built in write_item_outputs is read by the contract or listed info-only;
+# (4) every prefix names a round-trip self-test (CERT_ROUNDTRIP_TESTS) that exists as a check(...) in the auditor;
+# (5) AUDITOR_ID equals the auditor's newest header version; (6) gate_cert and write_item_outputs both call
+# cert_contract, and gate_cert reads no certificate field directly except docx_sha256 / amber_notes; (7) the S13-4c
+# block of every LAW-CERT-1 spec raises CERT-CONTRACT without a heal, and S13-REGCHECK stages no registry in outputs.
+def _cert_contract_family():
+    import ast as _ast_cc
+    _acp = 'audit_canonical.py'
+    if not os.path.exists(_acp):
+        rec('CERT-CONTRACT', 'audit_canonical.py missing — the certificate contract cannot be checked.')
+        return
+    _src = open(_acp, encoding='utf-8').read()
+    try:
+        _tree = _ast_cc.parse(_src)
+    except SyntaxError as _e:
+        rec('CERT-CONTRACT', f'audit_canonical.py does not parse ({_e}).')
+        return
+    _consts, _funcs = {}, {}
+    for _n in _tree.body:
+        if isinstance(_n, _ast_cc.Assign) and len(_n.targets) == 1 and isinstance(_n.targets[0], _ast_cc.Name):
+            try:
+                _consts[_n.targets[0].id] = _ast_cc.literal_eval(_n.value)
+            except Exception:                                   # noqa: BLE001 — not a literal
+                pass
+        elif isinstance(_n, _ast_cc.FunctionDef):
+            _funcs[_n.name] = _n
+    _need = ('QUALITY_STATUS_PREFIXES', 'CERT_OUTCOME', 'CERT_READ_FIELDS', 'CERT_INFO_ONLY', 'AUDITOR_ID',
+             'CERT_SCHEMAS', 'CERT_ROUNDTRIP_TESTS')
+    _miss = [k for k in _need if k not in _consts]
+    if _miss or 'cert_contract' not in _funcs:
+        rec('CERT-CONTRACT', f"audit_canonical.py lacks {_miss + ([] if 'cert_contract' in _funcs else ['cert_contract()'])} "
+                             f"— LAW-CERT-1 has no single definition.")
+        return
+    _pref = set(_consts['QUALITY_STATUS_PREFIXES'])
+    # (1) every prefix written / tested in the corpus is declared
+    _pat_set = re.compile(r"""quality_status['"]?\]?\s*(?:=|:)\s*f?['"]([A-Z][A-Z_]+)""")
+    _pat_sw = re.compile(r"""quality_status[^\n]{0,120}?startswith\(\(?\s*((?:f?['"][A-Z][A-Z_]+[('"]*\s*,?\s*)+)""")
+    _seen = {}
+    for _f in ('blueprint_core.py', 'final_assembly.py', 'audit_canonical.py', 'handshake_audit.py',
+               'Framework_MockTestCreate.md', 'Framework_MockDeliver.md', 'Framework_DeliveryFooter.md',
+               'Framework_MockTestOrchestrate.md'):
+        if not os.path.exists(_f):
+            continue
+        _t = open(_f, encoding='utf-8').read()
+        for _m in _pat_set.finditer(_t):
+            _seen.setdefault(_m.group(1), set()).add(_f)
+        for _m in _pat_sw.finditer(_t):
+            for _x in re.findall(r'[A-Z][A-Z_]+', _m.group(1)):
+                _seen.setdefault(_x, set()).add(_f)
+    for _x, _fs in sorted(_seen.items()):
+        if _x not in _pref:
+            rec('CERT-CONTRACT', f"quality_status prefix {_x!r} is written / tested in {sorted(_fs)} but is not in "
+                                 f"audit_canonical.QUALITY_STATUS_PREFIXES — declare it with its certificate outcome "
+                                 f"(CERT_OUTCOME) and a writer->reader round-trip self-test in the SAME release (LAW-CERT-1).")
+    # (2) outcome table
+    _out = _consts['CERT_OUTCOME']
+    if set(_out) != _pref or not set(_out.values()) <= {'none', 'uncertified', 'disclosed'}:
+        rec('CERT-CONTRACT', f"CERT_OUTCOME {_out} must cover exactly QUALITY_STATUS_PREFIXES {sorted(_pref)} with outcomes "
+                             f"in none / uncertified / disclosed.")
+    # (3) writer keys
+    _wk = set()
+    for _n in _ast_cc.walk(_funcs.get('write_item_outputs') or _ast_cc.Module(body=[], type_ignores=[])):
+        if isinstance(_n, _ast_cc.Assign) and any(isinstance(t, _ast_cc.Name) and t.id == 'cert' for t in _n.targets) \
+                and isinstance(_n.value, _ast_cc.Dict):
+            _wk |= {k.value for k in _n.value.keys if isinstance(k, _ast_cc.Constant)}
+    _known = set(_consts['CERT_READ_FIELDS']) | set(_consts['CERT_INFO_ONLY'])
+    if not _wk:
+        rec('CERT-CONTRACT', 'write_item_outputs builds no `cert = {...}` literal — the writer cannot be checked.')
+    for _k in sorted(_wk - _known):
+        rec('CERT-CONTRACT', f"the certificate writer adds key {_k!r}, which cert_contract does not read and "
+                             f"CERT_INFO_ONLY does not list — a field written for nobody is how this drift starts.")
+    # (4) round-trip self-test per prefix
+    _rt = _consts['CERT_ROUNDTRIP_TESTS']
+    for _x in sorted(_pref):
+        _tid = _rt.get(_x)
+        if not _tid or not re.search(r"check\(\s*['\"]" + re.escape(_tid) + r"\b", _src):
+            rec('CERT-CONTRACT', f"prefix {_x!r} has no writer->reader round-trip self-test (CERT_ROUNDTRIP_TESTS -> "
+                                 f"{_tid!r} not found as a check(...) in audit_canonical.py).")
+    # (5) provenance
+    _hv = re.search(r'^# (v\d+\.\d+) — ', _src, re.M)
+    if not _hv or _consts['AUDITOR_ID'] != 'audit_canonical ' + _hv.group(1):
+        rec('CERT-CONTRACT', f"AUDITOR_ID {_consts['AUDITOR_ID']!r} != the newest header version "
+                             f"{(_hv.group(1) if _hv else None)!r} — bump them together.")
+    # (6) one reader: both ends call cert_contract; gate_cert reads only the sha / amber fields directly
+    for _fn in ('gate_cert', 'write_item_outputs'):
+        _body = _ast_cc.get_source_segment(_src, _funcs[_fn]) if _fn in _funcs else ''
+        if 'cert_contract(' not in (_body or ''):
+            rec('CERT-CONTRACT', f"{_fn} does not call cert_contract — LAW-CERT-1: ONE reading of the certificate.")
+    _gc = _ast_cc.get_source_segment(_src, _funcs['gate_cert']) if 'gate_cert' in _funcs else ''
+    for _fld in re.findall(r"cert\.get\(\s*'([a-z_]+)'", _gc or ''):
+        if _fld not in ('docx_sha256', 'amber_notes'):
+            rec('CERT-CONTRACT', f"gate_cert reads certificate field {_fld!r} directly — only cert_contract may interpret it.")
+    # (7) the spec side
+    for _f in (_LAWS_08B.get('LAW-CERT-1 ONE-CERTIFICATE-CONTRACT') or {}).get('governs') or []:
+        if _f not in TXT:
+            continue
+        _s4c = _live_text(_bc_section(TXT[_f], 'S13-4c'))
+        if 'certificate contract violated' not in _s4c or 'CERT-CONTRACT' not in _s4c:
+            rec('CERT-CONTRACT', f"{_f}: S13-4c has no CERT-CONTRACT branch — a contract FAIL of A-CERT would spend "
+                                 f"every heal cycle on a deterministic defect.")
+        _rgc = _live_text(_bc_section(TXT[_f], 'S13-REGCHECK'))
+        if re.search(r"outputs/\{EXAM\}_registry\.json['\"],\s*'w'", _rgc):
+            rec('CERT-CONTRACT', f"{_f}: S13-REGCHECK writes the registry to outputs before S13-4c certified it (C7).")
+_cert_contract_family()
 # BC-CHECKLIST-SYNC (2026.11.16): the batch reviewer brief asks the MockReview S2-2 checklist fields (C-06) — every field
 # of blueprint_core.BC_CHECKLIST_FIELDS is defined in Framework_MockReview.md S2-2 AND asked in BV_BRIEF_REVIEWER, so
 # the in-batch review and the legacy S13-2G review can never drift apart.

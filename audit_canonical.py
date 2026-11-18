@@ -15,6 +15,20 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.44 — 2026-11-23 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (paired with Framework_MockTestCreate v8.2, LAW-CERT-1).
+#   ONE certificate contract: cert_contract() is the ONLY reading of the S13-2F certificate; the writer
+#   (write_item_outputs) validates its own certificate with it before writing, and A-CERT (gate_cert at S13-4c)
+#   reads with it. Fixes the HARD STOP at S13-4c: A-CERT read only uncertified_items and rejected every certificate
+#   whose accepted findings sit on DISCLOSED / ESCALATED items (disclosed_items, written since v2.39). States:
+#   CERTIFIED | CERTIFIED_WITH_DISCLOSURES (OK) | NOT_CERTIFIED (WARN, unchanged) | INVALID (FAIL "contract
+#   violated"). Certificate schema 3 (schema 2 still read): accepted_findings [{q, gate, disposition}] with
+#   disposition uncertified | disclosed | escalated, escalated_items, auditor = AUDITOR_ID (was a stale literal
+#   'audit_canonical v2.36'). The determinism half of A-CERT (gate_cert_late) now runs AFTER every item gate and
+#   both reconciles (it ran before them) and keeps ONE A-CERT line. An UNRESOLVED item whose finding no longer fires
+#   is still NOT CERTIFIED (never INVALID). Per-batch audits of a CURRENT paper no longer print the false label
+#   'pre-2026.11.03 paper, EC-V18': producer detection reads the sidecar / batch_state producer_release and the
+#   quality_readiness record (only a >= 2026.11.03 Create writes it); verdict LEVELS are unchanged (owner decision
+#   2026-11-17: in-batch handling unchanged). Self-tests CERTGAP-1..CERTGAP-30.
 # v2.43 — 2026-11-19 — GAP-2026-11-15-RUN-ANALYSIS D3: --item-findings also writes 'amber_findings' (per-question
 #   AMBER findings of the figure gates — A-FIGLABELPX, A-FIGLABEL, ... — and the A-OPTDISTINCT stereo-ambiguous pair
 #   warning) so Create S4-7 STEP A2 can send them back to the author before any reviewer is paid. Verdicts unchanged.
@@ -393,6 +407,7 @@ def _reset():
     AMBER_ITEM_FINDINGS.clear()   # v2.43
     UNCERTIFIED_ITEMS.clear()     # v2.35
     DISCLOSED_ITEMS.clear()       # v2.39
+    ESCALATED_ITEMS.clear()       # v2.44
 
 
 _FIGRECORD_STRUCT = re.compile(r'struct|reaction|scheme|molecule|chair|newman|fischer|haworth|sawhorse|conform|projection', re.I)
@@ -455,6 +470,7 @@ def _amber_item(gate, q, finding):
                                 'severity': 'AMBER'})
 UNCERTIFIED_ITEMS = set()   # v2.35 (OD-9): items whose findings survived R5; filled by gate_qualitystatus
 DISCLOSED_ITEMS = set()     # v2.39 (OD-2026-11-09): exhausted-chain items delivered with an AMBER disclosure
+ESCALATED_ITEMS = set()     # v2.44: the subset of DISCLOSED_ITEMS stamped ESCALATED (LAW-BC-8) — certificate disposition
 ITEM_GATE_IDS = ('A-FIGLABEL', 'A-FIGLABELPX', 'A-FIGLABELRASTER', 'A-FIGCOLLIDE', 'A-ORGPROOF',
                  'A-FIGOVERPRINT', 'A-FIGBONDORDER', 'A-FIGMARK', 'A-FIGFIT',
                  'A-FIGINK', 'A-FIGOPTUNIF', 'A-FIGOPTWINDOW', 'A-FIGMONO',
@@ -1084,6 +1100,18 @@ def load_sources(args):
                     _rd_k = None
         if isinstance(_rd_k, dict):
             src['quality_readiness'] = _rd_k
+        # v2.44 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT G4): the release that PRODUCED this paper — Create S3-14 /
+        # S3-16 write it once (never on resume) into the sidecar and batch_state. Read for producer detection only.
+        _pr_k = _key_data.get('producer_release')
+        if not _pr_k:
+            _bs_p2 = str(args.key).replace('_answer_key.json', '_batch_state.json')
+            if _bs_p2 != str(args.key) and Path(_bs_p2).exists():
+                try:
+                    _pr_k = (json.load(open(_bs_p2, encoding='utf-8')) or {}).get('producer_release')
+                except (OSError, ValueError):
+                    _pr_k = None
+        if _pr_k:
+            src['producer_release'] = str(_pr_k)
 
     # v1.2 — MSQ re-derivation (INDEPENDENT of any Step-7 self-report). Dormant when the
     # blueprint declares no multi subtopics (every value below is empty/zero ⇒ the MSQ
@@ -5034,6 +5062,7 @@ def _lb_reconcile_disclosed(src):
             RESULTS[i] = ('WARN', code, _why + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
                           + ' — ' + str(msg))
     DISCLOSED_ITEMS.update(hit)
+    ESCALATED_ITEMS.update(hit & esc)      # v2.44: certificate disposition 'escalated' (DeliveryFooter names it)
 
 
 def _lb_escalate_paper(gates, sweep):
@@ -5097,6 +5126,37 @@ def _paper_is_qq(src):
     return any(isinstance(v, dict) and ('quality_status' in v or v.get('fingerprint')) for v in cm.values())
 
 
+_CURRENT_ITEM_MARKERS = ('quality_status', 'fingerprint', 'text_fingerprint', 'bv', 'key_votes', 'clone_check')
+
+
+def _paper_is_current(src):
+    """v2.44 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT G4). True when THIS paper was produced by a Create of release
+    >= bc.QQ_RELEASE (2026.11.03), even before it has a registry entry (a per-batch audit): the sidecar / batch_state
+    producer_release (Create S3-14 / S3-16, v8.2), OR the paper's quality_readiness record (written only by a
+    >= 2026.11.03 Create, S3-2e), OR any item carrying a field only such a Create writes. A superset of _paper_is_qq.
+    Used for the TRUTH of a per-batch label only — verdict levels are decided by _paper_is_qq, unchanged."""
+    if _paper_is_qq(src):
+        return True
+    try:
+        bc = _qq_bc()
+        if src.get('producer_release') and bc.producer_release_gate(src.get('producer_release')):
+            return True
+    except Exception:                                            # noqa: BLE001 — detection never raises
+        pass
+    if isinstance(src.get('quality_readiness'), dict):
+        return True
+    try:
+        cm = _qq_cm(src)
+    except Exception:                                            # noqa: BLE001
+        return False
+    return any(isinstance(v, dict) and any(v.get(k) for k in _CURRENT_ITEM_MARKERS) for v in (cm or {}).values())
+
+
+_INBATCH_LABEL = ('AMBER (per-batch audit of a current paper — no registry entry yet; STEP A2 PRE-REVIEW sends this '
+                  'back to the author; if still open at S13-2F the item is stamped ESCALATED and delivered with an '
+                  'AMBER line, LAW-BC-8) — ')
+
+
 def _qq_readiness(src):
     """GAP-2026-11-04 B5: this paper's S3-2e quality_readiness record — from its registry
     question_index entry (committed or the S13-2F preview), else the registry-level map,
@@ -5138,6 +5198,8 @@ def _qq_fail_or_amber(code, msg, src, key=None, q=None):
             return
     if _paper_is_qq(src):
         _fail(code, msg)
+    elif _paper_is_current(src):
+        _warn(code, _INBATCH_LABEL + msg)                        # v2.44: same level, truthful label
     else:
         _warn(code, 'AMBER (pre-2026.11.03 paper, EC-V18) — ' + msg)
 
@@ -5602,7 +5664,8 @@ def gate_stereodecl(src):
     elif checked:
         _ok('A-STEREODECL', f'{checked} stereo declaration(s) agree with their SMILES.')
     else:
-        _ok('A-STEREODECL', 'dormant — no structure carries a stereo_declared line (pre-2026.11.03 paper or no structures).')
+        _ok('A-STEREODECL', 'dormant — no structure carries a stereo_declared line' + (
+            ' (no structures declared on this paper).' if _paper_is_current(src) else ' (pre-2026.11.03 paper or no structures).'))
 
 
 def gate_itemrule(blocks, src):
@@ -5656,7 +5719,8 @@ def gate_review(src, args=None):
         _ok('A-REVIEW', 'dormant — pre-commit sweep; the in-session independent review (S13-2G) runs after it.')
         return
     if not _paper_is_qq(src):
-        _ok('A-REVIEW', 'dormant — pre-2026.11.03 paper (EC-V18).')
+        _ok('A-REVIEW', 'dormant — per-batch audit (no registry entry yet); armed at S13-4c.' if _paper_is_current(src)
+            else 'dormant — pre-2026.11.03 paper (EC-V18).')
         return
     if _qq_entry(src) is None:
         # GAP-2026-11-04 (release review): a PER-BATCH audit has no registry preview /
@@ -5769,7 +5833,8 @@ def gate_qualitystatus(src, args=None):
     Deliver refuses it without --accept-uncertified."""
     cm = _qq_cm(src)
     if not _paper_is_qq(src):
-        _ok('A-QUALITYSTATUS', 'dormant — pre-2026.11.03 paper.')
+        _ok('A-QUALITYSTATUS', 'dormant — per-batch audit (no registry entry yet); S13-2F stamps every item.'
+            if _paper_is_current(src) else 'dormant — pre-2026.11.03 paper.')
         return
     if _qq_entry(src) is None:
         # GAP-2026-11-04 (release review): the stamps are written by S13-2F — a PER-BATCH
@@ -5807,7 +5872,8 @@ def gate_readiness(src):
     _reg_rd = (src.get('registry') or {}).get('quality_readiness')
     rd = e.get('quality_readiness') or ((_reg_rd or {}).get(_this_paper_id(src) or '') if isinstance(_reg_rd, dict) else None)
     if not isinstance(rd, dict):
-        _ok('A-READINESS', 'dormant — no quality_readiness record on this paper (pre-2026.11.03 run).')
+        _ok('A-READINESS', 'dormant — per-batch audit (no registry entry yet); printed at S13-2F / S13-4c.'
+            if _paper_is_current(src) else 'dormant — no quality_readiness record on this paper (pre-2026.11.03 run).')
         return
     deg = rd.get('degraded') or []
     # v2.37 (DL-46): a control reported N/A / DORMANT (e.g. G-DIFF-FLOOR without enough
@@ -6877,6 +6943,7 @@ def run_audit(args):
     _qq_reconcile_unresolved(getattr(args, 'phase', 'final'))  # OD-9: UNRESOLVED-only FAILs -> WARN
     _lb_reconcile_disclosed(src)                               # v2.39: exhausted-chain items -> AMBER WARN
     _lb_escalate_paper(getattr(args, 'escalate_paper', None), getattr(args, 'sweep', None))
+    _safe_gate('A-CERT', gate_cert_late, src, args)            # v2.44: determinism half, AFTER every item gate
     rc = print_results()
     _okw = write_item_outputs(args)
     if getattr(args, 'write_certificate', None) and not _okw:
@@ -7208,24 +7275,158 @@ def gate_cert(src, args):
                         f"({str(cert.get('docx_sha256'))[:12]} != {now[:12]}) — INFRA: "
                         'never repair after commit; re-run from S13-2F.')
         return
-    _unc = set(str(x) for x in (cert.get('uncertified_items') or []))
-    if int(cert.get('findings', -1)) != 0 and not _unc:
-        _fail('A-CERT', f"certificate records {cert.get('findings')} unresolved item "
-                        f"finding(s) — S13-2F did not finish; INFRA.")
+    # v2.44 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT, LAW-CERT-1): the certificate is read ONLY through
+    # cert_contract — the same function the writer validated it with. The determinism half (item findings on
+    # items the certificate did not accept) runs in gate_cert_late, AFTER every item gate.
+    v = cert_contract(cert)
+    if v['state'] == 'INVALID':
+        _fail('A-CERT', f"certificate contract violated — {v['why']} — CERT-CONTRACT (LAW-CERT-1): a writer/reader "
+                        f"defect, never a question to repair; INFRA.")
         return
-    # v2.35 (OD-9 a): findings on items the certificate lists as UNRESOLVED are expected
-    _late = [r for r in ITEM_FINDINGS if str(r.get('q')) not in _unc]
-    if _late:
-        _fail('A-CERT', f'{len(_late)} item finding(s) now on a paper certified clean — '
-                        f'the item gates are not deterministic on identical inputs (INFRA): '
-                        + _flist([f"Q{r['q']}:{r['gate']}" for r in _late]))
-        return
-    if _unc:
+    src['_cert_accepted'] = set(v['accepted'])
+    if v['state'] == 'NOT_CERTIFIED':
         _warn('A-CERT', f"paper is the one swept at S13-2F ({now[:12]}) but NOT CERTIFIED — "
-                        f"uncertified_items {sorted(_unc)} (OD-9: Deliver refuses without --accept-uncertified).")
+                        f"uncertified_items {_cert_sorted(v['uncertified'])} (OD-9: Deliver refuses without --accept-uncertified).")
+        return
+    if v['state'] == 'CERTIFIED_WITH_DISCLOSURES':
+        _esc = _cert_sorted(v['escalated'])
+        _dis = _cert_sorted(v['disclosed'] - v['escalated'])
+        _ok('A-CERT', f"paper is the one certified at S13-2F ({now[:12]}); certified WITH DISCLOSURES — "
+                      + (f"ESCALATED items {_esc} (LAW-BC-8)" if _esc else '')
+                      + ('; ' if _esc and _dis else '')
+                      + (f"DISCLOSED items {_dis} (OD-2026-11-09)" if _dis else '')
+                      + f" carried as AMBER; {len(cert.get('amber_notes') or [])} amber note(s) to the footer.")
         return
     _ok('A-CERT', f"paper is the one certified at S13-2F ({now[:12]}); "
                   f"{len(cert.get('amber_notes') or [])} amber note(s) carried to the footer.")
+
+
+# ── v2.44 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (LAW-CERT-1 ONE-CERTIFICATE-CONTRACT) ─────────────────────────
+# The S13-2F certificate has ONE definition. Writer: write_item_outputs (validates its own certificate with
+# cert_contract before writing). Readers: gate_cert / gate_cert_late (S13-4c). A new quality_status prefix MUST be
+# added to QUALITY_STATUS_PREFIXES and CERT_OUTCOME in the same release, with a writer->reader round-trip self-test
+# naming it (CI gate CERT-CONTRACT, mock_sync_audit MS-CERT).
+AUDITOR_ID = 'audit_canonical v2.44'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
+CERT_SCHEMAS = (2, 3)                              # 2: v2.35-v2.43 writers (still read); 3: v2.44+
+QUALITY_STATUS_PREFIXES = ('CERTIFIED', 'UNRESOLVED', 'DISCLOSED', 'ESCALATED')
+# The certificate outcome of each stamp prefix: 'none' (no accepted finding), 'uncertified' (uncertified_items ->
+# NOT CERTIFIED), 'disclosed' (disclosed_items -> CERTIFIED WITH DISCLOSURES; ESCALATED is a disclosed sub-kind).
+CERT_OUTCOME = {'CERTIFIED': 'none', 'UNRESOLVED': 'uncertified', 'DISCLOSED': 'disclosed', 'ESCALATED': 'disclosed'}
+# Every key the writer puts in the certificate is either READ by cert_contract / gate_cert or listed here as
+# information only (CI gate CERT-CONTRACT rule 3).
+CERT_READ_FIELDS = ('schema', 'docx_sha256', 'findings', 'uncertified_items', 'disclosed_items', 'escalated_items',
+                    'certified', 'accepted_findings', 'amber_notes')
+CERT_INFO_ONLY = ('phase', 'gate_ids', 'auditor')
+CERT_DISPOSITIONS = ('uncertified', 'disclosed', 'escalated')
+# The writer->reader round-trip self-test that proves each prefix's outcome (CI gate CERT-CONTRACT rule 4).
+CERT_ROUNDTRIP_TESTS = {'CERTIFIED': 'CERTGAP-7', 'UNRESOLVED': 'CERTGAP-14', 'DISCLOSED': 'CERTGAP-1',
+                        'ESCALATED': 'CERTGAP-15'}
+
+
+def _cert_sorted(qs):
+    """Question ids in paper order; a non-numeric id ('12a') sorts after the numeric ones by text. Never raises."""
+    return sorted((str(x) for x in (qs or [])), key=lambda x: (0, int(x), '') if x.isdigit() else (1, 0, x))
+
+
+def _cert_ids(v):
+    """A certificate id list -> set of str. A non-list (a string, a number, a dict) is not a list of ids: None."""
+    if v is None:
+        return set()
+    if not isinstance(v, (list, tuple)):
+        return None
+    return {str(x) for x in v}
+
+
+def cert_contract(cert):
+    """LAW-CERT-1 — the ONE reading of the S13-2F certificate. Pure; never raises.
+    Returns {'state', 'why', 'accepted', 'uncertified', 'disclosed', 'escalated'} with state
+      CERTIFIED                   no accepted finding (findings 0, both lists empty);
+      CERTIFIED_WITH_DISCLOSURES  accepted findings sit only on disclosed_items (DISCLOSED / ESCALATED stamps);
+      NOT_CERTIFIED               uncertified_items is non-empty (UNRESOLVED stamps, OD-9) — Deliver refuses;
+      INVALID                     the certificate contradicts itself (A-CERT FAIL, CERT-CONTRACT).
+    Rules: schema in CERT_SCHEMAS; findings an int >= 0; U = uncertified_items, D = disclosed_items - U (an item on
+    both lists is uncertified), A = U | D; findings > 0 needs A non-empty; every DISCLOSED item carries >= 1 accepted
+    finding (findings >= |D|) — an UNCERTIFIED item may carry none this sweep (its UNRESOLVED stamp is the verdict);
+    certified, when present, equals (U is empty); escalated_items, when present, is a subset of D; schema 3:
+    accepted_findings is a list of len == findings, every row's q in A, its disposition in CERT_DISPOSITIONS and
+    consistent with the lists, and every D item has a row."""
+    def _bad(why, acc=frozenset()):
+        return {'state': 'INVALID', 'why': why, 'accepted': set(acc), 'uncertified': set(), 'disclosed': set(),
+                'escalated': set()}
+    if not isinstance(cert, dict):
+        return _bad('the certificate is not a JSON object')
+    if cert.get('schema') not in CERT_SCHEMAS:
+        return _bad(f"schema {cert.get('schema')!r} is not one of {CERT_SCHEMAS}")
+    _n = cert.get('findings')
+    if isinstance(_n, bool) or not isinstance(_n, int):
+        return _bad(f'findings {_n!r} is not an integer')
+    if _n < 0:
+        return _bad(f'findings {_n} < 0')
+    unc = _cert_ids(cert.get('uncertified_items'))
+    dis0 = _cert_ids(cert.get('disclosed_items'))
+    esc0 = _cert_ids(cert.get('escalated_items'))
+    if unc is None or dis0 is None or esc0 is None:
+        return _bad('uncertified_items / disclosed_items / escalated_items must be lists of question ids')
+    if 'None' in unc or 'None' in dis0:
+        return _bad('an item list names question None (a paper-level finding recorded as an item)')
+    dis = dis0 - unc
+    acc = unc | dis
+    if _n > 0 and not acc:
+        return _bad(f'{_n} accepted finding(s) but no item is listed in uncertified_items or disclosed_items', acc)
+    if _n < len(dis):
+        return _bad(f'{len(dis)} disclosed item(s) but only {_n} accepted finding(s) — every disclosed item carries '
+                    f'at least one', acc)
+    if 'certified' in cert and cert.get('certified') is not (not unc):
+        return _bad(f"certified={cert.get('certified')!r} contradicts uncertified_items {_cert_sorted(unc)}", acc)
+    esc = esc0 & dis
+    if esc0 - dis0:
+        return _bad(f'escalated_items {_cert_sorted(esc0 - dis0)} are not in disclosed_items', acc)
+    rows = cert.get('accepted_findings')
+    if rows is not None:
+        if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+            return _bad('accepted_findings is not a list of objects', acc)
+        if len(rows) != _n:
+            return _bad(f'accepted_findings has {len(rows)} row(s) but findings is {_n}', acc)
+        for r in rows:
+            q, d = str(r.get('q')), r.get('disposition')
+            if q not in acc:
+                return _bad(f'accepted_findings row Q{q} ({r.get("gate")}) is on an item no list accepts', acc)
+            if d not in CERT_DISPOSITIONS:
+                return _bad(f'accepted_findings row Q{q} has disposition {d!r} (not one of {CERT_DISPOSITIONS})', acc)
+            if (d == 'uncertified') != (q in unc):
+                return _bad(f'accepted_findings row Q{q} disposition {d!r} disagrees with uncertified_items', acc)
+            if 'escalated_items' in cert and q in dis and (d == 'escalated') != (q in esc):
+                return _bad(f'accepted_findings row Q{q} disposition {d!r} disagrees with escalated_items', acc)
+        _rowq = {str(r.get('q')) for r in rows}
+        if dis - _rowq:
+            return _bad(f'disclosed item(s) {_cert_sorted(dis - _rowq)} have no accepted_findings row', acc)
+        if 'escalated_items' not in cert:
+            esc = {str(r.get('q')) for r in rows if r.get('disposition') == 'escalated'} & dis
+    state = 'NOT_CERTIFIED' if unc else ('CERTIFIED_WITH_DISCLOSURES' if dis else 'CERTIFIED')
+    return {'state': state, 'why': '', 'accepted': acc, 'uncertified': unc, 'disclosed': dis, 'escalated': esc}
+
+
+def gate_cert_late(src, args):
+    """A-CERT, determinism half (v2.44). Runs AFTER every item gate and both reconciles (main), only when gate_cert
+    accepted the certificate. On the certified docx (sha equal — checked by gate_cert) every item finding of this
+    run must sit on an item the certificate ACCEPTED (uncertified or disclosed); anything else means the item gates
+    gave a different answer on identical inputs — INFRA. Item-level, not gate-level: a phase-dependent gate (A-REVIEW
+    is final-phase only) may add a finding to an already-accepted item without that being non-determinism. The FAIL
+    REPLACES gate_cert's A-CERT line, so the report keeps ONE A-CERT verdict."""
+    if not getattr(args, 'certificate', None) or '_cert_accepted' not in src:
+        return
+    acc = src['_cert_accepted']
+    late = [r for r in ITEM_FINDINGS if str(r.get('q')) not in acc]
+    if not late:
+        return
+    msg = (f'{len(late)} item finding(s) now on items the S13-2F certificate did not accept — the item gates are '
+           f'not deterministic on identical inputs (INFRA): '
+           + _flist([f"Q{r.get('q')}:{r.get('gate')}" for r in late]))
+    idx = [i for i, (l, c, m) in enumerate(RESULTS) if c == 'A-CERT']
+    if idx:
+        RESULTS[idx[-1]] = ('FAIL', 'A-CERT', msg)
+    else:
+        _fail('A-CERT', msg)
 
 
 def write_item_outputs(args):
@@ -7264,16 +7465,36 @@ def write_item_outputs(args):
             return False
         amber = [f'{c}: {m}' for lvl, c, m in RESULTS
                  if lvl == 'WARN' and str(m).startswith('AMBER')]
-        cert = {'schema': 2, 'docx_sha256': _sha256_file(args.docx),
+        # v2.44 (LAW-CERT-1): schema 3 — every accepted finding is named with its disposition, so `findings` is
+        # checkable; the certificate is validated with cert_contract (the reader's own function) BEFORE it is
+        # written: a writer/reader disagreement surfaces here, at S13-2F, before the commit — never at S13-4c.
+        _disc_only = {str(x) for x in DISCLOSED_ITEMS} - {str(x) for x in _unres}
+        _esc_only = {str(x) for x in ESCALATED_ITEMS} & _disc_only
+        _acc_rows = [{'q': str(f.get('q')), 'gate': f.get('gate'),
+                      'disposition': ('uncertified' if str(f.get('q')) in _unres
+                                      else 'escalated' if str(f.get('q')) in _esc_only else 'disclosed')}
+                     for f in ITEM_FINDINGS if f not in _open_items]
+        cert = {'schema': 3, 'docx_sha256': _sha256_file(args.docx),
                 'phase': 'precommit', 'gate_ids': list(ITEM_GATE_IDS),
-                'findings': len(ITEM_FINDINGS) - len(_open_items), 'amber_notes': amber,
-                'uncertified_items': sorted(_unres, key=lambda x: int(x) if str(x).isdigit() else 0),
-                'disclosed_items': sorted(DISCLOSED_ITEMS, key=lambda x: int(x) if str(x).isdigit() else 0),
+                'findings': len(_acc_rows), 'amber_notes': amber,
+                'accepted_findings': _acc_rows,
+                'uncertified_items': _cert_sorted(_unres),
+                'disclosed_items': _cert_sorted(DISCLOSED_ITEMS),
+                'escalated_items': _cert_sorted(_esc_only),
                 'certified': not _unres,
-                'auditor': 'audit_canonical v2.36'}
+                'auditor': AUDITOR_ID}
+        _vw = cert_contract(cert)
+        if _vw['state'] == 'INVALID':
+            print(f"CERTIFICATE: NOT WRITTEN — WRITER CONTRACT VIOLATED (LAW-CERT-1): {_vw['why']} — an engine "
+                  f"defect (CERT-CONTRACT), never a question to repair.")
+            if ip:
+                out['certificate_error'] = 'CERT-CONTRACT: ' + _vw['why']
+                with open(ip, 'w', encoding='utf-8') as fh:
+                    json.dump(out, fh, indent=1, sort_keys=True)
+            return False
         with open(wc, 'w', encoding='utf-8') as fh:
             json.dump(cert, fh, indent=1, sort_keys=True)
-        print(f'CERTIFICATE: WRITTEN {wc} ({len(amber)} amber note(s)).')
+        print(f'CERTIFICATE: WRITTEN {wc} ({len(amber)} amber note(s); state {_vw["state"]}).')
     return True
 
 
@@ -13511,7 +13732,9 @@ def self_test():
     _cert35 = json.load(open(_A35c.write_certificate, encoding='utf-8'))
     check('certificate-written-NOT-CERTIFIED-with-uncertified-items',
           _wrote is True and _cert35['uncertified_items'] == ['2'] and _cert35['certified'] is False
-          and _cert35['schema'] == 2 and _cert35['findings'] == 1)
+          and _cert35['schema'] == 3 and _cert35['findings'] == 1
+          and _cert35['accepted_findings'] == [{'q': '2', 'gate': 'A-OPTDISTINCT', 'disposition': 'uncertified'}]
+          and _cert35['auditor'] == AUDITOR_ID and _cert35['escalated_items'] == [])
     _reset()
     _item('A-OPTDISTINCT', '1', 'x', 'VOID_ITEM')
     check('certificate-not-written-with-open-item-finding', write_item_outputs(_A35c()) is False)
@@ -13521,6 +13744,200 @@ def self_test():
         certificate = _A35c.write_certificate
     gate_cert({}, _A35g())
     check('A-CERT-accepts-NOT-CERTIFIED-paper-as-warn', _lv('A-CERT') == ['WARN'] and 'NOT CERTIFIED' in _msg('A-CERT'))
+    _reset()
+
+    # ════════════════════════════════════════════════════════════════════════
+    # v2.44 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (LAW-CERT-1). The reader accepts EVERY certificate the writer
+    # can produce, and rejects every self-contradicting one. CERTGAP-16 is a writer->reader property test.
+    # ════════════════════════════════════════════════════════════════════════
+    _cdx = _p35; _sha44 = _sha256_file(_cdx); _cpx = os.path.join(tmp, 'cert_gap44.json')
+    def _cg(cert, late=None):
+        _reset(); json.dump(cert, open(_cpx, 'w')); _s44 = {}
+        _ns44 = argparse.Namespace(docx=_cdx, certificate=_cpx)
+        gate_cert(_s44, _ns44)
+        for _q44, _g44 in (late or []):
+            _item(_g44, _q44, 'x', 'VOID_ITEM')
+        gate_cert_late(_s44, _ns44)
+        return [l for l, c, m in RESULTS if c == 'A-CERT'], ' '.join(m for l, c, m in RESULTS if c == 'A-CERT')
+    _b44 = {'schema': 2, 'docx_sha256': _sha44, 'amber_notes': []}
+    _inc44 = dict(_b44, findings=6, uncertified_items=[], disclosed_items=['3', '10', '21', '23', '27', '33'],
+                  certified=True, auditor='audit_canonical v2.36', phase='precommit', gate_ids=list(ITEM_GATE_IDS))
+    _r44 = _cg(_inc44)
+    check('CERTGAP-1 the incident certificate (schema 2, 6 findings on 6 disclosed items) -> OK, certified with disclosures',
+          _r44[0] == ['OK'] and 'WITH DISCLOSURES' in _r44[1] and 'unresolved' not in _r44[1])
+    check('CERTGAP-2 disclosed-only + the same findings again at S13-4c -> OK',
+          _cg(dict(_b44, findings=1, uncertified_items=[], disclosed_items=['3'], certified=True), late=[('3', 'A-DISTRACTOR')])[0] == ['OK'])
+    check('CERTGAP-3 disclosed + a finding on an item NOT accepted -> FAIL (determinism), ONE A-CERT line',
+          _cg(dict(_b44, findings=1, uncertified_items=[], disclosed_items=['3'], certified=True), late=[('4', 'A-CONSIST')])[0] == ['FAIL'])
+    check('CERTGAP-4 uncertified + disclosed -> WARN NOT CERTIFIED',
+          _cg(dict(_b44, findings=2, uncertified_items=['2'], disclosed_items=['3'], certified=False))[0] == ['WARN'])
+    check('CERTGAP-5 findings > 0 and no item listed -> FAIL contract',
+          'contract violated' in _cg(dict(_b44, findings=2, uncertified_items=[], disclosed_items=[], certified=True))[1])
+    check('CERTGAP-6 certified flag contradicts uncertified_items (the hand workaround) -> FAIL contract',
+          _cg(dict(_b44, findings=6, uncertified_items=['3', '10'], disclosed_items=[], certified=True))[0] == ['FAIL'])
+    check('CERTGAP-7 legacy schema 2 without disclosed_items, clean -> OK',
+          _cg(dict(_b44, findings=0, uncertified_items=[], certified=True))[0] == ['OK'])
+    check('CERTGAP-8 findings missing / non-integer / negative / bool / numeric string -> FAIL contract',
+          all(_cg(dict(_b44, uncertified_items=[], **_k))[0] == ['FAIL'] for _k in
+              ({}, {'findings': 'x'}, {'findings': -1}, {'findings': True}, {'findings': '6'}, {'findings': 1.5})))
+    check('CERTGAP-9 an item on both lists counts as UNCERTIFIED -> WARN',
+          _cg(dict(_b44, findings=1, uncertified_items=['2'], disclosed_items=['2'], certified=False))[0] == ['WARN'])
+    check('CERTGAP-10 fewer findings than disclosed items -> FAIL contract',
+          _cg(dict(_b44, findings=1, uncertified_items=[], disclosed_items=['3', '4'], certified=True))[0] == ['FAIL'])
+    check('CERTGAP-11 unknown schema (1, 4, missing) -> FAIL contract',
+          all(_cg(dict(_b44, findings=0, **_k))[0] == ['FAIL'] for _k in ({'schema': 1}, {'schema': 4}, {'schema': None})))
+    _row3 = [{'q': '3', 'gate': 'A-DISTRACTOR', 'disposition': 'escalated'}]
+    check('CERTGAP-12 schema 3 accepted_findings consistent -> OK; row count off -> FAIL',
+          _cg(dict(_b44, schema=3, findings=1, uncertified_items=[], disclosed_items=['3'], escalated_items=['3'],
+                   certified=True, accepted_findings=_row3))[0] == ['OK']
+          and _cg(dict(_b44, schema=3, findings=2, uncertified_items=[], disclosed_items=['3'], escalated_items=['3'],
+                       certified=True, accepted_findings=_row3))[0] == ['FAIL'])
+    _r13 = _cg(dict(_inc44, docx_sha256='0' * 64))
+    check('CERTGAP-13 changed docx FAILs first, with the changed-paper message (no contract text)',
+          _r13[0] == ['FAIL'] and 'changed after' in _r13[1] and 'contract' not in _r13[1])
+    # R1 — the regression the 2026-11-17 hand-over patch would have introduced: an UNRESOLVED item whose finding no
+    # longer fires this sweep. The writer lists it (A-QUALITYSTATUS reads the stamp) with findings 0.
+    check('CERTGAP-14 uncertified item with no finding this sweep (findings 0) -> WARN NOT CERTIFIED, never INVALID',
+          _cg(dict(_b44, findings=0, uncertified_items=['2'], disclosed_items=[], certified=False))[0] == ['WARN']
+          and cert_contract(dict(_b44, schema=3, findings=0, uncertified_items=['2'], disclosed_items=[],
+                                 certified=False, accepted_findings=[]))['state'] == 'NOT_CERTIFIED')
+    # the writer side of the incident: six findings on six ESCALATED (BC1) items -> schema 3, read OK
+    _reset()
+    for _q44, _g44 in (('3', 'A-DISTRACTOR'), ('10', 'A-CONSIST'), ('21', 'A-DISTRACTOR'), ('23', 'A-DISTRACTOR'),
+                       ('27', 'A-DISTRACTOR'), ('33', 'A-DISTRACTOR')):
+        _item(_g44, _q44, 'x', 'VOID_ITEM')
+    DISCLOSED_ITEMS.update({'3', '10', '21', '23', '27', '33'}); ESCALATED_ITEMS.update({'3', '10', '21', '23', '27', '33'})
+    _wc44 = os.path.join(tmp, 'cert_w44.json')
+    class _W44:
+        docx = _cdx
+        item_findings = None
+        write_certificate = _wc44
+        phase = 'precommit'
+    _ok44 = write_item_outputs(_W44())
+    _c44 = json.load(open(_wc44, encoding='utf-8')) if os.path.exists(_wc44) else {}
+    _rr44 = _cg(_c44, late=[('3', 'A-DISTRACTOR'), ('10', 'A-CONSIST'), ('21', 'A-DISTRACTOR'), ('23', 'A-DISTRACTOR'),
+                            ('27', 'A-DISTRACTOR'), ('33', 'A-DISTRACTOR')])
+    check('CERTGAP-15 writer -> reader round trip of the incident: schema 3, 6 escalated rows, S13-4c re-sweep OK',
+          _ok44 is True and _c44.get('schema') == 3 and _c44.get('findings') == 6 and _c44.get('certified') is True
+          and _c44.get('escalated_items') == ['3', '10', '21', '23', '27', '33']
+          and all(r['disposition'] == 'escalated' for r in _c44.get('accepted_findings') or [{}])
+          and _rr44[0] == ['OK'] and 'ESCALATED items' in _rr44[1])
+    # PROPERTY: every certificate the writer writes is read without INVALID, in the state its inputs imply, and the
+    # S13-4c re-sweep on identical inputs never FAILs A-CERT. 600 seeded random papers.
+    import random as _rnd44
+    _gen = _rnd44.Random(20261117)
+    _pbad = []
+    _gates44 = ('A-DISTRACTOR', 'A-CONSIST', 'A-STEMLEAK', 'A-OPTDISTINCT', 'A-TEMPLATE')
+    for _t44 in range(600):
+        _reset()
+        _qs44 = [str(x) for x in range(1, 13)] + ['12a']
+        _fq = _gen.sample(_qs44, _gen.randint(0, 6))
+        _rows44 = [(q, _gen.choice(_gates44)) for q in _fq for _k in range(_gen.randint(1, 2))]
+        for q, g in _rows44:
+            _item(g, q, 'x', 'VOID_ITEM')
+        UNCERTIFIED_ITEMS.update(_gen.sample(_qs44, _gen.randint(0, 3)))
+        _hit = set(_gen.sample(_fq, _gen.randint(0, len(_fq)))) if _fq else set()
+        DISCLOSED_ITEMS.update(_hit); ESCALATED_ITEMS.update(set(_gen.sample(sorted(_hit), _gen.randint(0, len(_hit)))))
+        if os.path.exists(_wc44):
+            os.remove(_wc44)
+        _open = [q for q, g in _rows44 if q not in UNCERTIFIED_ITEMS and q not in DISCLOSED_ITEMS]
+        import contextlib as _ctx44, io as _io44
+        with _ctx44.redirect_stdout(_io44.StringIO()):
+            _w = write_item_outputs(_W44())
+        if _open:
+            if _w is not False or os.path.exists(_wc44):
+                _pbad.append((_t44, 'wrote with open items'))
+            continue
+        if _w is not True or not os.path.exists(_wc44):
+            _pbad.append((_t44, 'refused a writable certificate'))
+            continue
+        _cw = json.load(open(_wc44, encoding='utf-8'))
+        _v44 = cert_contract(_cw)
+        _exp = ('NOT_CERTIFIED' if UNCERTIFIED_ITEMS else
+                'CERTIFIED_WITH_DISCLOSURES' if (DISCLOSED_ITEMS - UNCERTIFIED_ITEMS) else 'CERTIFIED')
+        if _v44['state'] != _exp:
+            _pbad.append((_t44, _v44['state'], _exp, _v44['why']))
+            continue
+        _lvl44 = _cg(_cw, late=_rows44)[0]
+        if _lvl44 != (['WARN'] if _exp == 'NOT_CERTIFIED' else ['OK']):
+            _pbad.append((_t44, 'reader', _lvl44))
+    check('CERTGAP-16 PROPERTY (600 seeded papers): every written certificate is read in its expected state; the '
+          'S13-4c re-sweep on identical inputs never FAILs A-CERT; open items are never certified', not _pbad)
+    if _pbad:
+        print('   CERTGAP-16 counter-examples:', _pbad[:5])
+    _reset()
+    check('CERTGAP-17 an item list naming question None (a paper-level finding) -> FAIL contract',
+          _cg(dict(_b44, findings=1, uncertified_items=[], disclosed_items=[None], certified=True))[0] == ['FAIL'])
+    _reset(); _item('A-DISTRACTOR', None, 'x', 'VOID_ITEM')
+    check('CERTGAP-18 a finding with q None is never accepted: the writer writes no certificate',
+          write_item_outputs(_W44()) is False)
+    _r19 = _cg(dict(_b44, findings=2, uncertified_items=[], disclosed_items=['12a', '3'], certified=True),
+               late=[('12a', 'A-CONSIST')])
+    check('CERTGAP-19 non-numeric question ids are compared as text and sorted without raising',
+          _r19[0] == ['OK'] and _cert_sorted(['12a', '3', '10']) == ['3', '10', '12a'])
+    check('CERTGAP-20 gate_cert failed early (docx changed): the late half adds nothing — exactly ONE A-CERT line',
+          _cg(dict(_inc44, docx_sha256='f' * 64), late=[('5', 'A-DISTRACTOR')])[0] == ['FAIL'])
+    check('CERTGAP-21 a list that is not a list (a string / number) -> FAIL contract',
+          _cg(dict(_b44, findings=1, uncertified_items=[], disclosed_items='3', certified=True))[0] == ['FAIL']
+          and _cg(dict(_b44, findings=0, uncertified_items=7, certified=True))[0] == ['FAIL'])
+    check('CERTGAP-22 escalated_items outside disclosed_items, or a disposition that disagrees -> FAIL contract',
+          _cg(dict(_b44, schema=3, findings=1, uncertified_items=[], disclosed_items=['3'], escalated_items=['4'],
+                   certified=True, accepted_findings=_row3))[0] == ['FAIL']
+          and _cg(dict(_b44, schema=3, findings=1, uncertified_items=[], disclosed_items=['3'], escalated_items=[],
+                       certified=True, accepted_findings=_row3))[0] == ['FAIL']
+          and _cg(dict(_b44, schema=3, findings=1, uncertified_items=[], disclosed_items=['3'], certified=True,
+                       accepted_findings=[{'q': '3', 'gate': 'A-X', 'disposition': 'uncertified'}]))[0] == ['FAIL']
+          and _cg(dict(_b44, schema=3, findings=1, uncertified_items=[], disclosed_items=['3'], certified=True,
+                       accepted_findings=[{'q': '3', 'gate': 'A-X', 'disposition': 'bogus'}]))[0] == ['FAIL'])
+    check('CERTGAP-23 schema 3: a disclosed item with no accepted_findings row -> FAIL contract',
+          _cg(dict(_b44, schema=3, findings=1, uncertified_items=['2'], disclosed_items=['3'], certified=False,
+                   accepted_findings=[{'q': '2', 'gate': 'A-X', 'disposition': 'uncertified'}]))[0] == ['FAIL'])
+    # the writer validates its own certificate with the reader's function: a contradiction never reaches S13-4c
+    _reset(); _item('A-DISTRACTOR', '3', 'x', 'VOID_ITEM'); DISCLOSED_ITEMS.update({'3', '9'})   # Q9: no finding
+    _ifp44 = os.path.join(tmp, 'if44.json')
+    class _W44b(_W44):
+        item_findings = _ifp44
+    if os.path.exists(_wc44):
+        os.remove(_wc44)
+    _wb44 = write_item_outputs(_W44b())
+    _wl44 = json.load(open(_ifp44, encoding='utf-8')) if os.path.exists(_ifp44) else {}
+    check('CERTGAP-24 writer self-check: a certificate its own reader would reject is NOT written; the worklist names '
+          'certificate_error CERT-CONTRACT', _wb44 is False and not os.path.exists(_wc44)
+          and str(_wl44.get('certificate_error', '')).startswith('CERT-CONTRACT'))
+    _reset()
+    _hdr44 = re.search(r'^# (v\d+\.\d+) — ', open(os.path.abspath(__file__), encoding='utf-8').read(), re.M)
+    check('CERTGAP-25 AUDITOR_ID equals the newest header version of this file',
+          bool(_hdr44) and AUDITOR_ID == 'audit_canonical ' + _hdr44.group(1))
+    _wkeys44 = {'schema', 'docx_sha256', 'phase', 'gate_ids', 'findings', 'amber_notes', 'accepted_findings',
+                'uncertified_items', 'disclosed_items', 'escalated_items', 'certified', 'auditor'}
+    check('CERTGAP-26 closure: CERT_OUTCOME covers exactly QUALITY_STATUS_PREFIXES; every written key is read or info-only',
+          set(CERT_OUTCOME) == set(QUALITY_STATUS_PREFIXES) and set(CERT_OUTCOME.values()) <= {'none', 'uncertified', 'disclosed'}
+          and set(_c44) == _wkeys44 and _wkeys44 == set(CERT_READ_FIELDS) | set(CERT_INFO_ONLY)
+          and not (set(CERT_READ_FIELDS) & set(CERT_INFO_ONLY)))
+    # C4 (owner decision 2026-11-17, SAFE): a CURRENT paper's per-batch audit never says 'pre-2026.11.03'; levels unchanged
+    _pb44 = {'concept_map': {'1': {'subtopic_id': 'oc.x', 'text_fingerprint': 'abc'}}}
+    _lg44 = {'concept_map': {'1': {'subtopic_id': 'oc.x'}}}
+    check('CERTGAP-27 producer detection: producer_release / quality_readiness / a v7+ item field -> current; bare legacy -> not',
+          _paper_is_current(dict(_lg44, producer_release='2026.11.23')) and _paper_is_current(dict(_lg44, quality_readiness={'controls': {}}))
+          and _paper_is_current(_pb44) and _paper_is_current({'concept_map': {'1': {'key_votes': {'rule': 'BC1'}}}})
+          and not _paper_is_current(_lg44) and not _paper_is_current(dict(_lg44, producer_release='2026.10.01'))
+          and not _paper_is_qq(_pb44))
+    _reset(); _qq_fail_or_amber('A-DISTRACTOR', 'ITEM DEFECT — x', _pb44)
+    _cur44 = (_lv('A-DISTRACTOR'), _msg('A-DISTRACTOR'))
+    _reset(); _qq_fail_or_amber('A-DISTRACTOR', 'ITEM DEFECT — x', _lg44)
+    _leg44 = (_lv('A-DISTRACTOR'), _msg('A-DISTRACTOR'))
+    check('CERTGAP-28 per-batch label: current paper -> WARN with the in-batch label (no pre-2026.11.03); legacy -> unchanged',
+          _cur44[0] == ['WARN'] and 'pre-2026.11.03' not in _cur44[1] and 'PRE-REVIEW' in _cur44[1]
+          and _leg44[0] == ['WARN'] and 'pre-2026.11.03 paper, EC-V18' in _leg44[1])
+    _reset(); gate_qualitystatus(_pb44, None); gate_review(_pb44, argparse.Namespace(phase='batch'))
+    check('CERTGAP-29 dormant A-QUALITYSTATUS / A-REVIEW lines on a current per-batch paper say per-batch, not pre-2026.11.03',
+          _lv('A-QUALITYSTATUS') == ['OK'] and _lv('A-REVIEW') == ['OK']
+          and 'pre-2026.11.03' not in _msg('A-QUALITYSTATUS') + _msg('A-REVIEW'))
+    import inspect as _ins44
+    _ra44 = _ins44.getsource(run_audit)
+    check('CERTGAP-30 run order: gate_cert_late runs after both reconciles and before print_results / the writer',
+          _ra44.index('_lb_reconcile_disclosed(src)') < _ra44.index('gate_cert_late') < _ra44.index('rc = print_results()')
+          < _ra44.index('_okw = write_item_outputs(args)'))
     _reset()
 
     # ══════════════════════════════════════════════════════════════════════════

@@ -1240,11 +1240,12 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "Final Assembly starts no sub-agent, writes no question text and opens no chain: S13-1 ASSEMBLE (fa.assemble_final_docx byte copy; fa.bc_check_bound) -> S13-2F -> S13-2P -> S13-2L.0 -> S13-3 onward; an item finding there is an engine defect stamped ESCALATED with a P0 record, never a repair.",
+   "requires": "Final Assembly starts no sub-agent, writes no question text and opens no chain: S13-1 ASSEMBLE (fa.assemble_final_docx byte copy; fa.bc_check_bound) -> S13-2F -> S13-2P -> S13-2L.0 -> S13-3 onward; an item finding there is an engine defect stamped ESCALATED with a P0 record, never a repair. (2026.11.23, LAW-CERT-1) An ESCALATED item is carried in the certificate's disclosed_items and escalated_items, and A-CERT accepts it as CERTIFIED WITH DISCLOSURES — the paper is delivered with its AMBER line, never stopped.",
    "verified_by": [
     "audit_sync.py (BC-COVERAGE)",
     "handshake_audit.py --self-test (H-BC)",
-    "audit_canonical.py --self-test"
+    "audit_canonical.py --self-test",
+    "handshake_audit.py --self-test (H5-CERT-DISCLOSED)"
    ]
   },
   "LAW-BC-9 INFRASTRUCTURE-IS-NOT-QUALITY": {
@@ -1263,6 +1264,24 @@
     "final_assembly.py --self-test (bv_no_reviewer_never_a_stop)",
     "blueprint_core.py --self-test (bc_K10_no_model, bc_K12_no_model)",
     "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-CERT-1 ONE-CERTIFICATE-CONTRACT": {
+   "gap": "GAP-2026-11-17-CERT-DISCLOSED-CONTRACT",
+   "stated_in": "Framework_MockTestCreate.md v8.2 S13-CERT / S13-2F / S13-4c; audit_canonical v2.44 cert_contract",
+   "detect": "certificate_contract_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text makes the auditor write (--write-certificate) or read (--certificate) the S13-2F certificate.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER INSTRUCTION 2026-11-17 (\"permanently fixed for all 200 exams\"): the certificate writer and A-CERT disagreed on disclosed_items and every paper with an ESCALATED item stopped at S13-4c. Owner decision 2026-11-17 (SAFE): in-batch handling of auditor item findings is unchanged; only the per-batch label is made truthful."
+   ],
+   "requires": "The S13-2F certificate is read ONLY through audit_canonical.cert_contract, which the writer also applies to its own certificate before writing. States CERTIFIED / CERTIFIED_WITH_DISCLOSURES (A-CERT OK) / NOT_CERTIFIED (WARN) / INVALID (FAIL CERT-CONTRACT). Every quality_status prefix has ONE certificate outcome (CERT_OUTCOME) and a writer->reader round-trip self-test, added in the same release as the prefix. A contract FAIL at S13-4c is CERT-CONTRACT: no registry restore, no heal cycle, a P0 record. The registry reaches outputs only after S13-4c passed.",
+   "verified_by": [
+    "audit_sync.py (CERT-CONTRACT)",
+    "audit_canonical.py --self-test (CERTGAP-1..CERTGAP-30)",
+    "handshake_audit.py --self-test (H5-CERT-DISCLOSED, H5-V7-SIDECAR)"
    ]
   }
  },

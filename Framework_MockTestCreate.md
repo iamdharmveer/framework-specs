@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v8.1
+# Framework_MockTestCreate v8.2
+# v8.2 — 2026-11-17 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (release 2026.11.23; paired with audit_canonical v2.44,
+#   LAW-CERT-1). Live CSIR_NET_CHEMICAL_SCIENCES Organic paper (release 2026.11.22) stopped at S13-4c: S13-2F wrote a
+#   certificate with 6 findings on 6 ESCALATED (LAW-BC-8) items in disclosed_items, and A-CERT, which read only
+#   uncertified_items, rejected it ("6 unresolved item finding(s)") on every heal. Now ONE contract (auditor
+#   cert_contract) is used by the writer and by A-CERT; S13-2F documents the certificate fields (§S13-CERT)
+#   and stops CERT-CONTRACT if the writer refuses its own certificate; S13-4c raises CERT-CONTRACT at once (no
+#   registry restore, no heal cycle — a deterministic defect cannot heal) with a P0 record, quotes the failing gate
+#   lines instead of a fixed list of causes, and removes a registry this run staged in outputs on any stop;
+#   S13-REGCHECK no longer writes the registry to outputs — S13-7 stages it only after S13-4c passed, running S13-4c
+#   itself when no pass is recorded for that registry (a paper parked on an older release: no new stop) (C7). S3-14 /
+#   S3-16 stamp producer_release (the running VERSION) so the per-batch auditor knows a current paper (its label no
+#   longer reads 'pre-2026.11.03 paper'; verdict levels and the in-batch flow are unchanged — owner decision
+#   2026-11-17). No deliverable, end state or user action changes.
 # v8.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (release 2026.11.22; paired with blueprint_core, MockReview
 #   v2.3.1, DeliveryFooter v1.52.1). Live CSIR batch 1 on v8.0: every question reached the rung-3 TEXT fallback and
 #   lost its figure. Under modes 'ladder' / 'counted' (STEP A2): a reviewer defect code acts only when
@@ -4012,8 +4025,15 @@ action: the same paper, the same two files, the same "continue".
       # v5.4 FIX: was 'section_rules_text' (undefined) — silently defaulted False via
       # NameError catch, so msq_allow_aota was ALWAYS ignored. Now reads sr_text (S3-2).
       _aota = bool(re.search(r'^\s*msq_allow_aota\s*:\s*true\s*$', sr_text, re.M | re.I))
+      # v8.2 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT G4): the release that PRODUCES this paper, written ONCE here
+      # (this block never rewrites an existing sidecar, so a resume keeps the original). The per-batch auditor reads
+      # it to tell a current paper from a pre-2026.11.03 one before any registry entry exists.
+      _pr_rel = next((open(_vp, encoding='utf-8').read().strip() for _vp in
+                      ('/tmp/fw/VERSION', '/tmp/fw_effective/VERSION', os.path.join(os.getcwd(), 'VERSION'))
+                      if os.path.exists(_vp)), None) or __import__('blueprint_core').QQ_RELEASE
       json.dump({
           "answers": {}, "sources": {},
+          "producer_release": _pr_rel,
           "msq_meta": {
               "multi_select_allowed": bool(bp.get('multi_select_allowed', False)),
               "total_options"       : int(bp.get('total_options', 4)),
@@ -4135,6 +4155,11 @@ action: the same paper, the same two files, the same "continue".
   batch_state = {
       'exam_code': EXAM,
       'mock_n': N,
+      # v8.2 (G4): the producing release, the same value S3-14 wrote into the sidecar (never rewritten on resume:
+      # S3-16 runs only for a paper with no batch_state). Read by the per-batch auditor for producer detection.
+      'producer_release': (json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8')).get('producer_release')
+                           if os.path.exists(f'/home/claude/{EXAM}_M{N}_answer_key.json') else None)
+                          or __import__('blueprint_core').QQ_RELEASE,
       'paper_id': paper_id,          # C2: universal identity (mock == "MOCK:M{N:02d}")
       'registry_pin': REG_PIN,       # v5.84 REGISTRY-SOURCE-LAW R4: {fingerprint, source,
                                      # path} of the registry this run STARTED from (S3-1).
@@ -12043,10 +12068,21 @@ if AUDIT_AVAILABLE:
                                  f"the verified repo audit_canonical.py to /home/claude/{EXAM}_mock_test_audit.py, "
                                  f"run its --self-test, reinstall missing packages). STDERR:\n{_r.stderr[-3000:]}")
     _wl = json.load(open(_ifj, encoding='utf-8'))
+    if _wl.get('certificate_error'):
+        # v8.2 (LAW-CERT-1): the auditor REFUSED to write a certificate its own reader (cert_contract) would reject —
+        # an engine defect, deterministic: no ladder, no heal can change it. Stop here, BEFORE the commit.
+        _bs_ce = json.load(open(_bsp, encoding='utf-8'))
+        _bs_ce.setdefault('p0_incidents', []).append({'kind': 'cert_contract', 'site': 'S13-2F', 'gate': 'A-CERT',
+                                                      'message': str(_wl['certificate_error'])})
+        json.dump(_bs_ce, open(_bsp, 'w', encoding='utf-8'), indent=2)
+        raise SystemExit(f"HARD STOP [HS:INFRA] CERT-CONTRACT (S13-2F, v8.2): the auditor refused its own certificate — "
+                         f"{_wl['certificate_error']}. This is a framework engine defect (LAW-CERT-1), never a question "
+                         f"to repair; nothing was committed. Report this line and the STDOUT above to the framework team; "
+                         f"present_files is forbidden (B-7).")
     if os.path.exists(_cert):                         # CLEAN sweep
         CERT = json.load(open(_cert, encoding='utf-8'))
         AMBER_NOTES = list(CERT.get('amber_notes') or [])   # -> DeliveryFooter §5 (DISCLOSED / ESCALATED lines)
-        UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # v5.96: always [] (OD-2026-11-09)
+        UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # v5.96: [] on a new paper (OD-2026-11-09); a migrated UNRESOLVED stamp may list items
         _bs2f = json.load(open(_bsp, encoding='utf-8'))
         _bs2f['uncertified_items'] = UNCERTIFIED_ITEMS
         _bs2f['escalated_paper'] = {'gates': list(_st.get('escalate') or []), 'sweep': _st['sweep']}   # -> S13-4c / S13-QINDEX
@@ -12066,8 +12102,12 @@ if AUDIT_AVAILABLE:
             if not str(_e.get('quality_status', '')).startswith(('DISCLOSED', 'ESCALATED')):   # v7.0: LAW-BC-8 stamps stay
                 _e['quality_status'] = 'CERTIFIED'
         json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
+        _esc2f = list(CERT.get('escalated_items') or [])
+        _dis2f = [q for q in (CERT.get('disclosed_items') or []) if q not in _esc2f]
         print(f"S13-2F: CERTIFIED after sweep {_st['sweep']} ({len(AMBER_NOTES)} amber note(s)"
-              + (f"; DISCLOSED items {CERT.get('disclosed_items')}" if CERT.get('disclosed_items') else '') + ").")
+              + (f"; ESCALATED items {_esc2f} (LAW-BC-8)" if _esc2f else '')
+              + (f"; DISCLOSED items {_dis2f}" if _dis2f else '')
+              + (f"; NOT CERTIFIED items {UNCERTIFIED_ITEMS}" if UNCERTIFIED_ITEMS else '') + ").")
     else:
         # v5.96 (OD-2026-11-09) — ONE routing decision for every survivor (bc.sweep_route): never a stop
         # for a quality or rule condition, never an UNRESOLVED stamp
@@ -13639,7 +13679,7 @@ if AUDIT_AVAILABLE:
 
   ```python
   # RUN-BLOCK S13-REGCHECK — not in the read; run it: python3 bootstrap.py --run-section S13-REGCHECK --exam <E> --paper <N>
-  # PARAMS: EXAM, N, bp, fa, json, os, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
+  # PARAMS: EXAM, N, bp, fa, json, paper_id (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
   registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
   # v4.7 (ND6 — MANDATORY): options_by_q needs the mock's concept_map + msq_meta. Same
@@ -13684,11 +13724,10 @@ if AUDIT_AVAILABLE:
               "or record the gap explicitly rather than leaving it silently "
               "inconsistent.")
 
-  # Persist healed registry to BOTH working dir and outputs:
+  # Persist the healed registry to the working dir ONLY. v8.2 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT C7): the
+  # committed registry reaches /mnt/user-data/outputs at S13-7, after the S13-4c re-sweep certified the paper —
+  # never before (a registry staged here stayed in outputs when S13-4c stopped, and could be uploaded).
   json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
-            indent=2, ensure_ascii=False)
-  os.makedirs('/mnt/user-data/outputs', exist_ok=True)
-  json.dump(registry, open(f'/mnt/user-data/outputs/{EXAM}_registry.json', 'w'),
             indent=2, ensure_ascii=False)
 
   REGCHECK_OK = True
@@ -13813,6 +13852,33 @@ if AUDIT_AVAILABLE:
   It is INERT for every downstream step (Steps 9 and 11 neither read nor require it)
   and absent-safe: a pre-v5.35 paper simply has none.
 
+## S13-CERT — The S13-2F certificate: one contract (v8.2 — LAW-CERT-1 ONE-CERTIFICATE-CONTRACT)
+
+  `/home/claude/[ExamCode]_M[N]_item_sweep_certificate.json` is written by the auditor's S13-2F run
+  (`--phase precommit --write-certificate`) and read by its S13-4c run (`--certificate`, gate A-CERT). It has ONE
+  definition: `audit_canonical.cert_contract`. The writer validates its own certificate with it before writing (a
+  refusal is `certificate_error` in the item-findings file and S13-2F stops CERT-CONTRACT); A-CERT reads only through
+  it. No spec block, engine or person reads or edits these fields any other way — a hand-edited certificate is INVALID.
+
+  | Field | Meaning |
+  | --- | --- |
+  | `schema` | 3 (written from audit_canonical v2.44); 2 (v2.35–v2.43) is still read |
+  | `docx_sha256` | the certified docx; S13-4c checks it FIRST (a changed paper is INFRA) |
+  | `findings` | the number of ACCEPTED item findings — never "unresolved" ones (an open finding means no certificate) |
+  | `accepted_findings` | schema 3: one row per accepted finding `{q, gate, disposition}`; disposition `uncertified` / `disclosed` / `escalated`; `len == findings` |
+  | `uncertified_items` | items stamped UNRESOLVED (OD-9, migrated papers) — the paper is NOT CERTIFIED (A-CERT WARN; Deliver refuses without --accept-uncertified). Such an item may carry no finding this sweep |
+  | `disclosed_items` | items stamped DISCLOSED (exhausted chain, OD-2026-11-09) or ESCALATED (BC1, LAW-BC-8) — CERTIFIED WITH DISCLOSURES (A-CERT OK); each carries ≥ 1 accepted finding and an AMBER footer line |
+  | `escalated_items` | the ESCALATED subset of `disclosed_items` (the footer names them apart: an engine-side P0, not an exhausted chain) |
+  | `certified` | `true` exactly when `uncertified_items` is empty |
+  | `amber_notes` | the AMBER WARN lines carried to DeliveryFooter §LADDER |
+  | `phase`, `gate_ids`, `auditor` | information (`auditor` = the auditor's `AUDITOR_ID`) |
+
+  States: CERTIFIED / CERTIFIED WITH DISCLOSURES (A-CERT OK, exit 0) — NOT CERTIFIED (WARN, exit 0) — INVALID (FAIL
+  "certificate contract violated … CERT-CONTRACT", exit 1). Every `quality_status` prefix has ONE certificate outcome
+  (audit_canonical `CERT_OUTCOME`: CERTIFIED none, UNRESOLVED uncertified, DISCLOSED disclosed, ESCALATED disclosed); a
+  new prefix needs its outcome and a writer→reader round-trip self-test in the SAME release (CI gate CERT-CONTRACT).
+  Enforced by audit_canonical self-tests CERTGAP-1..CERTGAP-30 and handshake H5-CERT-DISCLOSED.
+
 ## S13-4c — DOSSIER-FED RE-SWEEP (v5.40 — the wiring, restored)
 
   THE DEFECT THIS REPAIRS. Through v5.35 the dossier crossed a step boundary: Step 7
@@ -13828,7 +13894,8 @@ if AUDIT_AVAILABLE:
   dossier, so the file does not exist yet at that point. Ordering makes S13-2 impossible.
 
   THE RULE. Immediately after S13-4b writes the dossier, and ONLY when AUDIT_AVAILABLE,
-  re-run the auditor once over the final docx WITH the flag. The effective command is:
+  re-run the auditor once over the final docx WITH the flag. (v8.2: the S13-4c BLOCK itself always runs — when it
+  passes it records batch_state['s13_4c_passed'], the registry S13-7 then stages in outputs.) The effective command is:
 
   ```
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
@@ -13850,15 +13917,28 @@ if AUDIT_AVAILABLE:
   ```python
   # RUN-BLOCK S13-4c — not in the read; run it: python3 bootstrap.py --run-section S13-4c --exam <E> --paper <N>
   # PARAMS: AUDIT_AVAILABLE, AUDIT_ENV, BP_SRC_PATH, EXAM, N, STIM_ACTIVE, STIM_PROFILE_PATH, _docx, _out, re, subprocess (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
-  # DEFINES: _infra4c(site, msg)
+  # DEFINES: _infra4c(site, msg), _unstage_registry4c()
   _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'   # v5.89 (S13-2F)
   import json, os, blueprint_core as bc
   _bs4c_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _bs4c = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
   _esc4c = _bs4c.get('escalated_paper') or {}
+  def _unstage_registry4c():
+      # v8.2 (C7): the outputs folder never holds a registry S13-4c did not certify. S13-7 stages it only after this
+      # block passed; a copy left by an older run of THIS paper (release <= 2026.11.22 staged it at S13-REGCHECK) goes.
+      _op4c = f'/mnt/user-data/outputs/{EXAM}_registry.json'
+      if os.path.exists(_op4c):
+          os.remove(_op4c)
+          print(f"S13-4c: removed {EXAM}_registry.json from outputs — it is staged only after S13-4c passes (S13-7).")
   def _infra4c(site, msg):
       # v5.96 (OD-2026-11-09): every S13-4c stop names its own repair — perform it automatically and re-run
       # this block; only after bc.INFRA_HEAL_MAX heals of the same site may it end the response
+      # v8.2 (C7): no registry S13-4c did not certify stays in outputs (self-contained: this function is also
+      # lifted out and exercised alone by handshake_audit H-LB)
+      _op_i4c = f"/mnt/user-data/outputs/{globals().get('EXAM')}_registry.json" if globals().get('EXAM') else None
+      if _op_i4c and os.path.exists(_op_i4c):
+          os.remove(_op_i4c)
+          print(f"S13-4c: removed {os.path.basename(_op_i4c)} from outputs — it is staged only after S13-4c passes (S13-7).")
       _b = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
       _act, _b['infra_heal'], _n = bc.infra_heal_step(_b.get('infra_heal'), site)
       json.dump(_b, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
@@ -13923,16 +14003,31 @@ if AUDIT_AVAILABLE:
       if _r.returncode != 0:
           # v5.89: S13-2F certified this docx against the PREVIEW of this very commit
           # with every gate (no FAIL line of any gate), and AMBER advisories are WARN
-          # lines (no exit 1). v5.96 (OD-2026-11-09): a finding that sits ONLY on DISCLOSED items
-          # (exhausted chains) is reconciled by the auditor to an AMBER WARN line (a legacy
-          # UNRESOLVED stamp likewise) — it never exits 1 either. A non-zero exit
-          # here therefore means the committed record differs from its preview, or the
-          # docx changed after certification (A-CERT) — INFRASTRUCTURE, never a
-          # question-quality matter.
+          # lines (no exit 1). v8.2 (LAW-CERT-1): A-CERT reads the certificate ONLY through the auditor's
+          # cert_contract — a certificate whose accepted findings sit only on uncertified_items (NOT CERTIFIED, WARN)
+          # or disclosed_items (DISCLOSED / ESCALATED: CERTIFIED WITH DISCLOSURES, OK) never exits 1 (self-tests
+          # CERTGAP-1..30, handshake H5-CERT-DISCLOSED). A non-zero exit here is one of: (a) A-CERT "certificate
+          # contract violated" — a writer/reader engine defect, deterministic: CERT-CONTRACT below, no heal;
+          # (b) A-CERT "paper changed after" / "not deterministic" — the docx or the item gates differ from S13-2F;
+          # (c) another gate — the committed record differs from its preview. (b) and (c) heal by the restore.
+          _fl4c = [l for l in (_r.stdout or '').splitlines() if l.startswith('[ FAIL]')]
+          if _fl4c and all(re.search(r'\]\s+A-CERT\s', l) and 'certificate contract violated' in l for l in _fl4c):
+              _unstage_registry4c()
+              _b_cc = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
+              _b_cc.setdefault('p0_incidents', []).append({'kind': 'cert_contract', 'site': 'S13-4c', 'gate': 'A-CERT',
+                                                           'message': _fl4c[0][:600]})
+              json.dump(_b_cc, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
+              raise SystemExit(
+                  "HARD STOP [HS:INFRA] CERT-CONTRACT (S13-4c, v8.2): A-CERT rejected the S13-2F certificate by "
+                  "contract — " + _fl4c[0].split('A-CERT', 1)[-1].strip()[:400] + ". This is a framework engine defect "
+                  "(LAW-CERT-1), deterministic: restoring the registry or re-running S13-2F cannot change it, so no "
+                  "heal cycle is spent. Do NOT edit the certificate by hand (an edited certificate is INVALID). Report "
+                  "this line and the STDOUT above to the framework team; present_files is forbidden (B-7).")
           _infra4c('S13-4c-2',
-              "HARD STOP [HS:INFRA] (S13-4c re-sweep, v5.89): the committed paper fails a gate "
-              "its S13-2F preview passed (or A-CERT: the docx changed after certification) — "
-              "see STDOUT above. The registry is committed: restore "
+              "HARD STOP [HS:INFRA] (S13-4c re-sweep, v8.2): the committed paper fails "
+              + "; ".join(l.replace('[ FAIL]', '').strip()[:220] for l in _fl4c[:4])
+              + (f" (+{len(_fl4c) - 4} more)" if len(_fl4c) > 4 else '')
+              + " — see STDOUT above. The registry is committed: restore "
               "/home/claude/[ExamCode]_registry.json from REG_SRC['path'] (the registry this "
               "run started from, S3-1), then re-run S13-2F, "
               "S13-4 and this re-sweep. present_files is forbidden until clean (B-7).")
@@ -14014,6 +14109,16 @@ if AUDIT_AVAILABLE:
       for _k4 in [k for k in (_bs4c.get('infra_heal') or {}) if str(k).startswith('S13-4c')]:
           _bs4c['infra_heal'] = bc.infra_heal_clear(_bs4c.get('infra_heal'), _k4)   # this re-sweep passed
       json.dump(_bs4c, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
+  # v8.2 (C7): reached only when no stop above was raised — record WHICH registry S13-4c passed, so S13-7 stages
+  # exactly that file in outputs (and nothing staged before this point can survive a stop: _unstage_registry4c).
+  import hashlib as _hl4c
+  _reg4c = f'/home/claude/{EXAM}_registry.json'
+  _bs4m = json.load(open(_bs4c_p, encoding='utf-8')) if os.path.exists(_bs4c_p) else {}
+  _bs4m['s13_4c_passed'] = {'audited': bool(AUDIT_AVAILABLE and os.path.exists(_out)),
+                            'registry_sha256': (_hl4c.sha256(open(_reg4c, 'rb').read()).hexdigest()
+                                                if os.path.exists(_reg4c) else None)}
+  json.dump(_bs4m, open(_bs4c_p, 'w', encoding='utf-8'), indent=2)
+  print(f"S13-4c: PASSED — registry certified for staging ({str(_bs4m['s13_4c_passed']['registry_sha256'])[:12]}).")
   ```
 
   v5.48.0: this re-sweep now ALSO arms A-QINDEX (the engine-enforced FK gate over the
@@ -14159,8 +14264,57 @@ if AUDIT_AVAILABLE:
   ```python
   # RUN-BLOCK S13-7 — not in the read; run it: python3 bootstrap.py --run-section S13-7 --exam <E> --paper <N>
   # PARAMS: EXAM, N, fa, paper_id, pp (names from the paper's session; --set NAME=<json> or --set-file NAME=<path> gives one)
-  import os, json
+  import os, json, shutil, hashlib
   out = '/mnt/user-data/outputs'
+  # v8.2 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT C7): stage the committed registry in outputs NOW — and only the
+  # registry S13-4c passed (batch_state['s13_4c_passed'], written at the end of S13-4c). Before v8.2 S13-REGCHECK
+  # staged it before S13-4c ran, so a stopped run left an uncertified registry in outputs. No marker for this
+  # registry -> S13-7 runs S13-4c itself and continues (never a new stop).
+  _reg7 = f'/home/claude/{EXAM}_registry.json'
+  _bs7p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  _m7 = (json.load(open(_bs7p, encoding='utf-8')) if os.path.exists(_bs7p) else {}).get('s13_4c_passed') or {}
+  _sha7 = hashlib.sha256(open(_reg7, 'rb').read()).hexdigest() if os.path.exists(_reg7) else None
+  if not _m7 and globals().get('AUDIT_AVAILABLE', True) is False and _sha7:
+      _m7 = {'audited': False, 'registry_sha256': _sha7}      # no machine audit in this run (S4-11 note): nothing to wait for
+      print("S13-7: no machine audit ran (AUDIT_AVAILABLE false) — the registry is staged without an S13-4c verdict.")
+  if _sha7 and _m7.get('registry_sha256') != _sha7:
+      # v8.2 (no new stop): S13-4c has not passed for THIS registry — a paper parked on release <= 2026.11.22 after its
+      # S13-4c (that release wrote no marker), or a registry changed after S13-4c. S13-7 re-runs S13-4c ITSELF — the
+      # verified RUN-BLOCK, a re-sweep, nothing re-authored — in its own process on the paper's saved session, then
+      # carries on. Only a real S13-4c verdict can end the response here, in S13-4c's own words.
+      import sys, subprocess, blueprint_core as bc
+      _fw7 = os.path.dirname(os.path.abspath(fa.__file__))
+      print(f"S13-7: S13-4c has not passed for this registry (marker {str(_m7.get('registry_sha256'))[:12]}, file "
+            f"{_sha7[:12]}) — running S13-4c now (re-sweep, nothing re-authored).")
+      _r7 = subprocess.run([sys.executable, os.path.join(_fw7, 'bootstrap.py'), '--run-section', 'S13-4c',
+                            '--exam', str(EXAM), '--paper', str(N)], cwd=_fw7, capture_output=True, text=True)
+      _o7 = ((_r7.stdout or '') + (_r7.stderr or '')).strip()
+      if _o7:
+          print(_o7[-6000:])
+      _m7 = (json.load(open(_bs7p, encoding='utf-8')) if os.path.exists(_bs7p) else {}).get('s13_4c_passed') or {}
+      if _m7.get('registry_sha256') != _sha7:
+          _rel7 = [l for l in _o7.splitlines() if '[HS:' in l]        # S13-4c's tagged verdict lines
+          if _rel7 and 'INFRA-HEAL' not in _rel7[-1]:
+              raise SystemExit(_rel7[-1] + " (raised by S13-4c, run by S13-7)")      # S13-4c's own final verdict
+          # S13-4c asked for its own repair, or could not run in this session: the bounded INFRA-HEAL ladder of
+          # S13-4c (bc.INFRA_HEAL_MAX) — perform the repair, run S13-4c, then S13-7 again
+          _b7 = json.load(open(_bs7p, encoding='utf-8')) if os.path.exists(_bs7p) else {}
+          _act7, _b7['infra_heal'], _n7 = bc.infra_heal_step(_b7.get('infra_heal'), 'S13-4c-7')
+          json.dump(_b7, open(_bs7p, 'w', encoding='utf-8'), indent=2)
+          _why7 = (_rel7[-1] if _rel7 else (_o7.splitlines()[-1] if _o7 else f'exit {_r7.returncode}'))[:500]
+          if _act7 == 'heal':
+              raise RuntimeError(f"INFRA-HEAL [HS:LADDER] S13-4c-7 (attempt {_n7}/{bc.INFRA_HEAL_MAX}): S13-4c did not "
+                                 f"pass when S13-7 ran it — {_why7}. Perform the repair it names NOW, automatically, run "
+                                 f"S13-4c (python3 bootstrap.py --run-section S13-4c --exam {EXAM} --paper {N}), then "
+                                 f"re-run S13-7.")
+          raise SystemExit(f"HARD STOP [HS:INFRA] (S13-4c, run by S13-7): {_why7} — present_files is forbidden (B-7).")
+      print(f"S13-7: S13-4c passed ({_sha7[:12]}) — continuing.")
+  if not _sha7:
+      raise SystemExit(f"HARD STOP [HS:INFRA] (S13-7): /home/claude/{EXAM}_registry.json does not exist — S13-4 "
+                       "(the commit) has not run for this paper. Do NOT call present_files.")
+  os.makedirs(out, exist_ok=True)
+  shutil.copy(_reg7, os.path.join(out, f'{EXAM}_registry.json'))
+  print(f"S13-7: staged {EXAM}_registry.json in outputs (the registry S13-4c passed, {_sha7[:12]}).")
   # v5.28: paper_slug is ALWAYS pp.paper_slug(paper_id) — the single shared implementation
   # (paper_pipeline.py), replacing the old inline C2 v5.21 version. Zero-pads mocks to 2
   # digits (Mock01, not Mock1) and correctly collapses scoped "::" before remaining ":".
@@ -15034,7 +15188,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.1
+# END OF Framework_MockTestCreate v8.2
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

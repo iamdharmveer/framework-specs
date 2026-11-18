@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026.11.23 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT: a paper with an ESCALATED / DISCLOSED item finishes and is delivered (LAW-CERT-1)
+
+(over release 2026.11.22. audit_canonical v2.44 (cert_contract, gate_cert, gate_cert_late, certificate schema 3,
+AUDITOR_ID, producer detection for per-batch labels; self-tests CERTGAP-1..30); Framework_MockTestCreate v8.2 (S3-14 /
+S3-16 producer_release, S13-2F CERT-CONTRACT stop and certificate print, NEW §S13-CERT field table, S13-4c CERT-CONTRACT
+branch without a heal + gate-quoting stop text + registry unstaged on any stop + pass marker, S13-REGCHECK no longer
+stages the registry, S13-7 stages the registry S13-4c passed); handshake_audit (H5 schema 3, NEW H5-CERT-DISCLOSED,
+H5-V7-SIDECAR; 267 checks); audit_sync (NEW CERT-CONTRACT family, detect rule certificate_contract_rule);
+LAW_REGISTRY (NEW LAW-CERT-1, LAW-BC-8 amended); STEP_CONTRACTS (floor Create 8.2).)
+
+**Evidence (live CSIR_NET_CHEMICAL_SCIENCES, `TestCreate P1 --level subject --scope "Organic Chemistry"`, 40 questions,
+2026-11-17, on 2026.11.22 / 95899e0).** Final Assembly stopped `HARD STOP [HS:INFRA]` at S13-4c after three sweeps and two
+full heal cycles; no paper and no registry were delivered (a committed, uncertified registry was left in outputs). S13-2F
+wrote `findings: 6, uncertified_items: [], disclosed_items: [3, 10, 21, 23, 27, 33], certified: true` (six items stamped
+ESCALATED under LAW-BC-8). A-CERT read only `uncertified_items`, so it reported "6 unresolved item finding(s) — S13-2F
+did not finish". The writer had learned disclosed_items in v2.39 and ESCALATED items in v2.42; the reader never did, and
+no test read a certificate with disclosed_items.
+
+**What changed.**
+- ONE contract. `cert_contract` is the only reading of the certificate. The writer validates its own certificate with it
+  before writing; A-CERT reads only through it. States: CERTIFIED / CERTIFIED WITH DISCLOSURES (OK) / NOT CERTIFIED
+  (WARN, unchanged) / INVALID (FAIL "certificate contract violated", CERT-CONTRACT). Schema 3 adds accepted_findings
+  {q, gate, disposition uncertified | disclosed | escalated} and escalated_items; schema 2 certificates are still read,
+  so a parked paper resumes without re-authoring. A hand-edited certificate (items moved to uncertified_items) is
+  INVALID — it used to pass A-CERT and then fail Deliver.
+- An UNRESOLVED item whose finding no longer fires is still NOT CERTIFIED, never INVALID (the 2026-11-17 hand-over patch
+  would have turned this into a new stop).
+- The determinism half of A-CERT runs after every item gate and both reconciles; one A-CERT line.
+- S13-4c: a contract FAIL is `HARD STOP [HS:INFRA] CERT-CONTRACT` at once — no registry restore, no heal cycle, a P0
+  record. Every S13-4c stop quotes the failing gate lines. The registry reaches outputs only at S13-7, after S13-4c
+  passed (marker batch_state.s13_4c_passed); any S13-4c stop removes a staged copy. When no pass is recorded for the
+  current registry (a paper parked on 2026.11.22 after its S13-4c, or a registry changed after S13-4c), S13-7 runs
+  S13-4c itself (`bootstrap.py --run-section S13-4c`, a re-sweep) and continues — no new stop; only a real S13-4c
+  verdict, in S13-4c's own words and bounded heals, can end the response there.
+- Per-batch audits of a current paper no longer print "pre-2026.11.03 paper, EC-V18" (the marker they relied on is not
+  written by v7+ Create). Owner decision 2026-11-17 (SAFE): verdict levels and the in-batch flow are unchanged — the
+  label now says the finding goes to STEP A2 PRE-REVIEW and, if still open at S13-2F, is delivered AMBER-ESCALATED.
+- CI: audit_sync CERT-CONTRACT fails the build when a quality_status prefix is written without a certificate outcome
+  and a round-trip self-test, when the writer adds a field nobody reads, when gate_cert reads a field directly, when
+  AUDITOR_ID drifts, or when S13-4c / S13-REGCHECK lose the fix.
+
+**After deploy.** Nothing to change in any of the 200 projects: every run audits with the verified repo auditor (Create
+S3). A paper parked at this stop resumes with `continue` in its chat: S13-2F re-runs, writes a schema-3 certificate and
+S13-4c passes. Do not upload the registry left in outputs by the stopped run.
+
 ## 2026.11.22 — GAP-2026-11-17-FALLBACK-CASCADE: a sound Hard question is never rewritten into a text fallback (OD-2026-11-17)
 
 (over release 2026.11.21. blueprint_core (R3_SPLIT_FIX_RUNGS 2 -> 0; NEW R3_CODE_QUORUM, R3_FINDING_MAX_RUNG;
