@@ -1219,6 +1219,34 @@ for _f in (_LAWS_08B.get('LAW-BC-1 SETTLED-IN-BATCH') or {}).get('governs') or [
         _sec = _bc_section(TXT[_f], _sid)
         if _sec and 'LEGACY (migration only' not in _sec.split('\n', 1)[0]:
             rec('BC-COVERAGE', f"{_f}: {_sid} is legacy under LAW-BC-8 — its heading must say 'LEGACY (migration only'.")
+    # FA-TERM (2026.11.25, GAP-2026-11-19-S13-2F-LOOP; LAW-FA-TERM-1). Release 2026.11.24's S13-2F deleted its only
+    # sweep counter when it opened slot chains for already-ESCALATED items, so Final Assembly never reached its sweep-6
+    # escape and looped forever. The block must (1) use the persistent counter (bc.s13_2f_begin, batch_state['s13_2f'])
+    # and the ONE engine decision (bc.s13_2f_plan), naming bc.S13_2F_TOTAL_CAP; (2) never delete or pop the persistent
+    # counter anywhere in the spec; (3) leave the BATCH-COMPLETE path (the raise guarded by `if _BC1 or`) BEFORE any
+    # slot_chain_reopen / SLOT-CHAIN / LADDER-REPAIR line of the legacy route.
+    _s2f_ft = _live_text(_bc_section(TXT[_f], 'S13-2F'))
+    for _need in ('bc.s13_2f_begin(', 'bc.s13_2f_plan(', 'bc.S13_2F_TOTAL_CAP', "['s13_2f']"):
+        if _need not in _s2f_ft:
+            rec('FA-TERM', f"{_f}: S13-2F lacks {_need!r} — the persistent counter / the one engine decision of "
+                           f"LAW-FA-TERM-1 (Final Assembly must terminate on every paper).")
+    _all_ft = _live_text(TXT[_f])
+    for _bad_ft in ("pop('s13_2f'", 'pop("s13_2f"', "['s13_2f'] = {}", "['s13_2f'] = None", "del _bs_0['s13_2f']"):
+        if _bad_ft in _all_ft:
+            rec('FA-TERM', f"{_f}: {_bad_ft!r} resets the persistent S13-2F counter (LAW-FA-TERM-1).")
+    # every auditor call that passes the S13-2F escalations (S13-2F, S13-4c) also passes --escalate-early, so the
+    # confirmation sweep reaches the certificate's verdict (an early escalation demoted at S13-2F but FAILed at S13-4c
+    # would be a stop on a certified paper)
+    for _ln_ft in _all_ft.split('\n'):
+        if "'--escalate-paper'" in _ln_ft and "'--escalate-early'" not in _ln_ft:
+            rec('FA-TERM', f"{_f}: an auditor call passes --escalate-paper without --escalate-early — S13-4c would FAIL a "
+                           f"gate S13-2F escalated early: {_ln_ft.strip()[:120]}")
+    _gate_ft = _s2f_ft.find('if _BC1 or ')
+    for _late in ('slot_chain_reopen', 'SLOT-CHAIN [HS:LADDER]', 'LADDER-REPAIR [HS:LADDER] (S13-2F sweep'):
+        _ix = _s2f_ft.find(_late)
+        if _ix != -1 and (_gate_ft == -1 or _ix < _gate_ft):
+            rec('FA-TERM', f"{_f}: S13-2F reaches {_late!r} before the BATCH-COMPLETE exit (`if _BC1 or ...: raise "
+                           f"DELTA`) — a BATCH-COMPLETE paper must never open a chain or re-author at Final Assembly.")
 # CERT-CONTRACT (2026.11.23, GAP-2026-11-17-CERT-DISCLOSED-CONTRACT; LAW-CERT-1). The S13-2F certificate has ONE
 # definition (audit_canonical.cert_contract). Release 2026.11.22 shipped a writer (v2.39: disclosed_items; v2.42:
 # ESCALATED items in it) whose reader was never updated, and every paper with an ESCALATED item stopped at S13-4c. This

@@ -15,6 +15,13 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.45 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (paired with Framework_MockTestCreate v8.4,
+#   LAW-FA-TERM-1 / LAW-PLAN-CHECK-1 / LAW-RECORD-READER-1). A-QINDEX check 9 is MODE-AWARE (not applicable to count-free
+#   rows of modes ladder / counted; --difficulty-mode); the S13-2F worklist states every finding's DISPOSITION and every
+#   FAIL line's structured 'qs'; an accepted (settled) item accepts every finding on it; a disclosed composition gate's
+#   items are accepted; --escalate-early honours the engine's early escalation; A-SHAPEMIX uses the planner's effective
+#   targets and vocabulary, honours plan relief and reports AMBER — DISCLOSED once disclosed; A-CLASSMIX is dormant in
+#   partial-paper mode; A-AXIS1 does not count a fallback whose figure grant moved and discloses the figure floor.
 # v2.44 — 2026-11-23 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (paired with Framework_MockTestCreate v8.2, LAW-CERT-1).
 #   ONE certificate contract: cert_contract() is the ONLY reading of the S13-2F certificate; the writer
 #   (write_item_outputs) validates its own certificate with it before writing, and A-CERT (gate_cert at S13-4c)
@@ -1789,7 +1796,7 @@ def _axis_sections(src):
     return good, bad
 
 
-def gate_axis1(blocks, src):
+def _gate_axis1_core(blocks, src):
     """v2.24 — A-AXIS1 + A-AXIS-UNGATED (machine, per PAPER).
 
     THE GATE THAT WAS MISSING. Step 6 has written axis1_target_per_mock into
@@ -1843,7 +1850,10 @@ def gate_axis1(blocks, src):
     # disclosed fallback (footer INFORMATIONAL line), never an Axis-1 defect
     _fb_fig = set()
     for _q, _e in ((src.get('concept_map') or {}).items() if isinstance(src.get('concept_map'), dict) else []):
-        if isinstance(_e, dict) and isinstance(_e.get('bc_fallback'), dict) and _e['bc_fallback'].get('from_figure'):
+        if isinstance(_e, dict) and isinstance(_e.get('bc_fallback'), dict) and _e['bc_fallback'].get('from_figure') \
+                and not _e['bc_fallback'].get('regranted_to'):
+            # v2.45 (GAP-2026-11-19-FIGURE-LOSS F5): a fallback whose grant MOVED to a later slot is not counted at its
+            # planned format — the figure is delivered by the slot it moved to (never counted twice)
             try:
                 _fb_fig.add(int(_q))
             except (TypeError, ValueError):
@@ -2045,6 +2055,19 @@ def _axis1_observed(sec_qs, fig_in_sec, passage_n, di_qs, lo, hi):
     fig_n = len(fig_in_sec) if hasattr(fig_in_sec, '__len__') else 0
     return {'FIGURAL': fig_n, 'PASSAGE': int(passage_n or 0), 'DI': di_n,
             'TEXT': max(0, int(sec_qs or 0) - fig_n - int(passage_n or 0) - di_n)}
+
+
+def gate_axis1(blocks, src):
+    """A-AXIS1 (see _gate_axis1_core) + v2.45 (GAP-2026-11-19-FIGURE-LOSS F7, OD-F): a section delivering fewer figure
+    questions than its floor (bc.figure_floor: max(target - 1, ceil(0.75 x target))) is DISCLOSED as an AMBER line
+    naming the recorded reasons — never a FAIL, never a stop."""
+    _gate_axis1_core(blocks, src)
+    try:
+        import blueprint_core as _bcf
+        for _ln in _bcf.figure_floor_lines(src.get('figure_plan'), src.get('concept_map')):
+            _warn('A-AXIS1', 'AMBER — DISCLOSED ' + _ln)
+    except Exception:                                   # noqa: BLE001 — a disclosure never breaks the gate
+        pass
 
 
 def gate_axis1_overlap(blocks, src):
@@ -4994,7 +5017,7 @@ _QQ_V590_FIELDS = ('ask_format', 'difficulty_obs', 'option_identities', 'entitie
                    'clone_check', 'stereo_elements', 'stereo_gate', 'figures', 'last_resort',
                    'key_smiles', 'starting_smiles', 'reagents', 'answer_kind', 'task_template',
                    # v2.41 (GAP-2026-11-11): final_assembly v1.17 QINDEX_NF_FIELDS
-                   'subject', 'part', 'mip', 'given_in_stem', 'measured_axis2', 'text_fingerprint', 'stem_text', 'option_texts', 'manifest_hash')
+                   'subject', 'part', 'mip', 'given_in_stem', 'measured_axis2', 'text_fingerprint', 'stem_text', 'option_texts', 'manifest_hash', 's13_2f_cap')
 
 
 def _qq_cm(src):
@@ -5065,7 +5088,11 @@ def _lb_reconcile_disclosed(src):
     # an AMBER line, never repaired there. Only on a paper whose key votes carry rule 'BC1'.
     esc = {str(q) for q, e in cm.items() if isinstance(e, dict)
            and str(e.get('quality_status') or '').startswith('ESCALATED')
-           and (e.get('key_votes') or {}).get('rule') == 'BC1'}
+           and ((e.get('key_votes') or {}).get('rule') == 'BC1' or isinstance(e.get('s13_2f_cap'), dict))}
+    # v2.45 (GAP-2026-11-19-S13-2F-LOOP P3, LAW-FA-TERM-1): an item S13-2F stamped at its TOTAL SWEEP CAP (record
+    # 's13_2f_cap' written by the engine with the stamp) is accepted on a legacy paper too
+    disc |= {str(q) for q, e in cm.items() if isinstance(e, dict) and isinstance(e.get('s13_2f_cap'), dict)
+             and str(e.get('quality_status') or '').startswith('DISCLOSED')}
     disc |= esc
     if not disc:
         return
@@ -5088,11 +5115,37 @@ def _lb_reconcile_disclosed(src):
                     'delivered with this disclosure) items ')
             RESULTS[i] = ('WARN', code, _why + _flist(sorted(qs, key=lambda x: int(x) if x.isdigit() else 0))
                           + ' — ' + str(msg))
+    # v2.45 (P3): an ACCEPTED item accepts every finding on it — also one whose gate raised no FAIL line (a WARN-level
+    # gate, a gate below the QQ release): before this such a finding stayed 'open', blocked the certificate and sent
+    # S13-2F round again on an item it had already settled
+    hit |= {str(f.get('q')) for f in ITEM_FINDINGS if str(f.get('q')) in disc}
     DISCLOSED_ITEMS.update(hit)
     ESCALATED_ITEMS.update(hit & esc)      # v2.44: certificate disposition 'escalated' (DeliveryFooter names it)
 
 
-def _lb_escalate_paper(gates, sweep):
+def _nf_reconcile_items(src):
+    """v2.45 (GAP-2026-11-19-S13-2F-LOOP, sibling of D2): a COMPOSITION gate (bc.NF_DISCLOSE_GATES) that S13-2F has
+    disclosed in nf_disclosed reports AMBER — DISCLOSED, but its per-item findings (A-INTRADUP / A-KEYLEAK / A-OPTPART
+    / A-ALLOC / A-SHAPEMIX) stayed OPEN, so the certificate could never be written and S13-2F routed the items again.
+    An item ALL of whose findings sit on disclosed composition gates is accepted (disposition 'disclosed'); an item
+    that also carries another finding stays open (S13-2F decides it). Never raises."""
+    try:
+        nfg = set(_qq_bc().NF_DISCLOSE_GATES)
+        nfd = _nf_disclosed(src)
+    except Exception:
+        return
+    dis = {g for g in nfd if g in nfg}
+    if not dis:
+        return
+    by_q = {}
+    for f in ITEM_FINDINGS:
+        if f.get('q') is not None:
+            by_q.setdefault(str(f.get('q')), set()).add(str(f.get('gate')))
+    acc = {q for q, gs in by_q.items() if gs and gs <= dis}
+    DISCLOSED_ITEMS.update(acc)
+
+
+def _lb_escalate_paper(gates, sweep, early=False):
     """v2.39 (OD-2026-11-09) — S13-2F sweep cap: a PAPER-LEVEL FAIL (no item finding) of a gate named in
     --escalate-paper, on sweep >= bc.S13_2F_MAX_SWEEPS, is reported as an 'AMBER — ESCALATED' WARN: it
     survived every deterministic rebuild (reassemble / recapture) and is delivered disclosed, never a stop.
@@ -5107,13 +5160,16 @@ def _lb_escalate_paper(gates, sweep):
         sw = int(sweep)
     except (TypeError, ValueError):
         return
-    if not gs or sw < cap:
+    # v2.45 (P3, G13): `early` — S13-2F (bc.s13_2f_plan) escalated these gates BEFORE the sweep cap because a
+    # deterministic rebuild left the same FAIL message (a fixed point) or the total sweep cap was reached
+    if not gs or (sw < cap and not early):
         return
     with_items = {f.get('gate') for f in ITEM_FINDINGS}
     for i, (lvl, code, msg) in enumerate(list(RESULTS)):
         if lvl == 'FAIL' and code in gs and code not in infra and code not in with_items:
-            RESULTS[i] = ('WARN', code, f'AMBER — ESCALATED at S13-2F sweep {sw} (OD-2026-11-09: survived every '
-                                        f'rebuild; delivered with this disclosure) — {msg}')
+            RESULTS[i] = ('WARN', code, f'AMBER — ESCALATED at S13-2F sweep {sw} (OD-2026-11-09: '
+                                        + ('a deterministic rebuild left this finding unchanged' if sw < cap else
+                                           'survived every rebuild') + f'; delivered with this disclosure) — {msg}')
 
 
 def _block_item_hash(b):
@@ -5934,10 +5990,12 @@ def gate_shapemix(src):
         _ok('A-SHAPEMIX', 'dormant — partial-paper mode; the shape mix is a whole-paper target.')
         return
     # shape recorded as 'ask_type' or 'ask_type|grammar' — the plan keys are bare ask types
+    # v2.45 (GAP-2026-11-19-S13-2F-LOOP P7): one shape vocabulary (bc.canonical_shape — 'matching' is 'match')
+    _canon = getattr(bc, 'canonical_shape', lambda x: str(x).split('|')[0].strip())
     counts, items_by_shape = {}, {}
     for q, e in cm.items():
         if isinstance(e, dict) and e.get('shape'):
-            sh = str(e['shape']).split('|')[0].strip()
+            sh = _canon(e['shape'])
             counts[sh] = counts.get(sh, 0) + 1
             items_by_shape.setdefault(sh, []).append(str(q))
     # infeasibility is DERIVED from the artefacts (QQ-0): a planned shape no subtopic of
@@ -5948,12 +6006,21 @@ def gate_shapemix(src):
     for q, e in cm.items():
         qb = _qq_quality_for(src, q) or {}
         for k in (qb.get('shape_shares') or {}):
-            usable.add(str(k).split('|')[0].strip())
+            usable.add(_canon(k))
+    # v2.45 (P4 / P7, LAW-PLAN-CHECK-1): the SAME effective targets the planner used (bc.shape_targets_effective —
+    # aliases merged, s1 targets summing to the paper's slots, s2 / 'other' left to A-AXIS2)
+    _eff = getattr(bc, 'shape_targets_effective', None)
+    if _eff is not None:
+        per = _eff(per, len([q for q in cm if isinstance(cm.get(q), dict)]))
+        if not per:
+            _ok('A-SHAPEMIX', 'DORMANT — every shape target of this paper is s2 / other (A-AXIS2 reads them).')
+            return
     infeasible = [sh for sh in per if usable and sh not in usable]
     # the PLANNER's own record (S3-12d SHAPE_PLAN['_infeasible'], committed on the entry):
     # a floor it could not place with the slots it had is recorded, never a defect
     _ent = _qq_entry(src) or {}
-    for sh in (_ent.get('shape_infeasible') or []):
+    for sh in (_ent.get('shape_infeasible') or []):          # v2.45: includes the planner's plan relief (P4)
+        sh = _canon(sh)
         if sh in per and sh not in infeasible:
             infeasible.append(sh)
     per = {k: v for k, v in per.items() if k != 'other'}      # 'other' is not a shape to plan or count
@@ -5965,6 +6032,12 @@ def gate_shapemix(src):
         _ok('A-SHAPEMIX', 'DORMANT — every shape target of this paper is s2 (A-AXIS2 reads them).')
         return
     r = bc.shape_mix_check(counts, per, infeasible=infeasible)
+    if r['state'] == 'FAIL' and _nf_disclosed(src).get('A-SHAPEMIX'):
+        # v2.45 (P6, OD-A): the shape mix is a COMPOSITION target — once S13-2F (or the last batch's STEP B,
+        # fa.bc_last_batch_route) disclosed it, it is an AMBER line and names no item (nothing is re-authored)
+        _nf_verdict('A-SHAPEMIX', 'shape mix off the exam\'s measured plan: ' + _flist(
+            [f"{f['shape']} {f['count']} ({f['direction']})" for f in r['findings']]), src)
+        return
     if r['state'] == 'FAIL':
         # ITEM findings so the ladder has a question to move: an over-cap / excess shape
         # names its surplus items; a below-floor / shortfall shape names items of the
@@ -6556,6 +6629,12 @@ def gate_classmix(src):
     if not ct or not cm:
         _ok('A-CLASSMIX', 'dormant — no class targets in the blueprint (run the PYQ back-fill) or no concept_map.')
         return
+    if src.get('through_q'):
+        # v2.45 (GAP-2026-11-19-S13-2F-LOOP P8 / G14): the class mix is a WHOLE-PAPER target, exactly like the shape mix
+        # — an intermediate batch can never meet it, so it FAILed on every batch and every batch was delivered against
+        # Create S4-7 STEP E ('not delivered until the auditor is clean')
+        _ok('A-CLASSMIX', 'dormant — partial-paper mode; the class mix is a whole-paper target.')
+        return
     part = _nf_part_of(src)
     if not any(_nf_grader_meta(e) for e in cm.values() if isinstance(e, dict)):
         _ok('A-CLASSMIX', 'dormant — no blind-grader class record (grader_meta) on this paper.')
@@ -6856,6 +6935,7 @@ def run_audit(args):
     _reset()
     src = load_sources(args)
     src['_mockN'] = args.mockN
+    src['_difficulty_mode'] = getattr(args, 'difficulty_mode', None)   # v2.45 (P1)
     media_map = _safe_gate('gate_zip', gate_zip, args.docx) or {}
     # The docx itself is the audit SURFACE, not a gate: if it cannot be opened
     # there is genuinely nothing to audit. Still report it as a gate line and a
@@ -6969,7 +7049,9 @@ def run_audit(args):
     _safe_gate('A-DIFFGATE', gate_diffgate, src)               # v2.38 WARN-only — paper vs target plan
     _qq_reconcile_unresolved(getattr(args, 'phase', 'final'))  # OD-9: UNRESOLVED-only FAILs -> WARN
     _lb_reconcile_disclosed(src)                               # v2.39: exhausted-chain items -> AMBER WARN
-    _lb_escalate_paper(getattr(args, 'escalate_paper', None), getattr(args, 'sweep', None))
+    _nf_reconcile_items(src)                                   # v2.45: disclosed composition gates' items accepted
+    _lb_escalate_paper(getattr(args, 'escalate_paper', None), getattr(args, 'sweep', None),
+                       early=bool(getattr(args, 'escalate_early', False)))
     _safe_gate('A-CERT', gate_cert_late, src, args)            # v2.44: determinism half, AFTER every item gate
     rc = print_results()
     _okw = write_item_outputs(args)
@@ -7333,7 +7415,7 @@ def gate_cert(src, args):
 # cert_contract before writing). Readers: gate_cert / gate_cert_late (S13-4c). A new quality_status prefix MUST be
 # added to QUALITY_STATUS_PREFIXES and CERT_OUTCOME in the same release, with a writer->reader round-trip self-test
 # naming it (CI gate CERT-CONTRACT, mock_sync_audit MS-CERT).
-AUDITOR_ID = 'audit_canonical v2.44'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
+AUDITOR_ID = 'audit_canonical v2.45'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
 CERT_SCHEMAS = (2, 3)                              # 2: v2.35-v2.43 writers (still read); 3: v2.44+
 QUALITY_STATUS_PREFIXES = ('CERTIFIED', 'UNRESOLVED', 'DISCLOSED', 'ESCALATED')
 # The certificate outcome of each stamp prefix: 'none' (no accepted finding), 'uncertified' (uncertified_items ->
@@ -7459,12 +7541,27 @@ def gate_cert_late(src, args):
 def write_item_outputs(args):
     """--item-findings PATH: the S13-2F ladder worklist. --write-certificate PATH:
     written ONLY when no item finding remains and no FAIL line exists."""
+    # v2.45 (GAP-2026-11-19-S13-2F-LOOP P5): every item finding states its DISPOSITION ('escalated' / 'disclosed'
+    # = accepted, never routed again; 'open'), and every FAIL line names its questions in a structured 'qs' list
+    # (the gate's own item findings) — the consumer never parses free text for question numbers again
+    _esc_d = {str(x) for x in ESCALATED_ITEMS}
+    _dis_d = {str(x) for x in DISCLOSED_ITEMS}
+
+    def _disp(f):
+        q = str(f.get('q'))
+        return 'escalated' if q in _esc_d else 'disclosed' if q in _dis_d else 'open'
+
+    def _fl_qs(code):
+        return sorted({str(f.get('q')) for f in ITEM_FINDINGS if f.get('q') is not None
+                       and (f.get('gate') == code or str(f.get('gate')).startswith(str(code) + '-'))},
+                      key=lambda x: int(x) if x.isdigit() else 0)
     out = {'phase': getattr(args, 'phase', 'final'), 'docx': args.docx,
-           'item_findings': list(ITEM_FINDINGS),
+           'worklist_schema': 2,
+           'item_findings': [dict(f, disposition=_disp(f)) for f in ITEM_FINDINGS],
            'amber_findings': list(AMBER_ITEM_FINDINGS),       # v2.43 (D3): read by Create S4-7 STEP A2 (pre-review)
            # every FAIL line, so the S13-2F worklist also names non-item defects
            # (A-ANSKEY, A-SECHDR, A-QNFIRST, A-OPTREF, ...) for their ladder rule
-           'fail_lines': [{'check': c, 'message': str(m)} for lvl, c, m in RESULTS
+           'fail_lines': [{'check': c, 'message': str(m), 'qs': _fl_qs(c)} for lvl, c, m in RESULTS
                           if lvl == 'FAIL']}
     ip = getattr(args, 'item_findings', None)
     if ip:
@@ -7758,7 +7855,21 @@ def gate_qindex(src):
         if _obs_qs:
             try:
                 import blueprint_core as _bc9
-                _div = _bc9.difficulty_obs_diversity(qs, canon)
+                # v2.45 (GAP-2026-11-19-S13-2F-LOOP P1, LAW-RECORD-READER-1): MODE-AWARE. A row decided in a count-free
+                # mode (its committed 'difficulty_mode', or its record's 'mode', or the paper's mode passed by S13-2F)
+                # carries no author evidence — the band was measured by independent placement / reviewer counting.
+                _pm9 = src.get('_difficulty_mode')
+                _cf9 = getattr(_bc9, 'difficulty_mode_count_free', None)
+                if _cf9 is not None:
+                    _qs9 = [x for x in qs if not (_cf9(_pm9) or _cf9(x.get('difficulty_mode'))
+                                                  or _cf9((x.get('difficulty_obs') or {}).get('mode')
+                                                          if isinstance(x.get('difficulty_obs'), dict) else None))]
+                else:
+                    _qs9 = qs
+                if not _qs9 and qs:
+                    _ok('A-QINDEX', 'check 9 not applicable: labels measured by independent placement (mode ladder / '
+                                    'counted); evidence diversity applies only to author-counted evidence')
+                _div = _bc9.difficulty_obs_diversity(_qs9, canon) if _qs9 else []
                 if _div:
                     fails.append('check 9 (evidence diversity): ' + ' | '.join(_div))
             except ImportError:
@@ -13187,7 +13298,65 @@ def self_test():
     check('A-CERT-any-fail-blocks-and-is-listed-for-repair',
           write_item_outputs(_ca) is False and not os.path.exists(_cp)
           and json.load(open(_ca.item_findings))['fail_lines']
-          == [{'check': 'A-ANSKEY', 'message': 'answer key line before Q.1'}])
+          == [{'check': 'A-ANSKEY', 'message': 'answer key line before Q.1', 'qs': []}])   # v2.45 P5: structured qs
+    # v2.45 (GAP-2026-11-19-S13-2F-LOOP P5 / P3) — T-U7: dispositions + structured qs; a settled (BC1-ESCALATED)
+    # item accepts EVERY finding on it; a disclosed composition gate accepts items that carry only its findings;
+    # --escalate-early demotes a paper gate before the sweep cap
+    _cm245 = {'7': {'quality_status': 'ESCALATED(A-REVIEW)', 'key_votes': {'rule': 'BC1'}}, '8': {}, '9': {}}
+    _reset(); _item('A-REVIEW', '7', 'x'); _item('A-STEMLEAK', '7', 'warn-level gate, no FAIL line')
+    _item('A-REVIEW', '8', 'y'); RESULTS.append(('FAIL', 'A-REVIEW', 'Q7 Q8 disputed'))
+    _lb_reconcile_disclosed({'concept_map': _cm245}); write_item_outputs(_ca)
+    _w245 = json.load(open(_ca.item_findings))
+    check('v245-TU7-dispositions-and-structured-qs [v2.44-FAILS]',
+          sorted((f['q'], f['gate'], f['disposition']) for f in _w245['item_findings'])
+          == [('7', 'A-REVIEW', 'escalated'), ('7', 'A-STEMLEAK', 'escalated'), ('8', 'A-REVIEW', 'open')]
+          and _w245['fail_lines'] == [{'check': 'A-REVIEW', 'message': 'Q7 Q8 disputed', 'qs': ['7', '8']}]
+          and _w245.get('worklist_schema') == 2)
+    _reset(); _item('A-STEMLEAK', '7', 'warn-level gate, no FAIL line')
+    _lb_reconcile_disclosed({'concept_map': _cm245})
+    check('v245-settled-item-accepts-a-finding-with-no-fail-line [v2.44-FAILS]',
+          write_item_outputs(_ca) is True and os.path.exists(_cp))
+    if os.path.exists(_cp):
+        os.remove(_cp)
+    # S13-4c reads the REGISTRY only (no sidecar): a legacy item stamped at the S13-2F total cap is still accepted there
+    _reset(); _item('A-REVIEW', '5', 'x'); RESULTS.append(('FAIL', 'A-REVIEW', 'Q5'))
+    _lb_reconcile_disclosed({'concept_map': {}, '_mockN': 1, 'paper_id': 'MOCK:M01', 'registry': {'question_index': [
+        {'paper_id': 'MOCK:M01', 'mock': 1, 'questions': [{'q': 5, 'quality_status': 'DISCLOSED(A-REVIEW)',
+                                                           's13_2f_cap': {'sweep': 12, 'gates': ['A-REVIEW']}}]}]}})
+    check('v245-cap-stamp-honoured-from-registry-at-S13-4c', '5' in DISCLOSED_ITEMS
+          and [l for l, c, m in RESULTS if c == 'A-REVIEW'] == ['WARN'])
+    _reset(); _item('A-INTRADUP', '9', 'repeat'); RESULTS.append(('WARN', 'A-INTRADUP', 'AMBER — DISCLOSED x'))
+    _nf_reconcile_items({'nf_disclosed': {'A-INTRADUP': 'Q9'}, 'concept_map': _cm245})
+    check('v245-disclosed-composition-items-accepted [v2.44-FAILS]', write_item_outputs(_ca) is True)
+    if os.path.exists(_cp):
+        os.remove(_cp)
+    _reset(); _item('A-INTRADUP', '9', 'repeat'); _item('A-REVIEW', '9', 'disputed')
+    RESULTS.append(('FAIL', 'A-REVIEW', 'Q9'))
+    _nf_reconcile_items({'nf_disclosed': {'A-INTRADUP': 'Q9'}, 'concept_map': _cm245})
+    check('v245-mixed-item-stays-open', write_item_outputs(_ca) is False)
+    _reset(); RESULTS.append(('FAIL', 'A-CLUSTER', 'cluster split'))
+    _lb_escalate_paper('A-CLUSTER', 2)
+    _no_early = [l for l, c, m in RESULTS if c == 'A-CLUSTER']
+    _lb_escalate_paper('A-CLUSTER', 2, early=True)
+    check('v245-escalate-early-demotes-before-cap', _no_early == ['FAIL']
+          and [l for l, c, m in RESULTS if c == 'A-CLUSTER'] == ['WARN']
+          and 'left this finding unchanged' in [m for l, c, m in RESULTS if c == 'A-CLUSTER'][0])
+    _reset(); gate_classmix({'blueprint': {'class_target_per_mock': {'1': {'P': {'S': {'C-FACTUAL': 5}}}}}, '_mockN': 1,
+                             'through_q': 10, 'concept_map': {'1': {'grader_meta': {'class': 'C-FACTUAL'}}}})
+    check('v245-TU9-A-CLASSMIX-dormant-in-partial-mode [v2.44-FAILS]', [l for l, c, m in RESULTS if c == 'A-CLASSMIX'] == ['OK']
+          and 'partial-paper' in [m for l, c, m in RESULTS if c == 'A-CLASSMIX'][0])
+    # v2.45 (GAP-2026-11-19-FIGURE-LOSS F7): a section below its figure floor is an AMBER disclosure, never a FAIL
+    _reset()
+    try:
+        gate_axis1([], {'figure_plan': {'S': {'target': 8, 'granted': [str(i) for i in range(1, 9)]}},
+                        'concept_map': {'1': {'figure_files': ['q1.png']}}})
+    except Exception:                                   # noqa: BLE001 — the core may need blocks; the floor still runs
+        pass
+    check('v245-F7-figure-floor-amber-never-fail',
+          any(c == 'A-AXIS1' and l == 'WARN' and 'AMBER — DISCLOSED FIGURES (AMBER)' in m for l, c, m in RESULTS)
+          and not any(c == 'A-AXIS1' and l == 'FAIL' and 'floor' in m for l, c, m in RESULTS))
+    _reset(); RESULTS.append(('FAIL', 'A-GATEERROR', 'crash')); _lb_escalate_paper('A-GATEERROR', 12, early=True)
+    check('v245-infra-never-escalated', [l for l, c, m in RESULTS if c == 'A-GATEERROR'] == ['FAIL'])
     _reset(); RESULTS.append(('FAIL', 'A-FIGMARK', 'x'))
     check('A-CERT-item-gate-fail-blocks', write_item_outputs(_ca) is False)
     _reset(); RESULTS.append(('FAIL', 'A-DOCXOPEN', 'unreadable'))
@@ -13553,9 +13722,28 @@ def self_test():
     check('A-SHAPEMIX-floors-met', _lv('A-SHAPEMIX') == ['OK'] and 'floors met' in _msg('A-SHAPEMIX'))
     # release review: item findings (a donor item of the over-target shape), '|grammar'
     # suffix normalised, infeasibility DERIVED from the subtopic QUALITY blocks
-    _bp35c = {'shape_target_per_paper': {'1': {'product': {'target': 1, 'floor': 0, 'cap': 1}}}}
+    # v2.45 (P7): targets sum to the paper's 2 questions (a 1-of-2 vector is now rescaled to 2 — no longer a defect)
+    _bp35c = {'shape_target_per_paper': {'1': {'product': {'target': 1, 'floor': 0, 'cap': 1},
+                                               'statement': {'target': 1, 'floor': 0, 'cap': 1}}}}
     _reset(); gate_shapemix(_src35(blueprint=_bp35c, concept_map={'1': {'shape': 'product|none'}, '2': {'shape': 'product|arrow'}}))
     check('A-SHAPEMIX-above-cap-names-surplus-item', _lv('A-SHAPEMIX') == ['FAIL'] and 'above cap' in _msg('A-SHAPEMIX') and _items('A-SHAPEMIX') == ['2'])
+    # v2.45 (P6 / P7 / P4, T-U8): disclosed -> AMBER with no item; alias spellings count as one shape; a 32-of-40 target
+    # vector is judged on the effective (rescaled) targets; the planner's relief (committed shape_infeasible) honoured
+    _reset(); gate_shapemix(_src35(blueprint=_bp35c, nf_disclosed={'A-SHAPEMIX': 'x'},
+                                   concept_map={'1': {'shape': 'product|none'}, '2': {'shape': 'product|arrow'}}))
+    check('v245-A-SHAPEMIX-disclosed-is-amber-with-no-item [v2.44-FAILS]',
+          _lv('A-SHAPEMIX') == ['WARN'] and 'AMBER — DISCLOSED' in _msg('A-SHAPEMIX') and _items('A-SHAPEMIX') == [])
+    _bp245 = {'shape_target_per_paper': {'1': {'match': {'target': 1, 'floor': 1, 'cap': 2},
+                                               'matching': {'target': 1, 'floor': 1, 'cap': 2},
+                                               'direct': {'target': 2, 'floor': 1, 'cap': 3}}}}
+    _reset(); gate_shapemix(_src35(blueprint=_bp245, concept_map={'1': {'shape': 'match'}, '2': {'shape': 'matching'},
+                                                                   '3': {'shape': 'direct'}, '4': {'shape': 'direct'}}))
+    check('v245-A-SHAPEMIX-alias-spellings-are-one-shape [v2.44-FAILS]', _lv('A-SHAPEMIX') == ['OK'])
+    _bp245b = {'shape_target_per_paper': {'1': {'direct': {'target': 2, 'floor': 1, 'cap': 2},
+                                                'two_part': {'target': 1, 'floor': 1, 'cap': 1}}}}
+    _cm245b = {str(i): {'shape': 'direct' if i <= 4 else 'two_part'} for i in range(1, 7)}
+    _reset(); gate_shapemix(_src35(blueprint=_bp245b, concept_map=_cm245b))
+    check('v245-A-SHAPEMIX-targets-rescaled-to-N [v2.44-FAILS]', _lv('A-SHAPEMIX') == ['OK'])
     _rules35 = ('--- Subtopic: X ---\nsubtopic_id: oc.x\nQUALITY (v2.59):\n  n: 30\n  shape_shares: {"product|none": 1.0}\n  papers_measured: 3\n')
     _reset(); gate_shapemix(_src35(blueprint=_bp35, rules_txt=_rules35,
                                    concept_map={'1': {'shape': 'product', 'subtopic_id': 'oc.x'}, '2': {'shape': 'product', 'subtopic_id': 'oc.x'}}))
@@ -14369,6 +14557,29 @@ def self_test():
     check('v240-strict-obs-only-row-fails', [l for l, _ in _r40] == ['FAIL'] and 'strict_reject' in _r40[0][1]
           and [f['q'] for f in ITEM_FINDINGS if f['gate'] == 'A-QINDEX-LABEL'] == ['2'])
     check('v240-legacy-paper-unchanged', [l for l, _ in _q39([_hard1, dict(_hard1, q=2, subtopic_id='PHY.MECH.WORK')])] == ['OK'])
+    # v2.45 (GAP-2026-11-19-S13-2F-LOOP P1, T-U3): check 9 is NOT APPLICABLE to count-free rows (modes ladder /
+    # counted) — the incident's deterministic FAIL; a genuinely echoed author-counted paper still FAILs (control)
+    def _q245(qs, mode=None):
+        _reset()
+        gate_qindex({'total_questions': len(qs), 'blueprint': {k: v for k, v in _QBP.items() if k != 'difficulty_schedule'},
+                     '_mockN': 1, '_difficulty_mode': mode, 'registry': {'question_index': [
+                         {'paper_id': 'MOCK:M01', 'qindex_cert': {'framework_release': '2026.11.10'}, 'questions': qs}]}})
+        return [(l, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+    _lad245 = [_bc39.dl_set_label_basis_strict(
+        {'q': i, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Hard', 'qtype': 'mcq', 'difficulty_mode': 'ladder',
+         'difficulty_obs': {'qtype': 'mcq', 'mode': 'ladder'}, 'difficulty_check': {}},
+        'measured_exact', _L39, 'Hard', {'grader_1': 'Hard', 'grader_2': 'Hard', 'recipe': True}, _pk40)[0]
+        for i in range(1, 11)]
+    _r245 = _q245(_lad245)
+    check('v245-TU3-check9-not-applicable-on-ladder-rows [v2.44-FAILS]',
+          'FAIL' not in [l for l, _ in _r245] and any('check 9 not applicable' in m for _, m in _r245))
+    _lad245b = [dict(r, difficulty_mode=None) for r in _lad245]          # mode only on the record (older registry row)
+    check('v245-TU3-check9-reads-record-mode', 'FAIL' not in [l for l, _ in _q245(_lad245b)])
+    _echo245 = [dict(r, difficulty_mode=None, difficulty_obs=dict(_o39)) for r in _lad245]
+    _re245 = _q245(_echo245)
+    check('v245-TU3-check9-echo-control-still-fails', [l for l, _ in _re245] == ['FAIL']
+          and 'check 9 (evidence diversity)' in _re245[0][1])
+    check('v245-TU3-check9-paper-mode-flag', 'FAIL' not in [l for l, _ in _q245(_echo245, mode='ladder')])
     # HELD (owner 2026-11-10): a slot measured HARDER keeps its scheduled label — checks 6 AND 8 pass; the same row
     # without the recorded basis (a label below its own evidence) still FAILs check 8
     _BP39h = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 0, 'medium': 1, 'hard': 1}])
@@ -14618,6 +14829,12 @@ def main():
     ap.add_argument('--escalate-paper', dest='escalate_paper',
                     help='v2.39: comma list of paper-level gates S13-2F escalates to AMBER at its sweep cap.')
     ap.add_argument('--sweep', dest='sweep', type=int, help='v2.39: the S13-2F sweep number (with --escalate-paper).')
+    ap.add_argument('--escalate-early', dest='escalate_early', action='store_true',
+                    help='v2.45 (P3): honour --escalate-paper before the sweep cap (the engine found a fixed point or '
+                         'reached S13_2F_TOTAL_CAP).')
+    ap.add_argument('--difficulty-mode', dest='difficulty_mode',
+                    help='v2.45 (GAP-2026-11-19-S13-2F-LOOP P1): the paper\'s frozen difficulty mode (batch_state); '
+                         'A-QINDEX check 9 is not applicable in a count-free mode (ladder / counted).')
     # v2.34 GAP-2026-11-02 — S13-2F pre-commit item sweep + certificate
     ap.add_argument('--phase', choices=('precommit', 'final'), default='final',
                     help='precommit = S13-2F item sweep (before S13-4 commit); final = S13-4c')

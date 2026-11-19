@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.11.24",
+  "framework_version": "2026.11.25",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -219,11 +219,11 @@
       "bytes": 451530
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "6ceceb30522bce5dbdcede00f1e33dae9f036a14327012ec369eabe876cafd62",
-      "version_header": "# Framework_DeliveryFooter v1.53.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "7dbfe97a067b3045a3c63e4a735a0a0e6f52a465a620a6a3ef06ed575c926105",
+      "version_header": "# Framework_DeliveryFooter v1.54.0 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 1452,
-      "bytes": 91367
+      "lines": 1459,
+      "bytes": 92302
     },
     "Framework_MockDeliver.md": {
       "sha256": "ebfa0c50967e0dec1a5221d7c42253f95162a026c0f2bfd8260612bc2d4ae13d",
@@ -247,11 +247,11 @@
       "bytes": 326226
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "3504b9047dd03970371c9b6384ce0fcbcaff35d28a3f99bb437da4e58aac59fa",
-      "version_header": "# Framework_MockTestCreate v8.3",
+      "sha256": "dd51224938f6001fc27b1770275bcfcbafa28c19cca70ed27d8e5d0327c19c50",
+      "version_header": "# Framework_MockTestCreate v8.4",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 15308,
-      "bytes": 1073249
+      "lines": 15443,
+      "bytes": 1087245
     },
     "Framework_MockTestExplain.md": {
       "sha256": "d823609d7beadea8ed3a263f71d25c5daff8000918b1b61fac6937a2804693cb",
@@ -261,11 +261,11 @@
       "bytes": 325739
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "5d719cdf4730635ca840e10165255297e263acd5bc12a4921b1d62a5eac45b5d",
-      "version_header": "# Framework_MockTestOrchestrate v1.10.1",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.10.1",
-      "lines": 590,
-      "bytes": 49868
+      "sha256": "99279c281a5d82d46329883410a11a32e3ce8af5c4863971de0aeafd80bcde4a",
+      "version_header": "# Framework_MockTestOrchestrate v1.11.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.11.0",
+      "lines": 600,
+      "bytes": 50996
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -408,11 +408,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "413d4a720831434463ae138dd5570a2bd59bb5fe7a9763ed5f410572f88ea8cf",
+      "sha256": "4e08faf8b61160bfcece554635ce1772f136aae355b9c2d1230df01e8ab25339",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 32446,
-      "bytes": 1966579
+      "lines": 33635,
+      "bytes": 2048707
     },
     "paper_pipeline.py": {
       "sha256": "25f74f92563048ba49414f241135882a42de9e85b9b185cb58c520a2e22b9fb4",
@@ -422,11 +422,11 @@
       "bytes": 177322
     },
     "final_assembly.py": {
-      "sha256": "9802019906fb57426ecf05d7b901d34c773418ca7d67d99664213107c15e2feb",
+      "sha256": "007ae94e58db69c953c22184996f52289cdabbca0cfd1f65c4b8d7e8336f9dcb",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 4771,
-      "bytes": 329041
+      "lines": 5108,
+      "bytes": 354208
     },
     "corpus_io.py": {
       "sha256": "c114a277466cbcbe437be7de2499b79ec361e6d9c89d0baf8e21feb0695912da",
@@ -471,11 +471,11 @@
       "bytes": 41224
     },
     "audit_canonical.py": {
-      "sha256": "a887f7b3ad93dffecf82ff5ae2bc594371c82b647fa38f7ce33c5afd1724db32",
+      "sha256": "f8126384df94e639dc69342abe6b3bd6bc8ff158227f0284bd7af0cba6a038b7",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 14741,
-      "bytes": 900758
+      "lines": 14958,
+      "bytes": 917923
     },
     "spec_source.py": {
       "sha256": "b33e1f70d0bc15befe5b04814edde9cae4fea681bcaaac30378f01f8c8e7efc2",
@@ -569,25 +569,25 @@
       "bytes": 92076
     },
     "handshake_audit.py": {
-      "sha256": "64bad2809c7ec0b054f84c6ebd9fc91140302e17b8ccb2753f5d22c71a19ff67",
+      "sha256": "cd79b8752898e4177be16774d654915ec0be49220d63a8483707781129b76d63",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(__doc__)",
-      "lines": 2176,
-      "bytes": 185303
+      "lines": 2248,
+      "bytes": 190706
     },
     "LAW_REGISTRY.json": {
-      "sha256": "d7e17ecb06cbd592f908da5716239b011d6de85301e75fc018f9c0c34f47cc37",
+      "sha256": "cea1772c16bc4a8818e20123e2c5fcc1bfad840faaee4537462ebb9b78f407ae",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 1340,
-      "bytes": 119205
+      "lines": 1401,
+      "bytes": 125992
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "e67bb578c1955a6eaa2a45d6ef637b08ad95986d707dcc05b5f3f5fad20f25ad",
+      "sha256": "64749acc4e87e639f17fdac5c07c616cbad3a0fb45b4516f2be5dc269c47a302",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 9429,
-      "bytes": 258969
+      "bytes": 258977
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -604,11 +604,11 @@
       "bytes": 6600
     },
     "STEP_CONTRACTS.json": {
-      "sha256": "4931650d45609bfc159a4d33c694ac439eca3dc1804ba84f55c4fee3de10bcf2",
+      "sha256": "c0092eb917ace868a409ccbf0aed07a72cc7cb2a2de14e7cae99f3329a032908",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 127,
-      "bytes": 11439
+      "bytes": 11667
     },
     "SESSION_BUDGET.json": {
       "sha256": "9ca1f4b2e658caad44b61c4f8d9ef1dc5ac0035f701a9e338d5ee243011525d9",

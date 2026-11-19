@@ -1,5 +1,78 @@
 # Changelog
 
+## 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS: Final Assembly always terminates; a figure question stays a figure question
+
+(over release 2026.11.24, commit b7027b6. blueprint_core v2.10 (self-test 1575); audit_canonical v2.45 (691);
+final_assembly v1.26.0 (245); handshake_audit (268, NEW H5-S13-2F-TERMINATION); audit_sync (NEW FA-TERM);
+Framework_MockTestCreate v8.4; Framework_MockTestOrchestrate v1.11.0; Framework_DeliveryFooter v1.54.0; LAW_REGISTRY
+(NEW LAW-FA-TERM-1, LAW-PLAN-CHECK-1, LAW-RECORD-READER-1; LAW-BC-2 / LAW-BC-6 / LAW-BC-8 amended); STEP_CONTRACTS
+floors (Create 8.4, Orchestrate 1.11.0, DeliveryFooter 1.54.0). Owner decisions OD-A..OD-F, 2026-11-19: "1000%
+permanently fixed for all 200 exams", "no new hard stop".)
+
+**Evidence.** A TestCreate subject paper (BATCH-COMPLETE, mode 'ladder', 40 questions, all written, reviewed and bound)
+never left Final Assembly on 2026.11.24: A-QINDEX check 9 failed deterministically on count-free 'ladder' records
+(N identical (None, None, False) tuples); S13-2F passed items already stamped ESCALATED back to sweep_route, which
+routed them to REPLACE from sweep 4; the slot-chain branch deleted the only sweep counter, so the sweep-6 escape was
+unreachable; the worker ended the loop with a stop text of its own. The 8 item findings came from the shape planner
+filling shapes to their CAP while its checker allows target ± max(1, 15 %) (82 % of random 40-slot plans failed their
+own checker; the blueprint's targets summed to 32 of 40 and listed 'match' and 'matching'). A second paper of the same
+project certified only after 7 sweeps with a false "values appear COPIED" AMBER line. Separately, 18 of 50 planned
+figure questions became text: every rung 3 was the TEXT fallback whatever the defect's location, and R5b always kept
+the last (text) version although earlier figure versions were confirmed 3/3.
+
+**What changed.**
+- Termination (LAW-FA-TERM-1): one persistent S13-2F counter (batch_state['s13_2f']) that no branch resets; one engine
+  decision per sweep (bc.s13_2f_plan); a BATCH-COMPLETE paper's item finding is ESCALATED once and an accepted finding
+  is never routed again; a paper-level FAIL that a rebuild leaves unchanged is escalated (AMBER) at once; at
+  S13_2F_TOTAL_CAP (12) every remaining finding is delivered with an AMBER line on every paper; a missing preview is a
+  protocol step, not a counted tool fault. Proven by a termination harness (named edge cases + 2,000 seeded random
+  sequences in the self-test; 10,000 offline) and by the real S13-2F block + real auditor in handshake H5. A disclosed
+  composition gate's per-item findings (A-INTRADUP / A-KEYLEAK / A-OPTPART / A-ALLOC) no longer block the certificate
+  (a sibling of the same loop). The auditor states each finding's disposition and each FAIL line's questions.
+- Difficulty record (LAW-RECORD-READER-1): check 9 is not applicable to count-free rows (modes ladder / counted —
+  row difficulty_mode, now committed to the registry, the record's mode, or --difficulty-mode); the engine writes
+  difficulty_obs in those modes, so the verdict no longer depends on the worker. A genuinely echoed counted band still
+  FAILs.
+- Shapes (LAW-PLAN-CHECK-1): one vocabulary (aliases of one F-05.1 ask format are one shape); effective targets that sum
+  to the paper's slots (s2 / 'other' reserved) — no blueprint refresh needed; the planner balances to its checker's
+  own band and records relief; the shape mix is a composition disclosure (A-SHAPEMIX in NF_DISCLOSE_GATES); a writer's
+  drift is caught in its own batch (pre-review G-SHAPEPLAN); the last batch's whole-paper decision is the engine's
+  (fa.bc_last_batch_apply; LAW-BC-6 amended); A-CLASSMIX is dormant on partial papers.
+- Figures: rung 3 follows the defect's location (text rebuild keeps the figure, figure rebuild redraws it, the TEXT
+  fallback only after two failed figure proofs); R5b prefers a confirmed figure version; a wording ambiguity with a
+  unanimous key is capped at rung 2; the fallback marker is written when chosen; pre-review G-FIG-STEREO and
+  G-FIG-SCALE; a lost grant is re-granted to a later capable slot; the figure floor (max(target - 1, ceil(0.75 x
+  target))) is an AMBER disclosure.
+- Migration (S4-12.2, bc.migrate_s13_2f_loop): a paper parked by the loop resumes with "continue" — chains Final
+  Assembly opened with no attempt are removed, composition-only ESCALATED stamps become disclosures, P0 records are
+  re-classified, the counter starts at 0; no question text, review record or bound hash changes.
+- Orchestrate O3-8: every "<CODE> [HS:LADDER]" is an instruction; a worker never composes its own stop text.
+
+**No new stop.** Every new path ends in a certificate (AMBER lines where something is disclosed). The only stops are the
+pre-existing INFRA ones (a tool still broken after INFRA_HEAL_MAX heals; CERT-CONTRACT). Deliverables, end states and
+user actions are unchanged.
+
+**Pre-deploy review fixes (same release; two full independent passes over every changed line).** (1) The S4-12.2
+migration and the figure re-grant read THIS paper's blueprint (fa.bv_paper_blueprint: the one whose paper-n allocation
+holds every subtopic of the slot map), never the first blueprint file found. (2) S3-12d gives the planner the same full
+shape vector A-SHAPEMIX reads (s2 / 'other' set aside identically on both sides; no reserved slots). (3) At the total
+cap an item finding with no question number (a phantom) can no longer loop: the sweep is recorded as a tool fault
+(P0 s13_2f_unroutable) on the EXISTING INFRA route; no new stop. (4) The last batch's whole-paper decision discloses a
+paper-level composition FAIL that names no question and re-opens only questions of an earlier batch. (5) A figure
+restored by R5b is not a text fallback (no fallback amber, no second re-grant); the re-grant skips a slot that already
+has a figure; its footer line is INFORMATIONAL with the (tier, text) shape S13-2L.0 reads. (6) s13_2f_cap round-trips
+sidecar -> registry -> auditor at S13-4c. (7) S13-4c passes --escalate-early with --escalate-paper (an early S13-2F
+escalation would otherwise FAIL at S13-4c — a new stop); audit_sync FA-TERM now fails any auditor call missing it.
+(8) verify_difficulty_obs accepts the engine's count-free record; the check-9 window rule keeps its r1 / w1 pairing with
+Step 9. (9) The figure plan reaches fig_manifest at every batch. (10) Every new engine function returns its documented
+default on hostile input (28 functions x 3,000 random malformed calls: 0 raise).
+
+**Verified (final).** Self-tests: blueprint_core 1575/1575, audit_canonical 691/691, final_assembly 245/245,
+handshake_audit 268/268; validate_framework_md 0 issues / 25 files; audit_sync 0 findings (FA-TERM proven to fail on
+a planted missing --escalate-early); termination simulator 10,000 random papers: 0 loops, 0 violations, max 15 sweeps
+(every stop an injected tool fault beyond bc.INFRA_HEAL_MAX or a phantom auditor defect — both the pre-existing INFRA
+route); run_ci_gates.py; bootstrap on a fresh production clone with the release files laid over it.
+
 ## 2026.11.24 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1: every slot at its planned band, correct questions, the figure target kept
 
 (over release 2026.11.23. blueprint_core (Cluster R3.1: pooled placement r3.1, two-sided boundary anchors, upper probe,

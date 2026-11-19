@@ -1,4 +1,8 @@
-# Framework_MockTestOrchestrate v1.10.1
+# Framework_MockTestOrchestrate v1.11.0
+# v1.11.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP (release 2026.11.25; paired with Framework_MockTestCreate v8.4):
+#   O3-8 — every "<CODE> [HS:LADDER]" an executed block raises is an instruction, never a stop; a worker that judges an
+#   instruction would break a law runs the law-compliant branch the block offers and writes one FRAMEWORK NOTE — it
+#   never composes a stop text of its own (the run that ended with a worker-written "S13-2F-LOOP" stop). No new stop.
 # v1.10.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with Framework_MockTestCreate v7.3.1,
 #   bootstrap): O2-1 runs --install-agents and records --lean-agents BEFORE the first worker (the first round's job size
 #   depends on it); O2-10 an early standby carries on with the report it was started from; O2-6 names the
@@ -510,6 +514,12 @@ MANDATE 0 covers the CHAT BLOCK FILE, the worker report and the final line: no q
 v1.1.0 (MTC MANDATE 0b): an "INFRA-HEAL [HS:LADDER]", "SLOT-CHAIN [HS:LADDER]", "DELTA [HS:LADDER]" or
 "REVIEW-VOID [HS:LADDER]" is NOT a stop — the worker performs what it names and continues in the same
 turn. A worker never reports HARD_STOP for a stop the executed block did not raise at that point.
+v1.11.0 (GAP-2026-11-19-S13-2F-LOOP): the rule covers EVERY "<CODE> [HS:LADDER]" (LADDER-REPAIR included) — an
+instruction, never a stop. A worker that judges that the next instruction would break a law in LAW_REGISTRY (for
+example, writing question text at Final Assembly, LAW-BC-8) does not compose a stop: it runs the step again, takes
+the law-compliant branch the executed block offers, and records ONE FRAMEWORK NOTE naming the law and the site (Create
+S13-2F v8.4 has no branch that writes text or opens a chain on a BATCH-COMPLETE paper, so this cannot recur there).
+Only a "HARD STOP [...]" the executed block itself raises ends the turn.
 
 ## O4-1 — Budgets (SESSION_BUDGET.json; never copy a value into a run)
 
@@ -587,4 +597,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.10.1
+# END OF Framework_MockTestOrchestrate v1.11.0

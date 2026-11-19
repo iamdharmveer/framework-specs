@@ -18,6 +18,15 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.26.0 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25). bv_batch_step: in a
+    count-free mode the ENGINE writes difficulty_obs (bc.difficulty_obs_engine_record; the worker's record archived as
+    difficulty_obs_author, its moves kept as author_moves); the gate context carries the slot's planned shape
+    (G-SHAPEPLAN) and the question's FigureSpec records (G-FIG-SCALE); a granted figure slot that settles as the TEXT
+    fallback re-grants its figure to the first capable unwritten slot (bc.figure_regrant; NEW bv_figure_capable_qs for a
+    plan frozen earlier). NEW bc_last_batch_route / bc_last_batch_apply — the last batch's whole-paper decision
+    (disclose a composition shortfall, re-open drift and item gates; LAW-BC-6 amended). QINDEX_V589_FIELDS carry
+    difficulty_mode and shape_drift (A-QINDEX check 9 reads the mode).
+
     v1.24.1 — GAP-2026-11-15-RUN-ANALYSIS second pass (release 2026.11.20). NEW bc_stimulus_fill: a stimulus-set
     member's reviewers and adjudicator read the set's registered stimulus; the pre-review 'shown' cue needs a picture
     noun; pre-review skips a text that already has reviewer results (NEW bc_text_has_results); only offsets a paper
@@ -460,7 +469,11 @@ QINDEX_NF_FIELDS = ('subject', 'part', 'mip', 'given_in_stem', 'measured_axis2',
                     'option_texts', 'manifest_hash')
 QINDEX_V589_FIELDS = ('difficulty_check', 'figural_ask_type', 'representations',
                       'scheme_grammar', 'marked_sites', 'ladder',
-                      'slot_chain')            # v1.15: a DISCLOSED item's exhausted chain (S13-4c re-derives it)
+                      'slot_chain',            # v1.15: a DISCLOSED item's exhausted chain (S13-4c re-derives it)
+                      # release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P1): the mode the label was decided under, so
+                      # A-QINDEX check 9 can tell a count-free row (modes ladder / counted) from author-counted evidence
+                      'difficulty_mode', 'shape_drift',
+                      's13_2f_cap')            # release 2026.11.25 (LAW-FA-TERM-1): S13-4c re-reads a cap-stamped item
 # v1.12 — GAP-2026-11-03 §4.3: every quality verdict lives ON the item and is READ
 # downstream, never recomputed differently.
 QINDEX_V590_FIELDS = (
@@ -1597,6 +1610,147 @@ def bc_reopen(exam, n, qs, reason, home='/home/claude'):
         return []
 
 
+def bc_last_batch_route(findings, shape_plan=None, concept_map=None, current_batch_qs=None):
+    """release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P13 / G9 / G21, amended LAW-BC-6) — THE decision for the LAST
+    batch's whole-paper pre-commit sweep, so no worker judgment decides it. `findings` = the auditor's item findings
+    (and/or FAIL lines with 'qs'). Returns {'disclose': {gate: [q]}, 'reopen': {q: [reasons]}, 'accepted': [q]}:
+      * a composition gate (bc.NF_DISCLOSE_GATES) is DISCLOSED — never a re-open — EXCEPT an A-SHAPEMIX item that
+        DRIFTED from its planned shape (concept_map shape != shape_plan[q], no recorded shape_drift): that item is
+        re-opened in this batch (the drift is the writer's, the plan is not the cause);
+      * any other item gate on a question of an EARLIER batch re-opens it (fa.bc_reopen); a question of the CURRENT
+        batch (current_batch_qs) is listed in 'current' — it is already in this batch's own STEP B / STEP A2 flow;
+      * a composition gate's paper-level FAIL line (no question) is disclosed too;
+      * an item already settled (ESCALATED / DISCLOSED) is accepted, never re-opened.
+    Pure; never raises."""
+    sp = shape_plan if isinstance(shape_plan, dict) else {}
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    cur = {str(x) for x in (current_batch_qs or [])} if isinstance(current_batch_qs, (list, tuple, set)) else set()
+    out = {'disclose': {}, 'reopen': {}, 'accepted': [], 'current': []}
+    rows = []
+    for f in (findings or []) if isinstance(findings, (list, tuple)) else []:
+        if not isinstance(f, dict):
+            continue
+        g = str(f.get('gate') or f.get('check') or '')
+        if f.get('q') is not None:
+            rows.append((str(f.get('q')), g, str(f.get('finding') or f.get('message') or g)))
+        _fqs = f.get('qs') if isinstance(f.get('qs'), (list, tuple)) else None
+        for q in (_fqs or []):
+            rows.append((str(q), g, str(f.get('message') or g)))
+        if f.get('q') is None and not _fqs and g in bc.NF_DISCLOSE_GATES:
+            out['disclose'].setdefault(g, [])              # a paper-level composition FAIL: disclosed, no question
+    for q, g, why in rows:
+        e = cm.get(q) if isinstance(cm.get(q), dict) else {}
+        if str(e.get('quality_status') or '').startswith(('ESCALATED', 'DISCLOSED')):
+            if q not in out['accepted']:
+                out['accepted'].append(q)
+            continue
+        if g in bc.NF_DISCLOSE_GATES:
+            drift = (g == 'A-SHAPEMIX' and e.get('shape') and isinstance(sp.get(q), str)
+                     and bc.canonical_shape(e.get('shape')) != bc.canonical_shape(sp.get(q))
+                     and not isinstance(e.get('shape_drift'), dict))
+            if drift:
+                out['reopen'].setdefault(q, [])
+                _r = f"G-SHAPEPLAN: planned {bc.canonical_shape(sp.get(q))!r}, written {bc.canonical_shape(e.get('shape'))!r}"
+                if _r not in out['reopen'][q]:
+                    out['reopen'][q].append(_r)
+            else:
+                out['disclose'].setdefault(g, [])
+                if q not in out['disclose'][g]:
+                    out['disclose'][g].append(q)
+            continue
+        if q in cur:
+            if q not in out['current']:
+                out['current'].append(q)
+            continue
+        out['reopen'].setdefault(q, [])
+        if f'{g}: {why}'[:300] not in out['reopen'][q]:
+            out['reopen'][q].append(f'{g}: {why}'[:300])
+    return out
+
+
+def bc_last_batch_apply(exam, n, worklist, home='/home/claude'):
+    """The I/O shell of bc_last_batch_route for Create S4-7 STEP B (LAST batch): reads the batch_state shape plan and
+    the sidecar, writes each NEW composition disclosure once to the sidecar's nf_disclosed (AMBER, the same record
+    S13-2F writes) and re-opens each 'reopen' question with fa.bc_reopen. Returns the route. Never raises."""
+    import json, os
+    try:
+        bsp = os.path.join(home, f'{exam}_M{n}_batch_state.json')
+        kp = os.path.join(home, f'{exam}_M{n}_answer_key.json')
+        bs = json.load(open(bsp, encoding='utf-8')) if os.path.exists(bsp) else {}
+        kd = json.load(open(kp, encoding='utf-8')) if os.path.exists(kp) else {}
+        wl = worklist if isinstance(worklist, dict) else {}
+        _cb = next((b for b in (bs.get('batch_plan') or []) if isinstance(b, dict)
+                    and str(b.get('batch_id')) == str(bs.get('current_batch'))), None)
+        _cur = [str(q) for q in range(int(_cb['q_start']), int(_cb['q_end']) + 1)] if _cb else []
+        _fl_nf = [x for x in (wl.get('fail_lines') or []) if isinstance(x, dict)
+                  and (x.get('qs') or str(x.get('check') or '') in bc.NF_DISCLOSE_GATES)]
+        r = bc_last_batch_route(list(wl.get('item_findings') or []) + _fl_nf,
+                                bs.get('shape_plan'), kd.get('concept_map'), current_batch_qs=_cur)
+        if r['disclose'] and kd:
+            nd = kd.setdefault('nf_disclosed', {})
+            for g, qs in r['disclose'].items():
+                if g not in nd:
+                    nd[g] = ('last batch: ' + ', '.join(f'Q{q}' for q in qs))[:380] if qs else \
+                        'last batch: paper-level composition shortfall'
+            json.dump(kd, open(kp, 'w', encoding='utf-8'), indent=2)
+        for q, why in r['reopen'].items():
+            bc_reopen(exam, n, [q], '; '.join(why)[:500], home=home)
+        return r
+    except (OSError, ValueError, TypeError):
+        return {'disclose': {}, 'reopen': {}, 'accepted': [], 'current': []}
+
+
+def bv_paper_blueprint(exam, n, home, batch_state):
+    """release 2026.11.25 — THE blueprint a paper was built on, when only its state is at hand: the first
+    <exam>*_blueprint.json (staged copy first, then the project) whose paper-n allocation holds EVERY subtopic of the
+    paper's slot map (batch_state['subtopic_by_qnum']) — the rule bv_figure_plan_fallback uses, so a project holding a
+    mock blueprint AND scoped blueprints never takes another series' paper n. {} when none fits. Never raises."""
+    try:
+        import glob as _gl
+        import json
+        import os
+        bs = batch_state if isinstance(batch_state, dict) else {}
+        sbq = bs.get('subtopic_by_qnum') if isinstance(bs.get('subtopic_by_qnum'), dict) else {}
+        need = {str(v) for v in sbq.values() if v}
+        if not need:
+            return {}
+        for c in sorted(set(_gl.glob(os.path.join(home, f'{exam}*_blueprint.json')))) + \
+                sorted(set(_gl.glob(f'/mnt/project/{exam}*_blueprint.json'))):
+            try:
+                b = json.load(open(c, encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(b, dict):
+                continue
+            m = next((m for m in (b.get('mocks') or []) if isinstance(m, dict) and str(m.get('mock')) == str(n)), None)
+            have = {str(a.get('subtopic_id')) for sec in ((m or {}).get('sections') or []) if isinstance(sec, dict)
+                    for a in (sec.get('subtopic_allocations') or []) if isinstance(a, dict)}
+            if have and need <= have:
+                return b
+        return {}
+    except Exception:                                   # noqa: BLE001 — never a stop
+        return {}
+
+
+def bv_figure_capable_qs(exam, n, home, batch_state, section):
+    """release 2026.11.25 (F5) — the figure-capable slots of one section for a figure plan frozen before this release
+    (no 'capable_qs'): the questions whose subtopic the PAPER'S blueprint (bv_paper_blueprint) allocates in FIGURAL
+    format in that section. [] when unknown (the re-grant is then recorded as not possible — disclosed). Never raises."""
+    try:
+        bs = batch_state if isinstance(batch_state, dict) else {}
+        sbq = bs.get('subtopic_by_qnum') if isinstance(bs.get('subtopic_by_qnum'), dict) else {}
+        b = bv_paper_blueprint(exam, n, home, bs)
+        m = next((m for m in (b.get('mocks') or []) if isinstance(m, dict) and str(m.get('mock')) == str(n)), None)
+        fig = set()
+        for sec in ((m or {}).get('sections') or []):
+            if isinstance(sec, dict) and str(sec.get('section_name')) == str(section):
+                fig |= {str(a.get('subtopic_id')) for a in (sec.get('subtopic_allocations') or [])
+                        if isinstance(a, dict) and str(a.get('format') or '').upper() == 'FIGURAL'}
+        return sorted((str(q) for q, s_ in sbq.items() if str(s_) in fig), key=lambda x: int(x) if x.isdigit() else 0)
+    except Exception:                                   # noqa: BLE001 — never a stop
+        return []
+
+
 def bv_load_ladder(exam, home='/home/claude', fresh_first=False):
     """Cluster R3: the exam's difficulty ladder ([ExamCode]_difficulty_ladder.json, written by Step 5). A paper in
     progress reads the session's STAGED copy first (the ladder is frozen per paper); a NEW paper (fresh_first) reads
@@ -1969,13 +2123,31 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _granted_bv = {str(q) for _sp in _fp_bv.values() if isinstance(_sp, dict) for q in (_sp.get('granted') or [])}
     _sf_bv = _bs_bv.get('stem_form') if isinstance(_bs_bv.get('stem_form'), dict) else {}
 
+    def _fig_specs_of(_q):
+        import glob as _glf
+        _out = []
+        for _fs in sorted(_glf.glob(os.path.join(home, f'q{_q}_*.figspec.json'))):
+            try:
+                _d = json.load(open(_fs, encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            if isinstance(_d, dict):
+                _out.append(dict(_d, file=os.path.basename(_fs)[:-len('.figspec.json')] + '.png'))
+        return _out
+
     def _gctx(_q, _e):
         _afm = _sf_bv.get('ask_form') if isinstance(_sf_bv.get('ask_form'), dict) else {}
         _nsm = _sf_bv.get('n_statements') if isinstance(_sf_bv.get('n_statements'), dict) else {}
         _nst = _nsm.get(str(_q))
+        _psp = (_bs_bv.get('shape_plan') or {}).get(str(_q)) if isinstance(_bs_bv.get('shape_plan'), dict) else None
         return {'figure_granted': str(_q) in _granted_bv,
                 'ask_form': _afm.get(str((_e or {}).get('section') or '')) or _afm.get('*'),
-                'n_statements': _nst if isinstance(_nst, int) and not isinstance(_nst, bool) else None}
+                'n_statements': _nst if isinstance(_nst, int) and not isinstance(_nst, bool) else None,
+                # release 2026.11.25 (P6): the slot's frozen S3-12d shape — pre-review G-SHAPEPLAN (non-blocking)
+                'planned_shape': _psp if isinstance(_psp, str) else None,
+                # release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F4): this question's FigureSpec records (the native
+                # renderer's on-page scale) — pre-review G-FIG-SCALE (non-blocking)
+                'figure_specs': _fig_specs_of(_q)}
     _root_bv = os.path.join(home, f'{exam}_M{n}_bv')
     os.makedirs(_root_bv, exist_ok=True)
     if _st_bv.get('batch') != _bp_bv['batch_id']:
@@ -2111,6 +2283,15 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _e['bv'] = _st_bv['items'][_q]
         if _r3_bv:
             _e['difficulty_mode'] = _mode_bv
+            # release 2026.11.25 (P13, LAW-RECORD-READER-1): in a count-free mode the ENGINE writes difficulty_obs —
+            # {'qtype', 'mode'} — whatever the worker passed; anything else the worker recorded is archived, never read
+            # by a decision (A-QINDEX check 9 then gives the same answer for every worker on the same paper)
+            _rec_obs, _arch_obs = bc.difficulty_obs_engine_record(_e, _mode_bv)
+            if _arch_obs:
+                if _arch_obs.get('moves') and not _e.get('author_moves'):
+                    _e['author_moves'] = _arch_obs.get('moves')        # the adjudicator packet reads it
+                _e.setdefault('difficulty_obs_author', _arch_obs)
+            _e['difficulty_obs'] = _rec_obs
             # a HARD gate still failing after the pre-review tries of this rung enters the rung ladder (bounded)
             _rk0 = str(((_e.get('bv') or {}).get('rung')) or 0)
             if int((((_st_bv.get('prereview') or {}).get(_q) or {}).get(_rk0)) or 0) >= int(bc.BC_PREREVIEW_TRIES):
@@ -2329,8 +2510,37 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _disc = _ds_bv.setdefault('bv_disclosed', {})
     _bst = bc.bc_batch_status(_cm_bv, _qs_bv)
     _foot = _bs_bv.setdefault('bc_footer', {})
+    # release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F5): a GRANTED figure slot that settled as the TEXT fallback hands
+    # its grant to the first capable, not-yet-written slot of the same section (recorded; disclosed in the footer).
+    # In the last batch nothing is left to take it: recorded as a shortfall (FE7) — never a stop.
+    if isinstance(_bs_bv.get('figure_plan'), dict):
+        _unauth = [str(_x) for _x in (_bs_bv.get('subtopic_by_qnum') or {}) if str(_x) not in _cm_bv]
+        for _q in _bst['settled']:
+            _fbk = _cm_bv[_q].get('bc_fallback') if isinstance(_cm_bv[_q].get('bc_fallback'), dict) else None
+            if not _fbk or _fbk.get('regranted_to') is not None or 'regrant_checked' in _fbk \
+                    or _cm_bv[_q].get('figure_files') or _cm_bv[_q].get('figure_dicts'):
+                continue                                # delivered WITH a figure (R5b / R10): its grant is kept
+            for _sec, _spf in list(_bs_bv['figure_plan'].items()):
+                if isinstance(_spf, dict) and _q in [str(_x) for _x in (_spf.get('granted') or [])]:
+                    if not _spf.get('capable_qs'):
+                        _spf = dict(_spf, capable_qs=bv_figure_capable_qs(exam, n, home, _bs_bv, _sec))
+                    _spn, _to = bc.figure_regrant(_spf, _q, _unauth)
+                    _bs_bv['figure_plan'][_sec] = _spn
+                    _cm_bv[_q]['bc_fallback'] = dict(_fbk, regranted_to=_to, regrant_checked=True)
+                    _say(f"STEP A2: Q{_q} ended as text — its figure grant " + (f"moves to Q{_to} (F5)." if _to else
+                         "could not move (no capable slot left in a later batch) — disclosed."))
+                    _granted_bv.discard(_q)
+                    if _to:
+                        _granted_bv.add(_to)
+                    break
     for _q in _bst['settled']:
         _foot[_q] = bc.bc_amber_lines(_q, _cm_bv[_q])
+        _rgt = (_cm_bv[_q].get('bc_fallback') or {}) if isinstance(_cm_bv[_q].get('bc_fallback'), dict) else {}
+        if 'regrant_checked' in _rgt:
+            # the S13-2L.0 footer reader unpacks every line as (class, text) — bc.bc_amber_lines' shape
+            _foot[_q] = list(_foot[_q] or []) + [('INFORMATIONAL', f"Q{_q}: figure grant " + (
+                f"moved to Q{_rgt['regranted_to']}" if _rgt.get('regranted_to') else 'could not move to a later slot')
+                + ' after the text fallback')]
         _lb = ((_cm_bv[_q].get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(_cm_bv[_q].get('difficulty_check'), dict) else {}
         if _lb.get('disclosed') and _tgt_bv.get(_q) is not None:
             _disc[_q] = {'requested': _tgt_bv.get(_q), 'delivered': _cm_bv[_q].get('difficulty')}
@@ -2374,6 +2584,19 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
     _st_bv['permute'] = _perm
     _st_bv['restore'] = _rest
     _st_bv['no_model'] = _nm
+    # release 2026.11.25 (F5 / F7): the figure manifest carries the CURRENT figure plan (re-grants included) from the
+    # first batch on — S13-2F's pre-commit sweep (A-AXIS1: floor, moved grants) reads it through the registry preview,
+    # which S13-2L.0 (that also writes it) only follows. Idempotent; written only when it differs.
+    if any(isinstance(_v, dict) and _v.get('target') for _v in (_bs_bv.get('figure_plan') or {}).values()) \
+            if isinstance(_bs_bv.get('figure_plan'), dict) else False:
+        _fmp_bv = os.path.join(home, f'{exam}_fig_manifest.json')
+        try:
+            _fm_bv = json.load(open(_fmp_bv, encoding='utf-8')) if os.path.exists(_fmp_bv) else {'questions': {}}
+        except (OSError, ValueError):
+            _fm_bv = None                                # an unreadable manifest is never overwritten here
+        if isinstance(_fm_bv, dict) and _fm_bv.get('plan') != _bs_bv['figure_plan']:
+            _fm_bv['plan'] = _bs_bv['figure_plan']
+            json.dump(_fm_bv, open(_fmp_bv, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
     json.dump(_kd_bv, open(_kp_bv, 'w', encoding='utf-8'), indent=2)
     json.dump(_bs_bv, open(_bsp_bv, 'w', encoding='utf-8'), indent=2)
     _early_s = [q for q in _qs_bv if int(q) < int(_bp_bv['q_start'])] if not final else []
@@ -2926,6 +3149,109 @@ def self_test():
                          di_present=False, figural_present=False,
                          concept_map=mini_cm(), timestamp='2026-01-01T00:00:00+00:00')
     check('commit_first_mock_ok', r1['ok'] is True)
+    # release 2026.11.25 (P1): the decision mode reaches the registry row (A-QINDEX check 9 reads it); legacy rows unchanged
+    _cm25 = mini_cm(); _cm25['1']['difficulty_mode'] = 'ladder'
+    _cm25['2']['s13_2f_cap'] = {'sweep': 12, 'gates': ['A-X']}
+    _r25 = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01', batches_completed=3,
+                           axis2_window_counts={}, passage_present=False, di_present=False, figural_present=False,
+                           concept_map=_cm25, timestamp='2026-01-01T00:00:00+00:00')
+    _qi25 = {str(x['q']): x for x in _r25['registry']['question_index'][0]['questions']}
+    check('s13loop_P1_difficulty_mode_committed', _r25['ok'] and _qi25['1'].get('difficulty_mode') == 'ladder'
+          and 'difficulty_mode' not in _qi25['2'] and _qi25['2'].get('s13_2f_cap') == {'sweep': 12, 'gates': ['A-X']}
+          and 's13_2f_cap' not in _qi25['1'])
+    # release 2026.11.25: a project holding a MOCK blueprint and a SCOPED blueprint, both with a paper 1 — the paper's
+    # own blueprint is the one whose paper-1 allocation holds its slot map (never the first file found)
+    import tempfile as _tf25, json as _js25, os as _os25
+    with _tf25.TemporaryDirectory() as _h25:
+        def _bpx(sids, fig):
+            return {'mocks': [{'mock': 1, 'sections': [{'section_name': 'S', 'subtopic_allocations': [
+                {'subtopic_id': x, 'format': 'FIGURAL' if x in fig else 'TEXT'} for x in sids]}]}]}
+        _js25.dump(_bpx(['a', 'b'], ['a']), open(_os25.path.join(_h25, 'ZZEX_blueprint.json'), 'w'))
+        _js25.dump(_bpx(['c', 'd'], ['d']), open(_os25.path.join(_h25, 'ZZEX_SUBJ_X_blueprint.json'), 'w'))
+        _bs25 = {'subtopic_by_qnum': {'1': 'c', '2': 'd', '3': 'd'}}
+        _pb25 = bv_paper_blueprint('ZZEX', 1, _h25, _bs25)
+        check('s13loop_paper_blueprint_is_the_papers_own',
+              [a['subtopic_id'] for a in _pb25['mocks'][0]['sections'][0]['subtopic_allocations']] == ['c', 'd']
+              and bv_figure_capable_qs('ZZEX', 1, _h25, _bs25, 'S') == ['2', '3']
+              and bv_paper_blueprint('ZZEX', 1, _h25, {'subtopic_by_qnum': {'1': 'q'}}) == {}
+              and bv_paper_blueprint('ZZEX', 1, _h25, None) == {})
+    # release 2026.11.25 (F5 / F7): one batch step writes the CURRENT figure plan into the figure manifest
+    with _tf25.TemporaryDirectory() as _h27:
+        _js25.dump({'concept_map': {'1': {'stem_text': 'Identify the product', 'option_texts': ['A', 'B', 'C', 'D'],
+                                          'subtopic_id': 'A.b', 'qtype': 'mcq'}}, 'answers': {'1': 1}},
+                   open(_os25.path.join(_h27, 'EX_M1_answer_key.json'), 'w'))
+        _fp27 = {'S': {'target': 1, 'granted': ['1'], 'capable': 1, 'capable_qs': ['1'], 'short': []}}
+        _js25.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
+                    'difficulty_labels': ['Easy', 'Medium', 'Hard'], 'difficulty_plan_target': {'1': 'Medium'},
+                    'difficulty_mode': bc.R3_MODE_LEGACY, 'figure_plan': _fp27},
+                   open(_os25.path.join(_h27, 'EX_M1_batch_state.json'), 'w'))
+        bv_batch_step('EX', 1, home=_h27, echo=False)
+        _fm27 = _js25.load(open(_os25.path.join(_h27, 'EX_fig_manifest.json')))
+        check('figloss_figure_plan_reaches_manifest_every_batch', _fm27.get('plan') == _fp27)
+    # release 2026.11.25 (F5): a granted slot settled as the TEXT fallback hands its grant to the unwritten capable slot;
+    # the footer line has the (class, text) shape the S13-2L.0 reader unpacks
+    with _tf25.TemporaryDirectory() as _h28:
+        _e28 = {'stem_text': 'Identify X', 'option_texts': ['A', 'B', 'C', 'D'], 'subtopic_id': 'A.b', 'qtype': 'mcq',
+                'bv_state': 'settled', 'bc_fallback': {'rung': 3, 'from_figure': True},
+                'bv': {'state': 'settled', 'rung': 3, 'rung3_kind': 'fallback'}}
+        _js25.dump({'concept_map': {'1': _e28}, 'answers': {'1': 1}}, open(_os25.path.join(_h28, 'EX_M1_answer_key.json'), 'w'))
+        _js25.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}, {'batch_id': 2, 'q_start': 2, 'q_end': 2}],
+                    'current_batch': 1, 'difficulty_labels': ['Easy', 'Medium', 'Hard'], 'difficulty_mode': 'br1',
+                    'subtopic_by_qnum': {'1': 'A.b', '2': 'A.c'},
+                    'figure_plan': {'S': {'target': 1, 'granted': ['1'], 'capable': 2, 'capable_qs': ['1', '2'], 'short': []}},
+                    'bv': {'batch': 1, 'round': 1, 'items': {'1': _e28['bv']}, 'status': 'open'}},
+                   open(_os25.path.join(_h28, 'EX_M1_batch_state.json'), 'w'))
+        bv_batch_step('EX', 1, home=_h28, echo=False)
+        _b28 = _js25.load(open(_os25.path.join(_h28, 'EX_M1_batch_state.json')))
+        _k28 = _js25.load(open(_os25.path.join(_h28, 'EX_M1_answer_key.json')))
+        _ok28 = True
+        try:
+            for _qf28, _ln28 in (_b28.get('bc_footer') or {}).items():
+                for _c28, _t28 in (_ln28 or []):
+                    pass
+        except ValueError:
+            _ok28 = False
+        check('figloss_F5_regrant_in_batch_step_and_footer_shape',
+              _b28['figure_plan']['S']['granted'] == ['2'] and _b28['figure_plan']['S']['regrants'] == [{'from': '1', 'to': '2'}]
+              and _k28['concept_map']['1']['bc_fallback'].get('regranted_to') == '2' and _ok28
+              and any('moved to Q2' in t for _c, t in _b28['bc_footer']['1']))
+    # release 2026.11.25: the I/O shell end to end — disclosure written once to the sidecar, an EARLIER-batch item
+    # re-opened through bc_reopen, a CURRENT-batch item left to its own flow, a second call idempotent
+    with _tf25.TemporaryDirectory() as _h26:
+        _js25.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 10}, {'batch_id': 2, 'q_start': 11, 'q_end': 20}],
+                    'current_batch': 2, 'shape_plan': {'3': 'direct'}}, open(_os25.path.join(_h26, 'EX_M1_batch_state.json'), 'w'))
+        _js25.dump({'concept_map': {'3': {'shape': 'direct'}, '15': {}}, 'answers': {}},
+                   open(_os25.path.join(_h26, 'EX_M1_answer_key.json'), 'w'))
+        _wl26 = {'item_findings': [{'q': '3', 'gate': 'A-SHAPEMIX'}, {'q': '4', 'gate': 'A-STEMLEAK', 'finding': 'x'},
+                                   {'q': '15', 'gate': 'A-STEMLEAK', 'finding': 'y'}],
+                 'fail_lines': [{'check': 'A-AXIS2', 'message': 'short', 'qs': []}]}
+        _a26 = bc_last_batch_apply('EX', 1, _wl26, home=_h26)
+        _a26b = bc_last_batch_apply('EX', 1, _wl26, home=_h26)
+        _k26 = _js25.load(open(_os25.path.join(_h26, 'EX_M1_answer_key.json')))
+        _b26 = _js25.load(open(_os25.path.join(_h26, 'EX_M1_batch_state.json')))
+        check('s13loop_last_batch_apply_io',
+              sorted(_k26['nf_disclosed']) == ['A-AXIS2', 'A-SHAPEMIX'] and list(_a26['reopen']) == ['4']
+              and _a26['current'] == ['15'] and sorted(_b26['bv']['reopen']) == ['4']
+              and len(_b26['bv']['reopen']['4']) == 1 and _a26b['reopen'] == _a26['reopen'])
+    # release 2026.11.25 (P13 / G9 / G21, T-U12): THE last-batch decision — composition disclosed, drift re-opened,
+    # another item gate re-opened, a settled item accepted
+    _lbr = bc_last_batch_route(
+        [{'q': '23', 'gate': 'A-SHAPEMIX'}, {'q': '9', 'gate': 'A-SHAPEMIX'}, {'q': '5', 'gate': 'A-STEMLEAK', 'finding': 'leak'},
+         {'q': '7', 'gate': 'A-REVIEW'}, {'q': '11', 'gate': 'A-INTRADUP'}, {'check': 'A-ANSKEY', 'qs': ['12'], 'message': 'x'}],
+        {'23': 'statement', '9': 'matching', '5': 'direct', '12': 'direct'},
+        {'23': {'shape': 'statement'}, '9': {'shape': 'spectrum_to_structure'}, '5': {'shape': 'direct'},
+         '7': {'quality_status': 'ESCALATED(A-REVIEW)'}, '11': {}, '12': {}})
+    check('s13loop_TU12_last_batch_route_is_engine_owned',
+          _lbr['disclose'] == {'A-SHAPEMIX': ['23'], 'A-INTRADUP': ['11']}
+          and sorted(_lbr['reopen']) == ['12', '5', '9'] and _lbr['reopen']['9'][0].startswith('G-SHAPEPLAN')
+          and _lbr['accepted'] == ['7']
+          and bc_last_batch_route([{'q': '5', 'gate': 'A-STEMLEAK'}, {'check': 'A-CLASSMIX', 'qs': [], 'message': 'm'}],
+                                  {}, {}, current_batch_qs=['5'])
+          == {'disclose': {'A-CLASSMIX': []}, 'reopen': {}, 'accepted': [], 'current': ['5']}
+          and bc_last_batch_route([{'q': '9', 'gate': 'A-SHAPEMIX'}], {'9': 'match'},
+                                  {'9': {'shape': 'direct', 'shape_drift': {'planned': 'match', 'delivered': 'direct',
+                                                                            'reason': 'fallback'}}})['disclose'] == {'A-SHAPEMIX': ['9']}
+          and bc_last_batch_route(None, None, None) == {'disclose': {}, 'reopen': {}, 'accepted': [], 'current': []})
     # content_tracking is pre-seeded (no _schema) by mini_registry(), which
     # models a Step-1 template that already ran — so the S13-4 "not in reg"
     # seeding branch correctly does NOT fire here (see mini_registry_no_ct).
@@ -4519,7 +4845,10 @@ def self_test():
                 elif _r5['status'] == 'rewrite':
                     for _q5 in _r5['rewrite']:
                         _k5['concept_map'][_q5]['stem_text'] += ' v' + str(_rg5)
-                        if _rg5 == 3:
+                        # the author follows the rung-3 KIND the engine chose (release 2026.11.25 F1): only the TEXT
+                        # fallback drops the figure
+                        _kd5 = ((_b5['bv']['items'].get(_q5) or {}).get('climb_brief') or {}).get('kind')
+                        if _rg5 == 3 and _kd5 == 'fallback':
                             _k5['concept_map'][_q5].pop('figure_files', None)
                     for _q5, _p5 in _r5['restore'].items():
                         _rs5 = _bv_js.load(open(_p5))
@@ -4527,10 +4856,14 @@ def self_test():
                         _k5['answers'][_q5] = _rs5['answer']
                     _bv_js.dump(_k5, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
             if _mode5 == bc.R3_MODE_LEGACY:
+                # release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F1): the defect here is in the WORDING (a leak) — rung 3
+                # is a TEXT REBUILD, so the figure record is never removed and the paper ends with its figure
+                _cm5l = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))['concept_map']['1']
                 check('c3_restore_brings_back_the_figure_record',
-                      any(st == 'rewrite' and rg == 3 and not fig for st, rg, fig, _rs in _seq5)
-                      and any(_rs and fig for st, rg, fig, _rs in _seq5)
-                      and _seq5[-1][0] == 'done' and _seq5[-1][2] is True)
+                      any(st == 'rewrite' and rg == 3 and fig for st, rg, fig, _rs in _seq5)
+                      and all(fig for st, rg, fig, _rs in _seq5)
+                      and _seq5[-1][0] == 'done' and _seq5[-1][2] is True and bool(_cm5l.get('figure_files'))
+                      and not isinstance(_cm5l.get('bc_fallback'), dict))
             else:
                 _cm5 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))['concept_map']['1']
                 check('r3_finding_never_reaches_text_fallback_figure_kept', _seq5[-1][0] == 'done'
@@ -4711,6 +5044,10 @@ def self_test():
                 _rep3 = bv_r3_report(_s3, _c3, _lad_r3)
                 check('r3_report_count_rule', isinstance(_rep3.get('count_rule'), dict) and _rep3['count_rule']['ok'] is False
                       and any('RED' in x for x in _rep3['amber']))
+                # release 2026.11.25 (P13, T-U11): in mode 'ladder' the ENGINE writes difficulty_obs on every entry
+                check('s13loop_TU11_batch_step_engine_owns_obs',
+                      all((_c3[_q].get('difficulty_obs') or {}).get('mode') == 'ladder'
+                          and not bc.difficulty_obs_signature(_c3[_q].get('difficulty_obs')) for _q in _c3 if isinstance(_c3[_q], dict)))
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

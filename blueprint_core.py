@@ -42,6 +42,18 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.10 (2026-11-25) — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (owner decisions OD-A..OD-F;
+      LAW-FA-TERM-1, LAW-PLAN-CHECK-1, LAW-RECORD-READER-1). D1: a count-free difficulty_obs has no signature and
+      difficulty_obs_diversity is mode-aware (R3_COUNT_FREE_MODES; difficulty_obs_engine_record — the engine owns the
+      record). D2: sweep_route(settled=, bc_paper=) never routes an accepted item again and routes a BATCH-COMPLETE item
+      only to ESCALATE (structured qs before the Q<n> regex); NEW s13_2f_begin / s13_2f_plan / s13_2f_record_sweep — a
+      persistent counter, one decision per sweep, S13_2F_TOTAL_CAP; NEW s13_2f_simulate (the termination harness);
+      NEW migrate_s13_2f_loop. D3: one shape vocabulary (SHAPE_ALIASES, canonical_shape), effective targets summing to
+      the paper's slots (shape_targets_effective), assign_shape_plan balances to shape_mix_check's own band and records
+      plan relief in '_infeasible'; A-SHAPEMIX joins NF_DISCLOSE_GATES; pre-review G-SHAPEPLAN. Figures: rung 3 by
+      defect location (bc_rung3_kind), R5b prefers a figure version (bc_r5b_pick(prefer_figure=)), a wording ambiguity
+      with a unanimous key capped at rung 2 (R3_WORDING_CODES), the fallback marker at rung-3 start, pre-review
+      G-FIG-STEREO / G-FIG-SCALE, figure_regrant, figure_floor / figure_floor_lines (AMBER only).
     v2.9 (2026-11-19) — GAP-2026-11-15-RUN-ANALYSIS: bc_apply settles a figure only on its WHOLE proof (identity +
       gates, the S13-2P rule); BC_PREREVIEW_TRIES; bc_author_offsets(seed=) starts from earlier papers ('from':
       'earlier paper'); the author packet carries the slot's planned ask type ('shape') and says when there are no
@@ -773,6 +785,17 @@ __all__ = [
     "bc_selfcount", "bc_author_offsets", "bc_canon_key", "OP_CONSTANT_FLOORS", "BC_PREREVIEW_TRIES",
     "NF_RESIDUAL_FORMAT",
     "NF_AXIS2_TO_ASK",
+    # release 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP (Final Assembly termination, planner = checker, writer record ->
+    # every reader) and GAP-2026-11-19-FIGURE-LOSS
+    "R3_COUNT_FREE_MODES", "DIFFICULTY_OBS_COUNT_KEYS", "difficulty_mode_count_free", "difficulty_obs_count_free",
+    "difficulty_obs_engine_record",
+    "S13_2F_TOTAL_CAP", "SWEEP_ACCEPTED_DISPOSITIONS", "S13_2F_REBUILD_ROUTES", "S13_2F_ACTIONS", "s13_2f_state",
+    "s13_2f_begin", "s13_2f_settled", "s13_2f_signature", "s13_2f_plan", "s13_2f_record_sweep", "s13_2f_simulate",
+    "SHAPE_ALIASES", "canonical_shape", "shape_counts_canonical", "shape_targets_merge", "shape_targets_effective",
+    "shape_band_violation", "shape_plan_relief", "MIGRATION_S13_2F_LOOP", "migrate_s13_2f_loop",
+    "R3_WORDING_CODES", "BC_RUNG3_KINDS", "BC_RUNG3_REBUILD", "BC_RUNG3_CONSTRAINTS", "FIG_SCALE_TOL", "FIG_FLOOR_FRAC",
+    "bc_finding_location", "bc_rung3_kind", "fig_stereo_check", "fig_scale_check", "figure_regrant", "figure_floor",
+    "figure_floor_lines",
 ]
 
 
@@ -4295,6 +4318,11 @@ def verify_difficulty_obs(label, obs, difficulty_labels):
     # clamped by the qtype floor — the same clamp level_record applied at write time,
     # so a clamped MSQ/NAT never re-derives as the bottom band (G-DIFF / check 8 loop).
     # No level record → the rubric path under the obs's own rule (G1).
+    # release 2026.11.25 (LAW-RECORD-READER-1): a record stamped with a COUNT-FREE mode (ladder / counted — the
+    # engine's record, bc.difficulty_obs_engine_record) holds no evidence: the documented fall-through (True, None),
+    # never 'Easy' from zero counts. A record without a mode keeps the count rule (br1 stays strict).
+    if isinstance(obs, dict) and difficulty_mode_count_free(obs.get('mode')):
+        return (True, None)
     lv = obs.get('level') if isinstance(obs, dict) else None
     if isinstance(lv, dict) and str(lv.get('rule') or '').upper() == LEVEL_RULE_CURRENT:
         lb = level_band_from(lv.get('composite'), lv.get('cuts_list'), difficulty_labels)
@@ -8515,17 +8543,109 @@ def _bc_self_test(check):
           ['claims'] == [{'code': 'D-LEAK', 'confirmed': True, 'reason': ''}]
           and r3_claims([{'defects': [{'code': 'D-LEAK', 'evidence': 'x'}]}, {'defects': [{'code': 'D-LEAK'}]}]) == []
           and r3_claims([{'defects': [{'code': 'D-NOTATION'}]}]) == [])
-    _st4, _acts4 = bc_apply(dict(_fit), 'Hard', L, {}, 2), []
-    for _i in range(12):
-        if _st4['action'] == 'grade':
-            _st4 = bc_apply(_st4['entry'], 'Hard', L, {}, 2, results=_RD([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []]))
-        elif _st4['action'] == 'rewrite':
-            _acts4.append(_st4['entry']['bv']['rung'])
-            _st4 = bc_apply(dict(_st4['entry'], stem_text=_st4['entry']['stem_text'] + f' w{_i}'), 'Hard', L, {}, 2)
-        else:
-            break
+    def _ladder4(codes, where='stem', n=12):
+        """drive one figure question through the BC ladder with the same correctness reports on every text"""
+        _st, _rungs, _kinds = bc_apply(dict(_fit), 'Hard', L, {}, 2), [], []
+        for _i in range(n):
+            if _st['action'] == 'grade':
+                _r = R(answers=(2, 2, 2))
+                for _k, _cs in enumerate(codes, 1):
+                    _r[f'solver_{_k}']['result']['defects'] = [{'code': c, 'where': where, 'evidence': 'e'} for c in _cs]
+                _st = bc_apply(_st['entry'], 'Hard', L, {}, 2, results=_r)
+            elif _st['action'] == 'rewrite':
+                _rungs.append(_st['entry']['bv']['rung'])
+                _kinds.append(_st['entry']['bv']['climb_brief']['kind'])
+                _st = bc_apply(dict(_st['entry'], stem_text=_st['entry']['stem_text'] + f' w{_i}'), 'Hard', L, {}, 2)
+            else:
+                break
+        return _st, _rungs, _kinds
+    # C4 kept: a correctness quorum keeps the full bounded ladder — release 2026.11.25 F1: on a FIGURE question whose
+    # defect is in the wording, rung 3 is a TEXT REBUILD (the figure kept), never the text fallback
+    _st4, _acts4, _k4 = _ladder4([['D-DATA-INCONSISTENT'], ['D-DATA-INCONSISTENT'], []])
     check('r31_correctness_quorum_keeps_full_ladder', _acts4 == [1, 2, 3]
           and _st4['action'] in ('settled', 'disclosed', 'restore'))
+    check('figloss_F1_text_defect_rung3_is_text_rebuild_figure_kept [2026.11.24-FAILS]',
+          _k4[-1] == 'text_rebuild' and not isinstance(_st4['entry'].get('bc_fallback'), dict)
+          and 'fallback' not in (_st4['entry'].get('bv') or {}).get('amber', []))
+    _st4f, _acts4f, _k4f = _ladder4([['D-DATA-INCONSISTENT'], ['D-DATA-INCONSISTENT'], []], where='figure q1_f1.png')
+    check('figloss_F1_figure_defect_rung3_is_fig_rebuild', _acts4f == [1, 2, 3] and _k4f[-1] == 'fig_rebuild')
+    # F3: 'ambiguous' named by a quorum while all three solvers reach the same key is WORDING — capped at rung 2
+    _st4a, _acts4a, _k4a = _ladder4([['D-AMBIGUOUS'], ['D-AMBIGUOUS'], []])
+    check('figloss_F3_wording_ambiguity_capped_at_rung_2 [2026.11.24-FAILS]', _acts4a == [1, 2]
+          and _st4a['action'] == 'disclosed' and 'finding_open' in _st4a['entry']['bv']['amber'])
+    # F2: R5b prefers the latest qualifying FIGURE version on a figure slot; F1 kind selection; F4 / F5 / F7 units
+    _vF = [{'rung': 0, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': True, 'content_sha': 'a'},
+           {'rung': 1, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': True, 'figure_defect': True,
+            'content_sha': 'b'},
+           {'rung': 3, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': False, 'content_sha': 'c'}]
+    check('figloss_F2_r5b_prefers_figure_version [2026.11.24-FAILS]',
+          bc_r5b_pick(_vF, prefer_figure=True)['content_sha'] == 'a' and bc_r5b_pick(_vF)['content_sha'] == 'c'
+          and bc_r5b_pick(_vF[2:], prefer_figure=True)['content_sha'] == 'c' and bc_r5b_pick([], True) is None)
+    check('figloss_F1_rung3_kind_by_location',
+          bc_rung3_kind({'stem_text': 'x'}, ['finding'], ['D-LEAK (reviewers 1, 2, stem): e']) == 'fallback'
+          and bc_rung3_kind({'figure_files': ['q1.png']}, ['finding'], ['D-LEAK (reviewers 1, 2, stem): e']) == 'text_rebuild'
+          and bc_rung3_kind({'figure_files': ['q1.png']}, ['finding'], ['GATE: G-FIG-SCALE: x']) == 'fig_rebuild'
+          and bc_rung3_kind({'figure_files': ['q1.png']}, ['figure'], ['readback'],
+                            [{'figures_ok': False}, {'figures_ok': False}]) == 'fallback'
+          and bc_rung3_kind({'figure_files': ['q1.png']}, ['finding'], ['x'], None, family_engine=True) == 'fallback'
+          and bc_finding_location('LEVEL: majority Easy') == 'level'
+          and bc_finding_location('D-FIG-RENDER (reviewers 1, 2): e') == 'figure')
+    _stx = fig_stereo_check({'figure_dicts': [{'file': 'q1.png', 'smiles': 'CC(O)CC'}]})
+    check('figloss_F4_prereview_figure_gates',
+          (_stx == [] or _stx[0].startswith('G-FIG-STEREO'))                     # dormant without rdkit
+          and fig_stereo_check({'figure_dicts': [{'file': 'q1.png', 'smiles': 'C[C@H](O)CC'}]}) == []
+          and fig_stereo_check({'stereo_mode': 'racemic', 'figure_dicts': [{'smiles': 'CC(O)CC'}]}) == []
+          and fig_scale_check([{'font_pt_native': {'atom_label': 10}, 'placement_scale': 1.0, 'file': 's'},
+                               {'font_pt_native': {'atom_label': 10}, 'placement_scale': 0.7, 'file': 'o1'}])[0].startswith('G-FIG-SCALE')
+          and fig_scale_check([{'font_pt_native': {'atom_label': 10}, 'placement_scale': 1.0},
+                               {'font_pt_native': {'atom_label': 10.5}, 'placement_scale': 1.0}]) == []
+          and fig_scale_check(None) == [] and not r3_hard_gate('G-FIG-STEREO: x') and not r3_hard_gate('G-FIG-SCALE: x'))
+    _sp5, _to5 = figure_regrant({'target': 3, 'granted': ['2', '5', '9'], 'capable_qs': ['2', '5', '9', '12', '14']},
+                                '5', ['12', '13', '14'])
+    _sp5b, _to5b = figure_regrant(_sp5, '5', ['14'])
+    _sp5c, _to5c = figure_regrant({'granted': ['30'], 'capable_qs': ['30']}, '30', [])
+    check('figloss_F5_regrant',
+          _to5 == '12' and _sp5['granted'] == ['2', '9', '12'] and _sp5['regrants'] == [{'from': '5', 'to': '12'}]
+          and _to5b is None and _sp5b == _sp5
+          and _to5c is None and _sp5c['regrants'][0]['to'] is None and 'reason' in _sp5c['regrants'][0])
+    _kd_s = {'state': 'settled', 'certified_by': 'unanimous', 'decided_key': 1}
+    _r_res = _bc_settle({'figure_files': ['q1.png'], 'bc_fallback': {'rung': 3}},
+                        {'rung': 3, 'rung3_kind': 'fallback', 'restore': {'rung': 1}, 'versions': [], 'solvers': {}},
+                        'sha', _kd_s, 1, 'mcq', None, L, {}, None, None, True, [], [])
+    _r_fb = _bc_settle({'stem_text': 'text'}, {'rung': 3, 'rung3_kind': 'fallback', 'solvers': {},
+                       'versions': [{'entry': {'figure_files': ['q1.png']}}]},
+                       'sha', _kd_s, 1, 'mcq', None, L, {}, None, None, True, [], [])
+    check('figloss_R5b_restored_figure_is_not_a_fallback [2026.11.24-FAILS]',
+          'bc_fallback' not in _r_res['entry'] and 'fallback' not in _r_res['entry']['bv']['amber']
+          and _r_fb['entry']['bc_fallback']['from_figure'] is True and 'fallback' in _r_fb['entry']['bv']['amber'])
+    # release 2026.11.25 — HOSTILE STATE never raises (a corrupted batch_state / sidecar field must never crash S13-2F,
+    # the planner or the ladder): every new pure function over malformed inputs
+    _hz = [None, 0, 2.5, 'x', [], {}, [None, {}], {'q': {}}, True]
+    _hz_ok = True
+    for _h in _hz:
+        try:
+            s13_2f_state({'paper_id': 'P', 'escalate': _h, 'last_sig': _h, 'history': _h}, 'P')
+            s13_2f_plan({'paper_id': 'P', 'escalate': _h}, {'item_findings': [{'q': '3', 'gate': 'A-X'}], 'fail_lines': _h},
+                        bc_paper=True, settled=_h, nf_disclosed=_h, first_seen={'3': _h}, total_cap=_h, max_sweeps=_h)
+            sweep_route(_h, [{'check': 'A-X', 'qs': _h, 'message': _h}], _h, settled=_h, bc_paper=True)
+            assign_shape_plan([{'q': 1, 'subtopic_id': 'a'}], _h, {'x': {'target': 1}}, seed=_h, n_items=_h)
+            assign_shape_plan(_h, {'a': _h}, _h)
+            shape_targets_effective({'x': _h, 'y': {'target': _h, 'cap': _h}}, _h)
+            bc_rung3_kind({'figure_files': ['a']}, _h, _h, _h, _h)
+            figure_regrant({'granted': _h, 'capable_qs': _h, 'regrants': _h}, '1', _h)
+            migrate_s13_2f_loop({'bv': _h, 'slot_chain': _h, 'p0_incidents': _h, 'shape_plan': _h}, {'concept_map': _h}, _h, _h)
+            difficulty_obs_diversity([{'difficulty': 'Hard', 'difficulty_obs': _h, 'difficulty_mode': _h}] * 9,
+                                     ['E', 'M', 'Hard'], paper_mode=_h)
+            fig_scale_check([{'font_pt_native': _h, 'placement_scale': _h}] * 2)
+            bc_r5b_pick([_h, {'confirmed': True, 'support': _h, 'figures_ok': True}], prefer_figure=True)
+        except Exception:                                   # noqa: BLE001
+            _hz_ok = False
+    check('s13loop_hostile_state_never_raises', _hz_ok)
+    check('figloss_F7_floor_is_amber_only',
+          [figure_floor(t) for t in (0, 1, 3, 5, 8, 37)] == [0, 1, 3, 4, 7, 36]
+          and figure_floor_lines({'S': {'target': 8, 'granted': ['1', '2']}}, {'1': {'figure_files': ['a']}, '2': {}})[0]
+          .startswith('FIGURES (AMBER)')
+          and figure_floor_lines({'S': {'target': 1, 'granted': ['1']}}, {'1': {'figure_files': ['a']}}) == [])
     # ── release 2026.11.24 — rule r3.1 on the BC path (B3 / B4 / B5 / OD-5) and the band swap (S1) ──
     def _PL(valid=True, bw=2, bn=2, uw=0, un=0, p=0.8):
         return {'valid': valid, 'below_wins': bw, 'below_n': bn, 'median_wins': 0, 'median_n': 2, 'upper_wins': uw,
@@ -12993,6 +13113,187 @@ PYQ_IMAGE_ANALYSIS:
     _lvq_same_rubric = [dict(x, difficulty_obs=dict(x['difficulty_obs'], level=None)) for x in _lvq]
     check('v132_check9_level_distinct_but_rubric_echo_still_caught',
           difficulty_obs_diversity(_lvq, _QL) == [] and difficulty_obs_diversity(_lvq_same_rubric, _QL) != [])
+    # release 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP P1 (T-U1 / T-U2): a count-free record has NO signature; check 9
+    # never judges a count-free row or paper; a genuinely echoed counted band still FAILs (the control is kept)
+    _cf_l = {'qtype': 'mcq', 'mode': R3_MODE_LADDER}
+    check('s13loop_TU1_countfree_obs_has_no_signature',
+          difficulty_obs_signature(_cf_l) is None
+          and difficulty_obs_signature({'qtype': 'mcq', 'mode': R3_MODE_COUNTED}) is None
+          and difficulty_obs_signature({'question_class': ['C-FACTUAL'], 'speed_hack_exists': True}) is None
+          and difficulty_obs_signature({'deduction_steps': 5, 'axiom_concepts': 2}) == (5, 2, False)
+          and difficulty_obs_signature({'mode': 'br1', 'deduction_steps': 6, 'axiom_concepts': 3}) == (6, 3, False)
+          and difficulty_obs_signature(_cf_l) != (None, None, False))
+    _q_lad = [{'q': i, 'difficulty': 'Medium' if i <= 20 else 'Hard', 'difficulty_obs': dict(_cf_l)} for i in range(1, 29)]
+    _q_echo = [{'q': i, 'difficulty': 'Hard', 'difficulty_obs': {'deduction_steps': 6, 'axiom_concepts': 3}}
+               for i in range(1, 11)]
+    _q_rowmode = [dict(x, difficulty_mode=R3_MODE_LADDER) for x in _q_echo]
+    check('s13loop_TU2_check9_mode_aware',
+          difficulty_obs_diversity(_q_lad, _QL) == []                                # the incident: 20 Medium + 8 Hard
+          and len(difficulty_obs_diversity(_q_echo, _QL)) == 1                       # control: br1 echo still FAILs
+          and difficulty_obs_diversity(_q_echo, _QL, paper_mode=R3_MODE_LADDER) == []
+          and difficulty_obs_diversity(_q_rowmode, _QL) == []                        # row mode decides
+          and difficulty_obs_diversity(_q_echo + _q_lad, _QL) != []                  # mixed: counted rows judged
+          and difficulty_mode_count_free('Ladder') and not difficulty_mode_count_free(R3_MODE_LEGACY)
+          and set(R3_COUNT_FREE_MODES) == set(R3_MODES) - {R3_MODE_LEGACY})
+    # release 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP P2 (T-U4): settled items are never routed again; a BC1 paper
+    # routes every remaining item to ESCALATE on every sweep; structured qs beat the regex; legacy is unchanged
+    _fi4 = [{'q': '23', 'gate': 'A-SHAPEMIX'}, {'q': '5', 'gate': 'A-REVIEW'}, {'q': '7', 'gate': 'A-X', 'disposition': 'escalated'}]
+    check('s13loop_TU4_sweep_route_settled_and_bc1',
+          all(sweep_route(_fi4, [], sw, settled=['23'], bc_paper=True)['items'] == {'5': {'gates': ['A-REVIEW'], 'route': 'ESCALATE'}}
+              for sw in range(1, 13))
+          and sweep_route(_fi4, [], 4, settled=['23', '5'])['items'] == {}
+          and sweep_route([], [{'check': 'A-CLUSTER', 'message': 'cluster near Q12', 'qs': []}], 4)['items'] == {}
+          and sweep_route([], [{'check': 'A-CLUSTER', 'message': 'cluster near Q12', 'qs': []}], 4)['paper'] == {'A-CLUSTER': 'reassemble'}
+          and sweep_route([], [{'check': 'A-CLUSTER', 'message': 'near Q12'}], 4).get('regex_fallback') is True
+          and sweep_route([{'q': '4', 'gate': 'A-REVIEW'}], [], 4) == {'items': {'4': {'gates': ['A-REVIEW'], 'route': 'REPLACE'}},
+                                                                        'paper': {}, 'stop': False, 'stop_gates': []})
+    # P3 (T-I1): THE TERMINATION HARNESS — the incident, the named edge cases and 2,000 seeded random sequences
+    # (run_ci_gates / the release gate runs 10,000): a certificate (or the pre-existing INFRA stop after INFRA_HEAL_MAX
+    # heals) within S13_2F_TOTAL_CAP + 1 sweeps; the counter never decreases; a BC1 item is never routed to a rung,
+    # TERMINAL or REPLACE; nothing is stamped twice
+    _inc = {'bc': True, 'items': {q: ['A-SHAPEMIX'] for q in (23, 25, 26, 30, 34, 36, 39, 40)}, 'paper': {'A-QINDEX': {}}}
+    _ri = s13_2f_simulate(_inc)
+    _named = [
+        _inc,                                                                          # E01
+        {'bc': True, 'items': {'3': ['A-REVIEW']}},                                    # E02 / E03
+        {'bc': True, 'paper': {'A-CLUSTER': {'changes': 0}}},                          # E05 fixed point
+        {'bc': True, 'paper': {'A-SEQ': {'fixes_after': 2}}},                          # E06
+        {'bc': False, 'items': {'4': ['A-REVIEW']}, 'legacy_replace_fixes': False},   # E08 legacy, chain never converges
+        {'bc': False, 'items': {'4': ['A-REVIEW']}, 'legacy_replace_fixes': True},    # E07
+        {'bc': True, 'infra': {'A-GATEERROR': 1}},                                     # E15
+        {'bc': True, 'nf': {'A-INTRADUP': ['9'], 'A-SHAPEMIX': ['3', '4']}},           # NF items accepted once disclosed
+        {'bc': True, 'paper': {'A-QINDEX': {'changes': 20}}, 'late_items': {5: {'2': ['A-REVIEW']}, 11: {'6': ['A-X']}}},
+        {'bc': True, 'phantom': True, 'items': {'4': ['A-REVIEW']}},                    # a defective auditor: bounded
+        {'bc': False, 'phantom': True},                                                 # ... on a legacy paper too
+    ]
+    _rn = [s13_2f_simulate(x) for x in _named]
+    import random as _rnd13
+    _rg = _rnd13.Random(20261119)
+    _gi, _pg = ['A-REVIEW', 'A-STEMLEAK', 'A-ANSKEY'], ['A-QINDEX', 'A-SEQ', 'A-CLUSTER', 'A-DOSSIER']
+    _rr = []
+    for _i in range(2000):
+        _sc = {'bc': _rg.random() < .75, 'legacy_replace_fixes': _rg.random() < .5,
+               'items': {str(_rg.randint(1, 40)): _rg.sample(_gi, _rg.randint(1, 2)) for _ in range(_rg.randint(0, 6))},
+               'late_items': {_rg.randint(2, 9): {str(_rg.randint(1, 40)): [_rg.choice(_gi)]} for _ in range(_rg.randint(0, 2))},
+               'paper': {g: ({'changes': _rg.randint(0, 8)} if _rg.random() < .6 else {'fixes_after': _rg.randint(1, 7)})
+                         for g in _rg.sample(_pg, _rg.randint(0, 3))},
+               'nf': {g: [str(_rg.randint(1, 40)) for _ in range(_rg.randint(0, 3))]
+                      for g in _rg.sample(list(NF_DISCLOSE_GATES), _rg.randint(0, 2))},
+               'infra': {g: _rg.randint(0, 3) for g in _rg.sample(list(INFRA_GATES)[:3], _rg.randint(0, 1))},
+               'phantom': _rg.random() < .05}
+        _rr.append(s13_2f_simulate(_sc))
+    check('s13loop_TI1_incident_certifies', _ri['outcome'] == 'certified' and _ri['sweeps'] <= 4 and not _ri['violations'])
+    check('s13loop_TI1_named_edge_cases_terminate',
+          all(r['outcome'] in ('certified', 'infra_stop') and not r['violations']
+              and r['sweeps'] <= S13_2F_TOTAL_CAP + 2 + INFRA_HEAL_MAX for r in _rn)
+          and _rn[-1]['outcome'] == 'infra_stop' and _rn[-2]['outcome'] == 'infra_stop'
+          and _rn[2]['sweeps'] <= 3 and _rn[4]['outcome'] == 'certified')
+    check('s13loop_TI1_random_2000_terminate',
+          all(r['outcome'] in ('certified', 'infra_stop') and not r['violations']
+              and r['sweeps'] <= S13_2F_TOTAL_CAP + 2 + INFRA_HEAL_MAX for r in _rr)
+          and all(r['outcome'] == 'certified' for r in _rr if 'infra_stop' not in [t[1] for t in r['trace']]))
+    _st0 = s13_2f_begin(s13_2f_begin(None, 'A'), 'A')
+    check('s13loop_TI1_counter_persistent', _st0['total_sweeps'] == 2 and s13_2f_begin(_st0, 'B')['total_sweeps'] == 1
+          and s13_2f_settled({'1': {'quality_status': 'ESCALATED(A-X)'}, '2': {'quality_status': 'CERTIFIED'},
+                              '3': {'quality_status': 'DISCLOSED(A-Y)'}}) == ['1', '3']
+          and S13_2F_TOTAL_CAP == S13_2F_MAX_SWEEPS + 6)
+    # P7 / P4 (T-U5): one shape vocabulary (every alias is the same F-05.1 ask format as its canonical key — the map can
+    # never drift from ASK_FORMAT_LEGACY); targets made effective (sum to the paper's s1 slots, s2 / 'other' reserved);
+    # the planner's output ALWAYS passes its own checker once its recorded relief is honoured (1,000 seeded fixtures,
+    # N in {20..60}, 3-25 subtopics), is deterministic, and the incident's 32-of-40 vector is rescaled to 40
+    check('s13loop_TU5_shape_aliases_match_framework_vocabulary',
+          all(normalize_ask_format(a) is not None and normalize_ask_format(a) == normalize_ask_format(c)
+              for a, c in SHAPE_ALIASES.items())
+          and canonical_shape('Matching|table') == 'match' and canonical_shape('combination') == 'combination'
+          and shape_counts_canonical({'match': 1, 'matching': 2, 'direct': 1}) == {'match': 3, 'direct': 1})
+    _v32 = {'direct': {'target': 8, 'floor': 1, 'cap': 10}, 'matching': {'target': 2, 'floor': 1, 'cap': 4},
+            'sequence': {'target': 3, 'floor': 1, 'cap': 5}, 'statement': {'target': 7, 'floor': 1, 'cap': 9},
+            'match': {'target': 3, 'floor': 1, 'cap': 5}, 'identify_property': {'target': 1, 'floor': 1, 'cap': 3},
+            'two_part': {'target': 6, 'floor': 1, 'cap': 8}, 'spectrum_to_structure': {'target': 1, 'floor': 1, 'cap': 3},
+            'reagent_identification': {'target': 1, 'floor': 1, 'cap': 3}, 'count': {'target': 0, 'floor': 0, 'cap': 1}}
+    _e40 = shape_targets_effective(_v32, 40)
+    _s2v = dict(_v32, statement=dict(_v32['statement'], shape_rule='s2'), other={'target': 3, 'floor': 0, 'cap': 9})
+    _e40b = shape_targets_effective(_s2v, 40)
+    check('s13loop_TU5_effective_targets',
+          sum(v['target'] for v in _e40.values()) == 40 and 'matching' not in _e40 and _e40['match']['target'] >= 5
+          and all(v['floor'] <= v['target'] <= v['cap'] for v in _e40.values() if v['target'])
+          and _e40['count']['target'] == 0
+          and sum(v['target'] for v in _e40b.values()) == 40 and 'statement' not in _e40b and 'other' not in _e40b
+          and shape_targets_effective({'a': {'target': 2, 'floor': 1, 'cap': 3}, 'b': {'target': 3, 'floor': 1, 'cap': 4}}, 5)
+          == {'a': {'target': 2, 'floor': 1, 'cap': 3}, 'b': {'target': 3, 'floor': 1, 'cap': 4}})
+    import random as _rnd5
+    _g5 = _rnd5.Random(1125)
+    _shp5 = list(_v32) + ['combination', 'property_order', 'statements', 'order']
+    _bad5, _det5, _rel5 = 0, True, 0
+    for _i in range(1000):
+        _N5 = _g5.choice([20, 25, 30, 40, 50, 60])
+        _tg5 = {k: (lambda t: {'target': t, 'floor': min(1, t), 'cap': t + 2})(_g5.randint(0, 9))
+                for k in _g5.sample(_shp5, _g5.randint(3, 10))}
+        if _g5.random() < .3:                         # the FULL vector, as the blueprint carries it (s2 / 'other')
+            _tg5['assertion_reason'] = {'target': _g5.randint(1, 5), 'floor': 1, 'cap': 6, 'shape_rule': 's2'}
+            _tg5['other'] = {'target': _g5.randint(1, 4), 'floor': 0, 'cap': 9}
+        _ns5 = _g5.randint(3, 25)
+        _sub5 = {f's{j}': (_g5.sample(list(_tg5), _g5.randint(1, len(_tg5))) if _g5.random() < .7 else list(_tg5))
+                 for j in range(_ns5)}
+        _sl5 = [{'q': q, 'subtopic_id': f's{_g5.randrange(_ns5)}'} for q in range(1, _N5 + 1)]
+        _pl5 = assign_shape_plan(_sl5, _sub5, _tg5, seed=str(_i))
+        _c5 = {}
+        for _k, _v in _pl5.items():
+            if not str(_k).startswith('_') and _v:
+                _c5[_v] = _c5.get(_v, 0) + 1
+        if shape_mix_check(_c5, shape_targets_effective(_tg5, _N5), infeasible=_pl5['_infeasible'])['state'] == 'FAIL':
+            _bad5 += 1
+        _rel5 += bool(_pl5['_infeasible'])
+        if _i < 50 and assign_shape_plan(_sl5, _sub5, _tg5, seed=str(_i)) != _pl5:
+            _det5 = False
+    check('s13loop_TU5_planner_always_passes_its_checker_1000', _bad5 == 0 and _det5)
+    check('s13loop_TU5_relief_is_recorded_not_hidden', 0 < _rel5 < 1000)
+    check('s13loop_TU5_frozen_plan_relief',
+          shape_plan_relief({'1': 'direct', '2': 'direct', '3': 'direct', '_infeasible': []},
+                            {'direct': {'target': 1, 'floor': 1, 'cap': 1}, 'match': {'target': 2, 'floor': 1, 'cap': 3}}, 3)
+          == ['direct', 'match'])
+    check('s13loop_TU8_shapemix_is_composition_and_shapeplan_gate',
+          'A-SHAPEMIX' in NF_DISCLOSE_GATES
+          and any(x.startswith('G-SHAPEPLAN') for x in qg_item_gates({'shape': 'direct'}, None, False, {'planned_shape': 'matching'}))
+          and not any(x.startswith('G-SHAPEPLAN') for x in qg_item_gates({'shape': 'match|table'}, None, False, {'planned_shape': 'matching'}))
+          and not any(x.startswith('G-SHAPEPLAN') for x in qg_item_gates(
+              {'shape': 'direct', 'shape_drift': {'planned': 'match', 'delivered': 'direct', 'reason': 'fallback'}},
+              None, False, {'planned_shape': 'match'}))
+          and not r3_hard_gate('G-SHAPEPLAN: x'))
+    # P11 (T-U10): a paper PARKED by the loop — open no-attempt chains, todo actions, NF-only ESCALATED stamps, their
+    # P0 records — is migrated once; a non-NF stamp is kept; idempotent; no text / review / hash field is touched
+    _qs10 = ['23', '25', '26']
+    _bs10 = {'paper_id': 'X:01', 'bv': {'rule': BC_RULE}, 'difficulty_mode': 'ladder', 'infra_heal': {'S13-2F-preview': 2},
+             'slot_chain': {q: {'q': q, 'kind': 'quality', 'gates': ['A-SHAPEMIX'], 'attempts': []} for q in _qs10},
+             'slot_chain_work': [{'q': q, 'action': 'replace', 'status': 'todo'} for q in _qs10],
+             'p0_incidents': [{'q': q, 'kind': 'bc_final_assembly_finding', 'gates': ['A-SHAPEMIX']} for q in _qs10]
+             + [{'q': '9', 'kind': 'bc_final_assembly_finding', 'gates': ['A-REVIEW']}],
+             'shape_plan': {'1': 'direct', '2': 'direct', '3': 'direct', '_infeasible': []}}
+    _kd10 = {'concept_map': {**{q: {'quality_status': 'ESCALATED(A-SHAPEMIX)', 'stem_text': 's', 'item_hash': 'h',
+                                    'difficulty_obs': {'qtype': 'mcq', 'mode': 'ladder'}} for q in _qs10},
+                             '9': {'quality_status': 'ESCALATED(A-REVIEW)', 'difficulty_obs': {'qtype': 'mcq', 'deduction_steps': 4}}}}
+    _b10, _k10, _r10 = migrate_s13_2f_loop(_bs10, _kd10, {'direct': {'target': 1, 'floor': 1, 'cap': 1},
+                                                          'match': {'target': 2, 'floor': 1, 'cap': 3}}, 3)
+    _b10b, _k10b, _r10b = migrate_s13_2f_loop(_b10, _k10, {'direct': {'target': 1, 'floor': 1, 'cap': 1}}, 3)
+    check('s13loop_TU10_migration',
+          _r10['chains_removed'] == _qs10 and _b10['slot_chain'] == {} and _b10['slot_chain_work'] == []
+          and _r10['unstamped'] == _qs10 and 'A-SHAPEMIX' in _k10['nf_disclosed']
+          and _k10['concept_map']['9']['quality_status'] == 'ESCALATED(A-REVIEW)'
+          and _r10['p0_moved'] == 3 and [r['q'] for r in _b10['p0_incidents']] == ['9']
+          and 'S13-2F-preview' not in _b10['infra_heal'] and _b10['s13_2f']['total_sweeps'] == 0
+          and _r10['relief'] == ['direct', 'match']
+          and _k10['concept_map']['9']['difficulty_obs'] == {'qtype': 'mcq', 'mode': 'ladder'}
+          and _k10['concept_map']['9']['difficulty_obs_author'] == {'deduction_steps': 4}
+          and all(_k10['concept_map'][q]['stem_text'] == 's' and _k10['concept_map'][q]['item_hash'] == 'h' for q in _qs10)
+          and _r10b['skipped'] and _b10b == _b10 and _k10b == _k10
+          and migrate_s13_2f_loop({}, {})[2]['chains_removed'] == [])
+    _er, _ea = difficulty_obs_engine_record({'qtype': 'msq', 'difficulty_obs': {
+        'qtype': 'msq', 'deduction_steps': 5, 'moves': ['a', 'b']}}, R3_MODE_LADDER)
+    _er2, _ea2 = difficulty_obs_engine_record({'difficulty_obs': {'deduction_steps': 5}}, R3_MODE_LEGACY)
+    check('s13loop_TU11_engine_owns_countfree_obs',
+          _er == {'qtype': 'msq', 'mode': 'ladder'} and _ea == {'deduction_steps': 5, 'moves': ['a', 'b']}
+          and _er2 == {'deduction_steps': 5} and _ea2 is None
+          and difficulty_obs_engine_record({}, R3_MODE_COUNTED) == ({'qtype': 'mcq', 'mode': 'counted'}, None))
     # dp_add_paper: legacy obs → identical score/band, stamped r1 / record_version 2; r2 obs stamped r2; marks
     _CFG_M = dict(_V132_SSC, marking_scheme=[{'q_range': [1, 50], 'correct_marks': 2}, {'q_range': [51, 100], 'correct_marks': 2.5}])
     _Pm, _, _ = dp_add_paper(None, source_file='SSC_CGL_T1_09-Sep-2025_Shift_1.docx', exam_config=_CFG_M,
@@ -13230,7 +13531,12 @@ PYQ_IMAGE_ANALYSIS:
           difficulty_gate_window_rule({'1': {'deduction_steps': 3}}) == 'w1'
           and difficulty_gate_window_rule({'1': {'deduction_steps': 3}, '2': {'rubric_rule': 'r2'}}) == 'w2'
           and difficulty_gate_window_rule({'1': {'level': {'rule': 'L1'}}}) == 'w2'
-          and difficulty_gate_window_rule(None) == 'w1' and difficulty_gate_window_rule({'1': 'junk'}) == 'w1')
+          and difficulty_gate_window_rule(None) == 'w1' and difficulty_gate_window_rule({'1': 'junk'}) == 'w1'
+          # release 2026.11.25: the engine's count-free record carries no rubric_rule -> Step 9 scores r1 -> 'w1' (paired)
+          and difficulty_gate_window_rule({'1': {'qtype': 'mcq', 'mode': 'ladder'}}) == 'w1'
+          and rubric_rule_of({'qtype': 'mcq', 'mode': 'ladder'}) != RUBRIC_RULE_CURRENT
+          and verify_difficulty_obs('Hard', {'qtype': 'mcq', 'mode': 'ladder'}, ['Easy', 'Medium', 'Hard']) == (True, None)
+          and verify_difficulty_obs('Hard', {'qtype': 'mcq'}, ['Easy', 'Medium', 'Hard'])[0] is False)
 
     def _qf_paper(date, blocks):
         qs, q = {}, 1
@@ -14457,7 +14763,9 @@ def difficulty_gate_window_rule(difficulty_obs_by_q):
     """Which window rule a paper is gated under (G8, DL-53): 'w2' iff ANY of its
     question_index difficulty_obs carries rubric_rule 'r2' or a level record — that is
     what "born under release 2026.11.05" means and nothing else marks it. 'w1' for
-    every older paper. Never raises."""
+    every older paper. release 2026.11.25 (LAW-RECORD-READER-1): the window rule must PAIR with the rubric Step 9
+    scores under (rubric_rule copied from the same record, absent = r1); the engine's count-free record (modes ladder /
+    counted) carries no rubric_rule, so it pairs r1 with 'w1' — the same pair for every worker. Never raises."""
     for obs in (difficulty_obs_by_q or {}).values() if isinstance(difficulty_obs_by_q, dict) else []:
         if not isinstance(obs, dict):
             continue
@@ -15292,8 +15600,53 @@ def difficulty_obs_signature(obs):
         return (RUBRIC_RULE_CURRENT,
                 inferential_steps_of(obs.get('deduction_steps'), obs.get('inferential_steps')),
                 obs.get('axiom_concepts'), bool(obs.get('speed_hack_exists')))
+    # release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P1 / LAW-RECORD-READER-1): a COUNT-FREE record — the writer's
+    # record of modes 'ladder' / 'counted' ({'qtype', 'mode'}), or any record that carries no counted field — holds
+    # NO evidence, so it has NO signature (skipped exactly like a legacy no-obs entry). Before this, every such record
+    # fell through to the legacy tuple (None, None, False): N identical tuples, a deterministic check-9 FAIL on every
+    # ladder-mode band of >= 8 items, and a false "values appear COPIED" disclosure.
+    if difficulty_obs_count_free(obs):
+        return None
     return (obs.get('deduction_steps'), obs.get('axiom_concepts'),
             bool(obs.get('speed_hack_exists')))
+
+
+# release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P1/P13): the counted fields of a difficulty_obs record. A record with
+# none of them (or one stamped with a count-free mode) carries no author-counted evidence.
+DIFFICULTY_OBS_COUNT_KEYS = ('deduction_steps', 'axiom_concepts', 'inferential_steps')
+
+
+def difficulty_mode_count_free(mode):
+    """True when `mode` is a difficulty mode whose band is measured by independent placement or reviewer counting
+    (R3_MODE_LADDER / R3_MODE_COUNTED) — the author never counts, so there is no author evidence to check for echo.
+    Uses the constants (never string literals), so a future mode is decided here once. Pure."""
+    return str(mode or '').strip().lower() in R3_COUNT_FREE_MODES
+
+
+def difficulty_obs_count_free(obs):
+    """True when a difficulty_obs dict carries no author-counted evidence: its 'mode' is count-free, or none of
+    DIFFICULTY_OBS_COUNT_KEYS holds a value. Pure; never raises."""
+    if not isinstance(obs, dict):
+        return True
+    if difficulty_mode_count_free(obs.get('mode')):
+        return True
+    return all(obs.get(k) is None for k in DIFFICULTY_OBS_COUNT_KEYS)
+
+
+def difficulty_obs_engine_record(entry, mode):
+    """P13 (release 2026.11.25): the ENGINE decides what difficulty_obs holds in a count-free mode — never the worker.
+    Returns (record, archived): record = {'qtype', 'mode'}; archived = whatever else the caller's record carried
+    (kept for history in entry['difficulty_obs_author'], read by nothing that decides), or None. The author's solution
+    moves, when present only in the old record, are returned under archived['moves'] so the caller can keep them as
+    author_moves (the adjudicator packet reads them). In mode 'br1' the record is returned unchanged. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    obs = e.get('difficulty_obs') if isinstance(e.get('difficulty_obs'), dict) else {}
+    if not difficulty_mode_count_free(mode):
+        return (e.get('difficulty_obs'), None)
+    qt = e.get('qtype') or obs.get('qtype') or 'mcq'
+    rec = {'qtype': qt if isinstance(qt, str) else 'mcq', 'mode': str(mode).strip().lower()}
+    extra = {k: v for k, v in obs.items() if k not in ('qtype', 'mode')}
+    return (rec, extra or None)
 
 
 def difficulty_obs_signature_text(sig):
@@ -15311,7 +15664,7 @@ def difficulty_obs_signature_text(sig):
 
 def difficulty_obs_diversity(questions, difficulty_labels,
                              max_modal_frac=DIFFICULTY_OBS_MODAL_FRAC_MAX,
-                             min_n=DIFFICULTY_OBS_DIVERSITY_MIN_N):
+                             min_n=DIFFICULTY_OBS_DIVERSITY_MIN_N, paper_mode=None):
     """Fix 2 — evidence-diversity floor (anti profile-echo). `questions` are
     question_index entries ({'q','difficulty','difficulty_obs',...}).
     THE SIGNAL: N independently derived questions cannot produce near-identical
@@ -15326,12 +15679,18 @@ def difficulty_obs_diversity(questions, difficulty_labels,
     (no obs → entry skipped)."""
     if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
         return []
+    # release 2026.11.25 (P1): MODE-AWARE. A paper (paper_mode) or a row ('difficulty_mode' on the entry) whose band
+    # is measured by independent placement / reviewer counting carries no author evidence: never judged here.
+    if difficulty_mode_count_free(paper_mode):
+        return []
     fails = []
     for lab in difficulty_labels[1:]:                     # bottom band exempt
         sigs, qs_by_sig = {}, {}
         for x in questions:
             if x.get('difficulty') != lab:
                 continue
+            if isinstance(x, dict) and difficulty_mode_count_free(x.get('difficulty_mode')):
+                continue                                  # a count-free row — no author evidence
             s = difficulty_obs_signature(x.get('difficulty_obs'))
             if s is None:
                 continue                                  # legacy entry — skip
@@ -19879,7 +20238,7 @@ def shape_targets(shares, n_items, series_index=0):
     return out
 
 
-def assign_shape_plan(slots, subtopic_shapes, targets, seed=''):
+def assign_shape_plan(slots, subtopic_shapes, targets, seed='', n_items=None):
     """R5.4 one plan per paper, deterministic (seed = sha256(exam·paper·corpus_hash)).
     slots: [{'q', 'subtopic_id', 'qtype', 'axis2'}]; subtopic_shapes: {subtopic_id:
     [shapes its PYQs use]} (topic-level fallback already applied by the caller);
@@ -19887,7 +20246,17 @@ def assign_shape_plan(slots, subtopic_shapes, targets, seed=''):
     the CALLER's ordering of slots; here a shape is assignable only when the slot's
     subtopic has a PYQ of that shape. Floors first (largest remaining floor), then
     targets, never above cap. Returns {q: shape | None} plus '_infeasible': [shapes
-    whose floor no capable slot could take] (recorded, never a defect — F8 rule)."""
+    whose floor no capable slot could take] (recorded, never a defect — F8 rule).
+    release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P4/P7, LAW-PLAN-CHECK-1): the targets are first made EFFECTIVE
+    (shape_targets_effective: one vocabulary, s1 targets summing to the paper's slots), a third pass balances the
+    plan to shape_mix_check's OWN band, and every shape the checker would still fail is added to '_infeasible' (plan
+    relief — recorded, shown at session start, honoured by A-SHAPEMIX). The plan therefore always passes its own
+    checker; before this 82 % of random 40-slot plans on one exam's targets failed it before a question was written."""
+    slots = [x for x in (slots if isinstance(slots, (list, tuple)) else []) if isinstance(x, dict) and 'q' in x]
+    targets = shape_targets_effective(targets, n_items if isinstance(n_items, int) and not isinstance(n_items, bool)
+                                      else len(slots))
+    subtopic_shapes = {k: [canonical_shape(x) for x in (v if isinstance(v, (list, tuple)) else [])]
+                       for k, v in (subtopic_shapes.items() if isinstance(subtopic_shapes, dict) else [])}
     rem = {}
     for s, v in (targets or {}).items():
         v = v if isinstance(v, dict) else {}
@@ -19925,8 +20294,143 @@ def assign_shape_plan(slots, subtopic_shapes, targets, seed=''):
             used[s] = used.get(s, 0) + 1
         else:
             plan[sl['q']] = None
-    plan['_infeasible'] = sorted(s for s, v in rem.items() if v['floor'] > used.get(s, 0))
+    # pass 3 (release 2026.11.25, P4): balance to the CHECKER's band. A single slot re-assignment (among the shapes
+    # the slot's subtopic permits, within cap) is applied when it strictly lowers (sum of band violations, sum of
+    # distance to target) — an integer pair that strictly decreases, so the pass ends; deterministic (slot order,
+    # then shape name).
+    _caps_of = {sl['q']: [x for x in dict.fromkeys(subtopic_shapes.get(sl.get('subtopic_id'), [])) if x in rem]
+                for sl in order}
+    def _cost(u):
+        return (sum(shape_band_violation(u.get(x, 0), rem[x]) for x in rem),
+                sum(abs(u.get(x, 0) - rem[x]['target']) for x in rem))
+    _cur = _cost(used)
+    for _ in range(len(order) * max(1, len(rem)) + 1):
+        _best = None
+        for sl in order:
+            a = plan.get(sl['q'])
+            if a is None:
+                continue
+            for b in _caps_of.get(sl['q'], []):
+                if b == a or used.get(b, 0) >= rem[b]['cap']:
+                    continue
+                u2 = dict(used)
+                u2[a] = u2.get(a, 0) - 1
+                u2[b] = u2.get(b, 0) + 1
+                c2 = _cost(u2)
+                if c2 < _cur and (_best is None or c2 < _best[0]):
+                    _best = (c2, sl['q'], a, b)
+        if _best is None:
+            break
+        _cur, _qb, _a, _b = _best
+        plan[_qb] = _b
+        used[_a] = used.get(_a, 0) - 1
+        used[_b] = used.get(_b, 0) + 1
+    _inf = {s for s, v in rem.items() if v['floor'] > used.get(s, 0)}
+    _chk = shape_mix_check(used, {s: v for s, v in rem.items()}, infeasible=sorted(_inf))
+    _inf |= {f.get('shape') for f in (_chk.get('findings') or []) if f.get('shape')}
+    plan['_infeasible'] = sorted(_inf)
     return plan
+
+
+# ── release 2026.11.25 — ONE SHAPE VOCABULARY AND EFFECTIVE TARGETS (GAP-2026-11-19-S13-2F-LOOP P7 / P4) ───────────────
+# Pure spelling variants of one ask type are ONE shape. Each pair is the same F-05.1 ask format in ASK_FORMAT_LEGACY
+# (asserted by the self-test, so this map can never drift from the framework vocabulary). A distinct measured shape
+# ('combination', 'property_order', 'rank_property', ...) is never merged.
+SHAPE_ALIASES = {'matching': 'match', 'statements': 'statement', 'order': 'sequence', 'ranking': 'sequence',
+                 'assertion-reason': 'assertion_reason'}
+
+
+def canonical_shape(shape):
+    """The canonical shape key of a recorded shape ('ask_type' or 'ask_type|grammar'; alias spellings merged). Pure."""
+    s = str(shape or '').split('|')[0].strip().lower()
+    return SHAPE_ALIASES.get(s, s)
+
+
+def shape_counts_canonical(counts):
+    """{canonical shape: count} — alias spellings summed. Pure."""
+    out = {}
+    for k, v in (counts or {}).items() if isinstance(counts, dict) else []:
+        try:
+            out[canonical_shape(k)] = out.get(canonical_shape(k), 0) + int(v or 0)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def shape_targets_merge(targets):
+    """Alias spellings of one shape merged into its canonical key: targets and caps summed, floor = min(sum of
+    floors, merged cap); other fields (shape_rule) kept from the first. Pure."""
+    out = {}
+    for k, v in (targets or {}).items() if isinstance(targets, dict) else []:
+        if not isinstance(v, dict):
+            continue
+        ck = canonical_shape(k)
+        t, fl = _qf_int(v.get('target'), 0), _qf_int(v.get('floor'), 0)
+        cp = _qf_int(v.get('cap'), t) if v.get('cap') is not None else t
+        if ck in out:
+            o = out[ck]
+            o['target'] += t
+            o['cap'] += cp
+            o['floor'] = min(o['floor'] + fl, o['cap'])
+        else:
+            out[ck] = dict(v, target=t, floor=min(fl, cp), cap=cp)
+    return out
+
+
+def shape_targets_effective(targets, n_items):
+    """THE targets a planner and its checker both use (LAW-PLAN-CHECK-1), given the SAME input (the blueprint's full
+    vector for the paper): alias spellings merged; 'other' and s2 format targets left out (A-AXIS2 reads the s2 ones;
+    neither is a shape the planner can assign); then, when the s1 targets do not sum to n_items, rescaled by
+    largest-remainder over their own measured proportions. The planner gives EVERY slot an s1 shape, so the s1 targets
+    must sum to the paper's slots — a blueprint whose targets sum to 32 on a 40-question paper forced 8 slots over
+    target by construction. Caps keep their headroom above target; floors never exceed target. Targets already summing
+    to n_items are unchanged. Pure."""
+    m = shape_targets_merge(targets)
+    if not m:
+        return {}
+    _s2 = lambda v: str((v or {}).get('shape_rule') or '').lower() == 's2'
+    s1 = {k: v for k, v in m.items() if k != 'other' and not _s2(v)}
+    tot = sum(v['target'] for v in s1.values())
+    try:
+        need = int(n_items)
+    except (TypeError, ValueError):
+        need = tot
+    if tot <= 0 or need <= 0 or tot == need:
+        return s1
+    raw = {k: v['target'] * need / float(tot) for k, v in s1.items()}
+    base = {k: int(r) for k, r in raw.items()}
+    left = need - sum(base.values())
+    for k in sorted(raw, key=lambda x: (-(raw[x] - base[x]), x))[:max(0, left)]:
+        base[k] += 1
+    out = {}
+    for k, v in s1.items():
+        t = base[k]
+        head = max(0, v['cap'] - v['target'])
+        out[k] = dict(v, target=t, cap=max(v['cap'], t + head), floor=min(v['floor'], t) if t > 0 else 0,
+                      rescaled_from=v['target'])
+    return out
+
+
+def shape_band_violation(n, v):
+    """How far count n lies outside shape_mix_check's band for target record v (0 inside). Pure."""
+    t, fl = _qf_int((v or {}).get('target'), 0), _qf_int((v or {}).get('floor'), 0)
+    cap = _qf_int((v or {}).get('cap'), 10 ** 9)
+    tol = max(1, int(round(SHAPE_TOL_REL * t)))
+    return max(0, fl - n, n - cap, abs(n - t) - tol)
+
+
+def shape_plan_relief(plan, targets, n_items=None):
+    """The relief a FROZEN plan (a paper begun before release 2026.11.25) needs: the shapes its own counts fail
+    against the effective targets. Returns the sorted shape list to add to plan['_infeasible']. Pure."""
+    pl = plan if isinstance(plan, dict) else {}
+    sl = {k: v for k, v in pl.items() if not str(k).startswith('_')}
+    eff = shape_targets_effective(targets, n_items if n_items is not None else len(sl))
+    cnt = {}
+    for v in sl.values():
+        if v:
+            cnt[canonical_shape(v)] = cnt.get(canonical_shape(v), 0) + 1
+    r = shape_mix_check(cnt, eff, infeasible=[canonical_shape(x) for x in (pl.get('_infeasible') or [])])
+    return sorted({f.get('shape') for f in (r.get('findings') or []) if f.get('shape')})
 
 
 def shape_mix_check(counts, targets, infeasible=()):
@@ -19934,7 +20438,10 @@ def shape_mix_check(counts, targets, infeasible=()):
     15 %), count >= floor, count <= cap. A shape in `infeasible` is recorded, not a
     defect. Returns qq_verdict with findings."""
     find = []
-    c = counts if isinstance(counts, dict) else {}
+    # release 2026.11.25 (P7): one shape vocabulary — alias spellings ('matching' / 'match', ...) are one shape
+    c = shape_counts_canonical(counts if isinstance(counts, dict) else {})
+    targets = shape_targets_merge(targets)
+    infeasible = [canonical_shape(x) for x in (infeasible or ())]
     for sh, v in (targets or {}).items():
         n = int(c.get(sh, 0) or 0)
         t, fl, cap = int(v.get('target', 0)), int(v.get('floor', 0)), int(v.get('cap', 10 ** 9))
@@ -23249,7 +23756,8 @@ def review_panel_majority(records, size=REVIEW_PANEL_SIZE):
 
 # ── S13-2F ROUTING — every surviving finding has a route; INFRA only for a broken tool ─────
 
-def sweep_route(item_findings, fail_lines, sweep, max_sweeps=S13_2F_MAX_SWEEPS, self_test_ok=True):
+def sweep_route(item_findings, fail_lines, sweep, max_sweeps=S13_2F_MAX_SWEEPS, self_test_ok=True,
+                settled=None, bc_paper=False):
     """THE S13-2F decision (OD-2026-11-09). Returns {'items': {q: {'gates', 'route'}},
     'paper': {gate: route}, 'stop': bool, 'stop_gates': [gate]}.
     Items: every item finding, plus every FAIL line whose message names a question (Q<n>) —
@@ -23259,26 +23767,43 @@ def sweep_route(item_findings, fail_lines, sweep, max_sweeps=S13_2F_MAX_SWEEPS, 
       self-heal's own self-test failed: self_test_ok False); any other gate -> its
       PAPER_GATE_ROUTE ('reassemble' | 'recapture'; an unlisted gate 'recapture'), and from
       sweep max_sweeps on -> 'amber' (delivered with the gate's message disclosed — never a
-      stop). Never raises."""
+      stop). Never raises.
+    release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P2, LAW-FA-TERM-1): `settled` — questions already accepted
+      (stamped ESCALATED / DISCLOSED) — are never routed again, and an item finding whose auditor disposition is
+      'escalated' / 'disclosed' is accepted the same way. `bc_paper` (a BATCH-COMPLETE paper, LAW-BC-8): every
+      remaining item routes to 'ESCALATE' — never a rung, 'TERMINAL' or 'REPLACE'. A FAIL line's question list comes
+      from its structured 'qs' (audit_canonical v2.45) when present; the free-text Q<n> regex is only the fallback
+      for an older auditor copy, and its use is reported ('regex_fallback': True). With both new arguments absent
+      and an older auditor's lines the result is byte-identical to release 2026.11.24."""
     sw = max(1, _qf_int(sweep, 1))
+    _settled = {str(q) for q in (settled or ())} if isinstance(settled, (list, tuple, set, frozenset, dict)) else set()
     items = {}
     for f in _dl_list(item_findings):
         if isinstance(f, dict) and f.get('q') is not None:
+            if str(f.get('q')) in _settled or str(f.get('disposition') or 'open') in SWEEP_ACCEPTED_DISPOSITIONS:
+                continue                                  # accepted: never routed again (P2)
             items.setdefault(str(f.get('q')), set()).add(str(f.get('gate')))
-    paper = {}
+    paper, _rx = {}, False
     for fl in _dl_list(fail_lines):
         if not isinstance(fl, dict):
             continue
         g = str(fl.get('check') or fl.get('gate') or '')
-        qs = _SC_QREF_RE.findall(str(fl.get('message') or ''))
+        if isinstance(fl.get('qs'), (list, tuple)):
+            qs = [str(q) for q in fl.get('qs') if str(q).strip().isdigit()]
+        else:
+            qs = _SC_QREF_RE.findall(str(fl.get('message') or ''))
+            _rx = _rx or (bool(qs) and g not in INFRA_GATES)
+        qs = [str(int(q)) for q in qs if str(int(q)) not in _settled]
         if qs and g not in INFRA_GATES:
             for q in qs:
-                items.setdefault(str(int(q)), set()).add(g)
+                items.setdefault(q, set()).add(g)
         else:
             paper[g] = True
     out_items = {}
     for q, gs in items.items():
-        if sw <= 2:
+        if bc_paper:
+            r = 'ESCALATE'
+        elif sw <= 2:
             r = ladder_entry(sorted(gs))
         elif sw == 3:
             r = 'TERMINAL'
@@ -23296,7 +23821,355 @@ def sweep_route(item_findings, fail_lines, sweep, max_sweeps=S13_2F_MAX_SWEEPS, 
         else:
             r = PAPER_GATE_ROUTE.get(g, 'recapture')
         out_paper[g] = r
-    return {'items': out_items, 'paper': out_paper, 'stop': bool(stop), 'stop_gates': stop}
+    _out = {'items': out_items, 'paper': out_paper, 'stop': bool(stop), 'stop_gates': stop}
+    if _rx:
+        _out['regex_fallback'] = True
+    return _out
+
+
+# ── release 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP (P2 / P3, LAW-FA-TERM-1): Final Assembly ALWAYS terminates ──────
+# The sweep counter lives in batch_state['s13_2f'] and NO branch resets or decrements it (the file counter of
+# release 2026.11.24 was deleted by the slot-chain branch, so the sweep-6 escape was unreachable). Every sweep is
+# planned by ONE pure function (s13_2f_plan) that RUN-BLOCK S13-2F executes and the termination harness drives.
+S13_2F_TOTAL_CAP = S13_2F_MAX_SWEEPS + 6           # OD-D: an absolute bound on sweeps, legacy papers included
+SWEEP_ACCEPTED_DISPOSITIONS = ('escalated', 'disclosed')
+S13_2F_REBUILD_ROUTES = ('recapture', 'reassemble')
+S13_2F_ACTIONS = ('disclose_nf', 'infra', 'stamp', 'rebuild', 'escalate', 'cap', 'legacy', 'none')
+
+
+def s13_2f_state(prev, paper_id):
+    """The persistent S13-2F state of `paper_id` ({'paper_id', 'total_sweeps', 'last_sig', 'last_route', 'escalate',
+    'history'}); another paper's state never carries over. Pure."""
+    p = prev if isinstance(prev, dict) else {}
+    if p.get('paper_id') != paper_id:
+        p = {}
+    return {'paper_id': paper_id, 'total_sweeps': max(0, _qf_int(p.get('total_sweeps'), 0)),
+            'last_sig': dict(p.get('last_sig') or {}) if isinstance(p.get('last_sig'), dict) else {},
+            'last_route': dict(p.get('last_route') or {}) if isinstance(p.get('last_route'), dict) else {},
+            'escalate': sorted({str(g) for g in (p.get('escalate') if isinstance(p.get('escalate'), (list, tuple, set)) else []) if g}),
+            'history': list(p.get('history') or [])[-40:] if isinstance(p.get('history'), list) else [],
+            **({'certified_at_sweep': p['certified_at_sweep']} if p.get('certified_at_sweep') else {})}
+
+
+def s13_2f_begin(prev, paper_id):
+    """Start one sweep: the persistent counter + 1 (never reset, never decremented). Pure."""
+    st = s13_2f_state(prev, paper_id)
+    st['total_sweeps'] += 1
+    return st
+
+
+def s13_2f_settled(concept_map):
+    """Questions already ACCEPTED at Final Assembly: quality_status 'ESCALATED…' or 'DISCLOSED…'. Pure."""
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    return sorted({str(q) for q, e in cm.items() if isinstance(e, dict)
+                   and str(e.get('quality_status') or '').startswith(('ESCALATED', 'DISCLOSED'))}, key=_qf_qkey)
+
+
+def s13_2f_signature(message):
+    """A short, stable signature of one FAIL line's message (fixed-point detection, G13). Pure."""
+    return _qq_hashlib.sha256(str(message or '').encode('utf-8')).hexdigest()[:16]
+
+
+def s13_2f_plan(state, worklist, bc_paper=False, settled=None, nf_disclosed=None, self_test_ok=True,
+                max_sweeps=S13_2F_MAX_SWEEPS, total_cap=S13_2F_TOTAL_CAP, legacy_sweep=None, first_seen=None):
+    """THE S13-2F decision for one non-clean sweep (LAW-FA-TERM-1). `state` comes from s13_2f_begin; `worklist` is
+    the auditor's item-findings document ({'item_findings', 'fail_lines'}). Returns
+      {'action': one of S13_2F_ACTIONS, 'state', 'nf_new': {gate: [text]}, 'stamp': {q: [gates]}, 'stamp_kind',
+       'p0': [record], 'paper': {gate: route}, 'escalate': [gate], 'early': bool, 'route': sweep_route result
+       (legacy only), 'why'}.
+    Order (each step bounded, so the whole is): (1) a NEW composition shortfall (NF_DISCLOSE_GATES) is disclosed once;
+    (2) an INFRA fault goes to the existing self-heal (INFRA_HEAL_MAX per site — unchanged, never escalated); (3) at
+    the total cap every remaining item is stamped (ESCALATED on a BATCH-COMPLETE paper, DISCLOSED on a legacy one)
+    and every non-INFRA paper gate is escalated — the next sweep certifies; (4) on a BATCH-COMPLETE paper an OPEN item
+    (not settled, not accepted by the auditor) is stamped ESCALATED with a P0 record — never re-authored, never a
+    chain (LAW-BC-8); (5) otherwise each paper-level FAIL goes to its rebuild, or to AMBER when the sweep reached
+    max_sweeps or the same rebuild left the same message (fixed point, G13); (6) a legacy paper keeps its routes
+    (sweep_route on legacy_sweep). Never raises; never a stop of its own."""
+    st = s13_2f_state(state, (state or {}).get('paper_id') if isinstance(state, dict) else None)
+    wl = worklist if isinstance(worklist, dict) else {}
+    ifs = [f for f in _dl_list(wl.get('item_findings')) if isinstance(f, dict)]
+    fls = [f for f in _dl_list(wl.get('fail_lines')) if isinstance(f, dict)]
+    _settled = {str(q) for q in (settled or ())} if isinstance(settled, (list, tuple, set, frozenset, dict)) else set()
+    _nfd = dict(nf_disclosed) if isinstance(nf_disclosed, dict) else {}
+    _fs = first_seen if isinstance(first_seen, dict) else {}
+    tot = st['total_sweeps']
+    out = {'action': 'none', 'state': st, 'nf_new': {}, 'stamp': {}, 'stamp_kind': None, 'p0': [], 'paper': {},
+           'escalate': list(st['escalate']), 'early': False, 'route': None, 'why': ''}
+    _gate = lambda fl: str(fl.get('check') or fl.get('gate') or '')
+    # (1) a NEW composition shortfall — disclosed once (bounded by len(NF_DISCLOSE_GATES))
+    nf_new = {}
+    for f in ifs:
+        if f.get('gate') in NF_DISCLOSE_GATES and f.get('gate') not in _nfd:
+            nf_new.setdefault(f['gate'], []).append(f"Q{f.get('q')}")
+    for fl in fls:
+        if _gate(fl) in NF_DISCLOSE_GATES and _gate(fl) not in _nfd:
+            nf_new.setdefault(_gate(fl), []).append(str(fl.get('message') or '')[:200])
+    if nf_new:
+        out.update(action='disclose_nf', nf_new={g: list(dict.fromkeys(v)) for g, v in nf_new.items()},
+                   why=f'composition shortfall {sorted(nf_new)} disclosed (AMBER), never re-authored')
+        return out
+    # (2) a tool fault — the existing self-heal (never escalated to AMBER, never counted against the cap's verdict)
+    infra = sorted({_gate(fl) for fl in fls if _gate(fl) in INFRA_GATES})
+    if infra:
+        out.update(action='infra', paper={g: ('self_heal' if self_test_ok else 'infra_stop') for g in infra},
+                   why=f'tool fault {infra}: self-heal (INFRA_HEAL_MAX per site)')
+        return out
+    # the OPEN item set: neither settled nor accepted by the auditor; composition / INFRA gates excluded
+    open_items = {}
+    for f in ifs:
+        q, g = f.get('q'), str(f.get('gate'))
+        if q is None or str(q) in _settled or g in NF_DISCLOSE_GATES or g in INFRA_GATES:
+            continue
+        if str(f.get('disposition') or 'open') in SWEEP_ACCEPTED_DISPOSITIONS:
+            continue
+        open_items.setdefault(str(q), set()).add(g)
+    paper_fl = []
+    for fl in fls:
+        g = _gate(fl)
+        if g in INFRA_GATES:
+            continue
+        if isinstance(fl.get('qs'), (list, tuple)):
+            qs = [str(int(q)) for q in fl['qs'] if str(q).strip().isdigit()]
+        else:
+            qs = [str(int(q)) for q in _SC_QREF_RE.findall(str(fl.get('message') or ''))]
+        qs = [q for q in qs if q not in _settled]
+        if qs and g not in NF_DISCLOSE_GATES and bc_paper:
+            for q in qs:
+                open_items.setdefault(q, set()).add(g)
+        elif not qs or g in NF_DISCLOSE_GATES:
+            paper_fl.append(fl)
+        else:
+            paper_fl.append(fl)                           # legacy: sweep_route decides below
+    # (3) the total cap — every paper, legacy included
+    if tot >= max(1, _qf_int(total_cap, S13_2F_TOTAL_CAP)):
+        _kind = 'ESCALATED' if bc_paper else 'DISCLOSED'
+        _items = dict(open_items)
+        # defence in depth: at the cap a composition gate's open item findings are stamped too (an item ALL of whose
+        # findings sit on a disclosed composition gate is already accepted by the auditor and carries no 'open')
+        for f in ifs:
+            q, g = f.get('q'), str(f.get('gate'))
+            if q is not None and str(q) not in _settled and g not in INFRA_GATES \
+                    and str(f.get('disposition') or 'open') not in SWEEP_ACCEPTED_DISPOSITIONS:
+                _items.setdefault(str(q), set()).add(g)
+        if not bc_paper:
+            _lr = sweep_route(ifs, fls, legacy_sweep or tot, max_sweeps, self_test_ok, settled=_settled)
+            for q, r in (_lr.get('items') or {}).items():
+                _items.setdefault(q, set()).update(r.get('gates') or [])
+        esc = sorted(set(st['escalate']) | {_gate(fl) for fl in paper_fl if _gate(fl)})
+        _phantom = [f for f in ifs if f.get('q') is None and str(f.get('gate')) not in INFRA_GATES
+                    and str(f.get('disposition') or 'open') not in SWEEP_ACCEPTED_DISPOSITIONS]
+        if tot > max(1, _qf_int(total_cap, S13_2F_TOTAL_CAP)) and not _items and set(esc) <= set(st['escalate']):
+            # the cap was already applied and NOTHING can change any more, yet the auditor wrote no certificate: only a
+            # TOOL defect can do that (e.g. an item finding with no question — the certificate writer refuses it by
+            # contract, CERTGAP-18). It is a tool fault — the EXISTING INFRA route: self-heal (re-copy the verified
+            # auditor, run its --self-test) up to INFRA_HEAL_MAX, never a loop. No new stop class.
+            out.update(action='infra', paper={'S13-2F-UNROUTABLE': 'self_heal' if self_test_ok else 'infra_stop'},
+                       p0=[{'kind': 's13_2f_unroutable', 'sweep': tot, 'rule': 'LAW-FA-TERM-1',
+                            'findings': [str(f.get('gate')) for f in _phantom][:20]}],
+                       why='the total cap is applied and nothing routable remains, yet no certificate: a tool fault '
+                           f"({'item finding(s) with no question: ' + str(sorted({str(f.get('gate')) for f in _phantom})) if _phantom else 'the auditor refuses a clean paper'})")
+            return out
+        out.update(action='cap', stamp={q: sorted(g) for q, g in _items.items()}, stamp_kind=_kind, escalate=esc,
+                   early=True, paper={g: 'amber' for g in esc},
+                   p0=[{'q': q, 'kind': 's13_2f_total_cap', 'gates': sorted(g), 'sweep': tot,
+                        'rule': 'LAW-FA-TERM-1'} for q, g in sorted(_items.items(), key=lambda kv: _qf_qkey(kv[0]))],
+                   why=f'total sweep cap {total_cap} reached: every remaining finding delivered with an AMBER line')
+        st['escalate'] = esc
+        return out
+    if bc_paper:
+        # (4) an OPEN item on a BATCH-COMPLETE paper: ESCALATED once, with a P0 record (LAW-BC-8)
+        if open_items:
+            p0 = []
+            for q, gs in sorted(open_items.items(), key=lambda kv: _qf_qkey(kv[0])):
+                _fsq = _fs.get(q) or _fs.get(str(q))
+                _seen = {str(x) for x in (_fsq if isinstance(_fsq, (list, tuple, set)) else [])}
+                p0.append({'q': q, 'gates': sorted(gs), 'rule': 'LAW-BC-8',
+                           'kind': 'bc_last_batch_finding' if (_seen & gs) else 'bc_final_assembly_finding'})
+            out.update(action='stamp', stamp={q: sorted(g) for q, g in open_items.items()}, stamp_kind='ESCALATED',
+                       p0=p0, why=f'item finding(s) on {sorted(open_items, key=_qf_qkey)} ESCALATED (LAW-BC-8)')
+            return out
+    else:
+        # (6) a legacy paper: its routes are unchanged (chains, ladder) — only the total cap above is new
+        _lr = sweep_route(ifs, fls, legacy_sweep or tot, max_sweeps, self_test_ok, settled=_settled)
+        out['route'] = _lr
+        if _lr.get('items'):
+            out.update(action='legacy', paper=dict(_lr.get('paper') or {}),
+                       why='legacy paper: item routes by sweep_route (bounded by the total cap)')
+            for g, r in (_lr.get('paper') or {}).items():
+                if r == 'amber':
+                    out['escalate'] = sorted(set(out['escalate']) | {g})
+            st['escalate'] = out['escalate']
+            return out
+    # (5) paper-level FAILs: rebuild, or AMBER at max_sweeps / at a fixed point
+    routes, esc_new, early = {}, set(), False
+    for fl in paper_fl:
+        g = _gate(fl)
+        if not g:
+            continue
+        sig = s13_2f_signature(fl.get('message'))
+        prev_r, prev_s = st['last_route'].get(g), st['last_sig'].get(g)
+        if g in st['escalate']:
+            r = 'amber'
+        elif tot >= max(1, _qf_int(max_sweeps, S13_2F_MAX_SWEEPS)):
+            r = 'amber'
+        elif prev_r in S13_2F_REBUILD_ROUTES and prev_s == sig:
+            r, early = 'amber', True                      # the rebuild changed nothing: a fixed point (G13)
+        elif g in NF_DISCLOSE_GATES:
+            r, early = 'amber', True                      # disclosed already, yet still a FAIL: escalate it
+        else:
+            r = PAPER_GATE_ROUTE.get(g, 'recapture')
+        routes[g] = r
+        st['last_route'][g], st['last_sig'][g] = r, sig
+        if r == 'amber':
+            esc_new.add(g)
+    esc = sorted(set(st['escalate']) | esc_new)
+    st['escalate'] = esc
+    if not routes:
+        # no item, no paper gate, yet no certificate: the auditor and this plan disagree — reach the cap's
+        # deterministic exit at once instead of sweeping without a change (never a loop, never a stop)
+        st['total_sweeps'] = max(tot, _qf_int(total_cap, S13_2F_TOTAL_CAP) - 1)
+        out.update(action='none', state=st, escalate=esc, why='no routable finding: the total cap applies next sweep')
+        return out
+    out.update(action='rebuild' if any(r in S13_2F_REBUILD_ROUTES for r in routes.values()) else 'escalate',
+               paper=routes, escalate=esc, early=early or any(r == 'amber' for r in routes.values()),
+               why='paper-level: ' + ', '.join(f'{g} -> {r}' for g, r in sorted(routes.items())))
+    return out
+
+
+def s13_2f_record_sweep(state, plan):
+    """Append one sweep's decision to the persistent state (history, at most 40 kept). Pure."""
+    st = s13_2f_state(state, (state or {}).get('paper_id') if isinstance(state, dict) else None)
+    pl = plan if isinstance(plan, dict) else {}
+    st['history'] = (st['history'] + [{'sweep': st['total_sweeps'], 'action': pl.get('action'),
+                                       'why': str(pl.get('why') or '')[:300]}])[-40:]
+    if isinstance(pl.get('state'), dict):
+        for k in ('last_sig', 'last_route', 'escalate'):
+            st[k] = pl['state'].get(k, st[k])
+        st['total_sweeps'] = max(st['total_sweeps'], _qf_int(pl['state'].get('total_sweeps'), 0))
+    return st
+
+
+def s13_2f_simulate(scenario, max_steps=None):
+    """TERMINATION HARNESS (T-I1, LAW-FA-TERM-1) — drives s13_2f_plan exactly as RUN-BLOCK S13-2F does, against a
+    model of the auditor's acceptance rules (audit_canonical v2.45: settled items accept every finding on them; a
+    disclosed composition gate accepts the items that carry only its findings; an escalated paper gate is demoted
+    when `early` or at max_sweeps; the certificate is written when no open item and no FAIL line remain).
+    scenario = {'bc': bool, 'items': {q: [gate, ...]} (present from sweep 1), 'late_items': {sweep: {q: [gate]}},
+      'paper': {gate: {'changes': k}} (a rebuild changes the message k times, then the FAIL persists unchanged;
+      'fixes_after': k — the k-th rebuild removes it), 'nf': {gate: [q, ...]}, 'infra': {gate: heals_needed},
+      'legacy_replace_fixes': bool, 'phantom': bool (a defective auditor that never certifies)}.
+    Returns {'outcome': 'certified' | 'infra_stop', 'sweeps', 'trace', 'violations': [str]}. Pure."""
+    sc = scenario if isinstance(scenario, dict) else {}
+    bcp = bool(sc.get('bc', True))
+    items = {str(q): set(g) for q, g in (sc.get('items') or {}).items()}
+    late = {int(k): {str(q): set(g) for q, g in v.items()} for k, v in (sc.get('late_items') or {}).items()}
+    paper = {g: dict(v or {}) for g, v in (sc.get('paper') or {}).items()}
+    nf = {g: [str(q) for q in v] for g, v in (sc.get('nf') or {}).items()}
+    infra = dict(sc.get('infra') or {})
+    heal_used = {}
+    settled, nfd, stamped_twice, viol, trace = set(), {}, [], [], []
+    st = s13_2f_state(None, 'P')
+    legacy_sweep, prev_total = 0, 0
+    fixed_by_chain = set()
+    for _ in range(int(max_steps or (S13_2F_TOTAL_CAP + 8))):
+        st = s13_2f_begin(st, 'P')
+        legacy_sweep += 1
+        if st['total_sweeps'] < prev_total:
+            viol.append('counter decreased')
+        prev_total = st['total_sweeps']
+        sw = st['total_sweeps']
+        for q, gs in (late.get(sw) or {}).items():
+            items.setdefault(q, set()).update(gs)
+        # ---- the auditor model ----
+        ifs, fls = [], []
+        open_by_q = {}
+        for q, gs in items.items():
+            if q in fixed_by_chain:
+                continue
+            for g in sorted(gs):
+                open_by_q.setdefault(q, set()).add(g)
+        for g, qs in nf.items():
+            for q in qs:
+                open_by_q.setdefault(q, set()).add(g)
+        acc = set(settled) | {q for q, gs in open_by_q.items() if gs and gs <= set(nfd)}
+        for q, gs in open_by_q.items():
+            for g in sorted(gs):
+                ifs.append({'q': q, 'gate': g, 'disposition': ('escalated' if q in settled and bcp else
+                                                               'disclosed' if q in acc else 'open')})
+        gates_items = {}
+        for f in ifs:
+            gates_items.setdefault(f['gate'], set()).add(f['q'])
+        for g, qs in gates_items.items():
+            if qs <= acc:
+                continue                                  # demoted to an AMBER WARN
+            if g in nf and g in nfd:
+                continue
+            fls.append({'check': g, 'message': f'{g} items', 'qs': sorted(qs - acc, key=_qf_qkey)})
+        for g, v in paper.items():
+            if v.get('gone'):
+                continue
+            if g in st['escalate'] and (v.get('early') or sw >= S13_2F_MAX_SWEEPS):
+                continue
+            fls.append({'check': g, 'message': f"{g} state {v.get('rev', 0)}", 'qs': []})
+        for g, need in infra.items():
+            if heal_used.get(g, 0) < need:
+                fls.append({'check': g, 'message': 'tool fault', 'qs': []})
+        if sc.get('phantom'):
+            # a DEFECTIVE auditor: an item finding with no question (the certificate writer refuses it by contract)
+            ifs.append({'q': None, 'gate': 'A-PHANTOM', 'disposition': 'open'})
+        open_items = [f for f in ifs if f['disposition'] == 'open']
+        if not open_items and not fls:
+            trace.append((sw, 'certified'))
+            return {'outcome': 'certified', 'sweeps': sw, 'trace': trace, 'violations': viol}
+        # ---- S13-2F ----
+        pl = s13_2f_plan(st, {'item_findings': ifs, 'fail_lines': fls}, bc_paper=bcp, settled=sorted(settled),
+                         nf_disclosed=nfd, legacy_sweep=legacy_sweep)
+        trace.append((sw, pl['action']))
+        if bcp:
+            for q, r in ((pl.get('route') or {}).get('items') or {}).items():
+                if r.get('route') in ('REPLACE', 'TERMINAL') or str(r.get('route')).startswith('R'):
+                    viol.append(f'BC1 item Q{q} routed {r.get("route")}')
+        st = s13_2f_record_sweep(st, pl)
+        a = pl['action']
+        if a == 'disclose_nf':
+            for g in pl['nf_new']:
+                nfd[g] = 'x'
+        elif a == 'infra':
+            for g in pl['paper']:
+                heal_used[g] = heal_used.get(g, 0) + 1
+                if heal_used[g] > INFRA_HEAL_MAX:
+                    trace.append((sw, 'infra_stop'))
+                    return {'outcome': 'infra_stop', 'sweeps': sw, 'trace': trace, 'violations': viol}
+        elif a in ('stamp', 'cap'):
+            for q in pl['stamp']:
+                if q in settled:
+                    stamped_twice.append(q)
+                settled.add(q)
+            for g in pl.get('escalate') or []:
+                if g in paper:
+                    paper[g]['early'] = True
+        elif a == 'legacy':
+            for q, r in ((pl.get('route') or {}).get('items') or {}).items():
+                if r.get('route') == 'REPLACE':
+                    legacy_sweep = 0                      # the legacy file counter restarts (allowed: total does not)
+                    if sc.get('legacy_replace_fixes'):
+                        fixed_by_chain.add(q)
+        if a in ('rebuild', 'escalate', 'cap'):
+            for g, r in (pl.get('paper') or {}).items():
+                if g not in paper:
+                    continue
+                if r == 'amber':
+                    paper[g]['early'] = paper[g].get('early') or bool(pl.get('early'))
+                elif r in S13_2F_REBUILD_ROUTES:
+                    v = paper[g]
+                    v['rebuilds'] = v.get('rebuilds', 0) + 1
+                    if v.get('fixes_after') and v['rebuilds'] >= v['fixes_after']:
+                        v['gone'] = True
+                    elif v['rebuilds'] <= int(v.get('changes', 0)):
+                        v['rev'] = v.get('rev', 0) + 1
+    if stamped_twice:
+        viol.append(f'stamped twice {sorted(set(stamped_twice))}')
+    return {'outcome': 'loop', 'sweeps': st['total_sweeps'], 'trace': trace, 'violations': viol + ['did not terminate']}
 
 
 def chain_kind_for(gates):
@@ -23433,6 +24306,106 @@ def migrate_paper_state(batch_state, key_data, from_release, to_release='2026.11
         bs.pop(k, None)
     bs['migrations'] = list(bs.get('migrations') or []) + [tag]
     kd['concept_map'] = cm
+    return bs, kd, rep
+
+
+MIGRATION_S13_2F_LOOP = 'GAP-2026-11-19-S13-2F-LOOP'
+
+
+def migrate_s13_2f_loop(batch_state, key_data, shape_targets=None, n_items=None):
+    """release 2026.11.25 (P11) — idempotent migration of a paper's state to the S13-2F termination release, recorded
+    as MIGRATION_S13_2F_LOOP in batch_state['migrations']. Every exam, every paper; on a paper of this release it
+    changes nothing. Never touches question text, review records or bound hashes.
+      BATCH-COMPLETE paper (bv.rule == BC_RULE): (1) every chain opened at Final Assembly with NO attempt (LAW-BC-8
+      forbids it) is removed with its 'todo' slot_chain_work actions; (2) an ESCALATED(<gates>) stamp whose gates are
+      all composition gates (NF_DISCLOSE_GATES — A-SHAPEMIX now among them) is removed and the gates are written once
+      to the sidecar's nf_disclosed; (3) the matching 'bc_final_assembly_finding' P0 records move to
+      'migrated_incidents' with the reason.
+      Every paper: (4) the S13-2F preview self-heal counter is reset and the persistent counter batch_state['s13_2f']
+      starts at 0 (the old file counter is retired by the caller); (5) a frozen shape plan gains its plan relief
+      (shape_plan_relief) in '_infeasible'; (6) in a count-free difficulty mode every difficulty_obs becomes the
+      engine record (difficulty_obs_engine_record).
+    Returns (batch_state, key_data, report). Pure (copies)."""
+    import copy as _copy
+    bs = _copy.deepcopy(batch_state) if isinstance(batch_state, dict) else {}
+    kd = _copy.deepcopy(key_data) if isinstance(key_data, dict) else {}
+    rep = {'tag': MIGRATION_S13_2F_LOOP, 'skipped': False, 'chains_removed': [], 'unstamped': [], 'p0_moved': 0,
+           'relief': [], 'obs_normalised': 0}
+    if MIGRATION_S13_2F_LOOP in (bs.get('migrations') or []):
+        rep['skipped'] = True
+        return bs, kd, rep
+    cm = kd.get('concept_map') if isinstance(kd.get('concept_map'), dict) else {}
+    nfg = set(NF_DISCLOSE_GATES)
+    bc_paper = (bs.get('bv') or {}).get('rule') == BC_RULE if isinstance(bs.get('bv'), dict) else False
+    if bc_paper:
+        chains = bs.get('slot_chain') if isinstance(bs.get('slot_chain'), dict) else {}
+        for q in sorted(list(chains), key=_qf_qkey):
+            ch = chains.get(q) if isinstance(chains.get(q), dict) else {}
+            if not ch.get('done') and not [a for a in (ch.get('attempts') or []) if isinstance(a, dict)]:
+                chains.pop(q, None)
+                rep['chains_removed'].append(str(q))
+        if rep['chains_removed']:
+            bs['slot_chain'] = chains
+            bs['slot_chain_work'] = [w for w in (bs.get('slot_chain_work') or [])
+                                     if not (isinstance(w, dict) and str(w.get('q')) in rep['chains_removed']
+                                             and str(w.get('status') or 'todo') == 'todo')]
+        nd = kd.setdefault('nf_disclosed', {}) if isinstance(kd.get('nf_disclosed', {}), dict) else {}
+        for q in sorted(cm, key=_qf_qkey):
+            e = cm.get(q) if isinstance(cm.get(q), dict) else None
+            st = str((e or {}).get('quality_status') or '')
+            if e is None or not st.startswith('ESCALATED('):
+                continue
+            gates = {g.strip() for g in st[len('ESCALATED('):].rstrip(')').split(',') if g.strip()}
+            if gates and gates <= nfg:
+                e.pop('quality_status', None)
+                for g in sorted(gates):
+                    if g not in nd:
+                        nd[g] = f'migrated ({MIGRATION_S13_2F_LOOP}): Q{q}'
+                    elif f'Q{q}' not in str(nd[g]):
+                        nd[g] = (str(nd[g]) + f', Q{q}')[:400]
+                rep['unstamped'].append(str(q))
+        if nd:
+            kd['nf_disclosed'] = nd
+        keep, moved = [], []
+        for r in (bs.get('p0_incidents') or []):
+            if isinstance(r, dict) and r.get('kind') == 'bc_final_assembly_finding' \
+                    and set(r.get('gates') or []) and set(r.get('gates') or []) <= nfg:
+                moved.append(dict(r, migrated=MIGRATION_S13_2F_LOOP,
+                                  reason='a composition shortfall (NF_DISCLOSE_GATES), not an engine defect'))
+            else:
+                keep.append(r)
+        if moved:
+            bs['p0_incidents'] = keep
+            bs['migrated_incidents'] = list(bs.get('migrated_incidents') or []) + moved
+            rep['p0_moved'] = len(moved)
+    ih = bs.get('infra_heal') if isinstance(bs.get('infra_heal'), dict) else None
+    if ih is not None:
+        ih.pop('S13-2F-preview', None)
+    bs['s13_2f'] = s13_2f_state(None, bs.get('paper_id'))
+    sp = bs.get('shape_plan') if isinstance(bs.get('shape_plan'), dict) else None
+    if sp and shape_targets:
+        rel = shape_plan_relief(sp, shape_targets, n_items)
+        add = [x for x in rel if x not in (sp.get('_infeasible') or [])]
+        if add:
+            sp['_infeasible'] = sorted(set(sp.get('_infeasible') or []) | set(add))
+            bs['shape_plan'] = sp
+            rep['relief'] = add
+    mode = str(bs.get('difficulty_mode') or '')
+    if difficulty_mode_count_free(mode):
+        for q, e in cm.items():
+            if not isinstance(e, dict) or not isinstance(e.get('difficulty_obs'), dict):
+                continue
+            rec, arch = difficulty_obs_engine_record(e, mode)
+            if rec != e.get('difficulty_obs'):
+                if arch:
+                    if arch.get('moves') and not e.get('author_moves'):
+                        e['author_moves'] = arch.get('moves')
+                    e.setdefault('difficulty_obs_author', arch)
+                e['difficulty_obs'] = rec
+                e.setdefault('difficulty_mode', mode)
+                rep['obs_normalised'] += 1
+    kd['concept_map'] = cm
+    bs['migrations'] = list(bs.get('migrations') or []) + [MIGRATION_S13_2F_LOOP]
     return bs, kd, rep
 
 
@@ -27328,7 +28301,12 @@ BV_REVIEWERS = 3                     # v2.2: ONE fresh reviewer context per (bat
 # the measured COMPOSITION gates whose residual shortfall is DISCLOSED at Final Assembly, never re-authored there
 # (Create S13-2F, BV-5): allocation, format parity, MIP share, class mix, band mix by subject, and a within-paper
 # repeat / key leak that survived the in-batch rewrite. A-STEMFIG (a figure contradicting its stem) stays a repair.
-NF_DISCLOSE_GATES = ('A-ALLOC', 'A-AXIS2', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND')
+NF_DISCLOSE_GATES = ('A-ALLOC', 'A-AXIS2', 'A-OPTPART', 'A-INTRADUP', 'A-KEYLEAK', 'A-CLASSMIX', 'A-SUBJBAND',
+                     # release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P6, OD-A): the shape mix is a PAPER-COMPOSITION
+                     # target like the format / class mix — disclosed, never re-authored and never an item defect at
+                     # Final Assembly (LAW-ORG-7 already says so for every measured composition shortfall); a writer's
+                     # drift from the planned shape is caught in its own batch (pre-review G-SHAPEPLAN)
+                     'A-SHAPEMIX')
 BV_ROLES_SOLVE = ('solver_1', 'solver_2', 'solver_3')   # OD-2026-11-14 R2 (GAP-2026-11-14-BATCH-COMPLETE): three solvers
 BV1_ROLES_SOLVE = ('solver_1', 'solver_2')   # the BV1 rule of 2026.11.11-15 (bv_apply / bv_jobs: migration only)
 BV_MAX_ROUNDS = 12                   # v2.6 (GAP-2026-11-14-BATCH-COMPLETE, R11): job rounds per batch. The ladder
@@ -29022,14 +30000,22 @@ def bc_version_record(rung, sha, entry, author_key, key_dec, solvers, adjudicati
             'solvers': answers, 'grades': dict(grades or {}), 'packets': dict(packets or {}), 'meta': dict(meta or {})}
 
 
-def bc_r5b_pick(versions):
+def bc_r5b_pick(versions, prefer_figure=False):
     """R5b — the LAST reviewed version whose key the adjudicator (or the unanimous solvers) confirmed, with at
     least BC_RESTORE_MIN_SUPPORT solvers agreeing and its figures read back correctly; None when there is none.
-    Pure."""
-    for v in reversed([x for x in (versions or []) if isinstance(x, dict)]):
-        if v.get('confirmed') and _qf_int(v.get('support'), 0) >= BC_RESTORE_MIN_SUPPORT and v.get('figures_ok'):
-            return v
-    return None
+    release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F2): `prefer_figure` (a figure slot) — the LATEST qualifying version
+    that HAS its figure and no figure-located defect wins; the latest qualifying version of any kind only when no
+    figure version qualifies. Before this the last (text-only) version always won, so a figure question whose earlier
+    versions were confirmed 3/3 was delivered as text. Pure."""
+    ok = [v for v in (versions or []) if isinstance(v, dict) and v.get('confirmed')
+          and _qf_int(v.get('support'), 0) >= BC_RESTORE_MIN_SUPPORT and v.get('figures_ok')]
+    if prefer_figure:
+        for v in reversed(ok):
+            _fig = v.get('has_figure') if 'has_figure' in v else bool((v.get('entry') or {}).get('figure_files')
+                                                                       or (v.get('entry') or {}).get('figure_dicts'))
+            if _fig and not v.get('figure_defect'):
+                return v
+    return ok[-1] if ok else None
 
 
 def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', tolerance=None, results=None,
@@ -29384,6 +30370,9 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     _vrec = bc_version_record(rung, sha, e, author_key, kd if not key_open else None, solvers,
                               bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'])
     _vs = [v for v in bvs['versions'] if isinstance(v, dict) and v.get('content_sha') != sha]
+    # release 2026.11.25 (F2): R5b may prefer a figure version only when its figure carried no figure-located defect
+    _vrec['has_figure'] = bool(e.get('figure_files') or e.get('figure_dicts'))
+    _vrec['figure_defect'] = bool(fig_bad) or any(bc_finding_location(x) == 'figure' for x in chk)
     bvs['versions'] = _vs + [_vrec]
     # ── release 2026.11.22: under the new modes a reviewer / computed FINDING alone (no key problem, no figure-proof
     # problem, no deterministic GATE failure) never climbs past rung R3_FINDING_MAX_RUNG — the question settles there,
@@ -29394,6 +30383,12 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     # confirmed by the adjudicator) keeps the full bounded ladder like a GATE finding — a wrong question is never
     # delivered as 'finding_open'
     _vf = [x for x in chk if str(x).split(' ', 1)[0] in R3_VERIFY_CODES] if r3_entry_mode(e) != R3_MODE_LEGACY else []
+    # release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F3): 'ambiguous' is a CORRECTNESS defect only when the key is in
+    # doubt. When every solver independently reached the SAME single key (certified unanimous), the ambiguity produced
+    # no second answer — it is WORDING, capped at rung R3_FINDING_MAX_RUNG like any reviewer finding (it settled
+    # 'finding_open'), so a wording note no longer throws away a confirmed figure question at rung 3
+    if _vf and not key_open and isinstance(kd, dict) and kd.get('certified_by') == 'unanimous':
+        _vf = [x for x in _vf if str(x).split(' ', 1)[0] not in R3_WORDING_CODES]
     if r3_entry_mode(e) != R3_MODE_LEGACY and 'finding' in problems and not ({'key', 'figure'} & set(problems)) \
             and not gate_f and not _vf and rung >= R3_FINDING_MAX_RUNG:
         bvs['finding_open'] = [str(x)[:200] for x in brief_parts if not str(x).startswith('LEVEL:')][:6]
@@ -29428,8 +30423,9 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
     _tg = br_target(ruler, e.get('subtopic_id'), tgt, labs) if tgt is not None else None
     adj = bvs.get('adj') if isinstance(bvs.get('adj'), dict) else {}
     _plc = bc_measured_band(bvs, labs, tgt)[1] if tgt is not None else None
+    _kind3 = bc_rung3_kind(e, problems, brief_parts, bvs.get('versions'), family_engine) if nxt == 3 else BC_RUNGS[nxt]
     bvs['climb_brief'] = {
-        'rung': nxt, 'kind': BC_RUNGS[nxt], 'problems': list(problems), 'reasons': list(brief_parts),
+        'rung': nxt, 'kind': _kind3, 'problems': list(problems), 'reasons': list(brief_parts),
         'slot': tgt, 'measured': _bc_m(bvs, labs, tgt),
         'graders': {k: (bvs['meta'].get(k) or {}).get('rationale') for k in bvs['grades']},
         'measured_counts': _mobs, 'target': br_target_text(_tg) if _tg else None,
@@ -29447,8 +30443,20 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
                         3: 'FALLBACK: a clear-cut TEXT question on the same subtopic, slot band and qtype — text options, '
                            'no figure, no step that depends on reading 3D configuration' +
                            (' (R10: this figure family has an answer engine — build the rung-3 item with it)'
-                            if family_engine else '')}[nxt],
+                            if family_engine else '')}[nxt] if _kind3 not in BC_RUNG3_REBUILD else BC_RUNG3_CONSTRAINTS[_kind3],
         'why': st.get('why')}
+    if nxt == 3:
+        bvs['rung3_kind'] = _kind3
+        if _kind3 == 'fallback':
+            # F6: the TEXT fallback is marked the moment it is chosen, so the pre-review G-FIG-MISSING never asks a
+            # text fallback for the figure it is meant to drop (it spent its tries on that in every run)
+            e['bc_fallback'] = {'rung': 3, 'marked_at': 'rung3_start',
+                                'from_figure': any(bool((v.get('entry') or {}).get('figure_files')
+                                                        or (v.get('entry') or {}).get('figure_dicts'))
+                                                   for v in (bvs.get('versions') or []) if isinstance(v, dict))
+                                or bool(e.get('figure_files') or e.get('figure_dicts'))}
+        else:
+            e.pop('bc_fallback', None)
     if _plc is not None:
         # release 2026.11.24 (B5): under the ladder the brief carries the comparison result and the levers — never
         # count targets of the earlier rubric
@@ -29569,7 +30577,10 @@ def _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, 
         amber.append('unmeasurable')                    # B4: too few valid comparisons after the one re-measure
     if (bvs.get('claims') or {}).get('unverified'):
         amber.append('claim_unverified')                # C1: the adjudicator gave no verdict for a claim
-    if _qf_int(bvs.get('rung'), 0) == 3:
+    _restored = bool(bvs.get('restore')) or bool((bvs.get('key') or {}).get('r5b'))
+    if _restored and _qf_int(bvs.get('rung'), 0) == 3:
+        e.pop('bc_fallback', None)                      # release 2026.11.25: R5b delivered an EARLIER version — not a fallback
+    if _qf_int(bvs.get('rung'), 0) == 3 and str(bvs.get('rung3_kind') or 'fallback') == 'fallback' and not _restored:
         amber.append('fallback')
         # R5a: the slot's planned format is recorded so the Axis-1 count (A-AXIS1) treats it as disclosed, not a defect
         e['bc_fallback'] = {'rung': 3, 'from_figure': any(bool((v.get('entry') or {}).get('figure_files'))
@@ -29604,7 +30615,10 @@ def _bc_key_votes(bvs, author_key, decided, sha):
 
 def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt, why, fig_bad):
     """R5b, then BC_TERMINAL (R9): the batch always ends."""
-    pick = bc_r5b_pick(bvs.get('versions'))
+    _vers = [v for v in (bvs.get('versions') or []) if isinstance(v, dict)]
+    _pf = any(v.get('has_figure') or (v.get('entry') or {}).get('figure_files') or (v.get('entry') or {}).get('figure_dicts')
+              for v in _vers)                        # F2: a figure slot prefers a qualifying figure version
+    pick = bc_r5b_pick(_vers, prefer_figure=_pf)
     if pick is not None and pick.get('content_sha') != sha:
         bvs['restore'] = pick
         bvs['state'] = 'restore'
@@ -29830,6 +30844,9 @@ R3_MODE_LADDER = 'ladder'          # band = placement on the exam's ladder (rule
 R3_MODE_COUNTED = 'counted'        # no usable ladder: rule r2.1 (r2 arithmetic, decision-depth counting), disclosed
 R3_MODE_LEGACY = 'br1'             # explicit owner opt-out only (blueprint difficulty_mode: 'br1'): release 2026.11.20
 R3_MODES = (R3_MODE_LADDER, R3_MODE_COUNTED, R3_MODE_LEGACY)
+# release 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P1): the modes in which the AUTHOR never counts (R3 author packet:
+# 'never a ... count target ... or self-count'); A-QINDEX check 9 is not applicable to them.
+R3_COUNT_FREE_MODES = (R3_MODE_LADDER, R3_MODE_COUNTED)
 RUBRIC_RULE_R21 = 'r2.1'
 RUBRIC_RULE_R3 = 'r3'
 
@@ -31417,6 +32434,16 @@ def qg_item_gates(entry, key=None, top_band=False, context=None):
                    'table or the figure data)')
     out += qg_stem_form(e.get('stem_text'), e.get('ask_format'), e.get('data_block_lines'), ask_form=ctx.get('ask_form'),
                         n_statements=ctx.get('n_statements') if isinstance(ctx.get('n_statements'), int) else None)
+    # release 2026.11.25 (P6, G-SHAPEPLAN): the writer must write the slot's PLANNED shape (Create v7.3 D5); a drift is
+    # an item finding IN ITS OWN BATCH (never first seen at the last batch); a recorded shape_drift {planned,
+    # delivered, reason} (the rung-3 TEXT fallback could not keep the shape) is accepted and disclosed
+    _psh = canonical_shape(ctx.get('planned_shape')) if ctx.get('planned_shape') else ''
+    if _psh and not str(_psh).startswith('_') and e.get('shape') and canonical_shape(e.get('shape')) != _psh \
+            and not isinstance(e.get('shape_drift'), dict):
+        out.append(f"G-SHAPEPLAN: the slot's planned shape is {_psh!r} and the question is written as "
+                   f"{canonical_shape(e.get('shape'))!r} — write the planned shape (or record shape_drift "
+                   f"{{planned, delivered, reason}} when the fallback cannot keep it)")
+    out += fig_stereo_check(e) + fig_scale_check(ctx.get('figure_specs'))       # release 2026.11.25 (F4)
     if ctx.get('figure_granted') and not (e.get('figure_dicts') or e.get('figure_files')) \
             and not isinstance(e.get('bc_fallback'), dict):
         out.append('G-FIG-MISSING: the paper\'s figure plan granted this slot a figure (blueprint figure target) and the '
@@ -31828,6 +32855,166 @@ def statement_n_plan(n_dist, n_slots, offset=0):
     return out
 
 
+# ── release 2026.11.25 — GAP-2026-11-19-FIGURE-LOSS (F1-F7): a figure question stays a figure question ─────────────
+R3_WORDING_CODES = ('D-AMBIGUOUS',)          # F3: a correctness code only while the key itself is in doubt
+BC_RUNG3_KINDS = ('fallback', 'fig_rebuild', 'text_rebuild')
+BC_RUNG3_REBUILD = ('fig_rebuild', 'text_rebuild')
+BC_RUNG3_CONSTRAINTS = {
+    'text_rebuild': 'TEXT REBUILD (rung 3): every defect named is in the WORDING — rewrite the stem / options of this '
+                    'same question, same slot (subtopic, band, qtype, ask format, key position); KEEP THE FIGURE '
+                    'BYTE-IDENTICAL (same files, same figure record); state any missing condition in words',
+    'fig_rebuild': 'FIGURE REBUILD (rung 3): a defect is IN THE FIGURE — redraw the figure (scale, labels, stereo '
+                   'wedges, arrow labels) and keep a figural question on the same slot; also correct any wording '
+                   'defect named; the redrawn figure passes its identity proof and the pre-review figure gates',
+}
+FIG_SCALE_TOL = 0.15                          # F4: on-page label size of stem vs option images within 15 %
+FIG_FLOOR_FRAC = 0.75                         # F7 (OD-F): floor = max(target - 1, ceil(0.75 x target)) — AMBER only
+_FIG_WHERE_RE = _r3_re.compile(r'(?:\bfigure\b|\bq\d+_[\w.-]*\.png\b|\bimage\b|\bscheme\b|\bstructure drawn\b|^GATE: G-FIG|^D-FIG)',
+                               _r3_re.I)
+
+
+def bc_finding_location(text):
+    """F1 — where a finding sits: 'figure' (a D-FIG* code, a G-FIG* gate, or a reviewer 'where' naming a figure file
+    / the figure), 'level' (a LEVEL: brief), else 'text'. Pure."""
+    t = str(text or '').strip()
+    if t.startswith('LEVEL:'):
+        return 'level'
+    head = t.split(':', 1)[0] if not t.startswith('GATE:') else t
+    if t.startswith(('D-FIG', 'GATE: G-FIG', 'G-FIG', 'FIGURE', 'figure')) or _FIG_WHERE_RE.search(head):
+        return 'figure'
+    return 'text'
+
+
+def bc_rung3_kind(entry, problems, brief_parts, versions=None, family_engine=False):
+    """F1 — the KIND of rung 3 from the defect's LOCATION (LAW-BC-2 amended): a question with no figure keeps the TEXT
+    'fallback'; a figure question goes to 'text_rebuild' when every open defect is in the wording (the figure is kept
+    byte-identical), to 'fig_rebuild' when a defect is in the figure, and to the TEXT 'fallback' only when its figure
+    failed its identity proof (a 'figure' problem) in two reviewed versions, or the family has an answer engine
+    (R10 builds the rung-3 item with it). Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    vs = [v for v in (versions if isinstance(versions, (list, tuple)) else []) if isinstance(v, dict)]
+    problems = [str(x) for x in problems] if isinstance(problems, (list, tuple, set)) else []
+    brief_parts = list(brief_parts) if isinstance(brief_parts, (list, tuple)) else []
+    figural = bool(e.get('figure_files') or e.get('figure_dicts')) or any(
+        v.get('has_figure') or (v.get('entry') or {}).get('figure_files') or (v.get('entry') or {}).get('figure_dicts')
+        for v in vs)
+    if not figural or family_engine:
+        return 'fallback'
+    # the caller appended the current text's version record before the climb, so this counts every reviewed text
+    proof_fails = sum(1 for v in vs if v.get('figures_ok') is False)
+    if proof_fails >= 2:
+        return 'fallback'
+    locs = {bc_finding_location(x) for x in (brief_parts or [])} - {'level'}
+    if 'figure' in set(problems or []) or 'figure' in locs:
+        return 'fig_rebuild'
+    return 'text_rebuild'
+
+
+def fig_stereo_check(entry):
+    """F4 G-FIG-STEREO — a structure in the figure record whose SMILES has a stereocentre (an isotopic CHD
+    included) left UNSPECIFIED, on a question that declares no stereo handling ('stereo_mode' / 'stereo_declared' on
+    the entry or the figure dict): drawn flat, the configuration the question may depend on is invisible. Dormant
+    without rdkit or without SMILES. [finding]. Pure; never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    if e.get('stereo_mode') or e.get('stereo_declared'):
+        return []
+    _Ch = _qq_rdkit()                                   # importlib, never an import statement (Check AB)
+    if _Ch is None:
+        return []                                       # dormant without rdkit
+    out = []
+    for fd in (e.get('figure_dicts') or []) if isinstance(e.get('figure_dicts'), list) else []:
+        if not isinstance(fd, dict) or not fd.get('smiles') or fd.get('stereo_mode') or fd.get('stereo_declared'):
+            continue
+        try:
+            m = _Ch.MolFromSmiles(str(fd['smiles']))
+            un = [i for i, lab in _Ch.FindMolChiralCenters(m, includeUnassigned=True, useLegacyImplementation=False)
+                  if lab == '?'] if m is not None else []
+        except Exception:                               # noqa: BLE001
+            un = []
+        if un:
+            out.append(f"G-FIG-STEREO: {fd.get('file') or 'a structure'} has {len(un)} stereocentre(s) with no wedge "
+                       f"(SMILES gives no configuration) — specify the configuration (wedges) or declare stereo_mode "
+                       f"('racemic' / 'not asked') on the question")
+    return out
+
+
+def fig_scale_check(specs):
+    """F4 G-FIG-SCALE — the stem and option images of ONE question are read side by side: their on-page atom-label
+    size (font_pt_native.atom_label x placement_scale, recorded by the native renderer in each FigureSpec) must agree
+    within FIG_SCALE_TOL, or one structure reads smaller and thinner than the rest (the Q10 render defect). Dormant
+    with fewer than two native records. [finding]. Pure."""
+    vals = []
+    for sp in (specs or []) if isinstance(specs, (list, tuple)) else []:
+        if not isinstance(sp, dict):
+            continue
+        fp = sp.get('font_pt_native') if isinstance(sp.get('font_pt_native'), dict) else {}
+        try:
+            a, k = float(fp.get('atom_label')), float(sp.get('placement_scale'))
+        except (TypeError, ValueError):
+            continue
+        if a > 0 and k > 0:
+            vals.append((a * k, str(sp.get('file') or sp.get('role') or '?')))
+    if len(vals) < 2:
+        return []
+    lo, hi = min(vals), max(vals)
+    if hi[0] > lo[0] * (1 + FIG_SCALE_TOL):
+        return [f"G-FIG-SCALE: on-page label size {lo[0]:.1f} pt ({lo[1]}) vs {hi[0]:.1f} pt ({hi[1]}) — the images of "
+                f"one question must be drawn at one scale (re-render the smaller one at the shared bond length / font)"]
+    return []
+
+
+def figure_regrant(plan_section, q, unauthored_qs):
+    """F5 — a granted figure slot `q` ended as TEXT: move its grant to the FIRST capable, ungranted slot not yet
+    authored (`unauthored_qs`) in the same section. Returns (new_plan_section, to_q | None). The move is recorded in
+    plan['regrants'] ({'from', 'to'}); with no capable slot left it records {'from', 'to': None, 'reason'} (FE7 / FE8)
+    — disclosed, never a stop. A slot is re-granted once. Pure."""
+    import copy as _cp
+    sp = _cp.deepcopy(plan_section) if isinstance(plan_section, dict) else {}
+    q = str(q)
+    _ls = lambda v: list(v) if isinstance(v, (list, tuple, set)) else []
+    gr = [str(x) for x in _ls(sp.get('granted'))]
+    rg = [r for r in _ls(sp.get('regrants')) if isinstance(r, dict)]
+    if q not in gr or any(r.get('from') == q for r in rg):
+        return sp, None
+    left = {str(x) for x in _ls(unauthored_qs)}
+    cap = [str(x) for x in _ls(sp.get('capable_qs'))]
+    to = next((c for c in sorted(cap, key=lambda x: _qf_int(x, 0)) if c in left and c not in gr), None)
+    gr = [x for x in gr if x != q] + ([to] if to else [])
+    sp['granted'] = sorted(gr, key=lambda x: _qf_int(x, 0))
+    sp['regrants'] = rg + [{'from': q, 'to': to} if to else
+                           {'from': q, 'to': None, 'reason': 'no capable slot left in a later batch of this section'}]
+    return sp, to
+
+
+def figure_floor(target):
+    """F7 (OD-F) — the figure floor of a paper section: max(target - 1, ceil(FIG_FLOOR_FRAC x target)); 0 for no
+    target. A delivered count below it is an AMBER disclosure (with its reason), never a FAIL or a stop. Pure."""
+    import math as _m
+    t = max(0, _qf_int(target, 0))
+    return max(t - 1, int(_m.ceil(FIG_FLOOR_FRAC * t))) if t else 0
+
+
+def figure_floor_lines(figure_plan, concept_map):
+    """F7 — AMBER lines for every section whose delivered figure questions are below figure_floor(target), each with
+    the recorded reasons (fallbacks, re-grants that found no slot). Pure."""
+    cm = concept_map if isinstance(concept_map, dict) else {}
+    out = []
+    for sec, sp in (figure_plan or {}).items() if isinstance(figure_plan, dict) else []:
+        if not isinstance(sp, dict):
+            continue
+        t = _qf_int(sp.get('target'), 0)
+        fl = figure_floor(t)
+        if not t:
+            continue
+        have = sum(1 for q in (sp.get('granted') or []) if isinstance(cm.get(str(q)), dict)
+                   and (cm[str(q)].get('figure_files') or cm[str(q)].get('figure_dicts')))
+        if have < fl:
+            lost = [r for r in (sp.get('regrants') or []) if isinstance(r, dict) and not r.get('to')]
+            out.append(f"FIGURES (AMBER): {sec} delivers {have} figure question(s) against a target of {t} "
+                       f"(floor {fl})" + (f"; {len(lost)} grant(s) could not move to a later slot" if lost else ''))
+    return out
+
+
 def figure_grant_plan(capable_slots, section_sched, total_mocks, mock_n, rates=None, reducible=None, capacity=None):
     """FG-1 (owner ruling RL-3: follow the blueprint's figure target) — THE deterministic figure plan of one section of
     one paper, the same chain Create S3 ran by hand (bc.build_axis_tracker -> figural_quota_guard ->
@@ -31880,6 +33067,8 @@ def figure_grant_plan(capable_slots, section_sched, total_mocks, mock_n, rates=N
                 granted.append(q)
     short = max(0, t - len(granted))
     return {'target': t, 'granted': sorted(granted, key=lambda x: _qf_int(x, 0)), 'capable': len(slots),
+            # release 2026.11.25 (F5): the capable slots themselves, so a lost grant can be re-granted (figure_regrant)
+            'capable_qs': sorted({q for q, _s in slots}, key=lambda x: _qf_int(x, 0)),
             'short': [{'q': None, 'reason': 'capacity', 'n': short}] if short else []}
 
 def rp_prior_skills(concept_map, q, limit=None):

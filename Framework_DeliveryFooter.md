@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.53.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.54.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.54.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25; with MockTestCreate
+#   v8.4): §LADDER-NF names the shape-mix disclosure (A-SHAPEMIX is a composition gate) and the plan relief; the figure
+#   floor and a moved figure grant are named. Text only — no new field is composed by this contract.
 # v1.53.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24; with MockTestCreate v8.3):
 #   §2R gains the slot ledger, the S1 band swap, the paper level vs the real exam (E3), the E1 notice and the figure
 #   plan lines (final_assembly.bv_r31_lines); §LADDER-BC gains three question lines. Disclosure only — no stop.
@@ -1211,6 +1214,10 @@ Printed with the §LADDER-OP lines, one line each, only when present (an exact p
   AMBER — One-part-decidable items: <Part>/<subject> MIP=1 <k> of <n> > <allowed>    nf_disclosed['A-OPTPART']
   AMBER — Delivered vs allocated: <Part> <subject> <delivered> vs <allocated>        nf_disclosed['A-ALLOC']
   AMBER — Repeated template / key leak / figure: Q<a>/Q<b> ...                        nf_disclosed['A-INTRADUP' | 'A-KEYLEAK' | 'A-STEMFIG']
+  AMBER — Shape mix: <shape> <n> (<direction>) ...  (v1.54.0)                        nf_disclosed['A-SHAPEMIX'] (the auditor's AMBER — DISCLOSED line)
+  AMBER — Shape plan relief: <shape>, ... not reachable with this paper's subtopics  (v1.54.0)   question_index shape_infeasible (Create S3-12d)
+  AMBER — FIGURES: <section> delivers <n> figure question(s) against a target of <t> (floor <f>) ...  (v1.54.0)   the auditor's A-AXIS1 AMBER line
+  Q<q>: figure grant moved to Q<r> | could not move to a later slot (informational, v1.54.0)   batch footer line (Create STEP A2, F5)
   AMBER — PYQ grade calibration: agreement <x> < <min>; stricter grade used for <k> record(s)   (Blueprint §7-10)
   AMBER — Difficulty after one rewrite: Q<q> delivered <band> (slot <band>)           difficulty_state.bv_disclosed (Create S0-BV; LEGACY v1.51.0 — a v7.0 paper prints the §LADDER-BC line instead)
   AMBER — Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)   EXAM_RULER.anchor_basis (Create BV-7)

@@ -845,7 +845,8 @@ def _bv_handshake(check, ROOT, run_fence, W):
           and "bc.bv_settled(_cm_l.get(q), _labs_l)" in txt)
     # S13-2F disclosure set is exactly what the auditor can FAIL for composition (A-STEMFIG stays a repair)
     check('H-BV S13-2F NF_DISCLOSE_GATES are auditor gate ids (no dead id; A-STEMFIG is repaired, not disclosed)',
-          set(bc.NF_DISCLOSE_GATES) <= set(ac.NF_GATE_IDS) | {'A-AXIS2'} and 'A-STEMFIG' not in bc.NF_DISCLOSE_GATES)
+          set(bc.NF_DISCLOSE_GATES) <= set(ac.NF_GATE_IDS) | {'A-AXIS2'} | ({'A-SHAPEMIX'} & set(ac.QQ_GATE_IDS))
+          and 'A-STEMFIG' not in bc.NF_DISCLOSE_GATES)
     # commit through the REAL final_assembly
     BP = {'exam_code': EXAM, 'blueprint_version': 't', 'difficulty_labels': L,
           'subtopic_list': [{'subtopic_id': s, 'section': s.split('.')[0], 'topic': s.split('.')[1]} for s in sorted(set(sid.values()))],
@@ -1729,8 +1730,11 @@ def self_test():
         reg = {'exam_code': EXAM, 'schema_version': '1.0', 'mocks_completed': [], 'papers_completed': [], 'question_hashes': [], 'stem_texts': [], 'semantic_tuples': [],
                'semantic_usage': [], 'exhausted_subtopics': {}, 'question_index': [], 'image_phashes': [], 'image_sources_used': [], 'session_log': [],
                'content_tracking': {k: [] for k in fa._REQUIRED_CT}, 'section_names': [], 'rc_manifests': [], 'figural_manifests': [], 'di_manifests': []}
+        # release 2026.11.25 (P4): exactly as Create S13-4 commits it — the S3-12d planner record (floor-infeasible shapes
+        # AND plan relief) travels as shape_infeasible, so A-SHAPEMIX judges the plan the planner could make
+        _SINF = list((PLAN or {}).get('_infeasible') or [])
         prev = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1, axis2_window_counts={}, passage_present=False, di_present=False,
-                                  figural_present=False, concept_map=cm, quality_readiness=RD)
+                                  figural_present=False, concept_map=cm, quality_readiness=RD, shape_infeasible=_SINF)
         check('H5 commit_registry preview ok and carries producer_release + V590 fields + quality_readiness', prev['ok'] and prev['registry']['question_index'][0]['qindex_cert']['producer_release'] == bc.QQ_RELEASE
               and 'shape' in prev['registry']['question_index'][0]['questions'][0] and prev['registry']['question_index'][0].get('quality_readiness'), str(prev.get('problems') or prev.get('error'))[:200])
         prev_path = f'{TMP}/prev.json'; json.dump(prev['registry'], open(prev_path, 'w'))
@@ -1833,7 +1837,8 @@ def self_test():
             _e['quality_status'] = 'UNRESOLVED(A-TEMPLATE)' if _q in ('1', '2') else 'CERTIFIED'
         json.dump(_kl2, open(key_path, 'w'))
         _pv2 = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1, axis2_window_counts={},
-                                  passage_present=False, di_present=False, figural_present=False, concept_map=_kl2['concept_map'], quality_readiness=RD)
+                                  passage_present=False, di_present=False, figural_present=False, concept_map=_kl2['concept_map'], quality_readiness=RD,
+                                  shape_infeasible=_SINF)
         json.dump(_pv2['registry'], open(f'{HOME}/{EXAM}_M{N}_registry_preview.json', 'w'))
         json.dump({'state': 'AWAITING_REVIEW', 'quality_readiness': RD, 'uncertified_items': ['1', '2']}, open(f'{HOME}/{EXAM}_M{N}_batch_state.json', 'w'))
         shutil.copy(f'{W}/audit_canonical.py', f'{HOME}/{EXAM}_mock_test_audit.py')
@@ -1856,6 +1861,73 @@ def self_test():
               str((_raised, _c2f.get('uncertified_items'), _kl3['concept_map']['1'].get('quality_status'))))
         open(key_path, 'w').write(_kd_keep)
         for _f in (f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json', f'{HOME}/{EXAM}_M{N}_item_findings.json'):
+            if os.path.exists(_f): os.remove(_f)
+        # ═══ H5-S13-2F-TERMINATION (release 2026.11.25, GAP-2026-11-19-S13-2F-LOOP T-I2 analogue; LAW-FA-TERM-1): the
+        # REAL S13-2F fence and the REAL auditor, sweep after sweep, on a BATCH-COMPLETE ladder-mode paper carrying the
+        # incident's ingredients — an ALREADY-ESCALATED item that still fails its gate, a shape mix off plan, count-free
+        # difficulty records, and a paper-level FAIL that this harness never repairs (worst case: every 'reassemble' /
+        # 'recapture' is a no-op). Release 2026.11.24 looped here; now: a certificate within the total cap, no slot
+        # chain, no LADDER-REPAIR / SLOT-CHAIN, a counter that never decreases.
+        _kd_keep_t = open(key_path).read()
+        _docx_keep_t = open(docx, 'rb').read()
+        _kt = json.load(open(key_path))
+        _shapes_t = sorted({v for k, v in (PLAN or {}).items() if not str(k).startswith('_') and v})
+        for _q, _e in _kt['concept_map'].items():
+            _e['key_votes'] = dict(_e.get('key_votes') or {}, rule='BC1')
+            _e['difficulty_mode'] = 'ladder'
+            _e['difficulty_obs'] = {'qtype': 'mcq', 'mode': 'ladder'}
+            _e.pop('quality_status', None)
+            if _shapes_t:
+                _e['shape'] = _shapes_t[0]                       # every item one shape: the shape mix is off plan
+        _kt['concept_map']['3']['distractor_mechanisms'] = ['regioisomer']     # A-DISTRACTOR keeps failing on Q3 ...
+        _kt['concept_map']['3']['quality_status'] = 'ESCALATED(A-DISTRACTOR)'  # ... which is already ESCALATED
+        json.dump(_kt, open(key_path, 'w'))
+        _dt = Document(docx)
+        _dt.add_paragraph('Q.4  a duplicated question number (a paper-level A-MONO FAIL nothing here repairs)')
+        _dt.save(docx)
+        _bsp_t = f'{HOME}/{EXAM}_M{N}_batch_state.json'
+        json.dump({'paper_id': paper_id, 'bv': {'rule': 'BC1'}, 'difficulty_mode': 'ladder', 'quality_readiness': RD,
+                   'shape_plan': PLAN, 'uncertified_items': []}, open(_bsp_t, 'w'))
+        for _f in (f'{HOME}/{EXAM}_M{N}_s13_2f_state.json', f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json'):
+            if os.path.exists(_f): os.remove(_f)
+        _trace_t, _bad_t, _tot_t, _cert_t = [], [], [], None
+        for _sw_t in range(bc.S13_2F_TOTAL_CAP + 4):
+            _kc = json.load(open(key_path))
+            _pvt = fa.commit_registry(copy.deepcopy(reg), {}, BP, N, paper_id=paper_id, batches_completed=1,
+                                      axis2_window_counts={}, passage_present=False, di_present=False,
+                                      figural_present=False, concept_map=_kc['concept_map'], quality_readiness=RD,
+                                      shape_infeasible=_SINF)
+            json.dump(_pvt['registry'], open(f'{HOME}/{EXAM}_M{N}_registry_preview.json', 'w'))
+            g2t = {'EXAM': EXAM, 'N': N, 'paper_id': paper_id, 'bp': BP, 'BP_SRC_PATH': bp_path, 'AUDIT_AVAILABLE': True,
+                   'AUDIT_ENV': dict(os.environ, PYTHONPATH=W), 'STIM_PROFILE_PATH': None}
+            try:
+                run_fence(_f2f[0], g2t)
+            except SystemExit as _ex:
+                _trace_t.append(('STOP', str(_ex)[:200]))
+                break
+            except RuntimeError as _ex:
+                _m = str(_ex)
+                _trace_t.append(('DELTA', _m[:120]))
+                if 'SLOT-CHAIN' in _m or 'LADDER-REPAIR' in _m:
+                    _bad_t.append(_m[:200])
+            _tot_t.append((json.load(open(_bsp_t)).get('s13_2f') or {}).get('total_sweeps'))
+            if g2t.get('CERT'):
+                _cert_t = g2t['CERT']
+                break
+        _bst = json.load(open(_bsp_t))
+        check('H5-S13-2F-TERMINATION: the real S13-2F + auditor certify a BC1 ladder paper (escalated item still failing, '
+              'shape mix off plan, an unrepaired paper-level FAIL) within the total cap — no chain, no re-author, '
+              'counter monotonic [2026.11.24-LOOPS]',
+              _cert_t is not None and not _bad_t and not _bst.get('slot_chain') and not _bst.get('slot_chain_work')
+              and len(_tot_t) <= bc.S13_2F_TOTAL_CAP + 1 and _tot_t == sorted(_tot_t)
+              and 'A-SHAPEMIX' in (json.load(open(key_path)).get('nf_disclosed') or {})
+              and any('ESCALATED' in n_ and n_.startswith('A-MONO') for n_ in (_cert_t or {}).get('amber_notes') or [])
+              and any('ESCALATED' in n_ and n_.startswith('A-DISTRACTOR') for n_ in (_cert_t or {}).get('amber_notes') or []),
+              str((len(_tot_t), _tot_t, _bad_t[:2], _trace_t[-4:], (_cert_t or {}).get('amber_notes'))))
+        open(key_path, 'w').write(_kd_keep_t)
+        open(docx, 'wb').write(_docx_keep_t)
+        for _f in (f'{HOME}/{EXAM}_M{N}_item_sweep_certificate.json', f'{HOME}/{EXAM}_M{N}_item_findings.json',
+                   f'{HOME}/{EXAM}_M{N}_s13_2f_state.json', f'{HOME}/{EXAM}_M{N}_registry_preview.json'):
             if os.path.exists(_f): os.remove(_f)
         # S13-2F stamps (as the spec does): CERTIFIED on every item
         kd = json.load(open(key_path))
@@ -2167,7 +2239,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 267   # 2026.11.23 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): H5 certificate schema 3; +4 H5-CERT-DISCLOSED (real S13-2F -> S13-4c on an ESCALATED item; hand-edit refused); +1 H5-V7-SIDECAR (per-batch label truth); 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 268   # 2026.11.23 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): H5 certificate schema 3; +4 H5-CERT-DISCLOSED (real S13-2F -> S13-4c on an ESCALATED item; hand-edit refused); +1 H5-V7-SIDECAR (per-batch label truth); 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

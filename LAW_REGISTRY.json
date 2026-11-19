@@ -1134,7 +1134,7 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "Every unsettled question climbs ONE ladder inside its batch: rung 0 first write -> rung 1 FIX -> rung 2 REPLACE -> rung 3 FALLBACK (key / figure problems only) -> R5b -> BC_TERMINAL; a level miss settles at its measured band after rung 2; R10 figure-intrinsic families without an answer engine go from rung 2 to R5b; R11 a rung starts only when bc.bc_rounds_needed fits in the rounds left (bc.bc_next_rung). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY C2/C3): the rung-3 FALLBACK is a TEXT question by rule — the figural-slot ban does not apply to it, its figure record is removed (fa.bc_fallback_clear_figure at REWRITE; kept and put back by fa.bc_fallback_restore_figure when R5b restores an earlier figure version; an R10 family-engine item keeps its figure) and STEP A3 refuses a fallback that carries a picture. C4: a step that asks for text work (rewrite, permutation, restore, self-count fix) writes no job; the next step issues the whole round together. AMENDED 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS D1): a figure settles only on its WHOLE proof — identity and gates as well as the read-back (bc_apply; the 2-D layout computed by fa.bc_figure_with_layout), the rule S13-2P applies, so S13-2P never finds an unproven figure in a settled question; a pre-review fix (C4) also writes no job.",
+   "requires": "Every unsettled question climbs ONE ladder inside its batch: rung 0 first write -> rung 1 FIX -> rung 2 REPLACE -> rung 3 FALLBACK (key / figure problems only) -> R5b -> BC_TERMINAL; a level miss settles at its measured band after rung 2; R10 figure-intrinsic families without an answer engine go from rung 2 to R5b; R11 a rung starts only when bc.bc_rounds_needed fits in the rounds left (bc.bc_next_rung). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY C2/C3): the rung-3 FALLBACK is a TEXT question by rule — the figural-slot ban does not apply to it, its figure record is removed (fa.bc_fallback_clear_figure at REWRITE; kept and put back by fa.bc_fallback_restore_figure when R5b restores an earlier figure version; an R10 family-engine item keeps its figure) and STEP A3 refuses a fallback that carries a picture. C4: a step that asks for text work (rewrite, permutation, restore, self-count fix) writes no job; the next step issues the whole round together. AMENDED 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS D1): a figure settles only on its WHOLE proof — identity and gates as well as the read-back (bc_apply; the 2-D layout computed by fa.bc_figure_with_layout), the rule S13-2P applies, so S13-2P never finds an unproven figure in a settled question; a pre-review fix (C4) also writes no job. AMENDED 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F1-F3, F6): rung 3 follows the defect's location (bc.bc_rung3_kind: text_rebuild keeps the figure, fig_rebuild redraws it, the TEXT fallback only after two failed figure proofs or for a non-figure question); R5b prefers a qualifying figure version on a figure slot; a wording ambiguity with a unanimous key is capped at rung 2; the fallback marker is written when the fallback is chosen.",
    "verified_by": [
     "blueprint_core.py --self-test (_bc_self_test: bc_K13*, bc_K14*, bc_K15*, bc_L3*, bc_R10*, bc_R11*)",
     "handshake_audit.py --self-test (H-BC)"
@@ -1204,7 +1204,7 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "STEP B (Layer 1 + the per-batch auditor) is clean before a question's first review round and again after every text change, before that text is reviewed; on the last batch STEP B includes the whole-paper pre-commit sweep and a finding on an earlier question re-opens it inside the last batch (fa.bc_reopen). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY P3, owner go-ahead 2026-11-14): before a text's first review round its author's own counts (author_counts, G-SELFCOUNT) must give the slot band (bc.bc_selfcount) — a miss goes back to the author with no reviewer started, at most bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts still decide the band. AMENDED 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS D1-D3, owner go-ahead 2026-11-15): STEP A2 PRE-REVIEW — a figure that fails its proof, a List-I / 'shown' stem whose packet would carry no lists / picture, and the per-batch auditor's item findings and AMBER findings (fa.BC_PREREVIEW_AMBER_GATES, read from the --item-findings file) go back to the author with no reviewer started (fa.bc_prereview_gaps), at most bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed as it stands; STEP B re-checks only the changed questions and the paper-level counts (the auditor always runs whole).",
+   "requires": "STEP B (Layer 1 + the per-batch auditor) is clean before a question's first review round and again after every text change, before that text is reviewed; on the last batch STEP B includes the whole-paper pre-commit sweep and a finding on an earlier question re-opens it inside the last batch (fa.bc_reopen). AMENDED 2026.11.17 (GAP-2026-11-14-SPEED-AND-FIDELITY P3, owner go-ahead 2026-11-14): before a text's first review round its author's own counts (author_counts, G-SELFCOUNT) must give the slot band (bc.bc_selfcount) — a miss goes back to the author with no reviewer started, at most bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts still decide the band. AMENDED 2026.11.19 (GAP-2026-11-15-RUN-ANALYSIS D1-D3, owner go-ahead 2026-11-15): STEP A2 PRE-REVIEW — a figure that fails its proof, a List-I / 'shown' stem whose packet would carry no lists / picture, and the per-batch auditor's item findings and AMBER findings (fa.BC_PREREVIEW_AMBER_GATES, read from the --item-findings file) go back to the author with no reviewer started (fa.bc_prereview_gaps), at most bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed as it stands; STEP B re-checks only the changed questions and the paper-level counts (the auditor always runs whole). AMENDED 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP P6 / P13): the last batch's whole-paper decision is ONE engine call, fa.bc_last_batch_apply — a composition gate (bc.NF_DISCLOSE_GATES) is disclosed, never re-opened, except an item that drifted from its planned shape; the re-open applies to item gates only.",
    "verified_by": [
     "handshake_audit.py --self-test (H-BC)",
     "audit_sync.py (BC-COVERAGE)",
@@ -1241,7 +1241,7 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "Final Assembly starts no sub-agent, writes no question text and opens no chain: S13-1 ASSEMBLE (fa.assemble_final_docx byte copy; fa.bc_check_bound) -> S13-2F -> S13-2P -> S13-2L.0 -> S13-3 onward; an item finding there is an engine defect stamped ESCALATED with a P0 record, never a repair. (2026.11.23, LAW-CERT-1) An ESCALATED item is carried in the certificate's disclosed_items and escalated_items, and A-CERT accepts it as CERTIFIED WITH DISCLOSURES — the paper is delivered with its AMBER line, never stopped.",
+   "requires": "Final Assembly starts no sub-agent, writes no question text and opens no chain: S13-1 ASSEMBLE (fa.assemble_final_docx byte copy; fa.bc_check_bound) -> S13-2F -> S13-2P -> S13-2L.0 -> S13-3 onward; an item finding there is an engine defect stamped ESCALATED with a P0 record, never a repair. (2026.11.23, LAW-CERT-1) An ESCALATED item is carried in the certificate's disclosed_items and escalated_items, and A-CERT accepts it as CERTIFIED WITH DISCLOSURES — the paper is delivered with its AMBER line, never stopped. AMENDED 2026.11.25 (GAP-2026-11-19-S13-2F-LOOP, LAW-FA-TERM-1): S13-2F routes an item finding of a BATCH-COMPLETE paper only to ESCALATE; an accepted finding is never routed again; no branch resets the sweep counter (batch_state['s13_2f']); S13-2L (chains) and S13-2R refuse a BATCH-COMPLETE paper.",
    "verified_by": [
     "audit_sync.py (BC-COVERAGE)",
     "handshake_audit.py --self-test (H-BC)",
@@ -1333,6 +1333,67 @@
    "verified_by": [
     "final_assembly.py --self-test (v124_figure_plan_fallback_and_granted_slot_must_draw, v124_s3_plans_figure_stem_form)",
     "audit_canonical.py --self-test (AXIS1-recorded-shortfall-counted-at-planned-format)"
+   ]
+  },
+  "LAW-FA-TERM-1 FINAL-ASSEMBLY-TERMINATES": {
+   "gap": "GAP-2026-11-19-S13-2F-LOOP",
+   "stated_in": "Framework_MockTestCreate.md v8.4 S0-BC LAW-BC-8 / S13-2F / S4-12.2; blueprint_core s13_2f_plan / S13_2F_TOTAL_CAP; audit_canonical v2.45",
+   "detect": "certificate_contract_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text makes the auditor write (--write-certificate) or read (--certificate) the S13-2F certificate.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-19 (OD-A shape mix is a composition disclosure; OD-B check 9 not applicable in modes ladder / counted; OD-C deliver with AMBER, no new stop; OD-D S13_2F_TOTAL_CAP = 12; OD-E plan relief now, blueprint refresh at the next ScopedBlueprint; OD-F figure floor disclosed AMBER; owner instruction: 'permanently fixed for all 200 exams', 'no new hard stop')."
+   ],
+   "requires": "On EVERY paper S13-2F reaches a written certificate within bc.S13_2F_TOTAL_CAP sweeps, counted by batch_state['s13_2f'] (bc.s13_2f_begin) which no branch resets or decrements; the only exceptions are the pre-existing INFRA stops (a tool still broken after bc.INFRA_HEAL_MAX heals; CERT-CONTRACT). Every non-clean sweep is decided by ONE engine function, bc.s13_2f_plan. On a BATCH-COMPLETE paper an item finding is ESCALATED once and an accepted finding (ESCALATED / DISCLOSED stamp, or auditor disposition escalated / disclosed) is never routed again; no slot chain is opened, no LADDER-REPAIR / SLOT-CHAIN is raised and no question text is written at Final Assembly. A paper-level FAIL that a rebuild leaves unchanged is escalated (AMBER) at once. Every non-clean outcome is a DELTA [HS:LADDER] (never a stop).",
+   "verified_by": [
+    "audit_sync.py (FA-TERM)",
+    "blueprint_core.py --self-test (s13loop_TI1_*, s13loop_TU4, s13loop_TU10)",
+    "audit_canonical.py --self-test (v245-TU7, v245-settled-item-accepts-*, v245-escalate-early-*)",
+    "handshake_audit.py --self-test (H5-S13-2F-TERMINATION)"
+   ]
+  },
+  "LAW-PLAN-CHECK-1 PLANNER-EQUALS-CHECKER": {
+   "gap": "GAP-2026-11-19-S13-2F-LOOP",
+   "stated_in": "Framework_MockTestCreate.md v8.4 S3-12d; blueprint_core assign_shape_plan / shape_targets_effective / SHAPE_ALIASES; audit_canonical v2.45 A-SHAPEMIX",
+   "detect": "quality_gate_producer",
+   "detect_note": "Same performing set as QUALITY-GATE-LAW: every spec that produces or consumes a QUALITY gate target (shape targets among them).",
+   "governs": [
+    "Framework_MockTestCreate.md",
+    "Framework_MockReview.md",
+    "Framework_MockDeliver.md",
+    "Framework_Blueprint.md",
+    "Framework_ScopedBlueprint.md",
+    "Framework_MockTestAnalyse.md"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-19 (OD-A shape mix is a composition disclosure; OD-B check 9 not applicable in modes ladder / counted; OD-C deliver with AMBER, no new stop; OD-D S13_2F_TOTAL_CAP = 12; OD-E plan relief now, blueprint refresh at the next ScopedBlueprint; OD-F figure floor disclosed AMBER; owner instruction: 'permanently fixed for all 200 exams', 'no new hard stop')."
+   ],
+   "requires": "Every planner validates its output with the SAME function, the SAME targets (bc.shape_targets_effective: one vocabulary via bc.SHAPE_ALIASES, s1 targets summing to the paper's slots) and the SAME band its auditor gate uses; whatever the paper's subtopics cannot meet is recorded on the plan as relief ('_infeasible', committed as shape_infeasible) and the gate honours it. The shape mix is a composition target (A-SHAPEMIX in bc.NF_DISCLOSE_GATES): disclosed, never re-authored at Final Assembly; a writer's drift from the planned shape is a pre-review finding in its own batch (G-SHAPEPLAN). A plan that fails its own checker is an engine defect.",
+   "verified_by": [
+    "blueprint_core.py --self-test (s13loop_TU5_*, s13loop_TU8_*)",
+    "audit_canonical.py --self-test (v245-A-SHAPEMIX-*)",
+    "handshake_audit.py --self-test (H5, H-BV NF_DISCLOSE_GATES)"
+   ]
+  },
+  "LAW-RECORD-READER-1 WRITER-RECORD-TO-EVERY-READER": {
+   "gap": "GAP-2026-11-19-S13-2F-LOOP",
+   "stated_in": "Framework_MockTestCreate.md v8.4 S4-7 STEP A2; final_assembly v1.26.0 bv_batch_step / QINDEX_V589_FIELDS; blueprint_core difficulty_obs_signature / difficulty_obs_engine_record; audit_canonical v2.45 A-QINDEX check 9",
+   "detect": "difficulty_layer_rule",
+   "detect_note": "Same performing set as DIFFICULTY-LAYER-LAW: every spec that writes or reads the per-question difficulty record.",
+   "governs": [
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-19 (OD-A shape mix is a composition disclosure; OD-B check 9 not applicable in modes ladder / counted; OD-C deliver with AMBER, no new stop; OD-D S13_2F_TOTAL_CAP = 12; OD-E plan relief now, blueprint refresh at the next ScopedBlueprint; OD-F figure floor disclosed AMBER; owner instruction: 'permanently fixed for all 200 exams', 'no new hard stop')."
+   ],
+   "requires": "A change to the shape of a recorded field ships with a test for every reader of that field. difficulty_obs: in a count-free mode (bc.R3_COUNT_FREE_MODES) the ENGINE writes it ({'qtype', 'mode'}, bc.difficulty_obs_engine_record) whatever the worker passes; a count-free record has no evidence signature; A-QINDEX check 9 is not applicable to a count-free row (its committed difficulty_mode, its record's mode, or the paper's mode) and still FAILs a genuinely echoed author-counted band.",
+   "verified_by": [
+    "blueprint_core.py --self-test (s13loop_TU1, s13loop_TU2, s13loop_TU11)",
+    "audit_canonical.py --self-test (v245-TU3-*)",
+    "final_assembly.py --self-test (s13loop_TU11, s13loop_P1)"
    ]
   }
  },

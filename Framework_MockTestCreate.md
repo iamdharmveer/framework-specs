@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v8.3
+# Framework_MockTestCreate v8.4
+# v8.4 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25; paired with
+#   blueprint_core, audit_canonical v2.45, final_assembly v1.26.0, handshake_audit, MockTestOrchestrate v1.11.0,
+#   DeliveryFooter v1.54.0; owner decisions OD-A..OD-F 2026-11-19; new laws LAW-FA-TERM-1, LAW-PLAN-CHECK-1,
+#   LAW-RECORD-READER-1). S13-2F always terminates: one persistent counter (batch_state['s13_2f']), one engine decision
+#   per sweep (bc.s13_2f_plan), a total cap (bc.S13_2F_TOTAL_CAP); a BATCH-COMPLETE paper's accepted findings are never
+#   routed again and nothing is chained or re-authored at Final Assembly. A-QINDEX check 9 is mode-aware and the engine
+#   writes difficulty_obs in modes ladder / counted. The shape planner balances to its own checker (plan relief), one
+#   shape vocabulary, targets summing to N; the shape mix is a composition disclosure (A-SHAPEMIX in NF_DISCLOSE_GATES)
+#   and a writer's drift is caught in its own batch (G-SHAPEPLAN); the last batch's whole-paper decision is the engine's
+#   (fa.bc_last_batch_apply). Rung 3 follows the defect's location (text / figure rebuild; the TEXT fallback only when the
+#   figure failed its proof twice), R5b prefers a confirmed figure version, a wording ambiguity is capped at rung 2,
+#   pre-review G-FIG-STEREO / G-FIG-SCALE, a lost figure grant is re-granted, the figure floor is disclosed. Resume
+#   migration S4-12.2 (bc.migrate_s13_2f_loop). No new stop, no new review round, no new user action.
 # v8.3 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24). S3-12e top-band shares from
 #   the ladder (E2); S3-16 freezes figure_plan (FG-1, RL-3), stem_form (D1/RP-2) and the E1 notice (fa.bv_s3_plans);
 #   S4-7.1 writer packet adds examples, content menu, skills already used (F1/F3/RP-1); S13-2L.0 one pure band swap
@@ -706,7 +719,13 @@
     LAW-BC-2 THE LADDER. Every unsettled question climbs ONE ladder inside its batch (bc.bc_apply / bc.bc_next_rung):
          rung 0 first write -> rung 1 FIX (the same question repaired: state the missing condition, correct the stem or
          options, redraw a misread figure, re-target the counts) -> rung 2 REPLACE (a new question, same slot: subtopic,
-         band, qtype, ask format, key position, stimulus group; clone / series / within-paper guards) -> rung 3 FALLBACK
+         band, qtype, ask format, key position, stimulus group; clone / series / within-paper guards) -> rung 3, whose
+         KIND follows the defect's LOCATION (v8.4, GAP-2026-11-19-FIGURE-LOSS F1; bc.bc_rung3_kind): on a FIGURE question
+         every defect in the wording -> TEXT REBUILD (rewrite the words, keep the figure byte-identical); a defect in the
+         figure -> FIGURE REBUILD (redraw it, still a figural question); the TEXT FALLBACK below only when the figure
+         failed its identity proof in two reviewed versions (or the family has an answer engine, R10); a question with
+         no figure keeps the FALLBACK. The kind is climb_brief['kind']; the fallback marker (bc_fallback) is written when
+         the fallback is CHOSEN (F6), so G-FIG-MISSING never asks a fallback for its figure. FALLBACK
          (key or figure problems only: a clear-cut TEXT question, same subtopic, slot band and qtype, text options, no
          figure, no step that depends on reading 3D configuration; v7.1: the figural-slot ban does not apply to it and
          its figure record is removed — fa.bc_fallback_clear_figure at REWRITE, checked again at STEP A3, put back by
@@ -719,7 +738,9 @@
          the whole group is replaced together. TERMINAL (R5b): deliver the last reviewed version whose key the
          adjudicator (or three unanimous solvers) confirmed with at least 2 of 3 solvers agreeing and whose figures
          read back correctly — restored by the worker when it is an earlier version (STEP A2 RESTORE) — with one AMBER
-         line. No such version: bc.BC_TERMINAL = 'adjudicated_disclosed' (R9) — the current text with the
+         line; v8.4 (F2): on a figure slot the LATEST such version that HAS its figure (no figure-located defect) wins.
+         v8.4 (F3): 'D-AMBIGUOUS' named by a quorum while every solver reached the same single key is a WORDING finding,
+         capped at rung 2 like any finding (settles 'finding_open'); with the key in doubt it keeps the full ladder. No such version: bc.BC_TERMINAL = 'adjudicated_disclosed' (R9) — the current text with the
          adjudicator's key, AMBER "key adjudicated; solvers split" and an automatic P0 record. The batch always ends.
          R10: a FIGURE-INTRINSIC question (its figure type drawn by a glyph renderer — figure series, matrix, dice,
          mirror / water image, paper folding, cube net, embedded figure: the figure IS the question) has no text form;
@@ -758,6 +779,10 @@
          and again after every text change, before that text is reviewed. On the plan's LAST batch STEP B includes the
          whole-paper pre-commit sweep (S13-2F, --phase precommit); a finding there that names a question of an EARLIER
          batch re-opens that question inside the last batch (fa.bc_reopen — it climbs the ladder there, with reviewers).
+         v8.4 (AMENDED, GAP-2026-11-19-S13-2F-LOOP P6 / P13): ONE engine call decides it — fa.bc_last_batch_apply. A
+         composition gate (bc.NF_DISCLOSE_GATES, A-SHAPEMIX included) is DISCLOSED, never a re-open — except an item that
+         DRIFTED from its planned shape (re-opened: the drift is the writer's); an item gate re-opens; a settled item is
+         accepted. No worker judgment and no FRAMEWORK NOTE decides between this law and S4-7 STEP A (v7.3 D5).
          v7.1 (P3): before a text's first review round the author's OWN counts (author_counts) must give the slot band
          (bc.bc_selfcount, G-SELFCOUNT) — a miss is sent back with no reviewer started (STEP A2 SELF-COUNT), at most
          bc.BC_SELFCOUNT_TRIES times per rung, then the text is reviewed anyway; the reviewers' counts decide the band.
@@ -771,6 +796,10 @@
          S13-3 onward. A finding there that would need new text is an ENGINE DEFECT: disclosed AMBER-ESCALATED with a
          P0 record, never a repair. S13-1B, S13-2G, S13-2L slot chains and S13-2R are LEGACY — reachable only for a
          paper begun on an earlier release, through its settlement batch (S4-12).
+         v8.4 (AMENDED, LAW-FA-TERM-1): S13-2F routes an item finding of a BATCH-COMPLETE paper only to ESCALATE; an
+         accepted finding (ESCALATED / DISCLOSED, or the auditor's disposition 'escalated' / 'disclosed') is never routed
+         again; no branch resets the sweep counter (batch_state['s13_2f']); at bc.S13_2F_TOTAL_CAP every remaining
+         finding is delivered with an AMBER line. S13-2L (chains) and S13-2R refuse a BATCH-COMPLETE paper.
     LAW-BC-9 INFRASTRUCTURE IS NOT QUALITY. A reviewer, adjudicator or vision role that returns nothing is re-asked
          (a `_switch` folder: another model) up to bc.BC_ROLE_ASKS times per text. A question that still lacks the
          minimum results is an environment failure: `NO-MODEL [HS:ENV]` — state saved, one plain line, the turn ends;
@@ -3743,6 +3772,8 @@ action: the same paper, the same two files, the same "continue".
   # s1 (the bare ask types this spec renders); a future s2 target (statement / match /
   # sequence formats, figure_types.ASK_TYPES_S2) is a FORMAT, read by A-AXIS2 as a WARN —
   # never a shape slot. An absent shape_rule reads as s1 (bc.shape_rule_of).
+  _shape_tg_all = dict(_shape_tg)     # v8.4 (LAW-PLAN-CHECK-1): the planner gets EXACTLY what A-SHAPEMIX reads — the
+                                      # full vector; bc.shape_targets_effective sets s2 / 'other' aside identically
   _shape_tg = {k: v for k, v in _shape_tg.items()
                if bc.shape_rule_of((v or {}).get('shape_rule') if isinstance(v, dict) else None) == bc.SHAPE_RULE_LEGACY}
   if 'shape_plan' in bs_prev and bs_prev.get('batches_completed'):
@@ -3750,7 +3781,7 @@ action: the same paper, the same two files, the same "continue".
       # A resumed run NEVER re-assigns shapes — not even after Step 5 / bp_refresh changed
       # the targets (that applies to the NEXT paper).
       SHAPE_PLAN = dict(bs_prev['shape_plan'] or {})
-      print(f"S3-12d: shape plan FROZEN from batch_state ({len([q for q in SHAPE_PLAN if q != '_infeasible'])} slots"
+      print(f"S3-12d: shape plan FROZEN from batch_state ({len([q for q in SHAPE_PLAN if not str(q).startswith('_')])} slots"
             f"{'; DORMANT when the paper started' if not SHAPE_PLAN else ''}).")
   elif not _shape_tg:
       # OD-1: no targets (blueprint built before Blueprint v1.63.0 / ScopedBlueprint v1.13.0,
@@ -3775,11 +3806,18 @@ action: the same paper, the same two files, the same "continue".
           _qb = bc.quality_block_for_subtopic(SECTION_RULES_TEXT, _sid) or {}
           _sub_shapes[_sid] = [k.split('|')[0] for k in (_qb.get('shape_shares') or {}).keys()] or list(_shape_tg.keys())
       import hashlib as _hl
-      SHAPE_PLAN = bc.assign_shape_plan(_slots, _sub_shapes, _shape_tg,
-                                        seed=bc.brief_seed(EXAM, paper_id, _hl.sha256(SECTION_RULES_TEXT.encode('utf-8')).hexdigest(), 0))
-      print(f"S3-12d: shape plan for paper {N}: " + ', '.join(f"{k}={v}" for k, v in sorted(
-            ((s, sum(1 for q, v in SHAPE_PLAN.items() if q != '_infeasible' and v == s)) for s in _shape_tg)))
-            + (f"; infeasible (recorded, not a defect): {SHAPE_PLAN['_infeasible']}" if SHAPE_PLAN.get('_infeasible') else ''))
+      # v8.4 (GAP-2026-11-19-S13-2F-LOOP P4 / P7, LAW-PLAN-CHECK-1): the planner uses the EFFECTIVE targets
+      # (bc.shape_targets_effective — one shape vocabulary, s1 targets summing to the paper's slots) and balances to
+      # A-SHAPEMIX's own band; what this paper's subtopics cannot meet is recorded in '_infeasible' (plan relief),
+      # printed here before batch 1, committed as shape_infeasible (S13-4) and honoured by A-SHAPEMIX
+      SHAPE_PLAN = bc.assign_shape_plan(_slots, _sub_shapes, _shape_tg_all,
+                                        seed=bc.brief_seed(EXAM, paper_id, _hl.sha256(SECTION_RULES_TEXT.encode('utf-8')).hexdigest(), 0),
+                                        n_items=len(_slots))
+      _shape_eff = bc.shape_targets_effective(_shape_tg_all, len(_slots))
+      print(f"S3-12d: shape plan for paper {N}: " + ', '.join(f"{k}={v}/{_shape_eff[k]['target']}" for k, v in sorted(
+            ((s, sum(1 for q, v in SHAPE_PLAN.items() if not str(q).startswith('_') and v == s)) for s in _shape_eff)))
+            + (f"; plan relief — not reachable with this paper's subtopics (recorded, disclosed, never a defect): "
+               f"{SHAPE_PLAN['_infeasible']}" if SHAPE_PLAN.get('_infeasible') else ''))
   SHAPE_PLAN = {str(k): v for k, v in SHAPE_PLAN.items()}   # FROZEN by the S3-16 batch_state initialiser ('shape_plan', EC-19)
 
   # ── S3-12e (v5.92 — GAP-2026-11-05 DL-33 / DL-34; guards G4, S7) ─────────────────────────
@@ -5223,9 +5261,13 @@ action: the same paper, the same two files, the same "continue".
            the batch clean before its first reviewer round, and again for every text the ladder writes (rung 1-3,
            PERMUTE, RESTORE) before that text is reviewed; a gate fix never costs a review round). LAST BATCH (v7.0):
            also run the whole-paper pre-commit sweep — the auditor exactly as S13-2F calls it (--phase precommit, no
-           --through-q, on the cumulative docx); a composition shortfall is disclosed (bc.NF_DISCLOSE_GATES); a finding
-           that names a question of an EARLIER batch re-opens it INSIDE this batch:
-             import final_assembly as fa; fa.bc_reopen(EXAM, N, [<q>], '<gate>: <finding>')
+           --through-q, on the cumulative docx), then ONE engine call decides every finding it names (v8.4, LAW-BC-6
+           amended — no worker judgment, no FRAMEWORK NOTE):
+             import final_assembly as fa
+             _lb = fa.bc_last_batch_apply(EXAM, N, json.load(open(<the sweep's --item-findings file>)))
+           a composition shortfall (bc.NF_DISCLOSE_GATES, A-SHAPEMIX included) is DISCLOSED in the sidecar's
+           nf_disclosed; an item that drifted from its planned shape, and any item-gate finding, is RE-OPENED inside
+           this batch (fa.bc_reopen, called by it); a settled item is accepted. Print _lb['disclose'] / _lb['reopen'].
            then STEP A2 again — the question climbs the ladder here, with reviewers, so nothing reaches Final Assembly.
            1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
               (G-CLUSTER, G-ALTGROUP, G-GROUPMANDATE, G-MINCOUNT,
@@ -5307,7 +5349,13 @@ action: the same paper, the same two files, the same "continue".
            disclosed — AMBER "reviewer finding still open after rung 2" — and never reaches the rung-3 TEXT fallback,
            so its figure is kept. The
            self-count (SELF-COUNT) does not run; PRE-REVIEW also sends back the deterministic gates (bc.qg_item_gates)
-           and, on the ladder, a top-band content floor miss. Every path below is the existing bounded ladder: no new
+           and, on the ladder, a top-band content floor miss. v8.4: those gates include G-SHAPEPLAN (the question is not
+           written in its slot's planned shape — write it, or record shape_drift {planned, delivered, reason} when a
+           fallback cannot keep it), G-FIG-STEREO (a structure's SMILES leaves a stereocentre unspecified with no
+           stereo_mode declared) and G-FIG-SCALE (the stem and option images of one question are drawn at different
+           on-page sizes); none is a hard gate (after its pre-review tries it is disclosed, never a stop). On REWRITE
+           read climb_brief['kind']: 'text_rebuild' keeps the figure byte-identical, 'fig_rebuild' redraws it, only
+           'fallback' writes a TEXT question. Every path below is the existing bounded ladder: no new
            stop, no new loop. Run it after STEP B,
            and again after each GRADE RETURNED and after each text the ladder writes, until it prints `STEP A2: DONE`:
              JOBS OUT  -> reviewer folders (`.../reviewer_k[_p<i>]`) and adjudicator folders (`.../q<n>_adj`); a folder
@@ -5833,7 +5881,7 @@ action: the same paper, the same two files, the same "continue".
   of the plan, the registry has no committed question_index entry for this paper, and
   batch_state.state is absent or not one of the REVIEW states below -> do NOT print a continue
   prompt and do NOT generate a batch: v7.0 — re-enter §13 at S13-1 (ASSEMBLE is a byte copy, safe to repeat), then
-  S13-2F (the sweep counter lives in its state file, so the count continues), S13-2P, S13-2L.0, S13-3 .. S13-8 in this
+  S13-2F (v8.4: the sweep counter lives in batch_state['s13_2f'], so the count continues), S13-2P, S13-2L.0, S13-3 .. S13-8 in this
   same response (a paper begun on an earlier release first runs its settlement batch — LEGACY MIGRATION above).
 
   v6.4 (S0-BV BV-14) — FINAL COUNTING ROUND IN PROGRESS: batch_state['bv']['batch'] == 'final' with status
@@ -5923,10 +5971,30 @@ action: the same paper, the same two files, the same "continue".
           if _repm['dr3_restored'] or _repm['rework_pending'] or _repm['unresolved_cleared']:
               for _f in (f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json', f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'):
                   if os.path.exists(_f):
-                      os.remove(_f)                  # re-issued by S13-2F; the sweep count restarts
+                      os.remove(_f)                  # re-issued by S13-2F (the LEGACY route counter; batch_state['s13_2f'] is kept)
               print(f"S4-12 MIGRATION {_repm['tag']}: DR3 restored to slot {_repm['dr3_restored']}; unreviewed reworks "
                     f"{_repm['rework_pending']}; UNRESOLVED cleared {_repm['unresolved_cleared']} — continuing at "
                     f"S13-2L (chains), S13-2F, S13-2G (delta), automatically.")
+      # v8.4 (GAP-2026-11-19-S13-2F-LOOP P11): every paper, idempotent — a BATCH-COMPLETE paper parked by the S13-2F
+      # loop loses the chains Final Assembly opened with no attempt, its composition-only ESCALATED stamps become
+      # nf_disclosed, their P0 records move to migrated_incidents; the persistent counter starts at 0; a frozen shape
+      # plan gains its plan relief; count-free difficulty records are the engine's. No question text, review record or
+      # bound hash changes. Final Assembly then resumes at S13-1 / S13-2F.
+      _bs8 = json.load(open(_bsm_p, encoding='utf-8'))
+      _kd8 = json.load(open(_kdm_p, encoding='utf-8'))
+      import final_assembly as fa
+      _bp8 = fa.bv_paper_blueprint(EXAM, N, '/home/claude', _bs8)    # THIS paper's blueprint (its slot map decides)
+      _bs8, _kd8, _rep8 = bc.migrate_s13_2f_loop(_bs8, _kd8, (_bp8.get('shape_target_per_paper') or {}).get(str(N)),
+                                                 len((_bs8.get('subtopic_by_qnum') or {})) or None)
+      if not _rep8['skipped']:
+          json.dump(_kd8, open(_kdm_p, 'w', encoding='utf-8'), indent=2)
+          json.dump(_bs8, open(_bsm_p, 'w', encoding='utf-8'), indent=2)
+          for _f in (f'/home/claude/{EXAM}_M{N}_s13_2f_state.json', f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'):
+              if os.path.exists(_f):
+                  os.remove(_f)
+          print(f"S4-12 MIGRATION {_rep8['tag']}: chains removed {_rep8['chains_removed']}; composition stamps -> "
+                f"disclosed {_rep8['unstamped']}; P0 moved {_rep8['p0_moved']}; plan relief {_rep8['relief']}; "
+                f"records normalised {_rep8['obs_normalised']} — continuing automatically.")
   ```
 
   RECOVERY PROCEDURE:
@@ -6747,7 +6815,10 @@ action: the same paper, the same two files, the same "continue".
               substrate and a NEW question whose solution genuinely needs that decision load;
               a top-band slot is a chain of high-load decisions with close distractors, never a
               bigger molecule. While deriving the answer RECORD on difficulty_obs (the same
-              keys the exam's own past questions carry — one ruler for both, D3):
+              keys the exam's own past questions carry — one ruler for both, D3; v8.4 (P13): in modes
+              'ladder' / 'counted' the ENGINE writes difficulty_obs = {'qtype', 'mode'} at STEP A2
+              (bc.difficulty_obs_engine_record) — anything recorded here is archived as difficulty_obs_author,
+              read by no decision; your own counts belong in author_counts, as STEP A says):
                 'named_concepts': [labels SELECTED from bc.l2_vocabulary() — every concept the
                                    solution uses, none it does not; 'other:<text>' for one
                                    outside the vocabulary],
@@ -11931,7 +12002,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
        — plus --profile, --key (this paper's concept_map) and --fig-manifest.
     3. CLEAN (no item finding, no FAIL line of any gate) -> the certificate is written and
        the block binds CERT / AMBER_NOTES. Go on to S13-3 / S13-4.
-       NOT CLEAN -> the block prints the worklist and raises LADDER-REPAIR [HS:LADDER]:
+       NOT CLEAN (a LEGACY paper begun before v7.0; a BATCH-COMPLETE paper follows the v8.4 rule below — DELTA,
+       nothing re-authored) -> the block prints the worklist and raises LADDER-REPAIR [HS:LADDER]:
        repair each named question at its rung (§Q8b-LADDER) IN THE FINAL DOCX, in place —
        the S4-6 correction procedure: edit only that question's block, re-render its
        figures, update its sidecar/answer-key entry and fig_manifest record, keep every
@@ -11946,7 +12018,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   stamped UNRESOLVED and no paper is NOT CERTIFIED. (1) An item finding — and any FAIL line
   whose message names a question — that survives the terminal rung (sweep >= 4) enters that
   slot's SLOT CHAIN (S13-2R: replacement on a new substrate, another ask shape, a sibling
-  subtopic; kind bc.chain_kind_for), and the sweep count restarts. A-QINDEX checks 7 / 8 now
+  subtopic; kind bc.chain_kind_for) — LEGACY papers only (v8.4: a BATCH-COMPLETE paper never opens a chain). A-QINDEX checks 7 / 8 now
   emit item findings (A-QINDEX-FLOOR at RL, A-QINDEX-LABEL at R2), so a label clash is always
   repairable. (2) A FAIL line naming NO question is rebuilt deterministically —
   bc.PAPER_GATE_ROUTE 'reassemble' (rebuild the final docx from the per-item blocks, S13-1) or
@@ -11956,7 +12028,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   be opened, the certificate is unreadable) is a tool fault: it is SELF-HEALED
   (bc.infra_heal_step — reinstall the dependencies, re-copy the verified auditor, re-run its
   --self-test, re-render) up to bc.INFRA_HEAL_MAX times, and stops only when the tool is still
-  broken. The sweep counter lives in a state file, so a resumed session continues the count.
+  broken. v8.4: the sweep counter lives in batch_state['s13_2f'] (never reset), so a resumed session continues the count.
   A paper never fails S13-2F for a QUALITY or RULE reason.
   AFTER a clean sweep the step goes on IMMEDIATELY, in the SAME response,
   to S13-2G (the in-session independent review, OD-5 restated 2026-11-04) and from there to
@@ -11966,6 +12038,22 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   input is missing or stale — A-TEMPLATE on every project whose Step 5 predates the
   measurement) or INFEASIBLE emits no item finding, so it never enters the ladder and never
   costs a sweep.
+  v8.4 (GAP-2026-11-19-S13-2F-LOOP; LAW-FA-TERM-1; owner decisions OD-A..OD-E 2026-11-19) — FINAL ASSEMBLY
+  ALWAYS TERMINATES, on every exam. Release 2026.11.24 could sweep forever: an item already stamped ESCALATED was
+  routed again (REPLACE from sweep 4), the slot-chain branch deleted the only sweep counter, and the sweep-6 escape
+  for a paper-level FAIL was never reached. Now: (1) ONE persistent counter, batch_state['s13_2f'] (bc.s13_2f_begin)
+  — no branch resets or decrements it; (2) ONE engine decision per sweep, bc.s13_2f_plan (a pure function the
+  termination harness in the blueprint_core self-test drives through every edge case and 2,000 random sequences);
+  (3) on a BATCH-COMPLETE paper an item finding is ESCALATED once (P0 kind bc_final_assembly_finding, or
+  bc_last_batch_finding when the last batch's whole-paper sweep had already named it) and never routed again; a
+  composition shortfall (bc.NF_DISCLOSE_GATES, A-SHAPEMIX included — OD-A) is DISCLOSED; a paper-level FAIL is
+  rebuilt ('reassemble' / 'recapture') and ESCALATED (AMBER) at sweep bc.S13_2F_MAX_SWEEPS or at once when the same
+  rebuild left the same message (a fixed point); (4) at bc.S13_2F_TOTAL_CAP (12, OD-D) every remaining finding is
+  delivered with an AMBER line on every paper, legacy included, and the next sweep writes the certificate; (5) a
+  missing registry preview is a protocol step, never a counted tool fault. Every non-clean outcome is a
+  "DELTA [HS:LADDER]" — not a stop (MANDATE 0b): perform what it names and continue. The only stops left are the
+  pre-existing INFRA stops (a tool still broken after bc.INFRA_HEAL_MAX heals; CERT-CONTRACT). No branch writes
+  question text, opens a slot chain or raises LADDER-REPAIR / SLOT-CHAIN on a BATCH-COMPLETE paper.
 
 ```python
 # RUN-BLOCK S13-2F — not in the read; run it: python3 bootstrap.py --run-section S13-2F --exam <E> --paper <N>
@@ -11981,7 +12069,7 @@ _key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
 _pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
 _fmj = f'/home/claude/{EXAM}_fig_manifest.json'
 _prev = f'/home/claude/{EXAM}_M{N}_registry_preview.json'   # written by step 1 (S13_PREVIEW)
-_stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'
+_stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'        # LEGACY routes only (a paper begun before v7.0)
 _bsp = f'/home/claude/{EXAM}_M{N}_batch_state.json'
 
 def _infra(site, msg):
@@ -11995,14 +12083,24 @@ def _infra(site, msg):
                            f"named below NOW, automatically, then re-run this block — {msg}")
     raise SystemExit(msg)
 
+# v8.4 (GAP-2026-11-19-S13-2F-LOOP, LAW-FA-TERM-1): ONE persistent sweep counter (batch_state['s13_2f'], never reset,
+# never decremented — bc.s13_2f_begin) and ONE engine decision per sweep (bc.s13_2f_plan). A BATCH-COMPLETE paper
+# (LAW-BC-8) is never re-authored here: an item finding is ESCALATED once, a composition shortfall is DISCLOSED, a
+# paper-level FAIL is rebuilt or escalated (AMBER) — and at bc.S13_2F_TOTAL_CAP every remaining finding is delivered
+# with an AMBER line, so the certificate is always written. No branch below opens a slot chain or raises
+# LADDER-REPAIR / SLOT-CHAIN on a BATCH-COMPLETE paper.
+_bs_0 = json.load(open(_bsp, encoding='utf-8'))
+_BC1 = (_bs_0.get('bv') or {}).get('rule') == bc.BC_RULE
+
 # v5.89 (LAW F1.4 — moved here from S13-4): a figure recorded on a text_disclosed fallback
 # subtopic is an ITEM defect, repaired BEFORE the certificate — after the certificate any
 # docx change would void it (A-CERT). Re-author each named question as TEXT (S7-NEW-B
-# OPTION B), drop its fig_manifest entry, then run the next sweep.
+# OPTION B), drop its fig_manifest entry, then run the next sweep. v8.4: LEGACY papers only — on a BATCH-COMPLETE
+# paper nothing is re-authored at Final Assembly; the auditor's finding is ESCALATED below like any item finding.
 _fm_fb = json.load(open(_fmj, encoding='utf-8')) if os.path.exists(_fmj) else {}
 _fb_hit_pre = sorted(str(q) for q, v in ((_fm_fb or {}).get('questions') or {}).items()
                      if isinstance(v, dict) and v.get('subtopic_id') in (bp.get('figural_fallbacks') or {}))
-if _fb_hit_pre:
+if _fb_hit_pre and not _BC1:
     raise RuntimeError(f"LADDER-REPAIR R4 [HS:LADDER] (S13-2F, LAW F1.4): question(s) {_fb_hit_pre} "
                        f"carry a figure on a text_disclosed fallback subtopic — re-author them as "
                        f"TEXT, remove their fig_manifest entries, then run the next sweep.")
@@ -12010,13 +12108,18 @@ if _fb_hit_pre:
 CERT, AMBER_NOTES = None, []
 if AUDIT_AVAILABLE:
     if not os.path.exists(_prev):
-        _infra('S13-2F-preview', "HARD STOP [HS:INFRA] (S13-2F): no registry preview — run step 1 "
-                                 "(the S13-4 block with S13_PREVIEW = True) before this block.")
+        # v8.4 (G15): a missing preview is a protocol step not yet run — never a tool fault, never a heal counted
+        raise RuntimeError("DELTA [HS:LADDER] (S13-2F): no registry preview for this sweep yet — run step 1 (the "
+                           "S13-4 block with S13_PREVIEW = True), then this block again. Nothing was counted.")
+    _S = bc.s13_2f_begin(_bs_0.get('s13_2f'), paper_id)              # the persistent counter (LAW-FA-TERM-1)
+    _bs_0['s13_2f'] = _S
+    json.dump(_bs_0, open(_bsp, 'w', encoding='utf-8'), indent=2)
     _st = json.load(open(_stp, encoding='utf-8')) if os.path.exists(_stp) else {}
     if _st.get('paper_id') != paper_id:               # another paper's counter never carries over
         _st = {'paper_id': paper_id, 'sweep': 0}
-    _st['sweep'] = int(_st.get('sweep', 0)) + 1
+    _st['sweep'] = int(_st.get('sweep', 0)) + 1       # LEGACY route counter (sweep_route rungs on a pre-v7.0 paper)
     json.dump(_st, open(_stp, 'w', encoding='utf-8'))
+    _sweep_no = _S['total_sweeps'] if _BC1 else _st['sweep']
     for _old in (_ifj, _cert):                        # never re-read a previous sweep's files
         if os.path.exists(_old):
             os.remove(_old)
@@ -12070,9 +12173,13 @@ if AUDIT_AVAILABLE:
            # v5.96: the hash of every delivered block (REVIEW-COVERAGE-LAW) and the paper-level gates
            # this sweep escalates to AMBER at the sweep cap (bc.sweep_route 'amber')
            '--item-hashes', f'/home/claude/{EXAM}_M{N}_item_hashes.json',
-           '--sweep', str(_st['sweep'])]
-    if _st.get('escalate'):
-        cmd += ['--escalate-paper', ','.join(_st['escalate'])]
+           '--sweep', str(_sweep_no)]
+    _esc_now = sorted(set(_S.get('escalate') or []) | set(_st.get('escalate') or []))
+    if _esc_now:
+        # v8.4: the ENGINE decided these escalations (bc.s13_2f_plan: sweep cap, fixed point, total cap)
+        cmd += ['--escalate-paper', ','.join(_esc_now), '--escalate-early']
+    if _bs_0.get('difficulty_mode'):
+        cmd += ['--difficulty-mode', str(_bs_0['difficulty_mode'])]     # v8.4 (P1): A-QINDEX check 9 is mode-aware
     _sgp_pre = globals().get('STIM_PROFILE_PATH')     # v5.85 A-BLOCK — same source as S13-4c
     for _flag, _path in (('--profile', _pf), ('--key', _key), ('--fig-manifest', _fmj),
                          ('--stimulus-profile', _sgp_pre),
@@ -12105,16 +12212,18 @@ if AUDIT_AVAILABLE:
         UNCERTIFIED_ITEMS = list(CERT.get('uncertified_items') or [])   # v5.96: [] on a new paper (OD-2026-11-09); a migrated UNRESOLVED stamp may list items
         _bs2f = json.load(open(_bsp, encoding='utf-8'))
         _bs2f['uncertified_items'] = UNCERTIFIED_ITEMS
-        _bs2f['escalated_paper'] = {'gates': list(_st.get('escalate') or []), 'sweep': _st['sweep']}   # -> S13-4c / S13-QINDEX
+        _bs2f['escalated_paper'] = {'gates': _esc_now, 'sweep': _sweep_no}   # -> S13-4c / S13-QINDEX
         _bs2f['infra_heal'] = bc.infra_heal_clear(bc.infra_heal_clear(_bs2f.get('infra_heal'), 'S13-2F-preview'),
                                                   'S13-2F-auditor')
+        _bs2f['s13_2f'] = dict(bc.s13_2f_state(_bs2f.get('s13_2f'), paper_id), certified_at_sweep=_S['total_sweeps'])
         # a quality chain whose replacement swept clean is FIXED (bc.slot_chain_record 'pass')
         for _qc, _ch in list((_bs2f.get('slot_chain') or {}).items()):
             _att = (_ch or {}).get('attempts') or []
             if _ch.get('kind') == 'quality' and not _ch.get('done') and _att and _att[-1].get('outcome') == 'pending':
                 _bs2f['slot_chain'][_qc] = bc.slot_chain_record(_ch, _att[-1]['stage'], 'pass')
         json.dump(_bs2f, open(_bsp, 'w', encoding='utf-8'), indent=2)
-        os.remove(_stp)
+        if os.path.exists(_stp):
+            os.remove(_stp)                           # the LEGACY route counter only; batch_state['s13_2f'] is kept
         # every item is stamped CERTIFIED in the sidecar — except a DISCLOSED item (its quality chain
         # proven exhausted, S13-2L), which keeps its stamp and is listed as an amber note
         _kd = json.load(open(_key, encoding='utf-8'))
@@ -12124,65 +12233,80 @@ if AUDIT_AVAILABLE:
         json.dump(_kd, open(_key, 'w', encoding='utf-8'), indent=2)
         _esc2f = list(CERT.get('escalated_items') or [])
         _dis2f = [q for q in (CERT.get('disclosed_items') or []) if q not in _esc2f]
-        print(f"S13-2F: CERTIFIED after sweep {_st['sweep']} ({len(AMBER_NOTES)} amber note(s)"
+        print(f"S13-2F: CERTIFIED after sweep {_S['total_sweeps']} ({len(AMBER_NOTES)} amber note(s)"
               + (f"; ESCALATED items {_esc2f} (LAW-BC-8)" if _esc2f else '')
               + (f"; DISCLOSED items {_dis2f}" if _dis2f else '')
               + (f"; NOT CERTIFIED items {UNCERTIFIED_ITEMS}" if UNCERTIFIED_ITEMS else '') + ").")
     else:
-        # v5.96 (OD-2026-11-09) — ONE routing decision for every survivor (bc.sweep_route): never a stop
-        # for a quality or rule condition, never an UNRESOLVED stamp
-        # v6.1 (S0-BV BV-5 / S0-NF-9): a measured COMPOSITION shortfall (bc.NF_DISCLOSE_GATES — allocation, format
-        # parity, MIP share, class mix, band mix by subject, and a repeat / key leak that survived the in-batch
-        # rewrite) is DISCLOSED, never re-authored at Final Assembly: written once to the sidecar's nf_disclosed (the
-        # auditor then reports AMBER — DISCLOSED, Framework_DeliveryFooter §LADDER-NF) and the sweep runs again.
-        _nfd_new = {}
-        for _f in (_wl.get('item_findings') or []):
-            if _f.get('gate') in bc.NF_DISCLOSE_GATES:
-                _nfd_new.setdefault(_f['gate'], []).append(f"Q{_f.get('q')}")
-        for _fl in (_wl.get('fail_lines') or []):
-            if _fl.get('check') in bc.NF_DISCLOSE_GATES:
-                _nfd_new.setdefault(_fl['check'], []).append(str(_fl.get('message') or '')[:200])
-        _kd_nd = json.load(open(_key, encoding='utf-8'))
-        _nd = _kd_nd.setdefault('nf_disclosed', {})
-        _nfd_new = {g: v for g, v in _nfd_new.items() if g not in _nd}
-        if _nfd_new:
-            for _g, _v in _nfd_new.items():
-                _nd[_g] = '; '.join(dict.fromkeys(_v))[:400]
-            json.dump(_kd_nd, open(_key, 'w', encoding='utf-8'), indent=2)
-            json.dump(_st, open(_stp, 'w', encoding='utf-8'))   # the sweep counter is KEPT
-            raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}): {sorted(_nfd_new)} measured short — "
-                               f"DISCLOSED (AMBER, nothing is re-authored at Final Assembly); run a fresh sweep "
-                               f"(preview + this block) now.")
+        # ── v8.4 (LAW-FA-TERM-1): ONE engine decision for every non-clean sweep (bc.s13_2f_plan) ──
+        _kd_p = json.load(open(_key, encoding='utf-8'))
+        _settled_p = bc.s13_2f_settled(_kd_p.get('concept_map'))
         _infra_fl = [fl for fl in (_wl.get('fail_lines') or []) if fl.get('check') in bc.INFRA_GATES]
         _stok = True
         if _infra_fl:                                 # a tool fault: is the tool itself broken?
             _stok = subprocess.run(['python3', f'/home/claude/{EXAM}_mock_test_audit.py', '--self-test'],
                                    capture_output=True, text=True, env=AUDIT_ENV).returncode == 0
-        # v7.0 (S0-BC LAW-BC-8): on a BATCH-COMPLETE paper every question was settled in its batch, so an item finding
-        # that reaches this sweep is an ENGINE DEFECT — stamped ESCALATED(<gates>) with a P0 record and delivered with an
-        # AMBER line (auditor _lb_reconcile_disclosed); nothing is re-authored, re-reviewed or chained at Final Assembly
-        _bs_bc = json.load(open(_bsp, encoding='utf-8'))
-        if (_bs_bc.get('bv') or {}).get('rule') == bc.BC_RULE and not (_infra_fl and not _stok):
-            _esc = {}
-            for _f in (_wl.get('item_findings') or []):
-                if _f.get('q') is not None and _f.get('gate') not in bc.NF_DISCLOSE_GATES:
-                    _esc.setdefault(str(_f['q']), set()).add(str(_f['gate']))
-            _kd_e = json.load(open(_key, encoding='utf-8'))
-            _esc = {q: g for q, g in _esc.items()
-                    if not str(((_kd_e.get('concept_map') or {}).get(q) or {}).get('quality_status', '')).startswith('ESCALATED')}
-            if _esc:
-                for _qe, _ge in sorted(_esc.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
-                    _ee = _kd_e.setdefault('concept_map', {}).setdefault(_qe, {})
-                    _ee['quality_status'] = 'ESCALATED(' + ','.join(sorted(_ge)) + ')'
-                    _bs_bc.setdefault('p0_incidents', []).append({'q': _qe, 'kind': 'bc_final_assembly_finding',
-                                                                  'gates': sorted(_ge), 'rule': 'LAW-BC-8'})
-                json.dump(_kd_e, open(_key, 'w', encoding='utf-8'), indent=2)
-                json.dump(_bs_bc, open(_bsp, 'w', encoding='utf-8'), indent=2)
-                json.dump(_st, open(_stp, 'w', encoding='utf-8'))   # the sweep counter is KEPT
-                raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}, LAW-BC-8): item finding(s) on "
-                                   f"{sorted(_esc, key=lambda x: int(x) if x.isdigit() else 0)} first seen at Final "
-                                   f"Assembly — ESCALATED (AMBER, P0 recorded; an engine defect, never repaired here); "
-                                   f"run a fresh sweep (preview + this block) now.")
+        _fs_p = {}                                    # G19: what the LAST batch's whole-paper sweep already named
+        try:
+            for _f in (json.load(open(f'/home/claude/{EXAM}_M{N}_batch_findings.json', encoding='utf-8'))
+                       .get('item_findings') or []):
+                if isinstance(_f, dict) and _f.get('q') is not None:
+                    _fs_p.setdefault(str(_f['q']), []).append(str(_f.get('gate')))
+        except (OSError, ValueError, AttributeError):
+            _fs_p = {}
+        _plan = bc.s13_2f_plan(_S, _wl, bc_paper=_BC1, settled=_settled_p, nf_disclosed=_kd_p.get('nf_disclosed'),
+                               self_test_ok=_stok, legacy_sweep=_st['sweep'], first_seen=_fs_p)
+        _bs_p = json.load(open(_bsp, encoding='utf-8'))
+        _bs_p['s13_2f'] = bc.s13_2f_record_sweep(_S, _plan)               # persisted BEFORE any raise
+        json.dump(_bs_p, open(_bsp, 'w', encoding='utf-8'), indent=2)
+        _act_p = _plan['action']
+        print(f"S13-2F sweep {_S['total_sweeps']} (cap {bc.S13_2F_TOTAL_CAP}): {_act_p} — {_plan['why']}")
+        if _act_p == 'disclose_nf':
+            # v6.1 (S0-BV BV-5 / S0-NF-9): a measured COMPOSITION shortfall (bc.NF_DISCLOSE_GATES — allocation, format
+            # parity, MIP share, class mix, band mix by subject, a repeat / key leak that survived the in-batch rewrite,
+            # and v8.4 the shape mix) is DISCLOSED, never re-authored at Final Assembly: written once to the sidecar's
+            # nf_disclosed (the auditor then reports AMBER — DISCLOSED, Framework_DeliveryFooter §LADDER-NF)
+            _nd = _kd_p.setdefault('nf_disclosed', {})
+            for _g, _v in _plan['nf_new'].items():
+                if _g not in _nd:
+                    _nd[_g] = '; '.join(dict.fromkeys(_v))[:400]
+            json.dump(_kd_p, open(_key, 'w', encoding='utf-8'), indent=2)
+            raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_S['total_sweeps']}): {sorted(_plan['nf_new'])} measured "
+                               f"short — DISCLOSED (AMBER, nothing is re-authored at Final Assembly); run a fresh sweep "
+                               f"(preview + this block) now.")
+        if _act_p == 'infra':
+            if _plan.get('p0'):                       # v8.4: an unroutable sweep after the cap is a recorded tool fault
+                _bs_i = json.load(open(_bsp, encoding='utf-8'))
+                _bs_i.setdefault('p0_incidents', []).extend(_plan['p0'])
+                json.dump(_bs_i, open(_bsp, 'w', encoding='utf-8'), indent=2)
+            _infra('S13-2F-' + ','.join(sorted(_plan['paper'])),
+                   f"HARD STOP [HS:INFRA] (S13-2F): tool fault {[fl['message'][:300] for fl in _infra_fl] or _plan['why']} — "
+                   f"the auditor self-test {'PASSED' if _stok else 'FAILED'} (repair: reinstall the Step 0 packages, re-copy "
+                   f"the verified audit_canonical.py, re-render the final docx from the per-item blocks, re-run).")
+        if _act_p in ('stamp', 'cap') and _plan['stamp']:
+            # LAW-BC-8: an item finding that reaches Final Assembly is an ENGINE DEFECT — stamped once, P0 recorded,
+            # delivered with an AMBER line (auditor _lb_reconcile_disclosed); nothing is re-authored, re-reviewed or
+            # chained here. At the total cap (LAW-FA-TERM-1) the same holds for every paper, legacy included.
+            for _qe, _ge in sorted(_plan['stamp'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+                _ee = _kd_p.setdefault('concept_map', {}).setdefault(str(_qe), {})
+                _pref = 'ESCALATED(' if _plan['stamp_kind'] == 'ESCALATED' else 'DISCLOSED('   # LAW-BC-8 / LAW-FA-TERM-1
+                _ee['quality_status'] = _pref + ','.join(sorted(_ge)) + ')'
+                if _act_p == 'cap':
+                    _ee['s13_2f_cap'] = {'sweep': _S['total_sweeps'], 'gates': sorted(_ge)}
+            json.dump(_kd_p, open(_key, 'w', encoding='utf-8'), indent=2)
+            _bs_s = json.load(open(_bsp, encoding='utf-8'))
+            _bs_s.setdefault('p0_incidents', []).extend(_plan['p0'])
+            json.dump(_bs_s, open(_bsp, 'w', encoding='utf-8'), indent=2)
+        if _BC1 or _act_p in ('stamp', 'cap', 'rebuild', 'escalate', 'none'):
+            for _g, _how in sorted(_plan['paper'].items()):
+                print(f"S13-2F sweep {_S['total_sweeps']}: paper-level {_g} -> {_how}")
+            _rb = sorted(g for g, h in _plan['paper'].items() if h in bc.S13_2F_REBUILD_ROUTES)
+            raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_S['total_sweeps']}, LAW-FA-TERM-1): {_plan['why']}. "
+                               + (f"Rebuild deterministically first — 'reassemble': rebuild the final docx from the per-item "
+                                  f"blocks (S13-1, a byte copy); 'recapture': recompute the sidecar records / registry preview "
+                                  f"(S7-NEW-A) — for {_rb}; " if _rb else '')
+                               + "then run a fresh sweep (preview + this block) now. No question text is written.")
+        # ── LEGACY paper (begun before v7.0), below the total cap: its routes are unchanged ──
         # v6.0 (LAW-ORG-5): a label that does not verify strictly is S13-2L's work — the item is marked 'carried' and
         # its difficulty chain decides (rework / replace / refill / last resort); the RL relabel rung is never used
         _lbl_qs = sorted({str(f.get('q')) for f in (_wl.get('item_findings') or [])
@@ -12213,17 +12337,13 @@ if AUDIT_AVAILABLE:
                 raise RuntimeError(f"DELTA [HS:LADDER] (S13-2F sweep {_st['sweep']}): only carried labels remain — run "
                                    f"S13-2G phases 1-3, then S13-2L (it schedules each carried slot's difficulty chain), then a "
                                    f"fresh sweep (preview + this block).")
-        _route = bc.sweep_route(_wl.get('item_findings'), _wl.get('fail_lines'), _st['sweep'], self_test_ok=_stok)
+        _route = bc.sweep_route(_wl.get('item_findings'), _wl.get('fail_lines'), _st['sweep'], self_test_ok=_stok,
+                                settled=_settled_p)
         for _g, _how in sorted(_route['paper'].items()):
             if _how == 'amber':
                 _st['escalate'] = sorted(set(_st.get('escalate') or []) | {_g})
             print(f"S13-2F sweep {_st['sweep']}: paper-level {_g} -> {_how}")
         json.dump(_st, open(_stp, 'w', encoding='utf-8'))
-        if _route['stop'] or any(_h == 'self_heal' for _h in _route['paper'].values()):
-            _infra('S13-2F-' + ','.join(sorted(g for g, h in _route['paper'].items() if h in ('self_heal', 'infra_stop'))),
-                   f"HARD STOP [HS:INFRA] (S13-2F): tool fault {[fl['message'][:300] for fl in _infra_fl]} — the "
-                   f"auditor self-test {'PASSED' if _stok else 'FAILED'} (repair: reinstall the Step 0 packages, re-copy "
-                   f"the verified audit_canonical.py, re-render the final docx from the per-item blocks, re-run).")
         _repl = {q: r['gates'] for q, r in _route['items'].items() if r['route'] == 'REPLACE'}
         _kd_rp = json.load(open(_key, encoding='utf-8'))
         _bs_rp = json.load(open(_bsp, encoding='utf-8'))
@@ -12231,7 +12351,8 @@ if AUDIT_AVAILABLE:
                      and ((_bs_rp.get('slot_chain') or {}).get(q) or {}).get('outcome') == 'amber']:
             _repl.pop(_qd2)                       # its quality chain is already proven exhausted: never re-opened
         if _repl:
-            # a finding that survived the terminal rung enters the slot's chain (S13-2R) — the count restarts
+            # a finding that survived the terminal rung enters the slot's chain (S13-2R) — the LEGACY route counter
+            # restarts; the persistent counter (batch_state['s13_2f']) does NOT, so the total cap still applies
             _bsr = json.load(open(_bsp, encoding='utf-8'))
             _kdr = json.load(open(_key, encoding='utf-8'))
             _chs = _bsr.setdefault('slot_chain', {})
@@ -12254,6 +12375,8 @@ if AUDIT_AVAILABLE:
                                f"NOW, then a fresh sweep (preview + this block). Never UNRESOLVED (OD-2026-11-09).")
         _by_q = {}
         for _f in _wl.get('item_findings') or []:
+            if str(_f.get('q')) in _settled_p or str(_f.get('disposition') or 'open') in bc.SWEEP_ACCEPTED_DISPOSITIONS:
+                continue
             _by_q.setdefault(_f.get('q'), []).append(_f['gate'])
         for _q, _reasons in sorted(_by_q.items(), key=lambda kv: str(kv[0])):
             _rung = 'TERMINAL' if _st['sweep'] >= 3 else bc.ladder_entry(_reasons)
@@ -12271,7 +12394,7 @@ if AUDIT_AVAILABLE:
             json.dump(_st, open(_stp, 'w', encoding='utf-8'))
         for _fl in _wl.get('fail_lines') or []:
             print(f"S13-2F sweep {_st['sweep']}: FAIL {_fl['check']}: {_fl['message']}")
-        raise RuntimeError(f"LADDER-REPAIR [HS:LADDER] (S13-2F sweep {_st['sweep']}): repair "
+        raise RuntimeError(f"LADDER-REPAIR [HS:LADDER] (S13-2F sweep {_st['sweep']}, LEGACY paper): repair "
                            f"the questions above at their rungs in the final docx (S4-6 "
                            f"correction procedure), record registry question_index ladder "
                            f"data in the sidecar; a paper-level 'reassemble' line: rebuild the final docx "
@@ -13018,6 +13141,10 @@ if AUDIT_AVAILABLE:
   _bsl_p = f'/home/claude/{EXAM}_M{N}_batch_state.json'
   _key_l = f'/home/claude/{EXAM}_M{N}_answer_key.json'
   _bs_l = json.load(open(_bsl_p, encoding='utf-8'))
+  if (_bs_l.get('bv') or {}).get('rule') == bc.BC_RULE:
+      # v8.4 (LAW-BC-8 amended): slot chains are LEGACY — a BATCH-COMPLETE paper runs S13-2L.0 only (no chain, ever)
+      raise RuntimeError("DELTA [HS:LADDER] (S13-2L, LAW-BC-8): a BATCH-COMPLETE paper schedules no slot chain — run "
+                         "S13-2L.0 (the paper difficulty gate) and continue with the next step. Nothing was changed.")
   _kd_l = json.load(open(_key_l, encoding='utf-8'))
   _cm_l = _kd_l.setdefault('concept_map', {})
   _labs_l = list(_bs_l.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
@@ -13455,7 +13582,11 @@ if AUDIT_AVAILABLE:
   _bsr = json.load(open(_bsr_p, encoding='utf-8'))
   _kdr = json.load(open(_kr_p, encoding='utf-8'))
   _cmr = _kdr.setdefault('concept_map', {})
-  for _w in _bsr.get('slot_chain_work') or []:
+  # v8.4 (LAW-BC-8 amended): a BATCH-COMPLETE paper has no chain work — nothing is written at Final Assembly
+  _bc1_r = (_bsr.get('bv') or {}).get('rule') == bc.BC_RULE
+  if _bc1_r and (_bsr.get('slot_chain_work') or []):
+      print("S13-2R: a BATCH-COMPLETE paper has no chain work (LAW-BC-8) — nothing run; continue with S13-2F.")
+  for _w in ([] if _bc1_r else (_bsr.get('slot_chain_work') or [])):
       _q, _st = str(_w['q']), _w.get('status')
       _c = (_bsr.get('slot_chain') or {}).get(_q)
       if _st in (None, 'todo', 'recorded') or not isinstance(_c, dict):
@@ -14032,9 +14163,13 @@ if AUDIT_AVAILABLE:
            *(['--style-profile', f'/mnt/project/{EXAM}_style_profile.json']
              if os.path.exists(f'/mnt/project/{EXAM}_style_profile.json') else []),   # A-ITEMRULE suspension (R7.2)
            '--mockN', str(N),
-           # v5.96: the paper-level gates S13-2F escalated to AMBER at its sweep cap (the same verdict)
-           *(['--escalate-paper', ','.join(_esc4c['gates']), '--sweep', str(_esc4c.get('sweep'))]
-             if _esc4c.get('gates') else [])],
+           # v5.96: the paper-level gates S13-2F escalated to AMBER at its sweep cap (the same verdict); v8.4: S13-2F's
+           # ENGINE may escalate before sweep 6 (a fixed point / the total cap) — --escalate-early carries that decision
+           # here, so S13-4c reaches the SAME verdict as the certificate (never a FAIL on a gate S13-2F escalated)
+           *(['--escalate-paper', ','.join(_esc4c['gates']), '--sweep', str(_esc4c.get('sweep')), '--escalate-early']
+             if _esc4c.get('gates') else []),
+           # v8.4 (P1): A-QINDEX check 9 reads the paper's difficulty mode exactly as at S13-2F
+           *(['--difficulty-mode', str(_bs4c['difficulty_mode'])] if _bs4c.get('difficulty_mode') else [])],
           capture_output=True, text=True, env=AUDIT_ENV)        # S3-9: engines importable
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
       if _r.returncode != 0:
@@ -15225,7 +15360,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.3
+# END OF Framework_MockTestCreate v8.4
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
