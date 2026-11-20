@@ -1,4 +1,8 @@
-# Framework_DeliveryFooter v1.54.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.55.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.55.0 — 2026-11-20 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; with MockTestCreate v8.5): §LADDER-BC
+#   gains the F9 line (a rung-3 text replacement that kept its figure, delivered as reviewed); "replaced by a text
+#   question" is printed only for the TEXT fallback (bc.bc_is_text_fallback), never for a text / figure rebuild or an
+#   R5b figure version. Text only — no new field is composed by this contract.
 # v1.54.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25; with MockTestCreate
 #   v8.4): §LADDER-NF names the shape-mix disclosure (A-SHAPEMIX is a composition gate) and the plan relief; the figure
 #   floor and a moved figure grant are named. Text only — no new field is composed by this contract.
@@ -1267,7 +1271,10 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
   ⚠️ Q<n>: re-keyed answer kept at option <k> — the options could not be re-ordered (K-BAL deviation disclosed)   R12
   ⚠️ Q<n>: key confirmed by adjudicator; 2 of 3 solvers agree (R5b)                          R5b
   ⚠️ Q<n>: key adjudicated; solvers split (P0 recorded)                                       BC_TERMINAL (R9)
-  ℹ️ Q<n>: replaced by a text question (fallback)                                             rung 3 (R5a)
+  ℹ️ Q<n>: replaced by a text question (fallback)                                             rung 3 (R5a) — the TEXT
+                                                                                             fallback only (v1.55.0)
+  ⚠️ Q<n>: rung-3 text replacement kept its figure (it could not be removed after 2 rewrite orders) — delivered as
+     reviewed, with the figure                                                                F9 (v1.55.0)
   ⚠️ Q<n>: delivered at <band> (slot <band>)[, recipe not met at the delivered band]          level settled off-slot / B-02
   ⚠️ Q<n>: level not measurable (too few valid comparisons after one re-measure, rule r3.1) — delivered at <band>,
      one band below its slot                                                                  B4 (v1.53.0)

@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1459,
-      "sha256": "7dbfe97a067b3045a3c63e4a735a0a0e6f52a465a620a6a3ef06ed575c926105",
-      "size_bytes": 92302,
-      "version_header": "# Framework_DeliveryFooter v1.54.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1466,
+      "sha256": "95317d60172179b7fa50e92caa7d18f931dcb4390dcdc27c024931ad8e1aafbb",
+      "size_bytes": 93098,
+      "version_header": "# Framework_DeliveryFooter v1.55.0 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.28.0",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 15443,
-      "sha256": "dd51224938f6001fc27b1770275bcfcbafa28c19cca70ed27d8e5d0327c19c50",
-      "size_bytes": 1087245,
-      "version_header": "# Framework_MockTestCreate v8.4"
+      "lines": 15465,
+      "sha256": "c52c4624a0cfd375ce993c02f07d8059a5f721ea13844ae0ec560370ebe3cfef",
+      "size_bytes": 1089921,
+      "version_header": "# Framework_MockTestCreate v8.5"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -177,9 +177,9 @@
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
-      "lines": 1401,
-      "sha256": "cea1772c16bc4a8818e20123e2c5fcc1bfad840faaee4537462ebb9b78f407ae",
-      "size_bytes": 125992,
+      "lines": 1405,
+      "sha256": "abe707cfa2d4a7bfa2c7bc6d1c431a494a4ef96f8b9cf8457b1366ef11545e25",
+      "size_bytes": 127299,
       "version_header": "{"
     },
     "audit_callgraph.py": {
@@ -233,9 +233,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 33635,
-      "sha256": "4e08faf8b61160bfcece554635ce1772f136aae355b9c2d1230df01e8ab25339",
-      "size_bytes": 2048707,
+      "lines": 33921,
+      "sha256": "d30d92dcc7e5407c958debf657cf2e056b6f4c9a3983ce3f5ab40321d9209133",
+      "size_bytes": 2069770,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 5108,
-      "sha256": "007ae94e58db69c953c22184996f52289cdabbca0cfd1f65c4b8d7e8336f9dcb",
-      "size_bytes": 354208,
+      "lines": 5192,
+      "sha256": "4e3f427e3a2fed0e0477057b49c0a4e6e9c487f060b4b1893b0028d690f2666e",
+      "size_bytes": 361228,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {

@@ -18,6 +18,12 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.27.0 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; owner decision OD-2026-11-20). bc_bind_batch
+    (STEP A3) refuses a figure only on the rung-3 TEXT fallback (bc.bc_is_text_fallback, F1) — a text / figure rebuild
+    and an R5b figure version bind; its refusal names STEP A2 as the repair. bv_batch_step (STEP A2) treats a decided
+    fallback that still carries a figure as OPEN (bc.bc_fallback_figure_open — an earlier batch's question too) and
+    decides it again in the same step, so the bounded repair of bc.bc_apply (F9: REWRITE without the figure, then R5b,
+    else kept + disclosed with its figure record put back) is always issued before STEP A3. Self-test gap1120_* (5).
     v1.26.0 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25). bv_batch_step: in a
     count-free mode the ENGINE writes difficulty_obs (bc.difficulty_obs_engine_record; the worker's record archived as
     difficulty_obs_author, its moves kept as author_moves); the gate context carries the slot's planned shape
@@ -2084,8 +2090,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             return False
         it0 = _items0.get(q) if isinstance(_items0.get(q), dict) else {}
         if it0.get('rule') == bc.BC_RULE:
+            # GAP-2026-11-20 F9: a decided TEXT fallback that still carries a figure is open — STEP A2 owns its repair
+            # (bounded by bc.BC_FALLBACK_FIGURE_ORDERS, then R5b / kept + disclosed), so STEP A3 never waits on it
             return not (it0.get('state') in bc.BC_STATES and e.get('bv_state') in bc.BC_STATES
-                        and it0.get('content_sha') == _bc_entry_sha(_bc_render_shas(e)))
+                        and it0.get('content_sha') == _bc_entry_sha(_bc_render_shas(e))) \
+                or bc.bc_fallback_figure_open(dict(e, bv=it0), bc_figure_intrinsic(_bs_bv, q)[1])
         if e.get('bv_state') in ('key_chain', 'unlabelled', 'open'):
             return True
         kv = e.get('key_votes') if isinstance(e.get('key_votes'), dict) else {}
@@ -2314,6 +2323,10 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             _r = _decide(_q, _r['entry'], 0)
         if _r['action'] == 'adjudicate' and _left < 1:
             _r = _decide(_q, _r['entry'], 0)
+        if _r['action'] in bc.BC_STATES and bc.bc_fallback_figure_open(_r['entry'], bc_figure_intrinsic(_bs_bv, _q)[1]):
+            # GAP-2026-11-20 F9: settled as the TEXT fallback with a figure still on it — the repair is decided in THIS
+            # step (order to drop it / R5b / kept + disclosed), never left for STEP A3 to refuse
+            _r = _decide(_q, _r['entry'], bc.BC_ROLE_ASKS)
         if _r['action'] == 'grade' and not _asked_all.get(_q) and not _res_bv.get(_q):
             # v1.23 P3 (G-SELFCOUNT): before the FIRST reviewer round of a text, the author's own count must give the
             # slot band — a miss goes back to the author (no reviewer is paid), at most bc.BC_SELFCOUNT_TRIES times per
@@ -2356,6 +2369,12 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             # C3: R5b puts back an earlier FIGURE version — its figure record comes back with it
             if bc_fallback_restore_figure(exam, n, _q, home, bs=_bs_bv):
                 _say(f"STEP A2: Q{_q} — the restored version has a figure: its figure record was put back (fig_manifest).")
+        if _r['action'] in bc.BC_STATES and ((_r['entry'].get('bv') or {}).get('fallback_figure_kept')):
+            # GAP-2026-11-20 F9: delivered WITH its figure (disclosed) — the figure record removed at the fallback order
+            # comes back, so the per-batch auditor counts the slot as the figure question it is
+            if bc_fallback_restore_figure(exam, n, _q, home, bs=_bs_bv):
+                _say(f"STEP A2: Q{_q} — the text fallback kept its figure (F9, disclosed): its figure record was put "
+                     f"back (fig_manifest).")
         if _r.get('reset_asks'):
             _ak0 = _asked_all.setdefault(_q, {})
             for _rl in _r['reset_asks']:
@@ -2965,12 +2984,17 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
             if bvs.get('content_sha') != _bc_entry_sha(_bc_render_shas(e)):
                 refused[q] = 'its text changed after its review (R2) — run STEP A2 again so the new text is reviewed'
                 continue
-            if _qf_rung(bvs) == 3 and not bc_figure_intrinsic(bs, q)[1]:
+            if bc.bc_is_text_fallback(bvs) and not bc_figure_intrinsic(bs, q)[1]:
                 # C3: the rung-3 FALLBACK is a TEXT question (LAW-BC-2) — a picture on it is a defect; a figure record
-                # left behind by the replaced question is removed here (no text change, no new review)
-                if e.get('figure_files') or e.get('figure_dicts'):
-                    refused[q] = ('it is the rung-3 TEXT fallback but carries a figure — write it with text options and '
-                                  'no figure (S4-7 STEP A2 REWRITE), then STEP B and STEP A2 again')
+                # left behind by the replaced question is removed here (no text change, no new review).
+                # GAP-2026-11-20 F1: only the TEXT fallback (bc.bc_is_text_fallback) — a text / figure rebuild or an R5b
+                # version keeps its figure and binds. F9: STEP A2 owns the repair of a fallback that still carries a
+                # figure (bounded; it treats the question as open), so this refusal only names the step to run.
+                if bc.bc_fallback_figure_open(dict(e, bv=bvs), bc_figure_intrinsic(bs, q)[1]):
+                    refused[q] = ('it is the rung-3 TEXT fallback but carries a figure — run STEP A2 again: it orders the '
+                                  'repair (REWRITE without the figure, at most '
+                                  f'{bc.BC_FALLBACK_FIGURE_ORDERS} times, then R5b or kept + disclosed — F9), then '
+                                  'STEP B, STEP A2 and STEP A3')
                     continue
                 if bc_fallback_clear_figure(exam, n, q, home):
                     _say(f"STEP A3: Q{q} is the rung-3 TEXT fallback — its leftover figure record was removed "
@@ -5048,6 +5072,66 @@ def self_test():
                 check('s13loop_TU11_batch_step_engine_owns_obs',
                       all((_c3[_q].get('difficulty_obs') or {}).get('mode') == 'ladder'
                           and not bc.difficulty_obs_signature(_c3[_q].get('difficulty_obs')) for _q in _c3 if isinstance(_c3[_q], dict)))
+    # ── release 2026.11.26 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (F1 / F9): STEP A3 binds every rung-3 question that
+    # keeps its figure by design; a TEXT fallback still carrying a figure is repaired by STEP A2 (bounded), so the
+    # pair STEP A2 DONE -> STEP A3 BOUND is always reached — also for an EARLIER batch's question, worker ignoring
+    # every order (worst case) ──
+    with _bv_tf.TemporaryDirectory() as _h:
+        _sv9 = {r: {'answer': 2, 'confidence': 'high', 'single_answer': 'yes', 'leak_or_paraphrase': 'none',
+                    'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok', 'selectivity_basis': 'clean'}
+                for r in bc.BV_ROLES_SOLVE}
+        _png9 = _bv_os.path.join(_h, 'q_fig.png')
+        open(_png9, 'wb').write(b'png')
+        _kinds9 = {'1': ('fallback', None), '2': ('text_rebuild', None), '3': ('fig_rebuild', None),
+                   '4': ('fallback', {'rung': 1}), '5': ('fallback', None)}
+        _ents9 = {}
+        for _q9, (_k9, _rs9) in _kinds9.items():
+            _e9 = {'stem_text': f'Rung three question {_q9} on the acidity order of substituted phenols',
+                   'option_texts': ['a', 'b', 'c', 'd'], 'qtype': 'mcq',
+                   'figure_files': [] if _q9 == '5' else [_png9]}
+            _e9 = _bc_render_shas(_e9)
+            _b9 = {'rule': bc.BC_RULE, 'state': 'settled', 'rung': 3, 'rung3_kind': _k9, 'solvers': _sv9,
+                   'grades': {}, 'packets': {}, 'meta': {}, 'vision': {}, 'versions': [],
+                   'key': {'state': 'settled', 'certified_by': 'unanimous', 'decided_key': 2},
+                   'content_sha': _bc_entry_sha(_bc_render_shas(_e9))}
+            if _rs9:
+                _b9['restore'] = _rs9
+            _e9['bv'] = _b9
+            _e9['bv_state'] = 'settled'
+            _ents9[_q9] = _e9
+        _bv_js.dump({'concept_map': _ents9, 'answers': {q: 2 for q in _ents9}},
+                    open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        # the five questions belong to batch 1; batch 2 is current (an EARLIER batch's question must be repaired too)
+        _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 5}, {'batch_id': 2, 'q_start': 6, 'q_end': 6}],
+                     'current_batch': 2, 'difficulty_labels': L,
+                     'bv': {'items': {q: v['bv'] for q, v in _ents9.items()}}},
+                    open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _bv_js.dump({q: 'h' + q for q in _ents9}, open(_bv_os.path.join(_h, 'ih9.json'), 'w'))
+        _a3a = bc_bind_batch('EX', 1, _bv_os.path.join(_h, 'ih9.json'), home=_h, echo=False, upto=5)
+        check('gap1120_F1_bind_only_refuses_the_text_fallback_with_a_figure',
+              sorted(_a3a['bound'], key=int) == ['2', '3', '4', '5'] and list(_a3a['refused']) == ['1']
+              and 'run STEP A2 again' in _a3a['refused']['1'])
+        _trail9, _st9 = [], None
+        for _i9 in range(4 * (bc.BC_FALLBACK_FIGURE_ORDERS + 1) * (bc.BC_REWRITE_REISSUE_MAX + 2)):
+            _st9 = bv_batch_step('EX', 1, home=_h, echo=False)
+            _trail9.append(_st9['status'])
+            if _i9 == 0:
+                _rw9 = list(_st9.get('rewrite') or [])
+            if _st9['status'] == 'done':
+                break
+        _c9 = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_answer_key.json')))['concept_map']
+        check('gap1120_F9_step_a2_orders_the_repair_of_an_earlier_batch_question',
+              _trail9[0] == 'rewrite' and _rw9 == ['1'])
+        check('gap1120_F9_worker_ignoring_every_order_still_ends_done',
+              _trail9[-1] == 'done' and 'fallback_figure_kept' in (_c9['1']['bv'].get('amber') or [])
+              and _c9['1'].get('bv_state') == 'disclosed' and not bc.bc_fallback_figure_open(_c9['1'])
+              and _trail9.count('rewrite') <= bc.BC_FALLBACK_FIGURE_ORDERS * (bc.BC_REWRITE_REISSUE_MAX + 1))
+        _a3b = bc_bind_batch('EX', 1, _bv_os.path.join(_h, 'ih9.json'), home=_h, echo=False, upto=5)
+        check('gap1120_F9_step_a3_binds_after_the_repair', _a3b['status'] == 'bound'
+              and sorted(_a3b['bound'], key=int) == ['1', '2', '3', '4', '5'])
+        check('gap1120_F9_footer_discloses_the_kept_figure',
+              any(c == 'AMBER' and 'kept its figure' in t for c, t in bc.bc_amber_lines('1', _c9['1']))
+              and not any('replaced by a text question' in t for c, t in bc.bc_amber_lines('2', _c9['2'])))
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

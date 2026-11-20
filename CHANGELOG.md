@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026.11.26 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK: STEP A3 never refuses what STEP A2 cannot repair
+
+(over release 2026.11.25, commit b26f781. blueprint_core v2.11 (self-test 1586); final_assembly v1.27.0 (250);
+Framework_MockTestCreate v8.5; Framework_DeliveryFooter v1.55.0; LAW_REGISTRY (LAW-BC-2 / LAW-BC-7 amended);
+STEP_CONTRACTS floors (Create 8.5, DeliveryFooter 1.55.0). Owner decision OD-2026-11-20: "never a hard stop, never an
+endless loop", "1000% permanently fixed for all 200 exams"; F9 terminal = R5b figure version once, else kept with its
+figure and disclosed.)
+
+**Evidence.** A TestCreate paper halted permanently at S4-7 STEP A3. bc_bind_batch refused EVERY rung-3 question that
+carried a figure ("rung-3 TEXT fallback but carries a figure"), although release 2026.11.25 made rung 3 keep the
+figure on purpose (TEXT REBUILD / FIGURE REBUILD) and R5b restore an earlier FIGURE version. Measured on production
+2026.11.25 (repro_A3_matrix): all 6 rung-3 kinds x restored refused, 5 of them wrongly. For the one correct refusal
+(a true TEXT fallback still carrying a figure) the named repair was a STEP A2 REWRITE that STEP A2 never issues — a
+decided question returns "decided earlier" — so STEP A3 refused again on every run, and a settled question of an
+EARLIER batch was never revisited by STEP A2 at all. Also found: a pending rewrite order was turned into a re-grade of
+the unchanged text when STEP A2 ran again before the rewrite (F8); the F8 re-issue count, once spent on a question,
+was never restored for its next rewrite order; a restored version was judged against the later version's figure
+read-backs (F3); a version could be restored again after being replaced (F6); the footer printed "replaced by a text
+question" for every rung-3 question; restore marks survived a later new text.
+
+**What changed.**
+- F1 one definition: bc.bc_is_text_fallback (rung 3, kind 'fallback' — absent = 'fallback', legacy — not an R5b
+  delivery, not kept with its figure) and bc.bc_is_restored, used by _bc_settle, bc_amber_lines, STEP A2 and STEP A3.
+  A text / figure rebuild and an R5b figure version bind with their figure. A NEW text clears the restore marks.
+- F9 STEP A2 owns the repair (bc.bc_fallback_figure_open, bc._bc_fallback_figure_repair): a decided TEXT fallback that
+  still carries a figure is open in STEP A2 (an earlier batch's question too) and is decided again in the same step —
+  REWRITE without the figure at most bc.BC_FALLBACK_FIGURE_ORDERS (2) times per question (never reset); then R5b
+  restores a qualifying FIGURE version once; else the reviewed text is kept WITH its figure, 'disclosed', AMBER
+  'fallback_figure_kept' (new §LADDER-BC footer line), its figure record put back. STEP A3's refusal now names STEP A2.
+- F3: bc_version_record keeps vision and solver_records; a restore brings back the restored text's own records.
+- F6: a version is restored at most once per question (bvs['restored_shas']).
+- F8: a pending rewrite is re-issued (bc.BC_REWRITE_REISSUE_MAX = 2) instead of being re-graded unchanged; the count
+  restarts with each new rewrite order and each new text.
+
+**Proof.** Self-tests gap1120_* (11 in blueprint_core, 5 in final_assembly): the 8-case definition matrix; the bind
+matrix (only the TEXT fallback with a figure is refused); a worker that ignores EVERY order still ends DONE (6 STEP A2
+calls through the real bv_batch_step, then STEP A3 BOUND for all questions, an earlier batch's question included);
+R5b restores a figure version exactly once; a cooperative worker's text fallback binds without a figure; a rebuild is
+never touched; F8 per-order re-issue; hostile state never raises. Uploaded repro_A3_matrix, test_gap_2026_11_20 (12/12)
+and test_rewrite_idempotent pass. No new stop, no new review round, no new user action, no project change.
+
 ## 2026.11.25 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS: Final Assembly always terminates; a figure question stays a figure question
 
 (over release 2026.11.24, commit b7027b6. blueprint_core v2.10 (self-test 1575); audit_canonical v2.45 (691);

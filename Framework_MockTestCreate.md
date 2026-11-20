@@ -1,4 +1,13 @@
-# Framework_MockTestCreate v8.4
+# Framework_MockTestCreate v8.5
+# v8.5 — 2026-11-20 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; paired with blueprint_core v2.11,
+#   final_assembly v1.27.0, DeliveryFooter v1.55.0; owner decision OD-2026-11-20 "never a hard stop, never an endless
+#   loop"). STEP A3 refused EVERY rung-3 question that carried a figure, so a text / figure rebuild and an R5b figure
+#   version could never bind and STEP E was never reached. One definition of the rung-3 TEXT fallback now serves
+#   STEP A2, the settle step and STEP A3 (bc.bc_is_text_fallback); a fallback that still carries a figure is repaired
+#   by STEP A2 itself (bc.bc_fallback_figure_open: at most bc.BC_FALLBACK_FIGURE_ORDERS rewrite orders, then R5b once,
+#   else kept with its figure and disclosed — AMBER), so STEP A3 never refuses what STEP A2 cannot repair. A restored
+#   version keeps its own read-backs and solver records (F3); a version is restored at most once (F6); a pending rewrite
+#   is re-issued, not lost (F8, per order). No new stop, no new review round, no new user action.
 # v8.4 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25; paired with
 #   blueprint_core, audit_canonical v2.45, final_assembly v1.26.0, handshake_audit, MockTestOrchestrate v1.11.0,
 #   DeliveryFooter v1.54.0; owner decisions OD-A..OD-F 2026-11-19; new laws LAW-FA-TERM-1, LAW-PLAN-CHECK-1,
@@ -730,7 +739,14 @@
          figure, no step that depends on reading 3D configuration; v7.1: the figural-slot ban does not apply to it and
          its figure record is removed — fa.bc_fallback_clear_figure at REWRITE, checked again at STEP A3, put back by
          fa.bc_fallback_restore_figure if R5b restores the earlier figure version; an R10 family-engine item keeps its
-         figure) -> terminal.
+         figure) -> terminal. v8.5 (GAP-2026-11-20-RUNG3-BIND-DEADLOCK): "the TEXT fallback" is ONE definition,
+         bc.bc_is_text_fallback — rung 3, kind 'fallback' (absent = 'fallback'), not an R5b delivery, not kept with its
+         figure; a TEXT REBUILD, a FIGURE REBUILD and an R5b version keep their figure and are never treated as the
+         fallback. A decided fallback that still carries a figure (bc.bc_fallback_figure_open) is NOT finished: STEP A2
+         treats it as open (an earlier batch's question too) and bc.bc_apply repairs it — REWRITE without the figure,
+         at most bc.BC_FALLBACK_FIGURE_ORDERS times per question (never reset); then R5b restores a qualifying FIGURE
+         version once; else the reviewed text is kept WITH its figure, 'disclosed', AMBER 'fallback_figure_kept' (its
+         figure record is put back). Bounded: it always ends settled / disclosed.
          A level miss alone settles at its
          measured band after rung 2 (disclosed) and never takes rung 3; a within-paper repeat / key leak alone is
          disclosed after rung 2. Each rung's new text is checked by three fresh reviewers in the next round of the SAME
@@ -5376,7 +5392,10 @@ action: the same paper, the same two files, the same "continue".
                           fallback (a clear-cut TEXT question, same subtopic, slot band and qtype, text options, no
                           figure, no step that depends on reading 3D configuration — the figural-slot ban of STEP A does not apply to it; the
                           engine has already removed its fig_manifest record: add none and draw nothing; an R10
-                          family-engine item is the exception — its climb_brief says so and it keeps its figure); 'reasons',
+                          family-engine item is the exception — its climb_brief says so and it keeps its figure; v8.5:
+                          a fallback that still carries a figure gets this order again with problems ['figure'] — delete
+                          its figure_files / figure_dicts and every mention of the figure, re-render its block, at most
+                          bc.BC_FALLBACK_FIGURE_ORDERS times, then the engine decides it: R5b or kept + disclosed); 'reasons',
                           'solvers' (their own moves) and 'adjudicator' say why. Use the SAME author packet (BV_AUTHOR_PACKET); replace the
                           question block in the cumulative docx and its sidecar entry (write_q_to_sidecar — it REPLACES the
                           entry, so pass the NEW text's quality record again: author_moves, author_counts and, for an
@@ -5443,8 +5462,11 @@ action: the same paper, the same two files, the same "continue".
            review (R2: run STEP A2 again so the new text is reviewed), whose block is missing, or whose block does not
            show the sidecar's stem and options in order (fix the one place that was not edited); v7.1 — also one whose
            docx block changed after it was bound while its text did not (an edit outside the ladder: put the bound
-           block back, or rewrite through STEP A2), a rung-3 TEXT fallback that carries a picture (write it without a
-           figure, then STEP B and STEP A2), a question settled under an earlier release without a unanimous key or a
+           block back, or rewrite through STEP A2), a rung-3 TEXT fallback that carries a picture (v8.5: only the TEXT
+           fallback, bc.bc_is_text_fallback — a text / figure rebuild and an R5b figure version bind with their figure;
+           the repair is STEP A2's: run it again, it orders the REWRITE without the figure or decides the question —
+           bc.bc_fallback_figure_open, bounded — then STEP B, STEP A2 and STEP A3; STEP A2 already treats such a
+           question as open, so after STEP A2 DONE this refusal does not occur), a question settled under an earlier release without a unanimous key or a
            verified label (STEP A2 migrates it), and one for which no review record could be built (run STEP A2
            again). Every refusal (`STEP A3: REFUSED ...`) names its question and its repair. STEP E is FORBIDDEN until it prints
            `STEP A3: BOUND`.
@@ -15360,7 +15382,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.4
+# END OF Framework_MockTestCreate v8.5
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

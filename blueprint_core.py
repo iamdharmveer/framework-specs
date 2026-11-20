@@ -42,6 +42,14 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.11 (2026-11-26) — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (owner decision OD-2026-11-20: never a hard stop, never
+      an endless loop). F1: NEW bc_is_text_fallback / bc_is_restored — THE one definition of the rung-3 TEXT fallback
+      (used by _bc_settle, bc_amber_lines and the STEP A2 / A3 shells); a new text clears the R5b marks. F3:
+      bc_version_record keeps vision and solver_records and a restore brings them back. F6: a version is restored at
+      most once (restored_shas). F8: a pending rewrite is re-issued (BC_REWRITE_REISSUE_MAX) — the count restarts
+      with each order and each new text. F9: NEW bc_fallback_figure_open / _bc_fallback_figure_repair — a decided TEXT
+      fallback still carrying a figure is ordered to drop it (BC_FALLBACK_FIGURE_ORDERS, never reset), then R5b once,
+      else kept with its figure, 'disclosed', AMBER 'fallback_figure_kept'. Self-test gap1120_* (11).
     v2.10 (2026-11-25) — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (owner decisions OD-A..OD-F;
       LAW-FA-TERM-1, LAW-PLAN-CHECK-1, LAW-RECORD-READER-1). D1: a count-free difficulty_obs has no signature and
       difficulty_obs_diversity is mode-aware (R3_COUNT_FREE_MODES; difficulty_obs_engine_record — the engine owns the
@@ -796,6 +804,9 @@ __all__ = [
     "R3_WORDING_CODES", "BC_RUNG3_KINDS", "BC_RUNG3_REBUILD", "BC_RUNG3_CONSTRAINTS", "FIG_SCALE_TOL", "FIG_FLOOR_FRAC",
     "bc_finding_location", "bc_rung3_kind", "fig_stereo_check", "fig_scale_check", "figure_regrant", "figure_floor",
     "figure_floor_lines",
+    # release 2026.11.26 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK
+    "BC_REWRITE_REISSUE_MAX", "BC_FALLBACK_FIGURE_ORDERS", "BC_FALLBACK_FIGURE_CONSTRAINT", "bc_is_restored",
+    "bc_is_text_fallback", "bc_fallback_figure_open",
 ]
 
 
@@ -8646,6 +8657,146 @@ def _bc_self_test(check):
           and figure_floor_lines({'S': {'target': 8, 'granted': ['1', '2']}}, {'1': {'figure_files': ['a']}, '2': {}})[0]
           .startswith('FIGURES (AMBER)')
           and figure_floor_lines({'S': {'target': 1, 'granted': ['1']}}, {'1': {'figure_files': ['a']}}) == [])
+    # ── release 2026.11.26 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (F1 / F3 / F6 / F8 / F9) ──
+    _P9 = bc_is_text_fallback
+    check('gap1120_F1_one_definition_of_the_text_fallback',
+          _P9({'rung': 3, 'rung3_kind': 'fallback'}) and _P9({'rung': 3}) and _P9({'rung': '3'})
+          and not _P9({'rung': 3, 'rung3_kind': 'text_rebuild'}) and not _P9({'rung': 3, 'rung3_kind': 'fig_rebuild'})
+          and not _P9({'rung': 3, 'rung3_kind': 'fallback', 'restore': {'rung': 1}})
+          and not _P9({'rung': 3, 'rung3_kind': 'fallback', 'restored': True})
+          and not _P9({'rung': 3, 'rung3_kind': 'fallback', 'key': {'r5b': True}})
+          and not _P9({'rung': 3, 'fallback_figure_kept': True})
+          and not _P9({'rung': 2, 'rung3_kind': 'fallback'}) and not _P9({'rung': 'x'}) and not _P9(None)
+          and not _P9([]) and bc_is_restored({'restored': True}) and not bc_is_restored(None))
+    check('gap1120_F9_open_predicate',
+          bc_fallback_figure_open({'figure_files': ['a'], 'bv': {'rung': 3}})
+          and bc_fallback_figure_open({'figure_dicts': [{'file': 'a'}], 'bv': {'rung': 3, 'rung3_kind': 'fallback'}})
+          and not bc_fallback_figure_open({'figure_files': ['a'], 'bv': {'rung': 3}}, family_engine=True)
+          and not bc_fallback_figure_open({'figure_files': [], 'bv': {'rung': 3}})
+          and not bc_fallback_figure_open({'figure_files': ['a'], 'bv': {'rung': 3, 'rung3_kind': 'text_rebuild'}})
+          and not bc_fallback_figure_open(None))
+    _v9 = bc_version_record(1, 's', {'stem_text': 'x'}, '1', {'state': 'settled', 'decided_key': '1'}, [{'answer': '1'}],
+                            None, True, vision={'vision_1_1': {'smiles': 'C'}}, solver_records={'solver_1': {'answer': '1'}})
+    check('gap1120_F3_version_keeps_its_vision_and_solver_records',
+          _v9.get('vision') == {'vision_1_1': {'smiles': 'C'}} and _v9.get('solver_records') == {'solver_1': {'answer': '1'}})
+    _vs9 = [{'rung': 1, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': True, 'content_sha': 'A',
+             'confirmed_key': '1', 'entry': {'figure_files': ['f']}},
+            {'rung': 3, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': False, 'content_sha': 'C',
+             'confirmed_key': '2', 'entry': {}}]
+    _t9a = _bc_terminal({'stem_text': 't'}, {'versions': [dict(v) for v in _vs9], 'rung': 3, 'rung3_kind': 'text_rebuild'},
+                        'Z', '1', 'mcq', None, 'adjudicated_disclosed', L, None, 'Hard', 'why', [])
+    _t9b = _bc_terminal({'stem_text': 't'}, {'versions': [dict(v) for v in _vs9], 'rung': 3, 'rung3_kind': 'text_rebuild',
+                                             'restored_shas': ['A']},
+                        'Z', '1', 'mcq', None, 'adjudicated_disclosed', L, None, 'Hard', 'why', [])
+    check('gap1120_F6_a_version_is_restored_at_most_once',
+          _t9a.get('action') == 'restore' and _t9a['restore']['content_sha'] == 'A'
+          and 'A' in (_t9a['entry']['bv'].get('restored_shas') or [])
+          and not (_t9b.get('action') == 'restore' and (_t9b.get('restore') or {}).get('content_sha') == 'A'))
+
+    def _e9(stem='Which product forms on heating?', fig=True, kind='fallback', vers=None):
+        _e = {'stem_text': stem, 'option_texts': ['a', 'b', 'c', 'd'], 'qtype': 'mcq', 'difficulty': 'Hard',
+              'figure_files': ['q1_stem.png'] if fig else []}
+        _e['bv'] = {'rule': BC_RULE, 'state': 'settled', 'rung': 3, 'rung3_kind': kind, 'content_sha': op_content_sha(_e),
+                    'versions': list(vers or []), 'grades': {f'grader_{i}': 'Hard' for i in (1, 2, 3)},
+                    'packets': {f'grader_{i}': {'context': 'fresh', 'sha256': 's'} for i in (1, 2, 3)},
+                    'solvers': {f'solver_{i}': {'answer': '1'} for i in (1, 2, 3)}, 'meta': {}, 'vision': {},
+                    'key': {'state': 'settled', 'decided_key': '1', 'certified_by': 'unanimous'}, 'amber': ['fallback']}
+        _e['bv_state'] = 'settled'
+        return _e
+
+    def _res9(roles):
+        _o = {}
+        for _r in roles:
+            if _r.startswith('grader'):
+                _o[_r] = {'result': {'band': 'Hard', 'rationale': 'r'}, 'context': 'fresh', 'sha256': 's'}
+            elif _r.startswith('solver'):
+                _o[_r] = {'result': {'answer': '1', 'moves': ['m'], 'confidence': 'high', 'single_answer': 'yes',
+                                     'leak_or_paraphrase': 'none', 'consistency_and_names': 'ok',
+                                     'selectivity_basis': 'clean'}}
+            elif _r == 'adjudicator':
+                _o[_r] = {'result': {'verdict': 'correct', 'correct_answer': '1', 'single_answer': 'yes',
+                                     'confidence': 'high', 'reason': 'r'}}
+        return _o
+
+    def _run9(e, worker, cap=80):
+        _tr, _res = [], None
+        for _ in range(cap):
+            _r = bc_apply(e, 'Hard', L, None, '1', 'mcq', None, results=_res, rounds_left=6)
+            e, _res = _r['entry'], None
+            _tr.append(_r['action'])
+            if _r['action'] == 'grade':
+                _res = _res9(_r['roles'])
+            elif _r['action'] == 'adjudicate':
+                _res = _res9(['adjudicator'])
+            elif _r['action'] in ('rewrite', 'restore'):
+                e = worker(e, _r)
+            if _r['action'] in BC_STATES and not bc_fallback_figure_open(e):
+                return _tr, e
+        return _tr + ['NO-END'], e
+
+    def _ignore(e, r):
+        return e
+
+    def _comply(e, r):
+        if r['action'] == 'rewrite':
+            return dict(e, figure_files=[], stem_text=e['stem_text'] + ' (as text)')
+        return e
+    _tr9a, _e9a = _run9(_e9(), _ignore)
+    check('gap1120_F9_worst_case_worker_ignores_every_order_ends_kept_and_disclosed',
+          _tr9a[-1] == 'disclosed' and 'NO-END' not in _tr9a and _e9a['bv'].get('fallback_figure_kept') is True
+          and 'fallback_figure_kept' in _e9a['bv']['amber'] and 'fallback' not in _e9a['bv']['amber']
+          and 'bc_fallback' not in _e9a and _e9a['bv_state'] == 'disclosed'
+          and _e9a['bv']['fallback_figure_orders'] == BC_FALLBACK_FIGURE_ORDERS
+          and _tr9a.count('rewrite') <= BC_FALLBACK_FIGURE_ORDERS * (BC_REWRITE_REISSUE_MAX + 1)
+          and any(c == 'AMBER' and 'kept its figure' in t for c, t in bc_amber_lines('1', _e9a)))
+    _tr9b, _e9b = _run9(_e9(vers=[{'rung': 1, 'confirmed': True, 'support': 3, 'figures_ok': True, 'has_figure': True,
+                                   'content_sha': 'OLDFIG', 'confirmed_key': '1',
+                                   'entry': {'stem_text': 'old', 'figure_files': ['q1_old.png']}}]), _ignore)
+    check('gap1120_F9_orders_spent_R5b_restores_a_figure_version_once',
+          'restore' in _tr9b and _tr9b.count('restore') == 1
+          and 'OLDFIG' in (_e9b['bv'].get('restored_shas') or []))
+    _tr9c, _e9c = _run9(_e9(), _comply)
+    check('gap1120_F9_cooperative_worker_text_fallback_without_figure_binds',
+          _tr9c[0] == 'rewrite' and _tr9c[-1] in BC_STATES and 'NO-END' not in _tr9c
+          and not _e9c.get('figure_files') and bc_is_text_fallback(_e9c['bv']) and not bc_fallback_figure_open(_e9c))
+    _tr9d, _ = _run9(_e9(kind='text_rebuild'), _ignore)
+    _tr9e, _ = _run9(_e9(fig=False), _ignore)
+    check('gap1120_F9_never_touches_a_rebuild_or_a_text_fallback_without_figure',
+          _tr9d == ['settled'] and _tr9e == ['settled'])
+    # F8: each NEW rewrite order gets its own re-issues (the 2026-11-20 patch counted them once per question)
+    _e8 = {'stem_text': 'Q v1', 'option_texts': ['a', 'b', 'c', 'd'], 'qtype': 'mcq'}
+    _e8['bv'] = {'rule': BC_RULE, 'rung': 1, 'state': 'rewrite', 'content_sha': op_content_sha(_e8), 'versions': [],
+                 'grades': {}, 'solvers': {}, 'meta': {}, 'packets': {}, 'vision': {}}
+    _a8 = []
+    for _ in range(BC_REWRITE_REISSUE_MAX + 1):
+        _r8 = bc_apply(_e8, 'Hard', L, None, '1', 'mcq', None, results=None, rounds_left=6)
+        _e8 = _r8['entry']
+        _a8.append(_r8['action'])
+    _e8 = dict(_e8, stem_text='Q v2')
+    _e8 = bc_apply(_e8, 'Hard', L, None, '1', 'mcq', None, results=None, rounds_left=6)['entry']
+    _e8['bv'] = dict(_e8['bv'], state='rewrite', rung=2)
+    _r8b = bc_apply(_e8, 'Hard', L, None, '1', 'mcq', None, results=None, rounds_left=6)
+    check('gap1120_F8_pending_rewrite_reissued_then_decided_and_restarts_per_text',
+          _a8 == ['rewrite'] * BC_REWRITE_REISSUE_MAX + ['grade'] and _r8b['action'] == 'rewrite')
+    # F1: a NEW text after an R5b delivery is not an R5b delivery (its restore marks go; the F6 guard stays)
+    _e1 = {'stem_text': 'restored text', 'option_texts': ['a', 'b', 'c', 'd'], 'qtype': 'mcq'}
+    _e1['bv'] = {'rule': BC_RULE, 'rung': 3, 'rung3_kind': 'fallback', 'state': 'settled', 'restore': {'rung': 1},
+                 'restored': True, 'restored_shas': ['A'], 'content_sha': op_content_sha(_e1), 'versions': [],
+                 'grades': {}, 'solvers': {}, 'meta': {}, 'packets': {}, 'vision': {}}
+    _e1 = dict(_e1, stem_text='a later different text')
+    _b1 = bc_apply(_e1, 'Hard', L, None, '1', 'mcq', None, results=None, rounds_left=6)['entry']['bv']
+    check('gap1120_F1_new_text_clears_restore_marks_keeps_cycle_guard',
+          'restore' not in _b1 and 'restored' not in _b1 and _b1.get('restored_shas') == ['A'] and bc_is_text_fallback(_b1))
+    _hz9 = True
+    for _h in [None, 0, 'x', [], {}, {'bv': 'x'}, {'bv': {'rung': None}}, {'figure_files': 'a', 'bv': {'rung': '3'}}]:
+        try:
+            bc_is_text_fallback(_h)
+            bc_is_restored(_h)
+            bc_fallback_figure_open(_h)
+            bc_amber_lines('1', _h)
+        except Exception:                                   # noqa: BLE001
+            _hz9 = False
+    check('gap1120_hostile_state_never_raises', _hz9)
     # ── release 2026.11.24 — rule r3.1 on the BC path (B3 / B4 / B5 / OD-5) and the band swap (S1) ──
     def _PL(valid=True, bw=2, bn=2, uw=0, un=0, p=0.8):
         return {'valid': valid, 'below_wins': bw, 'below_n': bn, 'median_wins': 0, 'median_n': 2, 'upper_wins': uw,
@@ -29606,6 +29757,14 @@ def bv_batch_status(concept_map, qs, target_plan, labels):
 # (R6). Nothing here names an exam, a subject or a number of questions.
 BC_RULE = 'BC1'
 BC_RUNGS = ('first', 'fix', 'replace', 'fallback')          # rung index 0..3
+BC_REWRITE_REISSUE_MAX = 2          # GAP-2026-11-20 F8: a pending rewrite is re-issued at most twice, then decided
+#                                     (the count restarts with each NEW rewrite order and each new text)
+BC_FALLBACK_FIGURE_ORDERS = 2       # GAP-2026-11-20 F9: a TEXT fallback still carrying a figure is ordered to drop
+#                                     it at most twice per question (never reset) — then R5b once, else kept + disclosed
+BC_FALLBACK_FIGURE_CONSTRAINT = ('FALLBACK (figure left on it): the SAME clear-cut TEXT question — same subtopic, slot '
+                                 'band and qtype — with text options and NO figure: delete its figure_files / '
+                                 'figure_dicts and every reference to the figure in the stem and options, re-render its '
+                                 'block; no step may depend on reading 3D configuration')
 BC_ROLE_ASKS = 3                     # a role (reviewer k / adjudicator) is asked at most 3 times per text (LAW-BC-9)
 BC_ROUNDS_PER_RUNG = 2               # a rung's text needs one review round + (when disputed) one adjudication round
 BC_LEVEL_SETTLE_RUNG = 2             # a level miss settles at its measured band after rung 2 (never rung 3)
@@ -29978,7 +30137,7 @@ def bc_key_decision(author_key, solvers, adjudication, qtype='mcq', tolerance=No
 
 
 def bc_version_record(rung, sha, entry, author_key, key_dec, solvers, adjudication, figures_ok, qtype='mcq',
-                      tolerance=None, grades=None, packets=None, meta=None):
+                      tolerance=None, grades=None, packets=None, meta=None, vision=None, solver_records=None):
     """One reviewed text of a question, kept for R5b: whether its key was confirmed (unanimous / adjudicated /
     re-keyed — the adjudicator's key) and how many solvers support that key. Pure."""
     kd = key_dec if isinstance(key_dec, dict) else {}
@@ -29997,7 +30156,8 @@ def bc_version_record(rung, sha, entry, author_key, key_dec, solvers, adjudicati
             'confirmed': bool(confirmed), 'confirmed_key': conf_key,
             'support': bc_support(conf_key, answers, qtype, tolerance) if confirmed else 0,
             'figures_ok': figures_ok is not False, 'adjudication': adj or None,
-            'solvers': answers, 'grades': dict(grades or {}), 'packets': dict(packets or {}), 'meta': dict(meta or {})}
+            'solvers': answers, 'grades': dict(grades or {}), 'packets': dict(packets or {}), 'meta': dict(meta or {}),
+            'vision': dict(vision or {}), 'solver_records': dict(solver_records or {})}
 
 
 def bc_r5b_pick(versions, prefer_figure=False):
@@ -30066,10 +30226,17 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
     bvs.setdefault('rule', BC_RULE)
     bvs.setdefault('rung', 0)
     bvs.setdefault('versions', [])
+    # ── GAP-2026-11-20 F9: a DECIDED rung-3 TEXT fallback that still carries a figure is not finished — STEP A2 owns
+    # its repair (bounded; never a refusal STEP A2 cannot answer, never a loop) ──
+    if bvs.get('content_sha') == sha and bvs.get('state') in BC_STATES and bvs.get('rule') == BC_RULE \
+            and bc_fallback_figure_open(dict(e, bv=bvs), family_engine):
+        return _bc_fallback_figure_repair(e, bvs, sha)
     if bvs.get('content_sha') == sha and bvs.get('state') in BC_STATES and e.get('bv_state') in BC_STATES:
         return {'entry': e, 'action': bvs['state'], 'roles': [], 'band': e.get('difficulty'), 'why': 'decided earlier'}
     # ── a new text since the last step ──
     if bvs.get('content_sha') is not None and bvs.get('content_sha') != sha:
+        bvs.pop('rewrite_reissued', None)               # GAP-2026-11-20 F8: a new text restarts the re-issue count
+        bvs.pop('fallback_figure_kept', None)           # F9: a new text is judged on its own
         if bvs.get('state') == 'permute' and options_permutation_equal(
                 (bvs.get('permute') or {}).get('old_options'), e.get('option_texts'), (bvs.get('permute') or {}).get('swap')):
             # R12: the same question with two options exchanged — every measurement stands; answers re-mapped
@@ -30084,6 +30251,10 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             _v = bvs['restore']
             bvs.update({'content_sha': sha, 'grades': dict(_v.get('grades') or {}), 'packets': dict(_v.get('packets') or {}),
                         'meta': dict(_v.get('meta') or {}), 'state': 'settling', 'rung': _qf_int(_v.get('rung'), 0),
+                        # GAP-2026-11-20 F3: the restored text's OWN read-backs and solver records come back with it
+                        # (before: the later version's vision stayed, the restored figure was judged against it)
+                        'vision': dict(_v.get('vision') or {}),
+                        'solvers': dict(_v.get('solver_records') or bvs.get('solvers') or {}),
                         'key': {'state': 'settled', 'certified_by': 'disclosed', 'decided_key': _v.get('confirmed_key'),
                                 'why': 'R5b: last version with an adjudicator-confirmed key and >= 2 of 3 solvers',
                                 'r5b': True}})
@@ -30096,9 +30267,20 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             bvs.update({'content_sha': sha, 'grades': {}, 'packets': {}, 'solvers': {}, 'meta': {}, 'vision': {},
                         'adj': None, 'key': None, 'recount': None, 'state': 'grading'})
             bvs.pop('recount_grades', None)
+            # GAP-2026-11-20 F1: a NEW text is not an R5b delivery — the earlier restore marks go (restored_shas, the
+            # F6 cycle guard, is kept: a version is still restored at most once)
+            bvs.pop('restore', None)
+            bvs.pop('restored', None)
     elif bvs.get('content_sha') is None:
         bvs.update({'content_sha': sha, 'grades': {}, 'packets': {}, 'solvers': {}, 'meta': {}, 'vision': {},
                     'adj': None, 'key': None, 'state': 'grading'})
+    elif bvs.get('state') == 'rewrite' and not results and _qf_int(bvs.get('rewrite_reissued'), 0) < BC_REWRITE_REISSUE_MAX:
+        # GAP-2026-11-20 F8: STEP A2 run again before the ordered rewrite was written (a replayed GRADE RETURNED, a
+        # worker rotation) is NOT a refusal to rewrite — the SAME instruction is issued again, no rung is climbed
+        bvs['rewrite_reissued'] = _qf_int(bvs.get('rewrite_reissued'), 0) + 1
+        e['bv'] = bvs
+        return {'entry': e, 'action': 'rewrite', 'roles': [], 'band': None,
+                'why': 'the rewrite ordered earlier is still pending — the same instruction again (idempotent, F8)'}
     elif bvs.get('state') in ('rewrite', 'permute', 'restore'):
         # the worker was asked to change the text and did not: the same text is decided again (bounded — the
         # ladder below moves on from the recorded rung; never a loop)
@@ -30183,7 +30365,7 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
                 e['bv'] = bvs
                 bvs['state'] = 'no_model'
                 return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
-                        'why': f'no figure read-back after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+                        'why': f'no figure read-back after {_mx} asks' + (' (round budget spent: no ask was allowed)' if _mx == 0 else '') + ' (LAW-BC-9)'}
     # ── findings on the CURRENT text that need no reviewer: within-paper repeat / key leak (S0-NF-6) ──
     _fall = [str(x) for x in (findings if isinstance(findings, (list, tuple)) else []) if str(x).strip()]   # never raises
     # a 'GATE:' finding (the last batch's whole-paper sweep re-opened this question, LAW-BC-6) is a HARD finding;
@@ -30204,7 +30386,7 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
         e['bv'] = bvs
         bvs['state'] = 'no_model'
         return {'entry': e, 'action': 'no_model', 'roles': [], 'band': None,
-                'why': f'{len(_bv_graders(controls, labs))} grade(s) after {BC_ROLE_ASKS} asks (LAW-BC-9)'}
+                'why': f'{len(_bv_graders(controls, labs))} grade(s) after {_mx} asks' + (' (round budget spent: no ask was allowed)' if _mx == 0 else '') + ' (LAW-BC-9)'}
     # ── the edge re-count (BV-14), unchanged rules ──
     if tgt is not None:
         _rc = bvs.get('recount') if isinstance(bvs.get('recount'), dict) else None
@@ -30368,7 +30550,8 @@ def bc_apply(entry, target, labels, ruler=None, author_key=None, qtype='mcq', to
             brief_parts.append(f'LEVEL: majority {m} != slot {tgt}' if m != tgt else 'LEVEL: band recipe check did not pass at the slot band')
     # the version this text represents (R5b candidates)
     _vrec = bc_version_record(rung, sha, e, author_key, kd if not key_open else None, solvers,
-                              bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'])
+                              bvs.get('adj'), not fig_bad, qt, tolerance, g, bvs['packets'], bvs['meta'],
+                              vision=bvs.get('vision'), solver_records=bvs.get('solvers'))
     _vs = [v for v in bvs['versions'] if isinstance(v, dict) and v.get('content_sha') != sha]
     # release 2026.11.25 (F2): R5b may prefer a figure version only when its figure carried no figure-located defect
     _vrec['has_figure'] = bool(e.get('figure_files') or e.get('figure_dicts'))
@@ -30474,6 +30657,7 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
     bvs['rung'] = nxt
     bvs['attempt'] = nxt + 1
     bvs['state'] = 'rewrite'
+    bvs.pop('rewrite_reissued', None)                   # GAP-2026-11-20 F8: each NEW order gets its own re-issues
     e['bv'] = bvs
     e.pop('bv_state', None)
     return {'entry': e, 'action': 'rewrite', 'roles': [], 'band': None,
@@ -30577,10 +30761,10 @@ def _bc_settle(e, bvs, sha, kd, author_key, qt, tolerance, labs, ruler, tgt, m, 
         amber.append('unmeasurable')                    # B4: too few valid comparisons after the one re-measure
     if (bvs.get('claims') or {}).get('unverified'):
         amber.append('claim_unverified')                # C1: the adjudicator gave no verdict for a claim
-    _restored = bool(bvs.get('restore')) or bool((bvs.get('key') or {}).get('r5b'))
+    _restored = bc_is_restored(bvs)                     # GAP-2026-11-20 F1: the one definition
     if _restored and _qf_int(bvs.get('rung'), 0) == 3:
         e.pop('bc_fallback', None)                      # release 2026.11.25: R5b delivered an EARLIER version — not a fallback
-    if _qf_int(bvs.get('rung'), 0) == 3 and str(bvs.get('rung3_kind') or 'fallback') == 'fallback' and not _restored:
+    if bc_is_text_fallback(bvs):
         amber.append('fallback')
         # R5a: the slot's planned format is recorded so the Axis-1 count (A-AXIS1) treats it as disclosed, not a defect
         e['bc_fallback'] = {'rung': 3, 'from_figure': any(bool((v.get('entry') or {}).get('figure_files'))
@@ -30619,7 +30803,17 @@ def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt,
     _pf = any(v.get('has_figure') or (v.get('entry') or {}).get('figure_files') or (v.get('entry') or {}).get('figure_dicts')
               for v in _vers)                        # F2: a figure slot prefers a qualifying figure version
     pick = bc_r5b_pick(_vers, prefer_figure=_pf)
+    # GAP-2026-11-20 F6 CYCLE GUARD: a version is restored at most ONCE per question; a pick restored before (it was
+    # then changed again outside the ladder) is not restored a second time — R5b falls back to the latest qualifying
+    # version never restored, else the terminal (R9). The ladder can never cycle text -> restore -> text.
+    _done = set(bvs.get('restored_shas') or [])
+    if pick is not None and pick.get('content_sha') != sha and pick.get('content_sha') in _done:
+        _alt = [v for v in _vers if v.get('content_sha') not in _done]
+        pick = bc_r5b_pick(_alt, prefer_figure=_pf)
+        if pick is not None and pick.get('content_sha') in _done:
+            pick = None
     if pick is not None and pick.get('content_sha') != sha:
+        bvs['restored_shas'] = sorted(_done | {pick.get('content_sha')})
         bvs['restore'] = pick
         bvs['state'] = 'restore'
         e['bv'] = bvs
@@ -30645,6 +30839,59 @@ def _bc_terminal(e, bvs, sha, author_key, qt, tolerance, term, labs, ruler, tgt,
                   'why': "BC_TERMINAL adjudicated_disclosed: key adjudicated; solvers split", 'terminal': True}
     return _bc_settle(e, bvs, sha, bvs['key'], author_key, qt, tolerance, labs, ruler, tgt,
                       _bc_m(bvs, labs, tgt), True, ['key'], [])
+
+
+def _bc_fallback_figure_repair(e, bvs, sha):
+    """GAP-2026-11-20 F9 — the repair STEP A2 owns for a DECIDED rung-3 TEXT fallback that still carries a figure
+    (bc_fallback_figure_open). Bounded, never a stop, never a loop (owner decision 2026-11-20):
+      1. at most BC_FALLBACK_FIGURE_ORDERS 'rewrite' orders per question (the count is never reset): write the
+         fallback with text options and NO figure — the next step reviews the new text at rung 3 as usual;
+      2. orders spent: R5b — restore the latest qualifying FIGURE version (key confirmed, >= 2 of 3 solvers, figures
+         read back) never restored before (F6 cycle guard), once;
+      3. else the reviewed text is kept WITH its figure: 'disclosed' with AMBER 'fallback_figure_kept' (footer line),
+         no longer the text fallback (bc_is_text_fallback False) — STEP A3 binds it.
+    Pure."""
+    _n = _qf_int(bvs.get('fallback_figure_orders'), 0)
+    if _n < BC_FALLBACK_FIGURE_ORDERS:
+        bvs['fallback_figure_orders'] = _n + 1
+        bvs['climb_brief'] = {
+            'rung': 3, 'kind': 'fallback', 'problems': ['figure'],
+            'reasons': ['the rung-3 TEXT fallback still carries a figure (figure_files / figure_dicts) — LAW-BC-2'],
+            'constraints': BC_FALLBACK_FIGURE_CONSTRAINT,
+            'why': f'F9: drop the figure (order {_n + 1} of {BC_FALLBACK_FIGURE_ORDERS})'}
+        bvs['state'] = 'rewrite'
+        bvs.pop('rewrite_reissued', None)
+        e['bv'] = bvs
+        e.pop('bv_state', None)
+        return {'entry': e, 'action': 'rewrite', 'roles': [], 'band': None,
+                'why': f'rung 3 fallback: the TEXT fallback still carries a figure — write it with text options and no '
+                       f'figure (F9 order {_n + 1} of {BC_FALLBACK_FIGURE_ORDERS})'}
+    _done = set(bvs.get('restored_shas') or [])
+    _cands = [v for v in (bvs.get('versions') or []) if isinstance(v, dict) and v.get('content_sha') != sha
+              and v.get('content_sha') not in _done
+              and (v.get('has_figure') or (v.get('entry') or {}).get('figure_files')
+                   or (v.get('entry') or {}).get('figure_dicts'))]
+    pick = bc_r5b_pick(_cands, prefer_figure=True) if _cands else None
+    if pick is not None:
+        bvs['restored_shas'] = sorted(_done | {pick.get('content_sha')})
+        bvs['restore'] = pick
+        bvs['state'] = 'restore'
+        e['bv'] = bvs
+        e.pop('bv_state', None)
+        return {'entry': e, 'action': 'restore', 'roles': [], 'band': None, 'restore': {
+                    'rung': pick.get('rung'), 'content_sha': pick.get('content_sha'), 'entry': pick.get('entry'),
+                    'answer': pick.get('confirmed_key')},
+                'why': f"F9 + R5b: the text fallback kept its figure after {BC_FALLBACK_FIGURE_ORDERS} orders — restore "
+                       f"the rung-{pick.get('rung')} figure version (key confirmed, {pick.get('support')} of 3 solvers)"}
+    bvs['fallback_figure_kept'] = True
+    bvs['amber'] = sorted((set(bvs.get('amber') or []) - {'fallback'}) | {'fallback_figure_kept'})
+    bvs['state'] = 'disclosed'
+    e.pop('bc_fallback', None)
+    e['bv'] = bvs
+    e['bv_state'] = 'disclosed'
+    return {'entry': e, 'action': 'disclosed', 'roles': [], 'band': e.get('difficulty'),
+            'why': f'F9: the text fallback kept its figure after {BC_FALLBACK_FIGURE_ORDERS} orders and no figure '
+                   f'version qualifies for R5b — delivered as reviewed, with the figure (AMBER, disclosed)'}
 
 
 def bc_batch_status(concept_map, qs, items=None):
@@ -30733,7 +30980,12 @@ def bc_amber_lines(q, entry):
         out.append(('AMBER', f"Q{q}: key confirmed by adjudicator; 2 of 3 solvers agree (R5b)"))
     if 'terminal' in am:
         out.append(('AMBER', f"Q{q}: key adjudicated; solvers split (P0 recorded)"))
-    if 'fallback' in am or _qf_int(bvs.get('rung'), 0) == 3:
+    if 'fallback_figure_kept' in am:
+        # GAP-2026-11-20 F9: the TEXT fallback could not drop its figure and no figure version qualified for R5b
+        out.append(('AMBER', f"Q{q}: rung-3 text replacement kept its figure (it could not be removed after "
+                             f"{BC_FALLBACK_FIGURE_ORDERS} rewrite orders) — delivered as reviewed, with the figure"))
+    elif 'fallback' in am or bc_is_text_fallback(bvs):
+        # GAP-2026-11-20 F1: only the TEXT fallback — a text / figure rebuild or an R5b version keeps its figure
         out.append(('INFORMATIONAL', f"Q{q}: replaced by a text question (fallback)"))
     if 'level_off_slot' in am or 'recipe_note' in am:
         lb = ((e.get('difficulty_check') or {}).get('label_basis') or {}) if isinstance(e.get('difficulty_check'), dict) else {}
@@ -32883,6 +33135,40 @@ def bc_finding_location(text):
     if t.startswith(('D-FIG', 'GATE: G-FIG', 'G-FIG', 'FIGURE', 'figure')) or _FIG_WHERE_RE.search(head):
         return 'figure'
     return 'text'
+
+
+def bc_is_restored(bvs):
+    """GAP-2026-11-20 F1 — True when the delivered text is an R5b version (restored earlier version, or the current
+    version kept by R5b). Pure."""
+    b = bvs if isinstance(bvs, dict) else {}
+    return bool(b.get('restore')) or bool(b.get('restored')) or bool((b.get('key') or {}).get('r5b'))
+
+
+def bc_is_text_fallback(bvs):
+    """GAP-2026-11-20 F1 — THE one definition of 'the rung-3 TEXT fallback' (LAW-BC-2): rung 3 AND rung3_kind
+    'fallback' (absent = 'fallback', legacy) AND not an R5b delivery. text_rebuild / fig_rebuild keep their figure;
+    an R5b-restored figure version keeps its figure. Used by _bc_settle, bv_batch_step and bc_bind_batch. Pure."""
+    b = bvs if isinstance(bvs, dict) else {}
+    try:
+        rung = int(b.get('rung') or 0)
+    except (TypeError, ValueError):
+        rung = 0
+    # F9: a fallback whose figure the owner rule kept (orders spent, no figure version to restore) is delivered WITH
+    # its figure, disclosed — it is no longer the TEXT fallback
+    return rung == 3 and str(b.get('rung3_kind') or 'fallback') == 'fallback' and not bc_is_restored(b) \
+        and not b.get('fallback_figure_kept')
+
+
+def bc_fallback_figure_open(entry, family_engine=False):
+    """GAP-2026-11-20 F9 — True when a question is the rung-3 TEXT fallback (bc_is_text_fallback) yet still carries a
+    figure (figure_files / figure_dicts) and is not an R10 family-engine item (that one keeps its figure). Such a
+    question is NOT finished: STEP A2 owns its repair (bc_apply orders the figure dropped at most
+    BC_FALLBACK_FIGURE_ORDERS times, then R5b restores a qualifying figure version once, else the reviewed text is
+    kept WITH its figure and disclosed — 'fallback_figure_kept'). STEP A3 never has to refuse a question STEP A2 cannot
+    repair. Pure; never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    return bool(bc_is_text_fallback(e.get('bv')) and (e.get('figure_files') or e.get('figure_dicts'))
+                and not family_engine)
 
 
 def bc_rung3_kind(entry, problems, brief_parts, versions=None, family_engine=False):
