@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026.11.26.1 — GAP-2026-11-20-MATH-OMML: every compiled equation is schema-valid OMML; standard LaTeX maths spellings compile
+
+(over release 2026.11.26, commit fd53cc9. Framework_PYQPrepare v2.2.2 (§S3-5b Tier-3 compiler v2.1); t3_mathcomp.py v2.1
+(byte-identical to §S3-5b); explain_engine v2.15 (self-test 448, audit self-test 32 — self-test only, no runtime
+behaviour change). Commit d70f25d. No spec floor raised; skill, triggers and routes unchanged.)
+
+- **Root defect.** `<m:nary>` was emitted without `<m:sub>` / `<m:sup>` when a limit was hidden. ECMA-376 CT_Nary
+  requires both, so Word and LibreOffice dropped or boxed the integrand (the CSIR Mock01 broken integrals). They are now
+  always emitted, empty with `subHide` / `supHide` when the limit is absent.
+- **Schema guard.** Every compiled `<m:oMath>` is checked against the shared-math.xsd content model
+  (`t3_schema_errors`); a region that would be schema-invalid raises MathCompileError and is delivered as plain text
+  and reported by CHECK 20, never emitted broken.
+- **Standard spellings.** `\left … \right`, `\begin{pmatrix|bmatrix|cases|aligned|…}`, `\mathbb` / `\mathcal` /
+  `\mathfrak`, `\mathrm` / `\operatorname` / `\mathbf`, `\overline` / `\underline`, `\underset` / `\overset`,
+  `\dfrac` / `\tfrac`, `\sqrt[n]{…}`, `\pmod`, `\not…`, spacing commands and many symbols now compile.
+  `\sim` is the operator ∼; `|x|` and `||x||` become stretchy delimiters and a lone bar is ∣ (U+2223).
+- **Locks.** explain_engine's T3-DRIFT-LOCK accepts any v2.N §S3-5b heading; six new fixtures each FAIL on the v2.0
+  compiler.
+
 ## 2026.11.26 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK: STEP A3 never refuses what STEP A2 cannot repair
 
 (over release 2026.11.25, commit b26f781. blueprint_core v2.11 (self-test 1586); final_assembly v1.27.0 (250);
