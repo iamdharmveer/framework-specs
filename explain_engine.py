@@ -33,6 +33,11 @@
 #   render_mechanism / render_structure_panel / figure_layout_audit / figure_review_sheet — [v2.13] RE-25 renderers + gates (E-01/E-02/E-04/E-09), palette owner loaded first
 #   resolve_chem_library(project_dir, repo_dir) — [v2.13] the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS (S-11), project copy wins
 #
+# v2.15 — 2026-11-20 — GAP-2026-11-20-MATH-OMML (paired with t3_mathcomp / PYQPrepare §S3-5b v2.1,
+#   Framework_PYQPrepare v2.2.2). Self-test only: the T3-DRIFT-LOCK regex accepts any v2.N heading, and six
+#   new locks (T3-NARY-SUBSUP-ALWAYS, T3-SCHEMA-GUARD, T3-STD-SPELLINGS, T3-MATHBB-GLYPH, T3-SIM-OPERATOR,
+#   T3-ABS-BARS-DELIM) each FAIL on the v2.0 compiler. No runtime behaviour change in this file.
+#
 # v2.14 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with corpus_io v1.20,
 #   MockTestExplain v1.55.0, PYQExplain v2.30, MockTestCreate v5.95, CHEMISTRY_EXPLAIN_LEARNINGS
 #   v1.1). The first RE-25 paper (40 keys right, ~330 figures) shipped 36 defective questions
@@ -5727,14 +5732,16 @@ def self_test():
     # ExplanationBlock end-to-end: an UNCOMPILABLE ⟦MATH:…⟧ region must fail AT
     # CONSTRUCTION (validate()), never degrade to raw LaTeX at render
     # (GAP-2026-08-10-EXPLAIN-MATH-DEGRADE-SILENT). The body below is chosen so the
-    # ONLY thing that can reject it is the Tier-3 compile gate: \tfrac survives
+    # ONLY thing that can reject it is the Tier-3 compile gate: \hfrac survives
     # guard_sentence (verified — the LaTeX guard does not fire on it) and fails
     # t3_compile as an unknown command. A body the prose guard already rejects would
     # make this fixture pass with the gate removed, which is no test at all.
+    # v2.15 (GAP-2026-11-20-MATH-OMML): \tfrac is now LEGAL Tier-3 grammar (= \frac),
+    # so the probe is \hfrac — still not a command, still guard-transparent (verified).
     try:
         ExplanationBlock(q=1, ca=1,
             axiom=['The ratio of the two quantities is fixed by the definition.'],
-            deduction=['Substituting gives ⟦MATH:\\tfrac{1}{2}⟧ for the ratio.',
+            deduction=['Substituting gives ⟦MATH:\\hfrac{1}{2}⟧ for the ratio.',
                        'That value settles option 1.'],
             why_wrong={2: ['a.'], 3: ['b.'], 4: ['c.']}, cfg=cfg).validate()
         check('T3-GATE-UNCOMPILABLE-REJECT', False)
@@ -8162,10 +8169,72 @@ def self_test_audit():
     import os as _os, re as _re2
     _here = _os.path.dirname(_os.path.abspath(__file__))
     _spec = open(_os.path.join(_here, 'Framework_PYQPrepare.md'), encoding='utf-8').read()
-    _mm = _re2.search(r'### S3-5b — Tier-3 structured math compiler \(v2\.0\)\n.*?```python\n(.*?)```', _spec, _re2.S)
+    _mm = _re2.search(r'### S3-5b — Tier-3 structured math compiler \(v2\.\d+\)\n.*?```python\n(.*?)```', _spec, _re2.S)
     _mod = open(_os.path.join(_here, 't3_mathcomp.py'), encoding='utf-8').read()
     _body = _mod.split('# ── end shim; everything below is the verbatim S3-5b embed ──\n', 1)[1]
     chk('T3-DRIFT-LOCK', _mm is not None and _body == _mm.group(1))
+
+    # ══ v2.15 (GAP-2026-11-20-MATH-OMML) locks — each FAILS on t3_mathcomp v2.0 ══
+    # NARY ROOT DEFECT: CT_Nary requires <m:sub> and <m:sup> before <m:e>, EMPTY
+    # when the limit is hidden. v2.0 omitted them; Word/LibreOffice then dropped
+    # or boxed the integrand (CSIR Mock01 Q26/Q63/Q84/Q88/Q99).
+    import t3_mathcomp as _t3m
+    def _t3_kids(el):
+        return [c.tag.split('}')[1] for c in el if isinstance(c.tag, str)]
+    _nk = []
+    for _src in ('\\int f(x)\\,dx', '\\sum_{n=1} a_{n}', '\\oint_{|z|=2} f(z)\\,dz',
+                 '\\int_{0}^{1} x\\,dx'):
+        try:
+            _nk.append(_t3_kids(next(t3_compile(_src).iter(qn('m:nary')))))
+        except Exception:
+            _nk.append(None)
+    chk('T3-NARY-SUBSUP-ALWAYS', all(k == ['naryPr', 'sub', 'sup', 'e'] for k in _nk))
+    # SCHEMA GUARD: the pure ECMA-376 checker exists, passes a valid region and
+    # names the defect in the v2.0 shape (nary without sub/sup).
+    _sg = getattr(_t3m, 't3_schema_errors', None)
+    _bad_nary = parse_xml(f'<m:oMath xmlns:m="{M}"><m:nary><m:naryPr><m:chr m:val="∫"/>'
+                          f'<m:subHide m:val="1"/><m:supHide m:val="1"/></m:naryPr>'
+                          f'<m:e><m:r><m:t>x</m:t></m:r></m:e></m:nary></m:oMath>')
+    chk('T3-SCHEMA-GUARD',
+        _sg is not None and _sg(t3_compile('\\int_{0}^{1} x\\,dx')) == []
+        and any('m:sub' in x for x in _sg(_bad_nary))
+        and any('not allowed' in x for x in _sg(parse_xml(
+            f'<m:oMath xmlns:m="{M}"><m:f><m:fPr><m:type m:val="frac"/></m:fPr>'
+            f'<m:num/><m:den/></m:f></m:oMath>'))))
+    # STANDARD MATHS SPELLINGS compile to schema-valid OMML (v2.0 rejected all).
+    _std_ok = True
+    for _src, _tag in (('\\left( \\frac{a}{b} \\right)', 'm:d'),
+                       ('\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}', 'm:m'),
+                       ('f(x)=\\begin{cases} x, & x>0 \\\\ 0, & x\\le 0 \\end{cases}', 'm:eqArr'),
+                       ('\\overline{z}', 'm:bar'), ('\\sqrt[3]{x}', 'm:rad'),
+                       ('\\sup_{x\\in A} f(x)', 'm:limLow'),
+                       ('\\mathbb{R}^{n}', 'm:sSup'), ('\\underset{n}{\\max} a_{n}', 'm:limLow')):
+        try:
+            _n = t3_compile(_src)
+            _std_ok = _std_ok and next(_n.iter(qn(_tag)), None) is not None and _sg(_n) == []
+        except Exception:
+            _std_ok = False
+    chk('T3-STD-SPELLINGS', _std_ok)
+    def _t3_text(_src):
+        try:
+            return ''.join(t3_compile(_src).itertext())
+        except Exception:
+            return ''
+    chk('T3-MATHBB-GLYPH', 'ℝ' in _t3_text('\\mathbb{R}'))
+    # \sim is the tilde OPERATOR U+223C, not ASCII '~'.
+    chk('T3-SIM-OPERATOR', _t3_text('X \\sim N(0,1)').count('\u223c') == 1)
+    # |x| is a stretchy <m:d> with bar delimiters — never a bare '|' in <m:t>, which
+    # LibreOffice's OMML import reads as an operator with empty operands (¿z∨¿2).
+    try:
+        _bn = t3_compile('\\oint_{|z|=2} f(z)\\,dz')
+        _bar_ok = (any(d.find(qn('m:dPr')) is not None
+                       and d.find(qn('m:dPr')).find(qn('m:begChr')) is not None
+                       and d.find(qn('m:dPr')).find(qn('m:begChr')).get(qn('m:val')) == '|'
+                       for d in _bn.iter(qn('m:d')))
+                   and not any('|' in (t.text or '') for t in _bn.iter(qn('m:t'))))
+    except Exception:
+        _bar_ok = False
+    chk('T3-ABS-BARS-DELIM', _bar_ok)
 
     # BUILDER STRICTNESS — the v1 bare-text fraction shape must now FAIL verify.
     _bad = Document()

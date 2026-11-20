@@ -8324,18 +8324,18 @@
       ]
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "678310402c09a376c04e7432263007757eee5fe3b1483946cccef210f07a5ef1",
-      "lines": 4417,
-      "bytes": 202812,
-      "est_tokens": 88180,
-      "view_calls": 13,
-      "bash_calls": 8,
+      "sha256": "49f5f1a1e3af557a8341375d08ca17076aa86194446d92dacf866fa805fe3914",
+      "lines": 5049,
+      "bytes": 233700,
+      "est_tokens": 101609,
+      "view_calls": 15,
+      "bash_calls": 9,
       "has_read_set": false,
-      "preamble_lines": 101,
-      "preamble_bytes": 5401,
-      "reduced_bytes": 202812,
-      "reduced_est_tokens": 88180,
-      "reduced_bash_calls": 8,
+      "preamble_lines": 105,
+      "preamble_bytes": 5877,
+      "reduced_bytes": 233700,
+      "reduced_est_tokens": 101609,
+      "reduced_bash_calls": 9,
       "final_only_ranges": [],
       "final_only_titles": [],
       "engine_ranges": [],
@@ -8346,313 +8346,313 @@
       "legacy_bytes": 0,
       "trigger_ranges": {},
       "feature_ranges": {},
-      "final_read_bytes": 202812,
+      "final_read_bytes": 233700,
       "sections": [
         {
           "title": "## §1 — OUTPUT CONTRACT (immutable — all downstream steps depend on this)",
-          "start": 102,
-          "end": 108,
+          "start": 106,
+          "end": 112,
           "lines": 7,
           "bytes": 387
         },
         {
           "title": "### S1-1 — Document-level properties",
-          "start": 109,
-          "end": 119,
+          "start": 113,
+          "end": 123,
           "lines": 11,
           "bytes": 395
         },
         {
           "title": "### S1-2 — Per-question block structure",
-          "start": 120,
-          "end": 167,
+          "start": 124,
+          "end": 171,
           "lines": 48,
           "bytes": 2582
         },
         {
           "title": "### S1-3 — Date label format",
-          "start": 168,
-          "end": 190,
+          "start": 172,
+          "end": 194,
           "lines": 23,
           "bytes": 629
         },
         {
           "title": "### S1-4 — Question numbering",
-          "start": 191,
-          "end": 224,
+          "start": 195,
+          "end": 228,
           "lines": 34,
           "bytes": 1711
         },
         {
           "title": "### S1-5 — Option format (canonical)",
-          "start": 225,
-          "end": 263,
+          "start": 229,
+          "end": 267,
           "lines": 39,
           "bytes": 1261
         },
         {
           "title": "### S1-6 — Math rendering (OMML — mandatory)",
-          "start": 264,
-          "end": 400,
+          "start": 268,
+          "end": 404,
           "lines": 137,
           "bytes": 7640
         },
         {
           "title": "### S1-7 — Visual content handling (red placeholders)",
-          "start": 401,
-          "end": 474,
+          "start": 405,
+          "end": 478,
           "lines": 74,
           "bytes": 3256
         },
         {
           "title": "### S1-8 — DI / Statistics tables",
-          "start": 475,
-          "end": 510,
+          "start": 479,
+          "end": 514,
           "lines": 36,
           "bytes": 1735
         },
         {
           "title": "### S1-8a — Table structure contract (v1.14 — TableSpec)",
-          "start": 511,
-          "end": 572,
+          "start": 515,
+          "end": 576,
           "lines": 62,
           "bytes": 3087
         },
         {
           "title": "### S1-8b — Block composition (v1.14 — adjacent tables fuse)",
-          "start": 573,
-          "end": 601,
+          "start": 577,
+          "end": 605,
           "lines": 29,
           "bytes": 1337
         },
         {
           "title": "### S1-9 — Passage handling (comprehension / cloze / DI / case study)",
-          "start": 602,
-          "end": 644,
+          "start": 606,
+          "end": 648,
           "lines": 43,
           "bytes": 1859
         },
         {
           "title": "### S1-10 — Multi-paragraph stems",
-          "start": 645,
-          "end": 667,
+          "start": 649,
+          "end": 671,
           "lines": 23,
           "bytes": 853
         },
         {
           "title": "### S1-11 — Inline formatting preservation (v1.5 — underline)",
-          "start": 668,
-          "end": 711,
+          "start": 672,
+          "end": 715,
           "lines": 44,
           "bytes": 2055
         },
         {
           "title": "### S1-12 — Image Inspection Protocol (v1.6 — mandatory)",
-          "start": 712,
-          "end": 1152,
+          "start": 716,
+          "end": 1156,
           "lines": 441,
           "bytes": 23497
         },
         {
           "title": "### S1-13 — Scanned-Source Vision Transcription (v1.7 — FORMAT C1)",
-          "start": 1153,
-          "end": 1366,
+          "start": 1157,
+          "end": 1370,
           "lines": 214,
           "bytes": 11178
         },
         {
           "title": "## §2 — SOURCE PARSING LAYER (adaptive — varies by source format)",
-          "start": 1367,
-          "end": 1376,
+          "start": 1371,
+          "end": 1380,
           "lines": 10,
           "bytes": 442
         },
         {
           "title": "### S2-1 — Known source format families",
-          "start": 1377,
-          "end": 1452,
+          "start": 1381,
+          "end": 1456,
           "lines": 76,
           "bytes": 4491
         },
         {
           "title": "### S2-2 — Source inspection (Phase A)",
-          "start": 1453,
-          "end": 1524,
+          "start": 1457,
+          "end": 1528,
           "lines": 72,
           "bytes": 3397
         },
         {
           "title": "### S2-3 — Metadata stripping (universal vocabulary)",
-          "start": 1525,
-          "end": 1581,
+          "start": 1529,
+          "end": 1585,
           "lines": 57,
           "bytes": 2155
         },
         {
           "title": "### S2-4 — String sanitisation",
-          "start": 1582,
-          "end": 1612,
+          "start": 1586,
+          "end": 1616,
           "lines": 31,
           "bytes": 1381
         },
         {
           "title": "### S2-5 — Section merging and renumbering",
-          "start": 1613,
-          "end": 1637,
+          "start": 1617,
+          "end": 1641,
           "lines": 25,
           "bytes": 768
         },
         {
           "title": "### S2-6 — Passage detection and repetition",
-          "start": 1638,
-          "end": 1672,
+          "start": 1642,
+          "end": 1676,
           "lines": 35,
           "bytes": 1373
         },
         {
           "title": "## §3 — EXTRACTION PIPELINE",
-          "start": 1673,
-          "end": 1674,
+          "start": 1677,
+          "end": 1678,
           "lines": 2,
           "bytes": 32
         },
         {
           "title": "### S3-1 — Question detection",
-          "start": 1675,
-          "end": 1710,
+          "start": 1679,
+          "end": 1714,
           "lines": 36,
           "bytes": 1993
         },
         {
           "title": "### S3-2 — Option detection and normalisation",
-          "start": 1711,
-          "end": 1763,
+          "start": 1715,
+          "end": 1767,
           "lines": 53,
           "bytes": 1740
         },
         {
           "title": "### S3-3 — Figure detection",
-          "start": 1764,
-          "end": 1803,
+          "start": 1768,
+          "end": 1807,
           "lines": 40,
           "bytes": 1846
         },
         {
           "title": "### S3-4 — OMML rendering",
-          "start": 1804,
-          "end": 1986,
+          "start": 1808,
+          "end": 1990,
           "lines": 183,
           "bytes": 5573
         },
         {
           "title": "### S3-5 — Inline math renderer (v1.3; v1.4 hardened; v2.0 Tier-3 dispatch)",
-          "start": 1987,
-          "end": 2201,
+          "start": 1991,
+          "end": 2205,
           "lines": 215,
           "bytes": 9248
         },
         {
-          "title": "### S3-5b — Tier-3 structured math compiler (v2.0)",
-          "start": 2202,
-          "end": 2810,
-          "lines": 609,
-          "bytes": 22336
+          "title": "### S3-5b — Tier-3 structured math compiler (v2.1)",
+          "start": 2206,
+          "end": 3442,
+          "lines": 1237,
+          "bytes": 52748
         },
         {
           "title": "## §4 — DOCUMENT BUILDER",
-          "start": 2811,
-          "end": 2812,
+          "start": 3443,
+          "end": 3444,
           "lines": 2,
           "bytes": 29
         },
         {
           "title": "### S4-1 — Document setup",
-          "start": 2813,
-          "end": 2852,
+          "start": 3445,
+          "end": 3484,
           "lines": 40,
           "bytes": 1255
         },
         {
           "title": "### S4-2 — Element builders",
-          "start": 2853,
-          "end": 2962,
+          "start": 3485,
+          "end": 3594,
           "lines": 110,
           "bytes": 3749
         },
         {
           "title": "### S4-3 — DI table builder (v1.14 — DELEGATED to corpus_io Cluster I)",
-          "start": 2963,
-          "end": 3008,
+          "start": 3595,
+          "end": 3640,
           "lines": 46,
           "bytes": 2049
         },
         {
           "title": "## §5 — VALIDATION (warn on failure, deliver anyway)",
-          "start": 3009,
-          "end": 3010,
+          "start": 3641,
+          "end": 3642,
           "lines": 2,
           "bytes": 57
         },
         {
           "title": "### S5-1 — Validation checks",
-          "start": 3011,
-          "end": 3224,
+          "start": 3643,
+          "end": 3856,
           "lines": 214,
           "bytes": 11344
         },
         {
           "title": "### S5-2 — Validation implementation",
-          "start": 3225,
-          "end": 3749,
+          "start": 3857,
+          "end": 4381,
           "lines": 525,
           "bytes": 25014
         },
         {
           "title": "## §6 — OUTPUT FILENAME",
-          "start": 3750,
-          "end": 3779,
+          "start": 4382,
+          "end": 4411,
           "lines": 30,
           "bytes": 1001
         },
         {
           "title": "## §7 — DELIVERY",
-          "start": 3780,
-          "end": 3850,
+          "start": 4412,
+          "end": 4482,
           "lines": 71,
           "bytes": 3750
         },
         {
           "title": "## §8 — EDGE CASES",
-          "start": 3851,
-          "end": 4115,
+          "start": 4483,
+          "end": 4747,
           "lines": 265,
           "bytes": 13651
         },
         {
           "title": "## §9 — EXECUTION WALKTHROUGH",
-          "start": 4116,
-          "end": 4237,
+          "start": 4748,
+          "end": 4869,
           "lines": 122,
           "bytes": 5957
         },
         {
           "title": "## §10 — CROSS-STEP SYNC CONTRACT",
-          "start": 4238,
-          "end": 4317,
+          "start": 4870,
+          "end": 4949,
           "lines": 80,
           "bytes": 4371
         },
         {
           "title": "## §11 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 4318,
-          "end": 4364,
+          "start": 4950,
+          "end": 4996,
           "lines": 47,
           "bytes": 1967
         },
         {
           "title": "## §12 — DEFINITION OF DONE",
-          "start": 4365,
-          "end": 4417,
+          "start": 4997,
+          "end": 5049,
           "lines": 53,
           "bytes": 2981
         }

@@ -359,11 +359,11 @@
       "bytes": 93769
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "678310402c09a376c04e7432263007757eee5fe3b1483946cccef210f07a5ef1",
-      "version_header": "# Framework_PYQPrepare v2.2.1 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v2.2.1",
-      "lines": 4416,
-      "bytes": 202812
+      "sha256": "49f5f1a1e3af557a8341375d08ca17076aa86194446d92dacf866fa805fe3914",
+      "version_header": "# Framework_PYQPrepare v2.2.2 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.2.2",
+      "lines": 5048,
+      "bytes": 233700
     },
     "Framework_PYQScan.md": {
       "sha256": "323f9b827ea9a6c8fc19b1023448ee633c8c4380fdc9488ca2331c196f9323ae",
@@ -394,18 +394,18 @@
       "bytes": 144896
     },
     "explain_engine.py": {
-      "sha256": "7c50cfe304d8aa15dc77574cc32d1ec820abec5e3824fdbb202dd3282047225b",
+      "sha256": "a83ed60035bd5f4542982d5d5a172f59d9bc80b39c40c776d2f79f99cfe42ad1",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 8321,
-      "bytes": 507855
+      "lines": 8390,
+      "bytes": 511908
     },
     "t3_mathcomp.py": {
-      "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
+      "sha256": "95bbef8559097086f730ab5b51325195d11d23390b76f83b78536a58135216e1",
       "version_header": "# t3_mathcomp.py \u2014 Tier-3 structured math compiler (SHARED ENGINE).",
       "end_sentinel": "    return n",
-      "lines": 574,
-      "bytes": 20650
+      "lines": 1191,
+      "bytes": 50242
     },
     "blueprint_core.py": {
       "sha256": "d30d92dcc7e5407c958debf657cf2e056b6f4c9a3983ce3f5ab40321d9209133",
@@ -583,11 +583,11 @@
       "bytes": 127299
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "ecfa721714902fc0f9d5d013f271b9db7e18ef580205561188b98ff077351785",
+      "sha256": "ad3721e741c1615f874ba1e996e70eae7f4ff5959f7a1ede05ad56ba61cae91b",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 9429,
-      "bytes": 258980
+      "bytes": 258983
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

@@ -148,11 +148,11 @@
       "version_header": "# Framework_PYQFormat v1.6.1 — Universal PYQ Student Document Formatter"
     },
     "Framework_PYQPrepare.md": {
-      "end_sentinel": "# END OF Framework_PYQPrepare v2.2.1",
-      "lines": 4416,
-      "sha256": "678310402c09a376c04e7432263007757eee5fe3b1483946cccef210f07a5ef1",
-      "size_bytes": 202812,
-      "version_header": "# Framework_PYQPrepare v2.2.1 — Universal PYQ Row File Generator"
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.2.2",
+      "lines": 5048,
+      "sha256": "49f5f1a1e3af557a8341375d08ca17076aa86194446d92dacf866fa805fe3914",
+      "size_bytes": 233700,
+      "version_header": "# Framework_PYQPrepare v2.2.2 — Universal PYQ Row File Generator"
     },
     "Framework_PYQScan.md": {
       "end_sentinel": "# END OF Framework_PYQScan v1.6.1",
@@ -275,9 +275,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 8321,
-      "sha256": "7c50cfe304d8aa15dc77574cc32d1ec820abec5e3824fdbb202dd3282047225b",
-      "size_bytes": 507855,
+      "lines": 8390,
+      "sha256": "a83ed60035bd5f4542982d5d5a172f59d9bc80b39c40c776d2f79f99cfe42ad1",
+      "size_bytes": 511908,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
@@ -415,9 +415,9 @@
     },
     "t3_mathcomp.py": {
       "end_sentinel": "    return n",
-      "lines": 574,
-      "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
-      "size_bytes": 20650,
+      "lines": 1191,
+      "sha256": "95bbef8559097086f730ab5b51325195d11d23390b76f83b78536a58135216e1",
+      "size_bytes": 50242,
       "version_header": "# t3_mathcomp.py — Tier-3 structured math compiler (SHARED ENGINE)."
     },
     "validate_framework_md.py": {
