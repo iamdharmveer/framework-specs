@@ -42,6 +42,17 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.12 (2026-11-27) — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (owner decisions OD-P1..OD-P5 of
+      2026-11-21; corrections K1-K4 of the 2026-11-21 review). NEW Cluster P1: math_typeset_findings (six arms,
+      self-calibrated per subject), math_linear / mt_record_fields / mt_text_view (stem_src / option_src carry the
+      ⟦MATH:…⟧ regions; stem_text / option_texts their linear form), math_typeset_measure / format / parse (Step 5
+      MATH_TYPESET_PROFILE, keyed on the SUBJECT), math_typeset_plan / mt_item_state / mt_gate_context /
+      math_notation_for / mt_figure_style (Create S3-16, frozen in batch_state['math_typeset']; chemistry inert per
+      item), fig_need / fig_need_findings (definition test on the renderer's text_labels), p1_amber_lines,
+      typeset_shortfall (A-TYPESET, an AMBER WARN — never a FAIL, so not an NF_DISCLOSE gate). qg_item_gates: SOFT arms G-MATH-TYPESET and G-FIG-NEED behind context keys
+      (absent = dormant, byte-identical). R3_DEFECT_CODES += D-FIG-DECORATIVE (minor; the default reviewer brief keeps
+      its frozen code list byte for byte, BV_BRIEF_REVIEWER_R3_FIG describes it). bv_author_packet / r3_author_packet
+      gain notation=None. No new hard stop, loop or round.
     v2.11 (2026-11-26) — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (owner decision OD-2026-11-20: never a hard stop, never
       an endless loop). F1: NEW bc_is_text_fallback / bc_is_restored — THE one definition of the rung-3 TEXT fallback
       (used by _bc_settle, bc_amber_lines and the STEP A2 / A3 shells); a new text clears the R5b marks. F3:
@@ -9466,6 +9477,220 @@ def _r3_self_test(check):
     check('r3_hostile_input_never_raises', ld_fit(None) == {} and ld_build(None, None, None)['status'] == 'amber'
           and qg_item_gates(None) == [] and r3_findings(None) == [] and ld_anchor_set(None, None, None, None) is None)
 
+def _p1_self_test(check):
+    """Cluster P1 (v2.12) fixtures — each fails on release 2026.11.26.1 (9575e8a) or kills a named mutant: FN-1..FN-12
+    and TS-1..TS-14 of the 2026-11-21 hand-off (engine half; the docx half runs in final_assembly / audit_canonical),
+    plus K1 (subject keying, part / scope resolution), K2 (Q93) and K4 (per-item chemistry boundary)."""
+    _o, _c = _p1_open_close()
+
+    def R(b):
+        return _o + b + _c
+    # ── G-FIG-NEED (FN) ──
+    q48 = ('Consider a particle of mass m₁ moving along a horizontal line L that is perpendicular to a vertical wall. '
+           'Let x denote the distance of the particle from the wall. Suppose a simple pendulum of length l having mass '
+           'm₂, m₂ ≠ m₁, is attached to the particle as shown in the figure. If the pendulum oscillates in a plane '
+           'containing L, then the equations of motion in terms of the generalized coordinates x and θ are')
+    q44 = ('A bead of mass m slides on a smooth circular hoop of radius a that is made to turn with constant angular '
+           'speed ω about its vertical diameter, as shown; θ is the angle of the bead from the downward vertical '
+           'through the centre, under gravity g.')
+    q102 = ('A particle of mass m moves without friction on the inner surface of a cone whose axis is vertical, the '
+            'surface making the angle 30° with the axis, as shown. Let r be the distance of the particle from the axis.')
+    sch = {'class': 'schematic', 'role': 'problem'}
+    check('p1_fn1_real_q48_needed', fig_need(q48, [], dict(sch, text_labels=['x', '$m_1$', 'L', 'l', '$m_2$',
+                                                                            '$\\theta$'])) == ('NEEDED', ['θ']))
+    check('p1_fn2_mock_q44_decorative', fig_need(q44, [], dict(sch, text_labels=['$\\omega$', 'a', '$\\theta$', 'm']))[0]
+          == 'DECORATIVE')
+    check('p1_fn3_mock_q102_decorative', fig_need(q102, [], dict(sch, text_labels=['r', 'm', '30°']))[0] == 'DECORATIVE')
+    check('p1_fn4_presence_trap', fig_need('The particle moves so that θ changes with time, as shown.', [],
+                                           dict(sch, text_labels=['θ'])) == ('NEEDED', ['θ']))
+    check('p1_fn5_are_is_not_a_definition', fig_need('Let x denote the gap. The coordinates x and θ are used.', [],
+                                                     dict(sch, text_labels=['x', 'θ'])) == ('NEEDED', ['θ']))
+    check('p1_fn6_chart_needed', fig_need('Read the chart.', [], {'class': 'data_single', 'text_labels': ['2019']})[0]
+          == 'NEEDED' and fig_need(q44, [], dict(sch, text_labels=['a'], marked_sites=[{'s': 1}]))[0] == 'NEEDED')
+    _ct = ('chemical_structure', 'newman_projection', 'fischer_projection', 'nmr_spectrum')
+    check('p1_fn7_chemistry_exempt', all(fig_need(q44, [], {'object_type': t, 'text_labels': ['a', 'm']}, _ct)[0] == 'N/A'
+                                         for t in _ct)
+          and fig_need(q44, [], {'object_type': 'nmr_spectrum', 'class': 'data_series', 'text_labels': ['a']})[0]
+          == 'NEEDED' and mt_chem_subtopics('x', _ct) == set() and mt_chem_subtopics('x', None) == set()
+          and fig_need(q44, [], dict(sch, chem=True, text_labels=['a', 'm']))[0] == 'N/A'
+          and fig_need(q44, [], dict(sch, family='chem_spectrum', text_labels=['a', 'm']))[0] == 'N/A')
+    check('p1_fn_na_cases', fig_need(q44, [], dict(sch, role='option_1', text_labels=['a']))[0] == 'N/A'
+          and fig_need(q44, [], {'class': 'reasoning_glyph', 'text_labels': ['a']})[0] == 'N/A'
+          and fig_need(q44, [], dict(sch))[0] == 'N/A' and fig_need(q44, [], dict(sch, text_labels=[]))[0] == 'N/A'
+          and fig_need(None, None, None) == ('N/A', []) and fig_need(q44, [], 'bad') == ('N/A', []))
+    check('p1_fn_named_figure_and_value', fig_need('In triangle ABC, CA = 6 cm and CB = 8 cm, as shown.', [],
+                                                   dict(sch, text_labels=['A', 'B', 'C', '6 cm', '8 cm']))[0]
+          == 'DECORATIVE' and fig_need('In the figure, CA = 6 cm.', [], dict(sch, text_labels=['A', 'C', '6 cm']))[0]
+          == 'NEEDED' and fig_need('a = 2', [], dict(sch, text_labels=['a']))[0] == 'DECORATIVE')
+    _g9 = {'stem_text': q44, 'option_texts': ['1', '2', '3', '4']}
+    _sp9 = [dict(sch, text_labels=['$\\omega$', 'a', '$\\theta$', 'm'])]
+    check('p1_fn9_gate_soft_and_dormant',
+          any(x.startswith('G-FIG-NEED') for x in qg_item_gates(_g9, 1, context={'figure_need_active': True,
+                                                                                 'figure_specs': _sp9}))
+          and not any(x.startswith('G-FIG-NEED') for x in qg_item_gates(_g9, 1, context={'figure_specs': _sp9}))
+          and not r3_hard_gate('G-FIG-NEED: x') and 'G-FIG-NEED' not in R3_HARD_GATES
+          and not any(x.startswith('G-FIG-NEED') for x in qg_item_gates(_g9, 1, context={
+              'figure_need_active': True, 'figure_specs': [dict(_sp9[0], chem=True)]})))
+    check('p1_fn_label_norm', fig_norm_label('$m_{12}$') == 'm₁₂' and fig_norm_label('$30^\\circ$') == '30°'
+          and fig_norm_label('$\\varphi$') == 'φ')
+    # ── reviewer code / brief (C-E5) ──
+    check('p1_code_minor_never_blocking', R3_DEFECT_CODES.get('D-FIG-DECORATIVE') == 'minor'
+          and 'D-FIG-DECORATIVE' not in R3_TOP_BAND_BLOCKING and 'D-FIG-DECORATIVE' not in R3_DEFECT_CODES_BRIEF
+          and 'D-FIG-DECORATIVE' not in BV_BRIEF_REVIEWER_R3 and 'D-FIG-DECORATIVE the question can be answered'
+          in BV_BRIEF_REVIEWER_R3_FIG and BV_BRIEF_REVIEWER_R3_FIG.count('D-FIG-DECORATIVE') == 2)
+    _pl = math_typeset_plan('MATH_TYPESET_PROFILE: {"schema":1,"section":"Mathematical Sciences","n":300,'
+                            '"omml_q_share":0.84,"omml_per_q":3.7,"display_per_q":0.33,"arms":["A1","A2","A3","A4",'
+                            '"A5","A6"],"mode":"strict"}\n',
+                            {'subtopic_list': [{'subtopic_id': 'ms.cm.lag', 'section': 'Mathematical Sciences',
+                                                'topic': 'Classical Mechanics', 'subtopic': 'Lagrange'},
+                                               {'subtopic_id': 'ga.x', 'section': 'General Aptitude',
+                                                'topic': 'Puzzles', 'subtopic': 'x'},
+                                               {'subtopic_id': 'oc.r', 'section': 'Organic Chemistry',
+                                                'topic': 'Reactions', 'subtopic': 'r'}],
+                             'mocks': [{'mock': 1, 'sections': [{'section_name': 'Part B', 'subtopic_allocations': [
+                                 {'subtopic_id': 'ms.cm.lag'}]}, {'section_name': 'Part C',
+                                                                 'subtopic_allocations': [{'subtopic_id': 'oc.r'}]}]}]})
+    check('p1_brief_needs_fig', bv_brief_needs_fig({'5': {'subtopic_id': 'ms.cm.lag'}}, {'5': [dict(sch)]}, _pl)
+          and not bv_brief_needs_fig({'5': {'subtopic_id': 'oc.r'}}, {'5': [dict(sch)]}, _pl)
+          and not bv_brief_needs_fig({'5': {'subtopic_id': 'ms.cm.lag'}}, {'5': [dict(sch, chem=True)]}, _pl)
+          and not bv_brief_needs_fig({'5': {'subtopic_id': 'ms.cm.lag'}}, {'5': [dict(sch)]}, None))
+    # ── plan: K1 subject keying, overrides, chemistry refusal (TS-7/8/9) ──
+    check('p1_plan_subject_keyed', _pl['subjects']['Mathematical Sciences']['mode'] == 'strict'
+          and _pl['subjects']['General Aptitude']['mode'] == 'off'
+          and _pl['subjects']['Organic Chemistry']['inert'] is True
+          and mt_item_state(_pl, None, 'ms.cm.lag')['strict'] is True
+          and mt_item_state(_pl, 'Mathematical Sciences — Classical Mechanics', 'ms.cm.lag')['strict'] is True
+          and mt_item_state(_pl, None, 'oc.r') == {'subject': 'Organic Chemistry', 'inert': True, 'strict': False,
+                                                    'arms': []}
+          and mt_item_state(None, 'x', 'y') is None)
+    _ov = math_typeset_plan('MATH_TYPESET_MODE: Part B = strict\nMATH_TYPESET_MODE: Organic Chemistry = strict\n'
+                            'MATH_TYPESET_MODE: Nowhere = strict\n', {
+                                'subtopic_list': _pl and [{'subtopic_id': 'ms.cm.lag', 'section': 'Mathematical Sciences'},
+                                                          {'subtopic_id': 'oc.r', 'section': 'Organic Chemistry'}],
+                                'mocks': [{'sections': [{'section_name': 'Part B', 'subtopic_allocations': [
+                                    {'subtopic_id': 'ms.cm.lag'}]}]}]})
+    check('p1_override_part_and_chem_refused', _ov['subjects']['Mathematical Sciences']['mode'] == 'strict'
+          and _ov['subjects']['Mathematical Sciences']['source'] == 'owner line'
+          and _ov['subjects']['Mathematical Sciences']['arms'] == list(MATH_TYPESET_ARM_IDS)
+          and _ov['subjects']['Organic Chemistry']['mode'] == 'off'
+          and any('strict refused' in x for x in _ov['info']) and any("'Nowhere'" in x for x in _ov['info']))
+    check('p1_plan_no_profile_off', all(v['mode'] == 'off' for v in math_typeset_plan('', {'subtopic_list': [
+        {'subtopic_id': 'p.m', 'section': 'Physics'}]})['subjects'].values()))
+    _chem_sub = math_typeset_plan('MATH_TYPESET_PROFILE: {"schema":1,"section":"Physics","mode":"strict",'
+                                  '"arms":["A1"]}\n', {'subtopic_list': [
+                                      {'subtopic_id': 'p.t', 'section': 'Physics', 'topic': 'Thermo',
+                                       'subtopic': 'Chemical potential'},
+                                      {'subtopic_id': 'p.m', 'section': 'Physics', 'topic': 'Mechanics',
+                                       'subtopic': 'Rigid bodies'},
+                                      {'subtopic_id': 'p.e', 'section': 'Physics', 'topic': 'EM', 'subtopic': 'Waves'}]})
+    check('p1_k4_chem_subtopic_inert_subject_not', mt_item_state(_chem_sub, None, 'p.t')['inert'] is True
+          and mt_item_state(_chem_sub, None, 'p.m')['strict'] is True)
+    check('p1_gate_context', mt_gate_context(_pl, None, 'ms.cm.lag') == {'figure_need_active': True, 'chem_types': [],
+                                                                       'math_typeset': {
+        'mode': 'strict', 'arms': list(MATH_TYPESET_ARM_IDS)}} and mt_gate_context(_pl, None, 'ga.x')
+          == {'figure_need_active': True, 'chem_types': []} and mt_gate_context(_pl, None, 'oc.r') == {}
+          and mt_gate_context(None) == {})
+    _slot = {'q': 1, 'band': 'Easy', 'qtype': 'mcq', 'subtopic_id': 'ms.cm.lag', 'subject': 'Mathematical Sciences'}
+    check('p1_c_e9_notation_reaches_writer', bv_author_view(bv_author_packet(_slot, {}, ['Easy', 'Medium', 'Hard'],
+                                                                             notation=MATH_NOTATION_LINE)).get('notation')
+          == MATH_NOTATION_LINE and 'notation' not in bv_author_view(bv_author_packet(_slot, {}, ['Easy', 'Medium', 'Hard']))
+          and r3_author_packet(_slot, None, ['Easy', 'Medium', 'Hard'], notation=MATH_NOTATION_LINE)['notation']
+          == MATH_NOTATION_LINE and 'notation' not in r3_author_packet(_slot, None, ['Easy', 'Medium', 'Hard']))
+    check('p1_notation_strict_only', math_notation_for(_pl, None, 'ms.cm.lag') == MATH_NOTATION_LINE
+          and math_notation_for(_pl, None, 'ga.x') is None and math_notation_for(_pl, None, 'oc.r') is None)
+    check('p1_figure_style', mt_figure_style(_pl, None, 'ms.cm.lag', dict(sch)) == {
+        'style_monochrome': True, 'math_labels': True, 'alt_plain': True}
+          and mt_figure_style(_pl, None, 'ga.x', dict(sch)) == {'alt_plain': True}
+          and mt_figure_style(_pl, None, 'oc.r', dict(sch)) == {}
+          and mt_figure_style(_pl, None, 'ms.cm.lag', dict(sch, chem=True)) == {})
+    # ── G-MATH-TYPESET arms (TS) ──
+    check('p1_ts_arms_fire', [a for a, _s in math_typeset_findings('ω² > g a⁻¹')] == ['A1']
+          and [a for a, _s in math_typeset_findings('L = ½π')] == ['A2']
+          and [a for a, _s in math_typeset_findings('φ(x) = 1 − 2∫ cos(x − t)φ(t) dt')] == ['A3']
+          and [a for a, _s in math_typeset_findings('the reciprocal of the square root of n')] == ['A4', 'A4']
+          and [a for a, _s in math_typeset_findings('let A be the matrix with rows (1, 2) and (0, 3)')] == ['A5']
+          and [a for a, _s in math_typeset_findings('Σ ℓᵢ(0)xᵢ⁴ = −24, summed over i = 1, …, 4')] == ['A3', 'A6'])
+    check('p1_ts_allowed_forms', math_typeset_findings('f⁻¹(A), PAP⁻¹, e⁻²θ, 10⁻²⁰²⁵, xₙ, (x − 2)⁴, z = 0') == []
+          and math_typeset_findings('N₁₂(μ,Σ) and 19Σ') == [] and math_typeset_findings(None) == [])
+    check('p1_ts12_units_masked', math_typeset_findings('k = 2.5 s⁻¹, 60 km h⁻¹, 9.8 m s⁻²') == []
+          and len(math_typeset_findings('g a⁻¹')) == 1 and len(math_typeset_findings('4n⁻¹')) == 1)
+    check('p1_ts_regions_stripped', math_typeset_findings('If ' + R('\\frac{1}{2}') + ' then') == []
+          and math_typeset_findings('If ½ then') != [] and math_typeset_findings('x', arms=['A2']) == []
+          and math_typeset_findings('½ and g a⁻¹', arms=['A2']) == [('A2', '½ and g a⁻¹')])
+    check('p1_ts11_sqrt', math_typeset_findings('divide by the square root of n') != []
+          and math_typeset_findings('divide by ' + R('\\sqrt{n}')) == [])
+    _gt = {'stem_text': 'If ω² > g a⁻¹, find ½x.', 'option_texts': ['1', '2', '3', '4']}
+    check('p1_ts13_gate_dormant_and_soft',
+          any(x.startswith('G-MATH-TYPESET') for x in qg_item_gates(_gt, 1, context={'math_typeset': {
+              'mode': 'strict', 'arms': list(MATH_TYPESET_ARM_IDS)}}))
+          and not any(x.startswith('G-MATH-TYPESET') for x in qg_item_gates(_gt, 1))
+          and not any(x.startswith('G-MATH-TYPESET') for x in qg_item_gates(_gt, 1, context={'math_typeset': {
+              'mode': 'off', 'arms': ['A1']}}))
+          and not r3_hard_gate('G-MATH-TYPESET: x') and 'G-MATH-TYPESET' not in R3_HARD_GATES)
+    _gs = {'stem_text': 'x', 'stem_src': 'If ω² > g a⁻¹', 'option_src': ['½']}
+    check('p1_ts_reads_src_and_statements',
+          sum(1 for x in qg_item_gates(_gs, 1, context={'math_typeset': {'mode': 'strict', 'arms': ['A1', 'A2']}})
+              if x.startswith('G-MATH-TYPESET')) == 1
+          and 'A2' in qg_item_gates(_gs, 1, context={'math_typeset': {'mode': 'strict', 'arms': ['A1', 'A2']}})[-1]
+          and any(x.startswith('G-MATH-TYPESET') for x in qg_item_gates(
+              {'stem_text': 'Which hold?', 'statements': ['the integral of f over [0, 1] is 1']}, 1,
+              context={'math_typeset': {'mode': 'strict', 'arms': ['A4']}})))
+    # ── linear form (C-E8, TS-6) ──
+    check('p1_linear', math_linear('If ' + R('\\frac{g}{a}') + ' < ω²') == 'If (g)/(a) < ω²'
+          and math_linear(R('x^{2}+x_{n}')) == 'x²+xₙ' and math_linear(R('\\sqrt{n}')) == '√(n)'
+          and math_linear(R('\\int_{0}^{1} f(x)\\,dx')) == '∫[0→1] f(x) dx'
+          and math_linear(R('\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}')) == '[[1, 2], [0, 3]]'
+          and math_linear(R('\\begin{cases} x & x>0 \\\\ 0 & x\\le 0\\end{cases}')) == '{x if x>0; 0 if x≤ 0}'
+          and math_linear(R('\\alpha+\\beta')) == 'α+β' and math_linear('plain ½') == 'plain ½'
+          and math_linear(None) == '' and math_linear(R('x^{abc}')) == 'x^(abc)' and math_linear(R('x^{an}')) == 'xᵃⁿ')
+    _rf = mt_record_fields('Let ' + R('\\frac{1}{2}') + ' be', ['0.5', R('\\sqrt{2}')])
+    check('p1_record_fields', _rf['stem_text'] == 'Let (1)/(2) be' and _rf['option_texts'] == ['0.5', '√(2)']
+          and _rf['option_src'][1] == R('\\sqrt{2}') and mt_record_fields('a', ['b'])['stem_src'] == 'a')
+    _ns = {'stem_text': 'x', 'option_texts': [R('\\frac{1}{2}'), '0.25', '0.75', '1']}
+    check('p1_ts6_text_gates_read_linear', mt_text_view({'stem_text': 'a', 'option_texts': ['1']})[0] == {
+        'stem_text': 'a', 'option_texts': ['1']} and mt_text_view(_ns)[0]['option_texts'][0] == '(1)/(2)'
+          and qg_item_gates({'stem_text': 'x', 'option_texts': ['0.5', '0.25', '0.75', '1']}, 1)
+          == qg_item_gates({'stem_text': 'x', 'option_texts': ['0.5', '0.25', '0.75', '1']}, 1))
+    # ── profile measurement + calibration (TS-3/TS-10) ──
+    _rows = [{'omath': 3, 'display': 1, 'plain': 'Let x be real.'}] * 70 + [{'omath': 0, 'display': 0,
+                                                                            'plain': 'Which is true?'}] * 30
+    _m = math_typeset_measure(_rows, subject='Mathematical Sciences')
+    check('p1_measure_strict', _m['mode'] == 'strict' and _m['n'] == 100 and _m['omml_q_share'] == 0.7
+          and _m['omml_per_q'] == 2.1 and _m['display_per_q'] == 0.7 and _m['arms'] == list(MATH_TYPESET_ARM_IDS))
+    _cal = [{'omath': 3, 'plain': 'half is ½ here'}] * 5 + [{'omath': 3, 'plain': 'x'}] * 95
+    check('p1_ts10_calibrate', 'A2' not in math_typeset_measure(_cal)['arms'] and 'A1' in math_typeset_measure(_cal)['arms']
+          and 'A2' not in math_typeset_measure([{'omath': 1, 'plain': '½'}] + [{'omath': 1, 'plain': 'x'}] * 30)['arms']
+          and 'A2' in math_typeset_measure([{'omath': 1, 'plain': '½'}] + [{'omath': 1, 'plain': 'x'}] * 199)['arms'])
+    check('p1_measure_off_cases', math_typeset_measure(_rows, subject='Inorganic Chemistry')['mode'] == 'off'
+          and math_typeset_measure(_rows[:10])['mode'] == 'off'
+          and math_typeset_measure([{'omath': 0, 'plain': 'x'}] * 50)['mode'] == 'off'
+          and math_typeset_measure(None)['n'] == 0)
+    _ln = format_math_typeset_line(_m)
+    check('p1_line_roundtrip', parse_math_typeset_block('x\n' + _ln + '\n')['Mathematical Sciences'] == _m
+          and parse_math_typeset_block(' ' + _ln) == {} and parse_math_typeset_block(
+              MATH_TYPESET_PREFIX + '{"schema":1') == {} and format_math_typeset_line(None) == ''
+          and parse_math_typeset_block(_ln + '\n' + _ln.replace('"n":100', '"n":7'))['Mathematical Sciences']['n'] == 7)
+    check('p1_overrides_parse', parse_math_typeset_overrides('MATH_TYPESET_MODE: Part B = STRICT\nmath: x\n'
+                                                             'MATH_TYPESET_MODE: Physics = off') == [
+        ('Part B', 'strict'), ('Physics', 'off')])
+    # ── footer + A-TYPESET ──
+    _ctx = {'math_typeset': {'mode': 'strict', 'arms': ['A1']}, 'figure_need_active': True, 'figure_specs': _sp9}
+    check('p1_amber_lines', p1_amber_lines(44, {'stem_text': q44 + ' and ω² > g a⁻¹'}, _ctx) == [
+        ('AMBER', 'Q44: maths written as text (G-MATH-TYPESET A1)'),
+        ('AMBER', 'Q44: the figure restates the stem (G-FIG-NEED; delivered with its figure)')]
+          and p1_amber_lines(1, {'stem_text': 'x'}, {}) == [])
+    _sf = typeset_shortfall(_pl, {str(i): {'omath': 0, 'display': 0, 'subtopic_id': 'ms.cm.lag'} for i in range(10)})
+    _ok = typeset_shortfall(_pl, {str(i): {'omath': 4, 'display': 1, 'subtopic_id': 'ms.cm.lag'} for i in range(10)})
+    check('p1_a_typeset', len(_sf) == 1 and _sf[0][1].startswith('WARN A-TYPESET: Mathematical Sciences 0 of 10')
+          and _ok[0][1].startswith('INFO A-TYPESET') and typeset_shortfall(None, {}) == []
+          and typeset_shortfall(_pl, {'1': {'omath': 0, 'subtopic_id': 'oc.r'}}) == []
+          and 'A-TYPESET' not in NF_DISCLOSE_GATES)
+    # ── never raises (guarded) ──
+    check('p1_never_raises', math_typeset_plan(object(), object()) is not None and mt_item_state('x') is None
+          and fig_need_findings('x', 'y') == [] and math_typeset_item_findings(None, None) == []
+          and mt_text_view(None)[1] == [] and p1_amber_lines(None, None, None) == [])
+
+
 def self_test():
     passed = 0
     total = 0
@@ -14652,6 +14877,7 @@ PYQ_IMAGE_ANALYSIS:
     _bc_self_test(check)
 
     _r3_self_test(check)                     # Cluster R3 (release 2026.11.21)
+    _p1_self_test(check)                     # Cluster P1 (release 2026.11.27 — GAP-2026-11-21)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -29344,6 +29570,8 @@ def bv_author_view(packet, with_rules=False):
            'self_check': pk.get('self_check')}
     if pk.get('shape'):
         out['planned_ask_type'] = pk['shape']           # v2.9 (D5): write THIS ask type (a different one is an R3 defect)
+    if isinstance(pk.get('notation'), str) and pk['notation']:
+        out['notation'] = pk['notation']                # v2.12 (C-E9): strict maths subjects only — the writer must SEE it
     if not any(an.values()):
         out['anchors'] = 'none for this exam (no exemplar bank / ruler anchors) — the rubric counts decide'
     rc = pk.get('recipe') if isinstance(pk.get('recipe'), dict) else {}
@@ -29650,7 +29878,7 @@ def bc_author_offsets(concept_map, items, targets, labels, seed=None):
     return out
 
 
-def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, offsets=None):
+def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, offsets=None, notation=None):
     """What the author holds BEFORE writing (one write): the slot band, the SAME exemplar content the graders will
     compare against (the slot band and its neighbours), the recipe ranges for the band, and the self-checks to run
     before submitting. slot: {'q', 'band', 'qtype', 'subtopic_id', 'subject', 'ask_format'}. Never raises."""
@@ -29679,7 +29907,7 @@ def bv_author_packet(slot, exemplars_by_band, labels, recipe=None, ruler=None, o
                            '[...], "principles": [...], "speed_hack": bool, "negative": bool}} (G-SELFCOUNT)']
             + _bc_margin_lines(b, labs) + _bc_offset_lines(offsets, s.get('subject'), b),
             'author_offset': _bc_offset_for(offsets, s.get('subject'), b),
-            'rule': BV_RULE}
+            'rule': BV_RULE, **({'notation': notation} if isinstance(notation, str) and notation else {})}
 
 
 def _bc_margin_lines(band, labels):
@@ -31175,7 +31403,13 @@ R3_DEFECT_CODES = {
     'D-DEAD-ROW': 'blocking', 'D-GIVEAWAY': 'blocking', 'D-DISTRACTOR-WEAK': 'minor', 'D-APPROX-COLLISION': 'blocking',
     'D-LEAK': 'blocking', 'D-PARAPHRASE': 'blocking', 'D-EASIER-THAN-SOURCE': 'blocking', 'D-STEM-FORM': 'blocking',
     'D-NOTATION': 'minor', 'D-FIG-RENDER': 'blocking',
+    # v2.12 (GAP-2026-11-21-FIGURE-NEED, C-E5): recorded and disclosed, never blocking, never a rung — described to
+    # reviewers ONLY in jobs that carry a non-chemistry problem figure (BV_BRIEF_REVIEWER_R3_FIG)
+    'D-FIG-DECORATIVE': 'minor',
 }
+# v2.12: the code list the DEFAULT reviewer brief names — frozen, so every job without a non-chemistry figure (every
+# chemistry job included) receives BV_BRIEF_REVIEWER_R3 byte for byte as in v2.11
+R3_DEFECT_CODES_BRIEF = tuple(sorted(c for c in R3_DEFECT_CODES if c != 'D-FIG-DECORATIVE'))
 R3_TOP_BAND_BLOCKING = ('D-DISTRACTOR-WEAK',)     # minor elsewhere, blocking for a top-band slot
 R3_CHECKLIST_OF_CODE = {                          # which legacy checklist flag a code also raises
     'D-SECOND-ANSWER': 'second_answer', 'D-AMBIGUOUS': 'second_answer', 'D-LEAK': 'leak', 'D-PARAPHRASE': 'leak',
@@ -31944,7 +32178,7 @@ def ld_band_from_placement(placement, task, labels):
 
 # ── writer packet (r3 / r2.1) ───────────────────────────────────────────────────────────────────────────────────
 def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, floors=None, used_in_subtopic=None,
-                     menu=None):
+                     menu=None, notation=None):
     """The writer's packet under modes 'ladder' and 'counted' (§6.7): the slot band IN WORDS, the archetype cards of
     the slot's scope (abstract features only), the levers H1-H7, up to 3 WRITING-POOL examples (never a grading
     anchor; release 2026.11.24 F1: taken from the ladder — ld_examples_for — when the caller passes none), the
@@ -31984,6 +32218,8 @@ def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, f
            'content_menu': mn[:12] if top else [], 'used_in_subtopic': used,
            'decision_rule': R3_DECISION_RULE, 'guidance': lines, 'rule': RUBRIC_RULE_R3 if mode != R3_MODE_COUNTED
            else RUBRIC_RULE_R21}
+    if isinstance(notation, str) and notation:      # v2.12 (C-E9): strict items only (bc.math_notation_for); else absent
+        out['notation'] = notation
     return out
 
 
@@ -32660,6 +32896,8 @@ def qg_item_gates(entry, key=None, top_band=False, context=None):
     those gates dormant). [finding strings]. None of the new findings is a hard gate. Pure."""
     e = entry if isinstance(entry, dict) else {}
     ctx = context if isinstance(context, dict) else {}
+    e = mt_text_view(e)[0]          # v2.12 (C-E8): regions in stem_text / option_texts -> their linear form (same
+                                    # object when the entry holds no region: byte-identical for every earlier item)
     ops = list(e.get('option_texts') or []) if isinstance(e.get('option_texts'), (list, tuple)) else []
     out = []
     dr = qg_dead_rows(ops)
@@ -32707,6 +32945,14 @@ def qg_item_gates(entry, key=None, top_band=False, context=None):
             out += qg_alt_text(fd.get('alt') or fd.get('alt_text'))
     out += qg_stem_fig_refs(e.get('stem_text'), labs or None)
     out += qg_ask_stereo(e.get('stem_text'), e)
+    # v2.12 Cluster P1 (GAP-2026-11-21): two SOFT arms behind context keys Create S3-16 sets only for a non-inert item
+    # (mt_gate_context) — absent keys = dormant, so every earlier caller gets byte-identical output. Neither is in
+    # R3_HARD_GATES: still failing after BC_PREREVIEW_TRIES the item is reviewed as it stands and disclosed AMBER.
+    _mt = ctx.get('math_typeset')
+    if isinstance(_mt, dict) and _mt.get('mode') == 'strict':
+        out += math_typeset_item_findings(entry if isinstance(entry, dict) else {}, _mt.get('arms'))
+    if ctx.get('figure_need_active') is True:
+        out += fig_need_findings(entry if isinstance(entry, dict) else {}, ctx.get('figure_specs'), ctx.get('chem_types'))
     return out
 
 
@@ -32802,7 +33048,7 @@ def r3_footer_lines(mode, ladder=None, count_rule=None, paper_rule=None, void_ra
 
 # ── reviewer brief and job rows (modes 'ladder' / 'counted') ────────────────────────────────────────────────────
 R3_DEFECTS_TEXT = ("'defects': a list, one entry per problem you find, each {\"code\": <one of " +
-                   ', '.join(sorted(R3_DEFECT_CODES)) + ">, \"severity\": <blocking|minor>, \"where\": <stem | option "
+                   ', '.join(R3_DEFECT_CODES_BRIEF) + ">, \"severity\": <blocking|minor>, \"where\": <stem | option "
                    "<n> | row <x> | figure <file>>, \"evidence\": <one sentence>} — [] when you find none. Codes: "
                    "D-SECOND-ANSWER another option is also defensible; D-KEY-WRONG the key is not the best answer; "
                    "D-RULE-SCOPE the key rests on a rule applied outside its documented scope (name both); "
@@ -32847,6 +33093,39 @@ BV_BRIEF_REVIEWER_R3 = (
     "computation|derivational|figural|structural|other>, \"concept\": <short label>, \"figure_reads\": [{\"file\", "
     "\"smiles\", \"stereo_mode\"}], \"defects\": [...], " + R3_SOLVER_FIELDS_TEXT + ", \"single_answer\": <\"yes\" | "
     "\"no: <which other option>\">}}}. Reply with ONE line: \"REVIEW DONE\" or \"REVIEW FAILED <reason>\".")
+# v2.12 (GAP-2026-11-21-FIGURE-NEED, C-E5): the brief of a job with at least one NON-chemistry problem figure of a
+# non-inert item — the default brief with D-FIG-DECORATIVE named and described; every other job keeps
+# BV_BRIEF_REVIEWER_R3 byte for byte (final_assembly chooses with bc.bv_brief_needs_fig)
+R3_DEFECT_FIG_SENTENCE = (' D-FIG-DECORATIVE the question can be answered with the figure removed, because the text '
+                          'defines everything the figure shows.')
+BV_BRIEF_REVIEWER_R3_FIG = BV_BRIEF_REVIEWER_R3.replace(
+    ', '.join(R3_DEFECT_CODES_BRIEF), ', '.join(sorted(R3_DEFECT_CODES)), 1).replace(
+    'D-NOTATION non-standard symbols or units;', 'D-NOTATION non-standard symbols or units;' + R3_DEFECT_FIG_SENTENCE, 1)
+
+
+def bv_brief_needs_fig(entries, figure_specs_by_q=None, plan=None, manifest=None):
+    """C-E5: True when at least one item of a reviewer job is a NON-inert item (Cluster P1 plan) carrying a NON-chemistry
+    problem figure (its FigureSpec records, else its figure files). entries: {q: concept_map entry}. False when the
+    paper has no plan (dormant: the default brief). Never raises."""
+    try:
+        if not isinstance(plan, dict):
+            return False
+        fsq = figure_specs_by_q if isinstance(figure_specs_by_q, dict) else {}
+        for q, e in (entries or {}).items() if isinstance(entries, dict) else []:
+            if not isinstance(e, dict):
+                continue
+            st = mt_item_state(plan, nf_subject_key(e, manifest) if manifest else e.get('subject'), e.get('subtopic_id'))
+            if not st or st['inert']:
+                continue
+            specs = [sp for sp in (fsq.get(str(q)) or []) if isinstance(sp, dict)
+                     and str(sp.get('role') or 'problem') == 'problem']
+            if any(not fig_is_chem(sp, plan.get('chem_types')) for sp in specs):
+                return True
+            if not specs and (e.get('figure_files') or e.get('figure_dicts')) and not e.get('organic'):
+                return True
+        return False
+    except Exception:                                       # noqa: BLE001
+        return False
 
 
 def r3_counting_rules():
@@ -33819,6 +34098,805 @@ def swap_plan(concept_map, targets, labels):
             swaps.append({'up': q, 'from': lo, 'to': b, 'pair': mq})
     return {'swaps': swaps, 'entries': out}
 
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# Cluster P1 (v2.12 — release 2026.11.27; GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED; owner decisions
+# OD-P1..OD-P5 of 2026-11-21 and the corrections of the 2026-11-21 review: K1 the profile is keyed on the SUBJECT
+# (manifest 'section' — the one name every PYQ question, slot, section_rules entry and scoped paper carries; a paper
+# part such as 'Part B' or a scope label is resolved to its subjects); K2 arm A3 widened (ℓ, ᵢⱼₖ) and arm A6 added
+# ('summed over', 'integrated over'); K3 the builders route ⟦MATH:…⟧ regions in EVERY exam (a region reaching a
+# builder was a G-MATH-RESIDUE blocking defect in every exam before this release, so no deliverable output changes);
+# K4 the chemistry boundary is per ITEM (a chemistry subject, or a chemistry subtopic in any subject) and every new
+# path is dormant without batch_state['math_typeset'] (a paper begun earlier finishes as it began).
+# Every function here is pure or IO-free, never raises (bad input -> documented default; _nf_guard at the end) and
+# adds NO hard stop, NO loop and NO review round: G-MATH-TYPESET and G-FIG-NEED are SOFT pre-review gates (sent back
+# within BC_PREREVIEW_TRIES, then disclosed AMBER); D-FIG-DECORATIVE is a 'minor' code; A-TYPESET is a WARN.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+import re as _p1_re
+import json as _p1_json
+
+P1_RULE = 'P1-2026.11.27'
+MATH_TYPESET_PREFIX = 'MATH_TYPESET_PROFILE: '
+MATH_TYPESET_MODE_PREFIX = 'MATH_TYPESET_MODE:'
+MATH_TYPESET_STRICT_SHARE = 0.60     # a subject is strict when >= this share of its analysed PYQ questions carry OMML
+MATH_TYPESET_MIN_N = 20              # fewer analysed questions than this is not a measurement -> off
+MATH_TYPESET_CAL_RATE = 0.01         # an arm firing on more than this share of the real questions is disabled
+MATH_TYPESET_SMALL_N = 100           # below this many questions, an arm that fires on ANY real question is disabled
+MATH_TYPESET_TOL = (1, 0.15)         # A-TYPESET tolerance: max(1 question, 15 %) (the A-SHAPEMIX tolerance)
+CHEM_NAME_RE = _p1_re.compile(r'(?i)chem|रसायन')
+CHEM_FAMILIES = ('chem_structure', 'chem_scheme', 'chem_spectrum', 'chem_diagram')
+
+# The six arms (Appendix A of the 2026-11-21 hand-off, A3 widened + A6 added after review). Calibrated on CSIR NET
+# Mathematical Sciences: 0 hits in 300 real questions (Q21-120 of 02-Mar-2025, 18-Dec-2025, 17-Jul-2026), 42 of 90
+# items of the Mock01 rerun. Every exam recalibrates them on its OWN past questions (math_typeset_measure).
+MATH_TYPESET_ARMS = {
+    'A1': r'(?:[)\]]|(?<![A-Za-z])(?<!\d[ ]s)(?<!\d s)(?!(?<=\d )[shmgl])(?!(?<=\d)[shmgl])(?<!\d m )(?<!\dm )'
+          r'(?<!\d km )[a-df-z]|[α-ωπ])[⁻][⁰¹²³⁴-⁹ⁿ]+(?!\s*\()',
+    'A2': r'[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]',
+    'A3': r'[∫∬∭∮∑∏]|(?<![A-Za-z])Σ(?=[a-zα-ωℓ₀-₉ₙᵢⱼₖ(]|\s+[a-zα-ωℓ][⁰-⁹⁻ⁿ₀-₉ᵢⱼₖ(])',
+    'A4': r'(?i)\b(?:square root of|cube root of|divided by|reciprocal of|to the power(?: of)?|raised to the|'
+          r'minus twice|(?:the )?integral of .{1,60}? over|derivative of .{1,40}? with respect to)\b',
+    'A5': r'(?i)\b(?:matrix|it|[A-Z]) (?:with|has|having) rows \(|\bwith (?:first|second) row\b',
+    'A6': r'(?i)\b(?:summed|integrated) (?:over|from)\b',
+}
+MATH_TYPESET_ARM_IDS = tuple(sorted(MATH_TYPESET_ARMS))
+_P1_ARM_RE = {k: _p1_re.compile(v) for k, v in MATH_TYPESET_ARMS.items()}
+MATH_TYPESET_ARM_WORDS = {
+    'A1': 'a reciprocal written as a power', 'A2': 'a vulgar-fraction character',
+    'A3': 'an integral or sum sign outside an equation', 'A4': 'maths written in words',
+    'A5': 'a matrix given in words', 'A6': 'limits of a sum or integral written in words',
+}
+MATH_NOTATION_LINE = (
+    "NOTATION (this subject's real papers typeset their maths): write every expression beyond a single symbol as a "
+    "⟦MATH:…⟧ region — fractions (also ½ → ⟦MATH:\\frac{1}{2}⟧), roots (also √n → ⟦MATH:\\sqrt{n}⟧), a reciprocal "
+    "as a fraction (g/a → ⟦MATH:\\frac{g}{a}⟧, never g a⁻¹), integrals and sums WITH their limits "
+    "(⟦MATH:\\int_{0}^{1} f(x)\\,dx⟧, ⟦MATH:\\sum_{n=1}^{\\infty}⟧), matrices "
+    "(⟦MATH:\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}⟧), determinants, cases and systems. x², xₙ, f⁻¹(A), P⁻¹, "
+    "e⁻ˣ, ≤, π, θ and a short relation such as z = 0 stay plain text. Never write maths in words ('square root of', "
+    "'divided by', 'reciprocal of', 'to the power', 'the integral of … over', 'summed over'). A matrix, system, "
+    "piecewise definition or long equation the question is built on goes on its own line as a region alone — it "
+    "renders as a displayed equation. Record the text with its regions in stem_src / option_src and set stem_text / "
+    "option_texts with bc.mt_record_fields (G-MATH-TYPESET, soft).")
+FIG_NEED_FINDING = ("G-FIG-NEED: the figure restates the stem — every drawn label ({labels}) is defined in the text. "
+                    "Make the figure the only place one quantity is defined (where an angle is measured from, which "
+                    "way an axis or force points, a length shown only in the drawing) and remove that definition from "
+                    "the stem; keep band, subtopic, key and options")
+
+
+def _p1_str(x):
+    return x if isinstance(x, str) else ''
+
+
+# v2.12: exact copies of t3_mathcomp._T3_SYMBOLS / the _T3_NARY glyphs / MATH_OPEN / MATH_CLOSE — the thin core imports
+# nothing outside the standard library (check AB). final_assembly --self-test (p1_t3_drift_lock) fails the moment the
+# compiler and these copies diverge.
+P1_MATH_OPEN = '⟦MATH:'
+P1_MATH_CLOSE = '⟧'
+P1_SYMBOLS = {
+    'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ε', 'zeta': 'ζ', 'eta': 'η', 'theta': 'θ',
+    'iota': 'ι', 'kappa': 'κ', 'lambda': 'λ', 'mu': 'μ', 'nu': 'ν', 'xi': 'ξ', 'pi': 'π', 'rho': 'ρ', 'sigma': 'σ',
+    'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ', 'chi': 'χ', 'psi': 'ψ', 'omega': 'ω', 'Gamma': 'Γ', 'Delta': 'Δ',
+    'Theta': 'Θ', 'Lambda': 'Λ', 'Xi': 'Ξ', 'Pi': 'Π', 'Sigma': 'Σ', 'Phi': 'Φ', 'Psi': 'Ψ', 'Omega': 'Ω',
+    'le': '≤', 'leq': '≤', 'ge': '≥', 'geq': '≥', 'ne': '≠', 'neq': '≠', 'pm': '±', 'mp': '∓', 'times': '×',
+    'cdot': '·', 'div': '÷', 'in': '∈', 'notin': '∉', 'subset': '⊂', 'subseteq': '⊆', 'supset': '⊃',
+    'supseteq': '⊇', 'cup': '∪', 'cap': '∩', 'infty': '∞', 'partial': '∂', 'nabla': '∇', 'forall': '∀',
+    'exists': '∃', 'to': '→', 'rightarrow': '→', 'leftarrow': '←', 'Rightarrow': '⇒', 'Leftarrow': '⇐',
+    'mapsto': '↦', 'approx': '≈', 'equiv': '≡', 'propto': '∝', 'sim': '∼', 'emptyset': '∅', 'setminus': '∖',
+    'mid': '|', 'circ': '∘', 'star': '⋆', 'cdots': '⋯', 'ldots': '…', 'because': '∵', 'therefore': '∴',
+    'angle': '∠', 'perp': '⊥', 'parallel': '∥', 'cong': '≅', 'oplus': '⊕', 'otimes': '⊗', 'wedge': '∧', 'vee': '∨',
+    'neg': '¬', 'prime': '′', 'degree': '°', 'varepsilon': 'ε', 'vartheta': 'ϑ', 'varphi': 'φ', 'varrho': 'ϱ',
+    'varsigma': 'ς', 'varpi': 'ϖ', 'varkappa': 'ϰ', 'digamma': 'ϝ', 'Upsilon': 'Υ', 'varnothing': '∅',
+    'smallsetminus': '∖', 'bot': '⊥', 'top': '⊤', 'ell': 'ℓ', 'hbar': 'ℏ', 'aleph': 'ℵ', 'beth': 'ℶ', 'Re': 'ℜ',
+    'Im': 'ℑ', 'wp': '℘', 'imath': 'ı', 'jmath': 'ȷ', 'll': '≪', 'gg': '≫', 'lll': '⋘', 'ggg': '⋙', 'iff': '⟺',
+    'implies': '⟹', 'impliedby': '⟸', 'Leftrightarrow': '⇔', 'leftrightarrow': '↔', 'longrightarrow': '⟶',
+    'longleftarrow': '⟵', 'Longrightarrow': '⟹', 'Longleftarrow': '⟸', 'longleftrightarrow': '⟷',
+    'Longleftrightarrow': '⟺', 'longmapsto': '⟼', 'uparrow': '↑', 'downarrow': '↓', 'Uparrow': '⇑',
+    'Downarrow': '⇓', 'updownarrow': '↕', 'nearrow': '↗', 'searrow': '↘', 'swarrow': '↙', 'nwarrow': '↖',
+    'hookrightarrow': '↪', 'hookleftarrow': '↩', 'twoheadrightarrow': '↠', 'rightharpoonup': '⇀',
+    'rightleftharpoons': '⇌', 'leftrightarrows': '⇆', 'gets': '←', 'ast': '∗', 'dagger': '†', 'ddagger': '‡',
+    'bullet': '•', 'diamond': '⋄', 'triangle': '△', 'triangleleft': '◁', 'triangleright': '▷', 'square': '□',
+    'Box': '□', 'blacksquare': '■', 'lozenge': '◊', 'qed': '∎', 'checkmark': '✓', 'lbrace': '{', 'rbrace': '}',
+    'lbrack': '[', 'rbrack': ']', 'langle': '⟨', 'rangle': '⟩', 'lfloor': '⌊', 'rfloor': '⌋', 'lceil': '⌈',
+    'rceil': '⌉', 'vert': '|', 'Vert': '‖', 'lvert': '|', 'rvert': '|', 'lVert': '‖', 'rVert': '‖',
+    'backslash': '∖', 'nmid': '∤', 'ni': '∋', 'owns': '∋', 'subsetneq': '⊊', 'supsetneq': '⊋', 'nsubseteq': '⊈',
+    'nsupseteq': '⊉', 'sqsubseteq': '⊑', 'sqsupseteq': '⊒', 'sqcup': '⊔', 'sqcap': '⊓', 'uplus': '⊎', 'simeq': '≃',
+    'asymp': '≍', 'doteq': '≐', 'triangleq': '≜', 'coloneqq': '≔', 'leqslant': '⩽', 'geqslant': '⩾',
+    'lesssim': '≲', 'gtrsim': '≳', 'prec': '≺', 'succ': '≻', 'preceq': '⪯', 'succeq': '⪰', 'models': '⊨',
+    'vdash': '⊢', 'dashv': '⊣', 'vdots': '⋮', 'ddots': '⋱', 'dots': '…', 'dotsc': '…', 'dotsb': '⋯', 'dotsm': '⋯',
+    'colon': ':', 'land': '∧', 'lor': '∨', 'lnot': '¬', 'nexists': '∄', 'complement': '∁', 'measuredangle': '∡',
+    'sphericalangle': '∢', 'nparallel': '∦', 'mho': '℧', 'eth': 'ð', 'cdotp': '·', 'odot': '⊙', 'ominus': '⊖',
+    'oslash': '⊘', 'bigcirc': '◯', 'amalg': '⨿', 'wr': '≀', 'pounds': '£', 'S': '§', 'P': '¶', 'surd': '√',
+    'flat': '♭', 'natural': '♮', 'sharp': '♯', 'clubsuit': '♣', 'diamondsuit': '♢', 'heartsuit': '♡',
+    'spadesuit': '♠', 'circledR': '®', 'perthousand': '‰', 'textdegree': '°', 'AA': 'Å', 'angstrom': 'Å',
+}
+P1_NARY = {
+    'int': '∫', 'iint': '∬', 'oint': '∮', 'sum': '∑', 'prod': '∏', 'sumi': '∑', 'prodi': '∏', 'iiint': '∭',
+    'oiint': '∯', 'bigcup': '⋃', 'bigcap': '⋂', 'bigoplus': '⨁', 'bigotimes': '⨂', 'coprod': '∐', 'bigvee': '⋁',
+    'bigwedge': '⋀',
+}
+P1_MATRIX_ENVS = ('pmatrix', 'bmatrix', 'vmatrix', 'matrix', 'Bmatrix', 'Vmatrix', 'smallmatrix')
+P1_NOOP = ('Big', 'Bigg', 'Biggl', 'Biggr', 'Bigl', 'Bigr', 'big', 'bigg', 'biggl', 'biggr', 'bigl', 'bigr', 'displaystyle', 'limits', 'middle', 'nolimits', 'scriptscriptstyle', 'scriptstyle', 'textstyle')
+P1_STYLED = ('bm', 'boldsymbol', 'emph', 'mathbf', 'mathit', 'mathrm', 'mathup', 'mbox', 'operatorname', 'textbf', 'textit', 'textrm', 'textup')
+
+
+def _p1_open_close():
+    """The region delimiters (P1_MATH_OPEN / P1_MATH_CLOSE == t3_mathcomp.MATH_OPEN / MATH_CLOSE, drift-locked). Pure."""
+    return P1_MATH_OPEN, P1_MATH_CLOSE
+
+
+def _p1_region_re():
+    o, c = _p1_open_close()
+    return _p1_re.compile(_p1_re.escape(o) + '(.*?)' + _p1_re.escape(c), _p1_re.S)
+
+
+def mt_has_region(text):
+    """True when text holds at least one ⟦MATH:…⟧ region. Pure."""
+    o, _c = _p1_open_close()
+    return isinstance(text, str) and o in text
+
+
+def mt_plain_text(text):
+    """Plain text of a string (§2.2): every ⟦MATH:…⟧ region removed (replaced by one space). Pure."""
+    return _p1_region_re().sub(' ', text) if isinstance(text, str) else ''
+
+
+def math_typeset_findings(text, arms=None):
+    """G-MATH-TYPESET (C-E6): the arms of MATH_TYPESET_ARMS that fire on the PLAIN text of `text` (regions removed).
+    arms: the enabled arm ids (None = all). Returns [(arm, snippet)] in arm order, at most 3 snippets per arm.
+    Non-str -> []. Pure."""
+    if not isinstance(text, str) or not text.strip():
+        return []
+    plain = mt_plain_text(text)
+    use = [a for a in MATH_TYPESET_ARM_IDS if arms is None or a in (arms or ())]
+    out = []
+    for a in use:
+        for k, m in enumerate(_P1_ARM_RE[a].finditer(plain)):
+            if k >= 3:
+                break
+            s0, s1 = max(0, m.start() - 18), min(len(plain), m.end() + 18)
+            out.append((a, ' '.join(plain[s0:s1].split())))
+    return out
+
+
+# ── linear form of a region (C-E8): the text the deterministic gates, solvers and reviewers read ─────────────────────
+_P1_SUP = dict(zip('0123456789+-−=()niax', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻⁼⁽⁾ⁿⁱᵃˣ'))
+_P1_SUB = dict(zip('0123456789+-−=()aeijknmorsux', '₀₁₂₃₄₅₆₇₈₉₊₋₋₌₍₎ₐₑᵢⱼₖₙₘₒᵣₛᵤₓ'))
+
+
+def _p1_t3_tables():
+    """(symbols, n-ary glyphs, matrix environments, no-op commands, styled-text commands, unused) — the embedded copies
+    of the compiler's own tables. Pure."""
+    return P1_SYMBOLS, P1_NARY, set(P1_MATRIX_ENVS), set(P1_NOOP), set(P1_STYLED), set()
+
+
+def _p1_group(s, i):
+    """(content, next index) of the TeX group starting at s[i] ('{…}' or one token). Pure."""
+    n = len(s)
+    while i < n and s[i] == ' ':
+        i += 1
+    if i >= n:
+        return '', i
+    if s[i] == '{':
+        d, j = 0, i
+        while j < n:
+            if s[j] == '{':
+                d += 1
+            elif s[j] == '}':
+                d -= 1
+                if d == 0:
+                    return s[i + 1:j], j + 1
+            j += 1
+        return s[i + 1:], n
+    if s[i] == '\\':
+        m = _p1_re.match(r'\\(?:[A-Za-z]+|.)', s[i:])
+        return m.group(0), i + len(m.group(0))
+    return s[i], i + 1
+
+
+def _p1_script(txt, table, mark):
+    t = txt.strip()
+    if t and all(ch in table for ch in t):
+        return ''.join(table[ch] for ch in t)
+    return f'{mark}({t})' if len(t) > 1 else f'{mark}{t}'
+
+
+def _p1_lin(body, tabs, depth=0):
+    """Linearise one region body. Recursive, bounded (depth 40). Pure."""
+    if depth > 40:
+        return body
+    sym, nary, mats, noop, styled, funcs = tabs
+    s, i, out = body, 0, []
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch == '\\':
+            m = _p1_re.match(r'\\([A-Za-z]+|.)', s[i:])
+            cmd = m.group(1)
+            i += len(m.group(0))
+            if cmd == 'begin':
+                env, i = _p1_group(s, i)
+                endtag = '\\end{' + env + '}'
+                j = s.find(endtag, i)
+                inner = s[i:j] if j >= 0 else s[i:]
+                i = (j + len(endtag)) if j >= 0 else n
+                rows = [r for r in _p1_re.split(r'\\\\', inner) if r.strip()]
+                if env in ('cases', 'dcases'):
+                    parts = []
+                    for r in rows:
+                        c = r.split('&', 1)
+                        parts.append(_p1_lin(c[0], tabs, depth + 1).strip()
+                                     + ((' if ' + _p1_lin(c[1], tabs, depth + 1).strip()) if len(c) > 1 else ''))
+                    out.append('{' + '; '.join(parts) + '}')
+                elif env in mats or env in ('array',):
+                    cells = [[_p1_lin(c, tabs, depth + 1).strip() for c in r.split('&')] for r in rows]
+                    pre = 'det' if env in ('vmatrix', 'Vmatrix') else ''
+                    out.append(pre + '[' + ', '.join('[' + ', '.join(r) + ']' for r in cells) + ']')
+                else:                                          # aligned / gathered / split
+                    out.append('; '.join(_p1_lin(r.replace('&', ''), tabs, depth + 1).strip() for r in rows))
+                continue
+            if cmd in ('pmatrix', 'bmatrix', 'vmatrix', 'matrix', 'cases'):
+                g, i = _p1_group(s, i)
+                env = 'cases' if cmd == 'cases' else cmd
+                out.append(_p1_lin('\\begin{' + env + '}' + g + '\\end{' + env + '}', tabs, depth + 1))
+                continue
+            if cmd in ('frac', 'dfrac', 'tfrac', 'sfrac', 'cfrac'):
+                a, i = _p1_group(s, i)
+                b, i = _p1_group(s, i)
+                out.append(f'({_p1_lin(a, tabs, depth + 1).strip()})/({_p1_lin(b, tabs, depth + 1).strip()})')
+                continue
+            if cmd == 'sqrt':
+                deg = ''
+                if i < n and s[i] == '[':
+                    j = s.find(']', i)
+                    deg, i = (s[i + 1:j], j + 1) if j >= 0 else ('', i)
+                a, i = _p1_group(s, i)
+                rad = '√' if not deg else ('∛' if deg.strip() == '3' else ('∜' if deg.strip() == '4'
+                                                                          else f'root[{deg.strip()}]'))
+                out.append(f'{rad}({_p1_lin(a, tabs, depth + 1).strip()})')
+                continue
+            if cmd in nary:
+                lo = hi = None
+                for _ in range(2):
+                    k = i
+                    while k < n and s[k] == ' ':
+                        k += 1
+                    if k < n and s[k] in '_^':
+                        g, k2 = _p1_group(s, k + 1)
+                        if s[k] == '_':
+                            lo = _p1_lin(g, tabs, depth + 1).strip()
+                        else:
+                            hi = _p1_lin(g, tabs, depth + 1).strip()
+                        i = k2
+                glyph = nary[cmd][0] if isinstance(nary[cmd], (tuple, list)) else str(nary[cmd])
+                lim = f'[{lo or ""}→{hi}]' if hi is not None else (f'[{lo}]' if lo else '')
+                out.append(glyph + lim + ' ')
+                continue
+            if cmd in styled or cmd in ('text', 'operatorname', 'mathbf', 'boldsymbol', 'mathit', 'mathsf'):
+                g, i = _p1_group(s, i)
+                out.append(_p1_lin(g, tabs, depth + 1))
+                continue
+            if cmd in noop or cmd in ('left', 'right', 'big', 'Big', 'bigg', 'Bigg', 'limits', 'nolimits'):
+                continue
+            if cmd in (',', ':', ';', '>', 'quad', 'qquad', ' ', 'enspace'):
+                out.append(' ')
+                continue
+            if cmd == '!':
+                continue
+            if cmd in ('{', '}', '|', '%', '$', '#', '&', '_'):
+                out.append(cmd)
+                continue
+            if cmd in sym:
+                out.append(sym[cmd])
+                continue
+            out.append(cmd if cmd in funcs else cmd)         # an unknown command: its name, never the backslash
+            continue
+        if ch in '^_':
+            g, i = _p1_group(s, i + 1)
+            g = _p1_lin(g, tabs, depth + 1)
+            out.append(_p1_script(g, _P1_SUP if ch == '^' else _P1_SUB, '^' if ch == '^' else '_'))
+            continue
+        if ch in '{}':
+            i += 1
+            continue
+        if ch == '&':
+            out.append(' ')
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return ''.join(out)
+
+
+def math_linear(src):
+    """C-E8: the linear plain-text form of a string with ⟦MATH:…⟧ regions — \\frac{a}{b} -> (a)/(b), x^{2} -> x²,
+    x_{n} -> xₙ, \\sqrt{n} -> √(n), \\int_{a}^{b} -> ∫[a→b], \\sum_{n=1}^{\\infty} -> ∑[n=1→∞], a matrix ->
+    [[1, 2], [0, 3]], cases -> {a if c1; b if c2}, a Greek or symbol command -> its character (t3_mathcomp's own
+    tables, read-only). Text outside regions is kept byte for byte; a string with no region is returned unchanged.
+    An unparseable region gives its raw body. Non-str -> ''. Pure; lives HERE, never in the byte-locked t3."""
+    if not isinstance(src, str):
+        return ''
+    if not mt_has_region(src):
+        return src
+    tabs = _p1_t3_tables()
+
+    def _one(m):
+        try:
+            return ' '.join(_p1_lin(m.group(1), tabs).split())
+        except Exception:                                   # noqa: BLE001
+            return m.group(1)
+    return _p1_region_re().sub(_one, src)
+
+
+def mt_record_fields(stem, options=None):
+    """The four S7-QUALITY text fields of one item from the writer's text WITH regions (C-E8):
+    {'stem_src', 'stem_text', 'option_src', 'option_texts'} — *_src exactly as written (what the docx builders
+    receive), stem_text / option_texts the linear plain form (what every text gate, solver and reviewer reads). A
+    string with no region gives identical src and text. Pure."""
+    st = stem if isinstance(stem, str) else ''
+    ops = [o if isinstance(o, str) else str(o) for o in (options or [])] \
+        if isinstance(options, (list, tuple)) else []
+    return {'stem_src': st, 'stem_text': math_linear(st), 'option_src': list(ops),
+            'option_texts': [math_linear(o) for o in ops]}
+
+
+def mt_text_view(entry):
+    """(text_entry, src_texts) for the item gates (K-robustness): when the writer put regions straight into
+    stem_text / option_texts (or into list_columns / statements), the text gates read their linear form and the
+    typesetting gate reads the source; stem_src / option_src win when present. An entry with no region anywhere is
+    returned AS IS (same object) — byte-identical gate input. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    st_src = e.get('stem_src') if isinstance(e.get('stem_src'), str) else e.get('stem_text')
+    op_src = e.get('option_src') if isinstance(e.get('option_src'), (list, tuple)) else e.get('option_texts')
+    srcs = [x for x in [st_src] if isinstance(x, str)]
+    srcs += [x for x in (op_src or []) if isinstance(x, str)] if isinstance(op_src, (list, tuple)) else []
+    for k in ('statements', 'statement_lines', 'subparts'):
+        if isinstance(e.get(k), (list, tuple)):
+            srcs += [x for x in e[k] if isinstance(x, str)]
+    if isinstance(e.get('list_columns'), list):
+        for col in e['list_columns']:
+            if isinstance(col, (list, tuple)):
+                for y in col:
+                    if isinstance(y, str):
+                        srcs.append(y)
+                    elif isinstance(y, (list, tuple)):
+                        srcs += [z for z in y if isinstance(z, str)]
+    if not any(mt_has_region(x) for x in ([e.get('stem_text')] + list(e.get('option_texts') or [])
+                                          if isinstance(e.get('option_texts'), (list, tuple))
+                                          else [e.get('stem_text')])):
+        return e, srcs
+    v = dict(e)
+    if isinstance(e.get('stem_text'), str):
+        v['stem_text'] = math_linear(e['stem_text'])
+    if isinstance(e.get('option_texts'), (list, tuple)):
+        v['option_texts'] = [math_linear(o) if isinstance(o, str) else o for o in e['option_texts']]
+    return v, srcs
+
+
+# ── per-subject profile (C-A1, measured by Step 5; K1: keyed on the SUBJECT) ────────────────────────────────────────
+def math_typeset_measure(questions, chem=False, subject=None):
+    """C-A1 for ONE subject. questions: [{'omath': int, 'display': int, 'plain': str}] — one row per analysed PYQ
+    question (equation objects, displayed equations and the run text OUTSIDE m:oMath). Self-calibration: an arm
+    that fires on more than MATH_TYPESET_CAL_RATE of the real questions (or on ANY when n < MATH_TYPESET_SMALL_N) is
+    disabled — the real exam decides which spellings are legitimate for it. mode 'strict' when share >=
+    MATH_TYPESET_STRICT_SHARE, n >= MATH_TYPESET_MIN_N, not chem and >= 1 arm enabled; else 'off'. Pure."""
+    rows = [q for q in (questions or []) if isinstance(q, dict)] if isinstance(questions, (list, tuple)) else []
+    n = len(rows)
+
+    def _i(x):
+        return int(x) if isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 else 0
+    k = sum(1 for q in rows if _i(q.get('omath')) > 0)
+    share = round(k / n, 4) if n else 0.0
+    per_q = round(sum(_i(q.get('omath')) for q in rows) / n, 4) if n else 0.0
+    disp = round(sum(_i(q.get('display')) for q in rows) / n, 4) if n else 0.0
+    q_disp = round(sum(1 for q in rows if _i(q.get('display')) > 0) / n, 4) if n else 0.0
+    hits = {a: 0 for a in MATH_TYPESET_ARM_IDS}
+    for q in rows:
+        fired = {a for a, _s in math_typeset_findings(_p1_str(q.get('plain')))}
+        for a in fired:
+            hits[a] += 1
+    enabled = [a for a in MATH_TYPESET_ARM_IDS
+               if not ((n < MATH_TYPESET_SMALL_N and hits[a] > 0) or (n and hits[a] / n > MATH_TYPESET_CAL_RATE))]
+    chem = bool(chem) or bool(CHEM_NAME_RE.search(_p1_str(subject)))
+    strict = (n >= MATH_TYPESET_MIN_N and share >= MATH_TYPESET_STRICT_SHARE and not chem and bool(enabled))
+    return {'schema': 1, 'section': _p1_str(subject) or None, 'n': n, 'omml_q_share': share, 'omml_per_q': per_q,
+            'display_per_q': disp, 'display_q_share': q_disp, 'chem_section': chem, 'arms': enabled,
+            'arm_hits': hits, 'mode': 'strict' if strict else 'off', 'rule': P1_RULE}
+
+
+def format_math_typeset_line(profile):
+    """One MATH_TYPESET_PROFILE line (the FIGURE_STYLE_PROFILE one-line JSON convention). '' for a non-dict. Pure."""
+    if not isinstance(profile, dict):
+        return ''
+    return MATH_TYPESET_PREFIX + _p1_json.dumps(profile, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+
+
+def parse_math_typeset_block(text):
+    """{subject: profile} from every MATH_TYPESET_PROFILE line of section_rules (prefix at column 0; JSON object
+    with schema 1 and a 'section'; the LAST line per subject wins; a malformed line is ignored). Pure."""
+    out = {}
+    for ln in _p1_str(text).splitlines():
+        if not ln.startswith(MATH_TYPESET_PREFIX):
+            continue
+        try:
+            d = _p1_json.loads(ln[len(MATH_TYPESET_PREFIX):].strip())
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get('schema') == 1 and isinstance(d.get('section'), str) and d['section'].strip():
+            out[d['section'].strip()] = d
+    return out
+
+
+def parse_math_typeset_overrides(text):
+    """[(name, mode)] from owner lines 'MATH_TYPESET_MODE: <subject or part> = strict|off' (case-insensitive mode;
+    later lines win when the plan applies them in order). Pure."""
+    out = []
+    for ln in _p1_str(text).splitlines():
+        m = _p1_re.match(r'^\s*MATH_TYPESET_MODE\s*:\s*(.+?)\s*=\s*(strict|off)\s*$', ln, _p1_re.I)
+        if m:
+            out.append((m.group(1).strip(), m.group(2).strip().lower()))
+    return out
+
+
+def mt_chem_subtopics(section_rules_text, chem_types=None):
+    """The subtopic ids whose PYQ figure evidence is chemistry (§2.4 rules 1-3): a DOMINANT object type in
+    chem_types — the chemistry object types and their aliases (figure_types families chem_structure / chem_scheme /
+    chem_spectrum / chem_diagram and CHEM_R/H/P_OBJECT_TYPES), supplied by the caller (final_assembly.bv_p1_chem_types;
+    the thin core imports nothing). Reads section_rules PYQ_IMAGE_ANALYSIS through parse_image_analysis_blocks. Pure."""
+    ct = {str(x) for x in (chem_types or ())}
+    out = set()
+    if not ct:
+        return out
+    for sid, rec in (parse_image_analysis_blocks(_p1_str(section_rules_text)) or {}).items():
+        dom = list(((rec or {}).get('object_types') or {}).get('dominant') or []) if isinstance(rec, dict) else []
+        if any(str(ot) in ct for ot in dom):
+            out.add(str(sid))
+    return out
+
+
+def mt_subject_index(blueprint=None, section_rules_text=None):
+    """{subtopic_id: {'subject', 'topic', 'subtopic'}} from the blueprint's subtopic_list (manifest 'section' = the
+    subject), filled from section_rules 'subtopic_id:' / 'section:' / 'topic:' entries where the blueprint is
+    silent. Pure."""
+    idx = {}
+    bp = blueprint if isinstance(blueprint, dict) else {}
+    for r in bp.get('subtopic_list') or []:
+        if isinstance(r, dict) and r.get('subtopic_id'):
+            idx[str(r['subtopic_id'])] = {'subject': r.get('section'), 'topic': r.get('topic'),
+                                          'subtopic': r.get('subtopic') or r.get('display_name')}
+    cur = {}
+    for ln in _p1_str(section_rules_text).splitlines():
+        m = _p1_re.match(r'^(subtopic_id|section|topic|subtopic)\s*:\s*(.+?)\s*$', ln)
+        if not m:
+            if ln.startswith('--- Subtopic:'):
+                cur = {'subtopic': ln[len('--- Subtopic:'):].strip(' -')}
+            continue
+        cur[m.group(1)] = m.group(2)
+        if m.group(1) == 'subtopic_id':
+            sid = m.group(2)
+            r = idx.setdefault(sid, {'subject': None, 'topic': None, 'subtopic': None})
+            r['subject'] = r['subject'] or cur.get('section')
+            r['topic'] = r['topic'] or cur.get('topic')
+            r['subtopic'] = r['subtopic'] or cur.get('subtopic')
+        elif m.group(1) == 'section' and cur.get('subtopic_id') in idx:
+            r = idx[cur['subtopic_id']]
+            r['subject'] = r['subject'] or m.group(2)
+    return idx
+
+
+def _mt_part_subjects(blueprint, index):
+    """{paper part name: {subjects}} from the blueprint's mock sections (MockCreate 'Part B') and its sections list;
+    a scoped paper's single section (its scope label) maps to the subjects of its allocations. Pure."""
+    out = {}
+    bp = blueprint if isinstance(blueprint, dict) else {}
+    for mk in bp.get('mocks') or []:
+        for sec in (mk or {}).get('sections') or [] if isinstance(mk, dict) else []:
+            if not isinstance(sec, dict):
+                continue
+            nm = sec.get('section_name') or sec.get('name')
+            for a in sec.get('subtopic_allocations') or []:
+                if isinstance(a, dict) and a.get('subtopic_id'):
+                    sj = (index.get(str(a['subtopic_id'])) or {}).get('subject')
+                    if nm and sj:
+                        out.setdefault(str(nm), set()).add(sj)
+    return out
+
+
+def math_typeset_plan(section_rules_text, blueprint=None, subtopic_ids=None, chem_types=None):
+    """C-S8 (Create S3-16 — final_assembly.bv_s3_plans; read ONCE per paper and frozen in
+    batch_state['math_typeset']). {'schema': 1, 'rule', 'subjects': {subject: {'mode', 'arms', 'omml_q_share',
+    'omml_per_q', 'display_per_q', 'display_q_share', 'n', 'inert', 'source'}}, 'subject_of': {subtopic_id:
+    subject}, 'inert_subtopics': [...], 'chem_types': [...], 'info': [...]}. chem_types: the chemistry figure object
+    types (final_assembly.bv_p1_chem_types), frozen in the plan so every later chemistry test reads the same set.
+    Inert (K4): a subject whose name is chemistry, whose Step 5
+    profile says chem_section, or whose subtopics are mostly chemistry; an item is also inert when its own subtopic
+    is chemistry (figure evidence or a chemistry topic / subtopic name). Owner lines 'MATH_TYPESET_MODE: <subject
+    or part> = strict|off' override the measurement; a strict override on an inert subject is REFUSED (INFO). No
+    profile line and no override -> every subject 'off' (today's behaviour). Never raises."""
+    info = []
+    idx = mt_subject_index(blueprint, section_rules_text)
+    scope = {str(s) for s in (subtopic_ids or [])} if isinstance(subtopic_ids, (list, tuple, set)) else None
+    if scope:
+        idx = {k: v for k, v in idx.items() if k in scope} or idx
+    prof = parse_math_typeset_block(section_rules_text)
+    ct = sorted({str(x) for x in (chem_types or ())})
+    chem_sids = mt_chem_subtopics(section_rules_text, ct)
+    for sid, r in idx.items():
+        if CHEM_NAME_RE.search(' '.join(_p1_str(r.get(k)) for k in ('topic', 'subtopic'))):
+            chem_sids.add(sid)
+    by_subj = {}
+    for sid, r in idx.items():
+        if r.get('subject'):
+            by_subj.setdefault(r['subject'], []).append(sid)
+    for s in prof:
+        by_subj.setdefault(s, [])
+    subjects = {}
+    for s, sids in sorted(by_subj.items()):
+        p = prof.get(s) or {}
+        nchem = sum(1 for x in sids if x in chem_sids)
+        inert = bool(CHEM_NAME_RE.search(s)) or p.get('chem_section') is True or (bool(sids) and nchem * 2 > len(sids))
+        mode = 'strict' if (p.get('mode') == 'strict' and not inert) else 'off'
+        arms = [a for a in (p.get('arms') or []) if a in MATH_TYPESET_ARMS] if isinstance(p.get('arms'), list) else []
+        subjects[s] = {'mode': mode if arms or mode == 'off' else 'off', 'arms': arms,
+                       'omml_q_share': p.get('omml_q_share'), 'omml_per_q': p.get('omml_per_q'),
+                       'display_per_q': p.get('display_per_q'), 'display_q_share': p.get('display_q_share'),
+                       'n': p.get('n'), 'inert': inert, 'source': 'measured' if p else 'none'}
+    parts = _mt_part_subjects(blueprint, idx)
+    for name, mode in parse_math_typeset_overrides(section_rules_text):
+        targets = [name] if name in subjects else sorted(parts.get(name) or [])
+        if not targets:
+            info.append(f"MATH_TYPESET_MODE: '{name}' names no subject or paper part of this exam — line ignored")
+            continue
+        for t in targets:
+            rec = subjects[t]
+            if mode == 'strict' and rec['inert']:
+                info.append(f"MATH_TYPESET_MODE: strict refused for '{t}' — a chemistry subject stays as it is")
+                continue
+            rec['mode'] = mode
+            rec['source'] = 'owner line'
+            if mode == 'strict' and not rec['arms']:
+                rec['arms'] = list(MATH_TYPESET_ARM_IDS)
+    return {'schema': 1, 'rule': P1_RULE, 'subjects': subjects,
+            'subject_of': {k: v.get('subject') for k, v in idx.items() if v.get('subject')},
+            'inert_subtopics': sorted(chem_sids), 'chem_types': ct, 'info': info}
+
+
+def mt_item_state(plan, subject=None, subtopic_id=None):
+    """The Phase 1 state of ONE item: None when the paper carries no plan (dormant — a paper begun before this
+    release, or a caller of an earlier release); else {'subject', 'inert', 'strict', 'arms'}. The subject is the
+    item's own, else the plan's subject of its subtopic. Pure."""
+    if not isinstance(plan, dict) or not isinstance(plan.get('subjects'), dict):
+        return None
+    sid = str(subtopic_id) if subtopic_id is not None else None
+    sj = subject if isinstance(subject, str) and subject in plan['subjects'] else \
+        ((plan.get('subject_of') or {}).get(sid) if sid else None) or (subject if isinstance(subject, str) else None)
+    rec = plan['subjects'].get(sj) if sj else None
+    rec = rec if isinstance(rec, dict) else {}
+    inert = bool(rec.get('inert')) or (sid in set(plan.get('inert_subtopics') or [])) or \
+        bool(CHEM_NAME_RE.search(_p1_str(sj)))
+    strict = (rec.get('mode') == 'strict') and not inert
+    return {'subject': sj, 'inert': inert, 'strict': strict, 'arms': list(rec.get('arms') or []) if strict else []}
+
+
+def math_notation_for(plan, subject=None, subtopic_id=None):
+    """C-E9: MATH_NOTATION_LINE for a strict, non-inert item; None otherwise (packet byte-identical). Pure."""
+    st = mt_item_state(plan, subject, subtopic_id)
+    return MATH_NOTATION_LINE if st and st['strict'] else None
+
+
+def mt_gate_context(plan, subject=None, subtopic_id=None):
+    """The two qg_item_gates context keys for one item: {'math_typeset': {'mode': 'strict', 'arms': [...]}} only for
+    a strict item, {'figure_need_active': True} for every non-inert item (OD-P4: General Aptitude included). {} when
+    the paper carries no plan or the item is inert — the gates are then dormant. Pure."""
+    st = mt_item_state(plan, subject, subtopic_id)
+    if not st or st['inert']:
+        return {}
+    out = {'figure_need_active': True, 'chem_types': list(plan.get('chem_types') or [])}
+    if st['strict']:
+        out['math_typeset'] = {'mode': 'strict', 'arms': st['arms']}
+    return out
+
+
+def mt_figure_style(plan, subject=None, subtopic_id=None, spec=None):
+    """OD-P2 / C-S4 + C-S5: the FigureSpec keys a NON-chemistry figure takes. Strict item: {'style_monochrome':
+    True, 'math_labels': True, 'alt_plain': True} (black line art, mathtext italic labels, ACCENT PRESENCE exempt as
+    for a measured-monochrome exam); non-strict, non-inert item: {'alt_plain': True}; chemistry figure, inert item or
+    no plan: {} (today's figure, byte for byte). Pure."""
+    if fig_is_chem(spec, plan.get('chem_types') if isinstance(plan, dict) else None):
+        return {}
+    st = mt_item_state(plan, subject, subtopic_id)
+    if not st or st['inert']:
+        return {}
+    return {'style_monochrome': True, 'math_labels': True, 'alt_plain': True} if st['strict'] else {'alt_plain': True}
+
+
+# ── G-FIG-NEED (C-E2): a definition test on the renderer's own label record ──────────────────────────────────────────
+FIG_NEED_NOUNS = ('mass', 'masses', 'radius', 'diameter', 'length', 'width', 'height', 'depth', 'side', 'angle',
+                  'angular speed', 'angular velocity', 'speed', 'velocity', 'distance', 'displacement', 'line',
+                  'point', 'axis', 'coordinate', 'coordinates', 'charge', 'spring constant', 'constant', 'tension',
+                  'force', 'moment of inertia', 'frequency', 'period', 'area', 'volume', 'density', 'temperature',
+                  'pressure', 'resistance', 'current', 'voltage', 'potential', 'field', 'vertex', 'centre', 'center',
+                  'origin')
+FIG_NEED_VERBS = ('is', 'be', 'denote', 'denotes', 'stands for', 'represents')     # 'are' deliberately NOT a verb
+FIG_NEED_SHAPES = ('triangle', 'quadrilateral', 'square', 'rectangle', 'rhombus', 'parallelogram', 'polygon',
+                   'pentagon', 'hexagon', 'trapezium', 'circle', 'segment', 'chord', 'arc')
+FIG_NEED_GREEK = {'theta': 'θ', 'phi': 'φ', 'varphi': 'φ', 'omega': 'ω', 'alpha': 'α', 'beta': 'β', 'gamma': 'γ',
+                  'lambda': 'λ', 'mu': 'μ', 'psi': 'ψ', 'rho': 'ρ', 'sigma': 'σ', 'Omega': 'Ω', 'Theta': 'Θ',
+                  'Phi': 'Φ', 'delta': 'δ', 'Delta': 'Δ', 'epsilon': 'ε', 'tau': 'τ', 'eta': 'η', 'nu': 'ν'}
+FIG_NEED_REF_RE = _p1_re.compile(r'(?i)\b(?:shaded|hatched|marked|dotted|dashed|the (?:curve|path|graph|region|'
+                                 r'arrangement|network|circuit|configuration) shown)\b')
+_P1_SUBDIGIT = dict(zip('0123456789', '₀₁₂₃₄₅₆₇₈₉'))
+
+
+def fig_is_chem(spec, chem_types=None):
+    """§2.5: a chemistry figure — spec 'chem' True, or its family one of the four chemistry families, or its object
+    type in chem_types (the paper plan's frozen chemistry object types; final_assembly.bv_p1_chem_types). Pure."""
+    sp = spec if isinstance(spec, dict) else {}
+    if sp.get('chem') is True or str(sp.get('family') or '') in CHEM_FAMILIES:
+        return True
+    ot = sp.get('object_type') or sp.get('type')
+    return bool(ot) and str(ot) in {str(x) for x in (chem_types or ())}
+
+
+def fig_norm_label(label):
+    """A drawn label in text form: '$' stripped, \\theta -> θ (FIG_NEED_GREEK), _1 / _{1} -> ₁, ^\\circ -> °,
+    braces removed, spaces collapsed. Pure."""
+    s = _p1_str(label).replace('$', '')
+    s = _p1_re.sub(r'\^\{?\\circ\}?', '°', s)
+    s = _p1_re.sub(r'\\([A-Za-z]+)', lambda m: FIG_NEED_GREEK.get(m.group(1), m.group(1)), s)
+    s = _p1_re.sub(r'_\{?(\d+)\}?', lambda m: ''.join(_P1_SUBDIGIT[c] for c in m.group(1)), s)
+    s = s.replace('{', '').replace('}', '').replace('\\', '')
+    return ' '.join(s.split())
+
+
+def _fig_label_defined(lab, text):
+    """§3.5 rule 4: is the normalised label DEFINED (not merely mentioned) in text? Pure."""
+    if not lab:
+        return True
+    if _p1_re.search(r'\d', lab):                         # (a) a value label: present verbatim (spaces removed)
+        return lab.replace(' ', '') in text.replace(' ', '')
+    L = _p1_re.escape(lab)
+    b0, b1 = r'(?<![\w])', r'(?![\w₀-₉])'
+    verbs = '|'.join(_p1_re.escape(v) for v in FIG_NEED_VERBS)
+    if _p1_re.search(b0 + L + b1 + r'\s*,?\s*(?:' + verbs + r')\b', text):
+        return True                                       # (b) "<label> is / denotes …" ("Let x denote …")
+    nouns = '|'.join(_p1_re.escape(n) for n in sorted(FIG_NEED_NOUNS, key=len, reverse=True))
+    if _p1_re.search(r'(?i)\b(?:' + nouns + r')(?:\s+of\s+the\s+\w+)?\s+' + r'(?-i:' + L + r')' + b1, text):
+        return True                                       # (b) "mass m", "radius a", "line L", "angle of the cone α"
+    if _p1_re.search(b0 + L + b1 + r'\s*=\s*[−\-(√π\d]', text):
+        return True                                       # (b) an assignment "a = 2"
+    if _p1_re.fullmatch(r'[A-Z]', lab):                   # (c) a vertex of a named figure ("triangle ABC")
+        shapes = '|'.join(FIG_NEED_SHAPES)
+        for m in _p1_re.finditer(r'(?i)\b(?:' + shapes + r')\s+([A-Z]{2,8})\b', text):
+            if lab in m.group(1):
+                return True
+    return False
+
+
+def fig_need(stem, options, spec, chem_types=None):
+    """C-E2. (verdict, reasons): 'N/A' (option figure, reasoning glyph / option canvas, chemistry figure, or no
+    renderer label record), 'NEEDED' (a plotted data class; a fill / highlight / marked site; a stem that points at
+    something only the figure shows; or at least one label the text does not DEFINE — reasons = those labels) or
+    'DECORATIVE' (every drawn label is defined in the stem or options). Fail-open by construction: a pattern gap
+    leaves a label 'undefined' -> NEEDED -> no finding. Never raises; bad input -> ('N/A', []). Pure."""
+    try:
+        sp = spec if isinstance(spec, dict) else None
+        if sp is None:
+            return 'N/A', []
+        if str(sp.get('role') or 'problem').startswith('option') or sp.get('class') in ('reasoning_glyph',
+                                                                                         'option_canvas'):
+            return 'N/A', []
+        if fig_is_chem(sp, chem_types):
+            return 'N/A', []
+        labels = sp.get('text_labels')
+        if not isinstance(labels, list) or not [x for x in labels if _p1_str(x).strip()]:
+            return 'N/A', []
+        if sp.get('class') in ('data_series', 'data_single'):
+            return 'NEEDED', ['plotted data']
+        st = math_linear(_p1_str(stem))
+        if sp.get('fills') or sp.get('highlight') or sp.get('marked_sites') or FIG_NEED_REF_RE.search(st):
+            return 'NEEDED', ['a feature shown only in the figure']
+        text = ' '.join([st] + [math_linear(_p1_str(o)) for o in (options or [])
+                                if isinstance(options, (list, tuple))])
+        text = fig_norm_label(text) if '$' in text else text
+        und = []
+        for lab in labels:
+            nl = fig_norm_label(lab)
+            if nl and not _fig_label_defined(nl, text) and nl not in und:
+                und.append(nl)
+        return ('NEEDED', und) if und else ('DECORATIVE', [fig_norm_label(x) for x in labels if fig_norm_label(x)])
+    except Exception:                                       # noqa: BLE001
+        return 'N/A', []
+
+
+def fig_need_findings(entry, figure_specs, chem_types=None):
+    """G-FIG-NEED over one item's problem-role FigureSpecs (C-E3): one finding per DECORATIVE figure. Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    view, _src = mt_text_view(e)
+    out = []
+    for sp in (figure_specs or []) if isinstance(figure_specs, (list, tuple)) else []:
+        if not isinstance(sp, dict) or str(sp.get('role') or 'problem') != 'problem':
+            continue
+        v, why = fig_need(view.get('stem_text'), view.get('option_texts'), sp, chem_types)
+        if v == 'DECORATIVE':
+            out.append(FIG_NEED_FINDING.format(labels=', '.join(why) or '—'))
+    return out
+
+
+def math_typeset_item_findings(entry, arms):
+    """G-MATH-TYPESET over one item's source texts (stem, options, statements, list columns) (C-E7). [finding]. Pure."""
+    _v, srcs = mt_text_view(entry)
+    hits = []
+    for t in srcs:
+        for a, snip in math_typeset_findings(t, arms):
+            if (a, snip) not in hits:
+                hits.append((a, snip))
+    if not hits:
+        return []
+    named = '; '.join(f'{a} ({MATH_TYPESET_ARM_WORDS.get(a, a)}): "{s}"' for a, s in hits[:6])
+    return ['G-MATH-TYPESET: maths written as text — ' + named + ' — write each named expression as a ⟦MATH:…⟧ '
+            'region (fraction \\frac, radical \\sqrt, integral \\int_{a}^{b}, sum \\sum_{…}^{…}, matrix pmatrix); put '
+            'a matrix, system or long equation on its own line as a region alone']
+
+
+def p1_amber_lines(q, entry, context):
+    """The DeliveryFooter §LADDER-BC AMBER lines (C-S6, C-S15) a SETTLED question carries when its delivered text
+    still trips a Phase 1 soft gate after the pre-review tries: [('AMBER', text)]. context = the item's gate context
+    (mt_gate_context + 'figure_specs'). Pure."""
+    ctx = context if isinstance(context, dict) else {}
+    out = []
+    mt = ctx.get('math_typeset')
+    if isinstance(mt, dict) and mt.get('mode') == 'strict':
+        arms = sorted({a for t in mt_text_view(entry)[1] for a, _s in math_typeset_findings(t, mt.get('arms'))})
+        if arms:
+            out.append(('AMBER', f"Q{q}: maths written as text (G-MATH-TYPESET {', '.join(arms)})"))
+    if ctx.get('figure_need_active') and fig_need_findings(entry, ctx.get('figure_specs'), ctx.get('chem_types')):
+        out.append(('AMBER', f"Q{q}: the figure restates the stem (G-FIG-NEED; delivered with its figure)"))
+    return out
+
+
+# ── A-TYPESET (C-E10): the paper against its subjects' profiles — disclosure only ───────────────────────────────────
+def typeset_shortfall(plan, per_q):
+    """per_q: {q: {'omath': int, 'display': int, 'subject'?, 'subtopic_id'?}} for the delivered paper. Per STRICT
+    subject, compare the share of its questions with an equation object, objects per question and displayed
+    equations per question with the profile, at tolerance max(1 question, 15 %). Returns [(subject, line)] for each
+    shortfall (WARN, never a stop) and an INFO line per strict subject. Pure."""
+    if not isinstance(plan, dict) or not isinstance(plan.get('subjects'), dict):
+        return []
+    groups = {}
+    for q, r in (per_q or {}).items() if isinstance(per_q, dict) else []:
+        if not isinstance(r, dict):
+            continue
+        st = mt_item_state(plan, r.get('subject'), r.get('subtopic_id'))
+        if st and st['strict']:
+            groups.setdefault(st['subject'], []).append(r)
+    out = []
+    for sj, rows in sorted(groups.items()):
+        p = plan['subjects'].get(sj) or {}
+        n = len(rows)
+        k = sum(1 for r in rows if int(r.get('omath') or 0) > 0)
+        tot = sum(int(r.get('omath') or 0) for r in rows)
+        dsp = sum(int(r.get('display') or 0) for r in rows)
+        bad = []
+        sh = p.get('omml_q_share')
+        if isinstance(sh, (int, float)) and k < sh * n - max(MATH_TYPESET_TOL[0], MATH_TYPESET_TOL[1] * sh * n):
+            bad.append(f'{k} of {n} questions carry typeset maths (exam profile {sh:.0%})')
+        pq = p.get('omml_per_q')
+        if isinstance(pq, (int, float)) and n and tot / n < pq * (1 - MATH_TYPESET_TOL[1]) - 1e-9 and \
+                tot < pq * n - MATH_TYPESET_TOL[0]:
+            bad.append(f'{tot / n:.1f} equation objects per question (exam profile {pq:.1f})')
+        dq = p.get('display_per_q')
+        if isinstance(dq, (int, float)) and dq > 0 and n and dsp < dq * n * (1 - MATH_TYPESET_TOL[1]) - \
+                MATH_TYPESET_TOL[0]:
+            bad.append(f'{dsp} displayed equation(s) (exam profile {dq:.2f} per question)')
+        line = f"A-TYPESET: {sj} {k} of {n} questions carry typeset maths (exam profile " + \
+            (f"{sh:.0%})" if isinstance(sh, (int, float)) else "owner line)")
+        out.append((sj, ('WARN ' if bad else 'INFO ') + line + ((' — ' + '; '.join(bad)) if bad else '')))
+    return out
+
+
+
+
 for _n, _d in {
         'r3_mode': lambda *a, **k: R3_MODE_COUNTED,
         'r3_entry_mode': lambda *a, **k: R3_MODE_LEGACY,
@@ -33909,6 +34987,33 @@ for _n, _d in {
         'mix_to_tuple': lambda *a, **k: None,
         'fg4_coverage_advisory': lambda *a, **k: [],
         'rp_attach_prior': lambda rows=None, *a, **k: rows if isinstance(rows, list) else [],
+        # v2.12 Cluster P1 — every new function never raises (documented defaults)
+        'mt_has_region': lambda *a, **k: False,
+        'mt_plain_text': lambda *a, **k: '',
+        'math_typeset_findings': lambda *a, **k: [],
+        'math_linear': lambda src=None, *a, **k: src if isinstance(src, str) else '',
+        'mt_record_fields': lambda *a, **k: {'stem_src': '', 'stem_text': '', 'option_src': [], 'option_texts': []},
+        'mt_text_view': lambda entry=None, *a, **k: ((entry if isinstance(entry, dict) else {}), []),
+        'math_typeset_measure': lambda *a, **k: {'schema': 1, 'section': None, 'n': 0, 'mode': 'off', 'arms': []},
+        'format_math_typeset_line': lambda *a, **k: '',
+        'parse_math_typeset_block': lambda *a, **k: {},
+        'parse_math_typeset_overrides': lambda *a, **k: [],
+        'mt_chem_subtopics': lambda *a, **k: set(),
+        'mt_subject_index': lambda *a, **k: {},
+        'math_typeset_plan': lambda *a, **k: {'schema': 1, 'rule': P1_RULE, 'subjects': {}, 'subject_of': {},
+                                              'inert_subtopics': [], 'info': ['math typeset plan unavailable']},
+        'mt_item_state': lambda *a, **k: None,
+        'math_notation_for': lambda *a, **k: None,
+        'mt_gate_context': lambda *a, **k: {},
+        'mt_figure_style': lambda *a, **k: {},
+        'fig_is_chem': lambda *a, **k: True,
+        'fig_norm_label': lambda *a, **k: '',
+        'fig_need': lambda *a, **k: ('N/A', []),
+        'fig_need_findings': lambda *a, **k: [],
+        'math_typeset_item_findings': lambda *a, **k: [],
+        'p1_amber_lines': lambda *a, **k: [],
+        'typeset_shortfall': lambda *a, **k: [],
+        'bv_brief_needs_fig': lambda *a, **k: False,
 }.items():
     _nf_guard(_n, _d)
 del _n, _d

@@ -1,4 +1,10 @@
-# Framework_DeliveryFooter v1.55.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.56.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.56.0 — 2026-11-21 — GAP-2026-11-21-MATH-TYPESET C-S15 + GAP-2026-11-21-FIGURE-NEED C-S6 (release 2026.11.27; with
+#   MockTestCreate v8.6, blueprint_core v2.12, audit_canonical v2.46): §LADDER-BC gains two question lines written by
+#   bc.p1_amber_lines when a question settles still tripping a SOFT Phase 1 gate after the pre-review tries ("maths
+#   written as text", "the figure restates the stem" — delivered with its figure); §LADDER-NF gains the A-TYPESET
+#   composition line (the paper's typeset-maths density in a strict subject against the exam's own profile).
+#   Disclosure only — no stop, no repair.
 # v1.55.0 — 2026-11-20 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; with MockTestCreate v8.5): §LADDER-BC
 #   gains the F9 line (a rung-3 text replacement that kept its figure, delivered as reviewed); "replaced by a text
 #   question" is printed only for the TEXT fallback (bc.bc_is_text_fallback), never for a text / figure rebuild or an
@@ -1220,6 +1226,8 @@ Printed with the §LADDER-OP lines, one line each, only when present (an exact p
   AMBER — Repeated template / key leak / figure: Q<a>/Q<b> ...                        nf_disclosed['A-INTRADUP' | 'A-KEYLEAK' | 'A-STEMFIG']
   AMBER — Shape mix: <shape> <n> (<direction>) ...  (v1.54.0)                        nf_disclosed['A-SHAPEMIX'] (the auditor's AMBER — DISCLOSED line)
   AMBER — Shape plan relief: <shape>, ... not reachable with this paper's subtopics  (v1.54.0)   question_index shape_infeasible (Create S3-12d)
+  AMBER — A-TYPESET: <subject> <x> of <n> questions carry typeset maths (exam profile <share>) — <shortfall> ...  (v1.56.0)
+                                                                                    the auditor's A-TYPESET AMBER WARN line (certificate amber_notes; strict subjects only)
   AMBER — FIGURES: <section> delivers <n> figure question(s) against a target of <t> (floor <f>) ...  (v1.54.0)   the auditor's A-AXIS1 AMBER line
   Q<q>: figure grant moved to Q<r> | could not move to a later slot (informational, v1.54.0)   batch footer line (Create STEP A2, F5)
   AMBER — PYQ grade calibration: agreement <x> < <min>; stricter grade used for <k> record(s)   (Blueprint §7-10)
@@ -1284,6 +1292,10 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
   ⚠️ Q<n>: reviewer finding still open after rung 2 — question kept, not replaced by text      R3_FINDING_MAX_RUNG (v1.52.1)
   ⚠️ Q<n>: within-paper repeat / key leak disclosed after rung 2                              LAW-BC-2
   ⚠️ Q<n>: figure family without an answer engine — went from rung 2 to R5b (R10)             R10
+  ⚠️ Q<n>: maths written as text (G-MATH-TYPESET <arms>)                                      Create S12-NEW-31 (v1.56.0;
+                                                                                             strict subjects only)
+  ⚠️ Q<n>: the figure restates the stem (G-FIG-NEED; delivered with its figure)              Create S12-NEW-32 (v1.56.0;
+                                                                                             never a chemistry figure)
   ℹ️ Q<n>: changed in the last batch — the earlier cumulative docx differs                    LAW-BC-6 re-open
   ⚠️ Q<n>: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)    expected never
   ⚠️ Q<n>: figure proof failed at Final Assembly (<proofs>) — engine defect (LAW-BC-8, P0 recorded)   S13-2P (v1.51.1); expected never

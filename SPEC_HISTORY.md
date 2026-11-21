@@ -1194,6 +1194,14 @@ Entries v1.0.0–v2.0.0 moved at framework release 2026.11.06 (EC-P42; v2.0.1 su
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the preamble of every spec is now read by every session, so every header byte is paid).
 Current-version entry remains in Framework_MockReview.md.
 
+Entry v2.3.1 moved at framework release 2026.11.27 (GAP-2026-11-21-FIGURE-NEED; v2.4.0 supersedes; SPEC-CAPACITY — the
+reviewer reads this spec in ONE chunk of 300 lines).
+
+```
+# v2.3.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (with MockTestCreate v8.1): S2-2R — a blocking code acts
+#   when two reviewers name it (bc.R3_CODE_QUORUM), at its own severity.
+```
+
 Entry v2.1.0 moved at framework release 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE; v2.2.0 supersedes).
 
 ```

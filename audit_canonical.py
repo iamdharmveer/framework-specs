@@ -15,6 +15,12 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.46 — 2026-11-27 — GAP-2026-11-21-MATH-TYPESET C-E10 (release 2026.11.27; paired with Framework_MockTestCreate v8.6).
+#   NEW A-TYPESET (an 'AMBER — ' WARN, carried to the footer as a certificate amber note — never a FAIL): per STRICT subject of the paper's frozen
+#   plan (batch_state['math_typeset'], Create S3-16), the share of questions carrying an equation object, objects per
+#   question and displayed equations against the exam's own MATH_TYPESET_PROFILE (bc.typeset_shortfall, tolerance
+#   max(1 question, 15 %)). Final paper only; dormant when the paper carries no plan (a paper begun earlier, every
+#   chemistry subject, every subject measured 'off') — A-OMML / A-OMML-FLOOR unchanged everywhere.
 # v2.45 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (paired with Framework_MockTestCreate v8.4,
 #   LAW-FA-TERM-1 / LAW-PLAN-CHECK-1 / LAW-RECORD-READER-1). A-QINDEX check 9 is MODE-AWARE (not applicable to count-free
 #   rows of modes ladder / counted; --difficulty-mode); the S13-2F worklist states every finding's DISPOSITION and every
@@ -1122,6 +1128,17 @@ def load_sources(args):
                     _pr_k = None
         if _pr_k:
             src['producer_release'] = str(_pr_k)
+        # v2.46 (GAP-2026-11-21 C-E10): the paper's frozen Phase 1 plan and slot map, for A-TYPESET (absent = dormant)
+        _bs_p3 = str(args.key).replace('_answer_key.json', '_batch_state.json')
+        if _bs_p3 != str(args.key) and Path(_bs_p3).exists():
+            try:
+                _bs3 = json.load(open(_bs_p3, encoding='utf-8')) or {}
+            except (OSError, ValueError):
+                _bs3 = {}
+            if isinstance(_bs3, dict) and isinstance(_bs3.get('math_typeset'), dict):
+                src['math_typeset'] = _bs3['math_typeset']
+                src['subtopic_by_qnum'] = _bs3.get('subtopic_by_qnum') if isinstance(
+                    _bs3.get('subtopic_by_qnum'), dict) else {}
 
     # v1.2 — MSQ re-derivation (INDEPENDENT of any Step-7 self-report). Dormant when the
     # blueprint declares no multi subtopics (every value below is empty/zero ⇒ the MSQ
@@ -2593,6 +2610,46 @@ def gate_omml(doc, src, final):
               'built-up math may be hiding as ASCII/raster; investigate (S7-5).')
     elif final and src['omml_required_present']:
         _ok('A-OMML-FLOOR', f'OMML floor satisfied ({n_omath} oMath).')
+
+
+def gate_typeset(blocks, src, final):
+    """v2.46 A-TYPESET (GAP-2026-11-21-MATH-TYPESET C-E10). Per STRICT subject of the paper's frozen plan
+    (src['math_typeset']): questions carrying an equation object, objects per question and displayed equations
+    against the exam's MATH_TYPESET_PROFILE (bc.typeset_shortfall). A shortfall is a WARN whose message starts
+    'AMBER — ', so the S13-2F certificate carries it to the footer (amber_notes) — never a FAIL, never a repair.
+    Final paper only; dormant without a plan."""
+    plan = src.get('math_typeset')
+    if not final or not isinstance(plan, dict):
+        return
+    try:
+        import blueprint_core as _bct
+    except Exception:                                   # noqa: BLE001
+        _warn('A-TYPESET', 'blueprint_core not importable — typeset maths density NOT measured')
+        return
+    sbq = src.get('subtopic_by_qnum') or {}
+    cm = src.get('concept_map') or {}
+    per_q = {}
+    for b in blocks:
+        om = dp = 0
+        for kind, obj in b.items:
+            el = obj._element if kind == 'p' else getattr(obj, '_tbl', None)
+            if el is None:
+                continue
+            om += sum(1 for _ in el.iter(M_('oMath')))
+            dp += sum(1 for _ in el.iter(M_('oMathPara')))
+        sid = sbq.get(str(b.qnum)) or (cm.get(str(b.qnum)) or {}).get('subtopic_id')
+        per_q[str(b.qnum)] = {'omath': om, 'display': dp, 'subtopic_id': sid,
+                              'subject': (cm.get(str(b.qnum)) or {}).get('subject')}
+    bad, info = [], []
+    for _sj, ln in _bct.typeset_shortfall(plan, per_q):
+        if ln[:5] == 'WARN ':
+            bad.append(ln[5:])
+        else:
+            info.append(ln[5:])
+    for ln in bad:
+        _warn('A-TYPESET', 'AMBER — ' + ln + ' — disclosed (composition; never a repair)')
+    for ln in info:
+        _ok('A-TYPESET', ln)
 
 
 def gate_frac_ascii(blocks, src):
@@ -6995,6 +7052,7 @@ def run_audit(args):
     _safe_gate('A-MATCHTABLE', gate_match_table, blocks, src)  # v2.7.1 — MATCH must render a real table
     _safe_gate('A-UNDERLINE', gate_underline, blocks)
     _safe_gate('A-OMML', gate_omml, doc, src, args.final)
+    _safe_gate('A-TYPESET', gate_typeset, blocks, src, args.final)   # v2.46 (GAP-2026-11-21) — WARN only
     _safe_gate('A-FRACASCII', gate_frac_ascii, blocks, src)
     _safe_gate('A-IMAGES', gate_images, blocks, src, media_map)
     _safe_gate('A-OPTREF', gate_optref, blocks, src)
@@ -7415,7 +7473,7 @@ def gate_cert(src, args):
 # cert_contract before writing). Readers: gate_cert / gate_cert_late (S13-4c). A new quality_status prefix MUST be
 # added to QUALITY_STATUS_PREFIXES and CERT_OUTCOME in the same release, with a writer->reader round-trip self-test
 # naming it (CI gate CERT-CONTRACT, mock_sync_audit MS-CERT).
-AUDITOR_ID = 'audit_canonical v2.45'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
+AUDITOR_ID = 'audit_canonical v2.46'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
 CERT_SCHEMAS = (2, 3)                              # 2: v2.35-v2.43 writers (still read); 3: v2.44+
 QUALITY_STATUS_PREFIXES = ('CERTIFIED', 'UNRESOLVED', 'DISCLOSED', 'ESCALATED')
 # The certificate outcome of each stamp prefix: 'none' (no accepted finding), 'uncertified' (uncertified_items ->
@@ -10280,6 +10338,47 @@ def self_test():
     p = _mini_doc(tmp, b_subclean); _reset()
     _t, bl = parse_blocks(Document(p)); gate_frac_ascii(bl, _src_stub(tq=1, omml=True))
     check('A-SUBFLAT-clean', not any(c == 'A-SUBFLAT' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 10d. v2.46 A-TYPESET (GAP-2026-11-21): a strict subject delivered without typeset maths is DISCLOSED (WARN, never
+    # FAIL); the same paper typeset like the exam is clean; no plan / not final -> dormant; a chemistry subject never
+    try:
+        import blueprint_core as _bct10
+        _pl10 = _bct10.math_typeset_plan(
+            'MATH_TYPESET_PROFILE: {"schema":1,"section":"Maths","n":300,"omml_q_share":0.8,"omml_per_q":2.0,'
+            '"display_per_q":0.3,"arms":["A1"],"mode":"strict"}\n',
+            {'subtopic_list': [{'subtopic_id': 'm.a', 'section': 'Maths'}, {'subtopic_id': 'c.a', 'section': 'Organic Chemistry'}]})
+    except Exception:                                   # noqa: BLE001
+        _pl10 = None
+    _om10 = ('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:r><m:t>x'
+             '</m:t></m:r></m:oMath></m:oMathPara>')
+
+    def b_ts(d, typeset):
+        from docx.oxml import parse_xml as _px10
+        for q in range(1, 6):
+            p = d.add_paragraph(f'Q.{q}  Let x be real; then ')
+            if typeset:
+                p._p.append(_px10(_om10))
+                p._p.append(_px10('<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+                                  '<m:r><m:t>y</m:t></m:r></m:oMath>'))
+            for i in range(1, 5):
+                d.add_paragraph(f'{i}.  {i}')
+
+    def _ts_run(typeset, final=True, plan=_pl10, sid='m.a'):
+        p = _mini_doc(tmp, lambda d: b_ts(d, typeset)); _reset()
+        _t, bl = parse_blocks(Document(p))
+        st = _src_stub(tq=5, omml=True)
+        if plan is not None:
+            st['math_typeset'] = plan
+            st['subtopic_by_qnum'] = {str(q): sid for q in range(1, 6)}
+        gate_typeset(bl, st, final)
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-TYPESET']
+    _r10a, _r10b = _ts_run(False), _ts_run(True)
+    check('A-TYPESET-shortfall-disclosed', _pl10 is not None and len(_r10a) == 1 and _r10a[0][0] == 'WARN'
+          and _r10a[0][2].startswith('AMBER — A-TYPESET: Maths 0 of 5 questions carry typeset maths')
+          and 'disclosed' in _r10a[0][2])
+    check('A-TYPESET-clean-and-dormant', len(_r10b) == 1 and _r10b[0][0] == 'OK'
+          and _ts_run(False, final=False) == [] and _ts_run(False, plan=None) == []
+          and _ts_run(False, sid='c.a') == [] and 'A-TYPESET' not in getattr(_bct10, 'NF_DISCLOSE_GATES', ('A-TYPESET',)))
 
     # 11. A-STIMORPHAN catches a passage-reference with no embedded stimulus
     def b_orphan(d):

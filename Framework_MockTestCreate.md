@@ -1,4 +1,20 @@
-# Framework_MockTestCreate v8.5
+# Framework_MockTestCreate v8.6
+# v8.6 — 2026-11-21 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (release 2026.11.27; paired with
+#   blueprint_core v2.12, final_assembly v1.28.0, figural_core v5.98, analyse_engine v1.7, audit_canonical v2.46,
+#   MockTestAnalyse v2.65.0, MockReview v2.4.0, DeliveryFooter v1.56.0; owner decisions OD-P1..OD-P5 of 2026-11-21,
+#   corrections K1-K4 of the 2026-11-21 review). Evidence: CSIR NET Mathematical Sciences Mock01 rerun — 36 equation
+#   objects in 90 maths items against 240-564 per 100 real questions; 42 of 90 items wrote maths as text (g a⁻¹, ½,
+#   a Unicode ∫, maths and matrices in words) that G-MATH-RESIDUE passes; 2 figures that restate their stems. Fix,
+#   for EVERY exam: (1) the S10-3 builders route ⟦MATH:…⟧ regions themselves (a region in a builder was a
+#   G-MATH-RESIDUE blocking defect in every exam before, so no deliverable output changes) and a line that is one
+#   region alone renders as a DISPLAYED equation; (2) Step 5 measures a MATH_TYPESET_PROFILE per SUBJECT and S3-16
+#   freezes batch_state['math_typeset'] (bc.math_typeset_plan); a STRICT subject's writer gets the notation line,
+#   rule 8 of the decision tree and the SOFT gate G-MATH-TYPESET (S12-NEW-31); A-TYPESET discloses the paper's
+#   density; (3) every non-chemistry figure must define something the text does not — SOFT gate G-FIG-NEED
+#   (S12-NEW-32) on the renderer's own label record, reviewer code D-FIG-DECORATIVE (minor), strict-subject figures
+#   drawn as black line art with italic labels, plain alt text. CHEMISTRY (every chemistry subject and every
+#   chemistry subtopic or figure, organic included) keeps today's behaviour byte for byte; a paper begun earlier
+#   finishes as it began. No new hard stop, no new loop, no new review round.
 # v8.5 — 2026-11-20 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; paired with blueprint_core v2.11,
 #   final_assembly v1.27.0, DeliveryFooter v1.55.0; owner decision OD-2026-11-20 "never a hard stop, never an endless
 #   loop"). STEP A3 refused EVERY rung-3 question that carried a figure, so a text / figure rebuild and an R5b figure
@@ -4320,6 +4336,16 @@ action: the same paper, the same two files, the same "continue".
                                               (batch_state.get('figure_plan') or {}).items()) or 'none (no figure target)')
             + f"; stem form {'measured' if batch_state.get('stem_form') else 'dormant'}"
             + ''.join(f"; {_n}" for _n in (batch_state.get('r3_notes') or []) if 'requested mix' in str(_n)))
+      # v8.6 (GAP-2026-11-21 C-S8): the maths-typesetting / figure-purpose plan per SUBJECT (bc.math_typeset_plan,
+      # frozen by bv_s3_plans above from section_rules MATH_TYPESET_PROFILE / MATH_TYPESET_MODE lines). 'strict' turns
+      # on the notation line, decision-tree rule 8 and G-MATH-TYPESET for that subject; every non-chemistry item gets
+      # G-FIG-NEED; a chemistry subject / subtopic is never touched. Never a stop.
+      _mt16 = batch_state.get('math_typeset') if isinstance(batch_state.get('math_typeset'), dict) else {}
+      print("S3-16: maths typesetting — " + (', '.join(
+          f"{_s} {_v.get('mode')}" + (' (chemistry: unchanged)' if _v.get('inert') else '')
+          + (f" [{_v.get('source')}]" if _v.get('source') == 'owner line' else '')
+          for _s, _v in (_mt16.get('subjects') or {}).items()) or 'no subject profile — every subject off')
+          + ''.join(f"; {_i}" for _i in (_mt16.get('info') or [])))
   ```
 
 ## S3-17 — Mandatory subtopic + alternation pre-check (v3.4 — manifest-driven)
@@ -5004,14 +5030,19 @@ action: the same paper, the same two files, the same "continue".
                                                  'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
                                                 _lad_ap, _labs_ap, _mode_ap,
                                                 floors=bc.ld_floor_for(_lad_ap, _sc_ap, subtopic_id) if _sc_ap else None,
-                                                used_in_subtopic=bc.rp_prior_skills(_cm_ap, q))   # v8.3 RP-1
+                                                used_in_subtopic=bc.rp_prior_skills(_cm_ap, q),   # v8.3 RP-1
+                                                # v8.6 (C-E9): strict maths subject only, else None (packet unchanged)
+                                                notation=bc.math_notation_for(_bs_ap.get('math_typeset'), _sj_ap,
+                                                                              subtopic_id))
                    print(json.dumps(_pk_ap, ensure_ascii=False, default=str))
                    return _pk_ap
                _pk_ap = bc.bv_author_packet({'q': q, 'band': _band_ap, 'qtype': qtype, 'subtopic_id': subtopic_id,
                                              'ask_format': ask_format, 'subject': _sj_ap, 'shape': _shape_ap},
                                             bc.bv_anchors(globals().get('EXEMPLAR_BANK') or {}, _ru_ap, subtopic_id, qtype, _labs_ap),
                                             _labs_ap, _rc_ap, _ru_ap,
-                                            offsets=(_bs_ap.get('difficulty_state') or {}).get('author_offset'))
+                                            offsets=(_bs_ap.get('difficulty_state') or {}).get('author_offset'),
+                                            notation=bc.math_notation_for(_bs_ap.get('math_typeset'), _sj_ap,
+                                                                          subtopic_id))   # v8.6 (C-E9)
                # v6.4 (BV-15): the SHORT view, target first, never cut; the counting rules once per batch
                _first_ap = globals().get('_BV_RULES_SHOWN') != _bs_ap.get('current_batch')
                globals()['_BV_RULES_SHOWN'] = _bs_ap.get('current_batch')
@@ -5652,6 +5683,15 @@ action: the same paper, the same two files, the same "continue".
                   ('amber' / T3_STATS) route to the F1 AMBER footer, not FAIL.
                   HARD FAIL — re-emit the named stem/option via render_mock_text
                   with ⟦MATH:…⟧ (chemistry examples: S10-4 rule 3a).
+  [ ] G-MATH-TYPESET: (v8.6, STRICT subjects only — batch_state['math_typeset']) bc.math_typeset_findings over
+                  stem_src / option_src / statements / list columns is EMPTY for every item of this batch (the
+                  engine runs it in the STEP A2 pre-review: bc.qg_item_gates). SOFT: sent back within
+                  bc.BC_PREREVIEW_TRIES, then reviewed as it stands and disclosed AMBER "Qn: maths written as
+                  text (G-MATH-TYPESET <arm>)". G-MATH-RESIDUE above is unchanged and still blocking.
+  [ ] G-FIG-NEED: (v8.6, every non-chemistry problem figure) bc.fig_need(stem, options, FigureSpec) is not
+                  DECORATIVE — the figure defines at least one label, value or feature the text does not. SOFT:
+                  sent back within bc.BC_PREREVIEW_TRIES, then disclosed AMBER "Qn: the figure restates the stem".
+                  NEVER removes the figure and never turns a figure question into a text question (OD-P3).
   [ ] G-KBAL:     Each option 1/2/3/4 is 20-30% of Qs so far. (v7.0, R12: a question whose
                   re-keyed answer could not keep its planned position — its batch footer line says
                   so (bc_footer 'kbal_kept') — counts at its PLANNED position here; the deviation is
@@ -5860,8 +5900,11 @@ action: the same paper, the same two files, the same "continue".
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-59 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
-  All 62 items are RUN; items 60-62 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  Items 1-61 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  (v8.6: G-MATH-TYPESET and G-FIG-NEED are SOFT — the engine's STEP A2 pre-review sends a finding back at most
+  bc.BC_PREREVIEW_TRIES times, then the question is reviewed as it stands and disclosed AMBER; they never fail the
+  batch and never stop it.)
+  All 64 items are RUN; items 62-64 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
   (v7.1: G-SELFCOUNT joins the must-PASS set. v7.0: G-FIGRECORD joins the must-PASS set. v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
   at the end. v5.90 — GAP-2026-11-03 G11 / OD-1: the eleven QUALITY items above are
@@ -8357,6 +8400,21 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     rasterise to lossless PNG at 300 DPI (never JPEG, never upscale a small
     bitmap). All option images share one uniform SQUARE canvas size.
     Verify via view tool (9-item visual checklist). Log in figural manifest.
+    FIGURE PURPOSE (v8.6 — GAP-2026-11-21-FIGURE-NEED; every item that is not chemistry): the figure must be the
+    ONLY place at least one quantity of the question is defined — where an angle is measured from, which way an
+    axis or force points, a length or label shown only in the drawing, a shaded or marked region, or data that is
+    plotted and not written. Write the stem so that the question cannot be answered with the figure removed, as
+    real papers do ("…the generalized coordinates x and θ" with θ's reference shown only in the drawing). Do not
+    define in the stem a symbol whose meaning the figure is there to show. Draw every label with ax.text /
+    ax.annotate (render_figure records them into the FigureSpec as text_labels — the renderer's record, QQ-0).
+    Gate G-FIG-NEED (SOFT; S12-NEW-32). Chemistry figures (figure_types CHEM_* sets, make_figure_spec(..., chem=True))
+    and chemistry subjects / subtopics are exempt and drawn exactly as before.
+    FIGURE STYLE (v8.6 — OD-P2 / C-S4 / C-S5): before render_figure, every NON-chemistry FigureSpec takes
+        spec.update(bc.mt_figure_style(batch_state.get('math_typeset'), <subject>, <subtopic_id>, spec))
+    and, for the alt text, a one-sentence spec['description'] of what the figure shows (never its answer). In a
+    STRICT maths subject that sets style_monochrome / math_labels: the renderer draws black line art and turns
+    single-symbol labels (m₁, θ, A) into italic mathtext; every non-chemistry figure gets plain alt text
+    (figural_core.alt_text with alt_plain). A chemistry spec gets {} — unchanged.
 
   OPTION B (replacement rule — if image generation fails or subtopic is banned):
     Check FIGURAL_BANNED in section_rules for this subtopic.
@@ -8403,6 +8461,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           for a text item) — the second half of the Step-5 shape share key.
     fingerprint           bc.template_fingerprint(ask_type, qtype, scheme_grammar,
                           data_in_stem_type) — G08 caps are counted on it.
+    stem_src / option_src (v8.6 — GAP-2026-11-21 C-E8) the stem and the option texts EXACTLY as written, with
+                          their ⟦MATH:…⟧ regions — the strings passed to the S10-3 builders. Set all four text
+                          fields with ONE call: Q.update(bc.mt_record_fields(stem_with_regions, options_with_regions))
+                          (stem_text / option_texts become the linear form, bc.math_linear). A single-number option
+                          stays plain text, never a region. Absent (no region) = stem_text / option_texts.
     stem_text / option_texts / figure_files
                           the delivered stem (plain text), the option texts in label order
                           ([] for picture options) and the figure file names placed under
@@ -9371,11 +9434,26 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       if msq_instruction:
           text = f"{text}  {msq_instruction}"
       p = doc.add_paragraph()
+      if _p1_routes(text):              # v8.6 (GAP-2026-11-21 C-S9): ⟦MATH:…⟧ regions -> OMML (no region: unchanged)
+          _p1_render(p, text, bold=bold, font_name=FONT_NAME, font_size_pt=FONT_SIZE_PT)
+          return p
       run = p.add_run(text)
       run.bold = bold
       run.font.name = FONT_NAME         # v5.6: configurable
       run.font.size = Pt(FONT_SIZE_PT)  # v5.6: configurable
       return p
+
+  def _p1_routes(text):
+      """v8.6 (GAP-2026-11-21 C-S9 / K3): True when text holds a ⟦MATH:…⟧ region and the S10-4 funnel is loaded. A
+      region reaching a builder was written literally and BLOCKED by G-MATH-RESIDUE in every exam before v8.6, so
+      routing it changes no deliverable output; text with no region always takes the unchanged path."""
+      _op = globals().get('T3_OPEN') or '\u27e6MATH:'
+      return isinstance(text, str) and _op in text and callable(globals().get('render_mock_text'))
+
+  def _p1_render(paragraph, text, **kw):
+      """v8.6: the S10-4 funnel (render_mock_text, defined in the S10-4 block of this same session namespace), looked up
+      at call time so this block never names a later block's function directly."""
+      return globals()['render_mock_text'](paragraph, text, **kw)
 
   def msq_instruction_for(section_rules_text, language='english'):
       # EXAM-AGNOSTIC + localized: prefer the exam's own phrasing from section_rules
@@ -9409,6 +9487,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           p = doc.add_paragraph()
           lbl = _option_label(i)
           label = f"{lbl}  {opt}" if not lbl.endswith(' ') else f"{lbl}{opt}"
+          if _p1_routes(label):          # v8.6 (C-S9): an option with a region -> OMML
+              _p1_render(p, label, bold=False, font_name=FONT_NAME, font_size_pt=FONT_SIZE_PT)
+              continue
           run = p.add_run(label)
           run.bold = False
           run.font.name = FONT_NAME         # v5.6: configurable
@@ -9419,6 +9500,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   def add_stem_ml(doc, text, bold=False):
       p = doc.add_paragraph()
+      if _p1_routes(text):              # v8.6 (C-S9 / C-S10): a line that is ONE region alone is a DISPLAYED equation
+          _p1_render(p, text, bold=bold, font_name=FONT_NAME, font_size_pt=FONT_SIZE_PT, display=True)
+          return p
       run = p.add_run(text)
       run.bold = bold
       run.font.name = FONT_NAME
@@ -9542,6 +9626,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           for ci in range(ncols):
               items = col_items[ci]
               cell = table.rows[ri + 1].cells[ci]
+              if ri < len(items) and _p1_routes(items[ri]):   # v8.6 (C-S9): a list item with a region -> OMML
+                  _p1_render(cell.paragraphs[0], items[ri], font_name=FONT_NAME, font_size_pt=FONT_SIZE_PT)
+                  continue
               run = cell.paragraphs[0].add_run(items[ri] if ri < len(items) else '')
               run.font.name = FONT_NAME
               run.font.size = Pt(FONT_SIZE_PT)
@@ -9606,25 +9693,51 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                            MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
                            _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
 
-  def render_mock_text(paragraph, text, bold=False):
+  def render_mock_text(paragraph, text, bold=False, font_name=None, font_size_pt=None, display=False):
       """Interleave plain runs and compiled ⟦MATH:…⟧ regions. STRICT CORE,
       FORGIVING BOUNDARY: a region the compiler rejects NEVER halts the build
       and NEVER ships silently — it renders as ordinary plain text (no colour,
       no markup), is recorded in T3_STATS['failed'], and
       mock_math_residue_check() quotes it verbatim so the author can Ctrl+F
-      straight to it."""
+      straight to it.
+      v8.6 (GAP-2026-11-21 C-S10): font_name / font_size_pt (None = unset, exactly as before) are set on every text
+      run; display=True AND text is exactly ONE region (nothing else but spaces) -> the compiled m:oMath is wrapped in
+      m:oMathPara centred (schema-valid per the t3 content model) — a displayed equation, as real papers set a
+      matrix, a system or a long equation. Defaults give output byte-identical to v8.5."""
+      from docx.shared import Pt as _Pt86
+      from docx.oxml import parse_xml as _px86
+
+      def _run(s):
+          r = paragraph.add_run(s); r.bold = bold
+          if font_name is not None:
+              r.font.name = font_name
+          if font_size_pt is not None:
+              r.font.size = _Pt86(font_size_pt)
+          return r
+      if display and isinstance(text, str) and len(T3_REGION_RE.findall(text)) == 1 \
+              and T3_REGION_RE.fullmatch(text.strip()):
+          _body = T3_REGION_RE.fullmatch(text.strip()).group(1)
+          try:
+              _para = _px86('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+                            '<m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr></m:oMathPara>')
+              _para.append(t3_compile(_body))
+              paragraph._p.append(_para)
+          except MathCompileError as err:
+              T3_STATS['failed'].append((_body, str(err)))
+              _run(_body)
+          return paragraph
       pos = 0
       for mr in T3_REGION_RE.finditer(text):
           if mr.start() > pos:
-              r = paragraph.add_run(text[pos:mr.start()]); r.bold = bold
+              _run(text[pos:mr.start()])
           try:
               paragraph._p.append(t3_compile(mr.group(1)))
           except MathCompileError as err:
               T3_STATS['failed'].append((mr.group(1), str(err)))
-              r = paragraph.add_run(mr.group(1)); r.bold = bold
+              _run(mr.group(1))
           pos = mr.end()
       if pos < len(text):
-          r = paragraph.add_run(text[pos:]); r.bold = bold
+          _run(text[pos:])
       return paragraph
 
   def mock_math_residue_check(docx_path):
@@ -9725,6 +9838,23 @@ def widen_scenario_space(subtopic_data, exhausted_source):
      every one is the ASCII dialect that mock_math_residue_check() names; each is
      a G-MATH-RESIDUE per-batch FIXABLE FAIL (v5.70); the legal spelling is a
      ⟦MATH:…⟧ region.
+  8. STRICT SUBJECTS (v8.6 — GAP-2026-11-21-MATH-TYPESET; a subject whose MATH_TYPESET_PROFILE — or owner line —
+     is 'strict' in batch_state['math_typeset']; the writer's packet then carries bc.MATH_NOTATION_LINE). In
+     addition to rules 0-7, every expression beyond a single symbol is a ⟦MATH:…⟧ region:
+       - fractions, numeric ones included (½ → ⟦MATH:\frac{1}{2}⟧), never a vulgar-fraction character;
+       - every radical, √n included (⟦MATH:\sqrt{n}⟧);
+       - a reciprocal is a fraction, never ⁻¹ on a lower-case variable or a bracket (g/a → ⟦MATH:\frac{g}{a}⟧);
+       - integrals and sums WITH their limits (⟦MATH:\int_{0}^{1} f(x)\,dx⟧, ⟦MATH:\sum_{n=1}^{\infty}⟧);
+       - matrices (⟦MATH:\begin{pmatrix}1&2\\0&3\end{pmatrix}⟧), determinants, cases and systems.
+     A matrix, a system, a piecewise definition or a long equation the question is built on goes on its OWN line as
+     a region alone (add_stem_ml / a sub-part line): it renders as a DISPLAYED equation. Maths is never written in
+     words ("square root of", "divided by", "reciprocal of", "to the power", "the integral of … over", "summed
+     over", "minus twice", "the matrix with rows …"). Single symbols and short relations stay plain Unicode, as the
+     real papers write them: x², xₙ, f⁻¹(A), P⁻¹, e⁻ˣ, ≤, π, θ, z = 0. Gate G-MATH-TYPESET (SOFT; S12-NEW-31), its
+     arms self-calibrated on the exam's own papers (a spelling the real papers use is never flagged).
+     Outside strict subjects rules 0-7 apply unchanged, and rule 2's "√n" keeps its meaning there. In a strict
+     subject rule 8 decides: needs_omml() / MATH_TRIGGER_RE (which also matches x²) is the ROUTING detector, not a
+     spelling rule — x² stays plain.
 
   MATH-AS-OMML ROUTING CONTRACT (v4.3 — the executable home for rules 0/3-6).
   Before v4.3 the tree above stated the GOAL but there was no function to call:
@@ -9845,6 +9975,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   diagrams, reasoning panels) are the ONLY content the figural raster path
   accepts, and they are emitted under the canonical image-naming convention
   (§10-S10-7/S10-8) so gate G-MATH-RASTER can tell a figure from a stray raster.
+  v8.6 (GAP-2026-11-21 C-S12): the standard builders (add_question_stem, add_text_options, add_stem_ml,
+  add_stem_multipart, add_standard_question, add_match_table cells) now route ⟦MATH:…⟧ regions through
+  render_mock_text THEMSELVES, in every exam — a writer only writes regions in the text and never needs
+  add_math_stem; a line that is one region alone (add_stem_ml) renders as a displayed equation. Record the text with
+  its regions in stem_src / option_src (bc.mt_record_fields, S7-QUALITY). In a STRICT subject the rule is enforced
+  by G-MATH-TYPESET (S12-NEW-31); G-MATH-RESIDUE keeps blocking the ASCII dialect everywhere.
 
 ## S10-LINKED — linked-member emission (v3.7 — Q.N-FIRST ordered block)
 
@@ -10210,6 +10346,15 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            no stem named a site, and the "item under interrogation" was usually
            the answer. ACCENT_REQUIRED keeps `data_single` and `schematic` for
            every other figure.
+           v8.6 AMENDMENT (GAP-2026-11-21, owner decision OD-P2): in a STRICT
+           maths subject (batch_state['math_typeset']), every non-chemistry
+           `schematic` and `data_*` figure is EXEMPT from ACCENT PRESENCE exactly
+           as a measured-monochrome exam is — bc.mt_figure_style sets
+           style_monochrome True — and is drawn as black line art with its
+           single-symbol labels in matplotlib mathtext italic ($m_1$, $\theta$)
+           at the same font size (figural_core v5.98, math_labels). Real maths
+           papers print black line art with italic labels. Every other figure is
+           unchanged.
         8'. MARK-IFF-NAMED (v5.89 — GAP-2026-11-02 F3; gate G-FIGMARK, catalogue
            A-FIGMARK, VOID_ITEM -> repair ladder R1). A figure carries a mark
            (underline, asterisk, letter, arrow, bold bond) IF AND ONLY IF the
@@ -10544,6 +10689,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            question number, the figure class and the quantities plotted.
            Measured 0 of 208 on the delivered exhibits. Emitted by S10-8 from
            `figural_core.alt_text()`. Gate A-FIGALT (AMBER — never halts).
+           v8.6 (GAP-2026-11-21 C-S5): a NON-chemistry figure of a non-inert
+           item carries alt_plain (bc.mt_figure_style): its alt text names the
+           question, the role and the plotted quantities WITHOUT the internal
+           class name, then spec['description'] — the sentence a reader needs
+           (G-ALTTEXT bans 'class schematic'). Chemistry figures and inert items
+           keep today's alt text byte for byte.
         6. HOW THIS IS GATED. G-FIGLABEL is ARITHMETIC over the font sizes
            ACTUALLY USED at render time, recorded into the FigureSpec sidecar,
            multiplied by the recorded placement scale. It MUST NOT be gated on
@@ -11760,6 +11911,40 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Engine twin: audit.py A-SUBFLAT (audit_canonical v2.17) independently
     re-derives the flat/half-Unicode subscript scan from the rendered docx, with
     catch+clean self-test fixtures — the enforcement of record.
+    v8.6 NOTE: real maths papers write some notation plainly that this gate blocks (a₁z, M/M/3, ℚ[x]/(…), X̄ —
+    measured on CSIR NET Mathematical Sciences). The region spelling is never blocked, so write such notation as a
+    ⟦MATH:…⟧ region (a₁z → ⟦MATH:a_{1}z⟧); the gate itself is unchanged.
+
+  S12-NEW-31 — G-MATH-TYPESET (v8.6 — GAP-2026-11-21-MATH-TYPESET; SOFT, STRICT subjects only, owner decision
+    OD-P5): maths written as text in a subject whose real papers typeset it. ALGORITHM (engine, STEP A2 pre-review,
+    bc.qg_item_gates with the context bc.mt_gate_context gives a strict item): bc.math_typeset_findings over the
+    item's stem_src / option_src / statements / list columns with the subject's ENABLED arms — A1 a reciprocal
+    written as a power (g a⁻¹; units after a number, f⁻¹(…), capitals, e and digits allowed), A2 a vulgar-fraction
+    character, A3 an integral or sum sign outside an equation, A4 maths in words, A5 a matrix in words, A6 the limits
+    of a sum or integral in words. Self-calibrated per subject (Step 5): an arm that fires on more than 1% of the
+    subject's real questions (any, below 100) is disabled for it. SOFT: sent back at most bc.BC_PREREVIEW_TRIES
+    times, then the item is reviewed as it stands and settles with the AMBER line "Qn: maths written as text
+    (G-MATH-TYPESET <arm>)" (bc.p1_amber_lines). Never in bc.R3_HARD_GATES, never a rung, never a stop. Paper level:
+    audit.py A-TYPESET (an 'AMBER — ' WARN the S13-2F certificate carries to the footer — never a FAIL) compares the
+    delivered density with the subject's profile.
+
+  S12-NEW-32 — G-FIG-NEED (v8.6 — GAP-2026-11-21-FIGURE-NEED; SOFT, every non-chemistry problem figure, OD-P4):
+    a figure that restates its stem. ALGORITHM (engine, STEP A2 pre-review): bc.fig_need(stem, options, FigureSpec)
+    on the renderer's own text_labels — N/A for option figures, reasoning glyphs, chemistry figures and a sidecar
+    with no label record; NEEDED for plotted data, a fill / highlight / marked site, a stem pointing at a feature only
+    the figure shows, or any label the text does not DEFINE (a defining verb "x is / denotes", a quantity noun
+    "mass m", an assignment "a = 2", a vertex of a named figure "triangle ABC" — "are" is not a definition); else
+    DECORATIVE. Fail-open: an unrecognised definition leaves the label undefined -> NEEDED -> no finding. SOFT: sent
+    back at most bc.BC_PREREVIEW_TRIES times, then delivered WITH ITS FIGURE and the AMBER line "Qn: the figure
+    restates the stem" (OD-P3: never removed, never a text question). Reviewer twin: D-FIG-DECORATIVE ('minor',
+    bc.BV_BRIEF_REVIEWER_R3_FIG — only in jobs carrying a non-chemistry problem figure).
+
+  v8.6 adds 2 SOFT gates, enforced in the STEP A2 pre-review of every batch:
+
+  | Gate Code      | Checks                                                                 | Fix?      | Fix |
+  |----------------|------------------------------------------------------------------------|-----------|-----|
+  | G-MATH-TYPESET | Strict subjects: no reciprocal-as-power, vulgar fraction, Unicode integral or sum, maths / matrix / limits in words outside a ⟦MATH:…⟧ region (arms enabled by the subject's profile) | YES (soft) | Rewrite the named expression as a region; a matrix or system on its own line |
+  | G-FIG-NEED     | A non-chemistry problem figure defines at least one label, value or feature that the text does not | YES (soft) | Move one definition from the stem into the figure; never remove the figure |
 
 
   S12-NEW-17 — G-MATH-RASTER (v4.3 — math-as-OMML routing, LADDER-REPAIR R1 [HS:LADDER]):
@@ -15382,7 +15567,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.5
+# END OF Framework_MockTestCreate v8.6
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

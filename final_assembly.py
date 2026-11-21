@@ -18,6 +18,13 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.28.0 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (release 2026.11.27; owner decisions OD-P1..
+      OD-P5 of 2026-11-21). bv_s3_plans freezes batch_state['math_typeset'] (bc.math_typeset_plan — per SUBJECT, the
+      chemistry boundary per item) on a fresh paper; the pre-review gate context gains bc.mt_gate_context (G-MATH-TYPESET
+      for a strict item, G-FIG-NEED for every non-inert item — both SOFT); a settled question whose delivered text still
+      trips one carries bc.p1_amber_lines; a reviewer job with a non-chemistry problem figure of a non-inert item gets
+      bc.BV_BRIEF_REVIEWER_R3_FIG, every other job BV_BRIEF_REVIEWER_R3 byte for byte. A paper begun earlier has no
+      'math_typeset' and finishes exactly as it began. No new stop, loop or round.
     v1.27.0 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; owner decision OD-2026-11-20). bc_bind_batch
     (STEP A3) refuses a figure only on the rung-3 TEXT fallback (bc.bc_is_text_fallback, F1) — a text / figure rebuild
     and an R5b figure version bind; its refusal names STEP A2 as the repair. bv_batch_step (STEP A2) treats a decided
@@ -1863,6 +1870,26 @@ def bv_figure_plan_fallback(exam, n, home, batch_state, blueprint=None):
         return {}
 
 
+def bv_p1_chem_types():
+    """release 2026.11.27 (GAP-2026-11-21 §2.5): every chemistry figure object type and its aliases — a figure_types
+    row whose family is one of bc.CHEM_FAMILIES, or a member of CHEM_R/H/P_OBJECT_TYPES. Supplied to
+    bc.math_typeset_plan (the thin core imports nothing) and frozen in the paper plan. figure_types is routed with
+    every trigger that routes this engine. Sorted list; [] when figure_types is unavailable. Never raises."""
+    try:
+        import figure_types as _ft
+        base = set(getattr(_ft, 'CHEM_R_OBJECT_TYPES', ())) | set(getattr(_ft, 'CHEM_H_OBJECT_TYPES', ())) \
+            | set(getattr(_ft, 'CHEM_P_OBJECT_TYPES', ()))
+        for t in getattr(_ft, 'FIGURE_TYPES', {}) or {}:
+            if (_ft.lookup(t) or {}).get('family') in bc.CHEM_FAMILIES:
+                base.add(t)
+        for a, t in (getattr(_ft, 'ALIASES', {}) or {}).items():
+            if t in base or (_ft.lookup(a) or {}).get('type') in base:
+                base.add(a)
+        return sorted(str(x) for x in base)
+    except Exception:                                   # noqa: BLE001
+        return []
+
+
 R31_STATEMENT_SHAPES = ('statement', 'statements', 'combination', 'statement_combination', 'multi_statement',
                         'assertion_reason')
 
@@ -1878,6 +1905,15 @@ def bv_s3_plans(exam, n, home, batch_state, ladder=None, section_rules_text=None
     raises."""
     out = {}
     bs = batch_state if isinstance(batch_state, dict) else {}
+    try:
+        # release 2026.11.27 (GAP-2026-11-21 C-S8): the maths-typesetting / figure-purpose plan per SUBJECT, frozen once.
+        # Always recorded on a fresh paper (all 'off' when section_rules carries no MATH_TYPESET_PROFILE line and no
+        # owner line): its PRESENCE marks a paper built on this release; a resumed earlier paper has none (dormant)
+        _sids = sorted({str(s) for s in (bs.get('subtopic_by_qnum') or {}).values() if s}) or None
+        out['math_typeset'] = bc.math_typeset_plan(section_rules_text or '', blueprint, _sids,
+                                                   chem_types=bv_p1_chem_types())
+    except Exception:                                   # noqa: BLE001
+        pass
     try:
         fp = bv_figure_plan_fallback(exam, n, home, bs, blueprint)
         # always recorded on a fresh paper ({} = no figure target): bv_batch_step falls back only when the key is absent
@@ -2156,7 +2192,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                 'planned_shape': _psp if isinstance(_psp, str) else None,
                 # release 2026.11.25 (GAP-2026-11-19-FIGURE-LOSS F4): this question's FigureSpec records (the native
                 # renderer's on-page scale) — pre-review G-FIG-SCALE (non-blocking)
-                'figure_specs': _fig_specs_of(_q)}
+                'figure_specs': _fig_specs_of(_q),
+                # release 2026.11.27 (GAP-2026-11-21): G-MATH-TYPESET (strict item) / G-FIG-NEED (non-inert item), both
+                # soft; {} for an inert (chemistry) item or a paper without batch_state['math_typeset'] (dormant)
+                **bc.mt_gate_context(_bs_bv.get('math_typeset'), (_e or {}).get('subject')
+                                     or bc.nf_subject_key(_e or {}, _man_bv), (_e or {}).get('subtopic_id'))}
     _root_bv = os.path.join(home, f'{exam}_M{n}_bv')
     os.makedirs(_root_bv, exist_ok=True)
     if _st_bv.get('batch') != _bp_bv['batch_id']:
@@ -2473,7 +2513,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                 _jb['packet'] = dict({k: v for k, v in _jb['packet'].items() if k != 'band_guide'},
                                      items=bc.rp_attach_prior(bc.r3_reviewer_rows(_jb['packet']['items'], _tk_k), _cm_bv),
                                      counting_rules=bc.r3_counting_rules(), decision_rule=bc.R3_DECISION_RULE)
-                _jb['brief'] = bc.BV_BRIEF_REVIEWER_R3
+                # release 2026.11.27 (GAP-2026-11-21 C-E5): D-FIG-DECORATIVE is described only to a job carrying a
+                # non-chemistry problem figure of a non-inert item; every other job keeps the default brief byte for byte
+                _jb['brief'] = (bc.BV_BRIEF_REVIEWER_R3_FIG if bc.bv_brief_needs_fig(
+                    {str(_q5): _cm_bv.get(_q5) for _q5 in _jb['qs']}, {str(_q5): _fig_specs_of(_q5) for _q5 in _jb['qs']},
+                    _bs_bv.get('math_typeset'), _man_bv) else bc.BV_BRIEF_REVIEWER_R3)
             _reask = any(int((_asked_all.get(_q3) or {}).get(_rl) or 0) >= 1
                          for _q3 in _jb['qs'] for _rl in (_needs_bv.get(_q3) or []) if _rl.endswith('_' + _kk0))
             _d = os.path.join(_root_bv, f"b{_bp_bv['batch_id']}", _rlabel,
@@ -2554,6 +2598,10 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
                     break
     for _q in _bst['settled']:
         _foot[_q] = bc.bc_amber_lines(_q, _cm_bv[_q])
+        if _r3_bv and isinstance(_bs_bv.get('math_typeset'), dict):
+            # release 2026.11.27 (GAP-2026-11-21 C-S6 / C-S15): the delivered text still trips a soft Phase 1 gate after
+            # the pre-review tries — delivered as it stands (figure kept), one AMBER line each
+            _foot[_q] = list(_foot[_q] or []) + bc.p1_amber_lines(_q, _cm_bv[_q], _gctx(_q, _cm_bv[_q]))
         _rgt = (_cm_bv[_q].get('bc_fallback') or {}) if isinstance(_cm_bv[_q].get('bc_fallback'), dict) else {}
         if 'regrant_checked' in _rgt:
             # the S13-2L.0 footer reader unpacks every line as (class, text) — bc.bc_amber_lines' shape
@@ -4323,7 +4371,9 @@ def self_test():
               and _pS['stem_form']['ask_form']['PC']['ask_words_p10'] == 6
               and sorted(_pS['stem_form']['n_statements']) == ['1', '3']
               and sorted(_pS['stem_form']['n_statements'].values()) == [3, 4]
-              and 'r3_notes' not in _pS and bv_s3_plans(None, None, None, None) == {'figure_plan': {}}
+              and 'r3_notes' not in _pS and {k: v for k, v in bv_s3_plans(None, None, None, None).items()
+                                             if k != 'math_typeset'} == {'figure_plan': {}}
+              and bv_s3_plans(None, None, None, None)['math_typeset']['subjects'] == {}
               and bv_s3_plans('EX', 1, _h, _bsS, None, '', blueprint={'mocks': []})['figure_plan'] == {}
               and bv_figure_plan_fallback('EX', 1, _h, dict(_bsS, subtopic_by_qnum={'1': 'other.sub'})) == {})
         check('v124_prior_skills_reach_reviewers', bc.rp_attach_prior([{'q': '2'}, {'q': '1'}], _cmf)
@@ -4359,6 +4409,75 @@ def self_test():
               and all(_bv_os.path.exists(_bv_os.path.join(d, 'JOB_BRIEF.txt')) for d in s1['jobs']))
         s3 = bv_batch_step('EX', 1, home=_h, echo=False)
         check('bv_batch_step_idempotent_when_done', s3['status'] == 'done' and s3['jobs'] == [] and s3['settled'] == ['1', '2'])
+    # release 2026.11.27 (GAP-2026-11-21) — end to end through bv_batch_step: (A) a job carrying a non-chemistry problem
+    # figure of a strict-subject item gets BV_BRIEF_REVIEWER_R3_FIG, the same paper WITHOUT the plan (a paper begun earlier)
+    # gets BV_BRIEF_REVIEWER_R3 byte for byte; (B) maths written as text is sent back BC_PREREVIEW_TRIES times, then the
+    # item is reviewed as it stands, settles and carries the AMBER line (never a stop, never a loop)
+    _p1_plan = bc.math_typeset_plan(
+        'MATH_TYPESET_PROFILE: {"schema":1,"section":"Mathematical Sciences","n":300,"omml_q_share":0.84,'
+        '"omml_per_q":3.7,"display_per_q":0.33,"arms":["A1","A2","A3","A4","A5","A6"],"mode":"strict"}\n',
+        {'subtopic_list': [{'subtopic_id': 'ms.a', 'section': 'Mathematical Sciences'}]})
+
+    def _p1_paper(_h, _cm, with_plan):
+        _bv_js.dump({'concept_map': _cm, 'answers': {q: 1 for q in _cm}}, open(_bv_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bs = {'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': len(_cm)}], 'current_batch': 1, 'difficulty_labels': L,
+               'difficulty_plan_target': {q: 'Easy' for q in _cm}}
+        if with_plan:
+            _bs['math_typeset'] = _p1_plan
+        _bv_js.dump(_bs, open(_bv_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+
+    def _p1_answer(_h, s, ans):
+        _ret = []
+        for _d in s['jobs']:
+            _pk = _bv_js.load(open(_bv_os.path.join(_d, 'packet.json')))
+            _bv_js.dump({'items': {r['q']: {'band': 'Easy', 'decisions': 1, 'rationale': 'r', 'answer': ans,
+                                            'confidence': 'high', 'assumptions': []} for r in _pk['items']}},
+                        open(_bv_os.path.join(_d, 'result.json'), 'w'))
+            _ret.append(_d + ' REVIEW DONE')
+        open(_bv_os.path.join(_h, 'EX_M1_bv', 'returned.txt'), 'w').write('\n'.join(_ret) + '\n')
+    _cmF = {'1': {'stem_text': 'A bead of mass m moves on the wire as shown. Find the period.', 'option_texts': ['1', '2', '3', '4'],
+                  'subtopic_id': 'ms.a', 'qtype': 'mcq', 'figure_files': ['q1_problem.png']}}
+    _briefs = {}
+    for _wp in (True, False):
+        with _bv_tf.TemporaryDirectory() as _h:
+            _p1_paper(_h, _cmF, _wp)
+            _bv_js.dump({'class': 'schematic', 'role': 'problem', 'text_labels': ['m', '$\\theta$']},
+                        open(_bv_os.path.join(_h, 'q1_problem.figspec.json'), 'w'))
+            _sF = bv_batch_step('EX', 1, home=_h, echo=False)
+            _briefs[_wp] = [open(_bv_os.path.join(d, 'JOB_BRIEF.txt')).read().replace(d, '<JOB_DIR>') for d in _sF['jobs']]
+    check('p1_brief_fig_variant_end_to_end', _briefs[True] and _briefs[False]
+          and all(b == bc.BV_BRIEF_REVIEWER_R3_FIG for b in _briefs[True])
+          and all(b == bc.BV_BRIEF_REVIEWER_R3 for b in _briefs[False]))
+    with _bv_tf.TemporaryDirectory() as _h:
+        _p1_paper(_h, {'1': {'stem_text': 'If ω² > g a⁻¹, which value of x holds?', 'option_texts': ['1', '2', '3', '4'],
+                             'subtopic_id': 'ms.a', 'qtype': 'mcq'}}, True)
+        _sT = [bv_batch_step('EX', 1, home=_h, echo=False) for _ in range(3)]
+        _p1_answer(_h, _sT[-1], 1)
+        _sD = bv_batch_step('EX', 1, home=_h, echo=False)
+        _bsT = _bv_js.load(open(_bv_os.path.join(_h, 'EX_M1_batch_state.json')))
+        check('p1_math_typeset_soft_send_back_then_amber', [x['status'] for x in _sT] == ['rewrite', 'rewrite', 'jobs_out']
+              and any('G-MATH-TYPESET' in ln for ln in (_sT[0].get('lines') or []))
+              and _sD['status'] == 'done' and _sD['settled'] == ['1']
+              and ['AMBER', 'Q1: maths written as text (G-MATH-TYPESET A1)'] in [list(x) for x in
+                                                                                   (_bsT.get('bc_footer') or {}).get('1') or []])
+    # the thin core's embedded copies of the compiler's delimiters / tables never drift from t3_mathcomp (byte-locked
+    # §S3-5b), and the chemistry types the plan freezes come from figure_types (both routed with this engine)
+    try:
+        import t3_mathcomp as _t3k
+        _t3ok = (bc.P1_MATH_OPEN == _t3k.MATH_OPEN and bc.P1_MATH_CLOSE == _t3k.MATH_CLOSE
+                 and bc.P1_SYMBOLS == dict(_t3k._T3_SYMBOLS)
+                 and bc.P1_NARY == {k: v[0] for k, v in _t3k._T3_NARY.items()}
+                 and set(bc.P1_MATRIX_ENVS) == set(_t3k._T3_MATRIX) and set(bc.P1_NOOP) == set(_t3k._T3_NOOP)
+                 and set(bc.P1_STYLED) == set(_t3k._T3_STYLED))
+    except Exception:                                   # noqa: BLE001
+        _t3ok = False
+    check('p1_t3_drift_lock', _t3ok)
+    _ctk = bv_p1_chem_types()
+    check('p1_chem_types_from_figure_types', {'chemical_structure', 'reaction_scheme', 'newman_projection',
+                                              'nmr_spectrum', 'molecular_orbital_diagram'} <= set(_ctk)
+          and not {'bar_chart', 'line_graph', 'pie_chart'} & set(_ctk) and _ctk == sorted(_ctk)
+          and bc.fig_need('x', [], {'object_type': 'nmr_spectrum', 'class': 'data_series', 'text_labels': ['a']},
+                          _ctk)[0] == 'N/A')
     # v1.23 (C3) — the rung-3 TEXT fallback has no figure record; a picture on it is refused at STEP A3
     with _bv_tf.TemporaryDirectory() as _h:
         _bv_js.dump({'questions': {'4': {'object_type': 'chemical_structure'}, '5': {'object_type': 'spectrum'}}},

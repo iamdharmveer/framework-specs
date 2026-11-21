@@ -1,6 +1,5 @@
-# Framework_MockReview v2.3.1 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
-# v2.3.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (with MockTestCreate v8.1): S2-2R — a blocking code acts
-#   when two reviewers name it (bc.R3_CODE_QUORUM), at its own severity.
+# Framework_MockReview v2.4.0 — Independent Paper Review: the INTERNAL REVIEWER BRIEF of Create S13-2G
+# v2.4.0 — 2026-11-21 — GAP-2026-11-21-FIGURE-NEED (release 2026.11.27): S2-2R D-FIG-DECORATIVE (minor; FIG brief only).
 #
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockReview.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
@@ -232,6 +231,7 @@
   The in-batch reviewer of a v8.0 paper (bc.BV_BRIEF_REVIEWER_R3) reports problems ONLY as 'defects' {code, severity,
   where, evidence} from bc.R3_DEFECT_CODES (the single source) plus the solver fields; a blocking code acts when
   bc.R3_CODE_QUORUM (2) reviewers name it, at the code's own severity (bc.r3_findings; v2.3.1). The S2-2 fields above stay in force for mode 'br1' and the legacy S13-2G path.
+  v2.4.0: D-FIG-DECORATIVE ('minor': the question can be answered with the figure removed) is described only in jobs carrying a non-chemistry problem figure (bc.BV_BRIEF_REVIEWER_R3_FIG; every other brief byte-identical); it never blocks or starts a rung.
 
 ## S3-1 — Build and bind-check the verdict file
 
@@ -297,4 +297,4 @@
   [ ] 7. When queue.json carries a concept_vocabulary, every record carries concepts_used
          selected from it (or "other:<name>"), describing the reviewer's OWN solution (§2).
 
-# END OF Framework_MockReview v2.3.1
+# END OF Framework_MockReview v2.4.0

@@ -4,6 +4,17 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.98 — 2026-11-27 — GAP-2026-11-21-FIGURE-NEED + GAP-2026-11-21-MATH-TYPESET (release 2026.11.27; owner decisions
+OD-P2 / OD-P3). (1) C-E1: render_figure() records the visible text it drew (ax.texts, Annotations included, in draw
+order) into spec['text_labels'] — the RENDERER's record, never the author's declaration (QQ-0); read only by
+blueprint_core.fig_need (G-FIG-NEED). Not recorded for a chemistry spec (chem True): a chemistry sidecar is
+byte-identical to v5.97. (2) OD-P2: a spec carrying math_labels True (set ONLY by blueprint_core.mt_figure_style for a
+non-chemistry figure of a STRICT maths subject) is drawn as black / grey line art and its single-symbol labels (m₁,
+θ, A) become matplotlib mathtext italic; style_monochrome True (set with it) already exempts it from ACCENT PRESENCE.
+(3) C-S5: alt_text(spec) with spec['alt_plain'] True names the question, the role and the plotted quantities WITHOUT
+the internal class name, then spec['description'] — the sentence a reader needs (G-ALTTEXT bans 'class schematic').
+A spec without these keys renders and describes exactly as v5.97. No new gate, no stop.
+
 v5.97 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-11 / G-12 (LAW-ORG-8). G-FIGCOLLIDE now gates a
 native / rdkit structure raster on its DRAWN 2-D coordinates (spec['geometry'] = corpus_io draw.geometry: bond
 crossing, bond through a label, label overlap, atom clash) instead of returning nothing; NEW G-ORGPROOF
@@ -809,6 +820,9 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
             draw_fn(ax, _series, palette)
         finally:
             _CURRENT_SPEC = None
+        if spec.get("math_labels") is True:        # v5.98 OD-P2 — strict maths subject, non-chemistry figure only
+            _p1_line_art(ax)
+            _p1_math_labels(ax)
         # THE SAFETY NET (v5.55). Measure what was actually drawn, separate
         # overprinted labels, and fit the data window so every mark clears
         # the frame. Runs for every class: a data figure can overprint a
@@ -824,6 +838,8 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
             draw_frame(ax)
         rec["data_window"] = [float(ax.get_xlim()[0]), float(ax.get_ylim()[0]),
                               float(ax.get_xlim()[1]), float(ax.get_ylim()[1])]
+        if spec.get("chem") is not True:            # v5.98 C-E1 — the renderer's own label record (G-FIG-NEED)
+            spec["text_labels"] = _p1_text_labels(ax)
         fig.savefig(out_path, dpi=FIGURAL_DPI, facecolor="white",
                     transparent=False)
         plt.close(fig)
@@ -1377,9 +1393,98 @@ def write_spec_sidecar(spec, png_path):
     return p
 
 
+_P1_GREEK_TEX = {"α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta", "ε": "epsilon", "ζ": "zeta", "η": "eta",
+                 "θ": "theta", "ι": "iota", "κ": "kappa", "λ": "lambda", "μ": "mu", "ν": "nu", "ξ": "xi", "π": "pi",
+                 "ρ": "rho", "σ": "sigma", "τ": "tau", "υ": "upsilon", "φ": "phi", "ϕ": "phi", "χ": "chi",
+                 "ψ": "psi", "ω": "omega", "Γ": "Gamma", "Δ": "Delta", "Θ": "Theta", "Λ": "Lambda", "Ξ": "Xi",
+                 "Π": "Pi", "Σ": "Sigma", "Φ": "Phi", "Ψ": "Psi", "Ω": "Omega", "ϑ": "vartheta"}
+_P1_SYMBOL_LABEL = re.compile(r"^([A-Za-z\u0370-\u03ff\u03d1\u03d5])(?:_?([0-9\u2080-\u2089]{1,3}))?('{0,2})$")
+_P1_SUBDIG = {chr(0x2080 + i): str(i) for i in range(10)}
+
+
+def _p1_text_labels(ax):
+    """v5.98 C-E1: the visible, non-empty text strings drawn on the axes, in draw order (Annotations are in ax.texts).
+    Never raises."""
+    try:
+        return [t.get_text().strip() for t in ax.texts
+                if t.get_visible() and str(t.get_text() or "").strip()]
+    except Exception:                                        # noqa: BLE001
+        return []
+
+
+def _p1_math_labels(ax):
+    """v5.98 OD-P2: a single-symbol label (m₁, θ, A, x', v_2) becomes matplotlib mathtext italic ($m_{1}$,
+    $\\theta$); any other text (a value, a word, an existing $…$) is left as drawn. Never raises."""
+    try:
+        for t in ax.texts:
+            raw = str(t.get_text() or "").strip()
+            m = _P1_SYMBOL_LABEL.match(raw)
+            if not raw or raw.startswith("$") or not m:
+                continue
+            base = m.group(1)
+            base = "\\" + _P1_GREEK_TEX[base] if base in _P1_GREEK_TEX else base
+            sub = "".join(_P1_SUBDIG.get(c, c) for c in (m.group(2) or ""))
+            t.set_text("$" + base + ("_{" + sub + "}" if sub else "") + m.group(3) + "$")
+    except Exception:                                        # noqa: BLE001
+        pass
+
+
+def _p1_line_art(ax):
+    """v5.98 OD-P2: black line art — lines and text black, coloured fills to their own grey (shading contrast is kept,
+    hue is removed), white / transparent fills untouched. Never raises."""
+    try:
+        from matplotlib.colors import to_rgba as _rgba
+
+        def _grey(c):
+            r, g, b, a = _rgba(c)
+            if a == 0 or min(r, g, b) > 0.94:
+                return (r, g, b, a)
+            lum = 0.299 * r + 0.587 * g + 0.114 * b
+            return (lum, lum, lum, a)
+        for ln in ax.lines:
+            ln.set_color("black")
+            mfc = ln.get_markerfacecolor()
+            if mfc not in ("none", None):
+                ln.set_markerfacecolor(_grey(mfc))
+        for p in ax.patches:
+            ec = p.get_edgecolor()
+            if ec is not None and len(ec) == 4 and ec[3] > 0:
+                p.set_edgecolor("black")
+            p.set_facecolor(_grey(p.get_facecolor()))
+        for col in ax.collections:
+            fc = col.get_facecolor()
+            if len(fc):
+                col.set_facecolor([_grey(c) for c in fc])
+            ec = col.get_edgecolor()
+            if len(ec):
+                col.set_edgecolor([("black" if c[3] > 0 else c) for c in ec])
+        for t in ax.texts:
+            t.set_color("black")
+    except Exception:                                        # noqa: BLE001
+        pass
+
+
 def alt_text(spec):
     """G-FIGALT. Every drawing carries wp:docPr/@descr naming the question,
-    the class and the quantities plotted."""
+    the class and the quantities plotted. v5.98 (C-S5): spec['alt_plain'] True -> the same sentence WITHOUT the
+    internal class name (and without placeholder 'series N' names), followed by spec['description'] — set only by
+    blueprint_core.mt_figure_style for a non-chemistry figure; every other spec reads exactly as v5.97."""
+    if spec.get("alt_plain") is True:
+        ax0 = spec.get("axes") or {}
+
+        def _ax0(k):
+            a = ax0.get(k) or {}
+            t, u = a.get("title"), a.get("units")
+            return f"{t} ({u})" if t and u else (t or "")
+        x0, y0 = _ax0("x"), _ax0("y")
+        q0 = f" {y0} against {x0}." if (x0 and y0) else ""
+        nm0 = ", ".join(n for n in (str(s.get("label", s.get("id", ""))) for s in (spec.get("series") or [])
+                                    if isinstance(s, dict))
+                        if n and not re.fullmatch(r"(?i)series\s*\d+", n))
+        k0 = f" Series: {nm0}." if nm0 else ""
+        d0 = str(spec.get("description") or "").strip()
+        return (f"Question {spec.get('question', '?')} {spec.get('role', 'problem')} figure.{q0}{k0}"
+                + (f" {d0}" if d0 else "")).strip()
     ax = spec.get("axes") or {}
     def _ax(k):
         a = ax.get(k) or {}
@@ -3696,6 +3801,32 @@ def self_test():
             _pok = False
         check(f"partial_spec_tolerated_{sorted(_partial)[0]}", _pok)
     check("alt_text_tolerates_empty_spec", isinstance(alt_text({}), str))
+    # ---- v5.98 (GAP-2026-11-21 C-E1 / OD-P2 / C-S5) --------------------------
+    def _p1_draw(ax, series, palette):
+        ax.plot([0, 1], [0, 1], color="#0072B2", lw=2)
+        ax.add_patch(__import__("matplotlib").patches.Circle((0.5, 0.5), 0.1, facecolor="#0072B2"))
+        ax.text(0.1, 0.9, "m₁"); ax.annotate("θ", (0.5, 0.2)); ax.text(0.8, 0.1, "30°"); ax.text(0.2, 0.2, "  ")
+    _p1s = make_figure_spec(44, "schematic", FIG_PROBLEM_DISPLAY_IN, series=series_defaults(1))
+    render_figure(_p1_draw, os.path.join(tmp, "p1_plain.png"), _p1s)
+    check("p1_fn10_label_record_in_draw_order", _p1s.get("text_labels") == ["m₁", "θ", "30°"])
+    _p1c = make_figure_spec(44, "schematic", FIG_PROBLEM_DISPLAY_IN, series=series_defaults(1))
+    _p1c["chem"] = True
+    render_figure(_p1_draw, os.path.join(tmp, "p1_chem.png"), _p1c)
+    check("p1_no_label_record_for_chemistry", "text_labels" not in _p1c)
+    _p1m = make_figure_spec(44, "schematic", FIG_PROBLEM_DISPLAY_IN, series=series_defaults(1))
+    _p1m.update({"style_monochrome": True, "math_labels": True})
+    _p1mp = os.path.join(tmp, "p1_math.png")
+    render_figure(_p1_draw, _p1mp, _p1m)
+    _cf = coloured_fraction(_p1mp)
+    check("p1_odp2_math_labels_and_line_art", _p1m.get("text_labels") == ["$m_{1}$", "$\\theta$", "30°"]
+          and (_cf is None or _cf < 0.0005) and g_figaccent(_p1m, _p1mp) == []
+          and (coloured_fraction(os.path.join(tmp, "p1_plain.png")) or 1) > 0.0005)
+    check("p1_c_s5_alt_plain", alt_text({"question": 44, "class": "schematic", "alt_plain": True,
+                                         "description": "A bead on a hoop turning about its vertical diameter."})
+          == "Question 44 problem figure. A bead on a hoop turning about its vertical diameter."
+          and "class schematic" in alt_text({"question": 44, "class": "schematic"})
+          and "series 1" not in alt_text({"question": 1, "class": "data_series", "alt_plain": True,
+                                         "series": [{"label": "series 1"}]}).lower())
 
     # ---- audit-id mapping must be total and A-* prefixed --------------------
     check("every_gate_has_an_audit_id",

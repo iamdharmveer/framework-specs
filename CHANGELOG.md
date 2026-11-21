@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.11.27 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED: maths typeset like the exam; figures that carry something
+
+(over release 2026.11.26.1, commit 9575e8a. Framework_MockTestCreate v8.6; Framework_MockTestAnalyse v2.65.0;
+Framework_MockReview v2.4.0; Framework_DeliveryFooter v1.56.0; blueprint_core v2.12 (self-test 1625); final_assembly
+v1.28.0 (252); figural_core v5.98 (245); analyse_engine v1.7 (317, EXPECTED_CHECKS 312); audit_canonical v2.46 (693);
+LAW_REGISTRY (LAW-TYPESET-1, LAW-FIG-NEED-1); STEP_CONTRACTS floors (Create 8.6, MockTestAnalyse 2.65.0, MockReview
+2.4.0, DeliveryFooter 1.56.0). Owner decisions OD-P1..OD-P5 of 2026-11-21; "1000% permanently fixed for all 200 exams
+(except organic chemistry questions)"; no new hard stop, no new loop, no new review round. Skill, triggers and routes
+unchanged.)
+
+**Evidence.** CSIR NET Mathematical Sciences Mock01 rerun (TestCreate) against the real papers of 02-Mar-2025,
+18-Dec-2025 and 17-Jul-2026: 36 equation objects in 90 maths items (real: 240-564 per 100 questions), Part C 6 of 50
+items typeset (real 77-98%), 0 displayed equations / matrices / cases / radicals; 42 of 90 items wrote maths as text
+(g a⁻¹, ½, a Unicode ∫, "the reciprocal of the square root of n", "the matrix with rows …", "summed over i = 1, …, 4")
+— 0 of 300 real questions do — while G-MATH-RESIDUE returned 0 blocking findings. Two maths figures (Q44, Q102) define
+every drawn label in their stems; the one real maths figure (Mar 2025 Q48) is the only place θ is defined.
+
+- **Builders route regions (every exam).** add_question_stem / add_text_options / add_stem_ml / add_stem_multipart /
+  add_standard_question / add_match_table cells send ⟦MATH:…⟧ regions through render_mock_text (with the stem font);
+  a line that is one region alone is a displayed equation (m:oMathPara). A region reaching a builder was a
+  G-MATH-RESIDUE blocking defect in every exam before, so no deliverable output changes; region-free text is
+  byte-identical (verified on the spec's own S10-3 / S10-4 code).
+- **Per-subject profile (Step 5).** MATH_TYPESET_PROFILE per SUBJECT (the manifest section — the one name every PYQ
+  question, slot, section_rules entry and scoped paper carries; the 2026-11-21 hand-off keyed it on the paper part,
+  which section_rules never contains, so it would have stayed off on CSIR Maths and in every TestCreate). Six arms,
+  self-calibrated on the exam's own questions; strict at >= 60% and >= 20 questions, never chemistry. CSIR Maths:
+  Mathematical Sciences strict (0.84, six arms), General Aptitude off. Owner line MATH_TYPESET_MODE overrides
+  (subject or paper part; strict refused on chemistry).
+- **Strict subjects.** Writer notation line (bc.MATH_NOTATION_LINE, also in the short author view); decision-tree rule
+  8; SOFT gate G-MATH-TYPESET (S12-NEW-31) — sent back within BC_PREREVIEW_TRIES, then settled with the AMBER line
+  "maths written as text"; A-TYPESET (an AMBER WARN carried to the footer, never a FAIL) discloses the paper's density; figures black line art
+  with italic labels.
+- **Figures.** figural_core records the text it drew (text_labels); bc.fig_need tests whether the text DEFINES each
+  label (not whether it mentions it); SOFT gate G-FIG-NEED (S12-NEW-32) for every non-chemistry problem figure,
+  reviewer code D-FIG-DECORATIVE (minor, only in jobs carrying such a figure — every other brief byte-identical);
+  plain alt text. A figure is never removed (OD-P3).
+- **Chemistry boundary.** Inert per item: a chemistry subject, a chemistry subtopic (figure evidence or name) or a
+  chemistry figure takes today's path byte for byte (briefs, packets, gates, figures, alt text, footer).
+- **Resume.** A paper begun earlier has no batch_state['math_typeset'] and finishes exactly as it began.
+- **After deploy.** Run `PYQExtract <EXAM> --synthesise ALL` with the Sorted PYQ .docx files attached (or in Project
+  Files) to write the profile lines; until then every subject is off (today's behaviour) and G-FIG-NEED applies.
+
 ## 2026.11.26.1 — GAP-2026-11-20-MATH-OMML: every compiled equation is schema-valid OMML; standard LaTeX maths spellings compile
 
 (over release 2026.11.26, commit fd53cc9. Framework_PYQPrepare v2.2.2 (§S3-5b Tier-3 compiler v2.1); t3_mathcomp.py v2.1

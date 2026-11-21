@@ -1399,6 +1399,43 @@
     "audit_canonical.py --self-test (v245-TU3-*)",
     "final_assembly.py --self-test (s13loop_TU11, s13loop_P1)"
    ]
+  },
+  "LAW-TYPESET-1 MATHS-TYPESET-LIKE-THE-EXAM": {
+   "gap": "GAP-2026-11-21-MATH-TYPESET",
+   "stated_in": "Framework_MockTestCreate.md v8.6 S3-16 / S10-3 / S10-4 rule 8 / S12-NEW-31; Framework_MockTestAnalyse.md v2.65.0 MATH_TYPESET_PROFILE; analyse_engine v1.7; blueprint_core v2.12 Cluster P1; final_assembly v1.28.0 bv_s3_plans / bv_batch_step; audit_canonical v2.46 A-TYPESET",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) or a Cluster BV / BC entry point — the batch step that runs G-MATH-TYPESET in the pre-review.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-21 (OD-P1 maths strict mode measured per subject by Step 5, an owner line overrides; OD-P2 strict-subject figures black line art with italic labels; OD-P3 a figure that still restates its stem is delivered with its figure and an AMBER line, never turned into a text question; OD-P4 G-FIG-NEED for every non-chemistry subject, General Aptitude included; OD-P5 both gates SOFT — sent back within the pre-review tries, then disclosed; owner instruction: 'permanently fixed for all 200 exams (except organic chemistry questions)', 'no ambiguity')."
+   ],
+   "requires": "The maths typesetting of a subject follows the exam's own papers. Step 5 measures a MATH_TYPESET_PROFILE per SUBJECT (never per paper part or scope label); S3-16 freezes batch_state['math_typeset'] (bc.math_typeset_plan). The S10-3 builders route ⟦MATH:…⟧ regions in every exam (a line that is one region alone is a displayed equation). In a STRICT subject the writer gets bc.MATH_NOTATION_LINE and the SOFT gate G-MATH-TYPESET (arms self-calibrated on the exam's own questions) sends maths written as text back within bc.BC_PREREVIEW_TRIES, then the question settles with its AMBER line; A-TYPESET discloses the paper's density. A chemistry subject or subtopic is inert (today's behaviour byte for byte); a paper without the plan finishes as it began. Never a hard gate, never a stop.",
+   "verified_by": [
+    "blueprint_core.py --self-test (p1_ts_arms_fire, p1_ts13_gate_dormant_and_soft, p1_plan_subject_keyed, p1_override_part_and_chem_refused, p1_ts10_calibrate, p1_c_e9_notation_reaches_writer, p1_linear)",
+    "final_assembly.py --self-test (p1_math_typeset_soft_send_back_then_amber)",
+    "analyse_engine.py --self-test (v17_rows_from_docx, v17_section_rules_profile_round_trip)",
+    "audit_canonical.py --self-test (A-TYPESET-shortfall-disclosed, A-TYPESET-clean-and-dormant)"
+   ]
+  },
+  "LAW-FIG-NEED-1 A-FIGURE-CARRIES-SOMETHING": {
+   "gap": "GAP-2026-11-21-FIGURE-NEED",
+   "stated_in": "Framework_MockTestCreate.md v8.6 OPTION A FIGURE PURPOSE / S12-NEW-32; Framework_MockReview.md v2.4.0 S2-2R; figural_core v5.98 text_labels; blueprint_core v2.12 fig_need; final_assembly v1.28.0",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) or a Cluster BV / BC entry point — the batch step that runs G-FIG-NEED in the pre-review.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER DECISIONS 2026-11-21 (OD-P1 maths strict mode measured per subject by Step 5, an owner line overrides; OD-P2 strict-subject figures black line art with italic labels; OD-P3 a figure that still restates its stem is delivered with its figure and an AMBER line, never turned into a text question; OD-P4 G-FIG-NEED for every non-chemistry subject, General Aptitude included; OD-P5 both gates SOFT — sent back within the pre-review tries, then disclosed; owner instruction: 'permanently fixed for all 200 exams (except organic chemistry questions)', 'no ambiguity')."
+   ],
+   "requires": "A non-chemistry problem figure is the only place at least one thing of its question is defined. The renderer records the text it drew (text_labels); bc.fig_need tests DEFINITION, not presence, fail-open. SOFT gate G-FIG-NEED, reviewer code D-FIG-DECORATIVE (minor, described only in jobs carrying a non-chemistry figure). A figure is never removed and a figure question never becomes a text question. Chemistry figures, subjects and subtopics are exempt and unchanged.",
+   "verified_by": [
+    "blueprint_core.py --self-test (p1_fn1_real_q48_needed, p1_fn2_mock_q44_decorative, p1_fn5_are_is_not_a_definition, p1_fn7_chemistry_exempt, p1_fn9_gate_soft_and_dormant, p1_code_minor_never_blocking)",
+    "final_assembly.py --self-test (p1_brief_fig_variant_end_to_end)",
+    "figural_core.py --self-test (p1_fn10_label_record_in_draw_order, p1_no_label_record_for_chemistry)"
+   ]
   }
  },
  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."
