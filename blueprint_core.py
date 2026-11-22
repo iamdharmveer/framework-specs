@@ -42,6 +42,11 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.13 (2026-11-28) — GAP-2026-11-21-A3-OMML-PARITY. NEW Cluster A3: omml_struct_text (ONE structure-preserving
+      reading of a paragraph's text and OMML, used by the auditor's --item-texts and by STEP A3 on the sidecar's
+      rendered *_src), a3_block_segments / a3_same_question (stem coverage, per-option equality, a swap refused),
+      a3_guard_step (a text-guard refusal at most ONCE per reviewed text, then bind + disclose — never a stop).
+      Standard library only (duck-typed over the caller's elements).
     v2.12 (2026-11-27) — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (owner decisions OD-P1..OD-P5 of
       2026-11-21; corrections K1-K4 of the 2026-11-21 review). NEW Cluster P1: math_typeset_findings (six arms,
       self-calibrated per subject), math_linear / mt_record_fields / mt_text_view (stem_src / option_src carry the
@@ -9691,6 +9696,53 @@ def _p1_self_test(check):
           and mt_text_view(None)[1] == [] and p1_amber_lines(None, None, None) == [])
 
 
+def _a3_self_test(check):
+    """Cluster A3 (v2.13, GAP-2026-11-21-A3-OMML-PARITY) — on standard-library ElementTree elements (the reader is
+    duck-typed): the structure-preserving reading, block segmentation, per-option equality, swap / unrelated refusal
+    and the bounded guard (one refusal per reviewed text, then bind + disclose)."""
+    import xml.etree.ElementTree as _ET
+    _W, _M = A3_W[1:-1], A3_M[1:-1]
+
+    def _p(*parts):
+        p = _ET.Element(A3_W + 'p')
+        for kind, val in parts:
+            if kind == 't':
+                r = _ET.SubElement(p, A3_W + 'r')
+                _ET.SubElement(r, A3_W + 't').text = val
+            else:
+                om = _ET.SubElement(p, A3_M + 'oMath')
+                f = _ET.SubElement(om, A3_M + 'f')
+                _ET.SubElement(f, A3_M + 'fPr')
+                for tag, x in (('num', val[0]), ('den', val[1])):
+                    e = _ET.SubElement(f, A3_M + tag)
+                    _ET.SubElement(_ET.SubElement(e, A3_M + 'r'), A3_M + 't').text = x
+        return p
+    _half, _1_25, _12_5 = _p(('t', '1.  '), ('f', ('1', '2'))), _p(('f', ('1', '25'))), _p(('f', ('12', '5')))
+    check('a3_reader_keeps_fraction_structure', omml_struct_text(_half) == '1. ⟨f ⟨ 1 ⟩/⟨ 2 ⟩'
+          and omml_struct_text(_1_25) != omml_struct_text(_12_5)
+          and omml_struct_text(_p(('t', 'Fi'), ('t', 'nd p.'))) == 'find p.' and omml_struct_text(None) == '')
+    _paras = [omml_struct_text(_p(('t', 'Q.1  Find p.'))), omml_struct_text(_half),
+              omml_struct_text(_p(('t', '2.  '), ('f', ('11', '24'))))]
+    _seg = a3_block_segments(_paras)
+    check('a3_block_segments', _seg['stem'] == 'find p.' and _seg['options'] == ['⟨f ⟨ 1 ⟩/⟨ 2 ⟩', '⟨f ⟨ 11 ⟩/⟨ 24 ⟩'])
+    _ex = {'stem': 'find p.', 'options': ['⟨f ⟨ 1 ⟩/⟨ 2 ⟩', '⟨f ⟨ 11 ⟩/⟨ 24 ⟩']}
+    check('a3_same_question', a3_same_question({'paras': _paras}, _ex) == (True, 'stem and every option match')
+          and a3_same_question({'paras': _paras}, dict(_ex, options=_ex['options'][::-1]))[0] is False
+          and a3_same_question({'paras': _paras}, dict(_ex, stem='calculate the boiling point elevation'))[0] is False
+          and a3_same_question({'paras': _paras}, {'stem': ''})[0] is True
+          and a3_same_question({'paras': _paras}, dict(_ex, drawn=True, options=['x']))[0] is True
+          and a3_same_question({'paras': _paras + ['3. extra']}, _ex)[0] is True
+          and a3_same_question({'paras': _paras + ['3. extra']}, dict(_ex, options=_ex['options'][::-1]))[0] is False)
+    _mem = {}
+    check('a3_guard_bounded', a3_guard_step(_mem, '5', 'c1', True) == 'pass' and _mem == {}
+          and a3_guard_step(_mem, '5', 'c1', False) == 'refuse'
+          and a3_guard_step(_mem, '5', 'c1', False) == 'bind_disclosed'
+          and a3_guard_step(_mem, '5', 'c1', False) == 'bind_disclosed'
+          and a3_guard_step(_mem, '5', 'c2', False) == 'refuse'
+          and a3_guard_step(_mem, '5', 'c2', False) == 'bind_disclosed' and A3_TEXT_GUARD_REFUSALS == 1
+          and a3_guard_step(None, '6', 'c', False) == 'refuse')
+
+
 def self_test():
     passed = 0
     total = 0
@@ -14878,6 +14930,7 @@ PYQ_IMAGE_ANALYSIS:
 
     _r3_self_test(check)                     # Cluster R3 (release 2026.11.21)
     _p1_self_test(check)                     # Cluster P1 (release 2026.11.27 — GAP-2026-11-21)
+    _a3_self_test(check)                     # Cluster A3 (release 2026.11.28 — GAP-2026-11-21-A3-OMML-PARITY)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -34897,6 +34950,201 @@ def typeset_shortfall(plan, per_q):
 
 
 
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# Cluster A3 (v2.13 — release 2026.11.28; GAP-2026-11-21-A3-OMML-PARITY). STEP A3 compares the delivered question
+# block with the reviewed sidecar record. Release 2026.11.27 wrote the sidecar's stem_text / option_texts as the LINEAR
+# form of a ⟦MATH:…⟧ region ('(1)/(2)') while the auditor's --item-texts read the same equation as its fused m:t
+# characters ('12'): the two never matched, STEP A3 refused a question whose text was never edited, its named repair
+# ("fix the one place that was not edited") could not be performed, and STEP E stayed forbidden — a permanent halt
+# (TestCreate CSIR NET Mathematical Sciences P1, batch 1, Q5 / Q6). This cluster removes the cause and the halt:
+#   (1) ONE reader on both sides — omml_struct_text: w:t and m:t in document order, every m:t bounded by spaces and
+#       the structural glyphs kept (fraction ⟨a⟩/⟨b⟩, radical √, n-ary operator, delimiters, accents, bars), so
+#       1/2 never reads as 12 and 12/5 never reads as 1/25. The auditor applies it to the delivered paragraphs; the
+#       engine applies it to the sidecar's *_src rendered by the SAME compiler the builders use (final_assembly) —
+#       equal by construction for every block the builders wrote.
+#   (2) a3_same_question — the stem by token coverage (>= 80 %), the options by EXACT per-option equality when the
+#       block's option paragraphs can be told apart, else in order; a swap or a one-place edit is still refused.
+#   (3) a3_guard_step — the text guard refuses a question AT MOST ONCE per reviewed text (content_sha). Seen again,
+#       the question binds to its delivered block (the auditor's own hash) with an AMBER footer line. A3-TEXT is
+#       therefore never a permanent stop, whatever the cause of a mismatch.
+# Pure, standard library only (duck-typed over lxml elements: .tag, .get, .find, iteration), never raises.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+import re as _a3_re
+import unicodedata as _a3_ud
+
+A3_RULE = 'A3-2026.11.28'
+A3_W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+A3_M = '{http://schemas.openxmlformats.org/officeDocument/2006/math}'
+A3_STEM_COVERAGE = 0.8
+A3_TEXT_GUARD_REFUSALS = 1          # a text-guard refusal happens at most this many times per reviewed text
+A3_OPT_RE = _a3_re.compile(r'^\s*\(?\s*([0-9]{1,2}|[A-Za-z]|[ivxIVX]{1,4})\s*\)?\s*[.)](?:\s|$)')
+A3_QLABEL_RE = _a3_re.compile(r'^\s*q\s*\.?\s*\d+\s*[.)]?\s*', _a3_re.I)
+_A3_DEFAULT_CHR = {'accPr': '̂', 'naryPr': '∫', 'groupChrPr': '⏟'}
+
+
+def _a3_val(el, tag):
+    try:
+        x = el.find(A3_M + tag) if el is not None else None
+        return x.get(A3_M + 'val') if x is not None else None
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _a3_walk(el, out, depth=0):
+    if depth > 200:
+        return
+    tag = str(getattr(el, 'tag', '') or '')
+    if tag == A3_W + 't':
+        out.append(el.text or '')
+        return
+    if tag == A3_M + 't':
+        out.append(' ' + (el.text or '') + ' ')
+        return
+    if tag == A3_W + 'tab' or tag == A3_W + 'br':
+        out.append(' ')
+        return
+    if tag == A3_M + 'd':                                  # delimiters: begChr / sepChr / endChr (defaults ( | ))
+        pr = el.find(A3_M + 'dPr')
+        beg, end, sep = _a3_val(pr, 'begChr'), _a3_val(pr, 'endChr'), _a3_val(pr, 'sepChr')
+        out.append(' ' + ('(' if beg is None else beg) + ' ')
+        es = [c for c in el if str(getattr(c, 'tag', '')) == A3_M + 'e']
+        for i, c in enumerate(es):
+            if i:
+                out.append(' ' + ('|' if sep is None else sep) + ' ')
+            _a3_walk(c, out, depth + 1)
+        out.append(' ' + (')' if end is None else end) + ' ')
+        return
+    for prn in ('accPr', 'naryPr', 'groupChrPr'):
+        pr = el.find(A3_M + prn) if tag[:len(A3_M)] == A3_M else None
+        if pr is not None:
+            c = _a3_val(pr, 'chr')
+            out.append(' ' + (c or _A3_DEFAULT_CHR[prn]) + ' ')
+    if tag == A3_M + 'f':
+        out.append(' ⟨f ')
+    elif tag == A3_M + 'num':
+        out.append(' ⟨ ')
+    elif tag == A3_M + 'den':
+        out.append(' ⟩/⟨ ')
+    elif tag == A3_M + 'rad':
+        out.append(' √ ')
+    elif tag == A3_M + 'bar':
+        out.append(' ‾ ')
+    for c in el:
+        ct = str(getattr(c, 'tag', '') or '')
+        if ct[:len(A3_M)] == A3_M and ct.endswith('Pr'):   # m:*Pr — properties, no content
+            continue
+        if ct == A3_W + 'rPr' or ct == A3_W + 'pPr':
+            continue
+        _a3_walk(c, out, depth + 1)
+    if tag == A3_M + 'den':
+        out.append(' ⟩ ')
+
+
+def a3_canon(s):
+    """NFKC, case-folded, whitespace-collapsed. Pure."""
+    return ' '.join(_a3_ud.normalize('NFKC', str(s or '')).casefold().split())
+
+
+def omml_struct_text(el):
+    """The structure-preserving reading of ONE paragraph element (w:p, or any element holding one): w:t text in document
+    order, every m:t bounded by spaces, the OMML structure kept as glyphs (fraction, radical, n-ary operator,
+    delimiters, accents, bars). Canonical (a3_canon). The ONE reader STEP A3 applies to both sides. '' on bad input.
+    Never raises."""
+    try:
+        out = []
+        _a3_walk(el, out)
+        return a3_canon(''.join(out))
+    except Exception:                                       # noqa: BLE001
+        return ''
+
+
+def a3_tokens(s):
+    """Word tokens and single punctuation / glyph tokens of a canonical reading. Pure."""
+    return _a3_re.findall(r'\w+|[^\w\s]', a3_canon(s))
+
+
+def a3_block_segments(paras):
+    """{'stem': str, 'options': [str], 'all': str} from a block's paragraph readings in document order (the auditor's
+    --item-texts 'paras'): the 'Q.n' label is removed from the first; paragraphs after the first whose reading starts
+    with an option label (1. / (a) / ii)) are options (label removed); the rest before the first option is the stem.
+    Pure."""
+    ps = [a3_canon(x) for x in (paras or []) if isinstance(x, str)] if isinstance(paras, (list, tuple)) else []
+    stem, opts = [], []
+    for i, t in enumerate(ps):
+        if i == 0:
+            t = A3_QLABEL_RE.sub('', t, count=1)
+        m = A3_OPT_RE.match(t) if i else None
+        if m:
+            opts.append(a3_canon(t[m.end():]))
+        elif not opts and t:
+            stem.append(t)
+    return {'stem': ' '.join(stem), 'options': opts, 'all': ' '.join(x for x in ps if x)}
+
+
+def a3_same_question(block, expected):
+    """(same, why) — do the delivered block and the reviewed record describe the same question? block: the auditor's
+    {'paras': [...]} (or a list of paragraph readings); expected: {'stem': reading, 'options': [readings], 'drawn':
+    bool} built from the sidecar *_src by the same compiler and reader. The stem: >= A3_STEM_COVERAGE of its tokens
+    in the block. The options (text options only): EXACT equality one by one when the block shows exactly as many
+    option paragraphs; otherwise each option's tokens IN ORDER in the block (table cells, multi-line options). An
+    expected record with no stem cannot be checked: (True, 'no stem'). Pure."""
+    try:
+        paras = block.get('paras') if isinstance(block, dict) else block
+        seg = a3_block_segments(paras)
+        ex = expected if isinstance(expected, dict) else {}
+        st = a3_tokens(ex.get('stem'))
+        if not st:
+            return True, 'no stem in the record'
+        have = set(a3_tokens(seg['all']))
+        if sum(1 for t in st if t in have) < A3_STEM_COVERAGE * len(st):
+            return False, 'the block does not show the record\'s stem'
+        if ex.get('drawn'):
+            return True, 'stem checked (drawn options)'
+        ops = [a3_canon(o) for o in (ex.get('options') or []) if a3_canon(o)]
+        if not ops:
+            return True, 'stem checked (no text options)'
+        if len(seg['options']) == len(ops):
+            for i, (a, b) in enumerate(zip(seg['options'], ops), 1):
+                if a != b:
+                    return False, f'option {i} differs from the record'
+            return True, 'stem and every option match'
+        seq = ' ' + ' '.join(a3_tokens(seg['all'])) + ' '
+        pos = 0
+        for i, o in enumerate(ops, 1):
+            needle = ' ' + ' '.join(a3_tokens(o)) + ' '
+            nxt = seq.find(needle, pos)
+            if nxt < 0:
+                return False, f'option {i} is not in the block in order'
+            pos = nxt + 1
+        return True, 'stem and options in order'
+    except Exception:                                       # noqa: BLE001
+        return True, 'not checkable'
+
+
+def a3_guard_step(memory, q, content_sha, same):
+    """The bounded text guard (no permanent stop). memory: batch_state['a3_text_guard'] (dict, updated in place);
+    content_sha: the reviewed text's sha. Returns 'pass' (the texts match), 'refuse' (first mismatch for this reviewed
+    text — one repair attempt) or 'bind_disclosed' (the mismatch persists after A3_TEXT_GUARD_REFUSALS refusal(s) for
+    the SAME reviewed text: bind to the delivered block and disclose — AMBER). A new reviewed text (content_sha
+    changed) starts a fresh count. Pure apart from `memory`."""
+    if same:
+        return 'pass'
+    mem = memory if isinstance(memory, dict) else {}
+    rec = mem.get(str(q)) if isinstance(mem.get(str(q)), dict) else {}
+    n = int(rec.get('refusals') or 0) if rec.get('content_sha') == content_sha else 0
+    if n >= A3_TEXT_GUARD_REFUSALS:
+        mem[str(q)] = {'content_sha': content_sha, 'refusals': n, 'disclosed': True, 'rule': A3_RULE}
+        return 'bind_disclosed'
+    mem[str(q)] = {'content_sha': content_sha, 'refusals': n + 1, 'disclosed': False, 'rule': A3_RULE}
+    return 'refuse'
+
+
+A3_DISCLOSE_LINE = ("Q{q}: STEP A3 could not match the delivered question block to its reviewed record ({why}) after one "
+                    "repair attempt — bound to its delivered block (A3-TEXT, disclosed; never a stop)")
+
+
 for _n, _d in {
         'r3_mode': lambda *a, **k: R3_MODE_COUNTED,
         'r3_entry_mode': lambda *a, **k: R3_MODE_LEGACY,
@@ -35014,6 +35262,13 @@ for _n, _d in {
         'p1_amber_lines': lambda *a, **k: [],
         'typeset_shortfall': lambda *a, **k: [],
         'bv_brief_needs_fig': lambda *a, **k: False,
+        # v2.13 Cluster A3 — never raises
+        'omml_struct_text': lambda *a, **k: '',
+        'a3_canon': lambda *a, **k: '',
+        'a3_tokens': lambda *a, **k: [],
+        'a3_block_segments': lambda *a, **k: {'stem': '', 'options': [], 'all': ''},
+        'a3_same_question': lambda *a, **k: (True, 'not checkable'),
+        'a3_guard_step': lambda *a, **k: 'bind_disclosed',
 }.items():
     _nf_guard(_n, _d)
 del _n, _d

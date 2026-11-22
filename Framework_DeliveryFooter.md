@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.56.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.57.0 — Universal Delivery Footer (F1/F2) Contract
+# v1.57.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with MockTestCreate v8.7): §LADDER-BC gains
+#   the A3-TEXT line — a question STEP A3 bound to its delivered block after its one text-guard refusal (batch_state
+#   ['a3_footer'], collected at S13-2L.0). Disclosure only — STEP A3 never holds a paper on it.
 # v1.56.0 — 2026-11-21 — GAP-2026-11-21-MATH-TYPESET C-S15 + GAP-2026-11-21-FIGURE-NEED C-S6 (release 2026.11.27; with
 #   MockTestCreate v8.6, blueprint_core v2.12, audit_canonical v2.46): §LADDER-BC gains two question lines written by
 #   bc.p1_amber_lines when a question settles still tripping a SOFT Phase 1 gate after the pre-review tries ("maths
@@ -1296,6 +1299,8 @@ verbatim by Create S13-6 / S13-9A and MockDeliver — never composed by this con
                                                                                              strict subjects only)
   ⚠️ Q<n>: the figure restates the stem (G-FIG-NEED; delivered with its figure)              Create S12-NEW-32 (v1.56.0;
                                                                                              never a chemistry figure)
+  ⚠️ Q<n>: STEP A3 could not match the delivered question block to its reviewed record (<why>)  Create S4-7 STEP A3
+     after one repair attempt — bound to its delivered block (A3-TEXT, disclosed; never a stop)   (v1.57.0; a3_footer)
   ℹ️ Q<n>: changed in the last batch — the earlier cumulative docx differs                    LAW-BC-6 re-open
   ⚠️ Q<n>: label does not verify at Final Assembly — engine defect (LAW-BC-8, P0 recorded)    expected never
   ⚠️ Q<n>: figure proof failed at Final Assembly (<proofs>) — engine defect (LAW-BC-8, P0 recorded)   S13-2P (v1.51.1); expected never

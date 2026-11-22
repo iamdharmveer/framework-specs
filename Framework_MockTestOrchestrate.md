@@ -1,4 +1,8 @@
-# Framework_MockTestOrchestrate v1.11.0
+# Framework_MockTestOrchestrate v1.12.0
+# v1.12.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; paired with Framework_MockTestCreate v8.7):
+#   O3-8 — "STEP A3: REFUSED" is an instruction, never a stop: the worker performs the repair each refusal names and runs
+#   STEP A3 again. A worker never composes a HARD STOP for a refusal (the incident worker wrote "HARD STOP [HS:INFRA]
+#   STEP-A3-BIND" itself). STEP A3 refuses a text mismatch at most once per reviewed text, then binds and discloses.
 # v1.11.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP (release 2026.11.25; paired with Framework_MockTestCreate v8.4):
 #   O3-8 — every "<CODE> [HS:LADDER]" an executed block raises is an instruction, never a stop; a worker that judges an
 #   instruction would break a law runs the law-compliant branch the block offers and writes one FRAMEWORK NOTE — it
@@ -520,6 +524,11 @@ example, writing question text at Final Assembly, LAW-BC-8) does not compose a s
 the law-compliant branch the executed block offers, and records ONE FRAMEWORK NOTE naming the law and the site (Create
 S13-2F v8.4 has no branch that writes text or opens a chain on a BATCH-COMPLETE paper, so this cannot recur there).
 Only a "HARD STOP [...]" the executed block itself raises ends the turn.
+v1.12.0 (GAP-2026-11-21-A3-OMML-PARITY): "STEP A3: REFUSED ..." (MTC S4-7) is an instruction, never a stop. The worker
+performs the repair each refused question names (run STEP A2; or rebuild the block from its sidecar with the S10-3
+builders, then STEP B) and runs STEP A3 again in the same turn. A text mismatch is refused at most ONCE per reviewed
+text — the next STEP A3 binds the question and discloses it (AMBER) — so this loop always ends. A worker never
+composes "HARD STOP [HS:INFRA]" or any other stop for a STEP A3 refusal.
 
 ## O4-1 — Budgets (SESSION_BUDGET.json; never copy a value into a run)
 
@@ -597,4 +606,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.11.0
+# END OF Framework_MockTestOrchestrate v1.12.0

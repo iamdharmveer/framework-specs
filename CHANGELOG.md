@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.11.28 — GAP-2026-11-21-A3-OMML-PARITY: STEP A3 reads equations the same way on both sides and can never hold a paper
+
+(over release 2026.11.27, commit 6f40774. Framework_MockTestCreate v8.7; Framework_MockTestOrchestrate v1.12.0;
+Framework_DeliveryFooter v1.57.0; final_assembly v1.29.0 (262); audit_canonical v2.47 (694); blueprint_core v2.13 (1629);
+STEP_CONTRACTS floors Create 8.7, MockTestOrchestrate 1.12.0, DeliveryFooter 1.57.0. Skill, triggers and routes
+unchanged.)
+
+**Incident.** TestCreate CSIR NET Mathematical Sciences P1, batch 1: STEP A3 refused Q5 and Q6 and the paper halted
+permanently. Release 2026.11.27 stored a typeset option as its linear form ('(1)/(2)', bc.mt_record_fields) while the
+auditor's --item-texts read the same equation as its fused characters ('12'). The question was never edited, so the named
+repair ("fix the one place that was not edited") could not be performed and STEP E stayed forbidden. Every exam was
+exposed: the S10-3 builders route regions in every exam (Q5 is General Aptitude).
+
+- **One reader, both sides.** bc.omml_struct_text reads a paragraph's text and OMML with the structure kept (fraction,
+  radical, n-ary operator, delimiters, accents, bars — 1/2 never reads as 12, 12/5 never as 1/25). The auditor writes it
+  per paragraph into --item-texts ('paras'); STEP A3 renders the sidecar's stem_src / option_src with the builders' own
+  compiler (t3_mathcomp) and reads it with the same function — equal by construction. bc.a3_same_question: stem by token
+  coverage (>= 80 %), options by exact per-option equality (else in order). Measured on the gap's 32-construct matrix
+  with blocks written by the spec's own builders: 32/32 bind, 32/32 option swaps refused, 32/32 unrelated stems refused;
+  the incident's Q5 / Q6 bind, a swap of their options is refused. A plain-string --item-texts (earlier auditor) is
+  compared in the same fused form, so a paper halted on 2026.11.27 resumes.
+- **Never a stop.** The text guard refuses a question at most ONCE per reviewed text (bc.a3_guard_step,
+  batch_state['a3_text_guard']); on the next STEP A3 it binds to its delivered block (the auditor's own hash) and is
+  disclosed — batch_state['a3_footer'], an AMBER footer line collected at S13-2L.0. If the guard itself ever failed, its
+  default is bind-and-disclose, never refuse. Every other STEP A3 refusal names a repair STEP A2 performs (bounded).
+- **Orchestrate O3-8.** "STEP A3: REFUSED" is an instruction, never a stop — the worker performs the named repair and runs
+  STEP A3 again; it never composes a HARD STOP for a refusal (the incident worker wrote "HARD STOP [HS:INFRA]" itself).
+- **S4.** A stem figure with TEXT options keeps its option check (a swap there was accepted before).
+- **Permanent fixtures.** The gap's 32-construct matrix runs in final_assembly --self-test (CI) on real docx blocks:
+  bind, option swap refused, unrelated stem refused — plus the incident, refuse-once-then-bind, and S4.
+- **Unchanged.** Item hashes (docx against docx), A-REVIEW, every gate, every chemistry path.
+
+**Resume a halted paper:** after deploy, run STEP B (auditor with --item-hashes and --item-texts) and STEP A3 again.
+
 ## 2026.11.27 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED: maths typeset like the exam; figures that carry something
 
 (over release 2026.11.26.1, commit 9575e8a. Framework_MockTestCreate v8.6; Framework_MockTestAnalyse v2.65.0;

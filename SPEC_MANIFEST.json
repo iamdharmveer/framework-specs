@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 1478,
-      "sha256": "0c47280c6496c7e0fc4d0b1b70eb640d6f63da8894d0d433512480f94575cb36",
-      "size_bytes": 94511,
-      "version_header": "# Framework_DeliveryFooter v1.56.0 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 1483,
+      "sha256": "432fa62e0263a6ef4ec8dd4971f91491d7f999c3fb6f5eb8723e63f6a9300c4e",
+      "size_bytes": 95094,
+      "version_header": "# Framework_DeliveryFooter v1.57.0 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.28.0",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 15650,
-      "sha256": "1b82355a04042c69e50f9034ab32f810e68442f0b13391a17ad9cd627c4954e2",
-      "size_bytes": 1106910,
-      "version_header": "# Framework_MockTestCreate v8.6"
+      "lines": 15671,
+      "sha256": "226ef6eda393b55482f94d9ec8e099111c0f88301ccb93f88279f308354fc548",
+      "size_bytes": 1109146,
+      "version_header": "# Framework_MockTestCreate v8.7"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -50,11 +50,11 @@
       "version_header": "# Framework_MockTestExplain v1.55.0"
     },
     "Framework_MockTestOrchestrate.md": {
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.11.0",
-      "lines": 600,
-      "sha256": "99279c281a5d82d46329883410a11a32e3ce8af5c4863971de0aeafd80bcde4a",
-      "size_bytes": 50996,
-      "version_header": "# Framework_MockTestOrchestrate v1.11.0"
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.12.0",
+      "lines": 609,
+      "sha256": "de7ea357e4ba1056be431f4e6421e3aca3a807f0c9b59deffd8010e52f4c0c29",
+      "size_bytes": 52018,
+      "version_header": "# Framework_MockTestOrchestrate v1.12.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.9.0",
@@ -191,9 +191,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 15057,
-      "sha256": "9a78d4b972c7b3ade696026811c8a8f605db11ba98aca05b477fbc6caddd0def",
-      "size_bytes": 923797,
+      "lines": 15096,
+      "sha256": "75eb62c4f3d359dc2a20381d0829aa79d7e5fb1e16b0511a0d27bb2205946f09",
+      "size_bytes": 926197,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -233,9 +233,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 35026,
-      "sha256": "e6de3187efb4cbbba15011479f826ff9f6e046c053ddee386aaf16da00ed0335",
-      "size_bytes": 2144934,
+      "lines": 35281,
+      "sha256": "84a5813ddf5b330279300992ee67a8e12dcef8d01c64215b9dd57fa7913dd6d6",
+      "size_bytes": 2159679,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -303,9 +303,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 5311,
-      "sha256": "e916a2a7f79cd88e170adf753985f5d9cb3cc5cb5696c1676bf625f7fc8e4dc5",
-      "size_bytes": 370556,
+      "lines": 5596,
+      "sha256": "8b23382cf89d72bfe759996e869d05cbca5cccc38ee4581d8f3fb858bc1cb8a7",
+      "size_bytes": 391562,
       "version_header": "\"\"\""
     },
     "frequency_xlsx.py": {

@@ -18,6 +18,14 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.29.0 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28). STEP A3 compared the auditor's fused reading of an
+      equation ('12') with the sidecar's linear form ('(1)/(2)'), refused an unedited question and named a repair that
+      could not be performed — a permanent halt (TestCreate CSIR NET Mathematical Sciences P1 Q5 / Q6). Now: the block
+      (auditor --item-texts 'paras', bc.omml_struct_text) is compared with the sidecar's stem_src / option_src rendered
+      by the SAME compiler and read by the SAME reader (a3_reading / a3_expected; bc.a3_same_question — per-option
+      equality, a swap still refused); a legacy string reading is compared in the fused form (parity both ways). The
+      text guard refuses a question AT MOST ONCE per reviewed text (bc.a3_guard_step, batch_state['a3_text_guard']):
+      seen again it binds to its delivered block and is disclosed (batch_state['a3_footer'], AMBER) — never a stop.
     v1.28.0 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (release 2026.11.27; owner decisions OD-P1..
       OD-P5 of 2026-11-21). bv_s3_plans freezes batch_state['math_typeset'] (bc.math_typeset_plan — per SUBJECT, the
       chemistry boundary per item) on a fresh paper; the pre-review gate context gains bc.mt_gate_context (G-MATH-TYPESET
@@ -2711,12 +2719,97 @@ def _bc_norm_tokens(x):
     return _re.findall(r'[a-z0-9]+', _ud.normalize('NFKC', str(x or '')).lower())
 
 
+def _a3_render_para(src):
+    """release 2026.11.28 (GAP-2026-11-21-A3-OMML-PARITY): a python-docx paragraph holding `src` rendered EXACTLY as the
+    S10-4 funnel render_mock_text renders it (t3_mathcomp.t3_compile per ⟦MATH:…⟧ region; a region the compiler
+    rejects becomes its body as plain text). None when python-docx / t3_mathcomp are unavailable."""
+    try:
+        from docx import Document as _A3D
+        from t3_mathcomp import t3_compile as _a3c, MathCompileError as _a3E, _REGION_RE as _a3R
+    except Exception:                                   # noqa: BLE001
+        return None
+    p = _A3D().add_paragraph()
+    text = str(src or '')
+    pos = 0
+    for mr in _a3R.finditer(text):
+        if mr.start() > pos:
+            p.add_run(text[pos:mr.start()])
+        try:
+            p._p.append(_a3c(mr.group(1)))
+        except _a3E:
+            p.add_run(mr.group(1))
+        except Exception:                               # noqa: BLE001
+            p.add_run(mr.group(1))
+        pos = mr.end()
+    if pos < len(text):
+        p.add_run(text[pos:])
+    return p
+
+
+def a3_reading(src):
+    """The STEP A3 reading of one sidecar text (stem_src / an option_src): rendered by the builders' compiler, read
+    with bc.omml_struct_text — the reader the auditor applies to the delivered block. Without the compiler: the
+    canonical linear form. Never raises."""
+    try:
+        p = _a3_render_para(src)
+        return bc.omml_struct_text(p._p) if p is not None else bc.a3_canon(bc.math_linear(str(src or '')))
+    except Exception:                                   # noqa: BLE001
+        return bc.a3_canon(str(src or ''))
+
+
+def _a3_fused(src):
+    """The legacy fused reading (audit_canonical.para_text: w:t and m:t joined with no separator) of a sidecar text —
+    used only against an --item-texts file written as plain strings (an earlier auditor). Never raises."""
+    try:
+        p = _a3_render_para(src)
+        if p is None:
+            return str(src or '')
+        return ''.join((n.text or '') for n in p._p.iter() if n.tag in (bc.A3_W + 't', bc.A3_M + 't'))
+    except Exception:                                   # noqa: BLE001
+        return str(src or '')
+
+
+def a3_expected(entry):
+    """{'stem', 'options', 'drawn'} — the reviewed record as STEP A3 reads it: stem_src / option_src (the text with its
+    regions, exactly what the builders received; else stem_text / option_texts), each through a3_reading. 'drawn':
+    the options are drawn (figure dicts / option structures, or figure files with no option text) — only the stem is
+    checked; a stem figure with TEXT options keeps its option check."""
+    e = entry if isinstance(entry, dict) else {}
+    st = e.get('stem_src') if isinstance(e.get('stem_src'), str) else e.get('stem_text')
+    ops = e.get('option_src') if isinstance(e.get('option_src'), (list, tuple)) else e.get('option_texts')
+    _ops = [a3_reading(o) for o in (ops or []) if isinstance(o, str)] if isinstance(ops, (list, tuple)) else []
+    # S4 of the gap: a stem-only figure with TEXT options keeps its option check; options are 'drawn' only when they
+    # are figure dicts / option structures, or figure files with no option text at all
+    return {'stem': a3_reading(st), 'options': _ops,
+            'drawn': bool(e.get('figure_dicts') or e.get('option_smiles')
+                          or (e.get('figure_files') and not any(x.strip() for x in _ops)))}
+
+
+def a3_compare(block, entry):
+    """(same, why) for STEP A3: a structured block reading ({'paras': [...]} from the auditor's --item-texts) is compared
+    with a3_expected(entry) by bc.a3_same_question; a legacy plain-string reading with the record in the SAME fused
+    form (parity either way). Never raises."""
+    try:
+        if isinstance(block, dict) and isinstance(block.get('paras'), list):
+            return bc.a3_same_question(block, a3_expected(entry))
+        e = entry if isinstance(entry, dict) else {}
+        txt = block.get('text') if isinstance(block, dict) else block
+        st = e.get('stem_src') if isinstance(e.get('stem_src'), str) else e.get('stem_text')
+        ops = e.get('option_src') if isinstance(e.get('option_src'), (list, tuple)) else e.get('option_texts')
+        e2 = dict(e, stem_text=_a3_fused(st), option_texts=[_a3_fused(o) for o in (ops or []) if isinstance(o, str)])
+        ok = _bc_block_contains(txt, e2)
+        return ok, ('match' if ok else 'the block does not show the record\'s stem / options in order')
+    except Exception:                                   # noqa: BLE001
+        return True, 'not checkable'
+
+
 def _bc_block_contains(block_text, entry):
     """True when the delivered block and the sidecar describe the same question (STEP A3 R2 guard). Tolerant of
     rendering (NFKC, case, punctuation, math / subscript runs): at least 80% of the stem's word tokens appear in the
     block; for a TEXT-option question every option's tokens appear in the block IN ORDER (a re-key swap done in one
     place only is caught). Drawn options (figure files / option structures) carry no text in the docx — only the stem
-    is checked for them. An entry with no stem text cannot be checked: True. Never a false refusal on formatting."""
+    is checked for them. An entry with no stem text cannot be checked: True. Never a false refusal on formatting.
+    release 2026.11.28: the token comparator over PLAIN text; STEP A3 itself calls a3_compare."""
     e = entry if isinstance(entry, dict) else {}
     bt = _bc_norm_tokens(block_text)
     st = _bc_norm_tokens(e.get('stem_text'))
@@ -3015,6 +3108,10 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
             upto = max([int(q) for q in cm if str(q).isdigit()] or [0])
     bound, refused = [], {}
     rnd = (bs.get('bv') or {}).get('round')
+    # release 2026.11.28 (GAP-2026-11-21-A3-OMML-PARITY): the text guard's memory — at most one refusal per reviewed text
+    _a3_mem = bs.setdefault('a3_text_guard', {}) if isinstance(bs.get('a3_text_guard', {}), dict) else {}
+    _a3_foot = bs.setdefault('a3_footer', {}) if isinstance(bs.get('a3_footer', {}), dict) else {}
+    _a3_pending, _a3_dirty = {}, False
     for q in sorted((q for q in cm if str(q).isdigit() and int(q) <= int(upto)), key=int):
         e = cm[q] if isinstance(cm[q], dict) else {}
         bvs = items.get(q) if isinstance(items.get(q), dict) else e.get('bv')
@@ -3022,9 +3119,21 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
         if not h:
             refused[q] = 'no item_hash for its block (the auditor did not find it in the docx)'
             continue
-        if texts and q in texts and not _bc_block_contains(texts[q], e):
-            refused[q] = 'the docx block does not show the sidecar stem / options in order (edited in one place only)'
-            continue
+        if texts and q in texts:
+            _same, _why = a3_compare(texts[q], e)
+            _cs = (bvs.get('content_sha') if isinstance(bvs, dict) else None) or _bc_entry_sha(_bc_render_shas(e))
+            _act = bc.a3_guard_step(_a3_mem, q, _cs, _same)
+            _a3_dirty = True
+            if _act == 'refuse':
+                refused[q] = (f"the docx block does not show the reviewed record ({_why}) — rebuild Q{q}'s block from its "
+                              f"sidecar stem_src / option_src with the S10-3 builders, then STEP B and STEP A3 again. This "
+                              f"refusal happens ONCE: if the block still differs, STEP A3 binds it to its delivered block "
+                              f"and discloses it (A3-TEXT, AMBER) — never a stop")
+                continue
+            if _act == 'bind_disclosed':
+                _a3_pending[q] = bc.A3_DISCLOSE_LINE.format(q=q, why=_why)
+            elif q in _a3_foot:
+                _a3_foot.pop(q, None)                    # the block matches again: the earlier disclosure no longer applies
         if isinstance(bvs, dict) and bvs.get('rule') == bc.BC_RULE:
             if bvs.get('state') not in bc.BC_STATES or e.get('bv_state') not in bc.BC_STATES:
                 refused[q] = f"not settled (state {bvs.get('state')}) — STEP A2 is not DONE for it"
@@ -3079,10 +3188,20 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
         cm[q] = e
         bound.append(q)
     json.dump(kd, open(kp, 'w', encoding='utf-8'), indent=2)
+    for _qa, _ln in _a3_pending.items():
+        if _qa in bound:
+            _a3_foot[_qa] = [['AMBER', _ln]]
+            _say(f"STEP A3: {_ln}")
+    if _a3_dirty:
+        try:
+            json.dump(bs, open(bsp, 'w', encoding='utf-8'), indent=2)
+        except OSError:
+            pass
     if refused:
         _say(f"STEP A3: REFUSED — {len(refused)} question(s) not bound: "
              + '; '.join(f'Q{q}: {w}' for q, w in sorted(refused.items(), key=lambda x: int(x[0])))
-             + ' — fix as named, then STEP A3 again (STEP E is forbidden until this prints BOUND).')
+             + ' — fix as named, then STEP A3 again (STEP E is forbidden until this prints BOUND; a text mismatch '
+               'is refused at most once per reviewed text — the next STEP A3 binds and discloses it).')
     else:
         _say(f"STEP A3: BOUND — {len(bound)} question(s) carry a batch review record bound to their delivered block.")
     return {'status': 'refused' if refused else 'bound', 'bound': bound, 'refused': refused, 'lines': _lines}
@@ -4473,6 +4592,172 @@ def self_test():
         _t3ok = False
     check('p1_t3_drift_lock', _t3ok)
     _ctk = bv_p1_chem_types()
+    # release 2026.11.28 (GAP-2026-11-21-A3-OMML-PARITY) — STEP A3 end to end on REAL docx blocks read by the auditor's
+    # own --item-texts code: (a) the incident (typeset fraction options, never edited) BINDS at once; (b) a block edited
+    # in one place only (options 1 and 2 swapped) is refused ONCE, then bound to its delivered block with an AMBER
+    # disclosure — the refusal never repeats, so STEP A3 can never hold a paper; (c) the earlier plain-string reading binds.
+    try:
+        import importlib.util as _a3iu
+        from docx import Document as _A3Doc
+        from t3_mathcomp import t3_compile as _a3tc
+        _a3sp = _a3iu.spec_from_file_location('_a3_ac', _bv_os.path.join(_bv_os.path.dirname(_bv_os.path.abspath(__file__)),
+                                                                          'audit_canonical.py'))
+        _a3ac = _a3iu.module_from_spec(_a3sp)
+        _a3sp.loader.exec_module(_a3ac)
+        _a3ok = True
+    except Exception:                                   # noqa: BLE001
+        _a3ok = False
+    check('a3_auditor_and_compiler_importable', _a3ok)
+    if _a3ok:
+        _a3st = 'What is the probability that the three numbers can be the sides of a triangle?'
+        _a3op = ['\u27e6MATH:\\frac{1}{2}\u27e7', '\u27e6MATH:\\frac{11}{24}\u27e7', '\u27e6MATH:\\frac{17}{40}\u27e7',
+                 '\u27e6MATH:\\frac{5}{12}\u27e7']
+
+        def _a3blk(order):
+            _d = _A3Doc()
+            _d.add_paragraph().add_run('Q.1  ' + _a3st)
+            for _i, _o in enumerate(order, 1):
+                _p = _d.add_paragraph()
+                _p.add_run(f'{_i}.  ')
+                _p._p.append(_a3tc(_o[len('\u27e6MATH:'):-1]))
+            _f = _bv_os.path.join(_hA3, f'b{len(_a3files)}.docx')
+            _a3files.append(_f)
+            _d.save(_f)
+            _t, _bl = _a3ac.parse_blocks(_A3Doc(_f))
+            return {'text': ' '.join(' '.join(_a3ac.para_text(_x) for _x in _bl[0].paras).split()),
+                    'paras': _a3ac._block_struct_paras(_bl[0])}
+        _a3files = []
+        with _bv_tf.TemporaryDirectory() as _hA3:
+            _ea = dict(bc.mt_record_fields(_a3st, _a3op), qtype='mcq', figure_files=[])
+            _ea = _bc_render_shas(_ea)
+            _svA = {r: {'answer': 2, 'confidence': 'high', 'single_answer': 'yes', 'leak_or_paraphrase': 'none',
+                        'distractor_existence_and_class': 'ok', 'consistency_and_names': 'ok', 'selectivity_basis': 'clean'}
+                    for r in bc.BV_ROLES_SOLVE}
+            _ea['bv'] = {'rule': bc.BC_RULE, 'state': 'settled', 'rung': 1, 'solvers': _svA,
+                         'key': {'certified_by': 'unanimous', 'decided_key': 2},
+                         'content_sha': _bc_entry_sha(_bc_render_shas(_ea))}
+            _ea['bv_state'] = 'settled'
+            _bv_js.dump({'concept_map': {'1': _ea}, 'answers': {'1': 2}},
+                        open(_bv_os.path.join(_hA3, 'EX_M1_answer_key.json'), 'w'))
+            _bv_js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 1}], 'current_batch': 1,
+                         'bv': {'items': {'1': _ea['bv']}}}, open(_bv_os.path.join(_hA3, 'EX_M1_batch_state.json'), 'w'))
+            _bv_js.dump({'1': 'hA'}, open(_bv_os.path.join(_hA3, 'ihA.json'), 'w'))
+            _good, _swap = _a3blk(_a3op), _a3blk([_a3op[1], _a3op[0]] + _a3op[2:])
+            _bv_js.dump({'1': _good}, open(_bv_os.path.join(_hA3, 'itA.json'), 'w'))
+            _r0 = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itA.json'),
+                                home=_hA3, echo=False)
+            check('a3_incident_typeset_options_bind_at_once', _r0['status'] == 'bound' and _r0['bound'] == ['1']
+                  and _good['text'].endswith('1. 12 2. 1124 3. 1740 4. 512'))
+            _bv_js.dump({'1': _good['text']}, open(_bv_os.path.join(_hA3, 'itL.json'), 'w'))
+            _rL = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itL.json'),
+                                home=_hA3, echo=False)
+            check('a3_legacy_string_reading_binds', _rL['status'] == 'bound')
+            _bv_js.dump({'1': _swap}, open(_bv_os.path.join(_hA3, 'itS.json'), 'w'))
+            _r1 = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itS.json'),
+                                home=_hA3, echo=False)
+            _r2 = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itS.json'),
+                                home=_hA3, echo=False)
+            _r3 = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itS.json'),
+                                home=_hA3, echo=False)
+            _bsA = _bv_js.load(open(_bv_os.path.join(_hA3, 'EX_M1_batch_state.json')))
+            check('a3_one_place_edit_refused_once_then_bound_and_disclosed',
+                  _r1['status'] == 'refused' and 'option 1 differs' in _r1['refused']['1'] and 'ONCE' in _r1['refused']['1']
+                  and _r2['status'] == 'bound' and _r3['status'] == 'bound'
+                  and (_bsA.get('a3_footer') or {}).get('1', [[None, '']])[0][0] == 'AMBER'
+                  and 'A3-TEXT, disclosed; never a stop' in _bsA['a3_footer']['1'][0][1])
+            _r4 = bc_bind_batch('EX', 1, _bv_os.path.join(_hA3, 'ihA.json'), _bv_os.path.join(_hA3, 'itA.json'),
+                                home=_hA3, echo=False)
+            _bsB = _bv_js.load(open(_bv_os.path.join(_hA3, 'EX_M1_batch_state.json')))
+            check('a3_disclosure_withdrawn_when_block_matches_again', _r4['status'] == 'bound'
+                  and '1' not in (_bsB.get('a3_footer') or {}))
+            # the gap's 32-construct matrix (GAP-2026-11-21-A3-OMML-PARITY §6.1) on real saved-and-reopened docx blocks: every one
+            # binds, every option swap and every unrelated stem is refused; S4 — a stem figure with TEXT options keeps its check
+            _A3_CASES = [
+                # id, construct, stem_src, options
+                ('C01','simple fraction',             'Find p.', [r'⟦MATH:\frac{1}{2}⟧', r'⟦MATH:\frac{11}{24}⟧', r'⟦MATH:\frac{17}{40}⟧', r'⟦MATH:\frac{5}{12}⟧']),
+                ('C02','text + fraction',             'Find the pair.', [r'⟦MATH:\frac{7}{3}⟧ and ⟦MATH:\frac{3}{10}⟧', r'3 and ⟦MATH:\frac{1}{5}⟧', '2 and 3', '4 and 5']),
+                ('C03','negative fraction',           'Value?', [r'⟦MATH:-\frac{1}{2}⟧', r'⟦MATH:\frac{1}{2}⟧', '0', '1']),
+                ('C04','fraction with pi',            'Angle?', [r'⟦MATH:\frac{\pi}{4}⟧', r'⟦MATH:\frac{\pi}{2}⟧', r'⟦MATH:\pi⟧', r'⟦MATH:2\pi⟧']),
+                ('C05','nested fraction',             'Value?', [r'⟦MATH:\frac{1}{1+\frac{1}{2}}⟧', r'⟦MATH:\frac{2}{3}⟧', r'⟦MATH:\frac{3}{2}⟧', '1']),
+                ('C06','dfrac / tfrac',               'Value?', [r'⟦MATH:\dfrac{3}{4}⟧', r'⟦MATH:\tfrac{1}{4}⟧', '1', '2']),
+                ('C07','superscript digit',           'Value?', [r'⟦MATH:x^{2}⟧', r'⟦MATH:x^{3}⟧', r'⟦MATH:2x⟧', r'⟦MATH:x⟧']),
+                ('C08','superscript expression',      'Value?', [r'⟦MATH:x^{n+1}⟧', r'⟦MATH:x^{n-1}⟧', r'⟦MATH:nx^{n}⟧', r'⟦MATH:x^{2n}⟧']),
+                ('C09','subscript',                   'Term?', [r'⟦MATH:a_{n}⟧', r'⟦MATH:a_{n+1}⟧', r'⟦MATH:a_{ij}⟧', r'⟦MATH:a_{0}⟧']),
+                ('C10','sub+sup',                     'Value?', [r'⟦MATH:x_{1}^{2}⟧', r'⟦MATH:x_{2}^{2}⟧', '0', '1']),
+                ('C11','square root',                 'Value?', [r'⟦MATH:\sqrt{2}⟧', r'⟦MATH:\sqrt{3}⟧', r'⟦MATH:2\sqrt{2}⟧', r'⟦MATH:\sqrt{5}⟧']),
+                ('C12','nth root',                    'Value?', [r'⟦MATH:\sqrt[3]{2}⟧', r'⟦MATH:\sqrt[4]{2}⟧', '2', '1']),
+                ('C13','sum with limits',             'Sum?', [r'⟦MATH:\sum_{n=1}^{\infty} \frac{1}{n^{2}}⟧', r'⟦MATH:\frac{\pi^{2}}{6}⟧', '1', '2']),
+                ('C14','integral',                    'Integral?', [r'⟦MATH:\int_{0}^{1} x\, dx⟧', r'⟦MATH:\frac{1}{2}⟧', '1', '0']),
+                ('C15','matrix',                      'Matrix?', [r'⟦MATH:\begin{pmatrix}1 & 2\\ 0 & 3\end{pmatrix}⟧', r'⟦MATH:\begin{pmatrix}1 & 0\\ 2 & 3\end{pmatrix}⟧', 'I', '0']),
+                ('C16','left-right parentheses',      'Value?', [r'⟦MATH:\left(\frac{1}{2}\right)^{3}⟧', r'⟦MATH:\frac{1}{8}⟧', r'⟦MATH:\frac{1}{6}⟧', '1']),
+                ('C17','log with base',               'Value?', [r'⟦MATH:\log_{2} 8⟧', r'⟦MATH:\log_{3} 9⟧', '3', '2']),
+                ('C18','trig power',                  'Value?', [r'⟦MATH:\sin^{2} x⟧', r'⟦MATH:\cos^{2} x⟧', '1', '0']),
+                ('C19','nested exponent',             'Value?', [r'⟦MATH:e^{-x^{2}}⟧', r'⟦MATH:e^{x}⟧', '1', '0']),
+                ('C20','accent / bar',                'Value?', [r'⟦MATH:\bar{x}⟧', r'⟦MATH:\hat{x}⟧', r'⟦MATH:x⟧', '0']),
+                ('C21','blackboard bold power',       'Space?', [r'⟦MATH:\mathbb{R}^{2}⟧', r'⟦MATH:\mathbb{R}^{3}⟧', r'⟦MATH:\mathbb{C}⟧', r'⟦MATH:\mathbb{Q}⟧']),
+                ('C22','absolute value',              'Value?', [r'⟦MATH:|x|⟧', r'⟦MATH:x⟧', r'⟦MATH:-x⟧', '0']),
+                ('C23','limit',                       'Limit?', [r'⟦MATH:\lim_{x\to 0} \frac{\sin x}{x}⟧', '1', '0', r'⟦MATH:\infty⟧']),
+                ('C24','set braces',                  'Set?', [r'⟦MATH:\{1, 2\}⟧', r'⟦MATH:\{2, 3\}⟧', r'⟦MATH:\emptyset⟧', r'⟦MATH:\{1\}⟧']),
+                ('C25','cases',                       'f?', [r'⟦MATH:\begin{cases} 1 & x>0 \\ 0 & x\le 0\end{cases}⟧', '1', '0', '2']),
+                ('C26','plain numbers (control)',     'Value?', ['735', '738', '747', '810']),
+                ('C27','unicode text maths (control)','Value of a⁴ + b⁴?', ['22', '18', '14', '26']),
+                ('C28','fraction in STEM only',       r'If ⟦MATH:\frac{a}{b}=\frac{c}{d}⟧ then', ['1', '2', '3', '4']),
+                ('C29','maths-dense short STEM',      r'⟦MATH:\int_{0}^{\pi} \sin^{2} x\, dx⟧ equals', [r'⟦MATH:\frac{\pi}{2}⟧', r'⟦MATH:\pi⟧', '0', '1']),
+                ('C30','region compile failure',      'Value?', [r'⟦MATH:\notacommand{1}⟧', '1', '2', '3']),
+                ('C31','options in TABLE cells',      'Find p.', [r'⟦MATH:\frac{1}{2}⟧', r'⟦MATH:\frac{1}{3}⟧', r'⟦MATH:\frac{1}{4}⟧', r'⟦MATH:\frac{1}{5}⟧']),
+                ('C32','fraction collision 12/5 vs 1/25', 'Value?', [r'⟦MATH:\frac{12}{5}⟧', r'⟦MATH:\frac{1}{25}⟧', r'⟦MATH:\frac{5}{12}⟧', r'⟦MATH:\frac{25}{1}⟧']),
+            ]
+
+            def _a3_case_block(stem, opts, in_table):
+                from t3_mathcomp import _REGION_RE as _a3RR, MathCompileError as _a3ME
+                _d = _A3Doc()
+
+                def _rend(p, text):
+                    pos = 0
+                    for mr in _a3RR.finditer(text):
+                        if mr.start() > pos:
+                            p.add_run(text[pos:mr.start()])
+                        try:
+                            p._p.append(_a3tc(mr.group(1)))
+                        except _a3ME:
+                            p.add_run(mr.group(1))
+                        pos = mr.end()
+                    if pos < len(text):
+                        p.add_run(text[pos:])
+                _p0 = _d.add_paragraph()
+                _p0.add_run('Q.1  ')
+                _rend(_p0, stem)
+                if in_table:
+                    _tb = _d.add_table(rows=2, cols=2)
+                    for _i, _o in enumerate(opts):
+                        _c = _tb.cell(_i // 2, _i % 2).paragraphs[0]
+                        _c.add_run(f'{_i + 1}.  ')
+                        _rend(_c, _o)
+                else:
+                    for _i, _o in enumerate(opts):
+                        _q = _d.add_paragraph()
+                        _q.add_run(f'{_i + 1}.  ')
+                        _rend(_q, _o)
+                _f = _bv_os.path.join(_hA3, f'm{len(_a3files)}.docx')
+                _a3files.append(_f)
+                _d.save(_f)
+                return {'paras': _a3ac._block_struct_paras(_a3ac.parse_blocks(_A3Doc(_f))[1][0])}
+            _a3bad = []
+            for _cid, _nm, _cs, _co in _A3_CASES:
+                _bk = _a3_case_block(_cs, _co, _cid == 'C31')
+                _e0 = bc.mt_record_fields(_cs, _co)
+                _esw = bc.mt_record_fields(_cs, [_co[1], _co[0]] + _co[2:])
+                _eun = bc.mt_record_fields('Calculate the boiling point elevation of a sucrose solution', _co)
+                if not (a3_compare(_bk, _e0)[0] and not a3_compare(_bk, _esw)[0] and not a3_compare(_bk, _eun)[0]):
+                    _a3bad.append(_cid)
+            check('a3_matrix_32_bind_swap_unrelated', _a3bad == [] and len(_A3_CASES) == 32)
+            _bkF = _a3_case_block('Use the figure to find p.', ['1', '2', '3', '4'], False)
+            _eF = dict(bc.mt_record_fields('Use the figure to find p.', ['1', '2', '3', '4']), figure_files=['/x/q1_problem.png'])
+            check('a3_s4_stem_figure_text_options_still_checked', a3_compare(_bkF, _eF)[0]
+                  and not a3_compare(_bkF, dict(_eF, option_src=['2', '1', '3', '4'], option_texts=['2', '1', '3', '4']))[0]
+                  and a3_compare(_bkF, dict(_eF, option_src=['', '', '', ''], option_texts=['', '', '', '']))[0])
+            check('a3_expected_reading_parity', a3_expected(_ea)['options'][0] == _good['paras'][1][len('1. '):]
+                  and a3_reading('plain text') == 'plain text' and a3_compare('anything', {'stem_text': ''})[0])
     check('p1_chem_types_from_figure_types', {'chemical_structure', 'reaction_scheme', 'newman_projection',
                                               'nmr_spectrum', 'molecular_orbital_diagram'} <= set(_ctk)
           and not {'bar_chart', 'line_graph', 'pie_chart'} & set(_ctk) and _ctk == sorted(_ctk)

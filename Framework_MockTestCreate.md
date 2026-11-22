@@ -1,4 +1,15 @@
-# Framework_MockTestCreate v8.6
+# Framework_MockTestCreate v8.7
+# v8.7 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with final_assembly v1.29.0, audit_canonical
+#   v2.47, blueprint_core v2.13, DeliveryFooter v1.57.0). INCIDENT: TestCreate CSIR NET Mathematical Sciences P1 halted
+#   PERMANENTLY at STEP A3 — the sidecar stored a typeset option as its linear form '(1)/(2)', the auditor read the same
+#   equation as '12', STEP A3 refused a question that was never edited, its named repair could not be performed and
+#   STEP E stayed forbidden. FIX (every exam): (1) ONE reader on both sides — the auditor's --item-texts carries the
+#   structure-preserving reading of every paragraph (bc.omml_struct_text) and STEP A3 renders the sidecar's stem_src /
+#   option_src with the builders' own compiler and reads it with the same function: equal by construction, a swap of
+#   two options still refused; (2) the text guard refuses a question AT MOST ONCE per reviewed text — on the next
+#   STEP A3 it binds to its delivered block and is disclosed (batch_state['a3_footer'], AMBER, collected at S13-2L.0).
+#   STEP A3 can no longer hold a paper. A paper halted on release 2026.11.27 resumes with: STEP B (auditor with both
+#   flags) and STEP A3 again.
 # v8.6 — 2026-11-21 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (release 2026.11.27; paired with
 #   blueprint_core v2.12, final_assembly v1.28.0, figural_core v5.98, analyse_engine v1.7, audit_canonical v2.46,
 #   MockTestAnalyse v2.65.0, MockReview v2.4.0, DeliveryFooter v1.56.0; owner decisions OD-P1..OD-P5 of 2026-11-21,
@@ -5491,7 +5502,13 @@ action: the same paper, the same two files, the same "continue".
            then the block below. It binds every settled question up to this batch to the hash of its block
            (fa.bc_bind_batch); it REFUSES — and names — a question that is not settled, whose text changed after its
            review (R2: run STEP A2 again so the new text is reviewed), whose block is missing, or whose block does not
-           show the sidecar's stem and options in order (fix the one place that was not edited); v7.1 — also one whose
+           show the sidecar's stem and options (v8.7 — GAP-2026-11-21-A3-OMML-PARITY: both sides are read the same way,
+           the block by the auditor with bc.omml_struct_text, the sidecar's stem_src / option_src rendered by the
+           builders' compiler and read with the same function — a typeset equation can no longer differ; options are
+           compared one by one, so a one-place edit or a swap is still caught. Repair: rebuild that question's block from
+           its sidecar with the S10-3 builders, then STEP B and STEP A3. This refusal happens AT MOST ONCE per reviewed
+           text: on the next STEP A3 the question binds to its delivered block and is disclosed — AMBER, batch_state
+           ['a3_footer'] — never a stop); v7.1 — also one whose
            docx block changed after it was bound while its text did not (an edit outside the ladder: put the bound
            block back, or rewrite through STEP A2), a rung-3 TEXT fallback that carries a picture (v8.5: only the TEXT
            fallback, bc.bc_is_text_fallback — a text / figure rebuild and an R5b figure version bind with their figure;
@@ -13256,6 +13273,10 @@ if AUDIT_AVAILABLE:
   for _qf, _lines_f in sorted((_bs_g.get('bc_footer') or {}).items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
       for _cls_f, _txt_f in (_lines_f or []):                  # S0-BC: every question's batch footer line (bc.bc_amber_lines)
           (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
+  # v8.7 (GAP-2026-11-21-A3-OMML-PARITY): a question STEP A3 bound after its one text-guard refusal (A3-TEXT)
+  for _qf, _lines_f in sorted((_bs_g.get('a3_footer') or {}).items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+      for _cls_f, _txt_f in (_lines_f or []):
+          (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
   _amber_g += [f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_g.get('nf_disclosed') or {}).items())]
   if (globals().get('EXAM_RULER') or {}).get('anchor_basis') == 'pyq_explain_band':
       _amber_g.append("Difficulty anchors: the bands PYQExplain measured (no blind-graded past questions yet)")
@@ -15567,7 +15588,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.6
+# END OF Framework_MockTestCreate v8.7
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

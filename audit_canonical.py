@@ -15,6 +15,11 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.47 — 2026-11-28 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with final_assembly v1.29.0, blueprint_core
+#   v2.13). --item-texts now writes, per question, {'text': the earlier fused reading, 'paras': the structure-preserving
+#   reading of every paragraph of the block in document order — table-cell paragraphs after, merged cells once —
+#   (bc.omml_struct_text)}. STEP A3 reads 'paras' with the SAME reader it applies to the sidecar's rendered *_src, so
+#   an equation is never read as '12' on one side and '(1)/(2)' on the other. No gate changes.
 # v2.46 — 2026-11-27 — GAP-2026-11-21-MATH-TYPESET C-E10 (release 2026.11.27; paired with Framework_MockTestCreate v8.6).
 #   NEW A-TYPESET (an 'AMBER — ' WARN, carried to the footer as a certificate amber note — never a FAIL): per STRICT subject of the paper's frozen
 #   plan (batch_state['math_typeset'], Create S3-16), the share of questions carrying an equation object, objects per
@@ -5229,6 +5234,25 @@ def _lb_escalate_paper(gates, sweep, early=False):
                                            'survived every rebuild') + f'; delivered with this disclosure) — {msg}')
 
 
+def _block_struct_paras(b):
+    """v2.47 (GAP-2026-11-21-A3-OMML-PARITY): the structure-preserving reading (bc.omml_struct_text) of every paragraph
+    of ONE question block in document order, then every table-cell paragraph (a merged cell once). [] on any error."""
+    try:
+        import blueprint_core as _bca3
+        out = [_bca3.omml_struct_text(p._element) for p in b.paras]
+        for t in b.tables:
+            seen = []
+            for row in t.rows:
+                for c in row.cells:
+                    if any(c._tc is x for x in seen):
+                        continue
+                    seen.append(c._tc)
+                    out += [_bca3.omml_struct_text(p._element) for p in c.paragraphs]
+        return out
+    except Exception:                                   # noqa: BLE001
+        return []
+
+
 def _block_item_hash(b):
     """bc.item_hash over ONE parsed question block: paragraph and table text in document order plus the
     sha256 of every bound image (its extracted file, else its media part name)."""
@@ -7025,8 +7049,9 @@ def run_audit(args):
     # prove the docx and the sidecar describe the same question (stem and options in order)
     if getattr(args, 'item_texts', None):
         try:
-            _itx = {str(b.qnum): ' '.join(' '.join([para_text(p) for p in b.paras] + [c.text for t in b.tables
-                                                   for row in t.rows for c in row.cells]).split())
+            _itx = {str(b.qnum): {'text': ' '.join(' '.join([para_text(p) for p in b.paras] + [c.text for t in b.tables
+                                                            for row in t.rows for c in row.cells]).split()),
+                                  'paras': _block_struct_paras(b)}
                     for b in blocks if b.qnum is not None}
         except Exception:                               # noqa: BLE001
             _itx = {}
@@ -7473,7 +7498,7 @@ def gate_cert(src, args):
 # cert_contract before writing). Readers: gate_cert / gate_cert_late (S13-4c). A new quality_status prefix MUST be
 # added to QUALITY_STATUS_PREFIXES and CERT_OUTCOME in the same release, with a writer->reader round-trip self-test
 # naming it (CI gate CERT-CONTRACT, mock_sync_audit MS-CERT).
-AUDITOR_ID = 'audit_canonical v2.46'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
+AUDITOR_ID = 'audit_canonical v2.47'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
 CERT_SCHEMAS = (2, 3)                              # 2: v2.35-v2.43 writers (still read); 3: v2.44+
 QUALITY_STATUS_PREFIXES = ('CERTIFIED', 'UNRESOLVED', 'DISCLOSED', 'ESCALATED')
 # The certificate outcome of each stamp prefix: 'none' (no accepted finding), 'uncertified' (uncertified_items ->
@@ -10373,6 +10398,20 @@ def self_test():
         gate_typeset(bl, st, final)
         return [(l, c, m) for l, c, m in RESULTS if c == 'A-TYPESET']
     _r10a, _r10b = _ts_run(False), _ts_run(True)
+    # 10e. v2.47 (GAP-2026-11-21-A3-OMML-PARITY): --item-texts 'paras' keep an equation's structure (1/2 is never '12')
+    def b_a3(d):
+        from docx.oxml import parse_xml as _pxa3
+        d.add_paragraph('Q.1  Find p.')
+        p = d.add_paragraph('1.  ')
+        p._p.append(_pxa3('<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:f><m:num>'
+                          '<m:r><m:t>1</m:t></m:r></m:num><m:den><m:r><m:t>2</m:t></m:r></m:den></m:f></m:oMath>'))
+        for i in range(2, 5):
+            d.add_paragraph(f'{i}.  {i}')
+    _pa3 = _mini_doc(tmp, b_a3)
+    _ta3, _bla3 = parse_blocks(Document(_pa3))
+    _sa3 = _block_struct_paras(_bla3[0])
+    check('A3-item-texts-structured', _sa3[:2] == ['q.1 find p.', '1. ⟨f ⟨ 1 ⟩/⟨ 2 ⟩'] and len(_sa3) == 5
+          and ' '.join(para_text(x) for x in _bla3[0].paras).count('12') == 1 and _block_struct_paras(None) == [])
     check('A-TYPESET-shortfall-disclosed', _pl10 is not None and len(_r10a) == 1 and _r10a[0][0] == 'WARN'
           and _r10a[0][2].startswith('AMBER — A-TYPESET: Maths 0 of 5 questions carry typeset maths')
           and 'disclosed' in _r10a[0][2])
