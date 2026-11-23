@@ -2236,6 +2236,102 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 
 ## Framework_MockTestCreate.md
 
+Entries v7.3.1–v8.8 moved at framework release 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY Phase 1B — G5; v8.9
+supersedes). Every Step 7 worker read paid for them (~10 KB, ~4,500 tokens). Verbatim, newest first.
+
+```
+# v8.8 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): render_mock_text uses t3_compile_lenient (never raw LaTeX, AMBER), A-RAWTEX WARN tripwire, G-MATH-COMPILE soft pre-review, EC-15 keeps the planned format, per-family lever lists in the author / rewrite briefs.
+# v8.7 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with final_assembly v1.29.0, audit_canonical
+#   v2.47, blueprint_core v2.13, DeliveryFooter v1.57.0). INCIDENT: TestCreate CSIR NET Mathematical Sciences P1 halted
+#   PERMANENTLY at STEP A3 — the sidecar stored a typeset option as its linear form '(1)/(2)', the auditor read the same
+#   equation as '12', STEP A3 refused a question that was never edited, its named repair could not be performed and
+#   STEP E stayed forbidden. FIX (every exam): (1) ONE reader on both sides — the auditor's --item-texts carries the
+#   structure-preserving reading of every paragraph (bc.omml_struct_text) and STEP A3 renders the sidecar's stem_src /
+#   option_src with the builders' own compiler and reads it with the same function: equal by construction, a swap of
+#   two options still refused; (2) the text guard refuses a question AT MOST ONCE per reviewed text — on the next
+#   STEP A3 it binds to its delivered block and is disclosed (batch_state['a3_footer'], AMBER, collected at S13-2L.0).
+#   STEP A3 can no longer hold a paper. A paper halted on release 2026.11.27 resumes with: STEP B (auditor with both
+#   flags) and STEP A3 again.
+# v8.6 — 2026-11-21 — GAP-2026-11-21-MATH-TYPESET + GAP-2026-11-21-FIGURE-NEED (release 2026.11.27; paired with
+#   blueprint_core v2.12, final_assembly v1.28.0, figural_core v5.98, analyse_engine v1.7, audit_canonical v2.46,
+#   MockTestAnalyse v2.65.0, MockReview v2.4.0, DeliveryFooter v1.56.0; owner decisions OD-P1..OD-P5 of 2026-11-21,
+#   corrections K1-K4 of the 2026-11-21 review). Evidence: CSIR NET Mathematical Sciences Mock01 rerun — 36 equation
+#   objects in 90 maths items against 240-564 per 100 real questions; 42 of 90 items wrote maths as text (g a⁻¹, ½,
+#   a Unicode ∫, maths and matrices in words) that G-MATH-RESIDUE passes; 2 figures that restate their stems. Fix,
+#   for EVERY exam: (1) the S10-3 builders route ⟦MATH:…⟧ regions themselves (a region in a builder was a
+#   G-MATH-RESIDUE blocking defect in every exam before, so no deliverable output changes) and a line that is one
+#   region alone renders as a DISPLAYED equation; (2) Step 5 measures a MATH_TYPESET_PROFILE per SUBJECT and S3-16
+#   freezes batch_state['math_typeset'] (bc.math_typeset_plan); a STRICT subject's writer gets the notation line,
+#   rule 8 of the decision tree and the SOFT gate G-MATH-TYPESET (S12-NEW-31); A-TYPESET discloses the paper's
+#   density; (3) every non-chemistry figure must define something the text does not — SOFT gate G-FIG-NEED
+#   (S12-NEW-32) on the renderer's own label record, reviewer code D-FIG-DECORATIVE (minor), strict-subject figures
+#   drawn as black line art with italic labels, plain alt text. CHEMISTRY (every chemistry subject and every
+#   chemistry subtopic or figure, organic included) keeps today's behaviour byte for byte; a paper begun earlier
+#   finishes as it began. No new hard stop, no new loop, no new review round.
+# v8.5 — 2026-11-20 — GAP-2026-11-20-RUNG3-BIND-DEADLOCK (release 2026.11.26; paired with blueprint_core v2.11,
+#   final_assembly v1.27.0, DeliveryFooter v1.55.0; owner decision OD-2026-11-20 "never a hard stop, never an endless
+#   loop"). STEP A3 refused EVERY rung-3 question that carried a figure, so a text / figure rebuild and an R5b figure
+#   version could never bind and STEP E was never reached. One definition of the rung-3 TEXT fallback now serves
+#   STEP A2, the settle step and STEP A3 (bc.bc_is_text_fallback); a fallback that still carries a figure is repaired
+#   by STEP A2 itself (bc.bc_fallback_figure_open: at most bc.BC_FALLBACK_FIGURE_ORDERS rewrite orders, then R5b once,
+#   else kept with its figure and disclosed — AMBER), so STEP A3 never refuses what STEP A2 cannot repair. A restored
+#   version keeps its own read-backs and solver records (F3); a version is restored at most once (F6); a pending rewrite
+#   is re-issued, not lost (F8, per order). No new stop, no new review round, no new user action.
+# v8.4 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP + GAP-2026-11-19-FIGURE-LOSS (release 2026.11.25; paired with
+#   blueprint_core, audit_canonical v2.45, final_assembly v1.26.0, handshake_audit, MockTestOrchestrate v1.11.0,
+#   DeliveryFooter v1.54.0; owner decisions OD-A..OD-F 2026-11-19; new laws LAW-FA-TERM-1, LAW-PLAN-CHECK-1,
+#   LAW-RECORD-READER-1). S13-2F always terminates: one persistent counter (batch_state['s13_2f']), one engine decision
+#   per sweep (bc.s13_2f_plan), a total cap (bc.S13_2F_TOTAL_CAP); a BATCH-COMPLETE paper's accepted findings are never
+#   routed again and nothing is chained or re-authored at Final Assembly. A-QINDEX check 9 is mode-aware and the engine
+#   writes difficulty_obs in modes ladder / counted. The shape planner balances to its own checker (plan relief), one
+#   shape vocabulary, targets summing to N; the shape mix is a composition disclosure (A-SHAPEMIX in NF_DISCLOSE_GATES)
+#   and a writer's drift is caught in its own batch (G-SHAPEPLAN); the last batch's whole-paper decision is the engine's
+#   (fa.bc_last_batch_apply). Rung 3 follows the defect's location (text / figure rebuild; the TEXT fallback only when the
+#   figure failed its proof twice), R5b prefers a confirmed figure version, a wording ambiguity is capped at rung 2,
+#   pre-review G-FIG-STEREO / G-FIG-SCALE, a lost figure grant is re-granted, the figure floor is disclosed. Resume
+#   migration S4-12.2 (bc.migrate_s13_2f_loop). No new stop, no new review round, no new user action.
+# v8.3 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24). S3-12e top-band shares from
+#   the ladder (E2); S3-16 freezes figure_plan (FG-1, RL-3), stem_form (D1/RP-2) and the E1 notice (fa.bv_s3_plans);
+#   S4-7.1 writer packet adds examples, content menu, skills already used (F1/F3/RP-1); S13-2L.0 one pure band swap
+#   (S1, RL-1a) and the figure manifest always carries the plan (FG-2). Placement rule r3.1 and claim verification
+#   live in the engine (blueprint_core). No new stop, no new round, no read growth.
+# v8.2 — 2026-11-17 — GAP-2026-11-17-CERT-DISCLOSED-CONTRACT (release 2026.11.23; paired with audit_canonical v2.44,
+#   LAW-CERT-1). Live CSIR_NET_CHEMICAL_SCIENCES Organic paper (release 2026.11.22) stopped at S13-4c: S13-2F wrote a
+#   certificate with 6 findings on 6 ESCALATED (LAW-BC-8) items in disclosed_items, and A-CERT, which read only
+#   uncertified_items, rejected it ("6 unresolved item finding(s)") on every heal. Now ONE contract (auditor
+#   cert_contract) is used by the writer and by A-CERT; S13-2F documents the certificate fields (§S13-CERT)
+#   and stops CERT-CONTRACT if the writer refuses its own certificate; S13-4c raises CERT-CONTRACT at once (no
+#   registry restore, no heal cycle — a deterministic defect cannot heal) with a P0 record, quotes the failing gate
+#   lines instead of a fixed list of causes, and removes a registry this run staged in outputs on any stop;
+#   S13-REGCHECK no longer writes the registry to outputs — S13-7 stages it only after S13-4c passed, running S13-4c
+#   itself when no pass is recorded for that registry (a paper parked on an older release: no new stop) (C7). S3-14 /
+#   S3-16 stamp producer_release (the running VERSION) so the per-batch auditor knows a current paper (its label no
+#   longer reads 'pre-2026.11.03 paper'; verdict levels and the in-batch flow are unchanged — owner decision
+#   2026-11-17). No deliverable, end state or user action changes.
+# v8.1 — 2026-11-17 — GAP-2026-11-17-FALLBACK-CASCADE (release 2026.11.22; paired with blueprint_core, MockReview
+#   v2.3.1, DeliveryFooter v1.52.1). Live CSIR batch 1 on v8.0: every question reached the rung-3 TEXT fallback and
+#   lost its figure. Under modes 'ladder' / 'counted' (STEP A2): a reviewer defect code acts only when
+#   bc.R3_CODE_QUORUM (2) reviewers name it, at its own severity; a solver split whose key the adjudicator confirmed
+#   is never a rewrite (bc.R3_SPLIT_FIX_RUNGS = 0 — one solver of three missing a Hard question is how it
+#   measures); a finding alone never climbs past rung bc.R3_FINDING_MAX_RUNG (2) — it settles disclosed (AMBER
+#   'finding_open') and keeps its figure. Key, figure-proof and GATE problems keep the full ladder. Mode 'br1' unchanged.
+# v8.0 — 2026-11-21 — GAP-2026-11-16-DIFFICULTY-YARDSTICK (Cluster R3; release 2026.11.21; paired with
+#   blueprint_core Cluster R3, final_assembly v1.25.0, analyse_engine, corpus_io, MockReview v2.3.0, MockTestAnalyse
+#   v2.63.0, DeliveryFooter v1.52.0). Difficulty is MEASURED by placing each question among the exam's own past
+#   questions (the ladder, Step 5 S11-1d) — mode 'ladder'; without a ladder, rule r2.1 (decision depth) — mode
+#   'counted', disclosed. The writer never sees a count target, offset or self-count (STEP A). Reviewers return
+#   enumerated defect codes; one blocking code acts (STEP A2). Deterministic gates before any reviewer (PRE-REVIEW).
+#   Count rule = cumulative minimums from the top; footer §2R (S13-2L.0). Mode frozen per paper; a paper begun on an
+#   earlier release stays 'br1'. No new stop, no new loop: every new path is the existing bounded ladder.
+# v7.3.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with final_assembly v1.24.1, bootstrap,
+#   Framework_MockTestOrchestrate v1.10.1, Framework_DeliveryFooter v1.51.1; over release 2026.11.19). S1-0R: leave
+#   --auto-continue out of --session-start (bootstrap also accepts it — before, it refused it and the run stopped);
+#   B-5 names the opt-in exception; S7-QUALITY / STEP A: list_columns for a match item (the reviewers read the lists
+#   only from the sidecar; a set member's stimulus is added by the engine — fa.bc_stimulus_fill); STEP A2 PRE-REVIEW
+#   checks only a text no reviewer has measured; S13-2L.0 prints S13-2P's figure-proof P0. Entry v7.3 moved to
+#   SPEC_HISTORY.md.
+```
+
 Entries v5.54.1–v5.92 moved at framework release 2026.11.06 (EC-P42; v5.93 supersedes;
 GAP-2026-11-06-STEP7-SPEC-READ-CAPACITY — the Step 7 route is read against a measured session budget).
 Current-version entry remains in Framework_MockTestCreate.md.

@@ -1,4 +1,16 @@
-# Framework_MockTestOrchestrate v1.13.0
+# Framework_MockTestOrchestrate v1.15.0
+# v1.15.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B (release 2026.12.02): (1) G6 — a worker's,
+#   standby's and DIRECT-MODE session's read of this spec no longer serves PART A (O1-1 .. O2-11, the orchestrator's
+#   law; SPEC_SECTIONS role_ranges): ~26 KB / ~11,400 tokens less in every worker read; the orchestrator's own read
+#   (--role orchestrator) is unchanged and whole. (2) G2 — the lean reviewer / adjudicator types are also recognised
+#   under a plugin prefix (`mtc-agents:mtc-reviewer`), so the mtc-agents plugin, installed once, makes them present
+#   when a chat starts. No gate, job, round, ladder, model or deliverable changed.
+# v1.14.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A (release 2026.12.01): O2-11 logs what each run spends
+#   per role — every fresh worker and warm standby start (`worker_start --agent worker|standby --reason <why>`), a
+#   standby taken into use (`standby_used`), the token totals the sub-agent tool reports (`--agent-tokens`, added to
+#   calls already made), and retention failures, model limits, NO-MODEL and DIRECT MODE; at PAPER_DELIVERED the
+#   orchestrator prints `bootstrap.py --run-report` (quality + usage counts, never question content) above the CHAT
+#   BLOCK. Measurement only: no gate, job, round, ladder, model, read or deliverable changed; never a stop.
 # v1.13.0 — 2026-11-23 — OD-2026-11-23-OPUS-ONLY (release 2026.11.30): every sub-agent of Step 7 — worker, standby,
 #   reviewer, adjudicator and every `_switch` re-ask — runs on an entry of SESSION_BUDGET.json `worker_models`
 #   (now ["opus"]) and on no other model, even when the platform offers one. Independence of a reviewer or an
@@ -78,7 +90,9 @@ repairs or checks a question; never prints question content (MTC MANDATE 0 binds
 Before the first worker, in this order: Step 0 passed in this chat; STAGING COMPLETE was printed when
 bootstrap printed SURFACE; this spec was read in full and its retention check printed `RETENTION: PASS`;
 v1.10.1: `python3 bootstrap.py --install-agents` was run, then `python3 bootstrap.py --lean-agents yes` if this chat's
-sub-agent tool lists the agent types `mtc-reviewer` and `mtc-adjudicator`, else `--lean-agents no` (O2-3 — recorded
+sub-agent tool lists the agent types `mtc-reviewer` and `mtc-adjudicator` (v1.15.0: also under a plugin prefix, e.g.
+`mtc-agents:mtc-reviewer` and `mtc-agents:mtc-adjudicator` — the mtc-agents plugin of release 2026.12.02, installed once
+by the owner, makes them present when a chat starts), else `--lean-agents no` (O2-3 — recorded
 BEFORE the first worker, because the worker's engine sizes the first round's reviewer jobs from it; definitions
 written during a chat usually appear only in a later chat, so `no` on the first run is normal, never a stop).
 
@@ -102,7 +116,10 @@ Model: the first entry of SESSION_BUDGET.json `worker_models` that the tool acce
 not ruled out for this run; a tool with no model choice uses its default. v1.13.0 (OD-2026-11-23-OPUS-ONLY): EVERY
 sub-agent this spec starts — worker, standby, reviewer, adjudicator, `_switch` re-ask — is started with an explicit
 model taken from `worker_models` and never with a model outside that list, even when the platform offers one; the
-tool's default model is used only when the tool offers no model choice at all. One worker at a time does paper work, in
+tool's default model is used only when the tool offers no model choice at all. v1.14.0 (O2-11): right before starting a
+fresh worker run `python3 bootstrap.py --timing-log worker_start --agent worker --reason <why>` — <why> is one of
+`first` (the run's first worker), `room` (O2-5 condition 2), `rotate` (a ROTATE report), `retention_fail`, `repair`
+(the repair request failed) or `workdir_lost` (O2-7). One worker at a time does paper work, in
 the foreground when the tool offers it; wait until it finishes (v1.7.0: a WARM STANDBY may read in the background
 meanwhile — O2-10 — and reviewer jobs run side by side — O2-3). A message to an existing worker is sent with the tool
 that resumes a sub-agent (for example one named SendMessage).
@@ -119,7 +136,8 @@ in order). The first line bootstrap prints (`WORKER REPORT <E> M<N> — STATE <S
 must carry the same STATE, K and M as the worker's final line; a difference means the report on disk
 is an earlier turn's and is handled as a turn that ended without that line (below). Act on STATE:
 - BATCH_DELIVERED — when FILES TO DELIVER lists files, deliver them in ONE call of this chat's
-  file-delivery tool (present_files, or the name this surface gives it), in the listed order; log `delivered` (O2-11)
+  file-delivery tool (present_files, or the name this surface gives it), in the listed order; log `delivered` (O2-11;
+  v1.14.0: with `--agent-tokens "worker=<W>"`, W as in O2-5)
   and, when O2-10 calls for it, start the WARM STANDBY in the background. Then
   print the CHAT BLOCK verbatim as the last element of the response and END the response. v1.10.0 — AUTO-CONTINUE
   (opt-in): when the trigger the user typed carries `--auto-continue`, do NOT end the response: after the CHAT BLOCK
@@ -139,8 +157,9 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   errors or returns nothing counts as `REVIEW FAILED <error text>`. Retry no reviewer: the worker
   decides retries (O3-6). Then send the worker `REVIEW RETURNED` followed by one line per part:
   `<part_dir> <the reviewer's line>`.
-- PAPER_DELIVERED — deliver the listed files in ONE call, in the listed order; print the CHAT BLOCK
-  verbatim; END. The run is complete.
+- PAPER_DELIVERED — deliver the listed files in ONE call, in the listed order; v1.14.0: run
+  `python3 bootstrap.py --run-report --exam <E> --paper <N>` and print its lines verbatim (counts only — never question
+  content); then print the CHAT BLOCK verbatim; END. The run is complete.
 - GRADE_REQUEST (v1.3.0; v1.4.0; v1.7.0) — the worker is writing a batch and needs its fresh blind reviewers (MTC S4-7
   STEP A2: the job folders bootstrap lists — three reviewers, each question's in jobs of SESSION_BUDGET.json
   `review_qs_per_job` questions, so every question is seen by three different fresh reviewers; v1.9.0: the engine
@@ -151,14 +170,18 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   never the paper, the plan or a band. v1.10.0 LEAN SUB-AGENTS: when this chat's sub-agent tool offers the agent
   types `mtc-reviewer` and `mtc-adjudicator` (installed by `python3 bootstrap.py --install-agents`, O2-1; Read +
   Write tools only, a minimal prompt), start reviewer folders as `mtc-reviewer` and `_adj` folders as
-  `mtc-adjudicator` (recorded `--lean-agents yes` before the first worker, O2-1); when it does not offer
+  `mtc-adjudicator` — v1.15.0: by the exact type name the tool lists, plugin prefix included (`mtc-agents:mtc-reviewer`)
+  — (recorded `--lean-agents yes` before the first worker, O2-1); when it does not offer
   them, use the general-purpose type (recorded `--lean-agents no`, O2-1 — the worker's engine then
   writes reviewer jobs of SESSION_BUDGET.json `review_qs_per_job_fallback` questions — owner decision 2026-11-15).
   Never a stop either way.
   Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
   call per job, every call in the same message) so they run at the same time, and wait for all; only when the tool
   cannot run them together, one after another. Run `python3 bootstrap.py --timing-log jobs_start` before the first
-  wave and `--timing-log jobs_return` after the last. Model as in O2-2
+  wave and `--timing-log jobs_return` after the last (v1.14.0: `jobs_start` with `--agent-tokens "worker=<W>"`, W as
+  in O2-5; `jobs_return` with `--agent-tokens` listing, for every job of this request that returned, `reviewer=<n>`,
+  `adjudicator=<n>` (an `_adj` folder) or `switch=<n>` (a `_switch` folder) — n = the total tokens the sub-agent tool
+  reported for that job; a job with no reported total is left out, never estimated). Model as in O2-2
   (v1.13.0: from `worker_models` only — with one entry, the same model as the worker, in a FRESH context); a folder
   whose name ends in `_switch` (v1.7.0: a job that asks again a reviewer that returned nothing) gets the next model of
   `worker_models` after the one its first try used — v1.10.0: after the LAST entry it wraps around to the first entry
@@ -178,26 +201,27 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   sha256 for a ROTATE report — no progress between them) is handled as RETENTION_FAIL.
 - (v1.4.0) A worker that reported GRADE_REQUEST or ROTATE refreshed the CHECKPOINT first (O3-3 PLANNED
   HANDOVER); the worker that continues restores exactly that progress. Nothing is ever deleted by a handover.
-- RETENTION_FAIL — retire that worker (never message it again) and start a fresh worker (O2-2) with
+- RETENTION_FAIL — v1.14.0: log `retention_fail` (O2-11). Retire that worker (never message it again) and start a fresh worker (O2-2) with
   the message the retired worker was handling. When two fresh workers in a row report RETENTION_FAIL,
   that model is ruled out for this run: continue with the next entry of `worker_models` (O2-2). When
   no entry is left (or the tool offers no model choice), v1.5.0: this chat switches to DIRECT MODE for the rest of
   the run (O5-1 — it reads the route itself and continues the paper from its saved state, with the message the
-  retired worker was handling); print one line `STEP 7 MODE: DIRECT (no worker model holds the specification)` and
-  carry on. Never a stop here.
+  retired worker was handling); print one line `STEP 7 MODE: DIRECT (no worker model holds the specification)`, log
+  `direct_mode` (O2-11, v1.14.0) and carry on. Never a stop here.
 - HARD_STOP — deliver nothing; print the CHAT BLOCK verbatim; END.
 v1.7.0 (GAP-2026-11-13-STEP7-SPEED G-15) — A MODEL'S LIMIT IS NOT A WORKER FAULT. A sub-agent that cannot be started,
 or stops, with an error whose text names a usage, quota or rate limit rules that model out for the rest of the run, for
 every role (worker, standby, reviewer) at once: the next entry of `worker_models` is used. It never counts toward a
 DIRECT MODE switch while another model is left, and the message is re-sent as it was. When the tool refuses to start
 several sub-agents in one message, the wave size is halved (down to 1) for the rest of the run. No model left = the
-NO-MODEL environment failure of O6-1 (state saved; one plain line; resume on the user's next message).
+NO-MODEL environment failure of O6-1 (state saved; one plain line; resume on the user's next message). v1.14.0: log
+`model_limit` when a limit rules a model out and `no_model` at a NO-MODEL (O2-11).
 When the turn ends without that line, or `--worker-report show` exits non-zero: send the same worker
 once the sentence `Write your worker report now.` (a repair request, not an ORCHESTRATOR MESSAGE); if
 that fails, start a fresh worker (O2-2) with the ORCHESTRATOR MESSAGE the failed worker was handling;
 if that fails too, v1.5.0: switch to DIRECT MODE for the rest of the run (O5-1) — print
-`STEP 7 MODE: DIRECT (worker failed: <what bootstrap printed>)` and continue the paper from its saved state with
-that message. Never a stop here.
+`STEP 7 MODE: DIRECT (worker failed: <what bootstrap printed>)`, log `direct_mode` (O2-11, v1.14.0) and continue the
+paper from its saved state with that message. Never a stop here.
 
 ## O2-4 — Delivery failure
 
@@ -297,11 +321,13 @@ READS the batch just delivered, never inside a batch's time:
    `python3 bootstrap.py --worker-prompt --standby --trigger-text "<TRIGGER>"`; model as in O2-2. Then go on with the
    report that was being handled (v1.10.1), exactly as O2-3 says: at BATCH_DELIVERED deliver, print the CHAT BLOCK and END; after
    a session start report or a GRADE_REQUEST, carry on with it at once (the standby never delays a job wave and is not
-   one of its `parallel_jobs_max` jobs). The standby reads under its own role (it never touches the
+   one of its `parallel_jobs_max` jobs). v1.14.0: right before starting it, log
+   `python3 bootstrap.py --timing-log worker_start --agent standby` (O2-11). The standby reads under its own role (it never touches the
    current worker's read or any paper file), proves its read, and replies `STANDBY READY`; that reply needs no action
    and nothing is printed for it.
 2. On the next message O2-5 does not send to the current worker: `python3 bootstrap.py --standby-status`. `STANDBY:
-   READY` -> send the ORCHESTRATOR MESSAGE to the standby (the resume tool); it promotes its read and continues as a
+   READY` -> log `standby_used` (O2-11, v1.14.0), then send the ORCHESTRATOR MESSAGE to the standby (the resume tool);
+   it promotes its read and continues as a
    `--continue` worker (O3-7); the previous worker is retired (never messaged again). v1.10.0: `STANDBY: READING` ->
    wait for it (poll `--standby-status` every 15 s) up to 90 s, then use it if READY; only after that a fresh worker
    (O2-2) — a standby that is mid-read is a read already paid for. Anything else -> a fresh worker (O2-2), as
@@ -319,10 +345,23 @@ The orchestrator logs, with `python3 bootstrap.py --timing-log <event>` (one fil
 Workers log `read_start` / `read_end`. `python3 bootstrap.py --timing-show` prints one line per batch and for Final
 Assembly; a window over its SESSION_BUDGET.json target becomes one FRAMEWORK NOTE in the next CHAT BLOCK (the worker
 adds it, O3-4). Never a stop, never a question to the user.
+v1.14.0 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A) — USAGE. The orchestrator also logs: `worker_start --agent worker
+--reason <why>` before every fresh worker (O2-2) and `worker_start --agent standby` before every warm standby (O2-10);
+`standby_used` when a READY standby takes the message (O2-10); `retention_fail`, `model_limit`, `no_model` and
+`direct_mode` when O2-3 handles them; and `--agent-tokens "<kind>=<n> ..."` (kinds worker, standby, reviewer,
+adjudicator, switch; n = the total tokens the sub-agent tool reported, never an estimate) on the `delivered`,
+`jobs_start` and `jobs_return` calls it already makes (O2-3). A tool that reports no totals: log the events without
+`--agent-tokens`. `--timing-show` adds the USAGE lines after the TIMING lines; `--run-report --exam <E> --paper <N>`
+prints the paper's quality counts (states, key certification, ladder rung, AMBER, band on plan) with the USAGE lines
+and writes `<E>_M<N>_run_report.json` — printed at PAPER_DELIVERED (O2-3). Measurement only: never a stop, never a
+question to the user, never question content.
 
 ## O3-1 — PART B: WORKER LAW — ground rules
 
-The worker is the Step 7 session of MTC: all of MTC applies, plus O3-1 to O3-8. Never run Step 0,
+The worker is the Step 7 session of MTC: all of MTC applies, plus O3-1 to O3-8. v1.15.0 (G6): a worker's read of this
+spec (and a standby's, and a DIRECT-MODE session's) does not serve PART A, O1-1 to O2-11 — the orchestrator's law,
+which the orchestrator reads whole under `--role orchestrator`; a reference to an O1 / O2 section in PART B names what
+the orchestrator does and asks nothing of the worker. Never run Step 0,
 never clone, never delete or change /tmp/fw or /tmp/fw_effective; the working directory is
 /tmp/fw_effective. Inputs are staged: project files in /mnt/project, chat attachments in
 /mnt/user-data/uploads. Never start a sub-agent, never call a file-delivery tool, never wait for the
@@ -614,4 +653,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.13.0
+# END OF Framework_MockTestOrchestrate v1.15.0

@@ -155,6 +155,15 @@ TRIGGER_CUTS = {
     },
 }
 
+# 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B — G6) — ROLE-SCOPED TEXT. A shared spec's part that only ONE role
+# executes: a read under one of `roles` (bootstrap.py --role; 'session' is the worker / DIRECT-MODE session read,
+# 'standby' the warm standby) drops the top-level sections from `from` up to (not including) `to`. The orchestrator's
+# own read (--role orchestrator) is never cut. Orchestrate PART A (O1-1 .. O2-11) is the orchestrator's law: a worker
+# never executes it, and the orchestrator reads it in full.
+ROLE_CUTS = {
+    'Framework_MockTestOrchestrate.md': {'roles': ('session', 'standby'), 'from': '## O1-1', 'to': '## O3-1'},
+}
+
 # The view tool truncates output above ~16,000 characters INCLUDING explicitly ranged
 # reads (measured in the container, 2026-08-16).
 VIEW_TRUNCATE_CHARS = 16000
@@ -386,6 +395,20 @@ def feature_ranges(name, lines, in_fence, spans, total_lines):
     return out
 
 
+def role_ranges(name, spans, total_lines):
+    """{role: [[a, b]]} — ROLE_CUTS[name]: from the first top-level section matching 'from' to the line before the first
+    one matching 'to' (Phase 1B — G6). {} when the spec has no cut or either section is missing (never a partial cut)."""
+    cfg = ROLE_CUTS.get(name)
+    if not cfg:
+        return {}
+    ext = _top_extents(spans, total_lines)
+    a = next((x for t, x, _ in ext if _title_matches(t, cfg['from'])), None)
+    b = next((x for t, x, _ in ext if _title_matches(t, cfg['to'])), None)
+    if a is None or b is None or b <= a:
+        return {}
+    return {r: [[a, b - 1]] for r in cfg['roles']}
+
+
 def trigger_ranges(name, lines, in_fence, spans, total_lines):
     """{trigger: [[a, b]]} — TRIGGER_CUTS[name] blocks of other steps (P2c). 1-based, inclusive."""
     cfg = TRIGGER_CUTS.get(name)
@@ -537,6 +560,7 @@ def build(repo_dir='.'):
             'legacy_bytes': lg_bytes,
             'trigger_ranges': trigger_ranges(name, lines, in_fence, spans, total_lines),
             'feature_ranges': feature_ranges(name, lines, in_fence, spans, total_lines),
+            'role_ranges': role_ranges(name, spans, total_lines),
             'final_read_bytes': total_bytes - eng_bytes - rb_bytes - lg_bytes,
             'sections': spans,
         }
@@ -548,7 +572,7 @@ def render(doc):
     return json.dumps(doc, indent=2, ensure_ascii=False) + '\n'
 
 
-def read_plan(doc, name, session_class, trigger=None, drop_features=()):
+def read_plan(doc, name, session_class, trigger=None, drop_features=(), role=None):
     """The exact ranges to read. 'FINAL' is always the whole file, no exception.
     NON-FINAL = the complement of final_only_ranges over 1..lines, so the preamble and
     everything after a banner cut are read without being named. 2026.11.17: legacy ranges are never served;
@@ -561,6 +585,8 @@ def read_plan(doc, name, session_class, trigger=None, drop_features=()):
         eng += list((info.get('trigger_ranges') or {}).get(trigger) or [])
     for _ft in drop_features or ():
         eng += list((info.get('feature_ranges') or {}).get(_ft) or [])
+    if role:
+        eng += list((info.get('role_ranges') or {}).get(role) or [])     # Phase 1B — G6 (ROLE_CUTS)
     if session_class.upper() == 'FINAL' or not info['has_read_set']:
         return _minus([(1, info['lines'])], eng) if eng else [(1, info['lines'])]
     ranges, nxt = [], 1
@@ -598,7 +624,7 @@ def chunk_ranges(path, ranges):
     return [tuple(c) for c in chunks]
 
 
-def chunk_plan(doc, name, session_class, spec_dir='.', trigger=None, drop_features=()):
+def chunk_plan(doc, name, session_class, spec_dir='.', trigger=None, drop_features=(), role=None):
     """read_plan(doc, name, session_class) as read-call chunks (see chunk_ranges).
     Measures bytes on the spec file beside SPEC_SECTIONS.json and refuses a file whose
     sha256 is not the one the map was built from — a stale map would chunk the wrong
@@ -607,7 +633,7 @@ def chunk_plan(doc, name, session_class, spec_dir='.', trigger=None, drop_featur
     if sha256_file(path) != doc['files'][name]['sha256']:
         raise ValueError(f'{name}: sha256 differs from SPEC_SECTIONS.json — the map is '
                          f'stale. Run gen_manifest.py (repo) or spec_source.py --resolve.')
-    return chunk_ranges(path, read_plan(doc, name, session_class, trigger, drop_features))
+    return chunk_ranges(path, read_plan(doc, name, session_class, trigger, drop_features, role))
 
 
 def pack_chunks(path, chunks):
@@ -805,6 +831,20 @@ def self_test():
           and _rp_nf - _rp_nf_nofig == _lineset(_ff) - (_lineset(_mi.get('run_block_ranges') or [])
                                                           | _lineset(_mi.get('engine_ranges') or []))
           and _rp_nf_nofig < _rp_nf)
+    # 2026.12.02 (Phase 1B — G6): Orchestrate PART A is cut from the worker / standby read, never from the orchestrator's
+    _oi = doc['files'].get('Framework_MockTestOrchestrate.md') or {}
+    _ol = _spec_lines('Framework_MockTestOrchestrate.md')[0] if _oi else []
+    _orr = _oi.get('role_ranges') or {}
+    _o_full = _lineset(read_plan(doc, 'Framework_MockTestOrchestrate.md', 'FINAL')) if _oi else set()
+    _o_wk = _lineset(read_plan(doc, 'Framework_MockTestOrchestrate.md', 'FINAL', role='session')) if _oi else set()
+    check('t18_role_cut_drops_part_a_for_worker_and_standby_only',
+          bool(_oi) and set(_orr) == {'session', 'standby'} and _orr['session'] == _orr['standby']
+          and len(_orr['session']) == 1 and _ol[_orr['session'][0][0] - 1].startswith('## O1-1 ')
+          and _ol[_orr['session'][0][1]].startswith('## O3-1 ')
+          and _o_full - _o_wk == _lineset(_orr['session'])
+          and _lineset(read_plan(doc, 'Framework_MockTestOrchestrate.md', 'FINAL', role='orchestrator')) == _o_full
+          and not any(_ol[j - 1].startswith(('## O3-', '## O4-', '## O5-', '## O6-', '## O0-')) for j in _o_full - _o_wk)
+          and role_ranges('Framework_MockTestCreate.md', [], 10) == {})
     _fi = doc['files']['Framework_DeliveryFooter.md']
     _fl = _spec_lines('Framework_DeliveryFooter.md')[0]
     _tr = (_fi.get('trigger_ranges') or {})

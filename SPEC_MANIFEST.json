@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 15691,
-      "sha256": "ab26b12683a9bbcd93ac5c97db6c86c750972b7bf9e9d34d95975cd4eb310967",
-      "size_bytes": 1112022,
-      "version_header": "# Framework_MockTestCreate v8.8"
+      "lines": 15604,
+      "sha256": "ae2cc1b0aa1987e4c638d1da1104b91e458ee8c673487657b350830b9bf7a3b6",
+      "size_bytes": 1102082,
+      "version_header": "# Framework_MockTestCreate v8.9"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -50,11 +50,11 @@
       "version_header": "# Framework_MockTestExplain v1.56.0"
     },
     "Framework_MockTestOrchestrate.md": {
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.13.0",
-      "lines": 617,
-      "sha256": "9b18a408322701104bda7d157ecee02fc687b8d04b466668af39d724d4bf72cb",
-      "size_bytes": 52968,
-      "version_header": "# Framework_MockTestOrchestrate v1.13.0"
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.15.0",
+      "lines": 656,
+      "sha256": "83b993c4d285aff1777b0d09571b6b560e1ee54f02fff4d016f4cc0587e7d565",
+      "size_bytes": 57357,
+      "version_header": "# Framework_MockTestOrchestrate v1.15.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.9.0",
@@ -219,9 +219,9 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 864,
-      "sha256": "844792efc5577c983ad70b2bec46a8aa1594f5fa04848ce99735c0062793944b",
-      "size_bytes": 47518,
+      "lines": 936,
+      "sha256": "db8aacafb60bb6b468f1e6dca78afa574f0a1e8f34b43f0cb77912c44a83ed85",
+      "size_bytes": 52647,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {

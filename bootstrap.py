@@ -568,7 +568,7 @@ def _absent_features(trigger, progress_path):
     return ("figures",)
 
 
-def _plans(sec, specs, klass, trigger=None, drop_features=()):
+def _plans(sec, specs, klass, trigger=None, drop_features=(), role=None):
     """{spec: [(start, end), ...]} read chunks for `klass`, or None for a spec the map
     does not describe (absent, or its sha differs: a stale map is never chunked). 2026.11.17: trigger (P2c) and
     drop_features (P2d) narrow the plan as spec_sections.read_plan describes; both default to nothing."""
@@ -576,7 +576,8 @@ def _plans(sec, specs, klass, trigger=None, drop_features=()):
     for f in specs:
         try:
             # GAP-2026-11-13-STEP7-SPEED G-02: each entry is ONE read call — a list of segments packed within the caps
-            out[f] = ss.pack_chunks(f, ss.chunk_plan(sec, f, klass, '.', trigger, drop_features))
+            # 2026.12.02 (Phase 1B — G6): a role cut (SPEC_SECTIONS role_ranges) drops text only another role executes
+            out[f] = ss.pack_chunks(f, ss.chunk_plan(sec, f, klass, '.', trigger, drop_features, role))
         except (KeyError, ValueError, OSError):
             out[f] = None
     return out
@@ -960,7 +961,7 @@ def _new_read(args, role):
         if _drop:
             print(f"READ: this paper has no {', '.join(_drop)} (its saved state proves it) — the "
                   f"{', '.join(_drop)} sections are not served (P2d).")
-        plans = _plans(sec, specs, klass, args.trigger, _drop)
+        plans = _plans(sec, specs, klass, args.trigger, _drop, role)
     stale = [f for f in specs if plans[f] is None]
     if stale:
         fail(f"SPEC_SECTIONS.json does not describe {stale} as they are on disk. Re-run "
@@ -1307,6 +1308,18 @@ def timing_log(args):
         ev["batch"] = args.batch
     if args.tokens is not None:
         ev["tokens"] = args.tokens
+    # 2026.12.01 (Phase 1A, GAP-2026-11-23-TOKEN-TELEMETRY): which sub-agent an event is about, why a worker started,
+    # and the token totals the sub-agent tool reported — logged on calls the orchestrator already makes. Never a stop.
+    if getattr(args, "agent", None):
+        ev["agent"] = args.agent
+    if getattr(args, "reason", None):
+        ev["reason"] = str(args.reason)
+    _ag, _bad = parse_agent_tokens(getattr(args, "agent_tokens", None))
+    if _ag:
+        ev["agents"] = _ag
+    if _bad:
+        print(f"TIMING: ignored --agent-tokens item(s) {_bad} (expected <kind>=<tokens>, kind one of "
+              f"{', '.join(USAGE_AGENT_KINDS)}) — logged the rest; never a stop.")
     log.setdefault("events", []).append(ev)
     with open(p, "w", encoding="utf-8") as fh:
         json.dump(log, fh, indent=1)
@@ -1434,7 +1447,186 @@ def timing_show(args):
             json.dump(log, fh, indent=1)
         print("\n".join(new))
         return 0
-    print("\n".join(lines) if lines else "TIMING: no complete window yet.")
+    _u = usage_summary(evs[last:])
+    print("\n".join(lines + _u) if (lines or _u) else "TIMING: no complete window yet.")
+    return 0
+
+
+# ── USAGE + RUN REPORT (2026.12.01 — Phase 1A, GAP-2026-11-23-TOKEN-TELEMETRY) ──────────────────────────────────────
+# What a run spent, per role, and how its questions came out — the baseline every later token cut is judged against
+# (no cut ships unless these numbers hold). Read-only, counts only (MANDATE 0: never a question's content), never a stop.
+USAGE_AGENT_KINDS = ("worker", "standby", "reviewer", "adjudicator", "switch")
+USAGE_EVENTS = ("worker_start", "standby_used", "retention_fail", "model_limit", "no_model", "direct_mode")
+RUN_REPORT_FILE = "{exam}_M{n}_run_report.json"
+
+
+def parse_agent_tokens(text):
+    """'worker=486000 reviewer=65000 reviewer=71000' -> ([[kind, n], ...], [bad items]). Kinds: USAGE_AGENT_KINDS;
+    a count is a non-negative integer (a thousands separator ',' or '_' is accepted). Never raises."""
+    good, bad = [], []
+    for it in str(text or "").replace(";", " ").split():
+        k, _, v = it.partition("=")
+        k, v = k.strip().lower(), v.strip().replace(",", "").replace("_", "")
+        if k in USAGE_AGENT_KINDS and v.isdigit():
+            good.append([k, int(v)])
+        else:
+            bad.append(it)
+    return good, bad
+
+
+def usage_summary(events):
+    """[line] — the USAGE of one run (events from its run_start on): workers started (and why) with the peak total the
+    platform reported for each, standbys started / used / unused, reviewer / adjudicator / _switch jobs with their
+    reported tokens, and the counts of retention failures, model limits, NO-MODEL and DIRECT MODE. Pure."""
+    workers, cur, stand_started, stand_used = [], None, 0, 0
+    jobs = {"reviewer": [], "adjudicator": [], "switch": []}
+    counts = {e: 0 for e in USAGE_EVENTS[2:]}
+    for e in events or []:
+        ev = str(e.get("event") or "")
+        if ev == "worker_start":
+            if str(e.get("agent") or "worker") == "standby":
+                stand_started += 1
+                workers.append({"kind": "standby", "reason": e.get("reason") or "standby", "peak": None})
+            else:
+                workers.append({"kind": "worker", "reason": e.get("reason") or "?", "peak": None})
+                cur = workers[-1]
+        elif ev == "standby_used":
+            stand_used += 1
+            for w in reversed(workers):
+                if w["kind"] == "standby" and not w.get("used"):
+                    w["used"] = True
+                    cur = w
+                    break
+        elif ev in counts:
+            counts[ev] += 1
+        for k, n in e.get("agents") or []:
+            if k in ("worker", "standby"):
+                if cur is not None:
+                    cur["peak"] = max(cur["peak"] or 0, int(n))
+            elif k in jobs:
+                jobs[k].append(int(n))
+    out = []
+    if not workers and not any(jobs.values()) and not any(counts.values()):
+        return out
+    fresh = [w for w in workers if w["kind"] == "worker"]
+    _why = {}
+    for w in fresh:
+        _why[w["reason"]] = _why.get(w["reason"], 0) + 1
+    _pk = [w["peak"] for w in workers if w.get("peak")]
+    out.append(f"USAGE workers: {len(fresh)} fresh started"
+               + (f" ({', '.join(f'{k} {v}' for k, v in sorted(_why.items()))})" if _why else "")
+               + f"; standbys {stand_started} started, {stand_used} used, {max(stand_started - stand_used, 0)} unused"
+               + (f"; peak reported tokens {', '.join(f'{p:,}' for p in _pk)}" if _pk else "; no token totals logged"))
+    for k in ("reviewer", "adjudicator", "switch"):
+        v = jobs[k]
+        if v:
+            out.append(f"USAGE {k} jobs: {len(v)} with tokens logged, total {sum(v):,}, average {sum(v) // len(v):,}")
+    out.append("USAGE events: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+    return out
+
+
+def _rr_load(p):
+    try:
+        d = json.load(open(p, encoding="utf-8"))
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def run_report_data(bs, kd):
+    """The quality numbers of one paper from its BATCH STATE (bs) and answer key (kd): per-question state, how its key
+    was certified, the ladder rung it settled on, its AMBER marks, its final band against the planned band. Pure;
+    counts only."""
+    cm = (kd or {}).get("concept_map") or {}
+    items = (((bs or {}).get("bv") or {}).get("items") or {})
+    tgt = {str(k): v for k, v in ((bs or {}).get("difficulty_plan_target") or (bs or {}).get("difficulty_plan")
+                                   or {}).items()}
+    rungs = ("first", "fix", "replace", "fallback")
+    d = {"questions": 0, "state": {}, "key": {}, "rung": {r: 0 for r in rungs}, "amber_questions": 0,
+         "amber_kinds": {}, "band": {"planned": 0, "on_plan": 0, "off_plan": 0}, "final_bands": {}}
+    for q in sorted((x for x in cm if str(x).isdigit()), key=int):
+        e = cm.get(q) if isinstance(cm.get(q), dict) else {}
+        it = items.get(q) if isinstance(items.get(q), dict) else {}
+        d["questions"] += 1
+        st = it.get("state") or e.get("bv_state") or "unknown"
+        d["state"][st] = d["state"].get(st, 0) + 1
+        kv = it.get("key") if isinstance(it.get("key"), dict) else (e.get("key_votes") if isinstance(e.get("key_votes"), dict) else {})
+        cb = kv.get("certified_by") or "unknown"
+        d["key"][cb] = d["key"].get(cb, 0) + 1
+        try:
+            r = int(it.get("rung") or 0)
+        except (TypeError, ValueError):
+            r = 0
+        d["rung"][rungs[min(max(r, 0), 3)]] += 1
+        am = [str(a) for a in (it.get("amber") or [])]
+        if am:
+            d["amber_questions"] += 1
+            for a in am:
+                k = a.split(":")[0].strip()[:40]
+                d["amber_kinds"][k] = d["amber_kinds"].get(k, 0) + 1
+        fb = e.get("difficulty")
+        if fb:
+            d["final_bands"][str(fb)] = d["final_bands"].get(str(fb), 0) + 1
+        if tgt.get(q):
+            d["band"]["planned"] += 1
+            d["band"]["on_plan" if str(fb) == str(tgt[q]) else "off_plan"] += 1
+    return d
+
+
+def run_report_lines(d):
+    """[line] for run_report_data(...). Pure."""
+    n = d.get("questions") or 0
+    if not n:
+        return ["RUN REPORT: no question found in this paper's answer key."]
+    pc = lambda v: f"{v} ({100.0 * v / n:.0f}%)"                      # noqa: E731
+    out = [f"RUN REPORT questions: {n} — " + ", ".join(f"{k} {pc(v)}" for k, v in sorted(d["state"].items()))]
+    out.append("RUN REPORT keys: " + ", ".join(f"{k} {pc(v)}" for k, v in sorted(d["key"].items(), key=lambda kv: -kv[1])))
+    out.append("RUN REPORT ladder: settled at " + ", ".join(f"{k} {pc(v)}" for k, v in d["rung"].items()))
+    _ak = sorted(d["amber_kinds"].items(), key=lambda kv: -kv[1])[:6]
+    out.append(f"RUN REPORT AMBER: {pc(d['amber_questions'])} questions"
+               + (f" ({', '.join(f'{k} {v}' for k, v in _ak)})" if _ak else ""))
+    b = d["band"]
+    out.append("RUN REPORT difficulty: final bands " + ", ".join(f"{k} {v}" for k, v in sorted(d["final_bands"].items()))
+               + (f"; on the planned band {b['on_plan']}/{b['planned']} ({100.0 * b['on_plan'] / b['planned']:.0f}%)"
+                  if b["planned"] else "; no planned band recorded"))
+    return out
+
+
+def run_report(exam, paper, home=None, out=print):
+    """--run-report --exam E --paper N: the RUN REPORT (quality, counts only) and the USAGE lines of this chat's run;
+    also written to <home>/<E>_M<N>_run_report.json. Always returns 0 (a report, never a stop)."""
+    home = home or home_dir()
+    if not exam or not paper:
+        out("RUN REPORT: needs --exam <E> --paper <N>.")
+        return 0
+    try:
+        n = int(str(paper).lstrip("Mm"))
+    except ValueError:
+        out(f"RUN REPORT: --paper {paper} is not a number.")
+        return 0
+    bs = _rr_load(os.path.join(home, f"{exam}_M{n}_batch_state.json"))
+    kd = _rr_load(os.path.join(home, f"{exam}_M{n}_answer_key.json"))
+    lines = []
+    if bs is None or kd is None:
+        lines.append(f"RUN REPORT: the paper state of {exam} M{n} is not on disk — quality numbers not available.")
+        d = None
+    else:
+        d = run_report_data(bs, kd)
+        lines.extend(run_report_lines(d))
+    log = _load_json(_timing_path()) or {"events": []}
+    evs = list(log.get("events") or [])
+    last = max([i for i, e in enumerate(evs) if e.get("event") == "run_start"], default=0)
+    u = usage_summary(evs[last:])
+    lines.extend(u or ["USAGE: nothing logged for this run."])
+    lines.append("RUN REPORT not recorded here: first-try gate pass rate, figure read-back match rate.")
+    for x in lines:
+        out(x)
+    try:
+        with open(os.path.join(home, RUN_REPORT_FILE.format(exam=exam, n=n)), "w", encoding="utf-8") as fh:
+            json.dump({"exam": exam, "paper": n, "quality": d, "lines": lines,
+                       "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, fh, indent=1)
+    except OSError:
+        pass
     return 0
 
 
@@ -1479,7 +1671,7 @@ def budget_block(args, specs, files_meta):
     notice = orchestrated_notice(args.trigger)
     if notice:
         print("\n" + notice)
-    plans = _plans(sec, specs, klass)
+    plans = _plans(sec, specs, klass, role="session")     # 2026.12.02 (Phase 1B — G6): the worker's read calls
     print(f"\nEntry-point spec(s) for '{args.trigger}' — READ IN FULL "
           f"(subject to SESSION CLASS below):")
     tot_l = tot_b = tot_t = tot_calls = 0
@@ -1489,6 +1681,10 @@ def budget_block(args, specs, files_meta):
         by = info.get("bytes") or meta.get("bytes") or 0
         use_b = (info.get("reduced_bytes", by)
                  if klass == "NON-FINAL" and info.get("has_read_set") else info.get("final_read_bytes", by))
+        _rr = (info.get("role_ranges") or {}).get("session") or []
+        if _rr and os.path.exists(f):       # 2026.12.02 (Phase 1B — G6): text only the orchestrator reads is not priced
+            _lb = [len(x.encode("utf-8")) + 1 for x in open(f, encoding="utf-8").read().split("\n")]
+            use_b -= sum(sum(_lb[a - 1:b]) for a, b in _rr)
         calls = len(plans[f]) if plans[f] is not None else -(-use_b // 28000)
         tok = math.ceil(use_b / bpt)
         tot_l += ln; tot_b += use_b; tot_t += tok; tot_calls += calls
@@ -2131,6 +2327,12 @@ def main():
     ap.add_argument("--timing-show", action="store_true")
     ap.add_argument("--notes-once", action="store_true", help="with --timing-show: only new FRAMEWORK NOTE lines")
     ap.add_argument("--tokens", type=int, default=None)
+    ap.add_argument("--agent", choices=("worker", "standby"), default=None,
+                    help="with --timing-log worker_start: a fresh worker or a warm standby (Phase 1A)")
+    ap.add_argument("--reason", default=None, help="with --timing-log worker_start: why it was started (Phase 1A)")
+    ap.add_argument("--agent-tokens", default=None, metavar='"worker=N reviewer=N ..."',
+                    help="with --timing-log: token totals the sub-agent tool reported (Phase 1A)")
+    ap.add_argument("--run-report", action="store_true", help="quality + usage report of a paper (Phase 1A)")
     ap.add_argument("--read-id", default=None)
     ap.add_argument("--escalate", action="store_true",
                     help="read / check the sections the NON-FINAL read skipped")
@@ -2256,6 +2458,8 @@ def main():
         sys.exit(lean_agents_record(args.lean_agents))
     if args.promote_standby:
         sys.exit(promote_standby(args))
+    if args.run_report:
+        sys.exit(run_report(args.exam, args.paper))
     if args.timing_log:
         sys.exit(timing_log(args))
     if args.timing_show:
@@ -2662,6 +2866,26 @@ def self_test():
           rc == 3 and "--role orchestrator --read 1" in out)
     rc, out = run(fx, "--trigger", "PYQScan", "--role", "orchestrator", "--read", "1")
     check("orchestrator role refuses a trigger that is not orchestrated", rc == 2)
+    # 2026.12.02 (Phase 1B — G6): on the REAL corpus, a worker-side read plan (session / standby) skips Orchestrate
+    # PART A (O1-1 .. O2-11); the orchestrator's plan serves it whole (bootstrap._plans carries the role through)
+    _cwd_g6 = os.getcwd()
+    try:
+        os.chdir(here)
+        _sec_g6 = _load_json("SPEC_SECTIONS.json") or {}
+        _of = "Framework_MockTestOrchestrate.md"
+
+        def _g6_lines(role):
+            pl = _plans(_sec_g6, [_of], "FINAL", "TestCreate", (), role).get(_of) or []
+            return {j for call in pl for a, b in call for j in range(a, b + 1)}
+        _g6_ol = open(_of, encoding="utf-8").read().split("\n") if os.path.exists(_of) else []
+        _g6_o, _g6_w, _g6_s = _g6_lines("orchestrator"), _g6_lines("session"), _g6_lines("standby")
+        _g6_cut = _g6_o - _g6_w
+        check("worker-side read plan skips Orchestrate PART A (O1-1 .. O2-11); the orchestrator's keeps it",
+              bool(_g6_ol) and _g6_w == _g6_s and _g6_cut and _g6_w < _g6_o
+              and _g6_ol[min(_g6_cut) - 1].startswith("## O1-1 ") and _g6_ol[max(_g6_cut)].startswith("## O3-1 ")
+              and any(_g6_ol[j - 1].startswith("## O3-1 ") for j in _g6_w))
+    finally:
+        os.chdir(_cwd_g6)
 
     # D2-D4 staging
     att = os.path.join(tmp, "attach", "sess1")
@@ -3097,6 +3321,60 @@ def self_test():
             os.environ.pop("FW_HOME", None)
         else:
             os.environ["FW_HOME"] = _home_old
+
+    # 2026.12.01 (Phase 1A, GAP-2026-11-23-TOKEN-TELEMETRY): per-role usage and the run report
+    _pa, _pb = parse_agent_tokens("worker=486,000 reviewer=65000 reviewer=71_000 adjudicator=70000 bogus=1 reviewer=x")
+    check("usage: --agent-tokens parsed, bad items reported, never raised",
+          _pa == [["worker", 486000], ["reviewer", 65000], ["reviewer", 71000], ["adjudicator", 70000]]
+          and _pb == ["bogus=1", "reviewer=x"] and parse_agent_tokens(None) == ([], []))
+    _us = usage_summary([{"event": "run_start"},
+                         {"event": "worker_start", "agent": "worker", "reason": "first"},
+                         {"event": "jobs_start", "agents": [["worker", 480000]]},
+                         {"event": "jobs_return", "agents": [["reviewer", 65000], ["reviewer", 71000],
+                                                             ["adjudicator", 70000], ["switch", 60000]]},
+                         {"event": "delivered", "agents": [["worker", 560000]]},
+                         {"event": "worker_start", "agent": "standby"},
+                         {"event": "standby_used"},
+                         {"event": "delivered", "agents": [["worker", 500000]]},
+                         {"event": "worker_start", "agent": "standby"},
+                         {"event": "retention_fail"}, {"event": "no_model"}])
+    check("usage: workers / standbys / jobs / events summarised per role",
+          _us[0] == "USAGE workers: 1 fresh started (first 1); standbys 2 started, 1 used, 1 unused; "
+                    "peak reported tokens 560,000, 500,000"
+          and "USAGE reviewer jobs: 2 with tokens logged, total 136,000, average 68,000" in _us
+          and "USAGE adjudicator jobs: 1 with tokens logged, total 70,000, average 70,000" in _us
+          and "USAGE switch jobs: 1 with tokens logged, total 60,000, average 60,000" in _us
+          and _us[-1] == "USAGE events: retention_fail 1, model_limit 0, no_model 1, direct_mode 0"
+          and usage_summary([{"event": "run_start"}]) == [])
+    _rbs = {"difficulty_plan_target": {"1": "Easy", "2": "Hard", "3": "Medium"},
+            "bv": {"items": {"1": {"state": "settled", "rung": 0, "key": {"certified_by": "unanimous"}},
+                             "2": {"state": "settled", "rung": 1, "key": {"certified_by": "adjudicated"},
+                                   "amber": ["level: settled at measured band"]},
+                             "3": {"state": "disclosed", "rung": 3, "key": {"certified_by": "disclosed"},
+                                   "amber": ["fallback", "level: x"]}}}}
+    _rkd = {"concept_map": {"1": {"difficulty": "Easy"}, "2": {"difficulty": "Medium"}, "3": {"difficulty": "Medium"},
+                            "notes": {}}}
+    _rd = run_report_data(_rbs, _rkd)
+    _rl = run_report_lines(_rd)
+    check("run report: states, keys, ladder, AMBER and band-on-plan counted (counts only)",
+          _rd["questions"] == 3 and _rd["state"] == {"settled": 2, "disclosed": 1}
+          and _rd["key"] == {"unanimous": 1, "adjudicated": 1, "disclosed": 1}
+          and _rd["rung"] == {"first": 1, "fix": 1, "replace": 0, "fallback": 1}
+          and _rd["amber_questions"] == 2 and _rd["amber_kinds"] == {"level": 2, "fallback": 1}
+          and _rd["band"] == {"planned": 3, "on_plan": 2, "off_plan": 1}
+          and _rl[0] == "RUN REPORT questions: 3 — disclosed 1 (33%), settled 2 (67%)"
+          and _rl[-1].endswith("on the planned band 2/3 (67%)")
+          and run_report_lines(run_report_data({}, {})) == ["RUN REPORT: no question found in this paper's answer key."])
+    _rro = []
+    _rh = os.path.join(tmp, "rr_home")
+    os.makedirs(_rh)
+    json.dump(_rbs, open(os.path.join(_rh, "EX_M1_batch_state.json"), "w"))
+    json.dump(_rkd, open(os.path.join(_rh, "EX_M1_answer_key.json"), "w"))
+    rc_rr = run_report("EX", "1", home=_rh, out=_rro.append)
+    rc_rr2 = run_report("EX", "7", home=_rh, out=_rro.append)
+    check("run report: written beside the paper, missing state is a line not a stop",
+          rc_rr == 0 and rc_rr2 == 0 and os.path.exists(os.path.join(_rh, "EX_M1_run_report.json"))
+          and any(x.startswith("RUN REPORT: the paper state of EX M7 is not on disk") for x in _rro))
 
     # E: an overlay with a project spec carries a regenerated map that verifies
     import spec_source

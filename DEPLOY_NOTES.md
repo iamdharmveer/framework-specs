@@ -1,43 +1,51 @@
-# DEPLOY NOTES — release 2026.11.30 (OD-2026-11-23-OPUS-ONLY) over release 2026.11.29
-Built on production 23df622 (release 2026.11.29). Commit once, push main, push main:production.
-Upload EVERY file below in ONE commit, flat (no folders). A partial upload fails bootstrap for every exam
-(MANIFEST.json / SPEC_MANIFEST.json / SPEC_SECTIONS.json hash every engine and spec).
-If production has any content change beyond 23df622 when you deploy (git diff 23df622 production not empty), stop —
-the bundle must be rebuilt on the new production commit.
+# DEPLOY NOTES — release 2026.12.02 (Phase 1A + Phase 1B in ONE deployment) over release 2026.11.30
+Built on production 12ca1ed (release 2026.11.30). ONE commit carries both phases: upload EVERY file below, flat (no
+folders); push main, then main:production. Checked: production 12ca1ed + these files = the release tree exactly,
+bootstrap 60/60 VERIFIED, manifests regenerate identically. If production moved past 12ca1ed, stop — rebuild.
+CHANGELOG.md carries two entries (2026.12.01 = Phase 1A, 2026.12.02 = Phase 1B); VERSION is 2026.12.02.
 
-WHAT IT DOES: owner instruction 2026-11-23 "never use Fable; always use Opus for any worker or any other task".
-Every Step 7 sub-agent (worker, standby, reviewer, adjudicator, _switch re-ask) runs on Opus only. Reviewer and
-adjudicator independence stays: fresh context + blind packet (Orchestrate O6-1). No gate, job, round, ladder,
-deliverable, end state or user action changed.
+PHASE 1A (measurement only): the orchestrator logs every fresh worker (and why), every warm standby (started / used),
+the token totals the sub-agent tool reports per worker / reviewer / adjudicator / _switch job, and retention
+failures, model limits, NO-MODEL, DIRECT MODE (Orchestrate O2-11). At PAPER_DELIVERED it prints the RUN REPORT
+(counts only: question states, key certification, ladder rung, AMBER, bands on plan, USAGE) above the final chat
+block; also written to <E>_M<N>_run_report.json. Never a stop.
 
-UPLOAD LIST (the files that differ from 2026.11.29, plus DEPLOY_NOTES.md and SHA256SUMS.txt; none is new):
-CHANGELOG.md                       (2026.11.30 entry)
-DEPLOY_NOTES.md                    (this file)
-Framework_MockTestOrchestrate.md   (v1.13.0 — O2-2: every sub-agent's model comes from worker_models only; O2-3, O3-6,
-                                    O6-1, O4-1 lose "a different model when the platform offers one")
-MANIFEST.json                      (regenerated)
-SESSION_BUDGET.json                (worker_models ["opus"]; _worker_models note)
-SHA256SUMS.txt                     (checksums of this upload)
-SPEC_MANIFEST.json                 (regenerated)
-SPEC_SECTIONS.json                 (regenerated)
-STEP_CONTRACTS.json                (floor: MockTestOrchestrate 1.13.0)
-VERSION                            (2026.11.30)
-bootstrap.py                       (--install-agents writes `model: opus` into mtc-reviewer / mtc-adjudicator)
+PHASE 1B:
+WHAT PHASE 1B DOES (no rule, gate, RUN-BLOCK, engine call, job, round, ladder, model or deliverable changes):
+- G6: a worker / standby / DIRECT-MODE read of Framework_MockTestOrchestrate.md skips PART A (O1-1 .. O2-11, the
+  orchestrator's law). The orchestrator still reads it whole. 26,267 B (~11,400 tokens) less per worker read.
+- G5: Framework_MockTestCreate v8.9 — superseded version entries v8.8 .. v7.3.1 moved verbatim to SPEC_HISTORY.md
+  (10,291 B). The rest of the file is byte-identical.
+- Net worker read (TestCreate): FINAL ~340,331 -> ~326,767 tokens; NON-FINAL ~320,529 -> ~306,965 (-4.0%).
+- G7: new CI gate SPEC-READ-GROWTH (audit_specs_ext): a release that grows any trigger's read by more than 2,300 B
+  (~1,000 tokens) over SESSION_BUDGET.json read_growth_baseline_bytes fails CI unless the baseline is raised in the
+  same commit with the reason in CHANGELOG. When a later release CUTS a read, lower that trigger's baseline.
+- G2: Orchestrate recognises the lean reviewer / adjudicator types under a plugin prefix (mtc-agents:mtc-reviewer).
 
-NOT CHANGED: Framework_MockTestCreate.md and every engine (its "another model" wording is read only by workers, which
-never start sub-agents; the orchestrator takes models from Orchestrate O2-2 alone). SKILL / TRIGGERS / ROUTES unchanged.
+UPLOAD LIST (14 files — both phases):
+CHANGELOG.md, DEPLOY_NOTES.md, Framework_MockTestCreate.md (v8.9), Framework_MockTestOrchestrate.md (v1.15.0),
+MANIFEST.json, SESSION_BUDGET.json (read_growth_* keys), SHA256SUMS.txt, SPEC_HISTORY.md, SPEC_MANIFEST.json,
+SPEC_SECTIONS.json, VERSION (2026.12.02), audit_specs_ext.py, bootstrap.py, spec_sections.py
 
-AFTER DEPLOY: nothing per exam. Every MockCreate / TestCreate trigger after deploy runs Opus-only. A run already in
-progress keeps the Orchestrate text it read at its own Step 0 (Step 0 runs once per run, O2-1); in that run Fable is
-used again only if its limit has reset.
+ONE-TIME, OUTSIDE GITHUB — the mtc-agents plugin (mtc-agents.plugin, delivered beside this bundle): open it in the
+Claude app and install it. It holds the two lean sub-agents (Opus, Read + Write only). Check on the next run: the
+orchestrator records `--lean-agents yes` when it sees them (USAGE / the session start). If it says `no`, nothing
+breaks — review jobs run as before; tell Claude, because plugin agents may not reach cloud chats on every surface.
 
-VERIFY BEFORE PUSH (on the commit, before main:production):
+AFTER DEPLOY — the reference run: run CSIR NET Chemical Sciences P1 --level subject --scope "Organic Chemistry" (40
+questions). Note the plan Usage % before and after, and keep the RUN REPORT / USAGE lines printed above the final chat
+block. Compare the quality numbers (keys, ladder, AMBER, band on plan) with what earlier papers of this exam looked like;
+if any is clearly worse, roll back and report it. Because 1A and 1B ship together, this run has no "before the cut"
+counterpart: the read cut is small (-4.0%) and changes no rule, so the run is the baseline for Phase 2.
+
+VERIFY BEFORE PUSH (on the commit):
   1. python3 gen_manifest.py && git diff --exit-code MANIFEST.json      -> no diff
   2. python3 build_spec_manifest.py --check && python3 spec_sections.py --check
-  3. python3 bootstrap.py                                               -> 2026.11.30, 60/60 VERIFIED
-  4. python3 validate_framework_md.py Framework_*.md                    -> 0 issues
+  3. python3 bootstrap.py                                               -> 2026.12.02, 60/60 VERIFIED
+  4. python3 bootstrap.py --self-test (104/104); python3 spec_sections.py --self-test (40/40);
+     python3 audit_specs_ext.py --self-test (27 passed, 0 failed); python3 audit_specs_ext.py (0 issues)
   5. python3 run_ci_gates.py --skip Install                             -> every step PASS
   6. sha256sum -c SHA256SUMS.txt                                        -> every file OK
 
-ROLLBACK: re-deploy the 2026.11.29 files (production 23df622) together. Nothing on disk in any exam depends on this
-release.
+ROLLBACK: re-deploy the 2026.11.30 files (production 12ca1ed) together. The plugin can be
+uninstalled at any time; the framework falls back to the general-purpose type.

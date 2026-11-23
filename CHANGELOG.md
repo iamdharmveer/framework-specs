@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026.12.02 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B: smaller worker read, read-growth gate, lean agents plugin
+
+(over release 2026.12.01. Framework_MockTestOrchestrate v1.15.0; Framework_MockTestCreate v8.9 (editorial only);
+spec_sections (ROLE_CUTS / role_ranges); bootstrap (the role reaches the read plan; the budget block prices the worker's
+read; self-test 104/104); audit_specs_ext SPEC-READ-GROWTH (self-test 27/27); SESSION_BUDGET.json
+read_growth_baseline_bytes / read_growth_tolerance_bytes; SPEC_HISTORY.md. Plus, outside the repo, the mtc-agents
+plugin (install once). Every rule, gate, RUN-BLOCK, engine, job, round, ladder, model, deliverable, end state and user
+action UNCHANGED. Skill, triggers and routes unchanged.)
+
+**G6 — the worker no longer reads the orchestrator's law.** Orchestrate PART A (O1-1 .. O2-11) is executed only by the
+orchestrator, which reads it whole under `--role orchestrator`. A worker's, standby's and DIRECT-MODE session's read
+(roles `session` / `standby`) now skips it: spec_sections ROLE_CUTS -> SPEC_SECTIONS role_ranges; read_plan /
+chunk_plan / bootstrap._plans carry the role. Measured: 26,267 B (~11,400 tokens) less in every Step 7 worker read;
+the orchestrator's read is unchanged. O3-1 says so. Tests: spec_sections t18 (cut = exactly O1-1 .. the line before
+O3-1, session and standby only, nothing from O0 / O3-O6); bootstrap (on the real corpus the worker plan drops PART A
+and keeps O3-1, the orchestrator plan keeps it).
+
+**G5 — superseded history off the read.** Framework_MockTestCreate v8.9: the entries v8.8 .. v7.3.1 (90 lines,
+10,291 B, ~4,500 tokens) moved verbatim to SPEC_HISTORY.md (EC-P42 rule: line 1 and the current entry stay). The
+rest of the file is byte-identical (checked). Not done, on inspection: turning the remaining ~59 KB of served python
+into RUN-BLOCKs — those blocks are CLASS-J model-agency code the author adapts (scenario ledger, axis-2 trackers,
+figural budget), not verbatim engine calls; converting them is a design decision, not a low-risk cut (Phase 2).
+
+**G7 — SPEC-READ-GROWTH (audit_specs_ext).** The served Create read grew 8.2% (+21,500 tokens per worker read) in
+releases 2026.11.15 .. 2026.11.29 with nothing pushing back. Every routed trigger's FINAL read (sum of SPEC_SECTIONS
+final_read_bytes) must now stay within SESSION_BUDGET.json read_growth_baseline_bytes[trigger] +
+read_growth_tolerance_bytes (2,300 B, ~1,000 tokens). Growing past it needs the baseline raised in the same commit with
+the owner decision recorded here; a cut lowers it. Baselines measured at this release (MockCreate / TestCreate 795,431 B
+— the figure counts Orchestrate whole; the worker is served 26,267 B less).
+
+**G2 — lean agents that load at chat start.** The `mtc-reviewer` / `mtc-adjudicator` definitions written by
+`--install-agents` during a chat usually appear only in a later chat, so on claude.ai they were almost never
+available and every review job started as a general-purpose sub-agent (~65,000 tokens before its packet). The
+mtc-agents plugin (delivered with this release; same prompts, `model: opus`, Read + Write only) is installed ONCE and is
+present when a chat starts. Orchestrate O2-1 / O2-3 v1.15.0 also recognise the types under a plugin prefix
+(`mtc-agents:mtc-reviewer`). If they are not listed, `--lean-agents no` and the general-purpose type, as before —
+never a stop. Effect when they load: reviewer jobs of review_qs_per_job (5) questions instead of the fallback 10, each
+starting without the ~65,000-token overhead.
+
+**Read effect (TestCreate worker, measured with bootstrap._plans as served):** FINAL 782,762 B / ~340,331 tokens / 44
+calls (release 2026.11.30) -> 751,565 B / ~326,767 tokens / 43 calls; NON-FINAL 737,216 B / ~320,529 -> 706,019 B /
+~306,965. That is -13,564 tokens (-4.0%) on every worker and standby read.
+
+**Verified.** see DEPLOY_NOTES.md.
+
+## 2026.12.01 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A: per-role usage log + run report (measurement only)
+
+(over release 2026.11.30, commit 12ca1ed. Framework_MockTestOrchestrate v1.14.0; bootstrap (--agent, --reason,
+--agent-tokens, --run-report; USAGE lines in --timing-show; self-test 103/103). No spec read by a worker changed except
+the Orchestrate text; Framework_MockTestCreate, every engine, gate, job, round, ladder, model, deliverable, end state
+and user action UNCHANGED. Skill, triggers and routes unchanged.)
+
+**Why.** The token-optimization gap analysis of 2026-11-23 (owner request) found that no run records what it spends
+per role or how its questions came out, so no token cut could be shown to keep quality. The timed proof run asked for
+since 2026.11.16 never recorded these numbers. Phase 1A records them; every later cut (Phase 1B onward) is judged
+against them.
+
+**What is logged (Orchestrate O2-11 v1.14.0).**
+- `worker_start --agent worker --reason first|room|rotate|retention_fail|repair|workdir_lost` before every fresh
+  worker; `worker_start --agent standby` before every warm standby; `standby_used` when a READY standby is promoted.
+- `retention_fail`, `model_limit`, `no_model`, `direct_mode` when O2-3 handles them.
+- `--agent-tokens "<kind>=<n> ..."` on the `delivered`, `jobs_start` and `jobs_return` calls the orchestrator already
+  makes: the token totals the sub-agent tool reported (worker W as in O2-5; every reviewer / adjudicator / _switch job
+  of the request). Never estimated; a tool that reports none logs events only.
+Extra calls per paper: one per fresh worker, standby and standby promotion, plus the rare fault events — the job and
+delivery totals ride on calls already made.
+
+**What is printed.** `--timing-show` adds USAGE lines (fresh workers by reason with their peak reported tokens;
+standbys started / used / unused; reviewer / adjudicator / _switch jobs with total and average tokens; fault counts).
+`--run-report --exam E --paper N`, printed by the orchestrator at PAPER_DELIVERED above the CHAT BLOCK: questions by
+state (settled / disclosed), key certification (unanimous / adjudicated / rekey / disclosed), the ladder rung each
+question settled on (first / fix / replace / fallback), AMBER questions and kinds, final bands and the share on the
+planned band — counts only (MANDATE 0) — plus the USAGE lines; written to `<E>_M<N>_run_report.json`. Not recorded yet
+(named in the report): first-try gate pass rate, figure read-back match rate.
+
+**Never a stop.** A bad --agent-tokens item is ignored with one line; a missing paper state is one report line.
+
+**Verified.** bootstrap self-test 103/103 (4 new checks: token parsing, usage summary, run-report counts, missing
+state); gen_manifest, build_spec_manifest --check, spec_sections --check, bootstrap 60/60, validate_framework_md,
+audit_specs_ext — see DEPLOY_NOTES.md.
+
 ## 2026.11.30 — OD-2026-11-23-OPUS-ONLY: every Step 7 sub-agent runs on Opus; Fable is never used
 
 (over release 2026.11.29, commit 23df622. Framework_MockTestOrchestrate v1.13.0; SESSION_BUDGET.json worker_models

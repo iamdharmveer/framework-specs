@@ -565,6 +565,64 @@ def check_spec_capacity(paths):
                     f'read set (NON-FINAL). The cap is measured, not negotiable.')
 
 
+def check_read_growth(paths):
+    """SPEC-READ-GROWTH — 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B — G7).
+
+    Measured 2026-11-23: the served Framework_MockTestCreate.md read grew 603,507 -> 652,920 B (+8.2%, ~21,500 tokens on
+    EVERY Step 7 worker read) across releases 2026.11.15 .. 2026.11.29, and nothing pushed back: SPEC-CAPACITY only
+    fails a route over the whole read cap. For every routed trigger the FINAL read SPEC_SECTIONS.json records (each
+    routed .md's final_read_bytes) must stay within SESSION_BUDGET.json read_growth_baseline_bytes[trigger] +
+    read_growth_tolerance_bytes. A release that must grow a read raises that trigger's baseline in the same commit — a
+    visible SESSION_BUDGET.json change that _change_rule ties to a CHANGELOG entry (owner decision); a release that cuts
+    a read lowers it, so the saving cannot be spent silently later.
+    """
+    root = os.path.dirname(os.path.abspath(paths[0])) if paths else '.'
+    rp = os.path.join(root, 'routes.json')
+    bp = os.path.join(root, SESSION_BUDGET_FILE)
+    if not os.path.exists(rp) or not os.path.exists(bp):
+        return
+    try:
+        budget = json.load(open(bp, encoding='utf-8'))
+        routes = {k: v for k, v in json.load(open(rp, encoding='utf-8')).items() if not k.startswith('_')}
+    except (OSError, ValueError):
+        return                                  # SPEC-CAPACITY reports an unreadable budget
+    base = budget.get('read_growth_baseline_bytes')
+    if base is None:
+        if 'MockCreate' in routes:              # the production corpus carries the baseline; a fixture need not
+            add('SPEC-READ-GROWTH', SESSION_BUDGET_FILE,
+                'read_growth_baseline_bytes is missing: every routed read is held to a baseline (Phase 1B — G7).')
+        return
+    try:
+        tol = int(budget.get('read_growth_tolerance_bytes', 0))
+        base = {str(k): int(v) for k, v in base.items() if not str(k).startswith('_')}
+    except (TypeError, ValueError, AttributeError) as e:
+        add('SPEC-READ-GROWTH', SESSION_BUDGET_FILE, f'read_growth_baseline_bytes unparseable ({e}).')
+        return
+    sp = os.path.join(root, 'SPEC_SECTIONS.json')
+    sections = (json.load(open(sp, encoding='utf-8')).get('files', {}) if os.path.exists(sp) else {})
+    bpt = float(budget.get('bytes_per_token') or 2.3)
+    for trig, entry in sorted(routes.items()):
+        mds = [f for f in entry if f.endswith('.md') and os.path.exists(os.path.join(root, f))]
+        if not mds:
+            continue
+        cur = 0
+        for f in mds:
+            info = sections.get(f, {})
+            cur += int(info.get('final_read_bytes', info.get('bytes', os.path.getsize(os.path.join(root, f)))))
+        if trig not in base:
+            add('SPEC-READ-GROWTH', f'routes.json[{trig}]',
+                f'no read_growth_baseline_bytes entry (FINAL read today {cur:,} B). Add it to {SESSION_BUDGET_FILE}.')
+        elif cur > base[trig] + tol:
+            add('SPEC-READ-GROWTH', f'routes.json[{trig}]',
+                f'FINAL read {cur:,} B is {cur - base[trig]:,} B (~{math.ceil((cur - base[trig]) / bpt):,} tok) above '
+                f'its baseline {base[trig]:,} B (tolerance {tol:,} B). Every worker of this step pays it on every read. '
+                f'Cut the same amount elsewhere (move superseded history to SPEC_HISTORY.md, a read set, a role cut), or '
+                f'raise read_growth_baseline_bytes[{trig}] in the same commit with the owner decision in CHANGELOG.md.')
+    for trig in sorted(set(base) - set(routes)):
+        add('SPEC-READ-GROWTH', SESSION_BUDGET_FILE,
+            f'read_growth_baseline_bytes names {trig}, which routes.json does not route — remove it.')
+
+
 def main(paths):
     texts = {}
     for p in paths:
@@ -584,11 +642,12 @@ def main(paths):
     check_v_scope(texts, known)
     check_spec_budget(paths)
     check_spec_capacity(paths)
+    check_read_growth(paths)
 
     if not ISSUES:
         print(f"✅ audit_specs_ext: 0 issues across {len(texts)} file(s) "
               f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET SPEC-CAPACITY "
-              f"H-SELFSTOP]")
+              f"SPEC-READ-GROWTH H-SELFSTOP]")
         return 0
     by_file = defaultdict(list)
     for chk, f, msg in ISSUES:
@@ -757,6 +816,19 @@ def self_test():
                                            'compaction_floor_tokens': 2000})
     check("SPEC-CAPACITY fires when rotate_tokens exceeds 0.85 x the compaction floor",
           rc == 1 and 'rotate_tokens 1,800 > 0.85' in out)
+    # ── SPEC-READ-GROWTH — 2026.12.02 (Phase 1B — G7) ─────────────────────────
+    _gb = {'bytes_per_token': 2.3, 'rotate_tokens': 1000, 'context_baseline_tokens': 100, 'work_unit_tokens': 100,
+           'read_cap_tokens': 800, 'compaction_floor_tokens': 2000, 'read_growth_tolerance_bytes': 50}
+    rc, out = probe_capacity(1000, budget=dict(_gb, read_growth_baseline_bytes={'CapStep': 1000}))
+    check("SPEC-READ-GROWTH silent at the baseline", rc == 0 and '[SPEC-READ-GROWTH]' not in out)
+    rc, out = probe_capacity(1040, budget=dict(_gb, read_growth_baseline_bytes={'CapStep': 1000}))
+    check("SPEC-READ-GROWTH silent within the tolerance", rc == 0 and '[SPEC-READ-GROWTH]' not in out)
+    rc, out = probe_capacity(1100, budget=dict(_gb, read_growth_baseline_bytes={'CapStep': 1000}))
+    check("SPEC-READ-GROWTH fires above baseline + tolerance, naming the route and the growth",
+          rc == 1 and '[SPEC-READ-GROWTH] FINAL read 1,100 B is 100 B' in out and 'routes.json[CapStep]' in out)
+    rc, out = probe_capacity(1000, budget=dict(_gb, read_growth_baseline_bytes={'Other': 5}))
+    check("SPEC-READ-GROWTH fires for an unbaselined route and a stale baseline entry",
+          rc == 1 and 'no read_growth_baseline_bytes entry' in out and 'names Other, which routes.json' in out)
 
     rc, out = probe_capacity(1000, review='rule\n' * 300)
     rc2, out2 = probe_capacity(1000, review='rule\n' * 301)
