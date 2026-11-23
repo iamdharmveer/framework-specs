@@ -1,32 +1,10 @@
-# Framework_MockTestOrchestrate v1.15.0
-# v1.15.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B (release 2026.12.02): (1) G6 — a worker's,
-#   standby's and DIRECT-MODE session's read of this spec no longer serves PART A (O1-1 .. O2-11, the orchestrator's
-#   law; SPEC_SECTIONS role_ranges): ~26 KB / ~11,400 tokens less in every worker read; the orchestrator's own read
-#   (--role orchestrator) is unchanged and whole. (2) G2 — the lean reviewer / adjudicator types are also recognised
-#   under a plugin prefix (`mtc-agents:mtc-reviewer`), so the mtc-agents plugin, installed once, makes them present
-#   when a chat starts. No gate, job, round, ladder, model or deliverable changed.
-# v1.14.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A (release 2026.12.01): O2-11 logs what each run spends
-#   per role — every fresh worker and warm standby start (`worker_start --agent worker|standby --reason <why>`), a
-#   standby taken into use (`standby_used`), the token totals the sub-agent tool reports (`--agent-tokens`, added to
-#   calls already made), and retention failures, model limits, NO-MODEL and DIRECT MODE; at PAPER_DELIVERED the
-#   orchestrator prints `bootstrap.py --run-report` (quality + usage counts, never question content) above the CHAT
-#   BLOCK. Measurement only: no gate, job, round, ladder, model, read or deliverable changed; never a stop.
-# v1.13.0 — 2026-11-23 — OD-2026-11-23-OPUS-ONLY (release 2026.11.30): every sub-agent of Step 7 — worker, standby,
-#   reviewer, adjudicator and every `_switch` re-ask — runs on an entry of SESSION_BUDGET.json `worker_models`
-#   (now ["opus"]) and on no other model, even when the platform offers one. Independence of a reviewer or an
-#   adjudicator comes from its FRESH CONTEXT and blind packet (O6-1), which is unchanged. No gate, job or round changed.
-# v1.12.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; paired with Framework_MockTestCreate v8.7):
-#   O3-8 — "STEP A3: REFUSED" is an instruction, never a stop: the worker performs the repair each refusal names and runs
-#   STEP A3 again. A worker never composes a HARD STOP for a refusal (the incident worker wrote "HARD STOP [HS:INFRA]
-#   STEP-A3-BIND" itself). STEP A3 refuses a text mismatch at most once per reviewed text, then binds and discloses.
-# v1.11.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP (release 2026.11.25; paired with Framework_MockTestCreate v8.4):
-#   O3-8 — every "<CODE> [HS:LADDER]" an executed block raises is an instruction, never a stop; a worker that judges an
-#   instruction would break a law runs the law-compliant branch the block offers and writes one FRAMEWORK NOTE — it
-#   never composes a stop text of its own (the run that ended with a worker-written "S13-2F-LOOP" stop). No new stop.
-# v1.10.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with Framework_MockTestCreate v7.3.1,
-#   bootstrap): O2-1 runs --install-agents and records --lean-agents BEFORE the first worker (the first round's job size
-#   depends on it); O2-10 an early standby carries on with the report it was started from; O2-6 names the
-#   --auto-continue exception to the Batch Stop Law. Entry v1.10.0 moved to SPEC_HISTORY.md.
+# Framework_MockTestOrchestrate v1.16.0
+# v1.16.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C (release 2026.12.03) — LEAN SAFETY FALLBACK (O2-3):
+#   a job started as a lean type that ends without its result line for a reason that is not a usage / quota / rate
+#   limit is reported with `bootstrap.py --lean-failure`; at the second such failure of a run the lean types are
+#   DROPPED for that run (recorded `--lean-agents no`, a `lean_fallback` USAGE event) and every later job starts as the
+#   general-purpose type. A listed-but-broken mtc-agents plugin can no longer hold a paper at NO-MODEL. No gate, job
+#   count, round, ladder, model, read or deliverable changed. Entries v1.10.1 .. v1.15.0 moved to SPEC_HISTORY.md.
 
 ## O0-1 — Why this spec exists
 
@@ -174,7 +152,16 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   — (recorded `--lean-agents yes` before the first worker, O2-1); when it does not offer
   them, use the general-purpose type (recorded `--lean-agents no`, O2-1 — the worker's engine then
   writes reviewer jobs of SESSION_BUDGET.json `review_qs_per_job_fallback` questions — owner decision 2026-11-15).
-  Never a stop either way.
+  Never a stop either way. v1.16.0 (Phase 1C) LEAN SAFETY FALLBACK: when a job started as a lean type ends WITHOUT its
+  one result line — the tool refuses to start that type, or the sub-agent ends with an error — run
+  `python3 bootstrap.py --lean-failure "<the error text>"` once for that job, before the next wave. NOT counted: a
+  `REVIEW FAILED <reason>` / `ADJUDICATE FAILED <reason>` reply (the agent did its job), an error whose text names a
+  usage, quota or rate limit (G-15 below), and the tool refusing several sub-agents in one message (wave halving,
+  G-15). bootstrap prints what to do: `failure 1 of 2` -> keep the lean types; `DROPPED` -> from the next start on,
+  start EVERY job folder of this run (reviewer, `_adj`, `_switch`) as the general-purpose type — bootstrap has recorded
+  `--lean-agents no`, so the worker's engine writes the next round's jobs of `review_qs_per_job_fallback` questions.
+  The failed job itself still counts as `JOB FAILED <error text>` in GRADE RETURNED; the worker decides its re-ask, as
+  always. The drop lasts for this run only (O2-1 records the lean types afresh at the next run).
   Start them in waves of at most SESSION_BUDGET.json `parallel_jobs_max` (each wave in ONE message: one sub-agent
   call per job, every call in the same message) so they run at the same time, and wait for all; only when the tool
   cannot run them together, one after another. Run `python3 bootstrap.py --timing-log jobs_start` before the first
@@ -348,7 +335,8 @@ adds it, O3-4). Never a stop, never a question to the user.
 v1.14.0 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A) — USAGE. The orchestrator also logs: `worker_start --agent worker
 --reason <why>` before every fresh worker (O2-2) and `worker_start --agent standby` before every warm standby (O2-10);
 `standby_used` when a READY standby takes the message (O2-10); `retention_fail`, `model_limit`, `no_model` and
-`direct_mode` when O2-3 handles them; and `--agent-tokens "<kind>=<n> ..."` (kinds worker, standby, reviewer,
+`direct_mode` when O2-3 handles them (v1.16.0: `lean_fallback` is logged by `--lean-failure` itself when it drops the
+lean types — O2-3); and `--agent-tokens "<kind>=<n> ..."` (kinds worker, standby, reviewer,
 adjudicator, switch; n = the total tokens the sub-agent tool reported, never an estimate) on the `delivered`,
 `jobs_start` and `jobs_return` calls it already makes (O2-3). A tool that reports no totals: log the events without
 `--agent-tokens`. `--timing-show` adds the USAGE lines after the TIMING lines; `--run-report --exam <E> --paper <N>`
@@ -653,4 +641,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.15.0
+# END OF Framework_MockTestOrchestrate v1.16.0

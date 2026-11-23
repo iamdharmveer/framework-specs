@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.12.02",
+  "framework_version": "2026.12.03",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -247,11 +247,11 @@
       "bytes": 330336
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "ae2cc1b0aa1987e4c638d1da1104b91e458ee8c673487657b350830b9bf7a3b6",
-      "version_header": "# Framework_MockTestCreate v8.9",
+      "sha256": "4ce6aac26cc1e8e8f061308281e1add65b1b5088ff89f69d4272a2f68f3609be",
+      "version_header": "# Framework_MockTestCreate v8.10",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 15604,
-      "bytes": 1102082
+      "lines": 15606,
+      "bytes": 1102294
     },
     "Framework_MockTestExplain.md": {
       "sha256": "4dc0fad4d7e0f12e8b092628e82ba393206014c27e43c039812dd26e669bcb74",
@@ -261,11 +261,11 @@
       "bytes": 326526
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "83b993c4d285aff1777b0d09571b6b560e1ee54f02fff4d016f4cc0587e7d565",
-      "version_header": "# Framework_MockTestOrchestrate v1.15.0",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.15.0",
-      "lines": 656,
-      "bytes": 57357
+      "sha256": "75f24fdaa50306c8709e3791ff4dd2e818f702de6e80f69233fd96d10a645dbb",
+      "version_header": "# Framework_MockTestOrchestrate v1.16.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.16.0",
+      "lines": 644,
+      "bytes": 56051
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -583,7 +583,7 @@
       "bytes": 132319
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "91672f6c90f3db27017caf017648d2329fd1ff44749522effcdfd7114c6a9f33",
+      "sha256": "734ef4f0ecc7516d4b49f4b3cb76fe4bea5c4dcab04d39b6bebd47bb2c7b14e6",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 9468,
@@ -611,18 +611,18 @@
       "bytes": 13697
     },
     "SESSION_BUDGET.json": {
-      "sha256": "d67f8d94478b988e8d7fa4840872769f711411a5a70193b22cdab25970aa3bdd",
+      "sha256": "955f85459f63a85dffaa140954d55e4d01b4eba1f2ae59c02a7bdab77ee0c8b9",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 36,
       "bytes": 5196
     },
     "SPEC_HISTORY.md": {
-      "sha256": "4bec5197969a7b056e46f07813f5fe2acdb2c607e77c8483818e9370917bc35c",
+      "sha256": "e4cbcce9f4415a2467d02238bc79cc8a6cd4db51aca02159cb427936935bcb17",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "```",
-      "lines": 8357,
-      "bytes": 636234
+      "lines": 8399,
+      "bytes": 640141
     },
     "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md": {
       "sha256": "49f54bb81e320e2ef216bc78f2e28accd7d48182144ab65b565f82bda6b845bf",

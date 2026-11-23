@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.12.03 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C: lean safety fallback + model wording
+
+(over release 2026.12.02. Framework_MockTestOrchestrate v1.16.0; Framework_MockTestCreate v8.10 (wording only);
+bootstrap (--lean-failure, LEAN_FAILURE_LIMIT = 2, lean_fallback USAGE event; self-test 105/105); SPEC_HISTORY.md;
+SESSION_BUDGET.json (read_growth_baseline_bytes MockCreate / TestCreate lowered — the read got smaller).
+Every gate, RUN-BLOCK, engine, job count, round, ladder, model, read set, deliverable, end state and user action
+UNCHANGED. Skill, triggers and routes unchanged.)
+
+**Lean safety fallback (Orchestrate O2-3).** Found in the Phase 1C risk review (2026-11-23): the framework fell back
+to the general-purpose sub-agent type only when the lean types were NOT LISTED. A lean type that is listed but cannot
+do its job (a broken or mis-installed mtc-agents plugin) would fail every reviewer and adjudicator job; each role is
+asked at most bc.BC_ROLE_ASKS times, then NO-MODEL — state saved, but the paper would pause on every message until a
+person removed the plugin. Now the orchestrator reports each job started as a lean type that ends without its result
+line (the tool refuses the type, or the sub-agent ends with an error) with `bootstrap.py --lean-failure "<error>"`.
+Not counted: a REVIEW FAILED / ADJUDICATE FAILED reply (the agent did its job), a usage / quota / rate limit (G-15),
+the tool refusing several sub-agents in one message (wave halving). At the 2nd counted failure of a run bootstrap drops
+the lean types for that run: fw_lean_agents.json available false (so the engine's next round writes jobs of
+review_qs_per_job_fallback questions — final_assembly.bv_review_qs_per_job, unchanged), a `lean_fallback` timing event
+and a USAGE line `lean reviewers: DROPPED this run after 2 failures (last: ...)` so a broken plugin is visible in the
+RUN REPORT instead of silently costing ~65,000 tokens per job. Every later job — reviewer, `_adj`, `_switch` — starts as
+the general-purpose type, exactly what ran before release 2026.11.19. The failed jobs still go back as JOB FAILED and
+the worker decides their re-ask (unchanged). `--lean-agents yes|no` at the next run starts clean.
+
+**Model wording (Create v8.10).** Four served lines still said a `_switch` re-ask or an adjudicator runs on "another
+model" / "a model different from the worker". Since release 2026.11.30 every sub-agent runs on a worker_models entry
+(Orchestrate O2-2) and its independence is its fresh context; the lines now say "a fresh context". RUN-BLOCK S13-2L
+(a code comment) and LEGACY S13-2G text are left as they are (code hashes / historical text).
+
+**Superseded Orchestrate history off the read.** Orchestrate entries v1.10.1 .. v1.15.0 (28 lines, 3,223 B) moved
+verbatim to SPEC_HISTORY.md (EC-P42; v1.16.0 supersedes) — every orchestrator and worker read paid for them, and
+without this move the fallback text above would have grown the Step 7 read.
+
+**Read effect (TestCreate worker, bootstrap._plans as served):** FINAL 751,565 B / ~326,767 tokens -> 749,257 B /
+~325,764 (-1,003 tokens); NON-FINAL 706,019 B -> 703,711 B / ~305,961. Create served text +212 B (v8.10 entry vs the
+moved v8.9 entry and the four reworded lines); Orchestrate -1,306 B in total, -2,520 B in what a worker is served. A
+cut lowers the baseline (SPEC-READ-GROWTH ratchet): read_growth_baseline_bytes MockCreate / TestCreate 795,431 ->
+794,337.
+
+**Verified.** see DEPLOY_NOTES.md.
+
 ## 2026.12.02 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B: smaller worker read, read-growth gate, lean agents plugin
 
 (over release 2026.12.01. Framework_MockTestOrchestrate v1.15.0; Framework_MockTestCreate v8.9 (editorial only);

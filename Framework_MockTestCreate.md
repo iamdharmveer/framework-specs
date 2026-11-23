@@ -1,7 +1,9 @@
-# Framework_MockTestCreate v8.9
-# v8.9 — 2026-11-23 — release 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B — G5): editorial only. The
-#   superseded version entries v8.8 .. v7.3.1 (90 lines, ~10 KB, ~4,500 tokens of every worker read) moved verbatim to
-#   SPEC_HISTORY.md, section "Framework_MockTestCreate.md". No rule, gate, RUN-BLOCK, engine call or number changed.
+# Framework_MockTestCreate v8.10
+# v8.10 — 2026-11-23 — release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C): wording only. Four served
+#   lines still said a re-ask or an adjudicator runs on "another model" / "a model different from the worker"; since
+#   OD-2026-11-23-OPUS-ONLY (release 2026.11.30) every sub-agent runs on a worker_models entry (Orchestrate O2-2) and
+#   its independence is its FRESH context. The lines now say so. No rule, gate, RUN-BLOCK, engine call or number
+#   changed; RUN-BLOCK and LEGACY text untouched. Entry v8.9 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -638,7 +640,7 @@
          exam whose labels are not three bands the rubric does not apply: the judged band stands, disclosed
          (AMBER "Difficulty judged, not counted"). Exam-agnostic; no value is set per exam.
     BV-11 (v6.3; v6.5) No reviewer is never a stop. A job whose reviewer returned nothing is re-issued in the next
-         round of the same batch (a folder ending in `_switch` — Orchestrate O2-3: another model); a role is asked at
+         round of the same batch (a folder ending in `_switch` — Orchestrate O2-3: a fresh context); a role is asked at
          most 3 times. A question with no fresh result at all after bc.BV_MAX_ROUNDS rounds is an INFRASTRUCTURE
          fault, not a quality state: INFRA-CARRY — it rides in the next batch's first round (the last batch's: S13-1B),
          named in the batch report (DeliveryFooter: `INFRA-CARRY Q<n>`). This is the ONLY carry (target 0).
@@ -720,7 +722,7 @@
          decision uses the author and every returned reviewer answer.
     LAW-BC-4 ADJUDICATION (R1). Any disagreement about the answer — a solver who differs, a decisive assumption, a
          second defensible option, a 'low' confidence, a 'contested' selectivity — goes to ONE fresh adjudicator (job
-         folder `<q>_adj`, a model different from the worker when offered) BEFORE any rewrite. It sees the question as a
+         folder `<q>_adj`, a fresh context, its model as Orchestrate O2-2 says) BEFORE any rewrite. It sees the question as a
          candidate sees it with its proven structure text, the author's key and solution (concept_map[q].author_moves),
          and each solver's answer, moves and assumptions (Solver A/B/C) — never the band, the plan or the difficulty.
          Its verdict (bc.bc_key_decision): `author_correct` (single answer, confidence not low) -> key settled
@@ -764,7 +766,7 @@
          again; no branch resets the sweep counter (batch_state['s13_2f']); at bc.S13_2F_TOTAL_CAP every remaining
          finding is delivered with an AMBER line. S13-2L (chains) and S13-2R refuse a BATCH-COMPLETE paper.
     LAW-BC-9 INFRASTRUCTURE IS NOT QUALITY. A reviewer, adjudicator or vision role that returns nothing is re-asked
-         (a `_switch` folder: another model) up to bc.BC_ROLE_ASKS times per text. A question that still lacks the
+         (a `_switch` folder: a fresh context) up to bc.BC_ROLE_ASKS times per text. A question that still lacks the
          minimum results is an environment failure: `NO-MODEL [HS:ENV]` — state saved, one plain line, the turn ends;
          the next message re-runs STEP A2, which asks again from a clean count. A re-ask after a NO-MODEL is an
          INFRASTRUCTURE round: it may run after the quality budget (bc.BV_MAX_ROUNDS) is spent (folder r<k>i<j>,
@@ -5337,7 +5339,7 @@ action: the same paper, the same two files, the same "continue".
            stop, no new loop. Run it after STEP B,
            and again after each GRADE RETURNED and after each text the ladder writes, until it prints `STEP A2: DONE`:
              JOBS OUT  -> reviewer folders (`.../reviewer_k[_p<i>]`) and adjudicator folders (`.../q<n>_adj`); a folder
-                          ending in `_switch` re-asks a role that returned nothing (another model). WORKER MODE: prove
+                          ending in `_switch` re-asks a role that returned nothing (a fresh context). WORKER MODE: prove
                           retention `--when handover`, run `bootstrap.py --checkpoint make` (BV-8), report GRADE_REQUEST
                           with --review-parts = the printed job folders and end the turn (Framework_MockTestOrchestrate
                           O3-9); on `GRADE RETURNED` append its lines, verbatim, to /home/claude/[ExamCode]_M[N]_bv/
@@ -15521,7 +15523,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.9
+# END OF Framework_MockTestCreate v8.10
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

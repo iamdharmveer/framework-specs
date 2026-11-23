@@ -1,51 +1,49 @@
-# DEPLOY NOTES — release 2026.12.02 (Phase 1A + Phase 1B in ONE deployment) over release 2026.11.30
-Built on production 12ca1ed (release 2026.11.30). ONE commit carries both phases: upload EVERY file below, flat (no
-folders); push main, then main:production. Checked: production 12ca1ed + these files = the release tree exactly,
-bootstrap 60/60 VERIFIED, manifests regenerate identically. If production moved past 12ca1ed, stop — rebuild.
-CHANGELOG.md carries two entries (2026.12.01 = Phase 1A, 2026.12.02 = Phase 1B); VERSION is 2026.12.02.
+# DEPLOY NOTES — release 2026.12.03 (Phase 1C: lean safety fallback + model wording) over release 2026.12.02
+Deploy ONLY AFTER release 2026.12.02 (Phase 1A + 1B) is in production, and ideally after its reference run.
+Upload EVERY file below in ONE commit, flat (no folders); push main, then main:production. A partial upload fails
+bootstrap for every exam (MANIFEST.json / SPEC_MANIFEST.json / SPEC_SECTIONS.json hash every engine and spec).
+Before uploading: production must be exactly the 2026.12.02 bundle (`cat VERSION` -> 2026.12.02 and
+`sha256sum -c` of the 2026.12.02 SHA256SUMS.txt passes on it). If anything else changed, stop — rebuild 1C on it.
 
-PHASE 1A (measurement only): the orchestrator logs every fresh worker (and why), every warm standby (started / used),
-the token totals the sub-agent tool reports per worker / reviewer / adjudicator / _switch job, and retention
-failures, model limits, NO-MODEL, DIRECT MODE (Orchestrate O2-11). At PAPER_DELIVERED it prints the RUN REPORT
-(counts only: question states, key certification, ladder rung, AMBER, bands on plan, USAGE) above the final chat
-block; also written to <E>_M<N>_run_report.json. Never a stop.
+WHAT IT DOES (no gate, RUN-BLOCK, engine, job count, round, ladder, model, read set or deliverable changes):
+- LEAN SAFETY FALLBACK (Orchestrate O2-3 v1.16.0, bootstrap --lean-failure): a review job started as the plugin's
+  lean type that fails for a non-limit reason is reported; at the 2nd such failure in a run the lean types are dropped
+  for that run and every later job runs as the normal (general-purpose) reviewer — what ran before 2026.11.19. The
+  RUN REPORT then shows "USAGE lean reviewers: DROPPED this run after 2 failures (last: ...)". A broken plugin can no
+  longer pause a paper on every message.
+- WORDING (Create v8.10): four lines that said "another model" now say "a fresh context" (Opus-only since 2026.11.30).
+- HISTORY: Create entry v8.9 and Orchestrate entries v1.10.1 .. v1.15.0 moved verbatim to SPEC_HISTORY.md.
+- READ: a worker reads ~1,000 tokens LESS than on 2026.12.02 (FINAL ~325,764 tokens); the SPEC-READ-GROWTH baseline
+  for MockCreate / TestCreate is lowered to the new size (794,337 B).
 
-PHASE 1B:
-WHAT PHASE 1B DOES (no rule, gate, RUN-BLOCK, engine call, job, round, ladder, model or deliverable changes):
-- G6: a worker / standby / DIRECT-MODE read of Framework_MockTestOrchestrate.md skips PART A (O1-1 .. O2-11, the
-  orchestrator's law). The orchestrator still reads it whole. 26,267 B (~11,400 tokens) less per worker read.
-- G5: Framework_MockTestCreate v8.9 — superseded version entries v8.8 .. v7.3.1 moved verbatim to SPEC_HISTORY.md
-  (10,291 B). The rest of the file is byte-identical.
-- Net worker read (TestCreate): FINAL ~340,331 -> ~326,767 tokens; NON-FINAL ~320,529 -> ~306,965 (-4.0%).
-- G7: new CI gate SPEC-READ-GROWTH (audit_specs_ext): a release that grows any trigger's read by more than 2,300 B
-  (~1,000 tokens) over SESSION_BUDGET.json read_growth_baseline_bytes fails CI unless the baseline is raised in the
-  same commit with the reason in CHANGELOG. When a later release CUTS a read, lower that trigger's baseline.
-- G2: Orchestrate recognises the lean reviewer / adjudicator types under a plugin prefix (mtc-agents:mtc-reviewer).
+UPLOAD LIST (12 files):
+CHANGELOG.md                       (2026.12.03 entry)
+DEPLOY_NOTES.md                    (this file)
+Framework_MockTestCreate.md        (v8.10 — wording only)
+Framework_MockTestOrchestrate.md   (v1.16.0 — O2-3 lean safety fallback; O2-11 lean_fallback event)
+MANIFEST.json                      (regenerated)
+SESSION_BUDGET.json                (read_growth_baseline_bytes MockCreate / TestCreate lowered)
+SHA256SUMS.txt                     (checksums of this upload)
+SPEC_HISTORY.md                    (moved entries)
+SPEC_MANIFEST.json                 (regenerated)
+SPEC_SECTIONS.json                 (regenerated)
+VERSION                            (2026.12.03)
+bootstrap.py                       (--lean-failure; lean_fallback in USAGE; self-test 105/105)
 
-UPLOAD LIST (14 files — both phases):
-CHANGELOG.md, DEPLOY_NOTES.md, Framework_MockTestCreate.md (v8.9), Framework_MockTestOrchestrate.md (v1.15.0),
-MANIFEST.json, SESSION_BUDGET.json (read_growth_* keys), SHA256SUMS.txt, SPEC_HISTORY.md, SPEC_MANIFEST.json,
-SPEC_SECTIONS.json, VERSION (2026.12.02), audit_specs_ext.py, bootstrap.py, spec_sections.py
-
-ONE-TIME, OUTSIDE GITHUB — the mtc-agents plugin (mtc-agents.plugin, delivered beside this bundle): open it in the
-Claude app and install it. It holds the two lean sub-agents (Opus, Read + Write only). Check on the next run: the
-orchestrator records `--lean-agents yes` when it sees them (USAGE / the session start). If it says `no`, nothing
-breaks — review jobs run as before; tell Claude, because plugin agents may not reach cloud chats on every surface.
-
-AFTER DEPLOY — the reference run: run CSIR NET Chemical Sciences P1 --level subject --scope "Organic Chemistry" (40
-questions). Note the plan Usage % before and after, and keep the RUN REPORT / USAGE lines printed above the final chat
-block. Compare the quality numbers (keys, ladder, AMBER, band on plan) with what earlier papers of this exam looked like;
-if any is clearly worse, roll back and report it. Because 1A and 1B ship together, this run has no "before the cut"
-counterpart: the read cut is small (-4.0%) and changes no rule, so the run is the baseline for Phase 2.
+SEPARATELY (not GitHub): a small correction to your mock-test-framework skill (SKILL.md rule 2a: the old PYQExtract
+token figure is marked as the August 2026 incident and points to what bootstrap prints) — approve it on the card in
+chat. The framework does not depend on it.
 
 VERIFY BEFORE PUSH (on the commit):
   1. python3 gen_manifest.py && git diff --exit-code MANIFEST.json      -> no diff
   2. python3 build_spec_manifest.py --check && python3 spec_sections.py --check
-  3. python3 bootstrap.py                                               -> 2026.12.02, 60/60 VERIFIED
-  4. python3 bootstrap.py --self-test (104/104); python3 spec_sections.py --self-test (40/40);
-     python3 audit_specs_ext.py --self-test (27 passed, 0 failed); python3 audit_specs_ext.py (0 issues)
+  3. python3 bootstrap.py                                               -> 2026.12.03, 60/60 VERIFIED
+  4. python3 bootstrap.py --self-test                                   -> 105/105
   5. python3 run_ci_gates.py --skip Install                             -> every step PASS
   6. sha256sum -c SHA256SUMS.txt                                        -> every file OK
 
-ROLLBACK: re-deploy the 2026.11.30 files (production 12ca1ed) together. The plugin can be
-uninstalled at any time; the framework falls back to the general-purpose type.
+AFTER DEPLOY: nothing per exam. Papers already running keep the rules they started with; new runs use 1C.
+How to see it working: in a run where the plugin loads, the RUN REPORT shows no "lean reviewers: DROPPED" line; if it
+ever shows one, the plugin is broken on that surface — uninstall it, and tell Claude the error text it names.
+
+ROLLBACK: re-deploy the 2026.12.02 files together.

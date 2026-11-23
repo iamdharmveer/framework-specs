@@ -2236,6 +2236,14 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 
 ## Framework_MockTestCreate.md
 
+Entry v8.9 moved at framework release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY Phase 1C; v8.10 supersedes).
+
+```
+# v8.9 — 2026-11-23 — release 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B — G5): editorial only. The
+#   superseded version entries v8.8 .. v7.3.1 (90 lines, ~10 KB, ~4,500 tokens of every worker read) moved verbatim to
+#   SPEC_HISTORY.md, section "Framework_MockTestCreate.md". No rule, gate, RUN-BLOCK, engine call or number changed.
+```
+
 Entries v7.3.1–v8.8 moved at framework release 2026.12.02 (GAP-2026-11-23-TOKEN-TELEMETRY Phase 1B — G5; v8.9
 supersedes). Every Step 7 worker read paid for them (~10 KB, ~4,500 tokens). Verbatim, newest first.
 
@@ -8234,6 +8242,40 @@ TRANSITION_DECLARATION_FIELDS = (
 ```
 
 ## Framework_MockTestOrchestrate.md
+
+Entries v1.10.1–v1.15.0 moved at framework release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY Phase 1C; v1.16.0
+supersedes). Every orchestrator and worker read paid for them. Verbatim, newest first.
+
+```
+# v1.15.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1B (release 2026.12.02): (1) G6 — a worker's,
+#   standby's and DIRECT-MODE session's read of this spec no longer serves PART A (O1-1 .. O2-11, the orchestrator's
+#   law; SPEC_SECTIONS role_ranges): ~26 KB / ~11,400 tokens less in every worker read; the orchestrator's own read
+#   (--role orchestrator) is unchanged and whole. (2) G2 — the lean reviewer / adjudicator types are also recognised
+#   under a plugin prefix (`mtc-agents:mtc-reviewer`), so the mtc-agents plugin, installed once, makes them present
+#   when a chat starts. No gate, job, round, ladder, model or deliverable changed.
+# v1.14.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1A (release 2026.12.01): O2-11 logs what each run spends
+#   per role — every fresh worker and warm standby start (`worker_start --agent worker|standby --reason <why>`), a
+#   standby taken into use (`standby_used`), the token totals the sub-agent tool reports (`--agent-tokens`, added to
+#   calls already made), and retention failures, model limits, NO-MODEL and DIRECT MODE; at PAPER_DELIVERED the
+#   orchestrator prints `bootstrap.py --run-report` (quality + usage counts, never question content) above the CHAT
+#   BLOCK. Measurement only: no gate, job, round, ladder, model, read or deliverable changed; never a stop.
+# v1.13.0 — 2026-11-23 — OD-2026-11-23-OPUS-ONLY (release 2026.11.30): every sub-agent of Step 7 — worker, standby,
+#   reviewer, adjudicator and every `_switch` re-ask — runs on an entry of SESSION_BUDGET.json `worker_models`
+#   (now ["opus"]) and on no other model, even when the platform offers one. Independence of a reviewer or an
+#   adjudicator comes from its FRESH CONTEXT and blind packet (O6-1), which is unchanged. No gate, job or round changed.
+# v1.12.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; paired with Framework_MockTestCreate v8.7):
+#   O3-8 — "STEP A3: REFUSED" is an instruction, never a stop: the worker performs the repair each refusal names and runs
+#   STEP A3 again. A worker never composes a HARD STOP for a refusal (the incident worker wrote "HARD STOP [HS:INFRA]
+#   STEP-A3-BIND" itself). STEP A3 refuses a text mismatch at most once per reviewed text, then binds and discloses.
+# v1.11.0 — 2026-11-19 — GAP-2026-11-19-S13-2F-LOOP (release 2026.11.25; paired with Framework_MockTestCreate v8.4):
+#   O3-8 — every "<CODE> [HS:LADDER]" an executed block raises is an instruction, never a stop; a worker that judges an
+#   instruction would break a law runs the law-compliant branch the block offers and writes one FRAMEWORK NOTE — it
+#   never composes a stop text of its own (the run that ended with a worker-written "S13-2F-LOOP" stop). No new stop.
+# v1.10.1 — 2026-11-20 — GAP-2026-11-15-RUN-ANALYSIS, second pass (paired with Framework_MockTestCreate v7.3.1,
+#   bootstrap): O2-1 runs --install-agents and records --lean-agents BEFORE the first worker (the first round's job size
+#   depends on it); O2-10 an early standby carries on with the report it was started from; O2-6 names the
+#   --auto-continue exception to the Batch Stop Law. Entry v1.10.0 moved to SPEC_HISTORY.md.
+```
 
 Entry v1.0.0 moved at framework release 2026.11.09 (GAP-2026-11-08-DR3-QINDEX-CONFLICT; OD-2026-11-09).
 

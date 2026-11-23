@@ -1378,6 +1378,53 @@ def lean_agents_record(value, out=print):
     return 0
 
 
+# 2026.12.03 (Phase 1C, GAP-2026-11-23-TOKEN-TELEMETRY — LEAN SAFETY FALLBACK). A lean type that is listed but cannot
+# do its job (a broken or mis-installed plugin) failed every review job, and the run paused at NO-MODEL on every
+# message. The orchestrator now reports each such failure here; at LEAN_FAILURE_LIMIT this run drops the lean types:
+# the record says available false (the engine then writes jobs of review_qs_per_job_fallback, as for --lean-agents no)
+# and every later job starts as the general-purpose type — what ran before release 2026.11.19. Never a stop.
+LEAN_FAILURE_LIMIT = 2
+
+
+def _timing_append(ev):
+    """Append one event dict to this chat's timing log (the --timing-log writer, for engine-side events)."""
+    p = _timing_path()
+    log = _load_json(p) or {"events": []}
+    ev = dict({"t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, **ev)
+    log.setdefault("events", []).append(ev)
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump(log, fh, indent=1)
+
+
+def lean_failure(text, out=print):
+    """--lean-failure "<error text>": one job started as a lean type (mtc-reviewer / mtc-adjudicator, any plugin prefix)
+    ended without its result line for a reason that is not a usage / quota / rate limit (Orchestrate O2-3 v1.16.0).
+    Counts it in this run's fw_lean_agents.json; at LEAN_FAILURE_LIMIT the lean types are DROPPED for the rest of the
+    run (available false + a lean_fallback timing event). Prints the instruction for the next job. Always 0."""
+    p = os.path.join(home_dir(), LEAN_AGENTS_FILE)
+    rec = _load_json(p)
+    rec = rec if isinstance(rec, dict) else {}
+    why = " ".join(str(text or "no error text").split())[:200]
+    if rec.get("dropped"):
+        out("AGENTS: lean types already DROPPED for this run — start every job as the general-purpose type.")
+        return 0
+    fails = [f for f in (rec.get("failures") or []) if isinstance(f, str)] + [why]
+    rec["failures"] = fails
+    if len(fails) >= LEAN_FAILURE_LIMIT:
+        rec.update({"available": False, "dropped": True,
+                    "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        _timing_append({"event": "lean_fallback", "reason": why})
+        msg = (f"AGENTS: lean types DROPPED for this run after {len(fails)} failures (last: {why}) — start every job, "
+               f"re-asks included, as the general-purpose type from now on (recorded: lean sub-agents NOT available).")
+    else:
+        msg = (f"AGENTS: lean-type failure {len(fails)} of {LEAN_FAILURE_LIMIT} recorded ({why}) — keep using the lean "
+               f"types.")
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump(rec, fh)
+    out(msg)
+    return 0
+
+
 TIMING_PHASES = (("read", "read_start", "read_end"), ("review", "jobs_start", "jobs_return"),
                  ("worker_start", "worker_start", "worker_running"))
 
@@ -1456,7 +1503,8 @@ def timing_show(args):
 # What a run spent, per role, and how its questions came out — the baseline every later token cut is judged against
 # (no cut ships unless these numbers hold). Read-only, counts only (MANDATE 0: never a question's content), never a stop.
 USAGE_AGENT_KINDS = ("worker", "standby", "reviewer", "adjudicator", "switch")
-USAGE_EVENTS = ("worker_start", "standby_used", "retention_fail", "model_limit", "no_model", "direct_mode")
+USAGE_EVENTS = ("worker_start", "standby_used", "retention_fail", "model_limit", "no_model", "direct_mode",
+                "lean_fallback")
 RUN_REPORT_FILE = "{exam}_M{n}_run_report.json"
 
 
@@ -1478,7 +1526,7 @@ def usage_summary(events):
     """[line] — the USAGE of one run (events from its run_start on): workers started (and why) with the peak total the
     platform reported for each, standbys started / used / unused, reviewer / adjudicator / _switch jobs with their
     reported tokens, and the counts of retention failures, model limits, NO-MODEL and DIRECT MODE. Pure."""
-    workers, cur, stand_started, stand_used = [], None, 0, 0
+    workers, cur, stand_started, stand_used, lean_why = [], None, 0, 0, None
     jobs = {"reviewer": [], "adjudicator": [], "switch": []}
     counts = {e: 0 for e in USAGE_EVENTS[2:]}
     for e in events or []:
@@ -1499,6 +1547,8 @@ def usage_summary(events):
                     break
         elif ev in counts:
             counts[ev] += 1
+            if ev == "lean_fallback":
+                lean_why = str(e.get("reason") or "")
         for k, n in e.get("agents") or []:
             if k in ("worker", "standby"):
                 if cur is not None:
@@ -1522,6 +1572,9 @@ def usage_summary(events):
         if v:
             out.append(f"USAGE {k} jobs: {len(v)} with tokens logged, total {sum(v):,}, average {sum(v) // len(v):,}")
     out.append("USAGE events: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+    if lean_why is not None:
+        out.append(f"USAGE lean reviewers: DROPPED this run after {LEAN_FAILURE_LIMIT} failures (last: {lean_why}) — "
+                   f"jobs ran as the general-purpose type; check the mtc-agents plugin.")
     return out
 
 
@@ -2319,6 +2372,8 @@ def main():
     ap.add_argument("--standby-status", action="store_true")
     ap.add_argument("--install-agents", action="store_true")
     ap.add_argument("--lean-agents", default=None, metavar="yes|no")
+    ap.add_argument("--lean-failure", default=None, metavar='"<error text>"',
+                    help="a lean-type job failed for a non-limit reason (Orchestrate O2-3 v1.16.0, Phase 1C)")
     # 2026.11.19: the trigger's optional --auto-continue (Create S2-1) is the ORCHESTRATOR's flag; a worker that passes
     # "the trigger's options" to --session-start must not be refused for it — accepted and ignored here
     ap.add_argument("--auto-continue", action="store_true")
@@ -2456,6 +2511,8 @@ def main():
         sys.exit(install_agents())
     if args.lean_agents is not None:
         sys.exit(lean_agents_record(args.lean_agents))
+    if args.lean_failure is not None:
+        sys.exit(lean_failure(args.lean_failure))
     if args.promote_standby:
         sys.exit(promote_standby(args))
     if args.run_report:
@@ -3316,6 +3373,36 @@ def self_test():
         _rec = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
         check("lean-agents: yes|no recorded, anything else refused",
               rc_bad == 2 and rc_no == 0 and _rec.get("available") is False)
+        # 2026.12.03 (Phase 1C): two lean-type failures drop the lean types for the run; --lean-agents yes resets
+        _lf = []
+        lean_agents_record("yes", out=_lf.append)
+        _tlp = os.path.join(tmp, TIMING_FILE)
+        if os.path.exists(_tlp):
+            os.remove(_tlp)
+        _timing_append({"event": "run_start"})
+        rc_f1 = lean_failure("Agent type 'mtc-agents:mtc-reviewer' failed to start", out=_lf.append)
+        _r1 = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
+        rc_f2 = lean_failure("  tool error:\n  agent crashed  ", out=_lf.append)
+        _r2 = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
+        rc_f3 = lean_failure("x", out=_lf.append)
+        _r3 = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
+        _evs = (json.load(open(_tlp, encoding="utf-8")).get("events") or [])
+        _usl = usage_summary(_evs)
+        lean_agents_record("yes", out=_lf.append)
+        _r4 = json.load(open(os.path.join(tmp, LEAN_AGENTS_FILE), encoding="utf-8"))
+        check("lean failure: 1 of 2 keeps the lean types; 2 drops them (available false, one lean_fallback event, USAGE "
+              "line); a 3rd changes nothing; --lean-agents yes starts a new run clean",
+              rc_f1 == rc_f2 == rc_f3 == 0 and _r1.get("available") is True and not _r1.get("dropped")
+              and _r1["failures"] == ["Agent type 'mtc-agents:mtc-reviewer' failed to start"]
+              and "failure 1 of 2" in _lf[1]
+              and _r2.get("available") is False and _r2.get("dropped") is True and _r2["failures"][1] == "tool error: agent crashed"
+              and "DROPPED" in _lf[2] and "general-purpose" in _lf[2]
+              and _r3 == _r2 and "already DROPPED" in _lf[3]
+              and [e["event"] for e in _evs] == ["run_start", "lean_fallback"]
+              and _evs[1]["reason"] == "tool error: agent crashed"
+              and _usl[-2].endswith("lean_fallback 1")
+              and _usl[-1].startswith("USAGE lean reviewers: DROPPED this run after 2 failures (last: tool error: agent crashed)")
+              and _r4.get("available") is True and "failures" not in _r4)
     finally:
         if _home_old is None:
             os.environ.pop("FW_HOME", None)
@@ -3344,7 +3431,7 @@ def self_test():
           and "USAGE reviewer jobs: 2 with tokens logged, total 136,000, average 68,000" in _us
           and "USAGE adjudicator jobs: 1 with tokens logged, total 70,000, average 70,000" in _us
           and "USAGE switch jobs: 1 with tokens logged, total 60,000, average 60,000" in _us
-          and _us[-1] == "USAGE events: retention_fail 1, model_limit 0, no_model 1, direct_mode 0"
+          and _us[-1] == "USAGE events: retention_fail 1, model_limit 0, no_model 1, direct_mode 0, lean_fallback 0"
           and usage_summary([{"event": "run_start"}]) == [])
     _rbs = {"difficulty_plan_target": {"1": "Easy", "2": "Hard", "3": "Medium"},
             "bv": {"items": {"1": {"state": "settled", "rung": 0, "key": {"certified_by": "unanimous"}},
