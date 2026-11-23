@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026.11.30 — OD-2026-11-23-OPUS-ONLY: every Step 7 sub-agent runs on Opus; Fable is never used
+
+(over release 2026.11.29, commit 23df622. Framework_MockTestOrchestrate v1.13.0; SESSION_BUDGET.json worker_models
+["opus"]; bootstrap (lean mtc-reviewer / mtc-adjudicator definitions pin `model: opus`); STEP_CONTRACTS floor
+Orchestrate 1.13.0. Framework_MockTestCreate, every engine gate, the reviewer / solver / adjudicator counts, the
+rounds, the ladder, deliverables, end states and user actions are UNCHANGED. Skill, triggers and routes unchanged.)
+
+**Owner instruction 2026-11-23.** "Never use Fable; always use Opus for any worker or any other task."
+
+**Found in the run (2026-11-23, batch 5 review).** worker_models was ["opus", "fable"] and Orchestrate O2-3 / O6-1
+asked for "a different model from the worker when the platform offers one" for every reviewer and adjudicator. So the
+worker ran on Opus and every fresh reviewer and adjudicator job (up to parallel_jobs_max = 6 per wave, ~116 sub-agents
+measured on a 40-question paper, 2026.11.19) ran on Fable — the costlier model. Fable reached its usage limit mid-run
+(G-15 then moved every role to Opus for the rest of the run).
+
+**What changes.**
+- SESSION_BUDGET.json worker_models = ["opus"] (owner decision — not a re-measurement; _change_rule satisfied by this
+  entry).
+- Orchestrate O2-2: every sub-agent (worker, standby, reviewer, adjudicator, `_switch` re-ask) is started with an
+  explicit model from worker_models and never with a model outside it, even when the platform offers one. O2-3, O3-6,
+  O6-1 and O4-1 lose the "different model when the platform offers one" wording. With one model a `_switch` re-ask is
+  the same model in a fresh context (the one-model branch that already existed since v1.1.0).
+- bootstrap --install-agents writes `model: opus` into both lean agent definitions.
+
+**Independence.** A reviewer or adjudicator stays independent of the author through its FRESH context and its blind
+packet (O6-1; blueprint_core.dl_set_label_basis_strict still refuses a grade without context 'fresh' and the packet
+sha256). Model diversity was an extra, not a gate: no engine check reads the model.
+
+**Verified.** gen_manifest, build_spec_manifest --check, spec_sections --check, bootstrap 60/60 VERIFIED,
+validate_framework_md 0 issues, run_ci_gates — see DEPLOY_NOTES.md.
+
 ## 2026.11.29 — GAP-2026-11-22: maths never shows as raw LaTeX; past-paper equations read in full; planned formats kept; per-family levers
 
 (over release 2026.11.28, commit 09c320d. Framework_MockTestCreate v8.8; Framework_PYQPrepare v2.3.0 (S3-5b compiler v2.2);

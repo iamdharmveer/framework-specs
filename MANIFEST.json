@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.11.29",
+  "framework_version": "2026.11.30",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -261,11 +261,11 @@
       "bytes": 326526
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "de7ea357e4ba1056be431f4e6421e3aca3a807f0c9b59deffd8010e52f4c0c29",
-      "version_header": "# Framework_MockTestOrchestrate v1.12.0",
-      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.12.0",
-      "lines": 609,
-      "bytes": 52018
+      "sha256": "9b18a408322701104bda7d157ecee02fc687b8d04b466668af39d724d4bf72cb",
+      "version_header": "# Framework_MockTestOrchestrate v1.13.0",
+      "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.13.0",
+      "lines": 617,
+      "bytes": 52968
     },
     "Framework_NotesAudit.md": {
       "sha256": "db6b17796fa13fa35be60244325627fe1314420a6d15d9a41142dcbca73b31be",
@@ -583,7 +583,7 @@
       "bytes": 132319
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "96630423f76b55ee52a7f6e958fe5757c3253659237498040c19dc20ccd5ecbd",
+      "sha256": "45f826c4af871156da09de8e260c4c8ee126ff820ecc2549e6907b732cbcfe3c",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 9429,
@@ -604,18 +604,18 @@
       "bytes": 6600
     },
     "STEP_CONTRACTS.json": {
-      "sha256": "e42ef82453ecd4c56c1d8c4a551f164b415df9bbb671c87f45c331255142283f",
+      "sha256": "7ac69d5190808a0c96067db185c403e4488635bfc428cd12c0766994541bfd7c",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 128,
-      "bytes": 13366
+      "bytes": 13697
     },
     "SESSION_BUDGET.json": {
-      "sha256": "9ca1f4b2e658caad44b61c4f8d9ef1dc5ac0035f701a9e338d5ee243011525d9",
+      "sha256": "4d7171b8c46a52b11cdef8355554722c11b32070ddf1c1dc870b79c3fd603285",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 32,
-      "bytes": 3752
+      "lines": 33,
+      "bytes": 4154
     },
     "SPEC_HISTORY.md": {
       "sha256": "cd35ddaf78def8844124a7535e4ab1dd022b85fa572a6ffba892f98fdf3caea5",

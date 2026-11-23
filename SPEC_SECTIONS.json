@@ -5491,17 +5491,17 @@
       ]
     },
     "Framework_MockTestOrchestrate.md": {
-      "sha256": "de7ea357e4ba1056be431f4e6421e3aca3a807f0c9b59deffd8010e52f4c0c29",
-      "lines": 610,
-      "bytes": 52018,
-      "est_tokens": 22617,
+      "sha256": "9b18a408322701104bda7d157ecee02fc687b8d04b466668af39d724d4bf72cb",
+      "lines": 618,
+      "bytes": 52968,
+      "est_tokens": 23030,
       "view_calls": 4,
       "bash_calls": 2,
       "has_read_set": false,
-      "preamble_lines": 14,
-      "preamble_bytes": 1439,
-      "reduced_bytes": 52018,
-      "reduced_est_tokens": 22617,
+      "preamble_lines": 18,
+      "preamble_bytes": 1905,
+      "reduced_bytes": 52968,
+      "reduced_est_tokens": 23030,
       "reduced_bash_calls": 2,
       "final_only_ranges": [],
       "final_only_titles": [],
@@ -5513,194 +5513,194 @@
       "legacy_bytes": 0,
       "trigger_ranges": {},
       "feature_ranges": {},
-      "final_read_bytes": 52018,
+      "final_read_bytes": 52968,
       "sections": [
         {
           "title": "## O0-1 — Why this spec exists",
-          "start": 15,
-          "end": 28,
+          "start": 19,
+          "end": 32,
           "lines": 14,
           "bytes": 1182
         },
         {
           "title": "## O0-2 — Scope, precedence and names",
-          "start": 29,
-          "end": 40,
+          "start": 33,
+          "end": 44,
           "lines": 12,
           "bytes": 912
         },
         {
           "title": "## O1-1 — Which mode this chat is in (decided once per run)",
-          "start": 41,
-          "end": 55,
+          "start": 45,
+          "end": 59,
           "lines": 15,
           "bytes": 1146
         },
         {
           "title": "## O2-1 — PART A: ORCHESTRATOR LAW — what the orchestrator reads and does",
-          "start": 56,
-          "end": 80,
+          "start": 60,
+          "end": 84,
           "lines": 25,
           "bytes": 2128
         },
         {
           "title": "## O2-2 — Starting a worker",
-          "start": 81,
-          "end": 102,
-          "lines": 22,
-          "bytes": 1579
+          "start": 85,
+          "end": 109,
+          "lines": 25,
+          "bytes": 1933
         },
         {
           "title": "## O2-3 — Acting on a worker report",
-          "start": 103,
-          "end": 193,
-          "lines": 91,
-          "bytes": 8775
+          "start": 110,
+          "end": 201,
+          "lines": 92,
+          "bytes": 8873
         },
         {
           "title": "## O2-4 — Delivery failure",
-          "start": 194,
-          "end": 201,
+          "start": 202,
+          "end": 209,
           "lines": 8,
           "bytes": 519
         },
         {
           "title": "## O2-5 — Reusing a worker or starting a fresh one (decided by numbers)",
-          "start": 202,
-          "end": 220,
+          "start": 210,
+          "end": 228,
           "lines": 19,
           "bytes": 1613
         },
         {
           "title": "## O2-6 — The user's messages",
-          "start": 221,
-          "end": 241,
+          "start": 229,
+          "end": 249,
           "lines": 21,
           "bytes": 1502
         },
         {
           "title": "## O2-7 — Working files removed by the platform",
-          "start": 242,
-          "end": 255,
+          "start": 250,
+          "end": 263,
           "lines": 14,
           "bytes": 1139
         },
         {
           "title": "## O2-8 — A run parked at a HARD STOP; a newer framework release (v1.1.0, OD-2026-11-09)",
-          "start": 256,
-          "end": 270,
+          "start": 264,
+          "end": 278,
           "lines": 15,
           "bytes": 1134
         },
         {
           "title": "## O2-9 — No framework question to the user during a run (v1.4.0)",
-          "start": 271,
-          "end": 278,
+          "start": 279,
+          "end": 286,
           "lines": 8,
           "bytes": 610
         },
         {
           "title": "## O2-10 — WARM STANDBY (v1.7.0 — GAP-2026-11-13-STEP7-SPEED)",
-          "start": 279,
-          "end": 304,
+          "start": 287,
+          "end": 312,
           "lines": 26,
           "bytes": 2486
         },
         {
           "title": "## O2-11 — Timing (v1.7.0 — GAP-2026-11-13-STEP7-SPEED G-14)",
-          "start": 305,
-          "end": 314,
+          "start": 313,
+          "end": 322,
           "lines": 10,
           "bytes": 811
         },
         {
           "title": "## O3-1 — PART B: WORKER LAW — ground rules",
-          "start": 315,
-          "end": 327,
+          "start": 323,
+          "end": 335,
           "lines": 13,
           "bytes": 893
         },
         {
           "title": "## O3-2 — Reading the route",
-          "start": 328,
-          "end": 334,
+          "start": 336,
+          "end": 342,
           "lines": 7,
           "bytes": 412
         },
         {
           "title": "## O3-3 — READ-RETENTION (binding in both modes)",
-          "start": 335,
-          "end": 376,
+          "start": 343,
+          "end": 384,
           "lines": 42,
           "bytes": 3588
         },
         {
           "title": "## O3-4 — DELIVERY PROXY (WORKER MODE)",
-          "start": 377,
-          "end": 420,
+          "start": 385,
+          "end": 428,
           "lines": 44,
           "bytes": 3360
         },
         {
           "title": "## O3-5 — One MTC response per turn; Final Assembly",
-          "start": 421,
-          "end": 443,
+          "start": 429,
+          "end": 451,
           "lines": 23,
           "bytes": 1972
         },
         {
           "title": "## O3-6 — Independent review hand-over (MTC S13-2G phase 2, WORKER MODE) — LEGACY (v1.8.0: migration only)",
-          "start": 444,
-          "end": 468,
+          "start": 452,
+          "end": 476,
           "lines": 25,
-          "bytes": 2123
+          "bytes": 2146
         },
         {
           "title": "## O3-9 — In-batch grading hand-over (MTC S4-7 STEP A2, WORKER MODE; v1.3.0, v1.4.0; v1.8.0 BATCH-COMPLETE)",
-          "start": 469,
-          "end": 497,
+          "start": 477,
+          "end": 505,
           "lines": 29,
           "bytes": 2892
         },
         {
           "title": "## O3-7 — A worker that starts from disk (`--continue`)",
-          "start": 498,
-          "end": 512,
+          "start": 506,
+          "end": 520,
           "lines": 15,
           "bytes": 1294
         },
         {
           "title": "## O3-8 — HARD STOP inside a worker; MANDATE 0 [HS:PROSE]",
-          "start": 513,
-          "end": 532,
+          "start": 521,
+          "end": 540,
           "lines": 20,
           "bytes": 1850
         },
         {
           "title": "## O4-1 — Budgets (SESSION_BUDGET.json; never copy a value into a run)",
-          "start": 533,
-          "end": 557,
+          "start": 541,
+          "end": 565,
           "lines": 25,
-          "bytes": 2008
+          "bytes": 2044
         },
         {
           "title": "## O5-1 — DIRECT MODE",
-          "start": 558,
-          "end": 568,
+          "start": 566,
+          "end": 576,
           "lines": 11,
           "bytes": 858
         },
         {
           "title": "## O6-1 — PART F (v1.2.0): FRESH-CONTEXT WORKERS (GAP-2026-11-10; Create S0-OP-5 / S0-OP-8 / S13-2R)",
-          "start": 569,
-          "end": 600,
+          "start": 577,
+          "end": 608,
           "lines": 32,
-          "bytes": 3146
+          "bytes": 3119
         },
         {
           "title": "## O6-2 — Faults that outlive their self-heals (v1.2.0, G-14 row 7)",
-          "start": 601,
-          "end": 610,
+          "start": 609,
+          "end": 618,
           "lines": 10,
           "bytes": 648
         }

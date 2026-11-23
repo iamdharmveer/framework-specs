@@ -1,4 +1,8 @@
-# Framework_MockTestOrchestrate v1.12.0
+# Framework_MockTestOrchestrate v1.13.0
+# v1.13.0 — 2026-11-23 — OD-2026-11-23-OPUS-ONLY (release 2026.11.30): every sub-agent of Step 7 — worker, standby,
+#   reviewer, adjudicator and every `_switch` re-ask — runs on an entry of SESSION_BUDGET.json `worker_models`
+#   (now ["opus"]) and on no other model, even when the platform offers one. Independence of a reviewer or an
+#   adjudicator comes from its FRESH CONTEXT and blind packet (O6-1), which is unchanged. No gate, job or round changed.
 # v1.12.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; paired with Framework_MockTestCreate v8.7):
 #   O3-8 — "STEP A3: REFUSED" is an instruction, never a stop: the worker performs the repair each refusal names and runs
 #   STEP A3 again. A worker never composes a HARD STOP for a refusal (the incident worker wrote "HARD STOP [HS:INFRA]
@@ -95,7 +99,10 @@ ORCHESTRATOR MESSAGES (closed set; each is sent exactly as written):
 - `GRADE RETURNED` followed by one line per job folder (O2-3, v1.3.0).
 - `USER MESSAGE: <the user's message, verbatim>` (O2-6).
 Model: the first entry of SESSION_BUDGET.json `worker_models` that the tool accepts and that O2-3 has
-not ruled out for this run; a tool with no model choice uses its default. One worker at a time does paper work, in
+not ruled out for this run; a tool with no model choice uses its default. v1.13.0 (OD-2026-11-23-OPUS-ONLY): EVERY
+sub-agent this spec starts — worker, standby, reviewer, adjudicator, `_switch` re-ask — is started with an explicit
+model taken from `worker_models` and never with a model outside that list, even when the platform offers one; the
+tool's default model is used only when the tool offers no model choice at all. One worker at a time does paper work, in
 the foreground when the tool offers it; wait until it finishes (v1.7.0: a WARM STANDBY may read in the background
 meanwhile — O2-10 — and reviewer jobs run side by side — O2-3). A message to an existing worker is sent with the tool
 that resumes a sub-agent (for example one named SendMessage).
@@ -152,14 +159,15 @@ is an earlier turn's and is handled as a turn that ended without that line (belo
   call per job, every call in the same message) so they run at the same time, and wait for all; only when the tool
   cannot run them together, one after another. Run `python3 bootstrap.py --timing-log jobs_start` before the first
   wave and `--timing-log jobs_return` after the last. Model as in O2-2
-  (a different model from the worker when the platform offers one); a folder whose name ends in `_switch` (v1.7.0: a
-  job that asks again a reviewer that returned nothing) gets the next model of `worker_models` after the one its
-  first try used — v1.10.0: after the LAST entry it wraps around to the first entry that is not the model whose try
-  returned nothing (with two models: always the other one). Each returns one line; an
+  (v1.13.0: from `worker_models` only — with one entry, the same model as the worker, in a FRESH context); a folder
+  whose name ends in `_switch` (v1.7.0: a job that asks again a reviewer that returned nothing) gets the next model of
+  `worker_models` after the one its first try used — v1.10.0: after the LAST entry it wraps around to the first entry
+  that is not the model whose try returned nothing (with two models: always the other one; v1.13.0: with one model,
+  that model again in a fresh context). Each returns one line; an
   error or no answer counts as `JOB FAILED <error text>` (a reviewer replies `REVIEW DONE` or `REVIEW FAILED <reason>`; a
   per-role job of release 2026.11.11 replies GRADE / SOLVE / VISION DONE). v1.8.0 (Create S0-BC LAW-BC-4): a folder whose
   name ends in `_adj` (or `_adj_switch`) is an ADJUDICATOR — its prompt is the same one line naming its `JOB_BRIEF.txt`,
-  it runs in the same waves, it gets a model DIFFERENT from the worker's when the platform offers one, and it replies
+  it runs in the same waves, it gets its model as in O2-2 (v1.13.0: from `worker_models` only), and it replies
   `ADJUDICATE DONE` or `ADJUDICATE FAILED <reason>`. Retry none: the worker decides. Then send
   `GRADE RETURNED` followed by one line per job: `<job_dir> <the sub-agent's line>` — to the SAME worker when
   O2-5 allows it, otherwise to a fresh worker (the batch's state is on disk). Print nothing; do not end the
@@ -463,7 +471,7 @@ orchestrator never opens queue.json): a folder whose name ends in `_switch` (an 
 review_packet.json and *_Create.docx into '<dir>/switched/', writes the brief there with <PART_DIR> =
 '<dir>/switched' and reports that folder; MTC S13-2G phase 2 step 3b) gets its reviewer on a DIFFERENT
 model than the round's other reviewers — the next of SESSION_BUDGET.json worker_models; with one model
-only, a fresh context. Every other folder is reviewed as before. Delta rounds use REVIEW_DIR names
+only (v1.13.0: the default), a fresh context. Every other folder is reviewed as before. Delta rounds use REVIEW_DIR names
 .../delta<k>/part<n>[_switch|_panel]; nothing else differs.
 
 ## O3-9 — In-batch grading hand-over (MTC S4-7 STEP A2, WORKER MODE; v1.3.0, v1.4.0; v1.8.0 BATCH-COMPLETE)
@@ -549,7 +557,7 @@ compaction_floor_tokens  SPEC-CAPACITY              lowest measured silent-compa
 rotate_tokens            O2-5                       a worker is replaced before this size
 work_unit_tokens         O2-5, SPEC-CAPACITY        room one batch or correction needs
 read_cap_tokens          SPEC-CAPACITY              rotate - baseline - work unit: the route cap
-worker_models            O2-2                       worker and reviewer model preference order
+worker_models            O2-2                       the ONLY models any Step 7 sub-agent may run on, in preference order (v1.13.0)
 max_batches_per_worker   (retired for Step 7)       v1.7.0: O2-5 condition 3 retired; kept for other uses
 orchestrated             bootstrap --trigger        triggers that run under this spec
 ```
@@ -573,13 +581,13 @@ in DIRECT MODE, a sub-agent the session starts) runs it in a FRESH context that 
 engine builds, and returns ONLY the fields named here. Each result records context 'fresh' and the packet's
 sha256 (blueprint_core.dl_set_label_basis_strict refuses a grade without them).
 - (v1.8.0) O-ADJUDICATE — per disputed item, INSIDE ITS BATCH (requested with GRADE_REQUEST, O3-9; folder `<q>_adj`):
-  ONE fresh adjudicator on a different model when offered (packet = blueprint_core.bc_adjudicator_job) ->
+  ONE fresh adjudicator, model as in O2-2 (packet = blueprint_core.bc_adjudicator_job) ->
   {verdict, correct_answer, single_answer, missing_condition, reason, confidence} (MTC LAW-BC-4).
 - O-GRADE — per item, INSIDE ITS BATCH (v1.3.0: requested with GRADE_REQUEST, O3-9; v1.8.0: three reviewers, each a
   grader AND a solver — MTC LAW-BC-3): two blind GRADERS (packet = blueprint_core.build_judge_input(item, <ruler anchors
   with content>); never the band, plan, obs, solution or the author's counts) -> {band, decisions, rationale};
   two blind SOLVERS (packet = stem + options only) -> {answer, confidence, assumptions[]}. Graders and solvers
-  are four separate fresh contexts; a switched model is used when the platform offers one. v1.3.0: a split
+  are four separate fresh contexts; models only from `worker_models` (v1.13.0). v1.3.0: a split
   between the two graders gets ONE more grader (blueprint_core.bv_decide 'tiebreak'), never a rewrite.
 - O-VISION — per rendered organic figure: a fresh vision pass that never saw the SMILES transcribes the image
   -> {smiles, stereo_mode}; 2 independent reads when the answer depends on stereo, else 1
@@ -606,4 +614,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.12.0
+# END OF Framework_MockTestOrchestrate v1.13.0

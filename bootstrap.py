@@ -1344,7 +1344,7 @@ def install_agents(target_dir=None, out=print):
         os.makedirs(d, exist_ok=True)
         for name, (desc, body) in LEAN_AGENT_DEFS.items():
             with open(os.path.join(d, f"{name}.md"), "w", encoding="utf-8") as fh:
-                fh.write(f"---\nname: {name}\ndescription: {desc}\ntools: Read, Write\n---\n\n{body}\n")
+                fh.write(f"---\nname: {name}\ndescription: {desc}\nmodel: opus\ntools: Read, Write\n---\n\n{body}\n")  # OD-2026-11-23-OPUS-ONLY
         out(f"AGENTS: {', '.join(sorted(LEAN_AGENT_DEFS))} written to {d} (Read + Write only). The orchestrator uses "
             f"them when its sub-agent tool lists them (Orchestrate O2-3).")
     except OSError as ex:
