@@ -1,39 +1,56 @@
-# DEPLOY NOTES — release 2026.11.28 (GAP-2026-11-21-A3-OMML-PARITY) over release 2026.11.27
-Built on production 6f40774b587f1ef3fbcd05f1ba47e81ee3dafcff (release 2026.11.27). Commit once, push main, push main:production.
+# DEPLOY NOTES — release 2026.11.29 (GAP-2026-11-22 MATH-LENIENT / MATH-READ / FAMILY-LEVERS) over release 2026.11.28
+Built on production 09c320d (release 2026.11.28). Commit once, push main, push main:production.
 Upload EVERY file below in ONE commit, flat (no folders). A partial upload fails bootstrap for every exam
 (MANIFEST.json / SPEC_MANIFEST.json / SPEC_SECTIONS.json hash every engine and spec).
-If production has any content change beyond 6f40774 when you deploy (git diff 6f40774 production not empty), stop and
-send me the production commit — the bundle must be rebuilt on it.
+If production has any content change beyond 09c320d when you deploy (git diff 09c320d production not empty), stop —
+the bundle must be rebuilt on the new production commit.
 
-UPLOAD LIST (the files that differ from 2026.11.27, plus DEPLOY_NOTES.md and SHA256SUMS.txt; none is new):
+UPLOAD LIST (the files that differ from 2026.11.28, plus DEPLOY_NOTES.md and SHA256SUMS.txt; none is new):
 CHANGELOG.md
-DEPLOY_NOTES.md                 (this file)
-Framework_DeliveryFooter.md     (v1.57.0 — the A3-TEXT disclosure line)
-Framework_MockTestOrchestrate.md (v1.12.0 — O3-8: a STEP A3 refusal is an instruction, never a stop)
-Framework_MockTestCreate.md     (v8.7 — STEP A3 text: one reader both sides, at most one refusal, then bind + disclose;
-                                 S13-2L.0 collects batch_state['a3_footer'])
-MANIFEST.json                   (regenerated)
-SHA256SUMS.txt                  (checksums of this upload)
-SPEC_MANIFEST.json              (regenerated)
-SPEC_SECTIONS.json              (regenerated)
-STEP_CONTRACTS.json             (floors: Create 8.7, MockTestOrchestrate 1.12.0, DeliveryFooter 1.57.0)
-VERSION                         (2026.11.28)
-audit_canonical.py              (v2.47 — --item-texts writes the structure-preserving reading per paragraph; 694)
-blueprint_core.py               (v2.13 — Cluster A3: omml_struct_text, a3_same_question, a3_guard_step; 1629)
-final_assembly.py               (v1.29.0 — STEP A3 compares like with like; bounded text guard; 32-construct fixture; 262)
+DEPLOY_NOTES.md                  (this file)
+Framework_MockTestAnalyse.md     (v2.66.0 — readable past-paper equations for non-chemistry exams; STRUCT-LOSS line)
+Framework_MockTestCreate.md      (v8.8 — lenient maths render, A-RAWTEX WARN, G-MATH-COMPILE soft, EC-15 keeps the
+                                  planned format, apply_lever in the rewrite brief)
+Framework_MockTestExplain.md     (v1.56.0 — a maths spelling never stops Step 9; repaired regions listed AMBER)
+Framework_PYQExplain.md          (v2.34 — same, PYQ-1)
+Framework_PYQPrepare.md          (v2.3.0 — S3-5b compiler v2.2, byte-identical with t3_mathcomp.py)
+LAW_REGISTRY.json                (LAW-NF-4 amended: per-family lever lists)
+MANIFEST.json                    (regenerated)
+SHA256SUMS.txt                   (checksums of this upload)
+SPEC_MANIFEST.json               (regenerated)
+SPEC_SECTIONS.json               (regenerated)
+STEP_CONTRACTS.json              (floors: Create 8.8, PYQExplain 2.34, MockTestExplain 1.56.0, MockTestAnalyse 2.66.0,
+                                  PYQPrepare 2.3.0)
+VERSION                          (2026.11.29)
+analyse_engine.py                (v1.8 — pyq_omml / auto_pyq_reader / STRUCT-LOSS; stamps v2.66)
+audit_canonical.py               (A-AXIS2 compares one format vocabulary for recognised non-chemistry subjects)
+blueprint_core.py                (omml_read, math_linear reads what the candidate sees, subject_family, family levers,
+                                  G-MATH-COMPILE, install_t3; self-test 1635)
+explain_engine.py                (v2.16 — lenient render, validate() records instead of raising; self-test 448)
+final_assembly.py                (installs the compiler for blueprint_core; fa_release stamp; A3 reading lenient;
+                                  subject for the rewrite step; self-test 267)
+notes_docx.py                    (lenient render — a notes build never crashes on a maths spelling)
+spec_name_audit_baseline.json    (PYQPrepare forward reference t3_compile -> t3_compile_lenient)
+t3_mathcomp.py                   (v2.2 — t3_compile_lenient, t3_normalize, t3_plain, t3_repair_lines)
 
-SKILL / TRIGGERS / ROUTES: unchanged.
+NOT CHANGED: Framework_Blueprint.md, Framework_ScopedBlueprint.md, the difficulty ladder (40/35/25 cuts), the
+"+30% harder" preset and the CONFIRM override. SKILL / TRIGGERS / ROUTES unchanged.
 
-RESUME THE HALTED PAPER (CSIR_NET_MATHEMATICAL_SCIENCES TestCreate P1, batch 1): after deploy, in that paper's session
-say "continue" — Step 0 loads 2026.11.28; then run STEP B (the auditor with --item-hashes and --item-texts) and STEP A3.
-Q5 and Q6 bind (measured on the incident's own blocks). Nothing else to redo.
+AFTER DEPLOY — ONCE PER NON-CHEMISTRY EXAM (no change to how a paper runs):
+  1. Run Step 5 (PYQExtract) for the exam: past-question equations are re-read with the new reader (a STRUCT-LOSS line
+     is printed per paper), the ladder refits through the existing pyq_sha rule (unchanged packets keep their
+     orderings).
+  2. Upload the new [ExamCode]_difficulty_ladder.json (and the Step 5 run files it delivers) to the project, replacing
+     the old ones. Start with CSIR NET Mathematical Sciences.
+  Chemistry-only exams need nothing. The project "RC - Maths" is over its knowledge limit (2,074,221 / 2,000,000
+  bytes): remove CSIR_NET_MATHEMATICAL_SCIENCES_PYQ_Analysis.docx and _PYQ_Frequency.xlsx from project knowledge first.
 
 VERIFY BEFORE PUSH (on the commit, before main:production):
   1. python3 gen_manifest.py && git diff --exit-code MANIFEST.json      -> no diff
   2. python3 build_spec_manifest.py --check && python3 spec_sections.py --check
-  3. python3 bootstrap.py                                               -> 2026.11.28, 60/60 VERIFIED
+  3. python3 bootstrap.py                                               -> 2026.11.29, 60/60 VERIFIED
   4. python3 run_ci_gates.py --skip Install                             -> every step PASS
   5. sha256sum -c SHA256SUMS.txt                                        -> every file OK
 
-ROLLBACK: re-deploy the 2026.11.27 files (production 6f40774) together — its auditor writes item_texts in its own string
-format again, and it ignores the batch_state keys a3_text_guard / a3_footer. (Rolling back re-opens the STEP A3 halt.)
+ROLLBACK: re-deploy the 2026.11.28 files (production 09c320d) together. A ladder refit on readable text stays valid
+on rollback (the ladder file format is unchanged); a rolled-back Step 5 re-reads equations the old way.

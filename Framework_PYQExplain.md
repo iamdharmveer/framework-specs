@@ -1,4 +1,5 @@
-# Framework_PYQExplain v2.33 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.34 — Universal PYQ Explanation Generator
+# v2.34 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): S11-1a non-blocking: repaired ⟦MATH:⟧ regions are AMBER lines (t3_repair_amber), never the §18-1a HARD STOP.
 # v2.33 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24, A3): §13A-4 names the
 #   records whose option texts are incomplete (bc.pyq_record_complete 'option_text'); re-read by Phase B as before.
 # v2.32 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-04 / F-05 / F-06 / F-10 (paired with blueprint_core
@@ -623,9 +624,10 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   OMML for every fraction. One sentence per paragraph. Zero banned content, zero
   internal error-taxonomy tokens in any rendered sentence (§9, v2.6), and no AXIOM
   naming an option label (§8-2, v2.6).
-  Every ⟦MATH:…⟧ region COMPILES at validate() time (t3_compile) — a region the
-  Tier-3 grammar rejects RAISES at construction, so it can never degrade to raw
-  text at render (§S11-1a; 2026.08.10.3). A breach raises in
+  Every ⟦MATH:…⟧ region is probed at validate() time (t3_compile) — from release
+  2026.11.29 a region the Tier-3 grammar rejects is RECORDED, not raised, and is
+  repaired at render by t3_compile_lenient: never raw text, AMBER disclosure
+  (§S11-1a). A breach raises in
   ExplanationBlock.validate() / add_math_text.
 
  (v2.14) Engine v2.7 adds three write-time gates: an
@@ -2434,7 +2436,12 @@ else:
   shared with PYQPrepare S3-5. That render path is now DEFENCE-IN-DEPTH, not the
   primary gate.
 
-## S11-1a — AUTHORING-TIME COMPILE GATE (BLOCKING; 2026.08.10.3)
+## S11-1a — AUTHORING-TIME COMPILE GATE (2026.08.10.3; NON-BLOCKING from 2026.11.29)
+  RELEASE 2026.11.29 (GAP-2026-11-22-MATH-LENIENT) SUPERSEDES the raise described below:
+  validate() records a non-compiling region in T3_STATS['authoring_noncompiling'] and does
+  NOT raise; the renderer repairs it with t3_compile_lenient (bounded, never raw LaTeX) and
+  explain_engine.t3_repair_amber() lists it in the AMBER footer. Raising made a writer that
+  kept one spelling loop or reach the §18-1a HARD STOP. Historical text follows.
   ExplanationBlock.validate() COMPILES every ⟦MATH:…⟧ region through t3_compile
   and RAISES a ValueError on any MathCompileError, so a region that cannot compile
   fails at CONSTRUCTION — before any docx exists and before it can ever reach the
@@ -3310,6 +3317,10 @@ if _crf_v and ((_cov.get('_meta') or {}).get('source_file') != _os_v.path.basena
 _records = {k: v for k, v in _cov.items() if k != '_meta' and isinstance(v, dict)}
 _ok, _problems = _ee.verify_explanations(out, blocks, cfg, expected_qs=EXPECTED, records=_records)
 _degraded = list(_ee.T3_STATS.get('failed', []))
+# release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT): a ⟦MATH:⟧ region the strict compiler rejects is
+# REPAIRED at render (t3_compile_lenient) and never reaches 'failed' — it is an AMBER footer line, not a stop.
+for _al in _ee.t3_repair_amber():
+    print('🟨 AMBER:', _al)
 if (not _ok) or _problems or _degraded:
     # A ⟦MATH:⟧ region degraded to raw text, or another render check failed.
     # Every such region is quoted verbatim in _problems (§11-2). Fix the Tier-3
@@ -3916,5 +3927,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.33
+# END OF Framework_PYQExplain v2.34
 # ════════════════════════════════════════════════════════════════════════

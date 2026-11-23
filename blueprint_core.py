@@ -9743,6 +9743,59 @@ def _a3_self_test(check):
           and a3_guard_step(None, '6', 'c', False) == 'refuse')
 
 
+
+def _r29_self_test(check):
+    """release 2026.11.29 — GAP-2026-11-22 (MATH-READ / SUBJECT-FAMILY / FAMILY-LEVERS). The
+    Tier-3 checks (lenient compile, G-MATH-COMPILE, G2) run in _r29_t3_self_test once a compiler is installed
+    (final_assembly's self-test, which owns the compiler). Every check is a NO-STOP check."""
+    import xml.etree.ElementTree as _ets
+    # G5 — readable reader on hand-built OMML (no compiler needed): sum limits, matrix rows, cases, accent; no loss
+    _M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    _x = ('<m:oMath xmlns:m="%s"><m:nary><m:naryPr><m:chr m:val="\u2211"/></m:naryPr><m:sub><m:r><m:t>i=1</m:t></m:r>'
+          '</m:sub><m:sup><m:r><m:t>n</m:t></m:r></m:sup><m:e><m:r><m:t>x</m:t></m:r></m:e></m:nary><m:r><m:t>+</m:t>'
+          '</m:r><m:d><m:e><m:m><m:mr><m:e><m:r><m:t>1</m:t></m:r></m:e><m:e><m:r><m:t>2</m:t></m:r></m:e></m:mr><m:mr>'
+          '<m:e><m:r><m:t>3</m:t></m:r></m:e><m:e><m:r><m:t>4</m:t></m:r></m:e></m:mr></m:m></m:e></m:d><m:r><m:t>+</m:t>'
+          '</m:r><m:acc><m:accPr><m:chr m:val="\u0305"/></m:accPr><m:e><m:r><m:t>z</m:t></m:r></m:e></m:acc>'
+          '<m:d><m:dPr><m:begChr m:val="{"/><m:endChr m:val=""/></m:dPr><m:e><m:eqArr><m:e><m:r><m:t>1</m:t></m:r></m:e>'
+          '<m:e><m:r><m:t>0</m:t></m:r></m:e></m:eqArr></m:e></m:d></m:oMath>') % _M
+    _om = _ets.fromstring(_x.encode('utf-8'))
+    _t = omml_read(_om)
+    check('r29_omml_read_structures', '\u2211[i=1\u2192n] x' in _t and '[[1, 2], [3, 4]]' in _t
+          and 'z\u0304' in _t and '{1; 0}' in _t and omml_read_loss(_om) == {}
+          and omml_read(None) == '' and omml_read_loss(_om, 'x') != {})
+    # a nested accent gets one mark per accent, never a mark on a mark; set braces stay visible
+    check('r29_omml_read_marks_and_braces', _or_marks('y\u0304', '\u0302') == 'y\u0304\u0302'
+          and _or_marks('AB', '\u0305') == 'A\u0305B\u0305' and _or_esc('{1, 2}') == '\\{1, 2\\}')
+    # family switch — biochemistry is biology; chemistry-only exam keeps the legacy reader
+    check('r29_subject_family', subject_family('Biochemistry') == 'biology' and subject_family('Chemical Sciences')
+          == 'chemistry' and subject_family('Mathematical Sciences') == 'maths'
+          and subject_family('General Aptitude') == 'aptitude' and subject_family({'name': 'X', 'subject_family':
+                                                                                   'physics'}) == 'physics'
+          and not CHEM_NAME_RE.search('Biochemistry') and bool(CHEM_NAME_RE.search('Inorganic Chemistry'))
+          and subject_family('Inorganic') == 'chemistry' and subject_family('Organic') == 'chemistry'
+          and subject_family('Physical') == 'chemistry' and subject_family('Physical Sciences') == 'physics'
+          and subject_family('Bioinorganic', {'exam_name': 'CSIR NET Chemical Sciences'}) == 'chemistry'
+          and omml_reader_for(['Inorganic', 'Organic', 'Physical']) == 'legacy'
+          and omml_reader_for(['Part A', 'Part B'], {'exam_name': 'CSIR NET Chemical Sciences'}) == 'legacy'
+          and omml_reader_for(['Part A', 'Part B'], {'exam_name': 'GATE Mathematics'}) == 'read'
+          and omml_reader_for(['Chemical Sciences']) == 'legacy'
+          and omml_reader_for(['General Aptitude', 'Mathematical Sciences']) == 'read')
+    # G4 — one format vocabulary (opt-in), today's comparison by default
+    check('r29_nf_parity_vocabulary', nf_parity({'statement': 4, 'match': 1}, {'statement_combination': 4,
+                                                                               'match_list': 1}, normalize=True)
+          == {'status': 'PASS', 'short': {}}
+          and nf_parity({}, {'match_list': 1}, normalize=True)['short'] == {'match_list': 1}
+          and nf_parity({'statement': 4}, {'statement_combination': 4})['status'] == 'FAIL')
+    # G8 / G12 — family levers; chemistry keeps LD_LEVERS byte for byte
+    _lv = lever_to_apply('maths', ['concept_chain'], salt='q1:1')
+    check('r29_family_levers', levers_for('chemistry') == LD_LEVERS and levers_for(None) == LD_LEVERS
+          and 'M2' in levers_for('maths') and 'H3' not in levers_for('maths') and 'H6' not in levers_for('maths')
+          and _lv is not None and _lv['id'].startswith('M') and lever_to_apply('chemistry') is None
+          and levers_for('general') == LD_LEVERS and lever_to_apply('general') is None)
+    # G13 — the stamp is the release that ran
+    check('r29_op_release_stamp', OP_RELEASE >= '2026.11.29')
+
+
 def self_test():
     passed = 0
     total = 0
@@ -14931,6 +14984,7 @@ PYQ_IMAGE_ANALYSIS:
     _r3_self_test(check)                     # Cluster R3 (release 2026.11.21)
     _p1_self_test(check)                     # Cluster P1 (release 2026.11.27 — GAP-2026-11-21)
     _a3_self_test(check)                     # Cluster A3 (release 2026.11.28 — GAP-2026-11-21-A3-OMML-PARITY)
+    _r29_self_test(check)                    # release 2026.11.29 — GAP-2026-11-22 (maths display + one difficulty scale)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -24898,7 +24952,9 @@ LADDER_ENTRY_RUNG.update({
 
 OP_RULE_CURRENT = 'OP1'
 FRAMEWORK_RELEASE_STRICT = '2026.11.10'      # papers committed at or after this release are LB2-strict
-OP_RELEASE = '2026.11.15'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
+OP_RELEASE = '2026.11.29'                    # qindex_cert.framework_release stamped by final_assembly (v1.18: release 2026.11.12)
+
+
 
 # ── constants (GAP §6.2; each lives HERE and is mirrored nowhere else) ──────────────────────
 C_PYQ_REREAD_MAX = 2
@@ -27697,12 +27753,27 @@ def format_plan_slots(slots, targets, manifest):
     return {'plan': plan, 'infeasible': infeas}
 
 
-def nf_parity(measured, targets, residual=NF_RESIDUAL_FORMAT):
+def nf_parity(measured, targets, residual=NF_RESIDUAL_FORMAT, normalize=False):
     """Per subject x Part parity — measured {value: n} vs targets {value: n} (the residual value is never a
-    floor); returns {'status', 'short'}."""
+    floor); returns {'status', 'short'}. release 2026.11.29 (G4): normalize=True maps BOTH sides through
+    normalize_ask_format first (the planner writes statement_combination / match_list, the axis-2 measure writes
+    statement / match — without it a perfect paper read 'short'). Default False = today's comparison (the
+    chemistry path keeps it until the owner opts in)."""
     m = measured if isinstance(measured, dict) else {}
-    short = {k: _nf_i(n) - _nf_i(m.get(k)) for k, n in (targets or {}).items()
-             if k not in (residual, 'DIRECT') and _nf_i(m.get(k)) < _nf_i(n)}
+    _own = {}
+    if normalize:
+        def _nz(d, keep=False):
+            out = {}
+            for k, n in (d or {}).items():
+                kk = normalize_ask_format(k) or k
+                out[kk] = out.get(kk, 0) + _nf_i(n)
+                if keep:
+                    _own.setdefault(kk, k)
+            return out
+        m, targets = _nz(m), _nz(targets, keep=True)
+    short = {_own.get(k, k): _nf_i(n) - _nf_i(m.get(k)) for k, n in (targets or {}).items()
+             if _own.get(k, k) not in (residual, 'DIRECT') and k not in (residual, 'DIRECT')
+             and _nf_i(m.get(k)) < _nf_i(n)}
     return {'status': 'FAIL' if short else 'PASS', 'short': short}
 
 
@@ -30921,6 +30992,12 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
                                 or bool(e.get('figure_files') or e.get('figure_dicts'))}
         else:
             e.pop('bc_fallback', None)
+    _cb_fam = None
+    try:
+        _cb_sj = e.get('subject')
+        _cb_fam = subject_family(_cb_sj) if _cb_sj and not CHEM_NAME_RE.search(str(_cb_sj)) else None
+    except Exception:                                   # noqa: BLE001
+        _cb_fam = None
     if _plc is not None:
         # release 2026.11.24 (B5): under the ladder the brief carries the comparison result and the levers — never
         # count targets of the earlier rubric
@@ -30928,8 +31005,18 @@ def _bc_climb(e, bvs, rung, problems, brief_parts, kd, step, qt, tgt, left, figu
             bvs['climb_brief'].pop(_k, None)
         bvs['climb_brief']['level'] = {'comparisons': _plc.get('n'), 'won': _plc.get('wins'),
                                        'needed': ld_pool_need(_plc.get('n')), 'measured': _plc.get('band'),
-                                       'levers': dict(LD_LEVERS)}
-        if nxt == 1 and 'level' in problems:
+                                       'levers': levers_for(_cb_fam)}
+        _cb_lv = lever_to_apply(_cb_fam, list(e.get('decisions') or []) + list(e.get('levers') or []),
+                                salt=f"{e.get('q')}:{nxt}")
+        if _cb_lv:                                     # release 2026.11.29 (G12): one named, unused family lever
+            bvs['climb_brief']['level']['apply_lever'] = _cb_lv
+        if nxt == 1 and 'level' in problems and _cb_lv:
+            bvs['climb_brief']['constraints'] = (
+                f"FIX the same question, same slot, same ask format: apply lever {_cb_lv['id']} — {_cb_lv['text']} — "
+                'to the deciding step; never make it harder by length, extra rows, statements or arithmetic, and never '
+                'by changing the planned format (EC-15); also state any missing '
+                'condition and correct the stem, options or figure the reviewers named')
+        elif nxt == 1 and 'level' in problems:
             bvs['climb_brief']['constraints'] = (
                 'FIX the same question, same slot: make the deciding step harder with a lever (coupled decisions, a '
                 'hidden intermediate, a method choice, an unfamiliar setting, a figure / table that must be translated) '
@@ -32265,7 +32352,9 @@ def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, f
     lines.append("Record 'concept_note': one line naming the deciding skill this question tests.")
     out = {'q': s.get('q'), 'band': band, 'level_in_words': lvl, 'mode': mode or R3_MODE_LADDER,
            'subtopic_id': s.get('subtopic_id'), 'qtype': s.get('qtype'), 'ask_format': s.get('ask_format'),
-           'shape': s.get('shape'), 'levers': dict(LD_LEVERS) if (top or i) else {},
+           'shape': s.get('shape'),
+           # release 2026.11.29 (G8): the lever list of the slot's subject family (chemistry / unknown: LD_LEVERS)
+           'levers': levers_for(_r3_family(lad, sc, s)) if (top or i) else {},
            'archetype_cards': cards if top else [], 'examples': ex[:3],
            'content_floor': floors if (top and isinstance(floors, dict) and floors) else None,
            'content_menu': mn[:12] if top else [], 'used_in_subtopic': used,
@@ -32274,6 +32363,16 @@ def r3_author_packet(slot, ladder=None, labels=None, mode=None, examples=None, f
     if isinstance(notation, str) and notation:      # v2.12 (C-E9): strict items only (bc.math_notation_for); else absent
         out['notation'] = notation
     return out
+
+
+def _r3_family(ladder, scope, slot):
+    """The subject family of a slot, from its subject name (bc.subject_family). None when the slot names no
+    subject (the chemistry / legacy lever list then applies). Pure."""
+    try:
+        sj = (slot or {}).get('subject')
+        return subject_family(sj) if sj else None
+    except Exception:                                   # noqa: BLE001
+        return None
 
 
 def ld_floor_for(ladder, scope, subtopic_id):
@@ -33006,7 +33105,41 @@ def qg_item_gates(entry, key=None, top_band=False, context=None):
         out += math_typeset_item_findings(entry if isinstance(entry, dict) else {}, _mt.get('arms'))
     if ctx.get('figure_need_active') is True:
         out += fig_need_findings(entry if isinstance(entry, dict) else {}, ctx.get('figure_specs'), ctx.get('chem_types'))
+    # release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT, G3): G-MATH-COMPILE — a ⟦MATH:…⟧ region the strict compiler
+    # rejects is named while the batch is written. SOFT (not in R3_HARD_GATES): after BC_PREREVIEW_TRIES the item is
+    # reviewed as it stands and render_mock_text repairs the region (t3_compile_lenient) with an AMBER line. Empty for
+    # every item whose regions compile (byte-identical output for every earlier caller).
+    out += math_compile_findings(entry if isinstance(entry, dict) else {})
     return out
+
+
+def math_compile_findings(entry):
+    """G-MATH-COMPILE over one item's source texts (stem, options, statements, list columns). [finding]. Pure;
+    never raises."""
+    try:
+        _t3m = _T3_ENGINE
+        if _t3m is None:
+            return []
+        _v, srcs = mt_text_view(entry)
+        bad = []
+        for t in srcs:
+            for body in _t3m._REGION_RE.findall(str(t or '')):
+                try:
+                    _t3m.t3_compile(body)
+                    _t3m._T3_STATS['compiled'] -= 1          # a probe, not a rendered region
+                except _t3m.MathCompileError as e:
+                    if body not in [b for b, _ in bad]:
+                        bad.append((body, str(e).split(' in ')[0][:70]))
+                except Exception:                              # noqa: BLE001 — a probe never raises
+                    continue
+        if not bad:
+            return []
+        named = '; '.join(f'"{b[:50]}" ({why})' for b, why in bad[:4])
+        return ['G-MATH-COMPILE: maths region(s) the compiler does not accept — ' + named + ' — use the Tier-3 '
+                'spelling: \\frac{a}{b}, \\sqrt{x}, \\binom{n}{k}, y\' (no backslash before the prime), '
+                '\\sum_{i}^{n} (no \\limits), \\underset{n}{x} for an underbrace']
+    except Exception:                                          # noqa: BLE001
+        return []
 
 
 _QG_COUNT_STEREO_RE = _r3_re.compile(r'\b(?:number of|how many|total)\b[^.?]{0,60}\bstereo-?isomers?\b|'
@@ -34177,7 +34310,9 @@ MATH_TYPESET_MIN_N = 20              # fewer analysed questions than this is not
 MATH_TYPESET_CAL_RATE = 0.01         # an arm firing on more than this share of the real questions is disabled
 MATH_TYPESET_SMALL_N = 100           # below this many questions, an arm that fires on ANY real question is disabled
 MATH_TYPESET_TOL = (1, 0.15)         # A-TYPESET tolerance: max(1 question, 15 %) (the A-SHAPEMIX tolerance)
-CHEM_NAME_RE = _p1_re.compile(r'(?i)chem|रसायन')
+# release 2026.11.29 (owner ruling 2026-11-22): Biochemistry / Bio-chemistry / जैव रसायन is BIOLOGY, not chemistry —
+# its organic-structure questions still take the chemistry path by CONTENT (is_organic_item / fig_is_chem).
+CHEM_NAME_RE = _p1_re.compile(r'(?i)(?<!bio)(?<!bio-)(?<!bio )chem|(?<!जैव )(?<!जैव)रसायन')
 CHEM_FAMILIES = ('chem_structure', 'chem_scheme', 'chem_spectrum', 'chem_diagram')
 
 # The six arms (Appendix A of the 2026-11-21 hand-off, A3 widened + A6 added after review). Calibrated on CSIR NET
@@ -34354,6 +34489,15 @@ def _p1_script(txt, table, mark):
     return f'{mark}({t})' if len(t) > 1 else f'{mark}{t}'
 
 
+_P1_ACCENT_MARK = {'hat': '\u0302', 'widehat': '\u0302', 'tilde': '\u0303', 'widetilde': '\u0303',
+                   'bar': '\u0304', 'overline': '\u0305', 'underline': '\u0332', 'vec': '\u20d7',
+                   'overrightarrow': '\u20d7', 'dot': '\u0307', 'ddot': '\u0308', 'check': '\u030c',
+                   'breve': '\u0306', 'acute': '\u0301', 'grave': '\u0300', 'overleftarrow': '\u20d6'}
+_P1_BB = {'R': '\u211d', 'C': '\u2102', 'Q': '\u211a', 'Z': '\u2124', 'N': '\u2115', 'P': '\u2119',
+          'H': '\u210d', 'F': '\U0001d53d', 'K': '\U0001d542', 'E': '\U0001d53c', 'T': '\U0001d54b',
+          '1': '\U0001d7d9'}
+
+
 def _p1_lin(body, tabs, depth=0):
     """Linearise one region body. Recursive, bounded (depth 40). Pure."""
     if depth > 40:
@@ -34408,6 +34552,32 @@ def _p1_lin(body, tabs, depth=0):
                                                                           else f'root[{deg.strip()}]'))
                 out.append(f'{rad}({_p1_lin(a, tabs, depth + 1).strip()})')
                 continue
+            # release 2026.11.29 (G2): commands this reader turned into their bare names ('binomnk', 'barx',
+            # 'mathbbR') while the candidate sees the symbol — read as the candidate sees them
+            if cmd in ('binom', 'dbinom', 'tbinom'):
+                a, i = _p1_group(s, i)
+                b, i = _p1_group(s, i)
+                out.append(f'C({_p1_lin(a, tabs, depth + 1).strip()}, {_p1_lin(b, tabs, depth + 1).strip()})')
+                continue
+            if cmd in _P1_ACCENT_MARK:
+                g, i = _p1_group(s, i)
+                out.append(_or_marks(_p1_lin(g, tabs, depth + 1).strip(), _P1_ACCENT_MARK[cmd]))
+                continue
+            if cmd in ('mathbb', 'mathbbm', 'Bbb'):
+                g, i = _p1_group(s, i)
+                out.append(''.join(_P1_BB.get(c, c) for c in _p1_lin(g, tabs, depth + 1)))
+                continue
+            if cmd in ('mathcal', 'mathscr', 'mathfrak'):
+                g, i = _p1_group(s, i)
+                out.append(_p1_lin(g, tabs, depth + 1))
+                continue
+            if cmd in ('underset', 'overset', 'stackrel'):
+                a, i = _p1_group(s, i)
+                b, i = _p1_group(s, i)
+                la, lb = _p1_lin(a, tabs, depth + 1).strip(), _p1_lin(b, tabs, depth + 1).strip()
+                out.append(lb + _p1_script(la, _P1_SUB if cmd == 'underset' else _P1_SUP,
+                                           '_' if cmd == 'underset' else '^'))
+                continue
             if cmd in nary:
                 lo = hi = None
                 for _ in range(2):
@@ -34461,12 +34631,15 @@ def _p1_lin(body, tabs, depth=0):
     return ''.join(out)
 
 
-def math_linear(src):
+def math_linear(src, _rendered=True):
     """C-E8: the linear plain-text form of a string with ⟦MATH:…⟧ regions — \\frac{a}{b} -> (a)/(b), x^{2} -> x²,
     x_{n} -> xₙ, \\sqrt{n} -> √(n), \\int_{a}^{b} -> ∫[a→b], \\sum_{n=1}^{\\infty} -> ∑[n=1→∞], a matrix ->
     [[1, 2], [0, 3]], cases -> {a if c1; b if c2}, a Greek or symbol command -> its character (t3_mathcomp's own
-    tables, read-only). Text outside regions is kept byte for byte; a string with no region is returned unchanged.
-    An unparseable region gives its raw body. Non-str -> ''. Pure; lives HERE, never in the byte-locked t3."""
+    tables, read-only); release 2026.11.29: \\binom{n}{k} -> C(n, k), \\bar{x} -> x̄ (every accent / bar as its combining
+    mark), \\mathbb{R} -> ℝ, \\underset{a}{b} -> bₐ, and a region the strict compiler rejects reads as the repaired
+    equation the candidate sees (needs the compiler installed — bc.install_t3). Text outside regions is kept byte for
+    byte; a string with no region is returned unchanged. An unparseable region gives its raw body. Non-str -> ''.
+    _rendered=False skips the rendered reading (omml_read's own call). Lives HERE, never in the byte-locked t3."""
     if not isinstance(src, str):
         return ''
     if not mt_has_region(src):
@@ -34474,11 +34647,46 @@ def math_linear(src):
     tabs = _p1_t3_tables()
 
     def _one(m):
+        # release 2026.11.29 (G2): a region the strict compiler rejects (or that would show a literal backslash) is
+        # read from what the candidate SEES — the equation t3_compile_lenient renders — never from its raw body; a
+        # region that compiles is read by _p1_lin as before (which from this release also reads binomials, accents,
+        # bars, ℝ-style letters and under/over labels as they are seen; every other construct is unchanged).
+        rendered = _ml_rendered_read(m.group(1)) if _rendered else None
+        if rendered is not None:
+            return rendered
         try:
             return ' '.join(_p1_lin(m.group(1), tabs).split())
         except Exception:                                   # noqa: BLE001
-            return m.group(1)
+            r2 = _ml_rendered_read(m.group(1), force=True) if _rendered else None
+            return r2 if r2 is not None else m.group(1)
     return _p1_region_re().sub(_one, src)
+
+
+def _ml_rendered_read(body, force=False):
+    """omml_read of the equation t3_compile_lenient renders for `body` when the strict compiler rejects it (or
+    force=True); None when the region compiles strictly (the caller keeps its own reading). The t3 ledgers are left
+    exactly as found — a reading is not a render. Never raises."""
+    try:
+        _t3r = _T3_ENGINE
+        if _t3r is None:
+            return None
+        st = _t3r._T3_STATS
+        n_c, n_r = st.get('compiled', 0), len(st.setdefault('repaired', []))
+        try:
+            if not force:
+                try:
+                    _om0 = _t3r.t3_compile(body)
+                    if not _t3r.t3_region_residue(''.join(_om0.itertext()), in_equation=True):
+                        return None             # the renderer keeps this strict result: the caller's own reading
+                except _t3r.MathCompileError:
+                    pass
+            om, _rep = _t3r.t3_compile_lenient(body)
+            return ' '.join(omml_read(om).split())
+        finally:
+            st['compiled'] = n_c
+            del st['repaired'][n_r:]
+    except Exception:                                       # noqa: BLE001
+        return None
 
 
 def mt_record_fields(stem, options=None):
@@ -35272,6 +35480,462 @@ for _n, _d in {
 }.items():
     _nf_guard(_n, _d)
 del _n, _d
+
+
+# ── release 2026.11.29 (GAP-2026-11-22-SUBJECT-FAMILY) — ONE SWITCH: THE SUBJECT FAMILY ───────────────────────────
+# Every difficulty / reader change of this release is keyed by the subject family of the question's SUBJECT.
+# exam_config.json may carry, per section, "subject_families": {"<subject>": "<family>"} (or a subject given as a
+# dict {"name", "subject_family"}); otherwise the family is derived from the subject name. 'chemistry' keeps today's
+# code path byte for byte. Biochemistry / biotechnology / life science are BIOLOGY (owner ruling 2026-11-22); an
+# organic structure question inside them still takes the chemistry / organic path, because that path is decided by
+# CONTENT (is_organic_item, fig_is_chem by figure family), never by the subject name.
+SUBJECT_FAMILIES = ('maths', 'physics', 'chemistry', 'biology', 'cs', 'aptitude', 'verbal', 'general')
+
+# The Tier-3 maths compiler is NOT imported here (blueprint_core is routed to triggers t3_mathcomp is not): an engine
+# that routes both installs it once — final_assembly / explain_engine call install_t3(t3_mathcomp) at import. Until
+# then G-MATH-COMPILE and the rendered reading of a repaired region are dormant (today's behaviour).
+_T3_ENGINE = None
+
+
+def install_t3(module):
+    """Install the shared Tier-3 compiler module (t3_mathcomp). Returns True when it carries t3_compile_lenient.
+    Never raises."""
+    global _T3_ENGINE
+    try:
+        if module is not None and callable(getattr(module, 't3_compile_lenient', None)):
+            _T3_ENGINE = module
+            return True
+    except Exception:                                   # noqa: BLE001
+        pass
+    return False
+_SF_RULES = (
+    ('biology', r'(?i)bio\s?-?\s?chem|biotech|bio\s?-?\s?tech|life\s*science|zoolog|botan|biolog|microbio|genetic|'
+                r'physiolog|ecolog|agricultur|जैव|जीव|प्राणी|वनस्पति'),
+    # chemistry branch names used as subjects without the word 'chem' (CSIR Chemical Sciences: 'Organic',
+    # 'Inorganic', 'Physical'): a subject named exactly 'Physical' is chemistry; 'Physical Sciences' is physics
+    ('chemistry', r'(?i)chem|रसायन|\b(in)?organic\b|^\s*physical\s*$|analytical|spectroscop|\bpolymer|'
+                  r'electrochem|thermochem|कार्बनिक|अकार्बनिक'),
+    ('cs', r'(?i)computer|\bcs\b|\bit\b|information\s*tech|programming|software|data\s*science'),
+    ('maths', r'(?i)math|statistic|सांख्यिकी|गणित|actuarial|numerical\s*analysis'),
+    ('physics', r'(?i)physic|भौतिक|electr|mechanic|civil|instrument|engineering|aerospace|metallurg|geophys|astro'),
+    ('aptitude', r'(?i)aptitude|reasoning|quantitative|\bquants?\b|numerical|arithmetic|mental\s*ability|'
+                 r'data\s*interpret|तर्क|मानसिक|अंकगणित|logical'),
+    ('verbal', r'(?i)english|hindi|language|verbal|comprehension|grammar|vocabulary|general\s*(knowledge|awareness|'
+               r'studies|science)|\bgk\b|current\s*affairs|history|polity|geograph|econom|sanskrit|सामान्य|हिन्दी|'
+               r'हिंदी|भाषा'),
+)
+
+
+def subject_family(subject, exam_config=None):
+    """The family of one subject: an explicit exam_config mapping wins, then a dict's 'subject_family', then the
+    name rules (_SF_RULES, first match), else 'general'. Never raises."""
+    try:
+        name = subject.get('name') if isinstance(subject, dict) else subject
+        if isinstance(subject, dict) and str(subject.get('subject_family') or '') in SUBJECT_FAMILIES:
+            return str(subject['subject_family'])
+        cfg = exam_config if isinstance(exam_config, dict) else {}
+        for sec in (cfg.get('sections') or []):
+            fam = (sec or {}).get('subject_families') if isinstance(sec, dict) else None
+            if isinstance(fam, dict) and str(fam.get(str(name)) or '') in SUBJECT_FAMILIES:
+                return str(fam[str(name)])
+        if isinstance(cfg.get('subject_families'), dict) and str(cfg['subject_families'].get(str(name)) or '') \
+                in SUBJECT_FAMILIES:
+            return str(cfg['subject_families'][str(name)])
+        s = str(name or '')
+        for fam, rx in _SF_RULES:
+            if _p1_re.search(rx, s):
+                return fam
+        # an unrecognised subject of a chemistry exam (by exam name) is chemistry — the protected path wins a tie
+        if _p1_re.search(r'(?i)chem|रसायन', str(cfg.get('exam_name') or cfg.get('exam_code') or '')):
+            return 'chemistry'
+        return 'general'
+    except Exception:                                   # noqa: BLE001
+        return 'general'
+
+
+def exam_subject_families(exam_config):
+    """{subject: family} for every subject of an exam's sections. Never raises."""
+    out = {}
+    try:
+        for sec in ((exam_config or {}).get('sections') or []):
+            for s in ((sec or {}).get('subjects') or []):
+                nm = s.get('name') if isinstance(s, dict) else s
+                out[str(nm)] = subject_family(s, exam_config)
+    except Exception:                                   # noqa: BLE001
+        pass
+    return out
+
+
+def section_family(section_name, exam_config):
+    """The family of a paper section: its subjects' family when they agree, 'chemistry' only when EVERY subject is
+    chemistry, else the first non-chemistry family. Never raises."""
+    try:
+        for sec in ((exam_config or {}).get('sections') or []):
+            if str((sec or {}).get('name')) == str(section_name):
+                fams = [subject_family(s, exam_config) for s in (sec.get('subjects') or [])]
+                if not fams:
+                    return 'general'
+                if all(f == 'chemistry' for f in fams):
+                    return 'chemistry'
+                return next(f for f in fams if f != 'chemistry')
+    except Exception:                                   # noqa: BLE001
+        pass
+    return 'general'
+
+
+# ── release 2026.11.29 (GAP-2026-11-22-MATH-READ, G2/G5) — READABLE OMML READER ───────────────────────────────────
+# omml_read(el) turns any <m:oMath> / <m:oMathPara> into LaTeX-style text a ranker, writer or reviewer can READ:
+# ∑/∫ keep their limits, matrices keep rows and cells, cases keep their brace, accents and bars stay, delimiters
+# stay. It replaces the PYQ reader omml_to_linear (which dropped ∑ ∫, matrices, cases, delimiters and accents) for
+# every NON-chemistry exam; a chemistry-only exam keeps omml_to_linear byte for byte (bc.omml_reader_for).
+# omml_read_loss(el, text) is the STRUCT-LOSS row check: the structures in the XML that the text does not carry.
+# Pure; never raises — a failure returns '[OMML_FAILED]', exactly the token omml_to_linear's callers already handle.
+_OR_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+_OR_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+_OR_ACC = {'̂': 'hat', '^': 'hat', '̃': 'tilde', '~': 'tilde', '̅': 'bar', '¯': 'bar',
+           '‾': 'bar', '̄': 'bar', '⃗': 'vec', '→': 'vec', '̇': 'dot', '˙': 'dot',
+           '̈': 'ddot', '¨': 'ddot', '̌': 'check', 'ˇ': 'check', '̆': 'breve',
+           '⃖': 'overleftarrow', '⃡': 'overleftrightarrow'}
+_OR_NARY_DEFAULT = '∫'
+
+
+def _or_tag(el):
+    t = getattr(el, 'tag', '')
+    return t.split('}')[-1] if isinstance(t, str) and '}' in t else str(t)
+
+
+def _or_child(el, name):
+    return el.find('{%s}%s' % (_OR_NS, name)) if el is not None else None
+
+
+def _or_prop(el, pr, name, default=None):
+    p = _or_child(el, pr)
+    v = _or_child(p, name) if p is not None else None
+    if v is None:
+        return default
+    return v.get('{%s}val' % _OR_NS, default)
+
+
+def _or_rows_cells(m_el):
+    rows = []
+    for mr in m_el.findall('{%s}mr' % _OR_NS):
+        rows.append(' & '.join(_or_read(e) for e in mr.findall('{%s}e' % _OR_NS)))
+    return rows
+
+
+def _or_group(s):
+    s = s.strip()
+    return s if len(s) == 1 else '{' + s + '}'
+
+
+_OR_NARY_CMD = {'∑': '\\sum', '∫': '\\int', '∏': '\\prod', '∬': '\\iint', '∭': '\\iiint',
+                '∮': '\\oint', '⋃': '\\bigcup', '⋂': '\\bigcap', '∐': '\\coprod',
+                '⨁': '\\bigoplus', '⨂': '\\bigotimes'}
+_OR_ACC_MARK = {'hat': '̂', 'tilde': '̃', 'bar': '̄', 'vec': '⃗', 'dot': '̇',
+                'ddot': '̈', 'check': '̌', 'breve': '̆', 'overleftarrow': '⃖',
+                'overleftrightarrow': '⃡'}
+_OR_MATRIX_ENV = {('(', ')'): 'pmatrix', ('[', ']'): 'bmatrix', ('|', '|'): 'vmatrix', ('‖', '‖'): 'Vmatrix'}
+_OR_LIMWORDS = ('lim', 'max', 'min', 'sup', 'inf', 'limsup', 'liminf')
+
+
+def _or_marks(text, mark):
+    """Every visible BASE character of `text` gets one combining mark after its own marks (z → z̄, AB → A̅B̅,
+    ȳ → ȳ̂ — a mark is never put on a mark)."""
+    import unicodedata as _ud
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        j = i + 1
+        while j < n and _ud.combining(text[j]):
+            j += 1
+        out.append(text[i:j] + (mark if not c.isspace() and not _ud.combining(c) else ''))
+        i = j
+    return ''.join(out)
+
+
+def _or_esc(text):
+    """Literal characters of an equation's text that the linear reader would take as TeX syntax: a brace is a
+    visible brace ({1, 2} is a set), a backslash a visible ∖."""
+    return text.replace('\\', '\u2216').replace('{', '\\{').replace('}', '\\}')
+
+
+def _or_row(e):
+    """One eqArr row: a whitespace-only run of two or more spaces is the cell gap the Tier-3 compiler writes for
+    '&' (cases value | condition) — read back as '&' so the row linearises as 'value if condition'."""
+    out = []
+    for c in e:
+        if _or_tag(c) == 'r':
+            txt = ''.join((t.text or '') for t in c if _or_tag(t) == 't')
+            if len(txt) >= 2 and not txt.strip():
+                out.append(' & ')
+                continue
+        out.append(_or_read(c))
+    return ''.join(out).strip()
+
+
+def _or_read(el):
+    """OMML → LaTeX-style source in the SAME notation the S10 writers use, so bc.math_linear turns it into the
+    same linear form a mock question's stem_text carries (n-ary → \\sum / \\int, a bracketed matrix → pmatrix /
+    bmatrix / vmatrix, cases → \\begin{cases}); accents, bars and binomials — which math_linear does not read —
+    are written directly in their linear form (z̄, A̅B̅, C(n, k))."""
+    if el is None:
+        return ''
+    tag = _or_tag(el)
+    if tag == 'r':
+        out = []
+        for t in el:
+            tt = _or_tag(t)
+            if tt == 't':
+                out.append(_or_esc(t.text or ''))
+            elif tt in ('br', 'cr'):
+                out.append(' ')
+        return ''.join(out)
+    if tag == 't':
+        return _or_esc(el.text or '')
+    if tag in ('rPr', 'ctrlPr', 'argPr', 'fPr', 'sSupPr', 'sSubPr', 'sSubSupPr', 'sPrePr', 'radPr', 'naryPr', 'dPr',
+               'mPr', 'eqArrPr', 'accPr', 'barPr', 'funcPr', 'limLowPr', 'limUppPr', 'groupChrPr', 'boxPr',
+               'borderBoxPr', 'phantPr', 'oMathParaPr', 'mcs', 'mc'):
+        return ''
+    if tag == 'f':
+        n, d = _or_read(_or_child(el, 'num')), _or_read(_or_child(el, 'den'))
+        ty = _or_prop(el, 'fPr', 'type', 'bar')
+        if ty == 'lin':
+            return '%s/%s' % (n, d)
+        if ty == 'noBar':
+            return 'C(%s, %s)' % (n.strip(), d.strip())
+        return '\\frac{%s}{%s}' % (n, d)
+    if tag == 'sSup':
+        return '{%s}^{%s}' % (_or_read(_or_child(el, 'e')), _or_read(_or_child(el, 'sup')))
+    if tag == 'sSub':
+        return '{%s}_{%s}' % (_or_read(_or_child(el, 'e')), _or_read(_or_child(el, 'sub')))
+    if tag == 'sSubSup':
+        return '{%s}_{%s}^{%s}' % (_or_read(_or_child(el, 'e')), _or_read(_or_child(el, 'sub')),
+                                   _or_read(_or_child(el, 'sup')))
+    if tag == 'sPre':
+        return '{}_{%s}^{%s}%s' % (_or_read(_or_child(el, 'sub')), _or_read(_or_child(el, 'sup')),
+                                   _or_read(_or_child(el, 'e')))
+    if tag == 'rad':
+        deg = _or_read(_or_child(el, 'deg')).strip()
+        body = _or_read(_or_child(el, 'e'))
+        return '\\sqrt[%s]{%s}' % (deg, body) if deg else '\\sqrt{%s}' % body
+    if tag == 'nary':
+        ch = _or_prop(el, 'naryPr', 'chr', _OR_NARY_DEFAULT) or _OR_NARY_DEFAULT
+        sub, sup = _or_read(_or_child(el, 'sub')).strip(), _or_read(_or_child(el, 'sup')).strip()
+        out = _OR_NARY_CMD.get(ch, ch)
+        if sub:
+            out += '_{%s}' % sub
+        if sup:
+            out += '^{%s}' % sup
+        return out + ' ' + _or_read(_or_child(el, 'e'))
+    if tag == 'd':
+        beg = _or_prop(el, 'dPr', 'begChr', '(')
+        end = _or_prop(el, 'dPr', 'endChr', ')')
+        sep = _or_prop(el, 'dPr', 'sepChr', '|')
+        ees = el.findall('{%s}e' % _OR_NS)
+        kids = [c for c in (ees[0] if len(ees) == 1 else []) if _or_tag(c) not in ('argPr', 'ctrlPr')]
+        if len(kids) == 1 and _or_tag(kids[0]) == 'f' and _or_prop(kids[0], 'fPr', 'type', 'bar') == 'noBar' \
+                and (beg, end) == ('(', ')'):
+            return _or_read(kids[0])                   # a binomial's own brackets: C(n, k), not (C(n, k))
+        if len(kids) == 1 and _or_tag(kids[0]) == 'eqArr' and beg == '{' and not end:
+            rows = [_or_row(e) for e in kids[0].findall('{%s}e' % _OR_NS)]
+            return '\\begin{cases}' + ' \\\\ '.join(rows) + '\\end{cases}'
+        if len(kids) == 1 and _or_tag(kids[0]) == 'm' and (beg, end) in _OR_MATRIX_ENV:
+            env = _OR_MATRIX_ENV[(beg, end)]
+            return '\\begin{%s}' % env + ' \\\\ '.join(_or_rows_cells(kids[0])) + '\\end{%s}' % env
+        es = [_or_read(e) for e in ees]
+        b = '\\{' if beg == '{' else (beg or '')
+        e_ = '\\}' if end == '}' else (end or '')
+        return b + (' %s ' % sep).join(es) + e_
+    if tag == 'm':
+        return '\\begin{matrix}' + ' \\\\ '.join(_or_rows_cells(el)) + '\\end{matrix}'
+    if tag == 'eqArr':
+        return '\\begin{aligned}' + ' \\\\ '.join(_or_row(e) for e in el.findall('{%s}e' % _OR_NS)) \
+            + '\\end{aligned}'
+    if tag == 'acc':
+        ch = _or_prop(el, 'accPr', 'chr', '̂') or '̂'
+        return _or_marks(_or_read(_or_child(el, 'e')), _OR_ACC_MARK.get(_OR_ACC.get(ch, 'hat'), '̂'))
+    if tag == 'bar':
+        pos = _or_prop(el, 'barPr', 'pos', 'bot')
+        return _or_marks(_or_read(_or_child(el, 'e')), '̅' if pos == 'top' else '̲')
+    if tag == 'func':
+        return _or_read(_or_child(el, 'fName')).strip() + ' ' + _or_read(_or_child(el, 'e'))
+    if tag == 'limLow':
+        base, lim = _or_read(_or_child(el, 'e')).strip(), _or_read(_or_child(el, 'lim'))
+        if base in _OR_LIMWORDS:
+            return '\\%s_{%s}' % (base, lim)
+        return '{%s}_{%s}' % (base, lim)
+    if tag == 'limUpp':
+        return '{%s}^{%s}' % (_or_read(_or_child(el, 'e')).strip(), _or_read(_or_child(el, 'lim')))
+    if tag == 'groupChr':
+        pos = _or_prop(el, 'groupChrPr', 'pos', 'bot')
+        body = _or_read(_or_child(el, 'e'))
+        return '{%s}' % body if pos == 'bot' else '{%s}' % body
+    if tag == 'oMathPara':
+        return ' '.join(_or_read(c) for c in el if _or_tag(c) == 'oMath')
+    return ''.join(_or_read(c) for c in el)
+
+
+def _or_latex(omath_elem):
+    import re as _orre
+    return _orre.sub(r'[  ]{2,}', ' ', _or_read(omath_elem)).strip()
+
+
+def omml_read(omath_elem):
+    """Readable text of one <m:oMath> / <m:oMathPara> in the framework's LINEAR notation — the same form
+    bc.math_linear gives a writer's ⟦MATH:…⟧ region (∑[i=1→n], ∫[0→x], (a)/(b), x², √(x), [[1, 2], [3, 4]],
+    {a if c; b}), so a past question and a new question are read, ranked and compared alike. Never raises:
+    '[OMML_FAILED]' on an internal error (the token omml_to_linear's callers already handle)."""
+    try:
+        lat = _or_latex(omath_elem)
+        if not lat:
+            return ''
+        # _rendered=False: the reader never re-enters the rendered reading (no recursion through math_linear)
+        out = math_linear(P1_MATH_OPEN + lat + P1_MATH_CLOSE, _rendered=False)
+        return ' '.join(str(out).split())
+    except Exception:                                   # noqa: BLE001
+        return '[OMML_FAILED]'
+
+
+def omml_read_loss(omath_elem, text=None):
+    """STRUCT-LOSS for one equation: {structure: missing count} — structures present in the XML that the LINEAR text
+    (default: omml_read of it) does not visibly carry: n-ary symbols, matrices ([[ … ]]), radicals (√ ∛ ∜),
+    stacked fractions ('/'), binomials ('C('), accents / bars (combining marks), cases / aligned rows (';'),
+    delimiters (their opening character), and any TeX command left unread. {} = nothing lost. Never raises."""
+    try:
+        txt = omml_read(omath_elem) if text is None else str(text or '')
+        lost = {}
+
+        def _all(tag):
+            return list(omath_elem.iter('{%s}%s' % (_OR_NS, tag)))
+        chars = [(_or_prop(x, 'naryPr', 'chr', _OR_NARY_DEFAULT) or _OR_NARY_DEFAULT) for x in _all('nary')]
+        miss = sum(max(0, chars.count(c) - txt.count(c)) for c in set(chars))
+        if miss:
+            lost['nary'] = miss
+        k = len(_all('m'))
+        if k and txt.count('[[') < k:
+            lost['m'] = k - txt.count('[[')
+        k = len(_all('rad'))
+        nr = sum(txt.count(c) for c in '√∛∜') + txt.count('root[')
+        if k and nr < k:
+            lost['rad'] = k - nr
+        fr = [x for x in _all('f') if _or_prop(x, 'fPr', 'type', 'bar') != 'noBar']
+        nb = len(_all('f')) - len(fr)
+        if fr and txt.count('/') < len(fr):
+            lost['f'] = len(fr) - txt.count('/')
+        if nb and txt.count('C(') < nb:
+            lost['binom'] = nb - txt.count('C(')
+        k = len(_all('acc')) + len(_all('bar'))
+        nm = sum(1 for c in txt if '̀' <= c <= 'ͯ' or '⃐' <= c <= '⃿')
+        if k and nm < k:
+            lost['acc'] = k - nm
+        k = len(_all('eqArr'))
+        if k and txt.count(';') < k:
+            lost['eqArr'] = k - txt.count(';')
+        dl = 0
+        for x in _all('d'):
+            b = _or_prop(x, 'dPr', 'begChr', '(')
+            if b and b not in txt and not (b in '([|{' and '[[' in txt):
+                dl += 1
+        if dl:
+            lost['d'] = dl
+        if _p1_re.search(r'\\[A-Za-z]{2,}', txt):
+            lost['unread_command'] = 1
+        return lost
+    except Exception:                                   # noqa: BLE001
+        return {'reader': 1}
+
+
+def omml_reader_for(subjects, exam_config=None):
+    """Which PYQ equation reader an exam uses: 'legacy' (omml_to_linear, byte-identical) when EVERY subject of the
+    exam is chemistry-family (an unrecognised subject name of a chemistry-named exam counts as chemistry — the
+    exam_config tie-break of subject_family), else 'read' (omml_read). subjects: list of subject names or
+    {name, subject_family} dicts. Never raises; unknown / empty → 'read'."""
+    try:
+        fams = [subject_family(s, exam_config) for s in (subjects or [])]
+        return 'legacy' if fams and all(f == 'chemistry' for f in fams) else 'read'
+    except Exception:                                   # noqa: BLE001
+        return 'read'
+
+
+
+# ── release 2026.11.29 (GAP-2026-11-22-FAMILY-LEVERS, G8 / G12; LAW-NF-4 AMENDED) ──────────────────────────────────
+# What makes a REAL question hard differs by subject family. LD_LEVERS (H1-H7) stays the chemistry set byte for byte;
+# every other family gets the generic levers (H1, H2, H4, H5, H7 — no species / substrate / spectrum wording) plus its
+# own. LAW-NF-4 ("the decision vocabulary is subject-agnostic") is amended: the DECISION vocabulary and band recipe
+# stay subject-agnostic; the LEVER list a writer is shown is per family (levers_for). The family lists are a starting
+# set from exam knowledge; they are checked per family by the release acceptance benchmark (expert spot-read of the
+# delivered Hard items), never by a runtime gate.
+LD_GENERIC_LEVER_IDS = ('H1', 'H2', 'H4', 'H5', 'H7')
+FAMILY_LEVERS = {
+    'maths': {
+        'M1': 'Necessarily-true judgement: decide which statements MUST hold for every object meeting the hypotheses, '
+              'not for one example',
+        'M2': 'Counter-example: the tempting option fails only on a non-obvious example the candidate must construct',
+        'M3': 'Hypothesis sensitivity: dropping or weakening one stated condition changes the answer',
+        'M4': 'Structure theorem: the key needs a classification / structure result applied, not a computation',
+        'M5': 'Hidden invariant: the deciding quantity (rank, trace, determinant, degree, order, measure) is never named',
+        'M6': 'Cross-unit link: two syllabus units must be combined (e.g. algebra with analysis, ODE with linear algebra)',
+        'M7': 'Limits and uniformity: pointwise versus uniform, interchange of limit / sum / integral decides the key',
+    },
+    'physics': {
+        'P1': 'Limiting or special case: the key follows only after taking the right limit or special case',
+        'P2': 'Two principles combined: e.g. conservation with symmetry, both needed, neither alone decides',
+        'P3': 'Approximation validity: decide when an approximation holds, not only apply it',
+        'P4': 'Graph / diagram translation: a plot or circuit must be turned into a relation first',
+        'P5': 'Dimensional or order-of-magnitude reasoning decides between close options',
+        'P6': 'Boundary-condition choice: the physically admissible solution is selected by the boundary conditions',
+    },
+    'biology': {
+        'B1': 'Experiment or data interpretation: a result table / gel / graph must be read to decide',
+        'B2': 'Exception to a rule: the key is the case the general rule does not cover',
+        'B3': 'Mechanism chain: gene to protein to phenotype (or signal to response) followed through two or more steps',
+        'B4': 'Cross-level link: a molecular fact must be connected to an organism / population outcome',
+        'B5': 'Statement discrimination: close statements, assertion-reason, only one precise version is true',
+    },
+    'cs': {
+        'C1': 'Trace or execution reasoning: the output follows only from tracing the code / algorithm',
+        'C2': 'Edge case: empty input, overflow, boundary index or degenerate graph decides the key',
+        'C3': 'Complexity bound: a tight bound, not an obvious upper bound, decides',
+        'C4': 'Two concepts combined: e.g. a data structure with an algorithmic property',
+    },
+    'aptitude': {
+        'A1': 'Multi-step chain: each step needs the one before; no single formula reaches the key',
+        'A2': 'Data sufficiency: decide what the given statements are enough for, not just compute',
+        'A3': 'Hidden constraint: an unstated but forced condition (integers, ordering, capacity) decides',
+        'A4': 'Derived quantity in data interpretation: the asked value is computed from two or more table entries',
+    },
+    'verbal': {
+        'V1': 'Close-distractor discrimination: two options differ by one precise nuance',
+        'V2': 'Inference over recall: the key is inferred from the passage / facts, not remembered',
+        'V3': 'Rare fact as the exam tests it: an infrequent but syllabus-bound fact',
+    },
+}
+
+
+def levers_for(family=None):
+    """The {id: text} lever list a writer / rewrite brief is shown for one subject family: chemistry, 'general' (a
+    subject name no rule recognises, e.g. 'Part C') or None → LD_LEVERS unchanged (byte-identical); a recognised
+    non-chemistry family → generic H1/H2/H4/H5/H7 + FAMILY_LEVERS[family].
+    Pure."""
+    if family in (None, 'chemistry', 'general') or family not in SUBJECT_FAMILIES:
+        return dict(LD_LEVERS)                          # unknown / chemistry: today's list, byte for byte
+    out = {k: LD_LEVERS[k] for k in LD_GENERIC_LEVER_IDS}
+    out.update(FAMILY_LEVERS.get(family, {}))
+    return out
+
+
+def lever_to_apply(family, used=None, salt=None):
+    """G12: ONE named lever for a rewrite brief — a family lever the question has not used yet (`used`: lever ids
+    or decision tags already recorded), chosen deterministically by `salt`. None for chemistry (today's brief). Pure."""
+    if family in (None, 'chemistry', 'general') or family not in SUBJECT_FAMILIES:
+        return None
+    lv = levers_for(family)
+    u = {str(x) for x in (used or [])}
+    u |= {l for d in (used or []) for l in LD_DECISION_LEVERS.get(str(d), ())}
+    cand = [k for k in lv if k not in u] or list(lv)
+    fam_first = [k for k in cand if not k.startswith('H')] or cand
+    k = fam_first[int(_bv_sha([salt, family])[:8], 16) % len(fam_first)]
+    return {'id': k, 'text': lv[k]}
 
 
 if __name__ == '__main__':

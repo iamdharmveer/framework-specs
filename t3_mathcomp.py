@@ -1189,3 +1189,440 @@ def count_math_regions(*texts):
             continue
         n += len(_t3_re.findall(_t3_re.escape(MATH_OPEN), t))
     return n
+
+
+# ── v2.2 (GAP-2026-11-22-MATH-LENIENT) — LENIENT COMPILE: NEVER RAW LaTeX ───────
+# t3_compile stays STRICT (unchanged above). t3_compile_lenient is the ONLY call a
+# renderer makes: it returns (oMath, repairs) and NEVER raises.
+#   1. strict compile — a region that compiles today returns the IDENTICAL element
+#      (byte-for-byte) with repairs == [];
+#   2. normalise standard LaTeX spellings the grammar does not carry
+#      (\' prime, \choose, \limits, \underbrace, \overbrace, \frac12, \sqrt2, $…$,
+#      newlines, stray region delimiters) and compile again;
+#   3. at most T3_LENIENT_MAX_REPAIRS targeted repairs, each driven by the
+#      MathCompileError text (unknown command, bad escape, missing / extra brace,
+#      script without base, ragged matrix, one-row cases); the loop is bounded;
+#   4. last resort: a plain upright equation built from the region's readable
+#      text — always schema-valid, never a visible backslash or TeX command; a
+#      script with no Unicode form reads x^(n+1) / a_(ij).
+# Every non-empty repairs list is a disclosure (AMBER), never a stop.
+T3_LENIENT_MAX_REPAIRS = 12
+
+_T3_LN_ALIAS = {'prime': "'", 'dprime': "''", 'colon': ':', 'vert': '|', 'Vert': '\\|',
+                'lbrace': '\\{', 'rbrace': '\\}', 'lvert': '|', 'rvert': '|',
+                'dots': '\\ldots', 'dotsc': '\\ldots', 'dotsb': '\\cdots', 'textbf': '\\mathbf',
+                'textit': '\\mathit', 'emph': '\\mathit', 'mathsf': '\\mathrm', 'mathtt': '\\mathrm',
+                'textsf': '\\mathrm', 'texttt': '\\mathrm', 'bf': '', 'rm': '', 'it': '', 'cal': '',
+                'left': '', 'right': '', 'middle': '', 'nonumber': '', 'notag': '', 'limits': '',
+                'nolimits': '', 'label': '', 'tag': '', 'hfill': '', 'hline': '', 'cline': '',
+                'phantom': '', 'vphantom': '', 'hphantom': '', 'smash': '',
+                'textcolor': '', 'color': '', 'colorbox': '', 'boxed': '', 'fbox': ''}
+_T3_LN_DROP_ARG = {'label', 'tag', 'phantom', 'vphantom', 'hphantom', 'cline', 'textcolor', 'color', 'colorbox'}
+
+
+def _t3_ln_group_end(s, i):
+    """s[i] == '{' → index after the matching '}', or len(s) when unbalanced."""
+    depth, j = 0, i
+    while j < len(s):
+        c = s[j]
+        if c == '\\':
+            j += 2
+            continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    return len(s)
+
+
+def _t3_ln_arg(s, i):
+    """Next TeX argument at s[i:] (spaces skipped) → (raw_text_with_braces, end) or (None, i)."""
+    while i < len(s) and s[i] == ' ':
+        i += 1
+    if i >= len(s):
+        return None, i
+    if s[i] == '{':
+        e = _t3_ln_group_end(s, i)
+        return s[i:e], e
+    if s[i] == '\\':
+        m = _t3_re.match(r'\\[A-Za-z]+|\\.', s[i:])
+        if m:
+            return '{' + m.group(0) + '}', i + m.end()
+    return '{' + s[i] + '}', i + 1
+
+
+def _t3_ln_braced(s, cmds, nargs):
+    """\\cmd X Y (bare single-token args) → \\cmd{X}{Y}. Applied left to right; bounded."""
+    out, i = [], 0
+    while i < len(s):
+        m = _t3_re.match(r'\\(%s)(?![A-Za-z])' % '|'.join(cmds), s[i:])
+        if not m:
+            out.append(s[i])
+            i += 1
+            continue
+        out.append('\\' + m.group(1))
+        j = i + m.end()
+        n = nargs.get(m.group(1), 1)
+        if m.group(1) == 'sqrt':                   # optional [n]
+            k = j
+            while k < len(s) and s[k] == ' ':
+                k += 1
+            if k < len(s) and s[k] == '[':
+                e = s.find(']', k)
+                if e > 0:
+                    out.append(s[k:e + 1])
+                    j = e + 1
+        for _ in range(n):
+            a, j2 = _t3_ln_arg(s, j)
+            if a is None:
+                break
+            out.append(a)
+            j = j2
+        i = j
+    return ''.join(out)
+
+
+def _t3_ln_choose(s):
+    """{a \\choose b} → \\binom{a}{b} (also \\over → \\frac, \\atop → \\binom), innermost group first."""
+    for _ in range(8):
+        m = _t3_re.search(r'(?<!\\)\{([^{}]*?)\\(choose|over|atop|brack|brace)(?![A-Za-z])([^{}]*?)(?<!\\)\}', s)
+        if not m:
+            m2 = _t3_re.search(r'\\(choose|over|atop)(?![A-Za-z])', s)
+            if not m2:
+                return s
+            a, b, w = s[:m2.start()], s[m2.end():], m2.group(1)
+            return ('\\frac{%s}{%s}' if w == 'over' else '\\binom{%s}{%s}') % (a.strip(), b.strip())
+        a, w, b = m.group(1).strip(), m.group(2), m.group(3).strip()
+        rep = ('\\frac{%s}{%s}' if w == 'over' else '\\binom{%s}{%s}') % (a, b)
+        s = s[:m.start()] + rep + s[m.end():]
+    return s
+
+
+def _t3_ln_brace_script(s, i, mark):
+    """After \\underbrace{x} / \\overbrace{x}: read the '_'/'^' label → (label, end)."""
+    k = i
+    while k < len(s) and s[k] == ' ':
+        k += 1
+    if k < len(s) and s[k] == mark:
+        a, e = _t3_ln_arg(s, k + 1)
+        if a is not None:
+            return a, e
+    return None, i
+
+
+def _t3_ln_braces(s):
+    """\\underbrace{x}_{n} → \\underset{n}{x}; \\overbrace{x}^{n} → \\overset{n}{x}."""
+    for _ in range(16):
+        m = _t3_re.search(r'\\(underbrace|overbrace)(?![A-Za-z])', s)
+        if not m:
+            return s
+        a, e = _t3_ln_arg(s, m.end())
+        if a is None:
+            s = s[:m.start()] + s[m.end():]
+            continue
+        lab, e2 = _t3_ln_brace_script(s, e, '_' if m.group(1) == 'underbrace' else '^')
+        cmd = 'underset' if m.group(1) == 'underbrace' else 'overset'
+        rep = ('\\%s%s%s' % (cmd, lab, a)) if lab else a
+        s = s[:m.start()] + rep + s[e2 if lab else e:]
+    return s
+
+
+def t3_normalize(body):
+    """Standard-LaTeX spellings → the Tier-3 grammar. Pure; never raises. A body
+    that already compiles is never passed here (t3_compile_lenient tries it first)."""
+    try:
+        s = str(body or '')
+        s = s.replace(MATH_OPEN, ' ').replace(MATH_CLOSE, ' ')
+        s = _t3_re.sub(r'[\r\n\t]+', ' ', s)
+        s = s.strip()
+        s = _t3_re.sub(r'^\$+|\$+$', '', s).strip()
+        s = _t3_re.sub(r'^\\\[|\\\]$|^\\\(|\\\)$', '', s).strip()
+        s = _t3_ln_outside_env(s)
+        s = s.replace("\\'", "'").replace('\\prime', "'")
+        s = _t3_re.sub(r'\\(no)?limits(?![A-Za-z])', '', s)
+        s = _t3_ln_braces(s)
+        s = _t3_ln_choose(s)
+        s = _t3_ln_braced(s, ['frac', 'dfrac', 'tfrac', 'cfrac', 'binom', 'dbinom', 'tbinom', 'sfrac', 'sqrt',
+                              'overline', 'underline', 'hat', 'bar', 'vec', 'tilde', 'dot', 'ddot',
+                              'mathbb', 'mathcal', 'mathbf', 'mathrm', 'mathfrak', 'mathscr'],
+                          {'frac': 2, 'dfrac': 2, 'tfrac': 2, 'cfrac': 2, 'binom': 2, 'dbinom': 2,
+                           'tbinom': 2, 'sfrac': 2})
+        s = _t3_re.sub(r'\\(dbinom|tbinom)(?![A-Za-z])', r'\\binom', s)
+        s = _t3_ln_outside_env(s)
+        return s
+    except Exception:                               # pragma: no cover — normalise is best-effort
+        return str(body or '')
+
+
+def _t3_ln_outside_env(s):
+    """Row/cell separators (\\\\ and &) are only meaningful inside an environment or \\cases{…};
+    outside one a bare & becomes a space and a \\\\ between two operands becomes \\setminus (∖ — the glyph the
+    strict compiler printed as a literal backslash, so the page reads the same), a leading / trailing one a space;
+    an over-escaped \\\\cmd becomes \\cmd."""
+    out, depth, i = [], 0, 0
+    while i < len(s):
+        m = _t3_re.match(r'\\begin\{[^{}]*\}|\\(cases|pmatrix|bmatrix|vmatrix|matrix)\{', s[i:])
+        if m:
+            depth += 1
+            out.append(m.group(0))
+            i += m.end()
+            continue
+        if _t3_re.match(r'\\end\{[^{}]*\}', s[i:]):
+            m = _t3_re.match(r'\\end\{[^{}]*\}', s[i:])
+            depth = max(depth - 1, 0)
+            out.append(m.group(0))
+            i += m.end()
+            continue
+        if s.startswith('\\\\', i):
+            if i + 2 < len(s) and (s[i + 2].isalpha() or s[i + 2] in ',;:!{}'):
+                if not depth or _t3_re.match(r'(begin|end|frac|sqrt|left|right|text|math)', s[i + 2:]):
+                    i += 1                               # over-escaped \\cmd → \cmd
+                    continue
+            if depth:
+                out.append('\\\\')
+            elif ''.join(out).strip() and s[i + 2:].strip():
+                out.append(' \\setminus ')                  # between operands: today's backslash glyph, as ∖
+            else:
+                out.append(' ')                               # a trailing / leading line break
+            i += 2
+            continue
+        if s[i] == '\\' and i + 1 < len(s):
+            out.append(s[i:i + 2])
+            i += 2
+            continue
+        if s[i] == '&' and not depth:
+            out.append(' ')
+            i += 1
+            continue
+        out.append(s[i])
+        i += 1
+    return ''.join(out)
+
+
+def _t3_ln_unknown_cmd(s, name):
+    """Replace one unknown \\name: an alias, else its argument (if braced), else its name as upright text."""
+    m = _t3_re.search(r'\\%s(?![A-Za-z])' % _t3_re.escape(name), s)
+    if not m:
+        return None
+    if name in _T3_LN_ALIAS:
+        rep, end = _T3_LN_ALIAS[name], m.end()
+        if name in _T3_LN_DROP_ARG:
+            a, end = _t3_ln_arg(s, end)
+        return s[:m.start()] + rep + s[end:]
+    a, e = _t3_ln_arg(s, m.end())
+    if a is not None and a.startswith('{') and s[m.end():].lstrip().startswith('{'):
+        return s[:m.start()] + a + s[e:]            # \foo{x} → {x}
+    return s[:m.start()] + '\\text{%s}' % name + s[m.end():]
+
+
+def _t3_ln_repair(s, err):
+    """One repair step driven by the compiler's error text → new body, or None when no rule applies."""
+    e = str(err)
+    m = _t3_re.search(r'unknown command \\([A-Za-z]+)', e)
+    if m:
+        return _t3_ln_unknown_cmd(s, m.group(1))
+    m = _t3_re.search(r"bad escape '\\(.)'", e)
+    if m:
+        k = s.find('\\' + m.group(1))
+        return s[:k] + s[k + 1:] if k >= 0 else None
+    if "missing '}'" in e or 'runs off end' in e or "unclosed '{'" in e:
+        return s + '}'
+    if "unclosed '['" in e:
+        return s + ']'
+    m = _t3_re.search(r"unmatched '\}' at (\d+)", e)
+    if m:
+        k = int(m.group(1))
+        if 0 <= k < len(s) and s[k] == '}':
+            return s[:k] + s[k + 1:]
+        k = s.rfind('}')
+        return s[:k] + s[k + 1:] if k >= 0 else None
+    if '\\left without' in e or 'without its opening' in e or 'is not a delimiter' in e \
+            or 'needs a delimiter' in e:
+        return _t3_re.sub(r'\\(left|right|middle|[bB]igg?[lr]?)(?![A-Za-z])\s*(\\[A-Za-z]+|\\.|.)?',
+                          lambda mm: (mm.group(2) or '') if (mm.group(2) or '') not in ('.',) else '', s)
+    m = _t3_re.search(r"\\begin\{([^}]*)\} without its", e)
+    if m:
+        return s + '\\end{%s}' % m.group(1)
+    if 'is not a supported environment' in e:
+        return _t3_re.sub(r'\\(begin|end)\{[^{}]*\}(\{[^{}]*\})?', ' ', s)
+    if '\\not before' in e:
+        return s.replace('\\not', '\\neg', 1)
+    if 'literal \u221a' in e:
+        return _t3_re.sub('\u221a\\s*', r'\\sqrt ', s, count=1) if '\u221a' in s else None
+    if 'base is empty text' in e:
+        return _t3_re.sub(r'(^|[\s{(,=&])([_^])', '\\1\u200b\\2', s, count=1)
+    if 'has no base' in e:
+        return _t3_re.sub(r'(^|[\s{(,=&])([_^])', '\\1\u200b\\2', s, count=1)
+    if 'expects a {' in e:
+        m = _t3_re.search(r'\\([A-Za-z]+) expects', e)
+        if m:
+            return _t3_ln_braced(s, [m.group(1)], {m.group(1): 2 if 'frac' in m.group(1) or 'binom' in m.group(1) else 1})
+    if 'ragged matrix' in e:
+        return _t3_ln_pad_matrix(s)
+    if 'needs ≥2 rows' in e:
+        return _t3_re.sub(r'\\end\{cases\}', r' \\\\ \\end{cases}', s, count=1)
+    if 'empty' in e and 'region' in e:
+        return '\u200b'
+    return None
+
+
+def _t3_ln_pad_matrix(s):
+    """Pad every row of the first ragged matrix environment to the widest row (empty cells)."""
+    for m in _t3_re.finditer(r'\\begin\{([a-zA-Z]*matrix|array)\}(\{[^{}]*\})?(.*?)\\end\{\1\}', s):
+        rows = _t3_re.split(r'\\\\', m.group(3))
+        cells = [r.split('&') for r in rows if r.strip()]
+        if not cells:
+            continue
+        w = max(len(c) for c in cells)
+        if all(len(c) == w for c in cells):
+            continue
+        body = ' \\\\ '.join(' & '.join(c + ['\u200b'] * (w - len(c))) for c in cells)
+        return s[:m.start(3)] + body + s[m.end(3):]
+    return None
+
+
+_T3_SUP = str.maketrans('0123456789+-=()nia', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱᵃ')
+_T3_SUB = str.maketrans('0123456789+-=()aeijknmx', '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑᵢⱼₖₙₘₓ')
+
+
+def t3_plain(body):
+    """Readable plain text of a region with NO TeX residue (no backslash, no braces; a script with no Unicode
+    form reads x^(n+1) / a_(ij)). Pure; never raises."""
+    try:
+        s = t3_normalize(body)
+        def _scr(m, table, mark):
+            # every character has a Unicode super/subscript form → use it; otherwise the readable x^(n+1) /
+            # a_(ij) form (kept through the cleanup below by private-use placeholders)
+            t = m.group(1) if m.group(1) is not None else m.group(2)
+            tt = t.translate(table)
+            if t and all(c != tt[k] or c.isspace() for k, c in enumerate(t)):
+                return tt
+            return ('\ue000(' if mark == '^' else '\ue001(') + t + ')'
+
+        def _cmd(m):
+            n = m.group(1)
+            if n in _T3_SYMBOLS:
+                return _T3_SYMBOLS[n]
+            if n in _T3_NARY:
+                v = _T3_NARY[n]
+                return v[0] if isinstance(v, (tuple, list)) else str(v)
+            if n in _T3_FUNCS or n in _T3_LIMWORDS:
+                return n + ' '
+            if n in _T3_NOOP or n in ('left', 'right', 'begin', 'end', 'text', 'mathrm', 'operatorname'):
+                return ''
+            return n
+        # innermost first: scripts, then fractions / binomials / radicals, so nested ones resolve too
+        for _ in range(6):
+            s = _t3_re.sub(r'\^\{([^{}]*)\}|\^([^{\\])', lambda m: _scr(m, _T3_SUP, '^'), s)
+            s = _t3_re.sub(r'_\{([^{}]*)\}|_([^{\\])', lambda m: _scr(m, _T3_SUB, '_'), s)
+            s = _t3_re.sub(r'\\(?:d|t|c|s)?frac\{([^{}]*)\}\{([^{}]*)\}', r'(\1)/(\2)', s)
+            s = _t3_re.sub(r'\\(?:d|t)?binom\{([^{}]*)\}\{([^{}]*)\}', r'C(\1, \2)', s)
+            s = _t3_re.sub(r'\\sqrt\{([^{}]*)\}', '\u221a(\\1)', s)
+        s = _t3_re.sub(r'\\([A-Za-z]+)', _cmd, s)
+        s = _t3_re.sub(r'\\(.)', lambda m: _T3_SPACES.get(m.group(1), m.group(1)) or ' ', s)
+        for _ in range(4):
+            s = _t3_re.sub(r'\^\{([^{}]*)\}|\^(.)', lambda m: _scr(m, _T3_SUP, '^'), s)
+            s = _t3_re.sub(r'_\{([^{}]*)\}|_(.)', lambda m: _scr(m, _T3_SUB, '_'), s)
+        s = s.replace('{', '').replace('}', '').replace('\\', '').replace('^', '').replace('_', '')
+        s = s.replace('\ue000', '^').replace('\ue001', '_')
+        s = _t3_re.sub(r'\s+', ' ', s).strip()
+        return s or '\u200b'
+    except Exception:                               # pragma: no cover
+        return _t3_re.sub(r'[\\^_{}]', '', str(body or '')) or '\u200b'
+
+
+def _t3_ln_strip(s):
+    """Structure-preserving last pass: every \\cmd the grammar rejects → its argument or name."""
+    return _t3_re.sub(r'\\(begin|end)\{[^{}]*\}', ' ', s)
+
+
+def t3_compile_lenient(body):
+    """⟦MATH:…⟧ body → (<m:oMath>, repairs). NEVER raises; never emits visible TeX.
+    repairs == [] ⇔ the strict compiler accepted the body unchanged (byte-identical output)."""
+    try:
+        om0 = t3_compile(body)
+        if not t3_region_residue(''.join(om0.itertext()), in_equation=True):
+            return om0, []
+        _T3_STATS['compiled'] -= 1                       # counted again by the path that succeeds
+        first = 'compiled with visible TeX residue'      # e.g. a stray \\ outside a matrix
+    except MathCompileError as e0:
+        first = str(e0)
+    except Exception as e0:                         # an engine defect must not halt a paper
+        first = 'engine: %s' % e0
+    repairs = ['strict: ' + first[:160]]
+    s = t3_normalize(body)
+    seen = set()
+    for _ in range(T3_LENIENT_MAX_REPAIRS):
+        if s in seen:
+            break
+        seen.add(s)
+        try:
+            om1 = t3_compile(s)
+            _vis = ''.join(om1.itertext())
+            if t3_region_residue(_vis, in_equation=True):
+                _T3_STATS['compiled'] -= 1
+                raise MathCompileError('visible TeX residue after compile')
+            if not _t3_re.search(r'\w', _vis) and _t3_re.search(r'\w', _t3_re.sub(r'\\[A-Za-z]+', '',
+                                                                              str(body or ''))):
+                _T3_STATS['compiled'] -= 1                # repair erased every symbol → plain equation
+                break
+            repairs.append('compiled as: ' + s[:160])
+            _T3_STATS.setdefault('repaired', []).append((str(body), repairs[-1]))
+            return om1, repairs
+        except MathCompileError as e:
+            nxt = _t3_ln_repair(s, e)
+            if nxt is None or nxt == s:
+                stripped = _t3_ln_strip(s)
+                if stripped == s:
+                    break
+                nxt = stripped
+            repairs.append('repair: ' + str(e)[:120])
+            s = nxt
+        except Exception as e:                      # pragma: no cover
+            repairs.append('engine: %s' % e)
+            break
+    plain = t3_plain(body)
+    try:
+        om = OxmlElement('m:oMath')
+        om.append(_t3_run_roman(plain))
+        if t3_schema_errors(om):
+            raise MathCompileError('plain run schema')
+    except Exception:
+        om = OxmlElement('m:oMath')
+        r = OxmlElement('m:r')
+        t = OxmlElement('m:t')
+        t.text = plain
+        r.append(t)
+        om.append(r)
+    _T3_STATS['compiled'] += 1
+    repairs.append('plain equation: ' + plain[:160])
+    _T3_STATS.setdefault('repaired', []).append((str(body), repairs[-1]))
+    return om, repairs
+
+
+def t3_repair_lines(ledger=None):
+    """AMBER footer lines for every repaired region (never a FAIL, never a stop). Deduplicated."""
+    out, seen = [], set()
+    for body, how in (ledger if ledger is not None else _T3_STATS.get('repaired', [])):
+        if body in seen:
+            continue
+        seen.add(body)
+        snip = body if len(body) <= 60 else body[:57] + '…'
+        out.append('one maths expression was written in a spelling the compiler does not accept '
+                   f'and was repaired automatically: "{snip}" → {how[:80]}. Check it reads as intended.')
+    return out
+
+
+def t3_region_residue(text, in_equation=False):
+    """Visible TeX in rendered text. in_equation=True (a compiled <m:oMath>'s text): ANY literal
+    backslash U+005C is residue (\\backslash and \\setminus render as ∖ U+2216, never U+005C).
+    Prose (in_equation=False): a backslash followed by a letter, brace, ^ or _, or a region delimiter."""
+    s = str(text or '')
+    if MATH_OPEN in s or MATH_CLOSE in s:
+        return True
+    if in_equation:
+        return '\\' in s
+    return bool(_t3_re.search(r'\\[A-Za-z{}^_]', s))

@@ -6589,7 +6589,10 @@ def gate_axis2_nf(src, blocks):
     short = []
     for p, subs in ft.items():
         for s, tg in (subs or {}).items():
-            r = bc.nf_parity((meas.get(p) or {}).get(s) or {}, tg)
+            # release 2026.11.29 (G4): one format vocabulary for every recognised non-chemistry subject
+            # (chemistry and an unrecognised subject name keep today's comparison)
+            r = bc.nf_parity((meas.get(p) or {}).get(s) or {}, tg,
+                             normalize=bc.subject_family(s) not in ('chemistry', 'general'))
             if r['status'] == 'FAIL':
                 short.append(f"{p}/{s}: " + ', '.join(f'{k} short {n}' for k, n in sorted(r['short'].items())))
     if short:

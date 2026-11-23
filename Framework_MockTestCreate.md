@@ -1,4 +1,5 @@
-# Framework_MockTestCreate v8.7
+# Framework_MockTestCreate v8.8
+# v8.8 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): render_mock_text uses t3_compile_lenient (never raw LaTeX, AMBER), A-RAWTEX WARN tripwire, G-MATH-COMPILE soft pre-review, EC-15 keeps the planned format, per-family lever lists in the author / rewrite briefs.
 # v8.7 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with final_assembly v1.29.0, audit_canonical
 #   v2.47, blueprint_core v2.13, DeliveryFooter v1.57.0). INCIDENT: TestCreate CSIR NET Mathematical Sciences P1 halted
 #   PERMANENTLY at STEP A3 — the sidecar stored a typeset option as its linear form '(1)/(2)', the auditor read the same
@@ -535,8 +536,14 @@
   can take is recorded INFEASIBLE (EC-14), never a defect. The author brief carries the slot's format; an
   author may convert content with bc.NF_FORMAT_CONVERTERS (several facts about one entity -> statement
   combination; a same-family set -> match list; a comparable set -> order / ranking; a causal claim ->
-  assertion-reason only when the subject's PYQs use it), band and subtopic kept, every control again. A format
-  target that conflicts with the slot's band loses (EC-15 — band wins, the shortfall is disclosed). EC-16: an
+  assertion-reason only when the subject's PYQs use it), band and subtopic kept, every control again. EC-15
+  (release 2026.11.29, G10 — supersedes "band wins"): a planned format is NEVER dropped to reach a band. The slot
+  keeps its planned format and the writer / rewrite reaches the band INSIDE that format with a lever (statement
+  combinations carry M1 necessarily-true / B5 discrimination, match lists carry M6 cross-unit / B4 cross-level, …
+  bc.levers_for); only when the bounded rewrites are spent does the item keep its MEASURED band, disclosed AMBER.
+  Under the old rule a band the writers could not reach converted every statement / match slot to direct (CSIR Maths
+  Mock01: 0 of 10 planned statement / match items delivered) — the paper lost its format mix AND still missed the
+  band. EC-16: an
   exam whose PYQs never use a format has target 0 and the converter never fires.
   MEASUREMENT (D-06): the delivered item's format is RE-MEASURED by bc.nf_measure_axis2(item,
   figure_types.normalise_ask_format) — the SAME function PYQExplain used to write every PYQ record's ask_format,
@@ -5438,7 +5445,11 @@ action: the same paper, the same two files, the same "continue".
                           a fallback that still carries a figure gets this order again with problems ['figure'] — delete
                           its figure_files / figure_dicts and every mention of the figure, re-render its block, at most
                           bc.BC_FALLBACK_FIGURE_ORDERS times, then the engine decides it: R5b or kept + disclosed); 'reasons',
-                          'solvers' (their own moves) and 'adjudicator' say why. Use the SAME author packet (BV_AUTHOR_PACKET); replace the
+                          'solvers' (their own moves) and 'adjudicator' say why. v8.8 (G12): when
+                          climb_brief['level']['apply_lever'] is present ({'id', 'text'} — one lever of the item's
+                          subject family it has not used yet, bc.lever_to_apply), the rewrite applies THAT lever to the
+                          deciding step and keeps the slot's planned ask format (EC-15); climb_brief['level']['levers'] lists
+                          the family's whole set (bc.levers_for — chemistry: H1-H7 unchanged). Use the SAME author packet (BV_AUTHOR_PACKET); replace the
                           question block in the cumulative docx and its sidecar entry (write_q_to_sidecar — it REPLACES the
                           entry, so pass the NEW text's quality record again: author_moves, author_counts and, for an
                           organic structure picture, figure_dicts); then STEP B for that text, then this block again — the
@@ -5705,6 +5716,11 @@ action: the same paper, the same two files, the same "continue".
                   engine runs it in the STEP A2 pre-review: bc.qg_item_gates). SOFT: sent back within
                   bc.BC_PREREVIEW_TRIES, then reviewed as it stands and disclosed AMBER "Qn: maths written as
                   text (G-MATH-TYPESET <arm>)". G-MATH-RESIDUE above is unchanged and still blocking.
+  [ ] G-MATH-COMPILE: (v8.8, every subject) bc.math_compile_findings — a ⟦MATH:…⟧ region of the stem / options /
+                  statements / list columns that the strict compiler rejects (\frac12, {n\choose k}, y\', \limits,
+                  \underbrace …) is named in the STEP A2 pre-review (bc.qg_item_gates). SOFT: sent back within
+                  bc.BC_PREREVIEW_TRIES, then reviewed as it stands — render_mock_text repairs the region
+                  (t3_compile_lenient) and mock_math_residue_check lists it AMBER. Never blocking, never a stop.
   [ ] G-FIG-NEED: (v8.6, every non-chemistry problem figure) bc.fig_need(stem, options, FigureSpec) is not
                   DECORATIVE — the figure defines at least one label, value or feature the text does not. SOFT:
                   sent back within bc.BC_PREREVIEW_TRIES, then disclosed AMBER "Qn: the figure restates the stem".
@@ -5917,11 +5933,11 @@ action: the same paper, the same two files, the same "continue".
                   recorded per question in style_obs.item_flags; a WARN never
                   fails the batch. NAT-only cells record NA, not PASS (EC-7).
 
-  Items 1-61 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  Items 1-62 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   (v8.6: G-MATH-TYPESET and G-FIG-NEED are SOFT — the engine's STEP A2 pre-review sends a finding back at most
   bc.BC_PREREVIEW_TRIES times, then the question is reviewed as it stands and disclosed AMBER; they never fail the
-  batch and never stop it.)
-  All 64 items are RUN; items 62-64 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  batch and never stop it. v8.8: G-MATH-COMPILE is SOFT in the same way.)
+  All 65 items are RUN; items 63-65 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
   verdict and never fail the batch — they are advisory by construction (P-4).
   (v7.1: G-SELFCOUNT joins the must-PASS set. v7.0: G-FIGRECORD joins the must-PASS set. v5.88: G-FIGTYPE-KIND joins the must-PASS set; the advisory trio keeps its place
   at the end. v5.90 — GAP-2026-11-03 G11 / OD-1: the eleven QUALITY items above are
@@ -9706,17 +9722,18 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   # ⟦MATH:…⟧ regions and pass it here. Grammar: \frac \sfrac \sqrt, x^{n},
   # k_{B}-style subscripts, n-ary operators, \cases, matrices, \bar/\vec
   # accents, Greek/symbol map — identical to Steps 1/PYQ-1/9.
-  from t3_mathcomp import (t3_compile, MathCompileError,
+  from t3_mathcomp import (t3_compile, MathCompileError, t3_compile_lenient, t3_repair_lines,
+                           t3_region_residue,
                            MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
                            _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
 
   def render_mock_text(paragraph, text, bold=False, font_name=None, font_size_pt=None, display=False):
       """Interleave plain runs and compiled ⟦MATH:…⟧ regions. STRICT CORE,
       FORGIVING BOUNDARY: a region the compiler rejects NEVER halts the build
-      and NEVER ships silently — it renders as ordinary plain text (no colour,
-      no markup), is recorded in T3_STATS['failed'], and
-      mock_math_residue_check() quotes it verbatim so the author can Ctrl+F
-      straight to it.
+      and NEVER ships as raw LaTeX (v8.8, GAP-2026-11-22-MATH-LENIENT) — it is
+      repaired by t3_compile_lenient (normalise + at most T3_LENIENT_MAX_REPAIRS
+      repairs, last resort a plain upright equation), recorded in
+      T3_STATS['repaired'], and mock_math_residue_check() quotes it as AMBER.
       v8.6 (GAP-2026-11-21 C-S10): font_name / font_size_pt (None = unset, exactly as before) are set on every text
       run; display=True AND text is exactly ONE region (nothing else but spaces) -> the compiled m:oMath is wrapped in
       m:oMathPara centred (schema-valid per the t3 content model) — a displayed equation, as real papers set a
@@ -9734,24 +9751,19 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       if display and isinstance(text, str) and len(T3_REGION_RE.findall(text)) == 1 \
               and T3_REGION_RE.fullmatch(text.strip()):
           _body = T3_REGION_RE.fullmatch(text.strip()).group(1)
-          try:
-              _para = _px86('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
-                            '<m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr></m:oMathPara>')
-              _para.append(t3_compile(_body))
-              paragraph._p.append(_para)
-          except MathCompileError as err:
-              T3_STATS['failed'].append((_body, str(err)))
-              _run(_body)
+          # v8.8 (GAP-2026-11-22-MATH-LENIENT): t3_compile_lenient NEVER raises and never
+          # yields raw LaTeX — a region that compiles today is byte-identical; any other is
+          # repaired (ledger T3_STATS['repaired'] → AMBER via mock_math_residue_check).
+          _para = _px86('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+                        '<m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr></m:oMathPara>')
+          _para.append(t3_compile_lenient(_body)[0])
+          paragraph._p.append(_para)
           return paragraph
       pos = 0
       for mr in T3_REGION_RE.finditer(text):
           if mr.start() > pos:
               _run(text[pos:mr.start()])
-          try:
-              paragraph._p.append(t3_compile(mr.group(1)))
-          except MathCompileError as err:
-              T3_STATS['failed'].append((mr.group(1), str(err)))
-              _run(mr.group(1))
+          paragraph._p.append(t3_compile_lenient(mr.group(1))[0])     # v8.8: never raw text
           pos = mr.end()
       if pos < len(text):
           _run(text[pos:])
@@ -9823,6 +9835,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           amber.append('one maths expression could not be structured and was delivered '
                        f'as plain text: "{snip}" (reason: {reason}). Remedy: Ctrl+F the '
                        'quoted text, fix that ⟦MATH:⟧ spelling, rebuild.')
+      amber.extend(t3_repair_lines())          # v8.8: repaired regions — AMBER, never blocking
+      # v8.8 A-RAWTEX tripwire (WARN, never FAIL): visible TeX in rendered prose should be
+      # unreachable now (every region goes through t3_compile_lenient); if seen it is disclosed
+      # AMBER with the paragraph quoted — nothing is re-rendered automatically, nothing blocks.
+      for p in doc.paragraphs:
+          if t3_region_residue(p.text) and not any(fb and fb in p.text for fb in failed_bodies):
+              amber.append('A-RAWTEX: visible LaTeX in rendered text: %r — re-emit this stem/option '
+                           'through render_mock_text (WARN, never blocking)' % p.text.strip()[:60])
       return {'blocking': blocking, 'amber': amber}
   ```
 
@@ -15588,7 +15608,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.7
+# END OF Framework_MockTestCreate v8.8
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

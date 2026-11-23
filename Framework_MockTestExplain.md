@@ -1,4 +1,5 @@
-# Framework_MockTestExplain v1.55.0
+# Framework_MockTestExplain v1.56.0
+# v1.56.0 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): a non-compiling ⟦MATH:⟧ region is recorded, not raised, and repaired at render (explain_engine v2.16) — no §18 stop from maths spelling.
 # v1.55.0 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with PYQExplain v2.30,
 #   explain_engine v2.14, corpus_io v1.20, CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1,
 #   DeliveryFooter v1.43.0, MockTestCreate v5.95, SHARED_RULES_VERSION 1.8). Evidence: the
@@ -935,9 +936,10 @@ execution path — it does not shrink, soften or delete them.
   tokens in any rendered sentence (§9, v2.6), and no AXIOM naming an option label
   (§8-2, v2.6). A breach raises in
   ExplanationBlock.validate() / add_math_text BEFORE the doc is written. As of
-  2026.08.10.3, validate() also COMPILES any ⟦MATH:…⟧ Tier-3 region (t3_compile) and
-  RAISES at construction on a grammar reject, so such a region can never degrade to
-  raw text at render; this pipeline normally builds math with the explicit helpers
+  2026.08.10.3, validate() also COMPILES any ⟦MATH:…⟧ Tier-3 region (t3_compile); from
+  release 2026.11.29 (engine v2.16, GAP-2026-11-22-MATH-LENIENT) a grammar reject is
+  RECORDED (T3_STATS['authoring_noncompiling']), NOT raised, and the renderer repairs the
+  region (t3_compile_lenient — never raw text, AMBER via t3_repair_amber()); this pipeline normally builds math with the explicit helpers
   (§11), so regions are rare here, but the gate applies to the shared engine. (v1.36.0) Engine v2.7 adds three write-time gates: an
   UNDECLARED UNIVERSAL in AXIOM / SPEED HACK / WHY WRONG / COMMON PITFALLS raises
   (§8-0b; keep one by declaring it in absolutes_justified); a LEARNER-PSYCHOLOGY
@@ -3487,13 +3489,16 @@ execution path — it does not shrink, soften or delete them.
       assert ok is True AND problems == [] AND explain_engine.T3_STATS['failed'] is empty.
       A non-empty degrade ledger (a ⟦MATH:⟧ region that fell back to raw plain text) is a
       BLOCKING FAIL — present_files FORBIDDEN. A run that checks only "did the call raise"
-      is NON-CONFORMING. (As of 2026.08.10.3 ExplanationBlock.validate() also compiles any
-      ⟦MATH:⟧ region and RAISES at construction, so this ledger is normally empty; the
-      assertion is the second gate. v1.27.0 CORRECTION: the parenthetical that stood here
+      is NON-CONFORMING. (Release 2026.11.29: the renderer repairs every ⟦MATH:⟧ region with
+      t3_compile_lenient, so this ledger stays empty; repaired regions are AMBER lines from
+      explain_engine.t3_repair_amber() in the delivery footer — never a FAIL, never a stop. v1.27.0 CORRECTION: the parenthetical that stood here
       previously — "so ⟦MATH:⟧ regions are rare here" — was itself the defect. It read as
       licence to avoid math, and sessions duly verbalised arithmetic instead. ⟦MATH:⟧
       regions are NORMAL and EXPECTED wherever a question is quantitative (§11 S11-1c),
       and engine v2.2's t3_notation_guard rejects mis-compiling notation at construction.)
+  [ ] (v1.56.0) every line of explain_engine.t3_repair_amber() — a ⟦MATH:⟧ region repaired at render — is
+      printed as an AMBER line ("🟨 AMBER: …") with this batch's delivery and carried into the delivery footer;
+      an empty list prints nothing. Never a FAIL, never a stop, never a reason to rebuild.
   [ ] §6A router verdict present for EVERY question in this batch AND carried on
       each block (engine coherence — a visual verdict requires its figure, a §6A-4
       degrade carries the degraded requirement); every §6A-1b structure-answer
@@ -4175,5 +4180,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
 # SHARED_RULES_VERSION: 1.8 (2026-11-08) — parity sentinel (Framework_PYQExplain carries the
 #   bump record and the exact list of the documented pipeline-specific RE-25 sentences)
-# END OF Framework_MockTestExplain v1.55.0
+# END OF Framework_MockTestExplain v1.56.0
 # ════════════════════════════════════════════════════════════════════════

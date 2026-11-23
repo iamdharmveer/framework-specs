@@ -99,7 +99,7 @@ PROVENANCE
     the question_index entry records nf_disclosed {gate: reason} and manifest_hash.
 
     v1.16 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY + DIFFICULTY-INTEGRITY (release 2026.11.10). qindex_cert
-    gains framework_release (bc.OP_RELEASE) — every audit of a paper at or after FRAMEWORK_RELEASE_STRICT judges its
+    gains framework_release (bc.OP_RELEASE; from release 2026.11.29 the VERSION file via fa_release) — every audit of a paper at or after FRAMEWORK_RELEASE_STRICT judges its
     labels LB2-strict; QINDEX_OP_FIELDS carries the generated-item records (organic flag, chain, decisions,
     grades, key votes, clone check, stereo elements, figure proofs, last resort) when present;
     paper_parity_gate (LAW-ORG-11) and paper_figure_proof_gate (LAW-ORG-8) are the assembly checks S13-2L runs.
@@ -417,6 +417,11 @@ from datetime import datetime, timezone
 
 import paper_pipeline as pp
 import blueprint_core as bc      # v1.12 — G-MEDIAREUSE (GAP-2026-11-03 OD-13) + producer_release
+try:                              # release 2026.11.29: hand the shared Tier-3 compiler to blueprint_core (G-MATH-COMPILE,
+    import t3_mathcomp as _fa_t3  # the rendered reading of a repaired region) — routed wherever final_assembly is
+    bc.install_t3(_fa_t3)
+except Exception:                 # noqa: BLE001 — absent compiler: those two stay dormant, never a stop
+    pass
 
 __all__ = [
     "commit_registry",
@@ -838,7 +843,7 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                     "stamps_release": bc.STAMPS_RELEASE,
                     # v1.16 (GAP-2026-11-10): the release that produced this paper — a paper at or after
                     # bc.FRAMEWORK_RELEASE_STRICT is LB2-strict in every later audit (LAW-ORG-5)
-                    "framework_release": bc.OP_RELEASE}
+                    "framework_release": fa_release()}
     if framework_repo_commit is not None:
         _qindex_cert["framework_repo_commit"] = framework_repo_commit
     if spec_source_report is not None:
@@ -1791,6 +1796,18 @@ def bv_load_ladder(exam, home='/home/claude', fresh_first=False):
     return None
 
 
+def fa_release():
+    """release 2026.11.29 (G13): the release that actually ran — the VERSION file beside the engines — so a paper is
+    never stamped with an older release than produced it (2026.11.28 papers carried '2026.11.15'). Falls back to
+    bc.OP_RELEASE. Never raises."""
+    import os, re
+    try:
+        v = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'VERSION'), encoding='utf-8').read().split()[0]
+        return v if re.fullmatch(r'\d{4}\.\d{2}\.\d{2}(\.\d+)?', v) else bc.OP_RELEASE
+    except Exception:                                   # noqa: BLE001
+        return bc.OP_RELEASE
+
+
 def bv_difficulty_mode(batch_state, ladder=None):
     """Cluster R3: THE difficulty mode of a paper, frozen in batch_state['difficulty_mode'] the first time it is
     asked. A paper whose batch_state already holds review records but no mode was begun on an earlier release and
@@ -2330,10 +2347,23 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         except (TypeError, ValueError):
             _tol = None
         _fi, _fe = bc_figure_intrinsic(_bs_bv, _q)
-        return bc.bc_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'), _tol,
-                           results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q), vision_compare=_vcmp_bv,
-                           figure_proof=_vprf_bv, asked=_asked_all.get(_q), max_asks=_mx, rounds_left=_left,
-                           figure_intrinsic=_fi, family_engine=_fe, terminal=_term)
+        # release 2026.11.29 (G12): the rewrite brief names a lever of the item's subject family. An entry without a
+        # subject gets the one every other reader derives (bc.nf_subject_key) for THIS call only, and only when that
+        # subject is a recognised non-chemistry family — it is never written back (the record is byte-identical).
+        _sj_tmp = None
+        if not _e.get('subject'):
+            _sj_c = bc.nf_subject_key(_e, _man_bv)
+            if bc.subject_family(_sj_c) not in ('chemistry', 'general'):
+                _sj_tmp = _e['subject'] = _sj_c
+        _rr = bc.bc_apply(_e, _tgt_bv.get(_q), _labs_bv, _ru_bv, _ans_bv.get(_q), str(_e.get('qtype') or 'mcq'), _tol,
+                          results=_res_bv.get(_q) or {}, findings=_fnd_bv.get(_q), vision_compare=_vcmp_bv,
+                          figure_proof=_vprf_bv, asked=_asked_all.get(_q), max_asks=_mx, rounds_left=_left,
+                          figure_intrinsic=_fi, family_engine=_fe, terminal=_term)
+        if _sj_tmp is not None:
+            _e.pop('subject', None)
+            if isinstance(_rr, dict) and isinstance(_rr.get('entry'), dict) and _rr['entry'].get('subject') == _sj_tmp:
+                _rr['entry'].pop('subject', None)
+        return _rr
     for _q in _qs_bv:
         _e = dict(_cm_bv[_q])
         if isinstance((_st_bv.get('items') or {}).get(_q), dict):
@@ -2721,11 +2751,12 @@ def _bc_norm_tokens(x):
 
 def _a3_render_para(src):
     """release 2026.11.28 (GAP-2026-11-21-A3-OMML-PARITY): a python-docx paragraph holding `src` rendered EXACTLY as the
-    S10-4 funnel render_mock_text renders it (t3_mathcomp.t3_compile per ⟦MATH:…⟧ region; a region the compiler
-    rejects becomes its body as plain text). None when python-docx / t3_mathcomp are unavailable."""
+    S10-4 funnel render_mock_text renders it (t3_mathcomp.t3_compile_lenient per ⟦MATH:…⟧ region — release 2026.11.29:
+    a region the strict compiler rejects is repaired, never plain LaTeX). None when python-docx / t3_mathcomp are
+    unavailable."""
     try:
         from docx import Document as _A3D
-        from t3_mathcomp import t3_compile as _a3c, MathCompileError as _a3E, _REGION_RE as _a3R
+        from t3_mathcomp import t3_compile_lenient as _a3cl, _REGION_RE as _a3R, _T3_STATS as _a3S
     except Exception:                                   # noqa: BLE001
         return None
     p = _A3D().add_paragraph()
@@ -2734,12 +2765,13 @@ def _a3_render_para(src):
     for mr in _a3R.finditer(text):
         if mr.start() > pos:
             p.add_run(text[pos:mr.start()])
+        _n_rep, _n_cmp = len(_a3S.get('repaired', [])), _a3S.get('compiled', 0)
         try:
-            p._p.append(_a3c(mr.group(1)))
-        except _a3E:
-            p.add_run(mr.group(1))
+            p._p.append(_a3cl(mr.group(1))[0])
         except Exception:                               # noqa: BLE001
             p.add_run(mr.group(1))
+        del _a3S.setdefault('repaired', [])[_n_rep:]    # a reading, not a render: keep the ledgers clean
+        _a3S['compiled'] = _n_cmp
         pos = mr.end()
     if pos < len(text):
         p.add_run(text[pos:])
@@ -3253,6 +3285,61 @@ def bc_check_bound(exam, n, item_hashes_path, home='/home/claude'):
 # ══════════════════════════════════════════════════════════════════════════
 # Self-test
 # ══════════════════════════════════════════════════════════════════════════
+
+def _r29_t3_self_test(check):
+    """The release-2026.11.29 checks that need the installed Tier-3 compiler (install_t3). NO-STOP checks."""
+    import random as _rr
+    from lxml import etree as _ets
+    _t3s = bc._T3_ENGINE
+    if _t3s is None:
+        check('r29_t3_installed', False)
+        return
+    # G1 — the 7 standard spellings the strict compiler rejects all compile to a residue-free equation
+    _seven = ["f\\'(x)", '{n\\choose k}', '\\sum\\limits_{i=1}^{n} i', '\\underbrace{x+y}_{n}',
+              '\\overbrace{x+y}^{n}', '\\frac12', '\\sqrt2']
+    _ok7 = True
+    for _b in _seven:
+        _om, _rep = _t3s.t3_compile_lenient(_b)
+        _ok7 = _ok7 and bool(_rep) and not _t3s.t3_region_residue(''.join(_om.itertext()), in_equation=True) \
+            and not _t3s.t3_schema_errors(_om) and not _rep[-1].startswith('plain')
+    check('r29_lenient_seven_spellings_structured', _ok7)
+    # G1 — a region that compiles today is byte-identical and records no repair
+    _same = True
+    for _b in ('x^{2}+\\frac{1}{2}', '\\int_{0}^{1} f(x)\\,dx', '\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}',
+               '\\binom{n}{k}', 'A \\backslash B', '\\lim_{n\\to\\infty} a_n'):
+        _a = _ets.tostring(_t3s.t3_compile(_b))
+        _om, _rep = _t3s.t3_compile_lenient(_b)
+        _same = _same and _a == _ets.tostring(_om) and _rep == []
+    check('r29_lenient_identity_when_strict_compiles', _same)
+    # G1 — hostile writer: random malformed regions never raise, never schema-invalid, never visible TeX
+    _toks = ['\\frac', '\\sqrt', '\\sum', '\\limits', '\\choose', '\\underbrace', '\\left(', '\\right)', '{', '}', '^',
+             '_', '&', '\\\\', '\\begin{pmatrix}', '\\end{cases}', '\\zz', "\\'", 'x', '1', ' ', '⟦MATH:', '\n']
+    _rg, _bad = _rr.Random(2911), 0
+    _n0 = (_t3s._T3_STATS.get('compiled', 0), len(_t3s._T3_STATS.setdefault('repaired', [])))
+    for _i in range(1500):
+        _b = ''.join(_rg.choice(_toks) for _ in range(_rg.randint(0, 12)))
+        try:
+            _om, _rep = _t3s.t3_compile_lenient(_b)
+            if _t3s.t3_schema_errors(_om) or _t3s.t3_region_residue(''.join(_om.itertext()), in_equation=True):
+                _bad += 1
+            if len([r for r in _rep if r.startswith('repair')]) > _t3s.T3_LENIENT_MAX_REPAIRS:
+                _bad += 1
+        except Exception:                               # noqa: BLE001
+            _bad += 1
+    _t3s._T3_STATS['compiled'] = _n0[0]
+    del _t3s._T3_STATS['repaired'][_n0[1]:]
+    check('r29_lenient_hostile_never_raises_never_raw', _bad == 0)
+    # G3 — G-MATH-COMPILE is soft, names the region, empty for a clean item
+    _f = bc.math_compile_findings({'stem_text': 'Find ⟦MATH:\\frac12⟧.', 'option_texts': ['1', '2']})
+    check('r29_g_math_compile_soft', len(_f) == 1 and _f[0].startswith('G-MATH-COMPILE')
+          and bc.math_compile_findings({'stem_text': 'Find ⟦MATH:x^{2}⟧.'}) == []
+          and bc.math_compile_findings(None) == [])
+    # G2 — reviewer text of a repaired region reads the rendered equation, never the raw body
+    _ml = bc.math_linear('v ⟦MATH:\\frac12⟧')
+    check('r29_math_linear_reads_rendered', '\\frac12' not in _ml and '(1)/(2)' in _ml
+          and bc.math_linear('v ⟦MATH:x^{2}⟧') == 'v x²')
+
+
 def self_test():
     passed = 0
     total = 0
@@ -4599,7 +4686,7 @@ def self_test():
     try:
         import importlib.util as _a3iu
         from docx import Document as _A3Doc
-        from t3_mathcomp import t3_compile as _a3tc
+        from t3_mathcomp import t3_compile as _a3tc, t3_compile_lenient as _a3tcl
         _a3sp = _a3iu.spec_from_file_location('_a3_ac', _bv_os.path.join(_bv_os.path.dirname(_bv_os.path.abspath(__file__)),
                                                                           'audit_canonical.py'))
         _a3ac = _a3iu.module_from_spec(_a3sp)
@@ -4703,7 +4790,7 @@ def self_test():
                 ('C27','unicode text maths (control)','Value of a⁴ + b⁴?', ['22', '18', '14', '26']),
                 ('C28','fraction in STEM only',       r'If ⟦MATH:\frac{a}{b}=\frac{c}{d}⟧ then', ['1', '2', '3', '4']),
                 ('C29','maths-dense short STEM',      r'⟦MATH:\int_{0}^{\pi} \sin^{2} x\, dx⟧ equals', [r'⟦MATH:\frac{\pi}{2}⟧', r'⟦MATH:\pi⟧', '0', '1']),
-                ('C30','region compile failure',      'Value?', [r'⟦MATH:\notacommand{1}⟧', '1', '2', '3']),
+                ('C30','region compile repair',       'Value?', [r'⟦MATH:\notacommand{7}⟧', '1', '2', '3']),
                 ('C31','options in TABLE cells',      'Find p.', [r'⟦MATH:\frac{1}{2}⟧', r'⟦MATH:\frac{1}{3}⟧', r'⟦MATH:\frac{1}{4}⟧', r'⟦MATH:\frac{1}{5}⟧']),
                 ('C32','fraction collision 12/5 vs 1/25', 'Value?', [r'⟦MATH:\frac{12}{5}⟧', r'⟦MATH:\frac{1}{25}⟧', r'⟦MATH:\frac{5}{12}⟧', r'⟦MATH:\frac{25}{1}⟧']),
             ]
@@ -4717,10 +4804,7 @@ def self_test():
                     for mr in _a3RR.finditer(text):
                         if mr.start() > pos:
                             p.add_run(text[pos:mr.start()])
-                        try:
-                            p._p.append(_a3tc(mr.group(1)))
-                        except _a3ME:
-                            p.add_run(mr.group(1))
+                        p._p.append(_a3tcl(mr.group(1))[0])     # 2026.11.29: lenient, as render_mock_text
                         pos = mr.end()
                     if pos < len(text):
                         p.add_run(text[pos:])
@@ -5536,6 +5620,7 @@ def self_test():
         check('gap1120_F9_footer_discloses_the_kept_figure',
               any(c == 'AMBER' and 'kept its figure' in t for c, t in bc.bc_amber_lines('1', _c9['1']))
               and not any('replaced by a text question' in t for c, t in bc.bc_amber_lines('2', _c9['2'])))
+    _r29_t3_self_test(check)         # release 2026.11.29 — lenient compile / G-MATH-COMPILE / G2 (needs the compiler)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

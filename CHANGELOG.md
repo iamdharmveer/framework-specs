@@ -1,5 +1,65 @@
 # Changelog
 
+## 2026.11.29 — GAP-2026-11-22: maths never shows as raw LaTeX; past-paper equations read in full; planned formats kept; per-family levers
+
+(over release 2026.11.28, commit 09c320d. Framework_MockTestCreate v8.8; Framework_PYQPrepare v2.3.0 (S3-5b compiler v2.2);
+Framework_MockTestAnalyse v2.66.0; Framework_PYQExplain v2.34; Framework_MockTestExplain v1.56.0; t3_mathcomp v2.2;
+blueprint_core (1635); final_assembly (267); explain_engine v2.16 (448); analyse_engine v1.8 (317); audit_canonical (694);
+notes_docx; spec_name_audit_baseline; LAW_REGISTRY (LAW-NF-4 amended); STEP_CONTRACTS floors Create 8.8, PYQExplain
+2.34, MockTestExplain 1.56.0, MockTestAnalyse 2.66.0, PYQPrepare 2.3.0. Framework_Blueprint, the difficulty ladder and
+its 40/35/25 cuts, the "+30% harder" preset and the CONFIRM override are UNCHANGED (owner ruling 2026-11-22, option B:
+the planning scale is decided after Step 5 is re-run on readable equations). Skill, triggers and routes unchanged.)
+
+**Incident.** TestCreate CSIR NET Mathematical Sciences P1 (release 2026.11.28): Q92 / Q97 printed raw LaTeX; 0 of 10
+planned statement / match items delivered; reviewers and rankers read garbled equations.
+
+**Root causes (verified on production 09c320d and the three real papers).**
+1. A region the strict compiler rejects was written into the docx as its raw body (render_mock_text, explain_engine,
+   PYQPrepare, notes_docx). Seven standard spellings are rejected (\' \choose \limits \underbrace \overbrace \frac12
+   \sqrt2). In Step 9 / PYQ-1 the same region RAISED at validate() and could reach the §18-1a HARD STOP.
+2. The Step 5 reader omml_to_linear understood only fractions, scripts and radicals: on the 1,151 equations of the three
+   real papers it dropped 124 n-ary symbols (∑ ∫), 38 matrices, 35 cases / aligned blocks, 190 delimiters and 113
+   accents — ladder anchors read 'J(y)=04((y')^2)/(y^2)dx', 'A=110121112'.
+3. Reviewer / solver text (bc.math_linear) read \binom, \bar, \hat, \vec, \overline, \mathbb as 'binomnk', 'barx',
+   'mathbbR' — not what the candidate sees.
+4. Format vocabularies: targets 'statement_combination' / 'match_list', measurement 'statement' / 'match' — a perfect
+   paper read short; EC-15 ("band wins") then converted planned formats to direct.
+5. The lever list (H3 'species, substrate', H6 'spectrum') was chemistry-worded for every subject; OP_RELEASE stale.
+
+**Fixes.**
+- t3_compile_lenient (t3_mathcomp / PYQPrepare S3-5b v2.2): strict compile first — byte-identical when it compiles
+  without visible TeX; else normalise + at most T3_LENIENT_MAX_REPAIRS = 12 repairs (seen-set, never cycles); last
+  resort a plain upright equation (x^(n+1), C(n, k), √(x)). Never raises, never a visible backslash (a stray \\
+  between operands becomes ∖, today's glyph). Ledger _T3_STATS['repaired'] → AMBER (t3_repair_lines). Used by every
+  renderer (Create, PYQPrepare, Explain, Notes, the A3 reading). Fuzz: 2 × 100,000 + 3 × 40,000 malformed regions —
+  0 exceptions, 0 schema-invalid, 0 visible TeX; 122 of 122 framework regions that compile today unchanged except the
+  16 that showed a literal backslash. explain_engine validate() records instead of raising. G-MATH-COMPILE (SOFT, STEP
+  A2 pre-review, BC_PREREVIEW_TRIES); A-RAWTEX (WARN tripwire, never FAIL).
+- bc.omml_read: past-paper equations in the SAME linear notation as a writer's region (bc.math_linear) — round-trip on
+  every framework region: 119 / 119 identical; 1,151 real equations: 0 structure lost (omml_read_loss), 0 failures.
+  Step 5 uses it for every exam that is not chemistry-only (bc.omml_reader_for; a chemistry-only exam keeps
+  omml_to_linear byte for byte); STRUCT-LOSS printed per paper. Originality fingerprints (pyq_index) and the mock text
+  they are compared with now share one notation.
+- bc.math_linear reads binomials, accents, bars, ℝ-style letters and under/over labels as the candidate sees them; a
+  region the strict compiler rejects is read from the repaired equation (G2). No recursion (omml_read never re-enters).
+- G4: nf_parity(normalize=True) for every recognised non-chemistry subject (A-AXIS2). EC-15 superseded: the planned
+  format is kept; the band is reached inside it with a lever.
+- Subject family switch (bc.subject_family): Biochemistry / Life sciences → biology (CHEM_NAME_RE no longer matches
+  Biochemistry; organic-structure items stay on the chemistry path by content); chemistry branch names ('Organic',
+  'Inorganic', a subject named exactly 'Physical') and an unrecognised subject of a chemistry-named exam stay chemistry.
+  Family lever lists (bc.levers_for; chemistry and unrecognised subjects = LD_LEVERS byte for byte); the rewrite brief
+  names one unused family lever (lever_to_apply → climb_brief['level']['apply_lever']); the subject is supplied to
+  that step for the call only and never written back. LAW-NF-4 amended. qindex framework_release read from VERSION
+  (final_assembly.fa_release). blueprint_core stays a thin core: the compiler is handed to it (bc.install_t3).
+
+**No new stop.** No new raise, FAIL, INFRA gate, certificate field or question; one raise removed (explain validate()).
+Every loop is bounded (12 repairs, BC_PREREVIEW_TRIES).
+
+**Known and stated.** G11 (MSQ key-size plan) deferred — no exam's profile records its real answer keys. Planning
+scale (profile rubric) vs measuring scale (ladder) unchanged by owner ruling; revisit after Step 5 re-runs.
+Per-exam action after deploy: re-run Step 5 (PYQExtract) once per non-chemistry exam; the ladder refits through the
+existing pyq_sha rule (unchanged packets keep their orderings).
+
 ## 2026.11.28 — GAP-2026-11-21-A3-OMML-PARITY: STEP A3 reads equations the same way on both sides and can never hold a paper
 
 (over release 2026.11.27, commit 6f40774. Framework_MockTestCreate v8.7; Framework_MockTestOrchestrate v1.12.0;

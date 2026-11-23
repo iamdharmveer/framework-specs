@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""analyse_engine.py v1.7 — Step 5 (PYQExtract) shared extraction engine.
+"""analyse_engine.py v1.8 — Step 5 (PYQExtract) shared extraction engine.
 
 v1.7 (2026-11-27, GAP-2026-11-21-MATH-TYPESET C-A1; release 2026.11.27): MATH_TYPESET_PROFILE per SUBJECT (the
   manifest 'section' — the name every question, slot and section_rules entry carries). math_typeset_rows_from_docx
@@ -342,6 +342,75 @@ def omml_to_linear(omath_elem):
             return ''.join(recurse(c) for c in el)
     try:    return recurse(omath_elem).strip()
     except: return '[OMML_FAILED]'
+
+# release 2026.11.29 (GAP-2026-11-22-MATH-READ, G5): the PYQ equation reader of extract_presorted. 'legacy' =
+# omml_to_linear above (byte-identical — the default, and what a chemistry-only exam keeps); 'read' =
+# blueprint_core.omml_read (∑ ∫ with limits, matrices, cases, delimiters, accents kept). Step 5 sets it once per exam
+# with set_pyq_reader(bc.omml_reader_for(<the exam's subjects>)). PYQ_READ_STATS feeds the STRUCT-LOSS report line.
+PYQ_READER = 'legacy'
+PYQ_READ_STATS = {'equations': 0, 'struct_loss': 0, 'lost': {}, 'reader': 'legacy'}
+
+
+def set_pyq_reader(mode):
+    """'read' or 'legacy' (anything else = 'legacy'). PYQ_READ_STATS restarts only when the mode changes (it is
+    cumulative across the papers of one run). Returns the mode set. Never raises."""
+    global PYQ_READER
+    m = 'read' if mode == 'read' else 'legacy'
+    if m != PYQ_READER or PYQ_READ_STATS.get('reader') != m:
+        PYQ_READ_STATS.update({'equations': 0, 'struct_loss': 0, 'lost': {}, 'reader': m})
+    PYQ_READER = m
+    return PYQ_READER
+
+
+def auto_pyq_reader(exam_code):
+    """Pick the reader from the exam's exam_config.json (attachments, project, session — first found):
+    bc.omml_reader_for(its subjects). No config → 'legacy' (today's reader). Never raises."""
+    import json, os
+    import blueprint_core as _bcr
+    for d in ('/mnt/user-data/uploads', '/mnt/project', '/home/claude'):
+        pth = os.path.join(d, f'{exam_code}_exam_config.json')
+        try:
+            if os.path.exists(pth):
+                cfg = json.load(open(pth, encoding='utf-8'))
+                subj = [s for sec in (cfg.get('sections') or []) for s in ((sec or {}).get('subjects') or [])]
+                return set_pyq_reader(_bcr.omml_reader_for(subj or [cfg.get('exam_name') or exam_code], cfg))
+        except Exception:                               # noqa: BLE001
+            continue
+    return set_pyq_reader('legacy')
+
+
+def pyq_omml(omath_elem):
+    """The PYQ equation renderer extract_presorted passes to corpus_io.text_of: the reader PYQ_READER names, with
+    the STRUCT-LOSS row check counted. Never raises."""
+    import blueprint_core as _bcr
+    if PYQ_READER == 'read':
+        txt = _bcr.omml_read(omath_elem)
+        if txt == '[OMML_FAILED]':
+            txt = omml_to_linear(omath_elem)
+    else:
+        txt = omml_to_linear(omath_elem)
+    try:
+        PYQ_READ_STATS['equations'] += 1
+        lost = _bcr.omml_read_loss(omath_elem, txt) if PYQ_READER == 'read' else {}
+        if lost:
+            PYQ_READ_STATS['struct_loss'] += 1
+            for k, v in lost.items():
+                PYQ_READ_STATS['lost'][k] = PYQ_READ_STATS['lost'].get(k, 0) + v
+    except Exception:                                   # noqa: BLE001
+        pass
+    return txt
+
+
+def pyq_struct_loss_line():
+    """The Step 5 STRUCT-LOSS report line (printed, never a stop)."""
+    st = PYQ_READ_STATS
+    if st.get('reader') != 'read':
+        return f"STRUCT-LOSS: reader 'legacy' (chemistry-only exam — today's reader kept); {st['equations']} equation(s)"
+    if not st['struct_loss']:
+        return f"STRUCT-LOSS: 0 — {st['equations']} equation(s) read with every structure kept"
+    return (f"STRUCT-LOSS: {st['struct_loss']} of {st['equations']} equation(s) lost structure {st['lost']} — "
+            "AMBER: those past questions read incompletely; the ladder still uses them")
+
 
 def enrich_paragraph_with_omml(stem_text, paragraph):
     """
@@ -1040,6 +1109,7 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     # are read at runtime and nothing about any exam is hardcoded. Absent scheme => the
     # positional branch is inert and detection is exactly v2.38.
     _mscheme = (progress.get('_meta', {}) or {}).get('marking_scheme') or []
+    auto_pyq_reader(exam_code)          # release 2026.11.29 (G5): chemistry-only exam → today's reader, else omml_read
     questions = extract_presorted(doc, year, shift, paper_id, q_roles,
                                   options_count, multi_select,
                                   marking_scheme=_mscheme)
@@ -1326,7 +1396,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
     paras, nxt = bc.sorted_body_lookahead(doc)
     # release 2026.11.24 (A2): every body table, keyed by the paragraph it follows (the same indices as paras); its
     # cells read with the OMML renderer so equation cells (character tables) survive
-    _tbls = bc.tables_by_paragraph(doc, lambda _p_el: corpus_io.text_of(_p_el, omml_renderer=omml_to_linear))
+    _tbls = bc.tables_by_paragraph(doc, lambda _p_el: corpus_io.text_of(_p_el, omml_renderer=pyq_omml))
     colour_ok  = bc.heading_colour_available(paras)   # D6 — probed ONCE per FILE
     terminated_by_heading = 0     # QV-15 counter (GAP-2026-08-05-001)
     # Per-question flag, RESET at the top of every question body below. Initialised
@@ -1384,11 +1454,11 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         # Producer and consumer sharing a blind spot is what made this silent, the same
         # shape as the Q-detector defect above. Seeding both flags from the stem closes it.
         # v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.1.6 / E-13): the stem TEXT comes from
-        # corpus_io.text_of(para, omml_renderer=omml_to_linear) so <w:t> and <m:t> interleave in DOCUMENT ORDER —
+        # corpus_io.text_of(para, omml_renderer=pyq_omml) so <w:t> and <m:t> interleave in DOCUMENT ORDER —
         # enrich_paragraph_with_omml is retained ONLY for the omml_present/omml_ok
         # flags (its appended-at-end text is discarded).
         _, _stem_ok, _stem_has_omml = enrich_paragraph_with_omml('', para)
-        _stem_txt = re.sub(r'^Q\.?\d+\.?\s*', '', corpus_io.text_of(para, omml_renderer=omml_to_linear)).strip()
+        _stem_txt = re.sub(r'^Q\.?\d+\.?\s*', '', corpus_io.text_of(para, omml_renderer=pyq_omml)).strip()
         if _stem_has_omml:
             omml_present = True
             omml_ok      = omml_ok and _stem_ok
@@ -1446,7 +1516,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
                 if _o_has:
                     omml_present = True
                     omml_ok      = omml_ok and _o_ok
-                _ot = corpus_io.text_of(paras[i], omml_renderer=omml_to_linear).replace('[OMML_FAILED]', '').strip()
+                _ot = corpus_io.text_of(paras[i], omml_renderer=pyq_omml).replace('[OMML_FAILED]', '').strip()
                 options.append(clean_option_text(_ot if _ot else nt))
                 options_raw.append(nt)   # v2.15: preserve raw line for label detection
             else:
@@ -1455,7 +1525,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
                     omml_present = True
                     omml_ok      = omml_ok and ok  # BUG-A05 fix: AND not replace
                     # v2.56 §6.1.6 / E-13: in-order <w:t>+<m:t>, not appended-at-end
-                    stem_parts.append(corpus_io.text_of(paras[i], omml_renderer=omml_to_linear).strip())
+                    stem_parts.append(corpus_io.text_of(paras[i], omml_renderer=pyq_omml).strip())
                 else:
                     stem_parts.append(nt)
             i += 1
@@ -3154,9 +3224,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.65'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.65'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.65'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.66'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.66'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.66'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):

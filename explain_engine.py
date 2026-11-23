@@ -3593,6 +3593,7 @@ def guard_sentence(text, cfg=None):
 # v2.0 (GAP-2026-08-07-EXPLAIN-OMML): shared Tier-3 compiler — SINGLE SOURCE with
 # Framework_PYQPrepare §S3-5b; the self-test drift lock keeps them byte-identical.
 from t3_mathcomp import (t3_compile, MathCompileError, count_math_regions,
+                         t3_compile_lenient, t3_repair_lines,
                          MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
                          _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
 
@@ -3688,12 +3689,10 @@ def add_math_text(paragraph, text, bold=False, color=None, cfg=None, preserve=Fa
                 _emit_plain(paragraph, text[pos:mr.start()], bold, color, preserve)
             if mr.group('t3') is not None:             # ⟦MATH:…⟧ — Tier-3 compile
                 body = mr.group('t3')
-                try:
-                    node = t3_compile(body)
-                    paragraph._p.append(node)
-                except MathCompileError as t3err:
-                    T3_STATS['failed'].append((body, str(t3err)))
-                    _run(paragraph, body, bold, color)
+                # v2.16 (GAP-2026-11-22-MATH-LENIENT): never raw LaTeX — t3_compile_lenient returns the
+                # strict result unchanged when the region compiles, else a repaired equation recorded in
+                # T3_STATS['repaired'] (AMBER, check 8b). It never raises.
+                paragraph._p.append(t3_compile_lenient(body)[0])
             else:                                      # ⟦M:<b64>⟧ / ⟦M⟧ — preserved
                 payload = mr.group('op')
                 if payload:
@@ -4187,15 +4186,18 @@ class ExplanationBlock:
             # depth"). Exam-agnostic: pure Tier-3 grammar, no exam value. Only
             # ⟦MATH:…⟧ (Tier-3) is compiled here; ⟦M:<b64>⟧ preserve tokens are
             # never matched by T3_REGION_RE and are untouched.
+            # v2.16 (GAP-2026-11-22-MATH-LENIENT): NO raise. A region the strict compiler
+            # rejects is repaired at render by t3_compile_lenient (never raw text) and
+            # disclosed AMBER; raising here made a writer that keeps one spelling loop or
+            # stop the step (§18-1a HARD STOP). The probe is recorded, never fatal.
             for _body in T3_REGION_RE.findall(s):
                 try:
                     t3_compile(_body)
                 except MathCompileError as _t3err:
-                    raise ValueError(
-                        f'Q{self.q}: ⟦MATH:…⟧ region does not compile — {_t3err}. '
-                        f'Region body: {_body!r}. Fix the Tier-3 syntax (§11); an '
-                        f'uncompilable region would otherwise degrade to raw text '
-                        f'at render.')
+                    T3_STATS.setdefault('authoring_noncompiling', []).append(
+                        (self.q, _body, str(_t3err)[:120]))
+                except Exception:                        # noqa: BLE001
+                    pass
         if self.anomaly is not None:
             # anomaly is an INTERNAL escalation signal in Step 9 (never published).
             # v2.6: figures are student content too — an anomaly block carries none.
@@ -5300,7 +5302,14 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None, records=None):
             'one maths expression could not be structured and was delivered as '
             f'plain text: "{snippet}" (reason: {reason}). Remedy: Ctrl+F the '
             'quoted text, fix that ⟦MATH:⟧ spelling in the block, rebuild.')
+    # 8b. v2.16 — regions t3_compile_lenient repaired are AMBER (t3_repair_amber()), NOT problems:
+    # they rendered as real equations, so they never block delivery or stop the step.
     return (not problems), problems
+
+
+def t3_repair_amber():
+    """AMBER footer lines for every ⟦MATH:⟧ region repaired at render (v2.16). Never a FAIL."""
+    return t3_repair_lines()
 
 def _expl_segments(out_path, cfg):
     """Rendered prose lines of each question's EXPLANATION region only (after the
@@ -5738,15 +5747,21 @@ def self_test():
     # make this fixture pass with the gate removed, which is no test at all.
     # v2.15 (GAP-2026-11-20-MATH-OMML): \tfrac is now LEGAL Tier-3 grammar (= \frac),
     # so the probe is \hfrac — still not a command, still guard-transparent (verified).
+    # v2.16 (GAP-2026-11-22-MATH-LENIENT): validate() NO LONGER RAISES on such a region —
+    # raising made a writer that keeps one spelling loop or hard-stop the step. The region
+    # is recorded in T3_STATS['authoring_noncompiling'] and repaired at render.
+    _an0 = len(T3_STATS.setdefault('authoring_noncompiling', []))
     try:
-        ExplanationBlock(q=1, ca=1,
+        _okv = ExplanationBlock(q=1, ca=1,
             axiom=['The ratio of the two quantities is fixed by the definition.'],
             deduction=['Substituting gives ⟦MATH:\\hfrac{1}{2}⟧ for the ratio.',
                        'That value settles option 1.'],
             why_wrong={2: ['a.'], 3: ['b.'], 4: ['c.']}, cfg=cfg).validate()
-        check('T3-GATE-UNCOMPILABLE-REJECT', False)
+        check('T3-GATE-UNCOMPILABLE-RECORDED-NO-RAISE',
+              _okv and len(T3_STATS['authoring_noncompiling']) == _an0 + 1)
     except ValueError:
-        check('T3-GATE-UNCOMPILABLE-REJECT', True)
+        check('T3-GATE-UNCOMPILABLE-RECORDED-NO-RAISE', False)
+    del T3_STATS['authoring_noncompiling'][_an0:]
     # …and a well-formed region still passes, so the gate rejects bad math rather
     # than all math.
     check('T3-GATE-COMPILABLE-ACCEPT', ExplanationBlock(q=1, ca=1,
@@ -8284,12 +8299,17 @@ def self_test_audit():
 
     # GRACEFUL DEGRADATION — a bad region never raises at render; it ships as
     # plain text and the ledger records it for the verifier's verbatim quote.
-    _n0 = len(T3_STATS['failed'])
+    # v2.16: the bad region is REPAIRED (lenient compile) — an equation, no raw text,
+    # recorded in the 'repaired' ledger, never in 'failed'.
+    _n0 = len(T3_STATS['failed']); _r0 = len(T3_STATS.setdefault('repaired', []))
     _dd = Document(); _dp = _dd.add_paragraph()
     add_math_text(_dp, 'Bad ⟦MATH:\\frobnicate{x}⟧ region here.')
-    chk('T3-DEGRADE-NO-RAISE', len(T3_STATS['failed']) == _n0 + 1
-        and '\\frobnicate{x}' in _dp.text and '⟦' not in _dp.text)
-    T3_STATS['failed'].pop()      # keep the shared ledger clean for later locks
+    _om = list(_dp._p.iter(qn('m:oMath')))
+    chk('T3-DEGRADE-NO-RAISE', len(T3_STATS['failed']) == _n0
+        and len(T3_STATS['repaired']) == _r0 + 1 and len(_om) == 1
+        and '\\' not in ''.join(_om[0].itertext()) and '\\frobnicate' not in _dp.text
+        and '⟦' not in _dp.text)
+    del T3_STATS['repaired'][_r0:]   # keep the shared ledger clean for later locks
 
     # SOURCE MATH HEALTH — a gap-bearing input paper is named in plain words.
     _sh = Document()

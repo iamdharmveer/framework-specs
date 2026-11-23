@@ -394,7 +394,9 @@ def _emit_runs(paragraph, runs, *, colour=None, bold=False, size=BODY_PT):
                 from lxml import etree
                 paragraph._p.append(etree.fromstring(r["xml"].encode("utf-8")))
             else:
-                paragraph._p.append(t3_mathcomp.t3_compile(r["latex"]))
+                # release 2026.11.29: lenient — a region the strict compiler rejects is repaired,
+                # never a crash mid-build and never raw LaTeX (gates above still name it).
+                paragraph._p.append(t3_mathcomp.t3_compile_lenient(r["latex"])[0])
         else:
             raise ValueError(f"unknown run type: {kind!r}")
     return paragraph

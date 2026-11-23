@@ -599,7 +599,7 @@
   "LAW-NF-4": {
    "gap": "GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY",
    "stated_in": "blueprint_core Cluster NF (F-04); Framework_MockTestCreate.md v6.1 S0-NF; Framework_Blueprint.md v1.65.0 §4-1c / §7-10",
-   "requires": "The decision vocabulary and band recipe are subject-agnostic; a missing recipe range is dormant, never a pass (bc.band_recipe_check_any).",
+   "requires": "The decision vocabulary and band recipe are subject-agnostic; a missing recipe range is dormant, never a pass (bc.band_recipe_check_any). AMENDED release 2026.11.29 (GAP-2026-11-22-FAMILY-LEVERS, owner ruling 2026-11-22): the decision vocabulary and band recipe stay subject-agnostic; the LEVER list shown to writers and rewrite briefs is per subject family (bc.levers_for) — chemistry keeps LD_LEVERS H1-H7 byte for byte.",
    "detect": "nonorganic_fidelity_rule",
    "detect_note": "A spec PERFORMS this operation when its live text calls a Cluster NF engine entry point (bc. or blueprint_core. prefix): nested_allocate, nf_targets_per_mock, subject_band_split, schedule_place_by_subject, band_recipe_check_any, minimal_identifying_parts, text_clone_guard, nf_series_registry_add, intra_paper_duplicates, key_leak_check, manifest_hash, manifest_crosswalk, format_plan_slots, stem_figure_consistency or metal_figure_convention.",
    "governs": [
