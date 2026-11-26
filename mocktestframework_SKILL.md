@@ -14,9 +14,8 @@ CONTRACT FLOOR (2026.11.04): a project copy of a spec named in STEP_CONTRACTS.js
 used and Step 0 prints `[STALE — NOT LOADED]` (never a stop). It protects the Step 7 user
 contract (two files, review in-session) from an outdated project copy.
 
-ENGINES ARE REPO-ONLY. All 18 routed engine scripts, plus the 9 tracked-but-never-routed
-scripts (validate_framework_md.py the CI validator; audit_canonical.py the canonical auditor
-that Step 6 copies to each exam and Step 7 runs as its self-audit; spec_source.py the
+ENGINES ARE REPO-ONLY. All 19 routed engine scripts, plus the 8 tracked-but-never-routed
+scripts (validate_framework_md.py the CI validator; spec_source.py the
 resolver; run_ci_gates.py the CI-parity gate runner; regression_pyq_fixtures.py the
 cross-exam regression suite; handshake_audit.py the cross-step handshake audit
 (GAP-2026-11-03); and the three baseline auditors spec_name_audit.py, mock_sync_audit.py and

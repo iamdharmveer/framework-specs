@@ -15,6 +15,12 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.48 — 2026-12-04 — GAP-2026-11-26-RENDER-PARITY (release 2026.12.04; with final_assembly v1.30.0, blueprint_core
+#   v2.14). --item-texts adds, per question, 'body' (the structure-preserving reading of the block's own paragraphs, table
+#   cells excluded), 'rows' (every table row as [{'t': cell reading, 'pic': bool}]) and 'pictures' (inline pictures in
+#   the block, table cells included). 'text' and 'paras' are unchanged byte for byte. NEW WARN gate A-RENDER-PARITY
+#   (S13-4c): every block re-checked with bc.render_parity against its sidecar record (--key); a finding on a block that
+#   is neither bound nor disclosed is the only FAIL (a producer defect, unreachable through STEP A3).
 # v2.47 — 2026-11-28 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with final_assembly v1.29.0, blueprint_core
 #   v2.13). --item-texts now writes, per question, {'text': the earlier fused reading, 'paras': the structure-preserving
 #   reading of every paragraph of the block in document order — table-cell paragraphs after, merged cells once —
@@ -1105,6 +1111,7 @@ def load_sources(args):
     if getattr(args, 'key', None) and Path(args.key).exists():
         _key_data = json.load(open(args.key, encoding='utf-8'))
         src['concept_map'] = _key_data.get('concept_map', {})
+        src['rpar_from_key'] = True                    # v2.48: A-RENDER-PARITY reads the sidecar record (N-12)
         src['answers'] = _key_data.get('answers', {})
         src['nf_disclosed'] = _key_data.get('nf_disclosed', {}) if isinstance(_key_data.get('nf_disclosed'), dict) else {}  # v2.41
         # GAP-2026-11-04 B5/B6: the paper's S3-2e quality_readiness record reaches the
@@ -2615,6 +2622,47 @@ def gate_omml(doc, src, final):
               'built-up math may be hiding as ASCII/raster; investigate (S7-5).')
     elif final and src['omml_required_present']:
         _ok('A-OMML-FLOOR', f'OMML floor satisfied ({n_omath} oMath).')
+
+
+def gate_render_parity(blocks, src, final):
+    """v2.48 A-RENDER-PARITY (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1). Final paper, sidecar (--key) record only:
+    every block is re-checked with bc.render_parity against its reviewed record, the record read by STEP A3's own
+    reader (final_assembly.a3_reading; else the linear form), figure labels from the --fig-manifest semantic objects.
+    STEP A3 has already repaired or disclosed every finding, so this gate is a WARN ('AMBER — ') that names the
+    question — never a FAIL, never a repair, never a stop. Dormant without --key, before the final phase, or when
+    blueprint_core cannot be imported (one WARN says so)."""
+    if not final or not src.get('rpar_from_key'):
+        return
+    try:
+        import blueprint_core as _bcr
+    except Exception:                                   # noqa: BLE001
+        _warn('A-RENDER-PARITY', 'blueprint_core not importable — print parity NOT re-checked')
+        return
+    try:
+        import final_assembly as _far
+        _rdr = _far.a3_reading
+    except Exception:                                   # noqa: BLE001
+        def _rdr(x):
+            return _bcr.a3_canon(_bcr.math_linear(str(x or '')))
+    cm = src.get('concept_map') or {}
+    fm = src.get('fig_manifest_sidecar') if isinstance(src.get('fig_manifest_sidecar'), dict) else {}
+    fq = fm.get('questions') if isinstance(fm.get('questions'), dict) else {}
+    bad = []
+    for b in blocks:
+        e = cm.get(str(b.qnum)) if b.qnum is not None else None
+        if not isinstance(e, dict):
+            continue
+        rd = dict({'paras': _block_struct_paras(b)}, **_block_struct_detail(b))
+        so = (fq.get(str(b.qnum)) or {}).get('semantic_objects') if isinstance(fq.get(str(b.qnum)), dict) else None
+        labs, known = _bcr.rpar_figure_labels(e, so if isinstance(so, list) else None, None)
+        f = _bcr.render_parity(e, rd, reader=_rdr, figure_labels=labs, labels_known=known)
+        if f:
+            bad.append(f'Q{b.qnum}: ' + '; '.join(x.replace('G-RENDER-PARITY ', '') for x in f[:3]))
+    if bad:
+        _warn('A-RENDER-PARITY', 'AMBER — the printed block differs from the reviewed record (STEP A3 repaired or '
+                                 'disclosed it in the delivery footer): ' + ' | '.join(bad[:12]))
+    else:
+        _ok('A-RENDER-PARITY', 'every printed block shows its reviewed record')
 
 
 def gate_typeset(blocks, src, final):
@@ -5253,6 +5301,45 @@ def _block_struct_paras(b):
         return []
 
 
+_RPAR_W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+
+
+def _rpar_has_pic(p):
+    """True when one paragraph carries an inline picture (DrawingML or VML). Never raises."""
+    try:
+        el = p._element
+        return bool(el.findall('.//' + _RPAR_W + 'drawing')) or bool(
+            el.findall('.//{urn:schemas-microsoft-com:vml}imagedata'))
+    except Exception:                                   # noqa: BLE001
+        return False
+
+
+def _block_struct_detail(b):
+    """v2.48 (GAP-2026-11-26-RENDER-PARITY): {'body', 'rows', 'pictures'} of ONE block — the block's own paragraph
+    readings (bc.omml_struct_text), every table row as [{'t', 'pic'}] (a merged cell once) and the number of inline
+    pictures (table cells included). {} on any error: the parity check then reads 'paras' and is told nothing about
+    pictures (P4 not judged). Never raises."""
+    try:
+        import blueprint_core as _bcr
+        body = [_bcr.omml_struct_text(p._element) for p in b.paras]
+        rows, pics = [], sum(1 for p in b.paras if _rpar_has_pic(p))
+        for t in b.tables:
+            for row in t.rows:
+                seen, cells = [], []
+                for c in row.cells:
+                    if any(c._tc is x for x in seen):
+                        continue
+                    seen.append(c._tc)
+                    cp = any(_rpar_has_pic(p) for p in c.paragraphs)
+                    pics += sum(1 for p in c.paragraphs if _rpar_has_pic(p))
+                    cells.append({'t': ' '.join(_bcr.omml_struct_text(p._element) for p in c.paragraphs).strip(),
+                                  'pic': cp})
+                rows.append(cells)
+        return {'body': body, 'rows': rows, 'pictures': pics}
+    except Exception:                                   # noqa: BLE001
+        return {}
+
+
 def _block_item_hash(b):
     """bc.item_hash over ONE parsed question block: paragraph and table text in document order plus the
     sha256 of every bound image (its extracted file, else its media part name)."""
@@ -7054,10 +7141,14 @@ def run_audit(args):
         try:
             _itx = {str(b.qnum): {'text': ' '.join(' '.join([para_text(p) for p in b.paras] + [c.text for t in b.tables
                                                             for row in t.rows for c in row.cells]).split()),
-                                  'paras': _block_struct_paras(b)}
+                                  'paras': _block_struct_paras(b), **_block_struct_detail(b)}
                     for b in blocks if b.qnum is not None}
         except Exception:                               # noqa: BLE001
             _itx = {}
+        try:                                            # v2.48: the docx these readings came from (STEP A3's repair)
+            _itx['__docx__'] = os.path.abspath(args.docx)
+        except Exception:                               # noqa: BLE001
+            pass
         with open(args.item_texts, 'w', encoding='utf-8') as fh:
             json.dump(_itx, fh, indent=1, sort_keys=True, ensure_ascii=False)
     _safe_gate('A-DOSSIER', gate_dossier, blocks, src, src.get('dossier'),
@@ -7081,6 +7172,7 @@ def run_audit(args):
     _safe_gate('A-UNDERLINE', gate_underline, blocks)
     _safe_gate('A-OMML', gate_omml, doc, src, args.final)
     _safe_gate('A-TYPESET', gate_typeset, blocks, src, args.final)   # v2.46 (GAP-2026-11-21) — WARN only
+    _safe_gate('A-RENDER-PARITY', gate_render_parity, blocks, src, args.final)   # v2.48 (GAP-2026-11-26) — WARN only
     _safe_gate('A-FRACASCII', gate_frac_ascii, blocks, src)
     _safe_gate('A-IMAGES', gate_images, blocks, src, media_map)
     _safe_gate('A-OPTREF', gate_optref, blocks, src)
@@ -7501,7 +7593,7 @@ def gate_cert(src, args):
 # cert_contract before writing). Readers: gate_cert / gate_cert_late (S13-4c). A new quality_status prefix MUST be
 # added to QUALITY_STATUS_PREFIXES and CERT_OUTCOME in the same release, with a writer->reader round-trip self-test
 # naming it (CI gate CERT-CONTRACT, mock_sync_audit MS-CERT).
-AUDITOR_ID = 'audit_canonical v2.47'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
+AUDITOR_ID = 'audit_canonical v2.48'               # == the newest '# vX.YY' header line (self-test CERTGAP-25)
 CERT_SCHEMAS = (2, 3)                              # 2: v2.35-v2.43 writers (still read); 3: v2.44+
 QUALITY_STATUS_PREFIXES = ('CERTIFIED', 'UNRESOLVED', 'DISCLOSED', 'ESCALATED')
 # The certificate outcome of each stamp prefix: 'none' (no accepted finding), 'uncertified' (uncertified_items ->
@@ -10421,6 +10513,43 @@ def self_test():
     check('A-TYPESET-clean-and-dormant', len(_r10b) == 1 and _r10b[0][0] == 'OK'
           and _ts_run(False, final=False) == [] and _ts_run(False, plan=None) == []
           and _ts_run(False, sid='c.a') == [] and 'A-TYPESET' not in getattr(_bct10, 'NF_DISCLOSE_GATES', ('A-TYPESET',)))
+    # 10f. v2.48 (GAP-2026-11-26-RENDER-PARITY): the block detail ('body' / 'rows' / 'pictures') and A-RENDER-PARITY —
+    # a reviewed statement missing from print is an AMBER WARN naming the question; a matching block is OK; dormant
+    # without the sidecar (--key) or before the final phase; never a FAIL
+    _rp_lead = 'The aldehyde is treated under the conditions (A)–(C) below. The reactions that take place are'
+    _rp_c = ['(A) Cannizzaro reaction.', '(B) Aldol self-condensation.', '(C) Benzoin condensation.']
+    _rp_o = ['A only', 'B and C only', 'A and C only', 'A and B only']
+
+    def _rp_run(lines, key=True, final=True):
+        def b_rp(d):
+            d.add_paragraph('Q.1  ' + _rp_lead)
+            for x in lines:
+                d.add_paragraph(x)
+            for i, o in enumerate(_rp_o, 1):
+                d.add_paragraph(f'{i}.  {o}')
+            t = d.add_table(rows=1, cols=2)
+            t.rows[0].cells[0].text = 'I. limonene'
+            t.rows[0].cells[1].text = 'P. farnesyl'
+        p = _mini_doc(tmp, b_rp); _reset()
+        _t, bl = parse_blocks(Document(p))
+        st = _src_stub(tq=1)
+        st['concept_map'] = {'1': {'stem_text': _rp_lead + '\n' + '\n'.join(_rp_c), 'option_texts': _rp_o,
+                                   'list_columns': [['I. limonene'], ['P. farnesyl']]}}
+        if key:
+            st['rpar_from_key'] = True
+        gate_render_parity(bl, st, final)
+        return bl, [(l, c, m) for l, c, m in RESULTS if c == 'A-RENDER-PARITY']
+    _rpb, _rpa = _rp_run(_rp_c[:1])
+    _rpdet = _block_struct_detail(_rpb[0])
+    check('A-RENDER-PARITY-missing-statement-warned', len(_rpa) == 1 and _rpa[0][0] == 'WARN'
+          and _rpa[0][2].startswith('AMBER — ') and 'Q1:' in _rpa[0][2] and 'aldol' in _rpa[0][2])
+    check('A-RENDER-PARITY-clean-and-dormant', _rp_run(_rp_c)[1] == [('OK', 'A-RENDER-PARITY',
+                                                                    'every printed block shows its reviewed record')]
+          and _rp_run(_rp_c[:1], key=False)[1] == [] and _rp_run(_rp_c[:1], final=False)[1] == [])
+    check('A3-item-texts-detail', _rpdet.get('rows') == [[{'t': 'i. limonene', 'pic': False},
+                                                         {'t': 'p. farnesyl', 'pic': False}]]
+          and _rpdet.get('pictures') == 0 and _rpdet.get('body', [''])[0].startswith('q.1 the aldehyde')
+          and _block_struct_detail(None) == {})
 
     # 11. A-STIMORPHAN catches a passage-reference with no embedded stimulus
     def b_orphan(d):

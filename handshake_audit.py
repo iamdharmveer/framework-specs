@@ -776,6 +776,63 @@ def _bv_handshake(check, ROOT, run_fence, W):
           'none is the S4-7 author packet or the S7-CONCEPT generator',
           'CLASS: J' not in _ss_txt and 'def BV_AUTHOR_PACKET' not in _ss_txt and 'def build_question' not in _ss_txt
           and 'def derive_scenario_from_pattern' not in _ss_txt)
+    # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): the spec's OWN printer, loaded exactly as
+    # --session-start loads it (ENGINE-RUN blocks; the S10-2 / S10-7 RUN-BLOCKs with their declared defaults): the Q22
+    # shape prints Q.N once, the picture, the conditions, the options — and passes the parity check on its first try; a
+    # legacy record printed through render_from_record is byte-identical to the direct builder call; a NAT question
+    # with a stem picture never reaches a builder assert
+    import contextlib as _ctxr, io as _ior, struct as _str, zlib as _zlr
+    from docx import Document as _Dr
+    from docx.shared import Inches as _Inr, Pt as _Ptr
+    _nsr = bsm.ns_new()
+    _nsr.update(FONT_NAME='Arial', FONT_SIZE_PT=11, OPTION_LABEL_FMT='{i}.  {text}', io=_ior, Inches=_Inr, Pt=_Ptr)
+    with _ctxr.redirect_stdout(_ior.StringIO()), _ctxr.redirect_stderr(_ior.StringIO()):
+        for _l, _s in _eb:
+            bsm._ns_exec_block(_s, f'mtc:{_l}', _nsr, {})
+        for _k, _v in dict(FIGURAL_DPI=300, FIG_MIN_STROKE_PT=0.75, FIG_OPT_DISPLAY_IN=1.6, FIG_PROBLEM_DISPLAY_IN=4.0,
+                           assert_not_math=lambda *a, **k: None).items():
+            _nsr.setdefault(_k, _v)
+        _rbr = bsm.ns_run_blocks(_mtc)
+        for _bid in ('S10-2', 'S10-7'):
+            if _bid in _rbr:
+                bsm._ns_exec_block(_rbr[_bid][1], _bid, _nsr, {})
+
+    def _pngr():
+        _raw = b''.join(b'\x00' + b'\x80' * 3 * 16 for _ in range(12))
+        _ch = lambda t, d: _str.pack('>I', len(d)) + t + d + _str.pack('>I', _zlr.crc32(t + d) & 0xffffffff)
+        return (b'\x89PNG\r\n\x1a\n' + _ch(b'IHDR', _str.pack('>IIBBBBB', 16, 12, 8, 2, 0, 0, 0))
+                + _ch(b'IDAT', _zlr.compress(_raw)) + _ch(b'IEND', b''))
+    _ld = ('The aldehyde shown is treated separately under the three sets of conditions (A)–(C) below. The named '
+           'reactions that actually take place as the main process in each case are')
+    _cd = ['(A) Cannizzaro reaction with concentrated NaOH.', '(B) Aldol self-condensation with dilute NaOH.',
+           '(C) Benzoin condensation with catalytic NaCN.']
+    _od = ['A only', 'B and C only', 'A and C only', 'A and B only']
+    _okr = callable(_nsr.get('render_from_record'))
+    try:
+        _Q = dict(bc.stem_record(_ld, _cd, None, None, _od), figure_files=['q22_problem.png'])
+        _d22 = _Dr(); _nsr['render_from_record'](_d22, 22, _Q, problem_pngs=[_pngr()])
+        import tempfile as _tfr
+        _p22 = os.path.join(_tfr.mkdtemp(prefix='rpar_'), 'rpar_q22.docx'); _d22.save(_p22)
+        _b22 = ac.parse_blocks(_Dr(_p22))[1][0]
+        _r22 = dict({'paras': ac._block_struct_paras(_b22)}, **ac._block_struct_detail(_b22))
+        _ql = bc.mt_record_fields(_ld + ' ' + ' '.join(_cd), _od)
+        _da, _db = _Dr(), _Dr()
+        _nsr['render_from_record'](_da, 22, _ql, problem_pngs=[_pngr()])
+        _nsr['add_figural_stem_question'](_db, 22, _ql['stem_src'], [_pngr()], _od)
+        _dn = _Dr()
+        _fn = _nsr['render_from_record'](_dn, 8, dict(bc.stem_record('Count the stereocentres, considering:',
+                                                                     ['(i) ring carbons', '(ii) side chain']),
+                                                      figure_files=['x']),
+                                         problem_pngs=[_pngr()], nat_instruction='(Enter an integer)')
+        _okr = (_okr and bc.render_parity(_Q, _r22) == [] and _r22['pictures'] == 1
+                and sum(1 for x in _r22['body'] if x.startswith('q.')) == 1
+                and _r22['body'].index('') < _r22['body'].index(bc.a3_canon(_cd[0]))
+                and _da.element.body.xml == _db.element.body.xml and _fn.get('nat_instr_in_stem') is True)
+    except Exception as _exr:                           # noqa: BLE001
+        _okr = False
+        print('  H-RPAR builder fault:', type(_exr).__name__, str(_exr)[:200])
+    check('H-RPAR the spec printer: Q22 shape prints Q.N once, picture, conditions, options and passes parity first try; '
+          'a legacy record prints byte-identically; a NAT figure question never asserts', _okr)
     _wpt = bsm.WORKER_PROMPT if hasattr(bsm, 'WORKER_PROMPT') else ''
     _ctx = open(_mtc, encoding='utf-8').read()
     check('H-NS the worker prompt, Create S1-0R and bootstrap name the same two commands',
@@ -1807,6 +1864,27 @@ def self_test():
               _lines_v7 and not [l for l in _lines_v7 if 'pre-2026.11.03' in l]
               and any(l.startswith('[ WARN]') and 'A-DISTRACTOR' in l and 'PRE-REVIEW' in l for l in _lines_v7),
               '\n'.join(l for l in _lines_v7 if 'pre-2026.11.03' in l or 'A-DISTRACTOR' in l)[:400])
+        # ═══ H5-RPAR (release 2026.12.04, GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): STEP B's --item-texts carries the
+        # printed blocks ('body' / 'rows' / 'pictures' and the docx path STEP A3 repairs), and every question of the
+        # handshake's own generated paper shows its sidecar record — the parity check raises NO finding on a correct
+        # paper (zero false positives end to end), so STEP A2 sends nothing back and STEP A3 inserts nothing
+        _r_it = subprocess.run([sys.executable, f'{W}/audit_canonical.py', docx, '--blueprint', bp_path, '--rules',
+                                f'{PROJ}/{EXAM}_section_rules.md', '--mockN', '6', '--batch', '1', '--key', _k_v7,
+                                '--profile', prof_path, '--item-findings', f'{TMP}/if_it.json',
+                                '--item-texts', f'{TMP}/it_v7.json'], capture_output=True, text=True)
+        try:
+            _it7 = json.load(open(f'{TMP}/it_v7.json', encoding='utf-8'))
+        except (OSError, ValueError):
+            _it7 = {}
+        _rp7 = {q: fa.bc_prereview_gaps(e, q, None, block_reading=_it7.get(q), fig_ctx=([], True))
+                for q, e in _kd_v7['concept_map'].items() if isinstance(_it7.get(q), dict)}
+        _rp7 = {q: [x for x in v if 'G-RENDER-PARITY' in x] for q, v in _rp7.items()}
+        check('H5-RPAR STEP B item texts carry the printed blocks and the docx; no parity finding on a correct paper',
+              bool(_it7) and _it7.get('__docx__') == os.path.abspath(docx)
+              and all(isinstance(v.get('body'), list) and isinstance(v.get('rows'), list) and isinstance(v.get('pictures'), int)
+                      for k, v in _it7.items() if k != '__docx__')
+              and len(_rp7) == len(_kd_v7['concept_map']) and not any(_rp7.values()),
+              str({q: v for q, v in _rp7.items() if v})[:400] or _r_it.stdout[-300:])
         # ═══ H5-LEGACY (GAP-2026-11-04 T1): a project whose Step 5 predates the QUALITY
         # measurement (section_rules WITHOUT QUALITY / EXAM_QUALITY blocks — every existing
         # project) and a paper whose items all repeat ONE template: A-TEMPLATE is DORMANT,
@@ -2239,7 +2317,7 @@ def self_test():
     return not BAD
 
 
-EXPECTED_CHECKS = 268   # 2026.11.23 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): H5 certificate schema 3; +4 H5-CERT-DISCLOSED (real S13-2F -> S13-4c on an ESCALATED item; hand-edit refused); +1 H5-V7-SIDECAR (per-batch label truth); 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
+EXPECTED_CHECKS = 270  # release 2026.12.04: +2 (H5-RPAR, H-RPAR)   ; 2026.11.23 (GAP-2026-11-17-CERT-DISCLOSED-CONTRACT): H5 certificate schema 3; +4 H5-CERT-DISCLOSED (real S13-2F -> S13-4c on an ESCALATED item; hand-edit refused); +1 H5-V7-SIDECAR (per-batch label truth); 2026.11.21 (Cluster R3): +17 H-R3 (the difficulty yardstick, Step 5 -> Create -> commit -> audit); +1 H-BC-3R (a solver split is rewritten once in the new modes); H-BV / H-BC pinned to mode br1; 2026.11.16 (GAP-2026-11-14-BATCH-COMPLETE): +25 H-BC (job folders only — TEST-NO-HANDWRITE); 2026.11.15: +1 H-BV S13-1B is a check (G-06); 2026.11.14: +1 H-BV carry (BV-13) and S13-1B; 2026.11.13: +1 H-BV rubric (BV-10), +3 H-NS (bootstrap --session-start runs what the read does not serve);   # 2026.11.11 (GAP-2026-11-11-BATCH-VERIFICATION): +25 H-BV (author packet -> STEP A2 -> commit -> audit -> deliver);            # 2026.11.10 (GAP-2026-11-10 G-10): H-LB rewritten for the SC2 endings (8 checks replace 13 swap / upgrade / panel / forced checks), H5 +1 LB2 basis, H-DL forced -> last resort (same 4 x 3); before: 79 + 44 H-DL (2026.11.08) -> 2026.11.09: H6 dispute chain end to end (+10), legacy Deliver (+1), H-DL chains / forced / footer (+4 x 3), H-LB swap / upgrade (+5), loop guards (+4), hand-over edges (+3), S13-4c stop (+1), NOT_RUN edges (+2), forced_refused (+1), S13-2F replace slice (+1), D0 bound (+1), H-DOWN replay (+25)
 
 
 if __name__ == '__main__':

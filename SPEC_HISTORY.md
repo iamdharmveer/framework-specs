@@ -2236,6 +2236,16 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 
 ## Framework_MockTestCreate.md
 
+Entry v8.10 moved at framework release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY; v8.11 supersedes).
+
+```
+# v8.10 — 2026-11-23 — release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C): wording only. Four served
+#   lines still said a re-ask or an adjudicator runs on "another model" / "a model different from the worker"; since
+#   OD-2026-11-23-OPUS-ONLY (release 2026.11.30) every sub-agent runs on a worker_models entry (Orchestrate O2-2) and
+#   its independence is its FRESH context. The lines now say so. No rule, gate, RUN-BLOCK, engine call or number
+#   changed; RUN-BLOCK and LEGACY text untouched. Entry v8.9 moved to SPEC_HISTORY.md.
+```
+
 Entry v8.9 moved at framework release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY Phase 1C; v8.10 supersedes).
 
 ```

@@ -1,9 +1,7 @@
-# Framework_MockTestCreate v8.10
-# v8.10 — 2026-11-23 — release 2026.12.03 (GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C): wording only. Four served
-#   lines still said a re-ask or an adjudicator runs on "another model" / "a model different from the worker"; since
-#   OD-2026-11-23-OPUS-ONLY (release 2026.11.30) every sub-agent runs on a worker_models entry (Orchestrate O2-2) and
-#   its independence is its FRESH context. The lines now say so. No rule, gate, RUN-BLOCK, engine call or number
-#   changed; RUN-BLOCK and LEGACY text untouched. Entry v8.9 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v8.11
+# v8.11 — 2026-12-04 — release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): print = review. Structured
+#   stem record (bc.stem_record), one printer (render_from_record), parity checked at STEP A2 and A3 (missing reviewed
+#   text inserted, disclosed — never a stop). Legacy calls byte-identical. Entry v8.10 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -5122,6 +5120,8 @@ action: the same paper, the same two files, the same "continue".
                Step 5's QV-14 is what reports the gap.
                ────────────────────────────────────────────────────────────────
 
+               v8.11: print EVERY question with render_from_record(doc, q, Q, problem_pngs=, option_pngs=,
+               problem_specs=, option_specs=, cell_images=) (S10-8A) — words from the record only.
                IF image_role in ('stem_and_options', 'options_only'):
                  → Generate images via matplotlib (S7-NEW-B OPTION A):
                    stem_and_options: problem image(s) + option images
@@ -5275,8 +5275,10 @@ action: the same paper, the same two files, the same "continue".
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --fig-manifest /home/claude/[ExamCode]_fig_manifest.json \
                   --mockN [N] --batch [B] --through-q [last Q in the docx] \
-                  --item-findings /home/claude/[ExamCode]_M[N]_batch_findings.json
+                  --item-findings /home/claude/[ExamCode]_M[N]_batch_findings.json \
+                  --item-texts /home/claude/[ExamCode]_M[N]_item_texts.json
               ```
+              --item-texts (v8.11): the printed blocks, checked against their records at STEP A2.
               --item-findings (v7.3, D3): the per-question item findings and the figure / option AMBER findings of
               this run, read by STEP A2 (PRE-REVIEW) so a question goes to its reviewers only once they are fixed.
               --fig-manifest (v5.88, auditor v2.33 — edge case E19): the paper is not
@@ -5375,7 +5377,8 @@ action: the same paper, the same two files, the same "continue".
                           the reviewers could not solve (the stem names List-I / List-II but list_columns is not
                           recorded; the stem says "shown" but no figure_files), or a per-batch auditor item finding /
                           figure-label or stereo-ambiguous-option AMBER for that question (STEP B's
-                          [ExamCode]_M[N]_batch_findings.json). Fix exactly what the line names (re-render at the
+                          [ExamCode]_M[N]_batch_findings.json); v8.11: G-RENDER-PARITY (print differs from the
+                          record: fix the record, reprint with render_from_record). Fix exactly what the line names (re-render at the
                           paper's tokens, record list_columns / figure_files, correct the SMILES), STEP B for that
                           question, then this block again. At most bc.BC_PREREVIEW_TRIES times per rung, then the text
                           is reviewed as it stands (never a loop). v7.3.1: only a text no reviewer has measured yet is checked
@@ -5431,8 +5434,9 @@ action: the same paper, the same two files, the same "continue".
            show the sidecar's stem and options (v8.7 — GAP-2026-11-21-A3-OMML-PARITY: both sides are read the same way,
            the block by the auditor with bc.omml_struct_text, the sidecar's stem_src / option_src rendered by the
            builders' compiler and read with the same function — a typeset equation can no longer differ; options are
-           compared one by one, so a one-place edit or a swap is still caught. Repair: rebuild that question's block from
-           its sidecar with the S10-3 builders, then STEP B and STEP A3. This refusal happens AT MOST ONCE per reviewed
+           compared one by one, so a one-place edit or a swap is still caught. v8.11: an unbound question failing
+           G-RENDER-PARITY gets its missing reviewed sentences inserted by the engine and is disclosed (rpar_footer) —
+           never a stop. Repair of a refusal: reprint the block with render_from_record, then STEP B and STEP A3. This refusal happens AT MOST ONCE per reviewed
            text: on the next STEP A3 the question binds to its delivered block and is disclosed — AMBER, batch_state
            ['a3_footer'] — never a stop); v7.1 — also one whose
            docx block changed after it was bound while its text did not (an edit outside the ladder: put the bound
@@ -8414,6 +8418,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           fields with ONE call: Q.update(bc.mt_record_fields(stem_with_regions, options_with_regions))
                           (stem_text / option_texts become the linear form, bc.math_linear). A single-number option
                           stays plain text, never a region. Absent (no region) = stem_text / option_texts.
+    stem_lead / stem_lines / stem_closing_ask / stem_lines_position (v8.11, LAW-PRINT-1) a stem with a labelled
+                          series (statements, conditions, data lines) is recorded with ONE call that also sets the
+                          four fields above: Q.update(bc.stem_record(lead, lines, closing_ask, None, options,
+                          exam_position=bc.rpar_exam_position(batch_state['stem_form'], section),
+                          option_labels=[_option_label(i) for i in range(1, 10)])). problem_labels:
+                          one label per pictured item the stem names ('I', 'II'). Printed by render_from_record.
     stem_text / option_texts / figure_files
                           the delivered stem (plain text), the option texts in label order
                           ([] for picture options) and the figure file names placed under
@@ -9315,8 +9325,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     4. Options (if any) follow per R13; blank separator per G-BLANK.
     LINKED (CLASS-4) blocks: sub-parts that belong to the specific ask are
     emitted AFTER the non-numbered ask paragraph, inside the §9 Model A order.
-    FIGURAL blocks: sub-part paragraphs are document text and PRECEDE the
-    problem image(s).
+    FIGURAL blocks (v8.11): sub-part paragraphs are document text, printed by
+    render_from_record at stem_lines_position — AFTER the problem image(s) by
+    default, BEFORE them where this exam's Step 5 measured that (S-7).
 
   LABEL LAW (the load-bearing rule — exam-agnostic and spacing-insensitive):
     (a) A sub-part line NEVER opens with the Q-number shape (Q + '.' + digits,
@@ -9520,7 +9531,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   def add_match_table(doc, qnum, instruction, columns, options,
                       answer_cardinality='single', section_rules_text='', language='english',
-                      header_fill=None):
+                      header_fill=None, *, cell_images=None):
       """MANDATORY renderer for stem_format_variant == 'match_the_following' (§10-S10-3M).
       Renders a MATCH question as a REAL Word table grid — never plain text. Layout:
         (1) Q.N-first bold instruction paragraph (R14 / G-QNUM-FIRST; MSQ instruction in-stem);
@@ -9531,6 +9542,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         (4) blank separator (R13).
       columns : list of (header, [item, …]); each item already carries its own label
                 ('(A) Collagen', 'I. triple helix', …). >=2 columns supported (List-III).
+      cell_images (v8.11, keyword-only; None = byte-identical): {(col, row): png bytes or
+                (png bytes, FigureSpec)} — a List item that IS a picture (a structure): the
+                cell keeps its text ('I') as its first run and shows the picture below it,
+                named q{N}_problem_{k} (S10-7 Q8) in reading order.
       options : the pairing-quad option texts.
       Exam-agnostic: headers, labels and the optional header_fill come from the caller — no
       hardcoded scheme. Emitting a match via add_standard_question() (lists as stem text) is
@@ -9570,6 +9585,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                   f'<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
                   f' w:val="clear" w:color="auto" w:fill="{header_fill}"/>'))
       # data rows (blank-pad short columns so unequal lists render correctly)
+      _ck = 0
       for ri in range(nrows):
           for ci in range(ncols):
               items = col_items[ci]
@@ -9580,6 +9596,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
               run = cell.paragraphs[0].add_run(items[ri] if ri < len(items) else '')
               run.font.name = FONT_NAME
               run.font.size = Pt(FONT_SIZE_PT)
+              _img = (cell_images or {}).get((ci, ri)) if isinstance(cell_images, dict) else None
+              if _img is not None:                            # v8.11 (S-2.4): a pictured List item
+                  import io as _io_m
+                  from docx.shared import Inches as _In_m
+                  _pb, _sp = (_img if isinstance(_img, tuple) else (_img, None))
+                  _ck += 1
+                  _w = _sp['placed_in'] if isinstance(_sp, dict) and _sp.get('placed_in') else \
+                      globals().get('FIG_OPT_DISPLAY_IN', 1.6)      # S10-7 constant, looked up at call time
+                  cell.add_paragraph().add_run().add_picture(_io_m.BytesIO(_pb), width=_In_m(_w))
+                  if callable(globals().get('_name_last_drawing')):   # S10-8 helper, looked up at call time
+                      globals()['_name_last_drawing'](doc, f"q{qnum}_problem_{_ck}.png")
       # borders on every cell
       for row in table.rows:
           for cell in row.cells:
@@ -11102,9 +11129,26 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       for cp in last.iter(qn('pic:cNvPr')):
           cp.set('name', name)
 
+  def _stem_tail(stem_lines, stem_closing_ask):
+      """v8.11: the stem lines (empty / non-text dropped) and the closing ask, in print order."""
+      out = [str(x) for x in (stem_lines or []) if isinstance(x, str) and x.strip()]
+      if isinstance(stem_closing_ask, str) and stem_closing_ask.strip():
+          out.append(stem_closing_ask)
+      return out
+
+  def _problem_labels_for(problem_labels, problem_pngs):
+      """v8.11: one printed label per problem picture, or None (absent or a length mismatch —
+      G-RENDER-PARITY P2 then names the unlabelled pictures; never a raise)."""
+      if not isinstance(problem_labels, (list, tuple)) or not problem_pngs:
+          return None
+      labs = [str(x) for x in problem_labels]
+      return labs if len(labs) == len(problem_pngs) and all(x.strip() for x in labs) else None
+
   def add_figural_question(doc, qnum, stem, problem_pngs, option_pngs,
                            problem_label=None,
-                           problem_specs=None, option_specs=None):
+                           problem_specs=None, option_specs=None, *,
+                           stem_lines=None, stem_closing_ask=None, stem_lines_position='after_figure',
+                           problem_labels=None, msq_instruction=None, nat_instruction=None):
       """
       qnum         : int
       stem         : str   — the question instruction (DOCUMENT text, Q.N-first)
@@ -11117,6 +11161,13 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       v4.3: every emitted image is stamped with its canonical name (S10-7 Q8) —
         q{N}_problem[_k] / q{N}_opt{i} — so it passes the G-MATH-RASTER name-
         contract; a rasterised expression (e.g. q{N}_e1) never carries such a name.
+      v8.11 (GAP-2026-11-26-RENDER-PARITY S-2; keyword-only, all default None — a call
+        that passes none of them is byte-identical): stem_lines / stem_closing_ask print
+        as bold continuation lines (add_stem_ml) AFTER the picture(s) (stem_lines_position
+        'after_figure', the default) or BEFORE them ('before_figure'); the Q.N paragraph is
+        printed ONCE, with the MSQ / NAT instruction inside it (R14). problem_labels (one per
+        problem picture) print as a bold line UNDER each picture ('I', 'II', ...); a length
+        mismatch prints none (G-RENDER-PARITY P2 names it). Never raises on a line.
       """
       # 1:1 binding + uniform canvas are HARD invariants (G-FIGURAL-COMPOSITE).
       assert len(option_pngs) >= 2, "figural MCQ needs ≥2 option images"
@@ -11126,7 +11177,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       _n0 = _n_block_items(doc)
 
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
-      add_question_stem(doc, qnum, stem)            # S10-3
+      add_question_stem(doc, qnum, stem, msq_instruction=msq_instruction or nat_instruction)   # S10-3
+      _tail = _stem_tail(stem_lines, stem_closing_ask)
+      if _tail and stem_lines_position == 'before_figure':
+          for _ln in _tail:
+              add_stem_ml(doc, _ln, bold=True)
 
       # Problem figure(s) (v5.70 CHG-2026-08-24-FIG-NOLABEL: NO label line by
       # default — a label renders only when a caller explicitly passes one).
@@ -11134,14 +11189,20 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           if problem_label:
               lab = doc.add_paragraph(); r = lab.add_run(problem_label)
               r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
+          _plabs = _problem_labels_for(problem_labels, problem_pngs)
           for k, pb in enumerate(problem_pngs, 1):
               _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
                               spec=problem_specs[k - 1] if problem_specs else None)
               nm = f"q{qnum}_problem.png" if len(problem_pngs) == 1 \
                    else f"q{qnum}_problem_{k}.png"
               _name_last_drawing(doc, nm)           # canonical name (S10-7 Q8)
+              if _plabs:
+                  add_stem_ml(doc, _plabs[k - 1], bold=True)
+      if _tail and stem_lines_position != 'before_figure':
+          for _ln in _tail:
+              add_stem_ml(doc, _ln, bold=True)
 
-      # v5.89 F5: stem block (Q.N .. last problem figure) kept with option 1.
+      # v5.89 F5: stem block (Q.N .. last problem figure .. stem lines) kept with option 1.
       _keep_block_with_next(doc, _n0)
 
       # Options: SINGLE COLUMN — one option per line, label bound to its image.
@@ -11203,7 +11264,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```python
   # ENGINE-RUN — executed by `python3 bootstrap.py --session-start` from this verified file; not in the read
   def add_figural_stem_question(doc, qnum, stem, problem_pngs, text_options,
-                                problem_label=None, problem_specs=None):
+                                problem_label=None, problem_specs=None, *,
+                                stem_lines=None, stem_closing_ask=None, stem_lines_position='after_figure',
+                                problem_labels=None, msq_instruction=None, nat_instruction=None):
       """
       qnum         : int
       stem         : str   — the question instruction (DOCUMENT text, Q.N-first)
@@ -11220,6 +11283,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       v5.13: new helper for the stem_only variant. Figural questions where only the
       stem has a visual element and options are text. Without this helper, the only
       path was add_figural_question() which HARD ASSERTs option images.
+      v8.11 (S-2): the same keyword-only stem_lines / stem_closing_ask /
+      stem_lines_position / problem_labels / msq_instruction / nat_instruction as
+      add_figural_question — none passed = byte-identical.
       """
       assert len(problem_pngs) >= 1, "stem_only figural MCQ needs ≥1 problem image"
       assert problem_specs is None or len(problem_specs) == len(problem_pngs), \
@@ -11228,20 +11294,30 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       _n0 = _n_block_items(doc)                         # v5.89 F5
 
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
-      add_question_stem(doc, qnum, stem)                # S10-3
+      add_question_stem(doc, qnum, stem, msq_instruction=msq_instruction or nat_instruction)   # S10-3
+      _tail = _stem_tail(stem_lines, stem_closing_ask)
+      if _tail and stem_lines_position == 'before_figure':
+          for _ln in _tail:
+              add_stem_ml(doc, _ln, bold=True)
 
       # Problem figure(s) (v5.70 CHG-2026-08-24-FIG-NOLABEL: NO label line by
       # default — a label renders only when a caller explicitly passes one).
       if problem_label:
           lab = doc.add_paragraph(); r = lab.add_run(problem_label)
           r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
+      _plabs = _problem_labels_for(problem_labels, problem_pngs)
       for k, pb in enumerate(problem_pngs, 1):
           _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
                           spec=(problem_specs[k - 1] if problem_specs else None))
           nm = (f"q{qnum}_problem.png" if len(problem_pngs) == 1
                 else f"q{qnum}_problem_{k}.png")
           _name_last_drawing(doc, nm)                   # canonical name (S10-7 Q8)
-      _keep_block_with_next(doc, _n0)                   # v5.89 F5: stem+figure with option 1
+          if _plabs:
+              add_stem_ml(doc, _plabs[k - 1], bold=True)
+      if _tail and stem_lines_position != 'before_figure':
+          for _ln in _tail:
+              add_stem_ml(doc, _ln, bold=True)
+      _keep_block_with_next(doc, _n0)                   # v5.89 F5: stem+figure+lines with option 1
 
       # Options: TEXT, not images. Standard text option placement.
       add_text_options(doc, text_options)                # S10-3
@@ -11253,6 +11329,103 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   #   fc.render_figure(draw, png, spec); prob = open(png, 'rb').read() # chart / structure
   #   add_figural_stem_question(doc, q.num, q.stem, [prob], text_options,
   #                             problem_specs=[spec])   # v5.89: ALWAYS when a spec exists
+
+  def render_from_record(doc, qnum, Q, *, problem_pngs=None, option_pngs=None, problem_specs=None,
+                         option_specs=None, cell_images=None, answer_cardinality='single',
+                         section_rules_text='', language='english', nat_instruction=None):
+      """v8.11 (GAP-2026-11-26-RENDER-PARITY, owner ruling RP-G, LAW-PRINT-1) — THE ONE entry
+      point that prints a question. Every printed WORD comes from the sidecar record Q (the
+      dict written with bc.stem_record / bc.mt_record_fields, S7-QUALITY) — stem_lead +
+      stem_lines + stem_closing_ask (structured) or stem_src / stem_text (legacy),
+      option_src / option_texts, list_columns, problem_labels; the caller passes only the
+      pictures. The record the reviewers read and the block the student reads therefore
+      cannot drift. Dispatch (the same builders as before, so a legacy record prints
+      byte-identically to a direct call):
+        list_columns            -> add_match_table (cell_images: {(col, row): png} pictures
+                                   in List cells, label kept as the first run)
+        option_pngs             -> add_figural_question
+        problem_pngs            -> add_figural_stem_question
+        stem_lines (no picture) -> add_stem_multipart (>= 2 lines, LABEL LAW safe) else
+                                   add_question_stem + one bold line each (never a raise)
+        options                 -> add_standard_question
+        no options (NAT)        -> add_question_stem (+ lines) + blank separator
+      Returns the sidecar flags {'msq_instr_in_stem', 'nat_instr_in_stem',
+      'rendered_match_table'} for write_q_to_sidecar."""
+      Q = Q if isinstance(Q, dict) else {}
+      lines = [x for x in (Q.get('stem_lines') or []) if isinstance(x, str) and x.strip()] \
+          if isinstance(Q.get('stem_lines'), list) else []
+      ask = Q.get('stem_closing_ask') if lines else None
+      pos = Q.get('stem_lines_position') if Q.get('stem_lines_position') in ('after_figure', 'before_figure') \
+          else 'after_figure'
+      lead = Q.get('stem_lead') if lines and isinstance(Q.get('stem_lead'), str) else (
+          Q.get('stem_src') if isinstance(Q.get('stem_src'), str) else str(Q.get('stem_text') or ''))
+      opts = Q.get('option_src') if isinstance(Q.get('option_src'), (list, tuple)) else (Q.get('option_texts') or [])
+      opts = [str(o) for o in opts]
+      msq = msq_instruction_for(section_rules_text, language) if answer_cardinality == 'multi' else None
+      flags = {'msq_instr_in_stem': bool(msq), 'nat_instr_in_stem': False, 'rendered_match_table': False}
+      plabs = Q.get('problem_labels') if isinstance(Q.get('problem_labels'), list) else None
+      if isinstance(Q.get('list_columns'), list) and Q['list_columns']:
+          cols = [(c[0], list(c[1])) for c in Q['list_columns']
+                  if isinstance(c, (list, tuple)) and len(c) == 2 and isinstance(c[1], (list, tuple))]
+          r = add_match_table(doc, qnum, lead, cols, opts, answer_cardinality, section_rules_text, language,
+                              cell_images=cell_images)
+          flags.update(r if isinstance(r, dict) else {})
+          return flags
+      kw = dict(stem_lines=lines or None, stem_closing_ask=ask, stem_lines_position=pos,
+                problem_labels=plabs, msq_instruction=msq, nat_instruction=None if msq else nat_instruction)
+      flags['nat_instr_in_stem'] = bool(nat_instruction and not msq and (option_pngs or problem_pngs))
+      if option_pngs:
+          add_figural_question(doc, qnum, lead, list(problem_pngs or []), option_pngs,
+                               problem_specs=problem_specs, option_specs=option_specs, **kw)
+          return flags
+      if problem_pngs and len(opts) >= 2:
+          add_figural_stem_question(doc, qnum, lead, problem_pngs, opts, problem_specs=problem_specs, **kw)
+          return flags
+      if problem_pngs:                                # NAT (or no text options) with a stem picture — never an assert
+          _n0 = _n_block_items(doc)
+          add_question_stem(doc, qnum, lead, msq_instruction=msq or nat_instruction)
+          _tl = _stem_tail(lines, ask)
+          if pos == 'before_figure':
+              for _ln in _tl:
+                  add_stem_ml(doc, _ln, bold=True)
+          _pl = _problem_labels_for(plabs, problem_pngs)
+          for k, pb in enumerate(problem_pngs, 1):
+              _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
+                              spec=problem_specs[k - 1] if problem_specs and len(problem_specs) >= k else None)
+              _name_last_drawing(doc, f"q{qnum}_problem.png" if len(problem_pngs) == 1 else f"q{qnum}_problem_{k}.png")
+              if _pl:
+                  add_stem_ml(doc, _pl[k - 1], bold=True)
+          if pos != 'before_figure':
+              for _ln in _tl:
+                  add_stem_ml(doc, _ln, bold=True)
+          if opts:
+              _keep_block_with_next(doc, _n0)
+              add_text_options(doc, opts)
+          add_blank_separator(doc)
+          flags['nat_instr_in_stem'] = bool(nat_instruction and not msq)
+          return flags
+      if lines:
+          _safe = len(lines) >= 2 and not any(_subpart_label_violation(x) for x in lines + ([ask] if ask else []))
+          if _safe:
+              add_stem_multipart(doc, qnum, lead, lines, closing_ask=ask, msq_instruction=msq,
+                                 nat_instruction=None if msq else nat_instruction)
+          else:
+              add_question_stem(doc, qnum, lead, msq_instruction=msq or nat_instruction)
+              for _ln in _stem_tail(lines, ask):
+                  add_stem_ml(doc, _ln, bold=True)
+          flags['nat_instr_in_stem'] = bool(nat_instruction and not msq)
+          if opts:
+              add_text_options(doc, opts)
+          add_blank_separator(doc)
+          return flags
+      if opts:
+          r = add_standard_question(doc, qnum, lead, opts, answer_cardinality, section_rules_text, language)
+          flags.update(r if isinstance(r, dict) else {})
+          return flags
+      add_question_stem(doc, qnum, lead, msq_instruction=nat_instruction)
+      flags['nat_instr_in_stem'] = bool(nat_instruction)
+      add_blank_separator(doc)
+      return flags
   ```
 
   WHEN TO USE THIS vs add_figural_question():
@@ -13210,6 +13383,11 @@ if AUDIT_AVAILABLE:
           (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
   # v8.7 (GAP-2026-11-21-A3-OMML-PARITY): a question STEP A3 bound after its one text-guard refusal (A3-TEXT)
   for _qf, _lines_f in sorted((_bs_g.get('a3_footer') or {}).items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+      for _cls_f, _txt_f in (_lines_f or []):
+          (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
+  # v8.11 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): a question STEP A3 repaired or disclosed for print parity — the
+  # line reaches the delivery footer and, through chain_footer, the registry (never the student paper)
+  for _qf, _lines_f in sorted((_bs_g.get('rpar_footer') or {}).items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
       for _cls_f, _txt_f in (_lines_f or []):
           (_amber_g if _cls_f == 'AMBER' else _info_g).append(_txt_f)
   _amber_g += [f"{_gn}: {_wn}" for _gn, _wn in sorted((_kd_g.get('nf_disclosed') or {}).items())]
@@ -15523,7 +15701,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.10
+# END OF Framework_MockTestCreate v8.11
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

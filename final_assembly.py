@@ -18,6 +18,14 @@ PROVENANCE
     by the old global cap is measured by its settlement batch 'S', which keeps its own round count (self-test
     bv_final_stranded_slot_migrates_and_is_measured — the live SSC_CGL_TIER1 P1 state).
 
+    v1.30.0 — GAP-2026-11-26-RENDER-PARITY (release 2026.12.04; owner rulings RP-A..RP-H, LAW-PRINT-1). The incident:
+      Q22's three conditions were reviewed but never printed — certified, SHIP, auditor PASS. Now: STEP A2's
+      bc_prereview_gaps reads STEP B's --item-texts and sends a G-RENDER-PARITY finding (bc.render_parity) back before
+      any reviewer is paid; STEP A3 (bc_bind_batch) checks every UNBOUND question first and, when a reviewed sentence is
+      still missing, inserts it before the options (rpar_insert_missing — a second, independent reader guards against
+      duplicates; once per reviewed text, batch_state['rpar_insert']), re-reads and re-hashes the block in-process with
+      the auditor's own functions (rpar_reread), binds and discloses (batch_state['rpar_footer']). A bound question is
+      never repaired. a3_compare fails CLOSED; a3_expected carries the record's option count (CD-2). Never a stop.
     v1.29.0 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28). STEP A3 compared the auditor's fused reading of an
       equation ('12') with the sidecar's linear form ('(1)/(2)'), refused an unedited question and named a repair that
       could not be performed — a permanent halt (TestCreate CSIR NET Mathematical Sciences P1 Q5 / Q6). Now: the block
@@ -1956,7 +1964,7 @@ def bv_s3_plans(exam, n, home, batch_state, ladder=None, section_rules_text=None
                 if isinstance(v, (int, float)):
                     nd[k] = nd.get(k, 0.0) + float(v)
         ns = bc.statement_n_plan(nd, len(stq), offset=bc._qf_int(n, 1) - 1) if stq else []
-        if sf.get('ask_form') or sf.get('statement_forms') or ns:
+        if sf.get('ask_form') or sf.get('statement_forms') or sf.get('stem_lines_position') or ns:   # 2026.12.04: + S-7
             out['stem_form'] = dict(sf, n_statements={q: k for q, k in zip(stq, ns)})
     except Exception:                                   # noqa: BLE001
         pass
@@ -2332,6 +2340,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
         _pre_doc = json.load(open(os.path.join(home, f'{exam}_M{n}_batch_findings.json'), encoding='utf-8'))
     except (OSError, ValueError):
         _pre_doc = None
+    try:                                                # release 2026.12.04 (S-4): STEP B's --item-texts (always written)
+        _pre_txt = json.load(open(os.path.join(home, f'{exam}_M{n}_item_texts.json'), encoding='utf-8'))
+        _pre_txt = _pre_txt if isinstance(_pre_txt, dict) else {}
+    except (OSError, ValueError):
+        _pre_txt = {}
     _jr_bv = int(_st_bv.get('round', 0))               # job rounds issued so far for this batch
     _left = max(0, int(bc.BV_MAX_ROUNDS) - _jr_bv)
     _asked_all = _st_bv.setdefault('asked', {})
@@ -2423,7 +2436,11 @@ def bv_batch_step(exam, n, ruler=None, manifest=None, bank=None, op_profile=None
             # findings for this text; a gap goes back to the author with no reviewer started, at most
             # bc.BC_PREREVIEW_TRIES times per rung, then the text is reviewed as it stands (never a loop)
             if _q not in _sc_back and not bc_text_has_results(_r['entry']):
-                _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc) + (
+                _pg = bc_prereview_gaps(_r['entry'], _q, _pre_doc,
+                                        block_reading=_pre_txt.get(str(_q)) if isinstance(_pre_txt.get(str(_q)), dict)
+                                        else None,
+                                        fig_ctx=rpar_fig_context(exam, _q, _r['entry'], home)
+                                        if isinstance(_pre_txt.get(str(_q)), dict) else None) + (
                     bv_r3_gaps(_r['entry'], _ans_bv.get(_q), bool(_labs_bv) and _tgt_bv.get(_q) == _labs_bv[-1],
                                _lad_bv, _mode_bv, context=_gctx(_q, _r['entry'])) if _r3_bv else [])
                 _pgs = _st_bv.setdefault('prereview', {}).setdefault(_q, {})
@@ -2812,9 +2829,12 @@ def a3_expected(entry):
     _ops = [a3_reading(o) for o in (ops or []) if isinstance(o, str)] if isinstance(ops, (list, tuple)) else []
     # S4 of the gap: a stem-only figure with TEXT options keeps its option check; options are 'drawn' only when they
     # are figure dicts / option structures, or figure files with no option text at all
-    return {'stem': a3_reading(st), 'options': _ops,
-            'drawn': bool(e.get('figure_dicts') or e.get('option_smiles')
-                          or (e.get('figure_files') and not any(x.strip() for x in _ops)))}
+    _drawn = bool(e.get('figure_dicts') or e.get('option_smiles')
+                  or (e.get('figure_files') and not any(x.strip() for x in _ops)))
+    # release 2026.12.04 (CD-2): the record's text-option count, so a printed statement line is never read as an option
+    _no = len([x for x in _ops if x.strip()]) if not _drawn else None
+    return {'stem': a3_reading(st), 'options': _ops, 'drawn': _drawn,
+            **({'n_options': _no} if isinstance(_no, int) and _no > 0 else {})}
 
 
 def a3_compare(block, entry):
@@ -2831,8 +2851,8 @@ def a3_compare(block, entry):
         e2 = dict(e, stem_text=_a3_fused(st), option_texts=[_a3_fused(o) for o in (ops or []) if isinstance(o, str)])
         ok = _bc_block_contains(txt, e2)
         return ok, ('match' if ok else 'the block does not show the record\'s stem / options in order')
-    except Exception:                                   # noqa: BLE001
-        return True, 'not checkable'
+    except Exception as ex:                             # noqa: BLE001 — release 2026.12.04: fail-CLOSED (N-4)
+        return False, f'not checkable: {type(ex).__name__}'
 
 
 def _bc_block_contains(block_text, entry):
@@ -2910,14 +2930,19 @@ BC_PREREVIEW_AMBER_GATES = ('A-FIGLABELPX', 'A-FIGLABEL', 'A-FIGLABELRASTER', 'A
                             'A-OPTDISTINCT')
 
 
-def bc_prereview_gaps(entry, q, findings_doc=None):
+def bc_prereview_gaps(entry, q, findings_doc=None, block_reading=None, fig_ctx=None):
     """v1.24 (GAP-2026-11-15-RUN-ANALYSIS D1-D3) — what must be fixed in question q BEFORE its reviewers are paid:
     (1) an organic structure figure whose proof fails identity / gates (computed by bc_figure_with_layout — the
         S13-2P rule); (2) a packet the reviewers could not solve: the stem refers to List-I / List-II / Column-I but
         list_columns is not recorded, or to a figure 'shown' with no figure_files, list_columns or stimulus_text;
     (3) the per-batch auditor's item findings for q (findings_doc = the --item-findings JSON STEP B wrote): every
         item finding, and the AMBER findings of BC_PREREVIEW_AMBER_GATES (small labels, collisions, stereo-ambiguous
-        option pairs). [] when nothing is found. Never raises."""
+        option pairs). [] when nothing is found. Never raises.
+    release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, S-4): (4) with block_reading (this question's STEP B --item-texts
+    entry) every G-RENDER-PARITY finding — the printed block must show the record before a reviewer is paid; fig_ctx =
+    (figure_labels, labels_known) from rpar_fig_context. An internal 'not checkable' is NOT sent back here (it is no
+    writer's fault — STEP A3 decides it); no reading = skipped (E-22). (5) the record's stem_line_findings (a label
+    rung bc.safe_stem_lines could not make safe)."""
     import re as _re
     global _BC_LIST_REF, _BC_SHOWN_REF
     if _BC_LIST_REF is None:
@@ -2960,6 +2985,17 @@ def bc_prereview_gaps(entry, q, findings_doc=None):
     for r in (doc.get('amber_findings') or []):
         if isinstance(r, dict) and str(r.get('q')) == str(q) and r.get('gate') in BC_PREREVIEW_AMBER_GATES:
             out.append(f"{r.get('gate')} (AMBER): {str(r.get('finding'))[:200]}")
+    if isinstance(block_reading, dict):
+        try:
+            _lb, _kn = fig_ctx if isinstance(fig_ctx, tuple) and len(fig_ctx) == 2 else ([], True)
+            _dt = bc.render_parity_detail(e, block_reading, reader=a3_reading, figure_labels=_lb, labels_known=_kn)
+            if 'NC' not in _dt['codes']:
+                out += [f"{x[:200]} — rebuild Q{q} from its record (render_from_record, S10-3)"
+                        for x in _dt['findings'][:8]]
+        except Exception:                               # noqa: BLE001
+            pass
+    out += [str(x)[:200] for x in (e.get('stem_line_findings') or []) if isinstance(x, str)] \
+        if isinstance(e.get('stem_line_findings'), list) else []
     return out
 
 
@@ -3099,7 +3135,8 @@ def _qf_rung(bvs):
         return 0
 
 
-def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/claude', echo=True, upto=None):
+def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/claude', echo=True, upto=None,
+                  docx_path=None):
     """v1.22 STEP A3 (LAW-BC-7) — bind every settled / disclosed question up to this batch to the auditor's item_hash
     of its block in the cumulative docx: concept_map[q]['review'] = bc.bc_review_record (reviewer 'batch') and one
     review_history entry; key_votes are already bound to the question's content by bc_apply. REFUSES (names the
@@ -3107,7 +3144,12 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
     its reviewers judged (it was edited after review without re-review — R2); its block is missing from the item
     hashes; or (with item_texts_path) the block does not show the sidecar's stem and options in order. M-BIND: a question
     settled under BV1 (an earlier release) gets a two-solver 'unanimous' record with key_votes.rule 'BV1'. Returns
-    {'status': 'bound' | 'refused', 'bound': [q], 'refused': {q: why}, 'lines'}. Never raises on a refusal."""
+    {'status': 'bound' | 'refused', 'bound': [q], 'refused': {q: why}, 'lines'}. Never raises on a refusal.
+    release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, S-5, LAW-PRINT-1): before the text guard, every question NOT yet
+    bound to its current block is checked by bc.render_parity (rpar_bind_step); a reviewed sentence still missing is
+    inserted into the block (rpar_insert_missing, once), the block is re-read and re-hashed in-process and bound to
+    that hash; anything left is disclosed (batch_state['rpar_footer'], AMBER). A bound question is never repaired.
+    docx_path: the cumulative docx (default: the path the auditor recorded in item_texts['__docx__'])."""
     import json, os
     _lines = []
 
@@ -3131,6 +3173,10 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
             texts = {str(k): v for k, v in json.load(open(item_texts_path, encoding='utf-8')).items()}
         except (OSError, ValueError, TypeError, AttributeError):
             texts = {}
+    _rp_docx = texts.pop('__docx__', None)              # release 2026.12.04: the auditor's own docx (v2.48)
+    _rp_docx = docx_path or (_rp_docx if isinstance(_rp_docx, str) else None)
+    _rp_foot = bs.setdefault('rpar_footer', {}) if isinstance(bs.get('rpar_footer', {}), dict) else {}
+    _rp_pending = {}
     items = (bs.get('bv') or {}).get('items') or {}
     plan = bs.get('batch_plan') or []
     if upto is None:
@@ -3151,6 +3197,25 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
         if not h:
             refused[q] = 'no item_hash for its block (the auditor did not find it in the docx)'
             continue
+        _rv_now = e.get('review') if isinstance(e.get('review'), dict) else {}
+        _cs_now = (bvs.get('content_sha') if isinstance(bvs, dict) else None)
+        # parity applies to a SETTLED question (BC rule, state settled / disclosed, text unchanged since its review) that
+        # is NOT bound — neither to its current block nor, for the same text, to an earlier block (an edit outside the
+        # ladder keeps today's refusal: put the bound block back); a BV1 / legacy question keeps today's path (E-17)
+        _rp_ok = (isinstance(bvs, dict) and bvs.get('rule') == bc.BC_RULE and bvs.get('state') in bc.BC_STATES
+                  and e.get('bv_state') in bc.BC_STATES and _cs_now == _bc_entry_sha(_bc_render_shas(e))
+                  and _rv_now.get('item_hash') != h
+                  and not (_rv_now.get('item_hash') and _rv_now.get('content_sha') == _cs_now))
+        if texts and q in texts and isinstance(texts[q], dict) and _rp_ok:
+            # release 2026.12.04 (S-5): an UNBOUND question — parity first; a bound one is never repaired (N-6)
+            _rp_mem = bs.setdefault('rpar_insert', {}) if isinstance(bs.get('rpar_insert', {}), dict) else {}
+            _rp_cs = (bvs.get('content_sha') if isinstance(bvs, dict) else None) or _bc_entry_sha(_bc_render_shas(e))
+            _rp = rpar_bind_step(exam, n, q, e, texts[q], _rp_docx, home, memory=_rp_mem, content_sha=_rp_cs)
+            if _rp.get('hash') and _rp.get('reading'):
+                h, texts[q] = _rp['hash'], _rp['reading']
+            if _rp.get('lines'):
+                _rp_pending[q] = list(_rp['lines'])
+                _a3_dirty = True
         if texts and q in texts:
             _same, _why = a3_compare(texts[q], e)
             _cs = (bvs.get('content_sha') if isinstance(bvs, dict) else None) or _bc_entry_sha(_bc_render_shas(e))
@@ -3158,7 +3223,7 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
             _a3_dirty = True
             if _act == 'refuse':
                 refused[q] = (f"the docx block does not show the reviewed record ({_why}) — rebuild Q{q}'s block from its "
-                              f"sidecar stem_src / option_src with the S10-3 builders, then STEP B and STEP A3 again. This "
+                              f"record with render_from_record (S10-3), then STEP B and STEP A3 again. This "
                               f"refusal happens ONCE: if the block still differs, STEP A3 binds it to its delivered block "
                               f"and discloses it (A3-TEXT, AMBER) — never a stop")
                 continue
@@ -3224,6 +3289,11 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
         if _qa in bound:
             _a3_foot[_qa] = [['AMBER', _ln]]
             _say(f"STEP A3: {_ln}")
+    for _qa, _lns in _rp_pending.items():               # release 2026.12.04: G-RENDER-PARITY disclosures (S-6)
+        if _qa in bound:
+            _rp_foot[_qa] = [['AMBER', _x] for _x in _lns]
+            for _x in _lns:
+                _say(f"STEP A3: {_x}")
     if _a3_dirty:
         try:
             json.dump(bs, open(bsp, 'w', encoding='utf-8'), indent=2)
@@ -3237,6 +3307,214 @@ def bc_bind_batch(exam, n, item_hashes_path, item_texts_path=None, home='/home/c
     else:
         _say(f"STEP A3: BOUND — {len(bound)} question(s) carry a batch review record bound to their delivered block.")
     return {'status': 'refused' if refused else 'bound', 'bound': bound, 'refused': refused, 'lines': _lines}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# release 2026.12.04 — GAP-2026-11-26-RENDER-PARITY (LAW-PRINT-1): the printed block must show the reviewed record.
+# STEP A2 sends a parity finding back to the writer before any reviewer is paid (bc_prereview_gaps, block_reading);
+# STEP A3 checks every UNBOUND question once more and, when a reviewed sentence is still missing, inserts it into the
+# block (rpar_insert_missing — the terminal repair; the question is always answerable), re-reads and re-hashes the block
+# in-process with the auditor's own functions, then binds. A bound question is never repaired (N-6). Never a stop.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+def rpar_fig_context(exam, q, entry, home='/home/claude'):
+    """(figure_labels, labels_known) for question q: bc.rpar_figure_labels over the paper's fig_manifest semantic
+    objects (questions[q].semantic_objects) and the question's FigureSpec files (q<q>_*.figspec.json). A missing
+    manifest is no record: labels_known follows bc.rpar_figure_labels (False for a figure question). Never raises."""
+    import glob as _gl
+    import json, os
+    objs, specs = None, []
+    try:
+        fm = json.load(open(os.path.join(home, f'{exam}_fig_manifest.json'), encoding='utf-8'))
+        qrec = ((fm.get('questions') or {}).get(str(q)) or {}) if isinstance(fm, dict) else {}
+        objs = qrec.get('semantic_objects') if isinstance(qrec.get('semantic_objects'), list) else None
+    except (OSError, ValueError, TypeError, AttributeError):
+        objs = None
+    try:
+        for _fs in sorted(_gl.glob(os.path.join(home, f'q{q}_*.figspec.json'))):
+            try:
+                _d = json.load(open(_fs, encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            if isinstance(_d, dict):
+                specs.append(_d)
+    except Exception:                                   # noqa: BLE001
+        specs = []
+    try:
+        return bc.rpar_figure_labels(entry, objs, specs)
+    except Exception:                                   # noqa: BLE001
+        return [], False
+
+
+def _rpar_src_units(entry, det_missing):
+    """The SOURCE text of each missing unit (det_missing are canonical readings), in record order: the structured lines
+    / closing ask by position, the lead and legacy stems sentence by sentence; a unit whose source cannot be paired is
+    inserted in its linear form. Never raises."""
+    e = entry if isinstance(entry, dict) else {}
+    srcs = []
+    if isinstance(e.get('stem_lines'), list) and isinstance(e.get('stem_lead'), str):
+        srcs += bc.rpar_split_units(e['stem_lead'])
+        srcs += [x for x in e['stem_lines'] if isinstance(x, str) and x.strip()]
+        if isinstance(e.get('stem_closing_ask'), str) and e['stem_closing_ask'].strip():
+            srcs.append(e['stem_closing_ask'])
+    else:
+        st = e.get('stem_src') if isinstance(e.get('stem_src'), str) else e.get('stem_text')
+        srcs = bc.rpar_split_units(st) if isinstance(st, str) else []
+    pairs = [(bc.a3_canon(a3_reading(s)), s) for s in srcs if isinstance(s, str) and s.strip()]
+    out = []
+    for m in det_missing or []:
+        hit = next((s for r, s in pairs if r == m), None)
+        if hit is None:
+            hit = next((s for r, s in pairs if bc.a3_tokens(r) == bc.a3_tokens(m)), None)
+        out.append(bc.math_linear(hit) if isinstance(hit, str) else m)
+    return out
+
+
+def _rpar_block(doc, q):
+    """The auditor's Block object for question q in a python-docx Document (audit_canonical.parse_blocks — the SAME
+    splitter that hashed it). None when absent. Never raises."""
+    try:
+        import audit_canonical as _ac
+        _t, blocks = _ac.parse_blocks(doc)
+        return next((b for b in blocks if str(b.qnum) == str(q)), None)
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def rpar_reread(docx_path, q):
+    """(item_hash, reading) of question q's block in the docx, computed IN-PROCESS by the auditor's own functions
+    (_block_item_hash, _block_struct_paras, _block_struct_detail) — the values a fresh auditor run would write. (None,
+    None) when the block cannot be read. Never raises."""
+    try:
+        import audit_canonical as _ac
+        from docx import Document as _D
+        b = _rpar_block(_D(docx_path), q)
+        if b is None:
+            return None, None
+        rd = {'paras': _ac._block_struct_paras(b)}
+        rd.update(_ac._block_struct_detail(b))
+        return _ac._block_item_hash(b), rd
+    except Exception:                                   # noqa: BLE001
+        return None, None
+
+
+def rpar_insert_missing(docx_path, q, entry, missing, first_reading_ok=True):
+    """The terminal repair (S-5): every reviewed stem unit the parity check found missing is inserted as a bold
+    paragraph directly BEFORE the first option paragraph of question q's block (after its pictures — the real-exam
+    position), in record order, in the Q.N paragraph's font. A SECOND reader, independent of the auditor (python-docx
+    paragraph and cell text), re-reads the block first and anything it already shows is not inserted — a reader
+    failure can never duplicate text. When the first reader failed (first_reading_ok False) a unit carrying an equation
+    is never inserted (the second reader cannot see equations). The docx is replaced atomically. Returns {'inserted':
+    int, 'unreadable': bool, 'why': str}. Never raises."""
+    out = {'inserted': 0, 'unreadable': False, 'why': ''}
+    try:
+        from docx import Document as _D
+        import copy as _cp
+        import os
+        import tempfile as _tf
+        doc = _D(docx_path)
+        b = _rpar_block(doc, q)
+        if b is None or not getattr(b, 'paras', None):
+            out.update(unreadable=True, why='block not found')
+            return out
+        second = ' '.join([p.text for p in b.paras] + [c.text for t in b.tables for r in t.rows for c in r.cells])
+        have = ' ' + ' '.join(bc.a3_tokens(second)) + ' '
+        srcs = _rpar_src_units(entry, missing)
+        todo = []
+        for m, s in zip(missing or [], srcs):
+            tk = bc.a3_tokens(m)
+            if not tk or (' ' + ' '.join(tk) + ' ') in have:
+                continue
+            if not first_reading_ok and ('⟦MATH:' in str(s) or '⟨' in m):
+                continue
+            todo.append(s)
+        if not todo:
+            out['why'] = 'nothing to insert (the second reader shows every unit)'
+            return out
+        texts = [bc.omml_struct_text(p._element) for p in b.paras]
+        u = bc.rpar_units(entry)
+        seg = bc.rpar_segments(texts, u['n_options'] if not u['drawn'] else None, u['drawn'])
+        st = seg.get('opt_start')
+        if st is not None and st < len(b.paras):
+            anchor, before = b.paras[st], True
+        else:                                           # no option paragraph (NAT): after the last non-empty paragraph
+            idx = max([i for i, t in enumerate(texts) if t] or [0])
+            anchor, before = b.paras[idx], False
+        q0 = b.paras[0]
+        r0 = q0.runs[0] if q0.runs else None
+        prev = anchor
+        for s in todo:
+            np_ = _cp.deepcopy(q0._p)
+            for ch in list(np_):
+                if ch.tag != q0._p.tag.replace('}p', '}pPr'):
+                    np_.remove(ch)
+            if before:
+                anchor._p.addprevious(np_)
+            else:
+                prev._p.addnext(np_)
+            from docx.text.paragraph import Paragraph as _P
+            para = _P(np_, anchor._parent)
+            run = para.add_run(str(s))
+            run.bold = True
+            if r0 is not None:
+                run.font.name = r0.font.name
+                run.font.size = r0.font.size
+            para.paragraph_format.keep_with_next = True
+            prev = para
+            out['inserted'] += 1
+        fd, tmp = _tf.mkstemp(suffix='.docx', dir=os.path.dirname(os.path.abspath(docx_path)) or None)
+        os.close(fd)
+        doc.save(tmp)
+        os.replace(tmp, docx_path)
+        out['why'] = f"{out['inserted']} unit(s) inserted before the options"
+        return out
+    except Exception as ex:                             # noqa: BLE001
+        out.update(inserted=0, unreadable=True, why=f'{type(ex).__name__}: {str(ex)[:80]}')
+        return out
+
+
+def rpar_bind_step(exam, n, q, entry, reading, docx_path, home='/home/claude', memory=None, content_sha=None):
+    """STEP A3 parity for ONE unbound question (S-5, owner ruling RP-C as amended — no A3 rebuild): check; a missing
+    reviewed sentence (P1, or an unreadable block) → rpar_insert_missing once → re-read and re-hash in-process →
+    re-check. Every finding left (a label, extra text or a picture — STEP A2 already sent these back) is disclosed.
+    Returns {'hash': new item_hash or None, 'reading': new reading or None, 'lines': [AMBER line]}. Bounded: at most
+    one insertion and two checks per call, and at most ONE insertion per reviewed text ever (memory =
+    batch_state['rpar_insert'], {q: content_sha}, a persistent record no other branch resets). Never raises."""
+    res = {'hash': None, 'reading': None, 'lines': []}
+    try:
+        labs, known = rpar_fig_context(exam, q, entry, home)
+        det = bc.render_parity_detail(entry, reading, reader=a3_reading, figure_labels=labs, labels_known=known)
+        if not det['findings']:
+            return res
+        _mem = memory if isinstance(memory, dict) else {}
+        _done = content_sha is not None and _mem.get(str(q)) == content_sha
+        if det['missing'] and not _done:
+            body = (reading or {}).get('body') if isinstance(reading, dict) else None
+            first_ok = bool([x for x in (body if isinstance(body, list) else (reading or {}).get('paras') or [])
+                             if isinstance(x, str) and x.strip()]) if isinstance(reading, dict) else False
+            ins = rpar_insert_missing(docx_path, q, entry, det['missing'], first_ok) if docx_path else \
+                {'inserted': 0, 'unreadable': True, 'why': 'no docx path'}
+            if ins['inserted'] and content_sha is not None and isinstance(memory, dict):
+                memory[str(q)] = content_sha
+            # re-judge from the block as it now stands, read in-process by the auditor's own functions: after an
+            # insertion, and whenever the first reading was empty (a reader failure is never reported as 'missing')
+            if docx_path and (ins['inserted'] or not first_ok):
+                h2, rd2 = rpar_reread(docx_path, q)
+                if h2 and rd2:
+                    res.update(hash=h2, reading=rd2)
+                    det = bc.render_parity_detail(entry, rd2, reader=a3_reading, figure_labels=labs,
+                                                  labels_known=known)
+            if ins['inserted']:
+                res['lines'].append(bc.RPAR_INSERT_LINE.format(q=q, k=ins['inserted']))
+            elif ins['unreadable'] and not first_ok and res['reading'] is None:
+                res['lines'].append(bc.RPAR_UNREADABLE_LINE.format(q=q))
+                return res
+        for f in det['findings']:
+            what = f.replace('G-RENDER-PARITY ', '', 1)
+            res['lines'].append(bc.RPAR_RESIDUAL_LINE.format(q=q, what=what[:160]))
+        return res
+    except Exception as ex:                             # noqa: BLE001
+        res['lines'].append(bc.RPAR_RESIDUAL_LINE.format(q=q, what=f'not checkable ({type(ex).__name__})'))
+        return res
 
 
 def assemble_final_docx(src_docx, dst_docx):
@@ -3338,6 +3616,151 @@ def _r29_t3_self_test(check):
     _ml = bc.math_linear('v ⟦MATH:\\frac12⟧')
     check('r29_math_linear_reads_rendered', '\\frac12' not in _ml and '(1)/(2)' in _ml
           and bc.math_linear('v ⟦MATH:x^{2}⟧') == 'v x²')
+
+
+def _rpar_fa_self_test(check):
+    """release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY) — STEP A2 / STEP A3 end to end on REAL docx blocks read by the
+    auditor's own code: the Q22 shape (a picture question whose three conditions were never printed) is sent back at
+    STEP A2 before any reviewer, and at STEP A3 the missing conditions are inserted after the picture and before the
+    options, the block is re-read and re-hashed in-process, bound, and disclosed; a second STEP A3 inserts nothing; a
+    bound question is never repaired; an empty auditor reading is never reported as missing text; the comparator fails
+    closed. Every check is a NO-STOP check."""
+    import json as _js, os as _os, tempfile as _tf, struct as _st, zlib as _zl
+    try:
+        from docx import Document as _D
+        from docx.shared import Inches as _In
+        import audit_canonical as _ac
+    except Exception:                                   # noqa: BLE001
+        check('rpar_fa_deps', False)
+        return
+    _lead = ('The aldehyde shown is treated separately under the three sets of conditions (A)–(C) below. The named '
+             'reactions that actually take place as the main process in each case are')
+    _c = ['(A) Cannizzaro reaction with concentrated NaOH.', '(B) Aldol self-condensation with dilute NaOH.',
+          '(C) Benzoin condensation with catalytic NaCN.']
+    _o = ['A only', 'B and C only', 'A and C only', 'A and B only']
+
+    def _png():
+        raw = b''.join(b'\x00' + b'\xff' * 3 * 8 for _ in range(8))
+        def _ch(t, d):
+            return _st.pack('>I', len(d)) + t + d + _st.pack('>I', _zl.crc32(t + d) & 0xffffffff)
+        return (b'\x89PNG\r\n\x1a\n' + _ch(b'IHDR', _st.pack('>IIBBBBB', 8, 8, 8, 2, 0, 0, 0))
+                + _ch(b'IDAT', _zl.compress(raw)) + _ch(b'IEND', b''))
+
+    with _tf.TemporaryDirectory() as _h:
+        _pp = _os.path.join(_h, 'p.png')
+        open(_pp, 'wb').write(_png())
+        _dx = _os.path.join(_h, 'EX_P_Create.docx')
+        _d = _D()
+        _d.add_paragraph().add_run('Q.1  ' + _lead).bold = True
+        _d.add_paragraph().add_run().add_picture(_pp, width=_In(1))
+        for _i, _x in enumerate(_o, 1):
+            _d.add_paragraph().add_run(f'{_i}.  {_x}')
+        _d.add_paragraph()
+        _d.add_paragraph().add_run('Q.2  Which reagent reduces a ketone to an alcohol?').bold = True
+        for _i, _x in enumerate(['NaBH4', 'KMnO4', 'PCC', 'O3'], 1):
+            _d.add_paragraph().add_run(f'{_i}.  {_x}')
+        _d.save(_dx)
+        _e1 = dict(bc.stem_record(_lead, _c, None, None, _o), qtype='mcq', figure_files=['q1_problem.png'],
+                   ask_format='combination')
+        _e2 = dict(bc.mt_record_fields('Which reagent reduces a ketone to an alcohol?', ['NaBH4', 'KMnO4', 'PCC', 'O3']),
+                   qtype='mcq')
+        _cm = {}
+        for _q, _e in (('1', _e1), ('2', _e2)):
+            _e = _bc_render_shas(_e)
+            _sv = {r: {'answer': 3 if _q == '1' else 1, 'confidence': 'high', 'single_answer': 'yes',
+                       'leak_or_paraphrase': 'none', 'distractor_existence_and_class': 'ok',
+                       'consistency_and_names': 'ok', 'selectivity_basis': 'clean'} for r in bc.BV_ROLES_SOLVE}
+            _e['bv'] = {'rule': bc.BC_RULE, 'state': 'settled', 'rung': 1, 'solvers': _sv,
+                        'key': {'certified_by': 'unanimous', 'decided_key': 3 if _q == '1' else 1},
+                        'content_sha': _bc_entry_sha(_bc_render_shas(_e))}
+            _e['bv_state'] = 'settled'
+            _cm[_q] = _e
+        _js.dump({'concept_map': _cm, 'answers': {'1': 3, '2': 1}},
+                 open(_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _js.dump({'batch_plan': [{'batch_id': 1, 'q_start': 1, 'q_end': 2}], 'current_batch': 1,
+                  'bv': {'items': {q: _cm[q]['bv'] for q in _cm}}},
+                 open(_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+
+        def _audit():
+            _t, _bl = _ac.parse_blocks(_D(_dx))
+            hs = {str(b.qnum): _ac._block_item_hash(b) for b in _bl if b.qnum is not None}
+            tx = {str(b.qnum): dict({'paras': _ac._block_struct_paras(b)}, **_ac._block_struct_detail(b))
+                  for b in _bl if b.qnum is not None}
+            tx['__docx__'] = _dx
+            _js.dump(hs, open(_os.path.join(_h, 'ih.json'), 'w'))
+            _js.dump(tx, open(_os.path.join(_h, 'it.json'), 'w'))
+            return hs, tx
+        _hs0, _tx0 = _audit()
+        # STEP A2: the parity finding goes back to the writer before any reviewer is paid
+        _g = bc_prereview_gaps(_cm['1'], '1', None, block_reading=_tx0['1'], fig_ctx=([], True))
+        check('rpar_a2_sends_back_q22', any('P1' in x and 'render_from_record' in x for x in _g)
+              and bc_prereview_gaps(_cm['2'], '2', None, block_reading=_tx0['2'], fig_ctx=([], True)) == []
+              and bc_prereview_gaps(_cm['1'], '1', None) == bc_prereview_gaps(_cm['1'], '1', None, None, None)
+              and not any('P1' in x for x in bc_prereview_gaps(_cm['1'], '1', None))
+              and not any('not checkable' in x for x in bc_prereview_gaps(_cm['1'], '1', None, block_reading={},
+                                                                          fig_ctx=([], True))))
+        # STEP A3: insert, re-read, re-hash, bind, disclose
+        _r = bc_bind_batch('EX', 1, _os.path.join(_h, 'ih.json'), _os.path.join(_h, 'it.json'), home=_h, echo=False)
+        _bs = _js.load(open(_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _kd = _js.load(open(_os.path.join(_h, 'EX_M1_answer_key.json')))
+        _hs1, _tx1 = _audit()
+        _body = [bc.a3_canon(x) for x in _tx1['1']['body']]
+        _ia, _io = _body.index(bc.a3_canon(_c[0])) if bc.a3_canon(_c[0]) in _body else -1, \
+            next((i for i, x in enumerate(_body) if x.startswith('1.')), -1)
+        check('rpar_a3_inserts_and_binds', _r['status'] == 'bound' and sorted(_r['bound']) == ['1', '2']
+              and 0 < _ia < _io and _body[_ia:_ia + 3] == [bc.a3_canon(x) for x in _c]
+              and _tx1['1']['pictures'] == 1 and _body.index('') < _ia
+              and _kd['concept_map']['1']['review']['item_hash'] == _hs1['1'] != _hs0['1']
+              and _kd['concept_map']['2']['review']['item_hash'] == _hs1['2'] == _hs0['2']
+              and bc.render_parity(_kd['concept_map']['1'], _tx1['1']) == []
+              and (_bs.get('rpar_footer') or {}).get('1', [[None, '']])[0][0] == 'AMBER'
+              and '3 sentence(s) inserted' in _bs['rpar_footer']['1'][0][1]
+              and '2' not in (_bs.get('rpar_footer') or {})
+              and (_bs.get('rpar_insert') or {}).get('1') == _cm['1']['bv']['content_sha'])
+        _n1 = len(_D(_dx).paragraphs)
+        _r2 = bc_bind_batch('EX', 1, _os.path.join(_h, 'ih.json'), _os.path.join(_h, 'it.json'), home=_h, echo=False)
+        check('rpar_a3_second_run_inserts_nothing', _r2['status'] == 'bound' and len(_D(_dx).paragraphs) == _n1)
+        # a BOUND question is never repaired, even if its reading were to miss text (N-6)
+        _tx1b = dict(_tx1)
+        _tx1b['1'] = dict(_tx1['1'], body=_tx0['1']['body'], paras=_tx0['1']['paras'])
+        _js.dump(_tx1b, open(_os.path.join(_h, 'it.json'), 'w'))
+        _r3 = bc_bind_batch('EX', 1, _os.path.join(_h, 'ih.json'), _os.path.join(_h, 'it.json'), home=_h, echo=False)
+        check('rpar_a3_bound_never_repaired', len(_D(_dx).paragraphs) == _n1 and _r3['status'] in ('bound', 'refused'))
+        # an empty first reading is never reported as missing text: the block is re-read in-process (E-31)
+        _mem = {}
+        _rp = rpar_bind_step('EX', 1, '1', _kd['concept_map']['1'], {'paras': [], 'body': [], 'rows': [], 'pictures': 0},
+                             _dx, _h, memory=_mem, content_sha='other')
+        check('rpar_a3_empty_reader_no_false_insert', len(_D(_dx).paragraphs) == _n1 and _rp['lines'] == []
+              and _rp['reading'] is not None)
+        # ONE insertion per reviewed text, ever: a reading that still claims the text is missing (e.g. an equation read
+        # differently from its inserted linear form) inserts nothing again once batch_state['rpar_insert'] holds the sha
+        _rpm = rpar_bind_step('EX', 1, '1', _kd['concept_map']['1'], _tx0['1'], _dx, _h,
+                              memory={'1': 'sha-x'}, content_sha='sha-x')
+        check('rpar_a3_insert_once_per_text', len(_D(_dx).paragraphs) == _n1 and _rpm['hash'] is None
+              and any('P1' in x for x in _rpm['lines']))
+        # an UNSETTLED question's block is never touched by the parity step (it is refused as today)
+        _kd2 = _js.load(open(_os.path.join(_h, 'EX_M1_answer_key.json')))
+        _kd2['concept_map']['1'].pop('review', None)
+        _kd2['concept_map']['1']['bv_state'] = 'open'
+        _kd2['concept_map']['1']['bv'] = dict(_kd2['concept_map']['1']['bv'], state='open')
+        _js.dump(_kd2, open(_os.path.join(_h, 'EX_M1_answer_key.json'), 'w'))
+        _bsx = _js.load(open(_os.path.join(_h, 'EX_M1_batch_state.json')))
+        _bsx['bv']['items']['1'] = _kd2['concept_map']['1']['bv']
+        _js.dump(_bsx, open(_os.path.join(_h, 'EX_M1_batch_state.json'), 'w'))
+        _js.dump(dict(_tx1, **{'1': dict(_tx0['1'])}), open(_os.path.join(_h, 'it.json'), 'w'))
+        _r4 = bc_bind_batch('EX', 1, _os.path.join(_h, 'ih.json'), _os.path.join(_h, 'it.json'), home=_h, echo=False)
+        check('rpar_a3_unsettled_untouched', len(_D(_dx).paragraphs) == _n1 and '1' in _r4['refused']
+              and 'not settled' in _r4['refused']['1'])
+        # no docx path: nothing inserted, the finding is disclosed — never a stop
+        _rpn = rpar_bind_step('EX', 1, '1', _cm['1'], _tx0['1'], None, _h)
+        check('rpar_a3_no_docx_discloses', any('P1' in x for x in _rpn['lines']) and _rpn['hash'] is None)
+    # the comparator fails CLOSED (N-4): an internal error is a mismatch, never a pass
+    _orig = globals()['a3_expected']
+    try:
+        globals()['a3_expected'] = lambda *a, **k: 1 / 0
+        check('rpar_a3_compare_fail_closed', a3_compare({'paras': ['q.1 x']}, {'stem_text': 'x'})[0] is False)
+    finally:
+        globals()['a3_expected'] = _orig
 
 
 def self_test():
@@ -5621,6 +6044,7 @@ def self_test():
               any(c == 'AMBER' and 'kept its figure' in t for c, t in bc.bc_amber_lines('1', _c9['1']))
               and not any('replaced by a text question' in t for c, t in bc.bc_amber_lines('2', _c9['2'])))
     _r29_t3_self_test(check)         # release 2026.11.29 — lenient compile / G-MATH-COMPILE / G2 (needs the compiler)
+    _rpar_fa_self_test(check)                # release 2026.12.04 — GAP-2026-11-26-RENDER-PARITY (STEP A2 / A3)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))

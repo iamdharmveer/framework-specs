@@ -1188,11 +1188,12 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "Reviewer and adjudicator packets carry, beside each structure figure, the SMILES its identity proof certified (bc.bc_proven_structures); never for a file the reviewer reads back and never in a vision read-back. AMENDED 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass): a packet carries everything the candidate sees — a stimulus-set member's registered stimulus (fa.bc_stimulus_fill, from batch_state['stimulus_groups']) and a match item's list_columns (S7-QUALITY); a List-I / 'shown' stem whose packet would lack them goes back to the author before any reviewer starts (STEP A2 PRE-REVIEW).",
+   "requires": "Reviewer and adjudicator packets carry, beside each structure figure, the SMILES its identity proof certified (bc.bc_proven_structures); never for a file the reviewer reads back and never in a vision read-back. AMENDED 2026.11.20 (GAP-2026-11-15-RUN-ANALYSIS second pass): a packet carries everything the candidate sees — a stimulus-set member's registered stimulus (fa.bc_stimulus_fill, from batch_state['stimulus_groups']) and a match item's list_columns (S7-QUALITY); a List-I / 'shown' stem whose packet would lack them goes back to the author before any reviewer starts (STEP A2 PRE-REVIEW). AMENDED 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): the packet's text IS the printed block — STEP A2 proves it (bc.render_parity) before any reviewer is paid; it carries stem_lines_position and problem_labels when present (BV_GRADER_FIELDS).",
    "verified_by": [
     "blueprint_core.py --self-test (bv_reviewer_jobs_three_for_the_batch, bc_adjudicator_packet)",
     "handshake_audit.py --self-test (H-BC)",
-    "final_assembly.py --self-test (v124_set_member_packet_carries_its_stimulus, v124_stimulus_fill)"
+    "final_assembly.py --self-test (v124_set_member_packet_carries_its_stimulus, v124_stimulus_fill)",
+    "blueprint_core.py --self-test (rpar_packet_fields)"
    ]
   },
   "LAW-BC-6 GATES-FIRST": {
@@ -1225,13 +1226,14 @@
    "preconditions": [
     "OWNER RULINGS OD-2026-11-14 R1–R13 (2026-11-14): adjudication and re-key in the batch; three solvers; proven structure text; the merged ladder; fallback then disclosure; Final Assembly deterministic; gates before reviewers; R5b for figure questions after rung 3; BC_TERMINAL adjudicated_disclosed; figure-intrinsic families without an answer engine go from rung 2 to R5b; a rung starts only when its rounds fit; a re-key that cannot keep its key position is disclosed; a figure-reasoning exam joins the release gate."
    ],
-   "requires": "STEP A3 (fa.bc_bind_batch) writes each question's review record (bc.bc_review_record, reviewer 'batch') bound to the auditor's item_hash of its block in the cumulative docx, refusing a question edited after its review; this record is the independent review of REVIEW-COVERAGE-LAW and A-REVIEW. AMENDED 2026.11.26 (GAP-2026-11-20-RUNG3-BIND-DEADLOCK): STEP A3 refuses a figure only on the rung-3 TEXT fallback (bc.bc_is_text_fallback); every refusal names a repair that STEP A2 can execute — STEP A2 treats a fallback still carrying a figure as open (bc.bc_fallback_figure_open) and decides it in the same step, so STEP A2 DONE is always followed by STEP A3 BOUND.",
+   "requires": "STEP A3 (fa.bc_bind_batch) writes each question's review record (bc.bc_review_record, reviewer 'batch') bound to the auditor's item_hash of its block in the cumulative docx, refusing a question edited after its review; this record is the independent review of REVIEW-COVERAGE-LAW and A-REVIEW. AMENDED 2026.11.26 (GAP-2026-11-20-RUNG3-BIND-DEADLOCK): STEP A3 refuses a figure only on the rung-3 TEXT fallback (bc.bc_is_text_fallback); every refusal names a repair that STEP A2 can execute — STEP A2 treats a fallback still carrying a figure as open (bc.bc_fallback_figure_open) and decides it in the same step, so STEP A2 DONE is always followed by STEP A3 BOUND. AMENDED 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): before the text guard, every question not yet bound is checked by bc.render_parity; a reviewed sentence still missing is inserted into its block (fa.rpar_insert_missing, once per reviewed text), re-hashed in-process and bound; anything left is disclosed (batch_state['rpar_footer']). A bound question is never repaired. The text guard's comparators fail closed.",
    "verified_by": [
     "final_assembly.py --self-test",
     "handshake_audit.py --self-test (H-BC)",
     "audit_canonical.py --self-test (v242-bc-*)",
     "blueprint_core.py --self-test (gap1120_*)",
-    "final_assembly.py --self-test (gap1120_*)"
+    "final_assembly.py --self-test (gap1120_*)",
+    "final_assembly.py --self-test (rpar_a3_*)"
    ]
   },
   "LAW-BC-8 DETERMINISTIC-FINAL-ASSEMBLY": {
@@ -1269,6 +1271,25 @@
     "final_assembly.py --self-test (bv_no_reviewer_never_a_stop)",
     "blueprint_core.py --self-test (bc_K10_no_model, bc_K12_no_model)",
     "handshake_audit.py --self-test (H-BC)"
+   ]
+  },
+  "LAW-PRINT-1 PRINT-IS-REVIEW": {
+   "gap": "GAP-2026-11-26-RENDER-PARITY",
+   "stated_in": "Framework_MockTestCreate.md v8.11 S7-QUALITY / S10-8A render_from_record / S4-7 STEP B, A2, A3; blueprint_core v2.14 Cluster RPAR; final_assembly v1.30.0; audit_canonical v2.48",
+   "detect": "batch_verification_rule",
+   "detect_note": "A spec PERFORMS this operation when its live text calls final_assembly.bv_batch_step (fa. prefix) — the I/O shell over blueprint_core.bc_apply — or a Cluster BV / BC entry point.",
+   "governs": [
+    "Framework_MockTestCreate.md"
+   ],
+   "preconditions": [
+    "OWNER RULINGS RP-A..RP-H (2026-11-26): structured stem record and builders (inert for exams that do not use them); statement lines after the figure by default, measured per exam; STEP A3 repairs a missing reviewed sentence instead of accepting the printed block; the student paper carries no internal text; reviewers read the printed-order text; one printer from the record; the label check reads only anchored references. 2026-11-26: two delivered files unchanged (STEP-CONTRACT-LAW)."
+   ],
+   "requires": "What the student sees is exactly what was reviewed. Every question is printed from its sidecar record (render_from_record); STEP B writes the printed blocks (--item-texts); STEP A2 sends a G-RENDER-PARITY finding (bc.render_parity: every reviewed unit printed in order, every referenced label defined, no unreviewed text, every recorded picture printed) back to the writer before any reviewer is paid, within BC_PREREVIEW_TRIES; STEP A3 inserts a reviewed sentence still missing and discloses anything left. The check never raises and fails closed; no new stop, loop or review round.",
+   "verified_by": [
+    "blueprint_core.py --self-test (rpar_*)",
+    "final_assembly.py --self-test (rpar_a2_*, rpar_a3_*)",
+    "audit_canonical.py --self-test (A-RENDER-PARITY-*, A3-item-texts-detail)",
+    "analyse_engine.py --self-test (rpar_stem_line_pos)"
    ]
   },
   "LAW-CERT-1 ONE-CERTIFICATE-CONTRACT": {

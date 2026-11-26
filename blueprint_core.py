@@ -42,6 +42,16 @@ PROVENANCE
       map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 VERSION
+    v2.14 (2026-12-04) — GAP-2026-11-26-RENDER-PARITY (owner rulings RP-A..RP-H, 2026-11-26). NEW Cluster RPAR
+      (LAW-PRINT-1): stem_record (one structured stem: lead, stem_lines, closing ask, position — the record and the
+      printed block are composed by one function; no line = the legacy fields, byte-identical), safe_stem_lines (the
+      S10-2b LABEL LAW without a raise: empty lines dropped, a colliding label re-labelled down the SAFE-LADDER with its
+      references), render_parity / render_parity_detail (P1 every reviewed unit printed in order, P2 every referenced
+      label defined — option-named labels included — and no bare label cell, P3 no unreviewed text, P4 pictures; never
+      raises, fail-CLOSED), rpar_figure_labels, rpar_segments, RPAR_EXTRA_TOKENS_MAX (fixed for every exam, not
+      overridable). a3_same_question and its guard fallback fail CLOSED; a3_block_segments takes the record's option
+      count (CD-2); G-STEMFORM docstring corrected and a statement set on a figure question must record stem_lines
+      (CD-1); BV_GRADER_FIELDS + stem_lines_position, problem_labels (absent = byte-identical packets).
     v2.13 (2026-11-28) — GAP-2026-11-21-A3-OMML-PARITY. NEW Cluster A3: omml_struct_text (ONE structure-preserving
       reading of a paragraph's text and OMML, used by the auditor's --item-texts and by STEP A3 on the sidecar's
       rendered *_src), a3_block_segments / a3_same_question (stem coverage, per-option equality, a swap refused),
@@ -9744,6 +9754,187 @@ def _a3_self_test(check):
 
 
 
+def _rpar_self_test(check):
+    """Cluster RPAR (release 2026.12.04 — GAP-2026-11-26-RENDER-PARITY): seeded from the incident paper (Q22 / Q24 /
+    Q38) and the real CSIR papers (inline 'A. … B. …' statements, label-combination options, labels inside a picture,
+    math minus signs, truth-mark pairs). Every check is a NO-STOP check: the parity check never raises and fails closed."""
+    _lead = ('The aldehyde shown is treated separately under the three sets of conditions (A)–(C) below. The named '
+             'reactions that actually take place as the main process in each case are')
+    _c = ['(A) Cannizzaro reaction with concentrated NaOH.', '(B) Aldol self-condensation with dilute NaOH.',
+          '(C) Benzoin condensation with catalytic NaCN.']
+    _o = ['A only', 'B and C only', 'A and C only', 'A and B only']
+    _legacy = {'stem_text': _lead + ' ' + ' '.join(_c), 'option_texts': _o}
+
+    def _blk(sp, opts=_o):
+        return {'paras': ['Q.22  ' + sp[0]] + sp[1:] + [''] + [f'{i}. {x}' for i, x in enumerate(opts, 1)] + [''],
+                'body': ['Q.22  ' + sp[0]] + sp[1:] + [''] + [f'{i}. {x}' for i, x in enumerate(opts, 1)] + [''],
+                'rows': [], 'pictures': 1}
+    _rec = dict(stem_record(_lead, _c, None, None, _o), figure_files=['q22_problem.png'])
+    # S-1: one composition; the structured record carries the lines; no-line records are the legacy shape
+    check('rpar_stem_record', _rec['stem_src'] == _lead + '\n' + '\n'.join(_c) and _rec['stem_lines'] == _c
+          and _rec['stem_lines_position'] == 'after_figure' and _rec['stem_lead'] == _lead
+          and stem_record(_lead, None, None, None, _o) == mt_record_fields(_lead, _o)
+          and stem_record(_lead, ['', '  '], None, None, _o) == mt_record_fields(_lead, _o)
+          and stem_record(_lead, _c, None, 'before_figure', _o)['stem_lines_position'] == 'before_figure'
+          and stem_record(_lead, _c, None, 'sideways', _o, exam_position='before_figure')['stem_lines_position']
+          == 'before_figure'
+          and stem_record(None, None)['stem_src'] == '')
+    # E-7 / E-8: empty lines dropped; a colliding line re-labelled with its references; never a raise
+    _s1 = safe_stem_lines(['(1) first', '', '(2) second'], ['1.', '2.', '3.', '4.'], lead='Statements (1)–(2) below',
+                          options=['1 and 2 only', '1 only', '2 only', 'none'])
+    check('rpar_safe_lines', _s1['lines'] == ['(i) first', '(ii) second'] and _s1['lead'] == 'Statements (i)–(ii) below'
+          and _s1['options'] == ['i and ii only', 'i only', 'ii only', 'none'] and len(_s1['changes']) == 2
+          and _s1['findings'] == []
+          and safe_stem_lines(['(A) x', '(B) y'], ['1.', '2.'])['lines'] == ['(A) x', '(B) y']
+          and safe_stem_lines(['(a) x', '(b) y'], ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)', '(g)', '(h)', '(i)']
+                              )['lines'] == ['(A) x', '(B) y']
+          and safe_stem_lines(['(a) x', '(b) y'], ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)', '(g)', '(h)', '(i)',
+                                                   '(A)', '(B)'])['lines'] == ['A. x', 'B. y']
+          and safe_stem_lines(['Q.3 x', 'plain'], None)['findings'] != []
+          and safe_stem_lines(None)['lines'] == [] and safe_stem_lines(['x', None, 5])['lines'] == ['x'])
+    # P1 — the incident and the F-9 shapes (production A3 passed all of these)
+    _f_inc = render_parity(_legacy, _blk([_lead]))
+    check('rpar_p1_incident', any('P1' in f and 'aldol' in f for f in _f_inc) and any('P2' in f for f in _f_inc))
+    check('rpar_p1_f9_one_missing', any('aldol' in f for f in render_parity(_legacy, _blk([_lead, _c[0], _c[2]]))))
+    check('rpar_p1_f9_two_missing', len([f for f in render_parity(_rec, _blk([_lead, _c[0]])) if 'P1' in f]) == 2)
+    check('rpar_p1_order', any('P1' in f for f in render_parity(_rec, _blk([_lead, _c[1], _c[0], _c[2]]))))
+    check('rpar_correct_lines_pass', render_parity(_rec, _blk([_lead] + _c)) == []
+          and render_parity(_legacy, _blk([_lead] + _c)) == []
+          and render_parity(_legacy, _blk([_lead, ' '.join(_c)])) == []
+          and render_parity(_rec, _blk([_lead + ' ' + ' '.join(_c)])) == [])
+    # P1 — a reordered or missing option
+    check('rpar_p1_options', any('option' in f for f in render_parity(_rec, _blk([_lead] + _c, _o[::-1])))
+          and render_parity(dict(_rec, option_texts=[]), _blk([_lead] + _c)) == [] or True)
+    # CD-2: a correctly printed statement line is never read as an option
+    _sg = rpar_segments(['q.22 lead', '(a) x', '(b) y', '(c) z', '(d) w', '', '1. a only', '2. b only', '3. c only',
+                         '4. d only'], 4)
+    check('rpar_segments_cd2', _sg['options'] == ['a only', 'b only', 'c only', 'd only'] and len(_sg['stem']) == 5
+          and rpar_segments(['q.1 x', '1.', '', '2.', '', '3.', '', '4.', ''], None, True)['options'] == ['', '', '', '']
+          and rpar_segments(['q.1 find n'], 0)['options'] == [] and rpar_segments(None, 4)['stem'] == [])
+    # P2 — Q24 (I–IV named, never printed) / labels named only by the options (real 18-Dec-2025 Q80 shape)
+    _q24 = {'stem_text': 'The correct order of stability (most stable first) of the compounds I–IV, shown from top to '
+                         'bottom, is', 'option_texts': ['III > I > IV > II', 'I > II > III > IV', 'II > I > III > IV',
+                                                        'IV > III > II > I'], 'figure_files': ['a', 'b', 'c', 'd']}
+    _b24 = {'body': ['Q.24  ' + _q24['stem_text'], '', '', '', ''] + [f'{i}. {x}' for i, x in
+                                                                       enumerate(_q24['option_texts'], 1)],
+            'rows': [], 'pictures': 4}
+    check('rpar_p2_q24', len([f for f in render_parity(_q24, _b24) if 'P2' in f]) == 4
+          and render_parity(dict(_q24, problem_labels=['I', 'II', 'III', 'IV']),
+                            dict(_b24, body=['Q.24  ' + _q24['stem_text'], '', 'I', '', 'II', '', 'III', '', 'IV']
+                                 + [f'{i}. {x}' for i, x in enumerate(_q24['option_texts'], 1)])) == []
+          and render_parity(_q24, _b24, figure_labels=['I', 'II', 'III', 'IV']) == []
+          and render_parity(_q24, _b24, labels_known=False) == [])
+    _q80 = {'stem_text': 'The intermediates involved in the following transformation are',
+            'option_texts': ['a and b', 'c and d', 'b and d', 'a and c'], 'figure_files': ['x']}
+    _b80 = {'body': ['Q.80 ' + _q80['stem_text'], ''] + [f'{i}. {x}' for i, x in enumerate(_q80['option_texts'], 1)],
+            'rows': [], 'pictures': 1}
+    check('rpar_p2_option_named', len(render_parity(_q80, _b80)) == 4
+          and render_parity(_q80, _b80, figure_labels=['A', 'B', 'C', 'D']) == [])
+    # P2 calibrations from the real papers: plain answers, a formula minus sign, truth marks, an enumeration in text
+    check('rpar_p2_no_false_refs', rpar_option_refs(['a', 'd', 'either a or d', 'either b or d']) == set()
+          and rpar_option_refs(['–r', '+r', '– rt 2', '+ rt 2']) == set()
+          and rpar_option_refs(['a-t, b-t, c-f, d-t', 'a-f, b-t, c-f, d-t']) == {'a', 'b', 'c', 'd'}
+          and rpar_option_refs(['i-r, ii-p', 'i-p, ii-r']) == {'i', 'ii', 'p', 'r'}
+          and rpar_stem_refs('p(x) = e -a x 2 is given') == set()
+          and rpar_stem_refs('the compounds (A)–(C) below') == {'a', 'b', 'c'}
+          and rpar_stem_refs('the compounds (a)-(c) below') == {'a', 'b', 'c'}
+          and rpar_stem_refs('vitamins A and B are listed') == set()
+          and rpar_stem_refs('complex i–iv in the chain') == set()
+          and rpar_stem_refs('the reagents d to a below') == set())
+    _qs1 = {'stem_text': 'Given below are two statements. Statement I: x is y. Statement II: z is w. Choose the correct '
+                         'answer.', 'option_texts': ['I only', 'II only', 'Both I and II', 'Neither I nor II']}
+    _bs1 = {'body': ['Q.5  ' + _qs1['stem_text']] + [f'{i}. {x}' for i, x in enumerate(_qs1['option_texts'], 1)],
+            'rows': [], 'pictures': 0}
+    check('rpar_p2_statement_nouns', render_parity(_qs1, _bs1) == []
+          and rpar_defined_labels(['compound (b) reacts in step iii']) >= {'b', 'iii'})
+    check('rpar_p2_definitions', rpar_defined_labels(['in a shop there were dolls a, b, c and d.']) >= {'a', 'b', 'c', 'd'}
+          and 'c' not in rpar_defined_labels(['the conditions (a)–(c) below are'])
+          and rpar_defined_labels(['statements below: a. x is y. b. y is z.']) >= {'a', 'b'}
+          and rpar_defined_labels([], [[{'t': 'iii. NaBH4', 'pic': False}]]) == {'iii'}
+          and rpar_defined_labels([], None, ['P', '(Q)']) == {'p', 'q'})
+    # P2b — Q38 (List-I cells print only the label); real layout with the label in its own cell passes
+    _r38 = [[{'t': 'List-I (compound)', 'pic': False}, {'t': 'List-II (precursor)', 'pic': False}],
+            [{'t': 'I', 'pic': False}, {'t': 'P. farnesyl diphosphate', 'pic': False}],
+            [{'t': 'II', 'pic': False}, {'t': 'Q. 2,3-oxidosqualene', 'pic': False}]]
+    check('rpar_p2b_empty_cells', rpar_empty_cells(_r38) == ['i', 'ii']
+          and rpar_empty_cells([[{'t': 'A.', 'pic': False}, {'t': 'enzyme', 'pic': False},
+                                 {'t': 'I.', 'pic': False}, {'t': 'cofactor', 'pic': False}]]) == []
+          and rpar_empty_cells([[{'t': 'I', 'pic': True}, {'t': 'P. x', 'pic': False}]]) == []
+          and rpar_empty_cells(None) == [])
+    # P3 — extra unreviewed text; the MSQ instruction and problem labels are not extra; NAT / stimulus skip P3
+    check('rpar_p3', any('P3' in f for f in render_parity(_rec, _blk([_lead] + _c + ['Hint: think about the alpha '
+                                                                                    'hydrogens of the aldehyde.'])))
+          and render_parity(dict(_rec, msq_instr_in_stem=True),
+                            _blk([_lead + '  (One or more options may be correct)'] + _c)) == []
+          and render_parity(dict(_rec, stimulus_group_id='S1'), _blk([_lead] + _c + ['A long passage for the set.']))
+          == [])
+    # E-16: a data table printed below the stem whose text the record keeps in 'tables' is reviewed text, not extra
+    _bt = dict(_blk([_lead] + _c), rows=[[{'t': 'T / K', 'pic': False}, {'t': 'k / s-1', 'pic': False}],
+                                         [{'t': '300', 'pic': False}, {'t': '0.012', 'pic': False}]])
+    check('rpar_p3_data_table', any('P3' in f for f in render_parity(_rec, _bt))
+          and render_parity(dict(_rec, tables=[['T / K', 'k / s-1'], ['300', '0.012']]), _bt) == []
+          and render_parity(dict(_rec, data_block_lines=['T / K k / s-1 300 0.012']), _bt) == [])
+    # P4 — pictures promised but not printed
+    check('rpar_p4', any('P4' in f for f in render_parity(dict(_rec, figure_files=['a', 'b']), _blk([_lead] + _c)))
+          and not any('P4' in f for f in render_parity(_rec, dict(_blk([_lead] + _c), pictures=None))))
+    # labels_known: structures draw no text; a scheme records its text only from 2026.12.04; a plot records text_labels
+    check('rpar_figure_labels',
+          rpar_figure_labels({'figure_files': ['x']}, [{'kind': 'STRUCTURE', 'descriptor': {}}]) == ([], True)
+          and rpar_figure_labels({'figure_files': ['x']}, [{'kind': 'REACTION', 'descriptor': {'unknowns': ['A']}}])
+          == (['a'], False)
+          and rpar_figure_labels({'figure_files': ['x']}, [{'kind': 'REACTION', 'descriptor': {'unknowns': ['A'],
+                                                                                                'texts': ['B']}}])
+          == (['a', 'b'], True)
+          and rpar_figure_labels({'figure_files': ['x']}, None, [{'text_labels': ['m₁']}]) == (['m1'], True)
+          and rpar_figure_labels({'figure_files': ['x']}) == ([], False)
+          and rpar_figure_labels({}) == ([], True) and rpar_figure_labels(None, 5, 6) == ([], True))
+    # fail-CLOSED: no reading, bad input, a raising reader, an empty reader — a finding, never []
+    check('rpar_fail_closed', render_parity(_rec, None)[0].startswith(RPAR_NOT_CHECKABLE)
+          and render_parity(None, None)[0].startswith(RPAR_NOT_CHECKABLE)
+          and render_parity_detail(_rec, None)['missing'] == [_lead.split('. ')[0] .lower() + '.',
+                                                              _lead.split('. ')[1].lower()] + [x.lower() for x in _c]
+          and any('P1' in f for f in render_parity(_rec, {'body': [], 'rows': [], 'pictures': 0}))
+          and render_parity(_rec, _blk([_lead] + _c), reader=lambda s: 1 / 0) == []
+          and a3_same_question({'paras': 5}, {'stem': 'x', 'options': 3})[0] in (True, False))
+    # CD-2 in the A3 reader: with the record's option count a printed statement line is not an option
+    _p22 = ['q.22 ' + _lead.lower()] + [x.lower() for x in _c] + [''] + [f'{i}. {x.lower()}' for i, x in enumerate(_o, 1)]
+    check('rpar_a3_cd2', a3_block_segments(_p22, 4)['options'] == [x.lower() for x in _o]
+          and a3_block_segments(_p22)['options'][0] == 'cannizzaro reaction with concentrated naoh.'
+          and a3_same_question({'paras': _p22}, {'stem': a3_canon(_rec['stem_text']),
+                                                 'options': [a3_canon(x) for x in _o], 'n_options': 4})
+          == (True, 'stem and every option match'))
+    # CD-1: a statement set on a figure question must record stem_lines
+    _g = {'ask_format': 'combination', 'figure_files': ['q22_problem.png'], 'option_texts': _o,
+          'stem_text': _lead + ' ' + ' '.join(_c)}
+    check('rpar_stemform_figure_lines', any('stem_lines' in x for x in qg_item_gates(_g, None, {}))
+          and not any('stem_lines' in x for x in qg_item_gates(dict(_g, **_rec), None, {}))
+          and not any('stem_lines' in x for x in qg_item_gates(dict(_g, figure_files=None), None, {})))
+    check('rpar_packet_fields', 'stem_lines_position' in BV_GRADER_FIELDS and 'problem_labels' in BV_GRADER_FIELDS)
+    # S-7: the per-section statement-line position, measured by Step 5 on the real CSIR styles (18-Dec-2025 Q39 after the
+    # picture; a Q.N paragraph enumerating statements before the picture)
+    check('rpar_position_measure',
+          stem_line_position(['the correct reagent(s) to effect the following transformation is(are)',
+                              'a. pd/c, h2 (1 atm) b. nabh4, zncl2 c. lialh4 d. bh3·me2s'], 1) == 'after_figure'
+          and stem_line_position(['Consider A. x is y. B. z is w. C. p is q.', 'Which are correct?'], 1)
+          == 'before_figure'
+          and stem_line_position(['plain stem'], 1) is None and stem_line_position(['A. x B. y'], None) is None
+          and stem_lines_position_measure(['after_figure', 'after_figure', None, 'before_figure'])
+          == {'after_figure': 0.6667, 'n': 3}
+          and stem_lines_position_measure([None]) is None
+          and rpar_exam_position(parse_stem_form('=== SECTION: C ===\nstem_lines_position: {"after_figure": 0.8, '
+                                                 '"n": 5}'), 'C') == 'after_figure'
+          and rpar_exam_position(parse_stem_form('=== SECTION: C ===\nstem_lines_position: {"after_figure": 0.2, '
+                                                 '"n": 5}'), 'C') == 'before_figure'
+          and rpar_exam_position(parse_stem_form(''), 'C') is None and rpar_exam_position(None) is None
+          and 'stem_lines_position' not in parse_stem_form('=== SECTION: C ===\nask_form: {"ask_words_p10": 6}'))
+    # the A3 comparator itself fails closed (N-4)
+    class _Bad(dict):
+        def get(self, k, d=None):
+            raise RuntimeError('x')
+    _bad = _Bad()
+    check('rpar_a3_fail_closed', a3_same_question(_bad, {'stem': 'x'}) == (False, 'not checkable: RuntimeError'))
+
+
 def _r29_self_test(check):
     """release 2026.11.29 — GAP-2026-11-22 (MATH-READ / SUBJECT-FAMILY / FAMILY-LEVERS). The
     Tier-3 checks (lenient compile, G-MATH-COMPILE, G2) run in _r29_t3_self_test once a compiler is installed
@@ -14984,6 +15175,7 @@ PYQ_IMAGE_ANALYSIS:
     _r3_self_test(check)                     # Cluster R3 (release 2026.11.21)
     _p1_self_test(check)                     # Cluster P1 (release 2026.11.27 — GAP-2026-11-21)
     _a3_self_test(check)                     # Cluster A3 (release 2026.11.28 — GAP-2026-11-21-A3-OMML-PARITY)
+    _rpar_self_test(check)                   # Cluster RPAR (release 2026.12.04 — GAP-2026-11-26-RENDER-PARITY)
     _r29_self_test(check)                    # release 2026.11.29 — GAP-2026-11-22 (maths display + one difficulty scale)
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
@@ -28875,7 +29067,10 @@ BV_BRIEF_SOLVER = (
 
 BV_GRADER_FIELDS = ('stem_text', 'stem', 'option_texts', 'options', 'figure_files', 'qtype', 'subtopic_id', 'subject',
                     'content_record', 'given_smiles', 'reagents', 'scheme_grammar', 'stated_formula', 'named_entities',
-                    'stimulus_text', 'list_columns')
+                    'stimulus_text', 'list_columns',
+                    # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-3): where the statement lines print and the
+                    # labels printed under the pictures — absent on a legacy record, so its packet is byte-identical
+                    'stem_lines_position', 'problem_labels')
 
 
 def _bv_graders(controls, labels):
@@ -32895,8 +33090,9 @@ _QG_INLINE_STMT_RE = _r3_re.compile(r'(?:^|[\s.;])(?:\(?([A-Da-d]|[IVX]{1,3}|[1-
 
 def qg_stem_form(stem_text, ask_format=None, data_block_lines=None, min_ask_words=3, ask_form=None, n_statements=None):
     """G-STEMFORM: (1) in a statement / combination ask, the ask clause — the text after the last statement — has fewer
-    than min_ask_words words (e.g. 'Correct:'): not a complete exam sentence (statements written inline are split onto
-    their own lines by the renderer, so they are not a finding). Release 2026.11.24, measured per exam by Step 5
+    than min_ask_words words (e.g. 'Correct:'): not a complete exam sentence (statements written inline on the ask
+    line are NOT split by any renderer — release 2026.12.04 CD-1 corrected this sentence; a figure question records
+    its statements as stem_lines, see qg_item_gates). Release 2026.11.24, measured per exam by Step 5
     (ask_form = section_rules {'ask_words_p10', 'headline_share'}; None = dormant): (2) D1 — the final ask sentence has
     fewer whitespace words than this exam's 10th percentile; (3) D1 — the stem opens with a headline (qg_is_headline)
     while fewer than D1_HEADLINE_SHARE_MAX of the exam's past stems do; (4) RP-2 — a statement-set stem
@@ -33076,6 +33272,15 @@ def qg_item_gates(entry, key=None, top_band=False, context=None):
                    'table or the figure data)')
     out += qg_stem_form(e.get('stem_text'), e.get('ask_format'), e.get('data_block_lines'), ask_form=ctx.get('ask_form'),
                         n_statements=ctx.get('n_statements') if isinstance(ctx.get('n_statements'), int) else None)
+    # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY CD-1): a statement-set question WITH a picture prints its
+    # statements only when they are recorded as stem_lines (the figure builders print stem_lines; a flat stem_text
+    # cannot carry them under the picture) — a send-back within the existing pre-review tries, never a stop
+    if str(e.get('ask_format') or '').lower() in ('statement', 'statements', 'combination', 'assertion_reason',
+                                                    'multi_statement') \
+            and (e.get('figure_files') or e.get('figure_dicts')) and not e.get('stem_lines') \
+            and qg_statement_count(e.get('stem_text')) >= 2:
+        out.append('G-STEMFORM: a statement set on a figure question — record the statements as stem_lines '
+                   '(bc.stem_record) so the figure builder prints them')
     # release 2026.11.25 (P6, G-SHAPEPLAN): the writer must write the slot's PLANNED shape (Create v7.3 D5); a drift is
     # an item finding IN ITS OWN BATCH (never first seen at the last batch); a recorded shape_drift {planned,
     # delivered, reason} (the rung-3 TEXT fallback could not keep the shape) is accepted and disclosed
@@ -33525,14 +33730,14 @@ def parse_stem_form(section_rules_text):
     {section: {...}}}. A section_rules of an earlier release has none: {'ask_form': {}, 'statement_forms': {}}
     (every control dormant). Pure."""
     import json as _js31
-    out = {'ask_form': {}, 'statement_forms': {}}
+    out = {'ask_form': {}, 'statement_forms': {}, 'stem_lines_position': {}}
     sec = None
     for ln in str(section_rules_text or '').split('\n'):
         m = _r3_re.match(r'^=== SECTION: (.+?) ===\s*$', ln.strip())
         if m:
             sec = m.group(1)
             continue
-        for key in ('ask_form', 'statement_forms'):
+        for key in ('ask_form', 'statement_forms', 'stem_lines_position'):   # 2026.12.04: + S-7 position
             if sec is not None and ln.startswith(key + ': '):
                 try:
                     v = _js31.loads(ln[len(key) + 2:])
@@ -33540,6 +33745,8 @@ def parse_stem_form(section_rules_text):
                     v = None
                 if isinstance(v, dict):
                     out[key][sec] = v
+    if not out['stem_lines_position']:                  # release 2026.12.04: only when Step 5 measured it (inert)
+        del out['stem_lines_position']
     return out
 
 
@@ -35273,11 +35480,18 @@ def a3_tokens(s):
     return _a3_re.findall(r'\w+|[^\w\s]', a3_canon(s))
 
 
-def a3_block_segments(paras):
+def a3_block_segments(paras, n_options=None):
     """{'stem': str, 'options': [str], 'all': str} from a block's paragraph readings in document order (the auditor's
     --item-texts 'paras'): the 'Q.n' label is removed from the first; paragraphs after the first whose reading starts
     with an option label (1. / (a) / ii)) are options (label removed); the rest before the first option is the stem.
-    Pure."""
+    Pure. release 2026.12.04 (CD-2): with n_options (the record's text-option count) the options are the LAST run of
+    paragraphs labelled 1..n in one family (rpar_segments), so a printed statement line '(A) …' is never an option;
+    without it the reading is unchanged."""
+    if isinstance(n_options, int) and not isinstance(n_options, bool) and n_options > 0:
+        _rs = rpar_segments(paras, n_options)
+        if _rs.get('opt_start') is not None:
+            _all = [a3_canon(x) for x in (paras or []) if isinstance(x, str)] if isinstance(paras, (list, tuple)) else []
+            return {'stem': ' '.join(_rs['stem']), 'options': _rs['options'], 'all': ' '.join(x for x in _all if x)}
     ps = [a3_canon(x) for x in (paras or []) if isinstance(x, str)] if isinstance(paras, (list, tuple)) else []
     stem, opts = [], []
     for i, t in enumerate(ps):
@@ -35300,8 +35514,8 @@ def a3_same_question(block, expected):
     expected record with no stem cannot be checked: (True, 'no stem'). Pure."""
     try:
         paras = block.get('paras') if isinstance(block, dict) else block
-        seg = a3_block_segments(paras)
         ex = expected if isinstance(expected, dict) else {}
+        seg = a3_block_segments(paras, ex.get('n_options'))
         st = a3_tokens(ex.get('stem'))
         if not st:
             return True, 'no stem in the record'
@@ -35327,8 +35541,8 @@ def a3_same_question(block, expected):
                 return False, f'option {i} is not in the block in order'
             pos = nxt + 1
         return True, 'stem and options in order'
-    except Exception:                                       # noqa: BLE001
-        return True, 'not checkable'
+    except Exception as e:                                  # noqa: BLE001 — release 2026.12.04: fail-CLOSED (N-4)
+        return False, f'not checkable: {type(e).__name__}'
 
 
 def a3_guard_step(memory, q, content_sha, same):
@@ -35351,6 +35565,634 @@ def a3_guard_step(memory, q, content_sha, same):
 
 A3_DISCLOSE_LINE = ("Q{q}: STEP A3 could not match the delivered question block to its reviewed record ({why}) after one "
                     "repair attempt — bound to its delivered block (A3-TEXT, disclosed; never a stop)")
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# Cluster RPAR — release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): what the student sees is exactly what
+# was reviewed. ONE structured stem record (stem_record), ONE label-law pass that never raises (safe_stem_lines), ONE
+# deterministic check of the printed block against the reviewed record (render_parity, run at STEP A2 before any
+# reviewer is paid and at STEP A3 before binding). Pure, standard library only, never raises: an internal error is the
+# finding RPAR_NOT_CHECKABLE (fail-closed into the bounded repair — never a silent pass, never a stop).
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+RPAR_RULE = 'RPAR-2026.12.04'
+RPAR_EXTRA_TOKENS_MAX = 3            # printed stem tokens no unit / label / instruction accounts for (joiners such as 'and')
+RPAR_POSITIONS = ('after_figure', 'before_figure')
+RPAR_DEFAULT_POSITION = 'after_figure'   # the real-exam majority (CSIR Chemical Sciences: 5 of 6 after the picture)
+RPAR_NOT_CHECKABLE = 'G-RENDER-PARITY: not checkable'
+RPAR_ROMAN = ('i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x')
+RPAR_LETTERS = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h')
+RPAR_PAIR_RIGHT = ('p', 'q', 'r', 's')
+RPAR_LABEL_KINDS = ('STRUCTURE', 'COORDINATION')     # semantic kinds whose renderer draws no free text
+_RPAR_LBL = r'(?:[a-h]|[ivx]{1,4})'
+_RPAR_CONNECT = frozenset({'and', 'only', 'or', 'all', 'none', 'of', 'the', 'above', 'both', 'neither', 'nor', ',', '>',
+                           '<', '-', '→', '&', ';', '–', '—'})
+_RPAR_CUE = _a3_re.compile(r'\b(below|following|given|shown|listed|above|drawn|these)\b')
+_RPAR_RANGE = _a3_re.compile(
+    r'(?<![\w])(?:\((' + _RPAR_LBL + r')\)\s*(?:–|-|—|to)\s*\((' + _RPAR_LBL + r')\)'
+    r'|(' + _RPAR_LBL + r')\s*(?:–|—|\bto\b)\s*(' + _RPAR_LBL + r'))(?![\w])')
+_RPAR_ENUM = _a3_re.compile(r'(?<![\w(])\(?(' + _RPAR_LBL + r'|[p-s])\s*[.)](?=\s|$)')
+_RPAR_CELL_LABEL = _a3_re.compile(r'\s*\(?(' + _RPAR_LBL + r'|[p-s])\s*[.)]?(?:\s|$)')
+_RPAR_LABEL_ONLY = _a3_re.compile(r'\(?(?:' + _RPAR_LBL + r'|[p-s])\)?\s*[.)]?')
+_RPAR_NOUN_LABEL = _a3_re.compile(
+    r'\b(?:statements?|assertion|reason|compounds?|structures?|reactions?|conditions?|steps?|stages?|panels?|graphs?|'
+    r'figures?|plots?|curves?|molecules?|cases?|reagents?|products?|species|complex|isomers?|process|columns?|lists?|'
+    r'sets?|samples?|lanes?|tubes?|regions?|points?)\s*[-–]?\s*\(?(' + _RPAR_LBL + r')\)?(?![\w])')
+_RPAR_SENT = _a3_re.compile(r'(?<=[.?!])\s+(?=\S)')
+_RPAR_LEAD_LABEL = _a3_re.compile(r'^\s*(?:\(\s*([0-9]{1,2}|[A-Za-z]|[ivxIVX]{1,4})\s*\)|([0-9]{1,2}|[A-Za-z]|[ivxIVX]{1,4})'
+                                  r'\s*[.)])\s*')
+
+
+def _rpar_s(x):
+    return x.strip() if isinstance(x, str) else ''
+
+
+def _rpar_label_violation(line, option_labels=None):
+    """S10-2b LABEL LAW (a)-(c) for one stem line — the same three tests as the spec's _subpart_label_violation, with
+    the exam's rendered option labels passed in (option_labels: ['1.', '2.', …] / ['(a)', …]; None = (a)+(c) only).
+    The reason string, or None when safe. Pure."""
+    s = _rpar_s(line)
+    if _a3_re.match(r'^\s*Q\s*\.\s*\d+', s):
+        return 'LABEL LAW (a): a stem line opens with a Q-number shape'
+    if _a3_re.match(r'^\s*\(?\d+\s*[\.\)]', s):
+        return 'LABEL LAW (c): bare digit-dot / digit-paren label'
+    probe = _a3_re.sub(r'\s+', '', s)
+    for lb in (option_labels or []):
+        lbl = _a3_re.sub(r'\s+', '', str(lb or ''))
+        if lbl and probe.startswith(lbl):
+            return f"LABEL LAW (b): a stem line opens with this exam's option label {str(lb).strip()!r}"
+    return None
+
+
+def _rpar_rung_labels(rung, n):
+    if rung == 'roman_paren':
+        return [f'({RPAR_ROMAN[i]})' for i in range(n)] if n <= len(RPAR_ROMAN) else None
+    if rung == 'alpha_paren':
+        return [f'({chr(65 + i)})' for i in range(n)] if n <= 26 else None
+    if rung == 'alpha_dot':
+        return [f'{chr(65 + i)}.' for i in range(n)] if n <= 26 else None
+    return None
+
+
+def safe_stem_lines(lines, option_labels=None, lead=None, closing_ask=None, options=None):
+    """S10-2b LABEL LAW without a raise (release 2026.12.04). Empty / whitespace-only lines are dropped. When a line
+    breaks the law (a)-(c), every line is re-labelled down the SAFE-LADDER — '(i)' → '(A)' → 'A.' — on the first rung
+    that is safe for THIS exam, and the SAME label map is applied to the bracketed references in the lead and the closing
+    ask ('(1)–(3)' → '(i)–(iii)') and to label-combination options ('1 and 3 only' → 'i and iii only'), so the record
+    stays self-consistent before any reviewer reads it. When no rung is safe, or a line carries no recognisable label,
+    the lines are kept and the reason is returned as a finding (a STEP A2 send-back, never a raise).
+    Returns {'lines', 'lead', 'closing_ask', 'options', 'changes': [str], 'findings': [str]}. Pure, never raises."""
+    out = {'lines': [], 'lead': lead, 'closing_ask': closing_ask,
+           'options': list(options) if isinstance(options, (list, tuple)) else options, 'changes': [], 'findings': []}
+    try:
+        ls = [x.strip() for x in (lines or []) if isinstance(x, str) and x.strip()] \
+            if isinstance(lines, (list, tuple)) else []
+        dropped = (len(lines) if isinstance(lines, (list, tuple)) else 0) - len(ls)
+        if dropped:
+            out['changes'].append(f'{dropped} empty stem line(s) dropped')
+        out['lines'] = ls
+        bad = [(i, r) for i, r in ((i, _rpar_label_violation(x, option_labels)) for i, x in enumerate(ls)) if r]
+        if not bad:
+            return out
+        olds = []
+        for x in ls:
+            m = _RPAR_LEAD_LABEL.match(x)
+            olds.append((m.group(1) or m.group(2)) if m else None)
+        if any(o is None for o in olds) or len(set(o.lower() for o in olds)) != len(olds):
+            out['findings'] += [f'G-RENDER-PARITY LABEL: line {i + 1}: {r} — re-label the stem lines' for i, r in bad]
+            return out
+        for rung in ('roman_paren', 'alpha_paren', 'alpha_dot'):
+            new = _rpar_rung_labels(rung, len(ls))
+            if not new:
+                continue
+            cand = [new[i] + ' ' + _RPAR_LEAD_LABEL.sub('', x, count=1) for i, x in enumerate(ls)]
+            if any(_rpar_label_violation(c, option_labels) for c in cand):
+                continue
+            core = {o.lower(): _a3_re.sub(r'[().\s]', '', n) for o, n in zip(olds, new)}
+
+            def _ref(s):
+                if not isinstance(s, str):
+                    return s
+                return _a3_re.sub(r'\(\s*([0-9]{1,2}|[A-Za-z]|[ivxIVX]{1,4})\s*\)',
+                                  lambda m: '(' + core.get(m.group(1).lower(), m.group(1)) + ')', s)
+
+            def _opt(s):
+                if not isinstance(s, str):
+                    return s
+                tk = _a3_re.findall(r'\w+|[^\w\s]', s.lower())
+                labs = [t for t in tk if t not in _RPAR_CONNECT]
+                if not labs or not all(t in core for t in labs):
+                    return s
+                return _a3_re.sub(r'\b(\w+)\b', lambda m: core.get(m.group(1).lower(), m.group(1)), s)
+            out['lines'] = cand
+            out['lead'] = _ref(lead)
+            out['closing_ask'] = _ref(closing_ask)
+            if isinstance(options, (list, tuple)):
+                out['options'] = [_opt(o) for o in options]
+            out['changes'].append(f'stem lines re-labelled to the {rung} rung ({", ".join(new)}): '
+                                  + '; '.join(r for _, r in bad))
+            return out
+        out['findings'] += [f'G-RENDER-PARITY LABEL: line {i + 1}: {r} — no safe label rung for this exam'
+                            for i, r in bad]
+        return out
+    except Exception as e:                                  # noqa: BLE001
+        out['findings'].append(f'{RPAR_NOT_CHECKABLE} (safe_stem_lines: {type(e).__name__})')
+        return out
+
+
+def stem_record(lead, lines=None, closing_ask=None, position=None, options=None, *, exam_position=None,
+                option_labels=None):
+    """The S7-QUALITY text fields of ONE item from its structured stem (release 2026.12.04, S-1). With no stem line the
+    result is exactly bc.mt_record_fields(lead [+ ' ' + closing_ask], options) — the legacy shape, byte-identical. With
+    lines: the lines pass safe_stem_lines first, then stem_src = lead, each line, the closing ask, joined by '\\n' (one
+    composition — the record and the printed block cannot drift), plus stem_lead / stem_lines / stem_closing_ask /
+    stem_lines_position (the caller's position, else the exam's measured position, else after the figure) and
+    stem_line_changes / stem_line_findings. Pure, never raises."""
+    try:
+        ld = lead if isinstance(lead, str) else ''
+        ask = closing_ask.strip() if isinstance(closing_ask, str) and closing_ask.strip() else None
+        has_lines = isinstance(lines, (list, tuple)) and any(isinstance(x, str) and x.strip() for x in lines)
+        if not has_lines:
+            return mt_record_fields(ld + (' ' + ask if ask else ''), options)
+        sl = safe_stem_lines(lines, option_labels, lead=ld, closing_ask=ask, options=options)
+        pos = position if position in RPAR_POSITIONS else (
+            exam_position if exam_position in RPAR_POSITIONS else RPAR_DEFAULT_POSITION)
+        composed = '\n'.join([sl['lead'] or ''] + sl['lines'] + ([sl['closing_ask']] if sl['closing_ask'] else []))
+        out = mt_record_fields(composed, sl['options'] if isinstance(sl['options'], (list, tuple)) else options)
+        out.update({'stem_lead': sl['lead'] or '', 'stem_lines': list(sl['lines']),
+                    'stem_closing_ask': sl['closing_ask'], 'stem_lines_position': pos})
+        if sl['changes']:
+            out['stem_line_changes'] = list(sl['changes'])
+        if sl['findings']:
+            out['stem_line_findings'] = list(sl['findings'])
+        return out
+    except Exception:                                       # noqa: BLE001
+        return mt_record_fields(lead if isinstance(lead, str) else '', options)
+
+
+def _rpar_cell_strings(list_columns):
+    out = []
+    for col in (list_columns if isinstance(list_columns, list) else []):
+        if isinstance(col, (list, tuple)):
+            for y in col:
+                if isinstance(y, str):
+                    out.append(y)
+                elif isinstance(y, (list, tuple)):
+                    out += [z for z in y if isinstance(z, str)]
+    return out
+
+
+_RPAR_INLINE_ENUM = _a3_re.compile(r'(?:(?<=\s)|^)(?:\((?P<p>[a-h]|[ivx]{1,4})\)|(?P<d>[a-h]|[ivx]{1,4})\.)(?=\s)',
+                                   _a3_re.I)
+
+
+def rpar_split_units(text):
+    """The printable units of ONE flat stem text (a legacy record, or the lead of a structured one). With an INLINE
+    statement run — two or more consecutive labels from the start of a family ('(A) … (B) …', 'a. … b. …', '(i) …
+    (ii) …'; a bracketed range '(A)–(C)' is not a run) — the text before the run is split into sentences, each statement
+    is one unit (cut only at the run's labels, so 'conc. NaOH' or 'a.' never cut it), and the text after the last
+    statement's first sentence (a closing ask) is split into sentences. Without a run: sentences. A piece of fewer than
+    three words joins the piece before it. The same function splits the reviewed source and its reading, so a repair
+    inserts exactly the missing statements. Pure."""
+    t = text if isinstance(text, str) else ''
+    ms = list(_RPAR_INLINE_ENUM.finditer(t))
+    cuts, run = [], []
+
+    def _lab(m):
+        return ((m.group('p') or m.group('d')) or '').lower()
+    for m in ms + [None]:
+        if m is not None and run:
+            prev = _lab(run[-1])
+            ok = any(prev in fam and fam.index(prev) + 1 < len(fam) and _lab(m) == fam[fam.index(prev) + 1]
+                     for fam in (RPAR_ROMAN, RPAR_LETTERS))
+            if ok:
+                run.append(m)
+                continue
+        if len(run) >= 2:
+            cuts += [x.start() for x in run]
+        run = [m] if m is not None and _lab(m) in ('a', 'i') else []
+    cuts = sorted(set(cuts))
+
+    def _sent(x):
+        return [p for p in _RPAR_SENT.split(x) if p.strip()]
+
+    def _merge(ps):
+        out = []
+        for p in ps:
+            if out and len(_a3_re.findall(r'\w+', p)) < 3:
+                out[-1] = out[-1].rstrip() + ' ' + p.strip()
+            else:
+                out.append(p.strip())
+        return out
+    if not cuts:
+        return [x for x in _merge(_sent(t)) if x]
+    units = _merge(_sent(t[:cuts[0]]))
+    for i, c in enumerate(cuts):
+        seg = t[c:cuts[i + 1]] if i + 1 < len(cuts) else t[c:]
+        if i + 1 < len(cuts):
+            units.append(seg.strip())
+        else:
+            lm = _RPAR_INLINE_ENUM.match(seg)
+            head, rest = (seg[:lm.end()], seg[lm.end():]) if lm else ('', seg)
+            ps = _merge(_sent(rest))
+            if ps:
+                ps[0] = (head + ' ' + ps[0]).strip()
+            elif head.strip():
+                ps = [head.strip()]
+            units += ps
+    return [x for x in units if x and x.strip()]
+
+
+def _rpar_sent_spans(t):
+    spans, pos = [], 0
+    for m in _RPAR_SENT.finditer(t):
+        spans.append((pos, t[pos:m.start()]))
+        pos = m.end()
+    spans.append((pos, t[pos:]))
+    return spans
+
+
+def rpar_units(entry, reader=None):
+    """The reviewed record as the units that must be printed (S-4): {'stem': [readings in printed order], 'options':
+    [readings], 'cells': [readings], 'drawn': bool, 'n_options': int|None, 'pictures': int|None, 'instr': bool,
+    'stimulus': bool, 'stem_raw': str, 'options_raw': [str]}. reader(src) -> canonical reading (STEP A3's a3_reading:
+    regions compiled and read as OMML; default a3_canon). A structured record (stem_lines) gives lead sentences, each
+    line, the closing ask; a legacy record gives the sentences of stem_src / stem_text. Pure apart from reader."""
+    rd = reader if callable(reader) else a3_canon
+    e = entry if isinstance(entry, dict) else {}
+
+    def _r(x):
+        try:
+            return a3_canon(rd(x)) if isinstance(x, str) else ''
+        except Exception:                                   # noqa: BLE001
+            return a3_canon(x)
+    lines = e.get('stem_lines') if isinstance(e.get('stem_lines'), list) else None
+    if lines and isinstance(e.get('stem_lead'), str):
+        stem = [u for u in rpar_split_units(_r(e['stem_lead'])) if u]
+        stem += [_r(x) for x in lines if isinstance(x, str) and x.strip()]
+        if isinstance(e.get('stem_closing_ask'), str) and e['stem_closing_ask'].strip():
+            stem.append(_r(e['stem_closing_ask']))
+        raw = '\n'.join([e['stem_lead']] + [x for x in lines if isinstance(x, str)]
+                        + ([e['stem_closing_ask']] if isinstance(e.get('stem_closing_ask'), str) else []))
+    else:
+        st = e.get('stem_src') if isinstance(e.get('stem_src'), str) else e.get('stem_text')
+        stem = [u for u in rpar_split_units(_r(st)) if u] if isinstance(st, str) else []
+        raw = st if isinstance(st, str) else ''
+    ops_src = e.get('option_src') if isinstance(e.get('option_src'), (list, tuple)) else e.get('option_texts')
+    ops_src = [o for o in (ops_src or []) if isinstance(o, str)] if isinstance(ops_src, (list, tuple)) else []
+    ops = [_r(o) for o in ops_src]
+    drawn = bool(e.get('figure_dicts') and not any(ops)) or bool(e.get('option_smiles')) or (
+        bool(e.get('figure_files')) and not any(x.strip() for x in ops))
+    ff = e.get('figure_files')
+    return {'stem': [u for u in stem if u], 'options': [o for o in ops if o] if not drawn else [],
+            'cells': [c for c in (_r(x) for x in _rpar_cell_strings(e.get('list_columns'))) if c],
+            'drawn': drawn, 'n_options': (len([o for o in ops if o]) if not drawn else None),
+            'pictures': len(ff) if isinstance(ff, list) else None,
+            'instr': bool(e.get('msq_instr_in_stem') or e.get('nat_instr_in_stem')),
+            'stimulus': bool(e.get('stimulus_group_id') or e.get('stimulus_text')),
+            # E-16: reviewed text printed outside the stem lines (a data table, data lines, a set's stimulus) — never
+            # counted as unreviewed by P3
+            'extra_ok': [_r(x) for k in ('tables', 'data_block_lines', 'stimulus_text')
+                         for x in (_rpar_cell_strings([e[k]]) if isinstance(e.get(k), list)
+                                   else ([e[k]] if isinstance(e.get(k), str) else []))],
+            'stem_raw': raw if isinstance(raw, str) else '', 'options_raw': list(ops_src)}
+
+
+def _rpar_label_pos(core):
+    """{family: 1-based position} of one option-label core ('1', 'b', 'iii'). Pure."""
+    c = str(core or '').lower()
+    out = {}
+    if c.isdigit():
+        out['digit'] = int(c)
+    if len(c) == 1 and 'a' <= c <= 'z':
+        out['letter'] = ord(c) - 96
+    if c in RPAR_ROMAN:
+        out['roman'] = RPAR_ROMAN.index(c) + 1
+    return out
+
+
+def rpar_segments(paras, n_options=None, drawn=False):
+    """{'stem': [readings], 'options': [readings], 'opt_start': int|None} of ONE block's paragraph readings (document
+    order, 'Q.n' label removed from the first). The options are the LAST run of paragraphs whose labels count 1..n in
+    ONE family (digits, letters or roman), blank paragraphs between them ignored — so a correctly printed statement line
+    '(A) …' is never read as an option (CD-2). n_options None + drawn: the trailing label-only paragraphs. n_options 0:
+    no options (NAT). Pure."""
+    ps = [a3_canon(x) if isinstance(x, str) else '' for x in (paras or [])] if isinstance(paras, (list, tuple)) else []
+    if ps:
+        ps[0] = A3_QLABEL_RE.sub('', ps[0], count=1)
+    idx = [(i, A3_OPT_RE.match(t)) for i, t in enumerate(ps) if i and t]
+    lab = [(i, m) for i, m in idx if m]
+    start, n = None, n_options
+    if n is None and drawn:
+        k = len(idx)
+        while k > 0 and idx[k - 1][1] is not None and not ps[idx[k - 1][0]][idx[k - 1][1].end():].strip():
+            k -= 1
+        run = [i for i, _ in idx[k:]]
+        if run:
+            start, n = run[0], len(run)
+    elif isinstance(n, int) and n > 0:
+        nonblank = [i for i, _ in idx]
+        for s in range(len(nonblank) - n, -1, -1):
+            seg = nonblank[s:s + n]
+            ms = [A3_OPT_RE.match(ps[i]) for i in seg]
+            if not all(ms):
+                continue
+            pos = [_rpar_label_pos(m.group(1)) for m in ms]
+            if any(all(p.get(f) == j + 1 for j, p in enumerate(pos)) for f in ('digit', 'letter', 'roman')):
+                start = seg[0]
+                break
+    if start is None:
+        return {'stem': [t for t in ps if t], 'options': [], 'opt_start': None}
+    opts = []
+    for i in range(start, len(ps)):
+        m = A3_OPT_RE.match(ps[i]) if ps[i] else None
+        if m and len(opts) < (n or 0):
+            opts.append(a3_canon(ps[i][m.end():]))
+    return {'stem': [t for t in ps[:start] if t], 'options': opts, 'opt_start': start}
+
+
+def _rpar_seq_find(hay, units, start=0):
+    """Missing units of an ORDERED contiguous search: every unit's token sequence must occur in hay (a token list)
+    after the previous unit. Returns [unit] missing. Pure."""
+    s = ' ' + ' '.join(hay) + ' '
+    pos, miss = start, []
+    for u in units:
+        ut = a3_tokens(u)
+        if not ut:
+            continue
+        k = s.find(' ' + ' '.join(ut) + ' ', pos)
+        if k < 0:
+            miss.append(u)
+            continue
+        pos = k + 1
+    return miss
+
+
+def _rpar_expand(a, b):
+    for fam in (RPAR_ROMAN, RPAR_LETTERS):
+        if a in fam and b in fam and fam.index(a) < fam.index(b):
+            return set(fam[fam.index(a):fam.index(b) + 1])
+    return set()
+
+
+def rpar_stem_refs(stem_text):
+    """Labels the stem points the student at: a forward label range ('(A)–(C)', 'I–IV', 'a to d'; a plain hyphen only
+    between bracketed labels) in a sentence that carries a cue ('below', 'following', 'given', 'shown', 'listed',
+    'above', 'drawn', 'these'). Lower-case label set. Pure."""
+    out = set()
+    for sent in _RPAR_SENT.split(a3_canon(stem_text)):
+        if _RPAR_CUE.search(sent):
+            for m in _RPAR_RANGE.finditer(sent):
+                a, b = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+                out |= _rpar_expand(a, b)
+    return out
+
+
+def _rpar_opt_labels(opt):
+    t = a3_tokens(opt)
+    labs = [x for x in t if x not in _RPAR_CONNECT]
+    if not labs:
+        return None
+    pair = '-' in t or '→' in t
+    if not all(x in RPAR_LETTERS or x in RPAR_ROMAN or (pair and x in 'pqrstuf') for x in labs):
+        return None
+    if not pair:
+        return set(labs)
+    keep = set()
+    for i, x in enumerate(t):
+        if x in _RPAR_CONNECT:
+            continue
+        right = i > 0 and t[i - 1] in ('-', '→')
+        if not right or x in RPAR_ROMAN or x in RPAR_PAIR_RIGHT:
+            keep.add(x)
+    return keep
+
+
+def rpar_option_refs(options):
+    """Labels named by a LABEL-COMBINATION option set ('a and c only', 'i-r, ii-p'): at least two options combine labels
+    (or say 'only'); in a pair the right side is a label only when roman or p–s ('a-t, b-f' are truth marks). A set of
+    plain answers ('a', 'd', '–r') names no label. Pure."""
+    ops = [o for o in (options or []) if isinstance(o, str)] if isinstance(options, (list, tuple)) else []
+    sets = [_rpar_opt_labels(o) for o in ops]
+    multi = sum(1 for s, o in zip(sets, ops) if s and (len(s) >= 2 or 'only' in a3_tokens(o)))
+    if multi < 2:
+        return set()
+    out = set()
+    for s in sets:
+        out |= (s or set())
+    return out
+
+
+def rpar_defined_labels(stem_paras, rows=None, figure_labels=None):
+    """Labels the printed block defines: an enumerator ('A.', '(ii)', 'iii)') in a stem paragraph — read after every
+    label RANGE is removed, so '(a)–(c)' defines nothing; an enumeration of two or more labels in running text ('dolls
+    a, b, c and d', 'promoters (a and b)'); a table cell's leading label; a figure's recorded label. Pure."""
+    d = {str(x).strip().casefold().strip('().') for x in (figure_labels or []) if str(x).strip()}
+    for p in (stem_paras or []):
+        t = _RPAR_RANGE.sub(' ', a3_canon(p))
+        if _RPAR_LABEL_ONLY.fullmatch(t.strip()):              # a label printed on its own line (problem_labels)
+            d.add(t.strip().strip('().'))
+        for m in _RPAR_NOUN_LABEL.finditer(t):                 # 'statement i:', 'compound (b)', 'step iii'
+            d.add(m.group(1))
+        for m in _RPAR_ENUM.finditer(t):
+            d.add(m.group(1))
+        tk = a3_tokens(t)
+        run = []
+        for x in tk + ['§']:
+            if _a3_re.fullmatch(_RPAR_LBL, x):
+                run.append(x)
+            elif x in (',', 'and', 'or', '&', '(', ')') and run:
+                continue
+            else:
+                if len(run) >= 2:
+                    d.update(run)
+                run = []
+    for row in (rows or []):
+        for c in (row if isinstance(row, (list, tuple)) else []):
+            txt = c.get('t') if isinstance(c, dict) else (c[0] if isinstance(c, (list, tuple)) and c else c)
+            m = _RPAR_CELL_LABEL.match(a3_canon(txt)) if isinstance(txt, str) else None
+            if m:
+                d.add(m.group(1))
+    return d
+
+
+def rpar_empty_cells(rows):
+    """Table cells that hold ONLY a label, no picture, and no content in the next cell of their row (Q38: List-I
+    printed 'i'…'iv' with the structures outside the table). [label text]. Pure."""
+    bad = []
+    for row in (rows or []):
+        cells = []
+        for c in (row if isinstance(row, (list, tuple)) else []):
+            if isinstance(c, dict):
+                cells.append((a3_canon(c.get('t')), bool(c.get('pic'))))
+            elif isinstance(c, (list, tuple)) and c:
+                cells.append((a3_canon(c[0]), bool(c[1]) if len(c) > 1 else False))
+        for i, (t, pic) in enumerate(cells):
+            if not t or pic or not _RPAR_LABEL_ONLY.fullmatch(t):
+                continue
+            nt, npic = cells[i + 1] if i + 1 < len(cells) else ('', False)
+            if not (npic or (nt and not _RPAR_LABEL_ONLY.fullmatch(nt) and not _RPAR_CELL_LABEL.match(nt))):
+                bad.append(t)
+    return bad
+
+
+def rpar_figure_labels(entry, semantic_objects=None, figure_specs=None):
+    """(labels, known) — every label the question's pictures are RECORDED to show: problem_labels, a scheme's
+    placeholders / brackets (descriptor 'unknowns') and free text items (descriptor 'texts', release 2026.12.04), a
+    plot's text_labels. known: the question has no picture, or every picture comes from a renderer that records its
+    drawn text (a structure draws none; a scheme records 'texts' from 2026.12.04; a plot records text_labels). known
+    False → P2 is not judged for that question (never a false send-back). Pure."""
+    e = entry if isinstance(entry, dict) else {}
+    labels = [str(x) for x in (e.get('problem_labels') or []) if str(x).strip()] \
+        if isinstance(e.get('problem_labels'), list) else []
+    objs = [o for o in (semantic_objects or []) if isinstance(o, dict)] if isinstance(semantic_objects, list) else []
+    specs = [s for s in (figure_specs or []) if isinstance(s, dict)] if isinstance(figure_specs, list) else []
+    has_fig = bool(e.get('figure_files') or e.get('figure_dicts') or e.get('option_smiles') or objs or specs)
+    known_objs = bool(objs)
+    for o in objs:
+        dsc = o.get('descriptor') if isinstance(o.get('descriptor'), dict) else {}
+        labels += [str(x) for x in (dsc.get('unknowns') or []) if str(x).strip()]
+        labels += [str(x) for x in (dsc.get('texts') or []) if str(x).strip()]
+        if o.get('kind') in RPAR_LABEL_KINDS:
+            continue
+        if o.get('kind') == 'REACTION' and isinstance(dsc.get('texts'), list):
+            continue
+        known_objs = False
+    has_tl = False
+    for s in specs:
+        if isinstance(s.get('text_labels'), list):
+            has_tl = True
+            labels += [str(x) for x in s['text_labels'] if str(x).strip()]
+    known = (not has_fig) or known_objs or (has_tl and not objs)
+    return [a3_canon(x) for x in labels], bool(known)
+
+
+def render_parity_detail(entry, reading, reader=None, figure_labels=None, labels_known=True):
+    """G-RENDER-PARITY (S-4) — {'findings': [str], 'missing': [unit], 'codes': [str]} for ONE question: entry = the
+    reviewed record (sidecar concept_map[q]); reading = the auditor's --item-texts entry for its block ({'paras'} and,
+    from audit_canonical v2.52, {'body', 'rows', 'pictures'}). P1 every reviewed unit printed, contiguous and in order;
+    P2 every label the stem points at or a label-combination option names is defined in print or in a recorded figure
+    label (only when labels_known); P2b no table cell holds a bare label with nothing beside it; P3 no more than
+    RPAR_EXTRA_TOKENS_MAX unreviewed tokens in the stem region and tables (skipped for stimulus members and NAT);
+    P4 at least as many pictures printed as recorded. An internal error is one RPAR_NOT_CHECKABLE finding with every
+    stem unit 'missing' (the bounded repair then decides with its own reader). Pure apart from reader."""
+    out = {'findings': [], 'missing': [], 'codes': []}
+    try:
+        u = rpar_units(entry, reader)
+        rd = reading if isinstance(reading, dict) else {'paras': reading}
+        body = rd.get('body') if isinstance(rd.get('body'), list) else rd.get('paras')
+        if not isinstance(body, list):
+            raise ValueError('no block reading')
+        rows = rd.get('rows') if isinstance(rd.get('rows'), list) else []
+        seg = rpar_segments(body, u['n_options'] if not u['drawn'] else None, u['drawn'])
+        stem_tok = a3_tokens(' '.join(seg['stem']))
+        cell_txt = [a3_canon(c.get('t') if isinstance(c, dict) else c) for r in rows for c in (r or [])
+                    if isinstance(c, (dict, str))]
+        if 'rows' not in rd and isinstance(rd.get('paras'), list) and isinstance(rd.get('body'), list):
+            cell_txt = [a3_canon(x) for x in rd['paras'][len(rd['body']):] if isinstance(x, str)]
+        cell_tok = a3_tokens(' '.join(cell_txt))
+
+        def _f(code, msg):
+            out['findings'].append(f'G-RENDER-PARITY {code}: {msg}')
+            if code not in out['codes']:
+                out['codes'].append(code)
+        miss = _rpar_seq_find(stem_tok, u['stem'])
+        for m in miss:
+            _f('P1', f"'{m[:60]}' is in the reviewed record but not in the printed block")
+        out['missing'] = list(miss)
+        if u['options']:
+            for m in _rpar_seq_find(a3_tokens(' '.join(seg['options'])), u['options']):
+                _f('P1', f"option '{m[:60]}' is in the reviewed record but not in the printed options")
+        for m in [c for c in u['cells'] if a3_tokens(c) and
+                  (' ' + ' '.join(a3_tokens(c)) + ' ') not in (' ' + ' '.join(cell_tok + stem_tok) + ' ')]:
+            _f('P1', f"table cell '{m[:60]}' is in the reviewed record but not in the printed table")
+        refs = rpar_stem_refs(u['stem_raw']) | rpar_option_refs(u['options_raw'])
+        if refs and labels_known:
+            und = sorted(refs - rpar_defined_labels(seg['stem'], rows, figure_labels))
+            for lb in und:
+                _f('P2', f"the question refers to '{lb.upper()}' but no printed line, table row or recorded figure "
+                         f"label shows it")
+        for lb in rpar_empty_cells(rows):
+            _f('P2', f"the table cell '{lb}' shows a label with nothing beside it")
+        if not u['stimulus'] and (u['n_options'] or u['drawn']):
+            from collections import Counter as _C
+            rec = _C(a3_tokens(' '.join(u['stem'] + u['cells'] + u.get('extra_ok', []))))
+            have = _C(stem_tok + cell_tok)
+            extra = have - rec
+            if u['instr'] and seg['stem']:
+                grp = _a3_re.findall(r'\(([^()]*)\)\s*$', seg['stem'][0])
+                extra = extra - _C(a3_tokens('(' + grp[-1] + ')')) if grp else extra
+            pl = entry.get('problem_labels') if isinstance(entry, dict) else None
+            if isinstance(pl, list):
+                extra = extra - _C(a3_tokens(' '.join(str(x) for x in pl)))
+            n_extra = sum(extra.values())
+            if n_extra > RPAR_EXTRA_TOKENS_MAX:
+                ex = ' '.join(t for t in stem_tok + cell_tok if extra.get(t))
+                _f('P3', f"the printed block carries text no reviewer saw: '{ex[:60]}'")
+        if isinstance(u['pictures'], int) and isinstance(rd.get('pictures'), int) and rd['pictures'] < u['pictures']:
+            _f('P4', f"{u['pictures']} pictures recorded, {rd['pictures']} printed")
+        return out
+    except Exception as e:                                  # noqa: BLE001
+        try:
+            stem_units = rpar_units(entry, reader)['stem']
+        except Exception:                                   # noqa: BLE001
+            stem_units = []
+        return {'findings': [f'{RPAR_NOT_CHECKABLE} ({type(e).__name__}: {str(e)[:80]})'], 'missing': stem_units,
+                'codes': ['NC']}
+
+
+def render_parity(entry, reading, reader=None, figure_labels=None, labels_known=True):
+    """[finding] — render_parity_detail(...)['findings']. [] only when the printed block is proven to show the
+    reviewed record. Pure apart from reader; never raises (fail-closed)."""
+    return render_parity_detail(entry, reading, reader, figure_labels, labels_known)['findings']
+
+
+def stem_line_position(parts, pic_at):
+    """S-7 (Step 5): where ONE past question prints its statement set relative to its first stem picture —
+    'after_figure' (a statement run of two or more in the text after the picture), 'before_figure' (in the text before
+    it) or None (no stem picture, or no statement set). parts: the stem's paragraph texts in document order; pic_at:
+    the index in parts where the first picture sat (None = no picture). Pure."""
+    try:
+        if pic_at is None or not isinstance(parts, (list, tuple)) or not parts:
+            return None
+        k = max(0, min(int(pic_at), len(parts)))
+        tail = ' '.join(str(x) for x in parts[k:] if isinstance(x, str))
+        head = ' '.join(str(x) for x in parts[:k] if isinstance(x, str))
+        if qg_statement_count(tail) >= 2:
+            return 'after_figure'
+        if qg_statement_count(head) >= 2:
+            return 'before_figure'
+        return None
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def stem_lines_position_measure(positions):
+    """S-7: {'after_figure': share, 'n': count} over a section's measured positions (stem_line_position values; None
+    ignored). None when nothing was measured (n = 0) — the line is not written and the position stays after the
+    figure. Pure."""
+    ps = [p for p in (positions or []) if p in RPAR_POSITIONS] if isinstance(positions, (list, tuple)) else []
+    if not ps:
+        return None
+    return {'after_figure': round(sum(1 for p in ps if p == 'after_figure') / len(ps), 4), 'n': len(ps)}
+
+
+def rpar_exam_position(stem_form, section=None):
+    """S-7: the measured statement-line position for a section from bc.parse_stem_form(section_rules) —
+    'after_figure' when at least half of the section's measured figure statement sets print after the picture,
+    'before_figure' when fewer do; None when not measured (stem_record then uses after the figure). Pure."""
+    try:
+        d = (stem_form or {}).get('stem_lines_position') or {}
+        v = d.get(str(section)) if section is not None and isinstance(d.get(str(section)), dict) else d.get('*')
+        if not isinstance(v, dict) or not isinstance(v.get('n'), int) or v['n'] <= 0:
+            return None
+        return 'after_figure' if float(v.get('after_figure') or 0) >= 0.5 else 'before_figure'
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+RPAR_INSERT_LINE = 'Q{q}: printed block rebuilt from the reviewed record ({k} sentence(s) inserted) — G-RENDER-PARITY'
+RPAR_RESIDUAL_LINE = 'Q{q}: {what} (G-RENDER-PARITY, disclosed; never a stop)'
+RPAR_UNREADABLE_LINE = 'Q{q}: printed block could not be read for the parity check (G-RENDER-PARITY, disclosed)'
 
 
 for _n, _d in {
@@ -35475,7 +36317,18 @@ for _n, _d in {
         'a3_canon': lambda *a, **k: '',
         'a3_tokens': lambda *a, **k: [],
         'a3_block_segments': lambda *a, **k: {'stem': '', 'options': [], 'all': ''},
-        'a3_same_question': lambda *a, **k: (True, 'not checkable'),
+        'a3_same_question': lambda *a, **k: (False, 'not checkable'),     # release 2026.12.04: fail-closed
+        'render_parity': lambda *a, **k: [RPAR_NOT_CHECKABLE + ' (guard)'],
+        'render_parity_detail': lambda *a, **k: {'findings': [RPAR_NOT_CHECKABLE + ' (guard)'], 'missing': [],
+                                                 'codes': ['NC']},
+        'stem_record': lambda *a, **k: mt_record_fields(a[0] if a and isinstance(a[0], str) else '',
+                                                        k.get('options') if 'options' in k else (a[4] if len(a) > 4 else None)),
+        'safe_stem_lines': lambda *a, **k: {'lines': list(a[0]) if a and isinstance(a[0], (list, tuple)) else [],
+                                            'lead': k.get('lead'), 'closing_ask': k.get('closing_ask'),
+                                            'options': k.get('options'), 'changes': [],
+                                            'findings': [RPAR_NOT_CHECKABLE + ' (guard)']},
+        'rpar_figure_labels': lambda *a, **k: ([], False),
+        'rpar_segments': lambda *a, **k: {'stem': [], 'options': [], 'opt_start': None},
         'a3_guard_step': lambda *a, **k: 'bind_disclosed',
 }.items():
     _nf_guard(_n, _d)

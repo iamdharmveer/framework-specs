@@ -545,6 +545,16 @@ def _self_test():
     check("ENGINE-STATUS-SYNC fires on a printed status the spec never explains",
           rc == 1 and 'ENGINE-STATUS-SYNC' in out and 'VANISH' in out)
 
+    # ── 2026.12.04 — RPAR-SYNC (GAP-2026-11-26-RENDER-PARITY) ──
+    rc, out = mutated(lambda r: open(os.path.join(r, 'Framework_MockTestCreate.md'), 'w', encoding='utf-8').write(
+        open(os.path.join(r, 'Framework_MockTestCreate.md'), encoding='utf-8').read().replace(
+            ' \\\n                  --item-texts /home/claude/[ExamCode]_M[N]_item_texts.json', '')))
+    check("RPAR-SYNC fires when STEP B stops writing --item-texts", rc == 1 and 'RPAR-SYNC' in out)
+    rc, out = mutated(lambda r: open(os.path.join(r, 'blueprint_core.py'), 'w', encoding='utf-8').write(
+        open(os.path.join(r, 'blueprint_core.py'), encoding='utf-8').read().replace(
+            "'stem_lines_position', 'problem_labels')", "'problem_labels')")))
+    check("RPAR-SYNC fires when the reviewer packet drops stem_lines_position", rc == 1 and 'RPAR-SYNC' in out
+          and 'stem_lines_position' in out)
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -1552,6 +1562,44 @@ if os.path.exists(_DOC):
             f"{_DOC}:{_ln}: '{_m.group(0)}' is a hand-maintained live count written in "
             f"prose. Every such number in this file has gone stale at least once. Delete "
             f"it and refer to the FRAMEWORK COUNTS block, which audit_sync keeps true.")
+
+# ── 8c. RPAR-SYNC (release 2026.12.04 — GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1) ─────────────────
+# What the student sees must be what was reviewed, so the four parties that touch a question's text must agree:
+# the WRITER (bc.stem_record writes the fields), the PRINTER (Create render_from_record reads them), the REVIEWER
+# packet (bc.BV_GRADER_FIELDS carries them) and the CHECK (STEP B writes --item-texts, which STEP A2 / A3 read).
+# A drift in any one of them would silently reopen the Q22 defect class.
+try:
+    _rp_ct = TXT.get('Framework_MockTestCreate.md', '')
+    _rp_bc = open('blueprint_core.py', encoding='utf-8').read()
+    _rp_need_spec = {
+        'render_from_record(': 'the one printer (S10-8A) is not defined',
+        "Q.get('stem_lines')": 'render_from_record does not read stem_lines',
+        "Q.get('stem_lead')": 'render_from_record does not read stem_lead',
+        "Q.get('stem_closing_ask')": 'render_from_record does not read stem_closing_ask',
+        "Q.get('stem_lines_position')": 'render_from_record does not read stem_lines_position',
+        "Q.get('problem_labels')": 'render_from_record does not read problem_labels',
+        'bc.stem_record(': 'S7-QUALITY no longer tells the writer to record a series with bc.stem_record',
+        "--item-texts /home/claude/[ExamCode]_M[N]_item_texts.json\n": None,
+    }
+    for _k, _why in _rp_need_spec.items():
+        if _why is None:
+            continue
+        if _k not in _rp_ct:
+            rec('RPAR-SYNC', f"Framework_MockTestCreate.md: {_why} ('{_k}' missing).")
+    _rp_stepb = _rp_ct[_rp_ct.find('--item-findings /home/claude/[ExamCode]_M[N]_batch_findings.json'):][:400]
+    if '--item-texts' not in _rp_stepb:
+        rec('RPAR-SYNC', 'Framework_MockTestCreate.md: the STEP B auditor command no longer writes --item-texts — '
+                         'STEP A2 cannot prove the printed block before a reviewer is paid.')
+    for _k in ("'stem_lead'", "'stem_lines'", "'stem_closing_ask'", "'stem_lines_position'"):
+        if _k not in _rp_bc[_rp_bc.find('def stem_record('):_rp_bc.find('def _rpar_cell_strings(')]:
+            rec('RPAR-SYNC', f'blueprint_core.stem_record no longer writes {_k}.')
+    _rp_gf = _rp_bc[_rp_bc.find('BV_GRADER_FIELDS = ('):][:700]
+    for _k in ("'stem_lines_position'", "'problem_labels'", "'list_columns'"):
+        if _k not in _rp_gf:
+            rec('RPAR-SYNC', f'blueprint_core.BV_GRADER_FIELDS no longer carries {_k} — the reviewer packet would '
+                             f'differ from the printed block.')
+except OSError as _exc:
+    rec('RPAR-SYNC', f'could not read the files RPAR-SYNC compares: {_exc}')
 
 # ── REPORT ──────────────────────────────────────────────────────────────────
 total = sum(len(v) for v in ISSUES.values())

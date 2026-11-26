@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
-"""analyse_engine.py v1.8 — Step 5 (PYQExtract) shared extraction engine.
+"""analyse_engine.py v1.9 — Step 5 (PYQExtract) shared extraction engine.
 
+v1.9 (2026-12-04, GAP-2026-11-26-RENDER-PARITY S-7; release 2026.12.04): every extracted question records
+  stem_line_position — where its statement set sits relative to its first stem picture ('after_figure' /
+  'before_figure' / None), measured from the RAW paragraph sequence (the question's last options_count option
+  paragraphs left out, so a statement paragraph the option detector misreads still counts). write_section_rules
+  writes one line per section, 'stem_lines_position: {"after_figure": share, "n": count}', only when n > 0 (read by
+  Create through bc.parse_stem_form / bc.rpar_exam_position; absent = after the figure). Measured on the real papers:
+  CSIR Chemical Sciences 5 of 5 after the picture, CSIR Life Sciences 8 of 8 before it.
 v1.7 (2026-11-27, GAP-2026-11-21-MATH-TYPESET C-A1; release 2026.11.27): MATH_TYPESET_PROFILE per SUBJECT (the
   manifest 'section' — the name every question, slot and section_rules entry carries). math_typeset_rows_from_docx
   reads each processed PYQ .docx: per question its equation objects (m:oMath), displayed equations (m:oMathPara) and
@@ -1384,6 +1391,29 @@ def _detect_option_label_style(raw_option_lines):
     return 'unknown'
 
 
+def _stem_line_pos(raw, options_count):
+    """release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-7): bc.stem_line_position over ONE question's raw paragraph
+    sequence [(text, 'stem' | 'opt' | 'pic')]: the question's real options are its LAST options_count 'opt' paragraphs
+    and are left out; every other paragraph is stem text, and pic_at is how many of them precede the first picture.
+    None when there is no picture. Never raises."""
+    try:
+        n = int(options_count) if isinstance(options_count, int) and options_count > 0 else 4
+        opt_idx = [k for k, (t, kd) in enumerate(raw or []) if kd == 'opt']
+        drop = set(opt_idx[-n:])
+        parts, pic_at = [], None
+        for k, (t, kd) in enumerate(raw or []):
+            if kd == 'pic':
+                if pic_at is None:
+                    pic_at = len(parts)
+                continue
+            if k in drop or not t:
+                continue
+            parts.append(t)
+        return bc.stem_line_position(parts, pic_at)
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
 def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_select,
                       marking_scheme=None):
     questions = []
@@ -1464,11 +1494,19 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             omml_ok      = omml_ok and _stem_ok
         stem_parts   = [_stem_txt]
         _q_i0 = i                      # release 2026.11.24 (A2): the first paragraph of this question
+        # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-7): where the first stem picture sat among the stem's
+        # paragraphs (None = no stem picture) — bc.stem_line_position classifies the statement set as before / after it
+        # the raw paragraph sequence (text, kind) — kind 'stem' / 'opt' / 'pic' — measured independently of how the
+        # option detector classified a statement paragraph ('A. … B. …' in one paragraph reads as an option today)
+        _raw = [(_stem_txt, 'stem')] + ([(None, 'pic')] if para_has_image(para) else [])
         i += 1
 
         while i < len(paras):
             nt = paras[i].text.strip()
-            if not nt: i += 1; continue
+            if not nt:
+                if para_has_image(paras[i]):
+                    _raw.append((None, 'pic'))
+                i += 1; continue
             # ── GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION ────────────────────
             # A PYQSort position label ALWAYS precedes the next question and can never
             # be part of THIS question's body. Terminating here — rather than absorbing
@@ -1519,6 +1557,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
                 _ot = corpus_io.text_of(paras[i], omml_renderer=pyq_omml).replace('[OMML_FAILED]', '').strip()
                 options.append(clean_option_text(_ot if _ot else nt))
                 options_raw.append(nt)   # v2.15: preserve raw line for label detection
+                _raw.append((nt, 'opt'))
             else:
                 _, ok, has_omml = enrich_paragraph_with_omml('', paras[i])
                 if has_omml:
@@ -1528,6 +1567,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
                     stem_parts.append(corpus_io.text_of(paras[i], omml_renderer=pyq_omml).strip())
                 else:
                     stem_parts.append(nt)
+                _raw.append((stem_parts[-1], 'stem'))
             i += 1
 
         full_stem  = ' '.join(stem_parts)
@@ -1592,6 +1632,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             'question_type' : _pos_ty,
             'stem'        : clean_stem,
             'stem_raw'    : full_stem,
+            'stem_line_position': _stem_line_pos(_raw, options_count),   # release 2026.12.04 (S-7)
             'options'     : options,
             'section'     : cur_sec,
             'topic'       : cur_top,
@@ -3224,9 +3265,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.66'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.66'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.66'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.67'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.67'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.67'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):
@@ -3406,6 +3447,13 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_d
             lines.append('ask_form: ' + _js24.dumps(_af24, sort_keys=True))
         if _sf24:
             lines.append('statement_forms: ' + _js24.dumps(_sf24, ensure_ascii=False, sort_keys=True))
+        # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-7): where this section's past figure questions print their
+        # statement set — after or before the picture (read by Create through bc.parse_stem_form / bc.rpar_exam_position;
+        # absent = not measured = after the figure)
+        _lp24 = bc.stem_lines_position_measure([q.get('stem_line_position') for _sk in sec_keys
+                                                for q in progress.get(_sk, []) if isinstance(q, dict)])
+        if _lp24:
+            lines.append('stem_lines_position: ' + _js24.dumps(_lp24, sort_keys=True))
         for e in sorted(sec_entries, key=lambda x: -x['observed_count']):
             lines += format_entry(e)
 
@@ -5264,6 +5312,22 @@ def self_test():
     # Returns the question NUMBER, not a bool. Q_PATTERNS accepts ONLY `Q.N` and
     # `QN.` forms; a bare `1.` is deliberately NOT a question start, which is what
     # stops an ordinary numbered list inside a stem from splitting the paper.
+    # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-7): the statement-line position from the RAW paragraph
+    # sequence — the real 18-Dec-2025 Q39 shape (statements 'A. … B. …' in one paragraph after the picture, which the
+    # option detector reads as an option) is 'after_figure'; statements before the picture (Life Sciences Q85) are
+    # 'before_figure'; no picture = None
+    check('rpar_stem_line_pos',
+          _stem_line_pos([('The correct reagent(s) to effect the following transformation is(are)', 'stem'),
+                          (None, 'pic'), ('A. Pd/C, H2 (1 atm)\nB. NaBH4, ZnCl2\nC. LiAlH4\nD. BH3·Me2S', 'opt'),
+                          ('1. Only A', 'opt'), ('2. Only B and C', 'opt'), ('3. Only B, C and D', 'opt'),
+                          ('4. Only A, B and D', 'opt')], 4) == 'after_figure'
+          and _stem_line_pos([('The ability of X was studied.', 'stem'),
+                              ('The following statements are made:\nA. X unwinds I.\nB. X binds II.\nC. X is fast.',
+                               'stem'), ('Which one represents all correct statements?', 'stem'), (None, 'pic'),
+                              ('1. A and B only', 'opt'), ('2. B and C only', 'opt'), ('3. A and C only', 'opt'),
+                              ('4. A, B and C', 'opt')], 4) == 'before_figure'
+          and _stem_line_pos([('A. x B. y C. z', 'stem'), ('1. a', 'opt')], 4) is None
+          and _stem_line_pos(None, None) is None)
     check('qstart_Q.1', detect_question_start('Q.1 What is x?') == 1)
     check('qstart_Q.10_two_digits', detect_question_start('Q.10') == 10)
     check('qstart_Q1.', detect_question_start('Q1.') == 1)
@@ -7694,7 +7758,7 @@ def self_test():
               and _w17t.rstrip('\n').split('\n')[-1][:len('FIGURE_STYLE_PROFILE: ')] == 'FIGURE_STYLE_PROFILE: '
               and 'MATH_TYPESET_PROFILE' not in _w7txt)
 
-    EXPECTED_CHECKS = 312  # v1.7 GAP-2026-11-21-MATH-TYPESET: +4 (rows from docx, profiles sorted / skipping, chem subjects, section_rules round trip); v1.6 GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-02: +3 (T-06 papers not year/shift, T-07 shifts unchanged, EC-12 legacy key); v1.4 GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: +1 (bank profile sha + blind grades); GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: +1 (artefact lister injection point is live); v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
+    EXPECTED_CHECKS = 313  # v1.8 GAP-2026-11-26-RENDER-PARITY S-7: +1 (statement-line position from the raw paragraph sequence); v1.7 GAP-2026-11-21-MATH-TYPESET: +4 (rows from docx, profiles sorted / skipping, chem subjects, section_rules round trip); v1.6 GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-02: +3 (T-06 papers not year/shift, T-07 shifts unchanged, EC-12 legacy key); v1.4 GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: +1 (bank profile sha + blind grades); GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: +1 (artefact lister injection point is live); v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     # ── v1.6 F-02 (GAP-2026-11-11) — T-06 / T-07: papers, not (year, shift) pairs ──────────
     def _f02(qs):
         ent = [{'section': 'I', 'topic': 't', 'subtopic': 's'}]

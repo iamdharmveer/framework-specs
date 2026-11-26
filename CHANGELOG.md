@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026.12.04 — GAP-2026-11-26-RENDER-PARITY: what the student sees is exactly what was reviewed (Release 1)
+
+(over release 2026.12.03. Owner rulings RP-A..RP-H of 2026-11-26 (RP-I not needed: English only); 2026-11-26 ruling:
+the two-file delivery contract (STEP-CONTRACT-LAW) is kept — no qa_report.md. Framework_MockTestCreate v8.11;
+Framework_DeliveryFooter v1.58.0; Framework_MockTestAnalyse v2.67.0; blueprint_core
+v2.14; final_assembly v1.30.0; audit_canonical v2.48; analyse_engine v1.9; corpus_io v1.22; handshake_audit (H5-RPAR);
+audit_sync (RPAR-SYNC); LAW_REGISTRY (NEW LAW-PRINT-1; LAW-BC-5 / LAW-BC-7 amended); SPEC_HISTORY.md.
+routes.json: audit_canonical.py routed to MockCreate / TestCreate (final_assembly imports it for the in-process re-hash); SKILL.md / mocktestframework_SKILL.md engine inventory 19 routed / 8 never-routed.
+SESSION_BUDGET.json unchanged: the TestCreate / MockCreate FINAL read grows +1,710 B, inside the 2,300 B tolerance.
+No new hard stop, raise on a runtime path, loop, review round, sub-agent, deliverable or end state.)
+
+**The incident.** TestCreate CSIR_NET_CHEMICAL_SCIENCES, Organic Chemistry 01, release 2026.12.03: Q22 asked about
+"the three sets of conditions (A)–(C) below", but the paper printed only the lead sentence and the picture. The three
+conditions were in the reviewed record, so three reviewers and the adjudicator certified it; STEP A3 noticed, refused
+once and then bound the broken block with a chat-only AMBER line; the auditor printed PASS. Two more questions of the
+same paper were unanswerable and caught by nothing: Q24 (compounds I–IV, no label printed) and Q38 (List-I cells
+printed bare labels, the structures outside the table).
+
+**Root causes.** No figure builder could print a statement list; the record was one flat string; nothing compared the
+printed block with the reviewed record before review; STEP A3's 80% word-set test passed a block missing two of three
+conditions and settled a mismatch by accepting the print; three comparators failed open.
+
+**The fix.**
+- ONE structured record: bc.stem_record writes stem_lead / stem_lines / stem_closing_ask / stem_lines_position and the
+  four text fields from one composition; bc.safe_stem_lines applies the S10-2b LABEL LAW without a raise (re-labels a
+  colliding series with its references).
+- ONE printer: Create render_from_record prints every question from its record; the figure builders print stem_lines
+  after (or before) the picture and problem_labels under each picture; match tables take cell_images. Calls without
+  the new keywords are byte-identical to 2026.12.03 (proven on the old and new builders).
+- ONE check: bc.render_parity — P1 every reviewed unit printed, contiguous and in order; P2 every label the stem points
+  at or a label-combination option names is defined in print or in a recorded figure label, and no table cell is a bare
+  label; P3 no unreviewed text; P4 every recorded picture printed. Never raises; fails closed.
+- STEP B always writes --item-texts (auditor v2.48 adds body / rows / pictures and the docx path); STEP A2 sends a
+  parity finding back before any reviewer is paid (existing BC_PREREVIEW_TRIES); STEP A3 checks every unbound question,
+  inserts a still-missing reviewed sentence before the options (once per reviewed text; a second independent reader
+  prevents duplicates), re-hashes in-process, binds and discloses (rpar_footer -> delivery footer and registry chain
+  footer). A bound question is never repaired.
+- Step 5 measures, per section, whether past figure questions print their statement set after or before the picture
+  (section_rules stem_lines_position). Measured: CSIR Chemical Sciences 5 of 5 after; CSIR Life Sciences 8 of 8 before.
+- A-RENDER-PARITY (auditor, S13-4c): WARN only.
+
+**Verification.** Replay of 545 real question blocks: the incident paper flags exactly Q22, Q24 and Q38; the four real
+CSIR papers give zero findings on every text question. Q22's delivered block is repaired at STEP A3 (conditions after
+the picture, before the options), and a second STEP A3 changes nothing. The handshake's generated paper gives zero
+parity findings end to end (H5-RPAR); the spec's own printer passes the Q22 shape on its first try and prints a legacy
+record byte-identically to 2026.12.03 (H-RPAR). Self-tests: blueprint_core 1660/1660, final_assembly 276/276,
+audit_canonical 697/697, analyse_engine 318/318, corpus_io 595/595, handshake 270 ok / 0 FAIL; validator, spec-name,
+mock-sync and audit_sync clean.
+
+**Out of scope (separate Release 1 GAPs).** Re-key leaving key-dependent fields stale; contested-ratio keys; reviewer
+findings without code; figure-proof false alarms; drawing conventions. Found during this work: Step 5 reads a
+statement paragraph printed as "A. … B. …" (one paragraph) as an option (18-Dec-2025 Q39) — the S-7 measurement does
+not depend on it; the extractor itself is a follow-up.
+
 ## 2026.12.03 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C: lean safety fallback + model wording
 
 (over release 2026.12.02. Framework_MockTestOrchestrate v1.16.0; Framework_MockTestCreate v8.10 (wording only);

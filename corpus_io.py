@@ -1,7 +1,10 @@
 """
-corpus_io.py v1.21 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.22 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
 
+v1.22 — 2026-12-04 — GAP-2026-11-26-RENDER-PARITY (N-10). render_scheme's descriptor records every free text item it
+    draws ('texts', always present), so the print-parity check (bc.rpar_figure_labels) can tell a label shown in the
+    picture from a label shown nowhere. Rendering is unchanged — no picture byte changes.
 v1.21 — 2026-11-10 — GAP-2026-11-10-ORGANIC-QUESTION-PARITY G-11 / G-12 (LAW-ORG-8). Geometry gates on the
     FINAL 2-D coordinates of every structure (G-BONDCROSS, G-BONDLABEL, G-LABELOVERLAP, G-ATOMCLASH —
     mol_geometry_gates); _native_layout and the legacy raster walk a bounded re-depiction ladder
@@ -6305,6 +6308,7 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True, tokens=None,
         _ntk = _native_tokens(tokens)
     tiles, layout = [], []          # layout: per row, list of (kind, payload, x, w)
     reagent_lines, unknowns, n_arrows = [], [], 0
+    scheme_texts = []               # release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY N-10): free text drawn in the scheme
     coloured, notes = set(), []
     row_w = []
     H = SCHEME_TILE_H
@@ -6366,6 +6370,7 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True, tokens=None,
                 unknowns.append(str(it['bracket']))
                 items.append(('bracket', {'text': str(it['bracket'])}, x, 0.75)); x += 0.75 + SCHEME_GAP
             elif 'text' in it:
+                scheme_texts.append(str(it['text']))
                 w = _text_width_units(it['text'], SCHEME_LABEL_PT) + 0.2
                 items.append(('text', {'text': str(it['text'])}, x, w)); x += w + SCHEME_GAP
             elif 'pair' in it:
@@ -6481,6 +6486,9 @@ def render_scheme(spec, px_tile=(700, 500), element_colours=True, tokens=None,
     draw.row_canonicals = canon_rows
     draw.tiles = tiles
     draw.descriptor = {'reagent_lines': reagent_lines, 'unknowns': unknowns,
+                       # release 2026.12.04: every free text item drawn — the scheme's labels are now fully recorded,
+                       # so the print-parity check can tell a label shown in the picture from one shown nowhere
+                       'texts': scheme_texts,
                        'arrows': n_arrows, 'rows': n_rows, 'tiles': len(tiles),
                        'row_canonicals': canon_rows,
                        # drawn 'mol' tiles that are NEITHER a reactant/product of the row's
@@ -11487,7 +11495,8 @@ def self_test():
             check('scheme_canonical_has_reaction_separator', '>>' in _dr.canonical
                   and _dr.canonical.startswith('O=C(c1ccccc1)C(Cl)(Cl)Cl'))
             check('scheme_descriptor', _dr.descriptor['unknowns'] == ['A', 'B'] and _dr.descriptor['arrows'] == 2
-                  and _dr.descriptor['rows'] == 1 and 'NaOH' in _dr.descriptor['reagent_lines'])
+                  and _dr.descriptor['rows'] == 1 and 'NaOH' in _dr.descriptor['reagent_lines']
+                  and isinstance(_dr.descriptor.get('texts'), list))     # release 2026.12.04 (N-10)
             check('scheme_tiles_have_structure_provenance', all(hasattr(_t, 'canonical') for _t in _dr.tiles))
             _dr4 = render_scheme(_G['G4_reagent_mol'])
             check('scheme_reagent_mol_is_agent', _dr4.canonical.split('>')[1] == 'CC(C)(C)OO')
