@@ -1,4 +1,5 @@
-# Framework_NotesCreate v2.11.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.11.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.11.1 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): the difficulty profile is read via input_tray.path (Files + attachments). Wording only.
 # v2.11.0 — 2026-11-05 — GAP-2026-11-05-DIFFICULTY-FIDELITY (paired with blueprint_core
 #   v1.32, notes_core v2.14, notes_audit v2.11, Framework_NotesAudit v3.9.0; guards G1, G10,
 #   S13). §4 B7a R-10 (2): practice items are authored under rubric rule r2
@@ -350,7 +351,7 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       any Recall, compute the unit's contract:
         unit_order = notes_core.unit_order_from_registry(registry)
         profile, why = notes_core.difficulty_profile_load(
-                           "/mnt/project/<EXAM>_difficulty_profile.json", exam_code)
+                           input_tray.path("<EXAM>_difficulty_profile.json"), exam_code)   # Files + attachments
         rtarget    = notes_core.recall_target_for(bank, subject, topic,
                          subtopic, unit_order, allowed_types,
                          profile=profile, subtopic_id=sid)
@@ -841,4 +842,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.11.0
+# END OF Framework_NotesCreate v2.11.1

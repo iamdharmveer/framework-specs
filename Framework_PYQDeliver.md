@@ -1,4 +1,5 @@
-# Framework_PYQDeliver v1.13.2 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.13.3 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.13.3 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): ExamCode derivation lists /tmp/fw_inputs (Files + attachments). Wording only.
 # v1.13.2 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # [ExamCode] project | PYQ-4 (PYQDeliver) | Exam-agnostic
@@ -230,7 +231,8 @@ outputs under the SAME stem, so carry them together into this chat.
 Everything is derived from the attachment and project knowledge:
 
 1. **ExamCode**: derived from project knowledge files (any `[ExamCode]_*` file
-   in `/mnt/project/`). If ambiguous → HARD STOP.
+   in `/tmp/fw_inputs/` — Files + attachments; build it first with
+   `import input_tray; input_tray.ensure()`). If ambiguous → HARD STOP.
 
 2. **Date + Session**: parsed from the attached filename. The filename follows
    the pattern `[ExamCode]_[DD-Mon-YYYY]_[session]_PYQ_Explanation[_Complete].docx`.
@@ -1399,4 +1401,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.13.2)**
+**End of Framework_PYQDeliver.md (v1.13.3)**

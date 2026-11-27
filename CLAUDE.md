@@ -12,8 +12,8 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 60
-  SPEC_MANIFEST.json entries : 61
+  MANIFEST.json files        : 61
+  SPEC_MANIFEST.json entries : 62
   routes.json triggers       : 23
 ```
 
@@ -112,6 +112,7 @@ the bytes are the intended bytes, never that the code is reachable):
 - `python3 corpus_io.py --self-test`  (corpus I/O shell)
 - `python3 figural_vision.py --self-test`  (Phase A/C of PYQExplain §13A figural pre-transcription)
 - `python3 spec_source.py --self-test`  (project-first spec resolution — P1-P5 + overlay + provenance)
+- `python3 input_tray.py --self-test`  (INPUT-SOURCE-LAW — the one input folder: Files + chat attachments)
 - `python3 notes_core.py --self-test`  (Notes pipeline shared core — its density/OMML/prose gates lock NA verdicts)
 - `python3 notes_blueprint.py --self-test`  (Notes Step NB — its output locks notes_blueprint.json + registry)
 - `python3 notes_audit.py --self-test`  (Notes Step NA — is_pass gates DRAFTED → AUDITED_PASS)
@@ -451,6 +452,20 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   gains a second lawful option. Enforced by `LAW_REGISTRY.json` REGISTRY-SOURCE-LAW (detect
   `registry_required_read`, derived by audit_sync) + `mock_sync_audit` MS-20 (resolver present
   in live text; no direct Files path / scan). GAP-2026-09-14-REGISTRY-SOURCE.
+- **INPUT-SOURCE LAW — every step reads its exam inputs from ONE folder, built from Project Files
+  AND chat attachments.** `input_tray.ensure()` builds `/tmp/fw_inputs`: every top-level file of
+  `/mnt/project`, then every chat attachment under its PLAIN name (the `<8 hex>-` upload prefix
+  removed). The attachment wins over a Files file of the same name; the newest of a name attached
+  twice wins; a broken `.json/.py/.md` attachment is never used and the Files copy is never used in
+  its place; an attached `Framework_*.md` is never an input (specs are unchanged). `input_tray.require`
+  names every missing mandatory input in one stop. `paper_pipeline.resolve_registry` lane 1 is the
+  plain-named attachment view (`/tmp/fw_inputs_attached`). Measured 2026-11-27: on the Projects
+  surface `/mnt/project` is read-only, so `bootstrap --stage-inputs` cannot copy an attachment into
+  it, and a step whose Files section was full stopped on the first input that lived only in chat
+  (79 Files-only / exact-name sites at 2026.12.04). Enforced by `LAW_REGISTRY.json`
+  INPUT-SOURCE-LAW + `mock_sync_audit` MS-28 (no Files-only read, no exact-name upload read, no
+  write into the folder, a spec that reads the folder builds it, one constant each).
+  GAP-2026-11-27-ATTACHMENT-INPUT-LANE.
 - Never edit or push `production` directly — only the `main:production` fast-forward.
 - Never force-push `production` without explicit authorization.
 - `.verified` is gitignored and must never be committed.

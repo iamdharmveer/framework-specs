@@ -1,4 +1,6 @@
-# Framework_Blueprint v1.66.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.66.1 — Universal Mock Test Blueprint Generator
+# v1.66.1 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW): exam inputs read from /tmp/fw_inputs (Project Files +
+#   chat attachments; input_tray.ensure). No allocation rule or output changed.
 # v1.66.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24): FG-4 — a section with a
 #   figure target and no figure type checked gets an ADVISORY line (bc.fg4_coverage_advisory); status untouched.
 #   hard_share_by_subtopic stays (legacy); Create now reads the top-band shares from the ladder (E2). No new stop.
@@ -2841,14 +2843,15 @@ except ImportError:
     raise SystemExit("HARD STOP (S6-1c): figure_types.py is not in the verified clone — the "
                      "KIND-COVERAGE pre-flight cannot run. Re-run SKILL Step 0.")
 EXAM = blueprint['exam_code']                      # trigger ExamCode (S1-2 inventory; §7 binds it the same way)
+import input_tray as _itray; _itray.ensure(exam=EXAM)   # INPUT-SOURCE-LAW: inputs = Files + chat attachments
 try:
     section_rules_text
 except NameError:
     try:
-        section_rules_text = open(f'/mnt/project/{EXAM}_section_rules.md', encoding='utf-8').read()
+        section_rules_text = open(f'/tmp/fw_inputs/{EXAM}_section_rules.md', encoding='utf-8').read()
     except Exception:
         section_rules_text = ''
-_fp_cfg_path = f'/mnt/project/{EXAM}_exam_config.json'
+_fp_cfg_path = f'/tmp/fw_inputs/{EXAM}_exam_config.json'
 _fp_cfg = json.load(open(_fp_cfg_path, encoding='utf-8')) if os.path.exists(_fp_cfg_path) else {}
 FIGURE_FALLBACK_POLICY = str(_fp_cfg.get('figure_fallback_policy', 'hard_stop')).strip().lower()
 if FIGURE_FALLBACK_POLICY not in bc.FIGURE_FALLBACK_POLICIES:
@@ -3169,10 +3172,11 @@ import blueprint_core as bc                       # S1-2b engine
 # Bindings (S1-2 inventory): the exam code from the trigger, exam_config.json and the
 # Step-1 scan list — read here explicitly so this block is self-contained on resume.
 EXAM        = blueprint['exam_code']                                       # trigger ExamCode
-exam_config = json.load(open(f'/mnt/project/{EXAM}_exam_config.json', encoding='utf-8'))
+import input_tray as _itray; _itray.ensure(exam=EXAM)   # INPUT-SOURCE-LAW: inputs = Files + chat attachments
+exam_config = json.load(open(f'/tmp/fw_inputs/{EXAM}_exam_config.json', encoding='utf-8'))
 total_qs    = int(exam_config['total_questions'])
 try:
-    PAPERS_SCANNED_LIST = json.load(open(f'/mnt/project/{EXAM}_scan_progress.json',
+    PAPERS_SCANNED_LIST = json.load(open(f'/tmp/fw_inputs/{EXAM}_scan_progress.json',
                                          encoding='utf-8')).get('papers_scanned_list') or []
 except Exception:
     PAPERS_SCANNED_LIST = []                       # no scan list → nothing can be flagged stale
@@ -3183,7 +3187,7 @@ PROFILE_CFG = {'exam_code': EXAM, 'total_questions': total_qs,
                'difficulty_labels': _labels}
 SECTIONS = bc.dp_validate_sections(PROFILE_CFG['sections'], total_qs)   # DPError → HARD STOP: fix exam_config
 SECTION_NAMES = bc.dp_section_names(SECTIONS)                           # ['Paper'] when sectionless
-_pf_path = f'/mnt/project/{EXAM}_difficulty_profile.json'
+_pf_path = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
 PROFILE, RECOMMEND = None, None
 if os.path.exists(_pf_path):
     try:
@@ -7660,10 +7664,11 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
   # message — the last of which made it a guaranteed NameError in a function this
   # spec calls, GRANDFATHERED_MUST_FIX in spec_name_audit_baseline.json until now.)
 
-  manifest_path = f'/mnt/project/{EXAM}_subtopic_manifest.json'
+  import input_tray as _itray; _itray.ensure(exam=EXAM)   # INPUT-SOURCE-LAW: inputs = Files + chat attachments
+  manifest_path = f'/tmp/fw_inputs/{EXAM}_subtopic_manifest.json'
   if not os.path.exists(manifest_path):
       raise SystemExit(
-          f"HARD STOP (S2-MANIFEST): {EXAM}_subtopic_manifest.json not found. "
+          f"HARD STOP (S2-MANIFEST): {EXAM}_subtopic_manifest.json not found (chat attachments + Files). "
           f"Step 0 must publish it before Step 1 can build the blueprint. "
           f"Run/re-run Step 0 (PYQExtract --synthesise ALL), upload the "
           f"manifest to the [ExamCode] project, then re-run Step 1.")
@@ -7785,7 +7790,8 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         for (section, topic, subtopic) in extract_taxonomy(doc_path):
             taxonomy_subtopics.append((section, topic, subtopic))
     # Source 2 (additive): taxonomy_draft.json if available
-    tax_draft_path = f'/mnt/project/{EXAM}_taxonomy_draft.json'
+    import input_tray as _itray; _itray.ensure(exam=EXAM)   # INPUT-SOURCE-LAW: inputs = Files + chat attachments
+    tax_draft_path = f'/tmp/fw_inputs/{EXAM}_taxonomy_draft.json'
     if os.path.exists(tax_draft_path):
         import json as _j
         # v2.17 BUGFIX — this loop iterated the TOP LEVEL of
@@ -8046,4 +8052,4 @@ per series when feasible; infeasible REPORTS and the cursor resumes next
 series). The R25 symptom detector (bc.symptom_detector) is CALLED here in
 inactive mode per its Release-A contract.
 
-# END OF Framework_Blueprint v1.66.0
+# END OF Framework_Blueprint v1.66.1

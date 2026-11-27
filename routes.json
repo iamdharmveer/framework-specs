@@ -3,7 +3,8 @@
     "Framework_PYQPrepare.md",
     "blueprint_core.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQDraft": [
     "Framework_PYQDraft.md",
@@ -12,7 +13,8 @@
     "syllabus_provenance.py",
     "corpus_io.py",
     "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQScan": [
     "Framework_PYQScan.md",
@@ -21,7 +23,8 @@
     "syllabus_provenance.py",
     "corpus_io.py",
     "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQApprove": [
     "Framework_PYQApprove.md",
@@ -30,13 +33,15 @@
     "reconcile_taxonomy.py",
     "syllabus_provenance.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQSort": [
     "Framework_PYQSort.md",
     "blueprint_core.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQCount": [
     "Framework_PYQCount.md",
@@ -45,7 +50,8 @@
     "syllabus_provenance.py",
     "corpus_io.py",
     "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQExtract": [
     "Framework_MockTestAnalyse.md",
@@ -57,7 +63,8 @@
     "frequency_xlsx.py",
     "Framework_DeliveryFooter.md",
     "reconcile_taxonomy.py",
-    "figure_types.py"
+    "figure_types.py",
+    "input_tray.py"
   ],
   "MockBlueprint": [
     "Framework_Blueprint.md",
@@ -67,13 +74,15 @@
     "syllabus_provenance.py",
     "Framework_DeliveryFooter.md",
     "reconcile_taxonomy.py",
-    "figure_types.py"
+    "figure_types.py",
+    "input_tray.py"
   ],
   "ScopedBlueprint": [
     "Framework_ScopedBlueprint.md",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md",
-    "figure_types.py"
+    "figure_types.py",
+    "input_tray.py"
   ],
   "MockCreate": [
     "Framework_MockTestCreate.md",
@@ -88,7 +97,8 @@
     "Framework_DeliveryFooter.md",
     "explain_engine.py",
     "t3_mathcomp.py",
-    "figure_types.py"
+    "figure_types.py",
+    "input_tray.py"
   ],
   "TestCreate": [
     "Framework_MockTestCreate.md",
@@ -103,7 +113,8 @@
     "Framework_DeliveryFooter.md",
     "explain_engine.py",
     "t3_mathcomp.py",
-    "figure_types.py"
+    "figure_types.py",
+    "input_tray.py"
   ],
   "MockExplain": [
     "Framework_MockTestExplain.md",
@@ -115,7 +126,8 @@
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
     "figure_types.py",
-    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md",
+    "input_tray.py"
   ],
   "TestExplain": [
     "Framework_MockTestExplain.md",
@@ -127,19 +139,22 @@
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
     "figure_types.py",
-    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md",
+    "input_tray.py"
   ],
   "MockDeliver": [
     "Framework_MockDeliver.md",
     "blueprint_core.py",
     "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "TestDeliver": [
     "Framework_MockDeliver.md",
     "blueprint_core.py",
     "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQExplain": [
     "Framework_PYQExplain.md",
@@ -152,22 +167,26 @@
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md",
     "figure_types.py",
-    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md"
+    "CHEMISTRY_EXPLAIN_LEARNINGS_v1.md",
+    "input_tray.py"
   ],
   "PYQFormat": [
     "Framework_PYQFormat.md",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQDeliver": [
     "Framework_PYQDeliver.md",
     "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "PYQCompress": [
     "Framework_PYQCompress.md",
     "blueprint_core.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "input_tray.py"
   ],
   "NotesBlueprint": [
     "Framework_NotesBlueprint.md",
@@ -177,7 +196,8 @@
     "corpus_io.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "input_tray.py"
   ],
   "NotesCreate": [
     "Framework_NotesCreate.md",
@@ -187,7 +207,8 @@
     "t3_mathcomp.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "input_tray.py"
   ],
   "NotesAudit": [
     "Framework_NotesAudit.md",
@@ -198,7 +219,8 @@
     "t3_mathcomp.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "input_tray.py"
   ],
   "NotesDeliver": [
     "Framework_NotesDeliver.md",
@@ -206,6 +228,7 @@
     "syllabus_provenance.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md",
-    "reconcile_taxonomy.py"
+    "reconcile_taxonomy.py",
+    "input_tray.py"
   ]
 }

@@ -14,7 +14,7 @@ CONTRACT FLOOR (2026.11.04): a project copy of a spec named in STEP_CONTRACTS.js
 used and Step 0 prints `[STALE — NOT LOADED]` (never a stop). It protects the Step 7 user
 contract (two files, review in-session) from an outdated project copy.
 
-ENGINES ARE REPO-ONLY. All 19 routed engine scripts, plus the 8 tracked-but-never-routed
+ENGINES ARE REPO-ONLY. All 20 routed engine scripts, plus the 8 tracked-but-never-routed
 scripts (validate_framework_md.py the CI validator; spec_source.py the
 resolver; run_ci_gates.py the CI-parity gate runner (GAP-2026-08-23-GATE-INVOCATION);
 regression_pyq_fixtures.py the 25-fixture cross-exam regression suite
@@ -83,6 +83,9 @@ python3 spec_source.py --resolve --repo-dir "$FW" --project-dir /mnt/project \
         --overlay-dir /tmp/fw_effective \
   || { echo "HARD STOP: a project spec is malformed or truncated. Fix or remove it in the project Files section. DO NOT proceed."; exit 1; }
 cd /tmp/fw_effective
+# INPUT-SOURCE-LAW (2026.12.05): one input folder, /tmp/fw_inputs = Project Files + chat attachments
+# (upload prefix removed; an attachment wins). Every step also builds it itself; this prints the report early.
+python3 input_tray.py --build || true
 ```
 
 STEP 0b — INPUT STAGING. If the `python3 bootstrap.py` output above printed `SURFACE:`, run
@@ -143,9 +146,13 @@ the resolve line:
    (`python3 bootstrap.py --trigger <Step> --role orchestrator --read K`) and follows it: worker sub-agents read and execute the full Step 7
    specification, and starting them is authorised by the owner — do not ask the user. Rule 2's
    read-in-full binds each worker, and this chat only when that spec sends it to DIRECT MODE.
-3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's
-   own files; staged by bootstrap --stage-inputs on surfaces that do not mount it), exactly as
-   the specs describe.
+3. Read blueprint.json / registry.json / per-exam files from /tmp/fw_inputs, exactly as the
+   specs describe (INPUT-SOURCE-LAW, 2026.12.05): every step builds it with input_tray.ensure()
+   from Project Files PLUS every chat attachment (upload prefix removed; an attachment wins; a
+   broken one is never used). An input may be uploaded to Files OR attached in chat — either
+   works. A spec that names an input without a path means /tmp/fw_inputs/<name>. On surfaces that
+   do not mount /mnt/project, bootstrap --stage-inputs stages it first (then run
+   `python3 input_tray.py --build` again).
 4. Before presenting any output, confirm /tmp/fw/.verified exists AND that the
    "SPEC SOURCE:" provenance report from Step 0 was printed. If it listed any
    [PROJECT-UNVERIFIED] spec, the delivery footer MUST disclose that (Framework_DeliveryFooter

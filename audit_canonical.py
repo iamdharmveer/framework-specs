@@ -10099,9 +10099,11 @@ def self_test():
         # redirect them at a fixture dir. If the spec ever renames that path the
         # substitution is a no-op, which would silently neuter this fixture — so
         # assert it bit rather than trusting it.
-        _p10_run = _p10_src.replace('/mnt/project/{EXAM}', _p10_dir + '/{EXAM}')
+        # (INPUT-SOURCE-LAW: the block reads input_tray's folder, /tmp/fw_inputs.)
+        _p10_run = _p10_src.replace('/tmp/fw_inputs/{EXAM}', _p10_dir + '/{EXAM}')
         check('A-QINDEX-P10-fixture-is-wired-to-the-fixture-dir',
-              _p10_run != _p10_src and '/mnt/project/' not in _p10_run)
+              _p10_run != _p10_src and '/tmp/fw_inputs/' not in _p10_run
+              and '/mnt/project/' not in _p10_run)
 
         # v2026.09.14.2 (REGISTRY-SOURCE-LAW): P10 no longer opens the registry by
         # path — it calls pp.resolve_registry, which reads its two lane directories

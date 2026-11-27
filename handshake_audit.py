@@ -38,7 +38,13 @@ sys.path.insert(0, HERE)
 
 
 def _relocate(code, root):
-    """Rewrite the absolute roots a spec fence hard-codes to live under `root`."""
+    """Rewrite the absolute roots a spec fence hard-codes to live under `root`.
+    INPUT-SOURCE-LAW: input_tray's folder (/tmp/fw_inputs = Project Files + chat attachments)
+    is relocated onto the fixture PROJECT dir — the fixtures are written there, and the folder
+    is by construction a superset of it (input_tray's own self-test proves the merge)."""
+    for pre, dst in (('/tmp/fw_inputs/', '/mnt/project/'), ("/tmp/fw_inputs'", "/mnt/project'"),
+                     ('/tmp/fw_inputs"', '/mnt/project"')):
+        code = code.replace("'" + pre, "'" + root + dst).replace('"' + pre, '"' + root + dst)
     for pre in ('/home/claude', '/mnt/user-data', '/mnt/project'):
         code = code.replace("'" + pre, "'" + root + pre).replace('"' + pre, '"' + root + pre)
     return code
@@ -336,9 +342,9 @@ def _dl_handshake(check, ROOT, run_fence, W):
           results.get('PGX') and results.get('UGX') and results['PGX'] != results['UGX'], str(results))
     # Step 5 and Create hash the SAME profile file (the sha handshake is a path handshake)
     A = open(os.path.join(W, 'Framework_MockTestAnalyse.md'), encoding='utf-8').read()
-    check('H-DL Analyse S11-1c and Create S3-8L hash the same file (/mnt/project/<EXAM>_difficulty_profile.json)',
-          "_qi_path = f'/mnt/project/{exam_code}_difficulty_profile.json'" in A
-          and "open(f'/mnt/project/{EXAM}_difficulty_profile.json', 'rb')" in S)
+    check('H-DL Analyse S11-1c and Create S3-8L hash the same file (/tmp/fw_inputs/<EXAM>_difficulty_profile.json)',
+          "_qi_path = f'/tmp/fw_inputs/{exam_code}_difficulty_profile.json'" in A
+          and "open(f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json', 'rb')" in S)
 
 
 def _lb_swap_handshake(check, ROOT, run_fence, W):
@@ -1564,6 +1570,9 @@ def self_test():
     TMP = os.path.join(ROOT, 'tmp'); PROJ = ROOT + '/mnt/project'; OUT = ROOT + '/mnt/user-data/outputs'; UPL = ROOT + '/mnt/user-data/uploads'
     HOME = ROOT + '/home/claude'
     for d in (TMP, PROJ, OUT, UPL, HOME): os.makedirs(d, exist_ok=True)
+    # INPUT-SOURCE-LAW: an input_tray call inside a fence builds from the FIXTURE lanes, never the host's
+    os.environ.update({'FW_PROJECT_DIR': PROJ, 'FW_UPLOADS_DIR': UPL, 'FW_ATTACH_DIR': ROOT + '/attach',
+                       'FW_INPUT_DIR': ROOT + '/tmp/fw_inputs', 'FW_INPUT_ATTACH_VIEW': ROOT + '/tmp/fw_inputs_attached'})
     def run_fence(code, g):
         exec(_relocate(code, ROOT), g)
     try:

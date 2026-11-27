@@ -1,7 +1,6 @@
-# Framework_MockTestCreate v8.11
-# v8.11 — 2026-12-04 — release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): print = review. Structured
-#   stem record (bc.stem_record), one printer (render_from_record), parity checked at STEP A2 and A3 (missing reviewed
-#   text inserted, disclosed — never a stop). Legacy calls byte-identical. Entry v8.10 moved to SPEC_HISTORY.md.
+# Framework_MockTestCreate v8.12
+# v8.12 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): inputs read from /tmp/fw_inputs
+#   (Files + chat attachments, input_tray). Entry v8.11 moved to SPEC_HISTORY.md.
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -884,10 +883,8 @@ O3-3 CHECKPOINT carries it):
   * A name the session could not keep is printed on the next call (`FW-NS: not restored ...`); the block that
     needs it rebuilds it from the paper's files. Nothing is lost silently.
 
-INPUT STAGING. The /mnt/project and /mnt/user-data/uploads paths used throughout this spec are
-satisfied on every surface by `python3 bootstrap.py --stage-inputs` (SKILL Step 0, run in the user's
-chat before any worker starts): chat attachments are copied into /mnt/user-data/uploads and the
-project's documents are written into /mnt/project.
+INPUT SOURCES (v8.12, INPUT-SOURCE-LAW): every exam input is read from /tmp/fw_inputs — Project Files
+plus chat attachments, built by input_tray at S3-1 (no /mnt/project: bootstrap --stage-inputs first).
 
 WHAT THIS DOES NOT CHANGE. No question-writing rule, gate, artefact, deliverable, end state or user
 action: the same paper, the same two files, the same "continue".
@@ -1476,7 +1473,7 @@ action: the same paper, the same two files, the same "continue".
   v6.3: §3 is RUN, not read — `python3 bootstrap.py --session-start ...` (S1-0R PYTHON SESSION) executes every
   `# ENGINE-RUN` block below in order; the rules and prose of every S3 section still bind and are in the read.
 
-  /mnt/project/ (read-only) → /home/claude/ (working dir)
+  /tmp/fw_inputs/ (Files + attachments) → /home/claude/ (working dir)
   /mnt/user-data/outputs/ (delivery)
 
   ```python
@@ -1496,6 +1493,18 @@ action: the same paper, the same two files, the same "continue".
   mock_scenario_ledger     = globals().get('mock_scenario_ledger', set())
   mock_presentation_ledger = globals().get('mock_presentation_ledger', set())
 
+  # INPUT-SOURCE-LAW (v8.12, GAP-2026-11-27-ATTACHMENT-INPUT-LANE): every exam input below is
+  # read from ONE folder, /tmp/fw_inputs = Project Files + chat attachments (upload prefix removed;
+  # an attachment wins; a broken attachment is never used and never replaced by the Files copy).
+  # input_tray.require names EVERY missing mandatory input in ONE stop, before any copy.
+  import input_tray as _itray
+  _itray_rec = _itray.ensure(exam=EXAM)
+  _itray_new = not (RESUME or os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json'))
+  _itray.require(EXAM, [f'{EXAM}_section_rules.md', f'{EXAM}_subtopic_manifest.json',
+                     f'{EXAM}_registry.json', f'{EXAM}*_blueprint.json']
+                    + ([f'{EXAM}_stimulus_profile.json'] if _itray_new else []),
+              step='TestCreate / MockCreate session start', rec=_itray_rec)
+
   # MANDATORY COPIES (non-blueprint) — HARD STOP [HS:INPUT] if any missing.
   # (v5.85: [ExamCode]_stimulus_profile.json is deliberately NOT here — only a NEW paper
   # needs it; S3-12b's SAFETY LOCK enforces that, so an in-progress paper is unaffected.)
@@ -1504,15 +1513,15 @@ action: the same paper, the same two files, the same "continue".
       f'{EXAM}_subtopic_manifest.json',   # v3.4 — cross-step contract (REQUIRED)
   ]
   for f in required:
-      src = f'/mnt/project/{f}'
+      src = f'/tmp/fw_inputs/{f}'
       if not os.path.exists(src):
-          raise SystemExit(f"HARD STOP [HS:INPUT]: {f} not found in project knowledge. "
-                           f"Upload it to [{EXAM}] project Files, then retry.")
+          raise SystemExit(f"HARD STOP [HS:INPUT]: {f} not found in chat attachments or "
+                           f"project Files. Attach it or upload it to [{EXAM}] project Files, then retry.")
       shutil.copy(src, f'/home/claude/{f}')
 
   # REGISTRY (MANDATORY) — REGISTRY-SOURCE-LAW (v5.84, GAP-2026-09-14-REGISTRY-SOURCE).
-  # Read from EITHER lane: the chat attachment (/mnt/user-data/uploads) OR Project Files
-  # (/mnt/project). pp.resolve_registry is the ONE implementation Steps 7/9/11 share:
+  # Read from EITHER lane: the chat attachment (input_tray's plain-named view, v8.12) OR Project
+  # Files (/mnt/project). pp.resolve_registry is the ONE implementation Steps 7/9/11 share:
   # attachment wins when both exist (a difference is printed, never a stop); HARD STOP [HS:INPUT]
   # only when both are absent; exact filename + exam_code validated. NEVER open
   # /mnt/project/{EXAM}_registry.json directly here (MS-20). The working copy is
@@ -1554,7 +1563,7 @@ action: the same paper, the same two files, the same "continue".
   # present in project knowledge — the mock blueprint ([ExamCode]_blueprint.json) AND any
   # scoped blueprints ([ExamCode]_[SCOPETAG]_blueprint.json from ScopedBlueprint). §3 S3-2
   # (pp.pick_blueprint) decides which ONE of these this trigger actually generates from.
-  blueprint_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))
+  blueprint_srcs = sorted(glob.glob(f'/tmp/fw_inputs/{EXAM}*_blueprint.json'))
   if not blueprint_srcs:
       raise SystemExit(f"HARD STOP [HS:INPUT]: no {EXAM}*_blueprint.json found in project knowledge. "
                        f"Run MockBlueprint or ScopedBlueprint first, then retry.")
@@ -1590,7 +1599,7 @@ action: the same paper, the same two files, the same "continue".
       BLUEPRINT_PATHS.append(_dst_bp)
 
   # OPTIONAL — audit script (Layer 2 guard — not required for Layer 1):
-  audit_py = f'/mnt/project/{EXAM}_mock_test_audit.py'
+  audit_py = f'/tmp/fw_inputs/{EXAM}_mock_test_audit.py'
   AUDIT_AVAILABLE = os.path.exists(audit_py)
   AUDITOR_FROM_REPO = False      # v5.89 P3 — True when this run audits with the repo copy
   if AUDIT_AVAILABLE:
@@ -1687,7 +1696,7 @@ action: the same paper, the same two files, the same "continue".
   # stale record or sidecar can never be attributed to this paper (S13-4 commits on
   # existence since final_assembly v1.10; sidecars are matched by question number).
   _is_resume = RESUME or os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json')
-  fig_src = f'/mnt/project/{EXAM}_fig_manifest.json'
+  fig_src = f'/tmp/fw_inputs/{EXAM}_fig_manifest.json'
   if _is_resume:
       if os.path.exists(fig_src) and not os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
           shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
@@ -1717,8 +1726,8 @@ action: the same paper, the same two files, the same "continue".
   # staged). Legacy-named file loads with a MIGRATION warning; never silently ignored.
   import glob
   import explain_engine as _ee
-  learn_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}_EXPLAIN_LEARNINGS_v*.md'))
-  _ignored_ex, _subj_file, _amb = _ee.resolve_learnings_files('/mnt/project', EXAM)
+  learn_srcs = sorted(glob.glob(f'/tmp/fw_inputs/{EXAM}_EXPLAIN_LEARNINGS_v*.md'))
+  _ignored_ex, _subj_file, _amb = _ee.resolve_learnings_files('/tmp/fw_inputs', EXAM)
   if _amb:
       print(f"S3-1 WARN — {_amb}")
   if learn_srcs:
@@ -1727,7 +1736,7 @@ action: the same paper, the same two files, the same "continue".
       shutil.copy(_subj_file, f'/home/claude/{os.path.basename(_subj_file)}')
       print(f"S3-1 — subject learnings discovered (S24 contract, never renamed): "
             f"{os.path.basename(_subj_file)}")
-  legacy_src = f'/mnt/project/{EXAM}_ExplainLearnings.md'
+  legacy_src = f'/tmp/fw_inputs/{EXAM}_ExplainLearnings.md'
   if not learn_srcs and os.path.exists(legacy_src):
       shutil.copy(legacy_src, f'/home/claude/{EXAM}_ExplainLearnings.md')
       print(f'MIGRATION: {EXAM}_ExplainLearnings.md uses the legacy name — rename to '
@@ -1913,8 +1922,8 @@ action: the same paper, the same two files, the same "continue".
   _ecfg = {}
   if os.path.exists(_ecfg_path):
       _ecfg = json.load(open(_ecfg_path, encoding='utf-8'))
-  elif os.path.exists(f'/mnt/project/exam_config.json'):
-      _ecfg = json.load(open(f'/mnt/project/exam_config.json', encoding='utf-8'))
+  elif os.path.exists(f'/tmp/fw_inputs/exam_config.json'):
+      _ecfg = json.load(open(f'/tmp/fw_inputs/exam_config.json', encoding='utf-8'))
   # v5.89 (GAP-2026-11-02 handshake): the exam's REAL config, as Step 2a delivers it
   # ([ExamCode]_exam_config.json in Project Files — S3-17c reads the same file). It feeds
   # ONLY the difficulty values this release needs (cycle_gap_days, sections), so Create's
@@ -1922,7 +1931,7 @@ action: the same paper, the same two files, the same "continue".
   # are deliberately left on their old lookup (switching them on would change every exam's
   # fonts/labels — a separate decision).
   _ecfg_exam = {}
-  _ecfg_exam_path = f'/mnt/project/{EXAM}_exam_config.json'
+  _ecfg_exam_path = f'/tmp/fw_inputs/{EXAM}_exam_config.json'
   if os.path.exists(_ecfg_exam_path):
       try:
           _ecfg_exam = json.load(open(_ecfg_exam_path, encoding='utf-8')) or {}
@@ -2088,7 +2097,7 @@ action: the same paper, the same two files, the same "continue".
       global BLUEPRINT_AMENDED
       json.dump(bp, open(BP_SRC_PATH, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
       BLUEPRINT_AMENDED = True
-  _pf_dsrc = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _pf_dsrc = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
   try:   # read ONLY when this blueprint schedules difficulty (never a stop otherwise)
       _prof_dsrc = (json.load(open(_pf_dsrc, encoding='utf-8'))
                     if bp.get('difficulty_schedule') and os.path.exists(_pf_dsrc) else None)
@@ -2226,7 +2235,7 @@ action: the same paper, the same two files, the same "continue".
   # ── S0-OP-0 / S0-OP-1 (v6.0) ──
   import json, os, blueprint_core as bc
   EXAM = globals()['EXAM']                                     # bound by S3-1 (this block runs at S3, S0-OP order)
-  _op_prof_p = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _op_prof_p = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
   _op_work_p = f'/home/claude/{EXAM}_op_profile.json'          # the S0-OP working profile (O-BACKFILL writes HERE)
   if os.path.exists(_op_work_p):                               # this session already loaded / back-filled it
       OP_PROFILE = json.load(open(_op_work_p, encoding='utf-8'))
@@ -2483,7 +2492,7 @@ action: the same paper, the same two files, the same "continue".
                         f"({_have} vs {_want}) — the fresh plan is used.")
       # v5.75: the profile for CHECK 3c calibration examples — optional, validated
       import os as _os, json as _json
-      _pf_p = f'/mnt/project/{EXAM}_difficulty_profile.json'
+      _pf_p = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
       PROFILE_CFG = {'exam_code': EXAM, 'total_questions': total_questions,
                      'sections': _ecfg_dp.get('sections'), 'cycle_gap_days': _ecfg_dp.get('cycle_gap_days'),
                      'difficulty_labels': difficulty_labels}
@@ -2625,7 +2634,7 @@ action: the same paper, the same two files, the same "continue".
   import json, os, blueprint_core as bc
 
   def load_style_artefacts(exam_code, section_rules_meta, blueprint,
-                           project_dir='/mnt/project'):
+                           project_dir='/tmp/fw_inputs'):
       """Returns (profile, index, style_meta). profile/index are None when
       dormant; style_meta always carries {status, reason, schema, corpus_hash}
       and is what §FOOTER-STYLE and the registry record."""
@@ -2735,18 +2744,19 @@ action: the same paper, the same two files, the same "continue".
   # ── S3-2e (executable; after S3-2b/S3-2D, before S3-3) ───────────────────────────
   import json, os, blueprint_core as bc
   _rd_in = {}
-  for _art, _path in (('style_profile.json', f'/mnt/project/{EXAM}_style_profile.json'),
-                      ('pyq_index.json', f'/mnt/project/{EXAM}_pyq_index.json'),
-                      ('difficulty_profile.json', f'/mnt/project/{EXAM}_difficulty_profile.json')):
+  for _art, _path in (('style_profile.json', f'/tmp/fw_inputs/{EXAM}_style_profile.json'),
+                      ('pyq_index.json', f'/tmp/fw_inputs/{EXAM}_pyq_index.json'),
+                      ('difficulty_profile.json', f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json')):
       try:
           _rd_in[_art] = json.load(open(_path, encoding='utf-8')) if os.path.exists(_path) else None
       except Exception:                                    # a corrupt file reads as STALE, never a stop
           _rd_in[_art] = {}
   # OD-11: the exemplar bank is a DELIVERED RUN FILE, attached beside the registry — never
   # project knowledge. Absent -> the judge is DORMANT (CHECK 3c (a) prints "no exemplar bank").
-  _eb_candidates = [p for p in (f'/mnt/user-data/uploads/{EXAM}_exemplar_bank.json',   # attached to this run (OD-11)
+  _eb_candidates = [p for p in (f'/tmp/fw_inputs_attached/{EXAM}_exemplar_bank.json',  # attached to this run (OD-11; plain name, v8.12)
                                 f'/home/claude/{EXAM}_exemplar_bank.json',               # staged earlier this session
-                                f'/mnt/project/{EXAM}_exemplar_bank.json') if os.path.exists(p)]   # kept in Project Files
+                                f'/tmp/fw_inputs/{EXAM}_exemplar_bank.json')             # kept in Project Files
+                    if os.path.exists(p)]
   EXEMPLAR_BANK_PATH = _eb_candidates[0] if _eb_candidates else None
   try:
       EXEMPLAR_BANK = json.load(open(EXEMPLAR_BANK_PATH, encoding='utf-8')) if EXEMPLAR_BANK_PATH else {}
@@ -2769,7 +2779,7 @@ action: the same paper, the same two files, the same "continue".
                 ensure_ascii=False, separators=(',', ':'))      # staged for STEP A2 (fa.bv_batch_step)
   print("S3-2e: difficulty ladder " + (f"loaded — {len(LADDER.get('scopes') or {})} scope(s), status {LADDER.get('status')}"
         if isinstance(LADDER, dict) else "absent — difficulty is measured with rule r2.1 (AMBER); run Step 5 once to build it"))
-  _sr_path = f'/mnt/project/{EXAM}_section_rules.md'
+  _sr_path = f'/tmp/fw_inputs/{EXAM}_section_rules.md'
   _rd_in['section_rules.md'] = open(_sr_path, encoding='utf-8').read() if os.path.exists(_sr_path) else None
   SECTION_RULES_TEXT = _rd_in['section_rules.md'] or ''        # read by S3-12d / S7-QUALITY / S13-2F
   _rd_in['blueprint.json'] = bp
@@ -3030,7 +3040,7 @@ action: the same paper, the same two files, the same "continue".
   manifest_path = f'/home/claude/{EXAM}_subtopic_manifest.json'
   if not os.path.exists(manifest_path):
       # Try project dir as a fallback location
-      alt = f'/mnt/project/{EXAM}_subtopic_manifest.json'
+      alt = f'/tmp/fw_inputs/{EXAM}_subtopic_manifest.json'
       if os.path.exists(alt):
           shutil.copy(alt, manifest_path)
   if not os.path.exists(manifest_path):
@@ -3130,7 +3140,7 @@ action: the same paper, the same two files, the same "continue".
                              if str(x.get('subtopic_id')) in _org_set})
   if L2_SCOPE_IDS:
       try:
-          _sha_l2 = _h_l2.sha256(open(f'/mnt/project/{EXAM}_difficulty_profile.json', 'rb').read()).hexdigest()
+          _sha_l2 = _h_l2.sha256(open(f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json', 'rb').read()).hexdigest()
       except OSError:
           _sha_l2 = None
       _g_l2, _gst_l2 = bc.bank_pyq_grades(globals().get('EXEMPLAR_BANK') or {}, _sha_l2, difficulty_labels)
@@ -3320,12 +3330,12 @@ action: the same paper, the same two files, the same "continue".
       a profile a NEW paper would scatter every question set (one passage printed at
       many positions). An exam with no sets has a valid profile with "types": {}."""
       _sgp = next((f'{_d}/{EXAM}_stimulus_profile.json'
-                   for _d in ('/mnt/user-data/uploads', '/mnt/project')
+                   for _d in ('/tmp/fw_inputs',)                # attachment wins (input_tray, v8.12)
                    if os.path.exists(f'{_d}/{EXAM}_stimulus_profile.json')), None)
       if _sgp is None:
           raise SystemExit(
               f"HARD STOP [HS:INPUT] (S3-12b SAFETY LOCK, v5.85): {EXAM}_stimulus_profile.json "
-              f"is not in Project Files. Run PYQExtract --stimulus-profile first (it "
+              f"is not in chat attachments or Project Files. Run PYQExtract --stimulus-profile first (it "
               f"needs {EXAM}_analysis_progress.json), upload the file it delivers, and "
               f"re-run. A paper already in progress is not affected by this lock.")
       try:
@@ -4481,7 +4491,7 @@ action: the same paper, the same two files, the same "continue".
   # exam's own config decides (the same key Step 6 reads). Default hard_stop.
   _policy = (bp.get('figure_type_coverage') or {}).get('policy')
   if not _policy:
-      _cfg_path = f'/mnt/project/{EXAM}_exam_config.json'
+      _cfg_path = f'/tmp/fw_inputs/{EXAM}_exam_config.json'
       _cfg = json.load(open(_cfg_path, encoding='utf-8')) if os.path.exists(_cfg_path) else {}
       _policy = str(_cfg.get('figure_fallback_policy', 'hard_stop')).strip().lower()
   if _policy not in bc.FIGURE_FALLBACK_POLICIES:
@@ -4622,7 +4632,7 @@ action: the same paper, the same two files, the same "continue".
 
 ## S3-19 — HARD STOP [HS:INPUT] / [HS:INFRA] conditions (each line carries its own class)
 
-  HS-1: Any mandatory file missing from /mnt/project/
+  HS-1: Any mandatory file missing from /tmp/fw_inputs/ (Files + attachments)
   HS-2: Section allocation sums mismatch
   HS-3: ExamCode mismatch between trigger/blueprint/registry
   HS-4: paper_id already in registry.papers_completed (legacy: Mock N in mocks_completed)
@@ -5267,10 +5277,10 @@ action: the same paper, the same two files, the same "continue".
               PYTHONPATH=/tmp/fw python3 /home/claude/[ExamCode]_mock_test_audit.py \
                   /home/claude/<cumulative>.docx \
                   --blueprint [BP_SRC_PATH] \
-                  --rules /mnt/project/[ExamCode]_section_rules.md \
-                  --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
+                  --rules /tmp/fw_inputs/[ExamCode]_section_rules.md \
+                  --manifest /tmp/fw_inputs/[ExamCode]_subtopic_manifest.json \
                   --registry /home/claude/[ExamCode]_registry.json \
-                  --profile /mnt/project/[ExamCode]_difficulty_profile.json \
+                  --profile /tmp/fw_inputs/[ExamCode]_difficulty_profile.json \
                   --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
                   --key /home/claude/[ExamCode]_M[N]_answer_key.json \
                   --fig-manifest /home/claude/[ExamCode]_fig_manifest.json \
@@ -6767,7 +6777,7 @@ action: the same paper, the same two files, the same "continue".
         exam's DIFFICULTY PROFILE (v5.75 — bc.dp_calibration(DIFFICULTY_PROFILE,
         subtopic_id, PROFILE_CFG): real questions of THIS exam with their
         recorded step and concept counts, scored by the same rubric; loaded
-        once in S3 from /mnt/project/[ExamCode]_difficulty_profile.json,
+        once in S3 from /tmp/fw_inputs/[ExamCode]_difficulty_profile.json,
         None when absent — then no examples, the anchor rules alone apply).
         Counting a question in a lower level's step-units inflates
         every score and mislabels the whole paper for its audience; Step 9's
@@ -12398,7 +12408,7 @@ _docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'  
 _cert = f'/home/claude/{EXAM}_M{N}_item_sweep_certificate.json'
 _ifj = f'/home/claude/{EXAM}_M{N}_item_findings.json'
 _key = f'/home/claude/{EXAM}_M{N}_answer_key.json'
-_pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
+_pf = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
 _fmj = f'/home/claude/{EXAM}_fig_manifest.json'
 _prev = f'/home/claude/{EXAM}_M{N}_registry_preview.json'   # written by step 1 (S13_PREVIEW)
 _stp = f'/home/claude/{EXAM}_M{N}_s13_2f_state.json'        # LEGACY routes only (a paper begun before v7.0)
@@ -12498,8 +12508,8 @@ if AUDIT_AVAILABLE:
            '--phase', 'precommit', '--item-findings', _ifj,
            '--write-certificate', _cert,
            '--blueprint', BP_SRC_PATH,
-           '--rules', f'/mnt/project/{EXAM}_section_rules.md',
-           '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
+           '--rules', f'/tmp/fw_inputs/{EXAM}_section_rules.md',
+           '--manifest', f'/tmp/fw_inputs/{EXAM}_subtopic_manifest.json',
            '--registry', _prev,
            '--mockN', str(N),
            # v5.96: the hash of every delivered block (REVIEW-COVERAGE-LAW) and the paper-level gates
@@ -12515,7 +12525,7 @@ if AUDIT_AVAILABLE:
     _sgp_pre = globals().get('STIM_PROFILE_PATH')     # v5.85 A-BLOCK — same source as S13-4c
     for _flag, _path in (('--profile', _pf), ('--key', _key), ('--fig-manifest', _fmj),
                          ('--stimulus-profile', _sgp_pre),
-                         ('--style-profile', f'/mnt/project/{EXAM}_style_profile.json')):   # A-ITEMRULE suspension (R7.2)
+                         ('--style-profile', f'/tmp/fw_inputs/{EXAM}_style_profile.json')):   # A-ITEMRULE suspension (R7.2)
         if _path and os.path.exists(_path):
             cmd += [_flag, _path]
     _r = subprocess.run(cmd, capture_output=True, text=True, env=AUDIT_ENV)
@@ -14134,7 +14144,7 @@ if AUDIT_AVAILABLE:
   _ru4 = globals().get('EXAM_RULER') or _bs4.get('exam_ruler')  # resume-safe (S3-16 persisted it)
   if isinstance(_ru4, dict):
       _reg4['difficulty_ruler'] = _ru4
-  _op_base4 = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _op_base4 = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
   _op_work4 = f'/home/claude/{EXAM}_op_profile.json'
   _reg4['pyq_backfill'] = dict(_reg4.get('pyq_backfill') or {}, **bc.profile_backfill_delta(
       json.load(open(_op_work4, encoding='utf-8')) if os.path.exists(_op_work4) else {'papers': {}},
@@ -14412,8 +14422,8 @@ if AUDIT_AVAILABLE:
       --dossier /home/claude/[ExamCode]_M[N]_audit_dossier.json \
       --registry /home/claude/[ExamCode]_registry.json \
       --blueprint [BP_SRC_PATH] \
-      --rules /mnt/project/[ExamCode]_section_rules.md \
-      --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
+      --rules /tmp/fw_inputs/[ExamCode]_section_rules.md \
+      --manifest /tmp/fw_inputs/[ExamCode]_subtopic_manifest.json \
       --stimulus-profile /home/claude/[ExamCode]_M[N]_stimulus_profile.json \
       --mockN [N]
   ```
@@ -14464,7 +14474,7 @@ if AUDIT_AVAILABLE:
   UNCERTIFIED_ITEMS = list((json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json', encoding='utf-8'))
                             if os.path.exists(f'/home/claude/{EXAM}_M{N}_batch_state.json') else {}).get('uncertified_items')
                            or (CERT or {}).get('uncertified_items') or [])
-  _pf = f'/mnt/project/{EXAM}_difficulty_profile.json'
+  _pf = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
   if AUDIT_AVAILABLE and os.path.exists(_out):
       # v5.85: the paper's OWN profile snapshot (S3-12b) — absent on a legacy paper
       _sgp_final = STIM_PROFILE_PATH if os.path.exists(STIM_PROFILE_PATH) else None
@@ -14483,8 +14493,8 @@ if AUDIT_AVAILABLE:
            # the gate has no concept_group/family metadata and degrades to
            # subtopic-level adjacency only (safe, but weaker than the S3-12b
            # pre-flight it is supposed to mirror at ship time).
-           '--rules', f'/mnt/project/{EXAM}_section_rules.md',
-           '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
+           '--rules', f'/tmp/fw_inputs/{EXAM}_section_rules.md',
+           '--manifest', f'/tmp/fw_inputs/{EXAM}_subtopic_manifest.json',
            # v5.85 — arm A-BLOCK: the auditor recomputes the stimulus groups
            # from the SAME profile the planner used and certifies the paper.
            *(['--stimulus-profile', _sgp_final] if _sgp_final else []),
@@ -14501,8 +14511,8 @@ if AUDIT_AVAILABLE:
              if os.path.exists(f'/home/claude/{EXAM}_M{N}_answer_key.json') else []),
            *(['--fig-manifest', f'/home/claude/{EXAM}_fig_manifest.json']
              if os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json') else []),
-           *(['--style-profile', f'/mnt/project/{EXAM}_style_profile.json']
-             if os.path.exists(f'/mnt/project/{EXAM}_style_profile.json') else []),   # A-ITEMRULE suspension (R7.2)
+           *(['--style-profile', f'/tmp/fw_inputs/{EXAM}_style_profile.json']
+             if os.path.exists(f'/tmp/fw_inputs/{EXAM}_style_profile.json') else []),   # A-ITEMRULE suspension (R7.2)
            '--mockN', str(N),
            # v5.96: the paper-level gates S13-2F escalated to AMBER at its sweep cap (the same verdict); v8.4: S13-2F's
            # ENGINE may escalate before sweep 6 (a fixed point / the total cap) — --escalate-early carries that decision
@@ -14678,7 +14688,7 @@ if AUDIT_AVAILABLE:
   import os
   import blueprint_core as bc
   _bp_name = os.path.basename(BP_SRC_PATH)
-  _bp_proj = f'/mnt/project/{_bp_name}'
+  _bp_proj = f'/tmp/fw_inputs/{_bp_name}'
   INFO_LINES_S136 = []
   if (not os.path.exists(_bp_proj)
           or open(_bp_proj, 'rb').read() != open(BP_SRC_PATH, 'rb').read()):
@@ -15701,7 +15711,7 @@ discrimination; Hard integration of >= 2 concepts / data interpretation /
 exception reasoning). Once new-era papers exist, measured NEW-content
 difficulty replaces inheritance (R12/R10 cadence).
 
-# END OF Framework_MockTestCreate v8.11
+# END OF Framework_MockTestCreate v8.12
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

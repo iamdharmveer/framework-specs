@@ -1,4 +1,5 @@
-# Framework_PYQSort v1.21.1 — Universal PYQ Sorter
+# Framework_PYQSort v1.21.2 — Universal PYQ Sorter
+# v1.21.2 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): exam_config discovered in /tmp/fw_inputs (Files + chat attachments).
 # v1.21.1 — 2026-09-15 — GAP-2026-09-14-DELIVERY-ECHO Release B (2026.09.15.2; DeliveryFooter v1.35
 #   rule R6 / section 9). Delivery site gains the PHASE 1 print of its closed set (S10-1/§3 set unchanged), PHASE 2 echo of the RETURNED paths and PHASE 3 result-built footer. Text only; no set, gate or engine change; never a halt.
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
@@ -302,10 +303,11 @@ def load_exam_config():
     No exam_code needed — discovers any *_exam_config.json file.
     Returns (exam_code, config_dict) or raises SystemExit.
     """
-    matches = sorted(glob.glob('/mnt/project/*_exam_config.json'))
+    import input_tray as _itray; _itray.ensure()   # v1.21.2 INPUT-SOURCE-LAW: Files + chat attachments
+    matches = sorted(glob.glob('/tmp/fw_inputs/*_exam_config.json'))
     if not matches:
         raise SystemExit(
-            "HARD STOP: No *_exam_config.json found in project knowledge.\n"
+            "HARD STOP: No *_exam_config.json found in chat attachments or project knowledge.\n"
             "Run PYQDraft [ExamCode] first, then upload\n"
             "Analysis docs + exam_config.json to this project.")
     if len(matches) > 1:
@@ -2537,4 +2539,4 @@ kept in `legacy_label` (L-5). Historical questions are NEVER deleted or
 filtered (R20) — labeling is disclosure, not removal. New-era papers and
 inactive/legacy exams: byte-identical to v1.20.1 behaviour.
 
-# END OF Framework_PYQSort v1.21.1
+# END OF Framework_PYQSort v1.21.2

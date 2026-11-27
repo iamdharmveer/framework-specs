@@ -986,7 +986,8 @@ if _REG is not None:
                          'organic_parity_rule',
                          'nonorganic_fidelity_rule',
                          'batch_verification_rule',
-                         'certificate_contract_rule'):
+                         'certificate_contract_rule',
+                         'input_source_read'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -1118,6 +1119,13 @@ if _REG is not None:
             # text makes the auditor WRITE (--write-certificate) or READ (--certificate) the S13-2F certificate.
             _performing = {f for f, t in TXT.items()
                            if re.search(r"['\"]--(?:write-)?certificate['\"]", _live_text(t))}
+        elif _rule == 'input_source_read':
+            # GAP-2026-11-27-ATTACHMENT-INPUT-LANE INPUT-SOURCE-LAW. A spec performs an INPUT-SOURCE
+            # operation when its live text reads input_tray's folder or calls input_tray. The verifier
+            # (mock_sync_audit MS-28) then requires it to build the folder and forbids a Files-only
+            # read or an exact-name upload read anywhere in the corpus.
+            _performing = {f for f, t in TXT.items()
+                           if re.search(r'/tmp/fw_inputs|\binput_tray\b', _live_text(t))}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

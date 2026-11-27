@@ -41,6 +41,10 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               # unverified runner could silently skip steps, which is the exact
               # failure it exists to prevent.
               "run_ci_gates.py",
+              # GAP-2026-11-27-ATTACHMENT-INPUT-LANE (INPUT-SOURCE-LAW). The one place a step's exam
+              # inputs come from (Project Files + chat attachments). Routed to every trigger and
+              # checksum-verified like every engine: it decides which file a step reads.
+              "input_tray.py",
               # GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY (LAW F1.1). The
               # figure-type registry is the one table binding a Step-5 object_type to a
               # render class, a semantic kind and a renderer; Step 6 pre-flights on it,

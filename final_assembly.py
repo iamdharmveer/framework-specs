@@ -1749,7 +1749,7 @@ def bv_paper_blueprint(exam, n, home, batch_state):
         if not need:
             return {}
         for c in sorted(set(_gl.glob(os.path.join(home, f'{exam}*_blueprint.json')))) + \
-                sorted(set(_gl.glob(f'/mnt/project/{exam}*_blueprint.json'))):
+                sorted(set(_gl.glob(f'/tmp/fw_inputs/{exam}*_blueprint.json'))):   # INPUT-SOURCE-LAW
             try:
                 b = json.load(open(c, encoding='utf-8'))
             except (OSError, ValueError):
@@ -1788,11 +1788,14 @@ def bv_figure_capable_qs(exam, n, home, batch_state, section):
 def bv_load_ladder(exam, home='/home/claude', fresh_first=False):
     """Cluster R3: the exam's difficulty ladder ([ExamCode]_difficulty_ladder.json, written by Step 5). A paper in
     progress reads the session's STAGED copy first (the ladder is frozen per paper); a NEW paper (fresh_first) reads
-    the attachments, then the project files, then the staged copy — a re-built ladder that was attached wins over a
+    /tmp/fw_inputs (the attachment, else the project file — input_tray), then the staged copy — a re-built ladder that was attached wins over a
     stale staged one. None when absent or unreadable (the paper then runs mode 'counted', disclosed). Never raises."""
     import json, os
     _home = [os.path.join(home, f'{exam}_difficulty_ladder.json')]
-    _fresh = [f'/mnt/user-data/uploads/{exam}_difficulty_ladder.json', f'/mnt/project/{exam}_difficulty_ladder.json']
+    # INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): /tmp/fw_inputs already holds the attachment
+    # (upload prefix removed) over the Project Files copy — the old exact-name uploads path never saw a
+    # prefixed attachment.
+    _fresh = [f'/tmp/fw_inputs/{exam}_difficulty_ladder.json']
     for _p in (_fresh + _home if fresh_first else _home + _fresh):
         try:
             if os.path.exists(_p):
@@ -1846,7 +1849,7 @@ def bv_r3_gaps(entry, key, top_band, ladder=None, mode=None, context=None):
 
 def bv_figure_plan_fallback(exam, n, home, batch_state, blueprint=None):
     """FG-1 safety net (release 2026.11.24): when Create S3 recorded no batch_state['figure_plan'], build it here
-    with bc.figure_grant_plan from the paper's blueprint (home, else /mnt/project) and batch_state['subtopic_by_qnum'],
+    with bc.figure_grant_plan from the paper's blueprint (home, else /tmp/fw_inputs) and batch_state['subtopic_by_qnum'],
     per section ({section: plan}; a section with no FIGURAL target is left out). Ranking without measured rates
     (subtopic order). {} when the blueprint or the slot map is unavailable. `blueprint` = the blueprint the paper was
     built on (Create S3-16 passes it); without it, the first candidate whose paper-n allocation holds EVERY subtopic of
@@ -1869,7 +1872,7 @@ def bv_figure_plan_fallback(exam, n, home, batch_state, blueprint=None):
         bp = blueprint if isinstance(blueprint, dict) else None
         if bp is None:
             cands = sorted(set(_gl.glob(os.path.join(home, f'{exam}*_blueprint.json'))
-                               + _gl.glob(f'/mnt/project/{exam}*_blueprint.json')))
+                               + _gl.glob(f'/tmp/fw_inputs/{exam}*_blueprint.json')))
             for c in cands:
                 try:
                     _b = json.load(open(c, encoding='utf-8'))

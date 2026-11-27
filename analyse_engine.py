@@ -374,7 +374,7 @@ def auto_pyq_reader(exam_code):
     bc.omml_reader_for(its subjects). No config → 'legacy' (today's reader). Never raises."""
     import json, os
     import blueprint_core as _bcr
-    for d in ('/mnt/user-data/uploads', '/mnt/project', '/home/claude'):
+    for d in _input_lanes(('/mnt/user-data/uploads', '/mnt/project', '/home/claude')):
         pth = os.path.join(d, f'{exam_code}_exam_config.json')
         try:
             if os.path.exists(pth):
@@ -2878,6 +2878,17 @@ _MERGE_LOG = []          # populated by apply_subtopic_merges(); read by write_a
 
 OVERRIDE_SEARCH_DIRS = ('/mnt/project/', '/mnt/user-data/uploads/')
 
+
+def _input_lanes(legacy):
+    """INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): input_tray's folder FIRST
+    (Project Files + chat attachments under their PLAIN names — an exact-name lookup in the
+    uploads lane never sees '<8 hex>-name'), then the legacy lanes unchanged. Never raises."""
+    try:
+        import input_tray as _itray
+        return _itray.lanes(legacy)
+    except Exception:                                   # noqa: BLE001 — degrade to the legacy lanes
+        return tuple(legacy)
+
 # ── ARTEFACT OUTPUT DIRECTORY (Wave 2 Part C B7) ─────────────────────────────
 # The four writers downstream hardcoded '/mnt/user-data/outputs/'. That is correct in the
 # session sandbox and ABSENT on a CI runner, which is why every one of them sat outside
@@ -2920,7 +2931,7 @@ def load_mechanic_overrides(exam_code, search_dirs=None):
         return _OVERRIDES
     _OVERRIDES = {'template_sets': None, 'template_sets_by_section': {},
                   'subtopic_overrides': {}, 'subtopic_merges': []}
-    for d in (search_dirs or OVERRIDE_SEARCH_DIRS):
+    for d in (search_dirs or _input_lanes(OVERRIDE_SEARCH_DIRS)):
         path = os.path.join(d, f'{exam_code}_mechanic_overrides.json')
         if not os.path.exists(path):
             continue

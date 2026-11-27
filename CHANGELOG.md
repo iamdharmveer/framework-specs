@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026.12.05 — GAP-2026-11-27-ATTACHMENT-INPUT-LANE: an exam input may be in Project Files OR attached in chat — every step, every exam (INPUT-SOURCE-LAW)
+
+(over release 2026.12.04. Owner decisions 2026-11-27: the attachment wins when both lanes hold a file; spec handling
+unchanged (an attached Framework_*.md is ignored and reported); exact names only (a browser ' (1)' copy is NAMED in the
+stop, never picked); every step builds the input folder itself, so the fix does not depend on the installed SKILL.md.
+NEW engine input_tray.py v1.0 (routed to all 23 triggers; tracked by MANIFEST / SPEC_MANIFEST). Framework_MockTestCreate
+v8.12; Framework_MockTestExplain v1.57.0; Framework_MockDeliver v1.29.0; Framework_ScopedBlueprint v1.17.0;
+Framework_PYQExplain v2.35; Framework_MockTestAnalyse v2.67.1; Framework_Blueprint v1.66.1; Framework_MockTestOrchestrate
+v1.16.1; Framework_DeliveryFooter v1.58.1; Framework_PYQScan v1.6.2; Framework_PYQSort v1.21.2; Framework_PYQDeliver
+v1.13.3; Framework_PYQFormat v1.6.2; Framework_NotesCreate v2.11.1. paper_pipeline (registry lane 1 = input_tray's
+plain-named attachment view); final_assembly, analyse_engine, corpus_io, frequency_xlsx (input folder first, legacy lanes
+kept as a fallback); mock_sync_audit NEW MS-28 INPUT-SOURCE (+ MS-20 also refuses a direct input-folder registry path);
+audit_sync (detect rule input_source_read); audit_specs_ext (SPEC-CAPACITY counts input-folder reads); handshake_audit
+and audit_canonical (fixtures follow the folder); LAW_REGISTRY NEW INPUT-SOURCE-LAW (REGISTRY-SOURCE-LAW text: lane 1);
+SESSION_BUDGET project_inputs gains Test/MockExplain and Test/MockDeliver (no measured value changed); SKILL.md /
+mocktestframework_SKILL.md (20 routed engines; rule 3); CLAUDE.md (law + counts).
+READ (vs 2026.12.04): every route grows by at most +1,427 B (~620 tokens; TestExplain / MockExplain), TestCreate
++87 B, TestDeliver +1,124 B. Against the 2026.12.02 SPEC-READ-GROWTH baselines every route keeps >= 414 B of the
+2,300 B tolerance (TestCreate / PYQExtract were 15 B / 80 B over in the first build — caught by run 3, wording trimmed;
+no baseline raised). No new deliverable, end state, loop, review round or sub-agent; the only new
+stop is input_tray.require, which REPLACES the old one-file-at-a-time input stops with one stop naming every missing file.)
+
+**The incident.** TestCreate CSIR_NET_CHEMICALSCIENCES (MockCreate M2 --auto-continue), 2026-11-27, Projects surface:
+the project's Files section was full, so the operator attached section_rules.md, blueprint.json, registry.json and four
+other inputs to the trigger in chat. Session start HARD STOPPED "[HS:INPUT] section_rules.md not found in project
+knowledge" at Framework_MockTestCreate.md S3-1. TestExplain and TestDeliver carry the same defect.
+
+**Root causes.** (1) Only two inputs (registry, stimulus profile) were read from both lanes; every other input was read
+from /mnt/project alone, or matched an attachment by an exact name the upload prefix never has — 79 sites in
+10 specs and 5 engines (the MS-28 probe on 2026.12.04). (2) bootstrap --stage-inputs repairs that only
+where /mnt/project is NOT mounted (it copies attachments into it); on the Projects surface the mount is read-only.
+(3) Chat attachments land as '<8 hex>-name' in /mnt/user-data/uploads, so even the two-lane readers (exact name) missed
+them, and MockDeliver's paper_slug parse of the uploaded filename could never match a prefixed upload. (4) Inputs were
+checked one at a time: the same run would have stopped twice more (subtopic_manifest.json, stimulus_profile.json).
+(5) ScopedBlueprint's 1.0-registry migration wrote into the read-only Files mount.
+
+**The fix.** ONE folder, /tmp/fw_inputs, built by input_tray.ensure(): every top-level Project Files file, then every
+chat attachment under its plain name (prefix removed); attachment wins; newest duplicate wins (ties by path — host
+independent); a broken .json/.py/.md attachment is never used and never replaced by the Files copy (HARD STOP when it is
+the exam's); attached specs never become inputs. Cached by a source signature (a later call that finds nothing changed
+copies nothing); serialised by a lock (orchestrator + workers). input_tray.require names EVERY missing mandatory input
+at once, with renamed near-miss copies. Every spec and engine reads inputs through the folder; multi-lane PYQ loops keep
+their lanes (Cluster K's project-first rule for the locked Analysis doc / approval record is unchanged — the folder
+replaces only the raw-uploads lane there). MS-28 fails the build on any Files-only read, exact-name upload read, write
+into the folder, or a spec that reads the folder without building it (measured: 79 findings on 2026.12.04, 0 now).
+
+**Operator.** Inputs may now sit in Project Files OR be attached to the trigger in chat — either works for every step.
+A new chat needs its attachments again. Files a Test step does not read can leave the Files section (see DEPLOY_NOTES).
+
 ## 2026.12.04 — GAP-2026-11-26-RENDER-PARITY: what the student sees is exactly what was reviewed (Release 1)
 
 (over release 2026.12.03. Owner rulings RP-A..RP-H of 2026-11-26 (RP-I not needed: English only); 2026-11-26 ruling:

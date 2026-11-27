@@ -31,6 +31,10 @@
   "_project_inputs": "Measured 2026-11-06: on a surface without /mnt/project the Projects tool returns documents INLINE (seen up to ~300,000 chars), each one read costs the chat that much context. For the triggers listed here input staging reads only the project documents the step opens; audit_specs_ext SPEC-CAPACITY fails the build when a routed spec names a /mnt/project file that no pattern here matches. Unlisted triggers stage every document.",
   "project_inputs": {
     "MockCreate": ["*_section_rules.md", "*_subtopic_manifest.json", "*blueprint.json", "*exam_config.json", "*_stimulus_profile.json", "*_difficulty_profile.json", "*_style_profile.json", "*_pyq_index.json", "*_exemplar_bank.json", "*_difficulty_ladder.json", "*_fig_manifest.json", "*_mock_test_audit.py", "*_registry.json", "*EXPLAIN_LEARNINGS*.md", "*ExplainLearnings.md", "Framework_*.md"],
-    "TestCreate": ["*_section_rules.md", "*_subtopic_manifest.json", "*blueprint.json", "*exam_config.json", "*_stimulus_profile.json", "*_difficulty_profile.json", "*_style_profile.json", "*_pyq_index.json", "*_exemplar_bank.json", "*_difficulty_ladder.json", "*_fig_manifest.json", "*_mock_test_audit.py", "*_registry.json", "*EXPLAIN_LEARNINGS*.md", "*ExplainLearnings.md", "Framework_*.md"]
+    "TestCreate": ["*_section_rules.md", "*_subtopic_manifest.json", "*blueprint.json", "*exam_config.json", "*_stimulus_profile.json", "*_difficulty_profile.json", "*_style_profile.json", "*_pyq_index.json", "*_exemplar_bank.json", "*_difficulty_ladder.json", "*_fig_manifest.json", "*_mock_test_audit.py", "*_registry.json", "*EXPLAIN_LEARNINGS*.md", "*ExplainLearnings.md", "Framework_*.md"],
+    "MockExplain": ["*_section_rules.md", "*_subtopic_manifest.json", "*blueprint.json", "*_registry.json", "*exam_config.json", "*EXPLAIN_LEARNINGS*.md", "*EXPLAIN_AUDIT_LEARNINGS*.md", "Framework_*.md"],
+    "TestExplain": ["*_section_rules.md", "*_subtopic_manifest.json", "*blueprint.json", "*_registry.json", "*exam_config.json", "*EXPLAIN_LEARNINGS*.md", "*EXPLAIN_AUDIT_LEARNINGS*.md", "Framework_*.md"],
+    "MockDeliver": ["*blueprint.json", "*_registry.json", "Framework_*.md"],
+    "TestDeliver": ["*blueprint.json", "*_registry.json", "Framework_*.md"]
   }
 }

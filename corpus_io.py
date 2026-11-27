@@ -2647,6 +2647,25 @@ def assert_docx_parity(src, dst, allow_resample=False):
 ANALYSIS_DOC_SUFFIX = '_PYQ_Analysis.docx'
 ANALYSIS_SEARCH_DIRS = ('/mnt/project/', '/mnt/user-data/uploads/')
 
+
+def _default_lanes(search_dirs):
+    """INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE). When a caller passes the DEFAULT
+    lanes, read (Project Files, input_tray folder) instead of (Project Files, raw uploads). The
+    folder holds every chat attachment under its PLAIN name, so an attachment that lands as
+    '<8 hex>-[ExamCode]_PYQ_Analysis.docx' is seen — and a re-attached copy of a Files document
+    now has the SAME name as that document, so Cluster K's rule (the project copy wins) still
+    decides, instead of the two names counting as two documents (a false 'N Analysis docs
+    found' stop). Explicit search_dirs are untouched. Never raises: the default lanes if the
+    folder cannot be built."""
+    if search_dirs is not ANALYSIS_SEARCH_DIRS:
+        return search_dirs
+    try:
+        import input_tray as _itray
+        _itray.build()
+        return (ANALYSIS_SEARCH_DIRS[0], _itray.input_dir() + '/')
+    except Exception:                                   # noqa: BLE001 — degrade to the default lanes
+        return search_dirs
+
 _NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
 # Cells that are never a subtopic name. Compared case-insensitively after strip.
@@ -2766,6 +2785,7 @@ def discover_analysis_doc(search_dirs=ANALYSIS_SEARCH_DIRS):
     silently ignored (a silently-ignored file is how an operator ends up sorting
     against a taxonomy they did not intend).
     """
+    search_dirs = _default_lanes(search_dirs)
     seen, found, nonconforming, word97 = set(), [], [], []
     for d in search_dirs:
         if not os.path.isdir(d):
@@ -3300,6 +3320,7 @@ def load_taxonomy(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS, step=None,
     straight from JSON and no such change is possible. On path 2 they survive a text
     extraction, and PYQAnalyse Task 2.5 remains the byte-identity check.
     """
+    search_dirs = _default_lanes(search_dirs)
     if record is None:
         record = read_approval_record(exam_code, search_dirs)
     rec_name = os.path.basename(record.get('_path', 'approval record'))
@@ -3414,6 +3435,7 @@ def read_analysis_doc(path=None, search_dirs=ANALYSIS_SEARCH_DIRS, verify=True):
     doc"). The pre-fix code derived it from the printed "Topic N:" label, which
     restarts at 1 for every subject in a merged doc — six topics claiming index 0.
     """
+    search_dirs = _default_lanes(search_dirs)
     if path is None:
         path = discover_analysis_doc(search_dirs)
     base = os.path.basename(path)
@@ -3524,6 +3546,7 @@ def discover_approval_record(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS):
     Same de-duplication rule as discover_analysis_doc(): a name seen in an earlier
     search dir wins, so the project's copy beats a chat attachment of the same name.
     """
+    search_dirs = _default_lanes(search_dirs)
     want = ('%s%s' % (exam_code, APPROVAL_RECORD_SUFFIX)).lower() if exam_code else None
     seen, found = set(), []
     for d in search_dirs:
@@ -3565,6 +3588,7 @@ def discover_approval_record(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS):
 
 def read_approval_record(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS, path=None):
     """Load the approval record as a dict. Raises AnalysisDocError on any fault."""
+    search_dirs = _default_lanes(search_dirs)
     if path is None:
         path = discover_approval_record(exam_code, search_dirs)
     try:
@@ -3595,6 +3619,7 @@ def assert_taxonomy_lock(doc, record=None, search_dirs=ANALYSIS_SEARCH_DIRS, ste
     NOT downgrade this to a warning. A taxonomy that fails this check is not a
     degraded input; it is the wrong input, and every id minted from it is wrong.
     """
+    search_dirs = _default_lanes(search_dirs)
     where = (' at %s' % step) if step else ''
     if record is None:
         record = read_approval_record(doc.get('exam_code'), search_dirs)

@@ -1,4 +1,7 @@
-# Framework_MockDeliver v1.28.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.29.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.29.0 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW; input_tray v1.0): Phase 1 builds /tmp/fw_inputs and reads
+#   the blueprints from it; every missing input named in one stop; the uploaded name's 8-hex prefix is removed before the
+#   paper_slug parse (it never matched before). No rule, gate or deliverable changed.
 # v1.28.0 — 2026-11-09 — GAP-2026-11-08-UNCERTIFIED-DELIVERY (owner decision OD-2026-11-09; paired with
 #   blueprint_core v1.34, MockTestCreate v5.96, DeliveryFooter v1.44.0). Create v5.96 never produces an
 #   uncertified paper, so --accept-uncertified is reachable only for a LEGACY registry (a paper committed
@@ -995,11 +998,18 @@ os.makedirs('/home/claude/deliver_work/out', exist_ok=True)
 # collision HARD STOP [HS:PROSE] here: multiple blueprint files is the NORMAL state once any scoped
 # tier has been generated alongside the mock series. pp.pick_blueprint (below) selects
 # the ONE this delivery is actually for, driven by the uploaded docx.
-bp_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
+# v1.29.0 INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): every input is read from
+# /tmp/fw_inputs = Project Files + chat attachments (upload prefix removed; attachment wins; a
+# broken attachment is never used). EVERY missing mandatory input is named in ONE stop.
+import input_tray as _itray
+_itray_rec = _itray.ensure()
+_itray.require('', ['*_blueprint.json', '*_registry.json'], step='TestDeliver / MockDeliver',
+               rec=_itray_rec)
+bp_matches = [f'/tmp/fw_inputs/{f}' for f in os.listdir('/tmp/fw_inputs/')
               if f.endswith('_blueprint.json')]
 if not bp_matches:
-    raise SystemExit("HARD STOP [HS:INPUT]: No *_blueprint.json in project knowledge. "
-                     "Run MockBlueprint or ScopedBlueprint first.")
+    raise SystemExit("HARD STOP [HS:INPUT]: No *_blueprint.json in chat attachments or project "
+                     "Files. Run MockBlueprint or ScopedBlueprint first.")
 blueprints = [json.load(open(p, encoding='utf-8')) for p in bp_matches]
 _exam_codes = {b['exam_code'] for b in blueprints}
 if len(_exam_codes) > 1:
@@ -1007,9 +1017,10 @@ if len(_exam_codes) > 1:
         f"HARD STOP [HS:INPUT]: blueprint files disagree on exam_code: {_exam_codes}\n"
         f"Only one ExamCode's files should exist per project.")
 EXAM = next(iter(_exam_codes))
+_itray.ensure(exam=EXAM, quiet=True)      # a broken attachment of THIS exam stops here (cached)
 
 # REGISTRY (MANDATORY) — REGISTRY-SOURCE-LAW (v1.22.0, GAP-2026-09-14-REGISTRY-SOURCE).
-# Read from EITHER lane: the chat attachment (/mnt/user-data/uploads, beside the
+# Read from EITHER lane: the chat attachment (input_tray's plain-named view, beside the
 # Explanation docx) OR Project Files (/mnt/project). pp.resolve_registry is the ONE
 # implementation Steps 7/9/11 share: attachment wins when both exist (a difference is
 # printed, never a stop); HARD STOP [HS:INPUT] only when both are absent; exact filename +
@@ -1031,7 +1042,7 @@ _reg_fp_loaded = REG_SRC['fingerprint']
 # v1.9: derive paper_slug from the UPLOADED filename itself (accepts the Step-9 name and
 # the legacy _Complete name), then let pp.pick_blueprint identify WHICH blueprint (mock or
 # scoped) produced it — cross-checked against --level if given.
-_uploaded_name = os.path.basename(src_path)
+_uploaded_name = _itray.plain_name(os.path.basename(src_path))   # v1.29.0: never the 8-hex upload prefix
 _slug_m = re.match(rf'^{re.escape(EXAM)}_(.+)_Explanation(?:_Complete)?\.docx$', _uploaded_name)
 if not _slug_m:
     raise SystemExit(f"HARD STOP [HS:INPUT]: could not parse a paper_slug from the uploaded filename "
@@ -2070,4 +2081,4 @@ behaviour. Series boundary (R10/R12): activation, EF edits, and weight
 refreshes apply only at a new series; delivered series are never
 modified (the §3.10 staleness lock enforces this mechanically).
 
-# END OF Framework_MockDeliver v1.28.0
+# END OF Framework_MockDeliver v1.29.0

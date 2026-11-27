@@ -524,6 +524,8 @@ def check_spec_capacity(paths):
     # PROJECT INPUTS. On a surface with no /mnt/project the chat stages, for a trigger listed
     # in project_inputs, only the project documents matching its patterns. A routed spec that
     # names a /mnt/project file no pattern matches would run without that input, silently.
+    # INPUT-SOURCE-LAW (2026-11-27): a read of input_tray's folder (/tmp/fw_inputs) is a read of
+    # a project document too — the folder is built FROM the staged project dir — so it counts.
     import fnmatch
     for trig, pats in sorted((budget.get('project_inputs') or {}).items()):
         for f in routes.get(trig) or []:
@@ -532,7 +534,7 @@ def check_spec_capacity(paths):
                 continue
             text = open(fp, encoding='utf-8').read()
             for raw in sorted(set(re.findall(
-                    r'/mnt/project/((?:\[ExamCode\])?[A-Za-z0-9_.*{}-]*)', text))):
+                    r'/(?:mnt/project|tmp/fw_inputs)/((?:\[ExamCode\])?[A-Za-z0-9_.*{}-]*)', text))):
                 raw = re.sub(r'\*\*+$', '', raw).rstrip('.')     # markdown bold, sentence end
                 name = raw.replace('{EXAM}', 'EX').replace('[ExamCode]', 'EX')
                 if not name or '{' in name or '[' in name or '/' in name:

@@ -1,4 +1,6 @@
-# Framework_PYQExplain v2.34 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.35 — Universal PYQ Explanation Generator
+# v2.35 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW): P1 / S7A-6 / §24 read /tmp/fw_inputs (Project Files +
+#   chat attachments; input_tray.ensure). No rule or output changed.
 # v2.34 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): S11-1a non-blocking: repaired ⟦MATH:⟧ regions are AMBER lines (t3_repair_amber), never the §18-1a HARD STOP.
 # v2.33 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24, A3): §13A-4 names the
 #   records whose option texts are incomplete (bc.pyq_record_complete 'option_text'); re-read by Phase B as before.
@@ -305,7 +307,7 @@ PYQExplain
   Everything is derived from the attachment and project knowledge:
 
   1. **ExamCode**: derived from project knowledge files (any `[ExamCode]_*` file
-     in `/mnt/project/` — e.g. `SSC_CGL_T1_section_rules.md`). If ambiguous →
+     in `/tmp/fw_inputs/` — Files + attachments — e.g. `SSC_CGL_T1_section_rules.md`). If ambiguous →
      HARD STOP.
 
   2. **Date + Session**: parsed from the attached Row file's filename. The
@@ -346,7 +348,8 @@ PYQExplain
       section_rules for this.
 
   P1  LOAD PROJECT KNOWLEDGE.
-      Load from /mnt/project (project knowledge):
+      Load from /tmp/fw_inputs — Project Files + chat attachments (v2.35 INPUT-SOURCE-LAW;
+      run `import input_tray; input_tray.ensure(exam=ExamCode)` first — it prints where each came from):
         • [ExamCode]_section_rules.md → parse CATEGORY C header for EngineConfig
         • [ExamCode]_subtopic_manifest.json → subtopic_id ↔ name mapping
         • [ExamCode]_exam_config.json → exam metadata
@@ -363,7 +366,7 @@ PYQExplain
         • the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (v2.19,
           GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ) — found by DISCOVERY, never
           by a derived or configured subject code: explain_engine.
-          resolve_learnings_files('/mnt/project', ExamCode) returns the single
+          resolve_learnings_files('/tmp/fw_inputs', ExamCode) returns the single
           non-{ExamCode}-prefixed *_EXPLAIN_LEARNINGS_v*.md as the subject file;
           >= 2 such files → abstain and WARN naming every candidate (load none);
           zero → nothing loaded, nothing lost. The P7 dashboard names the loaded
@@ -373,8 +376,8 @@ PYQExplain
           above already IS a CHEMISTRY_EXPLAIN_LEARNINGS_v*.md (then it is loaded and
           nothing more is done), the library is loaded LAZILY — at the FIRST §6A-7
           APPLIES decision of the paper (any batch, after §13A-3 Phase B):
-          explain_engine.resolve_chem_library('/mnt/project', '/tmp/fw_effective') (a
-          project copy wins; else the repo copy) → parse_learnings →
+          explain_engine.resolve_chem_library('/tmp/fw_inputs', '/tmp/fw_effective') (an
+          attached / Files copy wins; else the repo copy) → parse_learnings →
           triggers_from_learnings → re-create the EngineConfig with
           chem_learnings_triggers=<those triggers> (learnings_triggers unchanged) before
           that block is constructed. The engine checks chem_learnings_triggers ONLY on
@@ -2059,11 +2062,12 @@ label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Mediu
 import os, json, datetime as _dt
 import blueprint_core as bc
 _pf_name = f'{EXAM}_difficulty_profile.json'
-_pf_in   = f'/mnt/project/{_pf_name}'
+import input_tray as _itray; _itray.ensure(exam=EXAM, quiet=True)   # v2.35 INPUT-SOURCE-LAW
+_pf_in   = f'/tmp/fw_inputs/{_pf_name}'
 _profile = None
 if os.path.exists(_pf_in):
     _profile = json.load(open(_pf_in, encoding='utf-8'))       # bc.dp_add_paper validates it
-_ec  = json.load(open(f'/mnt/project/{EXAM}_exam_config.json', encoding='utf-8'))
+_ec  = json.load(open(f'/tmp/fw_inputs/{EXAM}_exam_config.json', encoding='utf-8'))
 _ec  = {'exam_code': EXAM, 'total_questions': _ec.get('total_questions'),
         'sections': _ec.get('sections'), 'cycle_gap_days': _ec.get('cycle_gap_days'),
         'difficulty_labels': _ec.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'],
@@ -3927,5 +3931,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.34
+# END OF Framework_PYQExplain v2.35
 # ════════════════════════════════════════════════════════════════════════

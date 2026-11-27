@@ -1,4 +1,5 @@
-# Framework_MockTestAnalyse v2.67.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.67.1 — Universal PYQ Pattern Extraction Engine
+# v2.67.1 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): inputs via /tmp/fw_inputs. No output change.
 # v2.67.0 — 2026-12-04 — release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY S-7; analyse_engine v1.9): section_rules gains,
 #   after each '=== SECTION: <name> ===' header, 'stem_lines_position: {"after_figure": share, "n": count}' — where this
 #   section's past figure questions print their statement set (after / before the picture), written only when n > 0.
@@ -490,7 +491,8 @@ def write_stimulus_profile(exam_code, progress, strict=True):
     from datetime import datetime, timezone
 
     def _first(name):
-        for d in ('/mnt/user-data/outputs', '/mnt/user-data/uploads', '/mnt/project'):
+        import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
+        for d in ('/mnt/user-data/outputs', '/tmp/fw_inputs', '/mnt/user-data/uploads', '/mnt/project'):
             p = os.path.join(d, f'{exam_code}_{name}')
             if os.path.exists(p):
                 return p
@@ -3251,7 +3253,8 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
     # printed by Step 7's readiness; never a halt).
     import json as _json_qi      # own alias: run_synthesise imports `json` LATER in its body (a bare
                                  # `json` here would be an UnboundLocalError swallowed by the except)
-    _qi_path = f'/mnt/project/{exam_code}_difficulty_profile.json'
+    import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
+    _qi_path = f'/tmp/fw_inputs/{exam_code}_difficulty_profile.json'
     QUALITY_INPUTS = {'by_stem': {}, 'cycles': {}}
     _QI_PROFILE = None           # v2.60.0: the loaded, exam-matched profile (the level model below reads it)
     if os.path.exists(_qi_path):
@@ -3541,7 +3544,8 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
         FIGURE_STYLE_PROFILE = _ae_fs.aggregate_figure_style([])
     # Tags written by PYQExplain §13A (optional per-question keys, PYQExplain v2.25): abbreviations seen,
     # site-mark devices, and per-question ask / representation / grammar tags.
-    _dp_path = f'/mnt/project/{exam_code}_difficulty_profile.json'
+    import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
+    _dp_path = f'/tmp/fw_inputs/{exam_code}_difficulty_profile.json'
     _dp_obj = None
     if os.path.exists(_dp_path):
         try:                                          # never a halt: a bad / foreign profile
@@ -3739,7 +3743,8 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
                     PYQ_GRADES = bc.pyq_grades_from_registry({'pyq_grades': {PROFILE_SHA256: _grec}}, PROFILE_SHA256, _labs_g)
                 _g_src = 'this session' if PYQ_GRADES else None
             if not PYQ_GRADES:
-                for _bp_g in sorted(_glob_g.glob(f'/mnt/project/{exam_code}_exemplar_bank.json')
+                import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
+                for _bp_g in sorted(_glob_g.glob(f'/tmp/fw_inputs/{exam_code}_exemplar_bank*.json')
                                     + _glob_g.glob(f'/mnt/user-data/uploads/*{exam_code}_exemplar_bank*.json')):
                     _g_try, _g_st = bc.bank_pyq_grades(json.load(open(_bp_g, encoding='utf-8')), PROFILE_SHA256, _labs_g)
                     if _g_st == 'fresh':
@@ -3779,7 +3784,9 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
                                         tables=_q_l.get('tables'), figure_paths=_q_l.get('image_files'))
             _ld_rows.append(_ae_ld.ladder_row(_pk_l, _rec_l))
         _ld_old = None
+        import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
         for _lp in (f'/home/claude/{exam_code}_difficulty_ladder.json',
+                    f'/tmp/fw_inputs/{exam_code}_difficulty_ladder.json',
                     f'/mnt/user-data/uploads/{exam_code}_difficulty_ladder.json',
                     f'/mnt/project/{exam_code}_difficulty_ladder.json'):
             if os.path.exists(_lp):
@@ -4377,8 +4384,10 @@ def load_progress(exam_code):
     behaviour when the copies are equally advanced.
     """
     candidates = []
+    import input_tray as _itray; _itray.ensure(exam=exam_code, quiet=True)
     for search_path in [
         f'/mnt/project/{exam_code}_analysis_progress.json',
+        f'/tmp/fw_inputs/{exam_code}_analysis_progress.json',
         f'/mnt/user-data/uploads/{exam_code}_analysis_progress.json',
         f'/mnt/user-data/outputs/{exam_code}_analysis_progress.json',  # live session state
     ]:
@@ -4759,7 +4768,7 @@ Step 5 uses BOTH footer types:
 
 ```
 Step 7 S1-2d loads:
-  section_rules_text = open('/mnt/project/[ExamCode]_section_rules.md',
+  section_rules_text = open('/tmp/fw_inputs/[ExamCode]_section_rules.md',
                              encoding='utf-8').read()
 
 Per question generated (Step 7 MockCreate, section 17, S17-3):
@@ -5161,7 +5170,7 @@ Step 5 is complete when ALL of the following hold:
     stale count and is extended in the same release.)
 [5] WARN items reviewed by user and accepted or corrected.
 [6] section_rules.md loads without error in Step 7 S1-2d:
-      section_rules_text = open('/mnt/project/[ExamCode]_section_rules.md',
+      section_rules_text = open('/tmp/fw_inputs/[ExamCode]_section_rules.md',
                                  encoding='utf-8').read()
     Verify: file non-empty; all '=== SECTION:' and '--- Subtopic:' blocks present.
 [7] analysis_summary.md human-review items resolved or accepted.
@@ -5575,4 +5584,4 @@ explicitly rather than silently borrowing old-era proportions — Release C
 consumes these marks in transition allocation. Inactive/legacy exams:
 byte-identical to v2.56.
 
-# END OF Framework_MockTestAnalyse v2.67.0
+# END OF Framework_MockTestAnalyse v2.67.1

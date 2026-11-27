@@ -1,4 +1,5 @@
-# Framework_MockTestOrchestrate v1.16.0
+# Framework_MockTestOrchestrate v1.16.1
+# v1.16.1 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): O3-1 wording — worker inputs are read from /tmp/fw_inputs. Wording only.
 # v1.16.0 — 2026-11-23 — GAP-2026-11-23-TOKEN-TELEMETRY, Phase 1C (release 2026.12.03) — LEAN SAFETY FALLBACK (O2-3):
 #   a job started as a lean type that ends without its result line for a reason that is not a usage / quota / rate
 #   limit is reported with `bootstrap.py --lean-failure`; at the second such failure of a run the lean types are
@@ -351,8 +352,8 @@ spec (and a standby's, and a DIRECT-MODE session's) does not serve PART A, O1-1 
 which the orchestrator reads whole under `--role orchestrator`; a reference to an O1 / O2 section in PART B names what
 the orchestrator does and asks nothing of the worker. Never run Step 0,
 never clone, never delete or change /tmp/fw or /tmp/fw_effective; the working directory is
-/tmp/fw_effective. Inputs are staged: project files in /mnt/project, chat attachments in
-/mnt/user-data/uploads. Never start a sub-agent, never call a file-delivery tool, never wait for the
+/tmp/fw_effective. Inputs are read from /tmp/fw_inputs (Project Files + chat attachments,
+built by input_tray.ensure() at the S3-1 session start — INPUT-SOURCE-LAW). Never start a sub-agent, never call a file-delivery tool, never wait for the
 user: the worker's only reader is the orchestrator.
 In every worker, reused or fresh, the ORCHESTRATOR MESSAGE `continue — delivery confirmed` IS the
 user's continue trigger for MTC S4-6 and S4-5 CHECK 4, and `USER MESSAGE: <m>` is the user's message
@@ -641,4 +642,4 @@ defect: the paper continues on the PREVIOUS verified production release (Step 0 
 framework incident naming the stop site is recorded in difficulty_state['incidents']. A worker report that is
 missing, stale or for the wrong part is answered with a fresh worker that resumes the saved state.
 
-# END OF Framework_MockTestOrchestrate v1.16.0
+# END OF Framework_MockTestOrchestrate v1.16.1

@@ -329,7 +329,17 @@ def generate_frequency_xlsx(progress, exam_code, all_entries=None,
     exam_name_display = exam_code.replace('_', ' ')
     try:
         import glob as _g
-        cfg_matches = sorted(_g.glob('/mnt/project/*exam_config.json'))
+        # INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): Files + chat attachments.
+        try:
+            import input_tray as _itray
+            _lanes = _itray.lanes(('/mnt/project/',))
+        except Exception:                               # noqa: BLE001 — degrade to Files only
+            _lanes = ('/mnt/project/',)
+        cfg_matches = []
+        for _d in _lanes:
+            cfg_matches = sorted(_g.glob(_d + '*exam_config.json'))
+            if cfg_matches:
+                break
         if cfg_matches:
             import json as _j
             cfg = _j.load(open(cfg_matches[0], encoding='utf-8'))

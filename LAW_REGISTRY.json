@@ -100,7 +100,7 @@
   "REGISTRY-SOURCE-LAW": {
    "gap": "GAP-2026-09-14-REGISTRY-SOURCE",
    "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md; paper_pipeline.py CLUSTER RS",
-   "requires": "A step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain, Test/MockDeliver) resolves it ONLY through paper_pipeline.resolve_registry from two lawful lanes: the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The attachment wins when both hold a file (a difference is printed, never a stop); HARD STOP only when both are absent; exact filename and registry.exam_code are validated; a run pins the fingerprint it started from (registry_source_check) and refuses a different registry on a later turn. No spec may open the Files path directly or scan Project Files for *_registry.json.",
+   "requires": "A step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain, Test/MockDeliver) resolves it ONLY through paper_pipeline.resolve_registry from two lawful lanes: the chat attachment (input_tray's plain-named view of the uploads, /tmp/fw_inputs_attached — INPUT-SOURCE-LAW) and Project Files (/mnt/project). The attachment wins when both hold a file (a difference is printed, never a stop); HARD STOP only when both are absent; exact filename and registry.exam_code are validated; a run pins the fingerprint it started from (registry_source_check) and refuses a different registry on a later turn. No spec may open the Files path directly or scan Project Files for *_registry.json.",
    "detect": "registry_required_read",
    "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls resolve_registry(, or opens /mnt/project/…_registry.json, or scans Project Files with endswith('_registry.json'). An OPTIONAL read on a path bound earlier (Step 6 / 6S) does not count — owner decision 2026-09-14 scoped the law to the three steps that REQUIRE the file.",
    "governs": [
@@ -1456,6 +1456,38 @@
     "blueprint_core.py --self-test (p1_fn1_real_q48_needed, p1_fn2_mock_q44_decorative, p1_fn5_are_is_not_a_definition, p1_fn7_chemistry_exempt, p1_fn9_gate_soft_and_dormant, p1_code_minor_never_blocking)",
     "final_assembly.py --self-test (p1_brief_fig_variant_end_to_end)",
     "figural_core.py --self-test (p1_fn10_label_record_in_draw_order, p1_no_label_record_for_chemistry)"
+   ]
+  },
+  "INPUT-SOURCE-LAW": {
+   "gap": "GAP-2026-11-27-ATTACHMENT-INPUT-LANE",
+   "stated_in": "input_tray.py (module docstring); CLAUDE.md; SKILL.md rule 3; Framework_MockTestCreate.md S3-1",
+   "requires": "Every step reads its exam inputs from ONE folder, input_tray.INPUT_DIR (/tmp/fw_inputs), built by input_tray.ensure(): every top-level file of Project Files (/mnt/project), then every chat attachment (/mnt/user-data/uploads and /mnt/user-data/attachments) under its PLAIN name (the 8-hex upload prefix removed). An attachment wins over a Files file of the same name; the same name attached twice -> the newest copy (ties broken by path). A .json/.py/.md attachment is checked first; a broken one is never used and the Files copy is never used in its place (HARD STOP when it belongs to the exam). Framework_*.md attachments are never inputs (specs: GitHub or Project Files via spec_source, unchanged). input_tray.require names EVERY missing mandatory input in ONE stop. paper_pipeline.resolve_registry lane 1 is input_tray's plain-named attachment view. No spec or engine reads an input from Project Files only, or by an exact name in the raw uploads lane; nothing but input_tray writes the folder.",
+   "detect": "input_source_read",
+   "detect_note": "A spec PERFORMS this operation when its live (non-comment) text reads /tmp/fw_inputs or calls input_tray. MS-28 itself scans EVERY spec and routed engine for the retired shapes (Files-only read, exact-name upload read, write into the folder), so a new file cannot reintroduce the defect without failing the build.",
+   "governs": [
+    "Framework_Blueprint.md",
+    "Framework_DeliveryFooter.md",
+    "Framework_MockDeliver.md",
+    "Framework_MockTestAnalyse.md",
+    "Framework_MockTestCreate.md",
+    "Framework_MockTestExplain.md",
+    "Framework_MockTestOrchestrate.md",
+    "Framework_NotesCreate.md",
+    "Framework_PYQDeliver.md",
+    "Framework_PYQExplain.md",
+    "Framework_PYQFormat.md",
+    "Framework_PYQScan.md",
+    "Framework_PYQSort.md",
+    "Framework_ScopedBlueprint.md"
+   ],
+   "verified_by": [
+    "mock_sync_audit:MS-28",
+    "mock_sync_audit:MS-20"
+   ],
+   "preconditions": [
+    "MEASURED 2026-11-27: TestCreate CSIR_NET_CHEMICALSCIENCES on the Projects surface (/mnt/project read-only, Files section full) HARD STOPPED at the session start on section_rules.md attached in chat; bootstrap --stage-inputs could not copy it into the read-only mount; attachments land as '<8 hex>-name' in /mnt/user-data/uploads. 79 Files-only / exact-name sites in the corpus at release 2026.12.04 (the MS-28 probe), 0 after.",
+    "ENGINE SELF-TEST: input_tray.py --self-test pins prefix stripping, attachment-wins, newest-duplicate, broken-attachment withholding (no Files fall-back), exam-input HARD STOP, all-missing-at-once with near-miss names, stale-file removal, the no-/mnt/project surface, cache, and lanes().",
+    "OWNER DECISIONS 2026-11-27: attachment wins when both lanes hold a file; spec handling unchanged (an attached Framework_*.md is ignored and reported); exact names only (a browser ' (1)' copy is named in the stop, never picked); every step builds the folder itself, so the installed SKILL.md need not change for the fix to work."
    ]
   }
  },

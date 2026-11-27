@@ -107,6 +107,12 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       count-drift class (v2.47 / v2.47.1 / v2.48.1 each fixed
                       only the sites someone grepped for); this ends the
                       grep-driven era. GAP-2026-08-14-S11-2-PARTB-UNFIXED.
+  MS-28 INPUT-SOURCE  INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE). Across every
+                      spec and routed engine: no live read of a Project-Files-only path
+                      (/mnt/project/<name>) and no exact-name read of the uploads lane
+                      without input_tray's folder (/tmp/fw_inputs) beside it; a spec that
+                      reads the folder also builds it; nothing but input_tray writes it;
+                      INPUT_DIR / registry lane 1 are one constant each.
 
 USAGE
     python3 mock_sync_audit.py            # run all checks against the repo
@@ -993,7 +999,7 @@ def check_transition_field_ownership(read=_read):
 # never trusted from 'governs'.
 _RS_RESOLVER = 'pp.resolve_registry('
 _RS_DIRECT_RE = re.compile(
-    r"/mnt/project/[^'\"\s]*_registry\.json"          # literal Files path to the registry
+    r"(?:/mnt/project|/tmp/fw_inputs)/[^'\"\s]*_registry\.json"   # literal Files / input-folder path
     r"|endswith\(\s*['\"]_registry\.json['\"]\s*\)"   # Files-directory wildcard scan
     r"|glob\([^)]*_registry\.json")
 _RS_TRACK_SPECS = ['Framework_MockTestCreate.md', 'Framework_MockTestExplain.md',
@@ -1022,6 +1028,113 @@ def check_registry_source(read=_read):
                 f'REGISTRY-SOURCE-LAW retires; read it through {_RS_RESOLVER} instead.')
     return problems
 
+
+
+
+# ── MS-28 — GAP-2026-11-27-ATTACHMENT-INPUT-LANE (INPUT-SOURCE-LAW) ──────────────────────
+# Every exam input is read from ONE folder, input_tray.INPUT_DIR (/tmp/fw_inputs) = Project
+# Files + chat attachments under their PLAIN names (attachment wins). The defect class it
+# closes had two shapes, both measured in the corpus at release 2026.12.04 (79 sites):
+#   A  FILES-ONLY  — a live read of '/mnt/project/<name>' with no input-folder lane beside it
+#      (an input attached in chat, because the Files section is full, is never seen);
+#   B/C EXACT-NAME UPLOAD — '/mnt/user-data/uploads/{exam...}' or a lane tuple holding the
+#      uploads dir joined with an exact '{exam}_...' name: the attachment lands as
+#      '<8 hex>-name' and is never matched.
+# Plus the three properties that make the folder safe:
+#   D  a spec that reads the folder in live text also builds it (input_tray.ensure / lanes /
+#      path / require) — a read of a folder nothing built is the same silent miss;
+#   E  nothing but input_tray writes into it;
+#   F  ONE constant: input_tray.INPUT_DIR is '/tmp/fw_inputs' and paper_pipeline's registry
+#      lane 1 (RS_UPLOADS_DIR) is input_tray.ATTACH_VIEW_DIR.
+# A window of +-3 lines that names the folder (or an input_tray helper) makes a legacy lane a
+# FALLBACK beside the folder, which is lawful. Engine-location prose ('/mnt/project/x.py'),
+# spec overrides (Framework_*) and the mirror/cache files are not exam inputs.
+_MS28_EXEMPT = ('input_tray.py', 'bootstrap.py', 'spec_source.py')
+_MS28_A = re.compile(r"/mnt/project/(?=[A-Za-z0-9{\[*<])([^\s'\"`)]*)")
+_MS28_B = re.compile(r"/mnt/user-data/uploads/\{")
+_MS28_C_LANE = re.compile(r"['\"]/mnt/user-data/uploads/?['\"]")
+_MS28_C_JOIN = re.compile(r"join\([^,]+,\s*f['\"]\{(?:exam|EXAM)"
+                          r"|f['\"]\{(?:base|d|_d|search_dir|_sd)\}\{(?:exam|EXAM)")
+_MS28_TRAY = re.compile(r"/tmp/fw_inputs|input_tray|_itray|_input_lanes\(|_default_lanes\(")
+_MS28_ALLOW = re.compile(r"\.py\b|FRAMEWORK_MIRROR|framework_cache|Framework_")
+_MS28_BUILD = re.compile(r"\b(?:input_tray|_itray)\.(?:ensure|lanes|path|require)\(")
+_MS28_WRITE = re.compile(
+    r"open\([^)\n]*fw_inputs[^)\n]*,\s*['\"][wax]"
+    r"|shutil\.(?:copy\w*|move)\([^,\n]+,\s*f?['\"]/tmp/fw_inputs")
+
+
+def _ms28_names(root=None):
+    root = root or HERE
+    try:
+        routes = json.load(open(os.path.join(root, 'routes.json'), encoding='utf-8'))
+    except (OSError, ValueError):
+        routes = {}
+    pys = {f for k, v in routes.items() if not k.startswith('_') for f in v if f.endswith('.py')}
+    mds = {f for f in os.listdir(root) if f.startswith('Framework_') and f.endswith('.md')}
+    return sorted(mds) + sorted(pys)
+
+
+def check_input_source(read=_read, names=None):
+    """MS-28 — INPUT-SOURCE-LAW (see the block comment above)."""
+    problems = []
+    names = _ms28_names() if names is None else names
+    if not names:
+        problems.append('MS-28 has no ground truth: no spec or routed engine to inspect')
+    for name in names:
+        if name in _MS28_EXEMPT:
+            continue
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            problems.append(f'{name}: missing — MS-28 has no ground truth for it')
+            continue
+        lines = ['' if ln.lstrip().startswith('#') else ln for ln in text.split('\n')]
+        reads_folder = False
+        for i, ln in enumerate(lines):
+            win = '\n'.join(lines[max(0, i - 3):i + 4])
+            near_tray = bool(_MS28_TRAY.search(win))
+            if '/tmp/fw_inputs' in ln:
+                reads_folder = True
+            for m in _MS28_A.finditer(ln):
+                if not _MS28_ALLOW.search(m.group(1)) and not near_tray:
+                    problems.append(
+                        f'{name} L{i + 1}: reads /mnt/project/{m.group(1)} from Project Files ONLY '
+                        f'— an input attached in chat is never seen. Read it from /tmp/fw_inputs '
+                        f'(input_tray) or add the folder as the first lane (INPUT-SOURCE-LAW).')
+            if _MS28_B.search(ln) and not near_tray:
+                problems.append(
+                    f'{name} L{i + 1}: exact-name read of /mnt/user-data/uploads/{{...}} — the upload '
+                    f'lands as "<8 hex>-name" and is never matched. Read /tmp/fw_inputs instead.')
+            if _MS28_C_LANE.search(ln) and _MS28_C_JOIN.search('\n'.join(lines[i:i + 4])) \
+                    and not near_tray:
+                problems.append(
+                    f'{name} L{i + 1}: a lane tuple with the uploads dir is joined with an exact '
+                    f'exam file name — blind to the upload prefix. Put input_tray\'s folder first '
+                    f'(input_tray.lanes).')
+            if _MS28_WRITE.search(ln):
+                problems.append(
+                    f'{name} L{i + 1}: writes into /tmp/fw_inputs — only input_tray builds that '
+                    f'folder; write to the working dir instead.')
+        if name.endswith('.md') and reads_folder and not _MS28_BUILD.search('\n'.join(lines)):
+            problems.append(
+                f'{name}: reads /tmp/fw_inputs but never builds it (input_tray.ensure / lanes / '
+                f'path / require) — a folder nothing built is the same silent miss.')
+    try:
+        tray, pp_src = read('input_tray.py'), read('paper_pipeline.py')
+    except FileNotFoundError as e:
+        tray = pp_src = None
+        problems.append(f'MS-28 has no ground truth: {e} missing')
+    if tray is not None:
+        m1 = re.search(r"^INPUT_DIR = '([^']*)'", tray, re.M)
+        m2 = re.search(r"^ATTACH_VIEW_DIR = '([^']*)'", tray, re.M)
+        m3 = re.search(r"^RS_UPLOADS_DIR = '([^']*)'", pp_src, re.M)
+        if not m1 or m1.group(1) != '/tmp/fw_inputs':
+            problems.append("input_tray.py: INPUT_DIR must be '/tmp/fw_inputs' — every spec and engine "
+                            "names that literal.")
+        if not (m2 and m3 and m2.group(1) == m3.group(1)):
+            problems.append('paper_pipeline.RS_UPLOADS_DIR must equal input_tray.ATTACH_VIEW_DIR — '
+                            'registry lane 1 is the plain-named attachment view.')
+    return problems
 
 
 # ── MS-21 .. MS-25 ────────────────────────────────────────────────────────
@@ -1428,6 +1541,7 @@ ALL_CHECKS = [
     ('MS-25 FIGTYPE-KIND-GATE', check_figtype_kind_gate_present),
     ('MS-26 QUALITY-GATE', check_quality_gate_law),
     ('MS-27 STEP-CONTRACT', check_step_contract),
+    ('MS-28 INPUT-SOURCE', check_input_source),
 ]
 
 
@@ -1805,6 +1919,55 @@ def self_test():
           check_registry_source(read=fake_reader({**_rs_ok, 'Framework_MockDeliver.md':
               "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
               "bp = glob.glob(f'/mnt/project/{EXAM}*_blueprint.json')\n"})) == [])
+
+    # ── MS-28 — GAP-2026-11-27-ATTACHMENT-INPUT-LANE (INPUT-SOURCE-LAW) — every emission killed ──
+    _t_ok = ("INPUT_DIR = '/tmp/fw_inputs'\nATTACH_VIEW_DIR = '/tmp/fw_inputs_attached'\n")
+    _p_ok = "RS_UPLOADS_DIR = '/tmp/fw_inputs_attached'\n"
+    _s_ok = ("import input_tray as _itray\n_itray.ensure(exam=EXAM)\n"
+             "x = open(f'/tmp/fw_inputs/{EXAM}_section_rules.md').read()\n")
+    def _m28(spec=_s_ok, tray=_t_ok, pp_=_p_ok, extra=None, names=('Framework_X.md',)):
+        mp = {'Framework_X.md': spec, 'input_tray.py': tray, 'paper_pipeline.py': pp_}
+        mp.update(extra or {})
+        return check_input_source(read=fake_reader(mp), names=list(names))
+    check('ms28_clean_passes', _m28() == [])
+    check('ms28_files_only_read_flagged',
+          any('Project Files ONLY' in x and 'L1' in x for x in _m28(spec="a = open(f'/mnt/project/{EXAM}_x.json')\n")))
+    check('ms28_files_lane_beside_folder_allowed',
+          _m28(spec=_s_ok + "for d in ('/tmp/fw_inputs/', '/mnt/project/'):\n    p = f'/mnt/project/{EXAM}_x.json'\n") == [])
+    check('ms28_engine_location_prose_allowed', _m28(spec="see '/mnt/project/blueprint_core.py'\n") == [])
+    check('ms28_comment_quote_allowed', _m28(spec="# was: open(f'/mnt/project/{EXAM}_x.json')\n") == [])
+    check('ms28_exact_upload_name_flagged',
+          any('exact-name read' in x for x in _m28(spec="p = f'/mnt/user-data/uploads/{exam}_ladder.json'\n")))
+    check('ms28_lane_tuple_exact_join_flagged',
+          any('lane tuple' in x for x in _m28(spec="for d in ('/mnt/user-data/uploads', '/mnt/proj'):\n"
+                                                    "    p = os.path.join(d, f'{exam_code}_x.json')\n")))
+    check('ms28_lane_tuple_glob_allowed',
+          _m28(spec="for d in ['/mnt/user-data/uploads/']:\n    g = glob.glob(os.path.join(d, '*x.json'))\n") == [])
+    check('ms28_write_into_folder_flagged',
+          any('writes into /tmp/fw_inputs' in x for x in _m28(
+              spec=_s_ok + "json.dump(r, open(f'/tmp/fw_inputs/{EXAM}_r.json', 'w'))\n")))
+    check('ms28_copy_into_folder_flagged',
+          any('writes into /tmp/fw_inputs' in x for x in _m28(
+              spec=_s_ok + "shutil.copy(src, f'/tmp/fw_inputs/{EXAM}_r.json')\n")))
+    check('ms28_folder_read_without_build_flagged',
+          any('never builds it' in x for x in _m28(spec="x = open(f'/tmp/fw_inputs/{EXAM}_s.md')\n")))
+    check('ms28_engine_folder_read_needs_no_spec_build',
+          _m28(extra={'e.py': "x = '/tmp/fw_inputs/'\n"}, names=('Framework_X.md', 'e.py')) == [])
+    check('ms28_missing_file_flagged', any('missing' in x for x in _m28(names=('Framework_X.md', 'gone.md'))))
+    check('ms28_exempt_files_skipped',
+          _m28(extra={'bootstrap.py': "open(f'/mnt/project/{x}')\n"}, names=('Framework_X.md', 'bootstrap.py')) == [])
+    check('ms28_no_names_flagged', any('no ground truth' in x for x in _m28(names=())))
+    check('ms28_wrong_input_dir_flagged',
+          any('INPUT_DIR must be' in x for x in _m28(tray=_t_ok.replace("'/tmp/fw_inputs'", "'/tmp/x'"))))
+    check('ms28_registry_lane_mismatch_flagged',
+          any('RS_UPLOADS_DIR must equal' in x for x in _m28(pp_="RS_UPLOADS_DIR = '/mnt/user-data/uploads'\n")))
+    check('ms28_tray_missing_flagged',
+          any('no ground truth' in x for x in check_input_source(
+              read=fake_reader({'Framework_X.md': _s_ok}), names=['Framework_X.md'])))
+    check('ms20_input_folder_registry_path_flagged',
+          any('Files-only path/scan' in x for x in check_registry_source(read=fake_reader({**_rs_ok,
+              'Framework_MockDeliver.md': "REG_SRC = pp.resolve_registry(EXAM, exists=os.path.exists, loader=_l)\n"
+                                          "r = json.load(open(f'/tmp/fw_inputs/{EXAM}_registry.json'))\n"}))))
 
     # ── MS-21..MS-25 — GAP-2026-11-01-FIGURE-TYPE-COVERAGE-AND-RECORD-INTEGRITY ──
     # Every emission below is killed by a fixture (MUTATION_BUDGETS: this engine is 0).

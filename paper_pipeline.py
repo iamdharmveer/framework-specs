@@ -1201,11 +1201,13 @@ def _self_test():
     _rs_clear(); _rs_put(_rs_up, _rs_A, name='EXX_registry.json'); _rs_put(_rs_pj, _rs_A, name='registry.json')
     ck('RS-exact-name-only', _raises(_rs, RegistrySourceError))
     # the default directories are the two real lanes
-    ck('RS-default-lanes', RS_UPLOADS_DIR == '/mnt/user-data/uploads' and RS_PROJECT_DIR == '/mnt/project')
+    ck('RS-default-lanes', RS_UPLOADS_DIR == '/tmp/fw_inputs_attached' and RS_PROJECT_DIR == '/mnt/project')
     _rs_seen = []
     ck('RS-default-lanes-probed', _raises(lambda: resolve_registry('EX',
        exists=lambda pth: (_rs_seen.append(pth), False)[1], loader=_rs_loader), RegistrySourceError)
-       and _rs_seen == ['/mnt/user-data/uploads/EX_registry.json', '/mnt/project/EX_registry.json'])
+       and _rs_seen == ['/tmp/fw_inputs_attached/EX_registry.json', '/mnt/project/EX_registry.json'])
+    # INPUT-SOURCE-LAW: lane 1 IS input_tray's plain-named attachment view — the two constants are
+    # pinned equal by mock_sync_audit MS-28 (this thin core stays stdlib-only, check AB).
     # the module constants are read AT CALL TIME (harness injection seam)
     _rs_clear(); _rs_put('/redir/pj', _rs_A)
     _g = globals(); _keep = (_g['RS_UPLOADS_DIR'], _g['RS_PROJECT_DIR'])
@@ -2711,7 +2713,11 @@ def handoff_footer_lines(hs):
 # lanes, and every step that REQUIRES it (7 MockCreate/TestCreate, 9 MockExplain/
 # TestExplain, 11 MockDeliver/TestDeliver) resolves it HERE and nowhere else:
 #
-#   lane 1  chat attachment   /mnt/user-data/uploads/[ExamCode]_registry.json
+#   lane 1  chat attachment   /tmp/fw_inputs_attached/[ExamCode]_registry.json
+#           (input_tray's view of every chat attachment under its PLAIN name — the upload
+#           lands as '<8 hex>-[ExamCode]_registry.json' and was invisible to an exact-name
+#           lookup until GAP-2026-11-27-ATTACHMENT-INPUT-LANE; input_tray.ensure() builds
+#           the view at every session start that reads the registry)
 #   lane 2  Project Files     /mnt/project/[ExamCode]_registry.json
 #
 # RULES (all decided by the owner, none by prose in a spec):
@@ -2740,7 +2746,7 @@ def handoff_footer_lines(hs):
 # re-implement the rules by hand: the spec supplies I/O, the engine supplies the LAW.
 
 RS_GAP_ID = 'GAP-2026-09-14-REGISTRY-SOURCE'
-RS_UPLOADS_DIR = '/mnt/user-data/uploads'
+RS_UPLOADS_DIR = '/tmp/fw_inputs_attached'     # == input_tray.ATTACH_VIEW_DIR (self-test pins it)
 RS_PROJECT_DIR = '/mnt/project'
 RS_SOURCE_ATTACHMENT = 'attachment'
 RS_SOURCE_PROJECT = 'project'

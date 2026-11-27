@@ -2236,6 +2236,14 @@ Entry v2.60.0 moved at framework release 2026.11.08 (GAP-2026-11-07-ORGANIC-DIFF
 
 ## Framework_MockTestCreate.md
 
+Entry v8.11 moved at framework release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE; v8.12 supersedes).
+
+```
+# v8.11 — 2026-12-04 — release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY, LAW-PRINT-1): print = review. Structured
+#   stem record (bc.stem_record), one printer (render_from_record), parity checked at STEP A2 and A3 (missing reviewed
+#   text inserted, disclosed — never a stop). Legacy calls byte-identical. Entry v8.10 moved to SPEC_HISTORY.md.
+```
+
 Entry v8.10 moved at framework release 2026.12.04 (GAP-2026-11-26-RENDER-PARITY; v8.11 supersedes).
 
 ```

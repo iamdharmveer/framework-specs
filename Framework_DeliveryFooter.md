@@ -1,4 +1,5 @@
-# Framework_DeliveryFooter v1.58.0 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.58.1 — Universal Delivery Footer (F1/F2) Contract
+# v1.58.1 — 2026-11-27 — release 2026.12.05: §8 wording only (registry lane 1 = input_tray view).
 # v1.58.0 — 2026-12-04 — GAP-2026-11-26-RENDER-PARITY (release 2026.12.04; with MockTestCreate v8.11): §LADDER-BC gains
 #   the G-RENDER-PARITY lines (batch_state['rpar_footer'], S13-2L.0). Disclosure only; the paper carries none.
 # v1.57.0 — 2026-11-22 — GAP-2026-11-21-A3-OMML-PARITY (release 2026.11.28; with MockTestCreate v8.7): §LADDER-BC gains
@@ -1373,7 +1374,7 @@ exist); an undelivered change is a change the pipeline never sees.
 REGISTRY-SOURCE-LAW (v1.33 — GAP-2026-09-14-REGISTRY-SOURCE, owner decision 2026-09-14).
 Every step that REQUIRES [ExamCode]_registry.json (Test/MockCreate, Test/MockExplain,
 Test/MockDeliver) resolves it ONLY through pp.resolve_registry from two lawful lanes —
-the chat attachment (/mnt/user-data/uploads) and Project Files (/mnt/project). The
+the chat attachment (input_tray's plain-named view) and Project Files (/mnt/project). The
 attachment wins when both hold a file (a difference is printed, never a stop); HARD
 STOP only when both are absent; exact filename + exam_code are validated; a run pins
 the fingerprint it started from and refuses a different registry on a later turn.

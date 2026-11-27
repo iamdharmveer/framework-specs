@@ -1,4 +1,6 @@
-# Framework_PYQScan v1.6.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.6.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.6.2 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): progress / draft loads put input_tray's folder first (a prefixed
+#   attachment was never matched by the exact-name uploads lane).
 # v1.6.1 — 2026-09-14 — GAP-2026-09-14-DELIVERY-ECHO (DeliveryFooter v1.34 §9 / R6).
 #   present_files is CLASS T (`pass`): the model performs the call from what it can
 #   SEE. S3-5 built [progress_path, classif_path] in python and never printed it, so
@@ -54,7 +56,8 @@ SMALL_CORPUS_THRESHOLD = 20    # below this: scan ALL papers, no convergence sho
 
 def load_taxonomy_draft(exam_code):
     """Load taxonomy draft from project knowledge or uploads."""
-    for base in ['/mnt/project/', '/mnt/user-data/uploads/']:
+    import input_tray as _itray   # v1.6.2 INPUT-SOURCE-LAW: plain-named attachment (wins), then Files
+    for base in _itray.lanes(['/mnt/project/', '/mnt/user-data/uploads/']):
         path = f'{base}{exam_code}_taxonomy_draft.json'
         if os.path.exists(path):
             return json.load(open(path, encoding='utf-8'))
@@ -145,7 +148,8 @@ def gate_scan_name(name, kind, taxonomy, section, topic=None, *,
 
 def load_scan_progress(exam_code):
     """Load scan progress for resume across sessions."""
-    for base in ['/mnt/project/', '/mnt/user-data/uploads/']:
+    import input_tray as _itray   # v1.6.2 INPUT-SOURCE-LAW: plain-named attachment (wins), then Files
+    for base in _itray.lanes(['/mnt/project/', '/mnt/user-data/uploads/']):
         path = f'{base}{exam_code}_scan_progress.json'
         if os.path.exists(path):
             with open(path, encoding='utf-8') as f:
@@ -163,7 +167,8 @@ def load_scan_progress(exam_code):
 def load_count_progress(exam_code):
     """Load count progress for resume across sessions.
     Restores counts_by_year keys from string repr back to tuples."""
-    for base in ['/mnt/project/', '/mnt/user-data/uploads/']:
+    import input_tray as _itray   # v1.6.2 INPUT-SOURCE-LAW: plain-named attachment (wins), then Files
+    for base in _itray.lanes(['/mnt/project/', '/mnt/user-data/uploads/']):
         path = f'{base}{exam_code}_count_progress.json'
         if os.path.exists(path):
             with open(path, encoding='utf-8') as f:
@@ -2299,4 +2304,4 @@ Nothing is discarded: R30 re-evaluates this log at 2c approval in BOTH
 directions (reinstate on un-delete, extend on newly-deleted). Inactive or
 legacy exams: this section is skipped byte-identically.
 
-# END OF Framework_PYQScan v1.6.1
+# END OF Framework_PYQScan v1.6.2

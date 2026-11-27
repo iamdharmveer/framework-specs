@@ -1,4 +1,7 @@
-# Framework_ScopedBlueprint v1.16.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# Framework_ScopedBlueprint v1.17.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.17.0 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW): inputs read from /tmp/fw_inputs (Files + chat
+#   attachments), every missing mandatory input named in one stop; the 1.0-registry migration writes its snapshot and copy
+#   to /home/claude (it wrote into the read-only Files mount and crashed). No allocation rule or output changed.
 # v1.16.0 — 2026-11-18 — GAP-2026-11-18-DIFFICULTY-AND-CORRECTNESS v4.1 (release 2026.11.24): FG-4 advisory line
 #   (bc.fg4_coverage_advisory) after the axis_schedule assert; figure_type_coverage.status untouched. No new stop.
 # v1.15.0 — 2026-11-11 — GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY (paired with blueprint_core v2.1, Blueprint v1.65.0,
@@ -277,18 +280,24 @@ def flag(msg):
 # MockTestCreate S3); the bare name is accepted as a fallback for older projects. Exactly one
 # prefixed file may exist — two would make EXAM ambiguous.
 import glob as _glob
-_cands = sorted(_glob.glob('/mnt/project/*_exam_config.json'))
+# v1.17.0 INPUT-SOURCE-LAW (GAP-2026-11-27-ATTACHMENT-INPUT-LANE): every input is read from
+# /tmp/fw_inputs = Project Files + chat attachments (upload prefix removed; attachment wins).
+import input_tray as _itray
+_itray.ensure()
+_cands = sorted(_glob.glob('/tmp/fw_inputs/*_exam_config.json'))
 if len(_cands) > 1:
     raise SystemExit(f"HARD STOP: several exam_config files in the project {_cands} — keep one.")
-cfg_path = _cands[0] if _cands else '/mnt/project/exam_config.json'
+cfg_path = _cands[0] if _cands else '/tmp/fw_inputs/exam_config.json'
 if not os.path.exists(cfg_path):
-    raise SystemExit("HARD STOP: [ExamCode]_exam_config.json not found in the project. Step 5/2a must "
-                     "publish it before Step 6S. Upload it and re-run ScopedBlueprint.")
+    raise SystemExit("HARD STOP: [ExamCode]_exam_config.json not found in chat attachments or project "
+                     "Files. Step 5/2a must publish it before Step 6S. Attach or upload it and re-run.")
 exam_config = json.load(open(cfg_path, encoding='utf-8'))
 EXAM = exam_config['exam_code']
+_itray.ensure(exam=EXAM, quiet=True)
+_itray.require(EXAM, [f'{EXAM}_subtopic_manifest.json', f'{EXAM}_section_rules.md'], step='ScopedBlueprint')
 
 # subtopic_manifest.json — REQUIRED (taxonomy + per-subtopic axis/format data).
-manifest_path = f'/mnt/project/{EXAM}_subtopic_manifest.json'
+manifest_path = f'/tmp/fw_inputs/{EXAM}_subtopic_manifest.json'
 if not os.path.exists(manifest_path):
     raise SystemExit(f"HARD STOP: {EXAM}_subtopic_manifest.json not found. Step 5 must publish "
                      f"it before Step 6S. Run/re-run Step 5, upload the manifest, then re-run.")
@@ -306,13 +315,13 @@ slugify = bc.slugify   # engine slugify (byte-identical to Step 0 — id matchin
 # Step-5 PYQ_DIFFICULTY_CALIBRATION block is retired) but from the exam's DIFFICULTY PROFILE
 # written by PYQExplain S7A-6 — OPTIONAL here: absent → every subtopic is 'all inferred' and
 # the S5-2 cascade supplies the band exactly as for a Zero-PYQ subtopic (disclosed once).
-sr_path = f'/mnt/project/{EXAM}_section_rules.md'
+sr_path = f'/tmp/fw_inputs/{EXAM}_section_rules.md'
 if not os.path.exists(sr_path):
     raise SystemExit(f"HARD STOP: {EXAM}_section_rules.md not found. Step 5 must publish it. "
                      f"Upload it and re-run.")
 _sr_text = open(sr_path, encoding='utf-8').read()
 import json as _json
-_pf_path = f'/mnt/project/{EXAM}_difficulty_profile.json'
+_pf_path = f'/tmp/fw_inputs/{EXAM}_difficulty_profile.json'
 _ec_cfg  = exam_config          # the ONE exam_config loaded above in this block — never a second read
 PROFILE_CFG = {'exam_code': EXAM, 'total_questions': _ec_cfg.get('total_questions'),
                'sections': _ec_cfg.get('sections'), 'cycle_gap_days': _ec_cfg.get('cycle_gap_days'),
@@ -356,7 +365,7 @@ generation-layer contract are documented in §9.
 ```python
 import shutil, datetime
 SCOPED_SCHEMA = '2.0-scoped'
-reg_path = f'/mnt/project/{EXAM}_registry.json'
+reg_path = f'/tmp/fw_inputs/{EXAM}_registry.json'   # INPUT-SOURCE-LAW: attached copy wins over Files
 if os.path.exists(reg_path):
     registry = json.load(open(reg_path, encoding='utf-8'))
     _new_registry = False
@@ -372,7 +381,11 @@ if registry is not None and registry.get('exam_code') not in (EXAM, None):
 # auto-migration (old mock-only '1.0' → generalised paper_id schema). Format-only; idempotent.
 if registry is not None and registry.get('schema_version') != SCOPED_SCHEMA:
     ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    shutil.copy(reg_path, f'{reg_path}.pre-migration-{ts}.bak')           # snapshot
+    # v1.17.0: the input folder (and /mnt/project) is never written — snapshot + migrated copy
+    # go to the working dir (a read-only Files mount made this write crash before).
+    _reg_mig = f'/home/claude/{EXAM}_registry.json'
+    os.makedirs('/home/claude', exist_ok=True)
+    shutil.copy(reg_path, f'{_reg_mig}.pre-migration-{ts}.bak')           # snapshot
     old_mocks = list(registry.get('mocks_completed', []))
     migrated = list(registry.get('papers_completed', []))
     for m in old_mocks:
@@ -386,8 +399,8 @@ if registry is not None and registry.get('schema_version') != SCOPED_SCHEMA:
     registry['schema_version'] = SCOPED_SCHEMA
     assert all(f"MOCK:M{int(m):02d}" in registry['papers_completed'] for m in old_mocks), \
         "registry migration lost a mock paper — aborting (snapshot retained)."
-    json.dump(registry, open(reg_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-    flag(f"Registry migrated 1.0 → {SCOPED_SCHEMA} (snapshot: {reg_path}.pre-migration-{ts}.bak). "
+    json.dump(registry, open(_reg_mig, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    flag(f"Registry migrated 1.0 → {SCOPED_SCHEMA} (snapshot: {_reg_mig}.pre-migration-{ts}.bak). "
          f"{len(old_mocks)} mock paper(s) tagged with paper_id. Format-only; no question changed.")
 
 # taxonomy-drift + completeness gates (HARD STOP)
@@ -1773,4 +1786,4 @@ strict-global uniqueness holds across all tiers:
     Never a halt (owner decision 2026-09-14).
 ```
 
-# END OF Framework_ScopedBlueprint v1.16.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)
+# END OF Framework_ScopedBlueprint v1.17.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened; figure-type laws)

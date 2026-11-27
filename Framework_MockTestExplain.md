@@ -1,4 +1,7 @@
-# Framework_MockTestExplain v1.56.0
+# Framework_MockTestExplain v1.57.0
+# v1.57.0 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW; input_tray v1.0): S19-0a builds /tmp/fw_inputs (Project
+#   Files + chat attachments, upload prefix removed, attachment wins) and names EVERY missing input in one stop; P1/P10/§24
+#   read from it. No rule, gate or deliverable changed.
 # v1.56.0 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): a non-compiling ⟦MATH:⟧ region is recorded, not raised, and repaired at render (explain_engine v2.16) — no §18 stop from maths spelling.
 # v1.55.0 — 2026-11-08 — GAP-2026-11-07-RE25-HARDENING (paired with PYQExplain v2.30,
 #   explain_engine v2.14, corpus_io v1.20, CHEMISTRY_EXPLAIN_LEARNINGS_v1.md v1.1,
@@ -139,7 +142,7 @@
 #   representation_verdict with no figure). ENGINES ARE REPO-ONLY (v1.40.0, aligned
 #   with SKILL.md and bootstrap.py): the ONLY admissible copy is the one in the Step-0
 #   verified clone (/tmp/fw), whose sha256 bootstrap.py checked. A copy in the project
-#   Files (/mnt/project) is NEVER imported — /mnt/project is never placed on sys.path —
+#   Files (/mnt/project) is NEVER imported — /mnt/project (and /tmp/fw_inputs) is never on sys.path —
 #   because it carries no manifest entry and cannot be verified. If the file is absent
 #   from the verified clone:
 #     HARD STOP [HS:INFRA]. Print:
@@ -500,9 +503,12 @@ execution path — it does not shrink, soften or delete them.
   P1  AUTO-LOAD (exact order; v1.46.1 — run S19-0a FIRST in every turn, so `reg`,
       persist_registry, REG_SRC and the run's fingerprint exist before anything below
       can write the registry; v1.51.0: S19-0a resolves the registry from the chat
-      attachment OR Project Files — pp.resolve_registry, attachment wins): this spec → section_rules.md → BLUEPRINT (v1.19,
+      attachment OR Project Files — pp.resolve_registry, attachment wins; v1.57.0 INPUT-SOURCE-LAW:
+      EVERY input below is read from /tmp/fw_inputs, built at S19-0a by input_tray — Project
+      Files + chat attachments, upload prefix removed, attachment wins): this spec → section_rules.md → BLUEPRINT (v1.19,
       docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
-      [ExamCode]_[paper_slug]_Create.docx (v1.47.0: the retired `_Create_Repaired`
+      [ExamCode]_[paper_slug]_Create.docx (an attachment is in /tmp/fw_inputs under its plain name — parse
+      that name, never the prefixed upload path) (v1.47.0: the retired `_Create_Repaired`
       form is refused on every trigger — S2-1) — parse its paper_slug
       from the filename (strip the [ExamCode]_ prefix and whichever of the two
       suffixes is present; the slug is identical either way), load every [ExamCode]*_blueprint.json present (mock + any scoped),
@@ -535,7 +541,7 @@ execution path — it does not shrink, soften or delete them.
       (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ), the SUBJECT-level
       [Subject]_EXPLAIN_LEARNINGS_v*.md found by DISCOVERY, never by a derived or
       configured subject code: call explain_engine.resolve_learnings_files(
-      '/mnt/project', ExamCode) — §24 places exactly ONE non-exam-prefixed
+      '/tmp/fw_inputs', ExamCode) — §24 places exactly ONE non-exam-prefixed
       *_EXPLAIN_LEARNINGS_v*.md per project, so that file IS the subject file; >= 2
       such files → abstain and WARN naming every candidate (load none — a wrong
       subject library is worse than none); zero → nothing loaded, nothing lost —
@@ -546,7 +552,7 @@ execution path — it does not shrink, soften or delete them.
       resolve_learnings_files already IS a CHEMISTRY_EXPLAIN_LEARNINGS_v*.md (then it is
       loaded and nothing more is done), the library is loaded LAZILY — at the FIRST §6A-7
       APPLIES decision of the paper (any batch): explain_engine.resolve_chem_library(
-      '/mnt/project', '/tmp/fw_effective') (a project copy wins; else the repo copy) →
+      '/tmp/fw_inputs', '/tmp/fw_effective') (an attached / Files copy wins; else the repo copy) →
       parse_learnings → triggers_from_learnings → re-create the EngineConfig with
       chem_learnings_triggers=<those triggers> (learnings_triggers unchanged) before that
       block is constructed. The engine checks chem_learnings_triggers ONLY on blocks whose
@@ -701,7 +707,7 @@ execution path — it does not shrink, soften or delete them.
   # uploaded docx (PAPER_SLUG, parsed at P1) — P1's own semantics, restated
   # self-contained.
   _p10_bps = [_p10_json.load(open(_f, encoding='utf-8'))
-              for _f in sorted(_p10_glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))]
+              for _f in sorted(_p10_glob.glob(f'/tmp/fw_inputs/{EXAM}*_blueprint.json'))]
   # v1.41.0 (GAP-2026-08-24-STEP9-AUDIT-R3): the prefix glob sweeps a SIBLING exam's
   # blueprint (EXAM_AB for EXAM_A) and 'EXAM_AB_' sorts BEFORE 'EXAM_A_', so the
   # next(...) below took the wrong exam's file silently. Filter on exam_code first.
@@ -711,9 +717,9 @@ execution path — it does not shrink, soften or delete them.
       for mk in b.get('mocks', []))), None)
   if _p10_bp is None:
       raise SystemExit(
-          f"HARD STOP [HS:INPUT] (P10/0): no blueprint under /mnt/project/{EXAM}*_blueprint.json "
+          f"HARD STOP [HS:INPUT] (P10/0): no blueprint under /tmp/fw_inputs/{EXAM}*_blueprint.json "
           f"contains a paper whose slug matches the uploaded docx {PAPER_SLUG!r}. "
-          f"The blueprint that produced this paper is missing from the project — "
+          f"The blueprint that produced this paper is in neither chat attachments nor project Files — "
           f"restore it (or re-run Step 6/6S), then re-trigger.")
   # v1.51.0 REGISTRY-SOURCE-LAW: the registry as RESOLVED at S19-0a (chat attachment OR
   # Project Files; attachment wins), never a hardcoded Files path (MS-20). S19-0a runs
@@ -1332,7 +1338,7 @@ execution path — it does not shrink, soften or delete them.
       STRUCTURE_GRAPH : draw = explain_engine.structure_draw(canonical_smiles,
                         highlight_bonds=[...] / highlight_atoms=[...],
                         tokens=fc.structure_tokens(fc.load_style_profile(
-                        '/mnt/project/[ExamCode]_section_rules.md'), 'problem'))
+                        '/tmp/fw_inputs/[ExamCode]_section_rules.md'), 'problem'))
                         — v1.52.0 (GAP-2026-11-02): the PRINT-TRUE native raster at the
                         paper's own problem sizes and style; the decisive site is drawn
                         as a MARK clear of every label (no opaque band — measured: the
@@ -3611,8 +3617,16 @@ execution path — it does not shrink, soften or delete them.
 ```python
 import os, json, shutil
 import paper_pipeline as pp
+import input_tray as _itray
+# INPUT-SOURCE-LAW (v1.57.0, GAP-2026-11-27-ATTACHMENT-INPUT-LANE): every input of this step is
+# read from /tmp/fw_inputs = Project Files + chat attachments (upload prefix removed; attachment
+# wins; a broken attachment is never used). EVERY missing mandatory input is named in ONE stop.
+_itray_rec = _itray.ensure(exam=EXAMCODE)
+_itray.require(EXAMCODE, [f'{EXAMCODE}_section_rules.md', f'{EXAMCODE}*_blueprint.json',
+                       f'{EXAMCODE}_subtopic_manifest.json', f'{EXAMCODE}_registry.json'],
+               step='TestExplain / MockExplain', rec=_itray_rec)
 # REGISTRY-SOURCE-LAW (v1.51.0, GAP-2026-09-14-REGISTRY-SOURCE): the registry this run
-# reads comes from EITHER lane — the chat attachment (/mnt/user-data/uploads) or Project
+# reads comes from EITHER lane — the chat attachment (input_tray's plain-named view) or Project
 # Files (/mnt/project) — resolved ONLY by pp.resolve_registry: attachment wins when both
 # exist (a difference is printed, never a stop); HARD STOP [HS:INPUT] only when both are absent;
 # exact filename + exam_code validated. Never open the Files path directly (MS-20).
@@ -4180,5 +4194,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
 # SHARED_RULES_VERSION: 1.8 (2026-11-08) — parity sentinel (Framework_PYQExplain carries the
 #   bump record and the exact list of the documented pipeline-specific RE-25 sentences)
-# END OF Framework_MockTestExplain v1.56.0
+# END OF Framework_MockTestExplain v1.57.0
 # ════════════════════════════════════════════════════════════════════════
