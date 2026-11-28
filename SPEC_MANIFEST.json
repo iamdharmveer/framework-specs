@@ -45,9 +45,9 @@
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
       "lines": 4198,
-      "sha256": "a39956692addb87f949e69d3020bb0370833a8cd2d8931f2c69e93648a066424",
-      "size_bytes": 327843,
-      "version_header": "# Framework_MockTestExplain v1.57.0"
+      "sha256": "3097457b8eb117373f6a609b40d18d74f345fe91681875c0713fe73ae0f63376",
+      "size_bytes": 327885,
+      "version_header": "# Framework_MockTestExplain v1.57.1"
     },
     "Framework_MockTestOrchestrate.md": {
       "end_sentinel": "# END OF Framework_MockTestOrchestrate v1.16.1",
@@ -135,10 +135,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3935,
-      "sha256": "ff951bf966220f3fc690466fba2fd92708bb15a1e2c9e43be28dd1975fd968bb",
-      "size_bytes": 291968,
-      "version_header": "# Framework_PYQExplain v2.35 — Universal PYQ Explanation Generator"
+      "lines": 3939,
+      "sha256": "d1ee780e20de194216d2351b52c6aabe69d3af4229627d05fe991f77b030281f",
+      "size_bytes": 292309,
+      "version_header": "# Framework_PYQExplain v2.35.1 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.6.2)**",
@@ -275,9 +275,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 8410,
-      "sha256": "697c1c4db1ea07c3bfd7fd8d04117f016c4f1cc7c7024ba60307dad276843b6e",
-      "size_bytes": 513464,
+      "lines": 8444,
+      "sha256": "12dc7b6c429b2f6bb44d88f8bd7436fc7d45878a290fa31134b2e3e4d6b4406c",
+      "size_bytes": 515615,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {

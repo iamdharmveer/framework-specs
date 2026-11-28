@@ -1,4 +1,5 @@
-# Framework_PYQExplain v2.35 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.35.1 — Universal PYQ Explanation Generator
+# v2.35.1 — 2026-11-28 — release 2026.12.06 (GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK): §8-3 plain text, no bold. SHARED_RULES 1.9.
 # v2.35 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW): P1 / S7A-6 / §24 read /tmp/fw_inputs (Project Files +
 #   chat attachments; input_tray.ensure). No rule or output changed.
 # v2.34 — 2026-11-22 — release 2026.11.29 (GAP-2026-11-22-MATH-LENIENT / MATH-READ / FAMILY-LEVERS): S11-1a non-blocking: repaired ⟦MATH:⟧ regions are AMBER lines (t3_repair_amber), never the §18-1a HARD STOP.
@@ -2260,10 +2261,8 @@ else:
   shown, so the student re-walks it and gets the same result. Standard: ≥2 steps,
   one sentence each, each showing its actual value ("235 ÷ 5 = 47", not
   "simplifying we get 47"); no "clearly", no skipped algebra; every fraction in
-  OMML; the LAST step contains "Option N" (N = ca). Load-bearing tokens (decisive
-  numbers, the final value) are bolded so a strong student reads only the bolded
-  path (fast lane) and a weaker one reads the full line (full lane) — both served
-  by one block.
+  OMML; the LAST step contains "Option N" (N = ca). 
+  Explanation text is plain — no bold, no markdown (`**`, `__`); the engine strips any (explain_engine v2.16).
   Enforced: ≥2 steps + last-binds-Option-N + OMML + one-per-paragraph + zero
   glyphs (engine); chain completeness + arithmetic truth by derive-twice + back-
   substitution + producer discipline (§18 self-audit).
@@ -3769,7 +3768,12 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.8 (2026-11-08)
+# SHARED_RULES_VERSION: 1.9 (2026-11-28)
+#
+# SHARED-RULES BUMP (v1.9): GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK — §8-3 bold/fast-lane sentence replaced by the plain-text rule
+# in BOTH files (MockTestExplain v1.57.1, PYQExplain v2.35.1; explain_engine v2.16). Identical wording.
+#
+# (previous) SHARED_RULES_VERSION: 1.8 (2026-11-08)
 #
 # SHARED-RULES BUMP (v1.8, 2026-11-08): GAP-2026-11-07-RE25-HARDENING added NEW §6A-13
 # (H-0..H-14, EC-H1..H16) and amended §5-1 (RE-25 fields), §6A-10 items 2 / 4, the layout
@@ -3931,5 +3935,5 @@ present_files(deliverables)
 ## never a quality judgment about the question; no filtering, no skipping,
 ## no abbreviated treatment. Inactive/legacy exams: nothing changes.
 
-# END OF Framework_PYQExplain v2.35
+# END OF Framework_PYQExplain v2.35.1
 # ════════════════════════════════════════════════════════════════════════

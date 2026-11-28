@@ -33,6 +33,11 @@
 #   render_mechanism / render_structure_panel / figure_layout_audit / figure_review_sheet — [v2.13] RE-25 renderers + gates (E-01/E-02/E-04/E-09), palette owner loaded first
 #   resolve_chem_library(project_dir, repo_dir) — [v2.13] the repo-shipped CHEMISTRY_EXPLAIN_LEARNINGS (S-11), project copy wins
 #
+# v2.16 — 2026-11-28 — GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK (paired with MockTestExplain v1.57.1, PYQExplain v2.35.1):
+#   strip_markdown_emphasis() runs at ExplanationBlock construction on EVERY student-facing
+#   explanation sentence (axiom, deduction, speed_hack, why_wrong, common_pitfalls + absolutes keys):
+#   paired **x** / __x__ -> x, then any stray "**" removed. ⟦MATH:⟧ regions are masked (untouched).
+#   Silent normalisation — NEVER raises, never a stop. Question/option/figure paths untouched.
 # v2.15 — 2026-11-20 — GAP-2026-11-20-MATH-OMML (paired with t3_mathcomp / PYQPrepare §S3-5b v2.1,
 #   Framework_PYQPrepare v2.2.2). Self-test only: the T3-DRIFT-LOCK regex accepts any v2.N heading, and six
 #   new locks (T3-NARY-SUBSUP-ALWAYS, T3-SCHEMA-GUARD, T3-STD-SPELLINGS, T3-MATHBB-GLYPH, T3-SIM-OPERATOR,
@@ -3823,6 +3828,28 @@ class RepresentationFigure:
                              f'requirement {_VISUAL_VERDICTS}')
         return True
 
+# v2.16 (GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK) — Word does not render markdown, so a
+# generated "**22**" shipped as literal asterisks. Explanation text is PLAIN. This strips
+# paired **x** / __x__ emphasis and any stray "**" OUTSIDE ⟦MATH:⟧ regions. Idempotent; a
+# non-string passes through unchanged; NEVER raises (silent normalisation, never a stop).
+_MD_EMPH_PAIR = re.compile(r'(\*\*|__)(?=\S)(.+?)(?<=\S)\1', re.S)
+def strip_markdown_emphasis(s):
+    if not isinstance(s, str) or ('**' not in s and '__' not in s):
+        return s
+    try:
+        out, pos = [], 0
+        def _clean(seg):
+            prev = None
+            while prev != seg:
+                prev, seg = seg, _MD_EMPH_PAIR.sub(r'\2', seg)
+            return seg.replace('**', '')
+        for m in T3_REGION_RE.finditer(s):
+            out.append(_clean(s[pos:m.start()])); out.append(m.group(0)); pos = m.end()
+        out.append(_clean(s[pos:]))
+        return ''.join(out)
+    except Exception:
+        return s
+
 class ExplanationBlock:
     """Validated container for one question's explanation. validate() raises on
     any structural breach BEFORE the block can be written (fail-at-construction).
@@ -3857,8 +3884,10 @@ class ExplanationBlock:
         # student-facing sentence (idempotent; math regions masked), so an
         # ASCII formula can never reach the renderer. absolutes_justified keys
         # are normalised the same way so declarations still match.
-        _nf = ((lambda s: normalise_formula_text(s, self.cfg)) if (self.cfg.formula_typography)
-               else (lambda s: s))
+        _nf0 = ((lambda s: normalise_formula_text(s, self.cfg)) if (self.cfg.formula_typography)
+                else (lambda s: s))
+        # v2.16 — explanation text is plain: markdown emphasis is stripped first (never raises).
+        _nf = lambda s: _nf0(strip_markdown_emphasis(s))
         self.axiom = [_nf(s) for s in (axiom or [])]
         self.deduction = [_nf(s) for s in (deduction or [])]
         self.speed_hack = [_nf(s) for s in speed_hack] if speed_hack else None
@@ -5764,6 +5793,11 @@ def self_test():
     del T3_STATS['authoring_noncompiling'][_an0:]
     # …and a well-formed region still passes, so the gate rejects bad math rather
     # than all math.
+    # v2.16 — markdown emphasis never reaches the docx; math regions untouched; never raises.
+    check('MD-EMPHASIS-STRIPPED', strip_markdown_emphasis('is **22**, so __x__ ** ok') == 'is 22, so x  ok'
+          and strip_markdown_emphasis('\u27e6MATH:a**b\u27e7') == '\u27e6MATH:a**b\u27e7'
+          and strip_markdown_emphasis('\u03c0* orbital') == '\u03c0* orbital'
+          and ExplanationBlock(q=1, ca=1, deduction=['A **is** 2.']).deduction == ['A is 2.'])
     check('T3-GATE-COMPILABLE-ACCEPT', ExplanationBlock(q=1, ca=1,
         axiom=['The ratio of the two quantities is fixed by the definition.'],
         deduction=['Substituting gives ⟦MATH:\\frac{1}{2}⟧ for the ratio.',

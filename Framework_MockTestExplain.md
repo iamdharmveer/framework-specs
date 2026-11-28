@@ -1,4 +1,5 @@
-# Framework_MockTestExplain v1.57.0
+# Framework_MockTestExplain v1.57.1
+# v1.57.1 — 2026-11-28 — release 2026.12.06 (GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK): §8-3 plain text, no bold. SHARED_RULES 1.9.
 # v1.57.0 — 2026-11-27 — release 2026.12.05 (GAP-2026-11-27-ATTACHMENT-INPUT-LANE, INPUT-SOURCE-LAW; input_tray v1.0): S19-0a builds /tmp/fw_inputs (Project
 #   Files + chat attachments, upload prefix removed, attachment wins) and names EVERY missing input in one stop; P1/P10/§24
 #   read from it. No rule, gate or deliverable changed.
@@ -2735,9 +2736,8 @@ execution path — it does not shrink, soften or delete them.
   the student re-walks it and gets the same result. Standard: ≥2 steps, one sentence
   each, each showing its actual value ("235 ÷ 5 = 47", not "simplifying we get 47"); no
   "clearly", no skipped algebra; every fraction in OMML; the LAST step contains "Option
-  N" (N = ca). Load-bearing tokens (decisive numbers, the final value) are bolded so a
-  strong student reads only the bolded path (fast lane) and a weaker one reads the full
-  line (full lane) — both served by one block. Enforced: ≥2 steps + last-binds-Option-N
+  N" (N = ca). Explanation text is plain — no bold, no markdown (`**`, `__`); the engine strips any (explain_engine v2.16).
+  Enforced: ≥2 steps + last-binds-Option-N
   + OMML + one-per-paragraph + zero glyphs (engine); chain completeness + arithmetic
   truth by derive-twice + back-substitution (no second reader — v1.21.0).
   TOPIC MINIMUM-CONCEPT COMPONENTS (v1.36.0). Compression also teaches false rules:
@@ -4192,7 +4192,7 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# SHARED_RULES_VERSION: 1.8 (2026-11-08) — parity sentinel (Framework_PYQExplain carries the
+# SHARED_RULES_VERSION: 1.9 (2026-11-28) — parity sentinel (Framework_PYQExplain carries the
 #   bump record and the exact list of the documented pipeline-specific RE-25 sentences)
-# END OF Framework_MockTestExplain v1.57.0
+# END OF Framework_MockTestExplain v1.57.1
 # ════════════════════════════════════════════════════════════════════════

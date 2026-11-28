@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.12.06 — GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK: explanations ship literal `**` asterisks — every exam
+
+(over release 2026.12.05. Owner decision 2026-11-28: explanation text is plain — no bold, no markdown; no new stop.)
+Root cause: §8-3 DEDUCTION in both explain specs required "load-bearing tokens are bolded (fast lane)"; generation
+wrote markdown `**x**`, and explain_engine emits sentences verbatim (Word never renders markdown) — e.g. CSIR NET
+Chemical Sciences Mock02: 17 `**…**` phrases in DEDUCTION. Fix: the rule is replaced by the PLAIN-TEXT rule in
+Framework_MockTestExplain v1.57.1 and Framework_PYQExplain v2.35.1 (SHARED_RULES 1.9, identical wording);
+explain_engine v2.16 strip_markdown_emphasis() at ExplanationBlock construction removes paired `**x**`/`__x__` and
+any stray `**` from every explanation sentence (⟦MATH:⟧ regions masked; never raises). Self-test MD-EMPHASIS-STRIPPED.
+Question, option and figure paths untouched. Engine headers (AXIOM / DEDUCTION / SPEED HACK / WHY WRONG / Option k)
+keep their engine formatting.
+
 ## 2026.12.05 — GAP-2026-11-27-ATTACHMENT-INPUT-LANE: an exam input may be in Project Files OR attached in chat — every step, every exam (INPUT-SOURCE-LAW)
 
 (over release 2026.12.04. Owner decisions 2026-11-27: the attachment wins when both lanes hold a file; spec handling
