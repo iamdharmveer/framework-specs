@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.12.07 — GAP-2026-11-28-NUMBER-RANGES-EMPTY-LIST: Step 5 crash on a decimal-only percentage — every exam
+
+(over release 2026.12.06. Owner decision 2026-11-28: crash-only fix, byte-preserving; no new stop.)
+Root cause: analyse_engine.extract_number_ranges (quantitative path, Step 5 PYQExtract) created a variable's list
+BEFORE int(); int('2.5') failed silently, the list stayed empty, and vals[0] / min() raised IndexError when a
+subtopic had only decimal percentages (also a bare '₹,'). Fix (analyse_engine v1.9.1): empty lists are skipped,
+nothing collected returns None; a missing / non-string stem or an unreadable entry or input is no text. Same lists, same
+key order, so every input that worked before is byte-identical (EC-26) — differential check 258,581 inputs
+identical, 41,419 former crashes now pass, 0 regressions. Decimals stay uncounted, as before. Self-test nr_*.
+No spec changed.
+
 ## 2026.12.06 — GAP-2026-11-28-EXPLAIN-MARKDOWN-BOLD-LEAK: explanations ship literal `**` asterisks — every exam
 
 (over release 2026.12.05. Owner decision 2026-11-28: explanation text is plain — no bold, no markdown; no new stop.)

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""analyse_engine.py v1.9 — Step 5 (PYQExtract) shared extraction engine.
+"""analyse_engine.py v1.9.1 — Step 5 (PYQExtract) shared extraction engine.
+
+v1.9.1 (2026-11-28, GAP-2026-11-28-NUMBER-RANGES-EMPTY-LIST; release 2026.12.07): extract_number_ranges no longer
+  crashes when a variable collects no whole number (decimal-only percentage '2.5%', bare '₹,', missing stem): an
+  empty list is skipped, nothing collected returns None. Every input that worked before gives byte-identical output
+  (EC-26). Never raises. Self-test nr_* fixtures.
 
 v1.9 (2026-12-04, GAP-2026-11-26-RENDER-PARITY S-7; release 2026.12.04): every extracted question records
   stem_line_position — where its statement set sits relative to its first stem picture ('after_figure' /
@@ -2620,10 +2625,27 @@ def extract_number_ranges(questions, mode):
         ('T',   r'(\d+)\s*(?:years?|months?)'),
         ('NUM', r'\b(\d+)\b'),
     ]
+    # 2026.12.07 (GAP-2026-11-28-NUMBER-RANGES-EMPTY-LIST): a variable whose every match
+    # fails int() — a decimal-only percentage ('2.5%'), a bare '₹,' — left an EMPTY list,
+    # and vals[0] / min() then crashed Step 5 (IndexError). Fix, byte-preserving (EC-26):
+    # the same lists in the same key order are built exactly as before; an empty list is
+    # SKIPPED, never indexed; nothing collected -> None (the "no ranges" shape every reader
+    # already handles). A missing / non-string stem, or an entry or input that cannot be read, is no text.
+    # Decimals stay uncounted, exactly as before. Never raises; never a stop.
     var_vals = {}
-    for q in questions:
+    try:
+        _qs = list(questions or ())
+    except Exception:
+        _qs = []
+    for q in _qs:
+        try:
+            stem = q.get('stem', '') if hasattr(q, 'get') else ''
+        except Exception:
+            stem = ''
+        if not isinstance(stem, str):
+            stem = ''
         for var, pat in VAR_PATS:
-            for m in re.finditer(pat, q.get('stem',''), re.IGNORECASE):
+            for m in re.finditer(pat, stem, re.IGNORECASE):
                 try: var_vals.setdefault(var,[]).append(int(m.group(1).replace(',','')))
                 except: pass
     if not var_vals: return None
@@ -2631,10 +2653,12 @@ def extract_number_ranges(questions, mode):
     from functools import reduce
     result = {}
     for var, vals in var_vals.items():
+        if not vals:
+            continue
         gcf = reduce(gcd, vals[:10]) if len(vals) >= 2 else vals[0]
         result[var] = {'min':min(vals),'max':max(vals),'multiples_of':gcf,
                        'notes':f'n={len(vals)} observed'}
-    return result
+    return result or None
 
 def extract_context_pool(questions, mode):
     if mode != 'quantitative': return None
@@ -5319,6 +5343,28 @@ def self_test():
         else:
             fails.append(name)
 
+    # release 2026.12.07 (GAP-2026-11-28-NUMBER-RANGES-EMPTY-LIST): the quantitative ranges extractor never crashes
+    # and is byte-identical on every input that worked before (EC-26).
+    _nr = extract_number_ranges
+    check('nr_decimal_pct_only_no_crash', _nr([{'stem': 'Rate is 2.5% for 3 years on \u20b91,000'}], 'quantitative')
+          == {'P': {'min': 1000, 'max': 1000, 'multiples_of': 1000, 'notes': 'n=1 observed'},
+              'T': {'min': 3, 'max': 3, 'multiples_of': 3, 'notes': 'n=1 observed'},
+              'NUM': {'min': 0, 'max': 5, 'multiples_of': 1, 'notes': 'n=5 observed'}})
+    check('nr_bare_rupee_comma_no_crash', _nr([{'stem': 'cost \u20b9, then'}], 'quantitative') is None)
+    check('nr_decimal_only_all_vars_none', _nr([{'stem': '2.5% and 7.5%'}], 'quantitative')
+          == {'NUM': {'min': 2, 'max': 7, 'multiples_of': 1, 'notes': 'n=4 observed'}})
+    check('nr_unchanged_mixed', _nr([{'stem': 'Rate 10% and 2.5%'}, {'stem': '5% for 2 years'}], 'quantitative')
+          == {'R': {'min': 5, 'max': 10, 'multiples_of': 5, 'notes': 'n=2 observed'},
+              'NUM': {'min': 2, 'max': 10, 'multiples_of': 1, 'notes': 'n=5 observed'},
+              'T': {'min': 2, 'max': 2, 'multiples_of': 2, 'notes': 'n=1 observed'}})
+    check('nr_key_order_preserved', list(_nr([{'stem': '2.5%'}, {'stem': '\u20b9500 at 10%'}], 'quantitative'))
+          == ['R', 'NUM', 'P'])
+    check('nr_bad_inputs_none', _nr([], 'quantitative') is None and _nr(None, 'quantitative') is None
+          and _nr([{'stem': None}, {}, 'x', {'stem': 5}], 'quantitative') is None
+          and _nr([{'stem': '10%'}], 'english') is None and _nr(5, 'quantitative') is None
+          and _nr(iter([{'stem': '10%'}]), 'quantitative')['R']['min'] == 10)
+    check('nr_zero_values', _nr([{'stem': '0% and 0'}], 'quantitative')['R']['multiples_of'] == 0)
+
     # ── E-1 question-start detection ──────────────────────────────────────
     # Returns the question NUMBER, not a bool. Q_PATTERNS accepts ONLY `Q.N` and
     # `QN.` forms; a bare `1.` is deliberately NOT a question start, which is what
@@ -7769,7 +7815,7 @@ def self_test():
               and _w17t.rstrip('\n').split('\n')[-1][:len('FIGURE_STYLE_PROFILE: ')] == 'FIGURE_STYLE_PROFILE: '
               and 'MATH_TYPESET_PROFILE' not in _w7txt)
 
-    EXPECTED_CHECKS = 313  # v1.8 GAP-2026-11-26-RENDER-PARITY S-7: +1 (statement-line position from the raw paragraph sequence); v1.7 GAP-2026-11-21-MATH-TYPESET: +4 (rows from docx, profiles sorted / skipping, chem subjects, section_rules round trip); v1.6 GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-02: +3 (T-06 papers not year/shift, T-07 shifts unchanged, EC-12 legacy key); v1.4 GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: +1 (bank profile sha + blind grades); GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: +1 (artefact lister injection point is live); v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
+    EXPECTED_CHECKS = 320  # v1.9.1 GAP-2026-11-28-NUMBER-RANGES-EMPTY-LIST: +7 (nr_* extractor never crashes, byte-identical); v1.8 GAP-2026-11-26-RENDER-PARITY S-7: +1 (statement-line position from the raw paragraph sequence); v1.7 GAP-2026-11-21-MATH-TYPESET: +4 (rows from docx, profiles sorted / skipping, chem subjects, section_rules round trip); v1.6 GAP-2026-11-11-NONORGANIC-MOCK-FIDELITY F-02: +3 (T-06 papers not year/shift, T-07 shifts unchanged, EC-12 legacy key); v1.4 GAP-2026-11-07-ORGANIC-DIFFICULTY-RULER: +1 (bank profile sha + blind grades); GAP-2026-11-07-MUTATION-FIXTURE-FS-ORDER: +1 (artefact lister injection point is live); v1.3 join ambiguity: +1; mutation-kill: +3 order fixtures (quality keys sorted, artefact first-in-sorted-order, typicality median); v1.2 release review: +10 (n, profile join, lexicon feed, exemplar rows, entity sets, measured leaks); (GAP-2026-11-03): +7 (item-rule ids, middle-value, quality fields, reader round-trip, common/pyq_mode, exemplar bank); 2026.11.02 pass-3: +2 fuzz fixtures (style-block line separators, list paper value); v1.1d: +1 extent guard (pass-2); v1.1c: +1 corrupt-docx skip (review #9); v1.1b: +2 section_rules round trips (style line, ask counts); v1.1: +43 FIGURE_STYLE_PROFILE (GAP-2026-11-02-QUESTION-AND-FIGURE-FIDELITY); GAP-2026-11-01 final review: +1 zero-PYQ PYQ_IMAGE_ANALYSIS key; +6 figure-type registry; v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     # ── v1.6 F-02 (GAP-2026-11-11) — T-06 / T-07: papers, not (year, shift) pairs ──────────
     def _f02(qs):
         ent = [{'section': 'I', 'topic': 't', 'subtopic': 's'}]
